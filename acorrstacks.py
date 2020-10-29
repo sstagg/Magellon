@@ -18,6 +18,7 @@ def setupParserOptions():
 		help="directory containing stack files")
 	parser.add_option("-e", "--ext", type="string", metavar="FILE EXTENSION",
 		help="file extension for stack files (default='.mrcs')", default="mrcs")
+	parser.add_option("--combine", action="store_true", help="combine all stacks into 1 output")
 	options,args = parser.parse_args()
 	if len(args) > 0:
 		parser.error("Unknown commandline options: " +str(args))
@@ -51,9 +52,12 @@ def checkConflicts(params):
 	return params
 
 #===============
-def calcacorr(stackname, avg_acorr_out=False):
+def calcacorr(stackname, avg_acorr_out=False, startingAvg=None):
 	particles=mrc.read(stackname)
-	acorravg=numpy.zeros(shape=particles[0].shape, dtype=particles.dtype)
+	if startingAvg is None:
+		acorravg=numpy.zeros(shape=particles[0].shape, dtype=particles.dtype)
+	else:
+		acorravg = startingAvg
 	print "calculating autocorrelation for %i particles in %s"%(len(particles),os.path.basename(stackname))
 	for img in particles:
 		#n+=1
@@ -68,11 +72,13 @@ def calcacorr(stackname, avg_acorr_out=False):
 		acorr=numpy.roll(acorr,acorr.shape[1]/2, axis=1)
 		acorravg=acorravg+acorr
 	
-	acorravg=acorravg/particles.shape[0]
-	acorravg=acorravg/acorravg.max()
+	if startingAvg is None:
+		acorravg=acorravg/len(particles)
+		acorravg=acorravg/acorravg.max()
 	if avg_acorr_out:
 		mrc.write(acorravg,avg_acorr_out)
-	return acorravg
+
+	return acorravg,len(particles)
 
 
 #===============
@@ -80,10 +86,31 @@ if  __name__ == "__main__":
 	params = setupParserOptions()
 	params = checkConflicts(params)
 	
+	runningavg = None
+	totalparticles = 0
+	if params['combine'] is True:
+		totalParticles = 0
+		# read the first particle of the first stack to get a size
+		particle = mrc.read(params['stacks'][0],0)
+		runningavg = numpy.zeros(shape=particle.shape, dtype=particle.dtype)
+		print runningavg.shape
+	
 	for stack in params['stacks']:
-		acorravg=calcacorr(stack)
+		acorravg,pnum=calcacorr(stack, startingAvg=runningavg)
+		totalparticles+=pnum
+		if params['combine'] is True:
+			runningavg += acorravg
+			continue
+
 		imgslice=acorravg[acorravg.shape[0]/2]
 		pyplot.plot(imgslice, label=os.path.basename(stack))
+
+	if params['combine'] is True:
+		runningavg=runningavg/totalparticles
+		runningavg=runningavg/runningavg.max()
+		imgslice=runningavg[runningavg.shape[0]/2]
+		pyplot.plot(imgslice, label="all stacks")
+		
 	pyplot.legend(loc='upper right')
 	pyplot.show()
 
