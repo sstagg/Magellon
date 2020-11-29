@@ -20,6 +20,7 @@ def setupParserOptions():
 		help="file extension for stack files (default='.mrcs')", default="mrcs")
 	parser.add_option("--combine", action="store_true", help="combine all stacks into 1 output")
 	parser.add_option("--legend", action="store_true", help="include a legend in the plot")
+	parser.add_option("--savefig", type="string", default=None, help="save figure instead of showing")
 	options,args = parser.parse_args()
 	if len(args) > 0:
 		parser.error("Unknown commandline options: " +str(args))
@@ -104,16 +105,24 @@ if  __name__ == "__main__":
 			continue
 
 		imgslice=acorravg[acorravg.shape[0]/2]
-		pyplot.plot(imgslice[imgslice.shape[0]/2:], label=os.path.basename(stack))
+		pyplot.plot(imgslice, linewidth=2, label=os.path.basename(stack).split('.')[0])
 
 	if params['combine'] is True:
 		runningavg=runningavg/totalparticles
 		runningavg=runningavg/runningavg.max()
 		imgslice=runningavg[runningavg.shape[0]/2]
-		pyplot.plot(imgslice[imgslice.shape[0]/2:], label="all stacks")
+		pyplot.plot(imgslice, linewidth=1, label="all stacks")
 		
 	if params['legend'] is True:
 		pyplot.legend(loc='upper right')
 	
-	pyplot.show()
+	fontsize=20
+	pyplot.xticks(fontsize=fontsize)
+	pyplot.yticks(fontsize=fontsize)
+	pyplot.xlabel("Pixels",fontsize=fontsize)
+	pyplot.ylabel("Correlation",fontsize=fontsize)
+	if params['savefig'] is not None:
+		pyplot.savefig(params['savefig'])
+	else:
+		pyplot.show()
 
