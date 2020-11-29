@@ -19,6 +19,7 @@ def setupParserOptions():
 	parser.add_option("-e", "--ext", type="string", metavar="FILE EXTENSION",
 		help="file extension for stack files (default='.mrcs')", default="mrcs")
 	parser.add_option("--combine", action="store_true", help="combine all stacks into 1 output")
+	parser.add_option("--legend", action="store_true", help="include a legend in the plot")
 	options,args = parser.parse_args()
 	if len(args) > 0:
 		parser.error("Unknown commandline options: " +str(args))
@@ -103,14 +104,16 @@ if  __name__ == "__main__":
 			continue
 
 		imgslice=acorravg[acorravg.shape[0]/2]
-		pyplot.plot(imgslice, label=os.path.basename(stack))
+		pyplot.plot(imgslice[imgslice.shape[0]/2:], label=os.path.basename(stack))
 
 	if params['combine'] is True:
 		runningavg=runningavg/totalparticles
 		runningavg=runningavg/runningavg.max()
 		imgslice=runningavg[runningavg.shape[0]/2]
-		pyplot.plot(imgslice, label="all stacks")
+		pyplot.plot(imgslice[imgslice.shape[0]/2:], label="all stacks")
 		
-	pyplot.legend(loc='upper right')
+	if params['legend'] is True:
+		pyplot.legend(loc='upper right')
+	
 	pyplot.show()
 
