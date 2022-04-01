@@ -13,41 +13,39 @@ from appionlib.apImage import imagefilter
 #=====================
 	
 class LowPassLoop(appionLoop2.AppionLoop):
+	### All classes that inherit AppionLoop will need the functions below.
+	### AppionLoop children will inherit a "run" method that will loop over all of the images for a given session
+	### AppionLoop children will gain a large number of commonly used options that you will extend with setupParserOptions in this script
 	#=====================
 	def setupParserOptions(self):
-		self.parser.add_option("--dryrun", dest="dryrun", default=False, action='store_true', help="Just show files that will be deleted, but do not delete them.")
+		# add script specific options
 		self.parser.add_option("--filterradius", dest="filterradius", default=3, type=float, help="Sigma for Gaussian lowpass filter")
 
 	#=====================
 	def checkConflicts(self):
+		# check for conflicts in command line options. In my example, I have a "dryrun" option where I want it to have a certain behavior that I set up here
 		if self.params['dryrun'] is True:
 			self.params['commit']=False
 			self.params['no-continue']=True
 			
 	def preLoopFunctions(self):
+		# function is required but doesn't need to do anything
 		pass
 		
 	def processImage(self, imgdata):
-		filtered=imagefilter.lowPassFilter(imgdata['image'], radius=self.params['filterradius'])
-		if self.params['dryrun'] is True:
-			mrc.write(filtered,'filtered.mrc') # apDBImage.makeAlignedImageData writes out the image otherwise			
-			return None
-		else:
-			camdata=imgdata['camera']
-			newimagedata=apDBImage.makeAlignedImageData(imgdata,camdata,filtered,"lw")
-			newname=newimagedata['filename']
-			results=newimagedata
-			#print results
-			return results
+		#this is the heart of the program
+		# if you're uploading results to the database, the db parameters should be returned in the return statement
+		# use the imagefilter.lowPassFilter method (or similar) to lowpass filter the images
+		return None
 
 	#=====================
 	def loopCommitToDatabase(self, imgdata):
+		# required for historical purposes
 		pass
 	
 	def commitResultsToDatabase(self, imgdata, results):
-		"""
-		put in any additional commit parameters
-		"""
+		# This is where you upload results to the database
+		# As you can see if you return None in processImage, it won't do anything
 		if results is not None:
 			results.insert()
 	
