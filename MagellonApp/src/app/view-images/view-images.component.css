@@ -1,0 +1,78 @@
+  .col-md-3 {
+    background: rgb(240, 239, 239);
+  }
+
+  .col-md-1 {
+    background: rgb(240, 239, 239);
+  }
+
+  .stack-scroll {
+    position: relative;
+    height: 125%;
+    max-height: 922px;
+  }
+
+  .card {
+    background: rgb(240, 239, 239);
+  }
+
+  .card-body {
+    height: 286px !important;
+  }
+
+  .card-img-top {
+    border-top-right-radius: 0% !important;
+    border-top-left-radius: 0% !important;
+  }
+
+  .img-center {
+    padding: 5%;
+    margin-top: 8%;
+    margin-bottom: 7%;
+  }
+
+  .img-thumbnail {
+    border: 0px;
+  }
+
+  .stack-selection {
+    position: relative;
+    max-height: 922px;
+    height: 100%;
+    overflow: auto !important;
+  }
+
+  .stack-selection img {
+    position: absolute;
+    width: 77%;
+    height: auto;
+    z-index: 10;
+  }
+
+  .img1 {
+    left: 1rem;
+    top: 1rem;
+  }
+
+  .img2 {
+    left: 2rem;
+    top: 2rem;
+  }
+
+  .img3 {
+    left: 3rem;
+    top: 3rem;
+  }
+
+  .stack-selection img:hover {
+    z-index: 20;
+  }
+
+  .unstack img {
+    position: relative;
+    margin-top: 1em;
+  }
+
+  .unstack .card-body {
+    padding: 0;
+  }
