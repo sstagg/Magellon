@@ -24,4 +24,10 @@ export class ImagesService {
   public getImagesByStack(ext: string) {
     return this.httpClient.get(this.baseUrl + 'get_images_by_stack' + '?ext=' + ext);
   }
+
+  public getFFTImageByName(name: string) {
+    return this.httpClient.get(this.baseUrl + 'get_fft_image' + '?name=' + name, {
+      responseType: 'blob'
+    });
+  }
 }

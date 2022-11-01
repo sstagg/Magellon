@@ -3,15 +3,15 @@ import { ImagesService } from '../images.service';
 import { DomSanitizer } from '@angular/platform-browser';
 
 export interface ImageModel {
-  name : string;
-  encoded_image : string;
+  name: string;
+  encoded_image: string;
   url: any;
-  ext : string;
+  ext: string;
 }
 
 export interface ImageExtModel {
-  ext : string;
-  images : any;
+  ext: string;
+  images: any;
 }
 
 @Component({
@@ -22,22 +22,25 @@ export interface ImageExtModel {
 
 export class ViewImagesComponent implements OnInit {
   imageUrl: any;
+  fftImageUrl: any;
+  enableFFT: boolean = false;
   unsafeImageUrl: any;
   imageIdx: number = 0;
   extIdx: number = 0;
   imageModelArr: ImageExtModel[] = [];
   imageStackModelArr: ImageExtModel[] = [];
   unstackDisplay: boolean[] = [];
+  imageName: string = "";
 
-  constructor(private imageService: ImagesService, private sanitizer:DomSanitizer) { }
+  constructor(private imageService: ImagesService, private sanitizer: DomSanitizer) { }
 
   ngOnInit(): void {
 
-     this.imageService.getAllImages()
-    .subscribe((data: any) => {
-      for(var i in data.result){
+    this.imageService.getAllImages()
+      .subscribe((data: any) => {
+        for (var i in data.result) {
           let imageExtArr: ImageModel[] = [];
-          for(var idx in data.result[i].images){
+          for (var idx in data.result[i].images) {
 
             this.unsafeImageUrl = 'data:image/png;base64,' + data.result[i].images[idx].encoded_image;
 
@@ -58,44 +61,47 @@ export class ViewImagesComponent implements OnInit {
             images: imageExtArr
           }
           this.imageModelArr.push(imageExtModel)
-      }
-      this.getDefaultCenterImage(0, 0);
-      this.extIdx = 0;
-     })
+        }
+        this.getDefaultCenterImage(0, 0);
+        this.extIdx = 0;
+      })
 
   }
 
-  getDefaultCenterImage(extIndex : number, imageIndex : number) : void {
+  getDefaultCenterImage(extIndex: number, imageIndex: number): void {
     this.imageIdx = imageIndex;
     this.extIdx = extIndex;
-    let imageName = this.imageModelArr[extIndex].images[imageIndex].name;
-    this.getCenterImage(imageName.replace(/_TIMG/, ''));
-   }
+    this.imageName = this.imageModelArr[extIndex].images[imageIndex].name;
+    this.imageName = this.imageName.replace(/_TIMG/, '')
+    this.getCenterImage(this.imageName);
+  }
 
-   passUnstackImgIndex(imageIndex: number) : void {
-    let imageName = this.imageStackModelArr[0].images[imageIndex].name;
-    this.getCenterImage(imageName.replace(/_TIMG/, ''));
-   }
+  passUnstackImgIndex(imageIndex: number): void {
+    this.imageName = this.imageStackModelArr[0].images[imageIndex].name;
+    this.imageName = this.imageName.replace(/_TIMG/, '')
+    this.getCenterImage(this.imageName);
+    this.getFFTImage();
+  }
 
-   getCenterImage(imageName : any) : void {
+  getCenterImage(imageName: any): void {
     this.imageService.getImageByThumbnail(imageName)
-    .subscribe((data: any) => {
-      this.unsafeImageUrl = URL.createObjectURL(data);
-      this.imageUrl = this.sanitizer.bypassSecurityTrustUrl(this.unsafeImageUrl);
-     })
-   }
+      .subscribe((data: any) => {
+        this.unsafeImageUrl = URL.createObjectURL(data);
+        this.imageUrl = this.sanitizer.bypassSecurityTrustUrl(this.unsafeImageUrl);
+      })
+  }
 
-   showUnstack(index : number) {
-     this.unstackDisplay = [];
-     this.unstackDisplay[index] = true;
-   }
+  showUnstack(index: number) {
+    this.unstackDisplay = [];
+    this.unstackDisplay[index] = true;
+  }
 
-   getStackImages(ext : any) {
+  getStackImages(ext: any) {
     this.imageStackModelArr = [];
     this.imageService.getImagesByStack(ext)
-    .subscribe((data: any) => {
+      .subscribe((data: any) => {
         let imageStackExtArr: ImageModel[] = [];
-        for(var idx in data.result[0].images){
+        for (var idx in data.result[0].images) {
 
           this.unsafeImageUrl = 'data:image/png;base64,' + data.result[0].images[idx].encoded_image;
 
@@ -107,15 +113,30 @@ export class ViewImagesComponent implements OnInit {
             ext: data.result[0].ext
           }
 
-            imageStackExtArr.push(imageModel);
-          }
+          imageStackExtArr.push(imageModel);
+        }
 
-          // Build parent Image model
-          let imageStackExtModel = {
-            ext: data.result[0].ext,
-            images: imageStackExtArr
-          }
-          this.imageStackModelArr[0] = imageStackExtModel;
-     })
-   }
+        // Build parent Image model
+        let imageStackExtModel = {
+          ext: data.result[0].ext,
+          images: imageStackExtArr
+        }
+        this.imageStackModelArr[0] = imageStackExtModel;
+      })
+  }
+
+  getFFTImage(): void {
+    this.imageService.getFFTImageByName(this.imageName)
+      .subscribe((data: any) => {
+        this.unsafeImageUrl = URL.createObjectURL(data);
+        this.fftImageUrl = this.sanitizer.bypassSecurityTrustUrl(this.unsafeImageUrl);
+      })
+  }
+
+  getFFTImageOnToggle(): void {
+    this.enableFFT = !this.enableFFT;
+    if (this.enableFFT) {
+      this.getFFTImage();
+    }
+  }
 }

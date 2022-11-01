@@ -76,3 +76,10 @@
   .unstack .card-body {
     padding: 0;
   }
+
+  /* Toggle switch */
+  
+  .form-check .form-check-input {
+    float: none !important;
+    font-size: 1.2em !important;
+  }

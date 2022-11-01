@@ -45,10 +45,15 @@
         </div>
         <div class="col-md-8">
             <div class="img-center">
-                <img [src]="imageUrl" class="img-thumbnail" />
+                <img [src]="!enableFFT ? imageUrl : fftImageUrl" class="img-thumbnail" />
             </div>
         </div>
-        <div class="col-md-1">
+        <div class="col-md-1 text-center">
+            <label class="h5 border-0" style="margin: 0.7em;" for="flexSwitchCheckDefault">FFT</label>
+            <div class="form-check form-switch">
+                <input mdbCheckbox class="form-check-input" type="checkbox" [checked]="enableFFT"
+                    (click)="getFFTImageOnToggle()" id="flexSwitchCheckDefault" />
+            </div>
         </div>
     </div>
 </div>
