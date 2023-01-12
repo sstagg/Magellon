@@ -12,7 +12,8 @@ import mrc2png
 from itertools import groupby
 import numpy as np
 import os
-from lib import mgDatabase 
+from lib import mgDatabase
+from operator import itemgetter
 
 app = Flask(__name__)
 
@@ -35,13 +36,15 @@ def format_data_by_ext(data):
 
 	for key, value in groupby(sortedRes, key_func):
 		item = {}
-		imgGroupByext = []
+		imgGroupByExt = []
 		item['ext'] = key
 
 		for image in value:
-				imgGroupByext.append(image)
+				imgGroupByExt.append(image)
+
+		sorted_imgGroupByExt = sorted(imgGroupByExt, key=itemgetter('name'), reverse=True)
 		
-		item['images'] = imgGroupByext
+		item['images'] = sorted_imgGroupByExt
 		response.append(item)
 	return response
 
@@ -72,7 +75,13 @@ def get_images():
 	for ext in parent_file_ext:
 		count = 0
 		for filename in filename_list:
-			if (ext in filename) and (count < 3):
+			if (ext in filename) and len(filename.split("_")) >= 6 and (filename.endswith(ext+'_TIMG.png')) and count == 0:
+				stack_3_images_list.add(filename)
+				count += 1
+
+		for filename in filename_list:
+			if (ext in filename) and not filename.endswith(ext+'_TIMG.png') and count < 3:
+				#print("else 3 filenames - ", filename)
 				stack_3_images_list.add(filename)
 				count += 1
 
