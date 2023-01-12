@@ -14,6 +14,14 @@ export interface ImageExtModel {
   images: any;
 }
 
+export interface ImageSpec {
+  defocus : string
+  mag: string
+  filename: string
+  pixelsize: string
+  dose: string
+}
+
 @Component({
   selector: 'app-view-images',
   templateUrl: './view-images.component.html',
@@ -31,6 +39,17 @@ export class ViewImagesComponent implements OnInit {
   imageStackModelArr: ImageExtModel[] = [];
   unstackDisplay: boolean[] = [];
   imageName: string = "";
+  imageSpec: ImageSpec = {
+    defocus: '',
+    mag: '',
+    filename: '',
+    pixelsize: '',
+    dose: ''
+  };
+  imageScale : number = 0;
+  imageScalePixel : number = 0;
+  imageScaleInAngstrom : boolean = false;
+
 
   constructor(private imageService: ImagesService, private sanitizer: DomSanitizer) { }
 
@@ -89,6 +108,7 @@ export class ViewImagesComponent implements OnInit {
         this.unsafeImageUrl = URL.createObjectURL(data);
         this.imageUrl = this.sanitizer.bypassSecurityTrustUrl(this.unsafeImageUrl);
       })
+     this.getImageDataByName();
   }
 
   showUnstack(index: number) {
@@ -139,4 +159,22 @@ export class ViewImagesComponent implements OnInit {
       this.getFFTImage();
     }
   }
+
+  // Get image specifications like defocus, magnification
+  getImageDataByName() : void {
+    this.imageService.getImageDataByName(this.imageName)
+    .subscribe((data: any) => {
+      this.imageSpec['defocus'] = data.result.defocus
+      this.imageSpec['mag'] = data.result.mag
+      this.imageSpec['filename'] = data.result.filename + '.mrc'
+      this.imageSpec['pixelsize'] = data.result.pixelsize
+      this.imageSpec['dose'] = data.result.dose
+      this.imageScale = Math.round((1024 * 0.1 * (data.result.pixelsize))/ 4)
+      this.imageScaleInAngstrom = this.imageScale < 1000 ? true : false
+      this.imageScalePixel = Math.round(this.imageScale / ((data.result.pixelsize)* 0.1))
+      this.imageScale = this.imageScale < 1000 ? this.imageScale * 10 : this.imageScale
+      console.log("imageScale : " + this.imageScale)
+      console.log("imageScalePixel : " + this.imageScalePixel)
+    })
+   }
 }

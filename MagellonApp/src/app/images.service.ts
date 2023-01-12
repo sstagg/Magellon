@@ -30,4 +30,8 @@ export class ImagesService {
       responseType: 'blob'
     });
   }
+
+  public getImageDataByName(name: string) {
+    return this.httpClient.get(this.baseUrl + 'get_image_data' + '?name=' + name);
+  }
 }

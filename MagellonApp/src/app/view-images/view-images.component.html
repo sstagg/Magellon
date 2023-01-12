@@ -44,8 +44,25 @@
             </div>
         </div>
         <div class="col-md-8">
-            <div class="img-center">
-                <img [src]="!enableFFT ? imageUrl : fftImageUrl" class="img-thumbnail" />
+            <div class="img-center" style="margin-top: 0;">
+                <label class="h5 border-0" style="align-items: center; font-weight: normal !important;margin-top: 5%;">
+                    &nbsp; <span><b>mag:</b></span>
+                    {{imageSpec.mag}}
+                    &nbsp; <span><b>defocus:</b></span>
+                    {{imageSpec.defocus}} μm
+                    &nbsp; <span><b>pixelsize:</b></span>
+                    {{imageSpec.pixelsize}} Å
+                    &nbsp; <span><b>dose:</b></span>
+                    {{imageSpec.dose}} <span *ngIf="imageSpec.dose != 'none'">e<sup>-</sup>/Å<sup>2</sup></span>
+                    <br>
+                    &nbsp; <span>{{imageSpec.filename}}</span>
+                </label>
+                <div class="center-img-container">
+                    <img [src]="!enableFFT ? imageUrl : fftImageUrl" class="img-thumbnail" />
+                    <div *ngIf="!imageScaleInAngstrom" class="bottom-left">{{imageScale}} nm</div>
+                    <div *ngIf="imageScaleInAngstrom" class="bottom-left">{{imageScale}} Å</div>
+                    <hr class="bottom-left-scale" [style.width.px]="imageScalePixel"/>
+                </div>
             </div>
         </div>
         <div class="col-md-1 text-center">

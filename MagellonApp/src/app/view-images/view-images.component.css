@@ -83,3 +83,26 @@
     float: none !important;
     font-size: 1.2em !important;
   }
+
+  /* text over image */
+  .center-img-container {
+    position: relative;
+    color: white;
+  }
+  
+  .bottom-left {
+    position: absolute;
+    bottom: 40px;
+    left: 22px;
+    font-size: 20px;
+    text-align: center;
+  }
+
+  .bottom-left-scale {
+    position: absolute;
+    bottom: 18px;
+    left: 22px;
+    font-size: 20px;
+    height: 0.2em;
+    background-color: white;
+  }
