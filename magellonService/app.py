@@ -48,12 +48,6 @@ def format_data_by_ext(data):
 		response.append(item)
 	return response
 
-@app.route('/get_image', methods=['GET'])
-def get_image():
-	response = send_file('images/1/22apr01a_b_00019gr_00001sq_v02_00019hl_00016ex_c-DW.mrc.png', mimetype='image/png') 
-	response.headers.add('Access-Control-Allow-Origin', '*')
-	return response
-
 @app.route('/get_images',methods=['GET'])
 def get_images():
 	encoded_images = []
