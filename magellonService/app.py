@@ -6,7 +6,7 @@ import glob
 import io
 import base64
 from base64 import encodebytes, b64encode
-from flask import Flask, jsonify, send_file, request
+from flask import jsonify, send_file, request
 from PIL import Image
 import mrc2png
 from itertools import groupby
@@ -14,8 +14,25 @@ import numpy as np
 import os
 from lib import mgDatabase
 from operator import itemgetter
+from pydantic import BaseModel
+from flask_openapi3 import Info, Tag, OpenAPI
 
-app = Flask(__name__)
+info = Info(title="Magellon API", version="1.0.0")
+app = OpenAPI(__name__, info=info)
+
+image_viewer = Tag(name="Magellon", description="Image viewer")
+
+class ImageMetadataQuery(BaseModel):
+    name: str
+
+class FFTImageQuery(BaseModel):
+    name: str
+
+class StackImagesQuery(BaseModel):
+    ext: str
+
+class ImageByThumbnailQuery(BaseModel):
+    name: str
 
 def get_response_image(image_path):
 	pil_img = Image.open(image_path, mode='r') # reads the PIL image
@@ -48,13 +65,7 @@ def format_data_by_ext(data):
 		response.append(item)
 	return response
 
-@app.route('/get_image', methods=['GET'])
-def get_image():
-	response = send_file('images/1/22apr01a_b_00019gr_00001sq_v02_00019hl_00016ex_c-DW.mrc.png', mimetype='image/png') 
-	response.headers.add('Access-Control-Allow-Origin', '*')
-	return response
-
-@app.route('/get_images',methods=['GET'])
+@app.get('/get_images', tags=[image_viewer])
 def get_images():
 	encoded_images = []
 	data = []
@@ -100,8 +111,8 @@ def get_images():
 	response.headers.add('Access-Control-Allow-Origin', '*')
 	return response
 
-@app.route('/get_image_by_thumbnail', methods=['GET'])
-def get_image_by_thumbnail():
+@app.get('/get_image_by_thumbnail', tags=[image_viewer])
+def get_image_by_thumbnail(query: ImageByThumbnailQuery):
 	args = request.args
 	name = args.get('name')
 
@@ -111,8 +122,8 @@ def get_image_by_thumbnail():
 	response.headers.add('Access-Control-Allow-Origin', '*')
 	return response
 
-@app.route('/get_images_by_stack',methods=['GET'])
-def get_images_by_stack():
+@app.get('/get_images_by_stack', tags=[image_viewer])
+def get_images_by_stack(query: StackImagesQuery):
 	args = request.args
 	ext = args.get('ext')
 
@@ -135,8 +146,8 @@ def get_images_by_stack():
 	response.headers.add('Access-Control-Allow-Origin', '*')
 	return response
 
-@app.route('/get_fft_image', methods=['GET'])
-def get_fft_image():
+@app.get('/get_fft_image', tags=[image_viewer])
+def get_fft_image(query: FFTImageQuery):
 	args = request.args
 	name = args.get('name')
 
@@ -146,8 +157,8 @@ def get_fft_image():
 	response.headers.add('Access-Control-Allow-Origin', '*')
 	return response
 
-@app.route('/get_image_data', methods=['GET'])
-def get_image_data():
+@app.get('/get_image_data', tags=[image_viewer])
+def get_image_data(query: ImageMetadataQuery):
 	args = request.args
 	name = args.get('name')
 
