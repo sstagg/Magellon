@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="aligntutorial">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/tutorial/align/aligntutorial.zip!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
