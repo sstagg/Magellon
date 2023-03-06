@@ -1,0 +1,21 @@
+version: '3'
+
+services:
+  web:
+    build: .
+    ports:
+      - "3000:5000"
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+        - "./prometheus.yml:/etc/prometheus/prometheus.yml"
+#  web2:
+#    build: ./web
+#    ports:
+#     - "5000:5000"
+#    links
+#     - db
+#  db:
+#    build: ./db

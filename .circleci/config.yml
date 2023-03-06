@@ -1,0 +1,153 @@
+version: 2.1
+
+jobs:
+  build:
+    docker:
+      - image: circleci/python:3.8
+    environment:
+      DOCKER_USERNAME: your-dockerhub-username
+      DOCKER_PASSWORD: your-dockerhub-password
+
+    steps:
+      - checkout
+
+      # Set up dependencies
+      - run:
+          name: Install dependencies
+          command: |
+            pip install --upgrade pip
+            pip install Flask pytest prometheus-client requests
+#            pip install -r requirements.txt
+
+#      - run:
+#          name: Run tests
+#          command: |
+#            pytest
+
+
+      # Build the Docker image
+      - setup_remote_docker:
+          docker_layer_caching: true
+
+      - run:
+          name: Build Docker image
+          command: |
+            docker build -t khoshbin/magellon-demo01 .
+      
+
+      # Tag the image for Docker Hub
+      - run:
+          name: Tag Docker Image
+          command: |
+            docker tag khoshbin/magellon-demo01:latest khoshbin/magellon-demo01:$CIRCLE_SHA1
+
+      # Log in to Docker Hub
+      - run:
+          name: Login to Docker Hub
+          command: |
+            docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
+#            echo pass | docker login -u username --password-stdin
+
+      # Push the Docker image to Docker Hub
+      - run:
+          name: Push Docker Image
+          command: |
+            docker push khoshbin/magellon-demo01:$CIRCLE_SHA1
+            docker push khoshbin/magellon-demo01:latest
+
+      # Push the Docker image to Docker Hub
+#      - run:
+#          name: Push Docker image
+#          command: |
+#            echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
+#            docker tag my-flask-app $DOCKER_USERNAME/my-flask-app
+#            docker push $DOCKER_USERNAME/my-flask-app
+
+
+#            - add_ssh_keys:
+#                fingerprints:
+#                  - "your_server_ssh_fingerprint"
+#
+#            - run:
+#                name: Download and run Docker image
+#                command: |
+#                  ssh your_username@your_server_ip << EOF
+#                  docker pull $DOCKER_USERNAME/my-flask-app
+#                  docker run -d -p 8080:8080 $DOCKER_USERNAME/my-flask-app
+#                  EOF
+
+  deploy:
+    machine:
+      enabled: true
+    steps:
+      - checkout
+      - run:
+          name: SSH Key
+          command: echo "$SSH_PRIVATE_KEY" > id_rsa
+          environment:
+            SSH_PRIVATE_KEY: "${SSH_PRIVATE_KEY}"
+      - run:
+          name: Set Key Permission
+          command: chmod 777 id_rsa
+
+      - add_ssh_keys:
+          fingerprints:
+            - "2c:88:76:27:9a:05:42:c2:f8:01:5f:34:7d:58:d9:38"
+      - run:
+          name: Install sshpass
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y sshpass
+            sudo apt-get update
+
+      - run:
+          name: Add SSH key to remote server
+          command: |
+            ssh-keyscan -H 157.230.222.170 >> ~/.ssh/known_hosts
+            sshpass -p S0meReall#23034 ssh-copy-id -i ~/.ssh/id_rsa.pub root@157.230.222.170
+
+      - run:
+          name: Deploy Over SSH
+          command: |
+            ssh -vvv -o StrictHostKeyChecking=no  root@157.230.222.170 "caprover deploy --appToken ${hellociAppToken} --caproverUrl https://captain.magellon.org --imageName khoshbin/magellon-demo01 --appName demo01"
+
+
+
+#  sshpass -p S0meReall#23034
+#      - run:
+#          name: SSH into remote server
+#          uses: appleboy/ssh-action@master
+#          with:
+#            host: 157.230.222.170
+#            username: root
+#            password: S0meReall#23034
+#            script: |
+#              echo "Deploying to Caprover"
+#              caprover deploy --appToken ${hellociAppToken} --caproverUrl https://captain.magellon.org --imageName khoshbin/magellon-demo01 --appName demo01
+
+#      - run:
+#          name: Connect to remote Debian server
+#          command: |
+#            ssh -T root@157.230.222.170 << EOF
+#              caprover deploy --appToken ${hellociAppToken} --caproverUrl https://captain.magellon.org --imageName khoshbin/magellon-demo01 --appName demo01
+#            EOF
+             
+
+#          name: Deploy to Remote Server
+#          command: |
+#            ssh -o StrictHostKeyChecking=no root@magellon.org <<EOF
+#              docker stop magellon-demo01 || true
+#              docker pull khoshbin/magellon-demo01:latest || true
+#              caprover deploy --appToken ${hellociAppToken} --caproverUrl https://captain.magellon.org --imageName khoshbin/magellon-demo01 --appName demo01
+#            EOF
+
+
+workflows:
+  version: 2
+  build-and-deploy:
+    jobs:
+      - build
+      - deploy:
+          requires:
+            - build
+
