@@ -1,1 +1,7 @@
 .DS_Store
+
+.idea/
+/CoreService3/
+/MagellonApp/node_modules/
+/MagellonApp/.angular/
+/MagellonApp/.idea/
