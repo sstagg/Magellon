@@ -17,6 +17,12 @@ pip install -r requirements.txt
 pylint --load-plugins pylint_flask  app.py
 
 ```
+### PyTest
+```shell
+#  run unit tests
+pytest tests/
+
+```
 
 
 # Documentation

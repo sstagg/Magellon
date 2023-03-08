@@ -2,7 +2,9 @@
 
 ## Docker Build & Run
 docker build .
-docker build -t behdad/flask01 .
+docker build -t khoshbin/magellon-main-service .
+docker build -t khoshbin/magellon-main-service infrastructure/docker/
+
 
 sudo docker run -it -p3000:5000 behdad/flask01
 sudo docker run -d -p3000:5000 behdad/flask01
