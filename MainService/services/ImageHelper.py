@@ -8,8 +8,20 @@ class ImageMetadataQuery(BaseModel):
     name: str
 
 
+class FFTImageQuery(BaseModel):
+    name: str
+
+
+class StackImagesQuery(BaseModel):
+    ext: str
+
+
+class ImageByThumbnailQuery(BaseModel):
+    name: str
+
+
 class ImageHelper():
-    def getImageData(self,query: ImageMetadataQuery):
+    def getImageData(self, query: ImageMetadataQuery):
         args = request.args
         name = args.get('name')
         data = mgDatabase.getImageData(name)

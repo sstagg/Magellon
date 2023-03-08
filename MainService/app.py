@@ -2,83 +2,29 @@
 # encoding: utf-8
 
 import glob
-import io
 import os
-from base64 import b64encode
-from itertools import groupby
-from operator import itemgetter
 
-from PIL import Image
 from flask import jsonify, send_file, request
 from flask_openapi3 import Info, Tag, OpenAPI
-from pydantic import BaseModel
+from flask_restful import Api
 
 from lib import mgDatabase
+from rest.mathRest import Math
+from services.ImageHelper import ImageMetadataQuery, FFTImageQuery, StackImagesQuery, ImageByThumbnailQuery
+from services.helper import get_response_image, format_data_by_ext
 
-info = Info(title="Magellon API", version="1.0.0")
+info = Info(title="Magellon Main Service API", version="1.0.0")
 app = OpenAPI(__name__, info=info)
-
-image_viewer = Tag(name="Magellon", description="Image viewer")
-
-
-class ImageMetadataQuery(BaseModel):
-    name: str
+api = Api(app)
+magellonApiTag = Tag(name="Magellon", description="Magellon Main Service")
 
 
-class FFTImageQuery(BaseModel):
-    name: str
-
-
-class StackImagesQuery(BaseModel):
-    ext: str
-
-
-class ImageByThumbnailQuery(BaseModel):
-    name: str
-
-
-def get_response_image(image_path):
-    pil_img = Image.open(image_path, mode='r')  # reads the PIL image
-    byte_arr = io.BytesIO()
-    pil_img.save(byte_arr, format='PNG')  # convert the PIL image to byte array
-    encoded_img = b64encode(byte_arr.getvalue()).decode('ascii')  # encode as base64
-    return encoded_img
-
-
-''' define a function for key '''
-
-
-def key_func(k):
-    return k['ext']
-
-
-def format_data_by_ext(data):
-    sortedRes = []
-    response = []
-    # sort data by 'ext' key.
-    sortedRes = sorted(data, key=key_func)
-
-    for key, value in groupby(sortedRes, key_func):
-        item = {}
-        imgGroupByExt = []
-        item['ext'] = key
-
-        for image in value:
-            imgGroupByExt.append(image)
-
-        sorted_imgGroupByExt = sorted(imgGroupByExt, key=itemgetter('name'), reverse=True)
-
-        item['images'] = sorted_imgGroupByExt
-        response.append(item)
-    return response
-
-
-@app.route('/')
+@app.get('/', tags=[magellonApiTag])
 def home():
-    return 'Welcome to magellon main service'
+    return 'Welcome to magellon main service <p>For api please go to <a href="/openapi">OpenApi</a></p>'
 
 
-@app.get('/get_images', tags=[image_viewer])
+@app.get('/get_images', tags=[magellonApiTag])
 def get_images():
     encoded_images = []
     data = []
@@ -126,7 +72,7 @@ def get_images():
     return response
 
 
-@app.get('/get_image_by_thumbnail', tags=[image_viewer])
+@app.get('/get_image_by_thumbnail', tags=[magellonApiTag])
 def get_image_by_thumbnail(query: ImageByThumbnailQuery):
     args = request.args
     name = args.get('name')
@@ -138,7 +84,7 @@ def get_image_by_thumbnail(query: ImageByThumbnailQuery):
     return response
 
 
-@app.get('/get_images_by_stack', tags=[image_viewer])
+@app.get('/get_images_by_stack', tags=[magellonApiTag])
 def get_images_by_stack(query: StackImagesQuery):
     args = request.args
     ext = args.get('ext')
@@ -163,7 +109,7 @@ def get_images_by_stack(query: StackImagesQuery):
     return response
 
 
-@app.get('/get_fft_image', tags=[image_viewer])
+@app.get('/get_fft_image', tags=[magellonApiTag])
 def get_fft_image(query: FFTImageQuery):
     args = request.args
     name = args.get('name')
@@ -175,7 +121,7 @@ def get_fft_image(query: FFTImageQuery):
     return response
 
 
-@app.get('/get_image_data', tags=[image_viewer])
+@app.get('/get_image_data', tags=[magellonApiTag])
 def get_image_data(query: ImageMetadataQuery):
     args = request.args
     name = args.get('name')
@@ -204,4 +150,9 @@ def get_image_data(query: ImageMetadataQuery):
     return response
 
 
-app.run()
+# api.add_resource(Math, '/math/<int:num1>/<int:num2>/<string:operation>')
+api.add_resource(Math, '/add/<int:num1>/<int:num2>', endpoint='add')
+# api.add_resource(Math, '/multiply/<int:num1>/<int:num2>', endpoint='multiply')
+
+if __name__ == "__main__":
+    app.run(debug=True)
