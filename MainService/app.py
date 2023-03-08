@@ -73,6 +73,11 @@ def format_data_by_ext(data):
     return response
 
 
+@app.route('/')
+def home():
+    return 'Welcome to my app'
+
+
 @app.get('/get_images', tags=[image_viewer])
 def get_images():
     encoded_images = []

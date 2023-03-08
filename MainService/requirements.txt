@@ -30,3 +30,5 @@ wxPython==4.2.0
 zipp==3.15.0
 pylint
 pylint-flask
+pytest
+pytest-flask
