@@ -27,3 +27,6 @@ pytest tests/
 
 # Documentation
 for documentation please refer to https://docs.magellon.org
+
+for a demo of api please go to :
+https://api.magellon.org/openapi

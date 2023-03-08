@@ -75,7 +75,7 @@ def format_data_by_ext(data):
 
 @app.route('/')
 def home():
-    return 'Welcome to my app'
+    return 'Welcome to magellon main service'
 
 
 @app.get('/get_images', tags=[image_viewer])

@@ -7,16 +7,16 @@ WORKDIR /usr/src/app
 
 #COPY ../../MainService/requirements.txt requirements.txt
 COPY requirements.txt ./
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN pip3 install --no-cache-dir -r ./requirements.txt
 #RUN pip3 install /en_core_web_sm-2.0.0.tar.gz
 
 #COPY . .
-COPY app.py ./
-COPY requirements.txt ./
-COPY leginon ./
-COPY lib ./
-COPY sinedon ./
-COPY tests ./
-COPY pyami ./
+COPY app.py ./app.py
+#COPY requirements.txt ./
+COPY leginon ./leginon
+COPY lib ./lib
+COPY sinedon ./sinedon
+COPY tests ./tests
+COPY pyami ./pyami
 
-CMD [ "python3", "-m" , "flask", "run", "--host=0.0.0.0"]
+CMD [ "python3", "-m" , "flask", "run", "--host=0.0.0.0","--port=80"]
