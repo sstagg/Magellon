@@ -11,6 +11,13 @@ pip freeze > requirements.txt
 pip install -r requirements.txt
 ```
 
+### PyLint
+```shell
+#  output any errors or warnings according to the configuration in your .pylintrc file
+pylint app.py
+
+```
+
 
 # Documentation
 for documentation please refer to https://docs.magellon.org
