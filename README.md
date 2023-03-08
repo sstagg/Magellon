@@ -14,7 +14,7 @@ pip install -r requirements.txt
 ### PyLint
 ```shell
 #  output any errors or warnings according to the configuration in your .pylintrc file
-pylint app.py
+pylint --load-plugins pylint_flask  app.py
 
 ```
 

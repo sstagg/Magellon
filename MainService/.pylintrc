@@ -75,6 +75,7 @@ limit-inference-results=100
 
 # List of plugins (as comma separated values of python module names) to load,
 # usually to register additional checkers.
+# load-plugins= pylint_flask
 load-plugins=
 
 # Pickle collected data for later comparisons.
@@ -151,6 +152,7 @@ disable=raw-checker-failed,
         suppressed-message,
         useless-suppression,
         deprecated-pragma,
+        invalid-name,
         use-symbolic-message-instead
 
 # Enable the message, report, category or checker with the given id(s). You can
