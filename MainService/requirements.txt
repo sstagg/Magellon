@@ -32,3 +32,4 @@ pylint
 pylint-flask
 pytest
 pytest-flask
+flask_restful
