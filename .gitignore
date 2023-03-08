@@ -2,6 +2,18 @@
 
 .idea/
 /CoreService3/
+/MainService/.idea/
+/MainService/__pycache__/
+/MainService/leginon/__pycache__/
+/MainService/lib/__pycache__/
+/MainService/pyami/__pycache__/
+/MainService/sinedon/__pycache__/
+/MainService/venv/
+
 /MagellonApp/node_modules/
 /MagellonApp/.angular/
 /MagellonApp/.idea/
+
+/WebApp/node_modules/
+/WebApp/.angular/
+/WebApp/.idea/
