@@ -33,3 +33,4 @@ pylint-flask
 pytest
 pytest-flask
 flask_restful
+cupy-cuda12x

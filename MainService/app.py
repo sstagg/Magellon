@@ -8,13 +8,15 @@ from flask_openapi3 import Info, Tag
 from flask_restful import Api
 from pydantic import BaseModel, Field
 
-from controllers.file_rest import TransferInput, transfer_file_and_dir
-from controllers.math_rest import Math
 from services.image_service import ImageMetadataQuery, FFTImageQuery, StackImagesQuery, ImageByThumbnailQuery, \
     get_images, get_image_thumbnail, get_image_by_stack, get_image_data, get_fft_image
 from services.motioncore_service import Motioncor2Input, MotioncoreService
+from views.fft_view import fft_view
+
+from views.file_rest import transfer_file_and_dir, TransferInput
 # Register the home blueprint
 from views.home import home_bp
+from views.math_rest import Math
 
 info = Info(title="Magellon Main Service API", version="1.0.0")
 app = OpenAPI(__name__, info=info)
@@ -22,6 +24,7 @@ api = Api(app)
 magellonApiTag = Tag(name="Magellon", description="Magellon Main Service")
 
 app.register_blueprint(home_bp)
+app.register_blueprint(fft_view)
 
 
 class NotFoundResponse(BaseModel):

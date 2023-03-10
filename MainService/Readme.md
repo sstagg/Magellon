@@ -9,6 +9,7 @@ To get started with this application, you'll need to follow these steps:
     Install Python 3.7 or later on your system.
     Clone this repository to your local machine.
     Install the required Python packages by running pip install -r requirements.txt.
+    Install Cuda Toolkit for windows: https://developer.download.nvidia.com/compute/cuda/12.1.0/local_installers/cuda_12.1.0_531.14_windows.exe
     Run the Flask development server by executing flask run from the command line.
     Open your web browser and navigate to http://localhost:5000 to view the application.
 
@@ -37,8 +38,8 @@ This project follows the following naming conventions and guidelines:
 In addition to these conventions, it's also recommended to use descriptive names that indicate the purpose of the variable, function, class, or file. This helps make your code more self-explanatory and easier to understand.
 Contributing
 
-Contributions to this project are welcome! If you have any suggestions or find any bugs, please open an issue or submit a pull request.
-License
+### Contributions to this project are welcome! If you have any suggestions or find any bugs, please open an issue or submit a pull request.
+### License
 
 This project is licensed under the MIT License. See the LICENSE file for details.
 
