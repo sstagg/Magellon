@@ -12,7 +12,7 @@ class TransferInput(BaseModel):
     delete: bool = False
 
 
-def transferFileAndDir(input_data):
+def transfer_file_and_dir(input_data):
     """
     Transfer files and directories from source path to target path.
 

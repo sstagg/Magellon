@@ -4,6 +4,7 @@ import os
 from flask import request, jsonify, send_file
 from pydantic import BaseModel
 
+from config import BASE_PATH
 from lib import mgDatabase
 from services.helper import get_response_image, format_data_by_ext
 
@@ -24,33 +25,10 @@ class ImageByThumbnailQuery(BaseModel):
     name: str
 
 
-class ImageHelper():
-    def getImageData(self, query: ImageMetadataQuery):
-        args = request.args
-        name = args.get('name')
-        data = mgDatabase.getImageData(name)
-        ''' Get pixel size in Angstroms '''
-        pixelsize = mgDatabase.getPixelSize(data)
-        ''' Get dose in electrons per Angstrom '''
-        dose = mgDatabase.getDoseFromImageData(data)
-        item = {}
-        item['defocus'] = round(data['preset']['defocus'] * 1.e6, 2)
-        item['mag'] = data['preset']['magnification']
-        item['filename'] = data['filename']
-        item['pixelsize'] = round(pixelsize, 3)
-        if dose is not None:
-            item['dose'] = round(dose, 2)
-        else:
-            item['dose'] = 'none'
-        response = jsonify({'result': item})
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        return response
-
-
-def getImages():
+def get_images():
     encoded_images = []
     data = []
-    root_dir = r"/Users/rupalimyskar/Downloads/Stagg Lab/mywork/code/magellonService/images/rawdata/thumbnails/"
+    root_dir = r"%s/thumbnails/" % BASE_PATH
     filename_list = os.listdir(root_dir)
     parent_file_ext = set()
     for filename in filename_list:
@@ -87,22 +65,13 @@ def getImages():
     return response
 
 
-def getImageByThumbnail():
-    args = request.args
-    name = args.get('name')
-    root_dir = r"/Users/rupalimyskar/Downloads/Stagg Lab/mywork/code/magellonService/images/rawdata/images/"
-    response = send_file(root_dir + name + '.png', mimetype='image/png')
-    response.headers.add('Access-Control-Allow-Origin', '*')
-    return response
-
-
-def getImageByStack():
+def get_image_by_stack():
     args = request.args
     ext = args.get('ext')
     encoded_images = []
     data = []
     ''' path contains list of mrc thumbnails '''
-    root_dir = r"/Users/rupalimyskar/Downloads/Stagg Lab/mywork/code/magellonService/images/rawdata/thumbnails/"
+    root_dir = r"%s/thumbnails/" % BASE_PATH
     for filename in glob.iglob(root_dir + '*.png', recursive=True):
         item = {}
         shortName = (filename.rsplit("/", 1)[1]).rsplit(".", 1)[0]  # get image name
@@ -117,7 +86,7 @@ def getImageByStack():
     return response
 
 
-def getImageData():
+def get_image_data():
     args = request.args
     name = args.get('name')
     data = mgDatabase.getImageData(name)
@@ -139,10 +108,21 @@ def getImageData():
     return response
 
 
-def getFftImage():
+def get_fft_image():
     args = request.args
     name = args.get('name')
-    root_dir = r"/Users/rupalimyskar/Downloads/Stagg Lab/mywork/code/magellonService/images/rawdata/FFTs/"
-    response = send_file(root_dir + name + '.png', mimetype='image/png')
+    folder = r"%s/FFTs/" % BASE_PATH
+    return download_png(name, folder)
+
+
+def get_image_thumbnail():
+    args = request.args
+    name = args.get('name')
+    folder = r"%s/images/" % BASE_PATH
+    return download_png(name, folder)
+
+
+def download_png(name, folder):
+    response = send_file(folder + name + '.png', mimetype='image/png')
     response.headers.add('Access-Control-Allow-Origin', '*')
     return response
