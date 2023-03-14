@@ -54,10 +54,10 @@ def get_images():
         if (filename.rsplit("/", 1)[1] not in stack_3_images_list):
             continue
         item = {}
-        shortName = (filename.rsplit("/", 1)[1]).rsplit(".", 1)[0]  # get image name
-        item['name'] = shortName
+        short_name = (filename.rsplit("/", 1)[1]).rsplit(".", 1)[0]  # get image name
+        item['name'] = short_name
         item['encoded_image'] = get_response_image(filename)
-        item['ext'] = shortName.split("_")[5] if len(shortName.split("_")) > 5 else "misc"
+        item['ext'] = short_name.split("_")[5] if len(short_name.split("_")) > 5 else "misc"
         data.append(item)
     res = format_data_by_ext(data)
     response = jsonify({'result': res})

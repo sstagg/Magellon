@@ -26,9 +26,13 @@ This project follows the recommended Flask project structure, with the following
     static/: This directory contains static files such as CSS and JavaScript.
     data/: This directory contains data files used by the application.
 
+# References
+https://www.l3harrisgeospatial.com/docs/backgroundfastfouriertransform.html
+
 ## Conventions and Guidelines
 
 This project follows the following naming conventions and guidelines:
+    
 
     Variables: Use lowercase letters and underscores to separate words. For example: my_variable, another_variable, some_list.
     Functions: Use lowercase letters and underscores to separate words. For example: my_function, calculate_sum, print_message.
@@ -38,9 +42,18 @@ This project follows the following naming conventions and guidelines:
 In addition to these conventions, it's also recommended to use descriptive names that indicate the purpose of the variable, function, class, or file. This helps make your code more self-explanatory and easier to understand.
 Contributing
 
-### Contributions to this project are welcome! If you have any suggestions or find any bugs, please open an issue or submit a pull request.
+### Contributions
+Contributions to this project are welcome! If you have any suggestions or find any bugs, please open an issue or submit a pull request.
+
 ### License
 
 This project is licensed under the MIT License. See the LICENSE file for details.
 
 http://127.0.0.1:5000/math/1/3/add
+
+
+## Tasks:
+Connection to new magellon database
+Add Airflow
+Add frameTransfer, fft , ctf estimation
+get 
