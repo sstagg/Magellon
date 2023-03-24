@@ -4,8 +4,10 @@
 docker build .
 docker build -t khoshbin/magellon-main-service .
 docker build -t khoshbin/magellon-main-service infrastructure/docker/
-Go to MainService directory and run:
-sudo docker build -f ../infrastructure/docker/Dockerfile -t magellon-main-service ./
+
+### Go to MainService directory and run:
+`sudo docker build --no-cache -f ../infrastructure/docker/Dockerfile -t khoshbin/magellon-main-service ./`
+docker push khoshbin/magellon-main-service
 
 from imagename:khoshbin/magellon-main-service
 then enable https --> Force https --> continer http port 80

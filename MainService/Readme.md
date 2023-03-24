@@ -13,7 +13,9 @@ To get started with this application, you'll need to follow these steps:
     Run the Flask development server by executing flask run from the command line.
     Open your web browser and navigate to http://localhost:5000 to view the application.
 
-## Project Structure
+`gh repo clone sstagg/Magellon`
+
+## Project Structure[mariadb.md](..%2Finfrastructure%2Fmanual%2Fmariadb.md)
 
 This project follows the recommended Flask project structure, with the following directories:
 
@@ -57,3 +59,8 @@ Connection to new magellon database
 Add Airflow
 Add frameTransfer, fft , ctf estimation
 get 
+
+
+`pip install mysqlclient
+pip install sqlacodegen
+sqlacodegen mysql://admin:pass@192.168.92.133:3306/magellon01 --outfile models.py`

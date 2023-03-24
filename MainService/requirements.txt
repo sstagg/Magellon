@@ -34,5 +34,6 @@ pytest
 pytest-flask
 flask_restful
 cupy-cuda12x
-sqlalchemy
+sqlalchemy==2.0.7
 flask_sqlalchemy
+psycopg2

@@ -1,12 +1,21 @@
 #!/usr/bin/env python
 # encoding: utf-8
+import random
 import subprocess
+import uuid
+from uuid import uuid4
+import logging
 
 from flask import jsonify
 from flask_openapi3 import OpenAPI
 from flask_openapi3 import Info, Tag
 from flask_restful import Api
+from flask_sqlalchemy import SQLAlchemy
 from pydantic import BaseModel, Field
+
+from sqlalchemy.exc import SQLAlchemyError
+
+from models.models import Camera
 
 from services.image_service import ImageMetadataQuery, FFTImageQuery, StackImagesQuery, ImageByThumbnailQuery, \
     get_images, get_image_thumbnail, get_image_by_stack, get_image_data, get_fft_image
@@ -20,6 +29,28 @@ from views.math_rest import Math
 
 info = Info(title="Magellon Main Service API", version="1.0.0")
 app = OpenAPI(__name__, info=info)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://admin:behd1d2@192.168.92.133:3306/magellon02'
+# app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql+psycopg2://postgres:behd1d2@192.168.92.133:5432/magellon02'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
+
+# DB_USER = 'admin'
+# DB_PASSWORD = 'behd1d2'
+# DB_HOST = '192.168.92.133'
+# DB_NAME = 'magellon02'
+#
+# # Configure the SQLAlchemy engine and Session
+# engine = create_engine(f'mysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}')
+# Session = sessionmaker(bind=engine)
+
+# Get the engine object
+# theengine = db.engine()
+
+# Enable SQLAlchemy logging for debugging
+logging.basicConfig()
+logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+
 api = Api(app)
 magellonApiTag = Tag(name="Magellon", description="Magellon Main Service")
 
@@ -32,44 +63,96 @@ class NotFoundResponse(BaseModel):
     message: str = Field("Resource not found!", description="Exception Information")
 
 
+# @app.get('/create_schema', tags=[magellonApiTag],   description='creates database structure')
+# def create_schema():
+#     db.init_app(app) # init of db is deferred
+#     db.create_all()
+# Base.metadata.create_all(bind=engine)
+# db.create_all()
+@app.get('/insert_camera', tags=[magellonApiTag], description='Inserts a new camera')
+def insert_camera():
+    num = random.randint(1, 1000)
+    # create a new camera
+    new_camera = Camera(Oid=uuid4().bytes, name=f'my_camera{num}')
+
+    # add the camera to the database
+    db.session.add(new_camera)
+    db.session.commit()
+
+    return jsonify({
+        'code': 201,
+        'status': 'success',
+        'message': 'Camera created',
+        'data': {
+            'id': (str(new_camera.Oid)),
+            'name': new_camera.name,
+        }
+    }), 201
+
+
+class CameraQuery(BaseModel):
+    oid: str
+
+
+@app.get('/camera', tags=[magellonApiTag], description='gets a camera')
+def get_camera(query: CameraQuery):
+    try:
+        # string_uuid = str(uuid.UUID(bytes=camera.Oid))
+        theUuid = uuid.UUID(query.oid)
+        # Attempt to retrieve the camera with the given ID or UUID
+        camera = db.session.query(Camera).filter(Camera.Oid == theUuid).one()
+        if camera is None:
+            # Camera not found, return error message
+            return jsonify({'error': 'Camera not found'}), 404
+        else:
+            # Camera found, return its properties
+            return jsonify({
+                'Oid': str(camera.Oid),
+                'name': camera.name,
+                'OptimisticLockField': camera.OptimisticLockField,
+                'GCRecord': camera.GCRecord
+            }), 200
+
+    except SQLAlchemyError:
+        # If an error occurs, return a 404 error with a corresponding message
+        return jsonify({'error': f"Camera with ID or UUID '{theUuid}' not found"}), 404
+    # finally:
+    #     return jsonify({'error': f"Camera with ID or UUID '{theUuid}' not found"}), 404
+
+
 @app.post('/transfer', tags=[magellonApiTag],
           description='Transfer files and directories from source path to target path.')
 def transfer_files1(body: TransferInput):
     return transfer_file_and_dir(body)
 
 
-# @app.get('/', tags=[magellonApiTag])
-# def home():
-#     return 'Welcome to magellon main service <p>For api please go to <a href="/openapi">OpenApi</a></p>'
-
-
 @app.get('/get_images', tags=[magellonApiTag])
-def get_images():
+def get_images_route():
     return get_images()
 
 
 @app.get('/get_image_by_thumbnail', tags=[magellonApiTag])
-def get_image_by_thumbnail(query: ImageByThumbnailQuery):
+def get_image_by_thumbnail_route(query: ImageByThumbnailQuery):
     return get_image_thumbnail()
 
 
 @app.get('/get_images_by_stack', tags=[magellonApiTag])
-def get_images_by_stack(query: StackImagesQuery):
+def get_images_by_stack_route(query: StackImagesQuery):
     return get_image_by_stack()
 
 
 @app.get('/get_fft_image', tags=[magellonApiTag])
-def get_fft_image(query: FFTImageQuery):
+def get_fft_image_route(query: FFTImageQuery):
     return get_fft_image()
 
 
 @app.get('/get_image_data', tags=[magellonApiTag])
-def get_image_data(query: ImageMetadataQuery):
+def get_image_data_route(query: ImageMetadataQuery):
     return get_image_data()
 
 
 @app.get('/motioncor2', methods=['POST'])
-def run_motioncor2(body: Motioncor2Input):
+def run_motioncor2_route(body: Motioncor2Input):
     # Run motioncor2 using MotioncoreService
     motioncore_service = MotioncoreService()
     try:

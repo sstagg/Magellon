@@ -1,3 +1,21 @@
 sed -i 's/^#*\s*PermitRootLogin .*/PermitRootLogin yes/' /etc/ssh/sshd_config
 systemctl restart sshd
 
+touch /var/lib/mysql/mysql.pid
+touch /var/lib/mysql/mysqld.sock
+chown mysql:mysql -R /var/lib/mysql/mysql.pid
+chown mysql:mysql -R /var/lib/mysql/mysqld.sock
+rm -rf /var/lib/mysql/grastate.dat /var/lib/mysql/gvwstate.dat
+
+mysqld --wsrep-recover
+systemctl start mysql@bootstrap.service
+systemctl start mysqld
+
+
+       wget http://www.severalnines.com/downloads/cmon/install-cc
+       chmod +x install-cc
+       ssh-keygen -t rsa
+       ssh-copy-id root@185.170.8.16
+       ssh-copy-id root@185.170.8.17
+       ssh-copy-id root@185.170.8.18
+       ./install-cc
