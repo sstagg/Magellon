@@ -1,7 +1,7 @@
 # coding: utf-8
 import uuid
 
-from sqlalchemy import BINARY, Column, DECIMAL, ForeignKey, Index, String
+from sqlalchemy import BINARY, Column, DECIMAL, ForeignKey, Index, String,Text,Boolean,LargeBinary,DateTime
 from sqlalchemy.dialects.mysql import BIGINT, BIT, DATETIME, INTEGER, LONGBLOB, LONGTEXT
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
@@ -24,7 +24,7 @@ class Camera(Base):
 class Microscope(Base):
     __tablename__ = 'microscope'
 
-    Oid = Column(BINARY(16), primary_key=True)
+    Oid = Column(UUID, primary_key=True, default=uuid.uuid4, unique=True)
     name = Column(String(30))
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)
@@ -33,7 +33,7 @@ class Microscope(Base):
 class Modeldifference(Base):
     __tablename__ = 'modeldifference'
 
-    Oid = Column(BINARY(16), primary_key=True)
+    Oid = Column(UUID, primary_key=True, default=uuid.uuid4, unique=True)
     UserId = Column(String(100))
     ContextId = Column(String(100))
     Version = Column(INTEGER(11))
@@ -44,7 +44,7 @@ class Modeldifference(Base):
 class Samplegridtype(Base):
     __tablename__ = 'samplegridtype'
 
-    Oid = Column(BINARY(16), primary_key=True)
+    Oid = Column(UUID, primary_key=True, default=uuid.uuid4, unique=True)
     name = Column(String(30))
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)
@@ -53,7 +53,7 @@ class Samplegridtype(Base):
 class Sampletype(Base):
     __tablename__ = 'sampletype'
 
-    Oid = Column(BINARY(16), primary_key=True)
+    Oid = Column(UUID, primary_key=True, default=uuid.uuid4, unique=True)
     name = Column(String(30))
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)
@@ -70,9 +70,9 @@ class Xpobjecttype(Base):
 class Modeldifferenceaspect(Base):
     __tablename__ = 'modeldifferenceaspect'
 
-    Oid = Column(BINARY(16), primary_key=True)
+    Oid = Column(UUID, primary_key=True, default=uuid.uuid4, unique=True)
     Name = Column(String(100))
-    Xml = Column(LONGTEXT)
+    Xml = Column(Text)
     Owner = Column(ForeignKey('modeldifference.Oid'), index=True)
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)
@@ -83,12 +83,12 @@ class Modeldifferenceaspect(Base):
 class SysSecParty(Base):
     __tablename__ = 'sys_sec_party'
 
-    Oid = Column(BINARY(16), primary_key=True)
+    Oid = Column(UUID, primary_key=True, default=uuid.uuid4, unique=True)
     omid = Column(BIGINT(20))
     ouid = Column(String(20))
-    createdOn = Column(DATETIME(fsp=6))
+    createdOn = Column(DateTime)
     createdBy = Column(ForeignKey('sys_sec_party.Oid'), index=True)
-    lastModifiedOn = Column(DATETIME(fsp=6))
+    lastModifiedOn = Column(DateTime)
     lastModifiedBy = Column(ForeignKey('sys_sec_party.Oid'), index=True)
     syncStatus = Column(INTEGER(11))
     version = Column(BIGINT(20))
@@ -101,11 +101,11 @@ class SysSecParty(Base):
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)
     ObjectType = Column(ForeignKey('xpobjecttype.OID'), index=True)
-    Password = Column(LONGTEXT)
-    ChangePasswordOnFirstLogon = Column(BIT(1))
+    Password = Column(Text)
+    ChangePasswordOnFirstLogon = Column(Boolean,default=True)
     UserName = Column(String(100))
-    IsActive = Column(BIT(1))
-    photo = Column(LONGBLOB)
+    IsActive = Column(Boolean,default= True)
+    photo = Column(LargeBinary)
 
     xpobjecttype = relationship('Xpobjecttype')
     parent = relationship('SysSecParty', remote_side=[Oid], primaryjoin='SysSecParty.createdBy == SysSecParty.Oid')
@@ -115,10 +115,10 @@ class SysSecParty(Base):
 class SysSecRole(Base):
     __tablename__ = 'sys_sec_role'
 
-    Oid = Column(BINARY(16), primary_key=True)
+    Oid = Column(UUID, primary_key=True, default=uuid.uuid4, unique=True)
     Name = Column(String(100))
-    IsAdministrative = Column(BIT(1))
-    CanEditModel = Column(BIT(1))
+    IsAdministrative = Column(Boolean,default= True)
+    CanEditModel = Column(Boolean,default= True)
     PermissionPolicy = Column(INTEGER(11))
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)
@@ -130,11 +130,11 @@ class SysSecRole(Base):
 class Project(Base):
     __tablename__ = 'project'
 
-    Oid = Column(BINARY(16), primary_key=True)
+    Oid = Column(UUID, primary_key=True, default=uuid.uuid4, unique=True)
     name = Column(String(30))
     description = Column(String(200))
-    startOn = Column(DATETIME(fsp=6))
-    endOn = Column(DATETIME(fsp=6))
+    startOn = Column(DateTime)
+    endOn = Column(DateTime)
     owner = Column(ForeignKey('sys_sec_party.Oid'), index=True)
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)
@@ -145,7 +145,7 @@ class Project(Base):
 class Site(Base):
     __tablename__ = 'site'
 
-    Oid = Column(BINARY(16), primary_key=True)
+    Oid = Column(UUID, primary_key=True, default=uuid.uuid4, unique=True)
     name = Column(String(30))
     address = Column(String(150))
     manager = Column(ForeignKey('sys_sec_party.Oid'), index=True)
@@ -158,7 +158,7 @@ class Site(Base):
 class SysSecActionpermission(Base):
     __tablename__ = 'sys_sec_actionpermission'
 
-    Oid = Column(BINARY(16), primary_key=True)
+    Oid = Column(UUID, primary_key=True, default=uuid.uuid4, unique=True)
     ActionId = Column(String(100))
     Role = Column(ForeignKey('sys_sec_role.Oid'), index=True)
     OptimisticLockField = Column(INTEGER(11))
@@ -173,7 +173,7 @@ class SysSecLogininfo(Base):
         Index('iLoginProviderNameProviderUserKey_sys_sec_logininfo', 'LoginProviderName', 'ProviderUserKey', unique=True),
     )
 
-    Oid = Column(BINARY(16), primary_key=True)
+    Oid = Column(UUID, primary_key=True, default=uuid.uuid4, unique=True)
     LoginProviderName = Column(String(100))
     ProviderUserKey = Column(String(100))
     User = Column(ForeignKey('sys_sec_party.Oid'), index=True)
@@ -185,8 +185,8 @@ class SysSecLogininfo(Base):
 class SysSecNavigationpermission(Base):
     __tablename__ = 'sys_sec_navigationpermission'
 
-    Oid = Column(BINARY(16), primary_key=True)
-    ItemPath = Column(LONGTEXT)
+    Oid = Column(UUID, primary_key=True, default=uuid.uuid4, unique=True)
+    ItemPath = Column(Text)
     NavigateState = Column(INTEGER(11))
     Role = Column(ForeignKey('sys_sec_role.Oid'), index=True)
     OptimisticLockField = Column(INTEGER(11))
@@ -198,9 +198,9 @@ class SysSecNavigationpermission(Base):
 class SysSecTypepermission(Base):
     __tablename__ = 'sys_sec_typepermission'
 
-    Oid = Column(BINARY(16), primary_key=True)
+    Oid = Column(UUID, primary_key=True, default=uuid.uuid4, unique=True)
     Role = Column(ForeignKey('sys_sec_role.Oid'), index=True)
-    TargetType = Column(LONGTEXT)
+    TargetType = Column(Text)
     ReadState = Column(INTEGER(11))
     WriteState = Column(INTEGER(11))
     CreateState = Column(INTEGER(11))
@@ -220,7 +220,7 @@ class SysSecUserrole(Base):
 
     People = Column(ForeignKey('sys_sec_party.Oid'), index=True)
     Roles = Column(ForeignKey('sys_sec_role.Oid'), index=True)
-    OID = Column(BINARY(16), primary_key=True)
+    Oid = Column(UUID, primary_key=True, default=uuid.uuid4, unique=True)
     OptimisticLockField = Column(INTEGER(11))
 
     sys_sec_party = relationship('SysSecParty')
@@ -230,21 +230,21 @@ class SysSecUserrole(Base):
 class Msession(Base):
     __tablename__ = 'msession'
 
-    Oid = Column(BINARY(16), primary_key=True)
+    Oid = Column(UUID, primary_key=True, default=uuid.uuid4, unique=True)
     name = Column(String(30))
     project = Column(ForeignKey('project.Oid'), index=True)
     site = Column(ForeignKey('site.Oid'), index=True)
     user = Column(ForeignKey('sys_sec_party.Oid'), index=True)
     description = Column(String(150))
-    startOn = Column(DATETIME(fsp=6))
-    endOn = Column(DATETIME(fsp=6))
+    startOn = Column(DateTime)
+    endOn = Column(DateTime)
     microscope = Column(ForeignKey('microscope.Oid'), index=True)
     camera = Column(ForeignKey('camera.Oid'), index=True)
     sampleType = Column(ForeignKey('sampletype.Oid'), index=True)
     sampleName = Column(String(30))
     sampleGridType = Column(ForeignKey('samplegridtype.Oid'), index=True)
     sampleSequence = Column(String(150))
-    sampleProcedure = Column(LONGTEXT)
+    sampleProcedure = Column(Text)
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)
 
@@ -260,11 +260,11 @@ class Msession(Base):
 class SysSecMemberpermission(Base):
     __tablename__ = 'sys_sec_memberpermission'
 
-    Oid = Column(BINARY(16), primary_key=True)
-    Members = Column(LONGTEXT)
+    Oid = Column(UUID, primary_key=True, default=uuid.uuid4, unique=True)
+    Members = Column(Text)
     ReadState = Column(INTEGER(11))
     WriteState = Column(INTEGER(11))
-    Criteria = Column(LONGTEXT)
+    Criteria = Column(Text)
     TypePermissionObject = Column(ForeignKey('sys_sec_typepermission.Oid'), index=True)
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)
@@ -275,8 +275,8 @@ class SysSecMemberpermission(Base):
 class SysSecObjectpermission(Base):
     __tablename__ = 'sys_sec_objectpermission'
 
-    Oid = Column(BINARY(16), primary_key=True)
-    Criteria = Column(LONGTEXT)
+    Oid = Column(UUID, primary_key=True, default=uuid.uuid4, unique=True)
+    Criteria = Column(Text)
     ReadState = Column(INTEGER(11))
     WriteState = Column(INTEGER(11))
     DeleteState = Column(INTEGER(11))
@@ -291,11 +291,11 @@ class SysSecObjectpermission(Base):
 class Image(Base):
     __tablename__ = 'image'
 
-    Oid = Column(BINARY(16), primary_key=True)
-    original = Column(LONGBLOB)
-    aligned = Column(LONGBLOB)
-    fft = Column(LONGBLOB)
-    ctf = Column(LONGBLOB)
+    Oid = Column(UUID, primary_key=True, default=uuid.uuid4, unique=True)
+    original = Column(LargeBinary)
+    aligned = Column(LargeBinary)
+    fft = Column(LargeBinary)
+    ctf = Column(LargeBinary)
     Name = Column(String(30))
     path = Column(String(100))
     parent = Column(ForeignKey('image.Oid'), index=True)
@@ -326,7 +326,7 @@ class Image(Base):
     exposureType = Column(BIGINT(20))
     pixelSizeX = Column(DECIMAL(28, 8))
     pixelSizeY = Column(DECIMAL(28, 8))
-    energyFiltered = Column(BIT(1))
+    energyFiltered = Column(Boolean,default= True)
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)
 
@@ -337,7 +337,7 @@ class Image(Base):
 class Samplebom(Base):
     __tablename__ = 'samplebom'
 
-    Oid = Column(BINARY(16), primary_key=True)
+    Oid = Column(UUID, primary_key=True, default=uuid.uuid4, unique=True)
     session = Column(ForeignKey('msession.Oid'), index=True)
     name = Column(String(30))
     quantity = Column(DECIMAL(28, 8))

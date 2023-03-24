@@ -31,8 +31,8 @@ from views.math_rest import Math
 info = Info(title="Magellon Main Service API", version="1.0.0")
 app = OpenAPI(__name__, info=info)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://admin:behd1d2@192.168.92.133:3306/magellon03'
-# app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql+psycopg2://postgres:behd1d2@192.168.92.133:5432/magellon02'
+# app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://admin:behd1d2@192.168.92.133:3306/magellon03'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql+psycopg2://postgres:behd1d2@192.168.92.133:5432/magellon03'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
@@ -64,13 +64,14 @@ class NotFoundResponse(BaseModel):
     message: str = Field("Resource not found!", description="Exception Information")
 
 
-@app.get('/create-schema', tags=[magellonApiTag], description='creates database structure')
+@app.get('/create-database', tags=[magellonApiTag], description='creates database structure')
 def create_schema():
     db_service = DbService(db)
-    db_service.create_app_database()
-    db_service.create_all_tables()
+    # db_service.create_app_database()
+    # db_service.create_all_tables()
 
-    # metadata.create_all(bind=db.engine)
+    metadata.create_all(bind=db.engine)
+
     return jsonify({
         'code': 201,
         'status': 'success',
