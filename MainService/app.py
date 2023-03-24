@@ -15,7 +15,8 @@ from pydantic import BaseModel, Field
 
 from sqlalchemy.exc import SQLAlchemyError
 
-from models.models import Camera
+from models.models import Camera, metadata
+from services.db_service import DbService
 
 from services.image_service import ImageMetadataQuery, FFTImageQuery, StackImagesQuery, ImageByThumbnailQuery, \
     get_images, get_image_thumbnail, get_image_by_stack, get_image_data, get_fft_image
@@ -30,7 +31,7 @@ from views.math_rest import Math
 info = Info(title="Magellon Main Service API", version="1.0.0")
 app = OpenAPI(__name__, info=info)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://admin:behd1d2@192.168.92.133:3306/magellon02'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://admin:behd1d2@192.168.92.133:3306/magellon03'
 # app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql+psycopg2://postgres:behd1d2@192.168.92.133:5432/magellon02'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
@@ -63,17 +64,25 @@ class NotFoundResponse(BaseModel):
     message: str = Field("Resource not found!", description="Exception Information")
 
 
-# @app.get('/create_schema', tags=[magellonApiTag],   description='creates database structure')
-# def create_schema():
-#     db.init_app(app) # init of db is deferred
-#     db.create_all()
-# Base.metadata.create_all(bind=engine)
-# db.create_all()
+@app.get('/create-schema', tags=[magellonApiTag], description='creates database structure')
+def create_schema():
+    db_service = DbService(db)
+    db_service.create_app_database()
+    db_service.create_all_tables()
+
+    # metadata.create_all(bind=db.engine)
+    return jsonify({
+        'code': 201,
+        'status': 'success',
+        'message': 'Datbase Structure created',
+    }), 201
+
+
 @app.get('/insert_camera', tags=[magellonApiTag], description='Inserts a new camera')
 def insert_camera():
     num = random.randint(1, 1000)
     # create a new camera
-    new_camera = Camera(Oid=uuid4().bytes, name=f'my_camera{num}')
+    new_camera = Camera(Oid=uuid4().bytes, name=f'my_camera {num}')
 
     # add the camera to the database
     db.session.add(new_camera)
@@ -90,12 +99,12 @@ def insert_camera():
     }), 201
 
 
-class CameraQuery(BaseModel):
+class GetSoloObjectQuery(BaseModel):
     oid: str
 
 
 @app.get('/camera', tags=[magellonApiTag], description='gets a camera')
-def get_camera(query: CameraQuery):
+def get_camera(query: GetSoloObjectQuery):
     try:
         # string_uuid = str(uuid.UUID(bytes=camera.Oid))
         theUuid = uuid.UUID(query.oid)
