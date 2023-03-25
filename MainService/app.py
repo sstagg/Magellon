@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 
 from sqlalchemy.exc import SQLAlchemyError
 
+from config import DB_USER, DB_PASSWORD, DB_HOST, DB_NAME, DB_Driver, DB_Port
 from models.models import Camera, metadata
 from services.db_service import DbService
 
@@ -31,22 +32,13 @@ from views.math_rest import Math
 info = Info(title="Magellon Main Service API", version="1.0.0")
 app = OpenAPI(__name__, info=info)
 
-# app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://admin:behd1d2@192.168.92.133:3306/magellon03'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql+psycopg2://postgres:behd1d2@192.168.92.133:5432/magellon03'
+app.config['SQLALCHEMY_DATABASE_URI'] = f'{DB_Driver}://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_Port}/{DB_NAME}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
-# DB_USER = 'admin'
-# DB_PASSWORD = 'behd1d2'
-# DB_HOST = '192.168.92.133'
-# DB_NAME = 'magellon02'
-#
 # # Configure the SQLAlchemy engine and Session
 # engine = create_engine(f'mysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}')
 # Session = sessionmaker(bind=engine)
-
-# Get the engine object
-# theengine = db.engine()
 
 # Enable SQLAlchemy logging for debugging
 logging.basicConfig()
@@ -57,11 +49,6 @@ magellonApiTag = Tag(name="Magellon", description="Magellon Main Service")
 
 app.register_blueprint(home_bp)
 app.register_blueprint(fft_view)
-
-
-class NotFoundResponse(BaseModel):
-    code: int = Field(-1, description="Status Code")
-    message: str = Field("Resource not found!", description="Exception Information")
 
 
 @app.get('/create-database', tags=[magellonApiTag], description='creates database structure')
@@ -79,11 +66,20 @@ def create_schema():
     }), 201
 
 
-@app.get('/insert_camera', tags=[magellonApiTag], description='Inserts a new camera')
-def insert_camera():
+class CameraQuery(BaseModel):
+    oid: uuid.UUID
+    str = Field(None, min_length=2, max_length=30, description='Camera Name')
+    optimistic_lock_field: int
+    gcrecord: int
+
+
+@app.post('/camera', tags=[magellonApiTag], description='Inserts a new camera')
+def insert_camera(body: CameraQuery):
     num = random.randint(1, 1000)
     # create a new camera
-    new_camera = Camera(Oid=uuid4().bytes, name=f'my_camera {num}')
+    new_camera = Camera(Oid=uuid4(), name=f'my_camera {num}')
+    new_camera.Oid = body.oid
+    new_camera.name = body.name
 
     # add the camera to the database
     db.session.add(new_camera)
@@ -101,16 +97,16 @@ def insert_camera():
 
 
 class GetSoloObjectQuery(BaseModel):
-    oid: str
+    oid: uuid.UUID
 
 
 @app.get('/camera', tags=[magellonApiTag], description='gets a camera')
 def get_camera(query: GetSoloObjectQuery):
     try:
         # string_uuid = str(uuid.UUID(bytes=camera.Oid))
-        theUuid = uuid.UUID(query.oid)
+        # theUuid = uuid.UUID(query.oid)
         # Attempt to retrieve the camera with the given ID or UUID
-        camera = db.session.query(Camera).filter(Camera.Oid == theUuid).one()
+        camera = db.session.query(Camera).filter(Camera.Oid == query.oid).one()
         if camera is None:
             # Camera not found, return error message
             return jsonify({'error': 'Camera not found'}), 404
@@ -125,7 +121,7 @@ def get_camera(query: GetSoloObjectQuery):
 
     except SQLAlchemyError:
         # If an error occurs, return a 404 error with a corresponding message
-        return jsonify({'error': f"Camera with ID or UUID '{theUuid}' not found"}), 404
+        return jsonify({'error': f"Camera with ID or UUID '{str(query.oid)}' not found"}), 404
     # finally:
     #     return jsonify({'error': f"Camera with ID or UUID '{theUuid}' not found"}), 404
 
