@@ -13,6 +13,7 @@ from flask_restful import Api
 from flask_sqlalchemy import SQLAlchemy
 from pydantic import BaseModel, Field
 
+from typing import Optional, List
 from sqlalchemy.exc import SQLAlchemyError
 
 from config import DB_USER, DB_PASSWORD, DB_HOST, DB_NAME, DB_Driver, DB_Port
@@ -67,10 +68,10 @@ def create_schema():
 
 
 class CameraQuery(BaseModel):
-    oid: uuid.UUID
-    str = Field(None, min_length=2, max_length=30, description='Camera Name')
-    optimistic_lock_field: int
-    gcrecord: int
+    oid: uuid.UUID = Field(description='Camera UUID')
+    name: str = Field(min_length=2, max_length=30, description='Camera Name')
+    optimistic_lock_field: Optional[int] = Field(None, description='lock')
+    gcrecord: Optional[int] = Field(None, description='gc')
 
 
 @app.post('/camera', tags=[magellonApiTag], description='Inserts a new camera')

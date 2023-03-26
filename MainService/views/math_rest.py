@@ -2,6 +2,7 @@ from flask_restful import Resource
 
 
 class Math(Resource):
+
     def get(self, num1, num2, operation):
         result = None
         if operation == 'add':
