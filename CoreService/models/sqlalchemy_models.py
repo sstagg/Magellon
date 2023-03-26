@@ -7,7 +7,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy_utils import UUIDType
 
-from lib.alchemy_uuid import SqlAlchemyUuidType
+from lib.sqlalchemy_uuid_type import SqlAlchemyUuidType
 
 Base = declarative_base()
 metadata = Base.metadata
@@ -16,8 +16,8 @@ metadata = Base.metadata
 class Camera(Base):
     __tablename__ = 'camera'
 
-    Oid = Column(SqlAlchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
-    # Oid = Column(UUIDType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
+    # Oid = Column(SqlAlchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
+    Oid = Column(UUIDType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
     name = Column(String(30))
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)

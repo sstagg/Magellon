@@ -1,3 +1,12 @@
 fastapi
 uvicorn
+pydantic
 sqlalchemy
+sqlalchemy_utils
+psycopg2
+PyMySQL
+mrcfile==1.4.3
+numpy==1.24.2
+matplotlib==3.7.1
+scipy==1.10.1
+Pillow==9.4.0
