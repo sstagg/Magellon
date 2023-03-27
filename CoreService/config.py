@@ -24,4 +24,5 @@ DB_NAME = 'magellon03'
 # DB_NAME = 'magellon03'
 def get_db_connection():
     return "mysql+pymysql://admin:behd1d2@192.168.92.133:3306/magellon02"
+    # return "mysql+pymysql://admin:behd1d2@192.168.92.133:3306/magellon02?check_same_thread=False"
     # return os.getenv("DB_CONN")

@@ -3,13 +3,13 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from models.pydantic_models import PyCamera
+from models.pydantic_models import CameraDto
 from models.sqlalchemy_models import Camera
 
 
 class CameraRepository:
 
-    async def create(db: Session, camera_dto: PyCamera):
+    async def create(db: Session, camera_dto: CameraDto):
         if camera_dto.Oid is None:
             camera_dto.Oid = str(uuid.uuid4())
         camera_dto = Camera(Oid=camera_dto.Oid, name=camera_dto.name)
@@ -32,6 +32,6 @@ class CameraRepository:
         db.delete(db_camera)
         db.commit()
 
-    async def update(db: Session, camera_data):
-        db.merge(camera_data)
+    async def update(db: Session, camera_dto):
+        db.merge(camera_dto)
         db.commit()
