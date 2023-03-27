@@ -21,7 +21,7 @@ def get_db():
         db.close()
 
 
-@camera_router.post('/cameras', tags=["Camera"], response_model=CameraDto, status_code=201)
+@camera_router.post('/',  response_model=CameraDto, status_code=201)
 async def create_camera(camera_request: CameraDto, db: Session = Depends(get_db)):
     """
     Create a Camera and save it in the database
@@ -34,7 +34,7 @@ async def create_camera(camera_request: CameraDto, db: Session = Depends(get_db)
     return await CameraRepository.create(db=db, camera_dto=camera_request)
 
 
-@camera_router.put('/cameras', tags=["Camera"], response_model=CameraDto, status_code=201)
+@camera_router.put('/',  response_model=CameraDto, status_code=201)
 async def update_camera(camera_request: CameraDto, db: Session = Depends(get_db)):
     """
     Update a Camera and save it in the database
@@ -43,7 +43,7 @@ async def update_camera(camera_request: CameraDto, db: Session = Depends(get_db)
     return await CameraRepository.update(db=db, camera_dto=camera_request)
 
 
-@camera_router.get('/cameras', tags=["Camera"], response_model=List[CameraDto])
+@camera_router.get('/',  response_model=List[CameraDto])
 def get_all_cameras(name: Optional[str] = None, db: Session = Depends(get_db)):
     """
     Get all the cameras camerad in database
@@ -58,7 +58,7 @@ def get_all_cameras(name: Optional[str] = None, db: Session = Depends(get_db)):
         return CameraRepository.fetch_all(db)
 
 
-@camera_router.get('/cameras/{oid}', tags=["Camera"], response_model=CameraDto)
+@camera_router.get('/{oid}',  response_model=CameraDto)
 def get_camera(oid: UUID, db: Session = Depends(get_db)):
     """
     Get the camera with the given ID provided by User camerad in database
@@ -69,7 +69,7 @@ def get_camera(oid: UUID, db: Session = Depends(get_db)):
     return db_camera
 
 
-@camera_router.delete('/cameras/{oid}', tags=["Camera"])
+@camera_router.delete('/{oid}')
 async def delete_camera(oid: UUID, db: Session = Depends(get_db)):
     """
     Delete the Item with the given ID provided by User camerad in database

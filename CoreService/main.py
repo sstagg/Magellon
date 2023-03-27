@@ -3,6 +3,7 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 
 from controllers.camera_controller import camera_router
+from controllers.db_controller import db_router
 from controllers.home_controller import home_router
 from database import engine, session_local
 
@@ -22,7 +23,8 @@ app.dbengine = engine
 app.dbsession = session_local
 
 app.include_router(home_router)
-app.include_router(camera_router)
+app.include_router(db_router)
+app.include_router(camera_router, tags=["Cameras"], prefix="/cameras")
 
 
 @app.exception_handler(Exception)
