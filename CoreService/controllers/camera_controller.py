@@ -3,12 +3,16 @@ from uuid import UUID
 
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import sessionmaker, Session
+from starlette import status
 
 from database import session_local
 from models.pydantic_models import CameraDto
 from repositories.camera_repository import CameraRepository
 
 from fastapi import APIRouter
+import logging
+
+logger = logging.getLogger(__name__)
 
 camera_router = APIRouter()
 
@@ -26,12 +30,24 @@ async def create_camera(camera_request: CameraDto, db: Session = Depends(get_db)
     """
     Create a Camera and save it in the database
     """
+    logger.info("Creating camera in database")
+    # Validate input data
+    if not camera_request.name:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='Name cannot be empty')
     db_camera = CameraRepository.fetch_by_name(db, name=camera_request.name)
-    print(db_camera)
     if db_camera:
         raise HTTPException(status_code=400, detail="Camera already exists!")
 
-    return await CameraRepository.create(db=db, camera_dto=camera_request)
+        # Create camera in the database
+    try:
+        created_camera = await CameraRepository.create(db=db, camera_dto=camera_request)
+    except Exception as e:
+        logger.exception('Error creating camera in database')
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='Error creating camera')
+
+    return created_camera
+
+    # return await CameraRepository.create(db=db, camera_dto=camera_request)
 
 
 @camera_router.put('/',  response_model=CameraDto, status_code=201)
