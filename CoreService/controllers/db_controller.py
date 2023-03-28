@@ -10,7 +10,7 @@ from models.sqlalchemy_models import metadata
 db_router = APIRouter()
 
 
-@db_router.post("/create_database", tags=["Database"])
+@db_router.post("/create_database")
 async def create_app_database(db_session: Session = Depends(get_db)):
     """Create the database and its tables."""
     if not database_exists(get_db_connection()):
@@ -22,7 +22,7 @@ async def create_app_database(db_session: Session = Depends(get_db)):
     return {"message": "Database created successfully."}
 
 
-@db_router.post("/drop_database", tags=["Database"])
+@db_router.post("/drop_database")
 async def drop_app_database(db: Session = Depends(get_db)):
     """Drop the database and its tables."""
     if database_exists(get_db_connection()):
