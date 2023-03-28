@@ -5,7 +5,7 @@ import uuid
 
 class CameraDto(BaseModel):
     Oid: uuid.UUID = Field(description='Camera UUID')
-    name: str = Field(min_length=2, max_length=30, description='Camera Name')
+    name: str = Field(None, min_length=2, max_length=30, description='Camera Name')
     optimistic_lock_field: Optional[int] = Field(None, description='lock')
     gcrecord: Optional[int] = Field(None, description='gc')
 

@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 camera_router = APIRouter()
 
 
-@camera_router.post('/',  response_model=CameraDto, status_code=201)
+@camera_router.post('/', response_model=CameraDto, status_code=201)
 async def create_camera(camera_request: CameraDto, db: Session = Depends(get_db)):
     """
     Create a Camera and save it in the database
@@ -42,7 +42,7 @@ async def create_camera(camera_request: CameraDto, db: Session = Depends(get_db)
     # return await CameraRepository.create(db=db, camera_dto=camera_request)
 
 
-@camera_router.put('/',  response_model=CameraDto, status_code=201)
+@camera_router.put('/', response_model=CameraDto, status_code=201)
 async def update_camera(camera_request: CameraDto, db: Session = Depends(get_db)):
     """
     Update a Camera and save it in the database
@@ -51,7 +51,7 @@ async def update_camera(camera_request: CameraDto, db: Session = Depends(get_db)
     return await CameraRepository.update(db=db, camera_dto=camera_request)
 
 
-@camera_router.get('/',  response_model=List[CameraDto])
+@camera_router.get('/', response_model=List[CameraDto])
 def get_all_cameras(name: Optional[str] = None, db: Session = Depends(get_db)):
     """
     Get all the cameras camerad in database
@@ -66,7 +66,7 @@ def get_all_cameras(name: Optional[str] = None, db: Session = Depends(get_db)):
         return CameraRepository.fetch_all(db)
 
 
-@camera_router.get('/{oid}',  response_model=CameraDto)
+@camera_router.get('/{oid}', response_model=CameraDto)
 def get_camera(oid: UUID, db: Session = Depends(get_db)):
     """
     Get the camera with the given ID provided by User camerad in database
@@ -87,3 +87,8 @@ async def delete_camera(oid: UUID, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="camera not found with the given ID")
     await CameraRepository.delete(db, oid)
     return "camera deleted successfully!"
+
+# @app.get("/cameras2/", response_model=List[CameraDto])
+# def show_cameras(db: Session = Depends(get_db)):
+#     records = db.query(Camera).all()
+#     return records
