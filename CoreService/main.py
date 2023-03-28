@@ -5,6 +5,7 @@ from starlette.responses import JSONResponse
 from controllers.camera_controller import camera_router
 from controllers.db_controller import db_router
 from controllers.home_controller import home_router
+from controllers.image_processing_controller import image_processing_router
 from database import engine, session_local
 import logging
 
@@ -14,6 +15,8 @@ logger = logging.getLogger(__name__)
 # FORMAT = "%(levelname)s:%(message)s"
 # logging.basicConfig(format=FORMAT, level=logging.INFO)
 logging.config.dictConfig(LOGGING_CONFIG)
+logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+
 
 app = FastAPI(title="Magellon Core Service", description="Magellon Core Service that provides main services",
               version="1.0.0", )
@@ -27,6 +30,7 @@ app.dbsession = session_local
 app.include_router(home_router)
 app.include_router(db_router)
 app.include_router(camera_router, tags=["Cameras"], prefix="/cameras")
+app.include_router(image_processing_router, tags=['Image Processing'], prefix="/image-processing")
 
 
 @app.exception_handler(Exception)

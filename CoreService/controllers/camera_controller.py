@@ -2,10 +2,10 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import Depends, HTTPException
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session
 from starlette import status
 
-from database import session_local
+from database import get_db
 from models.pydantic_models import CameraDto
 from repositories.camera_repository import CameraRepository
 
@@ -15,14 +15,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 camera_router = APIRouter()
-
-
-def get_db():
-    try:
-        db = session_local()
-        yield db
-    finally:
-        db.close()
 
 
 @camera_router.post('/',  response_model=CameraDto, status_code=201)
