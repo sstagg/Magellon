@@ -13,4 +13,4 @@ class ImageFFTService:
 
         # Save the FFT image to a new MRC file
         with mrcfile.new(output_filename, overwrite=True) as mrc:
-            mrc.set_data(cp.asnumpy(fft).astype(cp.complex64))
+            mrc.set_data(cp.asnumpy(fft).astype(cp.float64))

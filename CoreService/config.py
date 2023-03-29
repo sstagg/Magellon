@@ -12,7 +12,7 @@ DB_USER = 'postgres'
 DB_PASSWORD = 'behd1d2'
 DB_HOST = '192.168.92.133'
 DB_Port = '5432'
-DB_NAME = 'magellon03'
+DB_NAME = 'magellon04'
 
 
 # Sample mysql
@@ -21,7 +21,7 @@ DB_NAME = 'magellon03'
 # DB_PASSWORD = 'behd1d2'
 # DB_HOST = '192.168.92.133'
 # DB_Port = '3306'
-# DB_NAME = 'magellon03'
+# DB_NAME = 'magellon04'
 
 def get_db_connection():
     return f'{DB_Driver}://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_Port}/{DB_NAME}'
