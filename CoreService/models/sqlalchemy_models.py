@@ -7,7 +7,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy_utils import UUIDType
 
-from lib.sqlalchemy_uuid_type import SqlAlchemyUuidType
+from lib.sqlalchemy_uuid_type import SqlalchemyUuidType
 
 Base = declarative_base()
 metadata = Base.metadata
@@ -26,7 +26,7 @@ class Camera(Base):
 class Microscope(Base):
     __tablename__ = 'microscope'
 
-    Oid = Column(SqlAlchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
     name = Column(String(30))
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)
@@ -35,7 +35,7 @@ class Microscope(Base):
 class Modeldifference(Base):
     __tablename__ = 'modeldifference'
 
-    Oid = Column(SqlAlchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
     UserId = Column(String(100))
     ContextId = Column(String(100))
     Version = Column(INTEGER(11))
@@ -46,7 +46,7 @@ class Modeldifference(Base):
 class Samplegridtype(Base):
     __tablename__ = 'samplegridtype'
 
-    Oid = Column(SqlAlchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
     name = Column(String(30))
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)
@@ -55,7 +55,7 @@ class Samplegridtype(Base):
 class Sampletype(Base):
     __tablename__ = 'sampletype'
 
-    Oid = Column(SqlAlchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
     name = Column(String(30))
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)
@@ -72,7 +72,7 @@ class Xpobjecttype(Base):
 class Modeldifferenceaspect(Base):
     __tablename__ = 'modeldifferenceaspect'
 
-    Oid = Column(SqlAlchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
     Name = Column(String(100))
     Xml = Column(Text)
     Owner = Column(ForeignKey('modeldifference.Oid'), index=True)
@@ -85,7 +85,7 @@ class Modeldifferenceaspect(Base):
 class SysSecParty(Base):
     __tablename__ = 'sys_sec_party'
 
-    Oid = Column(SqlAlchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
     omid = Column(BIGINT(20))
     ouid = Column(String(20))
     createdOn = Column(DateTime)
@@ -117,7 +117,7 @@ class SysSecParty(Base):
 class SysSecRole(Base):
     __tablename__ = 'sys_sec_role'
 
-    Oid = Column(SqlAlchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
     Name = Column(String(100))
     IsAdministrative = Column(Boolean,default= True)
     CanEditModel = Column(Boolean,default= True)
@@ -132,7 +132,7 @@ class SysSecRole(Base):
 class Project(Base):
     __tablename__ = 'project'
 
-    Oid = Column(SqlAlchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
     name = Column(String(30))
     description = Column(String(200))
     startOn = Column(DateTime)
@@ -147,7 +147,7 @@ class Project(Base):
 class Site(Base):
     __tablename__ = 'site'
 
-    Oid = Column(SqlAlchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
     name = Column(String(30))
     address = Column(String(150))
     manager = Column(ForeignKey('sys_sec_party.Oid'), index=True)
@@ -160,7 +160,7 @@ class Site(Base):
 class SysSecActionpermission(Base):
     __tablename__ = 'sys_sec_actionpermission'
 
-    Oid = Column(SqlAlchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
     ActionId = Column(String(100))
     Role = Column(ForeignKey('sys_sec_role.Oid'), index=True)
     OptimisticLockField = Column(INTEGER(11))
@@ -175,7 +175,7 @@ class SysSecLogininfo(Base):
         Index('iLoginProviderNameProviderUserKey_sys_sec_logininfo', 'LoginProviderName', 'ProviderUserKey', unique=True),
     )
 
-    Oid = Column(SqlAlchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
     LoginProviderName = Column(String(100))
     ProviderUserKey = Column(String(100))
     User = Column(ForeignKey('sys_sec_party.Oid'), index=True)
@@ -187,7 +187,7 @@ class SysSecLogininfo(Base):
 class SysSecNavigationpermission(Base):
     __tablename__ = 'sys_sec_navigationpermission'
 
-    Oid = Column(SqlAlchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
     ItemPath = Column(Text)
     NavigateState = Column(INTEGER(11))
     Role = Column(ForeignKey('sys_sec_role.Oid'), index=True)
@@ -200,7 +200,7 @@ class SysSecNavigationpermission(Base):
 class SysSecTypepermission(Base):
     __tablename__ = 'sys_sec_typepermission'
 
-    Oid = Column(SqlAlchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
     Role = Column(ForeignKey('sys_sec_role.Oid'), index=True)
     TargetType = Column(Text)
     ReadState = Column(INTEGER(11))
@@ -222,7 +222,7 @@ class SysSecUserrole(Base):
 
     People = Column(ForeignKey('sys_sec_party.Oid'), index=True)
     Roles = Column(ForeignKey('sys_sec_role.Oid'), index=True)
-    Oid = Column(SqlAlchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
     OptimisticLockField = Column(INTEGER(11))
 
     sys_sec_party = relationship('SysSecParty')
@@ -232,7 +232,7 @@ class SysSecUserrole(Base):
 class Msession(Base):
     __tablename__ = 'msession'
 
-    Oid = Column(SqlAlchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
     name = Column(String(30))
     project = Column(ForeignKey('project.Oid'), index=True)
     site = Column(ForeignKey('site.Oid'), index=True)
@@ -262,7 +262,7 @@ class Msession(Base):
 class SysSecMemberpermission(Base):
     __tablename__ = 'sys_sec_memberpermission'
 
-    Oid = Column(SqlAlchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
     Members = Column(Text)
     ReadState = Column(INTEGER(11))
     WriteState = Column(INTEGER(11))
@@ -277,7 +277,7 @@ class SysSecMemberpermission(Base):
 class SysSecObjectpermission(Base):
     __tablename__ = 'sys_sec_objectpermission'
 
-    Oid = Column(SqlAlchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
     Criteria = Column(Text)
     ReadState = Column(INTEGER(11))
     WriteState = Column(INTEGER(11))
@@ -293,7 +293,7 @@ class SysSecObjectpermission(Base):
 class Image(Base):
     __tablename__ = 'image'
 
-    Oid = Column(SqlAlchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
     original = Column(LargeBinary)
     aligned = Column(LargeBinary)
     fft = Column(LargeBinary)
@@ -339,7 +339,7 @@ class Image(Base):
 class Samplebom(Base):
     __tablename__ = 'samplebom'
 
-    Oid = Column(SqlAlchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
     session = Column(ForeignKey('msession.Oid'), index=True)
     name = Column(String(30))
     quantity = Column(DECIMAL(28, 8))

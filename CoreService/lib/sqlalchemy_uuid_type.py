@@ -1,10 +1,11 @@
 import uuid
+from abc import ABC
 
 from sqlalchemy.types import TypeDecorator, BINARY
 from sqlalchemy.dialects.postgresql import UUID as psqlUUID
 
 
-class SqlAlchemyUuidType(TypeDecorator):
+class SqlalchemyUuidType(TypeDecorator, ABC):
     """Platform-independent GUID type.
 
     Uses Postgresql's UUID type, otherwise uses
@@ -17,8 +18,10 @@ class SqlAlchemyUuidType(TypeDecorator):
     def load_dialect_impl(self, dialect):
         if dialect.name == 'postgresql':
             return dialect.type_descriptor(psqlUUID())
-        else:
+        elif dialect.name == 'mysql':
             return dialect.type_descriptor(BINARY(16))
+        else:
+            return super(uuid.UUID, self).load_dialect_impl(dialect)
 
     def process_bind_param(self, value, dialect):
         if value is None:
@@ -40,7 +43,7 @@ class SqlAlchemyUuidType(TypeDecorator):
         if value is None:
             return value
         if dialect.name == 'postgresql':
-            return (value)
+            return value
             # return uuid.UUID(value)
         else:
             return uuid.UUID(bytes=value)
