@@ -33,7 +33,7 @@ app.include_router(home_router)
 app.include_router(db_router, tags=["Database"], prefix="/db")
 app.include_router(camera_router, tags=["Cameras"], prefix="/cameras")
 app.include_router(image_processing_router, tags=['Image Processing'], prefix="/image-processing")
-app.include_router(image_viewer_router, tags=['Image Viewer'], prefix="/image-viewer")
+app.include_router(image_viewer_router, tags=['Image Viewer - GUI'], prefix="/gui")
 
 
 @app.exception_handler(Exception)

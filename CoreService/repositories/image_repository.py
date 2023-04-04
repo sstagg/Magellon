@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from models.pydantic_models import ImageDto
-from models.sqlalchemy_models import Camera, Image
+from models.sqlalchemy_models import Image
 
 
 class ImageRepository:

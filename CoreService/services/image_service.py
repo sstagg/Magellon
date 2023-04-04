@@ -11,7 +11,7 @@ from services.helper import get_response_image, format_data_by_ext
 def get_images():
     data = []
     root_dir = os.path.join(BASE_PATH, "thumbnails")
-    # root_dir = r"%s/thumbnails/" % BASE_PATH
+    # root_dir = f"{BASE_PATH}/thumbnails/"
     filename_list = os.listdir(root_dir)
     parent_file_ext = set()
     for filename in filename_list:
@@ -54,9 +54,9 @@ def get_image_by_stack(ext: str):
     root_dir = f"{BASE_PATH}/thumbnails/"
     for filename in glob.iglob(root_dir + '*.png', recursive=True):
         item = {}
-        shortName = (filename.rsplit("/", 1)[1]).rsplit(".", 1)[0]  # get image name
-        item['name'] = shortName
-        item['ext'] = shortName.split("_")[5] if len(shortName.split("_")) > 5 else "misc"
+        short_name = (filename.rsplit("/", 1)[1]).rsplit(".", 1)[0]  # get image name
+        item['name'] = short_name
+        item['ext'] = short_name.split("_")[5] if len(short_name.split("_")) > 5 else "misc"
         if ext == item['ext']:
             item['encoded_image'] = get_response_image(filename)
             data.append(item)
