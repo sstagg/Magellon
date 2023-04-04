@@ -5,25 +5,25 @@ from database import get_db
 from repositories.image_repository import ImageRepository
 from services.image_service import get_images, get_image_by_stack, get_fft_image, get_image_data
 
-image_viewer_router = APIRouter()
+webapp_router = APIRouter()
 
 
-@image_viewer_router.get('/images')
+@webapp_router.get('/images')
 def get_images_route():
     return get_images()
 
 
-@image_viewer_router.get('/images_by_stack')
+@webapp_router.get('/images_by_stack')
 def get_images_by_stack_route(ext: str):
     return get_image_by_stack(ext)
 
 
-@image_viewer_router.get('/fft_image')
+@webapp_router.get('/fft_image')
 def get_fft_image_route(name: str):
     return get_fft_image(name)
 
 
-@image_viewer_router.get('/image_data')
+@webapp_router.get('/image_data')
 def get_image_data_route(name: str, db: Session = Depends(get_db)):
     db_image = ImageRepository.fetch_by_name(db, name)
     if db_image is None:
@@ -31,7 +31,7 @@ def get_image_data_route(name: str, db: Session = Depends(get_db)):
     return get_image_data(db_image)
 
 
-@image_viewer_router.get("/image_thumbnail")
+@webapp_router.get("/image_thumbnail")
 async def get_image_thumbnail(name: str):
     # folder = Path(BASE_PATH) / "images"
     return get_image_thumbnail(name)
