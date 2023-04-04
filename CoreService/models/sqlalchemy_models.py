@@ -4,7 +4,7 @@ import uuid
 from sqlalchemy import BINARY, Column, DECIMAL, ForeignKey, Index, String, Text, Boolean, LargeBinary, DateTime
 from sqlalchemy.dialects.mysql import BIGINT,  INTEGER
 from sqlalchemy.orm import relationship
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from sqlalchemy_utils import UUIDType
 
 from lib.sqlalchemy_uuid_type import SqlalchemyUuidType
