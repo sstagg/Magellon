@@ -10,7 +10,7 @@ import os
 from pydantic import BaseModel
 
 from config import BASE_PATH
-
+from fastapi import Request
 from services.helper import get_response_image, format_data_by_ext
 
 
@@ -68,26 +68,24 @@ def get_images():
     res = format_data_by_ext(data)
     return JSONResponse(content={'result': res}, headers={'Access-Control-Allow-Origin': '*'})
 
-#
-# def get_image_by_stack():
-#     args = request.args
-#     ext = args.get('ext')
-#     encoded_images = []
-#     data = []
-#     ''' path contains list of mrc thumbnails '''
-#     root_dir = r"%s/thumbnails/" % BASE_PATH
-#     for filename in glob.iglob(root_dir + '*.png', recursive=True):
-#         item = {}
-#         shortName = (filename.rsplit("/", 1)[1]).rsplit(".", 1)[0]  # get image name
-#         item['name'] = shortName
-#         item['ext'] = shortName.split("_")[5] if len(shortName.split("_")) > 5 else "misc"
-#         if ext == item['ext']:
-#             item['encoded_image'] = get_response_image(filename)
-#             data.append(item)
-#     res = format_data_by_ext(data)
-#     response = jsonify({'result': res})
-#     response.headers.add('Access-Control-Allow-Origin', '*')
-#     return response
+
+# def get_image_by_stack(request: Request):
+def get_image_by_stack(ext : str):
+    # ext = request.query_params.get('ext')
+    encoded_images = []
+    data = []
+    ''' path contains list of mrc thumbnails '''
+    root_dir = r"%s/thumbnails/" % BASE_PATH
+    for filename in glob.iglob(root_dir + '*.png', recursive=True):
+        item = {}
+        shortName = (filename.rsplit("/", 1)[1]).rsplit(".", 1)[0]  # get image name
+        item['name'] = shortName
+        item['ext'] = shortName.split("_")[5] if len(shortName.split("_")) > 5 else "misc"
+        if ext == item['ext']:
+            item['encoded_image'] = get_response_image(filename)
+            data.append(item)
+    res = format_data_by_ext(data)
+    return {'result': res}
 #
 #
 # def get_image_data():

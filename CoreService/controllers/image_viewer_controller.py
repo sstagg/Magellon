@@ -2,13 +2,18 @@ from fastapi import APIRouter, Depends
 from fastapi import Query
 from fastapi.responses import FileResponse
 from pathlib import Path
-
+from fastapi import Request
+from pydantic import BaseModel
 from starlette.responses import StreamingResponse
 
 from config import BASE_PATH
-from services.image_service import get_images
+from services.image_service import get_images, get_image_by_stack
 
 image_viewer_router = APIRouter()
+
+
+class StackImagesQuery(BaseModel):
+    ext: str
 
 
 @image_viewer_router.get('/get_images')
@@ -16,16 +21,16 @@ def get_images_route():
     return get_images()
 
 
-#
-#
 # @image_viewer_router.get('/get_image_by_thumbnail')
 # def get_image_by_thumbnail_route(query: ImageByThumbnailQuery):
 #     return get_image_thumbnail()
 #
 #
-# @image_viewer_router.get('/get_images_by_stack')
-# def get_images_by_stack_route(query: StackImagesQuery):
-#     return get_image_by_stack()
+@image_viewer_router.get('/get_images_by_stack')
+def get_images_by_stack_route(ext: str ):
+    return get_image_by_stack(ext)
+
+
 #
 #
 # @image_viewer_router.get('/get_fft_image')
