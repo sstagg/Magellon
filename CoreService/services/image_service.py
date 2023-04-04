@@ -1,37 +1,14 @@
-from starlette.responses import FileResponse, StreamingResponse, JSONResponse
-
-from config import BASE_PATH
-from pathlib import Path
-
-
 import glob
 import os
 
-from pydantic import BaseModel
+from starlette.responses import FileResponse, JSONResponse
 
 from config import BASE_PATH
-from fastapi import Request
+from models.sqlalchemy_models import Image
 from services.helper import get_response_image, format_data_by_ext
 
 
-# class ImageMetadataQuery(BaseModel):
-#     name: str
-#
-#
-# class FFTImageQuery(BaseModel):
-#     name: str
-#
-#
-# class StackImagesQuery(BaseModel):
-#     ext: str
-#
-#
-# class ImageByThumbnailQuery(BaseModel):
-#     name: str
-#
-#
 def get_images():
-    encoded_images = []
     data = []
     root_dir = os.path.join(BASE_PATH, "thumbnails")
     # root_dir = r"%s/thumbnails/" % BASE_PATH
@@ -70,12 +47,11 @@ def get_images():
 
 
 # def get_image_by_stack(request: Request):
-def get_image_by_stack(ext : str):
+def get_image_by_stack(ext: str):
     # ext = request.query_params.get('ext')
-    encoded_images = []
     data = []
     ''' path contains list of mrc thumbnails '''
-    root_dir = r"%s/thumbnails/" % BASE_PATH
+    root_dir = f"{BASE_PATH}/thumbnails/"
     for filename in glob.iglob(root_dir + '*.png', recursive=True):
         item = {}
         shortName = (filename.rsplit("/", 1)[1]).rsplit(".", 1)[0]  # get image name
@@ -86,45 +62,31 @@ def get_image_by_stack(ext : str):
             data.append(item)
     res = format_data_by_ext(data)
     return {'result': res}
-#
-#
-# def get_image_data():
-#     args = request.args
-#     name = args.get('name')
-#     data = mgDatabase.getImageData(name)
-#     ''' Get pixel size in Angstroms '''
-#     pixelsize = mgDatabase.getPixelSize(data)
-#     ''' Get dose in electrons per Angstrom '''
-#     dose = mgDatabase.getDoseFromImageData(data)
-#     item = {}
-#     item['defocus'] = round(data['preset']['defocus'] * 1.e6, 2)
-#     item['mag'] = data['preset']['magnification']
-#     item['filename'] = data['filename']
-#     item['pixelsize'] = round(pixelsize, 3)
-#     if dose is not None:
-#         item['dose'] = round(dose, 2)
-#     else:
-#         item['dose'] = 'none'
-#     response = jsonify({'result': item})
-#     response.headers.add('Access-Control-Allow-Origin', '*')
-#     return response
-#
-#
 
 
-# def get_fft_image(name: str):
-#     folder = r"%s/FFTs/" % BASE_PATH
-#     return download_png(name, folder)
-#
-#
-# def get_image_thumbnail(name: str):
-#     folder = r"%s/images/" % BASE_PATH
-#     return download_png(name, folder)
+def get_image_data(image: Image):
+    if not image:
+        return {"message": "Image not found."}
+    result = {
+        "filename": image.Name,
+        "defocus": round(float(image.defocus) * 1.e6, 2),
+        "PixelSize": round(float(image.pixelSizeX), 3),
+        "mag": image.mag,
+        "dose": round(image.dose, 2) if image.dose is not None else "none",
+    }
+    return {'result': result}
 
 
-# def download_png(name, folder):
-#     response = send_file(folder + name + '.png', mimetype='image/png')
-#     response.headers.add('Access-Control-Allow-Origin', '*')
-#     return response
+def get_image_thumbnail(name: str):
+    folder = f"{BASE_PATH}/images/"
+    return download_png(name, folder)
 
 
+async def get_fft_image(name: str):
+    folder = f"{BASE_PATH}/FFTs/"
+    return await download_png(name, folder)
+
+
+async def download_png(name: str, folder: str) -> FileResponse:
+    file_path = folder + name + '.png'
+    return FileResponse(file_path, media_type='image/png')
