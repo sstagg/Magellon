@@ -6,7 +6,8 @@ from controllers.camera_controller import camera_router
 from controllers.db_controller import db_router
 from controllers.home_controller import home_router
 from controllers.image_processing_controller import image_processing_router
-# from controllers.image_viewer_controller import image_viewer_router
+from controllers.image_viewer_controller import image_viewer_router
+
 from database import engine, session_local
 import logging
 
@@ -32,11 +33,11 @@ app.include_router(home_router)
 app.include_router(db_router, tags=["Database"], prefix="/db")
 app.include_router(camera_router, tags=["Cameras"], prefix="/cameras")
 app.include_router(image_processing_router, tags=['Image Processing'], prefix="/image-processing")
-# app.include_router(image_viewer_router, tags=['Image Viewer'], prefix="/image-viewer")
+app.include_router(image_viewer_router, tags=['Image Viewer'], prefix="/image-viewer")
 
 
 @app.exception_handler(Exception)
-def validation_exception_handler(request, err):
+def app_exception_handler(request, err):
     base_error_message = f"Failed to execute: {request.method}: {request.url}"
     return JSONResponse(status_code=400, content={"message": f"{base_error_message}. Detail: {err}"})
 

@@ -2,7 +2,8 @@ import os
 
 BASE_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
 
-BASE_PATH = r"/Users/rupalimyskar/Downloads/Stagg Lab/mywork/code/magellonService/images/rawdata"
+BASE_PATH = r"C:\temp\data"
+# BASE_PATH = r"/Users/rupalimyskar/Downloads/Stagg Lab/mywork/code/magellonService/images/rawdata"
 
 # Database Connection information
 # Sample postgresql

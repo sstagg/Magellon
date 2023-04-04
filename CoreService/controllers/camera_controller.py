@@ -24,6 +24,7 @@ async def create_camera(camera_request: CameraDto, db: Session = Depends(get_db)
     """
     logger.info("Creating camera in database")
     # Validate input data
+
     if not camera_request.name:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='Name cannot be empty')
     db_camera = CameraRepository.fetch_by_name(db, name=camera_request.name)

@@ -10,5 +10,7 @@ numpy==1.24.2
 matplotlib==3.7.1
 scipy==1.10.1
 Pillow==9.4.0
-cupy-cuda12x
+cupy-cuda12x==12.0.0
 jinja2
+boto3
+python-multipart

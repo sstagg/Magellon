@@ -23,7 +23,7 @@ from services.db_service import DbService
 from services.image_service import ImageMetadataQuery, FFTImageQuery, StackImagesQuery, ImageByThumbnailQuery, \
     get_images, get_image_thumbnail, get_image_by_stack, get_image_data, get_fft_image
 from services.motioncore_service import Motioncor2Input, MotioncoreService
-from views.fft_view import fft_view
+# from views.fft_view import fft_view
 
 from views.file_rest import transfer_file_and_dir, TransferInput
 # Register the home blueprint
@@ -49,7 +49,7 @@ api = Api(app)
 magellonApiTag = Tag(name="Magellon", description="Magellon Main Service")
 
 app.register_blueprint(home_bp)
-app.register_blueprint(fft_view)
+# app.register_blueprint(fft_view)
 
 
 @app.get('/create-database', tags=[magellonApiTag], description='creates database structure')
