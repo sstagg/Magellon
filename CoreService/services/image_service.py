@@ -3,7 +3,7 @@ import os
 
 from starlette.responses import FileResponse, JSONResponse
 
-from config import  IMAGES_FOLDER, FFT_FOLDER, THUMBNAILS_FOLDER
+from config import FFT_DIR, THUMBNAILS_DIR
 from models.sqlalchemy_models import Image
 from services.helper import get_response_image, format_data_by_ext
 
@@ -12,7 +12,7 @@ def get_images():
     data = []
     # THUMBNAILS_FOLDER = os.path.join(BASE_PATH, "thumbnails")
     # THUMBNAILS_FOLDER = f"{BASE_PATH}/thumbnails/"
-    filename_list = os.listdir(THUMBNAILS_FOLDER)
+    filename_list = os.listdir(THUMBNAILS_DIR)
     parent_file_ext = set()
     for filename in filename_list:
         if len(filename.split("_")) > 6:
@@ -33,7 +33,7 @@ def get_images():
                 # print("else 3 filenames - ", filename)
                 stack_3_images_list.add(filename)
                 count += 1
-    for filename in glob.iglob(THUMBNAILS_FOLDER + '*.png', recursive=True):
+    for filename in glob.iglob(THUMBNAILS_DIR + '*.png', recursive=True):
         if filename.rsplit("/", 1)[1] not in stack_3_images_list:
             continue
         item = {}
@@ -51,7 +51,7 @@ def get_image_by_stack(ext: str):
     # ext = request.query_params.get('ext')
     data = []
     ''' path contains list of mrc thumbnails '''
-    for filename in glob.iglob(THUMBNAILS_FOLDER + '*.png', recursive=True):
+    for filename in glob.iglob(THUMBNAILS_DIR + '*.png', recursive=True):
         item = {}
         short_name = (filename.rsplit("/", 1)[1]).rsplit(".", 1)[0]  # get image name
         item['name'] = short_name
@@ -76,12 +76,8 @@ def get_image_data(image: Image):
     return {'result': result}
 
 
-def get_image_thumbnail(name: str):
-    return download_png(name, IMAGES_FOLDER)
-
-
-async def get_fft_image(name: str):
-    return await download_png(name, FFT_FOLDER)
+# async def get_fft_image(name: str):
+#     return await download_png(name, FFT_DIR)
 
 
 async def download_png(name: str, folder: str) -> FileResponse:

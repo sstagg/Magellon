@@ -3,10 +3,10 @@ import os
 BASE_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
 
 # BASE_PATH = r"/Users/rupalimyskar/Downloads/Stagg Lab/mywork/code/magellonService/images/rawdata"
-BASE_PATH = r"C:\temp\data"
-IMAGES_FOLDER = f"{BASE_PATH}/images/"
-FFT_FOLDER = f"{BASE_PATH}/FFTs/"
-THUMBNAILS_FOLDER = f"{BASE_PATH}/thumbnails/"
+IMAGE_ROOT_DIR = r"C:\temp\data"
+IMAGES_DIR = f"{IMAGE_ROOT_DIR}/images/"
+FFT_DIR = f"{IMAGE_ROOT_DIR}/FFTs/"
+THUMBNAILS_DIR = f"{IMAGE_ROOT_DIR}/thumbnails/"
 # app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://admin:behd1d2@192.168.92.133:3306/magellon03'
 
 # Database Connection information

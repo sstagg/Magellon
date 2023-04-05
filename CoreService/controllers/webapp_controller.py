@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from config import IMAGES_DIR, FFT_DIR
 from database import get_db
 from repositories.image_repository import ImageRepository
-from services.image_service import get_images, get_image_by_stack, get_fft_image, get_image_data
+from services.image_service import get_images, get_image_by_stack,  get_image_data, download_png
 
 webapp_router = APIRouter()
 
@@ -20,7 +21,7 @@ def get_images_by_stack_route(ext: str):
 
 @webapp_router.get('/fft_image')
 def get_fft_image_route(name: str):
-    return get_fft_image(name)
+    return download_png(name, FFT_DIR)
 
 
 @webapp_router.get('/image_data')
@@ -32,9 +33,9 @@ def get_image_data_route(name: str, db: Session = Depends(get_db)):
 
 
 @webapp_router.get("/image_thumbnail")
-async def get_image_thumbnail(name: str):
+async def get_image_thumbnail_route(name: str):
     # folder = Path(BASE_PATH) / "images"
-    return get_image_thumbnail(name)
+    return download_png(name, IMAGES_DIR)
 
 # @image_viewer_router.get("/download_file")
 # async def download_file(file_path: str):
