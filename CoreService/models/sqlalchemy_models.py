@@ -1,7 +1,7 @@
 # coding: utf-8
 import uuid
 
-from sqlalchemy import BINARY, Column, DECIMAL, ForeignKey, Index, String, Text, Boolean, LargeBinary, DateTime
+from sqlalchemy import BINARY, Column, DECIMAL, ForeignKey, Index, String, Text, Boolean, LargeBinary, DateTime, JSON
 from sqlalchemy.dialects.mysql import BIGINT,  INTEGER
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm import declarative_base
@@ -19,6 +19,7 @@ class Camera(Base):
     # Oid = Column(SqlAlchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
     Oid = Column(UUIDType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
     name = Column(String(30))
+    data = Column(JSON)
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)
 

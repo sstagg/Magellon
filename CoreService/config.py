@@ -11,20 +11,20 @@ THUMBNAILS_DIR = f"{IMAGE_ROOT_DIR}/thumbnails/"
 
 # Database Connection information
 # Sample postgresql
-# DB_Driver = 'postgresql+psycopg2'
-# DB_USER = 'postgres'
-# DB_PASSWORD = 'behd1d2'
-# DB_HOST = '192.168.92.133'
-# DB_Port = '5432'
-# DB_NAME = 'magellon04'
-
-# mysql
-DB_Driver = 'mysql+pymysql'
-DB_USER = 'admin'
+DB_Driver = 'postgresql+psycopg2'
+DB_USER = 'postgres'
 DB_PASSWORD = 'behd1d2'
 DB_HOST = '192.168.92.133'
-DB_Port = '3306'
-DB_NAME = 'magellon04'
+DB_Port = '5432'
+DB_NAME = 'magellon05'
+
+# mysql
+# DB_Driver = 'mysql+pymysql'
+# DB_USER = 'admin'
+# DB_PASSWORD = 'behd1d2'
+# DB_HOST = '192.168.92.133'
+# DB_Port = '3306'
+# DB_NAME = 'magellon05'
 
 
 def get_db_connection():
