@@ -1,3 +1,5 @@
+import sqlalchemy
+from sqlalchemy import text, Result
 from sqlalchemy.orm import Session
 from sqlalchemy_utils import create_database, drop_database, database_exists
 from database import get_db
@@ -10,7 +12,7 @@ from models.sqlalchemy_models import metadata
 db_router = APIRouter()
 
 
-@db_router.post("/create_database")
+@db_router.post("/database")
 async def create_app_database(db_session: Session = Depends(get_db)):
     """Create the database and its tables."""
     if not database_exists(get_db_connection()):
@@ -22,8 +24,8 @@ async def create_app_database(db_session: Session = Depends(get_db)):
     return {"message": "Database created successfully."}
 
 
-@db_router.post("/drop_database")
-async def drop_app_database(db: Session = Depends(get_db)):
+@db_router.delete("/database")
+async def drop_app_database():
     """Drop the database and its tables."""
     if database_exists(get_db_connection()):
         drop_database(get_db_connection())  # db.bind.url
@@ -33,10 +35,9 @@ async def drop_app_database(db: Session = Depends(get_db)):
     return {"message": "Database dropped successfully."}
 
 
-async def execute_sql(self, sql: str, db: Session = Depends(get_db()), params=None):
-    with db.connect() as conn:
-        result = conn.execute(sql, params)
-        if result.returns_rows:
-            return result.fetchall()
-        else:
-            return None
+async def execute_sql(sql: str, db: Session = Depends(get_db())):
+    result_proxy: Result = db.execute(text(sql))
+    # Convert the query results into a list of dictionaries.
+    result_list = [dict(row) for row in result_proxy.fetchall()]
+
+    return result_list
