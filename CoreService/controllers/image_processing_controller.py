@@ -27,7 +27,7 @@ async def compute_fft(
     return {"message": f"FFT computed and saved to {destination_path}"}
 
 
-@image_processing_router.post("/get_png_of_mrc")
+@image_processing_router.post("/png_of_mrc")
 # async def get_png_of_mrc(input: UploadFile = File(...), output: str = ""):
 async def get_png_of_mrc(in_dir: str, out_dir: str = ""):
     try:
