@@ -1,3 +1,61 @@
 https://www.linuxtuto.com/how-to-install-postgresql-15-on-debian-11/
+https://www.bigbinary.com/blog/configure-postgresql-to-allow-remote-connection
 
+
+apt update && apt upgrade -y
+apt-get install wget curl gnupg2 -y
+sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
+apt -y update
+apt install postgresql-15 postgresql-client-15 postgresql-contrib-15
+systemctl start postgresql
+systemctl enable postgresql
+ss -antpl | grep 5432
+su postgres
+psql
+ALTER USER postgres PASSWORD 'password';
+
+
+
+
+After set listen_addresses = '*' in postgresql.conf
+
+Edit the pg_hba.conf file and add the following entry at the very end of file:
+
+
+
+psql -U postgres -c 'SHOW config_file'
+add this listen_addresses = '*' after connection settings:
+nano  /etc/postgresql/15/main/postgresql.conf
+
+
+
+psql -t -P format=unaligned -c 'show hba_file';
+nano /etc/postgresql/15/main/pg_hba.conf
+su - postgres -c "psql -t -P format=unaligned -c 'SHOW config_file';"
+
+
+# IPv4 local connections:
+host    all             all             127.0.0.1/32            scram-sha-256
+host    all             all             0.0.0.0/0               md5
+
+
+After set listen_addresses = '*' in postgresql.conf
+
+Edit the pg_hba.conf file and add the following entry at the very end of file:
+
+host    all             all              0.0.0.0/0                       md5
+host    all             all              ::/0                            md5
+
+systemctl restart postgresql
+
+
+CREATE USER behdad WITH PASSWORD 'behd1d54!2';
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO behdad;
+postgres
+
+
+
+netstat -nlt
+telnet 107.170.11.79 5432
 

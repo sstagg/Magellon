@@ -23,7 +23,8 @@ pip freeze > requirements.txt
 # then to install dependencies you need to use:
 pip install -r requirements.txt
 
-python flask -m run
+python.exe -m uvicorn main:app --reload
+
 ```
 
 `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy Unrestricted

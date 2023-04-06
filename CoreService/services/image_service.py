@@ -3,7 +3,7 @@ import os
 
 from starlette.responses import FileResponse, JSONResponse
 
-from config import FFT_DIR, THUMBNAILS_DIR
+from config import THUMBNAILS_DIR
 from models.sqlalchemy_models import Image
 from services.helper import get_response_image, format_data_by_ext
 

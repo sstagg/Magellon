@@ -7,16 +7,17 @@ IMAGE_ROOT_DIR = r"C:\temp\data"
 IMAGES_DIR = f"{IMAGE_ROOT_DIR}/images/"
 FFT_DIR = f"{IMAGE_ROOT_DIR}/FFTs/"
 THUMBNAILS_DIR = f"{IMAGE_ROOT_DIR}/thumbnails/"
+JOBS_DIR = f"{IMAGE_ROOT_DIR}/processing/"
 # app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://admin:behd1d2@192.168.92.133:3306/magellon03'
 
 # Database Connection information
 # Sample postgresql
-DB_Driver = 'postgresql+psycopg2'
-DB_USER = 'postgres'
-DB_PASSWORD = 'behd1d2'
-DB_HOST = '192.168.92.133'
-DB_Port = '5432'
-DB_NAME = 'magellon05'
+# DB_Driver = 'postgresql+psycopg2'
+# DB_USER = 'postgres'
+# DB_PASSWORD = 'behd1d2'
+# DB_HOST = '192.168.92.133'
+# DB_Port = '5432'
+# DB_NAME = 'magellon05'
 
 # mysql
 # DB_Driver = 'mysql+pymysql'
@@ -25,6 +26,14 @@ DB_NAME = 'magellon05'
 # DB_HOST = '192.168.92.133'
 # DB_Port = '3306'
 # DB_NAME = 'magellon05'
+
+# mysql
+DB_Driver = 'mysql+pymysql'
+DB_USER = 'behdad'
+DB_PASSWORD = 'behd1d#3454!2'
+DB_HOST = '5.161.212.237'
+DB_Port = '3306'
+DB_NAME = 'magellon01'
 
 
 def get_db_connection():
