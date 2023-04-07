@@ -81,5 +81,5 @@ def get_image_data(image: Image):
 
 
 async def download_png(name: str, folder: str) -> FileResponse:
-    file_path = folder + name + '.png'
+    file_path = f"{folder}{name}.png"
     return FileResponse(file_path, media_type='image/png')

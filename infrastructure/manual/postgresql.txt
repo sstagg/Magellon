@@ -57,5 +57,5 @@ postgres
 
 
 netstat -nlt
-telnet 107.170.11.79 5432
+telnet 5.161.212.237 5432
 
