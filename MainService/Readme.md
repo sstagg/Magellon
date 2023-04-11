@@ -61,6 +61,8 @@ Add frameTransfer, fft , ctf estimation
 get 
 
 
-`pip install mysqlclient
+`
+pip install mysqlclient
 pip install sqlacodegen
-sqlacodegen mysql://admin:pass@192.168.92.133:3306/magellon01 --outfile models.py`
+sqlacodegen mysql://admin:pass@192.168.92.133:3306/magellon03 --outfile sqlalchemy_models2.py
+`

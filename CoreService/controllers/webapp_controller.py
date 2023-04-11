@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from starlette.responses import FileResponse
 
-from config import  FFT_DIR, THUMBNAILS_DIR
+from config import FFT_DIR, THUMBNAILS_DIR, IMAGES_DIR
 from database import get_db
 from repositories.image_repository import ImageRepository
-from services.image_service import get_images, get_image_by_stack,  get_image_data
+from services.image_file_service import get_images, get_image_by_stack,  get_image_data
 
 webapp_router = APIRouter()
 
@@ -36,14 +36,13 @@ def get_image_data_route(name: str, db: Session = Depends(get_db)):
 
 @webapp_router.get("/image_thumbnail")
 async def get_image_thumbnail_route(name: str):
-    file_path = f"{THUMBNAILS_DIR}{name}.png"
+    file_path = f"{IMAGES_DIR}{name}.png"
     return FileResponse(file_path, media_type='image/png')
 
 # @image_viewer_router.get("/download_file")
 # async def download_file(file_path: str):
 #     return FileResponse(path=file_path, filename=file_path.split("/")[-1])
-#
-#
+
 # @image_viewer_router.get("/download_png/{name}")
 # async def download_png(name: str):
 #     folder = Path(BASE_PATH) / "images"

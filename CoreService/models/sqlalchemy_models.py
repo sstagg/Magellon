@@ -1,10 +1,9 @@
 # coding: utf-8
 import uuid
-
 from sqlalchemy import BINARY, Column, DECIMAL, ForeignKey, Index, String, Text, Boolean, LargeBinary, DateTime, JSON
-from sqlalchemy.dialects.mysql import BIGINT,  INTEGER
+from sqlalchemy.dialects.mysql import BIGINT, INTEGER
 from sqlalchemy.orm import relationship
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy_utils import UUIDType
 
 from lib.sqlalchemy_uuid_type import SqlalchemyUuidType
@@ -19,7 +18,6 @@ class Camera(Base):
     # Oid = Column(SqlAlchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
     Oid = Column(UUIDType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
     name = Column(String(30))
-    data = Column(JSON)
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)
 
@@ -65,7 +63,7 @@ class Sampletype(Base):
 class Xpobjecttype(Base):
     __tablename__ = 'xpobjecttype'
 
-    OID = Column(INTEGER(11), primary_key=True)
+    OID = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
     TypeName = Column(String(254), unique=True)
     AssemblyName = Column(String(254))
 
@@ -105,14 +103,15 @@ class SysSecParty(Base):
     GCRecord = Column(INTEGER(11), index=True)
     ObjectType = Column(ForeignKey('xpobjecttype.OID'), index=True)
     Password = Column(Text)
-    ChangePasswordOnFirstLogon = Column(Boolean,default=True)
+    ChangePasswordOnFirstLogon = Column(Boolean, default=True)
     UserName = Column(String(100))
-    IsActive = Column(Boolean,default= True)
+    IsActive = Column(Boolean, default=True)
     photo = Column(LargeBinary)
 
     xpobjecttype = relationship('Xpobjecttype')
     parent = relationship('SysSecParty', remote_side=[Oid], primaryjoin='SysSecParty.createdBy == SysSecParty.Oid')
-    parent1 = relationship('SysSecParty', remote_side=[Oid], primaryjoin='SysSecParty.lastModifiedBy == SysSecParty.Oid')
+    parent1 = relationship('SysSecParty', remote_side=[Oid],
+                           primaryjoin='SysSecParty.lastModifiedBy == SysSecParty.Oid')
 
 
 class SysSecRole(Base):
@@ -120,8 +119,8 @@ class SysSecRole(Base):
 
     Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
     Name = Column(String(100))
-    IsAdministrative = Column(Boolean,default= True)
-    CanEditModel = Column(Boolean,default= True)
+    IsAdministrative = Column(Boolean, default=True)
+    CanEditModel = Column(Boolean, default=True)
     PermissionPolicy = Column(INTEGER(11))
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)
@@ -173,7 +172,8 @@ class SysSecActionpermission(Base):
 class SysSecLogininfo(Base):
     __tablename__ = 'sys_sec_logininfo'
     __table_args__ = (
-        Index('iLoginProviderNameProviderUserKey_sys_sec_logininfo', 'LoginProviderName', 'ProviderUserKey', unique=True),
+        Index('iLoginProviderNameProviderUserKey_sys_sec_logininfo', 'LoginProviderName', 'ProviderUserKey',
+              unique=True),
     )
 
     Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
@@ -223,7 +223,7 @@ class SysSecUserrole(Base):
 
     People = Column(ForeignKey('sys_sec_party.Oid'), index=True)
     Roles = Column(ForeignKey('sys_sec_role.Oid'), index=True)
-    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
+    OID = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
     OptimisticLockField = Column(INTEGER(11))
 
     sys_sec_party = relationship('SysSecParty')
@@ -234,20 +234,20 @@ class Msession(Base):
     __tablename__ = 'msession'
 
     Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
-    name = Column(String(30))
+    name = Column(String(50))
     project = Column(ForeignKey('project.Oid'), index=True)
     site = Column(ForeignKey('site.Oid'), index=True)
     user = Column(ForeignKey('sys_sec_party.Oid'), index=True)
-    description = Column(String(150))
-    startOn = Column(DateTime)
-    endOn = Column(DateTime)
+    description = Column(String(250))
+    start_on = Column(DateTime)
+    end_on = Column(DateTime)
     microscope = Column(ForeignKey('microscope.Oid'), index=True)
     camera = Column(ForeignKey('camera.Oid'), index=True)
-    sampleType = Column(ForeignKey('sampletype.Oid'), index=True)
-    sampleName = Column(String(30))
-    sampleGridType = Column(ForeignKey('samplegridtype.Oid'), index=True)
-    sampleSequence = Column(String(150))
-    sampleProcedure = Column(Text)
+    sample_type = Column(ForeignKey('sampletype.Oid'), index=True)
+    sample_name = Column(String(50))
+    sample_grid_type = Column(ForeignKey('samplegridtype.Oid'), index=True)
+    sample_sequence = Column(Text)
+    sample_procedure = Column(Text)
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)
 
@@ -291,6 +291,33 @@ class SysSecObjectpermission(Base):
     sys_sec_typepermission = relationship('SysSecTypepermission')
 
 
+class Ctfjob(Base):
+    __tablename__ = 'ctfjob'
+
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
+    name = Column(String(100))
+    description = Column(Text)
+    created_on = Column(DateTime)
+    end_on = Column(DateTime)
+    user = Column(ForeignKey('sys_sec_party.Oid'), index=True)
+    project = Column(ForeignKey('project.Oid'), index=True)
+    msession = Column(ForeignKey('msession.Oid'), index=True)
+    status = Column(INTEGER(11))
+    type = Column(INTEGER(11))
+    data = Column(Text)
+    cs = Column(DECIMAL(28, 8))
+    path = Column(String(255))
+    output_dir = Column(String(255))
+    direction = Column(INTEGER(11))
+    image_selection_criteria = Column(Text)
+    OptimisticLockField = Column(INTEGER(11))
+    GCRecord = Column(INTEGER(11), index=True)
+
+    msession1 = relationship('Msession')
+    project1 = relationship('Project')
+    sys_sec_party = relationship('SysSecParty')
+
+
 class Image(Base):
     __tablename__ = 'image'
 
@@ -299,37 +326,38 @@ class Image(Base):
     aligned = Column(LargeBinary)
     fft = Column(LargeBinary)
     ctf = Column(LargeBinary)
-    Name = Column(String(30))
+    name = Column(String(50))
     path = Column(String(100))
     parent = Column(ForeignKey('image.Oid'), index=True)
     session = Column(ForeignKey('msession.Oid'), index=True)
-    mag = Column(BIGINT(20))
+    magnification = Column(BIGINT(20))
+    dose = Column(DECIMAL(28, 8))
     focus = Column(DECIMAL(28, 8))
     defocus = Column(DECIMAL(28, 8))
-    spotSize = Column(BIGINT(20))
+    spot_size = Column(BIGINT(20))
     intensity = Column(DECIMAL(28, 8))
-    shiftX = Column(DECIMAL(28, 8))
-    shiftY = Column(DECIMAL(28, 8))
-    beamShiftX = Column(DECIMAL(28, 8))
-    beamShiftY = Column(DECIMAL(28, 8))
-    resetFocus = Column(BIGINT(20))
-    screenCurrent = Column(BIGINT(20))
-    beamBank = Column(String(150))
-    condenserX = Column(DECIMAL(28, 8))
-    condenserY = Column(DECIMAL(28, 8))
-    objectiveX = Column(DECIMAL(28, 8))
-    objectiveY = Column(DECIMAL(28, 8))
-    dimensionX = Column(BIGINT(20))
-    dimensionY = Column(BIGINT(20))
-    binningX = Column(BIGINT(20))
-    binningY = Column(BIGINT(20))
-    offsetX = Column(BIGINT(20))
-    offsetY = Column(BIGINT(20))
-    exposureTime = Column(DECIMAL(28, 8))
-    exposureType = Column(BIGINT(20))
-    pixelSizeX = Column(DECIMAL(28, 8))
-    pixelSizeY = Column(DECIMAL(28, 8))
-    energyFiltered = Column(Boolean,default= True)
+    shift_x = Column(DECIMAL(28, 8))
+    shift_y = Column(DECIMAL(28, 8))
+    beam_shift_x = Column(DECIMAL(28, 8))
+    beam_shift_y = Column(DECIMAL(28, 8))
+    reset_focus = Column(BIGINT(20))
+    screen_current = Column(BIGINT(20))
+    beam_bank = Column(String(150))
+    condenser_x = Column(DECIMAL(28, 8))
+    condenser_y = Column(DECIMAL(28, 8))
+    objective_x = Column(DECIMAL(28, 8))
+    objective_y = Column(DECIMAL(28, 8))
+    dimension_x = Column(BIGINT(20))
+    dimension_y = Column(BIGINT(20))
+    binning_x = Column(BIGINT(20))
+    binning_y = Column(BIGINT(20))
+    offset_x = Column(BIGINT(20))
+    offset_y = Column(BIGINT(20))
+    exposure_time = Column(DECIMAL(28, 8))
+    exposure_type = Column(BIGINT(20))
+    pixel_size_x = Column(DECIMAL(28, 8))
+    pixel_size_y = Column(DECIMAL(28, 8))
+    energy_filtered = Column(Boolean,default= True)
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)
 
@@ -337,8 +365,35 @@ class Image(Base):
     msession = relationship('Msession')
 
 
-class Samplebom(Base):
-    __tablename__ = 'samplebom'
+class Particlepickingjob(Base):
+    __tablename__ = 'particlepickingjob'
+
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
+    name = Column(String(100))
+    description = Column(Text)
+    created_on = Column(DateTime)
+    end_on = Column(DateTime)
+    user = Column(ForeignKey('sys_sec_party.Oid'), index=True)
+    project = Column(ForeignKey('project.Oid'), index=True)
+    msession = Column(ForeignKey('msession.Oid'), index=True)
+    status = Column(INTEGER(11))
+    type = Column(INTEGER(11))
+    data = Column(Text)
+    cs = Column(DECIMAL(28, 8))
+    path = Column(String(255))
+    output_dir = Column(String(255))
+    direction = Column(INTEGER(11))
+    image_selection_criteria = Column(Text)
+    OptimisticLockField = Column(INTEGER(11))
+    GCRecord = Column(INTEGER(11), index=True)
+
+    msession1 = relationship('Msession')
+    project1 = relationship('Project')
+    sys_sec_party = relationship('SysSecParty')
+
+
+class Samplematerial(Base):
+    __tablename__ = 'samplematerial'
 
     Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
     session = Column(ForeignKey('msession.Oid'), index=True)
@@ -349,3 +404,44 @@ class Samplebom(Base):
     GCRecord = Column(INTEGER(11), index=True)
 
     msession = relationship('Msession')
+
+
+class Ctfjobitem(Base):
+    __tablename__ = 'ctfjobitem'
+
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
+    job = Column(ForeignKey('ctfjob.Oid'), index=True)
+    image = Column(ForeignKey('image.Oid'), index=True)
+    data = Column(Text)
+    status = Column(INTEGER(11))
+    score = Column(DECIMAL(28, 8))
+    defocus1 = Column(DECIMAL(28, 8))
+    defocus2 = Column(DECIMAL(28, 8))
+    res50 = Column(DECIMAL(28, 8))
+    res80 = Column(DECIMAL(28, 8))
+    tilt_angle = Column(DECIMAL(28, 8))
+    tilt_axis_angle = Column(DECIMAL(28, 8))
+    phase_shift = Column(DECIMAL(28, 8))
+    angle_astigmatism = Column(DECIMAL(28, 8))
+    package_resolution = Column(DECIMAL(28, 8))
+    OptimisticLockField = Column(INTEGER(11))
+    GCRecord = Column(INTEGER(11), index=True)
+
+    image1 = relationship('Image')
+    ctfjob = relationship('Ctfjob')
+
+
+class Particlepickingjobitem(Base):
+    __tablename__ = 'particlepickingjobitem'
+
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
+    job = Column(ForeignKey('particlepickingjob.Oid'), index=True)
+    image = Column(ForeignKey('image.Oid'), index=True)
+    data = Column(Text)
+    status = Column(INTEGER(11))
+    type = Column(INTEGER(11))
+    OptimisticLockField = Column(INTEGER(11))
+    GCRecord = Column(INTEGER(11), index=True)
+
+    image1 = relationship('Image')
+    particlepickingjob = relationship('Particlepickingjob')

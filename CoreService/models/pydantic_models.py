@@ -13,45 +13,69 @@ class CameraDto(BaseModel):
         orm_mode = True
 
 
-class ImageDto(BaseModel):
-    Oid: uuid.UUID = Field(description='Image UUID')
-    Name: str = Field(None, min_length=2, max_length=30, description='Image Name')
+class ImageDtoBase(BaseModel):
+    name: str = Field(None, min_length=2, max_length=30, description='Image Name')
     original: Optional[bytes]
     aligned: Optional[bytes]
     fft: Optional[bytes]
     ctf: Optional[bytes]
     path: Optional[str]
-    parent: Optional[str]
-    session: Optional[str]
-    mag: Optional[int]
+    parent: Optional[uuid.UUID] = None
+    session: uuid.UUID
+    magnification: Optional[int]
+    dose: Optional[float]
     focus: Optional[float]
     defocus: Optional[float]
-    spotSize: Optional[int]
+    spot_size: Optional[int]
     intensity: Optional[float]
-    shiftX: Optional[float]
-    shiftY: Optional[float]
-    beamShiftX: Optional[float]
-    beamShiftY: Optional[float]
-    resetFocus: Optional[int]
-    screenCurrent: Optional[int]
-    beamBank: Optional[str]
-    condenserX: Optional[float]
-    condenserY: Optional[float]
-    objectiveX: Optional[float]
-    objectiveY: Optional[float]
-    dimensionX: Optional[int]
-    dimensionY: Optional[int]
-    binningX: Optional[int]
-    binningY: Optional[int]
-    offsetX: Optional[int]
-    offsetY: Optional[int]
-    exposureTime: Optional[float]
-    exposureType: Optional[int]
-    pixelSizeX: Optional[float]
-    pixelSizeY: Optional[float]
-    energyFiltered: Optional[bool]
-    optimistic_lock_field: Optional[int] = Field(None, description='lock')
-    gcrecord: Optional[int] = Field(None, description='gc')
+    shift_x: Optional[float]
+    shift_y: Optional[float]
+    beam_shift_x: Optional[float]
+    beam_shift_y: Optional[float]
+    reset_focus: Optional[int]
+    screen_current: Optional[int]
+    beam_bank: Optional[str]
+    condenser_x: Optional[float]
+    condenser_y: Optional[float]
+    objective_x: Optional[float]
+    objective_y: Optional[float]
+    dimension_x: Optional[int]
+    dimension_y: Optional[int]
+    binning_x: Optional[int]
+    binning_y: Optional[int]
+    offset_x: Optional[int]
+    offset_y: Optional[int]
+    exposure_time: Optional[float]
+    exposure_type: Optional[int]
+    pixel_size_x: Optional[float]
+    pixel_size_y: Optional[float]
+    energy_filtered: Optional[bool]
+    GCRecord: Optional[int] = None
+
+
+class ImageDtoCreate(ImageDtoBase):
+    pass
+
+
+class ImageDtoUpdate(ImageDtoBase):
+    pass
+
+
+class ImageDtoInDBBase(ImageDtoBase):
+    Oid: uuid.UUID = Field(description='Image UUID')
 
     class Config:
         orm_mode = True
+
+
+class ImageDtoInDB(ImageDtoInDBBase):
+    OptimisticLockField: int
+    GCRecord: Optional[int]
+
+
+class ImageDto(ImageDtoInDBBase):
+    pass
+
+
+class ImageDtoWithParent(ImageDto):
+    parent1: Optional[ImageDto] = None

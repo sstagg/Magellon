@@ -8,10 +8,8 @@ from models.sqlalchemy_models import Image
 from services.helper import get_response_image, format_data_by_ext
 
 
-def get_images():
+def get_images() -> JSONResponse:
     data = []
-    # THUMBNAILS_FOLDER = os.path.join(BASE_PATH, "thumbnails")
-    # THUMBNAILS_FOLDER = f"{BASE_PATH}/thumbnails/"
     filename_list = os.listdir(THUMBNAILS_DIR)
     parent_file_ext = set()
     for filename in filename_list:
@@ -67,10 +65,10 @@ def get_image_data(image: Image):
     if not image:
         return {"message": "Image not found."}
     result = {
-        "filename": image.Name,
+        "filename": image.name,
         "defocus": round(float(image.defocus) * 1.e6, 2),
-        "PixelSize": round(float(image.pixelSizeX), 3),
-        "mag": image.mag,
+        "PixelSize": round(float(image.pixel_size_x), 3),
+        "mag": image.magnification,
         "dose": round(image.dose, 2) if image.dose is not None else "none",
     }
     return {'result': result}
