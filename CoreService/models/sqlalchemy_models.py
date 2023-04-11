@@ -378,7 +378,7 @@ class Particlepickingjob(Base):
     msession = Column(ForeignKey('msession.Oid'), index=True)
     status = Column(INTEGER(11))
     type = Column(INTEGER(11))
-    data = Column(Text)
+    data = Column(JSON)
     cs = Column(DECIMAL(28, 8))
     path = Column(String(255))
     output_dir = Column(String(255))

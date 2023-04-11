@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, Json
 from typing import Optional, List
 import uuid
 
@@ -79,3 +79,42 @@ class ImageDto(ImageDtoInDBBase):
 
 class ImageDtoWithParent(ImageDto):
     parent1: Optional[ImageDto] = None
+
+
+# ================================================================================================
+class ParticlepickingjobitemBase(BaseModel):
+    job: uuid.UUID
+    image: uuid.UUID
+    data: Optional[Json]
+    status: Optional[int]
+    type: Optional[int]
+
+
+class ParticlepickingjobitemCreate(ParticlepickingjobitemBase):
+    pass
+
+
+class ParticlepickingjobitemUpdate(ParticlepickingjobitemBase):
+    pass
+
+
+class ParticlepickingjobitemInDBBase(ParticlepickingjobitemBase):
+    Oid: uuid.UUID
+
+    class Config:
+        orm_mode = True
+
+
+class ParticlepickingjobitemDto(ParticlepickingjobitemInDBBase):
+    pass
+
+
+class Particlepickingjobitem(ParticlepickingjobitemInDBBase):
+    pass
+
+
+class ParticlepickingjobitemInDB(ParticlepickingjobitemInDBBase):
+    GCRecord: Optional[int] = None
+    OptimisticLockField: Optional[int] = None
+
+# ================================================================================================

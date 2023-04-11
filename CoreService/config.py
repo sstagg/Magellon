@@ -3,6 +3,9 @@ import os
 BASE_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
 
 # BASE_PATH = r"/Users/rupalimyskar/Downloads/Stagg Lab/mywork/code/magellonService/images/rawdata"
+IMAGE_ROOT_URL = r"http://localhost/cdn/"
+IMAGE_SUB_URL = r"images/"
+
 IMAGE_ROOT_DIR = r"C:\temp\data"
 IMAGES_DIR = f"{IMAGE_ROOT_DIR}/images/"
 FFT_DIR = f"{IMAGE_ROOT_DIR}/FFTs/"

@@ -2,10 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from starlette.responses import FileResponse
 
-from config import FFT_DIR, THUMBNAILS_DIR, IMAGES_DIR
+from config import FFT_DIR, THUMBNAILS_DIR, IMAGES_DIR, IMAGE_ROOT_URL, IMAGE_SUB_URL
 from database import get_db
+from models.sqlalchemy_models import Particlepickingjobitem
 from repositories.image_repository import ImageRepository
-from services.image_file_service import get_images, get_image_by_stack,  get_image_data
+from repositories.particle_picking_item_repository import ParticlePickingItemRepository
+from services.image_file_service import get_images, get_image_by_stack, get_image_data
 
 webapp_router = APIRouter()
 
@@ -34,10 +36,34 @@ def get_image_data_route(name: str, db: Session = Depends(get_db)):
     return get_image_data(db_image)
 
 
+@webapp_router.get('/particles')
+def get_image_particles(name: str, db: Session = Depends(get_db)):
+    db_image = ImageRepository.fetch_by_name(db, name)
+    if db_image is None:
+        raise HTTPException(status_code=404, detail="image not found with the given name")
+
+    # Get all Particlepickingjobitems associated with the image
+    db_ppis = db.query(Particlepickingjobitem).filter(Particlepickingjobitem.image == db_image.Oid).all()
+    if db_ppis is None:
+        raise HTTPException(status_code=404, detail="Particle Picking not found for given image name")
+    return db_ppis
+# @webapp_router.get('/particles2')
+# def get_image_particles2(name: str, db: Session = Depends(get_db)):
+#     particlepickingjobitems = db.query(Particlepickingjobitem).join(Image).filter(Image.name == image_name).all()
+#     if not particlepickingjobitems:
+#         raise HTTPException(status_code=404, detail="No Particlepickingjobitems found for Image")
+#     return particlepickingjobitems
+
+
 @webapp_router.get("/image_thumbnail")
 async def get_image_thumbnail_route(name: str):
     file_path = f"{IMAGES_DIR}{name}.png"
     return FileResponse(file_path, media_type='image/png')
+
+
+@webapp_router.get("/image_thumbnail_url")
+async def get_image_thumbnail_url_route(name: str):
+    return f"{IMAGE_ROOT_URL}{IMAGE_SUB_URL}{name}.png"
 
 # @image_viewer_router.get("/download_file")
 # async def download_file(file_path: str):
