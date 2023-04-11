@@ -437,7 +437,7 @@ class Particlepickingjobitem(Base):
     Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
     job = Column(ForeignKey('particlepickingjob.Oid'), index=True)
     image = Column(ForeignKey('image.Oid'), index=True)
-    data = Column(Text)
+    data = Column(JSON)
     status = Column(INTEGER(11))
     type = Column(INTEGER(11))
     OptimisticLockField = Column(INTEGER(11))
