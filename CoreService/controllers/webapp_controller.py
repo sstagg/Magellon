@@ -67,7 +67,7 @@ def get_image_particles2(oid: UUID, db: Session = Depends(get_db)):
     return ppji[0].data
 
 
-@webapp_router.get("/image_thumbnail")
+@webapp_router.get("/image_by_thumbnail")
 async def get_image_thumbnail_route(name: str):
     file_path = f"{IMAGES_DIR}{name}.png"
     return FileResponse(file_path, media_type='image/png')
