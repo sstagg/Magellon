@@ -6,6 +6,7 @@ from starlette.responses import FileResponse
 
 from config import FFT_DIR, THUMBNAILS_DIR, IMAGES_DIR, IMAGE_ROOT_URL, IMAGE_SUB_URL
 from database import get_db
+from models.pydantic_models import ParticlepickingjobitemUpdate
 from models.sqlalchemy_models import Particlepickingjobitem, Image
 from repositories.image_repository import ImageRepository
 from repositories.particle_picking_item_repository import ParticlePickingItemRepository
@@ -52,29 +53,46 @@ def get_image_data_route(name: str, db: Session = Depends(get_db)):
 
 
 @webapp_router.get('/particles')
-def get_image_particles2(name: str, db: Session = Depends(get_db)):
-    particlepickingjobitems = db.query(Particlepickingjobitem).join(Image).filter(Image.name == name).all()
+def get_image_particles(image_name: str, db: Session = Depends(get_db)):
+    particlepickingjobitems = db.query(Particlepickingjobitem).join(Image).filter(Image.name == image_name).all()
     if not particlepickingjobitems:
         raise HTTPException(status_code=404, detail="No Particlepickingjobitems found for Image")
     return particlepickingjobitems
 
 
-@webapp_router.get('/particles/{oid}')
-def get_image_particles2(oid: UUID, db: Session = Depends(get_db)):
+@webapp_router.get('/particles/{oid}', summary="gets an image particles json by its unique id")
+def get_image_particle_by_id(oid: UUID, db: Session = Depends(get_db)):
     ppji = db.query(Particlepickingjobitem).filter(Particlepickingjobitem.Oid == oid).all()
     if not ppji:
         raise HTTPException(status_code=404, detail="No Particlepickingjobitem found for Image")
     return ppji[0].data
 
 
+@webapp_router.put("/particles/{oid}", summary="gets particles oid and data and updates it")
+def update_particle_picking_jobitem(oid: UUID,
+                                    req_body: str,
+                                    db: Session = Depends(get_db)):
+    try:
+        db_item = db.query(Particlepickingjobitem).filter(Particlepickingjobitem.Oid == oid).first()
+        if not db_item:
+            raise HTTPException(status_code=404, detail="Particle picking job item not found")
+        db_item.data = req_body
+        db.commit()
+        db.refresh(db_item)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error updating Particle picking job item: {str(e)}")
+    return db_item
+
+
 @webapp_router.get("/image_by_thumbnail")
-async def get_image_thumbnail_route(name: str):
+async def get_image_thumbnail(name: str):
     file_path = f"{IMAGES_DIR}{name}.png"
     return FileResponse(file_path, media_type='image/png')
 
 
 @webapp_router.get("/image_thumbnail_url")
-async def get_image_thumbnail_url_route(name: str):
+async def get_image_thumbnail_url(name: str):
     return f"{IMAGE_ROOT_URL}{IMAGE_SUB_URL}{name}.png"
 
 # @image_viewer_router.get("/download_file")
