@@ -9,7 +9,7 @@ from database import get_db
 from models.pydantic_models import ParticlepickingjobitemUpdate
 from models.sqlalchemy_models import Particlepickingjobitem, Image
 from repositories.image_repository import ImageRepository
-from repositories.particle_picking_item_repository import ParticlePickingItemRepository
+from repositories.particle_picking_item_repository import ParticlepickingjobitemRepository
 from services.image_file_service import get_images, get_image_by_stack, get_image_data
 
 webapp_router = APIRouter()
