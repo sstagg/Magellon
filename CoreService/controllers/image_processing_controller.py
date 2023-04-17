@@ -31,7 +31,7 @@ mrc_service = MrcImageService()
 
 @image_processing_router.post("/png_of_mrc_dir",
                               summary="Reads each MRC file from the input directory, converts it to a PNG image, and saves the resulting image to the output directory (if provided). If the out_dir argument is not specified, the PNG files are saved in the same directory as the MRC files. ")
-async def get_png_of_mrc(in_dir: str, out_dir: str = ""):
+async def png_of_mrc_dir(in_dir: str, out_dir: str = ""):
     try:
         # in_dir = "C:/temp/images/"
         # out_dir = "C:/temp/images/"
@@ -45,11 +45,37 @@ async def get_png_of_mrc(in_dir: str, out_dir: str = ""):
 @image_processing_router.post("/png_of_mrc_file",
                               summary="gets a mrc file, converts it to a PNG image, and saves the resulting image to the output directory (if provided). If the out_dir argument is not specified, the PNG files are saved in the same directory as the MRC files. ")
 # async def get_png_of_mrc(input: UploadFile = File(...), output: str = ""):
-async def get_png_of_mrc(abs_file_path: str, out_dir: str = ""):
+async def png_of_mrc_file(abs_file_path: str, out_dir: str = ""):
     try:
         # out_dir = "C:/temp/images/"
         mrc_service.convert_mrc_to_png(abs_file_path=abs_file_path, out_dir=out_dir)
         return {"message": "MRC file successfully converted to PNG!"}
+
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@image_processing_router.post("/fft_of_mrc_dir",
+                              summary="Reads each MRC file from the input directory, converts it to a fft PNG image, and saves the resulting image to the output directory (if provided). If the out_dir argument is not specified, the PNG files are saved in the same directory as the MRC files. ")
+async def fft_of_mrc_dir(in_dir: str, out_dir: str = ""):
+    try:
+        # in_dir = "C:/temp/images/"
+        # out_dir = "C:/temp/images/"
+        mrc_service.compute_dir_fft(in_dir=in_dir, out_dir=out_dir)
+        return {"message": "MRC files successfully converted to FFT PNG!"}
+
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@image_processing_router.post("/fft_of_mrc_file",
+                              summary="gets a mrc file, converts it to a fft PNG image, and saves the resulting image to the output directory (if provided). If the out_dir argument is not specified, the PNG files are saved in the same directory as the MRC files. ")
+# async def get_png_of_mrc(input: UploadFile = File(...), output: str = ""):
+async def fft_of_mrc_file(abs_file_path: str, abs_out_file_name: str = ""):
+    try:
+        # out_dir = "C:/temp/images/"
+        mrc_service.compute_file_fft(mrc_abs_path=abs_file_path, abs_out_file_name=abs_out_file_name)
+        return {"message": "MRC file successfully converted to fft PNG!"}
 
     except Exception as e:
         return {"error": str(e)}

@@ -16,7 +16,7 @@ Activate the virtual environment by running the following command:
 This will activate the virtual environment and change your prompt to reflect that you are now working inside it.
 Note: If you are using Windows, the activation command is slightly different: env\Scripts\activate
 Once you've activated the virtual environment, you can install packages and work on your project without affecting the global Python installation. To exit the virtual environment, simply run the command deactivate.
-
+rm -fr ".git/rebase-merge"
 ```
 # we have used following command to capture requirements:
 pip freeze > requirements.txt
