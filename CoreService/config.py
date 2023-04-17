@@ -6,6 +6,7 @@ BASE_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
 IMAGE_ROOT_URL = r"http://localhost/cdn/"
 IMAGE_SUB_URL = r"images/"
 THUMBNAILS_SUB_URL = r"thumbnails/"
+FFT_SUB_URL = r"FFTs/"
 
 IMAGE_ROOT_DIR = r"C:\temp\data"
 IMAGES_DIR = f"{IMAGE_ROOT_DIR}/images/"
