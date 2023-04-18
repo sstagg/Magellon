@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
 import { ImagesService } from '../images.service';
 import { DomSanitizer } from '@angular/platform-browser';
 
@@ -15,11 +15,17 @@ export interface ImageExtModel {
 }
 
 export interface ImageSpec {
-  defocus : string
+  defocus: string
   mag: string
   filename: string
   pixelsize: string
   dose: string
+}
+
+export interface sample_arr {
+  x: string;
+  y: string;
+  size: string;
 }
 
 @Component({
@@ -33,6 +39,7 @@ export class ViewImagesComponent implements OnInit {
   fftImageUrl: any;
   enableFFT: boolean = false;
   unsafeImageUrl: any;
+  unsafeFFTImageUrl: any;
   imageIdx: number = 0;
   extIdx: number = 0;
   imageModelArr: ImageExtModel[] = [];
@@ -46,9 +53,19 @@ export class ViewImagesComponent implements OnInit {
     pixelsize: '',
     dose: ''
   };
-  imageScale : number = 0;
-  imageScalePixel : number = 0;
-  imageScaleInAngstrom : boolean = false;
+  imageScale: number = 0;
+  imageScalePixel: number = 0;
+  imageScaleInAngstrom: boolean = false;
+  canvas: any;
+  ctx: any;
+  pointSize: number = 18;
+  element: Element;
+  root: Element;
+
+  particlePickJobType: string[] = []
+  pickType: string;
+  selected = "Select"
+  pickTypeEnable: boolean = false
 
 
   constructor(private imageService: ImagesService, private sanitizer: DomSanitizer) { }
@@ -106,9 +123,11 @@ export class ViewImagesComponent implements OnInit {
     this.imageService.getImageByThumbnail(imageName)
       .subscribe((data: any) => {
         this.unsafeImageUrl = URL.createObjectURL(data);
+        this.setCanvasBackground()
         this.imageUrl = this.sanitizer.bypassSecurityTrustUrl(this.unsafeImageUrl);
       })
-     this.getImageDataByName();
+    this.getImageDataByName();
+    this.setParticleJob();
   }
 
   showUnstack(index: number) {
@@ -148,8 +167,8 @@ export class ViewImagesComponent implements OnInit {
   getFFTImage(): void {
     this.imageService.getFFTImageByName(this.imageName)
       .subscribe((data: any) => {
-        this.unsafeImageUrl = URL.createObjectURL(data);
-        this.fftImageUrl = this.sanitizer.bypassSecurityTrustUrl(this.unsafeImageUrl);
+        this.unsafeFFTImageUrl = URL.createObjectURL(data);
+        this.fftImageUrl = this.sanitizer.bypassSecurityTrustUrl(this.unsafeFFTImageUrl);
       })
   }
 
@@ -157,24 +176,124 @@ export class ViewImagesComponent implements OnInit {
     this.enableFFT = !this.enableFFT;
     if (this.enableFFT) {
       this.getFFTImage();
+      this.pickTypeEnable = true;
+    } else {
+      this.pickTypeEnable = false;
+      this.getCenterImage(this.imageName);
+      this.drawParticlesByOid();
     }
   }
 
   // Get image specifications like defocus, magnification
-  getImageDataByName() : void {
+  getImageDataByName(): void {
     this.imageService.getImageDataByName(this.imageName)
-    .subscribe((data: any) => {
-      this.imageSpec['defocus'] = data.result.defocus
-      this.imageSpec['mag'] = data.result.mag
-      this.imageSpec['filename'] = data.result.filename + '.mrc'
-      this.imageSpec['pixelsize'] = data.result.pixelsize
-      this.imageSpec['dose'] = data.result.dose
-      this.imageScale = Math.round((1024 * 0.1 * (data.result.pixelsize))/ 4)
-      this.imageScaleInAngstrom = this.imageScale < 1000 ? true : false
-      this.imageScalePixel = Math.round(this.imageScale / ((data.result.pixelsize)* 0.1))
-      this.imageScale = this.imageScale < 1000 ? this.imageScale * 10 : this.imageScale
-      console.log("imageScale : " + this.imageScale)
-      console.log("imageScalePixel : " + this.imageScalePixel)
-    })
-   }
+      .subscribe((data: any) => {
+        this.imageSpec['defocus'] = data.result.defocus
+        this.imageSpec['mag'] = data.result.mag
+        this.imageSpec['filename'] = data.result.filename + '.mrc'
+        this.imageSpec['pixelsize'] = data.result.PixelSize
+        this.imageSpec['dose'] = data.result.dose
+        this.imageScale = Math.round((1024 * 0.1 * (data.result.PixelSize)) / 4)
+        this.imageScaleInAngstrom = this.imageScale < 1000 ? true : false
+        this.imageScalePixel = Math.round(this.imageScale / ((data.result.PixelSize) * 0.1))
+        this.imageScale = this.imageScale < 1000 ? this.imageScale * 10 : this.imageScale
+        console.log("imageScale : " + this.imageScale)
+        console.log("imageScalePixel : " + this.imageScalePixel)
+      })
+  }
+
+  setParticleJob(): void {
+    this.imageService.getParticles(this.imageName)
+      .subscribe((data: any) => {
+        this.particlePickJobType = []
+        for (var i in data) {
+          this.particlePickJobType.push(data[i].Oid)
+        }
+      })
+  }
+
+  drawParticlesByOid(): void {
+    this.imageService.getParticles(this.imageName)
+      .subscribe((data: any) => {
+        console.log(this.selected)
+        for (var i in data) {
+          if (this.selected == data[i].Oid) {
+            this.clearCanvas()
+            const img_cor: { x: string, y: string, score: string }[] = data[i].data.particles
+            img_cor.forEach(ele => {
+              this.drawCoordinates(ele.x, ele.y)
+            })
+          }
+        }
+      })
+  }
+
+  pickDropdownUpdate(e: any) {
+    this.selected = e.target.value
+    if(this.selected == "default"){
+      this.clearCanvas()
+    }else{
+      this.drawParticlesByOid()
+    }
+  }
+
+  setCanvasBackground(): void {
+    this.canvas = <HTMLCanvasElement>document.getElementById("canvas");
+    let bg = `url(${this.unsafeImageUrl})`
+    this.canvas.style.backgroundImage = bg
+    this.canvas.style.backgroundSize = "760px 760px"
+    this.ctx = this.canvas.getContext("2d");
+  }
+
+  clearCanvas(): void{
+    //Clear canvas
+    const context = this.canvas.getContext('2d');
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+  }
+
+  getPosition(event: any) {
+
+    this.element = <Element>this.root;
+    this.canvas = <HTMLCanvasElement>document.getElementById("canvas");
+    
+    this.setCanvasBackground()
+
+    let curleft = 0,
+      curtop = 0;
+
+    curleft += event.offsetX;
+    curtop += event.offsetY;
+    this.drawCoordinates(curleft, curtop);
+  }
+
+  drawCoordinates(x: any, y: any) {
+    console.log("inside draw method")
+    console.log('x : ', x)
+    console.log('y : ', y)
+
+    this.canvas = <HTMLCanvasElement>document.getElementById("canvas");
+    this.ctx = this.canvas.getContext("2d");
+    const grd = this.ctx.createLinearGradient(0, 0, 170, 0);
+    grd.addColorStop(0, "black");
+    grd.addColorStop(1, "red");
+    this.ctx.strokeStyle = 'rgb(255,0,0, 0.3)';
+    this.ctx.lineWidth = 5
+
+    this.ctx.beginPath();
+    this.ctx.arc(Number(x), Number(y), this.pointSize, 0, Math.PI * 2, true);
+    this.ctx.stroke();
+
+    const coord = "x=" + x + ", y=" + y;
+    const p = this.ctx.getImageData(x, y, 1, 1).data;
+    const hex = "#" + ("000000" + this.rgbToHex(p[0], p[1], p[2])).slice(-6);
+    console.log(hex);
+  }
+
+  rgbToHex(r: any, g: any, b: any) {
+    if (r > 255 || g > 255 || b > 255)
+      throw "Invalid color component";
+    return ((r << 16) | (g << 8) | b).toString(16);
+  }
+
+
 }

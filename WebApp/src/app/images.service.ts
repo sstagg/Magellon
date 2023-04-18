@@ -6,32 +6,37 @@ import { HttpClient } from '@angular/common/http';
 })
 export class ImagesService {
 
-  baseUrl: string = "http://127.0.0.1:8000/"
+  baseUrl: string = "http://127.0.0.1:8000/web/"
 
   constructor(private httpClient: HttpClient) { }
 
   public getAllImages() {
-    return this.httpClient.get(this.baseUrl + 'web/images'
+    return this.httpClient.get(this.baseUrl + 'images'
     );
   }
 
   public getImageByThumbnail(name: string) {
-    return this.httpClient.get(this.baseUrl + 'web/image_by_thumbnail' + '?name=' + name, {
+    return this.httpClient.get(this.baseUrl + 'image_by_thumbnail' + '?name=' + name, {
       responseType: 'blob'
     });
   }
 
   public getImagesByStack(ext: string) {
-    return this.httpClient.get(this.baseUrl + 'web/images_by_stack' + '?ext=' + ext);
+    return this.httpClient.get(this.baseUrl + 'images_by_stack' + '?ext=' + ext);
   }
 
   public getFFTImageByName(name: string) {
-    return this.httpClient.get(this.baseUrl + 'web/fft_image' + '?name=' + name, {
+    return this.httpClient.get(this.baseUrl + 'fft_image' + '?name=' + name, {
       responseType: 'blob'
     });
   }
 
   public getImageDataByName(name: string) {
-    return this.httpClient.get(this.baseUrl + 'web/image_data' + '?name=' + name);
+    return this.httpClient.get(this.baseUrl + 'image_data' + '?name=' + name);
   }
+
+  public getParticles(name: string) {
+    return this.httpClient.get(this.baseUrl + 'particles' + '?image_name=' + name);
+  }
+
 }
