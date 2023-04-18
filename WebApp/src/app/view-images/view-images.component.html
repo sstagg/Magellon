@@ -57,11 +57,22 @@
                     <br>
                     &nbsp; <span>{{imageSpec.filename}}</span>
                 </label>
+                <label class="h5 border-0" style="align-items: center; font-weight: normal !important;">&nbsp; Particle
+                    pick &nbsp;</label>
+                <select class="h5" [disabled]=pickTypeEnable style="align-items: center; font-weight: normal !important;"
+                    (change)="pickDropdownUpdate($event);">
+                    <option value="default">Select</option>
+                    <option *ngFor="let pickType of particlePickJobType" [value]="pickType">
+                        {{pickType}}
+                    </option>
+                </select>
                 <div class="center-img-container">
-                    <img [src]="!enableFFT ? imageUrl : fftImageUrl" class="img-thumbnail" />
+                    <canvas id="canvas" *ngIf=!enableFFT width="760" height="760" (click)="getPosition($event)"
+                        style="cursor:crosshair;"></canvas>
+                    <img id="main_img" *ngIf=enableFFT [src]="fftImageUrl" class="img-thumbnail" />
                     <div *ngIf="!imageScaleInAngstrom" class="bottom-left">{{imageScale}} nm</div>
                     <div *ngIf="imageScaleInAngstrom" class="bottom-left">{{imageScale}} Å</div>
-                    <hr class="bottom-left-scale" [style.width.px]="imageScalePixel"/>
+                    <hr class="bottom-left-scale" [style.width.px]="imageScalePixel" />
                 </div>
             </div>
         </div>
