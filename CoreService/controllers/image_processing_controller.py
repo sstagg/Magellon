@@ -1,4 +1,9 @@
-from fastapi import APIRouter
+import os
+import subprocess
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+
 # from fastapi import APIRouter, Depends, UploadFile, File
 
 # from services.image_fft_service import ImageFFTService
@@ -79,6 +84,37 @@ async def fft_of_mrc_file(abs_file_path: str, abs_out_file_name: str = ""):
 
     except Exception as e:
         return {"error": str(e)}
+
+
+class MotionCor2Input(BaseModel):
+    input_movie: str
+    output_folder: str
+    binning_factor: int
+
+
+@image_processing_router.post("/run_motioncor2")
+async def run_motioncor2(input_data: MotionCor2Input):
+    # Check if input movie file exists
+    if not os.path.isfile(input_data.input_movie):
+        raise HTTPException(status_code=400, detail="Input movie file not found.")
+
+    # Create output folder if it doesn't exist
+    if not os.path.exists(input_data.output_folder):
+        os.makedirs(input_data.output_folder)
+
+    # Run MotionCor2 command
+    command = f"MotionCor2 -InMrc {input_data.input_movie} -OutMrc {input_data.output_folder} " \
+              f"-Patch 5 5 -Gpu 0 -Bft {input_data.binning_factor}"
+    process = subprocess.Popen(command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = process.communicate()
+
+    # Check if MotionCor2 ran successfully
+    if process.returncode != 0:
+        raise HTTPException(status_code=500, detail=f"MotionCor2 command failed with error: {stderr.decode()}")
+
+    # Return success response with output folder path
+    return {"message": "MotionCor2 command successfully executed.",
+            "output_folder": input_data.output_folder}
 
 # @image_processing_router.post("/get_png_of_mrc")
 # # async def get_png_of_mrc(input: UploadFile = File(...), output: str = ""):
