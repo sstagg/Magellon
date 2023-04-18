@@ -22,12 +22,6 @@ export interface ImageSpec {
   dose: string
 }
 
-export interface sample_arr {
-  x: string;
-  y: string;
-  size: string;
-}
-
 @Component({
   selector: 'app-view-images',
   templateUrl: './view-images.component.html',
