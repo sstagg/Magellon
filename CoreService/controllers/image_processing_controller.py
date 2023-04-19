@@ -1,9 +1,12 @@
 import os
 import subprocess
+from PIL import Image
+from io import BytesIO
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel
 
+from services.motioncor2_service import MotionCor2Service
 # from fastapi import APIRouter, Depends, UploadFile, File
 
 # from services.image_fft_service import ImageFFTService
@@ -35,7 +38,10 @@ mrc_service = MrcImageService()
 
 
 @image_processing_router.post("/png_of_mrc_dir",
-                              summary="Reads each MRC file from the input directory, converts it to a PNG image, and saves the resulting image to the output directory (if provided). If the out_dir argument is not specified, the PNG files are saved in the same directory as the MRC files. ")
+                              summary="Reads each MRC file from the input directory, converts it to a PNG image, "
+                                      "and saves the resulting image to the output directory (if provided). If the "
+                                      "out_dir argument is not specified, the PNG files are saved in the same "
+                                      "directory as the MRC files. ")
 async def png_of_mrc_dir(in_dir: str, out_dir: str = ""):
     try:
         # in_dir = "C:/temp/images/"
@@ -48,7 +54,9 @@ async def png_of_mrc_dir(in_dir: str, out_dir: str = ""):
 
 
 @image_processing_router.post("/png_of_mrc_file",
-                              summary="gets a mrc file, converts it to a PNG image, and saves the resulting image to the output directory (if provided). If the out_dir argument is not specified, the PNG files are saved in the same directory as the MRC files. ")
+                              summary="gets a mrc file, converts it to a PNG image, and saves the resulting image to "
+                                      "the output directory (if provided). If the out_dir argument is not specified, "
+                                      "the PNG files are saved in the same directory as the MRC files. ")
 # async def get_png_of_mrc(input: UploadFile = File(...), output: str = ""):
 async def png_of_mrc_file(abs_file_path: str, out_dir: str = ""):
     try:
@@ -61,7 +69,10 @@ async def png_of_mrc_file(abs_file_path: str, out_dir: str = ""):
 
 
 @image_processing_router.post("/fft_of_mrc_dir",
-                              summary="Reads each MRC file from the input directory, converts it to a fft PNG image, and saves the resulting image to the output directory (if provided). If the out_dir argument is not specified, the PNG files are saved in the same directory as the MRC files. ")
+                              summary="Reads each MRC file from the input directory, converts it to a fft PNG image, "
+                                      "and saves the resulting image to the output directory (if provided). If the "
+                                      "out_dir argument is not specified, the PNG files are saved in the same "
+                                      "directory as the MRC files. ")
 async def fft_of_mrc_dir(in_dir: str, out_dir: str = ""):
     try:
         # in_dir = "C:/temp/images/"
@@ -74,7 +85,9 @@ async def fft_of_mrc_dir(in_dir: str, out_dir: str = ""):
 
 
 @image_processing_router.post("/fft_of_mrc_file",
-                              summary="gets a mrc file, converts it to a fft PNG image, and saves the resulting image to the output directory (if provided). If the out_dir argument is not specified, the PNG files are saved in the same directory as the MRC files. ")
+                              summary="gets a mrc file, converts it to a fft PNG image, and saves the resulting image "
+                                      "to the output directory (if provided). If the out_dir argument is not "
+                                      "specified, the PNG files are saved in the same directory as the MRC files. ")
 # async def get_png_of_mrc(input: UploadFile = File(...), output: str = ""):
 async def fft_of_mrc_file(abs_file_path: str, abs_out_file_name: str = ""):
     try:
@@ -86,10 +99,49 @@ async def fft_of_mrc_file(abs_file_path: str, abs_out_file_name: str = ""):
         return {"error": str(e)}
 
 
+@image_processing_router.post("/ctf")
+async def calculate_ctf(abs_file_path: str, abs_out_file_name: str = ""):
+    """Calculate the CTF of an uploaded image."""
+    try:
+        # out_dir = "C:/temp/images/"
+        mrc_service.calculate_and_save_ctf( mrc_path=abs_file_path, save_path=abs_out_file_name)
+        # Normalize CTF to 0-255 range and convert to uint8
+        return {"message": "MRC file successfully converted to fft PNG!"}
+
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# @image_processing_router.post("/ctf")
+# async def calculate_ctf(image_file: UploadFile = File(...)):
+#     """Calculate the CTF of an uploaded image."""
+#     # Load image
+#     img = Image.open(BytesIO(await image_file.read())).convert("L")
+#     image = np.array(img)
+#
+#     # Calculate CTF
+#     ctf_image = ctf(image)
+#
+#     # Return CTF as a dictionary
+#     return {"ctf": ctf_image.tolist()}
+
+
 class MotionCor2Input(BaseModel):
     input_movie: str
     output_folder: str
     binning_factor: int
+
+
+@image_processing_router.post("/motioncor2")
+def run_motioncor2_2(input_data: MotionCor2Input):
+    motioncor2_service = MotionCor2Service()
+    motioncor2_service.setup(input_data.json())
+    motioncor2_service.process()
+
+    return {
+        "output_mrc": motioncor2_service.output_mrc,
+        "log_file": motioncor2_service.log_file
+    }
 
 
 @image_processing_router.post("/run_motioncor2")

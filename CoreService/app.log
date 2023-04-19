@@ -2070,3 +2070,39 @@ FROM particlepickingjobitem INNER JOIN image ON image.`Oid` = particlepickingjob
 WHERE image.name = %(name_1)s
 2023-04-12 14:34:51,312 [INFO] sqlalchemy.engine.Engine base.py:1901 - [cached since 1922s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl'}
 2023-04-12 14:34:51,348 [INFO] sqlalchemy.engine.Engine base.py:1114 - ROLLBACK
+2023-04-18 14:44:54,199 [INFO] sqlalchemy.engine.Engine base.py:1896 - SELECT DATABASE()
+2023-04-18 14:44:54,199 [INFO] sqlalchemy.engine.Engine base.py:1901 - [raw sql] {}
+2023-04-18 14:44:54,269 [INFO] sqlalchemy.engine.Engine base.py:1896 - SELECT @@sql_mode
+2023-04-18 14:44:54,269 [INFO] sqlalchemy.engine.Engine base.py:1901 - [raw sql] {}
+2023-04-18 14:44:54,305 [INFO] sqlalchemy.engine.Engine base.py:1896 - SELECT @@lower_case_table_names
+2023-04-18 14:44:54,305 [INFO] sqlalchemy.engine.Engine base.py:1901 - [raw sql] {}
+2023-04-18 14:44:54,374 [INFO] sqlalchemy.engine.Engine base.py:1088 - BEGIN (implicit)
+2023-04-18 14:44:54,374 [INFO] sqlalchemy.engine.Engine base.py:1896 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job AS particlepickingjobitem_job, particlepickingjobitem.image AS particlepickingjobitem_image, particlepickingjobitem.data AS particlepickingjobitem_data, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord` 
+FROM particlepickingjobitem INNER JOIN image ON image.`Oid` = particlepickingjobitem.image 
+WHERE image.name = %(name_1)s
+2023-04-18 14:44:54,374 [INFO] sqlalchemy.engine.Engine base.py:1901 - [generated in 0.00028s] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl'}
+2023-04-18 14:44:54,414 [INFO] sqlalchemy.engine.Engine base.py:1114 - ROLLBACK
+2023-04-18 14:45:43,759 [INFO] sqlalchemy.engine.Engine base.py:1088 - BEGIN (implicit)
+2023-04-18 14:45:43,759 [INFO] sqlalchemy.engine.Engine base.py:1896 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job AS particlepickingjobitem_job, particlepickingjobitem.image AS particlepickingjobitem_image, particlepickingjobitem.data AS particlepickingjobitem_data, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord` 
+FROM particlepickingjobitem 
+WHERE particlepickingjobitem.`Oid` = %(Oid_1)s
+2023-04-18 14:45:43,759 [INFO] sqlalchemy.engine.Engine base.py:1901 - [generated in 0.00028s] {'Oid_1': b'%\x97\xb6B\xb0\xe5\x12J\xb1g\x8c\xf8\xc0\x10B\x8d'}
+2023-04-18 14:45:43,805 [INFO] sqlalchemy.engine.Engine base.py:1114 - ROLLBACK
+2023-04-18 15:05:21,539 [INFO] sqlalchemy.engine.Engine base.py:1896 - SELECT DATABASE()
+2023-04-18 15:05:21,539 [INFO] sqlalchemy.engine.Engine base.py:1901 - [raw sql] {}
+2023-04-18 15:05:21,606 [INFO] sqlalchemy.engine.Engine base.py:1896 - SELECT @@sql_mode
+2023-04-18 15:05:21,606 [INFO] sqlalchemy.engine.Engine base.py:1901 - [raw sql] {}
+2023-04-18 15:05:21,640 [INFO] sqlalchemy.engine.Engine base.py:1896 - SELECT @@lower_case_table_names
+2023-04-18 15:05:21,640 [INFO] sqlalchemy.engine.Engine base.py:1901 - [raw sql] {}
+2023-04-18 15:05:21,706 [INFO] sqlalchemy.engine.Engine base.py:1088 - BEGIN (implicit)
+2023-04-18 15:05:21,709 [INFO] sqlalchemy.engine.Engine base.py:1896 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job AS particlepickingjobitem_job, particlepickingjobitem.image AS particlepickingjobitem_image, particlepickingjobitem.data AS particlepickingjobitem_data, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord` 
+FROM particlepickingjobitem INNER JOIN image ON image.`Oid` = particlepickingjobitem.image 
+WHERE image.name = %(name_1)s
+2023-04-18 15:05:21,709 [INFO] sqlalchemy.engine.Engine base.py:1901 - [generated in 0.00023s] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl'}
+2023-04-18 15:05:21,744 [INFO] sqlalchemy.engine.Engine base.py:1114 - ROLLBACK
+2023-04-18 15:06:02,111 [INFO] sqlalchemy.engine.Engine base.py:1088 - BEGIN (implicit)
+2023-04-18 15:06:02,111 [INFO] sqlalchemy.engine.Engine base.py:1896 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job AS particlepickingjobitem_job, particlepickingjobitem.image AS particlepickingjobitem_image, particlepickingjobitem.data AS particlepickingjobitem_data, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord` 
+FROM particlepickingjobitem 
+WHERE particlepickingjobitem.`Oid` = %(Oid_1)s
+2023-04-18 15:06:02,112 [INFO] sqlalchemy.engine.Engine base.py:1901 - [generated in 0.00020s] {'Oid_1': b'%\x97\xb6B\xb0\xe5\x12J\xb1g\x8c\xf8\xc0\x10B\x8d'}
+2023-04-18 15:06:02,149 [INFO] sqlalchemy.engine.Engine base.py:1114 - ROLLBACK

@@ -4,6 +4,7 @@ import numpy as np
 import scipy
 from PIL import Image
 import matplotlib.pyplot as plt
+from scipy import fftpack
 from scipy.fft import fft2
 import scipy.fftpack
 
@@ -59,6 +60,38 @@ class MrcImageService:
 
         plt.imsave(abs_out_file_name, new_img, cmap='gray')
         return
+
+    def compute_file_ctf(self,image):
+        """Calculate the contrast transfer function (CTF) of an image."""
+        rows, cols = image.shape
+        x = np.linspace(-cols / 2, cols / 2 - 1, cols)
+        y = np.linspace(-rows / 2, rows / 2 - 1, rows)
+        xx, yy = np.meshgrid(x, y)
+        radius = np.sqrt(xx ** 2 + yy ** 2)
+        ctf = np.abs(fftpack.fftshift(fftpack.fft2(image))) / np.max(image)
+        ctf = np.log10(1 / (1 - ctf))
+        return ctf
+
+    def calculate_and_save_ctf(self,mrc_path, save_path):
+        # Load MRC file
+        with mrcfile.open(mrc_path) as mrc:
+            image = np.array(mrc.data)
+        # Calculate CTF
+        rows, cols = image.shape
+        x = np.linspace(-cols / 2, cols / 2 - 1, cols)
+        y = np.linspace(-rows / 2, rows / 2 - 1, rows)
+        xx, yy = np.meshgrid(x, y)
+        radius = np.sqrt(xx**2 + yy**2)
+        ctf = np.abs(fftpack.fftshift(fftpack.fft2(image))) / np.max(image)
+        ctf = np.log10(1 / (1 - ctf))
+
+        # Normalize CTF to 0-255 range and convert to uint8
+        ctf_normalized = (ctf - np.min(ctf)) / (np.max(ctf) - np.min(ctf)) * 255
+        ctf_uint8 = ctf_normalized.astype(np.uint8)
+
+        # Save CTF as PNG image
+        ctf_image = Image.fromarray(ctf_uint8)
+        ctf_image.save(save_path)
 
     def compute_file_fft(self, mrc_abs_path, abs_out_file_name, height=1024):
         # Fourier transform of the image

@@ -6,13 +6,13 @@ from starlette.responses import FileResponse
 
 from config import FFT_DIR, THUMBNAILS_DIR, IMAGES_DIR, IMAGE_ROOT_URL, IMAGE_SUB_URL
 from database import get_db
-from models.pydantic_models import ParticlepickingjobitemUpdate
 from models.sqlalchemy_models import Particlepickingjobitem, Image
 from repositories.image_repository import ImageRepository
-from repositories.particle_picking_item_repository import ParticlepickingjobitemRepository
+from services.file_service import FileService
 from services.image_file_service import get_images, get_image_by_stack, get_image_data
 
 webapp_router = APIRouter()
+file_service = FileService()
 
 
 @webapp_router.get('/images')
@@ -94,6 +94,17 @@ async def get_image_thumbnail(name: str):
 @webapp_router.get("/image_thumbnail_url")
 async def get_image_thumbnail_url(name: str):
     return f"{IMAGE_ROOT_URL}{IMAGE_SUB_URL}{name}.png"
+
+
+@webapp_router.post("/transfer_files")
+async def transfer_files(source_path: str, destination_path: str, delete_original: bool = False,
+                         compress: bool = False):
+    try:
+        file_service.transfer_files(source_path, destination_path, delete_original)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    else:
+        return {"message": "Files transferred successfully."}
 
 # @image_viewer_router.get("/download_file")
 # async def download_file(file_path: str):
