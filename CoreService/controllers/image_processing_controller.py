@@ -1,11 +1,9 @@
 import os
 import subprocess
-from PIL import Image
-from io import BytesIO
 
-from fastapi import APIRouter, HTTPException, UploadFile, File
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException
 
+from models.pydantic_plugins_models import MotionCor2Input
 from services.motioncor2_service import MotionCor2Service
 # from fastapi import APIRouter, Depends, UploadFile, File
 
@@ -104,7 +102,7 @@ async def calculate_ctf(abs_file_path: str, abs_out_file_name: str = ""):
     """Calculate the CTF of an uploaded image."""
     try:
         # out_dir = "C:/temp/images/"
-        mrc_service.calculate_and_save_ctf( mrc_path=abs_file_path, save_path=abs_out_file_name)
+        mrc_service.calculate_and_save_ctf(mrc_path=abs_file_path, save_path=abs_out_file_name)
         # Normalize CTF to 0-255 range and convert to uint8
         return {"message": "MRC file successfully converted to fft PNG!"}
 
@@ -124,12 +122,6 @@ async def calculate_ctf(abs_file_path: str, abs_out_file_name: str = ""):
 #
 #     # Return CTF as a dictionary
 #     return {"ctf": ctf_image.tolist()}
-
-
-class MotionCor2Input(BaseModel):
-    input_movie: str
-    output_folder: str
-    binning_factor: int
 
 
 @image_processing_router.post("/motioncor2")
