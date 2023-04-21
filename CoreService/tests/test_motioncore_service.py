@@ -35,8 +35,10 @@ def test_build_command():
 
 
 def test_build_command2():
+    # params = MotionCor2Input(input_movie="movie.mrc", output_folder="output/", binning_factor=2)
+    # params = MotionCor2Input()
     # Create a new MotionCor2Service instance
-    mc2_service = MotionCor2Service()
+    mc2_service = MotionCor2Service(MotionCor2Input())
 
     # Load parameters from a JSON string
     json_str = '{"InTiff":"/gpfs/research/stagg/appiondata/23mar23b/ddstack/ddstack2' \
@@ -53,4 +55,5 @@ def test_build_command2():
 
     # Print the command string
     print(
-        cmd)  # output: motioncor2 -InTiff /gpfs/research/stagg/appiondata/23mar23b/ddstack/ddstack2/23mar23b_a_00038gr_00003sq_v02_00008hl_v01_00002ex_st.tif -OutMrc temphpc-i36-5.local.gpuid_0_sum.mrc -FtBin 2.0 -Bft 500 100 -Iter 7 -Tol 0.5 -Patch 5 5 -Group 1 -MaskSize 1.0 1.0 -FmDose 0.645 -PixSize 0.705 -kV 300 -Dark /gpfs/research/stagg/appiondata/23mar23b/ddstack/ddstack2/dark-hpc-i36-5-0.mrc -Gain /gpfs/research/stagg/appiondata/23mar23b/ddstack/ddstack2/norm-hpc-i36-5-0.mrc /gpfs/research/stagg/framesdata/23mar23b/gain.mrc -FlipGain 0 -RotGain 0 -Gpu 0
+        cmd)  # output: motioncor2 -InTiff /gpfs/research/stagg/appiondata/23mar23b/ddstack/ddstack2/23mar23b_a_00038gr_00003sq_v02_00008hl_v01_00002ex_st.tif -OutMrc temphpc-i36-5.local.gpuid_0_sum.mrc -FtBin 2.0 -Bft 500.0 100.0 -Iter 7 -Tol 0.5 -Patch 5 5 -Group 1 -MaskSize 1.0 1.0 -FmDose 0.645 -PixSize 0.705 -kV 300.0 -Dark /gpfs/research/stagg/appiondata/23mar23b/ddstack/ddstack2/dark-hpc-i36-5-0.mrc -Gain /gpfs/research/stagg/appiondata/23mar23b/ddstack/ddstack2/norm-hpc-i36-5-0.mrc -Gain /gpfs/research/stagg/framesdata/23mar23b/gain.mrc -FlipGain 0 -RotGain 0 -Gpu 0
+    assert cmd == "motioncor2 -InTiff /gpfs/research/stagg/appiondata/23mar23b/ddstack/ddstack2/23mar23b_a_00038gr_00003sq_v02_00008hl_v01_00002ex_st.tif -OutMrc temphpc-i36-5.local.gpuid_0_sum.mrc -FtBin 2.0 -Bft 500.0 100.0 -Iter 7 -Tol 0.5 -Patch 5 5 -Group 1 -MaskSize 1.0 1.0 -FmDose 0.645 -PixSize 0.705 -kV 300.0 -Dark /gpfs/research/stagg/appiondata/23mar23b/ddstack/ddstack2/dark-hpc-i36-5-0.mrc -Gain /gpfs/research/stagg/appiondata/23mar23b/ddstack/ddstack2/norm-hpc-i36-5-0.mrc -Gain /gpfs/research/stagg/framesdata/23mar23b/gain.mrc -FlipGain 0 -RotGain 0 -Gpu 0"

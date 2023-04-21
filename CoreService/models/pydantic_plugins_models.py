@@ -1,8 +1,9 @@
 from pydantic import BaseModel, Field, Json
 from typing import Optional, List, Union
 
+
 class MotionCor2Input(BaseModel):
-    input_movie: Optional[str]
+    # input_movie: Optional[str]
     output_folder: Optional[str]
     binning_factor: Optional[int]
     gpuids: Optional[str] = '0'  # GPU IDs, default is 0
@@ -10,10 +11,14 @@ class MotionCor2Input(BaseModel):
     FmRef: Optional[int] = 0  # Frame to be used as the reference for alignment. Default is the first frame.
     Iter: Optional[int] = 7  # Maximum iterations for iterative alignment, default is 7
     Tol: float = 0.5  # Tolerance for iterative alignment, in pixels
-    Patchrows: Optional[int] = 0  # Number of patches that divide the y-axis for patch-based alignment. Default 0 corresponds to full frame alignment in that direction.
-    Patchcols: Optional[int] = 0  # Number of patches that divide the x-axis for patch-based alignment. Default 0 corresponds to full frame alignment in that direction.
-    MaskCentrow: Optional[int] = 0  # Y coordinate for the center of the subarea that will be used for alignment. Default 0 corresponds to the center coordinate.
-    MaskCentcol: Optional[int] = 0  # X coordinate for the center of the subarea that will be used for alignment. Default 0 corresponds to the center coordinate.
+    Patchrows: Optional[
+        int] = 0  # Number of patches that divide the y-axis for patch-based alignment. Default 0 corresponds to full frame alignment in that direction.
+    Patchcols: Optional[
+        int] = 0  # Number of patches that divide the x-axis for patch-based alignment. Default 0 corresponds to full frame alignment in that direction.
+    MaskCentrow: Optional[
+        int] = 0  # Y coordinate for the center of the subarea that will be used for alignment. Default 0 corresponds to the center coordinate.
+    MaskCentcol: Optional[
+        int] = 0  # X coordinate for the center of the subarea that will be used for alignment. Default 0 corresponds to the center coordinate.
     MaskSizecols: float = 1.0  # The X size of subarea that will be used for alignment. Default 1.0 corresponds to the full size.
     MaskSizerows: float = 1.0  # The Y size of subarea that will be used for alignment. Default 1.0 corresponds to the full size.
     Bft_global: float = 500.0  # Global B-Factor for alignment. Default is 500.0.
