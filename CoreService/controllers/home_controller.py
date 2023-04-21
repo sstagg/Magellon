@@ -27,3 +27,4 @@ async def html(request: Request):
 @home_router.get("/hello/{name}", tags=['Home'])
 async def say_hello(name: str):
     return {"message": f"Hello {name}"}
+
