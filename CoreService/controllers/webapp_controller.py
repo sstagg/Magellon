@@ -70,7 +70,7 @@ def get_image_particle_by_id(oid: UUID, db: Session = Depends(get_db)):
 
 @webapp_router.put("/particles/{oid}", summary="gets particles oid and data and updates it")
 def update_particle_picking_jobitem(oid: UUID,
-                                    req_body: str,
+                                    req_body: dict,
                                     db: Session = Depends(get_db)):
     try:
         db_item = db.query(Particlepickingjobitem).filter(Particlepickingjobitem.Oid == oid).first()
