@@ -57,6 +57,7 @@
                     <br>
                     &nbsp; <span>{{imageSpec.filename}}</span>
                 </label>
+                <br>
                 <label class="h5 border-0" style="align-items: center; font-weight: normal !important;">&nbsp; Particle
                     pick &nbsp;</label>
                 <select class="h5" [disabled]=pickTypeEnable style="align-items: center; font-weight: normal !important;"
@@ -66,6 +67,11 @@
                         {{pickType}}
                     </option>
                 </select>
+                &nbsp;
+                <button type="button" title="Save pick(s)" (click)="savePicks()"><i class="fa fa-check fa-sm" aria-hidden="true"></i></button>
+                &nbsp;
+                <button type="button" title="Reset pick(s)" (click)="resetPicks()"><i class="fa fa-times fa-sm" aria-hidden="true"></i></button>
+
                 <div class="center-img-container">
                     <canvas id="canvas" *ngIf=!enableFFT width="760" height="760" (click)="getPosition($event)"
                         style="cursor:crosshair;"></canvas>
