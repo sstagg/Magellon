@@ -14,7 +14,8 @@ class CameraDto(BaseModel):
 
 
 class ImageDtoBase(BaseModel):
-    name: str = Field(None, min_length=2, max_length=30, description='Image Name')
+    name: str = Optional[str]
+    # name: str = Field(None, min_length=2, max_length=30, description='Image Name')
     original: Optional[bytes]
     aligned: Optional[bytes]
     fft: Optional[bytes]
@@ -82,6 +83,27 @@ class ImageDtoWithParent(ImageDto):
 
 
 # ================================================================================================
+class Particlepickingjob(BaseModel):
+    Oid: uuid.UUID
+    name: Optional[str]
+    description: Optional[str]
+    # created_on: datetime
+    # end_on: datetime
+    user: Optional[str]
+    project: Optional[str]
+    msession: Optional[str]
+    status: Optional[int]
+    type: Optional[int]
+    data: Optional[Json]
+    # cs: Decimal
+    path: Optional[str]
+    output_dir: Optional[str]
+    direction: Optional[int]
+    image_selection_criteria: Optional[str]
+    OptimisticLockField: Optional[int]
+    GCRecord: Optional[int]
+
+
 class ParticlepickingjobitemBase(BaseModel):
     job: uuid.UUID
     image: uuid.UUID
@@ -89,6 +111,12 @@ class ParticlepickingjobitemBase(BaseModel):
     status: Optional[int]
     type: Optional[int]
 
+
+class ParticlepickingjobDto(Particlepickingjob):
+    pass
+
+class ParticlepickingjobitemDto(ParticlepickingjobitemBase):
+    pass
 
 class ParticlepickingjobitemCreate(ParticlepickingjobitemBase):
     pass
@@ -117,4 +145,16 @@ class ParticlepickingjobitemInDB(ParticlepickingjobitemInDBBase):
     GCRecord: Optional[int] = None
     OptimisticLockField: Optional[int] = None
 
+
 # ================================================================================================
+class LightImageDto(BaseModel):
+    name: str = Optional[str]
+
+
+class ParticlepickingjobitemResult(BaseModel):
+    JobItem: ParticlepickingjobitemDto
+    Job: ParticlepickingjobDto
+
+
+class QueryResult(BaseModel):
+    results: List[ParticlepickingjobitemResult]

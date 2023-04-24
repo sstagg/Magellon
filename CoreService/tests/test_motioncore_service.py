@@ -23,11 +23,11 @@ def test_build_command():
     params.FtBin = 1.0
     params.Iter = 10
     params.Dark = "/path/to/dark.mrc"
-    params.Gain = ["/path/to/gain1.mrc", "/path/to/gain2.mrc"]
+    params.gain_file = "/path/to/gain1.mrc"
 
     # Print the parameter values
     print(
-        params.dict())  # output: {'InTiff': '/path/to/input.tiff', 'OutMrc': '/path/to/output.mrc', 'FtBin': 1.0, 'Bft': [500, 100], 'Iter': 10, 'Tol': 0.5, 'Patch': [5, 5], 'Group': 1, 'MaskSize': [1.0, 1.0], 'FmDose': 0.0, 'PixSize': 0.0, 'kV': 0.0, 'Dark': '/path/to/dark.mrc', 'Gain': ['/path/to/gain1.mrc', '/path/to/gain2.mrc'], 'FlipGain': 0, 'RotGain': 0, 'Gpu': 0}
+        params.dict())  # output: {'InTiff': '/path/to/input.tiff', 'OutMrc': '/path/to/output.mrc', 'FtBin': 1.0, 'Bft': [500, 100], 'Iter': 10, 'Tol': 0.5, 'Patch': [5, 5], 'Group': 1, 'MaskSize': [1.0, 1.0], 'FmDose': 0.0, 'PixSize': 0.0, 'kV': 0.0, 'Dark': '/path/to/dark.mrc', 'Gain': '/path/to/gain1.mrc', 'FlipGain': 0, 'RotGain': 0, 'Gpu': 0}
 
     # Generate the MotionCor2 command string
     cmd = build_motioncor2_command(params)
@@ -43,11 +43,11 @@ def test_build_command2():
     # Load parameters from a JSON string
     json_str = '{"InTiff":"/gpfs/research/stagg/appiondata/23mar23b/ddstack/ddstack2' \
                '/23mar23b_a_00038gr_00003sq_v02_00008hl_v01_00002ex_st.tif",' \
-               '"OutMrc":"temphpc-i36-5.local.gpuid_0_sum.mrc","FtBin":2.0,"Bft":[500,100],"Iter":7,"Tol":0.500,' \
-               '"Patch":[5,5],"Group":1,"MaskSize":[1.000,1.000],"FmDose":0.645,"PixSize":0.705,"kV":300,' \
+               '"OutMrc":"temphpc-i36-5.local.gpuid_0_sum.mrc","FtBin":2.0,"Bft_global":500,"Bft_local":100,"Iter":7,"Tol":0.500,' \
+               '"Patchrows":5,"Patchcols":5,"Group":1,"MaskSize":[1.000,1.000],"FmDose":0.645,"PixSize":0.705,"kV":300,' \
                '"Dark":"/gpfs/research/stagg/appiondata/23mar23b/ddstack/ddstack2/dark-hpc-i36-5-0.mrc",' \
-               '"Gain":["/gpfs/research/stagg/appiondata/23mar23b/ddstack/ddstack2/norm-hpc-i36-5-0.mrc",' \
-               '"/gpfs/research/stagg/framesdata/23mar23b/gain.mrc"],"FlipGain":0,"RotGain":0,"Gpu":0}'
+               '"gain_file":' \
+               '"/gpfs/research/stagg/framesdata/23mar23b/gain.mrc","FlipGain":0,"RotGain":0,"gpuids":"0"}'
     mc2_service.setup(json_str)
 
     # Generate the MotionCor2 command string
@@ -56,4 +56,4 @@ def test_build_command2():
     # Print the command string
     print(
         cmd)  # output: motioncor2 -InTiff /gpfs/research/stagg/appiondata/23mar23b/ddstack/ddstack2/23mar23b_a_00038gr_00003sq_v02_00008hl_v01_00002ex_st.tif -OutMrc temphpc-i36-5.local.gpuid_0_sum.mrc -FtBin 2.0 -Bft 500.0 100.0 -Iter 7 -Tol 0.5 -Patch 5 5 -Group 1 -MaskSize 1.0 1.0 -FmDose 0.645 -PixSize 0.705 -kV 300.0 -Dark /gpfs/research/stagg/appiondata/23mar23b/ddstack/ddstack2/dark-hpc-i36-5-0.mrc -Gain /gpfs/research/stagg/appiondata/23mar23b/ddstack/ddstack2/norm-hpc-i36-5-0.mrc -Gain /gpfs/research/stagg/framesdata/23mar23b/gain.mrc -FlipGain 0 -RotGain 0 -Gpu 0
-    assert cmd == "motioncor2 -InTiff /gpfs/research/stagg/appiondata/23mar23b/ddstack/ddstack2/23mar23b_a_00038gr_00003sq_v02_00008hl_v01_00002ex_st.tif -OutMrc temphpc-i36-5.local.gpuid_0_sum.mrc -FtBin 2.0 -Bft 500.0 100.0 -Iter 7 -Tol 0.5 -Patch 5 5 -Group 1 -MaskSize 1.0 1.0 -FmDose 0.645 -PixSize 0.705 -kV 300.0 -Dark /gpfs/research/stagg/appiondata/23mar23b/ddstack/ddstack2/dark-hpc-i36-5-0.mrc -Gain /gpfs/research/stagg/appiondata/23mar23b/ddstack/ddstack2/norm-hpc-i36-5-0.mrc -Gain /gpfs/research/stagg/framesdata/23mar23b/gain.mrc -FlipGain 0 -RotGain 0 -Gpu 0"
+    assert cmd == "motioncor2 -InTiff /gpfs/research/stagg/appiondata/23mar23b/ddstack/ddstack2/23mar23b_a_00038gr_00003sq_v02_00008hl_v01_00002ex_st.tif -OutMrc temphpc-i36-5.local.gpuid_0_sum.mrc -FtBin 2.0 -Bft 500.0 100.0 -Iter 7 -Tol 0.5 -Patch 5 5 -Group 1 -MaskSize 1.0 1.0 -FmDose 0.645 -PixSize 0.705 -kV 300.0 -Dark /gpfs/research/stagg/appiondata/23mar23b/ddstack/ddstack2/dark-hpc-i36-5-0.mrc -Gain /gpfs/research/stagg/framesdata/23mar23b/gain.mrc -FlipGain 0 -RotGain 0 -Gpu 0"
