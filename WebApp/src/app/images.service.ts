@@ -39,4 +39,12 @@ export class ImagesService {
     return this.httpClient.get(this.baseUrl + 'particles' + '?image_name=' + name);
   }
 
+  public getParticlesByOid(oid: string) {
+    return this.httpClient.get(this.baseUrl + 'particles' + '/' + oid);
+  }
+
+  public updateParticlesByOid(oid: string, reqbody: any) {
+    return this.httpClient.put(this.baseUrl + 'particles' + '/' + oid, reqbody);
+  }
+
 }
