@@ -22,6 +22,12 @@ export interface ImageSpec {
   dose: string
 }
 
+export interface Particle {
+  x: number
+  y: number
+  score: string
+}
+
 @Component({
   selector: 'app-view-images',
   templateUrl: './view-images.component.html',
@@ -58,9 +64,9 @@ export class ViewImagesComponent implements OnInit {
 
   particlePickJobType: string[] = []
   pickType: string;
-  selected = "Select"
+  selectedPicker = "Select"
   pickTypeEnable: boolean = false
-
+  particlePickCoordinates: Particle[] = []
 
   constructor(private imageService: ImagesService, private sanitizer: DomSanitizer) { }
 
@@ -207,28 +213,38 @@ export class ViewImagesComponent implements OnInit {
   }
 
   drawParticlesByOid(): void {
-    this.imageService.getParticles(this.imageName)
+    this.imageService.getParticlesByOid(this.selectedPicker)
       .subscribe((data: any) => {
-        console.log(this.selected)
-        for (var i in data) {
-          if (this.selected == data[i].Oid) {
-            this.clearCanvas()
-            const img_cor: { x: string, y: string, score: string }[] = data[i].data.particles
-            img_cor.forEach(ele => {
-              this.drawCoordinates(ele.x, ele.y)
-            })
-          }
-        }
+        console.log(this.selectedPicker)
+        this.clearCanvas()
+        const img_cor: { x: number, y: number, score: string }[] = data.particles
+        img_cor.forEach(ele => {
+          this.drawCoordinates(ele.x, ele.y, ele.score)
+        })
       })
   }
 
   pickDropdownUpdate(e: any) {
-    this.selected = e.target.value
-    if(this.selected == "default"){
+    this.selectedPicker = e.target.value
+    this.particlePickCoordinates = []
+    if (this.selectedPicker == "default") {
       this.clearCanvas()
-    }else{
+    } else {
       this.drawParticlesByOid()
     }
+  }
+
+  savePicks(): void {
+    const reqbody = { "particles": this.particlePickCoordinates }
+    this.imageService.updateParticlesByOid(this.selectedPicker, reqbody)
+      .subscribe((data: any) => {
+        console.log(this.selectedPicker)
+      })
+
+  }
+
+  resetPicks(): void {
+    this.drawParticlesByOid();
   }
 
   setCanvasBackground(): void {
@@ -239,7 +255,7 @@ export class ViewImagesComponent implements OnInit {
     this.ctx = this.canvas.getContext("2d");
   }
 
-  clearCanvas(): void{
+  clearCanvas(): void {
     //Clear canvas
     const context = this.canvas.getContext('2d');
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -249,7 +265,7 @@ export class ViewImagesComponent implements OnInit {
 
     this.element = <Element>this.root;
     this.canvas = <HTMLCanvasElement>document.getElementById("canvas");
-    
+
     this.setCanvasBackground()
 
     let curleft = 0,
@@ -257,13 +273,20 @@ export class ViewImagesComponent implements OnInit {
 
     curleft += event.offsetX;
     curtop += event.offsetY;
-    this.drawCoordinates(curleft, curtop);
+    this.drawCoordinates(curleft, curtop, "None");
   }
 
-  drawCoordinates(x: any, y: any) {
+  drawCoordinates(x: any, y: any, score: string) {
     console.log("inside draw method")
     console.log('x : ', x)
     console.log('y : ', y)
+
+    let particle = {
+      x: x,
+      y: y,
+      score: score
+    }
+    this.particlePickCoordinates.push(particle)
 
     this.canvas = <HTMLCanvasElement>document.getElementById("canvas");
     this.ctx = this.canvas.getContext("2d");
