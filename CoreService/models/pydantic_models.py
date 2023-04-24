@@ -106,6 +106,7 @@ class Particlepickingjob(BaseModel):
 
 class ParticlepickingjobitemBase(BaseModel):
     job: uuid.UUID
+    job_name: Optional[str]
     image: uuid.UUID
     data: Optional[Json]
     status: Optional[int]
@@ -115,8 +116,6 @@ class ParticlepickingjobitemBase(BaseModel):
 class ParticlepickingjobDto(Particlepickingjob):
     pass
 
-class ParticlepickingjobitemDto(ParticlepickingjobitemBase):
-    pass
 
 class ParticlepickingjobitemCreate(ParticlepickingjobitemBase):
     pass
@@ -145,16 +144,15 @@ class ParticlepickingjobitemInDB(ParticlepickingjobitemInDBBase):
     GCRecord: Optional[int] = None
     OptimisticLockField: Optional[int] = None
 
-
 # ================================================================================================
-class LightImageDto(BaseModel):
-    name: str = Optional[str]
-
-
-class ParticlepickingjobitemResult(BaseModel):
-    JobItem: ParticlepickingjobitemDto
-    Job: ParticlepickingjobDto
-
-
-class QueryResult(BaseModel):
-    results: List[ParticlepickingjobitemResult]
+# class LightImageDto(BaseModel):
+#     name: str = Optional[str]
+#
+#
+# class ParticlepickingjobitemResult(BaseModel):
+#     JobItem: ParticlepickingjobitemDto
+#     Job: ParticlepickingjobDto
+#
+#
+# class QueryResult(BaseModel):
+#     results: List[ParticlepickingjobitemResult]
