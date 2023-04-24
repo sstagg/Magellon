@@ -4,7 +4,7 @@ import subprocess
 from fastapi import APIRouter, HTTPException
 
 from models.pydantic_plugins_models import MotionCor2Input
-from services.motioncor2_service import MotionCor2Service
+from services.motioncor2_service import MotionCor2Service, build_motioncor2_command
 # from fastapi import APIRouter, Depends, UploadFile, File
 
 # from services.image_fft_service import ImageFFTService
@@ -124,31 +124,29 @@ async def calculate_ctf(abs_file_path: str, abs_out_file_name: str = ""):
 #     return {"ctf": ctf_image.tolist()}
 
 
-@image_processing_router.post("/motioncor2")
-def run_motioncor2_2(input_data: MotionCor2Input):
-    motioncor2_service = MotionCor2Service()
-    motioncor2_service.setup(input_data.json())
-    motioncor2_service.process()
-
+@image_processing_router.post("/motioncor2_cmd")
+def run_motioncor2_cmd(input_data: MotionCor2Input):
+    # motioncor2_service = MotionCor2Service()
+    # motioncor2_service.setup(input_data.json())
+    # motioncor2_service.process()
     return {
-        "output_mrc": motioncor2_service.output_mrc,
-        "log_file": motioncor2_service.log_file
+        "command":  build_motioncor2_command(input_data)
     }
 
 
 @image_processing_router.post("/run_motioncor2")
 async def run_motioncor2(input_data: MotionCor2Input):
     # Check if input movie file exists
-    if not os.path.isfile(input_data.input_movie):
-        raise HTTPException(status_code=400, detail="Input movie file not found.")
+    # if not os.path.isfile(input_data.input_movie):
+    #     raise HTTPException(status_code=400, detail="Input movie file not found.")
 
     # Create output folder if it doesn't exist
     if not os.path.exists(input_data.output_folder):
         os.makedirs(input_data.output_folder)
 
     # Run MotionCor2 command
-    command = f"MotionCor2 -InMrc {input_data.input_movie} -OutMrc {input_data.output_folder} " \
-              f"-Patch 5 5 -Gpu 0 -Bft {input_data.binning_factor}"
+    command = f"MotionCor2 -InMrc {input_data.InMrc} -OutMrc {input_data.output_folder} " \
+              f"-Patch 5 5 -Gpu 0 -Bft {input_data.bin}"
     process = subprocess.Popen(command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = process.communicate()
 
