@@ -274,7 +274,6 @@ export class ViewImagesComponent implements OnInit {
     curleft += event.offsetX;
     curtop += event.offsetY;
     this.drawCoordinates(curleft, curtop, "None");
-    // this.savePick = false;
   }
 
   drawCoordinates(x: any, y: any, score: string) {
@@ -288,7 +287,6 @@ export class ViewImagesComponent implements OnInit {
       score: score
     }
     this.particlePickCoordinates.push(particle)
-    console.table(JSON.stringify(this.particlePickCoordinates))
 
     this.canvas = <HTMLCanvasElement>document.getElementById("canvas");
     this.ctx = this.canvas.getContext("2d");
