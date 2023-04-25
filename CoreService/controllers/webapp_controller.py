@@ -15,7 +15,7 @@ from services.file_service import FileService
 from services.image_file_service import get_images, get_image_by_stack, get_image_data
 
 webapp_router = APIRouter()
-file_service = FileService()
+file_service = FileService("transfer.log")
 
 
 @webapp_router.get('/images')
