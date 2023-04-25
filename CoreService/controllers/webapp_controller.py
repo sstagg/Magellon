@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from starlette.responses import FileResponse
 
-from config import FFT_DIR,  IMAGES_DIR, IMAGE_ROOT_URL, IMAGE_SUB_URL
+from config import FFT_DIR, IMAGES_DIR, IMAGE_ROOT_URL, IMAGE_SUB_URL
 from database import get_db
 from models.pydantic_models import ParticlepickingjobitemDto
 from models.sqlalchemy_models import Particlepickingjobitem, Image, Particlepickingjob
@@ -42,41 +42,21 @@ def get_image_data_route(name: str, db: Session = Depends(get_db)):
     return get_image_data(db_image)
 
 
-# @webapp_router.get('/particles')
-# def get_image_particles(name: str, db: Session = Depends(get_db)):
-#     db_image = ImageRepository.fetch_by_name(db, name)
-#     if db_image is None:
-#         raise HTTPException(status_code=404, detail="image not found with the given name")
-#
-#     # Get all Particlepickingjobitems associated with the image
-#     db_ppis = db.query(Particlepickingjobitem).filter(Particlepickingjobitem.image == db_image.Oid).all()
-#     if db_ppis is None:
-#         raise HTTPException(status_code=404, detail="Particle Picking not found for given image name")
-#     return db_ppis
-
-
 @webapp_router.get('/particles')
 def get_image_particles(img_name: str, db: Session = Depends(get_db)):
-    # particlepickingjobitems = db.query(Particlepickingjobitem).join(Image).filter(Image.name == image_name).all()
-    # result = db.query(Particlepickingjobitem,  Particlepickingjob.name). \
-    #     join(Image, Particlepickingjobitem.image == Image.Oid). \
-    #     join(Particlepickingjob, Particlepickingjobitem.job == Particlepickingjob.Oid).filter(Image.name == img_name). \
-    #     options( joinedload(Particlepickingjobitem.particlepickingjob)). \
-    #     all()
-
     result = db.query(Particlepickingjobitem, Particlepickingjob.name). \
         join(Particlepickingjob, Particlepickingjobitem.job == Particlepickingjob.Oid).filter(
         Particlepickingjobitem.image1.has(name=img_name)). \
         options(joinedload(Particlepickingjobitem.particlepickingjob)). \
         all()
-    
+
     if not result:
         raise HTTPException(status_code=404, detail="No Particlepickingjobitems found for Image")
 
     response = []
 
     for row in result:
-        particlepickingjobitem,  name2 = row
+        particlepickingjobitem, name2 = row
         response.append(ParticlepickingjobitemDto(
             Oid=particlepickingjobitem.Oid,
             job=particlepickingjobitem.job,
@@ -87,45 +67,6 @@ def get_image_particles(img_name: str, db: Session = Depends(get_db)):
             type=particlepickingjobitem.type
         ))
         return response
-
-    # response : List[ParticlepickingjobitemDto] = []
-    #
-    # for row in result:
-    #     particlepickingjobitem, name1, name2 = row
-    #     response.append(ParticlepickingjobitemDto(
-    #         Oid=particlepickingjobitem.Oid,
-    #         job=particlepickingjobitem.job,
-    #         job_name=particlepickingjobitem.particlepickingjob.name,
-    #         image=particlepickingjobitem.image,
-    #         # image=LightImageDto(
-    #         #     name=  particlepickingjobitem.image1.name if particlepickingjobitem.image1.name else " NO_NAME  "
-    #         # ),
-    #         data=json.dumps(particlepickingjobitem.data),
-    #         status=particlepickingjobitem.status,
-    #         type=particlepickingjobitem.type
-    #     ))
-    #     return response
-
-    # response = QueryResult(results=[])
-    # for row in result:
-    #     particlepickingjobitem, name1, name2 = row
-    #     response.results.append(ParticlepickingjobitemResult(
-    #         JobItem=ParticlepickingjobitemDto(
-    #             Oid=particlepickingjobitem.Oid,
-    #             job=particlepickingjobitem.job,
-    #             image=particlepickingjobitem.image,
-    #             # image=LightImageDto(
-    #             #     name=  particlepickingjobitem.image1.name if particlepickingjobitem.image1.name else " NO_NAME  "
-    #             # ),
-    #             data=json.dumps(particlepickingjobitem.data),
-    #             status=particlepickingjobitem.status,
-    #             type=particlepickingjobitem.type
-    #         ),
-    #         Job=ParticlepickingjobDto(
-    #             Oid=particlepickingjobitem.particlepickingjob.Oid ,
-    #             description=particlepickingjobitem.particlepickingjob.description,
-    #             name=particlepickingjobitem.particlepickingjob.name
-    #         )))
 
 
 @webapp_router.get('/particles/{oid}', summary="gets an image particles json by its unique id")
