@@ -34,6 +34,7 @@ class MotionCor2Input(BaseModel):
     Bft_global: float = 500.0  # Global B-Factor for alignment. Default is 500.0.
     Bft_local: float = 150.0  # Local B-Factor for alignment. Default is 150.0.
 
+    log_file_prefix: Optional[str]  # text file that contains both global and local motion information.
     force_cpu_flat: bool = False  # Use CPU to make frame flat field correction.
     rendered_frame_size: int = 1  # Sum this number of saved frames as a rendered frame in alignment.
     eer_sampling: int = 1  # Upsampling eer frames. Fourier binning will be added to return the results back.

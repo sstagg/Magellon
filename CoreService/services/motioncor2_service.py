@@ -76,6 +76,9 @@ def build_motioncor2_command(params: MotionCor2Input) -> str:
     if params.gpuids is not None:
         cmd.append('-Gpu')
         cmd.append(str(params.gpuids))
+    if params.log_file_prefix is not None:
+        cmd.append('-LogFile')
+        cmd.append(str(params.log_file_prefix))
     return ' '.join(cmd)
 
 

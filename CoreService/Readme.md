@@ -33,3 +33,65 @@ python.exe -m uvicorn main:app --reload
 https://dassum.medium.com/building-rest-apis-using-fastapi-sqlalchemy-uvicorn-8a163ccf3aa1
 ORMs:
 https://ponyorm.org/
+
+
+# Deployment
+
+To deploy a Magellon application to a Debian 11 server, you can follow these general steps:
+
+Install necessary dependencies:
+
+`sudo apt-get update
+sudo apt-get install -y python3-pip python3-dev build-essential libffi-dev libssl-dev`
+
+Install uvicorn and gunicorn using pip:
+
+_sudo pip3 install uvicorn gunicorn_
+
+Copy your CoreService files to your Debian 11 server using SCP or any other file transfer method.
+
+Create a virtual environment for your application:
+
+`python3 -m venv myenv
+source myenv/bin/activate`
+
+Install your application's dependencies inside the virtual environment:
+
+`pip3 install -r requirements.txt`
+
+Test your application locally:
+
+`uvicorn main:app --reload`
+`uvicorn main:app --port 8080`
+Once your application is running correctly, you can configure a Gunicorn systemd service file. Create a file called /etc/systemd/system/myapp.service with the following content:
+
+```
+[Unit]
+Description=Gunicorn instance to serve coreservice
+After=network.target
+
+[Service]
+User=yourusername
+Group=www-data
+WorkingDirectory=/home/yourusername/myapp
+Environment="PATH=/home/yourusername/myenv/bin"
+ExecStart=/home/yourusername/myenv/bin/gunicorn --workers 2 --bind unix:/home/yourusername/myapp/myapp.sock main:app
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Make sure to replace yourusername with your server's username and /home/yourusername/myapp with the path to your application files.
+
+Reload systemd and start the Gunicorn service:
+
+`
+sudo systemctl daemon-reload
+sudo systemctl start myapp
+sudo systemctl enable myapp
+`
+Test your application by accessing it through a web browser or using curl:
+
+    curl http://localhost/
+
+Congratulations! 
