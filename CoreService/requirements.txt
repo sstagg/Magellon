@@ -3,7 +3,8 @@ uvicorn
 pydantic
 sqlalchemy
 sqlalchemy_utils
-psycopg2
+# psycopg2
+psycopg2-binary
 PyMySQL==1.0.3
 mrcfile==1.4.3
 numpy==1.24.2

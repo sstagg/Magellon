@@ -7,13 +7,16 @@ WORKDIR /app
 
 #COPY ../../MainService/requirements.txt requirements.txt
 COPY requirements.txt ./
+
+RUN apt-get update && apt-get install -y libpq-dev
+RUN pip install psycopg2-binary --no-cache-dir
 RUN pip3 install --no-cache-dir  --upgrade -r ./requirements.txt
 #RUN pip3 install /en_core_web_sm-2.0.0.tar.gz
 
 #COPY . .
-COPY main.py ./app
+COPY main.py ./main.py
 #COPY requirements.txt ./
-COPY areas ./app
+#COPY areas ./app
 COPY controllers ./controllers
 COPY lib ./lib
 COPY models ./models
@@ -29,12 +32,13 @@ COPY test_main.http ./
 
 # Set environment variables for the app
 ENV PYTHONPATH=/app
-ENV APP_MODULE=app.main:app
+ENV APP_MODULE=main:app
 
 # Expose port 80
 EXPOSE 80
 #CMD [ "python3", "-m" , "flask", "run", "--host=0.0.0.0","--port=80"]
 # Start the application using Uvicorn ASGI server
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80"]
+#uvicorn main:app --host 0.0.0.0 --port 8181
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80"]
 #If you are running your container behind a TLS Termination Proxy (load balancer) like Nginx or Traefik, add the option --proxy-headers, this will tell Uvicorn to trust the headers sent by that proxy telling it that the application is running behind HTTPS, etc.
 #CMD ["uvicorn", "app.main:app", "--proxy-headers", "--host", "0.0.0.0", "--port", "80"]

@@ -1,4 +1,7 @@
 
+## Commands to manually run:
+uvicorn main:app --reload
+uvicorn main:app --host 0.0.0.0 --port 8181
 
 ## Docker Build & Run
 docker build .
@@ -12,6 +15,10 @@ docker push khoshbin/magellon-main-service
 from imagename:khoshbin/magellon-main-service
 then enable https --> Force https --> continer http port 80
 https://api.magellon.org/openapi
+
+
+sudo docker run -it -p8080:80 khoshbin/magellon-main-service
+
 
 
 sudo docker run -it -p3000:5000 behdad/flask01
