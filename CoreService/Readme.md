@@ -95,3 +95,10 @@ Test your application by accessing it through a web browser or using curl:
     curl http://localhost/
 
 Congratulations! 
+
+
+## Dependency Injection
+https://python-dependency-injector.ets-labs.org/examples/application-single-container.html
+https://python-dependency-injector.ets-labs.org/examples/fastapi.html
+https://python-dependency-injector.ets-labs.org/examples/fastapi-sqlalchemy.html
+https://kimlehtinen.com/python-flask-dependency-injection/

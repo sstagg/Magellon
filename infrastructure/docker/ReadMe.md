@@ -8,6 +8,8 @@ docker build .
 docker build -t khoshbin/magellon-main-service .
 docker build -t khoshbin/magellon-main-service infrastructure/docker/
 
+
+gh repo clone sstagg/Magellon
 ### Go to MainService directory and run:
 `sudo docker build --no-cache -f ../infrastructure/docker/Dockerfile -t khoshbin/magellon-main-service ./`
 docker push khoshbin/magellon-main-service

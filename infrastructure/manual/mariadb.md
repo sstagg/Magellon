@@ -38,13 +38,13 @@ By default, MariaDB only allows connections from localhost. If you want to allow
 
 Enter the following SQL command to create a new user account:
 
-`CREATE USER 'remote_user'@'%' IDENTIFIED BY 'password';`
+`CREATE USER 'behdad'@'%' IDENTIFIED BY 'Behdad#196';`
 
 Replace remote_user with the username you want to use and password with the password you want to use.
 
 Grant the necessary privileges to the user by running the following command:
 
-`GRANT ALL PRIVILEGES ON *.* TO 'remote_user'@'%';`
+`GRANT ALL PRIVILEGES ON *.* TO 'behdad'@'%';`
 Exit the MariaDB shell by running the following command:
 `exit`
 
