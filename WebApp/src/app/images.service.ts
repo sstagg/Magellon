@@ -36,7 +36,7 @@ export class ImagesService {
   }
 
   public getParticles(name: string) {
-    return this.httpClient.get(this.baseUrl + 'particles' + '?image_name=' + name);
+    return this.httpClient.get(this.baseUrl + 'particles' + '?img_name=' + name);
   }
 
   public getParticlesByOid(oid: string) {

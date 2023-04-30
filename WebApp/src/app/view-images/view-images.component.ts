@@ -62,7 +62,7 @@ export class ViewImagesComponent implements OnInit {
   element: Element;
   root: Element;
 
-  particlePickJobType: string[] = []
+  particlePickJobType: any;
   pickType: string;
   selectedPicker = "Select"
   pickTypeEnable: boolean = false
@@ -205,9 +205,9 @@ export class ViewImagesComponent implements OnInit {
   setParticleJob(): void {
     this.imageService.getParticles(this.imageName)
       .subscribe((data: any) => {
-        this.particlePickJobType = []
+        this.particlePickJobType = {}
         for (var i in data) {
-          this.particlePickJobType.push(data[i].Oid)
+          this.particlePickJobType[data[i].Oid]= data[i].job_name
         }
       })
   }
@@ -215,9 +215,9 @@ export class ViewImagesComponent implements OnInit {
   drawParticlesByOid(): void {
     this.imageService.getParticlesByOid(this.selectedPicker)
       .subscribe((data: any) => {
-        console.log(this.selectedPicker)
         this.clearCanvas()
         const img_cor: { x: number, y: number, score: string }[] = data.particles
+        this.pointSize = data.rad
         img_cor.forEach(ele => {
           this.drawCoordinates(ele.x, ele.y, ele.score)
         })
@@ -235,7 +235,7 @@ export class ViewImagesComponent implements OnInit {
   }
 
   savePicks(): void {
-    const reqbody = { "particles": this.particlePickCoordinates }
+    const reqbody = { "particles": this.particlePickCoordinates, "rad": 18 }
     this.imageService.updateParticlesByOid(this.selectedPicker, reqbody)
       .subscribe((data: any) => {
         console.log(this.selectedPicker)
@@ -277,10 +277,6 @@ export class ViewImagesComponent implements OnInit {
   }
 
   drawCoordinates(x: any, y: any, score: string) {
-    console.log("inside draw method")
-    console.log('x : ', x)
-    console.log('y : ', y)
-
     let particle = {
       x: x,
       y: y,

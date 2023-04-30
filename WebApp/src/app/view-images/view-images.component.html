@@ -63,8 +63,8 @@
                 <select class="h5" [disabled]=pickTypeEnable style="align-items: center; font-weight: normal !important;"
                     (change)="pickDropdownUpdate($event);">
                     <option value="default">Select</option>
-                    <option *ngFor="let pickType of particlePickJobType" [value]="pickType">
-                        {{pickType}}
+                    <option *ngFor="let pickType of particlePickJobType | keyvalue" [value]="pickType.key">
+                        {{pickType.value}}
                     </option>
                 </select>
                 &nbsp;
