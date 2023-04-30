@@ -235,7 +235,7 @@ export class ViewImagesComponent implements OnInit {
   }
 
   savePicks(): void {
-    const reqbody = { "particles": this.particlePickCoordinates, "rad": 18 }
+    const reqbody = { "particles": this.particlePickCoordinates, "rad": this.pointSize }
     this.imageService.updateParticlesByOid(this.selectedPicker, reqbody)
       .subscribe((data: any) => {
         console.log(this.selectedPicker)
