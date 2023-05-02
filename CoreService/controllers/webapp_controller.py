@@ -66,7 +66,7 @@ def get_image_particles(img_name: str, db: Session = Depends(get_db)):
             status=particlepickingjobitem.status,
             type=particlepickingjobitem.type
         ))
-        return response
+    return response
 
 
 @webapp_router.get('/particles/{oid}', summary="gets an image particles json by its unique id")
