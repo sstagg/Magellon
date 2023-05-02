@@ -44,6 +44,13 @@ def get_image_data_route(name: str, db: Session = Depends(get_db)):
 
 @webapp_router.get('/particles')
 def get_image_particles(img_name: str, db: Session = Depends(get_db)):
+
+    # result = \
+    #     db.query(Particlepickingjobitem,  Particlepickingjob.name). \
+    #     join(Image, Particlepickingjobitem.image == Image.Oid). \
+    #     join(Particlepickingjob, Particlepickingjobitem.job == Particlepickingjob.Oid).filter(Image.name == img_name).\
+    #     options( joinedload(Particlepickingjobitem.particlepickingjob)). \
+    #     all()
     result = db.query(Particlepickingjobitem, Particlepickingjob.name). \
         join(Particlepickingjob, Particlepickingjobitem.job == Particlepickingjob.Oid).filter(
         Particlepickingjobitem.image1.has(name=img_name)). \
@@ -56,11 +63,12 @@ def get_image_particles(img_name: str, db: Session = Depends(get_db)):
     response = []
 
     for row in result:
-        particlepickingjobitem, name2 = row
+        particlepickingjobitem, job_name = row
         response.append(ParticlepickingjobitemDto(
             Oid=particlepickingjobitem.Oid,
             job=particlepickingjobitem.job,
-            job_name=particlepickingjobitem.particlepickingjob.name,
+            # job_name=particlepickingjobitem.particlepickingjob.name,
+            job_name=job_name,
             image=particlepickingjobitem.image,
             data=json.dumps(particlepickingjobitem.data),
             status=particlepickingjobitem.status,
