@@ -8,7 +8,11 @@ IMAGE_SUB_URL = r"images/"
 THUMBNAILS_SUB_URL = r"thumbnails/"
 FFT_SUB_URL = r"FFTs/"
 
+# my_config_value = os.environ.get('MY_CONFIG_VALUE')
+IMAGE_ROOT_DIR = os.getenv('DATA_DIR', '/app/data')
+
 IMAGE_ROOT_DIR = r"C:\temp\data"
+
 IMAGES_DIR = f"{IMAGE_ROOT_DIR}/images/"
 FFT_DIR = f"{IMAGE_ROOT_DIR}/FFTs/"
 THUMBNAILS_DIR = f"{IMAGE_ROOT_DIR}/thumbnails/"

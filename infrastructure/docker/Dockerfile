@@ -29,6 +29,11 @@ COPY database.py ./database.py
 COPY logger_config.py ./logger_config.py
 COPY test_main.http ./
 
+# Create a volume for the application data
+VOLUME /app/data
+
+# Set the environment variable for the data directory
+ENV DATA_DIR=/app/data
 
 # Set environment variables for the app
 ENV PYTHONPATH=/app
@@ -40,5 +45,6 @@ EXPOSE 80
 # Start the application using Uvicorn ASGI server
 #uvicorn main:app --host 0.0.0.0 --port 8181
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80"]
+#CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--reload", "--reload-dir", "/app"]
 #If you are running your container behind a TLS Termination Proxy (load balancer) like Nginx or Traefik, add the option --proxy-headers, this will tell Uvicorn to trust the headers sent by that proxy telling it that the application is running behind HTTPS, etc.
 #CMD ["uvicorn", "app.main:app", "--proxy-headers", "--host", "0.0.0.0", "--port", "80"]
