@@ -4,6 +4,8 @@ from starlette.responses import RedirectResponse
 from starlette.templating import Jinja2Templates
 from pathlib import Path
 
+from config import fetch_image_root_dir
+
 home_router = APIRouter()
 
 BASE_PATH = Path(__file__).resolve().parent
@@ -13,6 +15,13 @@ TEMPLATES = Jinja2Templates(directory=str(BASE_PATH / "../templates"))
 @home_router.get("/", tags=['Home'])
 async def home():
     return RedirectResponse(url="/docs/")
+
+
+@home_router.get("/image_root_dir", tags=['Home'])
+async def get_image_root_dir():
+    
+    root_dir =  fetch_image_root_dir()
+    return {"image_root_dir": root_dir}
 
 
 @home_router.get("/html", tags=['Home'])
@@ -27,4 +36,3 @@ async def html(request: Request):
 @home_router.get("/hello/{name}", tags=['Home'])
 async def say_hello(name: str):
     return {"message": f"Hello {name}"}
-

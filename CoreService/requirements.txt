@@ -17,3 +17,5 @@ python-multipart
 boto3
 plotly
 dependency-injector
+python-consul
+pylint

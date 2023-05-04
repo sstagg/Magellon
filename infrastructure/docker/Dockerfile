@@ -39,6 +39,8 @@ ENV DATA_DIR=/app/data
 ENV PYTHONPATH=/app
 ENV APP_MODULE=main:app
 
+ENV APP_ENV=production
+
 # Expose port 80
 EXPOSE 80
 #CMD [ "python3", "-m" , "flask", "run", "--host=0.0.0.0","--port=80"]

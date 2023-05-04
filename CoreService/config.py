@@ -1,48 +1,34 @@
 import os
+import consul
 
 BASE_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
 
-# BASE_PATH = r"/Users/rupalimyskar/Downloads/Stagg Lab/mywork/code/magellonService/images/rawdata"
-IMAGE_ROOT_URL = r"http://localhost/cdn/"
-IMAGE_SUB_URL = r"images/"
-THUMBNAILS_SUB_URL = r"thumbnails/"
-FFT_SUB_URL = r"FFTs/"
+if os.environ.get('APP_ENV', "development") == 'production':
+    from config_prod import *
+else:
+    from config_dev import *
 
-# my_config_value = os.environ.get('MY_CONFIG_VALUE')
-IMAGE_ROOT_DIR = os.getenv('DATA_DIR', '/app/data')
+consul_client = None
 
-IMAGE_ROOT_DIR = r"C:\temp\data"
+try:
+    # consul_client = consul.Consul(host=CONSUL_HOST, port=CONSUL_PORT)
+    consul_client = consul.Consul(**consul_config)
+except:
+    consul_client = None
 
-IMAGES_DIR = f"{IMAGE_ROOT_DIR}/images/"
-FFT_DIR = f"{IMAGE_ROOT_DIR}/FFTs/"
-THUMBNAILS_DIR = f"{IMAGE_ROOT_DIR}/thumbnails/"
-JOBS_DIR = f"{IMAGE_ROOT_DIR}/processing/"
-# app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://admin:behd1d2@192.168.92.133:3306/magellon03'
 
-# Database Connection information
-# Sample postgresql
-# DB_Driver = 'postgresql+psycopg2'
-# DB_USER = 'postgres'
-# DB_PASSWORD = 'behd1d2'
-# DB_HOST = '192.168.92.133'
-# DB_Port = '5432'
-# DB_NAME = 'magellon05'
+# Define a function to retrieve the image root directory configuration
+def fetch_image_root_dir():
+    if consul_client:
+        try:
+            _, image_root_dir_kv = consul_client.kv.get('IMAGE_ROOT_DIR')
+            if image_root_dir_kv is None:
+                raise ValueError("IMAGE_ROOT_DIR not found in Consul KV store")
+            return image_root_dir_kv['Value']
+        except:
+            pass
 
-# mysql
-# DB_Driver = 'mysql+pymysql'
-# DB_USER = 'admin'
-# DB_PASSWORD = 'behd1d2'
-# DB_HOST = '192.168.92.133'
-# DB_Port = '3306'
-# DB_NAME = 'magellon05'
-
-# mysql
-DB_Driver = 'mysql+pymysql'
-DB_USER = 'behdad'
-DB_PASSWORD = 'behd1d#3454!2'
-DB_HOST = '5.161.212.237'
-DB_Port = '3306'
-DB_NAME = 'magellon01'
+    return os.getenv('DATA_DIR', '/app/data')
 
 
 def get_db_connection():
