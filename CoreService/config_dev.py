@@ -1,13 +1,16 @@
 import os
+import uuid
 
 BASE_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
-
 
 # Create a connection to Consul agent
 CONSUL_HOST = os.getenv('CONSUL_HOST', '192.168.92.133')
 CONSUL_PORT = os.getenv('CONSUL_PORT', '8500')
 CONSUL_USERNAME = os.getenv('CONSUL_USERNAME', '8500')
 CONSUL_PASSWORD = os.getenv('CONSUL_PASSWORD', '8500')
+
+CONSUL_SERVICE_NAME = os.getenv('CONSUL_SERVICE_NAME', 'magellon-core-service')
+CONSUL_SERVICE_ID = os.getenv('CONSUL_SERVICE_ID', "magellon-service-" + str(uuid.uuid4()))
 
 consul_config = {
     "host": "192.168.92.133",
@@ -27,8 +30,6 @@ IMAGES_DIR = f"{IMAGE_ROOT_DIR}/images/"
 FFT_DIR = f"{IMAGE_ROOT_DIR}/FFTs/"
 THUMBNAILS_DIR = f"{IMAGE_ROOT_DIR}/thumbnails/"
 JOBS_DIR = f"{IMAGE_ROOT_DIR}/processing/"
-
-
 
 # app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://admin:behd1d2@192.168.92.133:3306/magellon03'
 

@@ -25,6 +25,7 @@ async def create_app_database(db_session: Session = Depends(get_db)):
 @db_router.delete("/database")
 async def drop_app_database():
     """Drop the database and its tables."""
+    return {"message": "Database dropped disabled for security reasons."}
     if database_exists(get_db_connection()):
         drop_database(get_db_connection())  # db.bind.url
         print("Database dropped successfully.")

@@ -12,19 +12,24 @@ BASE_PATH = Path(__file__).resolve().parent
 TEMPLATES = Jinja2Templates(directory=str(BASE_PATH / "../templates"))
 
 
-@home_router.get("/", tags=['Home'])
+@home_router.get("/")
 async def home():
     return RedirectResponse(url="/docs/")
 
 
-@home_router.get("/image_root_dir", tags=['Home'])
+# Define a health check route
+@home_router.get('/health')
+def health_check():
+    return {'status': 'ok'}
+
+
+@home_router.get("/image_root_dir")
 async def get_image_root_dir():
-    
-    root_dir =  fetch_image_root_dir()
+    root_dir = fetch_image_root_dir()
     return {"image_root_dir": root_dir}
 
 
-@home_router.get("/html", tags=['Home'])
+@home_router.get("/html")
 async def html(request: Request):
     html_content = """
     <h1>Hello, world!</h1>
@@ -33,6 +38,6 @@ async def html(request: Request):
     return TEMPLATES.TemplateResponse("index.html", {"request": request, "html_content": html_content})
 
 
-@home_router.get("/hello/{name}", tags=['Home'])
+@home_router.get("/hello/{name}")
 async def say_hello(name: str):
     return {"message": f"Hello {name}"}

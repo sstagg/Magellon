@@ -1,10 +1,19 @@
 import os
+import uuid
 
 # Create a connection to Consul agent
 CONSUL_HOST = os.getenv('CONSUL_HOST', '192.168.92.133')
 CONSUL_PORT = os.getenv('CONSUL_PORT', '8500')
 CONSUL_USERNAME = os.getenv('CONSUL_USERNAME', '8500')
 CONSUL_PASSWORD = os.getenv('CONSUL_PASSWORD', '8500')
+
+CONSUL_SERVICE_NAME = os.getenv('CONSUL_SERVICE_NAME', 'magellon-core-service')
+CONSUL_SERVICE_ID = os.getenv('CONSUL_SERVICE_ID', "magellon-service-" + str(uuid.uuid4()))
+
+# consul_config = {
+#     "host": "192.168.92.133",
+#     "port": 8500
+# }
 
 consul_config = {
     "host": "192.168.92.133",

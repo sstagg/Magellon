@@ -1,5 +1,6 @@
 import os
 import consul
+from fastapi import FastAPI
 
 BASE_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
 
@@ -15,6 +16,28 @@ try:
     consul_client = consul.Consul(**consul_config)
 except:
     consul_client = None
+
+
+def register_with_consul(app: FastAPI, service_address: str, service_name: str, service_id: str, service_port: int,
+                         health_check_route: str):
+    # Initialize Consul client
+    # c = consul.Consul(host=consul_address, port=8500)
+
+    # Register service with Consul
+    consul_client.agent.service.register(
+        name=service_name,
+        service_id=service_id,
+        address=service_address,
+        port=service_port,
+        check=consul.Check.http(url=f'http://{service_address}:{service_port}/{health_check_route}', interval='10s')
+    )
+
+    # Define shutdown function to deregister service when application is shut down
+    def shutdown():
+        consul_client.agent.service.deregister(service_id)
+
+    # Add shutdown function to application events
+    app.add_event_handler('shutdown', shutdown)
 
 
 # Define a function to retrieve the image root directory configuration
