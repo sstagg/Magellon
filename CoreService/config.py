@@ -1,3 +1,4 @@
+import json
 import os
 import consul
 from fastapi import FastAPI
@@ -14,6 +15,8 @@ consul_client = None
 try:
     # consul_client = consul.Consul(host=CONSUL_HOST, port=CONSUL_PORT)
     consul_client = consul.Consul(**consul_config)
+
+
 except:
     consul_client = None
 
@@ -52,6 +55,19 @@ def fetch_image_root_dir():
             pass
 
     return os.getenv('DATA_DIR', '/app/data')
+
+
+def fetch_configurations():
+    if consul_client:
+        try:
+            config_bytes = consul_client.kv.get('configurations')[1]['Value']
+            config_str = config_bytes.decode('utf-8')
+            config_dict = json.loads(config_str)
+            # FFT_SUB_URL = config_dict['FFT_SUB_URL']
+            return config_dict
+        except:
+            pass
+    return None
 
 
 def get_db_connection():

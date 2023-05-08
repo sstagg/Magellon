@@ -25,5 +25,10 @@ FROM nginx:latest
 # Copy the build output to replace the default nginx contents.
 COPY --from=build /app/dist/magellon-app /usr/share/nginx/html
 
+
+# Set the environment variables
+ENV API_URL="http://127.0.0.1:8000/web/"
+
+
 # Expose port 80
 EXPOSE 80

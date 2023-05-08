@@ -1,12 +1,14 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 
+import { environment } from '../environments/environment';
 @Injectable({
   providedIn: 'root'
 })
 export class ImagesService {
 
-  baseUrl: string = "http://127.0.0.1:8000/web/"
+  baseUrl: string = environment.apiUrl;
+  // baseUrl: string = "http://127.0.0.1:8000/web/"
 
   constructor(private httpClient: HttpClient) { }
 

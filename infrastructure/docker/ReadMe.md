@@ -34,6 +34,10 @@ Note that you can also use a separate environment file to set multiple environme
 `docker run --env-file my_env_file my_image`
 ### Go to WebApp directory and run:
 
+`
+docker build -t magellon-angular-app --build-arg API_URL="http://127.0.0.1:8000/web/" .
+docker run -e API_URL="http://127.0.0.1:8000/web/" -p <host-port>:<container-port> magellon-angular-app
+`
 
 `docker run --rm -it -p 15672:15672 -p 5672:5672 rabbitmq:3-management`
 
