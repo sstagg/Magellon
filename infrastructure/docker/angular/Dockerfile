@@ -8,7 +8,6 @@ WORKDIR /app
 
 # Add the source code to app
 COPY ./ /app/
-COPY ./ --exclude=node_modules/ ./app/
 
 # Install all the dependencies
 RUN npm install

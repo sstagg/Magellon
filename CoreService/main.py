@@ -39,7 +39,7 @@ local_ip_address = socket.gethostbyname(local_hostname)
 local_port_number = uvicorn.Config(app).port
 
 # Register application with Consul
-register_with_consul(app,local_ip_address, CONSUL_SERVICE_NAME, CONSUL_SERVICE_ID, local_port_number, 'health')
+# register_with_consul(app,local_ip_address, CONSUL_SERVICE_NAME, CONSUL_SERVICE_ID, local_port_number, 'health')
 
 app.dbengine = engine
 app.dbsession = session_local

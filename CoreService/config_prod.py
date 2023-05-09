@@ -10,20 +10,20 @@ CONSUL_PASSWORD = os.getenv('CONSUL_PASSWORD', '8500')
 CONSUL_SERVICE_NAME = os.getenv('CONSUL_SERVICE_NAME', 'magellon-core-service')
 CONSUL_SERVICE_ID = os.getenv('CONSUL_SERVICE_ID', "magellon-service-" + str(uuid.uuid4()))
 
-# consul_config = {
-#     "host": "192.168.92.133",
-#     "port": 8500
-# }
-
 consul_config = {
     "host": "192.168.92.133",
-    "port": 8500,
-    "scheme": "https",
-    "verify": False,
-    "token": "my_token",
-    "username": "my_username",
-    "password": "my_password",
+    "port": 8500
 }
+
+# consul_config = {
+#     "host": "192.168.92.133",
+#     "port": 8500,
+#     "scheme": "https",
+#     "verify": False,
+#     "token": "my_token",
+#     "username": "my_username",
+#     "password": "my_password",
+# }
 
 # BASE_PATH = r"/Users/rupalimyskar/Downloads/Stagg Lab/mywork/code/magellonService/images/rawdata"
 IMAGE_ROOT_URL = r"http://localhost/cdn/"

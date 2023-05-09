@@ -9,8 +9,11 @@ docker build -t khoshbin/magellon-main-service .
 docker build -t khoshbin/magellon-main-service infrastructure/docker/
 `
 
-`gh repo clone sstagg/Magellon`
 
+rm -rf "/home/behdad/projects/Magellon/"
+cd /home/behdad/projects
+`gh repo clone sstagg/Magellon`
+cd Magellon/CoreService/
 ### Go to CoreService directory and run:
 `sudo docker build --no-cache -f ../infrastructure/docker/Dockerfile -t khoshbin/magellon-main-service ./`
 
@@ -20,10 +23,24 @@ from imagename:khoshbin/magellon-main-service
 then enable https --> Force https --> continer http port 80
 https://api.magellon.org/openapi
 
+
+
+sudo apt-get update
+sudo apt-get install sshfs
+
+sudo ufw allow 8181
+sudo mount -t cifs //hpc-login.rcc.fsu.edu/gpfs/research/stagg/leginondata/22apr01a/22apr01a/rawdata /mnt/hpc -o username=bk22n,password=in#232
+sudo sshfs bk22n@hpc-login.rcc.fsu.edu:/gpfs/research/stagg/leginondata/22apr01a/22apr01a/rawdata /mnt/hpc
+
+sudo mkdir /mnt/hpc
+sudo docker run -it -p8080:80 -v /mnt/hpc:/app/data khoshbin/magellon-main-service bash
 `sudo docker pull --no-cache khoshbin/magellon-main-service
 sudo docker run -it -p8080:80 khoshbin/magellon-main-service
 sudo docker run -d --restart=always -p 8080:80 khoshbin/magellon-main-service
 `
+docker ps
+sudo docker exec -it <container_id> bash
+
 OrangeFlag51!
 
 `
@@ -34,9 +51,13 @@ Note that you can also use a separate environment file to set multiple environme
 `docker run --env-file my_env_file my_image`
 ### Go to WebApp directory and run:
 
+
 `
-docker build -t magellon-angular-app --build-arg API_URL="http://127.0.0.1:8000/web/" .
+sudo docker build --no-cache  --build-arg API_URL="http://127.0.0.1:8181/web/" -f ../infrastructure/docker/angular/Dockerfile -t khoshbin/magellon-angular-app ./
+`
+docker build -t magellon-angular-app --build-arg API_URL="http://127.0.0.1:8181/web/" .
 docker run -e API_URL="http://127.0.0.1:8000/web/" -p <host-port>:<container-port> magellon-angular-app
+sudo docker run -it -p8282:80  khoshbin/magellon-angular-app
 `
 
 `docker run --rm -it -p 15672:15672 -p 5672:5672 rabbitmq:3-management`
@@ -47,4 +68,40 @@ sudo docker-compose up`
 
 
 https://blog.carlesmateo.com/2022/07/20/creating-a-rabbitmq-docker-container-accessed-with-python-and-pika/
+
+
+
+{
+"CONSUL_HOST": "192.168.92.133",
+"CONSUL_PORT": "8500",
+"CONSUL_USERNAME": "8500",
+"CONSUL_PASSWORD": "8500",
+"CONSUL_SERVICE_NAME": "magellon-core-service",
+"CONSUL_SERVICE_ID": "magellon-service-" ,
+"consul_config": {
+"host": "192.168.92.133",
+"port": 8500,
+"scheme": "https",
+"verify": false,
+"token": "my_token",
+"username": "my_username",
+"password": "my_password"
+},
+"IMAGE_ROOT_URL": "http://localhost/cdn/",
+"IMAGE_SUB_URL": "images/",
+"THUMBNAILS_SUB_URL": "thumbnails/",
+"FFT_SUB_URL": "FFTs/",
+"IMAGE_ROOT_DIR": "/app/data",
+"IMAGES_DIR": "/app/data/images/",
+"FFT_DIR": "/app/data/FFTs/",
+"THUMBNAILS_DIR": "/app/data/thumbnails/",
+"JOBS_DIR": "/app/data/processing/",
+"DB_Driver": "mysql+pymysql",
+"DB_USER": "behdad",
+"DB_PASSWORD": "behd1d#3454!2",
+"DB_HOST": "5.161.212.237",
+"DB_Port": "3306",
+"DB_NAME": "magellon01"
+}
+
 

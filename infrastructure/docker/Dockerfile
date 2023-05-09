@@ -24,6 +24,8 @@ COPY repositories ./repositories
 COPY services ./services
 COPY templates ./templates
 COPY tests ./tests
+COPY config_prod.py ./config_prod.py
+COPY config_dev.py ./config_dev.py
 COPY config.py ./config.py
 COPY database.py ./database.py
 COPY logger_config.py ./logger_config.py
@@ -49,4 +51,4 @@ EXPOSE 80
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80"]
 #CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--reload", "--reload-dir", "/app"]
 #If you are running your container behind a TLS Termination Proxy (load balancer) like Nginx or Traefik, add the option --proxy-headers, this will tell Uvicorn to trust the headers sent by that proxy telling it that the application is running behind HTTPS, etc.
-#CMD ["uvicorn", "app.main:app", "--proxy-headers", "--host", "0.0.0.0", "--port", "80"]
+#CMD ["uvicorn", "main:app", "--proxy-headers", "--host", "0.0.0.0", "--port", "80"]

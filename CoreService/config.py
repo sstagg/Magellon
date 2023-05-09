@@ -12,13 +12,18 @@ else:
 
 consul_client = None
 
-try:
-    # consul_client = consul.Consul(host=CONSUL_HOST, port=CONSUL_PORT)
-    consul_client = consul.Consul(**consul_config)
+
+def init_consul_client():
+    global consul_client
+    try:
+        # consul_client = consul.Consul(host=CONSUL_HOST, port=CONSUL_PORT)
+        consul_client = consul.Consul(**consul_config)
+
+    except:
+        consul_client = None
 
 
-except:
-    consul_client = None
+init_consul_client()
 
 
 def register_with_consul(app: FastAPI, service_address: str, service_name: str, service_id: str, service_port: int,
