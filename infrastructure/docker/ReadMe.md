@@ -15,9 +15,13 @@ cd /home/behdad/projects
 `gh repo clone sstagg/Magellon`
 cd Magellon/CoreService/
 ### Go to CoreService directory and run:
-`sudo docker build --no-cache -f ../infrastructure/docker/Dockerfile -t khoshbin/magellon-main-service ./`
-
-`docker push khoshbin/magellon-main-service`
+`
+sudo docker build --no-cache -f ../infrastructure/docker/Dockerfile -t khoshbin/magellon-main-service ./
+sudo docker run -d --restart=always  --name magellon-core-service01 --network magellon -p 8000:80 -v /mnt/hpc:/app/data  -e DATA_DIR=/app/data khoshbin/magellon-main-service
+sudo docker run -it -p8080:80 -v /mnt/hpc:/app/data khoshbin/magellon-main-service bash
+docker push khoshbin/magellon-main-service
+sudo docker exec -it <container_id> bash
+`
 
 from imagename:khoshbin/magellon-main-service
 then enable https --> Force https --> continer http port 80
@@ -31,35 +35,31 @@ sudo apt-get install sshfs
 sudo ufw allow 8181
 sudo mount -t cifs //hpc-login.rcc.fsu.edu/gpfs/research/stagg/leginondata/22apr01a/22apr01a/rawdata /mnt/hpc -o username=bk22n,password=in#232
 sudo sshfs bk22n@hpc-login.rcc.fsu.edu:/gpfs/research/stagg/leginondata/22apr01a/22apr01a/rawdata /mnt/hpc
-
+`
 sudo mkdir /mnt/hpc
 sudo docker run -it -p8080:80 -v /mnt/hpc:/app/data khoshbin/magellon-main-service bash
-`sudo docker pull --no-cache khoshbin/magellon-main-service
+sudo docker pull --no-cache khoshbin/magellon-main-service
 sudo docker run -it -p8080:80 khoshbin/magellon-main-service
 sudo docker run -d --restart=always -p 8080:80 khoshbin/magellon-main-service
 `
 docker ps
-sudo docker exec -it <container_id> bash
+
 
 OrangeFlag51!
 
-`
-sudo docker run -it -p3000:5000 behdad/flask01
-sudo docker run -d --restart=always -p 8080:80 -v /tmp/filesystem/hostPath:/app/data  -e DATA_DIR=/app/data khoshbin/magellon-main-service
-`
 Note that you can also use a separate environment file to set multiple environment variables. To do this, you can use the --env-file option of the docker run command to specify a file containing environment variable definitions. For example:
 `docker run --env-file my_env_file my_image`
 ### Go to WebApp directory and run:
 
+ng build --prod
 
 `
-sudo docker build --no-cache  --build-arg API_URL="http://127.0.0.1:8181/web/" -f ../infrastructure/docker/angular/Dockerfile -t khoshbin/magellon-angular-app ./
-`
-docker build -t magellon-angular-app --build-arg API_URL="http://127.0.0.1:8181/web/" .
+sudo docker build --no-cache  --build-arg API_URL="http://128.186.103.43:8000/web/" -f ../infrastructure/docker/angular/Dockerfile -t khoshbin/magellon-angular-app ./
+sudo docker run -d --restart=always --network magellon  -p 8282:80  khoshbin/magellon-angular-app 
 docker run -e API_URL="http://127.0.0.1:8000/web/" -p <host-port>:<container-port> magellon-angular-app
 sudo docker run -it -p8282:80  khoshbin/magellon-angular-app
 `
-
+sudo docker exec -it <container_id> bash
 `docker run --rm -it -p 15672:15672 -p 5672:5672 rabbitmq:3-management`
 
 ## Docker-Compose
@@ -69,6 +69,12 @@ sudo docker-compose up`
 
 https://blog.carlesmateo.com/2022/07/20/creating-a-rabbitmq-docker-container-accessed-with-python-and-pika/
 
+## Docker-Network
+sudo docker network create magellon
+docker run -d --name my-angular-container --network magellon -p 8080:80 my-angular-app
+docker run -d --name my-fastapi-container --network magellon -p 8000:8000 my-fastapi-app
+
+http://128.186.103.43:8282/view-image
 
 
 {
