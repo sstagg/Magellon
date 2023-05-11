@@ -74,7 +74,7 @@ sudo docker network create magellon
 docker run -d --name my-angular-container --network magellon -p 8080:80 my-angular-app
 docker run -d --name my-fastapi-container --network magellon -p 8000:8000 my-fastapi-app
 
-http://128.186.103.43:8282/view-image
+http://128.186.103.43:8282/view-image[config.json](compose%2Fconsul-config%2Fconfig.json)
 
 
 {

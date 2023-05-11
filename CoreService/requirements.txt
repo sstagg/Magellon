@@ -19,3 +19,5 @@ plotly
 dependency-injector
 python-consul
 pylint
+# prometheus-client
+prometheus-fastapi-instrumentator

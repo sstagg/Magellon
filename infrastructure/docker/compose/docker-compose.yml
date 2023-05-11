@@ -3,19 +3,35 @@ version: '3'
 services:
 
   rabbitmq:
-    image: rabbitmq
+    image: rabbitmq:latest
+    container_name: rabbitmq
     restart: unless-stopped
     ports:
       - "5672:5672"
       - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=rabbitmq
+    volumes:
+      - ./rabbitmq-data:/var/lib/rabbitmq
+    command: bash -c "rabbitmq-server & rabbitmq-plugins enable rabbitmq_management && sleep 5 && rabbitmqadmin declare queue name=task_queue durable=true && rabbitmqadmin declare queue name=message_queue durable=true && tail -f /dev/null"
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.9
 
   consul:
     image: consul
+    container_name: consul
+    restart: unless-stopped
     ports:
       - "8500:8500"
     volumes:
       - ./consul-data:/consul/data
       - ./consul-config:/consul/config
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.10
+
 
   prometheus:
     image: prom/prometheus:latest
@@ -24,7 +40,7 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
     networks:
@@ -41,15 +57,16 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./datasource.yml:/etc/grafana/provisioning/datasource.yml
+      - ./grafana/datasource.yml:/etc/grafana/provisioning/datasource.yml
     env_file:
-      - ./config.monitoring
+      - ./grafana/config.monitoring
     networks:
       magellon-network:
         ipv4_address: 172.16.238.12
 
   backend:
     image: khoshbin/magellon-core-service
+    container_name: magellon-core-service
     restart: unless-stopped
     ports:
       - "8000:8000"
@@ -58,36 +75,37 @@ services:
     environment:
       - CONSUL_HOST=consul
       - RABBITMQ_HOST=rabbitmq
-      -
-  backend1:
-    image: khoshbin/magellon-core-service
-    restart: unless-stopped
-    ports:
-      - "8001:8000"
-    volumes:
-      - /mnt/hpc:/app/data
-    environment:
-      - CONSUL_HOST=consul
-      - CONSUL_PORT=8500
-      # Add other backend environment variables as needed
 
-  backend2:
-    image: khoshbin/magellon-core-service
-    restart: unless-stopped
-    ports:
-      - "8002:8000"
-    volumes:
-      - /mnt/hpc:/app/data
-    environment:
-      - CONSUL_HOST=consul
-      - CONSUL_PORT=8500
-      # Add other backend environment variables as needed
-  web:
-    build: .
-    ports:
-      - "3000:5000"
-    depends_on:
-      - backend
+#  backend1:
+#    image: khoshbin/magellon-main-service
+#    restart: unless-stopped
+#    ports:
+#      - "8001:8000"
+#    volumes:
+#      - /mnt/hpc:/app/data
+#    environment:
+#      - CONSUL_HOST=consul
+#      - CONSUL_PORT=8500
+#
+#
+#  backend2:
+#    image: khoshbin/magellon-main-service
+#    restart: unless-stopped
+#    ports:
+#      - "8002:8000"
+#    volumes:
+#      - /mnt/hpc:/app/data
+#    environment:
+#      - CONSUL_HOST=consul
+#      - CONSUL_PORT=8500
+
+
+#  web:
+#    build: .
+#    ports:
+#      - "3000:5000"
+#    depends_on:
+#      - backend
   #  prometheus:
   #    image: prom/prometheus:latest
   #    ports:
@@ -95,11 +113,14 @@ services:
   #    volumes:
   #        - "./prometheus.yml:/etc/prometheus/prometheus.yml"
 
-  web2:
+  web:
     image: khoshbin/magellon-web-app
+    container_name: magellon-web-app
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "8282:80"
+    depends_on:
+      - backend
     environment:
       - BACKEND_HOST=backend
       - CONSUL_HOST=consul

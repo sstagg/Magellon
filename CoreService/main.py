@@ -14,6 +14,8 @@ from controllers.image_processing_controller import image_processing_router
 from controllers.particle_picking_jobitem_controller import ppji_router
 from controllers.webapp_controller import webapp_router
 
+from prometheus_fastapi_instrumentator import Instrumentator
+
 from database import engine, session_local
 import logging
 
@@ -51,6 +53,8 @@ app.include_router(ppji_router, tags=["Particle Picking Job Item"], prefix="/db/
 app.include_router(image_processing_router, tags=['Image Processing'], prefix="/image")
 app.include_router(webapp_router, tags=['Image Viewer - WebApp'], prefix="/web")
 app.include_router(graph_router, tags=['Graphs'], prefix="/graphs")
+
+Instrumentator().instrument(app).expose(app)
 
 
 @app.exception_handler(Exception)

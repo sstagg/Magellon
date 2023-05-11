@@ -102,3 +102,9 @@ https://python-dependency-injector.ets-labs.org/examples/application-single-cont
 https://python-dependency-injector.ets-labs.org/examples/fastapi.html
 https://python-dependency-injector.ets-labs.org/examples/fastapi-sqlalchemy.html
 https://kimlehtinen.com/python-flask-dependency-injection/
+
+
+## Prometus and Grafana
+prometheus_client
+https://github.com/Kludex/fastapi-prometheus-grafana
+https://github.com/Blueswen/fastapi-observability
