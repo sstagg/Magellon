@@ -65,16 +65,19 @@ services:
         ipv4_address: 172.16.238.12
 
   backend:
-    image: khoshbin/magellon-core-service
-    container_name: magellon-core-service
+    image: khoshbin/magellon-main-service
+    container_name: magellon-main-service
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "8000:80"
     volumes:
       - /mnt/hpc:/app/data
     environment:
       - CONSUL_HOST=consul
       - RABBITMQ_HOST=rabbitmq
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.15
 
 #  backend1:
 #    image: khoshbin/magellon-main-service
@@ -114,8 +117,8 @@ services:
   #        - "./prometheus.yml:/etc/prometheus/prometheus.yml"
 
   web:
-    image: khoshbin/magellon-web-app
-    container_name: magellon-web-app
+    image: khoshbin/magellon-angular-app
+    container_name: magellon-angular-app
     restart: unless-stopped
     ports:
       - "8282:80"
@@ -124,12 +127,14 @@ services:
     environment:
       - BACKEND_HOST=backend
       - CONSUL_HOST=consul
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.16
 
 
 
 networks:
   magellon-network:
-    name: magellon-network
     driver: bridge
     ipam:
       driver: default
