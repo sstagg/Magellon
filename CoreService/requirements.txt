@@ -21,3 +21,4 @@ python-consul
 pylint
 # prometheus-client
 prometheus-fastapi-instrumentator
+slackclient

@@ -108,3 +108,8 @@ https://kimlehtinen.com/python-flask-dependency-injection/
 prometheus_client
 https://github.com/Kludex/fastapi-prometheus-grafana
 https://github.com/Blueswen/fastapi-observability
+
+
+labrisen.com
+labignite.com
+LabZenith.com

@@ -12,6 +12,8 @@ from controllers.graph_controller import graph_router
 from controllers.home_controller import home_router
 from controllers.image_processing_controller import image_processing_router
 from controllers.particle_picking_jobitem_controller import ppji_router
+from controllers.slack_controller import slack_router
+
 from controllers.webapp_controller import webapp_router
 
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -53,7 +55,7 @@ app.include_router(ppji_router, tags=["Particle Picking Job Item"], prefix="/db/
 app.include_router(image_processing_router, tags=['Image Processing'], prefix="/image")
 app.include_router(webapp_router, tags=['Image Viewer - WebApp'], prefix="/web")
 app.include_router(graph_router, tags=['Graphs'], prefix="/graphs")
-
+app.include_router(slack_router, tags=['Communication'], prefix='/io')
 Instrumentator().instrument(app).expose(app)
 
 

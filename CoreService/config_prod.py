@@ -25,6 +25,8 @@ consul_config = {
 #     "password": "my_password",
 # }
 
+SLACK_TOKEN: str = os.getenv('SLACK_TOKEN') or "xoxb-5284990093169-5258053840439-aJ8x7uHcUCNqCKSZkbOSbAlq"
+
 # BASE_PATH = r"/Users/rupalimyskar/Downloads/Stagg Lab/mywork/code/magellonService/images/rawdata"
 IMAGE_ROOT_URL = r"http://localhost/cdn/"
 IMAGE_SUB_URL = r"images/"

@@ -3,6 +3,11 @@ from typing import Optional, List
 import uuid
 
 
+class SlackMessage(BaseModel):
+    text: str
+    channel: Optional[str]
+
+
 class CameraDto(BaseModel):
     Oid: uuid.UUID = Field(description='Camera UUID')
     name: str = Field(None, min_length=2, max_length=30, description='Camera Name')
