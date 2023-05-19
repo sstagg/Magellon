@@ -8,8 +8,9 @@ airflow db init
 airflow webserver
 airflow webserver -p 808
 
-
 airflow scheduler
+
+
 
 cd ~/airflow/dags    # for Linux and macOS
 cd  /root/airflow/dags

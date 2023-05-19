@@ -1,0 +1,44 @@
+wget https://dl.min.io/server/minio/release/linux-amd64/archive/minio_20230313194617.0.0_amd64.deb -O minio.deb
+dpkg -i minio.deb
+mkdir ~/minio
+minio server ~/minio --console-address :9090
+nano /etc/systemd/system/minio.service
+
+
+
+
+
+Description=MinIO
+Documentation=https://docs.min.io
+Wants=network-online.target
+After=network-online.target
+AssertFileIsExecutable=/usr/local/bin/minio
+
+[Service]
+WorkingDirectory=/usr/local
+
+User=minio-user
+Group=minio-user
+ProtectProc=invisible
+
+EnvironmentFile=-/etc/default/minio
+ExecStartPre=/bin/bash -c "if [ -z \"${MINIO_VOLUMES}\" ]; then echo \"Variable MINIO_VOLUMES not set in /etc/default/minio\"; exit 1; fi"
+ExecStart=/usr/local/bin/minio server $MINIO_OPTS $MINIO_VOLUMES
+
+# Let systemd restart this service always
+Restart=always
+
+# Specifies the maximum file descriptor number that can be opened by this process
+LimitNOFILE=1048576
+
+# Specifies the maximum number of threads this process can create
+TasksMax=infinity
+
+# Disable timeout logic and wait until process is stopped
+TimeoutStopSec=infinity
+SendSIGKILL=no
+
+[Install]
+WantedBy=multi-user.target
+
+# Built for ${project.name}-${project.version} (${project.name})

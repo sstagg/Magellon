@@ -2,6 +2,18 @@ version: '3'
 
 services:
 
+  airflow:
+    image: apache/airflow
+    ports:
+      - "8480:8080"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags  # Mount host's ./airflow/dags directory to container's /opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs  # Mount host directory ~/airflow to container directory /usr/local/airflow
+      - ./airflow/config:/opt/airflow/config # Mount host directory ~/airflow to container directory /usr/local/airflow
+      - ./airflow/plugins:/opt/airflow/plugins # Mount host directory ~/airflow to container directory /usr/local/airflow
+
+    restart: unless-stopped
+
   rabbitmq:
     image: rabbitmq:latest
     container_name: rabbitmq
