@@ -2914,3 +2914,63 @@ WHERE image.`Oid` = particlepickingjobitem.image AND image.name = %(name_1)s)
 2023-05-08 11:34:46,539 [INFO] sqlalchemy.engine.Engine base.py:1901 - [cached since 13.46s ago] {'name_1': 'thumbnails\\22apr01a_a_00010gr_00001sq_v01_00002hl'}
 2023-05-08 11:34:46,575 [INFO] sqlalchemy.engine.Engine base.py:1114 - ROLLBACK
 2023-05-08 11:34:46,575 [INFO] sqlalchemy.engine.Engine base.py:1114 - ROLLBACK
+2023-05-19 15:59:50,388 [INFO] sqlalchemy.engine.Engine base.py:1858 - SELECT DATABASE()
+2023-05-19 15:59:50,388 [INFO] sqlalchemy.engine.Engine base.py:1863 - [raw sql] {}
+2023-05-19 15:59:50,458 [INFO] sqlalchemy.engine.Engine base.py:1858 - SELECT @@sql_mode
+2023-05-19 15:59:50,460 [INFO] sqlalchemy.engine.Engine base.py:1863 - [raw sql] {}
+2023-05-19 15:59:50,494 [INFO] sqlalchemy.engine.Engine base.py:1858 - SELECT @@lower_case_table_names
+2023-05-19 15:59:50,494 [INFO] sqlalchemy.engine.Engine base.py:1863 - [raw sql] {}
+2023-05-19 15:59:50,565 [INFO] sqlalchemy.engine.Engine base.py:1032 - BEGIN (implicit)
+2023-05-19 15:59:50,566 [INFO] sqlalchemy.engine.Engine base.py:1858 - SELECT camera.`Oid` AS `camera_Oid`, camera.name AS camera_name, camera.`OptimisticLockField` AS `camera_OptimisticLockField`, camera.`GCRecord` AS `camera_GCRecord` 
+FROM camera 
+ LIMIT %(param_1)s, %(param_2)s
+2023-05-19 15:59:50,567 [INFO] sqlalchemy.engine.Engine base.py:1863 - [generated in 0.00019s] {'param_1': 0, 'param_2': 100}
+2023-05-19 15:59:50,603 [INFO] sqlalchemy.engine.Engine base.py:1060 - ROLLBACK
+2023-05-19 16:07:25,408 [INFO] sqlalchemy.engine.Engine base.py:1858 - SELECT DATABASE()
+2023-05-19 16:07:25,408 [INFO] sqlalchemy.engine.Engine base.py:1863 - [raw sql] {}
+2023-05-19 16:07:25,473 [INFO] sqlalchemy.engine.Engine base.py:1858 - SELECT @@sql_mode
+2023-05-19 16:07:25,473 [INFO] sqlalchemy.engine.Engine base.py:1863 - [raw sql] {}
+2023-05-19 16:07:25,505 [INFO] sqlalchemy.engine.Engine base.py:1858 - SELECT @@lower_case_table_names
+2023-05-19 16:07:25,505 [INFO] sqlalchemy.engine.Engine base.py:1863 - [raw sql] {}
+2023-05-19 16:07:25,570 [INFO] sqlalchemy.engine.Engine base.py:1032 - BEGIN (implicit)
+2023-05-19 16:07:25,571 [INFO] sqlalchemy.engine.Engine base.py:1858 - SELECT camera.`Oid` AS `camera_Oid`, camera.name AS camera_name, camera.`OptimisticLockField` AS `camera_OptimisticLockField`, camera.`GCRecord` AS `camera_GCRecord` 
+FROM camera 
+ LIMIT %(param_1)s, %(param_2)s
+2023-05-19 16:07:25,571 [INFO] sqlalchemy.engine.Engine base.py:1863 - [generated in 0.00020s] {'param_1': 0, 'param_2': 100}
+2023-05-19 16:07:25,605 [INFO] sqlalchemy.engine.Engine base.py:1060 - ROLLBACK
+2023-05-19 16:08:11,346 [INFO] sqlalchemy.engine.Engine base.py:1895 - SELECT DATABASE()
+2023-05-19 16:08:11,346 [INFO] sqlalchemy.engine.Engine base.py:1900 - [raw sql] {}
+2023-05-19 16:08:11,410 [INFO] sqlalchemy.engine.Engine base.py:1895 - SELECT @@sql_mode
+2023-05-19 16:08:11,410 [INFO] sqlalchemy.engine.Engine base.py:1900 - [raw sql] {}
+2023-05-19 16:08:11,442 [INFO] sqlalchemy.engine.Engine base.py:1895 - SELECT @@lower_case_table_names
+2023-05-19 16:08:11,442 [INFO] sqlalchemy.engine.Engine base.py:1900 - [raw sql] {}
+2023-05-19 16:08:11,506 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-05-19 16:08:11,508 [INFO] sqlalchemy.engine.Engine base.py:1895 - SELECT camera.`Oid` AS `camera_Oid`, camera.name AS camera_name, camera.`OptimisticLockField` AS `camera_OptimisticLockField`, camera.`GCRecord` AS `camera_GCRecord` 
+FROM camera 
+ LIMIT %(param_1)s, %(param_2)s
+2023-05-19 16:08:11,508 [INFO] sqlalchemy.engine.Engine base.py:1900 - [generated in 0.00021s] {'param_1': 0, 'param_2': 100}
+2023-05-19 16:08:11,542 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-05-19 16:09:13,384 [INFO] sqlalchemy.engine.Engine base.py:1895 - SELECT DATABASE()
+2023-05-19 16:09:13,384 [INFO] sqlalchemy.engine.Engine base.py:1900 - [raw sql] {}
+2023-05-19 16:09:13,455 [INFO] sqlalchemy.engine.Engine base.py:1895 - SELECT @@sql_mode
+2023-05-19 16:09:13,455 [INFO] sqlalchemy.engine.Engine base.py:1900 - [raw sql] {}
+2023-05-19 16:09:13,490 [INFO] sqlalchemy.engine.Engine base.py:1895 - SELECT @@lower_case_table_names
+2023-05-19 16:09:13,490 [INFO] sqlalchemy.engine.Engine base.py:1900 - [raw sql] {}
+2023-05-19 16:09:13,560 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-05-19 16:09:13,562 [INFO] sqlalchemy.engine.Engine base.py:1895 - SELECT camera.`Oid` AS `camera_Oid`, camera.name AS camera_name, camera.`OptimisticLockField` AS `camera_OptimisticLockField`, camera.`GCRecord` AS `camera_GCRecord` 
+FROM camera 
+ LIMIT %(param_1)s, %(param_2)s
+2023-05-19 16:09:13,562 [INFO] sqlalchemy.engine.Engine base.py:1900 - [generated in 0.00020s] {'param_1': 0, 'param_2': 100}
+2023-05-19 16:09:13,597 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-05-19 16:10:13,978 [INFO] sqlalchemy.engine.Engine base.py:1895 - SELECT DATABASE()
+2023-05-19 16:10:13,979 [INFO] sqlalchemy.engine.Engine base.py:1900 - [raw sql] {}
+2023-05-19 16:10:14,043 [INFO] sqlalchemy.engine.Engine base.py:1895 - SELECT @@sql_mode
+2023-05-19 16:10:14,043 [INFO] sqlalchemy.engine.Engine base.py:1900 - [raw sql] {}
+2023-05-19 16:10:14,074 [INFO] sqlalchemy.engine.Engine base.py:1895 - SELECT @@lower_case_table_names
+2023-05-19 16:10:14,074 [INFO] sqlalchemy.engine.Engine base.py:1900 - [raw sql] {}
+2023-05-19 16:10:14,139 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-05-19 16:10:14,140 [INFO] sqlalchemy.engine.Engine base.py:1895 - SELECT camera.`Oid` AS `camera_Oid`, camera.name AS camera_name, camera.`OptimisticLockField` AS `camera_OptimisticLockField`, camera.`GCRecord` AS `camera_GCRecord` 
+FROM camera 
+ LIMIT %(param_1)s, %(param_2)s
+2023-05-19 16:10:14,140 [INFO] sqlalchemy.engine.Engine base.py:1900 - [generated in 0.00020s] {'param_1': 0, 'param_2': 100}
+2023-05-19 16:10:14,174 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK

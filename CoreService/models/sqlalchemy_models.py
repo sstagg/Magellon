@@ -17,6 +17,7 @@ class Camera(Base):
 
     # Oid = Column(SqlAlchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
     Oid = Column(UUIDType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
+    # Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
     name = Column(String(30))
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)

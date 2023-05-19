@@ -1,24 +1,24 @@
-fastapi
-uvicorn
+fastapi==0.95.2
+uvicorn==0.22.0
 pydantic
-sqlalchemy
-sqlalchemy_utils
+sqlalchemy==2.0.14
+sqlalchemy_utils==0.41.1
 # psycopg2
 psycopg2-binary
 PyMySQL==1.0.3
 mrcfile==1.4.3
-numpy==1.24.2
+numpy==1.24.3
 matplotlib==3.7.1
 scipy==1.10.1
 Pillow==9.5.0
 # cupy-cuda12x==12.0.0
 jinja2
 python-multipart
-boto3
+boto3==1.26.137
 plotly
 dependency-injector
 python-consul
-pylint
+pylint==2.17.4
 # prometheus-client
 prometheus-fastapi-instrumentator
 slackclient

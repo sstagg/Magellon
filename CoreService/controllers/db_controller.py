@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy import text, Result
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from sqlalchemy_utils import create_database, drop_database, database_exists
 
@@ -34,9 +34,9 @@ async def drop_app_database():
     return {"message": "Database dropped successfully."}
 
 
-async def execute_sql(sql: str, db: Session = Depends(get_db())):
-    result_proxy: Result = db.execute(text(sql))
-    # Convert the query results into a list of dictionaries.
-    result_list = [dict(row) for row in result_proxy.fetchall()]
-
-    return result_list
+# async def execute_sql(sql: str, db: Session = Depends(get_db())):
+#     result_proxy: Result = db.execute(text(sql))
+#     # Convert the query results into a list of dictionaries.
+#     result_list = [dict(row) for row in result_proxy.fetchall()]
+#
+#     return result_list
