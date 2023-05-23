@@ -5,6 +5,24 @@ import subprocess
 from starlette.responses import FileResponse
 
 
+def create_directory(path):
+    """
+    Creates the directory for the given image path if it does not exist.
+
+    Args:
+    image_path (str): The absolute path of the image file.
+
+    Returns:
+    None
+    """
+    try:
+        directory = os.path.dirname(path)
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+    except Exception as e:
+        print(f"An error occurred while creating the directory: {str(e)}")
+
+
 def copy_file(source_path, target_path):
     try:
         shutil.copy(source_path, target_path)

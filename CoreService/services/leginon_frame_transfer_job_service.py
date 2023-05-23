@@ -3,8 +3,9 @@ import shutil
 import json
 import uuid
 
+from config import FFT_SUB_URL, IMAGE_SUB_URL , THUMBNAILS_SUB_URL
 from models.pydantic_models import LeginonFrameTransferJobDto, LeginonFrameTransferTaskDto
-from services.file_service import copy_file
+from services.file_service import copy_file, create_directory
 
 
 class LeginonFrameTransferJobService:
@@ -31,7 +32,7 @@ class LeginonFrameTransferJobService:
                     status=1
                 )
                 self.params.task_list.append(task)
-
+            self.create_directories(self.params.target_directory)
 
         except FileNotFoundError as e:
             print("Source directory not found:", self.params.source_directory)
@@ -63,6 +64,13 @@ class LeginonFrameTransferJobService:
         # dag_run_id = "{{ dag_run.id }}"
         # task_instance = TaskInstance(task_id, dag_run_id)
         # task_instance.set_state(TaskState.SUCCESS)
+
+    def create_directories(self, target_dir: str):
+        create_directory(target_dir)
+        create_directory(os.path.join(target_dir, FFT_SUB_URL))
+        create_directory(os.path.join(target_dir, IMAGE_SUB_URL))
+        create_directory(os.path.join(target_dir, THUMBNAILS_SUB_URL))
+
 
     def retrieve_metadata(self, image_name):
         # Implement logic to retrieve metadata from the old MySQL database

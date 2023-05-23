@@ -1,7 +1,9 @@
 import io
+import json
 from _operator import itemgetter
 from base64 import b64encode
 from itertools import groupby
+from uuid import UUID
 
 from PIL import Image
 
@@ -37,3 +39,10 @@ def get_response_image(image_path):
 
 def key_func(k):
     return k['ext']
+
+
+class UUIDEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, UUID):
+            return str(obj)
+        return super().default(obj)
