@@ -123,6 +123,11 @@ async def transfer_files(source_path: str, destination_path: str, delete_origina
     else:
         return {"message": "Files transferred successfully."}
 
+
+
+
+
+
 # @image_viewer_router.get("/download_file")
 # async def download_file(file_path: str):
 #     return FileResponse(path=file_path, filename=file_path.split("/")[-1])

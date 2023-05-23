@@ -11,6 +11,9 @@ class LeginonFrameTransferJobService:
     def __init__(self):
         self.params: LeginonFrameTransferJobDto = None
 
+    def setup_data(self, input_data: LeginonFrameTransferJobDto):
+        self.params = input_data
+
     def setup(self, input_json: str):
         input_data = json.loads(input_json)
         self.params = LeginonFrameTransferJobDto(**input_data)

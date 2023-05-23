@@ -1,9 +1,12 @@
 import os
 import subprocess
+import uuid
 
 from fastapi import APIRouter, HTTPException
 
+from models.pydantic_models import LeginonFrameTransferJobDto
 from models.pydantic_plugins_models import MotionCor2Input
+from services.leginon_frame_transfer_job_service import LeginonFrameTransferJobService
 from services.motioncor2_service import MotionCor2Service, build_motioncor2_command
 # from fastapi import APIRouter, Depends, UploadFile, File
 
@@ -33,6 +36,7 @@ image_processing_router = APIRouter()
 #     return {"message": f"FFT computed and saved to {destination_path}"}
 
 mrc_service = MrcImageService()
+lft_service = LeginonFrameTransferJobService()
 
 
 @image_processing_router.post("/png_of_mrc_dir",
@@ -130,7 +134,7 @@ def run_motioncor2_cmd(input_data: MotionCor2Input):
     # motioncor2_service.setup(input_data.json())
     # motioncor2_service.process()
     return {
-        "command":  build_motioncor2_command(input_data)
+        "command": build_motioncor2_command(input_data)
     }
 
 
@@ -158,6 +162,7 @@ async def run_motioncor2(input_data: MotionCor2Input):
     return {"message": "MotionCor2 command successfully executed.",
             "output_folder": input_data.output_folder}
 
+
 # @image_processing_router.post("/get_png_of_mrc")
 # # async def get_png_of_mrc(input: UploadFile = File(...), output: str = ""):
 # async def get_png_of_mrc(in_dir: str, out_dir: str = ""):
@@ -177,3 +182,51 @@ async def run_motioncor2(input_data: MotionCor2Input):
 #             return {"png": buffer.read()}
 #     except Exception as e:
 #         return {"error": str(e)}
+
+# def process_image_job(source_dir: str, target_dir: str):
+@image_processing_router.post("/transfer_images_job")
+def process_image_job(input_data: LeginonFrameTransferJobDto):
+
+    # Generate a unique job ID
+
+    job_id = uuid.uuid4()
+    input_data.job_id=job_id
+    lft_service.setup_data(input_data)
+    lft_service.process()
+
+    # Create a client to communicate with the Airflow API
+    # airflow_client = Client(None)
+    #
+    # # Trigger the image processing job in Airflow
+    # airflow_client.trigger_dag(
+    #     dag_id='image_process_job',
+    #     conf={'source_dir': source_dir, 'target_dir': target_dir, 'job_id': job_id.hex}
+    # )
+
+    # Return the job ID as the response
+    return {"job_id": job_id}
+
+# async def process_image_job(job_request: JobRequest):
+#     # Generate a unique job_id
+#     job_id = str(uuid.uuid4())
+#
+#     # Call the Airflow DAG through a web service
+#     response = requests.post(
+#         "http://localhost:8080/api/experimental/dags/image_process_job/dag_runs",
+#         json={
+#             "conf": {
+#                 "source_dir": job_request.source_dir,
+#                 "target_dir": job_request.target_dir,
+#                 "job_id": job_id
+#             }
+#         }
+#     )
+#
+#     # Check the response status
+#     if response.status_code != 200:
+#         raise HTTPException(
+#             status_code=response.status_code,
+#             detail="Failed to trigger the image_process_job DAG"
+#         )
+#
+#     return {"job_id": job_id}
