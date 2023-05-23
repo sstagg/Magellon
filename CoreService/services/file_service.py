@@ -5,6 +5,15 @@ import subprocess
 from starlette.responses import FileResponse
 
 
+def copy_file(source_path, target_path):
+    try:
+        shutil.copy(source_path, target_path)
+        print(f"File copied: {source_path} -> {target_path}")
+    except Exception as e:
+        print(f"Error copying File: {source_path} -> {target_path}. Error: {str(e)}")
+        raise
+
+
 class FileService:
     def __init__(self, log_file_path):
         self.log_file_path = log_file_path

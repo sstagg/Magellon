@@ -149,6 +149,7 @@ class ParticlepickingjobitemInDB(ParticlepickingjobitemInDBBase):
     GCRecord: Optional[int] = None
     OptimisticLockField: Optional[int] = None
 
+
 # ================================================================================================
 # class LightImageDto(BaseModel):
 #     name: str = Optional[str]
@@ -161,3 +162,21 @@ class ParticlepickingjobitemInDB(ParticlepickingjobitemInDBBase):
 #
 # class QueryResult(BaseModel):
 #     results: List[ParticlepickingjobitemResult]
+
+
+class LeginonFrameTransferJobDto(BaseModel):
+    job_id: uuid.UUID
+    source_directory: Optional[str]
+    target_directory: Optional[str]
+    session_id: Optional[str]
+    retries: Optional[int]
+    source_mysql_connection: Optional[str]
+    task_list = []  # List to store the tasks
+
+
+class LeginonFrameTransferTaskDto(BaseModel):
+    task_id: uuid.UUID
+    task_alias: Optional[str]
+    image_path: Optional[str]
+    job_dto: LeginonFrameTransferJobDto
+    status: Optional[int]
