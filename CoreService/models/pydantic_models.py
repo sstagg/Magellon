@@ -163,6 +163,13 @@ class ParticlepickingjobitemInDB(ParticlepickingjobitemInDBBase):
 # class QueryResult(BaseModel):
 #     results: List[ParticlepickingjobitemResult]
 
+class MySQLConnectionSettings(BaseModel):
+    host: str
+    port: int
+    user: str
+    password: str
+    database: str
+
 
 class LeginonFrameTransferJobDto(BaseModel):
     job_id: uuid.UUID
