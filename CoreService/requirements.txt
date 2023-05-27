@@ -14,7 +14,7 @@ Pillow==9.5.0
 # cupy-cuda12x==12.0.0
 jinja2
 python-multipart
-boto3==1.26.139
+boto3==1.26.141
 plotly
 dependency-injector
 python-consul
@@ -22,3 +22,4 @@ pylint==2.17.4
 # prometheus-client
 prometheus-fastapi-instrumentator
 slackclient
+apache-airflow-client

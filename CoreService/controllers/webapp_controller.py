@@ -1,6 +1,12 @@
 import json
+import uuid
 from typing import List
 from uuid import UUID
+
+import airflow_client.client
+from airflow_client.client import ApiClient
+from airflow_client.client.api import config_api, dag_api, dag_run_api
+from airflow_client.client.model.dag_run import DAGRun
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
@@ -44,7 +50,6 @@ def get_image_data_route(name: str, db: Session = Depends(get_db)):
 
 @webapp_router.get('/particles')
 def get_image_particles(img_name: str, db: Session = Depends(get_db)):
-
     # result = \
     #     db.query(Particlepickingjobitem,  Particlepickingjob.name). \
     #     join(Image, Particlepickingjobitem.image == Image.Oid). \
@@ -124,9 +129,56 @@ async def transfer_files(source_path: str, destination_path: str, delete_origina
         return {"message": "Files transferred successfully."}
 
 
+@webapp_router.post("/run_dag")
+async def run_dag():
+    try:
+        #post 'http://128.186.103.43:8383/api/v1/dags/my_dag/dagRuns'
+        configuration = airflow_client.client.Configuration(
+            host="http://128.186.103.43:8383/api/v1",
+
+            username='admin',
+            password='admin'
+        )
+        configuration.verify_ssl = False
+        DAG_ID = "my_dag"
+        # Enter a context with an instance of the API client
+        api_client = ApiClient(configuration)
+
+        errors = False
+
+        # print('[blue]Getting DAG list')
+        # dag_api_instance = dag_api.DAGApi(api_client)
+        #
+        # try:
+        #     api_response = dag_api_instance.get_dags()
+        #     print(api_response)
+        # except airflow_client.client.OpenApiException as e:
+        #     print("[red]Exception when calling DagAPI->get_dags: %s\n" % e)
+        #     errors = True
+        # else:
+        #     print('[green]Getting DAG list successful')
+
+        print('[blue]Triggering a DAG run')
+        dag_run_api_instance = dag_run_api.DAGRunApi(api_client)
+        try:
+            # Create a DAGRun object (no dag_id should be specified because it is read-only property of DAGRun)
+            # dag_run id is generated randomly to allow multiple executions of the script
+            dag_run = DAGRun(
+                dag_run_id='some_test_run_' + uuid.uuid4().hex,
+            )
+            api_response = dag_run_api_instance.post_dag_run(DAG_ID, dag_run)
+            print(api_response)
+        except airflow_client.client.exceptions.OpenApiException as e:
+            print("[red]Exception when calling DAGRunAPI->post_dag_run: %s\n" % e)
+            errors = True
+        else:
+            print('[green]Posting DAG Run successful')
 
 
-
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    else:
+        return {"message": "Files transferred successfully."}
 
 # @image_viewer_router.get("/download_file")
 # async def download_file(file_path: str):

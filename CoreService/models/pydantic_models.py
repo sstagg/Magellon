@@ -187,3 +187,11 @@ class LeginonFrameTransferTaskDto(BaseModel):
     image_path: Optional[str]
     job_dto: LeginonFrameTransferJobDto
     status: Optional[int]
+
+
+class LeginonImageDto(BaseModel):
+    defocus: float
+    mag: int
+    filename: str
+    pixelsize: float
+    dose: float
