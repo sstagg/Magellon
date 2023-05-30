@@ -12,11 +12,11 @@ class CameraRepository:
     async def create(db: Session, camera_dto: CameraDto):
         if camera_dto.Oid is None:
             camera_dto.Oid = str(uuid.uuid4())
-        camera_dto = Camera(Oid=camera_dto.Oid, name=camera_dto.name)
-        db.add(camera_dto)
+        camera = Camera(Oid=camera_dto.Oid, name=camera_dto.name)
+        db.add(camera)
         db.commit()
-        db.refresh(camera_dto)
-        return camera_dto
+        db.refresh(camera)
+        return camera
 
     def fetch_by_id(db: Session, _id: UUID):
         return db.query(Camera).filter(Camera.Oid == _id).first()

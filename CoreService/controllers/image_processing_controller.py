@@ -3,7 +3,7 @@ import os
 import subprocess
 import uuid
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException ,Depends
 
 from models.pydantic_models import LeginonFrameTransferJobDto
 from models.pydantic_plugins_models import MotionCor2Input
@@ -11,7 +11,8 @@ from services.helper import UUIDEncoder
 from services.leginon_frame_transfer_job_service import LeginonFrameTransferJobService
 from services.motioncor2_service import MotionCor2Service, build_motioncor2_command
 # from fastapi import APIRouter, Depends, UploadFile, File
-
+from sqlalchemy.orm import Session
+from database import get_db
 # from services.image_fft_service import ImageFFTService
 from services.mrc_image_service import MrcImageService
 
@@ -187,7 +188,7 @@ async def run_motioncor2(input_data: MotionCor2Input):
 
 # def process_image_job(source_dir: str, target_dir: str):
 @image_processing_router.post("/transfer_images_job")
-def process_image_job(input_data: LeginonFrameTransferJobDto):
+def process_image_job(input_data: LeginonFrameTransferJobDto, db: Session = Depends(get_db)):
     # Generate a unique job ID
 
     job_id = uuid.uuid4()
@@ -195,7 +196,7 @@ def process_image_job(input_data: LeginonFrameTransferJobDto):
     input_json = json.dumps(input_data.dict(), cls=UUIDEncoder)
     lft_service.setup(input_json)
     # lft_service.setup_data(input_data)
-    lft_service.process()
+    lft_service.process(db)
 
     # Create a client to communicate with the Airflow API
     # airflow_client = Client(None)

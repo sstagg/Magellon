@@ -321,34 +321,6 @@ class Ctfjob(Base):
     sys_sec_party = relationship('SysSecParty')
 
 
-class Frametransferjob(Base):
-    __tablename__ = 'frametransferjob'
-
-    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
-    name = Column(String(100))
-    description = Column(Text)
-    created_on = Column(DateTime)
-    start_on = Column(DateTime)
-    end_on = Column(DateTime)
-    user_id = Column(ForeignKey('sys_sec_party.Oid'), index=True)
-    project_id = Column(ForeignKey('project.Oid'), index=True)
-    msession_id = Column(ForeignKey('msession.Oid'), index=True)
-    status = Column(INTEGER(11))
-    type = Column(INTEGER(11))
-    settings = Column(Text)
-    cs = Column(DECIMAL(28, 8))
-    path = Column(String(255))
-    output_dir = Column(String(100))
-    direction = Column(INTEGER(11))
-    image_selection_criteria = Column(Text)
-    OptimisticLockField = Column(INTEGER(11))
-    GCRecord = Column(INTEGER(11), index=True)
-
-    msession = relationship('Msession')
-    project = relationship('Project')
-    user = relationship('SysSecParty')
-
-
 class Image(Base):
     __tablename__ = 'image'
 
@@ -433,6 +405,34 @@ class Ctfjobitem(Base):
 
     image = relationship('Image')
     job = relationship('Ctfjob')
+
+
+class Frametransferjob(Base):
+    __tablename__ = 'frametransferjob'
+
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
+    name = Column(String(100))
+    description = Column(Text)
+    created_on = Column(DateTime)
+    start_on = Column(DateTime)
+    end_on = Column(DateTime)
+    user_id = Column(ForeignKey('sys_sec_party.Oid'), index=True)
+    project_id = Column(ForeignKey('project.Oid'), index=True)
+    msession_id = Column(ForeignKey('msession.Oid'), index=True)
+    status = Column(INTEGER(11))
+    type = Column(INTEGER(11))
+    settings = Column(Text)
+    cs = Column(DECIMAL(28, 8))
+    path = Column(String(255))
+    output_dir = Column(String(100))
+    direction = Column(INTEGER(11))
+    image_selection_criteria = Column(Text)
+    OptimisticLockField = Column(INTEGER(11))
+    GCRecord = Column(INTEGER(11), index=True)
+
+    msession = relationship('Msession')
+    project = relationship('Project')
+    user = relationship('SysSecParty')
 
 
 class Frametransferjobitem(Base):

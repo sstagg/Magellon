@@ -163,6 +163,9 @@ class ParticlepickingjobitemInDB(ParticlepickingjobitemInDBBase):
 # class QueryResult(BaseModel):
 #     results: List[ParticlepickingjobitemResult]
 
+
+
+# ================================================================================================
 class MySQLConnectionSettings(BaseModel):
     host: str
     port: int

@@ -75,7 +75,7 @@ def get_image_particles(img_name: str, db: Session = Depends(get_db)):
             # job_name=particlepickingjobitem.particlepickingjob.name,
             job_name=job_name,
             image=particlepickingjobitem.image,
-            data=json.dumps(particlepickingjobitem.data),
+            data=json.dumps(particlepickingjobitem.settings),
             status=particlepickingjobitem.status,
             type=particlepickingjobitem.type
         ))

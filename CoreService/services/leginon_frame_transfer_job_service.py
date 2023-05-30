@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 import shutil
 import json
@@ -5,12 +6,15 @@ import uuid
 from typing import Dict
 
 import pymysql
+from fastapi import APIRouter, Depends, HTTPException
 
 from config import FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL
+from database import get_db
 from models.pydantic_models import LeginonFrameTransferJobDto, LeginonFrameTransferTaskDto, LeginonImageDto
-from services.db_service import execute_sql_query
+from models.sqlalchemy_models import Frametransferjob, Frametransferjobitem
 from services.file_service import copy_file, create_directory
 from services.mrc_image_service import MrcImageService
+from sqlalchemy.orm import Session
 
 
 class LeginonFrameTransferJobService:
@@ -18,8 +22,8 @@ class LeginonFrameTransferJobService:
     def __init__(self):
         self.params: LeginonFrameTransferJobDto = None
         self.mrc_service = MrcImageService()
-        self.source_db_connection: pymysql.Connection = None
-        self.source_cursor: pymysql.cursors.Cursor = None
+        self.leginon_db_connection: pymysql.Connection = None
+        self.leginon_cursor: pymysql.cursors.Cursor = None
         self.magellon_db_connection: pymysql.Connection = None
         self.magellon_cursor: pymysql.cursors.Cursor = None
 
@@ -30,18 +34,31 @@ class LeginonFrameTransferJobService:
     def setup_data(self, input_data: LeginonFrameTransferJobDto):
         self.params = input_data
 
-    def process(self) -> Dict[str, str]:
+    def process(self, db_session: Session = Depends(get_db))-> Dict[str, str]:
         try:
             self.create_directories(self.params.target_directory)
-            self.create_tasks()
+            self.create_job(db_session)
             self.run_tasks()
             return {'status': 'success', 'message': 'Task completed successfully.'}
         except Exception as e:
             return {'status': 'failure', 'message': f'Task failed with error: {str(e)}'}
 
-    def create_tasks(self):
+    def create_job(self, db_session: Session ):
         try:
-            image_list = os.listdir(self.params.source_directory)
+            image_list = [file for file in os.listdir(self.params.source_directory) if os.path.isfile(os.path.join(self.params.source_directory, file))]
+
+            # Create a new job
+            job = Frametransferjob(
+                # Oid=uuid.uuid4(),
+                name="FTJ Run #",
+                description="Job Description",
+                created_on=datetime.now(),
+                # Set other job properties
+            )
+            db_session.add(job)
+            db_session.flush()  # Flush the session to get the generated Oid
+            # db.commit()
+            # db.refresh(job)
             for image_file in image_list:
                 image_path = os.path.join(self.params.source_directory, image_file)
                 task = LeginonFrameTransferTaskDto(
@@ -51,8 +68,18 @@ class LeginonFrameTransferJobService:
                     job_dto=self.params,
                     status=1
                 )
+                # Create a new job item and associate it with the job and image
+                job_item = Frametransferjobitem(
+                    job_id=job.Oid,
+                    path=image_path,
+                    status=1
+                    # image_id=image.Oid,
+                    # Set job item properties
+                )
+                db_session.add(job_item)
                 self.params.task_list.append(task)
 
+            db_session.commit()  # Commit the changes
         except FileNotFoundError as e:
             print("Source directory not found:", self.params.source_directory)
         except OSError as e:
@@ -60,9 +87,30 @@ class LeginonFrameTransferJobService:
         except Exception as e:
             print("An unexpected error occurred:", str(e))
 
+    # def create_tasks(self):
+    #     try:
+    #         image_list = os.listdir(self.params.source_directory)
+    #         for image_file in image_list:
+    #             image_path = os.path.join(self.params.source_directory, image_file)
+    #             task = LeginonFrameTransferTaskDto(
+    #                 task_id=uuid.uuid4(),
+    #                 task_alias=f"lftj_{image_file}_{self.params.job_id}",
+    #                 image_path=image_path,
+    #                 job_dto=self.params,
+    #                 status=1
+    #             )
+    #             self.params.task_list.append(task)
+    #
+    #     except FileNotFoundError as e:
+    #         print("Source directory not found:", self.params.source_directory)
+    #     except OSError as e:
+    #         print("Error accessing source directory:", self.params.source_directory)
+    #     except Exception as e:
+    #         print("An unexpected error occurred:", str(e))
+
     def run_tasks(self):
         try:
-            self.source_db_connection = pymysql.connect(**self.params.source_mysql_connection)
+            # self.leginon_db_connection = pymysql.connect(**self.params.source_mysql_connection)
             for task in self.params.task_list:
                 self.run_task(task)
 
@@ -103,17 +151,17 @@ class LeginonFrameTransferJobService:
         create_directory(os.path.join(target_dir, THUMBNAILS_SUB_URL))
 
     def close_cursores(self):
-        if self.source_cursor is not None:
-            self.source_cursor.close()
-            self.source_cursor = None
+        if self.leginon_cursor is not None:
+            self.leginon_cursor.close()
+            self.leginon_cursor = None
         if self.magellon_cursor is not None:
             self.magellon_cursor.close()
             self.magellon_cursor = None
 
     def close_connections(self):
-        if self.source_db_connection is not None:
-            self.source_db_connection.close()
-            self.source_db_connection = None
+        if self.leginon_db_connection is not None:
+            self.leginon_db_connection.close()
+            self.leginon_db_connection = None
         if self.magellon_db_connection is not None:
             self.magellon_db_connection.close()
             self.magellon_db_connection = None
@@ -127,11 +175,11 @@ class LeginonFrameTransferJobService:
             #     # Execute the query for each image data
             #     source_cursor.execute(query, (image_name,))
             #     rows = source_cursor.fetchall()
-            if self.source_cursor is None:
-                self.source_cursor = self.source_db_connection.cursor()
+            if self.leginon_cursor is None:
+                self.leginon_cursor = self.leginon_db_connection.cursor()
 
-            self.source_cursor.execute(query, (image_name,))
-            rows = self.source_cursor.fetchall()
+            self.leginon_cursor.execute(query, (image_name,))
+            rows = self.leginon_cursor.fetchall()
 
             for row in rows:
                 defocus, mag, filename, pixelsize, dose = row
@@ -179,14 +227,14 @@ class LeginonFrameTransferJobService:
             dose = VALUES(dose),
             defocus = VALUES(defocus)
         """
-        source_cursor = self.source_db_connection.cursor()
+        source_cursor = self.leginon_db_connection.cursor()
         try:
             # Execute the query for each image data
             for data in image_data:
                 source_cursor.execute(query, data)
 
                 # Commit the changes
-                self.source_db_connection.commit()
+                self.leginon_db_connection.commit()
 
         except Exception as e:
             # Handle the exception here (e.g., print an error message)
