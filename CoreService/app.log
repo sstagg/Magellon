@@ -2974,3 +2974,27 @@ FROM camera
  LIMIT %(param_1)s, %(param_2)s
 2023-05-19 16:10:14,140 [INFO] sqlalchemy.engine.Engine base.py:1900 - [generated in 0.00020s] {'param_1': 0, 'param_2': 100}
 2023-05-19 16:10:14,174 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-05-30 12:11:38,593 [INFO] sqlalchemy.engine.Engine base.py:1900 - SELECT DATABASE()
+2023-05-30 12:11:38,594 [INFO] sqlalchemy.engine.Engine base.py:1905 - [raw sql] {}
+2023-05-30 12:11:38,660 [INFO] sqlalchemy.engine.Engine base.py:1900 - SELECT @@sql_mode
+2023-05-30 12:11:38,661 [INFO] sqlalchemy.engine.Engine base.py:1905 - [raw sql] {}
+2023-05-30 12:11:38,694 [INFO] sqlalchemy.engine.Engine base.py:1900 - SELECT @@lower_case_table_names
+2023-05-30 12:11:38,694 [INFO] sqlalchemy.engine.Engine base.py:1905 - [raw sql] {}
+2023-05-30 12:11:38,760 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-05-30 12:11:38,761 [INFO] sqlalchemy.engine.Engine base.py:1900 - SELECT camera.`Oid` AS `camera_Oid`, camera.name AS camera_name, camera.`OptimisticLockField` AS `camera_OptimisticLockField`, camera.`GCRecord` AS `camera_GCRecord` 
+FROM camera 
+ LIMIT %(param_1)s, %(param_2)s
+2023-05-30 12:11:38,761 [INFO] sqlalchemy.engine.Engine base.py:1905 - [generated in 0.00025s] {'param_1': 0, 'param_2': 100}
+2023-05-30 12:11:38,796 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-05-30 12:12:05,656 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-05-30 12:12:05,657 [INFO] sqlalchemy.engine.Engine base.py:1900 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job_id AS particlepickingjobitem_job_id, particlepickingjobitem.image_id AS particlepickingjobitem_image_id, particlepickingjobitem.settings AS particlepickingjobitem_settings, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord` 
+FROM particlepickingjobitem 
+ LIMIT %(param_1)s, %(param_2)s
+2023-05-30 12:12:05,657 [INFO] sqlalchemy.engine.Engine base.py:1905 - [generated in 0.00021s] {'param_1': 0, 'param_2': 100}
+2023-05-30 12:12:05,691 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-05-30 12:12:09,389 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-05-30 12:12:09,389 [INFO] sqlalchemy.engine.Engine base.py:1900 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job_id AS particlepickingjobitem_job_id, particlepickingjobitem.image_id AS particlepickingjobitem_image_id, particlepickingjobitem.settings AS particlepickingjobitem_settings, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord` 
+FROM particlepickingjobitem 
+ LIMIT %(param_1)s, %(param_2)s
+2023-05-30 12:12:09,389 [INFO] sqlalchemy.engine.Engine base.py:1905 - [cached since 3.734s ago] {'param_1': 0, 'param_2': 100}
+2023-05-30 12:12:09,424 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
