@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from config import FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL
 from database import get_db
 from models.pydantic_models import LeginonFrameTransferJobDto, LeginonFrameTransferTaskDto, LeginonImageDto
-from models.sqlalchemy_models import Frametransferjob, Frametransferjobitem
+from models.sqlalchemy_models import Frametransferjob, Frametransferjobitem, Image
 from services.file_service import copy_file, create_directory
 from services.mrc_image_service import MrcImageService
 from sqlalchemy.orm import Session
@@ -34,7 +34,7 @@ class LeginonFrameTransferJobService:
     def setup_data(self, input_data: LeginonFrameTransferJobDto):
         self.params = input_data
 
-    def process(self, db_session: Session = Depends(get_db))-> Dict[str, str]:
+    def process(self, db_session: Session = Depends(get_db)) -> Dict[str, str]:
         try:
             self.create_directories(self.params.target_directory)
             self.create_job(db_session)
@@ -43,9 +43,10 @@ class LeginonFrameTransferJobService:
         except Exception as e:
             return {'status': 'failure', 'message': f'Task failed with error: {str(e)}'}
 
-    def create_job(self, db_session: Session ):
+    def create_job(self, db_session: Session):
         try:
-            image_list = [file for file in os.listdir(self.params.source_directory) if os.path.isfile(os.path.join(self.params.source_directory, file))]
+            image_list = [file for file in os.listdir(self.params.source_directory) if
+                          os.path.isfile(os.path.join(self.params.source_directory, file))]
 
             # Create a new job
             job = Frametransferjob(
@@ -68,12 +69,15 @@ class LeginonFrameTransferJobService:
                     job_dto=self.params,
                     status=1
                 )
+                db_image = Image(name=os.path.basename(image_path))
+                db_session.add(db_image)
+                db_session.flush()
                 # Create a new job item and associate it with the job and image
                 job_item = Frametransferjobitem(
                     job_id=job.Oid,
                     path=image_path,
-                    status=1
-                    # image_id=image.Oid,
+                    status=1,
+                    image_id=db_image.Oid,
                     # Set job item properties
                 )
                 db_session.add(job_item)
