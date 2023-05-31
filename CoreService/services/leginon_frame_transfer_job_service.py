@@ -77,6 +77,7 @@ class LeginonFrameTransferJobService:
                     job_id=job.Oid,
                     path=image_path,
                     status=1,
+                    steps=0,
                     image_id=db_image.Oid,
                     # Set job item properties
                 )
