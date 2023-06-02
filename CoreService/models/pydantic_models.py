@@ -178,9 +178,13 @@ class LeginonFrameTransferJobDto(BaseModel):
     job_id: uuid.UUID
     source_directory: Optional[str]
     target_directory: Optional[str]
-    session_id: Optional[str]
+    session_name: Optional[str]
     retries: Optional[int]
-    source_mysql_connection: Optional[str]
+    leginon_mysql_host: Optional[str]
+    leginon_mysql_port: Optional[int]
+    leginon_mysql_db: Optional[str]
+    leginon_mysql_user: Optional[str]
+    leginon_mysql_pass: Optional[str]
     task_list = []  # List to store the tasks
 
 

@@ -24,8 +24,8 @@ class LeginonFrameTransferJobService:
         self.mrc_service = MrcImageService()
         self.leginon_db_connection: pymysql.Connection = None
         self.leginon_cursor: pymysql.cursors.Cursor = None
-        self.magellon_db_connection: pymysql.Connection = None
-        self.magellon_cursor: pymysql.cursors.Cursor = None
+        # self.magellon_db_connection: pymysql.Connection = None
+        # self.magellon_cursor: pymysql.cursors.Cursor = None
 
     def setup(self, input_json: str):
         input_data = json.loads(input_json)
@@ -36,9 +36,10 @@ class LeginonFrameTransferJobService:
 
     def process(self, db_session: Session = Depends(get_db)) -> Dict[str, str]:
         try:
-            self.create_directories(self.params.target_directory)
-            self.create_job(db_session)
-            self.run_tasks()
+            self.query_leginon_db()
+            # self.create_directories(self.params.target_directory)
+            # self.create_job(db_session)
+            # self.run_tasks()
             return {'status': 'success', 'message': 'Task completed successfully.'}
         except Exception as e:
             return {'status': 'failure', 'message': f'Task failed with error: {str(e)}'}
@@ -113,9 +114,59 @@ class LeginonFrameTransferJobService:
     #     except Exception as e:
     #         print("An unexpected error occurred:", str(e))
 
+    # def query_leginon_session(self):
+    #     try:
+    #         # Execute the query
+    #         query = "SELECT * FROM SessionData WHERE name = %s"
+    #         session_name = self.params.session_name
+    #         cursor.execute(query, (session_name,))
+    #
+    #         # Fetch all the results
+    #         query_leginon_db(query)
+    #
+    #         # cursor.close()
+    #         # connection.close()
+    #     except Exception as e:
+    #         print("An unexpected error occurred:", str(e))
+
+
+    def query_leginon_db(self,sql):
+        try:
+            # Establish a connection to the database
+            connection = pymysql.connect(
+                host=self.params.leginon_mysql_host,
+                port=self.params.leginon_mysql_port,
+                user=self.params.leginon_mysql_user,
+                password=self.params.leginon_mysql_pass,
+                database=self.params.leginon_mysql_db
+            )
+            cursor = connection.cursor()
+
+            # Execute the query
+            query = "SELECT * FROM SessionData WHERE name = %s"
+            session_name = self.params.session_name
+            cursor.execute(query, (session_name,))
+
+            # Fetch all the results
+            results = cursor.fetchall()
+            for row in results:
+                print(row)
+                print(row[4])
+
+            # cursor.close()
+            # connection.close()
+        except Exception as e:
+            print("An unexpected error occurred:", str(e))
+        finally:
+            if cursor:
+                cursor.close()
+            if connection:
+                connection.close()
+
     def run_tasks(self):
         try:
             # self.leginon_db_connection = pymysql.connect(**self.params.source_mysql_connection)
+            self.open_db_connection()
             for task in self.params.task_list:
                 self.run_task(task)
 
@@ -155,21 +206,27 @@ class LeginonFrameTransferJobService:
         create_directory(os.path.join(target_dir, IMAGE_SUB_URL))
         create_directory(os.path.join(target_dir, THUMBNAILS_SUB_URL))
 
+    def open_db_connection(self):
+        if self.leginon_db_connection is None:
+            self.leginon_db_connection = pymysql.connect(**self.params.leginon_mysql_connection)
+            self.leginon_cursor = self.leginon_db_connection.cursor()
+            self.leginon_db_connection.open()
+
     def close_cursores(self):
         if self.leginon_cursor is not None:
             self.leginon_cursor.close()
             self.leginon_cursor = None
-        if self.magellon_cursor is not None:
-            self.magellon_cursor.close()
-            self.magellon_cursor = None
+        # if self.magellon_cursor is not None:
+        #     self.magellon_cursor.close()
+        #     self.magellon_cursor = None
 
     def close_connections(self):
         if self.leginon_db_connection is not None:
             self.leginon_db_connection.close()
             self.leginon_db_connection = None
-        if self.magellon_db_connection is not None:
-            self.magellon_db_connection.close()
-            self.magellon_db_connection = None
+        # if self.magellon_db_connection is not None:
+        #     self.magellon_db_connection.close()
+        #     self.magellon_db_connection = None
 
     def retrieve_metadata_task(self, image_name):
         # Implement logic to retrieve metadata from the old MySQL database
