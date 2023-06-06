@@ -439,7 +439,7 @@ class Frametransferjob(Base):
 class Frametransferjobitem(Base):
     __tablename__ = 'frametransferjobitem'
 
-    Oid = Column(INTEGER(11), primary_key=True)
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
     job_id = Column(ForeignKey('frametransferjob.Oid'), index=True)
     image_id = Column(ForeignKey('image.Oid'), index=True)
     settings = Column(JSON)
