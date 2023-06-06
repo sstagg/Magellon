@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from config import FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL
 from database import get_db
 from models.pydantic_models import LeginonFrameTransferJobDto, LeginonFrameTransferTaskDto, LeginonImageDto
-from models.sqlalchemy_models import Frametransferjob, Frametransferjobitem, Image
+from models.sqlalchemy_models import Frametransferjob, Frametransferjobitem, Image, Project, Msession
 from services.file_service import copy_file, create_directory
 from services.mrc_image_service import MrcImageService
 from sqlalchemy.orm import Session
@@ -44,12 +44,35 @@ class LeginonFrameTransferJobService:
             # self.run_tasks()
             end_time = time.time()  # Stop measuring the time
             execution_time = end_time - start_time
-            return {'status': 'success', 'message': 'Task completed successfully.', 'execution_time': f'{execution_time} seconds'}
+            return {'status': 'success', 'message': 'Task completed successfully.',
+                    'execution_time': f'{execution_time} seconds'}
         except Exception as e:
             return {'status': 'failure', 'message': f'Task failed with error: {str(e)}'}
 
     def create_job(self, db_session: Session):
         try:
+
+            magellon_project: Project = None
+            magellon_session: Msession = None
+            if self.params.magellon_project_name is not None:
+                magellon_project = db_session.query(Project).filter(
+                    Project.name == self.params.magellon_project_name).first()
+                if not magellon_project:
+                    magellon_project = Project(name=self.params.magellon_project_name)
+                    db_session.add(magellon_project)
+                    db_session.commit()
+                    db_session.refresh(magellon_project)
+
+            magellon_session_name = self.params.magellon_session_name or self.params.session_name
+            if self.params.magellon_session_name is not None:
+                magellon_session = db_session.query(Msession).filter(
+                    Msession.name == magellon_session_name).first()
+                if not magellon_session:
+                    magellon_session = Msession(name=magellon_session_name, project_id=magellon_project.Oid)
+                    db_session.add(magellon_session)
+                    db_session.commit()
+                    db_session.refresh(magellon_session)
+
             self.open_leginon_connection()
             # get the session object from the database
             session_name = self.params.session_name
@@ -62,10 +85,11 @@ class LeginonFrameTransferJobService:
             # SQL query
             query = """
                 SELECT
+                  AcquisitionImageData.DEF_id as id,
                   AcquisitionImageData.filename as filename,
-                  ScopeEMData.`spot size`,
+                  ScopeEMData.`spot size` as spot_size,
                   ScopeEMData.magnification as mag,
-                  CameraEMData.`energy filtered`
+                  CameraEMData.`energy filtered` as energy_filtered
                 FROM AcquisitionImageData
                   LEFT OUTER JOIN ScopeEMData
                     ON AcquisitionImageData.`REF|ScopeEMData|scope` = ScopeEMData.DEF_id
@@ -92,13 +116,14 @@ class LeginonFrameTransferJobService:
 
                 db_image_list = []
                 db_job_item_list = []
-                separator="/"
+                separator = "/"
                 for image in leginon_image_list:
                     filename = image["filename"]
                     # image_path = os.path.join(session_result["image path"], filename)
-                    image_path = (session_result["image path"]+ separator+ filename+ ".mrc")
+                    image_path = (session_result["image path"] + separator + filename + ".mrc")
 
-                    db_image = Image(Oid=uuid.uuid4(), name=filename, magnification=image["mag"])
+                    db_image = Image(Oid=uuid.uuid4(), name=filename, magnification=image["mag"],
+                                     old_id=image["id"], session_id=magellon_session.Oid)
                     # db_session.add(db_image)
                     # db_session.flush()
                     db_image_list.append(db_image)

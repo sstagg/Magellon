@@ -175,8 +175,9 @@ class MySQLConnectionSettings(BaseModel):
 
 
 class LeginonFrameTransferJobDto(BaseModel):
-    job_id: uuid.UUID
-    source_directory: Optional[str]
+    job_id: Optional[uuid.UUID]
+    magellon_project_name: str
+    magellon_session_name: str
     target_directory: Optional[str]
     session_name: Optional[str]
     retries: Optional[int]

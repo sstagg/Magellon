@@ -135,8 +135,8 @@ class Project(Base):
     __tablename__ = 'project'
 
     Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
-    name = Column(String(30))
-    description = Column(String(200))
+    name = Column(String(100))
+    description = Column(String(300))
     start_on = Column(DateTime)
     end_on = Column(DateTime)
     owner_id = Column(ForeignKey('sys_sec_party.Oid'), index=True)
@@ -338,6 +338,7 @@ class Image(Base):
     focus = Column(DECIMAL(28, 8))
     defocus = Column(DECIMAL(28, 8))
     spot_size = Column(BIGINT(20))
+    old_id = Column(BIGINT(20))
     intensity = Column(DECIMAL(28, 8))
     shift_x = Column(DECIMAL(28, 8))
     shift_y = Column(DECIMAL(28, 8))
