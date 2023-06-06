@@ -1,3 +1,4 @@
+import time
 from datetime import datetime
 import os
 import shutil
@@ -36,55 +37,104 @@ class LeginonFrameTransferJobService:
 
     def process(self, db_session: Session = Depends(get_db)) -> Dict[str, str]:
         try:
-            self.query_leginon_db()
+            start_time = time.time()  # Start measuring the time
+            # self.query_leginon_db()
             # self.create_directories(self.params.target_directory)
-            # self.create_job(db_session)
+            self.create_job(db_session)
             # self.run_tasks()
-            return {'status': 'success', 'message': 'Task completed successfully.'}
+            end_time = time.time()  # Stop measuring the time
+            execution_time = end_time - start_time
+            return {'status': 'success', 'message': 'Task completed successfully.', 'execution_time': f'{execution_time} seconds'}
         except Exception as e:
             return {'status': 'failure', 'message': f'Task failed with error: {str(e)}'}
 
     def create_job(self, db_session: Session):
         try:
-            image_list = [file for file in os.listdir(self.params.source_directory) if
-                          os.path.isfile(os.path.join(self.params.source_directory, file))]
+            self.open_leginon_connection()
+            # get the session object from the database
+            query = "SELECT * FROM SessionData WHERE name = %s"
+            session_name = self.params.session_name
+            self.leginon_cursor.execute(query, (session_name,))
+            # Fetch all the results
+            session_result = self.leginon_cursor.fetchone()
 
-            # Create a new job
-            job = Frametransferjob(
-                # Oid=uuid.uuid4(),
-                name="FTJ Run #",
-                description="Job Description",
-                created_on=datetime.now(),
-                # Set other job properties
-            )
-            db_session.add(job)
-            db_session.flush()  # Flush the session to get the generated Oid
-            # db.commit()
-            # db.refresh(job)
-            for image_file in image_list:
-                image_path = os.path.join(self.params.source_directory, image_file)
-                task = LeginonFrameTransferTaskDto(
-                    task_id=uuid.uuid4(),
-                    task_alias=f"lftj_{image_file}_{self.params.job_id}",
-                    image_path=image_path,
-                    job_dto=self.params,
-                    status=1
+            # get all the images in the leginon database
+            # SQL query
+            query = """
+                SELECT
+                  AcquisitionImageData.filename as filename,
+                  ScopeEMData.`spot size`,
+                  ScopeEMData.magnification as mag,
+                  CameraEMData.`energy filtered`
+                FROM AcquisitionImageData
+                  LEFT OUTER JOIN ScopeEMData
+                    ON AcquisitionImageData.`REF|ScopeEMData|scope` = ScopeEMData.DEF_id
+                  LEFT OUTER JOIN CameraEMData
+                    ON AcquisitionImageData.`REF|CameraEMData|camera` = CameraEMData.DEF_id
+                WHERE AcquisitionImageData.filename LIKE %s
+            """
+            self.leginon_cursor.execute(query, (session_name + "%",))
+            image_list = self.leginon_cursor.fetchall()
+            if len(image_list) > 0:
+                # image_dict = {image["filename"]: image for image in image_list}
+                image_dict = {}
+                # Create a new job
+                job = Frametransferjob(
+                    # Oid=uuid.uuid4(),
+                    name="Leginon Import: " + session_name,
+                    description="Leginon Import for session: " + session_name + "in directory: " + session_result[
+                        "image path"],
+                    created_on=datetime.now(),
+                    # Set other job properties
                 )
-                db_image = Image(name=os.path.basename(image_path))
-                db_session.add(db_image)
-                db_session.flush()
-                # Create a new job item and associate it with the job and image
-                job_item = Frametransferjobitem(
-                    job_id=job.Oid,
-                    path=image_path,
-                    status=1,
-                    steps=0,
-                    image_id=db_image.Oid,
-                    # Set job item properties
-                )
-                db_session.add(job_item)
-                self.params.task_list.append(task)
+                db_session.add(job)
+                db_session.flush()  # Flush the session to get the generated Oid
 
+                db_image_list = []
+                separator="/"
+                for image in image_list:
+                    filename = image["filename"]
+                    # image_path = os.path.join(session_result["image path"], filename)
+                    image_path = (session_result["image path"]+ separator+ filename+ ".mrc")
+
+                    db_image = Image(Oid=uuid.uuid4(), name=filename, magnification=image["mag"])
+                    db_session.add(db_image)
+                    # db_session.flush()
+                    db_image_list.append(db_image)
+                    image_dict[filename] = db_image.Oid
+
+                    # Create a new job item and associate it with the job and image
+                    job_item = Frametransferjobitem(
+                        Oid=uuid.uuid4(),
+                        job_id=job.Oid,
+                        path=image_path,
+                        status=1,
+                        steps=0,
+                        image_id=db_image.Oid,
+                        # Set job item properties
+                    )
+                    db_session.add(job_item)
+
+                    task = LeginonFrameTransferTaskDto(
+                        task_id=uuid.uuid4(),
+                        task_alias=f"lftj_{filename}_{self.params.job_id}",
+                        image_path=image_path,
+                        job_dto=self.params,
+                        status=1
+                    )
+                    self.params.task_list.append(task)
+                    # print(f"Filename: {filename}, Spot Size: {spot_size}")
+
+                for db_image in db_image_list:
+                    parent_name = '_'.join(db_image.name.split('_')[:-1])
+                    if parent_name in image_dict:
+                        db_image.parent_id = image_dict[parent_name]
+
+            # get all the files in the source directory
+            # image_list = [file for file in os.listdir(self.params.source_directory) if
+            #               os.path.isfile(os.path.join(self.params.source_directory, file))]
+
+            # print("hello")
             db_session.commit()  # Commit the changes
         except FileNotFoundError as e:
             print("Source directory not found:", self.params.source_directory)
@@ -92,6 +142,8 @@ class LeginonFrameTransferJobService:
             print("Error accessing source directory:", self.params.source_directory)
         except Exception as e:
             print("An unexpected error occurred:", str(e))
+        finally:
+            self.close_connections()
 
     # def create_tasks(self):
     #     try:
@@ -129,44 +181,31 @@ class LeginonFrameTransferJobService:
     #     except Exception as e:
     #         print("An unexpected error occurred:", str(e))
 
-
-    def query_leginon_db(self,sql):
+    def query_leginon_db(self):
         try:
             # Establish a connection to the database
-            connection = pymysql.connect(
-                host=self.params.leginon_mysql_host,
-                port=self.params.leginon_mysql_port,
-                user=self.params.leginon_mysql_user,
-                password=self.params.leginon_mysql_pass,
-                database=self.params.leginon_mysql_db
-            )
-            cursor = connection.cursor()
+            self.open_leginon_connection()
 
             # Execute the query
             query = "SELECT * FROM SessionData WHERE name = %s"
             session_name = self.params.session_name
-            cursor.execute(query, (session_name,))
+            self.leginon_cursor.execute(query, (session_name,))
 
             # Fetch all the results
-            results = cursor.fetchall()
+            results = self.leginon_cursor.fetchall()
             for row in results:
                 print(row)
                 print(row[4])
 
-            # cursor.close()
-            # connection.close()
         except Exception as e:
             print("An unexpected error occurred:", str(e))
         finally:
-            if cursor:
-                cursor.close()
-            if connection:
-                connection.close()
+            self.close_connections()
 
     def run_tasks(self):
         try:
             # self.leginon_db_connection = pymysql.connect(**self.params.source_mysql_connection)
-            self.open_db_connection()
+            self.open_leginon_connection()
             for task in self.params.task_list:
                 self.run_task(task)
 
@@ -174,7 +213,6 @@ class LeginonFrameTransferJobService:
             print("An unexpected error occurred:", str(e))
         finally:
             # Close the connection
-            self.close_cursores()
             self.close_connections()
 
     def run_task(self, task_dto: LeginonFrameTransferTaskDto) -> Dict[str, str]:
@@ -206,21 +244,23 @@ class LeginonFrameTransferJobService:
         create_directory(os.path.join(target_dir, IMAGE_SUB_URL))
         create_directory(os.path.join(target_dir, THUMBNAILS_SUB_URL))
 
-    def open_db_connection(self):
+    def open_leginon_connection(self):
         if self.leginon_db_connection is None:
-            self.leginon_db_connection = pymysql.connect(**self.params.leginon_mysql_connection)
+            self.leginon_db_connection = pymysql.connect(
+                host=self.params.leginon_mysql_host,
+                port=self.params.leginon_mysql_port,
+                user=self.params.leginon_mysql_user,
+                password=self.params.leginon_mysql_pass,
+                database=self.params.leginon_mysql_db,
+                cursorclass=pymysql.cursors.DictCursor
+            )
             self.leginon_cursor = self.leginon_db_connection.cursor()
-            self.leginon_db_connection.open()
+            # self.leginon_cursor = self.leginon_db_connection.cursor()
 
-    def close_cursores(self):
+    def close_connections(self):
         if self.leginon_cursor is not None:
             self.leginon_cursor.close()
             self.leginon_cursor = None
-        # if self.magellon_cursor is not None:
-        #     self.magellon_cursor.close()
-        #     self.magellon_cursor = None
-
-    def close_connections(self):
         if self.leginon_db_connection is not None:
             self.leginon_db_connection.close()
             self.leginon_db_connection = None

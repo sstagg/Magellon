@@ -330,7 +330,7 @@ class Image(Base):
     fft = Column(LargeBinary)
     ctf = Column(LargeBinary)
     name = Column(String(50))
-    path = Column(String(100))
+    path = Column(String(300))
     parent_id = Column(ForeignKey('image.Oid'), index=True)
     session_id = Column(ForeignKey('msession.Oid'), index=True)
     magnification = Column(BIGINT(20))
@@ -439,7 +439,7 @@ class Frametransferjob(Base):
 class Frametransferjobitem(Base):
     __tablename__ = 'frametransferjobitem'
 
-    OID = Column(INTEGER(11), primary_key=True)
+    Oid = Column(INTEGER(11), primary_key=True)
     job_id = Column(ForeignKey('frametransferjob.Oid'), index=True)
     image_id = Column(ForeignKey('image.Oid'), index=True)
     settings = Column(JSON)
