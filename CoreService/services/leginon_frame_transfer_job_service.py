@@ -52,8 +52,8 @@ class LeginonFrameTransferJobService:
         try:
             self.open_leginon_connection()
             # get the session object from the database
-            query = "SELECT * FROM SessionData WHERE name = %s"
             session_name = self.params.session_name
+            query = "SELECT * FROM SessionData WHERE name = %s"
             self.leginon_cursor.execute(query, (session_name,))
             # Fetch all the results
             session_result = self.leginon_cursor.fetchone()
@@ -74,9 +74,9 @@ class LeginonFrameTransferJobService:
                 WHERE AcquisitionImageData.filename LIKE %s
             """
             self.leginon_cursor.execute(query, (session_name + "%",))
-            image_list = self.leginon_cursor.fetchall()
-            if len(image_list) > 0:
-                # image_dict = {image["filename"]: image for image in image_list}
+            leginon_image_list = self.leginon_cursor.fetchall()
+            if len(leginon_image_list) > 0:
+                # image_dict = {image["filename"]: image for image in leginon_image_list}
                 image_dict = {}
                 # Create a new job
                 job = Frametransferjob(
@@ -91,14 +91,15 @@ class LeginonFrameTransferJobService:
                 db_session.flush()  # Flush the session to get the generated Oid
 
                 db_image_list = []
+                db_job_item_list = []
                 separator="/"
-                for image in image_list:
+                for image in leginon_image_list:
                     filename = image["filename"]
                     # image_path = os.path.join(session_result["image path"], filename)
                     image_path = (session_result["image path"]+ separator+ filename+ ".mrc")
 
                     db_image = Image(Oid=uuid.uuid4(), name=filename, magnification=image["mag"])
-                    db_session.add(db_image)
+                    # db_session.add(db_image)
                     # db_session.flush()
                     db_image_list.append(db_image)
                     image_dict[filename] = db_image.Oid
@@ -113,7 +114,8 @@ class LeginonFrameTransferJobService:
                         image_id=db_image.Oid,
                         # Set job item properties
                     )
-                    db_session.add(job_item)
+                    db_job_item_list.append(job_item)
+                    # db_session.add(job_item)
 
                     task = LeginonFrameTransferTaskDto(
                         task_id=uuid.uuid4(),
@@ -130,11 +132,14 @@ class LeginonFrameTransferJobService:
                     if parent_name in image_dict:
                         db_image.parent_id = image_dict[parent_name]
 
+                db_session.bulk_save_objects(db_image_list)
+                db_session.bulk_save_objects(db_job_item_list)
             # get all the files in the source directory
-            # image_list = [file for file in os.listdir(self.params.source_directory) if
+            # leginon_image_list = [file for file in os.listdir(self.params.source_directory) if
             #               os.path.isfile(os.path.join(self.params.source_directory, file))]
 
             # print("hello")
+
             db_session.commit()  # Commit the changes
         except FileNotFoundError as e:
             print("Source directory not found:", self.params.source_directory)
