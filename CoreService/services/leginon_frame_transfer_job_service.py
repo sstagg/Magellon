@@ -25,8 +25,6 @@ class LeginonFrameTransferJobService:
         self.mrc_service = MrcImageService()
         self.leginon_db_connection: pymysql.Connection = None
         self.leginon_cursor: pymysql.cursors.Cursor = None
-        # self.magellon_db_connection: pymysql.Connection = None
-        # self.magellon_cursor: pymysql.cursors.Cursor = None
 
     def setup(self, input_json: str):
         input_data = json.loads(input_json)
@@ -85,17 +83,38 @@ class LeginonFrameTransferJobService:
             # SQL query
             query = """
                 SELECT
-                  AcquisitionImageData.DEF_id as id,
-                  AcquisitionImageData.filename as filename,
-                  ScopeEMData.`spot size` as spot_size,
-                  ScopeEMData.magnification as mag,
-                  CameraEMData.`energy filtered` as energy_filtered
-                FROM AcquisitionImageData
-                  LEFT OUTER JOIN ScopeEMData
-                    ON AcquisitionImageData.`REF|ScopeEMData|scope` = ScopeEMData.DEF_id
-                  LEFT OUTER JOIN CameraEMData
-                    ON AcquisitionImageData.`REF|CameraEMData|camera` = CameraEMData.DEF_id
-                WHERE AcquisitionImageData.filename LIKE %s
+                  ai.DEF_id AS image_id,
+                  ai.filename,
+                  sem.magnification AS mag,
+                  sem.defocus,
+                  cem.`exposure time` AS camera_exposure_time,
+                  cem.`save frames` AS save_frames,
+                  cem.`frames name` AS frame_names,
+                  pd.dose AS preset_dose,
+                  pd.`exposure time` AS preset_exposure_time,
+                  pd.dose * POWER(10, -20) * cem.`exposure time` / pd.`exposure time` AS calculated_dose,
+                  psc.pixelsize AS pixelsize
+                FROM AcquisitionImageData ai
+                  LEFT OUTER JOIN ScopeEMData sem
+                    ON ai.`REF|ScopeEMData|scope` = sem.DEF_id
+                  LEFT OUTER JOIN CameraEMData cem
+                    ON ai.`REF|CameraEMData|camera` = cem.DEF_id
+                  LEFT OUTER JOIN PresetData pd
+                    ON ai.`REF|PresetData|preset` = pd.DEF_id
+                  LEFT OUTER JOIN InstrumentData TemInstrumentData
+                    ON pd.`REF|InstrumentData|tem` = TemInstrumentData.DEF_id
+                  LEFT OUTER JOIN InstrumentData CameraInstrumentData
+                    ON pd.`REF|InstrumentData|ccdcamera` = CameraInstrumentData.DEF_id
+                  LEFT OUTER JOIN (SELECT
+                      psc.pixelsize,
+                      psc.`REF|InstrumentData|tem`,
+                      psc.`REF|InstrumentData|ccdcamera`,
+                      psc.magnification
+                    FROM PixelSizeCalibrationData psc) psc
+                    ON psc.`REF|InstrumentData|tem` = pd.`REF|InstrumentData|tem`
+                    AND psc.`REF|InstrumentData|ccdcamera` = pd.`REF|InstrumentData|ccdcamera`
+                    AND psc.magnification = sem.magnification
+                WHERE ai.filename LIKE %s
             """
             self.leginon_cursor.execute(query, (session_name + "%",))
             leginon_image_list = self.leginon_cursor.fetchall()
@@ -123,7 +142,9 @@ class LeginonFrameTransferJobService:
                     image_path = (session_result["image path"] + separator + filename + ".mrc")
 
                     db_image = Image(Oid=uuid.uuid4(), name=filename, magnification=image["mag"],
-                                     old_id=image["id"], session_id=magellon_session.Oid)
+                                     defocus=image["defocus"], dose=image["calculated_dose"],
+                                     pixelsize=image["pixelsize"],
+                                     old_id=image["image_id"], session_id=magellon_session.Oid)
                     # db_session.add(db_image)
                     # db_session.flush()
                     db_image_list.append(db_image)
