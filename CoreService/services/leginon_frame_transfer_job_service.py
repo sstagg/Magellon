@@ -5,6 +5,7 @@ import shutil
 import json
 import uuid
 from typing import Dict
+import concurrent.futures
 
 import pymysql
 from fastapi import APIRouter, Depends, HTTPException
@@ -16,6 +17,8 @@ from models.sqlalchemy_models import Frametransferjob, Frametransferjobitem, Ima
 from services.file_service import copy_file, create_directory
 from services.mrc_image_service import MrcImageService
 from sqlalchemy.orm import Session
+
+MAX_RETRIES = 3
 
 
 class LeginonFrameTransferJobService:
@@ -202,42 +205,6 @@ class LeginonFrameTransferJobService:
         finally:
             self.close_connections()
 
-    # def create_tasks(self):
-    #     try:
-    #         image_list = os.listdir(self.params.source_directory)
-    #         for image_file in image_list:
-    #             image_path = os.path.join(self.params.source_directory, image_file)
-    #             task = LeginonFrameTransferTaskDto(
-    #                 task_id=uuid.uuid4(),
-    #                 task_alias=f"lftj_{image_file}_{self.params.job_id}",
-    #                 image_path=image_path,
-    #                 job_dto=self.params,
-    #                 status=1
-    #             )
-    #             self.params.task_list.append(task)
-    #
-    #     except FileNotFoundError as e:
-    #         print("Source directory not found:", self.params.source_directory)
-    #     except OSError as e:
-    #         print("Error accessing source directory:", self.params.source_directory)
-    #     except Exception as e:
-    #         print("An unexpected error occurred:", str(e))
-
-    # def query_leginon_session(self):
-    #     try:
-    #         # Execute the query
-    #         query = "SELECT * FROM SessionData WHERE name = %s"
-    #         session_name = self.params.session_name
-    #         cursor.execute(query, (session_name,))
-    #
-    #         # Fetch all the results
-    #         query_leginon_db(query)
-    #
-    #         # cursor.close()
-    #         # connection.close()
-    #     except Exception as e:
-    #         print("An unexpected error occurred:", str(e))
-
     def query_leginon_db(self):
         try:
             # Establish a connection to the database
@@ -263,8 +230,19 @@ class LeginonFrameTransferJobService:
         try:
             # self.leginon_db_connection = pymysql.connect(**self.params.source_mysql_connection)
             self.open_leginon_connection()
-            for task in self.params.task_list:
-                self.run_task(task)
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                for task in self.params.task_list:
+                    retry_count = 0
+                    while retry_count < MAX_RETRIES:
+                        try:
+                            self.run_task(task)
+                            break  # Task completed successfully, exit the retry loop
+                        except Exception as e:
+                            print(f"Task failed: {str(e)}")
+                            retry_count += 1
+                            print(f"Retrying... Attempt {retry_count}")
+                            time.sleep(1)  # Add a small delay before retrying
+
 
         except Exception as e:
             print("An unexpected error occurred:", str(e))
