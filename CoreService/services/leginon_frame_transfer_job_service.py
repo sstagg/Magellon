@@ -150,7 +150,8 @@ class LeginonFrameTransferJobService:
 
                     db_image = Image(Oid=uuid.uuid4(), name=filename, magnification=image["mag"],
                                      defocus=image["defocus"], dose=image["calculated_dose"],
-                                     pixel_size=image["pixelsize"],binning_x=image["bining_x"],binning_y=image["bining_y"],
+                                     pixel_size=image["pixelsize"], binning_x=image["bining_x"],
+                                     binning_y=image["bining_y"],
                                      old_id=image["image_id"], session_id=magellon_session.Oid)
                     # db_session.add(db_image)
                     # db_session.flush()
@@ -194,14 +195,12 @@ class LeginonFrameTransferJobService:
                 db_session.bulk_save_objects(db_image_list)
                 db_session.bulk_save_objects(db_job_item_list)
 
-            # get all the files in the source directory
-            # leginon_image_list = [file for file in os.listdir(self.params.source_directory) if
-            #               os.path.isfile(os.path.join(self.params.source_directory, file))]
-
-            # print("hello")
+                # get all the files in the source directory
+                # print("hello")
 
                 db_session.commit()  # Commit the changes
                 # self.run_tasks()
+                self.create_test_tasks()
         except FileNotFoundError as e:
             print("Source directory not found:", self.params.source_directory)
         except OSError as e:
@@ -211,8 +210,27 @@ class LeginonFrameTransferJobService:
         finally:
             self.close_connections()
 
+    def create_test_tasks(self):
+        # get all the files in the source directory
+        leginon_image_list = [file for file in os.listdir(self.params.camera_directory) if
+                              os.path.isfile(os.path.join(self.params.camera_directory, file))]
+        # self.create_directories()
+        self.params.task_list.clear()
+        for image in leginon_image_list:
+            task = LeginonFrameTransferTaskDto(
+                task_id=uuid.uuid4(),
+                task_alias=f"lftj_{image}_{self.params.job_id}",
+                file_name=f"{image}",
+                image_path=self.params.camera_directory + "/" +image,
+                job_dto=self.params,
+                status=1
+            )
+            self.params.task_list.append(task)
+        self.run_tasks()
+
     def run_tasks(self):
         try:
+            self.create_directories(self.params.target_directory)
             # self.open_leginon_connection()
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 # The run_task function is submitted to the executor using executor.submit, and the resulting Future
@@ -299,8 +317,6 @@ class LeginonFrameTransferJobService:
         # if self.magellon_db_connection is not None:
         #     self.magellon_db_connection.close()
         #     self.magellon_db_connection = None
-
-
 
     def convert_image_to_png_task(self, abs_file_path, out_dir):
         try:
