@@ -9,39 +9,53 @@ from services.helper import get_response_image, format_data_by_ext
 
 
 def get_images() -> JSONResponse:
-    data = []
-    filename_list = os.listdir(THUMBNAILS_DIR)
-    parent_file_ext = set()
+    data = []  # Initialize an empty list to store image data
+    filename_list = os.listdir(THUMBNAILS_DIR)  # Get the list of filenames in the specified directory
+
+    parent_file_ext = set()  # Store distinct parent file extensions
+
+    # Identify parent file extensions present in the filenames
     for filename in filename_list:
         if len(filename.split("_")) > 6:
-            parent_file_ext.add(filename.split("_")[5])
+            parent_file_ext.add(filename.split("_")[5])  # Consider the sixth section as parent file extension
         else:
-            parent_file_ext.add('misc')
-    stack_3_images_list = set()
+            parent_file_ext.add('misc')  # Assign 'misc' as parent file extension for filenames with fewer sections
+
+    stack_3_images_list = set()  # Store filenames of three representative images for each parent file extension
+
+    # Find representative images for each parent file extension
     for ext in parent_file_ext:
-        count = 0
+        count = 0  # Track the number of representative images found
         for filename in filename_list:
+            # Check if filename matches the criteria for a representative image
             if (ext in filename) and len(filename.split("_")) >= 6 and (
                     filename.endswith(ext + '_TIMG.png')) and count == 0:
-                stack_3_images_list.add(filename)
+                stack_3_images_list.add(filename)  # Add the filename to the set
                 count += 1
 
+        # If fewer than three representative images found, add other matching filenames
         for filename in filename_list:
             if (ext in filename) and not filename.endswith(ext + '_TIMG.png') and count < 3:
-                # print("else 3 filenames - ", filename)
-                stack_3_images_list.add(filename)
+                stack_3_images_list.add(filename)  # Add the filename to the set
                 count += 1
+
+    # Iterate through the filenames and process the selected images
     for filename in glob.iglob(THUMBNAILS_DIR + '*.png', recursive=True):
         if filename.rsplit("/", 1)[1] not in stack_3_images_list:
-            continue
-        item = {}
-        short_name = (filename.rsplit("/", 1)[1]).rsplit(".", 1)[0]  # get image name
-        item['name'] = short_name
-        item['encoded_image'] = get_response_image(filename)
-        item['ext'] = short_name.split("_")[5] if len(short_name.split("_")) > 5 else "misc"
-        data.append(item)
-    res = format_data_by_ext(data)
+            continue  # Skip filenames not present in the representative images set
+
+        item = {}  # Create a dictionary to store image data
+        short_name = (filename.rsplit("/", 1)[1]).rsplit(".", 1)[0]  # Get the image name
+        item['name'] = short_name  # Add the image name to the dictionary
+        item['encoded_image'] = get_response_image(filename)  # Get the encoded image data
+        item['ext'] = short_name.split("_")[5] if len(short_name.split("_")) > 5 else "misc"  # Extract the parent file extension
+        data.append(item)  # Add the image data dictionary to the list
+
+    res = format_data_by_ext(data)  # Further process the data based on the file extensions
+
+    # Return a JSON response with the formatted data and headers
     return JSONResponse(content={'result': res}, headers={'Access-Control-Allow-Origin': '*'})
+
 
 
 # def get_image_by_stack(request: Request):

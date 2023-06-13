@@ -11,6 +11,7 @@ import pymysql
 from fastapi import APIRouter, Depends, HTTPException
 
 from config import FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL
+from config_dev import FRAMES_SUB_URL
 from database import get_db
 from models.pydantic_models import LeginonFrameTransferJobDto, LeginonFrameTransferTaskDto, LeginonImageDto
 from models.sqlalchemy_models import Frametransferjob, Frametransferjobitem, Image, Project, Msession
@@ -43,10 +44,7 @@ class LeginonFrameTransferJobService:
     def process(self, db_session: Session = Depends(get_db)) -> Dict[str, str]:
         try:
             start_time = time.time()  # Start measuring the time
-            # self.query_leginon_db()
-            # self.create_directories(self.params.target_directory)
             self.create_job(db_session)
-            # self.run_tasks()
             end_time = time.time()  # Stop measuring the time
             execution_time = end_time - start_time
             return {'status': 'success', 'message': 'Task completed successfully.',
@@ -89,7 +87,7 @@ class LeginonFrameTransferJobService:
             # get all the images in the leginon database
             # SQL query
             query = """
-                SELECT
+                SELECT DISTINCT
                   ai.DEF_id AS image_id,
                   ai.filename,
                   sem.magnification AS mag,
@@ -97,6 +95,8 @@ class LeginonFrameTransferJobService:
                   cem.`exposure time` AS camera_exposure_time,
                   cem.`save frames` AS save_frames,
                   cem.`frames name` AS frame_names,
+                  cem.`SUBD|binning|x` AS bining_x,
+                  cem.`SUBD|binning|y` AS bining_y,
                   pd.dose AS preset_dose,
                   pd.`exposure time` AS preset_exposure_time,
                   pd.dose * POWER(10, -20) * cem.`exposure time` / pd.`exposure time` AS calculated_dose,
@@ -150,7 +150,7 @@ class LeginonFrameTransferJobService:
 
                     db_image = Image(Oid=uuid.uuid4(), name=filename, magnification=image["mag"],
                                      defocus=image["defocus"], dose=image["calculated_dose"],
-                                     pixel_size=image["pixelsize"],
+                                     pixel_size=image["pixelsize"],binning_x=image["bining_x"],binning_y=image["bining_y"],
                                      old_id=image["image_id"], session_id=magellon_session.Oid)
                     # db_session.add(db_image)
                     # db_session.flush()
@@ -193,13 +193,15 @@ class LeginonFrameTransferJobService:
 
                 db_session.bulk_save_objects(db_image_list)
                 db_session.bulk_save_objects(db_job_item_list)
+
             # get all the files in the source directory
             # leginon_image_list = [file for file in os.listdir(self.params.source_directory) if
             #               os.path.isfile(os.path.join(self.params.source_directory, file))]
 
             # print("hello")
 
-            db_session.commit()  # Commit the changes
+                db_session.commit()  # Commit the changes
+                # self.run_tasks()
         except FileNotFoundError as e:
             print("Source directory not found:", self.params.source_directory)
         except OSError as e:
@@ -209,30 +211,9 @@ class LeginonFrameTransferJobService:
         finally:
             self.close_connections()
 
-    def query_leginon_db(self):
-        try:
-            # Establish a connection to the database
-            self.open_leginon_connection()
-
-            # Execute the query
-            query = "SELECT * FROM SessionData WHERE name = %s"
-            session_name = self.params.session_name
-            self.leginon_cursor.execute(query, (session_name,))
-
-            # Fetch all the results
-            results = self.leginon_cursor.fetchall()
-            for row in results:
-                print(row)
-                print(row[4])
-
-        except Exception as e:
-            print("An unexpected error occurred:", str(e))
-        finally:
-            self.close_connections()
-
     def run_tasks(self):
         try:
-            self.open_leginon_connection()
+            # self.open_leginon_connection()
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 # The run_task function is submitted to the executor using executor.submit, and the resulting Future
                 # objects are stored in a dictionary future_to_task to keep track of each task.
@@ -261,18 +242,18 @@ class LeginonFrameTransferJobService:
                         # Perform any additional handling for failed tasks
         except Exception as e:
             print("An unexpected error occurred:", str(e))
-        finally:
-            self.close_connections()
+        # finally:
+        #     self.close_connections()
 
+    # ```mermaid
+    # graph LR
+    #     A(Copy Image) --> B(Copy Frame)
+    #     B --> C(Convert Image to PNG)
+    #     C --> D(Compute FFT)
+    # ```
     def run_task(self, task_dto: LeginonFrameTransferTaskDto) -> Dict[str, str]:
         try:
             copy_file(task_dto.image_path, task_dto.job_dto.target_directory)
-
-            # Retrieve metadata from the old MySQL database
-            self.retrieve_metadata_task(task_dto.image_path)
-
-            # Insert metadata into the new MySQL database
-            # insert_metadata(metadata)
 
             # Generate FFT using the REST API
             self.convert_image_to_png_task(task_dto.image_path, task_dto.job_dto.target_directory)
@@ -290,6 +271,7 @@ class LeginonFrameTransferJobService:
 
     def create_directories(self, target_dir: str):
         create_directory(target_dir)
+        create_directory(os.path.join(target_dir, FRAMES_SUB_URL))
         create_directory(os.path.join(target_dir, FFT_SUB_URL))
         create_directory(os.path.join(target_dir, IMAGE_SUB_URL))
         create_directory(os.path.join(target_dir, THUMBNAILS_SUB_URL))
@@ -318,83 +300,7 @@ class LeginonFrameTransferJobService:
         #     self.magellon_db_connection.close()
         #     self.magellon_db_connection = None
 
-    def retrieve_metadata_task(self, image_name):
-        # Implement logic to retrieve metadata from the old MySQL database
-        query = "SELECT defocus, mag, filename, pixelsize, dose FROM AcquisitionImageData WHERE imagename=%s"
-        image_data = []
-        try:
-            # with self.source_db_connection.cursor() as source_cursor:
-            #     # Execute the query for each image data
-            #     source_cursor.execute(query, (image_name,))
-            #     rows = source_cursor.fetchall()
-            if self.leginon_cursor is None:
-                self.leginon_cursor = self.leginon_db_connection.cursor()
 
-            self.leginon_cursor.execute(query, (image_name,))
-            rows = self.leginon_cursor.fetchall()
-
-            for row in rows:
-                defocus, mag, filename, pixelsize, dose = row
-                image_dto = LeginonImageDto(defocus=defocus, mag=mag, filename=filename, pixelsize=pixelsize, dose=dose)
-                image_data.append(image_dto)
-
-            # Commit the changes
-            # self.source_db_connection.commit()
-        except Exception as e:
-            # Handle the exception here (e.g., print an error message)
-            print(f"Error: {str(e)}")
-
-        return image_data
-
-    def insert_metadata_task(self, connection_string: str, image_data: dict):
-        # Implement logic to insert metadata into the new MySQL database
-        # Prepare the SQL query
-        query = """
-        INSERT INTO image (
-            Oid,
-            name,
-            path,
-            parent,
-            session,
-            magnification,
-            dose,
-            defocus
-        )
-        VALUES (
-            %(Oid)s,
-            %(name)s,
-            %(path)s,
-            %(parent)s,
-            %(session)s,
-            %(magnification)s,
-            %(dose)s,
-            %(defocus)s
-        )
-        ON DUPLICATE KEY UPDATE
-            name = VALUES(name),
-            path = VALUES(path),
-            parent = VALUES(parent),
-            session = VALUES(session),
-            magnification = VALUES(magnification),
-            dose = VALUES(dose),
-            defocus = VALUES(defocus)
-        """
-        source_cursor = self.leginon_db_connection.cursor()
-        try:
-            # Execute the query for each image data
-            for data in image_data:
-                source_cursor.execute(query, data)
-
-                # Commit the changes
-                self.leginon_db_connection.commit()
-
-        except Exception as e:
-            # Handle the exception here (e.g., print an error message)
-            print(f"Error: {str(e)}")
-
-        finally:
-            # Close the cursor
-            source_cursor.close()
 
     def convert_image_to_png_task(self, abs_file_path, out_dir):
         try:

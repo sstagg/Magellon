@@ -23,6 +23,7 @@ SLACK_TOKEN: str = os.getenv('SLACK_TOKEN') or "xoxb-5284990093169-5258053840439
 IMAGE_ROOT_URL = r"http://localhost/cdn/"
 IMAGE_SUB_URL = r"images/"
 THUMBNAILS_SUB_URL = r"thumbnails/"
+FRAMES_SUB_URL = r"frames/"
 FFT_SUB_URL = r"FFTs/"
 
 # my_config_value = os.environ.get('MY_CONFIG_VALUE')

@@ -1,7 +1,7 @@
 # coding: utf-8
 import uuid
 
-from sqlalchemy import Column, DECIMAL, ForeignKey, Index, String, Text, Boolean, LargeBinary, DateTime, JSON
+from sqlalchemy import Column, DECIMAL, ForeignKey, Index, String, Text, Boolean, LargeBinary, DateTime, JSON, DOUBLE
 from sqlalchemy.dialects.mysql import BIGINT, INTEGER
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -359,10 +359,10 @@ class Image(Base):
     offset_y = Column(BIGINT(20))
     exposure_time = Column(DECIMAL(28, 8))
     exposure_type = Column(BIGINT(20))
-    pixel_size = Column(DECIMAL(28, 8))
+    pixel_size = Column(DOUBLE)
     pixel_size_x = Column(DECIMAL(28, 8))
     pixel_size_y = Column(DECIMAL(28, 8))
-    energy_filtered = Column(Boolean, default=True)
+    energy_filtered = Column(Boolean, default=False)
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)
 
