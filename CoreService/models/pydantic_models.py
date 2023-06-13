@@ -178,6 +178,7 @@ class LeginonFrameTransferJobDto(BaseModel):
     job_id: Optional[uuid.UUID]
     magellon_project_name: str
     magellon_session_name: str
+    camera_directory: Optional[str]
     target_directory: Optional[str]
     session_name: Optional[str]
     retries: Optional[int]
@@ -192,7 +193,10 @@ class LeginonFrameTransferJobDto(BaseModel):
 class LeginonFrameTransferTaskDto(BaseModel):
     task_id: uuid.UUID
     task_alias: Optional[str]
+    file_name: Optional[str]
+    frame_name: Optional[str]
     image_path: Optional[str]
+    target_path: Optional[str]
     job_dto: LeginonFrameTransferJobDto
     status: Optional[int]
 

@@ -187,6 +187,22 @@ async def run_motioncor2(input_data: MotionCor2Input):
 #         return {"error": str(e)}
 
 # def process_image_job(source_dir: str, target_dir: str):
+
+
+#
+# {
+#     "job_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+#     "magellon_project_name": "Leginon",
+#     "magellon_session_name": "23mar23b",
+#     "target_directory": "C:/temp/target",
+#     "camera_directory": "/gpfs/research/stagg/framesdata/23mar23b/rawdata",
+#     "leginon_mysql_user": "usr_object",
+#     "leginon_mysql_pass": "ThPHMn3m39Ds",
+#     "leginon_mysql_host": "localhost",
+#     "leginon_mysql_port": 3310,
+#     "leginon_mysql_db": "dbemdata",
+#     "session_name": "23mar23b"
+# }
 @image_processing_router.post("/transfer_images_job")
 def process_image_job(input_data: LeginonFrameTransferJobDto, db: Session = Depends(get_db)):
     # Generate a unique job ID

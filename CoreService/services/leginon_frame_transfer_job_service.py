@@ -143,7 +143,7 @@ class LeginonFrameTransferJobService:
 
                     db_image = Image(Oid=uuid.uuid4(), name=filename, magnification=image["mag"],
                                      defocus=image["defocus"], dose=image["calculated_dose"],
-                                     pixelsize=image["pixelsize"],
+                                     pixel_size=image["pixelsize"],
                                      old_id=image["image_id"], session_id=magellon_session.Oid)
                     # db_session.add(db_image)
                     # db_session.flush()
@@ -163,10 +163,16 @@ class LeginonFrameTransferJobService:
                     db_job_item_list.append(job_item)
                     # db_session.add(job_item)
 
+                    # Get the file name and extension from the source path
+                    source_filename, source_extension = os.path.splitext(image_path)
+
                     task = LeginonFrameTransferTaskDto(
                         task_id=uuid.uuid4(),
                         task_alias=f"lftj_{filename}_{self.params.job_id}",
-                        image_path=image_path,
+                        file_name=f"{filename}",
+                        frame_name=image["frame_names"],
+                        image_path=self.params.camera_directory + "/" + image["frame_names"],
+                        target_path=self.params.target_directory + "/frames/" + f"{image['frame_names']}{source_extension}",
                         job_dto=self.params,
                         status=1
                     )

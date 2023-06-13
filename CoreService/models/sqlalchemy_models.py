@@ -359,6 +359,7 @@ class Image(Base):
     offset_y = Column(BIGINT(20))
     exposure_time = Column(DECIMAL(28, 8))
     exposure_type = Column(BIGINT(20))
+    pixel_size = Column(DECIMAL(28, 8))
     pixel_size_x = Column(DECIMAL(28, 8))
     pixel_size_y = Column(DECIMAL(28, 8))
     energy_filtered = Column(Boolean, default=True)
