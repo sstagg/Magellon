@@ -21,6 +21,10 @@ from sqlalchemy.orm import Session
 MAX_RETRIES = 3
 
 
+class TaskFailedException(Exception):
+    pass
+
+
 class LeginonFrameTransferJobService:
 
     def __init__(self):
@@ -228,26 +232,36 @@ class LeginonFrameTransferJobService:
 
     def run_tasks(self):
         try:
-            # self.leginon_db_connection = pymysql.connect(**self.params.source_mysql_connection)
             self.open_leginon_connection()
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                for task in self.params.task_list:
+                # The run_task function is submitted to the executor using executor.submit, and the resulting Future
+                # objects are stored in a dictionary future_to_task to keep track of each task.
+                future_to_task = {executor.submit(self.run_task, task): task for task in self.params.task_list}
+
+                # The as_completed function from concurrent.futures is used to iterate through completed futures as
+                # they become available. Within the loop, the code checks for task results and implements the retry
+                # logic by catching exceptions and retrying up to the maximum retry count.
+                for future in concurrent.futures.as_completed(future_to_task):
+                    task = future_to_task[future]
                     retry_count = 0
                     while retry_count < MAX_RETRIES:
                         try:
-                            self.run_task(task)
+                            future.result()
+                            print(f"Task completed successfully: {task}")
                             break  # Task completed successfully, exit the retry loop
-                        except Exception as e:
+                        except TaskFailedException as e:
                             print(f"Task failed: {str(e)}")
                             retry_count += 1
-                            print(f"Retrying... Attempt {retry_count}")
-                            time.sleep(1)  # Add a small delay before retrying
+                            if retry_count < MAX_RETRIES:
+                                print(f"Retrying... Attempt {retry_count}")
+                                time.sleep(1)  # Add a small delay before retrying
 
-
+                    if retry_count == MAX_RETRIES:
+                        print(f"Max retries exceeded for task: {task}")
+                        # Perform any additional handling for failed tasks
         except Exception as e:
             print("An unexpected error occurred:", str(e))
         finally:
-            # Close the connection
             self.close_connections()
 
     def run_task(self, task_dto: LeginonFrameTransferTaskDto) -> Dict[str, str]:
@@ -271,7 +285,8 @@ class LeginonFrameTransferJobService:
             return {'status': 'success', 'message': 'Task completed successfully.'}
 
         except Exception as e:
-            return {'status': 'failure', 'message': f'Task failed with error: {str(e)}'}
+            raise TaskFailedException(f"Task failed with error: {str(e)}")
+            # return {'status': 'failure', 'message': f'Task failed with error: {str(e)}'}
 
     def create_directories(self, target_dir: str):
         create_directory(target_dir)
