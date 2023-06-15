@@ -40,14 +40,16 @@ def get_images() -> JSONResponse:
                 count += 1
 
     # Iterate through the filenames and process the selected images
-    for filename in glob.iglob(THUMBNAILS_DIR + '*.png', recursive=True):
-        if filename.rsplit("/", 1)[1] not in stack_3_images_list:
+    for file_path in glob.iglob(THUMBNAILS_DIR + '*.png', recursive=True):
+        # if filename.rsplit("/", 1)[1] not in stack_3_images_list:
+        if os.path.basename(file_path) not in stack_3_images_list:
             continue  # Skip filenames not present in the representative images set
 
         item = {}  # Create a dictionary to store image data
-        short_name = (filename.rsplit("/", 1)[1]).rsplit(".", 1)[0]  # Get the image name
+        # short_name = (filename.rsplit("/", 1)[1]).rsplit(".", 1)[0]  # Get the image name
+        short_name = short_name = os.path.splitext(os.path.basename(file_path))[0]  # Get the image name
         item['name'] = short_name  # Add the image name to the dictionary
-        item['encoded_image'] = get_response_image(filename)  # Get the encoded image data
+        item['encoded_image'] = get_response_image(file_path)  # Get the encoded image data
         item['ext'] = short_name.split("_")[5] if len(short_name.split("_")) > 5 else "misc"  # Extract the parent file extension
         data.append(item)  # Add the image data dictionary to the list
 
@@ -81,7 +83,7 @@ def get_image_data(image: Image):
     result = {
         "filename": image.name,
         "defocus": round(float(image.defocus) * 1.e6, 2),
-        "PixelSize": round(float(image.pixel_size_x), 3),
+        "PixelSize": round(float(image.pixel_size) * image.binning_x, 3),
         "mag": image.magnification,
         "dose": round(image.dose, 2) if image.dose is not None else "none",
     }
