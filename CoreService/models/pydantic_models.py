@@ -164,7 +164,6 @@ class ParticlepickingjobitemInDB(ParticlepickingjobitemInDBBase):
 #     results: List[ParticlepickingjobitemResult]
 
 
-
 # ================================================================================================
 class MySQLConnectionSettings(BaseModel):
     host: str
@@ -181,6 +180,7 @@ class LeginonFrameTransferJobDto(BaseModel):
     camera_directory: Optional[str]
     target_directory: Optional[str]
     session_name: Optional[str]
+    copy_images: Optional[bool] = True
     retries: Optional[int]
     leginon_mysql_host: Optional[str]
     leginon_mysql_port: Optional[int]
@@ -195,6 +195,7 @@ class LeginonFrameTransferTaskDto(BaseModel):
     task_alias: Optional[str]
     file_name: Optional[str]
     frame_name: Optional[str]
+    image_name: Optional[str]
     image_path: Optional[str]
     target_path: Optional[str]
     job_dto: LeginonFrameTransferJobDto

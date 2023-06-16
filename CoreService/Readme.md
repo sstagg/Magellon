@@ -135,3 +135,24 @@ https://www.bionode.io/
 
 ssh -N -L 3310:kriosdb.rcc.fsu.edu:3306 bk2n@hpc-login.rcc.fsu.edu
 
+```WITH RECURSIVE image_hierarchy AS (
+-- Anchor member: get the initial level (level 0)
+SELECT oid, name, parent_id, 0 AS level
+FROM image
+WHERE parent_id IS NULL
+
+    UNION ALL
+    
+    -- Recursive member: traverse the hierarchy based on the specified level number
+    SELECT c.oid, c.name, c.parent_id, h.level + 1
+    FROM image AS c
+    JOIN image_hierarchy AS h ON c.parent_id = h.oid
+    WHERE h.level < :level_number -- Specify the desired level number
+)
+SELECT parent.oid AS parent_oid, parent.name AS parent_name, COUNT(child.oid) AS num_images
+FROM image_hierarchy AS child
+JOIN image_hierarchy AS parent ON child.parent_id = parent.oid
+WHERE child.level = :level_number - 1 -- Specify the level of the children (one level below the parent)
+GROUP BY parent.oid, parent.name
+HAVING COUNT(child.oid) >= :num_images -- Specify the minimum number of images
+ORDER BY parent.oid;```

@@ -1,3 +1,4 @@
+import glob
 import os
 import shutil
 import subprocess
@@ -30,6 +31,13 @@ def copy_file(source_path, target_path):
     except Exception as e:
         print(f"Error copying File: {source_path} -> {target_path}. Error: {str(e)}")
         raise
+
+
+def check_file_exists(folder, filename_without_extension):
+    # file_pattern = os.path.join(folder, filename_without_extension + '.*')
+    matching_files = glob.glob(os.path.join(folder, filename_without_extension + '.*'))
+    return (matching_files[0]) if matching_files else None
+    # return os.path.basename(matching_files[0]) if matching_files else None
 
 
 class FileService:

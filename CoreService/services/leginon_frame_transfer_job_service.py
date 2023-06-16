@@ -1,3 +1,4 @@
+import glob
 import time
 from datetime import datetime
 import os
@@ -15,7 +16,7 @@ from config_dev import FRAMES_SUB_URL
 from database import get_db
 from models.pydantic_models import LeginonFrameTransferJobDto, LeginonFrameTransferTaskDto, LeginonImageDto
 from models.sqlalchemy_models import Frametransferjob, Frametransferjobitem, Image, Project, Msession
-from services.file_service import copy_file, create_directory
+from services.file_service import copy_file, create_directory, check_file_exists
 from services.mrc_image_service import MrcImageService
 from sqlalchemy.orm import Session
 
@@ -24,6 +25,16 @@ MAX_RETRIES = 3
 
 class TaskFailedException(Exception):
     pass
+
+
+# def check_file_exists(folder, filename_without_extension):
+#     file_pattern = os.path.join(folder, filename_without_extension + '.*')
+#     matching_files = glob.glob(file_pattern)
+#
+#     if matching_files:
+#         return os.path.basename(matching_files[0])
+#
+#     return None
 
 
 class LeginonFrameTransferJobService:
@@ -90,6 +101,7 @@ class LeginonFrameTransferJobService:
                 SELECT DISTINCT
                   ai.DEF_id AS image_id,
                   ai.filename,
+                  ai.`MRC|image` AS image_name,
                   sem.magnification AS mag,
                   sem.defocus,
                   cem.`exposure time` AS camera_exposure_time,
@@ -145,8 +157,8 @@ class LeginonFrameTransferJobService:
                 separator = "/"
                 for image in leginon_image_list:
                     filename = image["filename"]
-                    # image_path = os.path.join(session_result["image path"], filename)
-                    image_path = (session_result["image path"] + separator + filename + ".mrc")
+                    # source_image_path = os.path.join(session_result["image path"], filename)
+
 
                     db_image = Image(Oid=uuid.uuid4(), name=filename, magnification=image["mag"],
                                      defocus=image["defocus"], dose=image["calculated_dose"],
@@ -158,11 +170,14 @@ class LeginonFrameTransferJobService:
                     db_image_list.append(db_image)
                     image_dict[filename] = db_image.Oid
 
+                    # source_image_path = (session_result["image path"] + separator + filename + ".mrc")
+                    source_image_path = self.params.camera_directory + separator + image["image_name"]
+
                     # Create a new job item and associate it with the job and image
                     job_item = Frametransferjobitem(
                         Oid=uuid.uuid4(),
                         job_id=job.Oid,
-                        path=image_path,
+                        path=source_image_path,
                         status=1,
                         steps=0,
                         image_id=db_image.Oid,
@@ -172,15 +187,16 @@ class LeginonFrameTransferJobService:
                     # db_session.add(job_item)
 
                     # Get the file name and extension from the source path
-                    source_filename, source_extension = os.path.splitext(image_path)
+                    # source_filename, source_extension = os.path.splitext(source_image_path)
 
                     task = LeginonFrameTransferTaskDto(
                         task_id=uuid.uuid4(),
                         task_alias=f"lftj_{filename}_{self.params.job_id}",
                         file_name=f"{filename}",
+                        image_name=image["image_name"],
                         frame_name=image["frame_names"],
-                        image_path=self.params.camera_directory + "/" + image["frame_names"],
-                        target_path=self.params.target_directory + "/frames/" + f"{image['frame_names']}{source_extension}",
+                        image_path=source_image_path,
+                        # target_path=self.params.target_directory + "/frames/" + f"{image['frame_names']}{source_extension}",
                         job_dto=self.params,
                         status=1
                     )
@@ -199,8 +215,8 @@ class LeginonFrameTransferJobService:
                 # print("hello")
 
                 db_session.commit()  # Commit the changes
-                # self.run_tasks()
-                self.create_test_tasks()
+                self.run_tasks()
+                # self.create_test_tasks()
         except FileNotFoundError as e:
             print("Source directory not found:", self.params.source_directory)
         except OSError as e:
@@ -221,7 +237,7 @@ class LeginonFrameTransferJobService:
                 task_id=uuid.uuid4(),
                 task_alias=f"lftj_{image}_{self.params.job_id}",
                 file_name=f"{image}",
-                image_path=self.params.camera_directory + "/" +image,
+                image_path=self.params.camera_directory + "/" + image,
                 job_dto=self.params,
                 status=1
             )
@@ -271,8 +287,12 @@ class LeginonFrameTransferJobService:
     # ```
     def run_task(self, task_dto: LeginonFrameTransferTaskDto) -> Dict[str, str]:
         try:
-            copy_file(task_dto.image_path, task_dto.job_dto.target_directory)
+            self.transfer_frame(task_dto)
 
+            if task_dto.job_dto.copy_images:
+                copy_file(task_dto.image_path, task_dto.job_dto.target_directory + "/" + task_dto.image_name)
+
+            task_dto.image_path = task_dto.job_dto.target_directory + "/" + task_dto.image_name
             # Generate FFT using the REST API
             self.convert_image_to_png_task(task_dto.image_path, task_dto.job_dto.target_directory)
             self.compute_fft_png_task(task_dto.image_path, task_dto.job_dto.target_directory)
@@ -286,6 +306,17 @@ class LeginonFrameTransferJobService:
         except Exception as e:
             raise TaskFailedException(f"Task failed with error: {str(e)}")
             # return {'status': 'failure', 'message': f'Task failed with error: {str(e)}'}
+
+    def transfer_frame(self, task_dto):
+        # copy frame if exists
+        if task_dto.frame_name:
+            frame_path = check_file_exists(self.params.camera_directory, task_dto.frame_name)
+
+            if frame_path:
+                _, file_extension = os.path.splitext(frame_path)
+                target_path = os.path.join(task_dto.job_dto.target_directory, FRAMES_SUB_URL,
+                                           task_dto.file_name + "_frame"+ file_extension)
+                copy_file(frame_path, target_path)
 
     def create_directories(self, target_dir: str):
         create_directory(target_dir)
