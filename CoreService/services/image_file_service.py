@@ -39,7 +39,7 @@ def get_images() -> JSONResponse:
                 stack_3_images_list.add(filename)  # Add the filename to the set
                 count += 1
 
-    # Iterate through the filenames and process the selected images
+    # Iterate through the filenames and process the selected images and append them to Data
     for file_path in glob.iglob(THUMBNAILS_DIR + '*.png', recursive=True):
         # if filename.rsplit("/", 1)[1] not in stack_3_images_list:
         if os.path.basename(file_path) not in stack_3_images_list:
@@ -47,17 +47,18 @@ def get_images() -> JSONResponse:
 
         item = {}  # Create a dictionary to store image data
         # short_name = (filename.rsplit("/", 1)[1]).rsplit(".", 1)[0]  # Get the image name
-        short_name = short_name = os.path.splitext(os.path.basename(file_path))[0]  # Get the image name
+        short_name = os.path.splitext(os.path.basename(file_path))[0]  # Get the image name without extension
+
         item['name'] = short_name  # Add the image name to the dictionary
         item['encoded_image'] = get_response_image(file_path)  # Get the encoded image data
-        item['ext'] = short_name.split("_")[5] if len(short_name.split("_")) > 5 else "misc"  # Extract the parent file extension
+        item['ext'] = short_name.split("_")[5] if len(
+            short_name.split("_")) > 5 else "misc"  # Extract the parent file extension
         data.append(item)  # Add the image data dictionary to the list
 
     res = format_data_by_ext(data)  # Further process the data based on the file extensions
 
     # Return a JSON response with the formatted data and headers
     return JSONResponse(content={'result': res}, headers={'Access-Control-Allow-Origin': '*'})
-
 
 
 # def get_image_by_stack(request: Request):
