@@ -67,8 +67,7 @@ def get_images_route(db_session: Session = Depends(get_db)):
             WHERE partitioned_images.row_num <= 3
         """))
     rows = result.fetchall()
-    # Retrieve all images in the specified level
-    # images = db_session.query(Image).filter(Image.session_id == msession.Oid, Image.level == level).all()
+
     # Convert the query result to a dictionary with parent_name as key and associated images as value
     images_by_parent = {}
     for row in rows:
@@ -81,11 +80,11 @@ def get_images_route(db_session: Session = Depends(get_db)):
         images_by_parent[image.parent_name].append(image)
 
     result_list = [
-        {"parent": parent_name, "images": images}
+        {"ext": parent_name, "images": images}
         for parent_name, images in images_by_parent.items()
     ]
 
-    return result_list
+    return {"result": result_list}
     # Prepare the response
     # image_data = []
     # for image in images:
@@ -102,8 +101,32 @@ def get_images_route(db_session: Session = Depends(get_db)):
 
 
 @webapp_router.get('/images_by_stack')
-def get_images_by_stack_route(ext: str):
-    return get_image_by_stack(ext)
+def get_images_by_stack_route(ext: str,db_session: Session = Depends(get_db)):
+    try:
+        # Retrieve the parent image by name
+        parent_image = db_session.query(Image).filter(Image.name == ext).first()
+
+        if parent_image:
+            # Retrieve the children of the parent image
+            images = db_session.query(Image).filter(Image.parent_id == parent_image.Oid).all()
+
+            # Convert the children to a list of dictionaries
+            children = [
+                {
+                    "oid": child.Oid,
+                    "name": child.name,
+                    "parent_id": child.parent_id,
+                    "parent_name": ext
+                }
+                for child in images
+            ]
+
+            return {"result": {"ext": ext, "images": children}}
+        else:
+            return {"result": {"ext": ext, "images": []}}
+
+    except Exception as e:
+        return {"error": str(e)}
 
 
 @webapp_router.get('/fft_image')
