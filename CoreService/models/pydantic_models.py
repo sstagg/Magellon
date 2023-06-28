@@ -214,5 +214,6 @@ class MicrographSetDto(BaseModel):
     parent_name: Optional[str]
     oid: Optional[uuid.UUID]
     name: Optional[str]
+    encoded_image: Optional[str]
     parent_id: Optional[uuid.UUID]
     level: Optional[int]

@@ -1,5 +1,6 @@
 import binascii
 import json
+import os
 import uuid
 from typing import List
 from uuid import UUID
@@ -14,12 +15,14 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session, joinedload
 from starlette.responses import FileResponse
 
-from config import FFT_DIR, IMAGES_DIR, IMAGE_ROOT_URL, IMAGE_SUB_URL
+from config import FFT_DIR,THUMBNAILS_DIR, IMAGES_DIR, IMAGE_ROOT_URL, IMAGE_SUB_URL
+
 from database import get_db
 from models.pydantic_models import ParticlepickingjobitemDto, MicrographSetDto
 from models.sqlalchemy_models import Particlepickingjobitem, Image, Particlepickingjob, Msession
 from repositories.image_repository import ImageRepository
 from services.file_service import FileService
+from services.helper import get_response_image
 from services.image_file_service import get_images, get_image_by_stack, get_image_data
 
 webapp_router = APIRouter()
@@ -85,7 +88,17 @@ def get_images_route(db_session: Session = Depends(get_db)):
     # Convert the query result to a dictionary with parent_name as key and associated images as value
     images_by_parent = {}
     for row in rows:
-        image = MicrographSetDto(parent_name=row[0], oid=row[1], name=row[2], parent_id=row[3], level=row[4])
+        image = MicrographSetDto(
+            parent_name=row[0],
+            oid=row[1],
+            name=row[2],
+            parent_id=row[3],
+            level=row[4]
+        )
+        file_path = os.path.join(THUMBNAILS_DIR, image.name + '_TIMG.png')
+        print(file_path)
+        if os.path.isfile(file_path):
+            image.encoded_image = get_response_image(file_path)
         if image.parent_name not in images_by_parent:
             images_by_parent[image.parent_name] = []
         images_by_parent[image.parent_name].append(image)
@@ -145,14 +158,16 @@ def get_image_data_route(name: str, db: Session = Depends(get_db)):
 def get_image_particles(img_name: str, db: Session = Depends(get_db)):
     # result = \
     #     db.query(Particlepickingjobitem,  Particlepickingjob.name). \
-    #     join(Image, Particlepickingjobitem.image == Image.Oid). \
+    #     join(Image, Particlepickingjobitem.image_id == Image.Oid). \
     #     join(Particlepickingjob, Particlepickingjobitem.job == Particlepickingjob.Oid).filter(Image.name == img_name).\
     #     options( joinedload(Particlepickingjobitem.particlepickingjob)). \
     #     all()
+
     result = db.query(Particlepickingjobitem, Particlepickingjob.name). \
-        join(Particlepickingjob, Particlepickingjobitem.job == Particlepickingjob.Oid).filter(
-        Particlepickingjobitem.image1.has(name=img_name)). \
-        options(joinedload(Particlepickingjobitem.particlepickingjob)). \
+        join(Image, Particlepickingjobitem.image_id == Image.Oid). \
+        join(Particlepickingjob, Particlepickingjobitem.job.has(Particlepickingjob.Oid)). \
+        filter(Image.name == img_name). \
+        options(joinedload(Particlepickingjobitem.job)). \
         all()
 
     if not result:
