@@ -9,13 +9,14 @@ from airflow_client.client.api import config_api, dag_api, dag_run_api
 from airflow_client.client.model.dag_run import DAGRun
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import text
 from sqlalchemy.orm import Session, joinedload
 from starlette.responses import FileResponse
 
 from config import FFT_DIR, IMAGES_DIR, IMAGE_ROOT_URL, IMAGE_SUB_URL
 from database import get_db
-from models.pydantic_models import ParticlepickingjobitemDto
-from models.sqlalchemy_models import Particlepickingjobitem, Image, Particlepickingjob
+from models.pydantic_models import ParticlepickingjobitemDto, MicrographSetDto
+from models.sqlalchemy_models import Particlepickingjobitem, Image, Particlepickingjob, Msession
 from repositories.image_repository import ImageRepository
 from services.file_service import FileService
 from services.image_file_service import get_images, get_image_by_stack, get_image_data
@@ -24,9 +25,75 @@ webapp_router = APIRouter()
 file_service = FileService("transfer.log")
 
 
-@webapp_router.get('/images')
-def get_images_route():
+@webapp_router.get('/images_old')
+def get_images_old_route():
     return get_images()
+
+
+@webapp_router.get('/images_by_stack_old')
+def get_images_by_stack_old_route(ext: str):
+    return get_image_by_stack(ext)
+
+
+@webapp_router.get('/images')
+# def get_images_route(session_name: str, level: int, db_session: Session = Depends(get_db)):
+def get_images_route( db_session: Session = Depends(get_db)):
+    session_name = "22apr01a"
+    level=4
+    # Get the Msession based on the session name
+    msession = db_session.query(Msession).filter(Msession.name == session_name).first()
+    if msession is None:
+        return {"error": "Session not found"}
+
+    result = db_session.execute(text("""
+            SELECT DISTINCT
+                partitioned_images.parent_name,
+                partitioned_images.Oid,
+                partitioned_images.name,
+                partitioned_images.parent_id,
+                partitioned_images.level
+            FROM (
+                SELECT
+                    child.Oid,
+                    child.name,
+                    child.parent_id,
+                    parent.name AS parent_name,
+                    child.level,
+                    ROW_NUMBER() OVER (PARTITION BY child.parent_id ORDER BY child.oid) AS row_num
+                FROM image child
+                LEFT OUTER JOIN image parent ON child.parent_id = parent.Oid
+                WHERE child.level = 4
+            ) partitioned_images
+            WHERE partitioned_images.row_num <= 3
+        """))
+    rows = result.fetchall()
+    # Retrieve all images in the specified level
+    # images = db_session.query(Image).filter(Image.session_id == msession.Oid, Image.level == level).all()
+    # Convert the query result to a dictionary with parent_name as key and associated images as value
+    images = {}
+    for row in rows:
+        # image = MicrographSetDto(oid=row["oid"], name=row["name"], parent_id=row["parent_id"], level=row["level"])
+        image = MicrographSetDto(parent_name=row[0],id=row[1], name=row[2], parent_id=row[3], level=row[4])
+        parent_name = row[0]
+        # parent_name = row["parent_name"]
+        if parent_name not in images:
+            images[parent_name] = []
+        images[parent_name].append(image)
+
+    return images
+    # Prepare the response
+    # image_data = []
+    # for image in images:
+    #     image_data.append({
+    #         "oid": str(image.Oid),
+    #         "name": image.name,
+    #         "path": image.path,
+    #         # Include other desired image attributes
+    #     })
+    #
+    # return {"images": image_data}
+
+    # return get_images()
 
 
 @webapp_router.get('/images_by_stack')
@@ -132,7 +199,7 @@ async def transfer_files(source_path: str, destination_path: str, delete_origina
 @webapp_router.post("/run_dag")
 async def run_dag():
     try:
-        #post 'http://128.186.103.43:8383/api/v1/dags/my_dag/dagRuns'
+        # post 'http://128.186.103.43:8383/api/v1/dags/my_dag/dagRuns'
         configuration = airflow_client.client.Configuration(
             host="http://128.186.103.43:8383/api/v1",
 

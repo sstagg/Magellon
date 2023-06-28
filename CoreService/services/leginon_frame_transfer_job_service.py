@@ -1,5 +1,6 @@
 import glob
 import time
+from collections import deque
 from datetime import datetime
 import os
 import shutil
@@ -10,6 +11,7 @@ import concurrent.futures
 
 import pymysql
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import text
 
 from config import FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL
 from config_dev import FRAMES_SUB_URL
@@ -35,6 +37,24 @@ class TaskFailedException(Exception):
 #         return os.path.basename(matching_files[0])
 #
 #     return None
+
+# Recursive function to update levels
+# def update_levels(image_list: list[Image], parent_id=None, level=0):
+#     for image in image_list:
+#         if image.parent_id == parent_id:
+#             image.level = level
+#             update_levels(image_list, parent_id=image.Oid, level=level + 1)  # Recursive function to update levels
+
+
+def update_levels(image_list: list[Image], parent_id=None, level=0):
+    queue = deque([(image, level) for image in image_list if image.parent_id == parent_id])
+
+    while queue:
+        image, level = queue.popleft()
+        image.level = level
+
+        children = [child for child in image_list if child.parent_id == image.Oid]
+        queue.extend([(child, level + 1) for child in children])
 
 
 class LeginonFrameTransferJobService:
@@ -159,7 +179,6 @@ class LeginonFrameTransferJobService:
                     filename = image["filename"]
                     # source_image_path = os.path.join(session_result["image path"], filename)
 
-
                     db_image = Image(Oid=uuid.uuid4(), name=filename, magnification=image["mag"],
                                      defocus=image["defocus"], dose=image["calculated_dose"],
                                      pixel_size=image["pixelsize"], binning_x=image["bining_x"],
@@ -208,14 +227,33 @@ class LeginonFrameTransferJobService:
                     if parent_name in image_dict:
                         db_image.parent_id = image_dict[parent_name]
 
+                # update_levels(db_image_list)
+
                 db_session.bulk_save_objects(db_image_list)
                 db_session.bulk_save_objects(db_job_item_list)
 
                 # get all the files in the source directory
                 # print("hello")
 
+                # update_levels_query = text("""
+                #     SET @tlevel = 1;
+                #
+                #     UPDATE image set level=NULL;
+                #
+                #     UPDATE image SET level = 0 WHERE parent_id IS NULL;
+                #
+                #
+                #     while  @tlevel < 8 do
+                #         UPDATE image AS child
+                #         JOIN image AS parent ON child.parent_id = parent.oid
+                #         SET child.level = @tlevel + 1
+                #         WHERE parent.level = @tlevel;
+                #
+                #         SET @tlevel = @tlevel + 1;
+                #     end while;""")
+                # db_session.execute(update_levels_query)
                 db_session.commit()  # Commit the changes
-                self.run_tasks()
+                # self.run_tasks()
                 # self.create_test_tasks()
         except FileNotFoundError as e:
             print("Source directory not found:", self.params.source_directory)
@@ -315,7 +353,7 @@ class LeginonFrameTransferJobService:
             if frame_path:
                 _, file_extension = os.path.splitext(frame_path)
                 target_path = os.path.join(task_dto.job_dto.target_directory, FRAMES_SUB_URL,
-                                           task_dto.file_name + "_frame"+ file_extension)
+                                           task_dto.file_name + "_frame" + file_extension)
                 copy_file(frame_path, target_path)
 
     def create_directories(self, target_dir: str):

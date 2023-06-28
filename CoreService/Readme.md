@@ -156,3 +156,20 @@ WHERE child.level = :level_number - 1 -- Specify the level of the children (one 
 GROUP BY parent.oid, parent.name
 HAVING COUNT(child.oid) >= :num_images -- Specify the minimum number of images
 ORDER BY parent.oid;```
+
+
+
+WITH RECURSIVE cte AS (
+    -- Anchor query: Set level 0 for root images
+    SELECT oid, parent_id, 0 AS level
+    FROM image
+    WHERE parent_id IS NULL
+    UNION ALL
+    -- Recursive query: Update level for child images
+    SELECT i.oid, i.parent_id, cte.level + 1
+    FROM image AS i
+    JOIN cte ON i.parent_id = cte.oid
+)
+UPDATE image AS t
+JOIN cte ON t.oid = cte.oid
+SET t.level = cte.level;

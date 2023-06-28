@@ -1,5 +1,6 @@
 import glob
 import os
+from typing import Dict, List, Union, Any
 
 from starlette.responses import FileResponse, JSONResponse
 
@@ -8,7 +9,7 @@ from models.sqlalchemy_models import Image
 from services.helper import get_response_image, format_data_by_ext
 
 
-def get_images() -> JSONResponse:
+def get_images() -> dict[str, Any]:
     data = []  # Initialize an empty list to store image data
     filename_list = os.listdir(THUMBNAILS_DIR)  # Get the list of filenames in the specified directory
 
@@ -58,7 +59,8 @@ def get_images() -> JSONResponse:
     res = format_data_by_ext(data)  # Further process the data based on the file extensions
 
     # Return a JSON response with the formatted data and headers
-    return JSONResponse(content={'result': res}, headers={'Access-Control-Allow-Origin': '*'})
+    # return JSONResponse(content={'result': res}, headers={'Access-Control-Allow-Origin': '*'})
+    return {'result': res}
 
 
 # def get_image_by_stack(request: Request):
@@ -68,7 +70,7 @@ def get_image_by_stack(ext: str):
     ''' path contains list of mrc thumbnails '''
     for filename in glob.iglob(THUMBNAILS_DIR + '*.png', recursive=True):
         item = {}
-        short_name = (filename.rsplit("/", 1)[1]).rsplit(".", 1)[0]  # get image name
+        short_name = os.path.splitext(os.path.basename(filename))[0]  # get image name
         item['name'] = short_name
         item['ext'] = short_name.split("_")[5] if len(short_name.split("_")) > 5 else "misc"
         if ext == item['ext']:
