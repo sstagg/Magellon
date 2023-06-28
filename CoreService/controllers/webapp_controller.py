@@ -37,9 +37,9 @@ def get_images_by_stack_old_route(ext: str):
 
 @webapp_router.get('/images')
 # def get_images_route(session_name: str, level: int, db_session: Session = Depends(get_db)):
-def get_images_route( db_session: Session = Depends(get_db)):
+def get_images_route(db_session: Session = Depends(get_db)):
     session_name = "22apr01a"
-    level=4
+    level = 4
     # Get the Msession based on the session name
     msession = db_session.query(Msession).filter(Msession.name == session_name).first()
     if msession is None:
@@ -70,17 +70,22 @@ def get_images_route( db_session: Session = Depends(get_db)):
     # Retrieve all images in the specified level
     # images = db_session.query(Image).filter(Image.session_id == msession.Oid, Image.level == level).all()
     # Convert the query result to a dictionary with parent_name as key and associated images as value
-    images = {}
+    images_by_parent = {}
     for row in rows:
         # image = MicrographSetDto(oid=row["oid"], name=row["name"], parent_id=row["parent_id"], level=row["level"])
-        image = MicrographSetDto(parent_name=row[0],id=row[1], name=row[2], parent_id=row[3], level=row[4])
-        parent_name = row[0]
+        image = MicrographSetDto(parent_name=row[0], oid=row[1], name=row[2], parent_id=row[3], level=row[4])
+        # parent_name = row[0]
         # parent_name = row["parent_name"]
-        if parent_name not in images:
-            images[parent_name] = []
-        images[parent_name].append(image)
+        if image.parent_name not in images_by_parent:
+            images_by_parent[image.parent_name] = []
+        images_by_parent[image.parent_name].append(image)
 
-    return images
+    result_list = [
+        {"parent": parent_name, "images": images}
+        for parent_name, images in images_by_parent.items()
+    ]
+
+    return result_list
     # Prepare the response
     # image_data = []
     # for image in images:
