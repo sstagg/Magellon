@@ -1,3 +1,4 @@
+import binascii
 import json
 import uuid
 from typing import List
@@ -25,56 +26,66 @@ webapp_router = APIRouter()
 file_service = FileService("transfer.log")
 
 
-@webapp_router.get('/images_old')
-def get_images_old_route():
-    return get_images()
-
-
-@webapp_router.get('/images_by_stack_old')
-def get_images_by_stack_old_route(ext: str):
-    return get_image_by_stack(ext)
+# @webapp_router.get('/images_old')
+# def get_images_old_route():
+#     return get_images()
+#
+#
+# @webapp_router.get('/images_by_stack_old')
+# def get_images_by_stack_old_route(ext: str):
+#     return get_image_by_stack(ext)
 
 
 @webapp_router.get('/images')
-# def get_images_route(session_name: str, level: int, db_session: Session = Depends(get_db)):
 def get_images_route(db_session: Session = Depends(get_db)):
     session_name = "22apr01a"
     level = 4
+
     # Get the Msession based on the session name
     msession = db_session.query(Msession).filter(Msession.name == session_name).first()
     if msession is None:
         return {"error": "Session not found"}
 
-    result = db_session.execute(text("""
-            SELECT DISTINCT
-                partitioned_images.parent_name,
-                partitioned_images.Oid,
-                partitioned_images.name,
-                partitioned_images.parent_id,
-                partitioned_images.level
-            FROM (
-                SELECT
-                    child.Oid,
-                    child.name,
-                    child.parent_id,
-                    parent.name AS parent_name,
-                    child.level,
-                    ROW_NUMBER() OVER (PARTITION BY child.parent_id ORDER BY child.oid) AS row_num
-                FROM image child
-                LEFT OUTER JOIN image parent ON child.parent_id = parent.Oid
-                WHERE child.level = 4
-            ) partitioned_images
-            WHERE partitioned_images.row_num <= 3
-        """))
-    rows = result.fetchall()
+    try:
+        session_id_binary = msession.Oid.bytes
+    except AttributeError:
+        return {"error": "Invalid session ID"}
+
+    query = text("""
+        SELECT
+          child.parent_name,
+          child.Oid,
+          child.name,
+          child.parent_id,
+          child.level
+        FROM (
+          SELECT
+            image.Oid,
+            image.name,
+            image.parent_id,
+            parent.name AS parent_name,
+            image.level,
+            ROW_NUMBER() OVER (PARTITION BY image.parent_id ORDER BY image.oid) AS row_num,
+            image.session_id
+          FROM image
+          INNER JOIN image parent ON image.parent_id = parent.Oid
+          WHERE image.level = :level
+            AND image.session_id = :session_id
+        ) child
+        WHERE child.row_num <= 3
+        GROUP BY child.parent_name, child.Oid, child.name, child.parent_id, child.level, child.session_id
+    """)
+
+    try:
+        result = db_session.execute(query, {"level": level, "session_id": session_id_binary})
+        rows = result.fetchall()
+    except Exception as e:
+        return {"error": f"Database query error: {str(e)}"}
 
     # Convert the query result to a dictionary with parent_name as key and associated images as value
     images_by_parent = {}
     for row in rows:
-        # image = MicrographSetDto(oid=row["oid"], name=row["name"], parent_id=row["parent_id"], level=row["level"])
         image = MicrographSetDto(parent_name=row[0], oid=row[1], name=row[2], parent_id=row[3], level=row[4])
-        # parent_name = row[0]
-        # parent_name = row["parent_name"]
         if image.parent_name not in images_by_parent:
             images_by_parent[image.parent_name] = []
         images_by_parent[image.parent_name].append(image)
@@ -85,19 +96,6 @@ def get_images_route(db_session: Session = Depends(get_db)):
     ]
 
     return {"result": result_list}
-    # Prepare the response
-    # image_data = []
-    # for image in images:
-    #     image_data.append({
-    #         "oid": str(image.Oid),
-    #         "name": image.name,
-    #         "path": image.path,
-    #         # Include other desired image attributes
-    #     })
-    #
-    # return {"images": image_data}
-
-    # return get_images()
 
 
 @webapp_router.get('/images_by_stack')
