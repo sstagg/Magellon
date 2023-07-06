@@ -1,0 +1,22 @@
+<html>
+  <head>
+    <title>GraphiQL</title>
+    <link href="//unpkg.com/graphiql/graphiql.min.css" rel="stylesheet" />
+  </head>
+  <body style="margin: 0;">
+    <div id="graphiql">Loading GraphiQL...</div>
+
+    <script crossorigin src="//unpkg.com/react/umd/react.production.min.js"></script>
+    <script crossorigin src="//unpkg.com/react-dom/umd/react-dom.production.min.js"></script>
+    <script crossorigin src="//unpkg.com/graphiql/graphiql.min.js"></script>
+
+    <script>
+      const fetcher = GraphiQL.createFetcher({ url: '/graphql' });
+
+      ReactDOM.render(
+          React.createElement(GraphiQL, { fetcher: fetcher }),
+          document.getElementById('graphiql'),
+      );
+    </script>
+  </body>
+</html>

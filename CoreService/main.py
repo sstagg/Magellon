@@ -1,9 +1,11 @@
 import socket
 
+import fastapi
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
+from starlette_graphene3 import GraphQLApp, make_graphiql_handler
 
 from config import register_with_consul, CONSUL_SERVICE_NAME, CONSUL_SERVICE_ID
 from controllers.camera_controller import camera_router
@@ -18,10 +20,15 @@ from controllers.webapp_controller import webapp_router
 
 from prometheus_fastapi_instrumentator import Instrumentator
 
-from database import engine, session_local
+from database import engine, session_local, get_db
 import logging
 
 from logger_config import LOGGING_CONFIG
+
+# from starlette_graphene3 import GraphQLApp
+from sqlalchemy.orm import Session, joinedload
+
+from models.graphql_schema import graphene_schema
 
 logger = logging.getLogger(__name__)
 # FORMAT = "%(levelname)s:%(message)s"
@@ -57,6 +64,43 @@ app.include_router(webapp_router, tags=['Image Viewer - WebApp'], prefix="/web")
 app.include_router(graph_router, tags=['Graphs'], prefix="/graphs")
 app.include_router(slack_router, tags=['Communication'], prefix='/io')
 Instrumentator().instrument(app).expose(app)
+
+# app.add_route("/graphql", GraphQLApp(schema=schema))
+# @app.post("/graphql")
+# async def post_graphql(
+#         request: fastapi.Request,
+#         session: Session = Depends(get_db()),
+# ):
+#     content_type = request.headers.get("Content-Type", "")
+#
+#     if "application/json" in content_type:
+#         data = await request.json()
+#
+#     elif "application/graphql" in content_type:
+#         body = await request.body()
+#         text = body.decode()
+#         data = {"query": text}
+#
+#     elif "query" in request.query_params:
+#         data = request.query_params
+#
+#     else:
+#         raise fastapi.HTTPException(
+#             status_code=fastapi.status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+#             detail="Unsupported Media Type",
+#         )
+#
+#     if not (q_body := data.get("query")):
+#         raise fastapi.HTTPException(status_code=400, detail=f"Unsupported method: {q_body}")
+#
+#     res = graphene_schema.execute(
+#         q_body,
+#         context_value={"request": request, "session": session},
+#     )
+#
+#     return res.to_dict()
+
+app.mount("/graphql", GraphQLApp(graphene_schema, on_get=make_graphiql_handler()))  # Graphiql IDE
 
 
 @app.exception_handler(Exception)

@@ -15,7 +15,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session, joinedload
 from starlette.responses import FileResponse
 
-from config import FFT_DIR,THUMBNAILS_DIR, IMAGES_DIR, IMAGE_ROOT_URL, IMAGE_SUB_URL
+from config import FFT_DIR, THUMBNAILS_DIR, IMAGES_DIR, IMAGE_ROOT_URL, IMAGE_SUB_URL
 
 from database import get_db
 from models.pydantic_models import ParticlepickingjobitemDto, MicrographSetDto
@@ -112,7 +112,7 @@ def get_images_route(db_session: Session = Depends(get_db)):
 
 
 @webapp_router.get('/images_by_stack')
-def get_images_by_stack_route(ext: str,db_session: Session = Depends(get_db)):
+def get_images_by_stack_route(ext: str, db_session: Session = Depends(get_db)):
     try:
         # Retrieve the parent image by name
         parent_image = db_session.query(Image).filter(Image.name == ext).first()
