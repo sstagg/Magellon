@@ -257,7 +257,7 @@ class Msession(Base):
     sampletype = relationship('Sampletype')
     site1 = relationship('Site')
     sys_sec_party = relationship('SysSecParty')
-
+    images = relationship('Image', back_populates='msession')
 
 class SysSecMemberpermission(Base):
     __tablename__ = 'sys_sec_memberpermission'

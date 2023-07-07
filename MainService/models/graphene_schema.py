@@ -19,6 +19,7 @@ from graphene_sqlalchemy.converter import convert_sqlalchemy_type
 def convert_uuid_to_string(type, column, registry=None):
     return graphene.UUID
 
+
 # @convert_sqlalchemy_type.register(LargeBinary)
 # def convert_uuid_to_string(type, column, registry=None):
 #     return graphene.
@@ -51,8 +52,8 @@ class SessionNode(SQLAlchemyObjectType):
     def resolve_project(self, info):
         return self.project1
 
-class ImageNode(SQLAlchemyObjectType):
 
+class ImageNode(SQLAlchemyObjectType):
     class Meta:
         model = Image
         interfaces = (relay.Node,)

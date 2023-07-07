@@ -75,17 +75,67 @@ ssh -N -L 3310:kriosdb.rcc.fsu.edu:3306 bk22n@hpc-login.rcc.fsu.edu
 {
 "job_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
 "magellon_project_name": "Leginon",
-"magellon_session_name": "21aug26a",
-"target_directory": "C:/temp/target",
-"camera_directory": "string",
+"magellon_session_name": "23jun14a",
+"target_directory": "C:/temp/target2",
+"camera_directory": "C:/temp/frames",
 "leginon_mysql_user": "usr_object",
 "leginon_mysql_pass": "ThPHMn3m39Ds",
 "leginon_mysql_host": "localhost",
 "leginon_mysql_port": 3310,
 "leginon_mysql_db": "dbemdata",
-"session_name": "21aug26a"
+"session_name": "23jun14a"
 }
 
 
 
 dose = dose*(10**-20)*exposure_time/preset_exposure_time
+
+
+{
+cameras {
+edges {
+node {
+Oid
+name
+
+      }
+    }
+}
+}
+
+
+{
+sessions {
+edges {
+node {
+sessionId: Oid
+sessionName: name
+project : project.name
+}
+}
+}
+}
+
+
+{
+sessions {
+edges {
+node {
+sessionId: Oid
+sessionName: name
+project {
+name
+}
+images{
+edges{
+node{
+Oid
+Name
+}
+}
+}
+
+      }
+    }
+}
+}
