@@ -139,3 +139,15 @@ Name
     }
 }
 }
+
+
+
+mutation {
+createProject(projectData: {name: "New Project", description: "Project description"}) {
+project {
+id
+name
+description
+}
+}
+}

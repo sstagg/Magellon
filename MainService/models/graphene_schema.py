@@ -2,7 +2,7 @@ from uuid import UUID
 
 import flask_sqlalchemy.query
 import graphene
-from graphene import relay, NonNull, String, Field
+from graphene import relay, NonNull, String, Field, Mutation, InputObjectType
 from graphene_sqlalchemy import SQLAlchemyObjectType, SQLAlchemyConnectionField
 from sqlalchemy import LargeBinary
 from sqlalchemy.orm import joinedload
@@ -37,6 +37,24 @@ class ProjectNode(SQLAlchemyObjectType):
         interfaces = (relay.Node,)
 
 
+class ProjectInput(InputObjectType):
+    name = String(required=True)
+    description = String()
+
+
+class CreateProject(Mutation):
+    class Arguments:
+        project_data = ProjectInput(required=True)
+
+    project = Field(lambda: ProjectNode)
+    @staticmethod
+    def mutate(root, info, project_data=None):
+        project = Project(name=project_data.name, description=project_data.description)
+        # db.session.add(project)
+        # db.session.commit()
+        return CreateProject(project=project)
+
+
 class SessionNode(SQLAlchemyObjectType):
     # projectName = Field(String, resolver=lambda obj, info: obj.project1.name)
     project = Field(ProjectNode)
@@ -63,6 +81,10 @@ class ImageNode(SQLAlchemyObjectType):
         # exclude_fields = ("last_name",)
 
 
+class Mutation(graphene.ObjectType):
+    create_project = CreateProject.Field()
+
+
 class Query(graphene.ObjectType):
     # users = graphene.List(CameraNode)
     # node = relay.Node.Field()
@@ -77,5 +99,5 @@ class Query(graphene.ObjectType):
         return query.all()
 
 
-qraphql_schema = graphene.Schema(query=Query)
+qraphql_schema = graphene.Schema(query=Query, mutation=Mutation)
 # qraphql_schema.execute(context_value={'session': session})
