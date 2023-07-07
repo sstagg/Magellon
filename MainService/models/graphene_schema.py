@@ -2,7 +2,7 @@ from uuid import UUID
 
 import flask_sqlalchemy.query
 import graphene
-from graphene import relay, NonNull, String, Field, Mutation, InputObjectType
+from graphene import relay, NonNull, String, Field, Mutation, InputObjectType, List
 from graphene_sqlalchemy import SQLAlchemyObjectType, SQLAlchemyConnectionField
 from sqlalchemy import LargeBinary
 from sqlalchemy.orm import joinedload
@@ -29,6 +29,20 @@ class CameraNode(SQLAlchemyObjectType):
     class Meta:
         model = Camera
         interfaces = (relay.Node,)
+        # Override the default resolver for the 'name' field
+
+    name = String()
+
+    def resolve_name(self, info):
+        # Check user's permissions or role
+        # user = info.context.user  # Retrieve the authenticated user from the context
+        return "Camera name is : " + self.name
+
+        # # Check if the user has the permission to view the 'name' field
+        # if user and user.has_permission('view_project_name'):
+        #     return self.name  # Return the name if the user has permission
+        # else:
+        #     return None  # Return None if the user does not have permission
 
 
 class ProjectNode(SQLAlchemyObjectType):
@@ -47,6 +61,7 @@ class CreateProject(Mutation):
         project_data = ProjectInput(required=True)
 
     project = Field(lambda: ProjectNode)
+
     @staticmethod
     def mutate(root, info, project_data=None):
         project = Project(name=project_data.name, description=project_data.description)
@@ -89,14 +104,17 @@ class Query(graphene.ObjectType):
     # users = graphene.List(CameraNode)
     # node = relay.Node.Field()
     projects = SQLAlchemyConnectionField(ProjectNode.connection)
-    sessions = SQLAlchemyConnectionField(SessionNode.connection)
-    Images = SQLAlchemyConnectionField(ImageNode.connection)
-    cameras = SQLAlchemyConnectionField(CameraNode.connection, sort=None)
+    sessions = List(SessionNode)
+    Images = List(ImageNode)
+    cameras = List(CameraNode)
 
     def resolve_cameras(self, info):
         query: flask_sqlalchemy.query.Query = CameraNode.get_query(info)  # SQLAlchemy query
+        return query.filter(Camera.OptimisticLockField == 1)
 
-        return query.all()
+    def resolve_sessions(self, info):
+        query: flask_sqlalchemy.query.Query = SessionNode.get_query(info)  # SQLAlchemy query
+        return query.filter(Msession.OptimisticLockField>=1)
 
 
 qraphql_schema = graphene.Schema(query=Query, mutation=Mutation)
