@@ -7,6 +7,7 @@ from uuid import uuid4
 import logging
 
 from flask import jsonify
+from flask_graphql import GraphQLView
 from flask_openapi3 import OpenAPI
 from flask_openapi3 import Info, Tag
 from flask_restful import Api
@@ -17,7 +18,8 @@ from typing import Optional, List
 from sqlalchemy.exc import SQLAlchemyError
 
 from config import DB_USER, DB_PASSWORD, DB_HOST, DB_NAME, DB_Driver, DB_Port
-from models.models import Camera, metadata
+from models.graphene_schema import qraphql_schema
+from models.models import Camera, metadata,Base
 from services.db_service import DbService
 
 from services.image_service import ImageMetadataQuery, FFTImageQuery, StackImagesQuery, ImageByThumbnailQuery, \
@@ -36,7 +38,7 @@ app = OpenAPI(__name__, info=info)
 app.config['SQLALCHEMY_DATABASE_URI'] = f'{DB_Driver}://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_Port}/{DB_NAME}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
-
+Base.query = db.session.query_property()
 # # Configure the SQLAlchemy engine and Session
 # engine = create_engine(f'mysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}')
 # Session = sessionmaker(bind=engine)
@@ -51,6 +53,16 @@ magellonApiTag = Tag(name="Magellon", description="Magellon Main Service")
 app.register_blueprint(home_bp)
 # app.register_blueprint(fft_view)
 
+# qraphql_schema.execute(context_value={'session': db.session})
+
+app.add_url_rule(
+    '/graphql',
+    view_func=GraphQLView.as_view(
+        'graphql',
+        schema=qraphql_schema,
+        graphiql=True # for having the GraphiQL interface
+    )
+)
 
 @app.get('/create-database', tags=[magellonApiTag], description='creates database structure')
 def create_schema():

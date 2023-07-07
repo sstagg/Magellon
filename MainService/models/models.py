@@ -16,8 +16,8 @@ metadata = Base.metadata
 class Camera(Base):
     __tablename__ = 'camera'
 
-    Oid = Column(SqlAlchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
-    # Oid = Column(UUIDType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
+    # Oid = Column(SqlAlchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
+    Oid = Column(UUIDType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
     name = Column(String(30))
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)
@@ -294,10 +294,10 @@ class Image(Base):
     __tablename__ = 'image'
 
     Oid = Column(SqlAlchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
-    original = Column(LargeBinary)
-    aligned = Column(LargeBinary)
-    fft = Column(LargeBinary)
-    ctf = Column(LargeBinary)
+    # original = Column(LargeBinary)
+    # aligned = Column(LargeBinary)
+    # fft = Column(LargeBinary)
+    # ctf = Column(LargeBinary)
     Name = Column(String(30))
     path = Column(String(100))
     parent = Column(ForeignKey('image.Oid'), index=True)
