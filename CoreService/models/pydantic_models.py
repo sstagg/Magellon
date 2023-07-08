@@ -5,11 +5,11 @@ import uuid
 
 class SlackMessage(BaseModel):
     text: str
-    channel: Optional[str]
+    channel: Optional[str] = None
 
 
 class CameraDto(BaseModel):
-    Oid: uuid.UUID = Field(description='Camera UUID')
+    Oid: uuid.UUID = Field(None, description='Camera UUID')
     name: str = Field(None, min_length=2, max_length=30, description='Camera Name')
     optimistic_lock_field: Optional[int] = Field(None, description='lock')
     gcrecord: Optional[int] = Field(None, description='gc')
@@ -19,13 +19,13 @@ class CameraDto(BaseModel):
 
 
 class ImageDtoBase(BaseModel):
-    name: str = Optional[str]
+    name: Optional[str] = None
     # name: str = Field(None, min_length=2, max_length=30, description='Image Name')
     original: Optional[bytes]
     aligned: Optional[bytes]
     fft: Optional[bytes]
     ctf: Optional[bytes]
-    path: Optional[str]
+    path: Optional[str] = None
     parent: Optional[uuid.UUID] = None
     session: uuid.UUID
     magnification: Optional[int]
@@ -90,19 +90,19 @@ class ImageDtoWithParent(ImageDto):
 # ================================================================================================
 class Particlepickingjob(BaseModel):
     Oid: uuid.UUID
-    name: Optional[str]
-    description: Optional[str]
+    name: Optional[str] = None
+    description: Optional[str] = None
     # created_on: datetime
     # end_on: datetime
-    user: Optional[str]
-    project: Optional[str]
-    msession: Optional[str]
+    user: Optional[str] = None
+    project: Optional[str] = None
+    msession: Optional[str] = None
     status: Optional[int]
     type: Optional[int]
     data: Optional[Json]
     # cs: Decimal
-    path: Optional[str]
-    output_dir: Optional[str]
+    path: Optional[str] = None
+    output_dir: Optional[str] = None
     direction: Optional[int]
     image_selection_criteria: Optional[str]
     OptimisticLockField: Optional[int]
@@ -111,11 +111,11 @@ class Particlepickingjob(BaseModel):
 
 class ParticlepickingjobitemBase(BaseModel):
     job: uuid.UUID
-    job_name: Optional[str]
+    job_name: Optional[str] = None
     image: uuid.UUID
-    data: Optional[Json]
-    status: Optional[int]
-    type: Optional[int]
+    data: Optional[Json] = None
+    status: Optional[int] = None
+    type: Optional[int] = None
 
 
 class ParticlepickingjobDto(Particlepickingjob):
@@ -174,32 +174,32 @@ class MySQLConnectionSettings(BaseModel):
 
 
 class LeginonFrameTransferJobDto(BaseModel):
-    job_id: Optional[uuid.UUID]
+    job_id: Optional[uuid.UUID] = None
     magellon_project_name: str
     magellon_session_name: str
-    camera_directory: Optional[str]
-    target_directory: Optional[str]
-    session_name: Optional[str]
+    camera_directory: Optional[str] = None
+    target_directory: Optional[str] = None
+    session_name: Optional[str] = None
     copy_images: Optional[bool] = True
-    retries: Optional[int]
-    leginon_mysql_host: Optional[str]
+    retries: Optional[int] = None
+    leginon_mysql_host: Optional[str] = None
     leginon_mysql_port: Optional[int]
-    leginon_mysql_db: Optional[str]
-    leginon_mysql_user: Optional[str]
-    leginon_mysql_pass: Optional[str]
+    leginon_mysql_db: Optional[str] = None
+    leginon_mysql_user: Optional[str] = None
+    leginon_mysql_pass: Optional[str] = None
     task_list = []  # List to store the tasks
 
 
 class LeginonFrameTransferTaskDto(BaseModel):
     task_id: uuid.UUID
-    task_alias: Optional[str]
-    file_name: Optional[str]
-    frame_name: Optional[str]
-    image_name: Optional[str]
-    image_path: Optional[str]
-    target_path: Optional[str]
+    task_alias: Optional[str] = None
+    file_name: Optional[str] = None
+    frame_name: Optional[str] = None
+    image_name: Optional[str] = None
+    image_path: Optional[str] = None
+    target_path: Optional[str] = None
     job_dto: LeginonFrameTransferJobDto
-    status: Optional[int]
+    status: Optional[int] = None
 
 
 class LeginonImageDto(BaseModel):
@@ -211,9 +211,9 @@ class LeginonImageDto(BaseModel):
 
 
 class MicrographSetDto(BaseModel):
-    parent_name: Optional[str]
-    oid: Optional[uuid.UUID]
-    name: Optional[str]
-    encoded_image: Optional[str]
-    parent_id: Optional[uuid.UUID]
-    level: Optional[int]
+    parent_name: Optional[str] = None
+    oid: Optional[uuid.UUID] = None
+    name: Optional[str] = None
+    encoded_image: Optional[str] = None
+    parent_id: Optional[uuid.UUID] = None
+    level: Optional[int] = None

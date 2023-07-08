@@ -4,11 +4,11 @@ from typing import Optional, List, Union
 
 class MotionCor2Input(BaseModel):
     # input_movie: Optional[str]
-    InTiff: Optional[str]
-    OutTiff: Optional[str]
-    InMrc: Optional[str]
-    OutMrc: Optional[str]
-    output_folder: Optional[str]
+    InTiff: Optional[str] = None
+    OutTiff: Optional[str] = None
+    InMrc: Optional[str] = None
+    OutMrc: Optional[str] = None
+    output_folder: Optional[str] = None
     gpuids: Optional[str] = '0'  # GPU IDs, default is 0
     nrw: Optional[int] = 1  # Number of frames in running average window (1, 3, 5, ...). 0 = disabled
     FmRef: Optional[int] = 0  # Frame to be used as the reference for alignment. Default is the first frame.
@@ -34,7 +34,7 @@ class MotionCor2Input(BaseModel):
     Bft_global: float = 500.0  # Global B-Factor for alignment. Default is 500.0.
     Bft_local: float = 150.0  # Local B-Factor for alignment. Default is 150.0.
 
-    log_file_prefix: Optional[str]  # text file that contains both global and local motion information.
+    log_file_prefix: Optional[str] = None  # text file that contains both global and local motion information.
     force_cpu_flat: bool = False  # Use CPU to make frame flat field correction.
     rendered_frame_size: int = 1  # Sum this number of saved frames as a rendered frame in alignment.
     eer_sampling: int = 1  # Upsampling eer frames. Fourier binning will be added to return the results back.
