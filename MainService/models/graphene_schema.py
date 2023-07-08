@@ -105,7 +105,7 @@ class Query(graphene.ObjectType):
     # node = relay.Node.Field()
     projects = SQLAlchemyConnectionField(ProjectNode.connection)
     sessions = List(SessionNode)
-    Images = List(ImageNode)
+    # Images = List(ImageNode)
     cameras = List(CameraNode)
 
     def resolve_cameras(self, info):

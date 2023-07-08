@@ -10,14 +10,15 @@ from sqlalchemy_utils import UUIDType
 from lib.sqlalchemy_uuid_type import SqlalchemyUuidType
 
 Base = declarative_base()
+# Base.query =db_session.query_property
 metadata = Base.metadata
 
 
 class Camera(Base):
     __tablename__ = 'camera'
 
-    # Oid = Column(SqlAlchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
-    Oid = Column(UUIDType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
+    # Oid = Column(UUIDType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
     # Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
     name = Column(String(30))
     OptimisticLockField = Column(INTEGER(11))

@@ -6,6 +6,7 @@ from fastapi import FastAPI, Depends
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 from starlette_graphene3 import GraphQLApp, make_graphiql_handler
+from strawberry.fastapi import GraphQLRouter
 
 from config import register_with_consul, CONSUL_SERVICE_NAME, CONSUL_SERVICE_ID
 from controllers.camera_controller import camera_router
@@ -28,7 +29,8 @@ from logger_config import LOGGING_CONFIG
 # from starlette_graphene3 import GraphQLApp
 from sqlalchemy.orm import Session, joinedload
 
-from models.graphql_schema import graphene_schema
+from models import graphql_strawberry_schema
+from models.graphql_strawberry_schema import strawberry_graphql_router
 
 logger = logging.getLogger(__name__)
 # FORMAT = "%(levelname)s:%(message)s"
@@ -65,6 +67,7 @@ app.include_router(graph_router, tags=['Graphs'], prefix="/graphs")
 app.include_router(slack_router, tags=['Communication'], prefix='/io')
 Instrumentator().instrument(app).expose(app)
 
+app.include_router(strawberry_graphql_router, prefix="/graphql")
 # app.add_route("/graphql", GraphQLApp(schema=schema))
 # @app.post("/graphql")
 # async def post_graphql(
@@ -100,7 +103,7 @@ Instrumentator().instrument(app).expose(app)
 #
 #     return res.to_dict()
 
-app.mount("/graphql", GraphQLApp(graphene_schema, on_get=make_graphiql_handler()))  # Graphiql IDE
+# app.mount("/graphql", GraphQLApp(graphene_schema, on_get=make_graphiql_handler()))  # Graphiql IDE
 
 
 @app.exception_handler(Exception)
