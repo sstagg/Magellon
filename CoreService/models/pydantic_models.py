@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, Json
+from pydantic import BaseModel, Field, Json, ConfigDict
 from typing import Optional, List
 import uuid
 
@@ -14,8 +14,9 @@ class CameraDto(BaseModel):
     optimistic_lock_field: Optional[int] = Field(None, description='lock')
     gcrecord: Optional[int] = Field(None, description='gc')
 
+    # model_config = ConfigDict(from_attributes=True)
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class ImageDtoBase(BaseModel):
@@ -71,7 +72,7 @@ class ImageDtoInDBBase(ImageDtoBase):
     Oid: uuid.UUID = Field(description='Image UUID')
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class ImageDtoInDB(ImageDtoInDBBase):
@@ -134,7 +135,7 @@ class ParticlepickingjobitemInDBBase(ParticlepickingjobitemBase):
     Oid: uuid.UUID
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class ParticlepickingjobitemDto(ParticlepickingjobitemInDBBase):
@@ -187,7 +188,7 @@ class LeginonFrameTransferJobDto(BaseModel):
     leginon_mysql_db: Optional[str] = None
     leginon_mysql_user: Optional[str] = None
     leginon_mysql_pass: Optional[str] = None
-    task_list = []  # List to store the tasks
+    task_list: Optional[List] = None  # List to store the tasks
 
 
 class LeginonFrameTransferTaskDto(BaseModel):
