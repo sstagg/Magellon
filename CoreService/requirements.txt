@@ -7,7 +7,7 @@ sqlalchemy_utils==0.41.1
 psycopg2-binary
 PyMySQL==1.1.0
 mrcfile==1.4.3
-numpy==1.25.0
+numpy==1.25.1
 matplotlib==3.7.2
 scipy==1.11.1
 Pillow==10.0.0
@@ -22,13 +22,13 @@ pylint==2.17.4
 # prometheus-client
 prometheus-fastapi-instrumentator
 slackclient
-apache-airflow-client
+apache-airflow-client==2.6.2
 # graphene == 3.2.2
 # graphene-sqlalchemy==2.3.0
 # bcrypt
 # starlette-graphene3
 
-strawberry-graphql[fastapi]
-bump-pydantic
+strawberry-graphql[fastapi]==0.194.4
+# bump-pydantic
 rich==13.4.2
 # textual

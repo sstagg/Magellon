@@ -1,0 +1,11 @@
+rich==13.4.2
+textual
+textual-dev
+tqdm
+click
+npyscreen
+pytermgui
+windows-curses
+rich-pixels
+ascii-art-cli
+pyfiglet
