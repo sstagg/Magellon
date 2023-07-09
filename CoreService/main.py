@@ -1,8 +1,13 @@
 import socket
+import sys
+import traceback
+from rich import traceback as rich_traceback
 
 import fastapi
 import uvicorn
 from fastapi import FastAPI, Depends
+from rich.logging import RichHandler
+from rich.traceback import Traceback
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 from starlette_graphene3 import GraphQLApp, make_graphiql_handler
@@ -20,6 +25,8 @@ from controllers.slack_controller import slack_router
 from controllers.webapp_controller import webapp_router
 
 from prometheus_fastapi_instrumentator import Instrumentator
+from rich import print
+import pyfiglet as pyfiglet
 
 from database import engine, session_local, get_db
 import logging
@@ -31,6 +38,21 @@ from sqlalchemy.orm import Session, joinedload
 
 from models import graphql_strawberry_schema
 from models.graphql_strawberry_schema import strawberry_graphql_router
+from rich.console import Console
+
+# from rich import get_console
+
+# import rich.traceback
+# rich.traceback.install(show_locals=True)
+
+title = pyfiglet.figlet_format('Magellon', font='speed')
+print(f'[magenta]{title}[/magenta]')
+
+# console = Console()
+# try:
+#     raise Exception("just to test this")
+# except Exception:
+#     console.print_exception(show_locals=True)
 
 logger = logging.getLogger(__name__)
 # FORMAT = "%(levelname)s:%(message)s"
@@ -38,10 +60,22 @@ logger = logging.getLogger(__name__)
 logging.config.dictConfig(LOGGING_CONFIG)
 logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
+# Create a RichHandler for the logger
+# handler = RichHandler()
+# handler.setLevel(logging.DEBUG)
+#
+# # Set the formatter for the RichHandler
+# handler.setFormatter(logging.Formatter("%(message)s"))
+# # Add the RichHandler to the logger
+# logger.addHandler(handler)
+
 app = FastAPI(title="Magellon Core Service", description="Magellon Core Service that provides main services",
               version="1.0.0", )
 
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
+app.add_middleware(CORSMiddleware,
+                   allow_origins=["*"],
+                   allow_methods=["*"],
+                   allow_headers=["*"],
                    allow_credentials=True)
 
 # Get the IP address and port
@@ -68,6 +102,8 @@ app.include_router(slack_router, tags=['Communication'], prefix='/io')
 Instrumentator().instrument(app).expose(app)
 
 app.include_router(strawberry_graphql_router, prefix="/graphql")
+
+
 # app.add_route("/graphql", GraphQLApp(schema=schema))
 # @app.post("/graphql")
 # async def post_graphql(
@@ -106,7 +142,31 @@ app.include_router(strawberry_graphql_router, prefix="/graphql")
 # app.mount("/graphql", GraphQLApp(graphene_schema, on_get=make_graphiql_handler()))  # Graphiql IDE
 
 
+# @app.on_event("startup")
+# async def startup_event():
+#     await on_startup()
+#
+#
+# async def on_startup():
+#     await show_app_banner()
+#
+#
+# async def show_app_banner():
+#     title = pyfiglet.figlet_format('Magellon', font='speed')
+#     print(f'[magenta]{title}[/magenta]')
+
+
 @app.exception_handler(Exception)
 def app_exception_handler(request, err):
-    base_error_message = f"Failed to execute: {request.method}: {request.url}"
-    return JSONResponse(status_code=400, content={"message": f"{base_error_message}. Detail: {err}"})
+    console = Console()
+    traceback1 = rich_traceback.Traceback.from_exception(type(err),
+                                                         err,
+                                                         err.__traceback__,
+                                                         show_locals=True,
+                                                         locals_max_length=1000,
+                                                         locals_max_string=1000, )
+    console.print(traceback1)
+
+    # console.print_exception(show_locals=True)
+    return JSONResponse(status_code=400,
+                        content={"message": f"Failed to execute: {request.method}: {request.url}. Detail: {err}"})

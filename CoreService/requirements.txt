@@ -32,3 +32,4 @@ strawberry-graphql[fastapi]==0.194.4
 # bump-pydantic
 rich==13.4.2
 # textual
+pyfiglet

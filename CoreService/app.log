@@ -3332,3 +3332,6 @@ FROM image
 WHERE image.parent_id = %(parent_id_1)s
 2023-07-08 15:15:24,206 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 3.817s ago] {'parent_id_1': b"\x1a't0)lD~\x90K(\x9f\xe1\xc7\x19U"}
 2023-07-08 15:15:24,241 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-08 20:46:33,864 [ERROR] main main.py:58 - This is a debug message
+2023-07-08 20:50:26,421 [ERROR] main main.py:59 - This is an error message
+2023-07-08 20:51:05,561 [ERROR] main main.py:56 - This is an error message

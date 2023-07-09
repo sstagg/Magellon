@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+from rich.console import Console
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 from starlette.templating import Jinja2Templates
@@ -20,6 +21,12 @@ async def home():
 # Define a health check route
 @home_router.get('/health')
 def health_check():
+    # raise Exception("just to test this")
+    # try:
+    #
+    # except Exception:
+    #     console = Console()
+    #     console.print_exception(show_locals=True)
     return {'status': 'ok'}
 
 
