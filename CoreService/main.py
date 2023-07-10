@@ -33,17 +33,14 @@ import logging
 
 from logger_config import LOGGING_CONFIG
 
-# from starlette_graphene3 import GraphQLApp
-from sqlalchemy.orm import Session, joinedload
-
 from models import graphql_strawberry_schema
 from models.graphql_strawberry_schema import strawberry_graphql_router
 from rich.console import Console
 
 # from rich import get_console
 
-# import rich.traceback
-# rich.traceback.install(show_locals=True)
+import rich.traceback
+rich.traceback.install(show_locals=True)
 
 title = pyfiglet.figlet_format('Magellon', font='speed')
 print(f'[magenta]{title}[/magenta]')
@@ -158,15 +155,14 @@ app.include_router(strawberry_graphql_router, prefix="/graphql")
 
 @app.exception_handler(Exception)
 def app_exception_handler(request, err):
-    console = Console()
-    traceback1 = rich_traceback.Traceback.from_exception(type(err),
-                                                         err,
-                                                         err.__traceback__,
-                                                         show_locals=True,
-                                                         locals_max_length=1000,
-                                                         locals_max_string=1000, )
-    console.print(traceback1)
-
+    # console = Console()
+    # traceback1 = rich_traceback.Traceback.from_exception(type(err),
+    #                                                      err,
+    #                                                      err.__traceback__,
+    #                                                      show_locals=True,
+    #                                                      locals_max_length=1000,
+    #                                                      locals_max_string=1000, )
+    # console.print(traceback1)
     # console.print_exception(show_locals=True)
     return JSONResponse(status_code=400,
                         content={"message": f"Failed to execute: {request.method}: {request.url}. Detail: {err}"})

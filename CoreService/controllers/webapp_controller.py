@@ -117,24 +117,66 @@ def get_images_by_stack_route(ext: str, db_session: Session = Depends(get_db)):
         # Retrieve the parent image by name
         parent_image = db_session.query(Image).filter(Image.name == ext).first()
 
-        if parent_image:
-            # Retrieve the children of the parent image
-            images = db_session.query(Image).filter(Image.parent_id == parent_image.Oid).all()
+        query = text("""
+            SELECT
+              image.Oid,
+              image.name,
+              image.level,
+              image.parent_id,
+              parent.name AS parent_name
+            FROM image parent
+              INNER JOIN image
+                ON image.parent_id = parent.Oid
+            WHERE parent.name = :image_name
+                """)
 
-            # Convert the children to a list of dictionaries
-            children = [
-                {
-                    "oid": child.Oid,
-                    "name": child.name,
-                    "parent_id": child.parent_id,
-                    "parent_name": ext
-                }
-                for child in images
-            ]
+        try:
+            result = db_session.execute(query, {"image_name": ext})
+            rows = result.fetchall()
+        except Exception as e:
+            return {"error": f"Database query error: {str(e)}"}
 
-            return {"result": {"ext": ext, "images": children}}
-        else:
-            return {"result": {"ext": ext, "images": []}}
+        images_by_parent = {}
+        for row in rows:
+            image = MicrographSetDto(
+                oid=row[0],
+                name=row[1],
+                level=row[2],
+                parent_id=row[3],
+                parent_name=row[4]
+            )
+            file_path = os.path.join(THUMBNAILS_DIR, image.name + '_TIMG.png')
+            print(file_path)
+            if os.path.isfile(file_path):
+                image.encoded_image = get_response_image(file_path)
+            if image.parent_name not in images_by_parent:
+                images_by_parent[image.parent_name] = []
+            images_by_parent[image.parent_name].append(image)
+
+        result_list = [
+            {"ext": parent_name, "images": images}
+            for parent_name, images in images_by_parent.items()
+        ]
+
+        return {"result": result_list}
+        # if parent_image:
+        #     # Retrieve the children of the parent image
+        #     images = db_session.query(Image).filter(Image.parent_id == parent_image.Oid).all()
+        #
+        #     # Convert the children to a list of dictionaries
+        #     children = [
+        #         {
+        #             "oid": child.Oid,
+        #             "name": child.name,
+        #             "parent_id": child.parent_id,
+        #             "parent_name": ext
+        #         }
+        #         for child in images
+        #     ]
+        #
+        #     return {"result": {"ext": ext, "images": children}}
+        # else:
+        #     return {"result": {"ext": ext, "images": []}}
 
     except Exception as e:
         return {"error": str(e)}
