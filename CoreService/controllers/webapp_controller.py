@@ -23,7 +23,7 @@ from models.sqlalchemy_models import Particlepickingjobitem, Image, Particlepick
 from repositories.image_repository import ImageRepository
 from services.file_service import FileService
 from services.helper import get_response_image
-from services.image_file_service import get_images, get_image_by_stack, get_image_data
+# from services.image_file_service import get_images, get_image_by_stack, get_image_data
 
 webapp_router = APIRouter()
 file_service = FileService("transfer.log")
@@ -32,8 +32,7 @@ file_service = FileService("transfer.log")
 # @webapp_router.get('/images_old')
 # def get_images_old_route():
 #     return get_images()
-#
-#
+
 # @webapp_router.get('/images_by_stack_old')
 # def get_images_by_stack_old_route(ext: str):
 #     return get_image_by_stack(ext)
@@ -86,9 +85,7 @@ def get_images_route(db_session: Session = Depends(get_db)):
         return {"error": f"Database query error: {str(e)}"}
 
     # Convert the query result to a dictionary with parent_name as key and associated images as value
-    result_list = process_image_rows(rows)
-
-    return {"result": result_list}
+    return {"result": (process_image_rows(rows))}
 
 
 @webapp_router.get('/images_by_stack')
@@ -116,9 +113,7 @@ def get_images_by_stack_route(ext: str, db_session: Session = Depends(get_db)):
         except Exception as e:
             return {"error": f"Database query error: {str(e)}"}
 
-        result_list = process_image_rows(rows)
-
-        return {"result": result_list}
+        return {"result": (process_image_rows(rows))}
         # if parent_image:
         #     # Retrieve the children of the parent image
         #     images = db_session.query(Image).filter(Image.parent_id == parent_image.Oid).all()
@@ -179,7 +174,15 @@ def get_image_data_route(name: str, db: Session = Depends(get_db)):
     db_image = ImageRepository.fetch_by_name(db, name)
     if db_image is None:
         raise HTTPException(status_code=404, detail="image not found with the given name")
-    return get_image_data(db_image)
+    result = {
+        "filename": db_image.name,
+        "defocus": round(float(db_image.defocus) * 1.e6, 2),
+        "PixelSize": round(float(db_image.pixel_size) * db_image.binning_x, 3),
+        "mag": db_image.magnification,
+        "dose": round(db_image.dose, 2) if db_image.dose is not None else "none",
+    }
+    return {'result': result}
+
 
 
 @webapp_router.get('/particles')
