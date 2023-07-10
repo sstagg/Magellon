@@ -56,11 +56,11 @@ def get_images_route(db_session: Session = Depends(get_db)):
 
     query = text("""
         SELECT
-          child.parent_name,
           child.Oid,
           child.name,
+          child.level,
           child.parent_id,
-          child.level
+          child.parent_name
         FROM (
           SELECT
             image.Oid,
@@ -86,27 +86,7 @@ def get_images_route(db_session: Session = Depends(get_db)):
         return {"error": f"Database query error: {str(e)}"}
 
     # Convert the query result to a dictionary with parent_name as key and associated images as value
-    images_by_parent = {}
-    for row in rows:
-        image = MicrographSetDto(
-            parent_name=row[0],
-            oid=row[1],
-            name=row[2],
-            parent_id=row[3],
-            level=row[4]
-        )
-        file_path = os.path.join(THUMBNAILS_DIR, image.name + '_TIMG.png')
-        print(file_path)
-        if os.path.isfile(file_path):
-            image.encoded_image = get_response_image(file_path)
-        if image.parent_name not in images_by_parent:
-            images_by_parent[image.parent_name] = []
-        images_by_parent[image.parent_name].append(image)
-
-    result_list = [
-        {"ext": parent_name, "images": images}
-        for parent_name, images in images_by_parent.items()
-    ]
+    result_list = process_image_rows(rows)
 
     return {"result": result_list}
 
@@ -136,27 +116,7 @@ def get_images_by_stack_route(ext: str, db_session: Session = Depends(get_db)):
         except Exception as e:
             return {"error": f"Database query error: {str(e)}"}
 
-        images_by_parent = {}
-        for row in rows:
-            image = MicrographSetDto(
-                oid=row[0],
-                name=row[1],
-                level=row[2],
-                parent_id=row[3],
-                parent_name=row[4]
-            )
-            file_path = os.path.join(THUMBNAILS_DIR, image.name + '_TIMG.png')
-            print(file_path)
-            if os.path.isfile(file_path):
-                image.encoded_image = get_response_image(file_path)
-            if image.parent_name not in images_by_parent:
-                images_by_parent[image.parent_name] = []
-            images_by_parent[image.parent_name].append(image)
-
-        result_list = [
-            {"ext": parent_name, "images": images}
-            for parent_name, images in images_by_parent.items()
-        ]
+        result_list = process_image_rows(rows)
 
         return {"result": result_list}
         # if parent_image:
@@ -180,6 +140,32 @@ def get_images_by_stack_route(ext: str, db_session: Session = Depends(get_db)):
 
     except Exception as e:
         return {"error": str(e)}
+
+
+def process_image_rows(rows):
+    images_by_parent = {}
+    for row in rows:
+        image = MicrographSetDto(
+            oid=row[0],
+            name=row[1],
+            level=row[2],
+            parent_id=row[3],
+            parent_name=row[4]
+        )
+        file_path = os.path.join(THUMBNAILS_DIR, image.name + '_TIMG.png')
+        print(file_path)
+        if os.path.isfile(file_path):
+            image.encoded_image = get_response_image(file_path)
+        if image.parent_name not in images_by_parent:
+            images_by_parent[image.parent_name] = []
+        images_by_parent[image.parent_name].append(image)
+
+    result_list = [
+        {"ext": parent_name, "images": images}
+        for parent_name, images in images_by_parent.items()
+    ]
+
+    return result_list
 
 
 @webapp_router.get('/fft_image')

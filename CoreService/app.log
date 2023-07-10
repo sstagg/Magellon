@@ -3605,3 +3605,920 @@ WHERE particlepickingjob.`Oid` = particlepickingjobitem.job_id AND particlepicki
 WHERE image.name = %(name_1)s
 2023-07-10 15:51:36,875 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00024s] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00002ex-b-DW'}
 2023-07-10 15:51:36,910 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 15:56:06,205 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT DATABASE()
+2023-07-10 15:56:06,206 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-07-10 15:56:06,274 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@sql_mode
+2023-07-10 15:56:06,274 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-07-10 15:56:06,308 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@lower_case_table_names
+2023-07-10 15:56:06,308 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-07-10 15:56:06,376 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 15:56:06,377 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 15:56:06,378 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00021s] {'name_1': '22apr01a', 'param_1': 1}
+2023-07-10 15:56:06,414 [INFO] sqlalchemy.engine.Engine base.py:1897 - 
+        SELECT
+          child.parent_name,
+          child.Oid,
+          child.name,
+          child.parent_id,
+          child.level
+        FROM (
+          SELECT
+            image.Oid,
+            image.name,
+            image.parent_id,
+            parent.name AS parent_name,
+            image.level,
+            ROW_NUMBER() OVER (PARTITION BY image.parent_id ORDER BY image.oid) AS row_num,
+            image.session_id
+          FROM image
+          INNER JOIN image parent ON image.parent_id = parent.Oid
+          WHERE image.level = %(level)s
+            AND image.session_id = %(session_id)s
+        ) child
+        WHERE child.row_num <= 3
+        GROUP BY child.parent_name, child.Oid, child.name, child.parent_id, child.level, child.session_id
+    
+2023-07-10 15:56:06,414 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00023s] {'level': 4, 'session_id': b'`F\xb5f\x03\x06J\xdc\x8b\x8b\x15O\x1f\xff4N'}
+2023-07-10 15:56:07,381 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 15:56:07,626 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 15:56:07,628 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 15:56:07,628 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 15:56:07,628 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00034s] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00002ex-b-DW', 'param_1': 1}
+2023-07-10 15:56:07,631 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job_id AS particlepickingjobitem_job_id, particlepickingjobitem.image_id AS particlepickingjobitem_image_id, particlepickingjobitem.settings AS particlepickingjobitem_settings, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.steps AS particlepickingjobitem_steps, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord`, particlepickingjob.name AS particlepickingjob_name, particlepickingjob_1.`Oid` AS `particlepickingjob_1_Oid`, particlepickingjob_1.name AS particlepickingjob_1_name, particlepickingjob_1.description AS particlepickingjob_1_description, particlepickingjob_1.created_on AS particlepickingjob_1_created_on, particlepickingjob_1.end_on AS particlepickingjob_1_end_on, particlepickingjob_1.user_id AS particlepickingjob_1_user_id, particlepickingjob_1.project_id AS particlepickingjob_1_project_id, particlepickingjob_1.msession_id AS particlepickingjob_1_msession_id, particlepickingjob_1.status AS particlepickingjob_1_status, particlepickingjob_1.type AS particlepickingjob_1_type, particlepickingjob_1.settings AS particlepickingjob_1_settings, particlepickingjob_1.cs AS particlepickingjob_1_cs, particlepickingjob_1.path AS particlepickingjob_1_path, particlepickingjob_1.output_dir AS particlepickingjob_1_output_dir, particlepickingjob_1.direction AS particlepickingjob_1_direction, particlepickingjob_1.image_selection_criteria AS particlepickingjob_1_image_selection_criteria, particlepickingjob_1.`OptimisticLockField` AS `particlepickingjob_1_OptimisticLockField`, particlepickingjob_1.`GCRecord` AS `particlepickingjob_1_GCRecord` 
+FROM particlepickingjobitem INNER JOIN image ON particlepickingjobitem.image_id = image.`Oid` INNER JOIN particlepickingjob ON EXISTS (SELECT 1 
+FROM particlepickingjob 
+WHERE particlepickingjob.`Oid` = particlepickingjobitem.job_id AND particlepickingjob.`Oid`) LEFT OUTER JOIN particlepickingjob AS particlepickingjob_1 ON particlepickingjob_1.`Oid` = particlepickingjobitem.job_id 
+WHERE image.name = %(name_1)s
+2023-07-10 15:56:07,631 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00026s] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00002ex-b-DW'}
+2023-07-10 15:56:07,668 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 15:56:07,668 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 15:56:10,040 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 15:56:10,041 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 15:56:10,041 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 2.414s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl', 'param_1': 1}
+2023-07-10 15:56:10,082 [INFO] sqlalchemy.engine.Engine base.py:1897 - 
+            SELECT
+              image.Oid,
+              image.name,
+              image.level,
+              image.parent_id,
+              parent.name AS parent_name
+            FROM image parent
+              INNER JOIN image
+                ON image.parent_id = parent.Oid
+            WHERE parent.name = %(image_name)s
+        
+2023-07-10 15:56:10,083 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00022s] {'image_name': '22apr01a_a_00010gr_00001sq_v01_00002hl'}
+2023-07-10 15:56:10,291 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 15:56:55,338 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT DATABASE()
+2023-07-10 15:56:55,338 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-07-10 15:56:55,404 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@sql_mode
+2023-07-10 15:56:55,404 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-07-10 15:56:55,438 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@lower_case_table_names
+2023-07-10 15:56:55,438 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-07-10 15:56:55,504 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 15:56:55,505 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 15:56:55,506 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00022s] {'name_1': '22apr01a', 'param_1': 1}
+2023-07-10 15:56:55,539 [INFO] sqlalchemy.engine.Engine base.py:1897 - 
+        SELECT
+          child.parent_name,
+          child.Oid,
+          child.name,
+          child.parent_id,
+          child.level
+        FROM (
+          SELECT
+            image.Oid,
+            image.name,
+            image.parent_id,
+            parent.name AS parent_name,
+            image.level,
+            ROW_NUMBER() OVER (PARTITION BY image.parent_id ORDER BY image.oid) AS row_num,
+            image.session_id
+          FROM image
+          INNER JOIN image parent ON image.parent_id = parent.Oid
+          WHERE image.level = %(level)s
+            AND image.session_id = %(session_id)s
+        ) child
+        WHERE child.row_num <= 3
+        GROUP BY child.parent_name, child.Oid, child.name, child.parent_id, child.level, child.session_id
+    
+2023-07-10 15:56:55,540 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00019s] {'level': 4, 'session_id': b'`F\xb5f\x03\x06J\xdc\x8b\x8b\x15O\x1f\xff4N'}
+2023-07-10 15:56:56,497 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 15:56:56,742 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 15:56:56,744 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 15:56:56,744 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00022s] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00002ex-b-DW', 'param_1': 1}
+2023-07-10 15:56:56,745 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 15:56:56,749 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job_id AS particlepickingjobitem_job_id, particlepickingjobitem.image_id AS particlepickingjobitem_image_id, particlepickingjobitem.settings AS particlepickingjobitem_settings, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.steps AS particlepickingjobitem_steps, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord`, particlepickingjob.name AS particlepickingjob_name, particlepickingjob_1.`Oid` AS `particlepickingjob_1_Oid`, particlepickingjob_1.name AS particlepickingjob_1_name, particlepickingjob_1.description AS particlepickingjob_1_description, particlepickingjob_1.created_on AS particlepickingjob_1_created_on, particlepickingjob_1.end_on AS particlepickingjob_1_end_on, particlepickingjob_1.user_id AS particlepickingjob_1_user_id, particlepickingjob_1.project_id AS particlepickingjob_1_project_id, particlepickingjob_1.msession_id AS particlepickingjob_1_msession_id, particlepickingjob_1.status AS particlepickingjob_1_status, particlepickingjob_1.type AS particlepickingjob_1_type, particlepickingjob_1.settings AS particlepickingjob_1_settings, particlepickingjob_1.cs AS particlepickingjob_1_cs, particlepickingjob_1.path AS particlepickingjob_1_path, particlepickingjob_1.output_dir AS particlepickingjob_1_output_dir, particlepickingjob_1.direction AS particlepickingjob_1_direction, particlepickingjob_1.image_selection_criteria AS particlepickingjob_1_image_selection_criteria, particlepickingjob_1.`OptimisticLockField` AS `particlepickingjob_1_OptimisticLockField`, particlepickingjob_1.`GCRecord` AS `particlepickingjob_1_GCRecord` 
+FROM particlepickingjobitem INNER JOIN image ON particlepickingjobitem.image_id = image.`Oid` INNER JOIN particlepickingjob ON EXISTS (SELECT 1 
+FROM particlepickingjob 
+WHERE particlepickingjob.`Oid` = particlepickingjobitem.job_id AND particlepickingjob.`Oid`) LEFT OUTER JOIN particlepickingjob AS particlepickingjob_1 ON particlepickingjob_1.`Oid` = particlepickingjobitem.job_id 
+WHERE image.name = %(name_1)s
+2023-07-10 15:56:56,749 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00022s] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00002ex-b-DW'}
+2023-07-10 15:56:56,780 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 15:56:56,784 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 15:56:58,507 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 15:56:58,507 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 15:56:58,507 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 1.763s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl', 'param_1': 1}
+2023-07-10 15:56:58,548 [INFO] sqlalchemy.engine.Engine base.py:1897 - 
+            SELECT
+              image.Oid,
+              image.name,
+              image.level,
+              image.parent_id,
+              parent.name AS parent_name
+            FROM image parent
+              INNER JOIN image
+                ON image.parent_id = parent.Oid
+            WHERE parent.name = %(image_name)s
+                
+2023-07-10 15:56:58,548 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00022s] {'image_name': '22apr01a_a_00010gr_00001sq_v01_00002hl'}
+2023-07-10 15:57:00,119 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 15:57:12,028 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 15:57:12,028 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 15:57:12,028 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 15.28s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00002ex-b-DW', 'param_1': 1}
+2023-07-10 15:57:12,029 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 15:57:12,030 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job_id AS particlepickingjobitem_job_id, particlepickingjobitem.image_id AS particlepickingjobitem_image_id, particlepickingjobitem.settings AS particlepickingjobitem_settings, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.steps AS particlepickingjobitem_steps, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord`, particlepickingjob.name AS particlepickingjob_name, particlepickingjob_1.`Oid` AS `particlepickingjob_1_Oid`, particlepickingjob_1.name AS particlepickingjob_1_name, particlepickingjob_1.description AS particlepickingjob_1_description, particlepickingjob_1.created_on AS particlepickingjob_1_created_on, particlepickingjob_1.end_on AS particlepickingjob_1_end_on, particlepickingjob_1.user_id AS particlepickingjob_1_user_id, particlepickingjob_1.project_id AS particlepickingjob_1_project_id, particlepickingjob_1.msession_id AS particlepickingjob_1_msession_id, particlepickingjob_1.status AS particlepickingjob_1_status, particlepickingjob_1.type AS particlepickingjob_1_type, particlepickingjob_1.settings AS particlepickingjob_1_settings, particlepickingjob_1.cs AS particlepickingjob_1_cs, particlepickingjob_1.path AS particlepickingjob_1_path, particlepickingjob_1.output_dir AS particlepickingjob_1_output_dir, particlepickingjob_1.direction AS particlepickingjob_1_direction, particlepickingjob_1.image_selection_criteria AS particlepickingjob_1_image_selection_criteria, particlepickingjob_1.`OptimisticLockField` AS `particlepickingjob_1_OptimisticLockField`, particlepickingjob_1.`GCRecord` AS `particlepickingjob_1_GCRecord` 
+FROM particlepickingjobitem INNER JOIN image ON particlepickingjobitem.image_id = image.`Oid` INNER JOIN particlepickingjob ON EXISTS (SELECT 1 
+FROM particlepickingjob 
+WHERE particlepickingjob.`Oid` = particlepickingjobitem.job_id AND particlepickingjob.`Oid`) LEFT OUTER JOIN particlepickingjob AS particlepickingjob_1 ON particlepickingjob_1.`Oid` = particlepickingjobitem.job_id 
+WHERE image.name = %(name_1)s
+2023-07-10 15:57:12,030 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 15.28s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00002ex-b-DW'}
+2023-07-10 15:57:12,064 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 15:57:12,067 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 15:57:13,223 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 15:57:13,224 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 15:57:13,225 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 15:57:13,225 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 16.48s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00009ex-b-DW', 'param_1': 1}
+2023-07-10 15:57:13,226 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job_id AS particlepickingjobitem_job_id, particlepickingjobitem.image_id AS particlepickingjobitem_image_id, particlepickingjobitem.settings AS particlepickingjobitem_settings, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.steps AS particlepickingjobitem_steps, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord`, particlepickingjob.name AS particlepickingjob_name, particlepickingjob_1.`Oid` AS `particlepickingjob_1_Oid`, particlepickingjob_1.name AS particlepickingjob_1_name, particlepickingjob_1.description AS particlepickingjob_1_description, particlepickingjob_1.created_on AS particlepickingjob_1_created_on, particlepickingjob_1.end_on AS particlepickingjob_1_end_on, particlepickingjob_1.user_id AS particlepickingjob_1_user_id, particlepickingjob_1.project_id AS particlepickingjob_1_project_id, particlepickingjob_1.msession_id AS particlepickingjob_1_msession_id, particlepickingjob_1.status AS particlepickingjob_1_status, particlepickingjob_1.type AS particlepickingjob_1_type, particlepickingjob_1.settings AS particlepickingjob_1_settings, particlepickingjob_1.cs AS particlepickingjob_1_cs, particlepickingjob_1.path AS particlepickingjob_1_path, particlepickingjob_1.output_dir AS particlepickingjob_1_output_dir, particlepickingjob_1.direction AS particlepickingjob_1_direction, particlepickingjob_1.image_selection_criteria AS particlepickingjob_1_image_selection_criteria, particlepickingjob_1.`OptimisticLockField` AS `particlepickingjob_1_OptimisticLockField`, particlepickingjob_1.`GCRecord` AS `particlepickingjob_1_GCRecord` 
+FROM particlepickingjobitem INNER JOIN image ON particlepickingjobitem.image_id = image.`Oid` INNER JOIN particlepickingjob ON EXISTS (SELECT 1 
+FROM particlepickingjob 
+WHERE particlepickingjob.`Oid` = particlepickingjobitem.job_id AND particlepickingjob.`Oid`) LEFT OUTER JOIN particlepickingjob AS particlepickingjob_1 ON particlepickingjob_1.`Oid` = particlepickingjobitem.job_id 
+WHERE image.name = %(name_1)s
+2023-07-10 15:57:13,226 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 16.48s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00009ex-b-DW'}
+2023-07-10 15:57:13,260 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 15:57:13,261 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 15:59:35,577 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT DATABASE()
+2023-07-10 15:59:35,577 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-07-10 15:59:35,646 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@sql_mode
+2023-07-10 15:59:35,647 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-07-10 15:59:35,680 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@lower_case_table_names
+2023-07-10 15:59:35,681 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-07-10 15:59:35,749 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 15:59:35,751 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 15:59:35,751 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00024s] {'name_1': '22apr01a', 'param_1': 1}
+2023-07-10 15:59:35,786 [INFO] sqlalchemy.engine.Engine base.py:1897 - 
+        SELECT
+          child.parent_name,
+          child.Oid,
+          child.name,
+          child.parent_id,
+          child.level
+        FROM (
+          SELECT
+            image.Oid,
+            image.name,
+            image.parent_id,
+            parent.name AS parent_name,
+            image.level,
+            ROW_NUMBER() OVER (PARTITION BY image.parent_id ORDER BY image.oid) AS row_num,
+            image.session_id
+          FROM image
+          INNER JOIN image parent ON image.parent_id = parent.Oid
+          WHERE image.level = %(level)s
+            AND image.session_id = %(session_id)s
+        ) child
+        WHERE child.row_num <= 3
+        GROUP BY child.parent_name, child.Oid, child.name, child.parent_id, child.level, child.session_id
+    
+2023-07-10 15:59:35,787 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00023s] {'level': 4, 'session_id': b'`F\xb5f\x03\x06J\xdc\x8b\x8b\x15O\x1f\xff4N'}
+2023-07-10 15:59:36,755 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 15:59:36,996 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 15:59:36,998 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 15:59:36,998 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 15:59:36,998 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00034s] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00002ex-b-DW', 'param_1': 1}
+2023-07-10 15:59:37,002 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job_id AS particlepickingjobitem_job_id, particlepickingjobitem.image_id AS particlepickingjobitem_image_id, particlepickingjobitem.settings AS particlepickingjobitem_settings, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.steps AS particlepickingjobitem_steps, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord`, particlepickingjob.name AS particlepickingjob_name, particlepickingjob_1.`Oid` AS `particlepickingjob_1_Oid`, particlepickingjob_1.name AS particlepickingjob_1_name, particlepickingjob_1.description AS particlepickingjob_1_description, particlepickingjob_1.created_on AS particlepickingjob_1_created_on, particlepickingjob_1.end_on AS particlepickingjob_1_end_on, particlepickingjob_1.user_id AS particlepickingjob_1_user_id, particlepickingjob_1.project_id AS particlepickingjob_1_project_id, particlepickingjob_1.msession_id AS particlepickingjob_1_msession_id, particlepickingjob_1.status AS particlepickingjob_1_status, particlepickingjob_1.type AS particlepickingjob_1_type, particlepickingjob_1.settings AS particlepickingjob_1_settings, particlepickingjob_1.cs AS particlepickingjob_1_cs, particlepickingjob_1.path AS particlepickingjob_1_path, particlepickingjob_1.output_dir AS particlepickingjob_1_output_dir, particlepickingjob_1.direction AS particlepickingjob_1_direction, particlepickingjob_1.image_selection_criteria AS particlepickingjob_1_image_selection_criteria, particlepickingjob_1.`OptimisticLockField` AS `particlepickingjob_1_OptimisticLockField`, particlepickingjob_1.`GCRecord` AS `particlepickingjob_1_GCRecord` 
+FROM particlepickingjobitem INNER JOIN image ON particlepickingjobitem.image_id = image.`Oid` INNER JOIN particlepickingjob ON EXISTS (SELECT 1 
+FROM particlepickingjob 
+WHERE particlepickingjob.`Oid` = particlepickingjobitem.job_id AND particlepickingjob.`Oid`) LEFT OUTER JOIN particlepickingjob AS particlepickingjob_1 ON particlepickingjob_1.`Oid` = particlepickingjobitem.job_id 
+WHERE image.name = %(name_1)s
+2023-07-10 15:59:37,002 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00026s] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00002ex-b-DW'}
+2023-07-10 15:59:37,037 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 15:59:37,038 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 15:59:39,363 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 15:59:39,363 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 15:59:39,363 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 2.365s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl', 'param_1': 1}
+2023-07-10 15:59:39,405 [INFO] sqlalchemy.engine.Engine base.py:1897 - 
+            SELECT
+              image.Oid,
+              image.name,
+              image.level,
+              image.parent_id,
+              parent.name AS parent_name
+            FROM image parent
+              INNER JOIN image
+                ON image.parent_id = parent.Oid
+            WHERE parent.name = %(image_name)s
+                
+2023-07-10 15:59:39,406 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00021s] {'image_name': '22apr01a_a_00010gr_00001sq_v01_00002hl'}
+2023-07-10 15:59:39,586 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:00:37,242 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT DATABASE()
+2023-07-10 16:00:37,243 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-07-10 16:00:37,311 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@sql_mode
+2023-07-10 16:00:37,311 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-07-10 16:00:37,346 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@lower_case_table_names
+2023-07-10 16:00:37,346 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-07-10 16:00:37,414 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:00:37,416 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:00:37,416 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00028s] {'name_1': '22apr01a', 'param_1': 1}
+2023-07-10 16:00:37,451 [INFO] sqlalchemy.engine.Engine base.py:1897 - 
+        SELECT
+          child.parent_name,
+          child.Oid,
+          child.name,
+          child.parent_id,
+          child.level
+        FROM (
+          SELECT
+            image.Oid,
+            image.name,
+            image.parent_id,
+            parent.name AS parent_name,
+            image.level,
+            ROW_NUMBER() OVER (PARTITION BY image.parent_id ORDER BY image.oid) AS row_num,
+            image.session_id
+          FROM image
+          INNER JOIN image parent ON image.parent_id = parent.Oid
+          WHERE image.level = %(level)s
+            AND image.session_id = %(session_id)s
+        ) child
+        WHERE child.row_num <= 3
+        GROUP BY child.parent_name, child.Oid, child.name, child.parent_id, child.level, child.session_id
+    
+2023-07-10 16:00:37,451 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00025s] {'level': 4, 'session_id': b'`F\xb5f\x03\x06J\xdc\x8b\x8b\x15O\x1f\xff4N'}
+2023-07-10 16:00:38,401 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:00:38,644 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:00:38,644 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:00:38,649 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:00:38,649 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job_id AS particlepickingjobitem_job_id, particlepickingjobitem.image_id AS particlepickingjobitem_image_id, particlepickingjobitem.settings AS particlepickingjobitem_settings, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.steps AS particlepickingjobitem_steps, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord`, particlepickingjob.name AS particlepickingjob_name, particlepickingjob_1.`Oid` AS `particlepickingjob_1_Oid`, particlepickingjob_1.name AS particlepickingjob_1_name, particlepickingjob_1.description AS particlepickingjob_1_description, particlepickingjob_1.created_on AS particlepickingjob_1_created_on, particlepickingjob_1.end_on AS particlepickingjob_1_end_on, particlepickingjob_1.user_id AS particlepickingjob_1_user_id, particlepickingjob_1.project_id AS particlepickingjob_1_project_id, particlepickingjob_1.msession_id AS particlepickingjob_1_msession_id, particlepickingjob_1.status AS particlepickingjob_1_status, particlepickingjob_1.type AS particlepickingjob_1_type, particlepickingjob_1.settings AS particlepickingjob_1_settings, particlepickingjob_1.cs AS particlepickingjob_1_cs, particlepickingjob_1.path AS particlepickingjob_1_path, particlepickingjob_1.output_dir AS particlepickingjob_1_output_dir, particlepickingjob_1.direction AS particlepickingjob_1_direction, particlepickingjob_1.image_selection_criteria AS particlepickingjob_1_image_selection_criteria, particlepickingjob_1.`OptimisticLockField` AS `particlepickingjob_1_OptimisticLockField`, particlepickingjob_1.`GCRecord` AS `particlepickingjob_1_GCRecord` 
+FROM particlepickingjobitem INNER JOIN image ON particlepickingjobitem.image_id = image.`Oid` INNER JOIN particlepickingjob ON EXISTS (SELECT 1 
+FROM particlepickingjob 
+WHERE particlepickingjob.`Oid` = particlepickingjobitem.job_id AND particlepickingjob.`Oid`) LEFT OUTER JOIN particlepickingjob AS particlepickingjob_1 ON particlepickingjob_1.`Oid` = particlepickingjobitem.job_id 
+WHERE image.name = %(name_1)s
+2023-07-10 16:00:38,649 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00044s] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00002ex-b-DW', 'param_1': 1}
+2023-07-10 16:00:38,654 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00457s] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00002ex-b-DW'}
+2023-07-10 16:00:38,690 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:00:38,691 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:00:40,135 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:00:40,136 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:00:40,136 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 1.487s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl', 'param_1': 1}
+2023-07-10 16:00:40,181 [INFO] sqlalchemy.engine.Engine base.py:1897 - 
+            SELECT
+              image.Oid,
+              image.name,
+              image.level,
+              image.parent_id,
+              parent.name AS parent_name
+            FROM image parent
+              INNER JOIN image
+                ON image.parent_id = parent.Oid
+            WHERE parent.name = %(image_name)s
+                
+2023-07-10 16:00:40,181 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00020s] {'image_name': '22apr01a_a_00010gr_00001sq_v01_00002hl'}
+2023-07-10 16:00:41,736 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:00:45,517 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:00:45,517 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:00:45,518 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:00:45,518 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 6.868s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00017ex', 'param_1': 1}
+2023-07-10 16:00:45,518 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job_id AS particlepickingjobitem_job_id, particlepickingjobitem.image_id AS particlepickingjobitem_image_id, particlepickingjobitem.settings AS particlepickingjobitem_settings, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.steps AS particlepickingjobitem_steps, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord`, particlepickingjob.name AS particlepickingjob_name, particlepickingjob_1.`Oid` AS `particlepickingjob_1_Oid`, particlepickingjob_1.name AS particlepickingjob_1_name, particlepickingjob_1.description AS particlepickingjob_1_description, particlepickingjob_1.created_on AS particlepickingjob_1_created_on, particlepickingjob_1.end_on AS particlepickingjob_1_end_on, particlepickingjob_1.user_id AS particlepickingjob_1_user_id, particlepickingjob_1.project_id AS particlepickingjob_1_project_id, particlepickingjob_1.msession_id AS particlepickingjob_1_msession_id, particlepickingjob_1.status AS particlepickingjob_1_status, particlepickingjob_1.type AS particlepickingjob_1_type, particlepickingjob_1.settings AS particlepickingjob_1_settings, particlepickingjob_1.cs AS particlepickingjob_1_cs, particlepickingjob_1.path AS particlepickingjob_1_path, particlepickingjob_1.output_dir AS particlepickingjob_1_output_dir, particlepickingjob_1.direction AS particlepickingjob_1_direction, particlepickingjob_1.image_selection_criteria AS particlepickingjob_1_image_selection_criteria, particlepickingjob_1.`OptimisticLockField` AS `particlepickingjob_1_OptimisticLockField`, particlepickingjob_1.`GCRecord` AS `particlepickingjob_1_GCRecord` 
+FROM particlepickingjobitem INNER JOIN image ON particlepickingjobitem.image_id = image.`Oid` INNER JOIN particlepickingjob ON EXISTS (SELECT 1 
+FROM particlepickingjob 
+WHERE particlepickingjob.`Oid` = particlepickingjobitem.job_id AND particlepickingjob.`Oid`) LEFT OUTER JOIN particlepickingjob AS particlepickingjob_1 ON particlepickingjob_1.`Oid` = particlepickingjobitem.job_id 
+WHERE image.name = %(name_1)s
+2023-07-10 16:00:45,520 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 6.87s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00017ex'}
+2023-07-10 16:00:45,555 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:00:45,584 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:00:46,565 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:00:46,566 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:00:46,566 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:00:46,566 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job_id AS particlepickingjobitem_job_id, particlepickingjobitem.image_id AS particlepickingjobitem_image_id, particlepickingjobitem.settings AS particlepickingjobitem_settings, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.steps AS particlepickingjobitem_steps, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord`, particlepickingjob.name AS particlepickingjob_name, particlepickingjob_1.`Oid` AS `particlepickingjob_1_Oid`, particlepickingjob_1.name AS particlepickingjob_1_name, particlepickingjob_1.description AS particlepickingjob_1_description, particlepickingjob_1.created_on AS particlepickingjob_1_created_on, particlepickingjob_1.end_on AS particlepickingjob_1_end_on, particlepickingjob_1.user_id AS particlepickingjob_1_user_id, particlepickingjob_1.project_id AS particlepickingjob_1_project_id, particlepickingjob_1.msession_id AS particlepickingjob_1_msession_id, particlepickingjob_1.status AS particlepickingjob_1_status, particlepickingjob_1.type AS particlepickingjob_1_type, particlepickingjob_1.settings AS particlepickingjob_1_settings, particlepickingjob_1.cs AS particlepickingjob_1_cs, particlepickingjob_1.path AS particlepickingjob_1_path, particlepickingjob_1.output_dir AS particlepickingjob_1_output_dir, particlepickingjob_1.direction AS particlepickingjob_1_direction, particlepickingjob_1.image_selection_criteria AS particlepickingjob_1_image_selection_criteria, particlepickingjob_1.`OptimisticLockField` AS `particlepickingjob_1_OptimisticLockField`, particlepickingjob_1.`GCRecord` AS `particlepickingjob_1_GCRecord` 
+FROM particlepickingjobitem INNER JOIN image ON particlepickingjobitem.image_id = image.`Oid` INNER JOIN particlepickingjob ON EXISTS (SELECT 1 
+FROM particlepickingjob 
+WHERE particlepickingjob.`Oid` = particlepickingjobitem.job_id AND particlepickingjob.`Oid`) LEFT OUTER JOIN particlepickingjob AS particlepickingjob_1 ON particlepickingjob_1.`Oid` = particlepickingjobitem.job_id 
+WHERE image.name = %(name_1)s
+2023-07-10 16:00:46,567 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 7.918s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00005ex', 'param_1': 1}
+2023-07-10 16:00:46,569 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 7.92s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00005ex'}
+2023-07-10 16:00:46,604 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:00:46,638 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:05:49,433 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:05:49,434 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:05:49,434 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 310.8s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00002ex-b-DW', 'param_1': 1}
+2023-07-10 16:05:49,436 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:05:49,436 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job_id AS particlepickingjobitem_job_id, particlepickingjobitem.image_id AS particlepickingjobitem_image_id, particlepickingjobitem.settings AS particlepickingjobitem_settings, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.steps AS particlepickingjobitem_steps, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord`, particlepickingjob.name AS particlepickingjob_name, particlepickingjob_1.`Oid` AS `particlepickingjob_1_Oid`, particlepickingjob_1.name AS particlepickingjob_1_name, particlepickingjob_1.description AS particlepickingjob_1_description, particlepickingjob_1.created_on AS particlepickingjob_1_created_on, particlepickingjob_1.end_on AS particlepickingjob_1_end_on, particlepickingjob_1.user_id AS particlepickingjob_1_user_id, particlepickingjob_1.project_id AS particlepickingjob_1_project_id, particlepickingjob_1.msession_id AS particlepickingjob_1_msession_id, particlepickingjob_1.status AS particlepickingjob_1_status, particlepickingjob_1.type AS particlepickingjob_1_type, particlepickingjob_1.settings AS particlepickingjob_1_settings, particlepickingjob_1.cs AS particlepickingjob_1_cs, particlepickingjob_1.path AS particlepickingjob_1_path, particlepickingjob_1.output_dir AS particlepickingjob_1_output_dir, particlepickingjob_1.direction AS particlepickingjob_1_direction, particlepickingjob_1.image_selection_criteria AS particlepickingjob_1_image_selection_criteria, particlepickingjob_1.`OptimisticLockField` AS `particlepickingjob_1_OptimisticLockField`, particlepickingjob_1.`GCRecord` AS `particlepickingjob_1_GCRecord` 
+FROM particlepickingjobitem INNER JOIN image ON particlepickingjobitem.image_id = image.`Oid` INNER JOIN particlepickingjob ON EXISTS (SELECT 1 
+FROM particlepickingjob 
+WHERE particlepickingjob.`Oid` = particlepickingjobitem.job_id AND particlepickingjob.`Oid`) LEFT OUTER JOIN particlepickingjob AS particlepickingjob_1 ON particlepickingjob_1.`Oid` = particlepickingjobitem.job_id 
+WHERE image.name = %(name_1)s
+2023-07-10 16:05:49,437 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 310.8s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00002ex-b-DW'}
+2023-07-10 16:05:49,471 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:05:49,472 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:05:55,426 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:05:55,426 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:05:55,426 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 318s ago] {'name_1': '22apr01a', 'param_1': 1}
+2023-07-10 16:05:55,461 [INFO] sqlalchemy.engine.Engine base.py:1897 - 
+        SELECT
+          child.parent_name,
+          child.Oid,
+          child.name,
+          child.parent_id,
+          child.level
+        FROM (
+          SELECT
+            image.Oid,
+            image.name,
+            image.parent_id,
+            parent.name AS parent_name,
+            image.level,
+            ROW_NUMBER() OVER (PARTITION BY image.parent_id ORDER BY image.oid) AS row_num,
+            image.session_id
+          FROM image
+          INNER JOIN image parent ON image.parent_id = parent.Oid
+          WHERE image.level = %(level)s
+            AND image.session_id = %(session_id)s
+        ) child
+        WHERE child.row_num <= 3
+        GROUP BY child.parent_name, child.Oid, child.name, child.parent_id, child.level, child.session_id
+    
+2023-07-10 16:05:55,461 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 318s ago] {'level': 4, 'session_id': b'`F\xb5f\x03\x06J\xdc\x8b\x8b\x15O\x1f\xff4N'}
+2023-07-10 16:05:56,411 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:05:56,453 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:05:56,453 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:05:56,454 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 317.8s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00002ex-b-DW', 'param_1': 1}
+2023-07-10 16:05:56,456 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:05:56,456 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job_id AS particlepickingjobitem_job_id, particlepickingjobitem.image_id AS particlepickingjobitem_image_id, particlepickingjobitem.settings AS particlepickingjobitem_settings, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.steps AS particlepickingjobitem_steps, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord`, particlepickingjob.name AS particlepickingjob_name, particlepickingjob_1.`Oid` AS `particlepickingjob_1_Oid`, particlepickingjob_1.name AS particlepickingjob_1_name, particlepickingjob_1.description AS particlepickingjob_1_description, particlepickingjob_1.created_on AS particlepickingjob_1_created_on, particlepickingjob_1.end_on AS particlepickingjob_1_end_on, particlepickingjob_1.user_id AS particlepickingjob_1_user_id, particlepickingjob_1.project_id AS particlepickingjob_1_project_id, particlepickingjob_1.msession_id AS particlepickingjob_1_msession_id, particlepickingjob_1.status AS particlepickingjob_1_status, particlepickingjob_1.type AS particlepickingjob_1_type, particlepickingjob_1.settings AS particlepickingjob_1_settings, particlepickingjob_1.cs AS particlepickingjob_1_cs, particlepickingjob_1.path AS particlepickingjob_1_path, particlepickingjob_1.output_dir AS particlepickingjob_1_output_dir, particlepickingjob_1.direction AS particlepickingjob_1_direction, particlepickingjob_1.image_selection_criteria AS particlepickingjob_1_image_selection_criteria, particlepickingjob_1.`OptimisticLockField` AS `particlepickingjob_1_OptimisticLockField`, particlepickingjob_1.`GCRecord` AS `particlepickingjob_1_GCRecord` 
+FROM particlepickingjobitem INNER JOIN image ON particlepickingjobitem.image_id = image.`Oid` INNER JOIN particlepickingjob ON EXISTS (SELECT 1 
+FROM particlepickingjob 
+WHERE particlepickingjob.`Oid` = particlepickingjobitem.job_id AND particlepickingjob.`Oid`) LEFT OUTER JOIN particlepickingjob AS particlepickingjob_1 ON particlepickingjob_1.`Oid` = particlepickingjobitem.job_id 
+WHERE image.name = %(name_1)s
+2023-07-10 16:05:56,457 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 317.8s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00002ex-b-DW'}
+2023-07-10 16:05:56,491 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:05:56,492 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:06:22,496 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:06:22,496 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:06:22,497 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 343.8s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl', 'param_1': 1}
+2023-07-10 16:06:22,541 [INFO] sqlalchemy.engine.Engine base.py:1897 - 
+            SELECT
+              image.Oid,
+              image.name,
+              image.level,
+              image.parent_id,
+              parent.name AS parent_name
+            FROM image parent
+              INNER JOIN image
+                ON image.parent_id = parent.Oid
+            WHERE parent.name = %(image_name)s
+                
+2023-07-10 16:06:22,541 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 342.4s ago] {'image_name': '22apr01a_a_00010gr_00001sq_v01_00002hl'}
+2023-07-10 16:06:24,130 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:06:30,688 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:06:30,688 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:06:30,688 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 352s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00002ex-b-DW', 'param_1': 1}
+2023-07-10 16:06:30,692 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:06:30,692 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job_id AS particlepickingjobitem_job_id, particlepickingjobitem.image_id AS particlepickingjobitem_image_id, particlepickingjobitem.settings AS particlepickingjobitem_settings, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.steps AS particlepickingjobitem_steps, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord`, particlepickingjob.name AS particlepickingjob_name, particlepickingjob_1.`Oid` AS `particlepickingjob_1_Oid`, particlepickingjob_1.name AS particlepickingjob_1_name, particlepickingjob_1.description AS particlepickingjob_1_description, particlepickingjob_1.created_on AS particlepickingjob_1_created_on, particlepickingjob_1.end_on AS particlepickingjob_1_end_on, particlepickingjob_1.user_id AS particlepickingjob_1_user_id, particlepickingjob_1.project_id AS particlepickingjob_1_project_id, particlepickingjob_1.msession_id AS particlepickingjob_1_msession_id, particlepickingjob_1.status AS particlepickingjob_1_status, particlepickingjob_1.type AS particlepickingjob_1_type, particlepickingjob_1.settings AS particlepickingjob_1_settings, particlepickingjob_1.cs AS particlepickingjob_1_cs, particlepickingjob_1.path AS particlepickingjob_1_path, particlepickingjob_1.output_dir AS particlepickingjob_1_output_dir, particlepickingjob_1.direction AS particlepickingjob_1_direction, particlepickingjob_1.image_selection_criteria AS particlepickingjob_1_image_selection_criteria, particlepickingjob_1.`OptimisticLockField` AS `particlepickingjob_1_OptimisticLockField`, particlepickingjob_1.`GCRecord` AS `particlepickingjob_1_GCRecord` 
+FROM particlepickingjobitem INNER JOIN image ON particlepickingjobitem.image_id = image.`Oid` INNER JOIN particlepickingjob ON EXISTS (SELECT 1 
+FROM particlepickingjob 
+WHERE particlepickingjob.`Oid` = particlepickingjobitem.job_id AND particlepickingjob.`Oid`) LEFT OUTER JOIN particlepickingjob AS particlepickingjob_1 ON particlepickingjob_1.`Oid` = particlepickingjobitem.job_id 
+WHERE image.name = %(name_1)s
+2023-07-10 16:06:30,693 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 352s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00002ex-b-DW'}
+2023-07-10 16:06:30,726 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:06:30,728 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:06:31,401 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:06:31,401 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:06:31,401 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 352.8s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00009ex-b-DW', 'param_1': 1}
+2023-07-10 16:06:31,403 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:06:31,404 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job_id AS particlepickingjobitem_job_id, particlepickingjobitem.image_id AS particlepickingjobitem_image_id, particlepickingjobitem.settings AS particlepickingjobitem_settings, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.steps AS particlepickingjobitem_steps, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord`, particlepickingjob.name AS particlepickingjob_name, particlepickingjob_1.`Oid` AS `particlepickingjob_1_Oid`, particlepickingjob_1.name AS particlepickingjob_1_name, particlepickingjob_1.description AS particlepickingjob_1_description, particlepickingjob_1.created_on AS particlepickingjob_1_created_on, particlepickingjob_1.end_on AS particlepickingjob_1_end_on, particlepickingjob_1.user_id AS particlepickingjob_1_user_id, particlepickingjob_1.project_id AS particlepickingjob_1_project_id, particlepickingjob_1.msession_id AS particlepickingjob_1_msession_id, particlepickingjob_1.status AS particlepickingjob_1_status, particlepickingjob_1.type AS particlepickingjob_1_type, particlepickingjob_1.settings AS particlepickingjob_1_settings, particlepickingjob_1.cs AS particlepickingjob_1_cs, particlepickingjob_1.path AS particlepickingjob_1_path, particlepickingjob_1.output_dir AS particlepickingjob_1_output_dir, particlepickingjob_1.direction AS particlepickingjob_1_direction, particlepickingjob_1.image_selection_criteria AS particlepickingjob_1_image_selection_criteria, particlepickingjob_1.`OptimisticLockField` AS `particlepickingjob_1_OptimisticLockField`, particlepickingjob_1.`GCRecord` AS `particlepickingjob_1_GCRecord` 
+FROM particlepickingjobitem INNER JOIN image ON particlepickingjobitem.image_id = image.`Oid` INNER JOIN particlepickingjob ON EXISTS (SELECT 1 
+FROM particlepickingjob 
+WHERE particlepickingjob.`Oid` = particlepickingjobitem.job_id AND particlepickingjob.`Oid`) LEFT OUTER JOIN particlepickingjob AS particlepickingjob_1 ON particlepickingjob_1.`Oid` = particlepickingjobitem.job_id 
+WHERE image.name = %(name_1)s
+2023-07-10 16:06:31,405 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 352.8s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00009ex-b-DW'}
+2023-07-10 16:06:31,438 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:06:31,440 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:06:32,533 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:06:32,533 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:06:32,534 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:06:32,534 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job_id AS particlepickingjobitem_job_id, particlepickingjobitem.image_id AS particlepickingjobitem_image_id, particlepickingjobitem.settings AS particlepickingjobitem_settings, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.steps AS particlepickingjobitem_steps, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord`, particlepickingjob.name AS particlepickingjob_name, particlepickingjob_1.`Oid` AS `particlepickingjob_1_Oid`, particlepickingjob_1.name AS particlepickingjob_1_name, particlepickingjob_1.description AS particlepickingjob_1_description, particlepickingjob_1.created_on AS particlepickingjob_1_created_on, particlepickingjob_1.end_on AS particlepickingjob_1_end_on, particlepickingjob_1.user_id AS particlepickingjob_1_user_id, particlepickingjob_1.project_id AS particlepickingjob_1_project_id, particlepickingjob_1.msession_id AS particlepickingjob_1_msession_id, particlepickingjob_1.status AS particlepickingjob_1_status, particlepickingjob_1.type AS particlepickingjob_1_type, particlepickingjob_1.settings AS particlepickingjob_1_settings, particlepickingjob_1.cs AS particlepickingjob_1_cs, particlepickingjob_1.path AS particlepickingjob_1_path, particlepickingjob_1.output_dir AS particlepickingjob_1_output_dir, particlepickingjob_1.direction AS particlepickingjob_1_direction, particlepickingjob_1.image_selection_criteria AS particlepickingjob_1_image_selection_criteria, particlepickingjob_1.`OptimisticLockField` AS `particlepickingjob_1_OptimisticLockField`, particlepickingjob_1.`GCRecord` AS `particlepickingjob_1_GCRecord` 
+FROM particlepickingjobitem INNER JOIN image ON particlepickingjobitem.image_id = image.`Oid` INNER JOIN particlepickingjob ON EXISTS (SELECT 1 
+FROM particlepickingjob 
+WHERE particlepickingjob.`Oid` = particlepickingjobitem.job_id AND particlepickingjob.`Oid`) LEFT OUTER JOIN particlepickingjob AS particlepickingjob_1 ON particlepickingjob_1.`Oid` = particlepickingjobitem.job_id 
+WHERE image.name = %(name_1)s
+2023-07-10 16:06:32,535 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 353.9s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00012ex', 'param_1': 1}
+2023-07-10 16:06:32,535 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 353.9s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00012ex'}
+2023-07-10 16:06:32,572 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:06:32,573 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:06:33,544 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:06:33,545 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:06:33,546 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:06:33,546 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 354.9s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00001fc', 'param_1': 1}
+2023-07-10 16:06:33,547 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job_id AS particlepickingjobitem_job_id, particlepickingjobitem.image_id AS particlepickingjobitem_image_id, particlepickingjobitem.settings AS particlepickingjobitem_settings, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.steps AS particlepickingjobitem_steps, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord`, particlepickingjob.name AS particlepickingjob_name, particlepickingjob_1.`Oid` AS `particlepickingjob_1_Oid`, particlepickingjob_1.name AS particlepickingjob_1_name, particlepickingjob_1.description AS particlepickingjob_1_description, particlepickingjob_1.created_on AS particlepickingjob_1_created_on, particlepickingjob_1.end_on AS particlepickingjob_1_end_on, particlepickingjob_1.user_id AS particlepickingjob_1_user_id, particlepickingjob_1.project_id AS particlepickingjob_1_project_id, particlepickingjob_1.msession_id AS particlepickingjob_1_msession_id, particlepickingjob_1.status AS particlepickingjob_1_status, particlepickingjob_1.type AS particlepickingjob_1_type, particlepickingjob_1.settings AS particlepickingjob_1_settings, particlepickingjob_1.cs AS particlepickingjob_1_cs, particlepickingjob_1.path AS particlepickingjob_1_path, particlepickingjob_1.output_dir AS particlepickingjob_1_output_dir, particlepickingjob_1.direction AS particlepickingjob_1_direction, particlepickingjob_1.image_selection_criteria AS particlepickingjob_1_image_selection_criteria, particlepickingjob_1.`OptimisticLockField` AS `particlepickingjob_1_OptimisticLockField`, particlepickingjob_1.`GCRecord` AS `particlepickingjob_1_GCRecord` 
+FROM particlepickingjobitem INNER JOIN image ON particlepickingjobitem.image_id = image.`Oid` INNER JOIN particlepickingjob ON EXISTS (SELECT 1 
+FROM particlepickingjob 
+WHERE particlepickingjob.`Oid` = particlepickingjobitem.job_id AND particlepickingjob.`Oid`) LEFT OUTER JOIN particlepickingjob AS particlepickingjob_1 ON particlepickingjob_1.`Oid` = particlepickingjobitem.job_id 
+WHERE image.name = %(name_1)s
+2023-07-10 16:06:33,547 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 354.9s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00001fc'}
+2023-07-10 16:06:33,583 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:06:33,585 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:12:32,222 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:12:32,223 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:12:32,224 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 713.6s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00009ex-b-DW', 'param_1': 1}
+2023-07-10 16:12:32,225 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:12:32,225 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job_id AS particlepickingjobitem_job_id, particlepickingjobitem.image_id AS particlepickingjobitem_image_id, particlepickingjobitem.settings AS particlepickingjobitem_settings, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.steps AS particlepickingjobitem_steps, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord`, particlepickingjob.name AS particlepickingjob_name, particlepickingjob_1.`Oid` AS `particlepickingjob_1_Oid`, particlepickingjob_1.name AS particlepickingjob_1_name, particlepickingjob_1.description AS particlepickingjob_1_description, particlepickingjob_1.created_on AS particlepickingjob_1_created_on, particlepickingjob_1.end_on AS particlepickingjob_1_end_on, particlepickingjob_1.user_id AS particlepickingjob_1_user_id, particlepickingjob_1.project_id AS particlepickingjob_1_project_id, particlepickingjob_1.msession_id AS particlepickingjob_1_msession_id, particlepickingjob_1.status AS particlepickingjob_1_status, particlepickingjob_1.type AS particlepickingjob_1_type, particlepickingjob_1.settings AS particlepickingjob_1_settings, particlepickingjob_1.cs AS particlepickingjob_1_cs, particlepickingjob_1.path AS particlepickingjob_1_path, particlepickingjob_1.output_dir AS particlepickingjob_1_output_dir, particlepickingjob_1.direction AS particlepickingjob_1_direction, particlepickingjob_1.image_selection_criteria AS particlepickingjob_1_image_selection_criteria, particlepickingjob_1.`OptimisticLockField` AS `particlepickingjob_1_OptimisticLockField`, particlepickingjob_1.`GCRecord` AS `particlepickingjob_1_GCRecord` 
+FROM particlepickingjobitem INNER JOIN image ON particlepickingjobitem.image_id = image.`Oid` INNER JOIN particlepickingjob ON EXISTS (SELECT 1 
+FROM particlepickingjob 
+WHERE particlepickingjob.`Oid` = particlepickingjobitem.job_id AND particlepickingjob.`Oid`) LEFT OUTER JOIN particlepickingjob AS particlepickingjob_1 ON particlepickingjob_1.`Oid` = particlepickingjobitem.job_id 
+WHERE image.name = %(name_1)s
+2023-07-10 16:12:32,227 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 713.6s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00009ex-b-DW'}
+2023-07-10 16:12:32,263 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:12:32,263 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:12:33,544 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:12:33,545 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:12:33,545 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 714.9s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00012ex', 'param_1': 1}
+2023-07-10 16:12:33,546 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:12:33,546 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job_id AS particlepickingjobitem_job_id, particlepickingjobitem.image_id AS particlepickingjobitem_image_id, particlepickingjobitem.settings AS particlepickingjobitem_settings, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.steps AS particlepickingjobitem_steps, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord`, particlepickingjob.name AS particlepickingjob_name, particlepickingjob_1.`Oid` AS `particlepickingjob_1_Oid`, particlepickingjob_1.name AS particlepickingjob_1_name, particlepickingjob_1.description AS particlepickingjob_1_description, particlepickingjob_1.created_on AS particlepickingjob_1_created_on, particlepickingjob_1.end_on AS particlepickingjob_1_end_on, particlepickingjob_1.user_id AS particlepickingjob_1_user_id, particlepickingjob_1.project_id AS particlepickingjob_1_project_id, particlepickingjob_1.msession_id AS particlepickingjob_1_msession_id, particlepickingjob_1.status AS particlepickingjob_1_status, particlepickingjob_1.type AS particlepickingjob_1_type, particlepickingjob_1.settings AS particlepickingjob_1_settings, particlepickingjob_1.cs AS particlepickingjob_1_cs, particlepickingjob_1.path AS particlepickingjob_1_path, particlepickingjob_1.output_dir AS particlepickingjob_1_output_dir, particlepickingjob_1.direction AS particlepickingjob_1_direction, particlepickingjob_1.image_selection_criteria AS particlepickingjob_1_image_selection_criteria, particlepickingjob_1.`OptimisticLockField` AS `particlepickingjob_1_OptimisticLockField`, particlepickingjob_1.`GCRecord` AS `particlepickingjob_1_GCRecord` 
+FROM particlepickingjobitem INNER JOIN image ON particlepickingjobitem.image_id = image.`Oid` INNER JOIN particlepickingjob ON EXISTS (SELECT 1 
+FROM particlepickingjob 
+WHERE particlepickingjob.`Oid` = particlepickingjobitem.job_id AND particlepickingjob.`Oid`) LEFT OUTER JOIN particlepickingjob AS particlepickingjob_1 ON particlepickingjob_1.`Oid` = particlepickingjobitem.job_id 
+WHERE image.name = %(name_1)s
+2023-07-10 16:12:33,546 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 714.9s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00012ex'}
+2023-07-10 16:12:33,583 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:12:33,583 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:12:34,857 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:12:34,859 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:12:34,859 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 716.2s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00001fc', 'param_1': 1}
+2023-07-10 16:12:34,861 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:12:34,861 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job_id AS particlepickingjobitem_job_id, particlepickingjobitem.image_id AS particlepickingjobitem_image_id, particlepickingjobitem.settings AS particlepickingjobitem_settings, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.steps AS particlepickingjobitem_steps, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord`, particlepickingjob.name AS particlepickingjob_name, particlepickingjob_1.`Oid` AS `particlepickingjob_1_Oid`, particlepickingjob_1.name AS particlepickingjob_1_name, particlepickingjob_1.description AS particlepickingjob_1_description, particlepickingjob_1.created_on AS particlepickingjob_1_created_on, particlepickingjob_1.end_on AS particlepickingjob_1_end_on, particlepickingjob_1.user_id AS particlepickingjob_1_user_id, particlepickingjob_1.project_id AS particlepickingjob_1_project_id, particlepickingjob_1.msession_id AS particlepickingjob_1_msession_id, particlepickingjob_1.status AS particlepickingjob_1_status, particlepickingjob_1.type AS particlepickingjob_1_type, particlepickingjob_1.settings AS particlepickingjob_1_settings, particlepickingjob_1.cs AS particlepickingjob_1_cs, particlepickingjob_1.path AS particlepickingjob_1_path, particlepickingjob_1.output_dir AS particlepickingjob_1_output_dir, particlepickingjob_1.direction AS particlepickingjob_1_direction, particlepickingjob_1.image_selection_criteria AS particlepickingjob_1_image_selection_criteria, particlepickingjob_1.`OptimisticLockField` AS `particlepickingjob_1_OptimisticLockField`, particlepickingjob_1.`GCRecord` AS `particlepickingjob_1_GCRecord` 
+FROM particlepickingjobitem INNER JOIN image ON particlepickingjobitem.image_id = image.`Oid` INNER JOIN particlepickingjob ON EXISTS (SELECT 1 
+FROM particlepickingjob 
+WHERE particlepickingjob.`Oid` = particlepickingjobitem.job_id AND particlepickingjob.`Oid`) LEFT OUTER JOIN particlepickingjob AS particlepickingjob_1 ON particlepickingjob_1.`Oid` = particlepickingjobitem.job_id 
+WHERE image.name = %(name_1)s
+2023-07-10 16:12:34,861 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 716.2s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00001fc'}
+2023-07-10 16:12:34,897 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:12:34,897 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:14:40,602 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:14:40,602 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:14:40,602 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 842s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl', 'param_1': 1}
+2023-07-10 16:14:40,643 [INFO] sqlalchemy.engine.Engine base.py:1897 - 
+            SELECT
+              image.Oid,
+              image.name,
+              image.level,
+              image.parent_id,
+              parent.name AS parent_name
+            FROM image parent
+              INNER JOIN image
+                ON image.parent_id = parent.Oid
+            WHERE parent.name = %(image_name)s
+                
+2023-07-10 16:14:40,644 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 840.5s ago] {'image_name': '22apr01a_a_00010gr_00001sq_v01_00002hl'}
+2023-07-10 16:14:42,228 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:19:32,366 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:19:32,367 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:19:32,367 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 1135s ago] {'name_1': '22apr01a', 'param_1': 1}
+2023-07-10 16:19:32,403 [INFO] sqlalchemy.engine.Engine base.py:1897 - 
+        SELECT
+          child.parent_name,
+          child.Oid,
+          child.name,
+          child.parent_id,
+          child.level
+        FROM (
+          SELECT
+            image.Oid,
+            image.name,
+            image.parent_id,
+            parent.name AS parent_name,
+            image.level,
+            ROW_NUMBER() OVER (PARTITION BY image.parent_id ORDER BY image.oid) AS row_num,
+            image.session_id
+          FROM image
+          INNER JOIN image parent ON image.parent_id = parent.Oid
+          WHERE image.level = %(level)s
+            AND image.session_id = %(session_id)s
+        ) child
+        WHERE child.row_num <= 3
+        GROUP BY child.parent_name, child.Oid, child.name, child.parent_id, child.level, child.session_id
+    
+2023-07-10 16:19:32,403 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 1135s ago] {'level': 4, 'session_id': b'`F\xb5f\x03\x06J\xdc\x8b\x8b\x15O\x1f\xff4N'}
+2023-07-10 16:19:33,350 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:19:33,428 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:19:33,429 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:19:33,429 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:19:33,430 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job_id AS particlepickingjobitem_job_id, particlepickingjobitem.image_id AS particlepickingjobitem_image_id, particlepickingjobitem.settings AS particlepickingjobitem_settings, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.steps AS particlepickingjobitem_steps, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord`, particlepickingjob.name AS particlepickingjob_name, particlepickingjob_1.`Oid` AS `particlepickingjob_1_Oid`, particlepickingjob_1.name AS particlepickingjob_1_name, particlepickingjob_1.description AS particlepickingjob_1_description, particlepickingjob_1.created_on AS particlepickingjob_1_created_on, particlepickingjob_1.end_on AS particlepickingjob_1_end_on, particlepickingjob_1.user_id AS particlepickingjob_1_user_id, particlepickingjob_1.project_id AS particlepickingjob_1_project_id, particlepickingjob_1.msession_id AS particlepickingjob_1_msession_id, particlepickingjob_1.status AS particlepickingjob_1_status, particlepickingjob_1.type AS particlepickingjob_1_type, particlepickingjob_1.settings AS particlepickingjob_1_settings, particlepickingjob_1.cs AS particlepickingjob_1_cs, particlepickingjob_1.path AS particlepickingjob_1_path, particlepickingjob_1.output_dir AS particlepickingjob_1_output_dir, particlepickingjob_1.direction AS particlepickingjob_1_direction, particlepickingjob_1.image_selection_criteria AS particlepickingjob_1_image_selection_criteria, particlepickingjob_1.`OptimisticLockField` AS `particlepickingjob_1_OptimisticLockField`, particlepickingjob_1.`GCRecord` AS `particlepickingjob_1_GCRecord` 
+FROM particlepickingjobitem INNER JOIN image ON particlepickingjobitem.image_id = image.`Oid` INNER JOIN particlepickingjob ON EXISTS (SELECT 1 
+FROM particlepickingjob 
+WHERE particlepickingjob.`Oid` = particlepickingjobitem.job_id AND particlepickingjob.`Oid`) LEFT OUTER JOIN particlepickingjob AS particlepickingjob_1 ON particlepickingjob_1.`Oid` = particlepickingjobitem.job_id 
+WHERE image.name = %(name_1)s
+2023-07-10 16:19:33,430 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 1135s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00002ex-b-DW', 'param_1': 1}
+2023-07-10 16:19:33,432 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 1135s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00002ex-b-DW'}
+2023-07-10 16:19:33,467 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:19:33,468 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:19:45,486 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:19:45,486 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:19:45,487 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 1147s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl', 'param_1': 1}
+2023-07-10 16:19:45,531 [INFO] sqlalchemy.engine.Engine base.py:1897 - 
+            SELECT
+              image.Oid,
+              image.name,
+              image.level,
+              image.parent_id,
+              parent.name AS parent_name
+            FROM image parent
+              INNER JOIN image
+                ON image.parent_id = parent.Oid
+            WHERE parent.name = %(image_name)s
+                
+2023-07-10 16:19:45,531 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 1145s ago] {'image_name': '22apr01a_a_00010gr_00001sq_v01_00002hl'}
+2023-07-10 16:19:47,133 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:19:48,131 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:19:48,131 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:19:48,132 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 1149s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl', 'param_1': 1}
+2023-07-10 16:19:48,175 [INFO] sqlalchemy.engine.Engine base.py:1897 - 
+            SELECT
+              image.Oid,
+              image.name,
+              image.level,
+              image.parent_id,
+              parent.name AS parent_name
+            FROM image parent
+              INNER JOIN image
+                ON image.parent_id = parent.Oid
+            WHERE parent.name = %(image_name)s
+                
+2023-07-10 16:19:48,175 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 1148s ago] {'image_name': '22apr01a_a_00010gr_00001sq_v01_00002hl'}
+2023-07-10 16:19:49,803 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:30:18,887 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT DATABASE()
+2023-07-10 16:30:18,887 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-07-10 16:30:18,956 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@sql_mode
+2023-07-10 16:30:18,956 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-07-10 16:30:18,990 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@lower_case_table_names
+2023-07-10 16:30:18,990 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-07-10 16:30:19,058 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:30:19,059 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:30:19,059 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00020s] {'name_1': '22apr01a', 'param_1': 1}
+2023-07-10 16:30:19,094 [INFO] sqlalchemy.engine.Engine base.py:1897 - 
+        SELECT
+          child.parent_name,
+          child.Oid,
+          child.name,
+          child.parent_id,
+          child.level
+        FROM (
+          SELECT
+            image.Oid,
+            image.name,
+            image.parent_id,
+            parent.name AS parent_name,
+            image.level,
+            ROW_NUMBER() OVER (PARTITION BY image.parent_id ORDER BY image.oid) AS row_num,
+            image.session_id
+          FROM image
+          INNER JOIN image parent ON image.parent_id = parent.Oid
+          WHERE image.level = %(level)s
+            AND image.session_id = %(session_id)s
+        ) child
+        WHERE child.row_num <= 3
+        GROUP BY child.parent_name, child.Oid, child.name, child.parent_id, child.level, child.session_id
+    
+2023-07-10 16:30:19,094 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00019s] {'level': 4, 'session_id': b'`F\xb5f\x03\x06J\xdc\x8b\x8b\x15O\x1f\xff4N'}
+2023-07-10 16:30:20,125 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:30:20,352 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:30:20,355 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job_id AS particlepickingjobitem_job_id, particlepickingjobitem.image_id AS particlepickingjobitem_image_id, particlepickingjobitem.settings AS particlepickingjobitem_settings, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.steps AS particlepickingjobitem_steps, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord`, particlepickingjob.name AS particlepickingjob_name, particlepickingjob_1.`Oid` AS `particlepickingjob_1_Oid`, particlepickingjob_1.name AS particlepickingjob_1_name, particlepickingjob_1.description AS particlepickingjob_1_description, particlepickingjob_1.created_on AS particlepickingjob_1_created_on, particlepickingjob_1.end_on AS particlepickingjob_1_end_on, particlepickingjob_1.user_id AS particlepickingjob_1_user_id, particlepickingjob_1.project_id AS particlepickingjob_1_project_id, particlepickingjob_1.msession_id AS particlepickingjob_1_msession_id, particlepickingjob_1.status AS particlepickingjob_1_status, particlepickingjob_1.type AS particlepickingjob_1_type, particlepickingjob_1.settings AS particlepickingjob_1_settings, particlepickingjob_1.cs AS particlepickingjob_1_cs, particlepickingjob_1.path AS particlepickingjob_1_path, particlepickingjob_1.output_dir AS particlepickingjob_1_output_dir, particlepickingjob_1.direction AS particlepickingjob_1_direction, particlepickingjob_1.image_selection_criteria AS particlepickingjob_1_image_selection_criteria, particlepickingjob_1.`OptimisticLockField` AS `particlepickingjob_1_OptimisticLockField`, particlepickingjob_1.`GCRecord` AS `particlepickingjob_1_GCRecord` 
+FROM particlepickingjobitem INNER JOIN image ON particlepickingjobitem.image_id = image.`Oid` INNER JOIN particlepickingjob ON EXISTS (SELECT 1 
+FROM particlepickingjob 
+WHERE particlepickingjob.`Oid` = particlepickingjobitem.job_id AND particlepickingjob.`Oid`) LEFT OUTER JOIN particlepickingjob AS particlepickingjob_1 ON particlepickingjob_1.`Oid` = particlepickingjobitem.job_id 
+WHERE image.name = %(name_1)s
+2023-07-10 16:30:20,355 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00022s] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00002ex-b-DW'}
+2023-07-10 16:30:20,355 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:30:20,357 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:30:20,361 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00317s] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00002ex-b-DW', 'param_1': 1}
+2023-07-10 16:30:20,390 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:30:20,397 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:30:22,033 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:30:22,034 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:30:22,034 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 1.676s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl', 'param_1': 1}
+2023-07-10 16:30:22,076 [INFO] sqlalchemy.engine.Engine base.py:1897 - 
+            SELECT
+              image.Oid,
+              image.name,
+              image.level,
+              image.parent_id,
+              parent.name AS parent_name
+            FROM image parent
+              INNER JOIN image
+                ON image.parent_id = parent.Oid
+            WHERE parent.name = %(image_name)s
+                
+2023-07-10 16:30:22,076 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00019s] {'image_name': '22apr01a_a_00010gr_00001sq_v01_00002hl'}
+2023-07-10 16:30:23,633 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:30:25,275 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:30:25,276 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:30:25,276 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:30:25,276 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job_id AS particlepickingjobitem_job_id, particlepickingjobitem.image_id AS particlepickingjobitem_image_id, particlepickingjobitem.settings AS particlepickingjobitem_settings, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.steps AS particlepickingjobitem_steps, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord`, particlepickingjob.name AS particlepickingjob_name, particlepickingjob_1.`Oid` AS `particlepickingjob_1_Oid`, particlepickingjob_1.name AS particlepickingjob_1_name, particlepickingjob_1.description AS particlepickingjob_1_description, particlepickingjob_1.created_on AS particlepickingjob_1_created_on, particlepickingjob_1.end_on AS particlepickingjob_1_end_on, particlepickingjob_1.user_id AS particlepickingjob_1_user_id, particlepickingjob_1.project_id AS particlepickingjob_1_project_id, particlepickingjob_1.msession_id AS particlepickingjob_1_msession_id, particlepickingjob_1.status AS particlepickingjob_1_status, particlepickingjob_1.type AS particlepickingjob_1_type, particlepickingjob_1.settings AS particlepickingjob_1_settings, particlepickingjob_1.cs AS particlepickingjob_1_cs, particlepickingjob_1.path AS particlepickingjob_1_path, particlepickingjob_1.output_dir AS particlepickingjob_1_output_dir, particlepickingjob_1.direction AS particlepickingjob_1_direction, particlepickingjob_1.image_selection_criteria AS particlepickingjob_1_image_selection_criteria, particlepickingjob_1.`OptimisticLockField` AS `particlepickingjob_1_OptimisticLockField`, particlepickingjob_1.`GCRecord` AS `particlepickingjob_1_GCRecord` 
+FROM particlepickingjobitem INNER JOIN image ON particlepickingjobitem.image_id = image.`Oid` INNER JOIN particlepickingjob ON EXISTS (SELECT 1 
+FROM particlepickingjob 
+WHERE particlepickingjob.`Oid` = particlepickingjobitem.job_id AND particlepickingjob.`Oid`) LEFT OUTER JOIN particlepickingjob AS particlepickingjob_1 ON particlepickingjob_1.`Oid` = particlepickingjobitem.job_id 
+WHERE image.name = %(name_1)s
+2023-07-10 16:30:25,276 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 4.919s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00002ex-b-DW', 'param_1': 1}
+2023-07-10 16:30:25,280 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 4.925s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00002ex-b-DW'}
+2023-07-10 16:30:25,318 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:30:25,318 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:30:26,339 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:30:26,340 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:30:26,341 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:30:26,341 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 5.983s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00009ex-b-DW', 'param_1': 1}
+2023-07-10 16:30:26,341 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job_id AS particlepickingjobitem_job_id, particlepickingjobitem.image_id AS particlepickingjobitem_image_id, particlepickingjobitem.settings AS particlepickingjobitem_settings, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.steps AS particlepickingjobitem_steps, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord`, particlepickingjob.name AS particlepickingjob_name, particlepickingjob_1.`Oid` AS `particlepickingjob_1_Oid`, particlepickingjob_1.name AS particlepickingjob_1_name, particlepickingjob_1.description AS particlepickingjob_1_description, particlepickingjob_1.created_on AS particlepickingjob_1_created_on, particlepickingjob_1.end_on AS particlepickingjob_1_end_on, particlepickingjob_1.user_id AS particlepickingjob_1_user_id, particlepickingjob_1.project_id AS particlepickingjob_1_project_id, particlepickingjob_1.msession_id AS particlepickingjob_1_msession_id, particlepickingjob_1.status AS particlepickingjob_1_status, particlepickingjob_1.type AS particlepickingjob_1_type, particlepickingjob_1.settings AS particlepickingjob_1_settings, particlepickingjob_1.cs AS particlepickingjob_1_cs, particlepickingjob_1.path AS particlepickingjob_1_path, particlepickingjob_1.output_dir AS particlepickingjob_1_output_dir, particlepickingjob_1.direction AS particlepickingjob_1_direction, particlepickingjob_1.image_selection_criteria AS particlepickingjob_1_image_selection_criteria, particlepickingjob_1.`OptimisticLockField` AS `particlepickingjob_1_OptimisticLockField`, particlepickingjob_1.`GCRecord` AS `particlepickingjob_1_GCRecord` 
+FROM particlepickingjobitem INNER JOIN image ON particlepickingjobitem.image_id = image.`Oid` INNER JOIN particlepickingjob ON EXISTS (SELECT 1 
+FROM particlepickingjob 
+WHERE particlepickingjob.`Oid` = particlepickingjobitem.job_id AND particlepickingjob.`Oid`) LEFT OUTER JOIN particlepickingjob AS particlepickingjob_1 ON particlepickingjob_1.`Oid` = particlepickingjobitem.job_id 
+WHERE image.name = %(name_1)s
+2023-07-10 16:30:26,344 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 5.988s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00009ex-b-DW'}
+2023-07-10 16:30:26,378 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:30:26,378 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:30:26,864 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:30:26,865 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:30:26,865 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:30:26,866 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job_id AS particlepickingjobitem_job_id, particlepickingjobitem.image_id AS particlepickingjobitem_image_id, particlepickingjobitem.settings AS particlepickingjobitem_settings, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.steps AS particlepickingjobitem_steps, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord`, particlepickingjob.name AS particlepickingjob_name, particlepickingjob_1.`Oid` AS `particlepickingjob_1_Oid`, particlepickingjob_1.name AS particlepickingjob_1_name, particlepickingjob_1.description AS particlepickingjob_1_description, particlepickingjob_1.created_on AS particlepickingjob_1_created_on, particlepickingjob_1.end_on AS particlepickingjob_1_end_on, particlepickingjob_1.user_id AS particlepickingjob_1_user_id, particlepickingjob_1.project_id AS particlepickingjob_1_project_id, particlepickingjob_1.msession_id AS particlepickingjob_1_msession_id, particlepickingjob_1.status AS particlepickingjob_1_status, particlepickingjob_1.type AS particlepickingjob_1_type, particlepickingjob_1.settings AS particlepickingjob_1_settings, particlepickingjob_1.cs AS particlepickingjob_1_cs, particlepickingjob_1.path AS particlepickingjob_1_path, particlepickingjob_1.output_dir AS particlepickingjob_1_output_dir, particlepickingjob_1.direction AS particlepickingjob_1_direction, particlepickingjob_1.image_selection_criteria AS particlepickingjob_1_image_selection_criteria, particlepickingjob_1.`OptimisticLockField` AS `particlepickingjob_1_OptimisticLockField`, particlepickingjob_1.`GCRecord` AS `particlepickingjob_1_GCRecord` 
+FROM particlepickingjobitem INNER JOIN image ON particlepickingjobitem.image_id = image.`Oid` INNER JOIN particlepickingjob ON EXISTS (SELECT 1 
+FROM particlepickingjob 
+WHERE particlepickingjob.`Oid` = particlepickingjobitem.job_id AND particlepickingjob.`Oid`) LEFT OUTER JOIN particlepickingjob AS particlepickingjob_1 ON particlepickingjob_1.`Oid` = particlepickingjobitem.job_id 
+WHERE image.name = %(name_1)s
+2023-07-10 16:30:26,866 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 6.509s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00012ex', 'param_1': 1}
+2023-07-10 16:30:26,866 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 6.511s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00012ex'}
+2023-07-10 16:30:26,901 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:30:26,904 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:32:11,580 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT DATABASE()
+2023-07-10 16:32:11,580 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-07-10 16:32:11,648 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@sql_mode
+2023-07-10 16:32:11,648 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-07-10 16:32:11,681 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@lower_case_table_names
+2023-07-10 16:32:11,682 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-07-10 16:32:11,749 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:32:11,752 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:32:11,752 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00023s] {'name_1': '22apr01a', 'param_1': 1}
+2023-07-10 16:32:11,787 [INFO] sqlalchemy.engine.Engine base.py:1897 - 
+        SELECT
+          child.Oid,
+          child.name,
+          child.level,
+          child.parent_id,
+          child.parent_name
+        FROM (
+          SELECT
+            image.Oid,
+            image.name,
+            image.parent_id,
+            parent.name AS parent_name,
+            image.level,
+            ROW_NUMBER() OVER (PARTITION BY image.parent_id ORDER BY image.oid) AS row_num,
+            image.session_id
+          FROM image
+          INNER JOIN image parent ON image.parent_id = parent.Oid
+          WHERE image.level = %(level)s
+            AND image.session_id = %(session_id)s
+        ) child
+        WHERE child.row_num <= 3
+        GROUP BY child.parent_name, child.Oid, child.name, child.parent_id, child.level, child.session_id
+    
+2023-07-10 16:32:11,787 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00018s] {'level': 4, 'session_id': b'`F\xb5f\x03\x06J\xdc\x8b\x8b\x15O\x1f\xff4N'}
+2023-07-10 16:32:12,759 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:32:12,986 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:32:12,990 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job_id AS particlepickingjobitem_job_id, particlepickingjobitem.image_id AS particlepickingjobitem_image_id, particlepickingjobitem.settings AS particlepickingjobitem_settings, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.steps AS particlepickingjobitem_steps, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord`, particlepickingjob.name AS particlepickingjob_name, particlepickingjob_1.`Oid` AS `particlepickingjob_1_Oid`, particlepickingjob_1.name AS particlepickingjob_1_name, particlepickingjob_1.description AS particlepickingjob_1_description, particlepickingjob_1.created_on AS particlepickingjob_1_created_on, particlepickingjob_1.end_on AS particlepickingjob_1_end_on, particlepickingjob_1.user_id AS particlepickingjob_1_user_id, particlepickingjob_1.project_id AS particlepickingjob_1_project_id, particlepickingjob_1.msession_id AS particlepickingjob_1_msession_id, particlepickingjob_1.status AS particlepickingjob_1_status, particlepickingjob_1.type AS particlepickingjob_1_type, particlepickingjob_1.settings AS particlepickingjob_1_settings, particlepickingjob_1.cs AS particlepickingjob_1_cs, particlepickingjob_1.path AS particlepickingjob_1_path, particlepickingjob_1.output_dir AS particlepickingjob_1_output_dir, particlepickingjob_1.direction AS particlepickingjob_1_direction, particlepickingjob_1.image_selection_criteria AS particlepickingjob_1_image_selection_criteria, particlepickingjob_1.`OptimisticLockField` AS `particlepickingjob_1_OptimisticLockField`, particlepickingjob_1.`GCRecord` AS `particlepickingjob_1_GCRecord` 
+FROM particlepickingjobitem INNER JOIN image ON particlepickingjobitem.image_id = image.`Oid` INNER JOIN particlepickingjob ON EXISTS (SELECT 1 
+FROM particlepickingjob 
+WHERE particlepickingjob.`Oid` = particlepickingjobitem.job_id AND particlepickingjob.`Oid`) LEFT OUTER JOIN particlepickingjob AS particlepickingjob_1 ON particlepickingjob_1.`Oid` = particlepickingjobitem.job_id 
+WHERE image.name = %(name_1)s
+2023-07-10 16:32:12,990 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00023s] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00002ex-b-DW'}
+2023-07-10 16:32:12,990 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:32:12,992 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:32:12,993 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00109s] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00002ex-b-DW', 'param_1': 1}
+2023-07-10 16:32:13,025 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:32:13,028 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:32:21,759 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:32:21,759 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:32:21,759 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 8.768s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00003hl', 'param_1': 1}
+2023-07-10 16:32:21,818 [INFO] sqlalchemy.engine.Engine base.py:1897 - 
+            SELECT
+              image.Oid,
+              image.name,
+              image.level,
+              image.parent_id,
+              parent.name AS parent_name
+            FROM image parent
+              INNER JOIN image
+                ON image.parent_id = parent.Oid
+            WHERE parent.name = %(image_name)s
+                
+2023-07-10 16:32:21,818 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00024s] {'image_name': '22apr01a_a_00010gr_00001sq_v01_00003hl'}
+2023-07-10 16:32:22,991 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:32:24,880 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:32:24,881 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:32:24,881 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:32:24,882 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 11.89s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00003hl_00001fc', 'param_1': 1}
+2023-07-10 16:32:24,882 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job_id AS particlepickingjobitem_job_id, particlepickingjobitem.image_id AS particlepickingjobitem_image_id, particlepickingjobitem.settings AS particlepickingjobitem_settings, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.steps AS particlepickingjobitem_steps, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord`, particlepickingjob.name AS particlepickingjob_name, particlepickingjob_1.`Oid` AS `particlepickingjob_1_Oid`, particlepickingjob_1.name AS particlepickingjob_1_name, particlepickingjob_1.description AS particlepickingjob_1_description, particlepickingjob_1.created_on AS particlepickingjob_1_created_on, particlepickingjob_1.end_on AS particlepickingjob_1_end_on, particlepickingjob_1.user_id AS particlepickingjob_1_user_id, particlepickingjob_1.project_id AS particlepickingjob_1_project_id, particlepickingjob_1.msession_id AS particlepickingjob_1_msession_id, particlepickingjob_1.status AS particlepickingjob_1_status, particlepickingjob_1.type AS particlepickingjob_1_type, particlepickingjob_1.settings AS particlepickingjob_1_settings, particlepickingjob_1.cs AS particlepickingjob_1_cs, particlepickingjob_1.path AS particlepickingjob_1_path, particlepickingjob_1.output_dir AS particlepickingjob_1_output_dir, particlepickingjob_1.direction AS particlepickingjob_1_direction, particlepickingjob_1.image_selection_criteria AS particlepickingjob_1_image_selection_criteria, particlepickingjob_1.`OptimisticLockField` AS `particlepickingjob_1_OptimisticLockField`, particlepickingjob_1.`GCRecord` AS `particlepickingjob_1_GCRecord` 
+FROM particlepickingjobitem INNER JOIN image ON particlepickingjobitem.image_id = image.`Oid` INNER JOIN particlepickingjob ON EXISTS (SELECT 1 
+FROM particlepickingjob 
+WHERE particlepickingjob.`Oid` = particlepickingjobitem.job_id AND particlepickingjob.`Oid`) LEFT OUTER JOIN particlepickingjob AS particlepickingjob_1 ON particlepickingjob_1.`Oid` = particlepickingjobitem.job_id 
+WHERE image.name = %(name_1)s
+2023-07-10 16:32:24,883 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 11.89s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00003hl_00001fc'}
+2023-07-10 16:32:24,918 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:32:24,918 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:32:25,907 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:32:25,908 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:32:25,908 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:32:25,909 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 12.92s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00003hl_00013ex', 'param_1': 1}
+2023-07-10 16:32:25,908 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job_id AS particlepickingjobitem_job_id, particlepickingjobitem.image_id AS particlepickingjobitem_image_id, particlepickingjobitem.settings AS particlepickingjobitem_settings, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.steps AS particlepickingjobitem_steps, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord`, particlepickingjob.name AS particlepickingjob_name, particlepickingjob_1.`Oid` AS `particlepickingjob_1_Oid`, particlepickingjob_1.name AS particlepickingjob_1_name, particlepickingjob_1.description AS particlepickingjob_1_description, particlepickingjob_1.created_on AS particlepickingjob_1_created_on, particlepickingjob_1.end_on AS particlepickingjob_1_end_on, particlepickingjob_1.user_id AS particlepickingjob_1_user_id, particlepickingjob_1.project_id AS particlepickingjob_1_project_id, particlepickingjob_1.msession_id AS particlepickingjob_1_msession_id, particlepickingjob_1.status AS particlepickingjob_1_status, particlepickingjob_1.type AS particlepickingjob_1_type, particlepickingjob_1.settings AS particlepickingjob_1_settings, particlepickingjob_1.cs AS particlepickingjob_1_cs, particlepickingjob_1.path AS particlepickingjob_1_path, particlepickingjob_1.output_dir AS particlepickingjob_1_output_dir, particlepickingjob_1.direction AS particlepickingjob_1_direction, particlepickingjob_1.image_selection_criteria AS particlepickingjob_1_image_selection_criteria, particlepickingjob_1.`OptimisticLockField` AS `particlepickingjob_1_OptimisticLockField`, particlepickingjob_1.`GCRecord` AS `particlepickingjob_1_GCRecord` 
+FROM particlepickingjobitem INNER JOIN image ON particlepickingjobitem.image_id = image.`Oid` INNER JOIN particlepickingjob ON EXISTS (SELECT 1 
+FROM particlepickingjob 
+WHERE particlepickingjob.`Oid` = particlepickingjobitem.job_id AND particlepickingjob.`Oid`) LEFT OUTER JOIN particlepickingjob AS particlepickingjob_1 ON particlepickingjob_1.`Oid` = particlepickingjobitem.job_id 
+WHERE image.name = %(name_1)s
+2023-07-10 16:32:25,910 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 12.92s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00003hl_00013ex'}
+2023-07-10 16:32:25,944 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:32:25,946 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:32:27,923 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:32:27,924 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:32:27,924 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 14.93s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl', 'param_1': 1}
+2023-07-10 16:32:27,967 [INFO] sqlalchemy.engine.Engine base.py:1897 - 
+            SELECT
+              image.Oid,
+              image.name,
+              image.level,
+              image.parent_id,
+              parent.name AS parent_name
+            FROM image parent
+              INNER JOIN image
+                ON image.parent_id = parent.Oid
+            WHERE parent.name = %(image_name)s
+                
+2023-07-10 16:32:27,967 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 6.148s ago] {'image_name': '22apr01a_a_00010gr_00001sq_v01_00002hl'}
+2023-07-10 16:32:29,532 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:32:38,771 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:32:38,771 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:32:38,771 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:32:38,772 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job_id AS particlepickingjobitem_job_id, particlepickingjobitem.image_id AS particlepickingjobitem_image_id, particlepickingjobitem.settings AS particlepickingjobitem_settings, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.steps AS particlepickingjobitem_steps, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord`, particlepickingjob.name AS particlepickingjob_name, particlepickingjob_1.`Oid` AS `particlepickingjob_1_Oid`, particlepickingjob_1.name AS particlepickingjob_1_name, particlepickingjob_1.description AS particlepickingjob_1_description, particlepickingjob_1.created_on AS particlepickingjob_1_created_on, particlepickingjob_1.end_on AS particlepickingjob_1_end_on, particlepickingjob_1.user_id AS particlepickingjob_1_user_id, particlepickingjob_1.project_id AS particlepickingjob_1_project_id, particlepickingjob_1.msession_id AS particlepickingjob_1_msession_id, particlepickingjob_1.status AS particlepickingjob_1_status, particlepickingjob_1.type AS particlepickingjob_1_type, particlepickingjob_1.settings AS particlepickingjob_1_settings, particlepickingjob_1.cs AS particlepickingjob_1_cs, particlepickingjob_1.path AS particlepickingjob_1_path, particlepickingjob_1.output_dir AS particlepickingjob_1_output_dir, particlepickingjob_1.direction AS particlepickingjob_1_direction, particlepickingjob_1.image_selection_criteria AS particlepickingjob_1_image_selection_criteria, particlepickingjob_1.`OptimisticLockField` AS `particlepickingjob_1_OptimisticLockField`, particlepickingjob_1.`GCRecord` AS `particlepickingjob_1_GCRecord` 
+FROM particlepickingjobitem INNER JOIN image ON particlepickingjobitem.image_id = image.`Oid` INNER JOIN particlepickingjob ON EXISTS (SELECT 1 
+FROM particlepickingjob 
+WHERE particlepickingjob.`Oid` = particlepickingjobitem.job_id AND particlepickingjob.`Oid`) LEFT OUTER JOIN particlepickingjob AS particlepickingjob_1 ON particlepickingjob_1.`Oid` = particlepickingjobitem.job_id 
+WHERE image.name = %(name_1)s
+2023-07-10 16:32:38,772 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 25.78s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00002ex-b-DW', 'param_1': 1}
+2023-07-10 16:32:38,774 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 25.78s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00002ex-b-DW'}
+2023-07-10 16:32:38,810 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:32:38,810 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:32:39,281 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:32:39,281 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-10 16:32:39,281 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job_id AS particlepickingjobitem_job_id, particlepickingjobitem.image_id AS particlepickingjobitem_image_id, particlepickingjobitem.settings AS particlepickingjobitem_settings, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.steps AS particlepickingjobitem_steps, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord`, particlepickingjob.name AS particlepickingjob_name, particlepickingjob_1.`Oid` AS `particlepickingjob_1_Oid`, particlepickingjob_1.name AS particlepickingjob_1_name, particlepickingjob_1.description AS particlepickingjob_1_description, particlepickingjob_1.created_on AS particlepickingjob_1_created_on, particlepickingjob_1.end_on AS particlepickingjob_1_end_on, particlepickingjob_1.user_id AS particlepickingjob_1_user_id, particlepickingjob_1.project_id AS particlepickingjob_1_project_id, particlepickingjob_1.msession_id AS particlepickingjob_1_msession_id, particlepickingjob_1.status AS particlepickingjob_1_status, particlepickingjob_1.type AS particlepickingjob_1_type, particlepickingjob_1.settings AS particlepickingjob_1_settings, particlepickingjob_1.cs AS particlepickingjob_1_cs, particlepickingjob_1.path AS particlepickingjob_1_path, particlepickingjob_1.output_dir AS particlepickingjob_1_output_dir, particlepickingjob_1.direction AS particlepickingjob_1_direction, particlepickingjob_1.image_selection_criteria AS particlepickingjob_1_image_selection_criteria, particlepickingjob_1.`OptimisticLockField` AS `particlepickingjob_1_OptimisticLockField`, particlepickingjob_1.`GCRecord` AS `particlepickingjob_1_GCRecord` 
+FROM particlepickingjobitem INNER JOIN image ON particlepickingjobitem.image_id = image.`Oid` INNER JOIN particlepickingjob ON EXISTS (SELECT 1 
+FROM particlepickingjob 
+WHERE particlepickingjob.`Oid` = particlepickingjobitem.job_id AND particlepickingjob.`Oid`) LEFT OUTER JOIN particlepickingjob AS particlepickingjob_1 ON particlepickingjob_1.`Oid` = particlepickingjobitem.job_id 
+WHERE image.name = %(name_1)s
+2023-07-10 16:32:39,282 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord` 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-10 16:32:39,282 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 26.29s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00009ex-b-DW'}
+2023-07-10 16:32:39,287 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 26.29s ago] {'name_1': '22apr01a_a_00010gr_00001sq_v01_00002hl_00009ex-b-DW', 'param_1': 1}
+2023-07-10 16:32:39,322 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-10 16:32:39,323 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
