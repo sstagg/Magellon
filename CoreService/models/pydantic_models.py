@@ -19,6 +19,17 @@ class CameraDto(BaseModel):
         from_attributes = True
 
 
+class SessionDto(BaseModel):
+    Oid: uuid.UUID = Field(None, description='Session UUID')
+    name: str = Field(None, min_length=2, max_length=30, description='Camera Name')
+    optimistic_lock_field: Optional[int] = Field(None, description='lock')
+    gcrecord: Optional[int] = Field(None, description='gc')
+
+    # model_config = ConfigDict(from_attributes=True)
+    class Config:
+        from_attributes = True
+
+
 class ImageDtoBase(BaseModel):
     name: Optional[str] = None
     # name: str = Field(None, min_length=2, max_length=30, description='Image Name')

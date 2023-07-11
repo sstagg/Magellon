@@ -2,7 +2,7 @@ import binascii
 import json
 import os
 import uuid
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 
 import airflow_client.client
@@ -18,9 +18,10 @@ from starlette.responses import FileResponse
 from config import FFT_DIR, THUMBNAILS_DIR, IMAGES_DIR, IMAGE_ROOT_URL, IMAGE_SUB_URL
 
 from database import get_db
-from models.pydantic_models import ParticlepickingjobitemDto, MicrographSetDto
+from models.pydantic_models import ParticlepickingjobitemDto, MicrographSetDto, SessionDto
 from models.sqlalchemy_models import Particlepickingjobitem, Image, Particlepickingjob, Msession
 from repositories.image_repository import ImageRepository
+from repositories.session_repository import SessionRepository
 from services.file_service import FileService
 from services.helper import get_response_image
 
@@ -243,6 +244,21 @@ async def transfer_files(source_path: str, destination_path: str, delete_origina
         raise HTTPException(status_code=500, detail=str(e))
     else:
         return {"message": "Files transferred successfully."}
+
+
+@webapp_router.get('/sessions', response_model=List[SessionDto])
+def get_all_sessions(name: Optional[str] = None, db: Session = Depends(get_db)):
+    """
+    Get all the sessions in database
+    """
+    if name:
+        sessions = []
+        db_camera = SessionRepository.fetch_by_name(db, name)
+        print(db_camera)
+        sessions.append(db_camera)
+        return sessions
+    else:
+        return SessionRepository.fetch_all(db)
 
 
 @webapp_router.post("/run_dag")
