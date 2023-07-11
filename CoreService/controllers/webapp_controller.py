@@ -23,6 +23,7 @@ from models.sqlalchemy_models import Particlepickingjobitem, Image, Particlepick
 from repositories.image_repository import ImageRepository
 from services.file_service import FileService
 from services.helper import get_response_image
+
 # from services.image_file_service import get_images, get_image_by_stack, get_image_data
 
 webapp_router = APIRouter()
@@ -77,23 +78,12 @@ def get_images_route(db_session: Session = Depends(get_db)):
         WHERE child.row_num <= 3
         GROUP BY child.parent_name, child.Oid, child.name, child.parent_id, child.level, child.session_id
     """)
-
-    try:
-        result = db_session.execute(query, {"level": level, "session_id": session_id_binary})
-        rows = result.fetchall()
-    except Exception as e:
-        return {"error": f"Database query error: {str(e)}"}
-
-    # Convert the query result to a dictionary with parent_name as key and associated images as value
-    return {"result": (process_image_rows(rows))}
+    return execute_images_query(db_session, query, {"level": level, "session_id": session_id_binary})
 
 
 @webapp_router.get('/images_by_stack')
 def get_images_by_stack_route(ext: str, db_session: Session = Depends(get_db)):
     try:
-        # Retrieve the parent image by name
-        parent_image = db_session.query(Image).filter(Image.name == ext).first()
-
         query = text("""
             SELECT
               image.Oid,
@@ -106,53 +96,41 @@ def get_images_by_stack_route(ext: str, db_session: Session = Depends(get_db)):
                 ON image.parent_id = parent.Oid
             WHERE parent.name = :image_name
                 """)
-
-        try:
-            result = db_session.execute(query, {"image_name": ext})
-            rows = result.fetchall()
-        except Exception as e:
-            return {"error": f"Database query error: {str(e)}"}
-
-        return {"result": (process_image_rows(rows))}
-        # if parent_image:
-        #     # Retrieve the children of the parent image
-        #     images = db_session.query(Image).filter(Image.parent_id == parent_image.Oid).all()
-        #
-        #     # Convert the children to a list of dictionaries
-        #     children = [
-        #         {
-        #             "oid": child.Oid,
-        #             "name": child.name,
-        #             "parent_id": child.parent_id,
-        #             "parent_name": ext
-        #         }
-        #         for child in images
-        #     ]
-        #
-        #     return {"result": {"ext": ext, "images": children}}
-        # else:
-        #     return {"result": {"ext": ext, "images": []}}
+        return execute_images_query(db_session, query, {"image_name": ext})
 
     except Exception as e:
         return {"error": str(e)}
 
 
+def execute_images_query(db_session: Session, query, params=None):
+    try:
+        # result = db_session.execute(query) if params is None else db_session.execute(query, params)
+        result = db_session.execute(query, params)
+        rows = result.fetchall()
+        return {"result": (process_image_rows(rows))}
+    except Exception as e:
+        raise Exception(f"Database query execution error: {str(e)}")
+
+
 def process_image_rows(rows):
     images_by_parent = {}
     for row in rows:
+        oid, name, level, parent_id, parent_name = row[:5]
         image = MicrographSetDto(
-            oid=row[0],
-            name=row[1],
-            level=row[2],
-            parent_id=row[3],
-            parent_name=row[4]
+            oid=oid,
+            name=name,
+            level=level,
+            parent_id=parent_id,
+            parent_name=parent_name
         )
         file_path = os.path.join(THUMBNAILS_DIR, image.name + '_TIMG.png')
         print(file_path)
         if os.path.isfile(file_path):
             image.encoded_image = get_response_image(file_path)
+
         if image.parent_name not in images_by_parent:
             images_by_parent[image.parent_name] = []
+
         images_by_parent[image.parent_name].append(image)
 
     result_list = [
@@ -182,7 +160,6 @@ def get_image_data_route(name: str, db: Session = Depends(get_db)):
         "dose": round(db_image.dose, 2) if db_image.dose is not None else "none",
     }
     return {'result': result}
-
 
 
 @webapp_router.get('/particles')
