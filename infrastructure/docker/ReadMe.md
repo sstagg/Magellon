@@ -111,3 +111,44 @@ http://128.186.103.43:8282/view-image[config.json](compose%2Fconsul-config%2Fcon
 }
 
 
+rm -rf "/home/behdad/projects/Magellon/"
+cd /home/behdad/projects
+gh repo clone sstagg/Magellon
+cd Magellon/CoreService/
+`
+sudo docker build --no-cache -f ../infrastructure/docker/Dockerfile -t khoshbin/magellon-main-service ./
+sudo docker push khoshbin/magellon-main-service
+sudo docker login
+suod docker push khoshbin/magellon-main-service
+sudo docker run -it -p8181:80 khoshbin/magellon-main-service
+
+sudo docker run -it -p8080:80 -v /mnt/hpc_mount:/app/data khoshbin/magellon-main-service bash
+
+sudo docker run -d --restart=always -p 8181:80 khoshbin/magellon-main-service
+sudo docker run -d --restart=always  --name magellon-core-service01 --network magellon -p 8000:80 -v /mnt/hpc:/app/data  -e DATA_DIR=/app/data khoshbin/magellon-main-service
+
+sudo ufw allow 8181
+
+cd "/home/behdad/projects/Magellon/WebApp/"
+sudo docker build --no-cache  --build-arg API_URL="http://127.0.0.1:8181/web/" -f ../infrastructure/docker/angular/Dockerfile -t khoshbin/magellon-angular-app ./
+sudo docker run -it -p8282:80  khoshbin/magellon-angular-app
+sudo docker build --no-cache --progress=plain  --build-arg API_URL="http://128.186.103.43:8000/web/" -f ../infrastructure/docker/angular/Dockerfile -t khoshbin/magellon-angular-app ./
+sudo docker run -d --restart=always --network magellon  -p 8282:80  khoshbin/magellon-angular-app
+sudo docker run -it --network magellon  -p 8080:80  khoshbin/magellon-angular-app bash
+
+
+sudo docker ps
+sudo docker exec -it 9e4dd01b930c bash
+sudo docker network create magellon
+sudo docker rm 927f8670b7c4 -f
+
+sudo docker images
+sudo docker rmi -f ef1c9abbd37c
+
+
+`
+
+
+
+
+

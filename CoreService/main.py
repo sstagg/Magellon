@@ -1,19 +1,19 @@
 import socket
-import sys
-import traceback
-from rich import traceback as rich_traceback
+# import sys
+# import traceback
+# from rich import traceback as rich_traceback
 
-import fastapi
+# import fastapi
 import uvicorn
 from fastapi import FastAPI, Depends
-from rich.logging import RichHandler
+# from rich.logging import RichHandler
 from rich.traceback import Traceback
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
-from starlette_graphene3 import GraphQLApp, make_graphiql_handler
-from strawberry.fastapi import GraphQLRouter
+# from starlette_graphene3 import GraphQLApp, make_graphiql_handler
+# from strawberry.fastapi import GraphQLRouter
 
-from config import register_with_consul, CONSUL_SERVICE_NAME, CONSUL_SERVICE_ID
+# from config import register_with_consul, CONSUL_SERVICE_NAME, CONSUL_SERVICE_ID
 from controllers.camera_controller import camera_router
 from controllers.db_controller import db_router
 from controllers.graph_controller import graph_router
@@ -33,9 +33,9 @@ import logging
 
 from logger_config import LOGGING_CONFIG
 
-from models import graphql_strawberry_schema
+# from models import graphql_strawberry_schema
 from models.graphql_strawberry_schema import strawberry_graphql_router
-from rich.console import Console
+# from rich.console import Console
 
 # from rich import get_console
 
