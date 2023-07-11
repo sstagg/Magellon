@@ -117,24 +117,32 @@ gh repo clone sstagg/Magellon
 cd Magellon/CoreService/
 `
 sudo docker build --no-cache -f ../infrastructure/docker/Dockerfile -t khoshbin/magellon-main-service ./
-sudo docker push khoshbin/magellon-main-service
+
 sudo docker login
-suod docker push khoshbin/magellon-main-service
+sudo docker push khoshbin/magellon-main-service
 sudo docker run -it -p8181:80 khoshbin/magellon-main-service
 
+sudo docker run -it -p8080:80  khoshbin/magellon-main-service bash
 sudo docker run -it -p8080:80 -v /mnt/hpc_mount:/app/data khoshbin/magellon-main-service bash
 
 sudo docker run -d --restart=always -p 8181:80 khoshbin/magellon-main-service
-sudo docker run -d --restart=always  --name magellon-core-service01 --network magellon -p 8000:80 -v /mnt/hpc:/app/data  -e DATA_DIR=/app/data khoshbin/magellon-main-service
+
+
+sudo docker run -d --restart=always  --name magellon-core-service01 --network magellon -p 8080:80 -v /mnt/hpc:/app/data  -e DATA_DIR=/app/data khoshbin/magellon-main-service
 
 sudo ufw allow 8181
 
 cd "/home/behdad/projects/Magellon/WebApp/"
-sudo docker build --no-cache  --build-arg API_URL="http://127.0.0.1:8181/web/" -f ../infrastructure/docker/angular/Dockerfile -t khoshbin/magellon-angular-app ./
+sudo docker build --no-cache  --build-arg API_URL="http://maia.cryoem.fsu.edu:8080/web/" -f ../infrastructure/docker/angular/Dockerfile -t khoshbin/magellon-angular-app ./
+sudo docker build --no-cache  --build-arg API_URL="http://magellon-core-service01:8080/web/" -f ../infrastructure/docker/angular/Dockerfile -t khoshbin/magellon-angular-app ./
+sudo docker build --no-cache --progress=plain  --build-arg API_URL="http://128.186.103.43:8080/web/" -f ../infrastructure/docker/angular/Dockerfile -t khoshbin/magellon-angular-app ./
+
+sudo docker push khoshbin/magellon-angular-app
+
 sudo docker run -it -p8282:80  khoshbin/magellon-angular-app
-sudo docker build --no-cache --progress=plain  --build-arg API_URL="http://128.186.103.43:8000/web/" -f ../infrastructure/docker/angular/Dockerfile -t khoshbin/magellon-angular-app ./
-sudo docker run -d --restart=always --network magellon  -p 8282:80  khoshbin/magellon-angular-app
-sudo docker run -it --network magellon  -p 8080:80  khoshbin/magellon-angular-app bash
+
+sudo docker run -d --restart=always --network magellon  --name magellon-angular-webapp01 -p 8181:80  khoshbin/magellon-angular-app
+sudo docker run -it --network magellon  --name magellon-angular-webapp01  -p 8181:80  khoshbin/magellon-angular-app bash
 
 
 sudo docker ps
