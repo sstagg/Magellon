@@ -253,7 +253,7 @@ class LeginonFrameTransferJobService:
                 #     end while;""")
                 # db_session.execute(update_levels_query)
                 db_session.commit()  # Commit the changes
-                # self.run_tasks()
+                self.run_tasks()
                 # self.create_test_tasks()
         except FileNotFoundError as e:
             print("Source directory not found:", self.params.source_directory)
@@ -284,7 +284,9 @@ class LeginonFrameTransferJobService:
 
     def run_tasks(self):
         try:
-            self.create_directories(self.params.target_directory)
+            directory_path = os.path.join(self.params.target_directory, self.params.session_name)
+            self.create_directories(directory_path)
+            # self.create_directories(self.params.target_directory + "/" + self.params.session_name)
             # self.open_leginon_connection()
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 # The run_task function is submitted to the executor using executor.submit, and the resulting Future

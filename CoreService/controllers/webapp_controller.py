@@ -15,7 +15,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session, joinedload
 from starlette.responses import FileResponse
 
-from config import FFT_DIR, THUMBNAILS_DIR, IMAGES_DIR, IMAGE_ROOT_URL, IMAGE_SUB_URL
+from config import FFT_DIR, THUMBNAILS_DIR, IMAGES_DIR, IMAGE_ROOT_URL, IMAGE_SUB_URL, IMAGE_ROOT_DIR,THUMBNAILS_SUB_URL
 
 from database import get_db
 from models.pydantic_models import ParticlepickingjobitemDto, MicrographSetDto, SessionDto
@@ -79,12 +79,13 @@ def get_images_route(db_session: Session = Depends(get_db)):
         WHERE child.row_num <= 3
         GROUP BY child.parent_name, child.Oid, child.name, child.parent_id, child.level, child.session_id
     """)
-    return execute_images_query(db_session, query, {"level": level, "session_id": session_id_binary})
+    return execute_images_query(db_session, query, session_name, {"level": level, "session_id": session_id_binary})
 
 
 @webapp_router.get('/images_by_stack')
 def get_images_by_stack_route(ext: str, db_session: Session = Depends(get_db)):
     try:
+        session_name = "22apr01a"
         query = text("""
             SELECT
               image.Oid,
@@ -97,23 +98,23 @@ def get_images_by_stack_route(ext: str, db_session: Session = Depends(get_db)):
                 ON image.parent_id = parent.Oid
             WHERE parent.name = :image_name
                 """)
-        return execute_images_query(db_session, query, {"image_name": ext})
+        return execute_images_query(db_session, query, session_name, {"image_name": ext})
 
     except Exception as e:
         return {"error": str(e)}
 
 
-def execute_images_query(db_session: Session, query, params=None):
+def execute_images_query(db_session: Session, query, session_name, params=None):
     try:
         # result = db_session.execute(query) if params is None else db_session.execute(query, params)
         result = db_session.execute(query, params)
         rows = result.fetchall()
-        return {"result": (process_image_rows(rows))}
+        return {"result": (process_image_rows(rows, session_name))}
     except Exception as e:
         raise Exception(f"Database query execution error: {str(e)}")
 
 
-def process_image_rows(rows):
+def process_image_rows(rows, session_name):
     images_by_parent = {}
     for row in rows:
         oid, name, level, parent_id, parent_name = row[:5]
@@ -124,7 +125,7 @@ def process_image_rows(rows):
             parent_id=parent_id,
             parent_name=parent_name
         )
-        file_path = os.path.join(THUMBNAILS_DIR, image.name + '_TIMG.png')
+        file_path = os.path.join(f"{IMAGE_ROOT_DIR}/{session_name}/{THUMBNAILS_SUB_URL}", image.name + '_TIMG.png')
         print(file_path)
         if os.path.isfile(file_path):
             image.encoded_image = get_response_image(file_path)
