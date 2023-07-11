@@ -1,0 +1,4 @@
+rich==13.4.2
+textual
+textual-dev
+pyfiglet
