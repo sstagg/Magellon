@@ -1,14 +1,33 @@
 import pyfiglet
 from rich import print
+from rich.markdown import Markdown
 from rich.pretty import Pretty
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.validation import Number,Regex
-from textual.widgets import Header, Footer, Tabs, Label, Button, Input
+from textual.validation import Number, Regex
+from textual.widgets import Header, Footer, Tabs, Label, Button, Input, TabbedContent, TabPane
 
 title = pyfiglet.figlet_format('Magellon', font='speed')
 print(f'[orange]{title}[/orange]')
 print(f'Installation Wizard V:1.0')
+
+MySql = """
+# Duke Leto I Atreides
+
+Head of House Atreides.
+"""
+
+ANSIBLE = """
+# Lady Jessica
+
+Bene Gesserit and concubine of Leto, and mother of Paul and Alia.
+"""
+
+DOCKER = """
+# Paul Atreides
+
+Son of Leto and Jessica.
+"""
 
 
 class MagellonInstallationApp(App[str]):
@@ -29,19 +48,42 @@ class MagellonInstallationApp(App[str]):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield Tabs("MySql", "Docker","Ansible")
-        yield Label("User Name:")
-        yield Input(
-            placeholder="Enter a username...",
-            # validators=[
-            #     Number(minimum=1, maximum=100),
-            #     Regex("Value is not even."),
-            # ],
-        )
+        # yield Markdown(DOCKER)
+        with TabbedContent(initial="MySql"):
+            with TabPane("MySql", id="MySql"):
+                yield Label("MySql Server:")
+                yield Input(
+                    placeholder="Enter ip address or name...",
+                    validators=[
+                        Regex("^[a-zA-Z0-9_]{3,16}$"),
+                    ],
+                )
+                yield Label("User Name:")
+                yield Input(
+                    placeholder="Enter a username...",
+                    validators=[
+                        Regex("^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"),
+                    ],
+                )
+                yield Label("Password:")
+                yield Input(
+                    placeholder="Enter mysql password...",
+                    validators=[
+                        Regex("^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$"),
+                    ],
+                )
+
+            with TabPane("DOCKER", id="DOCKER"):
+                yield Label("User Name:")
+                # yield Markdown(DOCKER)
+            with TabPane("Ansible", id="ANSIBLE"):
+                yield Label("User Name:")
+                # yield Markdown(ANSIBLE)
+
         # yield Pretty([])
         # yield Label("Do you love Textual?", id="question")
-        # yield Button("Yes", id="yes", variant="primary")
-        # yield Button("No", id="no", variant="error")
+        yield Button("Install", id="install", variant="primary")
+        yield Button("Exit", id="exit", variant="error")
         yield Footer()
 
     # def on_key(self, event: Key):
