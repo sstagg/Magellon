@@ -113,6 +113,8 @@ http://128.186.103.43:8282/view-image[config.json](compose%2Fconsul-config%2Fcon
 
 rm -rf "/home/behdad/projects/Magellon/"
 cd /home/behdad/projects
+
+mkdir -p /projects
 gh repo clone sstagg/Magellon
 cd Magellon/CoreService/
 `
@@ -134,7 +136,7 @@ sudo ufw allow 8181
 
 cd "/home/behdad/projects/Magellon/WebApp/"
 sudo docker build --no-cache  --build-arg API_URL="http://maia.cryoem.fsu.edu:8080/web/" -f ../infrastructure/docker/angular/Dockerfile -t khoshbin/magellon-angular-app ./
-sudo docker build --no-cache  --build-arg API_URL="http://magellon-core-service01:8080/web/" -f ../infrastructure/docker/angular/Dockerfile -t khoshbin/magellon-angular-app ./
+sudo docker build --no-cache  --build-arg API_URL="http://magellon-core-service01:80/web/" -f ../infrastructure/docker/angular/Dockerfile -t khoshbin/magellon-angular-app ./
 sudo docker build --no-cache --progress=plain  --build-arg API_URL="http://128.186.103.43:8080/web/" -f ../infrastructure/docker/angular/Dockerfile -t khoshbin/magellon-angular-app ./
 
 sudo docker push khoshbin/magellon-angular-app

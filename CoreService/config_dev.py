@@ -21,18 +21,23 @@ SLACK_TOKEN: str = os.getenv('SLACK_TOKEN') or "xoxb-5284990093169-5258053840439
 
 # BASE_PATH = r"/Users/rupalimyskar/Downloads/Stagg Lab/mywork/code/magellonService/images/rawdata"
 IMAGE_ROOT_URL = r"http://localhost/cdn/"
+
 IMAGE_SUB_URL = r"images/"
 THUMBNAILS_SUB_URL = r"thumbnails/"
 FRAMES_SUB_URL = r"frames/"
 FFT_SUB_URL = r"FFTs/"
+JOBS_PROCESSING_SUB_URL = r"processing/"
+
+FRAMES_SUFFIX = r"frame"
+
 
 # my_config_value = os.environ.get('MY_CONFIG_VALUE')
 IMAGE_ROOT_DIR = os.getenv('DATA_DIR', r'c:/temp/data')
 
-IMAGES_DIR = f"{IMAGE_ROOT_DIR}/images/"
-FFT_DIR = f"{IMAGE_ROOT_DIR}/FFTs/"
-THUMBNAILS_DIR = f"{IMAGE_ROOT_DIR}/thumbnails/"
-JOBS_DIR = f"{IMAGE_ROOT_DIR}/processing/"
+IMAGES_DIR = f"{IMAGE_ROOT_DIR}/{IMAGE_SUB_URL}"
+FFT_DIR = f"{IMAGE_ROOT_DIR}/{FFT_SUB_URL}"
+THUMBNAILS_DIR = f"{IMAGE_ROOT_DIR}/{THUMBNAILS_SUB_URL}"
+JOBS_DIR = f"{IMAGE_ROOT_DIR}/{JOBS_PROCESSING_SUB_URL}"
 
 # app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://admin:behd1d2@192.168.92.133:3306/magellon03'
 

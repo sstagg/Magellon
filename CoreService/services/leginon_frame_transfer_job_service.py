@@ -57,6 +57,14 @@ def update_levels(image_list: list[Image], parent_id=None, level=0):
         queue.extend([(child, level + 1) for child in children])
 
 
+def create_directories(target_dir: str):
+    create_directory(target_dir)
+    create_directory(os.path.join(target_dir, FRAMES_SUB_URL))
+    create_directory(os.path.join(target_dir, FFT_SUB_URL))
+    create_directory(os.path.join(target_dir, IMAGE_SUB_URL))
+    create_directory(os.path.join(target_dir, THUMBNAILS_SUB_URL))
+
+
 class LeginonFrameTransferJobService:
 
     def __init__(self):
@@ -264,28 +272,28 @@ class LeginonFrameTransferJobService:
         finally:
             self.close_connections()
 
-    def create_test_tasks(self):
-        # get all the files in the source directory
-        leginon_image_list = [file for file in os.listdir(self.params.camera_directory) if
-                              os.path.isfile(os.path.join(self.params.camera_directory, file))]
-        # self.create_directories()
-        self.params.task_list.clear()
-        for image in leginon_image_list:
-            task = LeginonFrameTransferTaskDto(
-                task_id=uuid.uuid4(),
-                task_alias=f"lftj_{image}_{self.params.job_id}",
-                file_name=f"{image}",
-                image_path=self.params.camera_directory + "/" + image,
-                job_dto=self.params,
-                status=1
-            )
-            self.params.task_list.append(task)
-        self.run_tasks()
+    # def create_test_tasks(self):
+    #     # get all the files in the source directory
+    #     leginon_image_list = [file for file in os.listdir(self.params.camera_directory) if
+    #                           os.path.isfile(os.path.join(self.params.camera_directory, file))]
+    #     # self.create_directories()
+    #     self.params.task_list.clear()
+    #     for image in leginon_image_list:
+    #         task = LeginonFrameTransferTaskDto(
+    #             task_id=uuid.uuid4(),
+    #             task_alias=f"lftj_{image}_{self.params.job_id}",
+    #             file_name=f"{image}",
+    #             image_path=self.params.camera_directory + "/" + image,
+    #             job_dto=self.params,
+    #             status=1
+    #         )
+    #         self.params.task_list.append(task)
+    #     self.run_tasks()
 
     def run_tasks(self):
         try:
             directory_path = os.path.join(self.params.target_directory, self.params.session_name)
-            self.create_directories(directory_path)
+            create_directories(directory_path)
             # self.create_directories(self.params.target_directory + "/" + self.params.session_name)
             # self.open_leginon_connection()
             with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -327,12 +335,13 @@ class LeginonFrameTransferJobService:
     # ```
     def run_task(self, task_dto: LeginonFrameTransferTaskDto) -> Dict[str, str]:
         try:
+            # 1
             self.transfer_frame(task_dto)
-
+            # 2
             if task_dto.job_dto.copy_images:
                 copy_file(task_dto.image_path, task_dto.job_dto.target_directory + "/" + task_dto.image_name)
+                task_dto.image_path = os.path.join(task_dto.job_dto.target_directory, task_dto.image_name)
 
-            task_dto.image_path = task_dto.job_dto.target_directory + "/" + task_dto.image_name
             # Generate FFT using the REST API
             self.convert_image_to_png_task(task_dto.image_path, task_dto.job_dto.target_directory)
             self.compute_fft_png_task(task_dto.image_path, task_dto.job_dto.target_directory)
@@ -357,13 +366,6 @@ class LeginonFrameTransferJobService:
                 target_path = os.path.join(task_dto.job_dto.target_directory, FRAMES_SUB_URL,
                                            task_dto.file_name + "_frame" + file_extension)
                 copy_file(frame_path, target_path)
-
-    def create_directories(self, target_dir: str):
-        create_directory(target_dir)
-        create_directory(os.path.join(target_dir, FRAMES_SUB_URL))
-        create_directory(os.path.join(target_dir, FFT_SUB_URL))
-        create_directory(os.path.join(target_dir, IMAGE_SUB_URL))
-        create_directory(os.path.join(target_dir, THUMBNAILS_SUB_URL))
 
     def open_leginon_connection(self):
         if self.leginon_db_connection is None:
@@ -391,7 +393,6 @@ class LeginonFrameTransferJobService:
 
     def convert_image_to_png_task(self, abs_file_path, out_dir):
         try:
-            # out_dir = "C:/temp/images/"
             self.mrc_service.convert_mrc_to_png(abs_file_path=abs_file_path,
                                                 out_dir=out_dir)  # generates png and thumbnails
             return {"message": "MRC file successfully converted to PNG!"}

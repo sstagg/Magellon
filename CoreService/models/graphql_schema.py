@@ -42,37 +42,53 @@
 #
 # graphene_schema = graphene.Schema(query=Query2, mutation=CreateTodo)
 import graphene
+from graphene_sqlalchemy import SQLAlchemyObjectType, SQLAlchemyConnectionField
+# from graphene import relay
+
+from models.sqlalchemy_models import Camera as CameraModel
 
 
-class CameraType(graphene.Interface):
-    id = graphene.ID()
-    name = graphene.String()
-    # friends = graphene.List(lambda: CameraType)
+# class CameraType(graphene.Interface):
+#     id = graphene.ID()
+#     name = graphene.String()
+#     # friends = graphene.List(lambda: CameraType)
+#
+#     # def resolve_friends(self, info):
+#
+#     # The character friends is a list of strings
+#     # return [get_character(f) for f in self.friends]
+#
+#
+# class Camera(graphene.ObjectType):
+#     class Meta:
+#         interfaces = (CameraType,)
 
-    # def resolve_friends(self, info):
-
-    # The character friends is a list of strings
-    # return [get_character(f) for f in self.friends]
-
-
-class Camera(graphene.ObjectType):
+class CameraNode(SQLAlchemyObjectType):
     class Meta:
-        interfaces = (CameraType,)
+        model = CameraModel
+        # interfaces = (relay.Node,)
 
 
 class Query(graphene.ObjectType):
-    hello = graphene.String(description='A typical hello world')
-    camera = graphene.Field(Camera)
+    # node = relay.Node.Field()
+    # hello = graphene.String(description='A typical hello world')
+    # camera = graphene.Field(Camera)
+    # camera = graphene.Field(Camera)
+    cameras = graphene.List(CameraNode)
+    # role = graphene.Field(CameraNode)
 
-    def resolve_hello(self, info):
-        return 'World'
+    def resolve_cameras(self, info):
+        tquery = CameraNode.get_query(info)
 
-    def resolve_camera(root, info):
-        camera_type = Camera()
-        camera_type.id = "1"
-        camera_type.name = "Sample Camera"
+        return tquery.all()
 
-        return camera_type
+    # def resolve_camera(root, info):
+    #     camera_type = Camera()
+    #     camera_type.id = "1"
+    #     camera_type.name = "Sample Camera"
+    #
+    #     return camera_type
 
 
 graphene_schema = graphene.Schema(query=Query)
+# graphene_schema.execute()

@@ -1,4 +1,11 @@
 rich==13.4.2
 textual
 textual-dev
+ansible
+
+pydantic
+python-terraform
+
 pyfiglet
+nuitka
+pyinstaller

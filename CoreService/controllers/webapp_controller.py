@@ -15,7 +15,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session, joinedload
 from starlette.responses import FileResponse
 
-from config import FFT_DIR, THUMBNAILS_DIR, IMAGES_DIR, IMAGE_ROOT_URL, IMAGE_SUB_URL, IMAGE_ROOT_DIR,THUMBNAILS_SUB_URL
+from config import FFT_SUB_URL, IMAGE_ROOT_URL, IMAGE_SUB_URL, IMAGE_ROOT_DIR,THUMBNAILS_SUB_URL
 
 from database import get_db
 from models.pydantic_models import ParticlepickingjobitemDto, MicrographSetDto, SessionDto
@@ -145,7 +145,7 @@ def process_image_rows(rows, session_name):
 
 @webapp_router.get('/fft_image')
 def get_fft_image_route(name: str):
-    file_path = f"{FFT_DIR}{name}.png"
+    file_path = f"{IMAGE_ROOT_DIR}/{FFT_SUB_URL}{name}.png" f"{IMAGE_ROOT_URL}{IMAGE_SUB_URL}{name}.png"
     return FileResponse(file_path, media_type='image/png')
 
 
@@ -227,7 +227,7 @@ def update_particle_picking_jobitem(oid: UUID,
 
 @webapp_router.get("/image_by_thumbnail")
 async def get_image_thumbnail(name: str):
-    file_path = f"{IMAGES_DIR}{name}.png"
+    file_path = f"{IMAGE_ROOT_URL}{IMAGE_SUB_URL}{name}.png"
     return FileResponse(file_path, media_type='image/png')
 
 
