@@ -25,3 +25,8 @@
 `
 
 nuitka --standalone main.py
+
+https://github.com/sickcodes/Docker-OSX
+https://checkout.macincloud.com/
+https://aws.amazon.com/ec2/instance-types/mac/
+
