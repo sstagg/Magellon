@@ -1,6 +1,7 @@
 import os
 
 import pyfiglet
+from jinja2 import Template
 from rich import print
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -10,6 +11,8 @@ from textual.widgets import Header, Footer, Label, Button, Input, TabbedContent,
 
 from libs.models import InstallationData
 from screens.quit_screen import QuitScreen
+
+# from ansible_runner import run, run_async, AnsibleRunnerException
 
 title = pyfiglet.figlet_format('Magellon', font='speed')
 print(f'[orange]{title}[/orange]')
@@ -161,6 +164,7 @@ class MagellonInstallationApp(App[str]):
 
     def action_install_magellon(self):
         self.save_gui_to_model()
+        self.install(installation_data)
         self.query_one(ProgressBar).advance(10)
 
     def save_gui_to_model(self):
@@ -199,13 +203,42 @@ class MagellonInstallationApp(App[str]):
         if installation_data.mysql_server_db_dbname is not None:
             self.query_one("#mysql_server_db_dbname", Input).value = installation_data.mysql_server_db_dbname
 
+    def install(self, data: InstallationData):
+        # installing the required packages
+        if os.path.exists('deployment_playbook_template.yml.j2'):
+            # try:
+            with open('deployment_playbook_template.yml.j2', 'r') as file:
+                template = Template(file.read())
+
+            rendered_playbook = template.render(data=data)
+            self.query_one(TextLog).write(rendered_playbook)
+            print(rendered_playbook)
+
+            #
+            # run_data = run_async(playbook=rendered_playbook, extravars={'target_ip': data.}, quiet=True)
+            #
+            # while r.return_code is None:
+            #     print(f"Playbook running... Current status: {run_data.status}")
+            #
+            #     # Perform additional actions or checks as needed
+            #
+            #     run_data = run_async(status=run_data.status)
+            #
+            # if run_data.return_code == 0:
+            #     print("Playbook execution completed successfully.")
+            # else:
+            #     print(f"Playbook execution failed with return code: {run_data.return_code}")
+
+        # except AnsibleRunnerException as e:
+        #     print(f"An error occurred while running the playbook: {str(e)}")
+
 
 if __name__ == "__main__":
     app = MagellonInstallationApp()
 
     if os.path.exists('settings.json'):
         installation_data = InstallationData.load_settings('settings.json')
-        load_gui=True
+        load_gui = True
 
     reply = app.run()
     print(reply)

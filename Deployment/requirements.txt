@@ -2,6 +2,7 @@ rich==13.4.2
 textual
 textual-dev
 ansible
+ansible_runner
 
 pydantic
 python-terraform
@@ -9,3 +10,4 @@ python-terraform
 pyfiglet
 nuitka
 pyinstaller
+Jinja2

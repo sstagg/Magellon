@@ -1,0 +1,41 @@
+---
+- name: Update and Install Python 3
+  hosts: target
+  become: yes
+  vars:
+    target_ip: "{{ data.server_ip }}"
+    target_username: "{{ data.server_username }}"
+    target_password: "{{ data.server_password }}"
+    target_port: "{{ data.server_port }}"
+    target_webapp_port: "{{ data.webapp_port }}"
+    create_core_server: "{{ data.create_core_server }}"
+    create_webapp_server: "{{ data.create_webapp_server }}"
+    create_mysql_server: "{{ data.create_mysql_server }}"
+    install_mysql: "{{ data.install_mysql }}"
+    mysql_server_ip: "{{ data.mysql_server_ip }}"
+    mysql_server_username: "{{ data.mysql_server_username }}"
+    mysql_server_password: "{{ data.mysql_server_password }}"
+    mysql_server_db_username: "{{ data.mysql_server_db_username }}"
+    mysql_server_db_password: "{{ data.mysql_server_db_password }}"
+    mysql_server_db_dbname: "{{ data.mysql_server_db_dbname }}"
+
+  tasks:
+    - name: Update package manager cache
+      ansible.builtin.command:
+        cmd: "apt-get update"
+      when: ansible_distribution == 'Ubuntu' or ansible_distribution == 'Debian'
+
+    - name: Update package manager cache
+      ansible.builtin.command:
+        cmd: "yum makecache"
+      when: ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat'
+
+    - name: Install Python 3
+      ansible.builtin.command:
+        cmd: "apt-get install -y python3"
+      when: ansible_distribution == 'Ubuntu' or ansible_distribution == 'Debian'
+
+    - name: Install Python 3
+      ansible.builtin.command:
+        cmd: "yum install -y python3"
+      when: ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat'
