@@ -1,0 +1,78 @@
+---
+- name: Create MySQL database and user
+  hosts: localhost
+  gather_facts: false
+  become: true
+
+  vars:
+    mysql_user: my_username
+    mysql_password: my_password
+    database_name: magellon01
+    database_user: magellon_admin
+    database_password: some_password
+    sql_file_path: /path/to/your/sql/file.sql
+
+  tasks:
+    - name: Install MySQL server
+      apt:
+        name: mysql-server
+        state: present
+
+    - name: Start MySQL service
+      service:
+        name: mysql
+        state: started
+
+    - name: Secure MySQL installation - change root password
+      mysql_user:
+        name: root
+        password: "{{ mysql_root_password }}"
+        login_user: root
+        login_password: ''
+
+    - name: Enable remote access
+      mysql_user:
+        name: root
+        host: "{{ item }}"
+        password: "{{ mysql_root_password }}"
+        priv: "*.*:ALL,GRANT"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+      loop:
+        - 127.0.0.1
+        - ::1
+        - localhost
+
+    - name: Set lower_case_table_names
+      mysql_global_variable:
+        name: lower_case_table_names
+        value: 1
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+        login_host: localhost
+        state: present
+
+    - name: Create database
+      mysql_db:
+        name: "{{ database_name }}"
+        state: present
+        login_user: "{{ mysql_user }}"
+        login_password: "{{ mysql_password }}"
+
+    - name: Create user with all privileges on the database
+      mysql_user:
+        name: "{{ database_user }}"
+        password: "{{ database_password }}"
+        priv: "{{ database_name }}.*:ALL"
+        state: present
+        login_user: "{{ mysql_user }}"
+        login_password: "{{ mysql_password }}"
+
+    - name: Import SQL file
+      mysql_db:
+        name: "{{ database_name }}"
+        state: import
+        target: "{{ sql_file_path }}"
+        login_user: "{{ mysql_user }}"
+        login_password: "{{ mysql_password }}"

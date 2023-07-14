@@ -1,0 +1,33 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+
+  config.vm.box = "debian/bullseye64"
+
+  config.vm.define "mysql" do |mysql|
+    mysql.vm.network "private_network", ip: "192.168.1.101"
+    mysql.vm.provision "shell", path: "provision/mysql.sh"
+  end
+
+  config.vm.define "rabbitmq" do |rabbitmq|
+    rabbitmq.vm.network "private_network", ip: "192.168.1.102"
+    rabbitmq.vm.provision "shell", path: "provision/rabbitmq.sh"
+  end
+
+  config.vm.define "flask-app" do |flask_app|
+    flask_app.vm.network "private_network", ip: "192.168.1.103"
+    flask_app.vm.provision "shell", path: "provision/flask-app.sh"
+  end
+
+  config.vm.define "angular-app" do |angular_app|
+    angular_app.vm.network "private_network", ip: "192.168.1.104"
+    angular_app.vm.provision "shell", path: "provision/angular-app.sh"
+  end
+
+  config.vm.define "prometheus" do |prometheus|
+    prometheus.vm.network "private_network", ip: "192.168.1.105"
+    prometheus.vm.provision "shell", path: "provision/prometheus.sh"
+  end
+
+end

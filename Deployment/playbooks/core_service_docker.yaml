@@ -1,0 +1,76 @@
+---
+- name: Build and run Docker container for Magellon Main Service
+  hosts: localhost
+  gather_facts: false
+  become: true
+
+  vars:
+    project_directory: /projects/Magellon
+    git_repository: https://github.com/sstagg/Magellon
+    dockerfile_path: ../infrastructure/docker/Dockerfile
+    image_name: khoshbin/magellon-main-service
+    network_name: magellon
+
+  tasks:
+    - name: Install Docker packages
+      ansible.builtin.package:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: present
+
+    - name: Check if Git is installed
+      ansible.builtin.stat:
+        path: /usr/bin/git
+      register: git_installed
+
+    - name: Install Git if not present
+      apt:
+        name: git
+        state: present
+      when: not git_installed.stat.exists
+
+    - name: Clone Git repository
+      ansible.builtin.git:
+        repo: "{{ git_repository }}"
+        dest: "{{ project_directory }}"
+        version: master
+      become: true
+      become_user: behdad
+
+    - name: Change to project directory
+      command: cd "{{ project_directory }}/CoreService"
+      become: true
+      become_user: behdad
+
+    - name: Build Docker image
+      docker_image:
+        build:
+          path: "{{ project_directory }}"
+          dockerfile: "{{ dockerfile_path }}"
+          pull: yes
+          nocache: yes
+        name: "{{ image_name }}"
+      become: true
+      become_user: behdad
+
+    - name: Create Docker network
+      docker_network:
+        name: "{{ network_name }}"
+
+    - name: Run Docker container
+      docker_container:
+        name: magellon-core-service01
+        image: "{{ image_name }}"
+        state: started
+        restart_policy: always
+        network_mode: "{{ network_name }}"
+        ports:
+          - "8080:80"
+        volumes:
+          - "/mnt/hpc:/app/data"
+        env:
+          DATA_DIR: /app/data
+      become: true
+      become_user: behdad

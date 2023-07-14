@@ -1,6 +1,7 @@
 import os
 
 import pyfiglet
+from ansible_runner import run_async, AnsibleRunnerException
 from jinja2 import Template
 from rich import print
 from textual.app import App, ComposeResult
@@ -11,8 +12,6 @@ from textual.widgets import Header, Footer, Label, Button, Input, TabbedContent,
 
 from libs.models import InstallationData
 from screens.quit_screen import QuitScreen
-
-# from ansible_runner import run, run_async, AnsibleRunnerException
 
 title = pyfiglet.figlet_format('Magellon', font='speed')
 print(f'[orange]{title}[/orange]')
@@ -205,32 +204,31 @@ class MagellonInstallationApp(App[str]):
 
     def install(self, data: InstallationData):
         # installing the required packages
-        if os.path.exists('deployment_playbook_template.yml.j2'):
-            # try:
-            with open('deployment_playbook_template.yml.j2', 'r') as file:
-                template = Template(file.read())
+        if os.path.exists('assets/templates/deployment_playbook_template.yml.j2'):
+            text_log = self.query_one(TextLog)
+            try:
+                with open('assets/templates/deployment_playbook_template.yml.j2', 'r') as file:
+                    template = Template(file.read())
 
-            rendered_playbook = template.render(data=data)
-            self.query_one(TextLog).write(rendered_playbook)
-            print(rendered_playbook)
+                rendered_playbook = template.render(data=data)
 
-            #
-            # run_data = run_async(playbook=rendered_playbook, extravars={'target_ip': data.}, quiet=True)
-            #
-            # while r.return_code is None:
-            #     print(f"Playbook running... Current status: {run_data.status}")
-            #
-            #     # Perform additional actions or checks as needed
-            #
-            #     run_data = run_async(status=run_data.status)
-            #
-            # if run_data.return_code == 0:
-            #     print("Playbook execution completed successfully.")
-            # else:
-            #     print(f"Playbook execution failed with return code: {run_data.return_code}")
+                text_log.write(rendered_playbook)
+                # print(rendered_playbook)
 
-        # except AnsibleRunnerException as e:
-        #     print(f"An error occurred while running the playbook: {str(e)}")
+                # run_data = run_async(playbook=rendered_playbook, extravars={'target_ip': data.}, quiet=True)
+                run_data = run_async(playbook=rendered_playbook, quiet=True)
+
+                while run_data.return_code is None:
+                    text_log.write(f"Playbook running... Current status: {run_data.status}")
+                    # Perform additional actions or checks as needed
+                    run_data = run_async(status=run_data.status)
+                if run_data.return_code == 0:
+                    text_log.write("Playbook execution completed successfully.")
+                else:
+                    text_log.write(f"Playbook execution failed with return code: {run_data.return_code}")
+
+            except AnsibleRunnerException as e:
+                text_log.write(f"An error occurred while running the playbook: {str(e)}")
 
 
 if __name__ == "__main__":

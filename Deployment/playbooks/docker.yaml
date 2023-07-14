@@ -1,0 +1,45 @@
+---
+- name: Build, push, and run Docker container
+  hosts: localhost
+  gather_facts: false
+  become: true
+
+  vars:
+    project_path: /home/behdad/projects/Magellon/WebApp/
+    dockerfile_path: ../infrastructure/docker/angular/Dockerfile
+    api_url: http://maia.cryoem.fsu.edu:8080/web/
+    image_name: khoshbin/magellon-angular-app
+    container_name: magellon-angular-webapp01
+
+  tasks:
+    - name: Change to project directory
+      become: true
+      become_user: behdad
+      command: cd "{{ project_path }}"
+
+    - name: Build Docker image
+      become: true
+      become_user: behdad
+      docker_image:
+        build:
+          path: "{{ project_path }}"
+          dockerfile: "{{ dockerfile_path }}"
+          pull: yes
+          nocache: yes
+        name: "{{ image_name }}"
+
+    - name: Push Docker image
+      become: true
+      become_user: behdad
+      docker_image_push:
+        name: "{{ image_name }}"
+
+    - name: Run Docker container
+      docker_container:
+        name: "{{ container_name }}"
+        image: "{{ image_name }}"
+        state: started
+        restart_policy: always
+        network_mode: magellon
+        ports:
+          - "8181:80"
