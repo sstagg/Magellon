@@ -1,38 +1,33 @@
 ---
 - name: Build, push, and run Docker container
-  hosts: localhost
+  hosts: target
   gather_facts: false
   become: true
 
   vars:
-    project_path: /home/behdad/projects/Magellon/WebApp/
-    dockerfile_path: ../infrastructure/docker/angular/Dockerfile
+    project_path: /projects/CoreService
+    project_directory: /projects/CoreService
+    git_repository: https://github.com/sstagg/Magellon.git
+    dockerfile_path: /projects/infrastructure/docker/Dockerfile
     api_url: http://maia.cryoem.fsu.edu:8080/web/
-    image_name: khoshbin/magellon-angular-app
-    container_name: magellon-angular-webapp01
+    image_name: khoshbin/magellon-core-service
+    container_name: magellon-core-service01
 
   tasks:
-    - name: Change to project directory
-      become: true
-      become_user: behdad
-      command: cd "{{ project_path }}"
-
+    - name: Create a network
+      community.docker.docker_network:
+        name: magellon
+        
     - name: Build Docker image
-      become: true
-      become_user: behdad
-      docker_image:
+      community.docker.docker_image:
+        name: "{{ image_name }}"
         build:
-          path: "{{ project_path }}"
+          path: "{{ project_directory }}"
           dockerfile: "{{ dockerfile_path }}"
-          pull: yes
+          pull: no
           nocache: yes
-        name: "{{ image_name }}"
+        source: build
 
-    - name: Push Docker image
-      become: true
-      become_user: behdad
-      docker_image_push:
-        name: "{{ image_name }}"
 
     - name: Run Docker container
       docker_container:
@@ -43,3 +38,4 @@
         network_mode: magellon
         ports:
           - "8181:80"
+

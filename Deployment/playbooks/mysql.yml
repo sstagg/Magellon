@@ -1,0 +1,118 @@
+---
+- name: Configure MySQL Server
+  hosts: target
+  gather_facts: false
+  remote_user: root
+  vars:
+    mysql_root_password: pass
+    mysql_new_root_password: behd1d2
+    mysql_database: magellon01
+    mysql_user: behdad
+    mysql_password: behdad
+
+  tasks:
+    - name: Run apt update
+      become: true
+      apt:
+        update_cache: yes
+
+    - name: Install MariaDB Server
+      apt:
+        name:
+          - mariadb-server
+          - mariadb-client
+        state: present
+
+    - name: Set lower table names in MariaDB configuration
+      lineinfile:
+        path: /etc/mysql/mariadb.conf.d/50-server.cnf
+        regexp: '^lower_case_table_names'
+        line: 'lower_case_table_names = 1'
+        state: present
+      become: true
+
+    - name: Set MariaDB to listen on 0.0.0.0
+      lineinfile:
+        path: /etc/mysql/mariadb.conf.d/50-server.cnf
+        regexp: '^bind-address'
+        line: 'bind-address = 0.0.0.0'
+        state: present
+      become: true
+
+    - name: Restart MariaDB service
+      service:
+        name: mariadb
+        state: restarted
+      become: true
+
+    - name: Install Git
+      apt:
+        name: git
+        state: present
+      become: true
+
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+      become: true
+
+    - name: Enable Docker service
+      systemd:
+        name: docker
+        enabled: yes
+        state: started
+      become: true
+
+    - name: Add user to the docker group
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
+      become: true
+
+    - name: Create user
+      mysql_user:
+        name: behdad
+        host: '%'
+        password: Behdad#1
+        priv: '*.*:ALL'
+        state: present
+      become: true
+
+    - name: Change root password with shell
+      shell: |
+        echo "ALTER USER 'root'@'localhost' IDENTIFIED BY 'behd1d2';" | mariadb -u root
+      register: command_output
+      changed_when: false
+
+    - name: Display command output
+      debug:
+        var: command_output.stdout_lines
+
+
+
+    - name: Change MariaDB root password
+      mysql_user:
+        name: root
+        password: "{{ mysql_new_root_password }}"
+        update_password: always
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+      become: true
+
+    - name: Create MariaDB database
+      mysql_db:
+        name: "{{ mysql_database }}"
+        state: present
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+      become: true
+
+    - name: Create MariaDB user
+      mysql_user:
+        name: "{{ mysql_user }}"
+        password: "{{ mysql_password }}"
+        priv: '*.*:ALL'
+        host: localhost
+        state: present
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+      become: true

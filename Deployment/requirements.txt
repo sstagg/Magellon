@@ -4,10 +4,12 @@ textual-dev
 ansible
 ansible_runner
 
-pydantic
+pydantic==2.0.3
 python-terraform
 
 pyfiglet
 nuitka
 pyinstaller
 Jinja2
+
+PyMySQL
