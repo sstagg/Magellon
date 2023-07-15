@@ -6,36 +6,85 @@
 
   vars:
     project_path: /projects/CoreService
-    project_directory: /projects/CoreService
     git_repository: https://github.com/sstagg/Magellon.git
-    dockerfile_path: /projects/infrastructure/docker/Dockerfile
-    api_url: http://maia.cryoem.fsu.edu:8080/web/
-    image_name: khoshbin/magellon-core-service
-    container_name: magellon-core-service01
+
+    network_name: magellon
+
+    core_service_project_directory: /projects/CoreService
+    core_service_dockerfile_path: /projects/infrastructure/docker/Dockerfile
+    core_service_image_name: khoshbin/magellon-core-service
+    core_service_container_name: magellon-core-service01
+    core_service_port_number: 8181
+    core_service_base_dir: /mnt/base_dir
+    core_service_api_url: http://5.161.91.240:8181/web/
+
+    webapp_project_directory: /projects/WebApp
+    webapp_dockerfile_path: /projects/infrastructure/docker/angular/Dockerfile
+    webapp_image_name: khoshbin/magellon-angular-app
+    webapp_container_name: magellon-angular-webapp01
+    webapp_port_number: 8080
 
   tasks:
-    - name: Create a network
+    - name: Create Magellon network
       community.docker.docker_network:
-        name: magellon
-        
-    - name: Build Docker image
+        name: "{{ network_name }}"
+
+    - name: Check core_service_base_dir existence
+      stat:
+        path: "{{ core_service_base_dir }}"
+      register: dir_check
+
+    - name: Create core_service_base_dir
+      file:
+        path: "{{ core_service_base_dir }}"
+        state: directory
+        mode: 0777
+      when: not dir_check.stat.exists
+
+    - name: Build Core Service Docker image
       community.docker.docker_image:
-        name: "{{ image_name }}"
+        name: "{{ core_service_image_name }}"
         build:
-          path: "{{ project_directory }}"
-          dockerfile: "{{ dockerfile_path }}"
+          path: "{{ core_service_project_directory }}"
+          dockerfile: "{{ core_service_dockerfile_path }}"
           pull: no
           nocache: yes
         source: build
 
 
-    - name: Run Docker container
+    - name: Run Core Service Docker container
       docker_container:
-        name: "{{ container_name }}"
-        image: "{{ image_name }}"
+        name: "{{ core_service_container_name }}"
+        image: "{{ core_service_image_name }}"
         state: started
         restart_policy: always
-        network_mode: magellon
+        network_mode: "{{ network_name }}"
         ports:
           - "8181:80"
+        volumes:
+          - "{{core_service_base_dir}}:/app/data"
+        env:
+          DATA_DIR: "/app/data"
 
+
+    - name: Build WebApp Docker image
+      community.docker.docker_image:
+        name: "{{ webapp_image_name }}"
+        build:
+          path: "{{ webapp_project_directory }}"
+          dockerfile: "{{ webapp_dockerfile_path }}"
+          args:
+            API_URL: "{{ core_service_api_url }}"
+          pull: no
+          nocache: yes
+        source: build
+
+    - name: Run WebApp Service Docker container
+      docker_container:
+        name: "{{ webapp_container_name }}"
+        image: "{{ webapp_image_name }}"
+        state: started
+        restart_policy: always
+        network_mode: "{{ network_name }}"
+        ports:
+          - "8080:80"

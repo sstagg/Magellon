@@ -34,24 +34,24 @@
     - name: Clone Git repository
       ansible.builtin.git:
         repo: "{{ git_repository }}"
-        dest: "{{ project_directory }}"
+        dest: "{{ core_service_project_directory }}"
         version: master
       become: true
       become_user: behdad
 
     - name: Change to project directory
-      command: cd "{{ project_directory }}/CoreService"
+      command: cd "{{ core_service_project_directory }}/CoreService"
       become: true
       become_user: behdad
 
     - name: Build Docker image
       docker_image:
         build:
-          path: "{{ project_directory }}"
-          dockerfile: "{{ dockerfile_path }}"
+          path: "{{ core_service_project_directory }}"
+          dockerfile: "{{ core_service_dockerfile_path }}"
           pull: yes
           nocache: yes
-        name: "{{ image_name }}"
+        name: "{{ core_service_image_name }}"
       become: true
       become_user: behdad
 
@@ -62,7 +62,7 @@
     - name: Run Docker container
       docker_container:
         name: magellon-core-service01
-        image: "{{ image_name }}"
+        image: "{{ core_service_image_name }}"
         state: started
         restart_policy: always
         network_mode: "{{ network_name }}"

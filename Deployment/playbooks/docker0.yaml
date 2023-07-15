@@ -108,7 +108,7 @@
     - name: Clone Git repository
       git:
         repo: "{{ git_repository }}"
-        dest: "{{ project_directory }}"
+        dest: "{{ core_service_project_directory }}"
         version: main
         accept_hostkey: yes
         force: yes
@@ -119,16 +119,16 @@
       docker_image:
         build:
           path: "{{ project_path }}"
-          dockerfile: "{{ dockerfile_path }}"
+          dockerfile: "{{ core_service_dockerfile_path }}"
           pull: yes
           nocache: yes
-        name: "{{ image_name }}"
+        name: "{{ core_service_image_name }}"
 
 
     - name: Run Docker container
       docker_container:
-        name: "{{ container_name }}"
-        image: "{{ image_name }}"
+        name: "{{ core_service_container_name }}"
+        image: "{{ core_service_image_name }}"
         state: started
         restart_policy: always
         network_mode: magellon
