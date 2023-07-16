@@ -1,4 +1,5 @@
 ---
+#  https://linuxhint.com/set_mysql_root_password_ansible/
 - name: Configure MySQL Server
   hosts: target
   gather_facts: false
@@ -21,6 +22,7 @@
         name:
           - mariadb-server
           - mariadb-client
+          - python3-PyMySQL
         state: present
 
     - name: Set lower table names in MariaDB configuration
@@ -45,24 +47,29 @@
         state: restarted
       become: true
 
+    - name: Install python3-PyMySQL library
+      apt:
+        name: python3-PyMySQL
+        state: present
+
     - name: Install Git
       apt:
         name: git
         state: present
       become: true
+#
+#    - name: Install Docker
+#      apt:
+#        name: docker.io
+#        state: present
+#      become: true
 
-    - name: Install Docker
-      apt:
-        name: docker.io
-        state: present
-      become: true
-
-    - name: Enable Docker service
-      systemd:
-        name: docker
-        enabled: yes
-        state: started
-      become: true
+#    - name: Enable Docker service
+#      systemd:
+#        name: docker
+#        enabled: yes
+#        state: started
+#      become: true
 
     - name: Add user to the docker group
       user:
@@ -90,7 +97,14 @@
       debug:
         var: command_output.stdout_lines
 
-
+    - name: Set MySQL root Password
+      mysql_user:
+        login_host: 'localhost'
+        login_user: 'root'
+        login_password: ''
+        name: 'root'
+        password: '{{ mysql_pass }}'
+        state: present
 
     - name: Change MariaDB root password
       mysql_user:
