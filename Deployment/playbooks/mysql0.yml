@@ -1,3 +1,5 @@
+---
+#  https://linuxhint.com/set_mysql_root_password_ansible/
 - name: Configure MySQL Server
   hosts: target
   gather_facts: false
@@ -6,24 +8,10 @@
     mysql_new_root_password: behd1d2
     mysql_database: magellon01
 
-    mysql_magellon_user: magellon
-    mysql_magellon_password: magell0n#0367
-    sql_source_file_path: ../assets/sql/magellon01db.sql
-    sql_target_file_path: /projects/sql/magellon01db.sql
+    mysql_user: magellon
+    mysql_password: magell0n#0367
+    sql_file_path: ../assets/sql/magellon01db.sql
   tasks:
-
-
-    - name: Scan host key
-      command: ssh-keyscan -H 5.161.91.240
-      register: host_key
-
-    - name: Add host key to known_hosts
-      lineinfile:
-        dest: /home/behdad/.ssh/known_hosts
-        line: "{{ host_key.stdout }}"
-        create: yes
-        mode: "0600"
-
     - name: Run apt update
       become: true
       apt:
@@ -37,13 +25,11 @@
           - python3-pymysql
         state: present
 
-
     - name: Install MariaDB Server
       apt:
         name:
           - mariadb-server
           - mariadb-client
-          - python3-pip
           - curl
         state: present
 
@@ -76,8 +62,6 @@
         update_password: always
         login_unix_socket: /var/run/mysqld/mysqld.sock
       become: true
-      ignore_errors: yes
-
 
     - name: Create Magellon User
       mysql_user:
@@ -86,33 +70,49 @@
         password: "{{ mysql_magellon_password }}"
         priv: '*.*:ALL'
         state: present
-        login_user: "root"
-        login_password: "{{ mysql_new_root_password }}"
       become: true
+
 
     - name: Create MariaDB database
       mysql_db:
         name: "{{ mysql_database }}"
         state: present
-        login_user: "root"
-        login_password: "{{ mysql_new_root_password }}"
+        login_unix_socket: /var/run/mysqld/mysqld.sock
       become: true
 
-    - name: Make sure destination dir exists
-      file:
-        path: "{{ sql_target_file_path | dirname }}"
-        recurse: true
-        state: directory
-
-    - name: Copy File to Remote Server
-      copy:
-        src: "{{ sql_source_file_path }}"
-        dest: "{{ sql_target_file_path }}"
 
     - name: Import SQL file
       mysql_db:
         name: "{{ mysql_database }}"
         state: import
-        target: "{{ sql_target_file_path }}"
+        target: "{{ sql_file_path }}"
         login_user: "{{ mysql_magellon_user }}"
         login_password: "{{ mysql_magellon_password }}"
+
+
+
+
+
+
+
+
+
+    - name: Set MySQL root Password
+      mysql_user:
+        name: 'root'
+        login_user: 'root'
+        login_host: 'localhost'
+        login_password: ''
+        password: "{{ mysql_new_root_password }}"
+        state: present
+
+
+    - name: Change root password with shell
+      shell: |
+        echo "ALTER USER 'root'@'localhost' IDENTIFIED BY 'behd1d2';" | mariadb -u root
+      register: command_output
+      changed_when: false
+
+    - name: Display command output
+      debug:
+        var: command_output.stdout_lines
