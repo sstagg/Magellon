@@ -1,4 +1,4 @@
-- name: Configure MySQL Server
+- name: Install and Configure MySQL Server
   hosts: target
   gather_facts: false
   remote_user: root
@@ -68,6 +68,11 @@
         name: mariadb
         state: restarted
       become: true
+
+    - name: Enable MySQL service on boot
+      systemd:
+        name: mysql
+        enabled: yes
 
     - name: Change MariaDB root password
       mysql_user:

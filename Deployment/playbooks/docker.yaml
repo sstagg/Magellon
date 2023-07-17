@@ -25,6 +25,105 @@
     webapp_port_number: 8080
 
   tasks:
+    - name: Remove previous host entry
+      lineinfile:
+        path: "/home/behdad/.ssh/known_hosts"
+        state: absent
+        regexp: '^\[5.161.91.240\]:'
+
+    - name: Scan host key
+      command: ssh-keyscan -H 5.161.91.240
+      register: host_key
+
+    - name: Add host key to known_hosts
+      lineinfile:
+        dest: /home/behdad/.ssh/known_hosts
+        line: "{{ host_key.stdout }}"
+        create: yes
+        mode: "0600"
+
+    - name: Update package lists
+      apt:
+        update_cache: yes
+      become: true
+
+    - name: Install Docker dependencies
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+        state: present
+      become: true
+
+    - name: Add Docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/debian/gpg
+        state: present
+      become: true
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/debian buster stable
+        state: present
+      become: true
+
+    - name: Update package lists
+      apt:
+        update_cache: yes
+      become: true
+
+    - name: Install Docker packages
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+          - docker-compose
+        state: present
+      become: true
+
+    - name: Start Docker service
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+      become: true
+
+    - name: Add user to the docker group
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
+      become: true
+
+    - name: Install Git
+      apt:
+        name: git
+        state: present
+      become: true
+
+    - name: Create /projects folder
+      file:
+        path: "{{ project_path }}"
+        state: directory
+        mode: '0777'
+      become: true
+
+
+
+    - name: Clone Git repository
+      git:
+        repo: "{{ git_repository }}"
+        dest: "{{ core_service_project_directory }}"
+        version: main
+        accept_hostkey: yes
+        force: yes
+
     - name: Create Magellon network
       community.docker.docker_network:
         name: "{{ network_name }}"
