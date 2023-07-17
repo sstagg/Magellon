@@ -1,8 +1,8 @@
 import os
 
 import pyfiglet
-from ansible_runner import run_async, AnsibleRunnerException
-from jinja2 import Template
+# from ansible_runner import run_async, AnsibleRunnerException
+from jinja2 import Template, Environment
 from rich import print
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -66,19 +66,19 @@ class MagellonInstallationApp(App[str]):
                 yield Label("IP address:")
                 yield Input(
                     placeholder="Enter accessible ip address or name...",
-                    validators=[Regex("^[a-zA-Z0-9_]{3,16}$"), ], id="server_ip"
+                    validators=[Regex("^(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?!$)|$)){4}$"), ], id="server_ip"
                 )
                 yield Label("Username:")
                 yield Input(
                     placeholder="Enter server's username...",
                     validators=[Regex(
-                        "^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"), ],
+                        "^[a-zA-Z0-9_.-]+$"), ],
                     id="server_username"
                 )
                 yield Label("Password:")
                 yield Input(
-                    placeholder="Enter server's password",
-                    validators=[Regex("^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$"), ],
+                    placeholder="Enter server's password : at least one digit, one uppercase letter, at least one lowercase letter, at least one special character",
+                    validators=[Regex("^(?=.*[\d])(?=.*[A-Z])(?=.*[a-z])(?=.*[@#$])[\w\d@#$]{6,12}$"), ],
                     id="server_password"
                 )
                 yield Label("Core Service's Port Number:")
@@ -96,20 +96,21 @@ class MagellonInstallationApp(App[str]):
                 yield Label("MySql Server:")
                 yield Input(
                     placeholder="Enter accessible ip address or name...",
-                    validators=[Regex("^[a-zA-Z0-9_]{3,16}$"), ], id="mysql_server_ip"
+                    validators=[Regex("^(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?!$)|$)){4}$"), ], id="mysql_server_ip"
                 )
+
                 yield Label("User Name:")
                 yield Input(
                     placeholder="Enter a username...",
                     validators=[
-                        Regex("^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"),
+                        Regex("^[a-zA-Z0-9_.-]+$"),
                     ], id="mysql_server_db_username"
                 )
                 yield Label("Password:")
                 yield Input(
                     placeholder="Enter mysql password...",
                     validators=[
-                        Regex("^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$"),
+                        Regex("^(?=.*[\d])(?=.*[A-Z])(?=.*[a-z])(?=.*[@#$])[\w\d@#$]{6,12}$"),
                     ], id="mysql_server_db_password"
                 )
                 yield Input(
@@ -203,32 +204,36 @@ class MagellonInstallationApp(App[str]):
             self.query_one("#mysql_server_db_dbname", Input).value = installation_data.mysql_server_db_dbname
 
     def install(self, data: InstallationData):
+        # env = Environment('<!--', '-->', '${', '}', '<!--#', '-->')
         # installing the required packages
         if os.path.exists('assets/templates/deployment_playbook_template.yml.j2'):
             text_log = self.query_one(TextLog)
             try:
                 with open('assets/templates/deployment_playbook_template.yml.j2', 'r') as file:
-                    template = Template(file.read())
+                    template = Template(file.read(),variable_start_string='${', variable_end_string='}')
 
                 rendered_playbook = template.render(data=data)
 
                 text_log.write(rendered_playbook)
                 # print(rendered_playbook)
-
+                with open("playbook-content.yml", 'w') as file:
+                    file.write(rendered_playbook)
+            except Exception as e:
+                print(e.__str__())
                 # run_data = run_async(playbook=rendered_playbook, extravars={'target_ip': data.}, quiet=True)
-                run_data = run_async(playbook=rendered_playbook, quiet=True)
+                # run_data = run_async(playbook=rendered_playbook,  quiet=True)
+                #
+                # while run_data.return_code is None:
+                #     text_log.write(f"Playbook running... Current status: {run_data.status}")
+                #     # Perform additional actions or checks as needed
+                #     run_data = run_async(status=run_data.status)
+                # if run_data.return_code == 0:
+                #     text_log.write("Playbook execution completed successfully.")
+                # else:
+                #     text_log.write(f"Playbook execution failed with return code: {run_data.return_code}")
 
-                while run_data.return_code is None:
-                    text_log.write(f"Playbook running... Current status: {run_data.status}")
-                    # Perform additional actions or checks as needed
-                    run_data = run_async(status=run_data.status)
-                if run_data.return_code == 0:
-                    text_log.write("Playbook execution completed successfully.")
-                else:
-                    text_log.write(f"Playbook execution failed with return code: {run_data.return_code}")
-
-            except AnsibleRunnerException as e:
-                text_log.write(f"An error occurred while running the playbook: {str(e)}")
+            # except AnsibleRunnerException as e:
+            #     text_log.write(f"An error occurred while running the playbook: {str(e)}")
 
 
 if __name__ == "__main__":
