@@ -31,6 +31,7 @@ class MagellonInstallationApp(App[str]):
     BINDINGS = [
         Binding(key="q", action="quit_app", description="Quit the app"),
         Binding(key="i", action="install_magellon()", description="Install Magellon"),
+        Binding(key="c", action="copy_server_info()", description="Copy Server"),
         Binding(key="m", action="push_screen('MySqlScreen')", description="License Agreement", show=True),
         Binding(
             key="question_mark",
@@ -53,10 +54,10 @@ class MagellonInstallationApp(App[str]):
                         placeholder="Enter accessible ip address or name...",
                         validators=[Regex("^(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?!$)|$)){4}$"), ], id="server_ip"
                     ),
-                    Label("Host Name:"),
+                    Label("Port Number:"),
                     Input(
-                        placeholder="Enter accessible host name...",
-                        validators=[Regex("^[a-zA-Z0-9_.-]+$"), ], id="server_name"
+                        placeholder="Enter core app port number", value="8000",
+                        validators=[Number(minimum=1, maximum=65500), ], id="server_core_port"
                     ),
                     Label("Username:"),
                     Input(
@@ -73,11 +74,13 @@ class MagellonInstallationApp(App[str]):
                         id="server_password"
                     )
                     ,
-                    Label("Core Service's Port Number:"),
+
+                    Label("Base Directory:"),
                     Input(
-                        placeholder="Enter core app port number", value="8000",
-                        validators=[Number(minimum=1, maximum=65500), ], id="server_core_port"
-                    )
+                        placeholder="Enter accessible base Directory...",
+                        id="core_server_base_directory"
+                    ),
+
                 )
 
             with TabPane("WebApp", id="WebAppTabPane"):
@@ -87,10 +90,10 @@ class MagellonInstallationApp(App[str]):
                         placeholder="Enter accessible ip address or name...",
                         validators=[Regex("^(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?!$)|$)){4}$"), ], id="web_server_ip"
                     ),
-                    Label("Host Name:"),
+                    Label("WebApp's Port Number:"),
                     Input(
-                        placeholder="Enter accessible host name...",
-                        validators=[Regex("^[a-zA-Z0-9_.-]+$"), ], id="web_server_name"
+                        placeholder="Enter web app's port number", value="8080",
+                        validators=[Number(minimum=1, maximum=65500), ], id="server_webapp_port"
                     ),
                     Label("Username:"),
                     Input(
@@ -108,11 +111,11 @@ class MagellonInstallationApp(App[str]):
                     )
                     ,
 
-                    Label("WebApp's Port Number:"),
-                    Input(
-                        placeholder="Enter web app's port number", value="8080",
-                        validators=[Number(minimum=1, maximum=65500), ], id="server_webapp_port"
-                    )
+                    # Label("Host Name:"),
+                    # Input(
+                    #     placeholder="Enter accessible host name...",
+                    #     validators=[Regex("^[a-zA-Z0-9_.-]+$"), ], id="web_server_name"
+                    # ),
                 )
             with TabPane("MySql", id="MySqlTabPane"):
                 yield Label("MySql Server:")
@@ -223,11 +226,29 @@ class MagellonInstallationApp(App[str]):
         self.install(installation_data)
         self.query_one(ProgressBar).advance(10)
 
+    def action_copy_server_info(self):
+        self.copy_core_to_web()
+
+    def copy_core_to_web(self):
+        if self.query_one("#server_ip", Input).value is not None:
+            self.query_one("#web_server_ip", Input).value = self.query_one("#server_ip", Input).value
+        if self.query_one("#server_username", Input).value is not None:
+            self.query_one("#web_server_username", Input).value = self.query_one("#server_username", Input).value
+        if self.query_one("#server_password", Input).value is not None:
+            self.query_one("#web_server_password", Input).value = self.query_one("#server_password", Input).value
+
+        if self.query_one("#server_ip", Input).value is not None:
+            self.query_one("#mysql_server_ip", Input).value = self.query_one("#server_ip", Input).value
+        if self.query_one("#server_username", Input).value is not None:
+            self.query_one("#mysql_server_username", Input).value = self.query_one("#server_username", Input).value
+        if self.query_one("#server_password", Input).value is not None:
+            self.query_one("#mysql_server_password", Input).value = self.query_one("#server_password", Input).value
+
     def save_gui_to_model(self):
-        installation_data.server_ip = self.query_one("#server_ip", Input).value
-        installation_data.server_username = self.query_one("#server_username", Input).value
-        installation_data.server_password = self.query_one("#server_password", Input).value
-        installation_data.server_port = self.query_one("#server_core_port", Input).value
+        installation_data.core_service_server_ip = self.query_one("#server_ip", Input).value
+        installation_data.core_service_server_username = self.query_one("#server_username", Input).value
+        installation_data.core_service_server_password = self.query_one("#server_password", Input).value
+        installation_data.core_service_server_port = self.query_one("#server_core_port", Input).value
         installation_data.webapp_port = self.query_one("#server_webapp_port", Input).value
         installation_data.mysql_server_ip = self.query_one("#mysql_server_ip", Input).value
         installation_data.mysql_server_db_username = self.query_one("#mysql_server_db_username", Input).value
@@ -237,15 +258,15 @@ class MagellonInstallationApp(App[str]):
     def load_gui_from_model(self):
         if installation_data is None:
             return
-        if installation_data.server_ip is not None:
-            self.query_one("#server_ip", Input).value = installation_data.server_ip
-        if installation_data.server_username is not None:
-            self.query_one("#server_username", Input).value = installation_data.server_username
-        if installation_data.server_password is not None:
-            self.query_one("#server_password", Input).value = installation_data.server_password
+        if installation_data.core_service_server_ip is not None:
+            self.query_one("#server_ip", Input).value = installation_data.core_service_server_ip
+        if installation_data.core_service_server_username is not None:
+            self.query_one("#server_username", Input).value = installation_data.core_service_server_username
+        if installation_data.core_service_server_password is not None:
+            self.query_one("#server_password", Input).value = installation_data.core_service_server_password
 
-        if installation_data.server_port is not None:
-            self.query_one("#server_core_port", Input).value = str(installation_data.server_port)
+        if installation_data.core_service_server_port is not None:
+            self.query_one("#server_core_port", Input).value = str(installation_data.core_service_server_port)
 
         if installation_data.webapp_port is not None:
             self.query_one("#server_webapp_port", Input).value = str(installation_data.webapp_port)

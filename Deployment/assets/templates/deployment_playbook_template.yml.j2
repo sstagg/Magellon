@@ -3,54 +3,38 @@
   hosts: target
   become: yes
   vars:
-    target_ip: "${data.server_ip }"
-    target_username: "${ data.server_username }"
-    target_password: "${ data.server_password }"
 
-    target_port: "${ data.server_port }"
-    target_webapp_port: "${ data.webapp_port }"
-    create_core_server: "${ data.create_core_server }"
-    create_webapp_server: "${ data.create_webapp_server }"
-    create_mysql_server: "${ data.create_mysql_server }"
-    install_mysql: "${ data.install_mysql }"
-    mysql_server_ip: "${ data.mysql_server_ip }"
-    mysql_server_username: "${ data.mysql_server_username }"
-    mysql_server_password: "${ data.mysql_server_password }"
-    mysql_server_db_username: "${ data.mysql_server_db_username }"
-    mysql_server_db_password: "${ data.mysql_server_db_password }"
-    mysql_server_db_dbname: "${ data.mysql_server_db_dbname }"
+    mysql_new_root_password: "${ data.mysql_server_db_password }"
+    mysql_database: "${ data.mysql_server_db_dbname }"
 
-    mysql_new_root_password: magell0n#0367
-    mysql_database: magellon01
-
-    mysql_magellon_user: magellon
-    mysql_magellon_password: magell0n#0567
+    mysql_magellon_user: "${ data.mysql_server_db_username }"
+    mysql_magellon_password: "${ data.mysql_server_db_password }"
     sql_source_file_path: ../assets/sql/magellon01db.sql
     sql_target_file_path: /projects/sql/magellon01db.sql
 
-
-    project_path: /projects/CoreService
     git_repository: https://github.com/sstagg/Magellon.git
     network_name: magellon
 
+    project_path: /projects/CoreService
     core_service_project_directory: /projects/CoreService
     core_service_dockerfile_path: /projects/infrastructure/docker/Dockerfile
     core_service_image_name: khoshbin/magellon-core-service
     core_service_container_name: magellon-core-service01
-    core_service_port_number: 8181
-    core_service_base_dir: /mnt/base_dir
-    core_service_api_url: http://5.161.91.240:8181/web/
+    core_service_port_number: ${ data.core_service_server_port }
+    core_service_base_dir: "${ data.core_service_server_base_directory }"
+    core_service_api_url: http://${ data.core_service_server_ip }:${ data.core_service_server_port }/web/
 
     webapp_project_directory: /projects/WebApp
     webapp_dockerfile_path: /projects/infrastructure/docker/angular/Dockerfile
     webapp_image_name: khoshbin/magellon-angular-app
     webapp_container_name: magellon-angular-webapp01
-    webapp_port_number: 8080
+    webapp_port_number: ${ data.webapp_port }
 
   tasks:
 
+
     - name: Scan host key
-      command: ssh-keyscan -H 5.161.91.240
+      command: ssh-keyscan -H "${ data.mysql_server_ip }"
       register: host_key
 
     - name: Add host key to known_hosts
@@ -83,3 +67,77 @@
           - curl
         state: present
 
+    - name: Set lower table names in MariaDB configuration
+      lineinfile:
+        path: /etc/mysql/mariadb.conf.d/50-server.cnf
+        regexp: '^lower_case_table_names'
+        line: 'lower_case_table_names = 1'
+        state: present
+      become: true
+
+    - name: Set MariaDB to listen on 0.0.0.0
+      lineinfile:
+        path: /etc/mysql/mariadb.conf.d/50-server.cnf
+        regexp: '^bind-address'
+        line: 'bind-address = 0.0.0.0'
+        state: present
+      become: true
+
+    - name: Restart MariaDB service
+      service:
+        name: mariadb
+        state: restarted
+      become: true
+
+    - name: Enable MySQL service on boot
+      systemd:
+        name: mysql
+        enabled: yes
+
+    - name: Change MySql root password
+      mysql_user:
+        name: root
+        password: "{{ mysql_new_root_password }}"
+        update_password: always
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+      become: true
+      ignore_errors: yes
+
+
+    - name: Create Magellon User
+      mysql_user:
+        name: "{{ mysql_magellon_user }}"
+        host: '%'
+        password: "{{ mysql_magellon_password }}"
+        priv: '*.*:ALL'
+        state: present
+        login_user: "root"
+        login_password: "{{ mysql_new_root_password }}"
+      become: true
+
+    - name: Create MariaDB database
+      mysql_db:
+        name: "{{ mysql_database }}"
+        state: present
+        login_user: "root"
+        login_password: "{{ mysql_new_root_password }}"
+      become: true
+
+    - name: Make sure destination dir exists
+      file:
+        path: "{{ sql_target_file_path | dirname }}"
+        recurse: true
+        state: directory
+
+    - name: Copy File to Remote Server
+      copy:
+        src: "{{ sql_source_file_path }}"
+        dest: "{{ sql_target_file_path }}"
+
+    - name: Import SQL file
+      mysql_db:
+        name: "{{ mysql_database }}"
+        state: import
+        target: "{{ sql_target_file_path }}"
+        login_user: "{{ mysql_magellon_user }}"
+        login_password: "{{ mysql_magellon_password }}"
