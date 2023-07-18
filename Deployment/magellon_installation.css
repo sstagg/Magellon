@@ -37,8 +37,11 @@ Grid>Input {
     border: round white;
     min-height: 10vw;
 }
+#mysql_server_info {
+    visibility: hidden;
+    min-height: 4vw;
+}
 
 Button {
     width: 25%;
-    margin: 1fr;
 }
