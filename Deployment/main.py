@@ -1,5 +1,6 @@
 import os
 
+import ansible_runner
 import pyfiglet
 # from ansible_runner import run_async, AnsibleRunnerException
 from jinja2 import Template, Environment
@@ -309,14 +310,22 @@ class MagellonInstallationApp(App[str]):
             text_log = self.query_one(TextLog)
             try:
                 with open('assets/templates/deployment_playbook_template.yml.j2', 'r') as file:
-                    template = Template(file.read(), variable_start_string='${', variable_end_string='}')
+                    playbook_template = Template(file.read(), variable_start_string='${', variable_end_string='}')
+                with open('assets/templates/deployment_inventory.ini.j2', 'r') as file:
+                    inventory_template = Template(file.read(), variable_start_string='${', variable_end_string='}')
 
-                rendered_playbook = template.render(data=data)
+                rendered_playbook = playbook_template.render(data=data)
+                rendered_inventory = inventory_template.render(data=data)
 
                 text_log.write(rendered_playbook)
                 # print(rendered_playbook)
-                with open("playbook-content.yml", 'w') as file:
+                with open("playbook.yml", 'w') as file:
                     file.write(rendered_playbook)
+                with open("inventory.ini", 'w') as file:
+                    file.write(rendered_inventory)
+
+                runner_result = ansible_runner.run(private_data_dir='.', inventory=rendered_inventory, playbook=rendered_playbook)
+                print(runner_result.stats)
             except Exception as e:
                 print(e.__str__())
                 # run_data = run_async(playbook=rendered_playbook, extravars={'target_ip': data.}, quiet=True)
