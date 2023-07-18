@@ -1,0 +1,16 @@
+[mysql_servers]
+mysql_server01 ansible_host=${ data.mysql_server_ip } ansible_user=${ data.mysql_server_username } ansible_password=${ data.mysql_server_password } ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+
+[backend_servers]
+backend01 ansible_host=${ data.core_service_server_ip } ansible_user=${ data.core_service_server_username } ansible_password=${ data.core_service_server_password } ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+
+[webapp_servers]
+webapp01 ansible_host=${ data.webapp_server_ip } ansible_user=${ data.webapp_server_username } ansible_password=${ data.webapp_server_password } ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+
+[webapp_servers:vars]
+http_port=${ data.webapp_port }
+
+[all_servers:children]
+mysql_servers
+backend_servers
+webapp_servers
