@@ -6,7 +6,7 @@ from jinja2 import Template, Environment
 from rich import print
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Horizontal
+from textual.containers import Horizontal, Vertical, Grid
 from textual.validation import Regex, Number
 from textual.widgets import Header, Footer, Label, Button, Input, TabbedContent, TabPane, ProgressBar, TextLog
 
@@ -19,42 +19,26 @@ print(f'Installation Wizard V:1.0')
 
 load_gui: bool = False
 installation_data: InstallationData = InstallationData()
+
+
 # Create an instance of InstallationData and load settings if the file exists
 
-
-MySql = """
-# Duke Leto I Atreides
-
-Head of House Atreides.
-"""
-
-ANSIBLE = """
-# Lady Jessica
-
-Bene Gesserit and concubine of Leto, and mother of Paul and Alia.
-"""
-
-DOCKER = """
-# Paul Atreides
-
-Son of Leto and Jessica.
-"""
-
-
 class MagellonInstallationApp(App[str]):
-    # CSS_PATH = "magellon_installation.css"
+    CSS_PATH = "magellon_installation.css"
     TITLE = "Magellon Installation Wizard"
     SUB_TITLE = "Welcome to Magellon Installation Wizard"
+
     BINDINGS = [
         Binding(key="q", action="quit_app", description="Quit the app"),
         Binding(key="i", action="install_magellon()", description="Install Magellon"),
+        Binding(key="m", action="push_screen('MySqlScreen')", description="License Agreement", show=True),
         Binding(
             key="question_mark",
             action="help",
-            description="Show help screen",
+            description="Help",
             key_display="?",
         ),
-        Binding(key="m", action="push_screen('MySqlScreen')", description="License Agreement", show=True),
+
     ]
 
     def compose(self) -> ComposeResult:
@@ -62,36 +46,72 @@ class MagellonInstallationApp(App[str]):
 
         # yield Markdown(DOCKER)
         with TabbedContent(initial="SeverTabPane"):
-            with TabPane("Server", id="SeverTabPane"):
-                yield Label("IP address:")
+            with TabPane("Core Server", id="SeverTabPane"):
+                yield Grid(
+                    Label("IP address:"),
+                    Input(
+                        placeholder="Enter accessible ip address or name...",
+                        validators=[Regex("^(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?!$)|$)){4}$"), ], id="server_ip"
+                    ),
+                    Label("Host Name:"),
+                    Input(
+                        placeholder="Enter accessible host name...",
+                        validators=[Regex("^[a-zA-Z0-9_.-]+$"), ], id="server_name"
+                    ),
+                    Label("Username:"),
+                    Input(
+                        placeholder="Enter server's username...",
+                        validators=[Regex(
+                            "^[a-zA-Z0-9_.-]+$"), ],
+                        id="server_username"
+                    ),
+
+                    Label("Password:"),
+                    Input(
+                        placeholder="Enter server's password : at least one digit, one uppercase letter, at least one lowercase letter, at least one special character",
+                        validators=[Regex("^(?=.*[\d])(?=.*[A-Z])(?=.*[a-z])(?=.*[@#$])[\w\d@#$]{6,12}$"), ],
+                        id="server_password"
+                    )
+                    ,
+                    Label("Core Service's Port Number:"),
+                    Input(
+                        placeholder="Enter core app port number", value="8000",
+                        validators=[Number(minimum=1, maximum=65500), ], id="server_core_port"
+                    ),
+                    Label("WebApp's Port Number:"),
+                    Input(
+                        placeholder="Enter web app's port number", value="8080",
+                        validators=[Number(minimum=1, maximum=65500), ], id="server_webapp_port"
+                    )
+                )
+
+            with TabPane("WebApp", id="WebAppTabPane"):
+                yield Label("MySql Server:")
                 yield Input(
                     placeholder="Enter accessible ip address or name...",
-                    validators=[Regex("^(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?!$)|$)){4}$"), ], id="server_ip"
+                    validators=[Regex("^(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?!$)|$)){4}$"), ], id="mysql_server_ip2"
                 )
-                yield Label("Username:")
+
+                yield Label("User Name:")
                 yield Input(
-                    placeholder="Enter server's username...",
-                    validators=[Regex(
-                        "^[a-zA-Z0-9_.-]+$"), ],
-                    id="server_username"
+                    placeholder="Enter a username...",
+                    validators=[
+                        Regex("^[a-zA-Z0-9_.-]+$"),
+                    ], id="mysql_server_db_username2"
                 )
                 yield Label("Password:")
                 yield Input(
-                    placeholder="Enter server's password : at least one digit, one uppercase letter, at least one lowercase letter, at least one special character",
-                    validators=[Regex("^(?=.*[\d])(?=.*[A-Z])(?=.*[a-z])(?=.*[@#$])[\w\d@#$]{6,12}$"), ],
-                    id="server_password"
+                    placeholder="Enter mysql password...",
+                    validators=[
+                        Regex("^(?=.*[\d])(?=.*[A-Z])(?=.*[a-z])(?=.*[@#$])[\w\d@#$]{6,12}$"),
+                    ], id="mysql_server_db_password2"
                 )
-                yield Label("Core Service's Port Number:")
                 yield Input(
-                    placeholder="Enter core app port number", value="8000",
-                    validators=[Number(minimum=1, maximum=65500), ], id="server_core_port"
+                    placeholder="Database Name..",
+                    validators=[
+                        Regex("^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"),
+                    ], id="mysql_server_db_dbname2"
                 )
-                yield Label("WebApp's Port Number:")
-                yield Input(
-                    placeholder="Enter web app's port number", value="8080",
-                    validators=[Number(minimum=1, maximum=65500), ], id="server_webapp_port"
-                )
-
             with TabPane("MySql", id="MySqlTabPane"):
                 yield Label("MySql Server:")
                 yield Input(
@@ -126,12 +146,15 @@ class MagellonInstallationApp(App[str]):
 
         # yield Pretty([])
         # yield Label("Do you love Textual?", id="question")
-        yield Horizontal(
-            Button("Install", id="install", variant="primary"),
-            Button("Exit", id="exit", variant="error")
+        yield Vertical(
+            ProgressBar(total=100, show_eta=False),
+            TextLog(highlight=True, markup=True, id="text_logger"),
+            Horizontal(
+                Button("Install", id="install", variant="primary"),
+                Button("Exit", id="exit", variant="error")
+            )
         )
-        yield ProgressBar(total=100, show_eta=False)
-        yield TextLog(highlight=True, markup=True, id="text_logger")
+
         yield Footer()
 
     # def on_key(self, event: Key):
@@ -210,7 +233,7 @@ class MagellonInstallationApp(App[str]):
             text_log = self.query_one(TextLog)
             try:
                 with open('assets/templates/deployment_playbook_template.yml.j2', 'r') as file:
-                    template = Template(file.read(),variable_start_string='${', variable_end_string='}')
+                    template = Template(file.read(), variable_start_string='${', variable_end_string='}')
 
                 rendered_playbook = template.render(data=data)
 
