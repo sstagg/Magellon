@@ -142,7 +142,7 @@ class MagellonInstallationApp(App[str]):
                 yield Input(
                     placeholder="Database Name..",
                     validators=[
-                        Regex("^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"),
+                        Regex("^[a-zA-Z0-9_.-]+$"),
                     ], id="mysql_server_db_dbname"
                 )
                 yield Label("Install MySql Server  ")
@@ -249,8 +249,17 @@ class MagellonInstallationApp(App[str]):
         installation_data.core_service_server_username = self.query_one("#server_username", Input).value
         installation_data.core_service_server_password = self.query_one("#server_password", Input).value
         installation_data.core_service_server_port = self.query_one("#server_core_port", Input).value
+        installation_data.core_service_server_base_directory = self.query_one("#core_server_base_directory", Input).value
+
+        installation_data.webapp_server_ip = self.query_one("#web_server_ip", Input).value
+        installation_data.webapp_server_username = self.query_one("#web_server_username", Input).value
+        installation_data.webapp_server_password = self.query_one("#web_server_password", Input).value
         installation_data.webapp_port = self.query_one("#server_webapp_port", Input).value
+
+        installation_data.if_install_mysql = self.query_one("#if_install_mysql_server", Switch).value
         installation_data.mysql_server_ip = self.query_one("#mysql_server_ip", Input).value
+        installation_data.mysql_server_username = self.query_one("#mysql_server_username", Input).value
+        installation_data.mysql_server_password = self.query_one("#mysql_server_password", Input).value
         installation_data.mysql_server_db_username = self.query_one("#mysql_server_db_username", Input).value
         installation_data.mysql_server_db_password = self.query_one("#mysql_server_db_password", Input).value
         installation_data.mysql_server_db_dbname = self.query_one("#mysql_server_db_dbname", Input).value
@@ -264,15 +273,28 @@ class MagellonInstallationApp(App[str]):
             self.query_one("#server_username", Input).value = installation_data.core_service_server_username
         if installation_data.core_service_server_password is not None:
             self.query_one("#server_password", Input).value = installation_data.core_service_server_password
-
         if installation_data.core_service_server_port is not None:
             self.query_one("#server_core_port", Input).value = str(installation_data.core_service_server_port)
+        if installation_data.core_service_server_base_directory is not None:
+            self.query_one("#core_server_base_directory", Input).value = str(installation_data.core_service_server_base_directory)
 
+        if installation_data.webapp_server_ip is not None:
+            self.query_one("#web_server_ip", Input).value = installation_data.webapp_server_ip
+        if installation_data.webapp_server_username is not None:
+            self.query_one("#web_server_username", Input).value = installation_data.webapp_server_username
+        if installation_data.webapp_server_password is not None:
+            self.query_one("#web_server_password", Input).value = installation_data.webapp_server_password
         if installation_data.webapp_port is not None:
             self.query_one("#server_webapp_port", Input).value = str(installation_data.webapp_port)
 
+        if installation_data.if_install_mysql is not None:
+            self.query_one("#if_install_mysql_server", Switch).value = installation_data.if_install_mysql
         if installation_data.mysql_server_ip is not None:
             self.query_one("#mysql_server_ip", Input).value = installation_data.mysql_server_ip
+        if installation_data.mysql_server_username is not None:
+            self.query_one("#mysql_server_username", Input).value = installation_data.mysql_server_username
+        if installation_data.mysql_server_password is not None:
+            self.query_one("#mysql_server_password", Input).value = installation_data.mysql_server_password
         if installation_data.mysql_server_db_username is not None:
             self.query_one("#mysql_server_db_username", Input).value = installation_data.mysql_server_db_username
         if installation_data.mysql_server_db_password is not None:

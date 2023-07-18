@@ -34,7 +34,7 @@ Grid>Input {
     row-span: 1;
 }
 #text_logger {
-    border: round white;
+    border: round gray;
     min-height: 10vw;
 }
 #mysql_server_info {
