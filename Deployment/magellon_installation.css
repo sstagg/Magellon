@@ -1,15 +1,44 @@
 Screen {
     layout: grid;
-    grid-size: 2;
-    grid-gutter: 2;
-    padding: 2;
+    grid-size: 5;
+    grid-gutter: 1;
+    /*border: solid yellow;*/
 }
-#MagellonInstallationApp {
-    width: 100%;
-    height: 100%;
+TabbedContent {
+    /*border: solid green;*/
+    column-span: 4;
+
+}
+
+TabPane {
+    /*border: solid blue;*/
+    /*layout: grid;*/
+    /*grid-size: 12 12;*/
+}
+Grid {
+    margin: 0;
+    /*border: round white;*/
+    grid-size: 12 12;
+    min-height: 20vw;
+}
+Grid>Label {
+    margin: 1 2;
+    padding:1;
     column-span: 2;
+    row-span: 1;
+}
+Grid>Input {
+    /*border: round ;*/
+    margin: 1 2;
+    column-span: 4;
+    row-span: 1;
+}
+#text_logger {
+    border: round white;
+    min-height: 10vw;
 }
 
 Button {
     width: 25%;
+    margin: 1fr;
 }

@@ -49,7 +49,12 @@ https://aws.amazon.com/ec2/instance-types/mac/
 
 `
 ssh-keygen -F 5.161.91.240
+ssh-keygen -R 5.161.91.240
 ssh-keyscan -H 5.161.91.240 >> ~/.ssh/known_hosts
 
 ansible-playbook ./playbooks/mysql.yml -i ./playbooks/inventory.ini
+ansible-playbook ./playbooks/docker.yaml -i ./playbooks/inventory.ini
+
+
+textual run main.py --dev
 `
