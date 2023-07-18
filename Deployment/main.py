@@ -8,7 +8,7 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, Grid
 from textual.validation import Regex, Number
-from textual.widgets import Header, Footer, Label, Button, Input, TabbedContent, TabPane, ProgressBar, TextLog
+from textual.widgets import Header, Footer, Label, Button, Input, TabbedContent, TabPane, ProgressBar, TextLog, Switch
 
 from libs.models import InstallationData
 from screens.quit_screen import QuitScreen
@@ -77,40 +77,42 @@ class MagellonInstallationApp(App[str]):
                     Input(
                         placeholder="Enter core app port number", value="8000",
                         validators=[Number(minimum=1, maximum=65500), ], id="server_core_port"
+                    )
+                )
+
+            with TabPane("WebApp", id="WebAppTabPane"):
+                yield Grid(
+                    Label("IP address:"),
+                    Input(
+                        placeholder="Enter accessible ip address or name...",
+                        validators=[Regex("^(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?!$)|$)){4}$"), ], id="web_server_ip"
                     ),
+                    Label("Host Name:"),
+                    Input(
+                        placeholder="Enter accessible host name...",
+                        validators=[Regex("^[a-zA-Z0-9_.-]+$"), ], id="web_server_name"
+                    ),
+                    Label("Username:"),
+                    Input(
+                        placeholder="Enter server's username...",
+                        validators=[Regex(
+                            "^[a-zA-Z0-9_.-]+$"), ],
+                        id="web_server_username"
+                    ),
+
+                    Label("Password:"),
+                    Input(
+                        placeholder="Enter server's password : at least one digit, one uppercase letter, at least one lowercase letter, at least one special character",
+                        validators=[Regex("^(?=.*[\d])(?=.*[A-Z])(?=.*[a-z])(?=.*[@#$])[\w\d@#$]{6,12}$"), ],
+                        id="web_server_password"
+                    )
+                    ,
+
                     Label("WebApp's Port Number:"),
                     Input(
                         placeholder="Enter web app's port number", value="8080",
                         validators=[Number(minimum=1, maximum=65500), ], id="server_webapp_port"
                     )
-                )
-
-            with TabPane("WebApp", id="WebAppTabPane"):
-                yield Label("MySql Server:")
-                yield Input(
-                    placeholder="Enter accessible ip address or name...",
-                    validators=[Regex("^(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?!$)|$)){4}$"), ], id="mysql_server_ip2"
-                )
-
-                yield Label("User Name:")
-                yield Input(
-                    placeholder="Enter a username...",
-                    validators=[
-                        Regex("^[a-zA-Z0-9_.-]+$"),
-                    ], id="mysql_server_db_username2"
-                )
-                yield Label("Password:")
-                yield Input(
-                    placeholder="Enter mysql password...",
-                    validators=[
-                        Regex("^(?=.*[\d])(?=.*[A-Z])(?=.*[a-z])(?=.*[@#$])[\w\d@#$]{6,12}$"),
-                    ], id="mysql_server_db_password2"
-                )
-                yield Input(
-                    placeholder="Database Name..",
-                    validators=[
-                        Regex("^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"),
-                    ], id="mysql_server_db_dbname2"
                 )
             with TabPane("MySql", id="MySqlTabPane"):
                 yield Label("MySql Server:")
@@ -133,12 +135,38 @@ class MagellonInstallationApp(App[str]):
                         Regex("^(?=.*[\d])(?=.*[A-Z])(?=.*[a-z])(?=.*[@#$])[\w\d@#$]{6,12}$"),
                     ], id="mysql_server_db_password"
                 )
+                yield Label("Database Name:")
                 yield Input(
                     placeholder="Database Name..",
                     validators=[
                         Regex("^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"),
                     ], id="mysql_server_db_dbname"
                 )
+                yield Label("Install MySql Server  ")
+                yield Switch(value=False, id="if_install_mysql_server")
+
+                yield Vertical(
+                    Label("Server User Name:"),
+                    Input(
+                        placeholder="Enter a username...",
+                        validators=[
+                            Regex("^[a-zA-Z0-9_.-]+$"),
+                        ], id="mysql_server_username"
+                    ),
+                    Label("Server Password:"),
+                    Input(
+                        placeholder="Enter Server's password...",
+                        validators=[
+                            Regex("^(?=.*[\d])(?=.*[A-Z])(?=.*[a-z])(?=.*[@#$])[\w\d@#$]{6,12}$"),
+                        ], id="mysql_server_password"
+                    ), id="mysql_server_info"
+
+                )
+                # yield Horizontal(
+                #     Switch(value=False,id="install_mysql_server"),
+                #     Label("Install MySql Server  "),
+                #
+                # )
 
             # with TabPane("Ansible", id="ANSIBLE"):
             #     yield Label("User Name:")
@@ -170,6 +198,11 @@ class MagellonInstallationApp(App[str]):
         if do_quit:
             installation_data.save_settings('settings.json')
             self.exit()
+
+    def on_switch_changed(self, event: Switch.Changed) -> None:
+        panel = self.query_one("#mysql_server_info")
+        panel.styles.visibility = 'visible' if event.value else 'hidden'
+        # self.query_one(TextLog).write("Pressed")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "install":
