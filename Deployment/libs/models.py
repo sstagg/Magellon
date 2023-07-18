@@ -6,26 +6,29 @@ from pydantic import BaseModel, ValidationError
 
 class InstallationData(BaseModel):
     # input_movie: Optional[str]
-    server_ip: Optional[str] = None
-    server_username: Optional[str] = None
-    server_password: Optional[str] = None
-    server_port: Optional[int] = 8181
+    if_install_core_server: Optional[bool] = True
+    core_service_server_ip: Optional[str] = "127.0.0.1"
+    core_service_server_username: Optional[str] = None
+    core_service_server_password: Optional[str] = None
+    core_service_server_base_directory: Optional[str] = None
+    core_service_server_port: Optional[int] = 8000
 
+    if_Install_webapp_server: Optional[bool] = True
+    webapp_server_ip: Optional[str] = "127.0.0.1"
+    webapp_server_username: Optional[str] = "root"
+    webapp_server_password: Optional[str] = None
     webapp_port: Optional[int] = 8080
 
-    create_core_server: Optional[bool] = False
-    create_webapp_server: Optional[bool] = False
-
-    create_mysql_server: Optional[bool] = False
-    install_mysql: Optional[bool] = False
-
-    mysql_server_ip: Optional[str] = None
-    mysql_server_username: Optional[str] = None
+    # MySql Installation Data
+    if_install_mysql: Optional[bool] = False
+    mysql_server_ip: Optional[str] = "127.0.0.1"
+    mysql_server_username: Optional[str] = "root"
     mysql_server_password: Optional[str] = None
 
-    mysql_server_db_username: Optional[str] = None
+    mysql_server_db_username: Optional[str] = "root"
     mysql_server_db_password: Optional[str] = None
-    mysql_server_db_dbname: Optional[str] = None
+    mysql_server_db_dbname: Optional[str] = "magellon01"
+    mysql_server_db_port_no: Optional[int] = 3306
 
     # @classmethod
     def save_settings(self, file_path):
