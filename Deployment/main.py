@@ -1,4 +1,7 @@
 import os
+import queue
+import shutil
+import time
 
 import ansible_runner
 import pyfiglet
@@ -250,7 +253,8 @@ class MagellonInstallationApp(App[str]):
         installation_data.core_service_server_username = self.query_one("#server_username", Input).value
         installation_data.core_service_server_password = self.query_one("#server_password", Input).value
         installation_data.core_service_server_port = self.query_one("#server_core_port", Input).value
-        installation_data.core_service_server_base_directory = self.query_one("#core_server_base_directory", Input).value
+        installation_data.core_service_server_base_directory = self.query_one("#core_server_base_directory",
+                                                                              Input).value
 
         installation_data.webapp_server_ip = self.query_one("#web_server_ip", Input).value
         installation_data.webapp_server_username = self.query_one("#web_server_username", Input).value
@@ -277,7 +281,8 @@ class MagellonInstallationApp(App[str]):
         if installation_data.core_service_server_port is not None:
             self.query_one("#server_core_port", Input).value = str(installation_data.core_service_server_port)
         if installation_data.core_service_server_base_directory is not None:
-            self.query_one("#core_server_base_directory", Input).value = str(installation_data.core_service_server_base_directory)
+            self.query_one("#core_server_base_directory", Input).value = str(
+                installation_data.core_service_server_base_directory)
 
         if installation_data.webapp_server_ip is not None:
             self.query_one("#web_server_ip", Input).value = installation_data.webapp_server_ip
@@ -317,15 +322,40 @@ class MagellonInstallationApp(App[str]):
                 rendered_playbook = playbook_template.render(data=data)
                 rendered_inventory = inventory_template.render(data=data)
 
-                text_log.write(rendered_playbook)
+                # text_log.write(rendered_playbook)
                 # print(rendered_playbook)
                 with open("playbook.yml", 'w') as file:
                     file.write(rendered_playbook)
                 with open("inventory.ini", 'w') as file:
                     file.write(rendered_inventory)
 
-                runner_result = ansible_runner.run(private_data_dir='.', inventory=rendered_inventory, playbook=rendered_playbook)
-                print(runner_result.stats)
+                # runner_result = ansible_runner.run(private_data_dir='.', inventory=rendered_inventory, playbook=rendered_playbook)
+                # text_log.write(runner_result.stats)
+                runner = ansible_runner.run_async(private_data_dir='.', inventory=rendered_inventory,
+                                                  playbook=rendered_playbook)
+
+                # Print progress information as it becomes available
+                while runner.is_alive():
+                    event = runner.events.get()
+                    if event:
+                        if event['event'] == 'runner_on_ok':
+                            # Display progress for tasks that completed successfully
+                            text_log.write(f"Task '{event['event_data']['task_name']}' completed successfully")
+                        elif event['event'] == 'runner_on_failed':
+                            # Display progress for failed tasks
+                            text_log.write(f"Task '{event['event_data']['task_name']}' failed")
+                        # Add more conditions for other events as needed
+                        else:
+                            # Display progress for other events
+                            text_log.write(event)
+
+                # Wait for the playbook run to complete
+                runner.wait()
+
+                # Print the final playbook results
+                text_log.write(runner.get_results())
+
+
             except Exception as e:
                 print(e.__str__())
                 # run_data = run_async(playbook=rendered_playbook, extravars={'target_ip': data.}, quiet=True)
@@ -342,6 +372,51 @@ class MagellonInstallationApp(App[str]):
 
             # except AnsibleRunnerException as e:
             #     text_log.write(f"An error occurred while running the playbook: {str(e)}")
+
+        # def start_ansible_playbook(self):
+        #     # We may need to purge artifacts when we start again
+        #     if os.path.exists(os.path.join(self.temp_dir, 'artifacts')):
+        #         shutil.rmtree(os.path.join(self.temp_dir, 'artifacts'))
+        #
+        #     text_log.write("runner starting")
+        #     env = os.environ.copy()
+        #     env['ANSIBLE_KERNEL_STATUS_PORT'] = str(self.helper.status_socket_port)
+        #     self.runner_thread, self.runner = ansible_runner.run_async(private_data_dir=self.temp_dir,
+        #                                                                playbook="playbook.yml",
+        #                                                                quiet=True,
+        #                                                                debug=True,
+        #                                                                ignore_logging=True,
+        #                                                                cancel_callback=self.cancel_callback,
+        #                                                                finished_callback=self.finished_callback,
+        #                                                                event_handler=self.runner_process_message)
+        #     text_log.write("runner started")
+        #     text_log.write("Runner status: {}".format(self.runner.status))
+        #     while self.runner.status in ['unstarted', 'running', 'starting']:
+        #         text_log.write("In runner loop")
+        #
+        #         try:
+        #             text_log.write("getting message %s", self.helper.pause_socket_port)
+        #             msg = self.queue.get(timeout=1)
+        #         except queue.Empty:
+        #             text_log.write("Queue Empty!")
+        #             continue
+        #         text_log.write(msg)
+        #         # if isinstance(msg, StatusMessage):
+        #         #     if self.process_message(msg.message):
+        #         #         break
+        #         # elif isinstance(msg, TaskCompletionMessage):
+        #         #     text_log.write('msg.task_num %s tasks_counter %s', msg.task_num, self.tasks_counter)
+        #         #     break
+        #         # elif not self.is_ansible_alive():
+        #         #     text_log.write("ansible is dead")
+        #         #     self.do_shutdown(False)
+        #         #     break
+        #
+        #         text_log.write("Bottom of runner loop")
+        #         time.sleep(1)
+        #     text_log.write("Runner state is now {}".format(self.runner.status))
+        #
+        #     text_log.write("done")
 
 
 if __name__ == "__main__":
