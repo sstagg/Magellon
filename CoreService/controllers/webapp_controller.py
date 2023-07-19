@@ -15,7 +15,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session, joinedload
 from starlette.responses import FileResponse
 
-from config import FFT_SUB_URL, IMAGE_ROOT_URL, IMAGE_SUB_URL, IMAGE_ROOT_DIR,THUMBNAILS_SUB_URL
+from config import FFT_SUB_URL, IMAGE_ROOT_URL, IMAGE_SUB_URL, IMAGE_ROOT_DIR, THUMBNAILS_SUB_URL
 
 from database import get_db
 from models.pydantic_models import ParticlepickingjobitemDto, MicrographSetDto, SessionDto
@@ -41,9 +41,9 @@ file_service = FileService("transfer.log")
 
 
 @webapp_router.get('/images')
-def get_images_route(db_session: Session = Depends(get_db)):
-    session_name = "22apr01a"
-    level = 4
+def get_images_route(session_name: str, level: int, db_session: Session = Depends(get_db)):
+    # session_name = "22apr01a"
+    # level = 4
 
     # Get the Msession based on the session name
     msession = db_session.query(Msession).filter(Msession.name == session_name).first()
