@@ -12,8 +12,8 @@ export class ImagesService {
 
   constructor(private httpClient: HttpClient) { }
 
-  public getAllImages() {
-    return this.httpClient.get(this.baseUrl + 'images'
+  public getAllImages(session_name: string) {
+    return this.httpClient.get(this.baseUrl + 'images' + '?session_name=' + session_name
     );
   }
 
@@ -48,5 +48,8 @@ export class ImagesService {
   public updateParticlesByOid(oid: string, reqbody: any) {
     return this.httpClient.put(this.baseUrl + 'particles' + '/' + oid, reqbody);
   }
-
+  
+  public getSessions(name: string) {
+    return this.httpClient.get(this.baseUrl + 'sessions' + '?name=' + name);
+  }
 }

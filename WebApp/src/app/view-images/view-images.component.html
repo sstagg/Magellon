@@ -6,6 +6,15 @@
                     <i class='fa fa-angle-left'></i> &nbsp;
                     <span>Back to images</span>
                 </div>
+                <div style="margin: 0.7em;">
+                    <label class="border-0" style="align-items: center; font-weight: normal !important;">&nbsp; Session &nbsp;</label>
+                    <select [(ngModel)]="selectedSessionOid" style="align-items: center; font-weight: normal !important;"
+                    (change)="sessionUpdate($event);">
+                        <option *ngFor="let session of allSessions | keyvalue" [value]="session.key">
+                            {{session.value}}
+                        </option>
+                    </select>
+                </div>
             </div>
             <div class="card border-0 stack-selection">
                 <div *ngFor="let imgExt of imageModelArr; let i = index">

@@ -53,6 +53,13 @@ export class ViewImagesComponent implements OnInit {
     pixelsize: '',
     dose: ''
   };
+  defaultImageSpec: ImageSpec = {
+    defocus: '',
+    mag: '',
+    filename: '',
+    pixelsize: '',
+    dose: ''
+  };
   imageScale: number = 0;
   imageScalePixel: number = 0;
   imageScaleInAngstrom: boolean = false;
@@ -68,40 +75,16 @@ export class ViewImagesComponent implements OnInit {
   pickTypeEnable: boolean = false
   particlePickCoordinates: Particle[] = []
 
+  allSessions: any;
+  selectedSessionOid: string;
+  selectedSessionName: string;
+
   constructor(private imageService: ImagesService, private sanitizer: DomSanitizer) { }
 
   ngOnInit(): void {
-
-    this.imageService.getAllImages()
-      .subscribe((data: any) => {
-        for (var i in data.result) {
-          let imageExtArr: ImageModel[] = [];
-          for (var idx in data.result[i].images) {
-
-            this.unsafeImageUrl = 'data:image/png;base64,' + data.result[i].images[idx].encoded_image;
-
-            // Build ImageModel
-            let imageModel = {
-              name: data.result[i].images[idx].name,
-              encoded_image: data.result[i].images[idx].encoded_image,
-              url: this.sanitizer.bypassSecurityTrustUrl(this.unsafeImageUrl),
-              ext: data.result[i].ext
-            }
-
-            imageExtArr.push(imageModel);
-          }
-
-          // Build parent Image model
-          let imageExtModel = {
-            ext: data.result[i].ext,
-            images: imageExtArr
-          }
-          this.imageModelArr.push(imageExtModel)
-        }
-        this.getDefaultCenterImage(0, 0);
-        this.extIdx = 0;
-      })
-
+    this.getSessions();
+    this.selectedSessionName = this.allSessions[this.selectedSessionOid];
+    this.loadThumbnailsBySession();
   }
 
   getDefaultCenterImage(extIndex: number, imageIndex: number): void {
@@ -234,6 +217,7 @@ export class ViewImagesComponent implements OnInit {
     }
   }
 
+  // Save particle picks into database
   savePicks(): void {
     const reqbody = { "particles": this.particlePickCoordinates, "rad": this.pointSize }
     this.imageService.updateParticlesByOid(this.selectedPicker, reqbody)
@@ -255,12 +239,13 @@ export class ViewImagesComponent implements OnInit {
     this.ctx = this.canvas.getContext("2d");
   }
 
+  //Set canvas to default
   clearCanvas(): void {
-    //Clear canvas
     const context = this.canvas.getContext('2d');
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
   }
 
+  //Get x and y coordinates on canvas on user click, with top left corner of center image as (0,0)
   getPosition(event: any) {
 
     this.element = <Element>this.root;
@@ -276,6 +261,7 @@ export class ViewImagesComponent implements OnInit {
     this.drawCoordinates(curleft, curtop, "None");
   }
 
+  //Draw a circle around particles
   drawCoordinates(x: any, y: any, score: string) {
     let particle = {
       x: x,
@@ -308,5 +294,61 @@ export class ViewImagesComponent implements OnInit {
     return ((r << 16) | (g << 8) | b).toString(16);
   }
 
+  //Get all available sessions
+  getSessions(): void {
+    this.imageService.getSessions("")
+      .subscribe((data: any) => {
+        this.allSessions = {}
+        this.selectedSessionOid = data[0].Oid;
+        for (var i in data) {
+          this.allSessions[data[i].Oid]= data[i].name;
+        }
+      })
+  }
+
+  // Action on selecting session
+  sessionUpdate(e: any) {
+    this.selectedSessionOid = e.target.value
+    this.selectedSessionName = this.allSessions[this.selectedSessionOid];
+    this.loadThumbnailsBySession();
+  }
+
+  //Populate thumnail stack for a session
+  loadThumbnailsBySession() : void {
+    this.imageService.getAllImages(this.selectedSessionName)
+      .subscribe((data: any) => {
+        if(data.result.length == 0){
+          this.imageModelArr = [];
+          Object.assign(this.imageSpec, this.defaultImageSpec);
+          return;
+        }
+        for (var i in data.result) {
+          let imageExtArr: ImageModel[] = [];
+          for (var idx in data.result[i].images) {
+
+            this.unsafeImageUrl = 'data:image/png;base64,' + data.result[i].images[idx].encoded_image;
+
+            // Build ImageModel
+            let imageModel = {
+              name: data.result[i].images[idx].name,
+              encoded_image: data.result[i].images[idx].encoded_image,
+              url: this.sanitizer.bypassSecurityTrustUrl(this.unsafeImageUrl),
+              ext: data.result[i].ext
+            }
+
+            imageExtArr.push(imageModel);
+          }
+
+          // Build parent Image model
+          let imageExtModel = {
+            ext: data.result[i].ext,
+            images: imageExtArr
+          }
+          this.imageModelArr.push(imageExtModel)
+        }
+        this.getDefaultCenterImage(0, 0);
+        this.extIdx = 0;
+      })
+  }
 
 }
