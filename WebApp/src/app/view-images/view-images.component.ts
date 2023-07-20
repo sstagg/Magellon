@@ -78,12 +78,22 @@ export class ViewImagesComponent implements OnInit {
   allSessions: any;
   selectedSessionOid: string;
   selectedSessionName: string;
+  selectedLevel: number;
+  allLevels: {[key: number] : string} = {
+    1: "level1",
+    2: "level2",
+    3: "level3",
+    4: "level4",
+    5: "level5",
+    6: "level6"
+  }
 
   constructor(private imageService: ImagesService, private sanitizer: DomSanitizer) { }
 
   ngOnInit(): void {
     this.getSessions();
     this.selectedSessionName = this.allSessions[this.selectedSessionOid];
+    this.selectedLevel = 1;
     this.loadThumbnailsBySession();
   }
 
@@ -300,6 +310,7 @@ export class ViewImagesComponent implements OnInit {
       .subscribe((data: any) => {
         this.allSessions = {}
         this.selectedSessionOid = data[0].Oid;
+        this.selectedLevel = 1;
         for (var i in data) {
           this.allSessions[data[i].Oid]= data[i].name;
         }
@@ -308,14 +319,15 @@ export class ViewImagesComponent implements OnInit {
 
   // Action on selecting session
   sessionUpdate(e: any) {
-    this.selectedSessionOid = e.target.value
+    this.selectedSessionOid = e.target.value;
+    this.selectedLevel = 1;
     this.selectedSessionName = this.allSessions[this.selectedSessionOid];
     this.loadThumbnailsBySession();
   }
 
   //Populate thumnail stack for a session
   loadThumbnailsBySession() : void {
-    this.imageService.getAllImages(this.selectedSessionName)
+    this.imageService.getAllImages(this.selectedSessionName, this.selectedLevel)
       .subscribe((data: any) => {
         if(data.result.length == 0){
           this.imageModelArr = [];
@@ -349,6 +361,13 @@ export class ViewImagesComponent implements OnInit {
         this.getDefaultCenterImage(0, 0);
         this.extIdx = 0;
       })
+    }
+    
+  // Action on selecting session level
+  levelUpdate(e: any) {
+    this.selectedLevel = e.target.value;
+    this.selectedSessionName = this.allSessions[this.selectedSessionOid];
+    this.loadThumbnailsBySession();
   }
 
 }
