@@ -12,8 +12,8 @@ export class ImagesService {
 
   constructor(private httpClient: HttpClient) { }
 
-  public getAllImages(session_name: string) {
-    return this.httpClient.get(this.baseUrl + 'images' + '?session_name=' + session_name
+  public getAllImages(session_name: string, level: number) {
+    return this.httpClient.get(this.baseUrl + 'images' + '?session_name=' + session_name + '&' + 'level=' + level
     );
   }
 
