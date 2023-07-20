@@ -15,6 +15,15 @@
                         </option>
                     </select>
                 </div>
+                <div style="margin: 0.7em;">
+                    <label class="border-0" style="align-items: center; font-weight: normal !important;">&nbsp; Level &nbsp;</label>
+                    <select [(ngModel)]="selectedLevel" style="align-items: center; font-weight: normal !important;"
+                    (change)="levelUpdate($event);">
+                        <option *ngFor="let level of allLevels | keyvalue" [value]="level.key">
+                            {{level.key}}
+                        </option>
+                    </select>
+                </div>
             </div>
             <div class="card border-0 stack-selection">
                 <div *ngFor="let imgExt of imageModelArr; let i = index">
