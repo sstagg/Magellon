@@ -4,7 +4,7 @@ from starlette.responses import RedirectResponse
 from starlette.templating import Jinja2Templates
 from pathlib import Path
 
-from config.config import fetch_image_root_dir
+from config.config import ENV_TYPE, IMAGE_ROOT_DIR, fetch_image_root_dir
 
 home_router = APIRouter()
 
@@ -27,6 +27,11 @@ def health_check():
     #     console = Console()
     #     console.print_exception(show_locals=True)
     return {'status': 'ok'}
+
+
+@home_router.get("/env_type")
+async def get_env_type():
+    return {"Environment Type": ENV_TYPE, "DATA_DIR": IMAGE_ROOT_DIR}
 
 
 @home_router.get("/image_root_dir")

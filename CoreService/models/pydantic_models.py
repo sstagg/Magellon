@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, Json, ConfigDict
+from pydantic import BaseModel, Field, Json
 from typing import Optional, List
 import uuid
 
@@ -233,3 +233,5 @@ class MicrographSetDto(BaseModel):
     encoded_image: Optional[str] = None
     parent_id: Optional[uuid.UUID] = None
     level: Optional[int] = None
+
+

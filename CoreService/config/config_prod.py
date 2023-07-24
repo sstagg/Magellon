@@ -1,6 +1,6 @@
 import os
 import uuid
-
+ENV_TYPE = "production"
 # Create a connection to Consul agent
 CONSUL_HOST = os.getenv('CONSUL_HOST', '192.168.92.133')
 CONSUL_PORT = os.getenv('CONSUL_PORT', '8500')
@@ -79,3 +79,5 @@ DB_PASSWORD = 'behd1d#3454!2'
 DB_HOST = '5.161.212.237'
 DB_Port = '3306'
 DB_NAME = 'magellon02'
+
+

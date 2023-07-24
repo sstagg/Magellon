@@ -80,3 +80,48 @@ def get_db_connection():
     # return "mysql+pymysql://admin:behd1d2@192.168.92.133:3306/magellon04"
     # return "mysql+pymysql://admin:behd1d2@192.168.92.133:3306/magellon02?check_same_thread=False"
     # return os.getenv("DB_CONN")
+
+
+
+# Initialize AppSettings instance with custom values
+# app_settings = AppSettings(
+#     consul_settings=ConsulSettings(
+#         CONSUL_HOST='192.168.1.100',
+#         CONSUL_PORT=8501,
+#         CONSUL_USERNAME='myconsuluser',
+#         CONSUL_PASSWORD='myconsulpassword',
+#         CONSUL_SERVICE_NAME='my-service',
+#         CONSUL_SERVICE_ID='my-service-id'
+#     ),
+#     directory_settings=DirectorySettings(
+#         IMAGE_ROOT_URL='http://example.com/cdn/',
+#         ORIGINAL_IMAGES_SUB_URL='original/',
+#         IMAGE_SUB_URL='images/',
+#         THUMBNAILS_SUB_URL='thumbnails/',
+#         FRAMES_SUB_URL='frames/',
+#         FFT_SUB_URL='FFTs/',
+#         JOBS_PROCESSING_SUB_URL='processing/',
+#         THUMBNAILS_SUFFIX='_thumb.png',
+#         FRAMES_SUFFIX='_frame',
+#         FFT_SUFFIX='_fft.png',
+#         IMAGE_ROOT_DIR='/path/to/data',
+#         IMAGES_DIR='/path/to/data/images/',
+#         FFT_DIR='/path/to/data/FFTs/',
+#         THUMBNAILS_DIR='/path/to/data/thumbnails/',
+#         JOBS_DIR='/path/to/data/processing/'
+#     ),
+#     database_settings=DatabaseSettings(
+#         DB_Driver='mysql+pymysql',
+#         DB_USER='myuser',
+#         DB_PASSWORD='mypassword',
+#         DB_HOST='localhost',
+#         DB_Port='3306',
+#         DB_NAME='mydb'
+#     ),
+#     SLACK_TOKEN='xoxb-1234567890-abcdefghij-klmnopqrstuv-wxyz',
+#     BASE_DIRECTORY='/path/to/base/directory',
+#     ENV_TYPE='production'
+# )
+#
+# # Display the initialized values
+# print(app_settings.dict())

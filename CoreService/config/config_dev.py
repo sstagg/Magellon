@@ -2,7 +2,7 @@ import os
 import uuid
 
 BASE_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
-
+ENV_TYPE = "development"
 # Create a connection to Consul agent
 CONSUL_HOST = os.getenv('CONSUL_HOST', '192.168.92.133')
 CONSUL_PORT = os.getenv('CONSUL_PORT', '8500')
@@ -32,8 +32,6 @@ JOBS_PROCESSING_SUB_URL = r"processing/"
 THUMBNAILS_SUFFIX = r"_TIMG.png"
 FRAMES_SUFFIX = r"_frame"
 FFT_SUFFIX = r"_FFT.png"
-
-
 
 # my_config_value = os.environ.get('MY_CONFIG_VALUE')
 IMAGE_ROOT_DIR = os.getenv('DATA_DIR', r'c:/temp/data')
