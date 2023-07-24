@@ -14,7 +14,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session, joinedload
 from starlette.responses import FileResponse
 
-from config.config import FFT_SUB_URL, IMAGE_ROOT_URL, IMAGE_SUB_URL, IMAGE_ROOT_DIR, THUMBNAILS_SUB_URL, app_settings
+from config.config import FFT_SUB_URL,  IMAGE_SUB_URL, IMAGE_ROOT_DIR, THUMBNAILS_SUB_URL, app_settings,THUMBNAILS_SUFFIX,FFT_SUFFIX
 
 from database import get_db
 from models.pydantic_models import ParticlepickingjobitemDto, MicrographSetDto, SessionDto
@@ -144,7 +144,7 @@ def process_image_rows(rows, session_name):
 
 @webapp_router.get('/fft_image')
 def get_fft_image_route(name: str):
-    file_path = f"{IMAGE_ROOT_DIR}/{FFT_SUB_URL}{name}.png"
+    file_path = f"{IMAGE_ROOT_DIR}/{FFT_SUB_URL}{name}{FFT_SUFFIX}"
     return FileResponse(file_path, media_type='image/png')
 
 
@@ -226,13 +226,15 @@ def update_particle_picking_jobitem(oid: UUID,
 
 @webapp_router.get("/image_by_thumbnail")
 async def get_image_thumbnail(name: str):
-    file_path = f"{app_settings.directory_settings.IMAGE_ROOT_URL}{IMAGE_SUB_URL}{name}.png"
+    underscore_index = name.find('_')
+    session_name = name[:underscore_index]
+    file_path = f"{app_settings.directory_settings.IMAGE_ROOT_DIR}/{session_name}/{IMAGE_SUB_URL}{name}.png"
     return FileResponse(file_path, media_type='image/png')
 
 
 @webapp_router.get("/image_thumbnail_url")
 async def get_image_thumbnail_url(name: str):
-    return f"{app_settings.directory_settings.IMAGE_ROOT_URL}{IMAGE_SUB_URL}{name}.png"
+    return f"{app_settings.directory_settings.IMAGE_ROOT_DIR}/{IMAGE_SUB_URL}{name}.png"
 
 
 # @webapp_router.post("/transfer_files")

@@ -29,7 +29,7 @@ FRAMES_SUB_URL = r"frames/"
 FFT_SUB_URL = r"ffts/"
 JOBS_PROCESSING_SUB_URL = r"processing/"
 
-THUMBNAILS_SUFFIX = r"_thumbs.png"
+THUMBNAILS_SUFFIX = r"_TIMG.png"
 FRAMES_SUFFIX = r"_frame"
 FFT_SUFFIX = r"_fft.png"
 
