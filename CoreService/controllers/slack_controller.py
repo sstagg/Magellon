@@ -2,7 +2,7 @@ from fastapi import APIRouter
 import slack
 from slack.errors import SlackApiError
 
-from config.config import SLACK_TOKEN
+from config.config import app_settings
 from models.pydantic_models import SlackMessage
 
 ###
@@ -11,7 +11,7 @@ from models.pydantic_models import SlackMessage
 
 slack_router = APIRouter()
 
-client = slack.WebClient(SLACK_TOKEN)
+client = slack.WebClient(app_settings.SLACK_TOKEN)
 
 
 @slack_router.post('/send_message_to_slack')

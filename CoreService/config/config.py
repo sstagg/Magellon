@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from models.pydantic_models_settings import AppSettings, ConsulSettings, DirectorySettings, DatabaseSettings
 
 BASE_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
-# Initialize AppSettings instance with custom values
+# Initialize AppSettings instance with default values or fallback settings
 app_settings = AppSettings(
     consul_settings=ConsulSettings(
         CONSUL_HOST=os.getenv('CONSUL_HOST', '192.168.92.133'),
@@ -61,6 +61,11 @@ else:
 
 consul_client = None
 
+consul_config = {
+    "host": app_settings.consul_settings.CONSUL_HOST,
+    "port": app_settings.consul_settings.CONSUL_PORT
+}
+
 
 def init_consul_client():
     global consul_client
@@ -72,7 +77,7 @@ def init_consul_client():
         consul_client = None
 
 
-init_consul_client()
+# init_consul_client()
 
 
 def register_with_consul(app: FastAPI, service_address: str, service_name: str, service_id: str, service_port: int,
@@ -125,7 +130,7 @@ def fetch_configurations():
 
 
 def get_db_connection():
-    return f'{DB_Driver}://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_Port}/{DB_NAME}'
+    return f'{app_settings.database_settings.DB_Driver}://{app_settings.database_settings.DB_USER}:{app_settings.database_settings.DB_PASSWORD}@{app_settings.database_settings.DB_HOST}:{app_settings.database_settings.DB_Port}/{app_settings.database_settings.DB_NAME}'
     # return "mysql+pymysql://admin:behd1d2@192.168.92.133:3306/magellon04"
     # return "mysql+pymysql://admin:behd1d2@192.168.92.133:3306/magellon02?check_same_thread=False"
     # return os.getenv("DB_CONN")
