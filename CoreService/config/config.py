@@ -1,14 +1,63 @@
 import json
 import os
 import consul
+import yaml
+import uuid
 from fastapi import FastAPI
 
+from models.pydantic_models_settings import AppSettings, ConsulSettings, DirectorySettings, DatabaseSettings
+
 BASE_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
+# Initialize AppSettings instance with custom values
+app_settings = AppSettings(
+    consul_settings=ConsulSettings(
+        CONSUL_HOST=os.getenv('CONSUL_HOST', '192.168.92.133'),
+        CONSUL_PORT=os.getenv('CONSUL_PORT', 8500),
+        CONSUL_USERNAME=os.getenv('CONSUL_USERNAME', '8500'),
+        CONSUL_PASSWORD=os.getenv('CONSUL_PASSWORD', '8500'),
+        CONSUL_SERVICE_NAME=os.getenv('CONSUL_SERVICE_NAME', 'magellon-core-service'),
+        CONSUL_SERVICE_ID=os.getenv('CONSUL_SERVICE_ID', "magellon-service-" + str(uuid.uuid4()))
+
+    ),
+    directory_settings=DirectorySettings(
+        IMAGE_ROOT_URL=r"http://localhost/cdn/",
+        ORIGINAL_IMAGES_SUB_URL=r'original/',
+        IMAGE_SUB_URL=r'images/',
+        THUMBNAILS_SUB_URL=r'thumbnails/',
+        FRAMES_SUB_URL=r'frames/',
+        FFT_SUB_URL=r'FFTs/',
+        JOBS_PROCESSING_SUB_URL=r'processing/',
+        THUMBNAILS_SUFFIX=r'_TIMG.png',
+        FRAMES_SUFFIX=r'_frame',
+        FFT_SUFFIX=r'_fft.png',
+        IMAGE_ROOT_DIR=os.getenv('DATA_DIR', r'c:/temp/data'),
+        # IMAGES_DIR=f"{IMAGE_ROOT_DIR}/{IMAGE_SUB_URL}",
+        # FFT_DIR=f"{IMAGE_ROOT_DIR}/{FFT_SUB_URL}",
+        # THUMBNAILS_DIR= f"{IMAGE_ROOT_DIR}/{THUMBNAILS_SUB_URL}",
+        # JOBS_DIR=f"{IMAGE_ROOT_DIR}/{JOBS_PROCESSING_SUB_URL}"
+    ),
+    database_settings=DatabaseSettings(
+        DB_Driver='mysql+pymysql',
+        DB_USER='behdad',
+        DB_PASSWORD='behd1d#3454!2',
+        DB_HOST='5.161.212.237',
+        DB_Port=3306,
+        DB_NAME='magellon02'
+    ),
+    SLACK_TOKEN=os.getenv('SLACK_TOKEN') or "xoxb-5284990093169-5258053840439-aJ8x7uHcUCNqCKSZkbOSbAlq",
+    BASE_DIRECTORY=os.path.abspath(os.path.dirname(__file__)),
+    ENV_TYPE='development',
+)
+# with open("./app_settings_prod.yaml", "w") as file:
+#     yaml.dump(app_settings.dict(), file)
+# app_settings.save_settings("./app_settings_prod2.yaml")
 
 if os.environ.get('APP_ENV', "development") == 'production':
     from .config_prod import *
+    app_settings = AppSettings.load_settings("./config/app_settings_prod.yaml")
 else:
     from .config_dev import *
+    app_settings = AppSettings.load_settings("./config/app_settings_dev.yaml")
 
 consul_client = None
 
@@ -81,47 +130,6 @@ def get_db_connection():
     # return "mysql+pymysql://admin:behd1d2@192.168.92.133:3306/magellon02?check_same_thread=False"
     # return os.getenv("DB_CONN")
 
-
-
-# Initialize AppSettings instance with custom values
-# app_settings = AppSettings(
-#     consul_settings=ConsulSettings(
-#         CONSUL_HOST='192.168.1.100',
-#         CONSUL_PORT=8501,
-#         CONSUL_USERNAME='myconsuluser',
-#         CONSUL_PASSWORD='myconsulpassword',
-#         CONSUL_SERVICE_NAME='my-service',
-#         CONSUL_SERVICE_ID='my-service-id'
-#     ),
-#     directory_settings=DirectorySettings(
-#         IMAGE_ROOT_URL='http://example.com/cdn/',
-#         ORIGINAL_IMAGES_SUB_URL='original/',
-#         IMAGE_SUB_URL='images/',
-#         THUMBNAILS_SUB_URL='thumbnails/',
-#         FRAMES_SUB_URL='frames/',
-#         FFT_SUB_URL='FFTs/',
-#         JOBS_PROCESSING_SUB_URL='processing/',
-#         THUMBNAILS_SUFFIX='_thumb.png',
-#         FRAMES_SUFFIX='_frame',
-#         FFT_SUFFIX='_fft.png',
-#         IMAGE_ROOT_DIR='/path/to/data',
-#         IMAGES_DIR='/path/to/data/images/',
-#         FFT_DIR='/path/to/data/FFTs/',
-#         THUMBNAILS_DIR='/path/to/data/thumbnails/',
-#         JOBS_DIR='/path/to/data/processing/'
-#     ),
-#     database_settings=DatabaseSettings(
-#         DB_Driver='mysql+pymysql',
-#         DB_USER='myuser',
-#         DB_PASSWORD='mypassword',
-#         DB_HOST='localhost',
-#         DB_Port='3306',
-#         DB_NAME='mydb'
-#     ),
-#     SLACK_TOKEN='xoxb-1234567890-abcdefghij-klmnopqrstuv-wxyz',
-#     BASE_DIRECTORY='/path/to/base/directory',
-#     ENV_TYPE='production'
-# )
 #
 # # Display the initialized values
 # print(app_settings.dict())

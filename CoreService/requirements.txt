@@ -34,4 +34,4 @@ rich==13.4.2
 # textual
 pyfiglet
 diagrams
-graphviz
+pyyaml==6.0.1
