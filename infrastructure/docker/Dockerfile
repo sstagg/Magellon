@@ -24,11 +24,12 @@ COPY repositories ./repositories
 COPY services ./services
 COPY templates ./templates
 COPY tests ./tests
-COPY config_prod.py ./config_prod.py
-COPY config_dev.py ./config_dev.py
-COPY config.py ./config.py
+COPY config ./config
+COPY config_prod.py ./config/config_prod.py
+COPY config_dev.py ./config/config_dev.py
+COPY config.py ./config/config.py
+COPY logger_config.py ./config/logger_config.py
 COPY database.py ./database.py
-COPY logger_config.py ./logger_config.py
 COPY test_main.http ./
 
 # Create a volume for the application data

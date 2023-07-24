@@ -1,11 +1,10 @@
 from fastapi import APIRouter
-from rich.console import Console
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 from starlette.templating import Jinja2Templates
 from pathlib import Path
 
-from config import fetch_image_root_dir
+from config.config import fetch_image_root_dir
 
 home_router = APIRouter()
 

@@ -1,10 +1,10 @@
 import glob
 import os
-from typing import Dict, List, Union, Any
+from typing import Any
 
-from starlette.responses import FileResponse, JSONResponse
+from starlette.responses import FileResponse
 
-from config import THUMBNAILS_DIR
+from config.config import THUMBNAILS_DIR
 from models.sqlalchemy_models import Image
 from services.helper import get_response_image, format_data_by_ext
 

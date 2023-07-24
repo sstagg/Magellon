@@ -1,22 +1,19 @@
-import glob
 import time
 from collections import deque
 from datetime import datetime
 import os
-import shutil
 import json
 import uuid
 from typing import Dict
 import concurrent.futures
 
 import pymysql
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import text
+from fastapi import Depends
 
-from config import FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL
-from config_dev import FRAMES_SUB_URL
+from config.config import FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL
+from config.config_dev import FRAMES_SUB_URL
 from database import get_db
-from models.pydantic_models import LeginonFrameTransferJobDto, LeginonFrameTransferTaskDto, LeginonImageDto
+from models.pydantic_models import LeginonFrameTransferJobDto, LeginonFrameTransferTaskDto
 from models.sqlalchemy_models import Frametransferjob, Frametransferjobitem, Image, Project, Msession
 from services.file_service import copy_file, create_directory, check_file_exists
 from services.mrc_image_service import MrcImageService

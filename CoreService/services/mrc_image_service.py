@@ -8,7 +8,7 @@ from scipy import fftpack
 from scipy.fft import fft2
 import scipy.fftpack
 
-from config import IMAGE_SUB_URL, THUMBNAILS_SUB_URL, FFT_SUB_URL
+from config.config import IMAGE_SUB_URL, THUMBNAILS_SUB_URL, FFT_SUB_URL
 
 
 class MrcImageService:

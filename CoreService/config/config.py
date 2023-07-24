@@ -6,9 +6,9 @@ from fastapi import FastAPI
 BASE_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
 
 if os.environ.get('APP_ENV', "development") == 'production':
-    from config_prod import *
+    from .config_prod import *
 else:
-    from config_dev import *
+    from .config_dev import *
 
 consul_client = None
 

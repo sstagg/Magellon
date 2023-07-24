@@ -5,7 +5,7 @@ import socket
 
 # import fastapi
 import uvicorn
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI
 # from rich.logging import RichHandler
 from rich.traceback import Traceback
 from starlette.middleware.cors import CORSMiddleware
@@ -28,10 +28,10 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from rich import print
 import pyfiglet as pyfiglet
 
-from database import engine, session_local, get_db
+from database import engine, session_local
 import logging
 
-from logger_config import LOGGING_CONFIG
+from config.logger_config import LOGGING_CONFIG
 
 # from models import graphql_strawberry_schema
 from models.graphql_strawberry_schema import strawberry_graphql_router

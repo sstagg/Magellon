@@ -2,7 +2,7 @@ from fastapi import APIRouter
 import slack
 from slack.errors import SlackApiError
 
-from config import SLACK_TOKEN
+from config.config import SLACK_TOKEN
 from models.pydantic_models import SlackMessage
 
 ###
