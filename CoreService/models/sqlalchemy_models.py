@@ -448,7 +448,11 @@ class Frametransferjobitem(Base):
     settings = Column(JSON)
     status = Column(INTEGER(11))
     steps = Column(INTEGER(11))
-    path = Column(Text)
+    filename = Column(Text)
+    image_name = Column(Text)
+    image_path = Column(Text)
+    frame_name = Column(Text)
+    frame_path = Column(Text)
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)
 

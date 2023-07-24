@@ -13,3 +13,5 @@ pyinstaller
 Jinja2
 
 PyMySQL
+
+# graphviz

@@ -22,13 +22,17 @@ SLACK_TOKEN: str = os.getenv('SLACK_TOKEN') or "xoxb-5284990093169-5258053840439
 # BASE_PATH = r"/Users/rupalimyskar/Downloads/Stagg Lab/mywork/code/magellonService/images/rawdata"
 IMAGE_ROOT_URL = r"http://localhost/cdn/"
 
+ORIGINAL_IMAGES_SUB_URL = r"original/"
 IMAGE_SUB_URL = r"images/"
 THUMBNAILS_SUB_URL = r"thumbnails/"
 FRAMES_SUB_URL = r"frames/"
 FFT_SUB_URL = r"FFTs/"
 JOBS_PROCESSING_SUB_URL = r"processing/"
 
-FRAMES_SUFFIX = r"frame"
+THUMBNAILS_SUFFIX = r"_TIMG.png"
+FRAMES_SUFFIX = r"_frame"
+FFT_SUFFIX = r"_FFT.png"
+
 
 
 # my_config_value = os.environ.get('MY_CONFIG_VALUE')
@@ -64,4 +68,4 @@ DB_USER = 'behdad'
 DB_PASSWORD = 'behd1d#3454!2'
 DB_HOST = '5.161.212.237'
 DB_Port = '3306'
-DB_NAME = 'magellon01'
+DB_NAME = 'magellon02'

@@ -34,6 +34,12 @@ FRAMES_SUB_URL = r"frames/"
 THUMBNAILS_SUB_URL = r"thumbnails/"
 FFT_SUB_URL = r"FFTs/"
 
+
+THUMBNAILS_SUFFIX = r"_TIMG.png"
+FRAMES_SUFFIX = r"_frame"
+FFT_SUFFIX = r"_FFT.png"
+
+
 # my_config_value = os.environ.get('MY_CONFIG_VALUE')
 IMAGE_ROOT_DIR = os.getenv('DATA_DIR', '/app/data')
 
@@ -72,4 +78,4 @@ DB_USER = 'behdad'
 DB_PASSWORD = 'behd1d#3454!2'
 DB_HOST = '5.161.212.237'
 DB_Port = '3306'
-DB_NAME = 'magellon01'
+DB_NAME = 'magellon02'

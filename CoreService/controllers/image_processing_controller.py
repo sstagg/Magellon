@@ -3,10 +3,12 @@ import os
 import subprocess
 import uuid
 
-from fastapi import APIRouter, HTTPException ,Depends
+from fastapi import APIRouter, HTTPException, Depends
 
-from models.pydantic_models import LeginonFrameTransferJobDto
+from config.config import IMAGE_ROOT_DIR
+from models.pydantic_models import LeginonFrameTransferJobDto, LeginonFrameTransferJobBase
 from models.pydantic_plugins_models import MotionCor2Input
+from services.diagrams_service import leginon_frame_transfer_diagram
 from services.helper import UUIDEncoder
 from services.leginon_frame_transfer_job_service import LeginonFrameTransferJobService
 from services.motioncor2_service import MotionCor2Service, build_motioncor2_command
@@ -203,15 +205,25 @@ async def run_motioncor2(input_data: MotionCor2Input):
 #     "leginon_mysql_db": "dbemdata",
 #     "session_name": "23mar23b"
 # }
+
+@image_processing_router.get("/diagram")
+def generate_diagram():
+    return leginon_frame_transfer_diagram()
+
+
 @image_processing_router.post("/transfer_images_job")
-def process_image_job(input_data: LeginonFrameTransferJobDto, db: Session = Depends(get_db)):
+def process_image_job(input_data: LeginonFrameTransferJobBase, db: Session = Depends(get_db)):
     # Generate a unique job ID
 
     job_id = uuid.uuid4()
-    input_data.job_id = job_id
-    input_json = json.dumps(input_data.dict(), cls=UUIDEncoder)
-    lft_service.setup(input_json)
-    # lft_service.setup_data(input_data)
+    job_dto = LeginonFrameTransferJobDto(**input_data)
+    job_dto.job_id = job_id
+    job_dto.target_directory = os.path.join(IMAGE_ROOT_DIR, job_dto.session_name)
+
+    # input_json = json.dumps(job_dto.dict(), cls=UUIDEncoder)
+    # lft_service.setup(input_json)
+
+    lft_service.setup_data(job_dto)
     lft_service.process(db)
 
     # Create a client to communicate with the Airflow API

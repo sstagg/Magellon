@@ -33,3 +33,5 @@ strawberry-graphql[fastapi]==0.195.3
 rich==13.4.2
 # textual
 pyfiglet
+diagrams
+graphviz

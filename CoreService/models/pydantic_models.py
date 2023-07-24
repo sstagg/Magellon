@@ -185,20 +185,24 @@ class MySQLConnectionSettings(BaseModel):
     database: str
 
 
-class LeginonFrameTransferJobDto(BaseModel):
-    job_id: Optional[uuid.UUID] = None
+class LeginonFrameTransferJobBase(BaseModel):
     magellon_project_name: str
     magellon_session_name: str
-    camera_directory: Optional[str] = None
-    target_directory: Optional[str] = None
+    camera_directory: Optional[str] = None  # for copying frames
     session_name: Optional[str] = None
     copy_images: Optional[bool] = True
     retries: Optional[int] = None
+
     leginon_mysql_host: Optional[str] = None
     leginon_mysql_port: Optional[int]
     leginon_mysql_db: Optional[str] = None
     leginon_mysql_user: Optional[str] = None
     leginon_mysql_pass: Optional[str] = None
+
+
+class LeginonFrameTransferJobDto(LeginonFrameTransferJobBase):
+    job_id: Optional[uuid.UUID] = None  # should be removed
+    target_directory: Optional[str] = None  # should be removed, it is base directory + magellon_session_name name
     task_list: Optional[List] = None  # List to store the tasks
 
 
@@ -206,10 +210,10 @@ class LeginonFrameTransferTaskDto(BaseModel):
     task_id: uuid.UUID
     task_alias: Optional[str] = None
     file_name: Optional[str] = None
-    frame_name: Optional[str] = None
     image_name: Optional[str] = None
     image_path: Optional[str] = None
-    target_path: Optional[str] = None
+    frame_name: Optional[str] = None
+    frame_path: Optional[str] = None
     job_dto: LeginonFrameTransferJobDto
     status: Optional[int] = None
 

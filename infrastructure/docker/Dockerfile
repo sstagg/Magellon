@@ -34,6 +34,7 @@ COPY test_main.http ./
 
 # Create a volume for the application data
 VOLUME /app/data
+VOLUME ./config
 
 # Set the environment variable for the data directory
 ENV DATA_DIR=/app/data

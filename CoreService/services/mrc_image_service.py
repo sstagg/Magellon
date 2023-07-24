@@ -8,7 +8,7 @@ from scipy import fftpack
 from scipy.fft import fft2
 import scipy.fftpack
 
-from config.config import IMAGE_SUB_URL, THUMBNAILS_SUB_URL, FFT_SUB_URL
+from config.config import IMAGE_SUB_URL, THUMBNAILS_SUB_URL, FFT_SUB_URL , THUMBNAILS_SUFFIX
 
 
 class MrcImageService:
@@ -158,8 +158,9 @@ class MrcImageService:
 
             png_path = os.path.join(out_dir, IMAGE_SUB_URL,
                                     os.path.splitext(os.path.basename(abs_file_path))[0] + ".png")
+
             thumbnail_path = os.path.join(out_dir, THUMBNAILS_SUB_URL,
-                                          os.path.splitext(os.path.basename(abs_file_path))[0] + "_TIMG.png")
+                                          os.path.splitext(os.path.basename(abs_file_path))[0] + THUMBNAILS_SUFFIX)
 
             self.create_image_directory(png_path)
             self.create_image_directory(thumbnail_path)

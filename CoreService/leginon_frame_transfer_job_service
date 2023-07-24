@@ -1,0 +1,59 @@
+digraph "Leginon Frame Transfer Job Service" {
+	graph [fontcolor="#2D3436" fontname="Sans-Serif" fontsize=15 label="Leginon Frame Transfer Job Service" nodesep=0.60 pad=2.0 rankdir=LR ranksep=0.75 splines=ortho]
+	node [fixedsize=true fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 height=1.4 imagescale=true labelloc=b shape=box style=rounded width=1.4]
+	edge [color="#7B8894"]
+	subgraph "cluster_Leginon Database" {
+		graph [bgcolor="#E5F5FD" fontname="Sans-Serif" fontsize=12 label="Leginon Database" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style=rounded]
+		"3376f414a84d4a4ca5d8f9a2d3883b7c" [label="Leginon DB" height=1.9 image="C:\projects\Magellon01\CoreService\venv\lib\site-packages\resources/onprem/database\mysql.png" shape=none]
+	}
+	subgraph "cluster_Leginon Camera" {
+		graph [bgcolor="#E5F5FD" fontname="Sans-Serif" fontsize=12 label="Leginon Camera" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style=rounded]
+		"5a5802a4e60a407783a88aa67a33185f" [label=Camera height=1.9 image="C:\projects\Magellon01\CoreService\venv\lib\site-packages\resources/onprem/compute\server.png" shape=none]
+	}
+	subgraph "cluster_FastAPI Service" {
+		graph [bgcolor="#E5F5FD" fontname="Sans-Serif" fontsize=12 label="FastAPI Service" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style=rounded]
+		"0fdb136592eb48d1b5c910e600a080e4" [label="FastAPI Server" height=1.9 image="C:\projects\Magellon01\CoreService\venv\lib\site-packages\resources/onprem/compute\server.png" shape=none]
+		subgraph "cluster_File Service" {
+			graph [bgcolor="#EBF3E7" fontname="Sans-Serif" fontsize=12 label="File Service" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style=rounded]
+			aff71af32e7f4517889e09ebacf80591 [label="File Operations" height=1.9 image="C:\projects\Magellon01\CoreService\venv\lib\site-packages\resources/onprem/compute\server.png" shape=none]
+		}
+	}
+	subgraph "cluster_Target Directory" {
+		graph [bgcolor="#E5F5FD" fontname="Sans-Serif" fontsize=12 label="Target Directory" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style=rounded]
+		a9125841fa944d978bcb3bf86acd817b [label="Target Directory" height=1.9 image="C:\projects\Magellon01\CoreService\venv\lib\site-packages\resources/onprem/compute\server.png" shape=none]
+	}
+	subgraph "cluster_FFT Server" {
+		graph [bgcolor="#E5F5FD" fontname="Sans-Serif" fontsize=12 label="FFT Server" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style=rounded]
+		"698ee9944b2448e89615acb6ac38eab8" [label="FFT Server" height=1.9 image="C:\projects\Magellon01\CoreService\venv\lib\site-packages\resources/onprem/compute\server.png" shape=none]
+		subgraph "cluster_MRC Image Service" {
+			graph [bgcolor="#EBF3E7" fontname="Sans-Serif" fontsize=12 label="MRC Image Service" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style=rounded]
+			"66586ada8bf741f7a1132804468eff5c" [label="MRC Image Service" height=1.9 image="C:\projects\Magellon01\CoreService\venv\lib\site-packages\resources/onprem/compute\server.png" shape=none]
+		}
+	}
+	subgraph "cluster_Magellon Database" {
+		graph [bgcolor="#E5F5FD" fontname="Sans-Serif" fontsize=12 label="Magellon Database" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style=rounded]
+		"42096a6245b04d40b5fda0fb47b15f51" [label="Magellon DB" height=1.9 image="C:\projects\Magellon01\CoreService\venv\lib\site-packages\resources/onprem/database\mysql.png" shape=none]
+	}
+	"2fc758216edf477bac2fff503d92e0a0" [label=Start height=1.9 image="C:\projects\Magellon01\CoreService\venv\lib\site-packages\resources/onprem/network\internet.png" shape=none]
+	dba75fae7f0543ce9d83bc3e12d0efb2 [label=End height=1.9 image="C:\projects\Magellon01\CoreService\venv\lib\site-packages\resources/onprem/network\internet.png" shape=none]
+	"2fc758216edf477bac2fff503d92e0a0" -> "3376f414a84d4a4ca5d8f9a2d3883b7c" [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	"3376f414a84d4a4ca5d8f9a2d3883b7c" -> "0fdb136592eb48d1b5c910e600a080e4" [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	"0fdb136592eb48d1b5c910e600a080e4" -> a9125841fa944d978bcb3bf86acd817b [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	"2fc758216edf477bac2fff503d92e0a0" -> "3376f414a84d4a4ca5d8f9a2d3883b7c" [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	"3376f414a84d4a4ca5d8f9a2d3883b7c" -> "0fdb136592eb48d1b5c910e600a080e4" [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	"0fdb136592eb48d1b5c910e600a080e4" -> a9125841fa944d978bcb3bf86acd817b [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	a9125841fa944d978bcb3bf86acd817b -> "5a5802a4e60a407783a88aa67a33185f" [dir=back fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	a9125841fa944d978bcb3bf86acd817b -> aff71af32e7f4517889e09ebacf80591 [dir=back fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	aff71af32e7f4517889e09ebacf80591 -> a9125841fa944d978bcb3bf86acd817b [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	a9125841fa944d978bcb3bf86acd817b -> "698ee9944b2448e89615acb6ac38eab8" [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	"698ee9944b2448e89615acb6ac38eab8" -> a9125841fa944d978bcb3bf86acd817b [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	a9125841fa944d978bcb3bf86acd817b -> "66586ada8bf741f7a1132804468eff5c" [dir=back fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	"0fdb136592eb48d1b5c910e600a080e4" -> "66586ada8bf741f7a1132804468eff5c" [dir=back fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	a9125841fa944d978bcb3bf86acd817b -> "66586ada8bf741f7a1132804468eff5c" [dir=back fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	a9125841fa944d978bcb3bf86acd817b -> "42096a6245b04d40b5fda0fb47b15f51" [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	"3376f414a84d4a4ca5d8f9a2d3883b7c" -> "42096a6245b04d40b5fda0fb47b15f51" [label="Fetch Images" dir=none fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	"0fdb136592eb48d1b5c910e600a080e4" -> "42096a6245b04d40b5fda0fb47b15f51" [label="Create Job" dir=none fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	"0fdb136592eb48d1b5c910e600a080e4" -> "42096a6245b04d40b5fda0fb47b15f51" [label="Process Images" dir=none fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	a9125841fa944d978bcb3bf86acd817b -> "42096a6245b04d40b5fda0fb47b15f51" [dir=back fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	dba75fae7f0543ce9d83bc3e12d0efb2 -> a9125841fa944d978bcb3bf86acd817b [dir=back fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+}

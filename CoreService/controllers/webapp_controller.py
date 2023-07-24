@@ -124,7 +124,7 @@ def process_image_rows(rows, session_name):
             parent_id=parent_id,
             parent_name=parent_name
         )
-        file_path = os.path.join(f"{IMAGE_ROOT_DIR}/{session_name}/{THUMBNAILS_SUB_URL}", image.name + '_TIMG.png')
+        file_path = os.path.join(f"{IMAGE_ROOT_DIR}/{session_name}/{THUMBNAILS_SUB_URL}", image.name + THUMBNAILS_SUFFIX)
         print(file_path)
         if os.path.isfile(file_path):
             image.encoded_image = get_response_image(file_path)
@@ -144,7 +144,7 @@ def process_image_rows(rows, session_name):
 
 @webapp_router.get('/fft_image')
 def get_fft_image_route(name: str):
-    file_path = f"{IMAGE_ROOT_DIR}/{FFT_SUB_URL}{name}.png" f"{IMAGE_ROOT_URL}{IMAGE_SUB_URL}{name}.png"
+    file_path = f"{IMAGE_ROOT_DIR}/{FFT_SUB_URL}{name}.png"
     return FileResponse(file_path, media_type='image/png')
 
 
@@ -235,15 +235,15 @@ async def get_image_thumbnail_url(name: str):
     return f"{IMAGE_ROOT_URL}{IMAGE_SUB_URL}{name}.png"
 
 
-@webapp_router.post("/transfer_files")
-async def transfer_files(source_path: str, destination_path: str, delete_original: bool = False,
-                         compress: bool = False):
-    try:
-        file_service.transfer_files(source_path, destination_path, delete_original)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    else:
-        return {"message": "Files transferred successfully."}
+# @webapp_router.post("/transfer_files")
+# async def transfer_files(source_path: str, destination_path: str, delete_original: bool = False,
+#                          compress: bool = False):
+#     try:
+#         file_service.transfer_files(source_path, destination_path, delete_original)
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
+#     else:
+#         return {"message": "Files transferred successfully."}
 
 
 @webapp_router.get('/sessions', response_model=List[SessionDto])

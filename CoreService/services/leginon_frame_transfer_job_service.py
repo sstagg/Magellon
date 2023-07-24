@@ -10,8 +10,8 @@ import concurrent.futures
 import pymysql
 from fastapi import Depends
 
-from config.config import FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL
-from config.config_dev import FRAMES_SUB_URL
+from config.config import FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, \
+    FFT_SUFFIX, FRAMES_SUFFIX
 from database import get_db
 from models.pydantic_models import LeginonFrameTransferJobDto, LeginonFrameTransferTaskDto
 from models.sqlalchemy_models import Frametransferjob, Frametransferjobitem, Image, Project, Msession
@@ -56,6 +56,7 @@ def update_levels(image_list: list[Image], parent_id=None, level=0):
 
 def create_directories(target_dir: str):
     create_directory(target_dir)
+    create_directory(os.path.join(target_dir, ORIGINAL_IMAGES_SUB_URL))
     create_directory(os.path.join(target_dir, FRAMES_SUB_URL))
     create_directory(os.path.join(target_dir, FFT_SUB_URL))
     create_directory(os.path.join(target_dir, IMAGE_SUB_URL))
@@ -154,7 +155,7 @@ class LeginonFrameTransferJobService:
                       psc.`REF|InstrumentData|tem`,
                       psc.`REF|InstrumentData|ccdcamera`,
                       psc.magnification
-                    FROM PixelSizeCalibrationData psc) psc
+                    FROM PixelSizeCalibrationData psc ) psc
                     ON psc.`REF|InstrumentData|tem` = pd.`REF|InstrumentData|tem`
                     AND psc.`REF|InstrumentData|ccdcamera` = pd.`REF|InstrumentData|ccdcamera`
                     AND psc.magnification = sem.magnification
@@ -162,6 +163,10 @@ class LeginonFrameTransferJobService:
             """
             self.leginon_cursor.execute(query, (session_name + "%",))
             leginon_image_list = self.leginon_cursor.fetchall()
+
+            # wants to copy image from target_dir + image.name to base_dir + session_name + images dir + image.name
+            # wants to copy image from camera_dir + frame.name to base_dir + session_name + frames dir + image.name_frame
+
             if len(leginon_image_list) > 0:
                 # image_dict = {image["filename"]: image for image in leginon_image_list}
                 image_dict = {}
@@ -169,9 +174,10 @@ class LeginonFrameTransferJobService:
                 job = Frametransferjob(
                     # Oid=uuid.uuid4(),
                     name="Leginon Import: " + session_name,
-                    description="Leginon Import for session: " + session_name + "in directory: " + session_result[
-                        "image path"],
-                    created_on=datetime.now(),
+                    description="Leginon Import for session: " +
+                                session_name + "in directory: " + session_result["image path"],
+                    created_on=datetime.now(), path=session_result["image path"],
+                    output_dir=self.params.camera_directory
                     # Set other job properties
                 )
                 db_session.add(job)
@@ -195,13 +201,18 @@ class LeginonFrameTransferJobService:
                     image_dict[filename] = db_image.Oid
 
                     # source_image_path = (session_result["image path"] + separator + filename + ".mrc")
-                    source_image_path = self.params.camera_directory + separator + image["image_name"]
+                    # change logic to use image's director instead'
+                    source_frame_path = os.path.join(self.params.camera_directory, image["frame_names"])
+                    source_image_path = os.path.join(session_result["image path"], image["image_name"])
 
                     # Create a new job item and associate it with the job and image
                     job_item = Frametransferjobitem(
                         Oid=uuid.uuid4(),
                         job_id=job.Oid,
-                        path=source_image_path,
+                        frame_name=image["frame_names"],
+                        frame_path=source_frame_path,
+                        image_name=image["image_name"],
+                        image_path=source_image_path,
                         status=1,
                         steps=0,
                         image_id=db_image.Oid,
@@ -220,6 +231,7 @@ class LeginonFrameTransferJobService:
                         image_name=image["image_name"],
                         frame_name=image["frame_names"],
                         image_path=source_image_path,
+                        frame_path=source_frame_path,
                         # target_path=self.params.target_directory + "/frames/" + f"{image['frame_names']}{source_extension}",
                         job_dto=self.params,
                         status=1
@@ -242,12 +254,8 @@ class LeginonFrameTransferJobService:
 
                 # update_levels_query = text("""
                 #     SET @tlevel = 1;
-                #
                 #     UPDATE image set level=NULL;
-                #
                 #     UPDATE image SET level = 0 WHERE parent_id IS NULL;
-                #
-                #
                 #     while  @tlevel < 8 do
                 #         UPDATE image AS child
                 #         JOIN image AS parent ON child.parent_id = parent.oid
@@ -289,8 +297,8 @@ class LeginonFrameTransferJobService:
 
     def run_tasks(self):
         try:
-            directory_path = os.path.join(self.params.target_directory, self.params.session_name)
-            create_directories(directory_path)
+            # directory_path = os.path.join(self.params.target_directory, self.params.session_name)
+            create_directories(self.params.target_directory)
             # self.create_directories(self.params.target_directory + "/" + self.params.session_name)
             # self.open_leginon_connection()
             with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -336,17 +344,13 @@ class LeginonFrameTransferJobService:
             self.transfer_frame(task_dto)
             # 2
             if task_dto.job_dto.copy_images:
-                copy_file(task_dto.image_path, task_dto.job_dto.target_directory + "/" + task_dto.image_name)
-                task_dto.image_path = os.path.join(task_dto.job_dto.target_directory, task_dto.image_name)
+                target_image_path = task_dto.job_dto.target_directory + "/" + ORIGINAL_IMAGES_SUB_URL + task_dto.image_name
+                copy_file(task_dto.image_path, target_image_path)
+                task_dto.image_path = target_image_path
 
             # Generate FFT using the REST API
             self.convert_image_to_png_task(task_dto.image_path, task_dto.job_dto.target_directory)
             self.compute_fft_png_task(task_dto.image_path, task_dto.job_dto.target_directory)
-            # Acknowledge task completion with the job_id and image name as task ID
-            # task_id = f"{image_path.split('/')[-1]}_{job_id}"
-            # dag_run_id = "{{ dag_run.id }}"
-            # task_instance = TaskInstance(task_id, dag_run_id)
-            # task_instance.set_state(TaskState.SUCCESS)
             return {'status': 'success', 'message': 'Task completed successfully.'}
 
         except Exception as e:
@@ -361,7 +365,7 @@ class LeginonFrameTransferJobService:
             if frame_path:
                 _, file_extension = os.path.splitext(frame_path)
                 target_path = os.path.join(task_dto.job_dto.target_directory, FRAMES_SUB_URL,
-                                           task_dto.file_name + "_frame" + file_extension)
+                                           task_dto.file_name + FRAMES_SUFFIX + file_extension)
                 copy_file(frame_path, target_path)
 
     def open_leginon_connection(self):
@@ -400,7 +404,7 @@ class LeginonFrameTransferJobService:
     def compute_fft_png_task(self, abs_file_path: str, out_dir: str):
         try:
             fft_path = os.path.join(out_dir, FFT_SUB_URL,
-                                    os.path.splitext(os.path.basename(abs_file_path))[0] + "_FFT.png")
+                                    os.path.splitext(os.path.basename(abs_file_path))[0] + FFT_SUFFIX)
             # self.create_image_directory(fft_path)
             # self.compute_fft(img=mic, abs_out_file_name=fft_path)
             self.mrc_service.compute_file_fft(mrc_abs_path=abs_file_path, abs_out_file_name=fft_path)
