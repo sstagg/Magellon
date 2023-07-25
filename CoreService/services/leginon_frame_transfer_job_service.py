@@ -6,6 +6,7 @@ import json
 import uuid
 from typing import Dict
 import concurrent.futures
+import logging
 
 import pymysql
 from fastapi import Depends
@@ -20,6 +21,7 @@ from services.mrc_image_service import MrcImageService
 from sqlalchemy.orm import Session
 
 MAX_RETRIES = 3
+logger = logging.getLogger(__name__)
 
 
 class TaskFailedException(Exception):
@@ -104,6 +106,7 @@ class LeginonFrameTransferJobService:
                     db_session.refresh(magellon_project)
 
             magellon_session_name = self.params.magellon_session_name or self.params.session_name
+            logger.info("Step 1: " + magellon_session_name)
             if self.params.magellon_session_name is not None:
                 magellon_session = db_session.query(Msession).filter(
                     Msession.name == magellon_session_name).first()
@@ -112,15 +115,16 @@ class LeginonFrameTransferJobService:
                     db_session.add(magellon_session)
                     db_session.commit()
                     db_session.refresh(magellon_session)
-
+            logger.info("Step 2: " + magellon_session_name)
             self.open_leginon_connection()
+            logger.info("Step 3: " + magellon_session_name)
             # get the session object from the database
             session_name = self.params.session_name
             query = "SELECT * FROM SessionData WHERE name = %s"
             self.leginon_cursor.execute(query, (session_name,))
             # Fetch all the results
             session_result = self.leginon_cursor.fetchone()
-
+            logger.info("Step 4: " + magellon_session_name)
             # get all the images in the leginon database
             # SQL query
             query = """
@@ -163,7 +167,7 @@ class LeginonFrameTransferJobService:
             """
             self.leginon_cursor.execute(query, (session_name + "%",))
             leginon_image_list = self.leginon_cursor.fetchall()
-
+            logger.info("Step 5: " + magellon_session_name)
             # wants to copy image from target_dir + image.name to base_dir + session_name + images dir + image.name
             # wants to copy image from camera_dir + frame.name to base_dir + session_name + frames dir + image.name_frame
 

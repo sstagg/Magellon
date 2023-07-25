@@ -46,3 +46,5 @@ FROM camera
  LIMIT %(param_1)s, %(param_2)s
 2023-07-25 13:10:37,115 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00048s] {'param_1': 0, 'param_2': 100}
 2023-07-25 13:10:37,152 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-25 13:45:23,672 [INFO] controllers.home_controller home_controller.py:25 - Logger is working
+2023-07-25 13:45:41,531 [INFO] controllers.home_controller home_controller.py:25 - Logger is working

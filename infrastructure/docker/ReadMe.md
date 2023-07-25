@@ -14,6 +14,7 @@ rm -rf "/home/behdad/projects/Magellon/"
 cd /home/behdad/projects
 gh repo clone sstagg/Magellon
 cd Magellon/CoreService/
+
 ### Go to CoreService directory and run:
 ```
 sudo docker build --no-cache -f ../infrastructure/docker/Dockerfile -t khoshbin/magellon-main-service ./
