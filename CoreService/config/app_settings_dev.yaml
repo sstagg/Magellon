@@ -23,6 +23,7 @@ directory_settings:
   FRAMES_SUFFIX: _frame
   IMAGES_DIR: null
   IMAGE_ROOT_DIR: c:/temp/data
+  NFS_ROOT_DIR: /magellon/nfs
   IMAGE_ROOT_URL: http://localhost/cdn/
   IMAGE_SUB_URL: images/
   JOBS_DIR: null

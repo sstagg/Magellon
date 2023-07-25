@@ -28,7 +28,7 @@ COPY tests ./tests
 COPY config ./config
 #COPY config_prod.py ./config/config_prod.py
 #COPY config_dev.py ./config/config_dev.py
-#COPY config.py ./config/config.py
+COPY config.py ./config/config.py
 #COPY logger_config.py ./config/logger_config.py
 COPY database.py ./database.py
 COPY test_main.http ./
@@ -36,6 +36,7 @@ COPY test_main.http ./
 # Create a volume for the application data
 VOLUME /app/data
 VOLUME ./config
+VOLUME /app/nfs
 
 # Set the environment variable for the data directory
 ENV DATA_DIR=/app/data

@@ -27,6 +27,7 @@ class DirectorySettings(BaseModel):
     FRAMES_SUFFIX: Optional[str] = None
     FFT_SUFFIX: Optional[str] = None
     IMAGE_ROOT_DIR: Optional[str] = None
+    NFS_ROOT_DIR: Optional[str] = None
     IMAGES_DIR: Optional[str] = None
     FFT_DIR: Optional[str] = None
     THUMBNAILS_DIR: Optional[str] = None
