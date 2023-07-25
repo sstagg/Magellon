@@ -113,7 +113,7 @@ export class ViewImagesComponent implements OnInit {
   }
 
   getCenterImage(imageName: any): void {
-    this.imageService.getImageByThumbnail(imageName)
+    this.imageService.getImageByThumbnail(this.imageName)
       .subscribe((data: any) => {
         this.unsafeImageUrl = URL.createObjectURL(data);
         this.setCanvasBackground()
@@ -327,10 +327,12 @@ export class ViewImagesComponent implements OnInit {
 
   //Populate thumnail stack for a session
   loadThumbnailsBySession() : void {
+    this.imageStackModelArr = [];
     this.imageService.getAllImages(this.selectedSessionName, this.selectedLevel)
       .subscribe((data: any) => {
+        this.imageModelArr = [];
         if(data.result.length == 0){
-          this.imageModelArr = [];
+          
           Object.assign(this.imageSpec, this.defaultImageSpec);
           return;
         }
