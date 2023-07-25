@@ -1,6 +1,8 @@
 import os
 import uuid
 ENV_TYPE = "production"
+
+
 # Create a connection to Consul agent
 # CONSUL_HOST = os.getenv('CONSUL_HOST', '192.168.92.133')
 # CONSUL_PORT = os.getenv('CONSUL_PORT', '8500')
@@ -29,6 +31,8 @@ ENV_TYPE = "production"
 
 # BASE_PATH = r"/Users/rupalimyskar/Downloads/Stagg Lab/mywork/code/magellonService/images/rawdata"
 IMAGE_ROOT_URL = r"http://localhost/cdn/"
+
+ORIGINAL_IMAGES_SUB_URL = r"original/"
 IMAGE_SUB_URL = r"images/"
 FRAMES_SUB_URL = r"frames/"
 THUMBNAILS_SUB_URL = r"thumbnails/"

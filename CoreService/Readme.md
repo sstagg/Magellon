@@ -173,3 +173,6 @@ WITH RECURSIVE cte AS (
 UPDATE image AS t
 JOIN cte ON t.oid = cte.oid
 SET t.level = cte.level;
+
+
+

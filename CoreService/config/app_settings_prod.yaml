@@ -1,6 +1,6 @@
 BASE_DIRECTORY: C:\projects\Magellon01\CoreService\config
-ENV_TYPE: development
-SLACK_TOKEN: xoxb-5284990093169-5258053840439-aJ8x7uHcUCNqCKSZkbOSbAlq
+ENV_TYPE: production
+SLACK_TOKEN: xoxb-5284990093169-5258053840439-aJ8x7uHcUCNqCKSZkbOSbAlt
 consul_settings:
   CONSUL_HOST: 192.168.92.133
   CONSUL_PASSWORD: '8500'
@@ -17,12 +17,12 @@ database_settings:
   DB_USER: behdad
 directory_settings:
   FFT_DIR: null
-  FFT_SUB_URL: FFTs/
+  FFT_SUB_URL: ffts/
   FFT_SUFFIX: _fft.png
   FRAMES_SUB_URL: frames/
   FRAMES_SUFFIX: _frame
   IMAGES_DIR: null
-  IMAGE_ROOT_DIR: c:/temp/data
+  IMAGE_ROOT_DIR: /magellon/data
   IMAGE_ROOT_URL: http://localhost/cdn/
   IMAGE_SUB_URL: images/
   JOBS_DIR: null

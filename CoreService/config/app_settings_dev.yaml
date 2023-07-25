@@ -17,7 +17,7 @@ database_settings:
   DB_USER: behdad
 directory_settings:
   FFT_DIR: null
-  FFT_SUB_URL: FFTs/
+  FFT_SUB_URL: ffts/
   FFT_SUFFIX: _fft.png
   FRAMES_SUB_URL: frames/
   FRAMES_SUFFIX: _frame

@@ -20,6 +20,8 @@ def create_directory(path):
         directory = os.path.dirname(path)
         if not os.path.exists(directory):
             os.makedirs(directory, exist_ok=True)
+            # Set permissions to 777
+            # os.chmod(directory, 0o777)
     except Exception as e:
         print(f"An error occurred while creating the directory: {str(e)}")
 

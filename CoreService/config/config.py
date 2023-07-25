@@ -6,6 +6,7 @@ import uuid
 from fastapi import FastAPI
 
 from models.pydantic_models_settings import AppSettings, ConsulSettings, DirectorySettings, DatabaseSettings
+# from services.file_service import create_directory
 
 BASE_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
 # Initialize AppSettings instance with default values or fallback settings
@@ -60,6 +61,7 @@ else:
     app_settings = AppSettings.load_settings("./config/app_settings_dev.yaml")
 
 consul_client = None
+
 
 consul_config = {
     "host": app_settings.consul_settings.CONSUL_HOST,

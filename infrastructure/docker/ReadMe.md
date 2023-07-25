@@ -17,11 +17,33 @@ cd Magellon/CoreService/
 ### Go to CoreService directory and run:
 `
 sudo docker build --no-cache -f ../infrastructure/docker/Dockerfile -t khoshbin/magellon-main-service ./
-sudo docker run -d --restart=always  --name magellon-core-service01 --network magellon -p 8000:80 -v /mnt/hpc:/app/data  -e DATA_DIR=/app/data khoshbin/magellon-main-service
+sudo docker run -d --restart=always  --name magellon-core-service01 --network magellon -p 8000:80 -v /magellon/data:/app/data  -e DATA_DIR=/app/data khoshbin/magellon-main-service
 sudo docker run -it -p8080:80 -v /mnt/hpc:/app/data khoshbin/magellon-main-service bash
 docker push khoshbin/magellon-main-service
 sudo docker exec -it <container_id> bash
 `
+sudo docker run -d --restart=always \
+--name magellon-core-service01 \
+--network magellon \
+-p 8000:80 \
+-v /magellon/data:/app/data \
+-v /magellon/config:/app/config \
+-e DATA_DIR=/app/data \
+khoshbin/magellon-main-service
+
+
+
+sudo docker run -it --restart=always \
+--name magellon-core-service01 \
+--network magellon \
+-p 8000:80 \
+-v /magellon/data:/app/data \
+-v /magellon/config:/app/config \
+-e DATA_DIR=/app/data \
+khoshbin/magellon-main-service
+
+
+
 
 from imagename:khoshbin/magellon-main-service
 then enable https --> Force https --> continer http port 80
