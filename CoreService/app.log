@@ -115,3 +115,71 @@ WHERE msession.name = %(name_1)s
  LIMIT %(param_1)s
 2023-07-25 14:05:22,805 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00044s] {'name_1': '22apr01a', 'param_1': 1}
 2023-07-25 14:05:22,842 [INFO] services.leginon_frame_transfer_job_service leginon_frame_transfer_job_service.py:118 - Step 2: 22apr01a
+2023-07-25 14:29:20,522 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT DATABASE()
+2023-07-25 14:29:20,522 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-07-25 14:29:20,593 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@sql_mode
+2023-07-25 14:29:20,593 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-07-25 14:29:20,629 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@lower_case_table_names
+2023-07-25 14:29:20,629 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-07-25 14:29:20,701 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-25 14:29:20,703 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT project.`Oid` AS `project_Oid`, project.name AS project_name, project.description AS project_description, project.start_on AS project_start_on, project.end_on AS project_end_on, project.owner_id AS project_owner_id, project.`OptimisticLockField` AS `project_OptimisticLockField`, project.`GCRecord` AS `project_GCRecord` 
+FROM project 
+WHERE project.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-25 14:29:20,703 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00032s] {'name_1': 'Leginon', 'param_1': 1}
+2023-07-25 14:29:20,740 [INFO] services.leginon_frame_transfer_job_service leginon_frame_transfer_job_service.py:109 - Step 1: 22apr01a
+2023-07-25 14:29:20,742 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-25 14:29:20,742 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00033s] {'name_1': '22apr01a', 'param_1': 1}
+2023-07-25 14:29:20,779 [INFO] services.leginon_frame_transfer_job_service leginon_frame_transfer_job_service.py:118 - Step 2: 22apr01a
+2023-07-25 14:29:28,766 [INFO] services.leginon_frame_transfer_job_service leginon_frame_transfer_job_service.py:120 - Step 3: 22apr01a
+2023-07-25 14:29:28,768 [INFO] services.leginon_frame_transfer_job_service leginon_frame_transfer_job_service.py:127 - Step 4: 22apr01a
+2023-07-25 14:29:33,881 [INFO] services.leginon_frame_transfer_job_service leginon_frame_transfer_job_service.py:170 - Step 5: 22apr01a
+2023-07-25 14:29:53,700 [INFO] sqlalchemy.engine.Engine base.py:1897 - INSERT INTO frametransferjob (`Oid`, name, description, created_on, start_on, end_on, user_id, project_id, msession_id, status, type, settings, cs, path, output_dir, direction, image_selection_criteria, `OptimisticLockField`, `GCRecord`) VALUES (%(Oid)s, %(name)s, %(description)s, %(created_on)s, %(start_on)s, %(end_on)s, %(user_id)s, %(project_id)s, %(msession_id)s, %(status)s, %(type)s, %(settings)s, %(cs)s, %(path)s, %(output_dir)s, %(direction)s, %(image_selection_criteria)s, %(OptimisticLockField)s, %(GCRecord)s)
+2023-07-25 14:29:53,701 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00169s] {'Oid': b'm\xb4\xe2K\xb6\xc4O\x17\xa2i\xe9\x15R\xf4\xb2i', 'name': 'Leginon Import: 22apr01a', 'description': 'Leginon Import for session: 22apr01ain directory: /gpfs/research/stagg/leginondata/22apr01a/22apr01a/rawdata', 'created_on': datetime.datetime(2023, 7, 25, 14, 29, 46, 400017), 'start_on': None, 'end_on': None, 'user_id': None, 'project_id': None, 'msession_id': None, 'status': None, 'type': None, 'settings': None, 'cs': None, 'path': '/gpfs/research/stagg/leginondata/22apr01a/22apr01a/rawdata', 'output_dir': '/gpfs', 'direction': None, 'image_selection_criteria': None, 'OptimisticLockField': None, 'GCRecord': None}
+2023-07-25 14:31:25,844 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-25 14:31:30,527 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-25 14:31:30,527 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT project.`Oid` AS `project_Oid`, project.name AS project_name, project.description AS project_description, project.start_on AS project_start_on, project.end_on AS project_end_on, project.owner_id AS project_owner_id, project.`OptimisticLockField` AS `project_OptimisticLockField`, project.`GCRecord` AS `project_GCRecord` 
+FROM project 
+WHERE project.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-25 14:31:30,531 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 129.8s ago] {'name_1': 'Leginon', 'param_1': 1}
+2023-07-25 14:31:30,568 [INFO] services.leginon_frame_transfer_job_service leginon_frame_transfer_job_service.py:109 - Step 1: 22apr01a
+2023-07-25 14:31:30,568 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-25 14:31:30,568 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 129.8s ago] {'name_1': '22apr01a', 'param_1': 1}
+2023-07-25 14:31:30,604 [INFO] services.leginon_frame_transfer_job_service leginon_frame_transfer_job_service.py:118 - Step 2: 22apr01a
+2023-07-25 14:31:30,656 [INFO] services.leginon_frame_transfer_job_service leginon_frame_transfer_job_service.py:120 - Step 3: 22apr01a
+2023-07-25 14:31:30,660 [INFO] services.leginon_frame_transfer_job_service leginon_frame_transfer_job_service.py:127 - Step 4: 22apr01a
+2023-07-25 14:31:35,680 [INFO] services.leginon_frame_transfer_job_service leginon_frame_transfer_job_service.py:170 - Step 5: 22apr01a
+2023-07-25 14:31:43,157 [INFO] sqlalchemy.engine.Engine base.py:1897 - INSERT INTO frametransferjob (`Oid`, name, description, created_on, start_on, end_on, user_id, project_id, msession_id, status, type, settings, cs, path, output_dir, direction, image_selection_criteria, `OptimisticLockField`, `GCRecord`) VALUES (%(Oid)s, %(name)s, %(description)s, %(created_on)s, %(start_on)s, %(end_on)s, %(user_id)s, %(project_id)s, %(msession_id)s, %(status)s, %(type)s, %(settings)s, %(cs)s, %(path)s, %(output_dir)s, %(direction)s, %(image_selection_criteria)s, %(OptimisticLockField)s, %(GCRecord)s)
+2023-07-25 14:31:43,158 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 109.5s ago] {'Oid': b'$\xae\xd93s\\K\xff\xa6\xa0r\x95\xfc{\xff\x89', 'name': 'Leginon Import: 22apr01a', 'description': 'Leginon Import for session: 22apr01ain directory: /gpfs/research/stagg/leginondata/22apr01a/22apr01a/rawdata', 'created_on': datetime.datetime(2023, 7, 25, 14, 31, 43, 157753), 'start_on': None, 'end_on': None, 'user_id': None, 'project_id': None, 'msession_id': None, 'status': None, 'type': None, 'settings': None, 'cs': None, 'path': '/gpfs/research/stagg/leginondata/22apr01a/22apr01a/rawdata', 'output_dir': '/gpfs', 'direction': None, 'image_selection_criteria': None, 'OptimisticLockField': None, 'GCRecord': None}
+2023-07-25 14:31:57,926 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-25 14:32:40,147 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT DATABASE()
+2023-07-25 14:32:40,147 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-07-25 14:32:40,214 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@sql_mode
+2023-07-25 14:32:40,214 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-07-25 14:32:40,248 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@lower_case_table_names
+2023-07-25 14:32:40,248 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-07-25 14:32:40,314 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-25 14:32:40,316 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT project.`Oid` AS `project_Oid`, project.name AS project_name, project.description AS project_description, project.start_on AS project_start_on, project.end_on AS project_end_on, project.owner_id AS project_owner_id, project.`OptimisticLockField` AS `project_OptimisticLockField`, project.`GCRecord` AS `project_GCRecord` 
+FROM project 
+WHERE project.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-25 14:32:40,316 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00032s] {'name_1': 'Leginon', 'param_1': 1}
+2023-07-25 14:32:40,347 [INFO] services.leginon_frame_transfer_job_service leginon_frame_transfer_job_service.py:109 - Step 1: 22apr01a
+2023-07-25 14:32:40,351 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-07-25 14:32:40,351 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00032s] {'name_1': '22apr01a', 'param_1': 1}
+2023-07-25 14:32:40,384 [INFO] services.leginon_frame_transfer_job_service leginon_frame_transfer_job_service.py:118 - Step 2: 22apr01a
+2023-07-25 14:32:40,436 [INFO] services.leginon_frame_transfer_job_service leginon_frame_transfer_job_service.py:120 - Step 3: 22apr01a
+2023-07-25 14:32:40,440 [INFO] services.leginon_frame_transfer_job_service leginon_frame_transfer_job_service.py:127 - Step 4: 22apr01a
+2023-07-25 14:32:45,465 [INFO] services.leginon_frame_transfer_job_service leginon_frame_transfer_job_service.py:170 - Step 5: 22apr01a
+2023-07-25 14:32:45,465 [INFO] sqlalchemy.engine.Engine base.py:1897 - INSERT INTO frametransferjob (`Oid`, name, description, created_on, start_on, end_on, user_id, project_id, msession_id, status, type, settings, cs, path, output_dir, direction, image_selection_criteria, `OptimisticLockField`, `GCRecord`) VALUES (%(Oid)s, %(name)s, %(description)s, %(created_on)s, %(start_on)s, %(end_on)s, %(user_id)s, %(project_id)s, %(msession_id)s, %(status)s, %(type)s, %(settings)s, %(cs)s, %(path)s, %(output_dir)s, %(direction)s, %(image_selection_criteria)s, %(OptimisticLockField)s, %(GCRecord)s)
+2023-07-25 14:32:45,465 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00051s] {'Oid': b'\xd1\x80q\xc7j\x7f@q\x86\xa0\xcb\\\x85/K\x02', 'name': 'Leginon Import: 22apr01a', 'description': 'Leginon Import for session: 22apr01ain directory: /gpfs/research/stagg/leginondata/22apr01a/22apr01a/rawdata', 'created_on': datetime.datetime(2023, 7, 25, 14, 32, 45, 465922), 'start_on': None, 'end_on': None, 'user_id': None, 'project_id': None, 'msession_id': None, 'status': None, 'type': None, 'settings': None, 'cs': None, 'path': '/gpfs/research/stagg/leginondata/22apr01a/22apr01a/rawdata', 'output_dir': '/gpfs', 'direction': None, 'image_selection_criteria': None, 'OptimisticLockField': None, 'GCRecord': None}

@@ -229,7 +229,7 @@ def process_image_job(input_data: LeginonFrameTransferJobBase, db: Session = Dep
         leginon_mysql_pass=input_data.leginon_mysql_pass,
         job_id=job_id,
         target_directory=os.path.join(IMAGE_ROOT_DIR, input_data.magellon_session_name),
-        task_list=None  # You can set this to None or any desired value
+        task_list=[]  # You can set this to None or any desired value
     )
 
     # job_dto.job_id = job_id
