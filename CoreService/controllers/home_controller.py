@@ -23,6 +23,7 @@ async def home():
 @home_router.get('/health')
 def health_check():
     logger.info("Logger is working")
+    print("Health check")
     # raise Exception("just to test this")
     # try:
     #
