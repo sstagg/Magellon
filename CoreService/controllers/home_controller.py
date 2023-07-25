@@ -4,7 +4,7 @@ from starlette.responses import RedirectResponse
 from starlette.templating import Jinja2Templates
 from pathlib import Path
 
-from config.config import ENV_TYPE, IMAGE_ROOT_DIR, fetch_image_root_dir, app_settings
+from config.config import   fetch_image_root_dir, app_settings
 
 home_router = APIRouter()
 
@@ -33,17 +33,13 @@ def health_check():
 async def get_configs():
     return app_settings.dict()
 
-
-@home_router.get("/env_type")
-async def get_env_type():
-    return {"Environment Type": ENV_TYPE, "DATA_DIR": IMAGE_ROOT_DIR}
-
-
+# @home_router.get("/env_type")
+# async def get_env_type():
+#     return {"Environment Type": ENV_TYPE, "DATA_DIR": IMAGE_ROOT_DIR}
 @home_router.get("/image_root_dir")
 async def get_image_root_dir():
     root_dir = fetch_image_root_dir()
     return {"image_root_dir": root_dir}
-
 
 @home_router.get("/html")
 async def html(request: Request):
@@ -52,7 +48,6 @@ async def html(request: Request):
     <p>This is an example of returning an HTML page using FastAPI and Jinja templates.</p>
     """
     return TEMPLATES.TemplateResponse("index.html", {"request": request, "html_content": html_content})
-
 
 @home_router.get("/hello/{name}")
 async def say_hello(name: str):

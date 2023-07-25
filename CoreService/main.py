@@ -31,7 +31,7 @@ import pyfiglet as pyfiglet
 from database import engine, session_local
 import logging
 
-from config.logger_config import LOGGING_CONFIG
+from logger_config import LOGGING_CONFIG
 
 # from models import graphql_strawberry_schema
 from models.graphql_strawberry_schema import strawberry_graphql_router
