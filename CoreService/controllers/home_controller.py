@@ -4,7 +4,7 @@ from starlette.responses import RedirectResponse
 from starlette.templating import Jinja2Templates
 from pathlib import Path
 
-from config.config import   fetch_image_root_dir, app_settings
+from config import   fetch_image_root_dir, app_settings
 
 home_router = APIRouter()
 

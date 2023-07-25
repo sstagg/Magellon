@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy_utils import create_database, drop_database, database_exists
 
-from config.config import get_db_connection
+from config import get_db_connection
 from database import get_db
 from models.sqlalchemy_models import metadata
 

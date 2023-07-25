@@ -1,17 +1,15 @@
-import json
 import os
 import subprocess
 import uuid
 
 from fastapi import APIRouter, HTTPException, Depends
 
-from config.config import IMAGE_ROOT_DIR
+from config import IMAGE_ROOT_DIR
 from models.pydantic_models import LeginonFrameTransferJobDto, LeginonFrameTransferJobBase
 from models.pydantic_plugins_models import MotionCor2Input
 from services.diagrams_service import leginon_frame_transfer_diagram
-from services.helper import UUIDEncoder
 from services.leginon_frame_transfer_job_service import LeginonFrameTransferJobService
-from services.motioncor2_service import MotionCor2Service, build_motioncor2_command
+from services.motioncor2_service import build_motioncor2_command
 # from fastapi import APIRouter, Depends, UploadFile, File
 from sqlalchemy.orm import Session
 from database import get_db

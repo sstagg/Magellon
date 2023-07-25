@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from config.config import get_db_connection
+from config import get_db_connection
 # from controller.context_manager import context_set_db_session_rollback
 # engine = create_engine(get_db_connection(), connect_args={"check_same_thread": False})
 

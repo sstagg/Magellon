@@ -14,7 +14,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session, joinedload
 from starlette.responses import FileResponse
 
-from config.config import FFT_SUB_URL,  IMAGE_SUB_URL, IMAGE_ROOT_DIR, THUMBNAILS_SUB_URL, app_settings,THUMBNAILS_SUFFIX,FFT_SUFFIX
+from config import FFT_SUB_URL,  IMAGE_SUB_URL, IMAGE_ROOT_DIR, THUMBNAILS_SUB_URL, app_settings,THUMBNAILS_SUFFIX,FFT_SUFFIX
 
 from database import get_db
 from models.pydantic_models import ParticlepickingjobitemDto, MicrographSetDto, SessionDto

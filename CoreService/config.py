@@ -57,10 +57,10 @@ app_settings: AppSettings = None
 
 if os.environ.get('APP_ENV', "development") == 'production':
     # from .config_prod import *
-    app_settings = AppSettings.load_settings("./config/app_settings_prod.yaml")
+    app_settings = AppSettings.load_settings("./configs/app_settings_prod.yaml")
 else:
     # from .config_dev import *
-    app_settings = AppSettings.load_settings("./config/app_settings_dev.yaml")
+    app_settings = AppSettings.load_settings("./configs/app_settings_dev.yaml")
 
 consul_client = None
 
