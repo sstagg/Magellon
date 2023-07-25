@@ -34,3 +34,15 @@ FROM camera
  LIMIT %(param_1)s, %(param_2)s
 2023-07-25 10:49:51,227 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00039s] {'param_1': 0, 'param_2': 100}
 2023-07-25 10:49:51,265 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-07-25 13:10:36,945 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT DATABASE()
+2023-07-25 13:10:36,945 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-07-25 13:10:37,011 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@sql_mode
+2023-07-25 13:10:37,012 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-07-25 13:10:37,044 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@lower_case_table_names
+2023-07-25 13:10:37,045 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-07-25 13:10:37,112 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-07-25 13:10:37,115 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT camera.`Oid` AS `camera_Oid`, camera.name AS camera_name, camera.`OptimisticLockField` AS `camera_OptimisticLockField`, camera.`GCRecord` AS `camera_GCRecord` 
+FROM camera 
+ LIMIT %(param_1)s, %(param_2)s
+2023-07-25 13:10:37,115 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00048s] {'param_1': 0, 'param_2': 100}
+2023-07-25 13:10:37,152 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK

@@ -198,6 +198,9 @@ sudo docker rmi -f ef1c9abbd37c
 
 
 `
+mysql -h kriosdb.rcc.fsu.edu -u usr_object -p
+sudo docker rm -f magellon-core-service01
+sudo docker rmi -f khoshbin/magellon-main-service
 
 
 

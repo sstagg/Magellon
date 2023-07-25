@@ -90,14 +90,14 @@ ssh -N -L 3310:kriosdb.rcc.fsu.edu:3306 bk22n@hpc-login.rcc.fsu.edu
 "session_name": "22apr01a",
 "magellon_project_name": "Leginon",
 "magellon_session_name": "22apr01a",
-"camera_directory": "/app/nfs",
+"camera_directory": "/gpfs",
 "copy_images": true,
 "retries": 0,
 "leginon_mysql_user": "usr_object",
 "leginon_mysql_pass": "ThPHMn3m39Ds",
 "leginon_mysql_host": "kriosdb.rcc.fsu.edu",
 "leginon_mysql_port": 3306,
-"leginon_mysql_db": "dbemdata",
+"leginon_mysql_db": "dbemdata"
 }
 
 
