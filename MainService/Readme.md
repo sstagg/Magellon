@@ -80,13 +80,28 @@ ssh -N -L 3310:kriosdb.rcc.fsu.edu:3306 bk22n@hpc-login.rcc.fsu.edu
 "camera_directory": "C:/temp/frames",
 "leginon_mysql_user": "usr_object",
 "leginon_mysql_pass": "ThPHMn3m39Ds",
-"leginon_mysql_host": "localhost",
-"leginon_mysql_port": 3310,
+"leginon_mysql_host": "kriosdb.rcc.fsu.edu",
+"leginon_mysql_port": 3306,
 "leginon_mysql_db": "dbemdata",
 "session_name": "23jun14a"
 }
 
+{
+"session_name": "22apr01a",
+"magellon_project_name": "Leginon",
+"magellon_session_name": "22apr01a",
+"camera_directory": "/app/nfs",
+"copy_images": true,
+"retries": 0,
+"leginon_mysql_user": "usr_object",
+"leginon_mysql_pass": "ThPHMn3m39Ds",
+"leginon_mysql_host": "kriosdb.rcc.fsu.edu",
+"leginon_mysql_port": 3306,
+"leginon_mysql_db": "dbemdata",
+}
 
+
+mysql -h kriosdb.rcc.fsu.edu -u usr_object -p
 
 dose = dose*(10**-20)*exposure_time/preset_exposure_time
 

@@ -12,22 +12,39 @@ docker build -t khoshbin/magellon-main-service infrastructure/docker/
 
 rm -rf "/home/behdad/projects/Magellon/"
 cd /home/behdad/projects
-`gh repo clone sstagg/Magellon`
+gh repo clone sstagg/Magellon
 cd Magellon/CoreService/
 ### Go to CoreService directory and run:
-`
+```
 sudo docker build --no-cache -f ../infrastructure/docker/Dockerfile -t khoshbin/magellon-main-service ./
 sudo docker run -d --restart=always  --name magellon-core-service01 --network magellon -p 8000:80 -v /magellon/data:/app/data  -e DATA_DIR=/app/data khoshbin/magellon-main-service
 sudo docker run -it -p8080:80 -v /mnt/hpc:/app/data khoshbin/magellon-main-service bash
 docker push khoshbin/magellon-main-service
 sudo docker exec -it <container_id> bash
-`
+
+sudo docker rm -f magellon-core-service01
+
+
+
+```
 sudo docker run -d --restart=always \
 --name magellon-core-service01 \
 --network magellon \
 -p 8000:80 \
 -v /magellon/data:/app/data \
--v /magellon/config:/app/config \
+-v /magellon/configs:/app/configs \
+-v /magellon/nfs:/app/nfs \
+-e DATA_DIR=/app/data \
+khoshbin/magellon-main-service
+
+
+sudo docker run -d --restart=always \
+--name magellon-core-service01 \
+--network magellon \
+-p 8000:80 \
+-v /magellon/data:/app/data \
+-v /magellon/configs:/app/config \
+-v /gpfs:/app/nfs \
 -e DATA_DIR=/app/data \
 khoshbin/magellon-main-service
 
@@ -38,7 +55,8 @@ sudo docker run -it --restart=always \
 --network magellon \
 -p 8000:80 \
 -v /magellon/data:/app/data \
--v /magellon/config:/app/config \
+-v /magellon/configs:/app/configs \
+-v /magellon/nfs:/app/nfs \
 -e DATA_DIR=/app/data \
 khoshbin/magellon-main-service
 
@@ -157,7 +175,7 @@ sudo docker run -d --restart=always  --name magellon-core-service01 --network ma
 sudo ufw allow 8181
 
 cd "/home/behdad/projects/Magellon/WebApp/"
-sudo docker build --no-cache  --build-arg API_URL="http://maia.cryoem.fsu.edu:8080/web/" -f ../infrastructure/docker/angular/Dockerfile -t khoshbin/magellon-angular-app ./
+sudo docker build --no-cache  --build-arg API_URL="http://maia.cryoem.fsu.edu:8000/web/" -f ../infrastructure/docker/angular/Dockerfile -t khoshbin/magellon-angular-app ./
 sudo docker build --no-cache  --build-arg API_URL="http://magellon-core-service01:80/web/" -f ../infrastructure/docker/angular/Dockerfile -t khoshbin/magellon-angular-app ./
 sudo docker build --no-cache --progress=plain  --build-arg API_URL="http://128.186.103.43:8080/web/" -f ../infrastructure/docker/angular/Dockerfile -t khoshbin/magellon-angular-app ./
 
@@ -168,6 +186,7 @@ sudo docker run -it -p8282:80  khoshbin/magellon-angular-app
 sudo docker run -d --restart=always --network magellon  --name magellon-angular-webapp01 -p 8181:80  khoshbin/magellon-angular-app
 sudo docker run -it --network magellon  --name magellon-angular-webapp01  -p 8181:80  khoshbin/magellon-angular-app bash
 
+docker exec -it 8c994059a272 bash
 
 sudo docker ps
 sudo docker exec -it 9e4dd01b930c bash

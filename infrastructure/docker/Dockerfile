@@ -30,13 +30,14 @@ COPY configs ./configs
 COPY configs/app_settings_dev.yaml ./configs/app_settings_dev.yaml
 COPY configs/app_settings_prod.yaml ./configs/app_settings_prod.yaml
 COPY logger_config.py ./logger_config.py
+COPY config.py ./config.py
 COPY database.py ./database.py
 COPY test_main.http ./
 
 # Create a volume for the application data
 VOLUME /app/data
 VOLUME ./configs
-VOLUME /app/nfs
+VOLUME /gpfs
 
 # Set the environment variable for the data directory
 ENV DATA_DIR=/app/data
