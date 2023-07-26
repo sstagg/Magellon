@@ -10,6 +10,8 @@ from fastapi import FastAPI
 from rich.traceback import Traceback
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
+
+from configs.production_test import production_intilization
 # from starlette_graphene3 import GraphQLApp, make_graphiql_handler
 # from strawberry.fastapi import GraphQLRouter
 
@@ -56,6 +58,10 @@ logger = logging.getLogger(__name__)
 # logging.basicConfig(format=FORMAT, level=logging.INFO)
 logging.config.dictConfig(LOGGING_CONFIG)
 logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+
+
+production_intilization()
+
 
 # Create a RichHandler for the logger
 # handler = RichHandler()

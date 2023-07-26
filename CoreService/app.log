@@ -183,3 +183,75 @@ WHERE msession.name = %(name_1)s
 2023-07-25 14:32:45,465 [INFO] services.leginon_frame_transfer_job_service leginon_frame_transfer_job_service.py:170 - Step 5: 22apr01a
 2023-07-25 14:32:45,465 [INFO] sqlalchemy.engine.Engine base.py:1897 - INSERT INTO frametransferjob (`Oid`, name, description, created_on, start_on, end_on, user_id, project_id, msession_id, status, type, settings, cs, path, output_dir, direction, image_selection_criteria, `OptimisticLockField`, `GCRecord`) VALUES (%(Oid)s, %(name)s, %(description)s, %(created_on)s, %(start_on)s, %(end_on)s, %(user_id)s, %(project_id)s, %(msession_id)s, %(status)s, %(type)s, %(settings)s, %(cs)s, %(path)s, %(output_dir)s, %(direction)s, %(image_selection_criteria)s, %(OptimisticLockField)s, %(GCRecord)s)
 2023-07-25 14:32:45,465 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00051s] {'Oid': b'\xd1\x80q\xc7j\x7f@q\x86\xa0\xcb\\\x85/K\x02', 'name': 'Leginon Import: 22apr01a', 'description': 'Leginon Import for session: 22apr01ain directory: /gpfs/research/stagg/leginondata/22apr01a/22apr01a/rawdata', 'created_on': datetime.datetime(2023, 7, 25, 14, 32, 45, 465922), 'start_on': None, 'end_on': None, 'user_id': None, 'project_id': None, 'msession_id': None, 'status': None, 'type': None, 'settings': None, 'cs': None, 'path': '/gpfs/research/stagg/leginondata/22apr01a/22apr01a/rawdata', 'output_dir': '/gpfs', 'direction': None, 'image_selection_criteria': None, 'OptimisticLockField': None, 'GCRecord': None}
+2023-07-26 10:57:37,149 [ERROR] strawberry.execution execute.py:101 - Syntax Error: Unexpected Name 'hello'.
+
+GraphQL request:27:2
+26 | #
+27 |  hello({
+   |  ^
+28 |   name: "behdad"
+Stack (most recent call last):
+  File "<string>", line 1, in <module>
+  File "C:\python\Anaconda3\lib\multiprocessing\spawn.py", line 116, in spawn_main
+    exitcode = _main(fd, parent_sentinel)
+  File "C:\python\Anaconda3\lib\multiprocessing\spawn.py", line 129, in _main
+    return self._bootstrap(parent_sentinel)
+  File "C:\python\Anaconda3\lib\multiprocessing\process.py", line 315, in _bootstrap
+    self.run()
+  File "C:\python\Anaconda3\lib\multiprocessing\process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\projects\Magellon01\CoreService\venv\lib\site-packages\uvicorn\_subprocess.py", line 76, in subprocess_started
+    target(sockets=sockets)
+  File "C:\projects\Magellon01\CoreService\venv\lib\site-packages\uvicorn\server.py", line 61, in run
+    return asyncio.run(self.serve(sockets=sockets))
+  File "C:\python\Anaconda3\lib\asyncio\runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "C:\python\Anaconda3\lib\asyncio\base_events.py", line 634, in run_until_complete
+    self.run_forever()
+  File "C:\python\Anaconda3\lib\asyncio\base_events.py", line 601, in run_forever
+    self._run_once()
+  File "C:\python\Anaconda3\lib\asyncio\base_events.py", line 1905, in _run_once
+    handle._run()
+  File "C:\python\Anaconda3\lib\asyncio\events.py", line 80, in _run
+    self._context.run(self._callback, *self._args)
+  File "C:\projects\Magellon01\CoreService\venv\lib\site-packages\uvicorn\protocols\http\httptools_impl.py", line 426, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+  File "C:\projects\Magellon01\CoreService\venv\lib\site-packages\uvicorn\middleware\proxy_headers.py", line 84, in __call__
+    return await self.app(scope, receive, send)
+  File "C:\projects\Magellon01\CoreService\venv\lib\site-packages\fastapi\applications.py", line 289, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\projects\Magellon01\CoreService\venv\lib\site-packages\starlette\applications.py", line 122, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\projects\Magellon01\CoreService\venv\lib\site-packages\starlette\middleware\errors.py", line 162, in __call__
+    await self.app(scope, receive, _send)
+  File "C:\projects\Magellon01\CoreService\venv\lib\site-packages\prometheus_fastapi_instrumentator\middleware.py", line 167, in __call__
+    await self.app(scope, receive, send_wrapper)
+  File "C:\projects\Magellon01\CoreService\venv\lib\site-packages\starlette\middleware\cors.py", line 91, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "C:\projects\Magellon01\CoreService\venv\lib\site-packages\starlette\middleware\cors.py", line 146, in simple_response
+    await self.app(scope, receive, send)
+  File "C:\projects\Magellon01\CoreService\venv\lib\site-packages\starlette\middleware\exceptions.py", line 68, in __call__
+    await self.app(scope, receive, sender)
+  File "C:\projects\Magellon01\CoreService\venv\lib\site-packages\fastapi\middleware\asyncexitstack.py", line 17, in __call__
+    await self.app(scope, receive, send)
+  File "C:\projects\Magellon01\CoreService\venv\lib\site-packages\starlette\routing.py", line 718, in __call__
+    await route.handle(scope, receive, send)
+  File "C:\projects\Magellon01\CoreService\venv\lib\site-packages\starlette\routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+  File "C:\projects\Magellon01\CoreService\venv\lib\site-packages\starlette\routing.py", line 66, in app
+    response = await func(request)
+  File "C:\projects\Magellon01\CoreService\venv\lib\site-packages\fastapi\routing.py", line 273, in app
+    raw_response = await run_endpoint_function(
+  File "C:\projects\Magellon01\CoreService\venv\lib\site-packages\fastapi\routing.py", line 190, in run_endpoint_function
+    return await dependant.call(**values)
+  File "C:\projects\Magellon01\CoreService\venv\lib\site-packages\strawberry\fastapi\router.py", line 227, in handle_http_post
+    return await self.run(
+  File "C:\projects\Magellon01\CoreService\venv\lib\site-packages\strawberry\http\async_base_view.py", line 176, in run
+    result = await self.execute_operation(
+  File "C:\projects\Magellon01\CoreService\venv\lib\site-packages\strawberry\http\async_base_view.py", line 115, in execute_operation
+    return await self.schema.execute(
+  File "C:\projects\Magellon01\CoreService\venv\lib\site-packages\strawberry\schema\schema.py", line 256, in execute
+    result = await execute(
+  File "C:\projects\Magellon01\CoreService\venv\lib\site-packages\strawberry\schema\execute.py", line 101, in execute
+    process_errors([error], execution_context)
+2023-07-26 12:23:37,782 [INFO] configs.production_test production_test.py:8 - Production code is starting ...

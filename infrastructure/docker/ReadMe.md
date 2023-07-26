@@ -23,11 +23,14 @@ sudo docker push khoshbin/magellon-angular-app
 
 sudo docker rm -f magellon-core-service01
 sudo docker rmi -f khoshbin/magellon-main-service
+sudo docker run -it --restart=always --name magellon-core-service01 --network magellon -p 8000:80 -v /magellon/data:/app/data -v /magellon/configs:/app/configs -v /gpfs:/gpfs -e DATA_DIR=/app/data khoshbin/magellon-main-service
+
 sudo docker rm -f magellon-angular-webapp01
 sudo docker rmi -f khoshbin/magellon-angular-app
-sudo docker run -it --restart=always --name magellon-core-service01 --network magellon -p 8000:80 -v /magellon/data:/app/data -v /magellon/configs:/app/configs -v /gpfs:/gpfs -e DATA_DIR=/app/data khoshbin/magellon-main-service
 sudo docker run -d --restart=always --network magellon  --name magellon-angular-webapp01 -p 8181:80  khoshbin/magellon-angular-app
 
+
+OrangeFlag51!
 ### Go to CoreService directory and run:
 ```
 sudo docker build --no-cache -f ../infrastructure/docker/Dockerfile -t khoshbin/magellon-main-service ./
@@ -99,7 +102,7 @@ sudo docker run -d --restart=always -p 8080:80 khoshbin/magellon-main-service
 docker ps
 
 
-OrangeFlag51!
+
 
 Note that you can also use a separate environment file to set multiple environment variables. To do this, you can use the --env-file option of the docker run command to specify a file containing environment variable definitions. For example:
 `docker run --env-file my_env_file my_image`
