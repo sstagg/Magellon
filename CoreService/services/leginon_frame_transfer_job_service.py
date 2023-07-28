@@ -1,3 +1,4 @@
+import re
 import time
 from collections import deque
 from datetime import datetime
@@ -91,9 +92,12 @@ class LeginonFrameTransferJobService:
         except Exception as e:
             return {'status': 'failure', 'message': f'Task failed with error: {str(e)}'}
 
-    def infer_image_levels(self,name):
+    def infer_image_levels(self, name):
         presets = {'sq', 'gr', 'ex', 'hl', 'fc'}
         return sum(1 for preset in presets if preset in name)
+
+    def infer_image_levels_reg(self, name):
+        return len(re.findall(r'sq|gr|ex|hl|fc', name))
 
     def create_job(self, db_session: Session):
         try:

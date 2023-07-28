@@ -1,6 +1,5 @@
 import re
 
-
 # regex_pattern = r'sq|gr|ex|hl|fc'  # Use your desired regex pattern here
 #
 # images = ['22apr01a_b_00016gr_00019sq_v01_00017hl_00001fc',
@@ -72,6 +71,8 @@ import re
 images = ['22apr01a_b_00016gr_00019sq_v01_00017hl_00001fc', '22apr01a_b_00011gr_00003sq_v01_00003hl_00014ex-b-DW',
           '22apr01a_b_00029gr_00017sq_v01_00019hl', '22apr01a_b_00001hl', '22apr01a_b_00001hl_00001ex',
           '22apr01a_b_00016hl_00019gr_v01_00017sq']
+
+
 #
 # results = get_total_levels(images, presets)
 #
@@ -89,6 +90,10 @@ def count_used_presets(input_string):
     return sum(1 for preset in presets if preset in input_string)
 
 
+def infer_image_levels_reg(name):
+    return len(re.findall(r'sq|gr|ex|hl|fc', name))
+
+
 # def count_presets_in_string(input_string):
 #     presets = ['sq', 'gr', 'ex', 'hl', 'fc']
 #     preset_counts = {preset: 0 for preset in presets}
@@ -101,7 +106,7 @@ def count_used_presets(input_string):
 
 # Test the function
 for image in images:
-    print(count_used_presets(image))
+    print(infer_image_levels_reg(image))
 
 # input_string = '22apr01a_b_00016gr_00019sq_v01_00017hl_00001fc'
 # result = count_used_presets(input_string)
