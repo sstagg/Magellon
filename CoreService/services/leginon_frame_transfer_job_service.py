@@ -91,6 +91,10 @@ class LeginonFrameTransferJobService:
         except Exception as e:
             return {'status': 'failure', 'message': f'Task failed with error: {str(e)}'}
 
+    def infer_image_levels(self,name):
+        presets = {'sq', 'gr', 'ex', 'hl', 'fc'}
+        return sum(1 for preset in presets if preset in name)
+
     def create_job(self, db_session: Session):
         try:
 
@@ -319,7 +323,7 @@ class LeginonFrameTransferJobService:
                     while retry_count < MAX_RETRIES:
                         try:
                             future.result()
-                            print(f"Task completed successfully: {task}")
+                            # print(f"Task completed successfully: {task}")
                             break  # Task completed successfully, exit the retry loop
                         except TaskFailedException as e:
                             print(f"Task failed: {str(e)}")
