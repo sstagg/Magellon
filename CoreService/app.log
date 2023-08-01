@@ -255,3 +255,177 @@ Stack (most recent call last):
   File "C:\projects\Magellon01\CoreService\venv\lib\site-packages\strawberry\schema\execute.py", line 101, in execute
     process_errors([error], execution_context)
 2023-07-26 12:23:37,782 [INFO] configs.production_test production_test.py:8 - Production code is starting ...
+2023-07-26 18:57:26,892 [INFO] configs.production_test production_test.py:11 - Production code is starting ...
+2023-07-27 14:12:51,933 [INFO] configs.production_test production_test.py:11 - Production code is starting ...
+2023-07-29 02:30:48,592 [INFO] configs.production_test production_test.py:11 - Production code is starting ...
+2023-08-01 12:25:39,929 [INFO] configs.production_test production_test.py:11 - Production code is starting ...
+2023-08-01 12:51:55,938 [INFO] configs.production_test production_test.py:11 - Production code is starting ...
+2023-08-01 12:52:27,748 [INFO] configs.production_test production_test.py:11 - Production code is starting ...
+2023-08-01 12:52:31,580 [INFO] configs.production_test production_test.py:11 - Production code is starting ...
+2023-08-01 12:52:39,615 [INFO] configs.production_test production_test.py:11 - Production code is starting ...
+2023-08-01 12:54:39,801 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT DATABASE()
+2023-08-01 12:54:39,805 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-01 12:54:39,875 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@sql_mode
+2023-08-01 12:54:39,875 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-01 12:54:39,909 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@lower_case_table_names
+2023-08-01 12:54:39,909 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-01 12:54:39,977 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-08-01 12:54:39,981 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT project.`Oid` AS `project_Oid`, project.name AS project_name, project.description AS project_description, project.start_on AS project_start_on, project.end_on AS project_end_on, project.owner_id AS project_owner_id, project.`OptimisticLockField` AS `project_OptimisticLockField`, project.`GCRecord` AS `project_GCRecord` 
+FROM project 
+WHERE project.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-01 12:54:39,981 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00033s] {'name_1': 'Leginon', 'param_1': 1}
+2023-08-01 12:54:40,017 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-01 12:54:40,017 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00033s] {'name_1': '22apr01a', 'param_1': 1}
+2023-08-01 12:54:40,137 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-08-01 12:55:14,395 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-08-01 12:55:14,399 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT project.`Oid` AS `project_Oid`, project.name AS project_name, project.description AS project_description, project.start_on AS project_start_on, project.end_on AS project_end_on, project.owner_id AS project_owner_id, project.`OptimisticLockField` AS `project_OptimisticLockField`, project.`GCRecord` AS `project_GCRecord` 
+FROM project 
+WHERE project.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-01 12:55:14,399 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 34.42s ago] {'name_1': 'Leginon', 'param_1': 1}
+2023-08-01 12:55:14,435 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-01 12:55:14,435 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 34.42s ago] {'name_1': '22apr01a', 'param_1': 1}
+2023-08-01 12:55:14,515 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-08-01 12:55:35,934 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-08-01 12:55:35,934 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT project.`Oid` AS `project_Oid`, project.name AS project_name, project.description AS project_description, project.start_on AS project_start_on, project.end_on AS project_end_on, project.owner_id AS project_owner_id, project.`OptimisticLockField` AS `project_OptimisticLockField`, project.`GCRecord` AS `project_GCRecord` 
+FROM project 
+WHERE project.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-01 12:55:35,934 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 55.95s ago] {'name_1': 'Leginon', 'param_1': 1}
+2023-08-01 12:55:42,620 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-01 12:55:42,620 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 62.6s ago] {'name_1': '22apr01a', 'param_1': 1}
+2023-08-01 12:56:15,435 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-08-01 12:56:59,305 [INFO] configs.production_test production_test.py:11 - Production code is starting ...
+2023-08-01 12:57:12,110 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT DATABASE()
+2023-08-01 12:57:12,110 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-01 12:57:12,183 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@sql_mode
+2023-08-01 12:57:12,183 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-01 12:57:12,215 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@lower_case_table_names
+2023-08-01 12:57:12,215 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-01 12:57:12,285 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-08-01 12:57:12,285 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT project.`Oid` AS `project_Oid`, project.name AS project_name, project.description AS project_description, project.start_on AS project_start_on, project.end_on AS project_end_on, project.owner_id AS project_owner_id, project.`OptimisticLockField` AS `project_OptimisticLockField`, project.`GCRecord` AS `project_GCRecord` 
+FROM project 
+WHERE project.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-01 12:57:12,285 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00032s] {'name_1': 'Leginon', 'param_1': 1}
+2023-08-01 12:57:16,708 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-01 12:57:16,708 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00037s] {'name_1': '22apr01a', 'param_1': 1}
+2023-08-01 12:57:16,787 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-08-01 12:57:22,165 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-08-01 12:57:22,166 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT project.`Oid` AS `project_Oid`, project.name AS project_name, project.description AS project_description, project.start_on AS project_start_on, project.end_on AS project_end_on, project.owner_id AS project_owner_id, project.`OptimisticLockField` AS `project_OptimisticLockField`, project.`GCRecord` AS `project_GCRecord` 
+FROM project 
+WHERE project.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-01 12:57:22,166 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 9.877s ago] {'name_1': 'Leginon', 'param_1': 1}
+2023-08-01 12:57:27,201 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-01 12:57:27,202 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 10.49s ago] {'name_1': '22apr01a', 'param_1': 1}
+2023-08-01 12:58:01,687 [INFO] configs.production_test production_test.py:11 - Production code is starting ...
+2023-08-01 12:58:06,738 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT DATABASE()
+2023-08-01 12:58:06,739 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-01 12:58:06,806 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@sql_mode
+2023-08-01 12:58:06,806 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-01 12:58:06,839 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@lower_case_table_names
+2023-08-01 12:58:06,839 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-01 12:58:06,905 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-08-01 12:58:06,908 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT project.`Oid` AS `project_Oid`, project.name AS project_name, project.description AS project_description, project.start_on AS project_start_on, project.end_on AS project_end_on, project.owner_id AS project_owner_id, project.`OptimisticLockField` AS `project_OptimisticLockField`, project.`GCRecord` AS `project_GCRecord` 
+FROM project 
+WHERE project.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-01 12:58:06,908 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00032s] {'name_1': 'Leginon', 'param_1': 1}
+2023-08-01 12:58:11,154 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-01 12:58:11,154 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00040s] {'name_1': '22apr01a', 'param_1': 1}
+2023-08-01 12:58:11,232 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-08-01 12:58:29,528 [INFO] configs.production_test production_test.py:11 - Production code is starting ...
+2023-08-01 12:58:32,996 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT DATABASE()
+2023-08-01 12:58:32,997 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-01 12:58:33,065 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@sql_mode
+2023-08-01 12:58:33,065 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-01 12:58:33,099 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@lower_case_table_names
+2023-08-01 12:58:33,100 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-01 12:58:33,168 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-08-01 12:58:33,170 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT project.`Oid` AS `project_Oid`, project.name AS project_name, project.description AS project_description, project.start_on AS project_start_on, project.end_on AS project_end_on, project.owner_id AS project_owner_id, project.`OptimisticLockField` AS `project_OptimisticLockField`, project.`GCRecord` AS `project_GCRecord` 
+FROM project 
+WHERE project.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-01 12:58:33,171 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00054s] {'name_1': 'Leginon', 'param_1': 1}
+2023-08-01 13:00:05,845 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-01 13:00:05,845 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00079s] {'name_1': '22apr01a', 'param_1': 1}
+2023-08-01 13:00:20,586 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-08-01 13:28:57,717 [INFO] configs.production_test production_test.py:11 - Production code is starting ...
+2023-08-01 13:29:18,567 [INFO] configs.production_test production_test.py:11 - Production code is starting ...
+2023-08-01 13:29:37,457 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT DATABASE()
+2023-08-01 13:29:37,457 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-01 13:29:37,522 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@sql_mode
+2023-08-01 13:29:37,522 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-01 13:29:37,560 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@lower_case_table_names
+2023-08-01 13:29:37,560 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-01 13:29:37,629 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-08-01 13:29:37,632 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT project.`Oid` AS `project_Oid`, project.name AS project_name, project.description AS project_description, project.start_on AS project_start_on, project.end_on AS project_end_on, project.owner_id AS project_owner_id, project.`OptimisticLockField` AS `project_OptimisticLockField`, project.`GCRecord` AS `project_GCRecord` 
+FROM project 
+WHERE project.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-01 13:29:37,633 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00035s] {'name_1': 'Leginon', 'param_1': 1}
+2023-08-01 13:29:37,687 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-01 13:29:37,687 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00056s] {'name_1': '22apr01a', 'param_1': 1}
+2023-08-01 13:29:42,893 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-08-01 13:30:17,452 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-08-01 13:30:17,457 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT project.`Oid` AS `project_Oid`, project.name AS project_name, project.description AS project_description, project.start_on AS project_start_on, project.end_on AS project_end_on, project.owner_id AS project_owner_id, project.`OptimisticLockField` AS `project_OptimisticLockField`, project.`GCRecord` AS `project_GCRecord` 
+FROM project 
+WHERE project.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-01 13:30:17,457 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 39.82s ago] {'name_1': 'Leginon', 'param_1': 1}
+2023-08-01 13:30:17,492 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-01 13:30:17,492 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 39.81s ago] {'name_1': '22apr01a', 'param_1': 1}
+2023-08-01 13:30:21,416 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-08-01 13:30:31,887 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-08-01 13:30:31,887 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT project.`Oid` AS `project_Oid`, project.name AS project_name, project.description AS project_description, project.start_on AS project_start_on, project.end_on AS project_end_on, project.owner_id AS project_owner_id, project.`OptimisticLockField` AS `project_OptimisticLockField`, project.`GCRecord` AS `project_GCRecord` 
+FROM project 
+WHERE project.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-01 13:30:31,887 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 54.26s ago] {'name_1': 'Leginon', 'param_1': 1}
+2023-08-01 13:30:31,929 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-01 13:30:31,929 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 54.25s ago] {'name_1': '22apr01a', 'param_1': 1}
+2023-08-01 13:30:47,509 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-08-01 13:32:12,927 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-08-01 13:32:12,927 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT project.`Oid` AS `project_Oid`, project.name AS project_name, project.description AS project_description, project.start_on AS project_start_on, project.end_on AS project_end_on, project.owner_id AS project_owner_id, project.`OptimisticLockField` AS `project_OptimisticLockField`, project.`GCRecord` AS `project_GCRecord` 
+FROM project 
+WHERE project.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-01 13:32:12,927 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 155.3s ago] {'name_1': 'Leginon', 'param_1': 1}
+2023-08-01 13:32:12,967 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-01 13:32:12,967 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 155.3s ago] {'name_1': '22apr01a', 'param_1': 1}
+2023-08-01 13:32:39,969 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK

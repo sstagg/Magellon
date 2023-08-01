@@ -70,7 +70,7 @@ import re
 # presets = [{'name': 'sq'}, {'name': 'gr'}, {'name': 'ex'}, {'name': 'hl'}, {'name': 'fc'}]
 images = ['22apr01a_b_00016gr_00019sq_v01_00017hl_00001fc', '22apr01a_b_00011gr_00003sq_v01_00003hl_00014ex-b-DW',
           '22apr01a_b_00029gr_00017sq_v01_00019hl', '22apr01a_b_00001hl', '22apr01a_b_00001hl_00001ex',
-          '22apr01a_b_00016hl_00019gr_v01_00017sq']
+          '22apr01a_b_00016hl_00019gr_v01_00017sq', 'salam hale shoma chetore just to check']
 
 
 #
@@ -107,6 +107,19 @@ def infer_image_levels_reg(name):
 # Test the function
 for image in images:
     print(infer_image_levels_reg(image))
+
+
+def remove_substrings(input_string):
+    # Define the regular expression pattern to match "_v01", "_v02", "-b", "-DW"
+    pattern = r"(_[vV]\d{2})|(-[bB])|(-[dD][wW])"
+    # Use re.sub() to remove the matched substrings
+    return re.sub(pattern, '', input_string)
+
+# Test the function
+input_string = "file_name_V05-b-DW.txt"
+output_string = remove_substrings(input_string)
+print(output_string)
+
 
 # input_string = '22apr01a_b_00016gr_00019sq_v01_00017hl_00001fc'
 # result = count_used_presets(input_string)

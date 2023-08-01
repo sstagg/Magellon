@@ -66,6 +66,26 @@ def create_directories(target_dir: str):
     create_directory(os.path.join(target_dir, THUMBNAILS_SUB_URL))
 
 
+def infer_image_levels(name):
+    presets = {'sq', 'gr', 'ex', 'hl', 'fc'}
+    return sum(1 for preset in presets if preset in name)
+
+
+def infer_image_levels_reg(name):
+    return len(re.findall(r'sq|gr|ex|hl|fc', name))
+
+
+def get_image_levels(name, pattern):
+    return len(re.findall(pattern, name))
+
+
+def remove_v_b_substrings(input_string):
+    # Define the regular expression pattern to match "_v01", "_v02", "-b", "-DW"
+    pattern = r"(_[vV]\d{2})|(-[bB])|(-[dD][wW])"
+    # Use re.sub() to remove the matched substrings
+    return re.sub(pattern, '', input_string)
+
+
 class LeginonFrameTransferJobService:
 
     def __init__(self):
@@ -92,13 +112,6 @@ class LeginonFrameTransferJobService:
         except Exception as e:
             return {'status': 'failure', 'message': f'Task failed with error: {str(e)}'}
 
-    def infer_image_levels(self, name):
-        presets = {'sq', 'gr', 'ex', 'hl', 'fc'}
-        return sum(1 for preset in presets if preset in name)
-
-    def infer_image_levels_reg(self, name):
-        return len(re.findall(r'sq|gr|ex|hl|fc', name))
-
     def create_job(self, db_session: Session):
         try:
 
@@ -114,7 +127,7 @@ class LeginonFrameTransferJobService:
                     db_session.refresh(magellon_project)
 
             magellon_session_name = self.params.magellon_session_name or self.params.session_name
-            logger.info("Step 1: " + magellon_session_name)
+
             if self.params.magellon_session_name is not None:
                 magellon_session = db_session.query(Msession).filter(
                     Msession.name == magellon_session_name).first()
@@ -123,16 +136,29 @@ class LeginonFrameTransferJobService:
                     db_session.add(magellon_session)
                     db_session.commit()
                     db_session.refresh(magellon_session)
-            logger.info("Step 2: " + magellon_session_name)
+
             self.open_leginon_connection()
-            logger.info("Step 3: " + magellon_session_name)
+
             # get the session object from the database
             session_name = self.params.session_name
             query = "SELECT * FROM SessionData WHERE name = %s"
             self.leginon_cursor.execute(query, (session_name,))
             # Fetch all the results
             session_result = self.leginon_cursor.fetchone()
-            logger.info("Step 4: " + magellon_session_name)
+
+            presets_query = """
+            SELECT GROUP_CONCAT(DISTINCT p.name ORDER BY LENGTH(p.name) DESC SEPARATOR '|')  AS regex_pattern FROM PresetData p
+            LEFT JOIN SessionData s ON  p.`REF|SessionData|session` = s.DEF_id
+            WHERE s.DEF_id = %s;
+            """
+            self.leginon_cursor.execute(query, (session_result["DEF_id"],))
+            presets_result = self.leginon_cursor.fetchone()
+            print(presets_result)
+
+            # presets_results = self.leginon_cursor.fetchall()
+            # for presets_result in presets_results:
+            #     print(presets_result)
+
             # get all the images in the leginon database
             # SQL query
             query = """
@@ -175,7 +201,7 @@ class LeginonFrameTransferJobService:
             """
             self.leginon_cursor.execute(query, (session_name + "%",))
             leginon_image_list = self.leginon_cursor.fetchall()
-            logger.info("Step 5: " + magellon_session_name)
+
             # wants to copy image from target_dir + image.name to base_dir + session_name + images dir + image.name
             # wants to copy image from camera_dir + frame.name to base_dir + session_name + frames dir + image.name_frame
 
@@ -205,8 +231,9 @@ class LeginonFrameTransferJobService:
                     db_image = Image(Oid=uuid.uuid4(), name=filename, magnification=image["mag"],
                                      defocus=image["defocus"], dose=image["calculated_dose"],
                                      pixel_size=image["pixelsize"], binning_x=image["bining_x"],
-                                     binning_y=image["bining_y"],
+                                     binning_y=image["bining_y"], level=infer_image_levels_reg(filename),
                                      old_id=image["image_id"], session_id=magellon_session.Oid)
+                    # get_image_levels(filename,presets_result["regex_pattern"])
                     # db_session.add(db_image)
                     # db_session.flush()
                     db_image_list.append(db_image)
@@ -278,7 +305,9 @@ class LeginonFrameTransferJobService:
                 #     end while;""")
                 # db_session.execute(update_levels_query)
                 db_session.commit()  # Commit the changes
-                self.run_tasks()
+
+                if self.params.if_do_subtasks if hasattr(self.params, 'if_do_subtasks') else True:
+                    self.run_tasks()
                 # self.create_test_tasks()
         except FileNotFoundError as e:
             print("Source directory not found:", self.params.source_directory)
@@ -316,7 +345,8 @@ class LeginonFrameTransferJobService:
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 # The run_task function is submitted to the executor using executor.submit, and the resulting Future
                 # objects are stored in a dictionary future_to_task to keep track of each task.
-                future_to_task = {executor.submit(self.run_task, task): task for task in self.params.task_list}
+                future_to_task = {executor.submit(self.run_task, task): task for task in
+                                  self.params.task_list}  # LeginonFrameTransferTaskDto
 
                 # The as_completed function from concurrent.futures is used to iterate through completed futures as
                 # they become available. Within the loop, the code checks for task results and implements the retry
@@ -327,7 +357,7 @@ class LeginonFrameTransferJobService:
                     while retry_count < MAX_RETRIES:
                         try:
                             future.result()
-                            # print(f"Task completed successfully: {task}")
+                            print(f"Task completed successfully: {task.task_alias}")
                             break  # Task completed successfully, exit the retry loop
                         except TaskFailedException as e:
                             print(f"Task failed: {str(e)}")
@@ -337,7 +367,7 @@ class LeginonFrameTransferJobService:
                                 time.sleep(1)  # Add a small delay before retrying
 
                     if retry_count == MAX_RETRIES:
-                        print(f"Max retries exceeded for task: {task}")
+                        print(f"Max retries exceeded for task: {task.task_alias}")
                         # Perform any additional handling for failed tasks
         except Exception as e:
             print("An unexpected error occurred:", str(e))
