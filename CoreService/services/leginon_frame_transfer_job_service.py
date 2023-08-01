@@ -151,7 +151,7 @@ class LeginonFrameTransferJobService:
             LEFT JOIN SessionData s ON  p.`REF|SessionData|session` = s.DEF_id
             WHERE s.DEF_id = %s;
             """
-            self.leginon_cursor.execute(query, (session_result["DEF_id"],))
+            self.leginon_cursor.execute(presets_query, (session_result["DEF_id"],))
             presets_result = self.leginon_cursor.fetchone()
             print(presets_result)
 
@@ -231,7 +231,7 @@ class LeginonFrameTransferJobService:
                     db_image = Image(Oid=uuid.uuid4(), name=filename, magnification=image["mag"],
                                      defocus=image["defocus"], dose=image["calculated_dose"],
                                      pixel_size=image["pixelsize"], binning_x=image["bining_x"],
-                                     binning_y=image["bining_y"], level=infer_image_levels_reg(filename),
+                                     binning_y=image["bining_y"], level=get_image_levels(filename,presets_result["regex_pattern"]),
                                      old_id=image["image_id"], session_id=magellon_session.Oid)
                     # get_image_levels(filename,presets_result["regex_pattern"])
                     # db_session.add(db_image)

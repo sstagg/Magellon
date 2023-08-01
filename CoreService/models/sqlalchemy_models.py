@@ -366,6 +366,7 @@ class Image(Base):
     energy_filtered = Column(Boolean, default=False)
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)
+    level = Column(INTEGER(11))
 
     parent = relationship('Image', remote_side=[Oid])
     msession = relationship('Msession')
