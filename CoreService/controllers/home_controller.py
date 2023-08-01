@@ -5,6 +5,7 @@ from starlette.templating import Jinja2Templates
 from pathlib import Path
 import logging
 from config import fetch_image_root_dir, app_settings
+from lib.image_not_found import get_image_not_found
 
 home_router = APIRouter()
 
@@ -31,6 +32,15 @@ def health_check():
     #     console = Console()
     #     console.print_exception(show_locals=True)
     return {'status': 'ok'}
+
+
+# @home_router.get("/notfound")
+# async def get_not_found():
+#     # image_path = r"c:/temp/icon-image-not-found.png"
+#     # base64_string = image_to_base64(image_path)
+#     # print(base64_string)
+#     # return get_image_base64(base64_string)
+#     return get_image_not_found()
 
 
 @home_router.get("/configs")

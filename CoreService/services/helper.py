@@ -1,3 +1,4 @@
+import base64
 import io
 import json
 from _operator import itemgetter
@@ -6,6 +7,7 @@ from itertools import groupby
 from uuid import UUID
 
 from PIL import Image
+from starlette.responses import StreamingResponse
 
 
 # def format_data_by_ext(data):
@@ -40,3 +42,14 @@ class UUIDEncoder(json.JSONEncoder):
         if isinstance(obj, UUID):
             return str(obj)
         return super().default(obj)
+
+
+def get_image_base64(base64_string: str):
+    # Decode the base64 string into binary data
+    binary_data = base64.b64decode(base64_string)
+
+    # Create a BytesIO object with the binary data
+    bytes_io = io.BytesIO(binary_data)
+
+    # Return the FileResponse with BytesIO object as content
+    return StreamingResponse(io.BytesIO(binary_data), media_type='image/png')

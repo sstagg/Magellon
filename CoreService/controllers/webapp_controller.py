@@ -1,3 +1,4 @@
+
 import json
 import os
 import uuid
@@ -12,11 +13,13 @@ from airflow_client.client.model.dag_run import DAGRun
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session, joinedload
-from starlette.responses import FileResponse
+from starlette.responses import FileResponse, JSONResponse
 
-from config import FFT_SUB_URL,  IMAGE_SUB_URL, IMAGE_ROOT_DIR, THUMBNAILS_SUB_URL, app_settings,THUMBNAILS_SUFFIX,FFT_SUFFIX
+from config import FFT_SUB_URL, IMAGE_SUB_URL, IMAGE_ROOT_DIR, THUMBNAILS_SUB_URL, app_settings, THUMBNAILS_SUFFIX, \
+    FFT_SUFFIX
 
 from database import get_db
+from lib.image_not_found import get_image_not_found
 from models.pydantic_models import ParticlepickingjobitemDto, MicrographSetDto, SessionDto
 from models.sqlalchemy_models import Particlepickingjobitem, Image, Particlepickingjob, Msession
 from repositories.image_repository import ImageRepository
@@ -124,7 +127,8 @@ def process_image_rows(rows, session_name):
             parent_id=parent_id,
             parent_name=parent_name
         )
-        file_path = os.path.join(f"{IMAGE_ROOT_DIR}/{session_name}/{THUMBNAILS_SUB_URL}", image.name + THUMBNAILS_SUFFIX)
+        file_path = os.path.join(f"{IMAGE_ROOT_DIR}/{session_name}/{THUMBNAILS_SUB_URL}",
+                                 image.name + THUMBNAILS_SUFFIX)
         print(file_path)
         if os.path.isfile(file_path):
             image.encoded_image = get_response_image(file_path)
@@ -229,6 +233,12 @@ async def get_image_thumbnail(name: str):
     underscore_index = name.find('_')
     session_name = name[:underscore_index]
     file_path = f"{app_settings.directory_settings.IMAGE_ROOT_DIR}/{session_name}/{IMAGE_SUB_URL}{name}.png"
+    # Check if the file exists
+    if not os.path.exists(file_path):
+        # error_message = {"error": "Image not found"}
+        # return JSONResponse(error_message, status_code=404)
+        return get_image_not_found()
+
     return FileResponse(file_path, media_type='image/png')
 
 
