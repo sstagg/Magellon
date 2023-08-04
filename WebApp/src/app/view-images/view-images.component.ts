@@ -505,9 +505,4 @@ export class ViewImagesComponent implements OnInit {
     this.loadThumbnailsBySession();
   }
 
-  //
-  reloadSession() {
-    this.loadThumbnailsBySession();
-  }
-
 }
