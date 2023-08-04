@@ -139,6 +139,10 @@ export class ViewImagesComponent implements OnInit {
     this.unstackDisplay[index] = true;
   }
 
+  collapseAllstacks() {
+    this.unstackDisplay = [];
+  }
+
   getStackImages(ext: any) {
     this.imageStackModelArr = [];
     this.imageService.getImagesByStack(ext)
@@ -498,6 +502,11 @@ export class ViewImagesComponent implements OnInit {
   levelUpdate(e: any) {
     this.selectedLevel = e.target.value;
     this.selectedSessionName = this.allSessions[this.selectedSessionOid];
+    this.loadThumbnailsBySession();
+  }
+
+  //
+  reloadSession() {
     this.loadThumbnailsBySession();
   }
 
