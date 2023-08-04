@@ -7,18 +7,20 @@
                     <span>Back to images</span>
                 </div>
                 <div style="margin: 0.7em;">
-                    <label class="border-0" style="align-items: center; font-weight: normal !important;">&nbsp; Session &nbsp;</label>
-                    <select [(ngModel)]="selectedSessionOid" style="align-items: center; font-weight: normal !important;"
-                    (change)="sessionUpdate($event);">
+                    <label class="border-0" style="align-items: center; font-weight: normal !important;">&nbsp; Session
+                        &nbsp;</label>
+                    <select [(ngModel)]="selectedSessionOid"
+                        style="align-items: center; font-weight: normal !important;" (change)="sessionUpdate($event);">
                         <option *ngFor="let session of allSessions | keyvalue" [value]="session.key">
                             {{session.value}}
                         </option>
                     </select>
                 </div>
                 <div style="margin: 0.7em;">
-                    <label class="border-0" style="align-items: center; font-weight: normal !important;">&nbsp; Level &nbsp;</label>
+                    <label class="border-0" style="align-items: center; font-weight: normal !important;">&nbsp; Level
+                        &nbsp;</label>
                     <select [(ngModel)]="selectedLevel" style="align-items: center; font-weight: normal !important;"
-                    (change)="levelUpdate($event);">
+                        (change)="levelUpdate($event);">
                         <option *ngFor="let level of allLevels | keyvalue" [value]="level.key">
                             {{level.key}}
                         </option>
@@ -78,25 +80,26 @@
                 <br>
                 <label class="h5 border-0" style="align-items: center; font-weight: normal !important;">&nbsp; Particle
                     pick &nbsp;</label>
-                <select class="h5" [disabled]=pickTypeEnable style="align-items: center; font-weight: normal !important;"
-                    (change)="pickDropdownUpdate($event);">
+                <select class="h5" [disabled]=pickTypeEnable
+                    style="align-items: center; font-weight: normal !important;" (change)="pickDropdownUpdate($event);">
                     <option value="default">Select</option>
                     <option *ngFor="let pickType of particlePickJobType | keyvalue" [value]="pickType.key">
                         {{pickType.value}}
                     </option>
                 </select>
                 &nbsp;
-                <button type="button" title="Save pick(s)" (click)="savePicks()"><i class="fa fa-check fa-sm" aria-hidden="true"></i></button>
+                <button type="button" title="Save pick(s)" (click)="savePicks()"><i class="fa fa-check fa-sm"
+                        aria-hidden="true"></i></button>
                 &nbsp;
-                <button type="button" title="Reset pick(s)" (click)="resetPicks()"><i class="fa fa-times fa-sm" aria-hidden="true"></i></button>
+                <button type="button" title="Reset pick(s)" (click)="resetPicks()"><i class="fa fa-times fa-sm"
+                        aria-hidden="true"></i></button>
 
                 <div class="center-img-container">
-                    <canvas id="canvas" *ngIf=!enableFFT width="760" height="760" (click)="getPosition($event)"
+                    <canvas id="canvas" *ngIf=!enableFFT width="760" height="760" (click)="onCanvasClick($event);"
                         style="cursor:crosshair;"></canvas>
                     <img id="main_img" *ngIf=enableFFT [src]="fftImageUrl" class="img-thumbnail" />
                     <div *ngIf="!imageScaleInAngstrom" class="bottom-left">{{imageScale}} nm</div>
                     <div *ngIf="imageScaleInAngstrom" class="bottom-left">{{imageScale}} Å</div>
-                    <hr class="bottom-left-scale" [style.width.px]="imageScalePixel" />
                 </div>
             </div>
         </div>
@@ -106,6 +109,33 @@
                 <input mdbCheckbox class="form-check-input" type="checkbox" [checked]="enableFFT"
                     (click)="getFFTImageOnToggle()" id="flexSwitchCheckDefault" />
             </div>
+            &nbsp;
+            <div class="h3 border-0" style="margin: 0.7em; cursor: pointer;" (click)="enableParticlePick($event);">
+                <i class="fa fa-solid fa-crosshairs"
+                    [style.color]="pickTypeEnable === true ? '#0e5add' : '#000000'"></i>
+            </div>
+            <div *ngIf=!rulerEnable class="h5 border-0" style="margin: 0.7em; cursor: pointer"
+                (click)="enableRuler($event);measureDistance($event);">
+                <svg xmlns="http://www.w3.org/2000/svg" height="1.5em"
+                    viewBox="0 0 512 512"><!--! Font Awesome Free 6.4.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license (Commercial License) Copyright 2023 Fonticons, Inc. -->
+                    <path
+                        d="M177.9 494.1c-18.7 18.7-49.1 18.7-67.9 0L17.9 401.9c-18.7-18.7-18.7-49.1 0-67.9l50.7-50.7 48 48c6.2 6.2 16.4 6.2 22.6 0s6.2-16.4 0-22.6l-48-48 41.4-41.4 48 48c6.2 6.2 16.4 6.2 22.6 0s6.2-16.4 0-22.6l-48-48 41.4-41.4 48 48c6.2 6.2 16.4 6.2 22.6 0s6.2-16.4 0-22.6l-48-48 41.4-41.4 48 48c6.2 6.2 16.4 6.2 22.6 0s6.2-16.4 0-22.6l-48-48 50.7-50.7c18.7-18.7 49.1-18.7 67.9 0l92.1 92.1c18.7 18.7 18.7 49.1 0 67.9L177.9 494.1z" />
+                </svg>
+            </div>
+            <div *ngIf=rulerEnable class="h5 border-0" style="margin: 0.7em; cursor: pointer"
+                (click)="enableRuler($event);measureDistance($event);">
+                <svg xmlns="http://www.w3.org/2000/svg" height="1.5em"
+                    viewBox="0 0 512 512"><!--! Font Awesome Free 6.4.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license (Commercial License) Copyright 2023 Fonticons, Inc. -->
+                    <style>
+                        svg {
+                            fill: #0e5add
+                        }
+                    </style>
+                    <path
+                        d="M177.9 494.1c-18.7 18.7-49.1 18.7-67.9 0L17.9 401.9c-18.7-18.7-18.7-49.1 0-67.9l50.7-50.7 48 48c6.2 6.2 16.4 6.2 22.6 0s6.2-16.4 0-22.6l-48-48 41.4-41.4 48 48c6.2 6.2 16.4 6.2 22.6 0s6.2-16.4 0-22.6l-48-48 41.4-41.4 48 48c6.2 6.2 16.4 6.2 22.6 0s6.2-16.4 0-22.6l-48-48 41.4-41.4 48 48c6.2 6.2 16.4 6.2 22.6 0s6.2-16.4 0-22.6l-48-48 50.7-50.7c18.7-18.7 49.1-18.7 67.9 0l92.1 92.1c18.7 18.7 18.7 49.1 0 67.9L177.9 494.1z" />
+                </svg>
+            </div>
+            &nbsp;
         </div>
     </div>
 </div>

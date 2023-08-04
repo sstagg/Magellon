@@ -1,6 +1,6 @@
-import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
-import { ImagesService } from '../images.service';
+import { Component, OnInit } from '@angular/core';
 import { DomSanitizer } from '@angular/platform-browser';
+import { ImagesService } from '../images.service';
 
 export interface ImageModel {
   name: string;
@@ -26,6 +26,11 @@ export interface Particle {
   x: number
   y: number
   score: string
+}
+
+interface Point {
+  x: number;
+  y: number;
 }
 
 @Component({
@@ -79,7 +84,7 @@ export class ViewImagesComponent implements OnInit {
   selectedSessionOid: string;
   selectedSessionName: string;
   selectedLevel: number;
-  allLevels: {[key: number] : string} = {
+  allLevels: { [key: number]: string } = {
     1: "level1",
     2: "level2",
     3: "level3",
@@ -88,11 +93,17 @@ export class ViewImagesComponent implements OnInit {
     6: "level6"
   }
 
+  rulerEnable: boolean = false
+  size: number = 0;
+
+
   constructor(private imageService: ImagesService, private sanitizer: DomSanitizer) { }
 
   ngOnInit(): void {
     this.getSessions();
-    this.selectedSessionName = this.allSessions[this.selectedSessionOid];
+    if (this.selectedSessionOid != undefined) {
+      this.selectedSessionName = this.allSessions[this.selectedSessionOid];
+    }
     this.selectedLevel = 1;
     this.loadThumbnailsBySession();
   }
@@ -200,7 +211,7 @@ export class ViewImagesComponent implements OnInit {
       .subscribe((data: any) => {
         this.particlePickJobType = {}
         for (var i in data) {
-          this.particlePickJobType[data[i].Oid]= data[i].job_name
+          this.particlePickJobType[data[i].Oid] = data[i].job_name
         }
       })
   }
@@ -242,6 +253,7 @@ export class ViewImagesComponent implements OnInit {
   }
 
   setCanvasBackground(): void {
+    this.element = <Element>this.root;
     this.canvas = <HTMLCanvasElement>document.getElementById("canvas");
     let bg = `url(${this.unsafeImageUrl})`
     this.canvas.style.backgroundImage = bg
@@ -255,12 +267,27 @@ export class ViewImagesComponent implements OnInit {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
   }
 
+  enableParticlePick(event: any) {
+    this.clearCanvas();
+    this.pickTypeEnable = !this.pickTypeEnable;
+    this.rulerEnable = false;
+  }
+
+  enableRuler(event: any) {
+    this.clearCanvas();
+    this.pickTypeEnable = false;
+    this.rulerEnable = !this.rulerEnable;
+  }
+
   //Get x and y coordinates on canvas on user click, with top left corner of center image as (0,0)
-  getPosition(event: any) {
+  onCanvasClick(event: any) {
+    if (this.pickTypeEnable) {
+      this.rulerEnable = false;
+      this.selectCoordinates(event);
+    }
+  }
 
-    this.element = <Element>this.root;
-    this.canvas = <HTMLCanvasElement>document.getElementById("canvas");
-
+  selectCoordinates(event: any) {
     this.setCanvasBackground()
 
     let curleft = 0,
@@ -268,6 +295,7 @@ export class ViewImagesComponent implements OnInit {
 
     curleft += event.offsetX;
     curtop += event.offsetY;
+
     this.drawCoordinates(curleft, curtop, "None");
   }
 
@@ -280,8 +308,6 @@ export class ViewImagesComponent implements OnInit {
     }
     this.particlePickCoordinates.push(particle)
 
-    this.canvas = <HTMLCanvasElement>document.getElementById("canvas");
-    this.ctx = this.canvas.getContext("2d");
     const grd = this.ctx.createLinearGradient(0, 0, 170, 0);
     grd.addColorStop(0, "black");
     grd.addColorStop(1, "red");
@@ -298,6 +324,109 @@ export class ViewImagesComponent implements OnInit {
     console.log(hex);
   }
 
+  private mousedownHandler: any;
+  private mousemoveHandler: any;
+  private mouseupHandler: any;
+  private mouseoutHandler: any;
+  private mouseoverHandler: any;
+
+
+  measureDistance(event: any) {
+    this.setCanvasBackground()
+
+    let isDrawing = false;
+    let startPoint: Point | null = null;
+    let endPoint: Point | null = null;
+
+    this.mousedownHandler = (event: MouseEvent) => {
+      if (this.rulerEnable) {
+        isDrawing = true;
+        startPoint = { x: event.offsetX, y: event.offsetY };
+      }
+    };
+
+    this.canvas.addEventListener('mousedown', this.mousedownHandler);
+
+    this.mousemoveHandler = (event: MouseEvent) => {
+      if (this.rulerEnable) {
+        if (isDrawing) {
+          endPoint = { x: event.offsetX, y: event.offsetY };
+          this.drawLine(startPoint!, endPoint!);
+        }
+      }
+    };
+
+    this.canvas.addEventListener('mousemove', this.mousemoveHandler);
+
+    this.mouseupHandler = (event: MouseEvent) => {
+      if (this.rulerEnable) {
+        isDrawing = false;
+      }
+    };
+
+    this.canvas.addEventListener('mouseup', this.mouseupHandler);
+
+    this.mouseoutHandler = (event: MouseEvent) => {
+      if (this.rulerEnable) {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+      }
+    };
+
+    this.canvas.addEventListener('mouseout', this.mouseoutHandler);
+
+    this.mouseoverHandler = (event: MouseEvent) => {
+      if (this.rulerEnable) {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        if (startPoint && endPoint) {
+          const size = this.calculateLineSize(startPoint, endPoint);
+        }
+      }
+    };
+
+    this.canvas.addEventListener('mouseover', this.mouseoverHandler);
+
+  }
+
+  private handleRulerDisable() {
+    if (!this.rulerEnable) {
+      this.canvas.removeEventListener('mousedown', this.mousedownHandler);
+      this.canvas.removeEventListener('mousemove', this.mousemoveHandler);
+      this.canvas.removeEventListener('mouseup', this.mouseupHandler);
+      this.canvas.removeEventListener('mouseout', this.mouseoutHandler);
+      this.canvas.removeEventListener('mouseover', this.mouseoverHandler);
+    } else {
+      this.canvas.addEventListener('mousedown', this.mousedownHandler);
+      this.canvas.addEventListener('mousemove', this.mousemoveHandler);
+      this.canvas.addEventListener('mouseup', this.mouseupHandler);
+      this.canvas.addEventListener('mouseout', this.mouseoutHandler);
+      this.canvas.addEventListener('mouseover', this.mouseoverHandler);
+    }
+  }
+
+  drawLine(start: Point, end: Point) {
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.beginPath();
+    this.ctx.moveTo(start.x, start.y);
+    this.ctx.lineTo(end.x, end.y);
+    this.ctx.strokeStyle = 'blue';
+    this.ctx.lineWidth = 2;
+    this.ctx.stroke();
+
+    if (start && end) {
+      const size = this.calculateLineSize(start, end);
+      const textX = (start.x + end.x) / 2;
+      const textY = (start.y + end.y) / 2;
+      this.ctx.fillStyle = 'blue';
+      this.ctx.font = '16px Arial';
+      this.ctx.fillText(`${size} pixels`, textX, textY);
+    }
+  }
+
+  calculateLineSize(start: Point, end: Point) {
+    const size = Math.sqrt((end.x - start.x) ** 2 + (end.y - start.y) ** 2);
+    return Math.round(size);
+  }
+
   rgbToHex(r: any, g: any, b: any) {
     if (r > 255 || g > 255 || b > 255)
       throw "Invalid color component";
@@ -312,7 +441,7 @@ export class ViewImagesComponent implements OnInit {
         this.selectedSessionOid = data[0].Oid;
         this.selectedLevel = 1;
         for (var i in data) {
-          this.allSessions[data[i].Oid]= data[i].name;
+          this.allSessions[data[i].Oid] = data[i].name;
         }
       })
   }
@@ -326,13 +455,13 @@ export class ViewImagesComponent implements OnInit {
   }
 
   //Populate thumnail stack for a session
-  loadThumbnailsBySession() : void {
+  loadThumbnailsBySession(): void {
     this.imageStackModelArr = [];
     this.imageService.getAllImages(this.selectedSessionName, this.selectedLevel)
       .subscribe((data: any) => {
         this.imageModelArr = [];
-        if(data.result.length == 0){
-          
+        if (data.result != undefined && data.result.length == 0) {
+
           Object.assign(this.imageSpec, this.defaultImageSpec);
           return;
         }
@@ -363,8 +492,8 @@ export class ViewImagesComponent implements OnInit {
         this.getDefaultCenterImage(0, 0);
         this.extIdx = 0;
       })
-    }
-    
+  }
+
   // Action on selecting session level
   levelUpdate(e: any) {
     this.selectedLevel = e.target.value;
