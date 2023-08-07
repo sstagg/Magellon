@@ -163,40 +163,38 @@ class LeginonFrameTransferJobService:
             # SQL query
             query = """
                 SELECT DISTINCT
-                  ai.DEF_id AS image_id,
-                  ai.filename,
-                  ai.`MRC|image` AS image_name,
-                  sem.magnification AS mag,
-                  sem.defocus,
-                  cem.`exposure time` AS camera_exposure_time,
-                  cem.`save frames` AS save_frames,
-                  cem.`frames name` AS frame_names,
-                  cem.`SUBD|binning|x` AS bining_x,
-                  cem.`SUBD|binning|y` AS bining_y,
-                  pd.dose AS preset_dose,
-                  pd.`exposure time` AS preset_exposure_time,
-                  pd.dose * POWER(10, -20) * cem.`exposure time` / pd.`exposure time` AS calculated_dose,
-                  psc.pixelsize AS pixelsize
+                    ai.DEF_id AS image_id,
+                    ai.filename,
+                    ai.`MRC|image` AS image_name,
+                    sem.magnification AS mag,
+                    sem.defocus,
+                    cem.`exposure time` AS camera_exposure_time,
+                    cem.`save frames` AS save_frames,
+                    cem.`frames name` AS frame_names,
+                    cem.`SUBD|binning|x` AS bining_x,
+                    cem.`SUBD|binning|y` AS bining_y,
+                    pd.dose AS preset_dose,
+                    pd.`exposure time` AS preset_exposure_time,
+                    pd.dose * POWER(10, -20) * cem.`exposure time` / pd.`exposure time` AS calculated_dose,
+                    psc.pixelsize AS pixelsize,
+                    psc.pixelsize * cem.`SUBD|binning|x` AS result_pixelSize
                 FROM AcquisitionImageData ai
-                  LEFT OUTER JOIN ScopeEMData sem
-                    ON ai.`REF|ScopeEMData|scope` = sem.DEF_id
-                  LEFT OUTER JOIN CameraEMData cem
-                    ON ai.`REF|CameraEMData|camera` = cem.DEF_id
-                  LEFT OUTER JOIN PresetData pd
-                    ON ai.`REF|PresetData|preset` = pd.DEF_id
-                  LEFT OUTER JOIN InstrumentData TemInstrumentData
-                    ON pd.`REF|InstrumentData|tem` = TemInstrumentData.DEF_id
-                  LEFT OUTER JOIN InstrumentData CameraInstrumentData
-                    ON pd.`REF|InstrumentData|ccdcamera` = CameraInstrumentData.DEF_id
-                  LEFT OUTER JOIN (SELECT
-                      psc.pixelsize,
-                      psc.`REF|InstrumentData|tem`,
-                      psc.`REF|InstrumentData|ccdcamera`,
-                      psc.magnification
-                    FROM PixelSizeCalibrationData psc ) psc
-                    ON psc.`REF|InstrumentData|tem` = pd.`REF|InstrumentData|tem`
+                LEFT OUTER JOIN ScopeEMData sem ON ai.`REF|ScopeEMData|scope` = sem.DEF_id
+                LEFT OUTER JOIN CameraEMData cem ON ai.`REF|CameraEMData|camera` = cem.DEF_id
+                LEFT OUTER JOIN PresetData pd ON ai.`REF|PresetData|preset` = pd.DEF_id
+                LEFT OUTER JOIN InstrumentData TemInstrumentData ON pd.`REF|InstrumentData|tem` = TemInstrumentData.DEF_id
+                LEFT OUTER JOIN InstrumentData CameraInstrumentData ON pd.`REF|InstrumentData|ccdcamera` = CameraInstrumentData.DEF_id
+                LEFT OUTER JOIN PixelSizeCalibrationData psc ON 
+                    psc.`REF|InstrumentData|tem` = pd.`REF|InstrumentData|tem`
                     AND psc.`REF|InstrumentData|ccdcamera` = pd.`REF|InstrumentData|ccdcamera`
                     AND psc.magnification = sem.magnification
+                    AND psc.DEF_id = (
+                        SELECT MAX(psc_inner.DEF_id)
+                        FROM PixelSizeCalibrationData psc_inner
+                        WHERE psc_inner.`REF|InstrumentData|tem` = pd.`REF|InstrumentData|tem`
+                            AND psc_inner.`REF|InstrumentData|ccdcamera` = pd.`REF|InstrumentData|ccdcamera`
+                            AND psc_inner.magnification = sem.magnification
+                    )
                 WHERE ai.filename LIKE %s
             """
             self.leginon_cursor.execute(query, (session_name + "%",))
