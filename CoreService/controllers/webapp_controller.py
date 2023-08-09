@@ -157,7 +157,9 @@ def process_image_rows(rows, session_name):
 
 @webapp_router.get('/fft_image')
 def get_fft_image_route(name: str):
-    file_path = f"{IMAGE_ROOT_DIR}/{FFT_SUB_URL}{name}{FFT_SUFFIX}"
+    underscore_index = name.find('_')
+    session_name = name[:underscore_index]
+    file_path = f"{app_settings.directory_settings.IMAGE_ROOT_DIR}/{session_name}/{FFT_SUB_URL}{name}{FFT_SUFFIX}"
     return FileResponse(file_path, media_type='image/png')
 
 
@@ -237,7 +239,7 @@ def update_particle_picking_jobitem(oid: UUID,
     return db_item
 
 
-@webapp_router.get("/image_by_thumbnail")
+@webapp_router.get("/image_thumbnail")
 async def get_image_thumbnail(name: str):
     underscore_index = name.find('_')
     session_name = name[:underscore_index]
