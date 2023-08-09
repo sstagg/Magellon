@@ -31,4 +31,4 @@ directory_settings:
   ORIGINAL_IMAGES_SUB_URL: original/
   THUMBNAILS_DIR: null
   THUMBNAILS_SUB_URL: thumbnails/
-  THUMBNAILS_SUFFIX: _TIMG.png
+  THUMBNAILS_SUFFIX: _thumb.png

@@ -2522,3 +2522,510 @@ WHERE msession.name = %(name_1)s
 2023-08-01 17:53:10,439 [INFO] configs.production_test production_test.py:11 - Production code is starting ...
 2023-08-01 17:54:27,431 [INFO] configs.production_test production_test.py:11 - Production code is starting ...
 2023-08-01 17:54:50,622 [INFO] configs.production_test production_test.py:11 - Production code is starting ...
+2023-08-07 14:26:31,791 [INFO] configs.production_test production_test.py:11 - Production code is starting ...
+2023-08-09 12:00:49,472 [INFO] configs.production_test production_test.py:11 - Production code is starting ...
+2023-08-09 12:03:10,996 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT DATABASE()
+2023-08-09 12:03:10,996 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-09 12:03:11,063 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@sql_mode
+2023-08-09 12:03:11,063 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-09 12:03:11,097 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@lower_case_table_names
+2023-08-09 12:03:11,097 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-09 12:03:11,163 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-08-09 12:03:11,166 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-09 12:03:11,167 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00030s] {'name_1': 'undefined', 'param_1': 1}
+2023-08-09 12:03:11,197 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-08-09 12:03:11,198 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+ LIMIT %(param_1)s, %(param_2)s
+2023-08-09 12:03:11,198 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00025s] {'param_1': 0, 'param_2': 100}
+2023-08-09 12:03:11,202 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-08-09 12:03:11,234 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-08-09 12:03:16,338 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-08-09 12:03:16,340 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-09 12:03:16,340 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 5.173s ago] {'name_1': '23jun28a', 'param_1': 1}
+2023-08-09 12:03:16,379 [INFO] sqlalchemy.engine.Engine base.py:1897 - 
+        SELECT
+          child.Oid,
+          child.name,
+          child.level,
+          child.parent_id,
+          child.parent_name
+        FROM (
+          SELECT
+            image.Oid,
+            image.name,
+            image.parent_id,
+            parent.name AS parent_name,
+            image.level,
+            ROW_NUMBER() OVER (PARTITION BY image.parent_id ORDER BY image.oid) AS row_num,
+            image.session_id
+          FROM image
+          INNER JOIN image parent ON image.parent_id = parent.Oid
+          WHERE image.level = %(level)s
+            AND image.session_id = %(session_id)s
+        ) child
+        WHERE child.row_num <= 3
+        GROUP BY child.parent_name, child.Oid, child.name, child.parent_id, child.level, child.session_id
+    
+2023-08-09 12:03:16,379 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00034s] {'level': 3, 'session_id': b'\x17\t\xc6\x0e\xd5\xaaF\x9a\x9f\x8b\xf5\xb1\xb5\xebwa'}
+2023-08-09 12:16:58,095 [INFO] configs.production_test production_test.py:11 - Production code is starting ...
+2023-08-09 12:17:11,437 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT DATABASE()
+2023-08-09 12:17:11,437 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-09 12:17:11,505 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@sql_mode
+2023-08-09 12:17:11,506 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-09 12:17:11,539 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@lower_case_table_names
+2023-08-09 12:17:11,540 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-09 12:17:11,608 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-08-09 12:17:11,610 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-09 12:17:11,610 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00023s] {'name_1': '23jun28a', 'param_1': 1}
+2023-08-09 12:17:11,646 [INFO] sqlalchemy.engine.Engine base.py:1897 - 
+        SELECT
+          child.Oid,
+          child.name,
+          child.level,
+          child.parent_id,
+          child.parent_name
+        FROM (
+          SELECT
+            image.Oid,
+            image.name,
+            image.parent_id,
+            parent.name AS parent_name,
+            image.level,
+            ROW_NUMBER() OVER (PARTITION BY image.parent_id ORDER BY image.oid) AS row_num,
+            image.session_id
+          FROM image
+          INNER JOIN image parent ON image.parent_id = parent.Oid
+          WHERE image.level = %(level)s
+            AND image.session_id = %(session_id)s
+        ) child
+        WHERE child.row_num <= 3
+        GROUP BY child.parent_name, child.Oid, child.name, child.parent_id, child.level, child.session_id
+    
+2023-08-09 12:17:11,647 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00024s] {'level': 4, 'session_id': b'\x17\t\xc6\x0e\xd5\xaaF\x9a\x9f\x8b\xf5\xb1\xb5\xebwa'}
+2023-08-09 12:17:12,581 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-08-09 12:17:12,672 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-08-09 12:17:12,674 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord`, image.level AS image_level 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-09 12:17:12,675 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00102s] {'name_1': '23jun28a_a_00022gr_00001sq_v01_00002hl_00007ex', 'param_1': 1}
+2023-08-09 12:17:12,712 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-08-09 12:17:12,841 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-08-09 12:17:12,844 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job_id AS particlepickingjobitem_job_id, particlepickingjobitem.image_id AS particlepickingjobitem_image_id, particlepickingjobitem.settings AS particlepickingjobitem_settings, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.steps AS particlepickingjobitem_steps, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord`, particlepickingjob.name AS particlepickingjob_name, particlepickingjob_1.`Oid` AS `particlepickingjob_1_Oid`, particlepickingjob_1.name AS particlepickingjob_1_name, particlepickingjob_1.description AS particlepickingjob_1_description, particlepickingjob_1.created_on AS particlepickingjob_1_created_on, particlepickingjob_1.end_on AS particlepickingjob_1_end_on, particlepickingjob_1.user_id AS particlepickingjob_1_user_id, particlepickingjob_1.project_id AS particlepickingjob_1_project_id, particlepickingjob_1.msession_id AS particlepickingjob_1_msession_id, particlepickingjob_1.status AS particlepickingjob_1_status, particlepickingjob_1.type AS particlepickingjob_1_type, particlepickingjob_1.settings AS particlepickingjob_1_settings, particlepickingjob_1.cs AS particlepickingjob_1_cs, particlepickingjob_1.path AS particlepickingjob_1_path, particlepickingjob_1.output_dir AS particlepickingjob_1_output_dir, particlepickingjob_1.direction AS particlepickingjob_1_direction, particlepickingjob_1.image_selection_criteria AS particlepickingjob_1_image_selection_criteria, particlepickingjob_1.`OptimisticLockField` AS `particlepickingjob_1_OptimisticLockField`, particlepickingjob_1.`GCRecord` AS `particlepickingjob_1_GCRecord` 
+FROM particlepickingjobitem INNER JOIN image ON particlepickingjobitem.image_id = image.`Oid` INNER JOIN particlepickingjob ON EXISTS (SELECT 1 
+FROM particlepickingjob 
+WHERE particlepickingjob.`Oid` = particlepickingjobitem.job_id AND particlepickingjob.`Oid`) LEFT OUTER JOIN particlepickingjob AS particlepickingjob_1 ON particlepickingjob_1.`Oid` = particlepickingjobitem.job_id 
+WHERE image.name = %(name_1)s
+2023-08-09 12:17:12,844 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00023s] {'name_1': '23jun28a_a_00022gr_00001sq_v01_00002hl_00007ex'}
+2023-08-09 12:17:12,880 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-08-09 12:17:28,467 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-08-09 12:17:28,467 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-08-09 12:17:28,468 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+ LIMIT %(param_1)s, %(param_2)s
+2023-08-09 12:17:28,468 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-09 12:17:28,468 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00056s] {'param_1': 0, 'param_2': 100}
+2023-08-09 12:17:28,468 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 16.86s ago] {'name_1': 'undefined', 'param_1': 1}
+2023-08-09 12:17:28,504 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-08-09 12:17:28,505 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-08-09 12:17:31,318 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-08-09 12:17:31,318 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-09 12:17:31,319 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 19.71s ago] {'name_1': '23jun28a', 'param_1': 1}
+2023-08-09 12:17:31,353 [INFO] sqlalchemy.engine.Engine base.py:1897 - 
+        SELECT
+          child.Oid,
+          child.name,
+          child.level,
+          child.parent_id,
+          child.parent_name
+        FROM (
+          SELECT
+            image.Oid,
+            image.name,
+            image.parent_id,
+            parent.name AS parent_name,
+            image.level,
+            ROW_NUMBER() OVER (PARTITION BY image.parent_id ORDER BY image.oid) AS row_num,
+            image.session_id
+          FROM image
+          INNER JOIN image parent ON image.parent_id = parent.Oid
+          WHERE image.level = %(level)s
+            AND image.session_id = %(session_id)s
+        ) child
+        WHERE child.row_num <= 3
+        GROUP BY child.parent_name, child.Oid, child.name, child.parent_id, child.level, child.session_id
+    
+2023-08-09 12:17:31,353 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 19.71s ago] {'level': 3, 'session_id': b'\x17\t\xc6\x0e\xd5\xaaF\x9a\x9f\x8b\xf5\xb1\xb5\xebwa'}
+2023-08-09 12:17:32,276 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-08-09 12:17:32,390 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-08-09 12:17:32,391 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT image.`Oid` AS `image_Oid`, image.original AS image_original, image.aligned AS image_aligned, image.fft AS image_fft, image.ctf AS image_ctf, image.name AS image_name, image.path AS image_path, image.parent_id AS image_parent_id, image.session_id AS image_session_id, image.magnification AS image_magnification, image.dose AS image_dose, image.focus AS image_focus, image.defocus AS image_defocus, image.spot_size AS image_spot_size, image.old_id AS image_old_id, image.intensity AS image_intensity, image.shift_x AS image_shift_x, image.shift_y AS image_shift_y, image.beam_shift_x AS image_beam_shift_x, image.beam_shift_y AS image_beam_shift_y, image.reset_focus AS image_reset_focus, image.screen_current AS image_screen_current, image.beam_bank AS image_beam_bank, image.condenser_x AS image_condenser_x, image.condenser_y AS image_condenser_y, image.objective_x AS image_objective_x, image.objective_y AS image_objective_y, image.dimension_x AS image_dimension_x, image.dimension_y AS image_dimension_y, image.binning_x AS image_binning_x, image.binning_y AS image_binning_y, image.offset_x AS image_offset_x, image.offset_y AS image_offset_y, image.exposure_time AS image_exposure_time, image.exposure_type AS image_exposure_type, image.pixel_size AS image_pixel_size, image.pixel_size_x AS image_pixel_size_x, image.pixel_size_y AS image_pixel_size_y, image.energy_filtered AS image_energy_filtered, image.`OptimisticLockField` AS `image_OptimisticLockField`, image.`GCRecord` AS `image_GCRecord`, image.level AS image_level 
+FROM image 
+WHERE image.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-09 12:17:32,392 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-08-09 12:17:32,392 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 19.72s ago] {'name_1': '23jun28a_00003sq_v01_00002hl_00003ex', 'param_1': 1}
+2023-08-09 12:17:32,392 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT particlepickingjobitem.`Oid` AS `particlepickingjobitem_Oid`, particlepickingjobitem.job_id AS particlepickingjobitem_job_id, particlepickingjobitem.image_id AS particlepickingjobitem_image_id, particlepickingjobitem.settings AS particlepickingjobitem_settings, particlepickingjobitem.status AS particlepickingjobitem_status, particlepickingjobitem.steps AS particlepickingjobitem_steps, particlepickingjobitem.type AS particlepickingjobitem_type, particlepickingjobitem.`OptimisticLockField` AS `particlepickingjobitem_OptimisticLockField`, particlepickingjobitem.`GCRecord` AS `particlepickingjobitem_GCRecord`, particlepickingjob.name AS particlepickingjob_name, particlepickingjob_1.`Oid` AS `particlepickingjob_1_Oid`, particlepickingjob_1.name AS particlepickingjob_1_name, particlepickingjob_1.description AS particlepickingjob_1_description, particlepickingjob_1.created_on AS particlepickingjob_1_created_on, particlepickingjob_1.end_on AS particlepickingjob_1_end_on, particlepickingjob_1.user_id AS particlepickingjob_1_user_id, particlepickingjob_1.project_id AS particlepickingjob_1_project_id, particlepickingjob_1.msession_id AS particlepickingjob_1_msession_id, particlepickingjob_1.status AS particlepickingjob_1_status, particlepickingjob_1.type AS particlepickingjob_1_type, particlepickingjob_1.settings AS particlepickingjob_1_settings, particlepickingjob_1.cs AS particlepickingjob_1_cs, particlepickingjob_1.path AS particlepickingjob_1_path, particlepickingjob_1.output_dir AS particlepickingjob_1_output_dir, particlepickingjob_1.direction AS particlepickingjob_1_direction, particlepickingjob_1.image_selection_criteria AS particlepickingjob_1_image_selection_criteria, particlepickingjob_1.`OptimisticLockField` AS `particlepickingjob_1_OptimisticLockField`, particlepickingjob_1.`GCRecord` AS `particlepickingjob_1_GCRecord` 
+FROM particlepickingjobitem INNER JOIN image ON particlepickingjobitem.image_id = image.`Oid` INNER JOIN particlepickingjob ON EXISTS (SELECT 1 
+FROM particlepickingjob 
+WHERE particlepickingjob.`Oid` = particlepickingjobitem.job_id AND particlepickingjob.`Oid`) LEFT OUTER JOIN particlepickingjob AS particlepickingjob_1 ON particlepickingjob_1.`Oid` = particlepickingjobitem.job_id 
+WHERE image.name = %(name_1)s
+2023-08-09 12:17:32,393 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 19.55s ago] {'name_1': '23jun28a_00003sq_v01_00002hl_00003ex'}
+2023-08-09 12:17:32,428 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-08-09 12:17:32,429 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-08-09 12:18:15,768 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-08-09 12:18:15,768 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-09 12:18:15,768 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 64.16s ago] {'name_1': '23jun28a', 'param_1': 1}
+2023-08-09 12:18:15,803 [INFO] sqlalchemy.engine.Engine base.py:1897 - 
+        SELECT
+          child.Oid,
+          child.name,
+          child.level,
+          child.parent_id,
+          child.parent_name
+        FROM (
+          SELECT
+            image.Oid,
+            image.name,
+            image.parent_id,
+            parent.name AS parent_name,
+            image.level,
+            ROW_NUMBER() OVER (PARTITION BY image.parent_id ORDER BY image.oid) AS row_num,
+            image.session_id
+          FROM image
+          INNER JOIN image parent ON image.parent_id = parent.Oid
+          WHERE image.level = %(level)s
+            AND image.session_id = %(session_id)s
+        ) child
+        WHERE child.row_num <= 3
+        GROUP BY child.parent_name, child.Oid, child.name, child.parent_id, child.level, child.session_id
+    
+2023-08-09 12:18:15,803 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 64.16s ago] {'level': 3, 'session_id': b'\x17\t\xc6\x0e\xd5\xaaF\x9a\x9f\x8b\xf5\xb1\xb5\xebwa'}
+2023-08-09 12:18:16,681 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-08-09 12:21:07,251 [INFO] configs.production_test production_test.py:11 - Production code is starting ...
+2023-08-09 12:21:20,134 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT DATABASE()
+2023-08-09 12:21:20,134 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-09 12:21:20,204 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@sql_mode
+2023-08-09 12:21:20,204 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-09 12:21:20,237 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@lower_case_table_names
+2023-08-09 12:21:20,237 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-09 12:21:20,305 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-08-09 12:21:20,306 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-09 12:21:20,307 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00021s] {'name_1': '23jun28a', 'param_1': 1}
+2023-08-09 12:21:20,341 [INFO] sqlalchemy.engine.Engine base.py:1897 - 
+        SELECT
+          child.Oid,
+          child.name,
+          child.level,
+          child.parent_id,
+          child.parent_name
+        FROM (
+          SELECT
+            image.Oid,
+            image.name,
+            image.parent_id,
+            parent.name AS parent_name,
+            image.level,
+            ROW_NUMBER() OVER (PARTITION BY image.parent_id ORDER BY image.oid) AS row_num,
+            image.session_id
+          FROM image
+          INNER JOIN image parent ON image.parent_id = parent.Oid
+          WHERE image.level = %(level)s
+            AND image.session_id = %(session_id)s
+        ) child
+        WHERE child.row_num <= 3
+        GROUP BY child.parent_name, child.Oid, child.name, child.parent_id, child.level, child.session_id
+    
+2023-08-09 12:21:20,342 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00032s] {'level': 3, 'session_id': b'\x17\t\xc6\x0e\xd5\xaaF\x9a\x9f\x8b\xf5\xb1\xb5\xebwa'}
+2023-08-09 12:21:21,225 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-08-09 12:21:38,353 [INFO] configs.production_test production_test.py:11 - Production code is starting ...
+2023-08-09 12:21:45,972 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT DATABASE()
+2023-08-09 12:21:45,972 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-09 12:21:46,039 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@sql_mode
+2023-08-09 12:21:46,039 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-09 12:21:46,072 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@lower_case_table_names
+2023-08-09 12:21:46,072 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-09 12:21:46,138 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-08-09 12:21:46,142 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-09 12:21:46,142 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00030s] {'name_1': '23jun28a', 'param_1': 1}
+2023-08-09 12:21:46,179 [INFO] sqlalchemy.engine.Engine base.py:1897 - 
+        SELECT
+          child.Oid,
+          child.name,
+          child.level,
+          child.parent_id,
+          child.parent_name
+        FROM (
+          SELECT
+            image.Oid,
+            image.name,
+            image.parent_id,
+            parent.name AS parent_name,
+            image.level,
+            ROW_NUMBER() OVER (PARTITION BY image.parent_id ORDER BY image.oid) AS row_num,
+            image.session_id
+          FROM image
+          INNER JOIN image parent ON image.parent_id = parent.Oid
+          WHERE image.level = %(level)s
+            AND image.session_id = %(session_id)s
+        ) child
+        WHERE child.row_num <= 3
+        GROUP BY child.parent_name, child.Oid, child.name, child.parent_id, child.level, child.session_id
+    
+2023-08-09 12:21:46,179 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00043s] {'level': 3, 'session_id': b'\x17\t\xc6\x0e\xd5\xaaF\x9a\x9f\x8b\xf5\xb1\xb5\xebwa'}
+2023-08-09 12:32:16,687 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-08-09 12:32:21,277 [INFO] configs.production_test production_test.py:11 - Production code is starting ...
+2023-08-09 12:32:32,376 [INFO] configs.production_test production_test.py:11 - Production code is starting ...
+2023-08-09 12:32:49,559 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT DATABASE()
+2023-08-09 12:32:49,559 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-09 12:32:49,627 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@sql_mode
+2023-08-09 12:32:49,628 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-09 12:32:49,662 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@lower_case_table_names
+2023-08-09 12:32:49,662 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-09 12:32:49,730 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-08-09 12:32:49,732 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-09 12:32:49,732 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00027s] {'name_1': '23jun28a', 'param_1': 1}
+2023-08-09 12:32:49,768 [INFO] sqlalchemy.engine.Engine base.py:1897 - 
+        SELECT
+          child.Oid,
+          child.name,
+          child.level,
+          child.parent_id,
+          child.parent_name
+        FROM (
+          SELECT
+            image.Oid,
+            image.name,
+            image.parent_id,
+            parent.name AS parent_name,
+            image.level,
+            ROW_NUMBER() OVER (PARTITION BY image.parent_id ORDER BY image.oid) AS row_num,
+            image.session_id
+          FROM image
+          INNER JOIN image parent ON image.parent_id = parent.Oid
+          WHERE image.level = %(level)s
+            AND image.session_id = %(session_id)s
+        ) child
+        WHERE child.row_num <= 3
+        GROUP BY child.parent_name, child.Oid, child.name, child.parent_id, child.level, child.session_id
+    
+2023-08-09 12:32:49,768 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00022s] {'level': 3, 'session_id': b'\x17\t\xc6\x0e\xd5\xaaF\x9a\x9f\x8b\xf5\xb1\xb5\xebwa'}
+2023-08-09 12:32:50,623 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-08-09 12:33:25,125 [INFO] configs.production_test production_test.py:11 - Production code is starting ...
+2023-08-09 12:33:30,757 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT DATABASE()
+2023-08-09 12:33:30,758 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-09 12:33:30,825 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@sql_mode
+2023-08-09 12:33:30,826 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-09 12:33:30,860 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@lower_case_table_names
+2023-08-09 12:33:30,860 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-09 12:33:30,929 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-08-09 12:33:30,933 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-09 12:33:30,933 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00047s] {'name_1': '23jun28a', 'param_1': 1}
+2023-08-09 12:33:30,971 [INFO] sqlalchemy.engine.Engine base.py:1897 - 
+        SELECT
+          child.Oid,
+          child.name,
+          child.level,
+          child.parent_id,
+          child.parent_name
+        FROM (
+          SELECT
+            image.Oid,
+            image.name,
+            image.parent_id,
+            parent.name AS parent_name,
+            image.level,
+            ROW_NUMBER() OVER (PARTITION BY image.parent_id ORDER BY image.oid) AS row_num,
+            image.session_id
+          FROM image
+          INNER JOIN image parent ON image.parent_id = parent.Oid
+          WHERE image.level = %(level)s
+            AND image.session_id = %(session_id)s
+        ) child
+        WHERE child.row_num <= 3
+        GROUP BY child.parent_name, child.Oid, child.name, child.parent_id, child.level, child.session_id
+    
+2023-08-09 12:33:30,972 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00061s] {'level': 3, 'session_id': b'\x17\t\xc6\x0e\xd5\xaaF\x9a\x9f\x8b\xf5\xb1\xb5\xebwa'}
+2023-08-09 12:44:25,217 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-08-09 12:44:36,946 [INFO] configs.production_test production_test.py:11 - Production code is starting ...
+2023-08-09 12:44:49,018 [INFO] configs.production_test production_test.py:11 - Production code is starting ...
+2023-08-09 12:45:21,677 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT DATABASE()
+2023-08-09 12:45:21,677 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-09 12:45:21,745 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@sql_mode
+2023-08-09 12:45:21,745 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-09 12:45:21,780 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@lower_case_table_names
+2023-08-09 12:45:21,780 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-09 12:45:21,848 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-08-09 12:45:21,850 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-09 12:45:21,850 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00025s] {'name_1': '23jun28a', 'param_1': 1}
+2023-08-09 12:45:21,886 [INFO] sqlalchemy.engine.Engine base.py:1897 - 
+        SELECT
+          child.Oid,
+          child.name,
+          child.level,
+          child.parent_id,
+          child.parent_name
+        FROM (
+          SELECT
+            image.Oid,
+            image.name,
+            image.parent_id,
+            parent.name AS parent_name,
+            image.level,
+            ROW_NUMBER() OVER (PARTITION BY image.parent_id ORDER BY image.oid) AS row_num,
+            image.session_id
+          FROM image
+          INNER JOIN image parent ON image.parent_id = parent.Oid
+          WHERE image.level = %(level)s
+            AND image.session_id = %(session_id)s
+        ) child
+        WHERE child.row_num <= 3
+        GROUP BY child.parent_name, child.Oid, child.name, child.parent_id, child.level, child.session_id
+    
+2023-08-09 12:45:21,886 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00026s] {'level': 3, 'session_id': b'\x17\t\xc6\x0e\xd5\xaaF\x9a\x9f\x8b\xf5\xb1\xb5\xebwa'}
+2023-08-09 12:45:22,766 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-08-09 12:45:24,592 [INFO] configs.production_test production_test.py:11 - Production code is starting ...
+2023-08-09 12:51:04,701 [INFO] configs.production_test production_test.py:11 - Production code is starting ...
+2023-08-09 12:51:20,027 [INFO] configs.production_test production_test.py:11 - Production code is starting ...
+2023-08-09 12:51:36,823 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT DATABASE()
+2023-08-09 12:51:36,824 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-09 12:51:36,890 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@sql_mode
+2023-08-09 12:51:36,890 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-09 12:51:36,924 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@lower_case_table_names
+2023-08-09 12:51:36,924 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-09 12:51:36,990 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-08-09 12:51:36,991 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-09 12:51:36,991 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00025s] {'name_1': '23jun28a', 'param_1': 1}
+2023-08-09 12:51:37,026 [INFO] sqlalchemy.engine.Engine base.py:1897 - 
+        SELECT
+          child.Oid,
+          child.name,
+          child.level,
+          child.parent_id,
+          child.parent_name
+        FROM (
+          SELECT
+            image.Oid,
+            image.name,
+            image.parent_id,
+            parent.name AS parent_name,
+            image.level,
+            ROW_NUMBER() OVER (PARTITION BY image.parent_id ORDER BY image.oid) AS row_num,
+            image.session_id
+          FROM image
+          INNER JOIN image parent ON image.parent_id = parent.Oid
+          WHERE image.level = %(level)s
+            AND image.session_id = %(session_id)s
+        ) child
+        WHERE child.row_num <= 3
+        GROUP BY child.parent_name, child.Oid, child.name, child.parent_id, child.level, child.session_id
+    
+2023-08-09 12:51:37,026 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00023s] {'level': 3, 'session_id': b'\x17\t\xc6\x0e\xd5\xaaF\x9a\x9f\x8b\xf5\xb1\xb5\xebwa'}
+2023-08-09 12:51:37,083 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-08-09 12:51:46,074 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-08-09 12:51:46,074 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-09 12:51:46,074 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 9.083s ago] {'name_1': '23jun28a', 'param_1': 1}
+2023-08-09 12:51:46,108 [INFO] sqlalchemy.engine.Engine base.py:1897 - 
+        SELECT
+          child.Oid,
+          child.name,
+          child.level,
+          child.parent_id,
+          child.parent_name
+        FROM (
+          SELECT
+            image.Oid,
+            image.name,
+            image.parent_id,
+            parent.name AS parent_name,
+            image.level,
+            ROW_NUMBER() OVER (PARTITION BY image.parent_id ORDER BY image.oid) AS row_num,
+            image.session_id
+          FROM image
+          INNER JOIN image parent ON image.parent_id = parent.Oid
+          WHERE image.level = %(level)s
+            AND image.session_id = %(session_id)s
+        ) child
+        WHERE child.row_num <= 3
+        GROUP BY child.parent_name, child.Oid, child.name, child.parent_id, child.level, child.session_id
+    
+2023-08-09 12:51:46,108 [INFO] sqlalchemy.engine.Engine base.py:1902 - [cached since 9.082s ago] {'level': 3, 'session_id': b'\x17\t\xc6\x0e\xd5\xaaF\x9a\x9f\x8b\xf5\xb1\xb5\xebwa'}
+2023-08-09 12:51:46,161 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK
+2023-08-09 12:52:37,309 [INFO] configs.production_test production_test.py:11 - Production code is starting ...
+2023-08-09 12:52:48,587 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT DATABASE()
+2023-08-09 12:52:48,587 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-09 12:52:48,654 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@sql_mode
+2023-08-09 12:52:48,654 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-09 12:52:48,687 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT @@lower_case_table_names
+2023-08-09 12:52:48,687 [INFO] sqlalchemy.engine.Engine base.py:1902 - [raw sql] {}
+2023-08-09 12:52:48,755 [INFO] sqlalchemy.engine.Engine base.py:1087 - BEGIN (implicit)
+2023-08-09 12:52:48,757 [INFO] sqlalchemy.engine.Engine base.py:1897 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2023-08-09 12:52:48,757 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00026s] {'name_1': '23jun28a', 'param_1': 1}
+2023-08-09 12:52:48,792 [INFO] sqlalchemy.engine.Engine base.py:1897 - 
+        SELECT
+          child.Oid,
+          child.name,
+          child.level,
+          child.parent_id,
+          child.parent_name
+        FROM (
+          SELECT
+            image.Oid,
+            image.name,
+            image.parent_id,
+            parent.name AS parent_name,
+            image.level,
+            ROW_NUMBER() OVER (PARTITION BY image.parent_id ORDER BY image.oid) AS row_num,
+            image.session_id
+          FROM image
+          INNER JOIN image parent ON image.parent_id = parent.Oid
+          WHERE image.level = %(level)s
+            AND image.session_id = %(session_id)s
+        ) child
+        WHERE child.row_num <= 3
+        GROUP BY child.parent_name, child.Oid, child.name, child.parent_id, child.level, child.session_id
+    
+2023-08-09 12:52:48,792 [INFO] sqlalchemy.engine.Engine base.py:1902 - [generated in 0.00027s] {'level': 3, 'session_id': b'\x17\t\xc6\x0e\xd5\xaaF\x9a\x9f\x8b\xf5\xb1\xb5\xebwa'}
+2023-08-09 12:52:50,117 [INFO] sqlalchemy.engine.Engine base.py:1113 - ROLLBACK

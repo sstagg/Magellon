@@ -127,22 +127,24 @@ def process_image_rows(rows, session_name):
             parent_id=parent_id,
             parent_name=parent_name
         )
-        file_path = os.path.join(f"{IMAGE_ROOT_DIR}/{session_name}/{THUMBNAILS_SUB_URL}",
-                                 image.name + THUMBNAILS_SUFFIX)
+        file_path = os.path.join(f"{IMAGE_ROOT_DIR}/{session_name}/{THUMBNAILS_SUB_URL}",image.name + THUMBNAILS_SUFFIX)
         print(file_path)
         if os.path.isfile(file_path):
             image.encoded_image = get_response_image(file_path)
 
-        if image.parent_name not in images_by_parent:
-            images_by_parent[image.parent_name] = []
+        if parent_id not in images_by_parent:
+            parent_path = os.path.join(f"{IMAGE_ROOT_DIR}/{session_name}/{THUMBNAILS_SUB_URL}",parent_name + THUMBNAILS_SUFFIX)
+            parent_image = get_response_image(parent_path) if os.path.isfile(parent_path) else None
+            images_by_parent[parent_id] = {
+                    "parent_id": uuid.UUID(bytes=parent_id),
+                    "encoded_image": parent_image,
+                    "parent_name": parent_name,
+                    "images": []
+            }
 
-        images_by_parent[image.parent_name].append(image)
+        images_by_parent[parent_id]["images"].append(image)
 
-    result_list = [
-        {"ext": parent_name, "images": images}
-        for parent_name, images in images_by_parent.items()
-    ]
-
+    result_list = list(images_by_parent.values())
     return result_list
 
 
