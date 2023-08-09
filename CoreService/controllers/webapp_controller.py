@@ -87,7 +87,14 @@ def get_images_route(session_name: str, level: int, db_session: Session = Depend
 @webapp_router.get('/images_by_stack')
 def get_images_by_stack_route(ext: str, db_session: Session = Depends(get_db)):
     try:
-        session_name = "22apr01a"
+        parts = ext.split('_')
+        if len(parts) >= 1:
+            session_name = parts[0]
+        else:
+            return {"error": "Session is not included in the file name"}
+
+        # session_name = parts[0] if parts else None
+
         query = text("""
             SELECT
               image.Oid,
