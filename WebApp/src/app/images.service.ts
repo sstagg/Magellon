@@ -1,5 +1,5 @@
-import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { Injectable } from '@angular/core';
 
 import { environment } from '../environments/environment';
 @Injectable({
@@ -18,7 +18,7 @@ export class ImagesService {
   }
 
   public getImageByThumbnail(name: string) {
-    return this.httpClient.get(this.baseUrl + 'image_by_thumbnail' + '?name=' + name, {
+    return this.httpClient.get(this.baseUrl + 'image_thumbnail' + '?name=' + name, {
       responseType: 'blob'
     });
   }
