@@ -7,6 +7,8 @@ export interface ImageModel {
   encoded_image: string;
   url: any;
   ext: string;
+  parentUrl: any;
+  parentName: any;
 }
 
 export interface ImageExtModel {
@@ -124,7 +126,7 @@ export class ViewImagesComponent implements OnInit {
   }
 
   getCenterImage(imageName: any): void {
-    this.imageService.getImageByThumbnail(this.imageName)
+    this.imageService.getImageByThumbnail(imageName)
       .subscribe((data: any) => {
         this.unsafeImageUrl = URL.createObjectURL(data);
         this.setCanvasBackground()
@@ -148,6 +150,22 @@ export class ViewImagesComponent implements OnInit {
     this.imageService.getImagesByStack(ext)
       .subscribe((data: any) => {
         let imageStackExtArr: ImageModel[] = [];
+
+        //Build parent image
+        let parentUnsafeImageUrl = 'data:image/png;base64,' + data.result[0].encoded_image;
+        let parentName = data.result[0].parent_name;
+
+        let imageModel = {
+          name: data.result[0].parent_name,
+          encoded_image: 'data:image/png;base64,' + data.result[0].encoded_image,
+          url: this.sanitizer.bypassSecurityTrustUrl(parentUnsafeImageUrl),
+          ext: data.result[0].ext,
+          parentUrl: "",
+          parentName: ""
+        }
+
+        imageStackExtArr.push(imageModel);
+
         for (var idx in data.result[0].images) {
 
           this.unsafeImageUrl = 'data:image/png;base64,' + data.result[0].images[idx].encoded_image;
@@ -157,7 +175,9 @@ export class ViewImagesComponent implements OnInit {
             name: data.result[0].images[idx].name,
             encoded_image: data.result[0].images[idx].encoded_image,
             url: this.sanitizer.bypassSecurityTrustUrl(this.unsafeImageUrl),
-            ext: data.result[0].ext
+            ext: data.result[0].ext,
+            parentUrl: this.sanitizer.bypassSecurityTrustUrl(parentUnsafeImageUrl),
+            parentName: parentName
           }
 
           imageStackExtArr.push(imageModel);
@@ -412,7 +432,7 @@ export class ViewImagesComponent implements OnInit {
     this.ctx.beginPath();
     this.ctx.moveTo(start.x, start.y);
     this.ctx.lineTo(end.x, end.y);
-    this.ctx.strokeStyle = 'blue';
+    this.ctx.strokeStyle = 'white';
     this.ctx.lineWidth = 2;
     this.ctx.stroke();
 
@@ -420,7 +440,7 @@ export class ViewImagesComponent implements OnInit {
       const size = this.calculateLineSize(start, end);
       const textX = (start.x + end.x) / 2;
       const textY = (start.y + end.y) / 2;
-      this.ctx.fillStyle = 'blue';
+      this.ctx.fillStyle = 'white';
       this.ctx.font = '16px Arial';
       this.ctx.fillText(`${size} pixels`, textX, textY);
     }
@@ -465,12 +485,28 @@ export class ViewImagesComponent implements OnInit {
       .subscribe((data: any) => {
         this.imageModelArr = [];
         if (data.result != undefined && data.result.length == 0) {
-
           Object.assign(this.imageSpec, this.defaultImageSpec);
           return;
         }
         for (var i in data.result) {
           let imageExtArr: ImageModel[] = [];
+
+          //Build parent image
+          let parentUnsafeImageUrl = 'data:image/png;base64,' + data.result[i].encoded_image;
+          let parentName = data.result[i].parent_name;
+
+          let imageModel = {
+            name: data.result[i].parent_name,
+            encoded_image: data.result[i].encoded_image,
+            url: this.sanitizer.bypassSecurityTrustUrl(parentUnsafeImageUrl),
+            ext: data.result[i].ext,
+            parentUrl: "",
+            parentName: ""
+          }
+
+          imageExtArr.push(imageModel);
+
+          //Build child images for stack
           for (var idx in data.result[i].images) {
 
             this.unsafeImageUrl = 'data:image/png;base64,' + data.result[i].images[idx].encoded_image;
@@ -480,7 +516,9 @@ export class ViewImagesComponent implements OnInit {
               name: data.result[i].images[idx].name,
               encoded_image: data.result[i].images[idx].encoded_image,
               url: this.sanitizer.bypassSecurityTrustUrl(this.unsafeImageUrl),
-              ext: data.result[i].ext
+              ext: data.result[i].ext,
+              parentUrl: this.sanitizer.bypassSecurityTrustUrl(parentUnsafeImageUrl),
+              parentName: parentName
             }
 
             imageExtArr.push(imageModel);

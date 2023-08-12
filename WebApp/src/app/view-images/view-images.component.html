@@ -30,25 +30,25 @@
             <div class="card border-0 stack-selection">
                 <div *ngFor="let imgExt of imageModelArr; let i = index">
                     <div class="card-body text-center stack-scroll" *ngIf="!unstackDisplay[i]">
-                        <div *ngIf="imgExt.images?.length > 2;else stack_img_3">
+                        <div *ngIf="imgExt.images?.length > 2">
                             <img [src]="imgExt.images[2].url" class="img1"
-                                (click)="getStackImages(imgExt.ext); showUnstack(i)" style="cursor: pointer" />
+                                (click)="getStackImages(imgExt.images[2].parentName); showUnstack(i)" style="cursor: pointer" />
                         </div>
-                        <ng-template #stack_img_3>
+                        <!-- <ng-template #stack_img_3>
                             <img [src]="imgExt.images[0].url" class="img1"
                                 (click)="getStackImages(imgExt.ext); showUnstack(i)" style="cursor: pointer" />
-                        </ng-template>
-                        <div *ngIf="imgExt.images?.length > 1;else stack_img_2">
+                        </ng-template> -->
+                        <div *ngIf="imgExt.images?.length > 1">
                             <img [src]="imgExt.images[1].url" class="img2"
-                                (click)="getStackImages(imgExt.ext); showUnstack(i)" style="cursor: pointer" />
+                                (click)="getStackImages(imgExt.images[1].parentName); showUnstack(i)" style="cursor: pointer" />
                         </div>
-                        <ng-template #stack_img_2>
+                        <!-- <ng-template #stack_img_2>
                             <img [src]="imgExt.images[0].url" class="img2"
                                 (click)="getStackImages(imgExt.ext); showUnstack(i)" style="cursor: pointer" />
-                        </ng-template>
+                        </ng-template> -->
                         <div>
                             <img [src]="imgExt.images[0].url" class="img3"
-                                (click)="getStackImages(imgExt.ext); showUnstack(i)" style="cursor: pointer" />
+                                (click)="getStackImages(imgExt.images[0].name); showUnstack(i)" style="cursor: pointer" />
                         </div>
                     </div>
                     <div *ngIf="unstackDisplay[i] && imageStackModelArr?.length" class="unstack">
