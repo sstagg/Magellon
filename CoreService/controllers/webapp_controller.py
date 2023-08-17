@@ -168,10 +168,12 @@ def get_image_data_route(name: str, db: Session = Depends(get_db)):
     db_image = ImageRepository.fetch_by_name(db, name)
     if db_image is None:
         raise HTTPException(status_code=404, detail="image not found with the given name")
+
+
     result = {
         "filename": db_image.name,
         "defocus": round(float(db_image.defocus) * 1.e6, 2),
-        "PixelSize": round(float(db_image.pixel_size) * db_image.binning_x, 3),
+        "PixelSize": round(float(db_image.pixel_size) * db_image.binning_x * 1.e9, 3),
         "mag": db_image.magnification,
         "dose": round(db_image.dose, 2) if db_image.dose is not None else "none",
     }
