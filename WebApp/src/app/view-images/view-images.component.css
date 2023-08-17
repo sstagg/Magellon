@@ -70,11 +70,17 @@
 
   .unstack img {
     position: relative;
-    margin-top: 1em;
+    /* margin: 1em; */
+    padding: 0.3em;
   }
 
   .unstack .card-body {
     padding: 0;
+    height: 215px !important;
+  }
+
+  .unstack .card-body .child {
+    padding: auto;
   }
 
   /* Toggle switch */
