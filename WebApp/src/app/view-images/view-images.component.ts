@@ -98,16 +98,14 @@ export class ViewImagesComponent implements OnInit {
   rulerEnable: boolean = false
   size: number = 0;
 
+  isLoading: boolean = true;
+
 
   constructor(private imageService: ImagesService, private sanitizer: DomSanitizer) { }
 
   ngOnInit(): void {
-    this.getSessions();
-    if (this.selectedSessionOid != undefined) {
-      this.selectedSessionName = this.allSessions[this.selectedSessionOid];
-    }
+    this.getSessions()
     this.selectedLevel = 1;
-    this.loadThumbnailsBySession();
   }
 
   getDefaultCenterImage(extIndex: number, imageIndex: number): void {
@@ -133,6 +131,7 @@ export class ViewImagesComponent implements OnInit {
         this.imageUrl = this.sanitizer.bypassSecurityTrustUrl(this.unsafeImageUrl);
       })
     this.getImageDataByName();
+    this.clearCanvas();
     this.setParticleJob();
   }
 
@@ -190,6 +189,8 @@ export class ViewImagesComponent implements OnInit {
         }
         this.imageStackModelArr[0] = imageStackExtModel;
       })
+    this.getCenterImage(ext);
+    this.getImageDataByName();
   }
 
   getFFTImage(): void {
@@ -467,11 +468,16 @@ export class ViewImagesComponent implements OnInit {
         for (var i in data) {
           this.allSessions[data[i].Oid] = data[i].name;
         }
+        if (this.selectedSessionOid != undefined) {
+          this.selectedSessionName = this.allSessions[this.selectedSessionOid];
+          this.loadThumbnailsBySession();
+        }
       })
   }
 
   // Action on selecting session
   sessionUpdate(e: any) {
+    this.displayloader()
     this.selectedSessionOid = e.target.value;
     this.selectedLevel = 1;
     this.selectedSessionName = this.allSessions[this.selectedSessionOid];
@@ -483,6 +489,13 @@ export class ViewImagesComponent implements OnInit {
     this.imageStackModelArr = [];
     this.imageService.getAllImages(this.selectedSessionName, this.selectedLevel)
       .subscribe((data: any) => {
+
+        // If Response comes function hideloader() is called
+        if (data.result != undefined) {
+            this.hideloader();
+            console.log("Got the response")
+        }
+
         this.imageModelArr = [];
         if (data.result != undefined && data.result.length == 0) {
           Object.assign(this.imageSpec, this.defaultImageSpec);
@@ -538,9 +551,19 @@ export class ViewImagesComponent implements OnInit {
 
   // Action on selecting session level
   levelUpdate(e: any) {
+    this.displayloader();
     this.selectedLevel = e.target.value;
     this.selectedSessionName = this.allSessions[this.selectedSessionOid];
     this.loadThumbnailsBySession();
   }
 
+  hideloader() {
+    // Setting display of spinner element to none
+    this.isLoading = false;
+  }
+
+  displayloader() {    
+    // Setting display of spinner element to none
+    this.isLoading = true;
+  }
 }

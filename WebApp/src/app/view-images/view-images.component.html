@@ -25,38 +25,33 @@
                             {{level.key}}
                         </option>
                     </select>
+                        &nbsp; <i *ngIf="isLoading" class="fa fa-solid fa-spinner fa-spin fa-lg" style="color: #2862c8;"></i>
                 </div>
             </div>
             <div class="card border-0 stack-selection">
                 <div *ngFor="let imgExt of imageModelArr; let i = index">
                     <div class="card-body text-center stack-scroll" *ngIf="!unstackDisplay[i]">
                         <div *ngIf="imgExt.images?.length > 2">
-                            <img [src]="imgExt.images[2].url" class="img1"
+                            <img [src]="imgExt.images[2].url" class="img3"
                                 (click)="getStackImages(imgExt.images[2].parentName); showUnstack(i)" style="cursor: pointer" />
                         </div>
-                        <!-- <ng-template #stack_img_3>
-                            <img [src]="imgExt.images[0].url" class="img1"
-                                (click)="getStackImages(imgExt.ext); showUnstack(i)" style="cursor: pointer" />
-                        </ng-template> -->
                         <div *ngIf="imgExt.images?.length > 1">
                             <img [src]="imgExt.images[1].url" class="img2"
                                 (click)="getStackImages(imgExt.images[1].parentName); showUnstack(i)" style="cursor: pointer" />
                         </div>
-                        <!-- <ng-template #stack_img_2>
-                            <img [src]="imgExt.images[0].url" class="img2"
-                                (click)="getStackImages(imgExt.ext); showUnstack(i)" style="cursor: pointer" />
-                        </ng-template> -->
                         <div>
-                            <img [src]="imgExt.images[0].url" class="img3"
-                                (click)="getStackImages(imgExt.images[0].name); showUnstack(i)" style="cursor: pointer" />
+                            <img [src]="imgExt.images[0].url" class="img1"
+                                (click)="getStackImages(imgExt.images[0].name); showUnstack(i);" style="cursor: pointer" />
                         </div>
                     </div>
-                    <div *ngIf="unstackDisplay[i] && imageStackModelArr?.length" class="unstack">
-                        <div *ngFor="let imgModel of imageStackModelArr[0].images; let j = index" class="card border-0"
-                            id="{{ 'img' + j }}">
-                            <div class="card-body text-center">
+                    <div *ngIf="unstackDisplay[i] && imageStackModelArr?.length" class="unstack text-center">
+                        <img [src]="imageStackModelArr[0].images[0].url" class="card-img-top" alt="Card image cap"
+                                    (click)="passUnstackImgIndex(0)" style="cursor: pointer;" />
+                        <div *ngFor="let imgModel of imageStackModelArr[0].images.slice(1); let j = index" class="card border-0"
+                            id="{{ 'img' + j + 1}}" style="margin: 1em;">
+                            <div class="text-center">
                                 <img [src]="imgModel.url" class="card-img-top" alt="Card image cap"
-                                    (click)="passUnstackImgIndex(j)" style="cursor: pointer" />
+                                    (click)="passUnstackImgIndex(j + 1)" style="cursor: pointer;width: 75%;" />
                             </div>
                         </div>
                     </div>
