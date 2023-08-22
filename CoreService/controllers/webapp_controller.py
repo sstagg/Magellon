@@ -41,6 +41,36 @@ file_service = FileService("transfer.log")
 # @webapp_router.get('/images_by_stack_old')
 # def get_images_by_stack_old_route(ext: str):
 #     return get_image_by_stack(ext)
+@webapp_router.get('/session_mags')
+def get_session_mags(session_name: str,  db_session: Session = Depends(get_db)):
+    # session_name = "22apr01a"
+    # level = 4
+
+    # Get the Msession based on the session name
+    msession = db_session.query(Msession).filter(Msession.name == session_name).first()
+    if msession is None:
+        return {"error": "Session not found"}
+    try:
+        session_id_binary = msession.Oid.bytes
+    except AttributeError:
+        return {"error": "Invalid session ID"}
+
+
+    query = text("""
+        SELECT  image.magnification AS mag
+        FROM image
+        WHERE image.session_id = :session_id
+        GROUP BY image.magnification
+        ORDER BY mag  """)
+    try:
+        # result = db_session.execute(query) if params is None else db_session.execute(query, params)
+        result = db_session.execute(query, { "session_id": session_id_binary})
+        rows = result.fetchall()
+        # Convert rows to a list of dictionaries with named keys
+        return [row[0] for row in rows]
+    except Exception as e:
+        raise Exception(f"Database query execution error: {str(e)}")
+
 
 
 @webapp_router.get('/images')
@@ -175,7 +205,7 @@ def get_image_data_route(name: str, db: Session = Depends(get_db)):
     result = {
         "filename": db_image.name,
         "defocus": round(float(db_image.defocus) * 1.e6, 2),
-        "PixelSize": round(float(db_image.pixel_size) * db_image.binning_x * 1.e9, 3),
+        "PixelSize": round(float(db_image.pixel_size) * db_image.binning_x * 1.e10, 3),
         "mag": db_image.magnification,
         "dose": round(db_image.dose, 2) if db_image.dose is not None else "none",
     }
