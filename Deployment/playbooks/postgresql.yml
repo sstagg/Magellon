@@ -1,0 +1,113 @@
+- name: Install and Configure PostgreSql Server
+  hosts: target
+  gather_facts: false
+  remote_user: root
+  become: yes  # To run tasks as sudo
+
+  vars:
+    lsb_codename: "{{ ansible_distribution_release | lower }}"
+    postgresql_new_root_password: behd1d2
+    postgresql_database: magellon01
+
+    postgresql_magellon_user: magellon
+    postgresql_magellon_password: magell0n#0367
+    sql_source_file_path: ../assets/sql/magellon01db.sql
+    sql_target_file_path: /projects/sql/magellon01db.sql
+
+
+  tasks:
+    - name: Scan host key
+      command: ssh-keyscan -H 5.78.57.64
+      register: host_key
+
+    - name: Add host key to known_hosts
+      lineinfile:
+        dest: /home/behdad/.ssh/known_hosts
+        line: "{{ host_key.stdout }}"
+        create: yes
+        mode: "0600"
+
+    - name: Run apt update
+      become: true
+      apt:
+        update_cache: yes
+
+    - name: Install Python3 and pip and pymysql
+      apt:
+        name:
+          - python3
+          - python3-pip
+          - python3-psycopg2
+        state: present
+
+    - name: Get distribution codename
+      command: lsb_release -cs
+      register: lsb_codename_result
+
+    - name: Add PostgreSQL repository to sources.list.d
+      lineinfile:
+        path: /etc/apt/sources.list.d/pgdg.list
+        line: "deb http://apt.postgresql.org/pub/repos/apt {{ lsb_codename_result.stdout }}-pgdg main"
+        create: yes
+
+    - name: Import PostgreSQL repository key
+      apt_key:
+        url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
+        state: present
+
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install PostgreSQL packages
+      apt:
+        name:
+          - postgresql-15
+          - postgresql-client-15
+          - postgresql-contrib-15
+        state: present
+
+    - name: Update listen_addresses in postgresql.conf
+      lineinfile:
+        path: /etc/postgresql/15/main/postgresql.conf
+        regexp: '^#?listen_addresses =.*'
+        line: "listen_addresses = '*'"
+
+    - name: Update pg_hba.conf for remote access
+      lineinfile:
+        path: /etc/postgresql/15/main/pg_hba.conf
+        regexp: '^# IPv4 local connections:'
+        insertafter: '^# IPv4 local connections:'
+        line: 'host    all             all             0.0.0.0/0               md5'
+        state: present
+
+    - name: Start PostgreSQL service
+      service:
+        name: postgresql
+        state: started
+        enabled: yes
+
+    - name: Install PostGIS packages
+      apt:
+        name:
+          - postgis
+          - postgresql-15-postgis-3  # Adjust package name if needed
+        state: present
+
+    - name: Install Python  pip
+      apt:
+        name:
+          - python3-pip
+          - curl
+        state: present
+
+    - name: Create PostgreSQL administrative user
+      community.postgresql.postgresql_user:
+        db: postgres
+        name: behdad
+        password: behd1d2
+        role_attr_flags: SUPERUSER
+        state: present
+
+

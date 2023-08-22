@@ -1,4 +1,4 @@
-
+from datetime import datetime
 import json
 import os
 import uuid
@@ -10,8 +10,9 @@ from airflow_client.client import ApiClient
 from airflow_client.client.api import dag_run_api
 from airflow_client.client.model.dag_run import DAGRun
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import text
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import Session, joinedload
 from starlette.responses import FileResponse, JSONResponse
 
@@ -134,19 +135,21 @@ def process_image_rows(rows, session_name):
             parent_id=parent_id,
             parent_name=parent_name
         )
-        file_path = os.path.join(f"{IMAGE_ROOT_DIR}/{session_name}/{THUMBNAILS_SUB_URL}",image.name + THUMBNAILS_SUFFIX)
+        file_path = os.path.join(f"{IMAGE_ROOT_DIR}/{session_name}/{THUMBNAILS_SUB_URL}",
+                                 image.name + THUMBNAILS_SUFFIX)
         print(file_path)
         if os.path.isfile(file_path):
             image.encoded_image = get_response_image(file_path)
 
         if parent_id not in images_by_parent:
-            parent_path = os.path.join(f"{IMAGE_ROOT_DIR}/{session_name}/{THUMBNAILS_SUB_URL}",parent_name + THUMBNAILS_SUFFIX)
+            parent_path = os.path.join(f"{IMAGE_ROOT_DIR}/{session_name}/{THUMBNAILS_SUB_URL}",
+                                       parent_name + THUMBNAILS_SUFFIX)
             parent_image = get_response_image(parent_path) if os.path.isfile(parent_path) else None
             images_by_parent[parent_id] = {
-                    "parent_id": uuid.UUID(bytes=parent_id),
-                    "encoded_image": parent_image,
-                    "parent_name": parent_name,
-                    "images": []
+                "parent_id": uuid.UUID(bytes=parent_id),
+                "encoded_image": parent_image,
+                "parent_name": parent_name,
+                "images": []
             }
 
         images_by_parent[parent_id]["images"].append(image)
@@ -169,7 +172,6 @@ def get_image_data_route(name: str, db: Session = Depends(get_db)):
     if db_image is None:
         raise HTTPException(status_code=404, detail="image not found with the given name")
 
-
     result = {
         "filename": db_image.name,
         "defocus": round(float(db_image.defocus) * 1.e6, 2),
@@ -178,6 +180,66 @@ def get_image_data_route(name: str, db: Session = Depends(get_db)):
         "dose": round(db_image.dose, 2) if db_image.dose is not None else "none",
     }
     return {'result': result}
+
+
+# FastAPI endpoint to create a ParticlePickingjobitem
+@webapp_router.post("/create_ppji/", summary="creates particle picking job item for a given image and returns it")
+async def create_particle_picking_jobitem(image_name_or_oid: str = Query(...), db: Session = Depends(get_db)):
+    try:
+        try:
+            # Attempt to convert image_name_or_oid to UUID
+            image_uuid = UUID(image_name_or_oid)
+            # If convertible to UUID, search by OID
+            image = db.query(Image).filter_by(Oid=image_uuid).first()
+        except ValueError:
+            # If not convertible to UUID, search by filename
+            image = db.query(Image).filter_by(name=image_name_or_oid).first()
+
+        if not image:
+            return HTTPException(status_code=404, detail="Image not found")
+
+    except NoResultFound:
+        # db.close()
+        return HTTPException(status_code=404, detail="Image not found")
+
+    try:
+        # Check if a "manual" Particlepickingjob already exists
+        manual_job = db.query(Particlepickingjob).filter_by(name="manual").one()
+    except NoResultFound:
+        # If it doesn't exist, create a new one
+        manual_job = Particlepickingjob(
+            Oid=uuid.uuid4(),
+            name="manual",
+            description="manual job for particle picking",
+            created_on=datetime.now(),
+            msession=image.msession if image.msession is not None else None,
+            # Add other necessary fields here
+        )
+        # if image.msession is not None:
+        #     # Include the image's session in the job and item
+        #     manual_job.msession = image.msession
+        db.add(manual_job)
+        db.commit()
+        db.refresh(manual_job)
+
+    # Create the ParticlePickingjobitem
+    try:
+        jobitem = Particlepickingjobitem(
+            Oid=uuid.uuid4(),
+            job_id=manual_job.Oid,
+            image_id=image.Oid,
+
+            # Add other necessary fields here
+        )
+
+        db.add(jobitem)
+        db.commit()
+        db.refresh(jobitem)
+
+        return jobitem
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @webapp_router.get('/particles')

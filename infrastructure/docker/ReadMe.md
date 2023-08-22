@@ -23,6 +23,7 @@ sudo docker push khoshbin/magellon-angular-app
 
 sudo docker rm -f magellon-core-service01
 sudo docker rmi -f khoshbin/magellon-main-service
+sudo docker run -d --restart=always --name magellon-core-service01 --network magellon -p 8000:80 -v /magellon/data:/app/data -v /magellon/configs:/app/configs -v /gpfs:/gpfs -e DATA_DIR=/app/data khoshbin/magellon-main-service
 sudo docker run -it --restart=always --name magellon-core-service01 --network magellon -p 8000:80 -v /magellon/data:/app/data -v /magellon/configs:/app/configs -v /gpfs:/gpfs -e DATA_DIR=/app/data khoshbin/magellon-main-service
 
 sudo docker rm -f magellon-angular-webapp01
