@@ -67,14 +67,14 @@ def get_session_mags(session_name: str,  db_session: Session = Depends(get_db)):
         result = db_session.execute(query, { "session_id": session_id_binary})
         rows = result.fetchall()
         # Convert rows to a list of dictionaries with named keys
-        return [row[0] for row in rows]
+        return [row[0] for row in rows[1:]]
     except Exception as e:
         raise Exception(f"Database query execution error: {str(e)}")
 
 
 
 @webapp_router.get('/images')
-def get_images_route(session_name: str, level: int, db_session: Session = Depends(get_db)):
+def get_images_route(session_name: str, mag: int, db_session: Session = Depends(get_db)):
     # session_name = "22apr01a"
     # level = 4
 
@@ -102,17 +102,18 @@ def get_images_route(session_name: str, level: int, db_session: Session = Depend
             image.parent_id,
             parent.name AS parent_name,
             image.level,
+            image.magnification,
             ROW_NUMBER() OVER (PARTITION BY image.parent_id ORDER BY image.oid) AS row_num,
             image.session_id
           FROM image
           INNER JOIN image parent ON image.parent_id = parent.Oid
-          WHERE image.level = :level
+          WHERE image.magnification = :mag
             AND image.session_id = :session_id
         ) child
         WHERE child.row_num <= 3
         GROUP BY child.parent_name, child.Oid, child.name, child.parent_id, child.level, child.session_id
     """)
-    return execute_images_query(db_session, query, session_name, {"level": level, "session_id": session_id_binary})
+    return execute_images_query(db_session, query, session_name, {"mag": mag, "session_id": session_id_binary})
 
 
 @webapp_router.get('/images_by_stack')
