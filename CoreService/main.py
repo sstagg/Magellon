@@ -10,6 +10,7 @@ from fastapi import FastAPI
 from rich.traceback import Traceback
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
+from starlette.staticfiles import StaticFiles
 
 from configs.production_test import production_intilization
 # from starlette_graphene3 import GraphQLApp, make_graphiql_handler
@@ -93,6 +94,10 @@ local_port_number = uvicorn.Config(app).port
 
 app.dbengine = engine
 app.dbsession = session_local
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/assets", StaticFiles(directory="static/assets"), name="assets")
+
 
 app.include_router(home_router, tags=["Home"])
 app.include_router(db_router, tags=["Database"], prefix="/db")

@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 from starlette.requests import Request
-from starlette.responses import RedirectResponse
+from starlette.responses import RedirectResponse, HTMLResponse
+from starlette.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
 from pathlib import Path
 import logging
@@ -10,14 +11,23 @@ from lib.image_not_found import get_image_not_found
 home_router = APIRouter()
 
 BASE_PATH = Path(__file__).resolve().parent
-TEMPLATES = Jinja2Templates(directory=str(BASE_PATH / "../templates"))
+static_directory=str(BASE_PATH / "../static")
+TEMPLATES = Jinja2Templates(directory=static_directory)
 
 logger = logging.getLogger(__name__)
 
+# home_router.mount("/static", StaticFiles(directory=static_directory), name="static")
+
 
 @home_router.get("/")
-async def home():
+async def home(request: Request):
+    # return TEMPLATES.TemplateResponse("index.html", {"request": request})
     return RedirectResponse(url="/docs/")
+
+@home_router.get("/en/{rest_of_path:path}", response_class=HTMLResponse)
+async def catch_all(request: Request, rest_of_path: str):
+    logger.info("rest of path :" + rest_of_path)
+    return TEMPLATES.TemplateResponse("index.html", {"request": request})
 
 
 # Define a health check route
