@@ -21,7 +21,7 @@ from config import FFT_SUB_URL, IMAGE_SUB_URL, IMAGE_ROOT_DIR, THUMBNAILS_SUB_UR
 
 from database import get_db
 from lib.image_not_found import get_image_not_found
-from models.pydantic_models import ParticlepickingjobitemDto, MicrographSetDto, SessionDto
+from models.pydantic_models import ParticlepickingjobitemDto, MicrographSetDto, SessionDto, ImageDto
 from models.sqlalchemy_models import Particlepickingjobitem, Image, Particlepickingjob, Msession
 from repositories.image_repository import ImageRepository
 from repositories.session_repository import SessionRepository
@@ -71,123 +71,203 @@ def get_session_mags(session_name: str,  db_session: Session = Depends(get_db)):
     except Exception as e:
         raise Exception(f"Database query execution error: {str(e)}")
 
-
-
 @webapp_router.get('/images')
-def get_images_route(session_name: str, mag: int, db_session: Session = Depends(get_db)):
-    # session_name = "22apr01a"
-    # level = 4
-
+def get_images_route(
+        db_session: Session = Depends(get_db),
+        session_name: Optional[str] = Query(None),
+        parentId: Optional[UUID] = Query(None),
+        page: int = Query(1, alias="page", description="Page number", ge=1),
+        pageSize: int = Query(10, alias="pageSize", description="Number of results per page", le=100)
+):
     # Get the Msession based on the session name
     msession = db_session.query(Msession).filter(Msession.name == session_name).first()
     if msession is None:
         return {"error": "Session not found"}
-
     try:
         session_id_binary = msession.Oid.bytes
     except AttributeError:
         return {"error": "Invalid session ID"}
 
+    # Calculate offset and limit based on page and pageSize
+    offset = (page - 1) * pageSize
+    limit = pageSize
+
+    try:
+        parent_id_binary = parentId.bytes
+    except AttributeError:
+        return {"error": "Invalid Parent ID"}
+
+    count_query = text("""
+         SELECT COUNT(*) FROM image i
+            WHERE (:parentId IS NULL
+            AND i.parent_id IS NULL
+            OR i.parent_id = :parentId)
+            AND i.session_id = :sessionId;
+        """)
+
     query = text("""
         SELECT
-          child.Oid,
-          child.name,
-          child.level,
-          child.parent_id,
-          child.parent_name
-        FROM (
-          SELECT
-            image.Oid,
-            image.name,
-            image.parent_id,
-            parent.name AS parent_name,
-            image.level,
-            image.magnification,
-            ROW_NUMBER() OVER (PARTITION BY image.parent_id ORDER BY image.oid) AS row_num,
-            image.session_id
-          FROM image
-          INNER JOIN image parent ON image.parent_id = parent.Oid
-          WHERE image.magnification = :mag
-            AND image.session_id = :session_id
-        ) child
-        WHERE child.row_num <= 3
-        GROUP BY child.parent_name, child.Oid, child.name, child.parent_id, child.level, child.session_id
-    """)
-    return execute_images_query(db_session, query, session_name, {"mag": mag, "session_id": session_id_binary})
-
-
-@webapp_router.get('/images_by_stack')
-def get_images_by_stack_route(ext: str, db_session: Session = Depends(get_db)):
+          i.Oid,
+          i.name ,
+          i.defocus,
+          i.dose,
+          i.magnification AS mag,
+          i.pixel_size AS pixelSize,
+          i.parent_id,
+          i.session_id
+        FROM image i
+        WHERE (:parentId IS NULL
+        AND i.parent_id IS NULL
+        OR i.parent_id = :parentId)
+        AND i.session_id = :sessionId
+        LIMIT :limit OFFSET :offset;
+        """)
     try:
-        parts = ext.split('_')
-        if len(parts) >= 1:
-            session_name = parts[0]
-        else:
-            return {"error": "Session is not included in the file name"}
-
-        # session_name = parts[0] if parts else None
-
-        query = text("""
-            SELECT
-              image.Oid,
-              image.name,
-              image.level,
-              image.parent_id,
-              parent.name AS parent_name
-            FROM image parent
-              INNER JOIN image
-                ON image.parent_id = parent.Oid
-            WHERE parent.name = :image_name
-                """)
-        return execute_images_query(db_session, query, session_name, {"image_name": ext})
-
-    except Exception as e:
-        return {"error": str(e)}
-
-
-def execute_images_query(db_session: Session, query, session_name, params=None):
-    try:
-        # result = db_session.execute(query) if params is None else db_session.execute(query, params)
-        result = db_session.execute(query, params)
+        result = db_session.execute(
+            query,
+            {"parentId": parent_id_binary, "sessionId": session_id_binary, "limit": limit, "offset": offset}
+        )
         rows = result.fetchall()
-        return {"result": (process_image_rows(rows, session_name))}
+        images_as_dict = []
+        for row in rows:
+
+            image = ImageDto(
+                oid=row.Oid,
+                name=row.name,
+                defocus=row.defocus,
+                dose=row.dose,
+                mag=row.mag,
+                pixelSize=row.pixelSize,
+                parent_id=row.parent_id,
+                session_id=row.session_id
+            )
+            images_as_dict.append(image.dict())
+
+        # total_count = images_as_dict[0]["total_count"] if images_as_dict else 0
+        # return {"total_count": total_count, "result": images_as_dict}
+        count_result = db_session.execute(count_query,{"parentId": parent_id_binary, "sessionId": session_id_binary}  )
+        total_count = count_result.scalar()
+        return {"total_count": total_count, "result": images_as_dict}
+
     except Exception as e:
         raise Exception(f"Database query execution error: {str(e)}")
 
 
-def process_image_rows(rows, session_name):
-    images_by_parent = {}
-    for row in rows:
-        oid, name, level, parent_id, parent_name = row[:5]
-        image = MicrographSetDto(
-            oid=oid,
-            name=name,
-            level=level,
-            parent_id=parent_id,
-            parent_name=parent_name
-        )
-        file_path = os.path.join(f"{IMAGE_ROOT_DIR}/{session_name}/{THUMBNAILS_SUB_URL}",
-                                 image.name + THUMBNAILS_SUFFIX)
-        print(file_path)
-        if os.path.isfile(file_path):
-            image.encoded_image = get_response_image(file_path)
-
-        if parent_id not in images_by_parent:
-            parent_path = os.path.join(f"{IMAGE_ROOT_DIR}/{session_name}/{THUMBNAILS_SUB_URL}",
-                                       parent_name + THUMBNAILS_SUFFIX)
-            parent_image = get_response_image(parent_path) if os.path.isfile(parent_path) else None
-            images_by_parent[parent_id] = {
-                "parent_id": uuid.UUID(bytes=parent_id),
-                "encoded_image": parent_image,
-                "parent_name": parent_name,
-                "images": []
-            }
-
-        images_by_parent[parent_id]["images"].append(image)
-
-    result_list = list(images_by_parent.values())
-    return result_list
-
+# @webapp_router.get('/images')
+# def get_images_route(session_name: str, mag: int, db_session: Session = Depends(get_db)):
+#     # session_name = "22apr01a"
+#     # level = 4
+#
+#     # Get the Msession based on the session name
+#     msession = db_session.query(Msession).filter(Msession.name == session_name).first()
+#     if msession is None:
+#         return {"error": "Session not found"}
+#
+#     try:
+#         session_id_binary = msession.Oid.bytes
+#     except AttributeError:
+#         return {"error": "Invalid session ID"}
+#
+#     query = text("""
+#         SELECT
+#           child.Oid,
+#           child.name,
+#           child.level,
+#           child.parent_id,
+#           child.parent_name
+#         FROM (
+#           SELECT
+#             image.Oid,
+#             image.name,
+#             image.parent_id,
+#             parent.name AS parent_name,
+#             image.level,
+#             image.magnification,
+#             ROW_NUMBER() OVER (PARTITION BY image.parent_id ORDER BY image.oid) AS row_num,
+#             image.session_id
+#           FROM image
+#           INNER JOIN image parent ON image.parent_id = parent.Oid
+#           WHERE image.magnification = :mag
+#             AND image.session_id = :session_id
+#         ) child
+#         WHERE child.row_num <= 3
+#         GROUP BY child.parent_name, child.Oid, child.name, child.parent_id, child.level, child.session_id
+#     """)
+#     return execute_images_query(db_session, query, session_name, {"mag": mag, "session_id": session_id_binary})
+#
+#
+# @webapp_router.get('/images_by_stack')
+# def get_images_by_stack_route(ext: str, db_session: Session = Depends(get_db)):
+#     try:
+#         parts = ext.split('_')
+#         if len(parts) >= 1:
+#             session_name = parts[0]
+#         else:
+#             return {"error": "Session is not included in the file name"}
+#
+#         # session_name = parts[0] if parts else None
+#
+#         query = text("""
+#             SELECT
+#               image.Oid,
+#               image.name,
+#               image.level,
+#               image.parent_id,
+#               parent.name AS parent_name
+#             FROM image parent
+#               INNER JOIN image
+#                 ON image.parent_id = parent.Oid
+#             WHERE parent.name = :image_name
+#                 """)
+#         return execute_images_query(db_session, query, session_name, {"image_name": ext})
+#
+#     except Exception as e:
+#         return {"error": str(e)}
+#
+#
+# def execute_images_query(db_session: Session, query, session_name, params=None):
+#     try:
+#         # result = db_session.execute(query) if params is None else db_session.execute(query, params)
+#         result = db_session.execute(query, params)
+#         rows = result.fetchall()
+#         return {"result": (process_image_rows(rows, session_name))}
+#     except Exception as e:
+#         raise Exception(f"Database query execution error: {str(e)}")
+#
+#
+# def process_image_rows(rows, session_name):
+#     images_by_parent = {}
+#     for row in rows:
+#         oid, name, level, parent_id, parent_name = row[:5]
+#         image = MicrographSetDto(
+#             oid=oid,
+#             name=name,
+#             level=level,
+#             parent_id=parent_id,
+#             parent_name=parent_name
+#         )
+#         file_path = os.path.join(f"{IMAGE_ROOT_DIR}/{session_name}/{THUMBNAILS_SUB_URL}",
+#                                  image.name + THUMBNAILS_SUFFIX)
+#         print(file_path)
+#         if os.path.isfile(file_path):
+#             image.encoded_image = get_response_image(file_path)
+#
+#         if parent_id not in images_by_parent:
+#             parent_path = os.path.join(f"{IMAGE_ROOT_DIR}/{session_name}/{THUMBNAILS_SUB_URL}",
+#                                        parent_name + THUMBNAILS_SUFFIX)
+#             parent_image = get_response_image(parent_path) if os.path.isfile(parent_path) else None
+#             images_by_parent[parent_id] = {
+#                 "parent_id": uuid.UUID(bytes=parent_id),
+#                 "encoded_image": parent_image,
+#                 "parent_name": parent_name,
+#                 "images": []
+#             }
+#
+#         images_by_parent[parent_id]["images"].append(image)
+#
+#     result_list = list(images_by_parent.values())
+#     return result_list
+#
 
 @webapp_router.get('/fft_image')
 def get_fft_image_route(name: str):
@@ -197,7 +277,7 @@ def get_fft_image_route(name: str):
     return FileResponse(file_path, media_type='image/png')
 
 
-@webapp_router.get('/image_data')
+@webapp_router.get('/image_info')
 def get_image_data_route(name: str, db: Session = Depends(get_db)):
     db_image = ImageRepository.fetch_by_name(db, name)
     if db_image is None:

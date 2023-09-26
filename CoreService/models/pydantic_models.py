@@ -228,11 +228,20 @@ class LeginonImageDto(BaseModel):
 
 
 class MicrographSetDto(BaseModel):
-    parent_name: Optional[str] = None
     oid: Optional[uuid.UUID] = None
+    parent_name: Optional[str] = None
     name: Optional[str] = None
     encoded_image: Optional[str] = None
     parent_id: Optional[uuid.UUID] = None
     level: Optional[int] = None
 
 
+class ImageDto(BaseModel):
+    oid: Optional[uuid.UUID] = None
+    name: Optional[str] = None
+    defocus: Optional[float] = None
+    dose: Optional[float] = None
+    mag: Optional[float] = None
+    pixelSize: Optional[float] = None
+    parent_id:  Optional[uuid.UUID]= None
+    session_id:  Optional[uuid.UUID]= None
