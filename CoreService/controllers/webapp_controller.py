@@ -42,7 +42,7 @@ file_service = FileService("transfer.log")
 # def get_images_by_stack_old_route(ext: str):
 #     return get_image_by_stack(ext)
 @webapp_router.get('/session_mags')
-def get_session_mags(session_name: str,  db_session: Session = Depends(get_db)):
+def get_session_mags(session_name: str, db_session: Session = Depends(get_db)):
     # session_name = "22apr01a"
     # level = 4
 
@@ -55,7 +55,6 @@ def get_session_mags(session_name: str,  db_session: Session = Depends(get_db)):
     except AttributeError:
         return {"error": "Invalid session ID"}
 
-
     query = text("""
         SELECT  image.magnification AS mag
         FROM image
@@ -64,12 +63,13 @@ def get_session_mags(session_name: str,  db_session: Session = Depends(get_db)):
         ORDER BY mag  """)
     try:
         # result = db_session.execute(query) if params is None else db_session.execute(query, params)
-        result = db_session.execute(query, { "session_id": session_id_binary})
+        result = db_session.execute(query, {"session_id": session_id_binary})
         rows = result.fetchall()
         # Convert rows to a list of dictionaries with named keys
         return [row[0] for row in rows[1:]]
     except Exception as e:
         raise Exception(f"Database query execution error: {str(e)}")
+
 
 @webapp_router.get('/images')
 def get_images_route(
@@ -95,7 +95,7 @@ def get_images_route(
     try:
         parent_id_binary = parentId.bytes
     except AttributeError:
-        return {"error": "Invalid Parent ID"}
+        parent_id_binary = None
 
     count_query = text("""
          SELECT COUNT(*) FROM image i
@@ -130,7 +130,6 @@ def get_images_route(
         rows = result.fetchall()
         images_as_dict = []
         for row in rows:
-
             image = ImageDto(
                 oid=row.Oid,
                 name=row.name,
@@ -145,7 +144,7 @@ def get_images_route(
 
         # total_count = images_as_dict[0]["total_count"] if images_as_dict else 0
         # return {"total_count": total_count, "result": images_as_dict}
-        count_result = db_session.execute(count_query,{"parentId": parent_id_binary, "sessionId": session_id_binary}  )
+        count_result = db_session.execute(count_query, {"parentId": parent_id_binary, "sessionId": session_id_binary})
         total_count = count_result.scalar()
         return {"total_count": total_count, "result": images_as_dict}
 
