@@ -146,7 +146,15 @@ def get_images_route(
         # return {"total_count": total_count, "result": images_as_dict}
         count_result = db_session.execute(count_query, {"parentId": parent_id_binary, "sessionId": session_id_binary})
         total_count = count_result.scalar()
-        return {"total_count": total_count, "result": images_as_dict}
+        next_page = page + 1 if total_count > page * pageSize else None
+
+        return {
+            "total_count": total_count,
+            "page": page,
+            "pageSize": pageSize,
+            "next_page": next_page,
+            "result": images_as_dict
+        }
 
     except Exception as e:
         raise Exception(f"Database query execution error: {str(e)}")

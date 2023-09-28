@@ -1,7 +1,7 @@
-fastapi==0.100.1
+fastapi==0.103.1
 uvicorn==0.23.2
-pydantic==2.1.1
-sqlalchemy==2.0.19
+pydantic==2.4.1
+sqlalchemy==2.0.21
 sqlalchemy_utils==0.41.1
 # psycopg2
 psycopg2-binary
@@ -14,11 +14,11 @@ Pillow==10.0.0
 # cupy-cuda12x==12.0.0
 jinja2
 python-multipart
-boto3==1.28.17
+boto3==1.28.55
 plotly
 dependency-injector
 python-consul
-pylint==2.17.5
+pylint==2.17.6
 # prometheus-client
 prometheus-fastapi-instrumentator
 slackclient
@@ -30,8 +30,8 @@ apache-airflow-client==2.6.2
 
 strawberry-graphql[fastapi]==0.198.0
 # bump-pydantic
-rich==13.5.2
+rich==13.5.3
 # textual
-pyfiglet
+pyfiglet==1.0.2
 diagrams
 pyyaml==6.0.1
