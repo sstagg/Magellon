@@ -114,7 +114,13 @@ def get_images_route(
           i.magnification AS mag,
           i.pixel_size AS pixelSize,
           i.parent_id,
-          i.session_id
+          i.session_id,
+           (
+            SELECT COUNT(*)
+            FROM image c
+            WHERE c.parent_id = i.Oid
+              AND c.session_id = i.session_id
+          ) AS children_count
         FROM image i
         WHERE (:parentId IS NULL
         AND i.parent_id IS NULL
@@ -138,7 +144,8 @@ def get_images_route(
                 mag=row.mag,
                 pixelSize=row.pixelSize,
                 parent_id=row.parent_id,
-                session_id=row.session_id
+                session_id=row.session_id,
+                children_count=row.children_count
             )
             images_as_dict.append(image.dict())
 
