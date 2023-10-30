@@ -654,11 +654,12 @@ async def create_atlas_picture(session_name,image_info, final_width, final_heigh
             y = int(delta_row - min_y + (image_info[0]["dimy"] // 2))
             big_picture.paste(small_image, (x, y))
         big_picture = big_picture.resize((final_width, final_height), Image.LANCZOS)
+        # Add JSON data as a text chunk
+        big_picture.text['atlas'] = image_info
+        # metadata = big_picture.text.get('atlas', '')
         big_picture.save(save_path)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
-
-
 
 
 # @image_viewer_router.get("/download_file")
