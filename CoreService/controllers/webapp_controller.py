@@ -18,12 +18,12 @@ from sqlalchemy.orm import Session, joinedload
 from starlette.responses import FileResponse, JSONResponse
 
 from config import FFT_SUB_URL, IMAGE_SUB_URL, IMAGE_ROOT_DIR, THUMBNAILS_SUB_URL, app_settings, THUMBNAILS_SUFFIX, \
-    FFT_SUFFIX
+    FFT_SUFFIX, ATLAS_SUB_URL
 
 from database import get_db
 from lib.image_not_found import get_image_not_found
-from models.pydantic_models import ParticlepickingjobitemDto, MicrographSetDto, SessionDto, ImageDto
-from models.sqlalchemy_models import Particlepickingjobitem, Image, Particlepickingjob, Msession
+from models.pydantic_models import ParticlepickingjobitemDto, MicrographSetDto, SessionDto, ImageDto, AtlasDto
+from models.sqlalchemy_models import Particlepickingjobitem, Image, Particlepickingjob, Msession, Atlas
 from repositories.image_repository import ImageRepository
 from repositories.session_repository import SessionRepository
 from services.file_service import FileService
@@ -443,6 +443,32 @@ async def get_image_thumbnail(name: str):
     return FileResponse(file_path, media_type='image/png')
 
 
+@webapp_router.get("/atlases", response_model=List[AtlasDto])
+async def get_session_atlases(session_name: str, db_session: Session = Depends(get_db)):
+    msession = db_session.query(Msession).filter(Msession.name == session_name).first()
+    if msession is None:
+        return {"error": "Session not found"}
+    try:
+        return db_session.query(Atlas).all()
+    # session_id_binary = msession.Oid.bytes
+    except AttributeError:
+        return {"error": "Invalid session ID"}
+
+
+@webapp_router.get("/atlas-image")
+async def get_atlas_image(name: str):
+    underscore_index = name.find('_')
+    session_name = name[:underscore_index]
+    file_path = f"{app_settings.directory_settings.IMAGE_ROOT_DIR}/{session_name}/{ATLAS_SUB_URL}/{name}.png"
+    # Check if the file exists
+    if not os.path.exists(file_path):
+        # error_message = {"error": "Image not found"}
+        # return JSONResponse(error_message, status_code=404)
+        return get_image_not_found()
+
+    return FileResponse(file_path, media_type='image/png')
+
+
 @webapp_router.get("/image_thumbnail_url")
 async def get_image_thumbnail_url(name: str):
     return f"{app_settings.directory_settings.IMAGE_ROOT_DIR}/{IMAGE_SUB_URL}{name}.png"
@@ -526,7 +552,7 @@ async def run_dag():
         return {"message": "Files transferred successfully."}
 
 
-@app.get("/create_atlas")
+@webapp_router.get("/create_atlas")
 async def create_atlas(session_id: str):
     # Define the database connection parameters
     # session_id = request_data.session_id
@@ -615,7 +641,8 @@ async def create_atlas(session_id: str):
 
         save_path = "_".join(names[:-1] + ["atlas.png"])
         file_path = os.path.join(current_directory, "images", save_path)
-        result = await create_atlas_picture(session_name,image_info, canvas_width, canvas_height, background_color, file_path,
+        result = await create_atlas_picture(session_name, image_info, canvas_width, canvas_height, background_color,
+                                            file_path,
                                             output_format)
         if isinstance(result, str):
             return {"error": result}
@@ -625,7 +652,8 @@ async def create_atlas(session_id: str):
     return {"images": images}
 
 
-async def create_atlas_picture(session_name,image_info, final_width, final_height, background_color, save_path, output_format="PNG"):
+async def create_atlas_picture(session_name, image_info, final_width, final_height, background_color, save_path,
+                               output_format="PNG"):
     try:
         min_x = float('inf')
         max_x = float('-inf')
@@ -660,7 +688,6 @@ async def create_atlas_picture(session_name,image_info, final_width, final_heigh
         big_picture.save(save_path)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
-
 
 # @image_viewer_router.get("/download_file")
 # async def download_file(file_path: str):

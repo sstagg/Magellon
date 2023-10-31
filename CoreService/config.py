@@ -75,12 +75,14 @@ ORIGINAL_IMAGES_SUB_URL = app_settings.directory_settings.ORIGINAL_IMAGES_SUB_UR
 IMAGE_SUB_URL = app_settings.directory_settings.IMAGE_SUB_URL
 FRAMES_SUB_URL = app_settings.directory_settings.FRAMES_SUB_URL
 THUMBNAILS_SUB_URL = app_settings.directory_settings.THUMBNAILS_SUB_URL
+ATLAS_SUB_URL = app_settings.directory_settings.ATLAS_SUB_URL
 FFT_SUB_URL = app_settings.directory_settings.FFT_SUB_URL
 JOBS_PROCESSING_SUB_URL = app_settings.directory_settings.JOBS_PROCESSING_SUB_URL
 
 THUMBNAILS_SUFFIX = app_settings.directory_settings.THUMBNAILS_SUFFIX
 FRAMES_SUFFIX = app_settings.directory_settings.FRAMES_SUFFIX
 FFT_SUFFIX = app_settings.directory_settings.FFT_SUFFIX
+ATLAS_SUFFIX = app_settings.directory_settings.ATLAS_SUFFIX
 
 # my_config_value = os.environ.get('MY_CONFIG_VALUE')
 IMAGE_ROOT_DIR = app_settings.directory_settings.IMAGE_ROOT_DIR or os.getenv('DATA_DIR', '/app/data')

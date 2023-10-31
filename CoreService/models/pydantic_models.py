@@ -8,6 +8,17 @@ class SlackMessage(BaseModel):
     channel: Optional[str] = None
 
 
+class AtlasDto(BaseModel):
+    Oid: uuid.UUID = Field(None, description='Atlas UUID')
+    name: str = Field(None, min_length=2, max_length=30, description='Atlas Name')
+    optimistic_lock_field: Optional[int] = Field(None, description='lock')
+    gcrecord: Optional[int] = Field(None, description='gc')
+
+    # model_config = ConfigDict(from_attributes=True)
+    class Config:
+        from_attributes = True
+
+
 class CameraDto(BaseModel):
     Oid: uuid.UUID = Field(None, description='Camera UUID')
     name: str = Field(None, min_length=2, max_length=30, description='Camera Name')
@@ -40,6 +51,7 @@ class ImageDtoBase(BaseModel):
     path: Optional[str] = None
     parent: Optional[uuid.UUID] = None
     session: uuid.UUID
+    atlas: uuid.UUID
     magnification: Optional[int]
     dose: Optional[float]
     focus: Optional[float]
@@ -67,6 +79,8 @@ class ImageDtoBase(BaseModel):
     exposure_type: Optional[int]
     pixel_size_x: Optional[float]
     pixel_size_y: Optional[float]
+    atlas_delta_row: Optional[float]
+    atlas_delta_column: Optional[float]
     energy_filtered: Optional[bool]
     GCRecord: Optional[int] = None
 

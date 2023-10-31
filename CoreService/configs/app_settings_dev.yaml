@@ -32,3 +32,5 @@ directory_settings:
   THUMBNAILS_DIR: null
   THUMBNAILS_SUB_URL: thumbnails/
   THUMBNAILS_SUFFIX: _thumb.png
+  ATLAS_SUB_URL: atlases/
+  ATLAS_SUFFIX: _atlas.png

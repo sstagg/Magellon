@@ -32,6 +32,8 @@ class DirectorySettings(BaseModel):
     FFT_DIR: Optional[str] = None
     THUMBNAILS_DIR: Optional[str] = None
     JOBS_DIR: Optional[str] = None
+    ATLAS_SUB_URL: Optional[str] = None
+    ATLAS_SUFFIX: Optional[str] = None
 
 
 class DatabaseSettings(BaseModel):

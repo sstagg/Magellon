@@ -2,7 +2,7 @@
 import uuid
 
 from sqlalchemy import Column, DECIMAL, ForeignKey, Index, String, Text, Boolean, LargeBinary, DateTime, JSON, DOUBLE
-from sqlalchemy.dialects.mysql import BIGINT, INTEGER
+from sqlalchemy.dialects.mysql import BIGINT, INTEGER, LONGTEXT
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy_utils import UUIDType
@@ -12,6 +12,16 @@ from lib.sqlalchemy_uuid_type import SqlalchemyUuidType
 Base = declarative_base()
 # Base.query =db_session.query_property
 metadata = Base.metadata
+
+
+class Atlas(Base):
+    __tablename__ = 'atlas'
+
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
+    name = Column(String(100))
+    meta = Column(LONGTEXT)
+    OptimisticLockField = Column(INTEGER(11))
+    GCRecord = Column(INTEGER(11), index=True)
 
 
 class Camera(Base):
@@ -326,14 +336,11 @@ class Image(Base):
     __tablename__ = 'image'
 
     Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
-    original = Column(LargeBinary)
-    aligned = Column(LargeBinary)
-    fft = Column(LargeBinary)
-    ctf = Column(LargeBinary)
     name = Column(String(50))
     path = Column(String(300))
     parent_id = Column(ForeignKey('image.Oid'), index=True)
     session_id = Column(ForeignKey('msession.Oid'), index=True)
+    atlas_id = Column(ForeignKey('atlas.Oid'), index=True)
     magnification = Column(BIGINT(20))
     dose = Column(DECIMAL(28, 8))
     focus = Column(DECIMAL(28, 8))
@@ -367,9 +374,16 @@ class Image(Base):
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)
     level = Column(INTEGER(11))
+    atlas_delta_row = Column(DECIMAL(28, 8))
+    atlas_delta_column = Column(DECIMAL(28, 8))
+    atlas_dimxy = Column(DECIMAL(28, 8))
+    stage_x = Column(DECIMAL(28, 8))
+    stage_y = Column(DECIMAL(28, 8))
+    stage_alpha_tilt = Column(DECIMAL(28, 8))
 
     parent = relationship('Image', remote_side=[Oid])
     msession = relationship('Msession')
+    atlas = relationship('Atlas')
 
 
 class Samplematerial(Base):
