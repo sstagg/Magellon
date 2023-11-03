@@ -7,7 +7,7 @@ import dataset
 from util import Timer
 
 from torch import nn, optim
-from torch.nn import Conv2d, Linear, Dropout, ReLU, MaxPool2d, Flatten, Sequential, BatchNorm2d
+from torch.nn import Conv2d, Linear, Dropout, ReLU, MaxPool2d, Flatten, Sequential, BatchNorm2d, AdaptiveAvgPool2d
 
 from torch.utils.data import DataLoader
 # from torchvision.transforms import ToTensor
@@ -207,7 +207,7 @@ def sequence3(num_features=0, dropout=0.25):
     return Sequential(*cnn_layers), Sequential(*feature_layers)
 
 
-def sequence4(num_features=0, dropout=0.25):
+def sequence4(fc_size, num_features=0, dropout=0.25):
     cnn_layers = [
         ResidualConvBlock(1, 16, 3, downsample=True),
         Dropout(dropout),
@@ -238,7 +238,7 @@ def sequence4(num_features=0, dropout=0.25):
         Conv2d(128, 128, 3, stride=2),
 
         Flatten(),
-        Linear(4608, 64),
+        Linear(fc_size, 64),
         ReLU(),
         Dropout(dropout),
     ]
@@ -251,17 +251,26 @@ def sequence4(num_features=0, dropout=0.25):
 
     return Sequential(*cnn_layers), Sequential(*feature_layers)
 
-def sequence5(num_features=0, dropout=0.25):
+def sequence5(fc_size, num_features=0, dropout=0.25):
+    '''
+    Based on sequence 4, but designed for variable size data (must still be square) 
+    '''
     cnn_layers = [
         ResidualConvBlock(1, 16, 3, downsample=True),
+        Dropout(dropout),
+        ResidualConvBlock(16, 16, 3, downsample=True),
         Dropout(dropout),
         Conv2d(16, 16, 3, stride=2),
         Dropout(dropout),
         ResidualConvBlock(16, 32, 3, downsample=True),
         Dropout(dropout),
+        ResidualConvBlock(32, 32, 3, downsample=True),
+        Dropout(dropout),
         Conv2d(32, 32, 3, stride=2),
         
         ResidualConvBlock(32, 64, 3, downsample=True),
+        Dropout(dropout),
+        ResidualConvBlock(64, 64, 3),
         Dropout(dropout),
         ResidualConvBlock(64, 64, 3),
         Dropout(dropout),
@@ -271,12 +280,16 @@ def sequence5(num_features=0, dropout=0.25):
         Dropout(dropout),
         ResidualConvBlock(128, 128, 3),
         Dropout(dropout),
+        ResidualConvBlock(128, 128, 3),
+        Dropout(dropout),
         Conv2d(128, 128, 3, stride=2),
 
+        AdaptiveAvgPool2d((6,6)),
+        Dropout(dropout),
         Flatten(),
         Linear(4608, 64),
         ReLU(),
-        Dropout(dropout),
+        Dropout(dropout)
     ]
 
     feature_layers = [
@@ -287,18 +300,20 @@ def sequence5(num_features=0, dropout=0.25):
 
     return Sequential(*cnn_layers), Sequential(*feature_layers)
 
-def sequence6(num_features=0, dropout=0.25):
+def sequence6(fc_size, num_features=0, dropout=0.25):
     '''
     Based on sequence 4, but with batch normalization applied after each residual block
+
+    Input image dimensions must be at least 
     '''
     cnn_layers = [
-        ResidualConvBlock(1, 16, 3, downsample=True, batchnorm=True),
+        ResidualConvBlock(1, 16, 3, downsample=True, batchnorm=True), 
         BatchNorm2d(16),
         Dropout(dropout),
         ResidualConvBlock(16, 16, 3, downsample=True, batchnorm=True),
         BatchNorm2d(16),
         Dropout(dropout),
-        Conv2d(16, 16, 3, stride=2),
+        Conv2d(16, 16, 3, stride=2),                                  # /2
         BatchNorm2d(16),
         Dropout(dropout),
         ResidualConvBlock(16, 32, 3, downsample=True, batchnorm=True),
@@ -307,7 +322,7 @@ def sequence6(num_features=0, dropout=0.25):
         ResidualConvBlock(32, 32, 3, downsample=True, batchnorm=True),
         BatchNorm2d(32),
         Dropout(dropout),
-        Conv2d(32, 32, 3, stride=2),
+        Conv2d(32, 32, 3, stride=2),                                  # /2
         BatchNorm2d(32),
         
         ResidualConvBlock(32, 64, 3, downsample=True, batchnorm=True),
@@ -319,7 +334,7 @@ def sequence6(num_features=0, dropout=0.25):
         ResidualConvBlock(64, 64, 3),
         BatchNorm2d(64),
         Dropout(dropout),
-        Conv2d(64, 64, 3, stride=2),
+        Conv2d(64, 64, 3, stride=2),                                  # /2
         BatchNorm2d(64),
         
         ResidualConvBlock(64, 128, 3, downsample=True, batchnorm=True),
@@ -331,13 +346,77 @@ def sequence6(num_features=0, dropout=0.25):
         ResidualConvBlock(128, 128, 3),
         BatchNorm2d(128),
         Dropout(dropout),
-        Conv2d(128, 128, 3, stride=2),
+        Conv2d(128, 128, 3, stride=2),                                # /2
         BatchNorm2d(128),
 
         Flatten(),
-        Linear(4608, 64),
+        Linear(fc_size, 64),
         ReLU(),
         Dropout(dropout),
+    ]
+
+    feature_layers = [
+        Linear(64 + num_features, 16),
+        ReLU(),
+        Linear(16, 1)
+    ]
+
+    return Sequential(*cnn_layers), Sequential(*feature_layers)
+
+def sequence7(fc_size, num_features=0, dropout=0.25):
+    '''    
+    Based on sequence 6, but with designed to be trained on padded variables
+
+    Input image dimensions must be at least 
+    '''
+    cnn_layers = [
+        ResidualConvBlock(1, 16, 3, downsample=True, batchnorm=True), 
+        BatchNorm2d(16),
+        Dropout(dropout),
+        ResidualConvBlock(16, 16, 3, downsample=True, batchnorm=True),
+        BatchNorm2d(16),
+        Dropout(dropout),
+        Conv2d(16, 16, 3, stride=2),                                  # /2
+        BatchNorm2d(16),
+        Dropout(dropout),
+        ResidualConvBlock(16, 32, 3, downsample=True, batchnorm=True),
+        BatchNorm2d(32),
+        Dropout(dropout),
+        ResidualConvBlock(32, 32, 3, downsample=True, batchnorm=True),
+        BatchNorm2d(32),
+        Dropout(dropout),
+        Conv2d(32, 32, 3, stride=2),                                  # /2
+        BatchNorm2d(32),
+        
+        ResidualConvBlock(32, 64, 3, downsample=True, batchnorm=True),
+        BatchNorm2d(64),
+        Dropout(dropout),
+        ResidualConvBlock(64, 64, 3),
+        BatchNorm2d(64),
+        Dropout(dropout),
+        ResidualConvBlock(64, 64, 3),
+        BatchNorm2d(64),
+        Dropout(dropout),
+        Conv2d(64, 64, 3, stride=2),                                  # /2
+        BatchNorm2d(64),
+        
+        ResidualConvBlock(64, 128, 3, downsample=True, batchnorm=True),
+        BatchNorm2d(128),
+        Dropout(dropout),
+        ResidualConvBlock(128, 128, 3),
+        BatchNorm2d(128),
+        Dropout(dropout),
+        ResidualConvBlock(128, 128, 3),
+        BatchNorm2d(128),
+        Dropout(dropout),
+        Conv2d(128, 128, 3, stride=2),                                # /2
+        BatchNorm2d(128),
+
+        AdaptiveAvgPool2d((6,6)),
+        Flatten(),
+        Linear(4608, 64),
+        ReLU(),
+        Dropout(dropout)
     ]
 
     feature_layers = [
@@ -417,14 +496,13 @@ class ResidualConvBlock(nn.Module):
 
 
 class MRCNetwork(nn.Module):
-    def __init__(self, sequence, use_features=False):
+    def __init__(self, fc_size, sequence, use_features=False):
         super().__init__()
-        self.cnn_network, self.feat_network = sequence(3 if use_features else 0)
+        self.cnn_network, self.feat_network = sequence(fc_size, 3 if use_features else 0)
         self.use_features = use_features
 
     def forward(self, x, feat=None):
         x = self.cnn_network(x)
-
         if self.use_features:    
             x = torch.cat([x, feat], dim=1)
 
@@ -453,15 +531,12 @@ class Trainer:
         self.cur_epoch = 0
 
         print('\nTRAINING OVERVIEW\n-------------------------------')
-        print('OPTIMIZER:\n', optimizer, '\n-------------------------------')
+        print('OPTIMIZER:\n', optimizer, '\n-------------------------------') 
         print('LOSS FUNCTION:\n', loss_fn, '\n-------------------------------')
         print('MODEL ARCHITECTURE:\n', model, '\n-------------------------------')
         print(f'OTHER:')
         print(f'Training with batch size of {batch_size}')
         print(f'Running on device {device}')
-        if preload:
-            print(f'Loading saved weights from {save_path}')
-            self.load_model(save_path)
         if val_frac:
             print(f'Split {val_frac*100.:.2f}% of data for validation data')
         if parallel_device_ids:
@@ -469,6 +544,9 @@ class Trainer:
             self.init_data_parallel(parallel_device_ids)
         if save_path:
             print(f'Will save model to {save_path}')
+        if preload:
+            print(f'Loading saved weights from {preload}')
+            self.load_model(preload)
         print('-------------------------------\n')
 
         tensor_transformer = lambda arr: torch.tensor(np.array(arr)).unsqueeze(-3)
@@ -489,22 +567,30 @@ class Trainer:
 
         indices = list(range(len(self.train_dataset)))
 
-        if val_frac:
-            train_ind, val_ind = train_test_split(indices, test_size=val_frac, shuffle=True)
+        # If resuming training, then use the train/validation indices from the previous training
+        # Otherwise, randomly sample train and validation sets
+        if preload is None:
+            if val_frac:
+                train_ind, val_ind = train_test_split(indices, test_size=val_frac, shuffle=True)
+            else:
+                train_ind, val_ind = indices, []
+            
+            train_ind.sort()
+            val_ind.sort()
+
+            self.train_ind = train_ind
+            self.val_ind = val_ind
         else:
-            train_ind, val_ind = indices, []
+            print('Using previous training validation set')
 
-        train_ind.sort()
-        val_ind.sort()
+        self.train_dataset.select_subset(self.train_ind)
+        self.val_dataset.select_subset(self.val_ind)
 
-        self.train_ind = train_ind
-        self.val_ind = val_ind
+        train_collate_fn = self.train_dataset.make_collate_fn()
+        val_collate_fn = self.val_dataset.make_collate_fn()
 
-        self.train_dataset.select_subset(train_ind)
-        self.val_dataset.select_subset(val_ind)
-
-        self.train_loader = DataLoader(self.train_dataset, batch_size=batch_size, shuffle=True)
-        self.val_loader = DataLoader(self.val_dataset, batch_size=batch_size, shuffle=True)
+        self.train_loader = DataLoader(self.train_dataset, batch_size=batch_size, shuffle=True, collate_fn=train_collate_fn)
+        self.val_loader = DataLoader(self.val_dataset, batch_size=batch_size, shuffle=True, collate_fn=val_collate_fn)
 
         print('Ready to train\n')
 
@@ -519,17 +605,31 @@ class Trainer:
         100 batches.
 
         '''
+
+        def predict_vlen(X, feat, y):
+            a = ([self.model(
+                torch.from_numpy(x).to(self.device, dtype=torch.float), 
+                f.unsqueeze(0),
+                ).squeeze() for x,f in zip(X, feat)])
+            return sum([self.loss_fn(a[i], y[i].unsqueeze(-1)) for i in range(torch.numel(y))])
+
+
         size, n_batches, batch_size = len(self.train_loader.dataset), len(self.train_loader), self.train_loader.batch_size
-        self.model.train()
         timer = Timer()
 
         for batch, (X, y, feat) in enumerate(self.train_loader):
-
-            X, y = X.to(self.device, dtype=torch.float), y.to(self.device, dtype=torch.float)
+            # print(X.shape, y.shape, feat.shape)
+            self.model.train()
+            
+            y = y.to(self.device, dtype=torch.float)
             feat = feat.to(self.device, dtype=torch.float)
 
-            pred = self.model(X, feat)
-            loss = self.loss_fn(pred, y.unsqueeze(1))
+            if type(X) == list:
+                loss = predict_vlen(X, feat, y)
+            else:
+                X = X.to(self.device, dtype=torch.float)
+                pred = self.model(X, feat)
+                loss = self.loss_fn(pred, y.unsqueeze(1))
             
             loss.backward()
             self.optimizer.step()
@@ -549,18 +649,28 @@ class Trainer:
         Returns the mean MSE for all items in the given dataset
         '''
 
+        def predict_vlen(X, feat, y):
+            a = ([self.model(
+                torch.from_numpy(x).to(self.device, dtype=torch.float), 
+                f.unsqueeze(0),
+                ).unsqueeze(-1) for x,f in zip(X, feat)])
+
+            return sum([self.loss_fn(a[i], y[i]) for i in range(torch.numel(y))])
+
         self.model.eval()
 
         n_batches = len(self.val_loader)
         total_loss = 0.
         with torch.no_grad():
             for X, y, feat in self.val_loader:
-                
-                X, y = X.to(self.device, dtype=torch.float), y.to(self.device, dtype=torch.float)
+                y = y.to(self.device, dtype=torch.float)
                 feat = feat.to(self.device, dtype=torch.float)
-
-                pred = self.model(X, feat)
-                total_loss += self.loss_fn(pred, y.unsqueeze(1)).item()
+                if type(X) == list:
+                    total_loss += predict_vlen(X, feat, y).item()
+                else:
+                    X = X.to(self.device, dtype=torch.float)
+                    pred = self.model(X, feat)
+                    total_loss += self.loss_fn(pred, y.unsqueeze(1)).item()
         
         return total_loss / n_batches
     
@@ -585,6 +695,7 @@ class Trainer:
         if all_params:
             torch.save({
                 'epoch': epoch,
+                'train_ind': self.train_ind,
                 'val_ind': self.val_ind,
                 'model_state_dict': self.model.module.state_dict(),
                 'optimizer_state_dict': self.optimizer.state_dict(),
@@ -594,18 +705,19 @@ class Trainer:
 
     def load_model(self, model_path):
         '''
-        Load a partially trained model to continue training
+        Load a previously trained model to continue training
         '''
         checkpoint = torch.load(model_path, map_location=torch.device(self.device))
-        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.model.module.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
         self.cur_epoch = checkpoint['epoch']
+        self.val_ind = checkpoint['val_ind']
 
-        '''
-        TODO finish this method
-        '''
-        
+        if 'train_ind' not in checkpoint:
+            self.train_ind = [i for i in range(26389) if i not in self.val_ind]
+        else:
+            self.train_ind = checkpoint['train_ind']
 
 
 
@@ -613,9 +725,9 @@ class Trainer:
 if __name__ == '__main__':
 
     use_features = True
-    sequence = sequence6
+    sequence = sequence7
     cuda_main_id = 0
-    preload = False
+    preload = '/nfs/home/khom/test_projects/CNNTraining/models/experiment_model_2.pth'
 
     device = (
         f'cuda:{cuda_main_id}'
@@ -625,15 +737,17 @@ if __name__ == '__main__':
         else 'cpu'
     )
 
-    model = MRCNetwork(sequence, use_features).to(device)
+
+    fc_size = 4608 #456 #12800
+    model = MRCNetwork(fc_size, sequence, use_features).to(device)
     loss_fn = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=1e-5, weight_decay=1e-4)
+    optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-4)
 
     
 
     device_ids = [cuda_main_id, cuda_main_id+1]
-    save_path = f'/nfs/home/khom/test_projects/CNNTraining/models/base_model_{2}.pth'
-    data_path = '/nfs/home/khom/data120.hdf5'
+    save_path = f'/nfs/home/khom/test_projects/CNNTraining/models/experiment_model_2_cont.pth'
+    data_path = '/nfs/home/khom/data210-2.hdf5'
 
     trainer = Trainer(model, loss_fn, optimizer, data_path,
                       val_frac=0.1, 
@@ -641,7 +755,7 @@ if __name__ == '__main__':
                       device=device, parallel_device_ids=device_ids,
                       preload=preload)
 
-    trainer.run_training(epochs=250)    
+    trainer.run_training(epochs=100)    
 
     # cuda_main_id = 0
 

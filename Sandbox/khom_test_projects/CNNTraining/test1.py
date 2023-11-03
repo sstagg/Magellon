@@ -21,6 +21,8 @@ from matplotlib.patches import Circle
 import train
 import dataset
 
+print('Imports done')
+
 # ray.init(ignore_reinit_error=True, num_cpus=4)
 
 DATA_PATH = '/nfs/home/khom/data'
@@ -61,23 +63,36 @@ def count_num_images():
 
     print(f'\n{n} images total')
                 
-def print_score(idx, torch_path, hdf5_path, display_target=False):
-    file = h5py.File(hdf5_path, 'r')
-    imgs = file['data/images']
-    targets = pd.read_hdf(hdf5_path, 'targets')
+def print_scores(idx, torch_path, hdf5_path, display_target=True):
+    # file = h5py.File(hdf5_path, 'r')
+    # imgs = file['data/images']
+    # targets = pd.read_hdf(hdf5_path, 'targets')
 
-    model = train.MRCNetwork()
-    model.load_state_dict(torch.load(torch_path))
+    transformer = None#lambda arr: torch.tensor(np.array(arr)).unsqueeze(-3)
+
+    data = dataset.MRCImageDataset(mode='hdf5', hdf5_path=hdf5_path, use_features=True, transform=transformer)
+
+    model = train.MRCNetwork(4608, train.sequence7, use_features=True)
+    model.load_state_dict(torch.load(torch_path)['model_state_dict'])
     model.eval()
 
-    if display_target:
-        target = targets.iloc[idx]['score']
-        print(f'Target score: {target}')
+    err = 0.
+
+    for i in idx:
+        img, label, feats = data[i]
+        img = torch.Tensor(img).unsqueeze(0).unsqueeze(0)
+        feats = feats.unsqueeze(0)
+        pred = model(img, feats).item()
+        print(label, pred)
+        err += (label - pred)**2
+
+    print(f'MSE: {err / len(idx)}')
 
     
     
-    pred = model(ToTensor()(imgs[idx]).unsqueeze(0)).item()
-    print(f'Predicted score: {pred}')
+    
+    # pred = model(ToTensor()(imgs[idx]).unsqueeze(0)).item()
+    # print(f'Predicted score: {pred}')
 
 def get_output_shape(model, shape, subnet=None):
     '''
@@ -93,7 +108,7 @@ def get_output_shape(model, shape, subnet=None):
 
 
     else:
-        feat = torch.rand(1,2)
+        feat = torch.rand(1,3)
         print(f'Output shape: {model(t, feat).shape}')
 
 
@@ -286,7 +301,7 @@ def plot_scores(model_path, data_path, mode, num=20, use_features=False):
 
     device_ids = [cuda_main_id, cuda_main_id+1]
 
-    sequence = train.sequence6
+    sequence = train.sequence7
     model = train.MRCNetwork(sequence, use_features=use_features).to(device)
     
     checkpoint = torch.load(model_path, map_location=torch.device(device))
@@ -328,22 +343,47 @@ def plot_scores(model_path, data_path, mode, num=20, use_features=False):
     display_scores_heatmap(data, model, indices=None, device=device)
     
 
+# Test function for making a HDF5 dataset with variable size arrays
+def ragged_hdf5_dataset():
+    
+    path = 'tmp_h5.hdf5'
 
+    if os.path.isfile(path):
+        os.remove(path)
+
+    file = h5py.File(path, 'a')
+    variable_dt = h5py.vlen_dtype(np.float32)
+    img_data = file.create_dataset('data/images',
+                                   shape=(2,),
+                                   maxshape=(None,),
+                                   chunks=(1,),
+                                   dtype=variable_dt)
+    
+    img_data[0] = np.zeros(100)
+    img_data[1] = np.zeros(445)
+    # img_data[2] = np.zeros(21)
+
+    img_data.resize((3,))
+
+    img_data[2] = np.zeros(21)
+    
 
 
 
 
     
-
+    print(img_data.shape)
     
 
 
 def main():
     
     
+    # ragged_hdf5_dataset()
     # shape = (1, 1, 120, 120)
     # sequence = train.sequence4
     # get_output_shape(train.MRCNetwork(sequence, use_features=True), shape, subnet='cnn')
+
 
     logs = [
         '/nfs/home/khom/test_projects/CNNTraining/logs/output_model_0.out',
@@ -359,7 +399,9 @@ def main():
         'dropout, batch norm, early stop'
         
     ]
-    plot_err_over_time(['/nfs/home/khom/test_projects/CNNTraining/logs/output_model_2.out'], ['model 2'])
+    plot_err_over_time(['/nfs/home/khom/test_projects/CNNTraining/logs/experiment_model_2.out',
+                        '/nfs/home/khom/test_projects/CNNTraining/logs/experiment_model_0.out'
+                        ], ['model 2', 'model 0'])
 
     # model_path = '/nfs/home/khom/test_projects/CNNTraining/models/base_model_0.pth'
     # data_path = '/nfs/home/khom/data120.hdf5'
@@ -373,3 +415,20 @@ def main():
 if __name__ == '__main__':
     mpl.use('TkAgg')
     main()
+
+    # idx = [0, 2392, 23]
+    # idx = np.random.choice(list(range(26389)), size=2500, replace=False)
+    # torch_path = '/nfs/home/khom/test_projects/CNNTraining/models/experiment_model_3.pth'
+    # hdf5_path = '/nfs/home/khom/data210.hdf5'
+    # print_scores(idx, torch_path, hdf5_path, display_target=True)
+
+    # ds = h5py.File(hdf5_path, 'r')['data/images']
+    # lens = []
+    # for i in range(len(ds)):
+    #     img = ds[i]
+    #     s = round(np.sqrt(img.shape[0]))
+    #     lens.append(s)
+    
+    # plt.hist(lens)
+    # plt.show()
+    # print(set(lens))
