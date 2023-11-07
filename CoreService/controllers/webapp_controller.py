@@ -689,6 +689,7 @@ async def create_atlas_picture(session_name, image_info, final_width, final_heig
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
+
 # @image_viewer_router.get("/download_file")
 # async def download_file(file_path: str):
 #     return FileResponse(path=file_path, filename=file_path.split("/")[-1])

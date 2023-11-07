@@ -166,8 +166,15 @@ class LeginonFrameTransferJobService:
                     ai.DEF_id AS image_id,
                     ai.filename,
                     ai.`MRC|image` AS image_name,
+                    ai.label,
+                    SQRT(ai.pixels) AS dimx,
+                    t.`delta row` AS delta_row,
+                    t.`delta column` AS delta_column,
                     sem.magnification AS mag,
                     sem.defocus,
+                    sem.`SUBD|stage position|a` AS stage_alpha_tilt,
+                    sem.`SUBD|stage position|x` AS stage_x,
+                    sem.`SUBD|stage position|y` AS stage_y,
                     cem.`exposure time` AS camera_exposure_time,
                     cem.`save frames` AS save_frames,
                     cem.`frames name` AS frame_names,
@@ -182,6 +189,7 @@ class LeginonFrameTransferJobService:
                 LEFT OUTER JOIN ScopeEMData sem ON ai.`REF|ScopeEMData|scope` = sem.DEF_id
                 LEFT OUTER JOIN CameraEMData cem ON ai.`REF|CameraEMData|camera` = cem.DEF_id
                 LEFT OUTER JOIN PresetData pd ON ai.`REF|PresetData|preset` = pd.DEF_id
+                LEFT OUTER JOIN AcquisitionImageTargetData t   ON ai.`REF|AcquisitionImageTargetData|target` = t.DEF_id
                 LEFT OUTER JOIN InstrumentData TemInstrumentData ON pd.`REF|InstrumentData|tem` = TemInstrumentData.DEF_id
                 LEFT OUTER JOIN InstrumentData CameraInstrumentData ON pd.`REF|InstrumentData|ccdcamera` = CameraInstrumentData.DEF_id
                 LEFT OUTER JOIN PixelSizeCalibrationData psc ON 
@@ -229,7 +237,13 @@ class LeginonFrameTransferJobService:
                     db_image = Image(Oid=uuid.uuid4(), name=filename, magnification=image["mag"],
                                      defocus=image["defocus"], dose=image["calculated_dose"],
                                      pixel_size=image["pixelsize"], binning_x=image["bining_x"],
-                                     binning_y=image["bining_y"], level=get_image_levels(filename,presets_result["regex_pattern"]),
+                                     stage_x=image["stage_x"], stage_y=image["stage_y"],
+                                     stage_alpha_tilt=image["stage_alpha_tilt"],
+                                     atlas_dimxy=image["dimx"],
+                                     atlas_delta_row=image["delta_row"],
+                                     atlas_delta_column=image["delta_column"],
+                                     binning_y=image["bining_y"],
+                                     level=get_image_levels(filename, presets_result["regex_pattern"]),
                                      old_id=image["image_id"], session_id=magellon_session.Oid)
                     # get_image_levels(filename,presets_result["regex_pattern"])
                     # db_session.add(db_image)
