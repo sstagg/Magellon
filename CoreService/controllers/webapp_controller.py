@@ -626,30 +626,32 @@ async def create_atlas(session_id: str):
     # Now, 'label_objects' is a dictionary where labels are keys, and values are lists of associated dictionaries
     # for label, objects in label_objects.items():
     #     print(f"{label}: {objects}")
+    images = create_atlas_images(session_name, label_objects)
+    return {"images": images}
+
+
+async def create_atlas_images(session_name, label_objects):
     canvas_width = 1600
     canvas_height = 1600
     background_color = "black"
     output_format = "PNG"
     images = []
     current_directory = f"{app_settings.directory_settings.IMAGE_ROOT_DIR}/{session_name}"
-    # current_directory = r"C:\temp\data\23jun28a"
-    for data in label_objects:
 
-        image_info = label_objects[data]
-        names = label_objects[data][0]["filename"].split("_")
-        # current_directory=os.getcwd()
-
+    for label, image_info in label_objects.items():
+        names = image_info[0]["filename"].split("_")
         save_path = "_".join(names[:-1] + ["atlas.png"])
         file_path = os.path.join(current_directory, "images", save_path)
         result = await create_atlas_picture(session_name, image_info, canvas_width, canvas_height, background_color,
-                                            file_path,
-                                            output_format)
+                                            file_path, output_format)
+
         if isinstance(result, str):
             return {"error": result}
         else:
             file_path = os.path.join("images", save_path)
             images.append(file_path)
-    return {"images": images}
+
+    return images
 
 
 async def create_atlas_picture(session_name, image_info, final_width, final_height, background_color, save_path,
@@ -688,7 +690,6 @@ async def create_atlas_picture(session_name, image_info, final_width, final_heig
         big_picture.save(save_path)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
-
 
 # @image_viewer_router.get("/download_file")
 # async def download_file(file_path: str):

@@ -10,10 +10,10 @@ import concurrent.futures
 import logging
 
 import pymysql
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 
 from config import FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, \
-    FFT_SUFFIX, FRAMES_SUFFIX
+    FFT_SUFFIX, FRAMES_SUFFIX, app_settings
 from database import get_db
 from models.pydantic_models import LeginonFrameTransferJobDto, LeginonFrameTransferTaskDto
 from models.sqlalchemy_models import Frametransferjob, Frametransferjobitem, Image, Project, Msession
@@ -466,3 +466,131 @@ class LeginonFrameTransferJobService:
 
         except Exception as e:
             return {"error": str(e)}
+
+
+async def create_atlas(session_id: str):
+    session_id = "13892"
+    session_name = "13892"
+    db_config = {
+        "host": "127.0.0.1",
+        "port": 3310,
+        "user": "usr_object",
+        "password": "ThPHMn3m39Ds",
+        "db": "dbemdata",
+        "charset": "utf8",
+    }  # Create a connection to the MySQL database
+
+    connection = pymysql.connect(**db_config)  # Create a cursor to interact with the database
+    cursor = connection.cursor()  # Define the SQL query for the first query
+
+    query1 = "SELECT label FROM ImageTargetListData WHERE `REF|SessionData|session` = %s AND mosaic = %s"
+
+    mosaic_value = 1  # Execute the first query with parameters
+    cursor.execute(query1, (session_id, mosaic_value))  # Fetch all the label results into a Python array
+    label_values = [row[0] for row in cursor.fetchall()]  # Define the SQL query for the second query
+
+    query2 = """
+        SELECT a.DEF_id, SQRT(a.pixels) as dimx, SQRT(a.pixels) as dimy, a.filename,
+               t.`delta row`, t.`delta column`
+        FROM AcquisitionImageData a
+        LEFT JOIN AcquisitionImageTargetData t ON a.`REF|AcquisitionImageTargetData|target` = t.DEF_id
+        WHERE a.`REF|SessionData|session` = %s AND a.label = %s
+    """
+    label = "Grid"
+    # Execute the second query with parameters
+    cursor.execute(query2, (session_id, label))
+    # Fetch all the results from the second query
+    second_query_results = cursor.fetchall()
+    # Create a dictionary to store grouped objects by label
+
+    label_objects = {}
+
+    for row in second_query_results:
+        filename_parts = row[3].split("_")
+        label_match = None
+        for part in filename_parts:
+            if part in label_values:
+                label_match = part
+                break
+
+        if label_match:
+            obj = {
+                "id": row[0],
+                "dimx": row[1],
+                "dimy": row[2],
+                "filename": row[3],
+                "delta_row": row[4],
+                "delta_column": row[5]
+            }
+            if label_match in label_objects:
+                label_objects[label_match].append(obj)
+            else:
+                label_objects[label_match] = [obj]
+    # Close the cursor and the database connection
+    cursor.close()
+    connection.close()
+
+    images = create_atlas_images(session_name, label_objects)
+    return {"images": images}
+
+
+async def create_atlas_images(session_name, label_objects):
+    canvas_width = 1600
+    canvas_height = 1600
+    background_color = "black"
+    output_format = "PNG"
+    images = []
+    current_directory = f"{app_settings.directory_settings.IMAGE_ROOT_DIR}/{session_name}"
+
+    for label, image_info in label_objects.items():
+        names = image_info[0]["filename"].split("_")
+        save_path = "_".join(names[:-1] + ["atlas.png"])
+        file_path = os.path.join(current_directory, "images", save_path)
+        result = await create_atlas_picture(session_name, image_info, canvas_width, canvas_height, background_color,
+                                            file_path, output_format)
+
+        if isinstance(result, str):
+            return {"error": result}
+        else:
+            file_path = os.path.join("images", save_path)
+            images.append(file_path)
+
+    return images
+
+
+async def create_atlas_picture(session_name, image_info, final_width, final_height, background_color, save_path,
+                               output_format="PNG"):
+    try:
+        min_x = float('inf')
+        max_x = float('-inf')
+        min_y = float('inf')
+        max_y = float('-inf')
+        # Iterate through the array and update the minimum and maximum values
+        for obj in image_info:
+            min_x = min(min_x, obj['delta_row'])
+            max_x = max(max_x, obj['delta_row'])
+            min_y = min(min_y, obj['delta_column'])
+            max_y = max(max_y, obj['delta_column'])
+        canvas_width = int(max_x - min_x + (2 * image_info[0]["dimx"]))
+        canvas_height = int(max_y - min_y + (2 * image_info[0]["dimy"]))
+        big_picture = Image.new('RGB', (canvas_width, canvas_height), background_color)
+        current_directory = f"{app_settings.directory_settings.IMAGE_ROOT_DIR}/{session_name}"
+        for obj in image_info:
+            delta_row, delta_column, filename = obj["delta_row"], obj["delta_column"], obj["filename"]
+            try:
+                file_path = os.path.join(current_directory, "images", filename + ".png")
+                small_image = Image.open(file_path)
+            except FileNotFoundError:
+                raise HTTPException(status_code=404, detail="No images found")
+            except Exception as e:
+                raise HTTPException(status_code=404, detail=e)
+            x = int(delta_column - min_x + (image_info[0]["dimx"] // 2))
+            y = int(delta_row - min_y + (image_info[0]["dimy"] // 2))
+            big_picture.paste(small_image, (x, y))
+        big_picture = big_picture.resize((final_width, final_height), Image.LANCZOS)
+        # Add JSON data as a text chunk
+        big_picture.text['atlas'] = image_info
+        # metadata = big_picture.text.get('atlas', '')
+        big_picture.save(save_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
