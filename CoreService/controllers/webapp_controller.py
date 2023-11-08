@@ -554,7 +554,7 @@ async def run_dag():
 
 
 @webapp_router.get("/create_atlas")
-async def create_atlas(session_name: str):
+async def create_atlas(session_name: str, db_session: Session = Depends(get_db)):
     # Define the database connection parameters
     # session_id = request_data.session_id
     # if session_id.strip() == "":
@@ -633,6 +633,15 @@ async def create_atlas(session_name: str):
     # for label, objects in label_objects.items():
     #     print(f"{label}: {objects}")
     images = await create_atlas_images(session_name, label_objects)
+
+    atlases_to_insert = []
+    for image in images:
+        file_name = os.path.basename(image)
+        atlas = Atlas(Oid=str(uuid.uuid4()), name=file_name)
+        atlases_to_insert.append(atlas)
+    # db_session.add_all(atlases_to_insert)
+    db_session.bulk_save_objects(atlases_to_insert)
+    db_session.commit()
     return {"images": images}
 
 # @image_viewer_router.get("/download_file")

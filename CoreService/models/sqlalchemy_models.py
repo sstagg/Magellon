@@ -20,6 +20,7 @@ class Atlas(Base):
     Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
     name = Column(String(100))
     meta = Column(LONGTEXT)
+    session_id = Column(ForeignKey('msession.Oid'), index=True)
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)
 

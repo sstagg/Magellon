@@ -218,9 +218,8 @@ class LeginonFrameTransferJobService:
                 # Create a new job
                 job = Frametransferjob(
                     # Oid=uuid.uuid4(),
-                    name="Leginon Import: " + session_name,
-                    description="Leginon Import for session: " +
-                                session_name + "in directory: " + session_result["image path"],
+                    name="Leginon Import: " + session_name, description="Leginon Import for session: " +
+                    session_name + "in directory: " + session_result["image path"],
                     created_on=datetime.now(), path=session_result["image path"],
                     output_dir=self.params.camera_directory
                     # Set other job properties
