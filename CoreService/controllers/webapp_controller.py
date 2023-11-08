@@ -554,14 +554,15 @@ async def run_dag():
 
 
 @webapp_router.get("/create_atlas")
-async def create_atlas(session_id: str):
+async def create_atlas(session_name: str):
     # Define the database connection parameters
     # session_id = request_data.session_id
     # if session_id.strip() == "":
     #     raise HTTPException(status_code=400, detail="Session ID is empty")
     # session_id = "13984"
-    session_id = "13892"
-    session_name = "13892"
+    # session_id = "13892"
+
+    # session_id = "13892"
     db_config = {
         "host": "127.0.0.1",
         "port": 3310,
@@ -573,6 +574,10 @@ async def create_atlas(session_id: str):
 
     connection = pymysql.connect(**db_config)  # Create a cursor to interact with the database
     cursor = connection.cursor()  # Define the SQL query for the first query
+
+    query = "SELECT SessionData.DEF_id FROM SessionData WHERE SessionData.name = %s"
+    cursor.execute(query, (session_name,))
+    session_id = cursor.fetchone()[0]
 
     query1 = "SELECT label FROM ImageTargetListData WHERE `REF|SessionData|session` = %s AND mosaic = %s"
 
@@ -627,12 +632,8 @@ async def create_atlas(session_id: str):
     # Now, 'label_objects' is a dictionary where labels are keys, and values are lists of associated dictionaries
     # for label, objects in label_objects.items():
     #     print(f"{label}: {objects}")
-    images = create_atlas_images(session_name, label_objects)
+    images = await create_atlas_images(session_name, label_objects)
     return {"images": images}
-
-
-
-
 
 # @image_viewer_router.get("/download_file")
 # async def download_file(file_path: str):

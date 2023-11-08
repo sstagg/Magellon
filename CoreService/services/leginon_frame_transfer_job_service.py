@@ -447,12 +447,10 @@ class LeginonFrameTransferJobService:
             return {"error": str(e)}
 
     async def create_atlas_images(self, session_id: str):
-        session_name = "13892"
         query1 = "SELECT label FROM ImageTargetListData WHERE `REF|SessionData|session` = %s AND mosaic = %s"
         mosaic_value = 1  # Execute the first query with parameters
-        self.leginon_cursor.execute(query1, (session_name,))
+        self.leginon_cursor.execute(query1, (session_id, mosaic_value))
 
-        cursor.execute(query1, (session_id, mosaic_value))  # Fetch all the label results into a Python array
         label_values = [row[0] for row in self.leginon_cursor.fetchall()]  # Define the SQL query for the second query
 
         query2 = """
@@ -493,6 +491,6 @@ class LeginonFrameTransferJobService:
                 else:
                     label_objects[label_match] = [obj]
 
-        images = create_atlas_images(session_name, label_objects)
+        images = create_atlas_images(session_id, label_objects)
         return {"images": images}
 
