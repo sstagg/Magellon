@@ -1,0 +1,24 @@
+databaseType = "MySql"
+name = "magellon"
+id = "4f5458ad-d2c5-4a19-a628-21f6f243a099"
+
+[flywayDesktop]
+developmentEnvironment = "development"
+shadowEnvironment = "shadow"
+schemaModel = "./schema-model"
+
+[redgateCompare]
+filterFile = "filter.rgf"
+
+[redgateCompare.mysql.options.ignores]
+ignoreNewlinesInTextObjects = "off"
+
+[flyway]
+mixed = true
+outOfOrder = true
+locations = [ "filesystem:migrations" ]
+validateMigrationNaming = true
+
+[environments.target1]
+url = "jdbc:mysql://5.161.212.237"
+schemas = [ "magellon02" ]

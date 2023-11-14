@@ -26,6 +26,7 @@ from models.pydantic_models import ParticlepickingjobitemDto, MicrographSetDto, 
 from models.sqlalchemy_models import Particlepickingjobitem, Image, Particlepickingjob, Msession, Atlas
 from repositories.image_repository import ImageRepository
 from repositories.session_repository import SessionRepository
+from services.atlas import create_atlas_images
 from services.file_service import FileService
 from services.helper import get_response_image
 
@@ -553,14 +554,15 @@ async def run_dag():
 
 
 @webapp_router.get("/create_atlas")
-async def create_atlas(session_id: str):
+async def create_atlas(session_name: str, db_session: Session = Depends(get_db)):
     # Define the database connection parameters
     # session_id = request_data.session_id
     # if session_id.strip() == "":
     #     raise HTTPException(status_code=400, detail="Session ID is empty")
     # session_id = "13984"
-    session_id = "13892"
-    session_name = "13892"
+    # session_id = "13892"
+
+    # session_id = "13892"
     db_config = {
         "host": "127.0.0.1",
         "port": 3310,
@@ -572,6 +574,10 @@ async def create_atlas(session_id: str):
 
     connection = pymysql.connect(**db_config)  # Create a cursor to interact with the database
     cursor = connection.cursor()  # Define the SQL query for the first query
+
+    query = "SELECT SessionData.DEF_id FROM SessionData WHERE SessionData.name = %s"
+    cursor.execute(query, (session_name,))
+    session_id = cursor.fetchone()[0]
 
     query1 = "SELECT label FROM ImageTargetListData WHERE `REF|SessionData|session` = %s AND mosaic = %s"
 
@@ -626,68 +632,18 @@ async def create_atlas(session_id: str):
     # Now, 'label_objects' is a dictionary where labels are keys, and values are lists of associated dictionaries
     # for label, objects in label_objects.items():
     #     print(f"{label}: {objects}")
-    canvas_width = 1600
-    canvas_height = 1600
-    background_color = "black"
-    output_format = "PNG"
-    images = []
-    current_directory = f"{app_settings.directory_settings.IMAGE_ROOT_DIR}/{session_name}"
-    # current_directory = r"C:\temp\data\23jun28a"
-    for data in label_objects:
+    images = await create_atlas_images(session_name, label_objects)
 
-        image_info = label_objects[data]
-        names = label_objects[data][0]["filename"].split("_")
-        # current_directory=os.getcwd()
-
-        save_path = "_".join(names[:-1] + ["atlas.png"])
-        file_path = os.path.join(current_directory, "images", save_path)
-        result = await create_atlas_picture(session_name, image_info, canvas_width, canvas_height, background_color,
-                                            file_path,
-                                            output_format)
-        if isinstance(result, str):
-            return {"error": result}
-        else:
-            file_path = os.path.join("images", save_path)
-            images.append(file_path)
+    atlases_to_insert = []
+    for image in images:
+        file_name = os.path.basename(image['imageFilePath'])
+        file_name_without_extension = os.path.splitext(file_name)[0]
+        atlas = Atlas(Oid=str(uuid.uuid4()), name=file_name_without_extension, meta=image['imageMap'])
+        atlases_to_insert.append(atlas)
+    # db_session.add_all(atlases_to_insert)
+    db_session.bulk_save_objects(atlases_to_insert)
+    db_session.commit()
     return {"images": images}
-
-
-async def create_atlas_picture(session_name, image_info, final_width, final_height, background_color, save_path,
-                               output_format="PNG"):
-    try:
-        min_x = float('inf')
-        max_x = float('-inf')
-        min_y = float('inf')
-        max_y = float('-inf')
-        # Iterate through the array and update the minimum and maximum values
-        for obj in image_info:
-            min_x = min(min_x, obj['delta_row'])
-            max_x = max(max_x, obj['delta_row'])
-            min_y = min(min_y, obj['delta_column'])
-            max_y = max(max_y, obj['delta_column'])
-        canvas_width = int(max_x - min_x + (2 * image_info[0]["dimx"]))
-        canvas_height = int(max_y - min_y + (2 * image_info[0]["dimy"]))
-        big_picture = Image.new('RGB', (canvas_width, canvas_height), background_color)
-        current_directory = f"{app_settings.directory_settings.IMAGE_ROOT_DIR}/{session_name}"
-        for obj in image_info:
-            delta_row, delta_column, filename = obj["delta_row"], obj["delta_column"], obj["filename"]
-            try:
-                file_path = os.path.join(current_directory, "images", filename + ".png")
-                small_image = Image.open(file_path)
-            except FileNotFoundError:
-                raise HTTPException(status_code=404, detail="No images found")
-            except Exception as e:
-                raise HTTPException(status_code=404, detail=e)
-            x = int(delta_column - min_x + (image_info[0]["dimx"] // 2))
-            y = int(delta_row - min_y + (image_info[0]["dimy"] // 2))
-            big_picture.paste(small_image, (x, y))
-        big_picture = big_picture.resize((final_width, final_height), Image.LANCZOS)
-        # Add JSON data as a text chunk
-        big_picture.text['atlas'] = image_info
-        # metadata = big_picture.text.get('atlas', '')
-        big_picture.save(save_path)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 # @image_viewer_router.get("/download_file")
 # async def download_file(file_path: str):

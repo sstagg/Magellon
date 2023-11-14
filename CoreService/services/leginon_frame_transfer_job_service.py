@@ -10,13 +10,14 @@ import concurrent.futures
 import logging
 
 import pymysql
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 
 from config import FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, \
-    FFT_SUFFIX, FRAMES_SUFFIX
+    FFT_SUFFIX, FRAMES_SUFFIX, app_settings
 from database import get_db
 from models.pydantic_models import LeginonFrameTransferJobDto, LeginonFrameTransferTaskDto
 from models.sqlalchemy_models import Frametransferjob, Frametransferjobitem, Image, Project, Msession
+from services.atlas import create_atlas_images
 from services.file_service import copy_file, create_directory, check_file_exists
 from services.mrc_image_service import MrcImageService
 from sqlalchemy.orm import Session
@@ -166,8 +167,15 @@ class LeginonFrameTransferJobService:
                     ai.DEF_id AS image_id,
                     ai.filename,
                     ai.`MRC|image` AS image_name,
+                    ai.label,
+                    SQRT(ai.pixels) AS dimx,
+                    t.`delta row` AS delta_row,
+                    t.`delta column` AS delta_column,
                     sem.magnification AS mag,
                     sem.defocus,
+                    sem.`SUBD|stage position|a` AS stage_alpha_tilt,
+                    sem.`SUBD|stage position|x` AS stage_x,
+                    sem.`SUBD|stage position|y` AS stage_y,
                     cem.`exposure time` AS camera_exposure_time,
                     cem.`save frames` AS save_frames,
                     cem.`frames name` AS frame_names,
@@ -182,6 +190,7 @@ class LeginonFrameTransferJobService:
                 LEFT OUTER JOIN ScopeEMData sem ON ai.`REF|ScopeEMData|scope` = sem.DEF_id
                 LEFT OUTER JOIN CameraEMData cem ON ai.`REF|CameraEMData|camera` = cem.DEF_id
                 LEFT OUTER JOIN PresetData pd ON ai.`REF|PresetData|preset` = pd.DEF_id
+                LEFT OUTER JOIN AcquisitionImageTargetData t   ON ai.`REF|AcquisitionImageTargetData|target` = t.DEF_id
                 LEFT OUTER JOIN InstrumentData TemInstrumentData ON pd.`REF|InstrumentData|tem` = TemInstrumentData.DEF_id
                 LEFT OUTER JOIN InstrumentData CameraInstrumentData ON pd.`REF|InstrumentData|ccdcamera` = CameraInstrumentData.DEF_id
                 LEFT OUTER JOIN PixelSizeCalibrationData psc ON 
@@ -209,9 +218,8 @@ class LeginonFrameTransferJobService:
                 # Create a new job
                 job = Frametransferjob(
                     # Oid=uuid.uuid4(),
-                    name="Leginon Import: " + session_name,
-                    description="Leginon Import for session: " +
-                                session_name + "in directory: " + session_result["image path"],
+                    name="Leginon Import: " + session_name, description="Leginon Import for session: " +
+                    session_name + "in directory: " + session_result["image path"],
                     created_on=datetime.now(), path=session_result["image path"],
                     output_dir=self.params.camera_directory
                     # Set other job properties
@@ -229,7 +237,13 @@ class LeginonFrameTransferJobService:
                     db_image = Image(Oid=uuid.uuid4(), name=filename, magnification=image["mag"],
                                      defocus=image["defocus"], dose=image["calculated_dose"],
                                      pixel_size=image["pixelsize"], binning_x=image["bining_x"],
-                                     binning_y=image["bining_y"], level=get_image_levels(filename,presets_result["regex_pattern"]),
+                                     stage_x=image["stage_x"], stage_y=image["stage_y"],
+                                     stage_alpha_tilt=image["stage_alpha_tilt"],
+                                     atlas_dimxy=image["dimx"],
+                                     atlas_delta_row=image["delta_row"],
+                                     atlas_delta_column=image["delta_column"],
+                                     binning_y=image["bining_y"],
+                                     level=get_image_levels(filename, presets_result["regex_pattern"]),
                                      old_id=image["image_id"], session_id=magellon_session.Oid)
                     # get_image_levels(filename,presets_result["regex_pattern"])
                     # db_session.add(db_image)
@@ -303,7 +317,7 @@ class LeginonFrameTransferJobService:
                 #     end while;""")
                 # db_session.execute(update_levels_query)
                 db_session.commit()  # Commit the changes
-
+                # create_atlas_images(s)
                 if self.params.if_do_subtasks if hasattr(self.params, 'if_do_subtasks') else True:
                     self.run_tasks()
                 # self.create_test_tasks()
@@ -316,23 +330,6 @@ class LeginonFrameTransferJobService:
         finally:
             self.close_connections()
 
-    # def create_test_tasks(self):
-    #     # get all the files in the source directory
-    #     leginon_image_list = [file for file in os.listdir(self.params.camera_directory) if
-    #                           os.path.isfile(os.path.join(self.params.camera_directory, file))]
-    #     # self.create_directories()
-    #     self.params.task_list.clear()
-    #     for image in leginon_image_list:
-    #         task = LeginonFrameTransferTaskDto(
-    #             task_id=uuid.uuid4(),
-    #             task_alias=f"lftj_{image}_{self.params.job_id}",
-    #             file_name=f"{image}",
-    #             image_path=self.params.camera_directory + "/" + image,
-    #             job_dto=self.params,
-    #             status=1
-    #         )
-    #         self.params.task_list.append(task)
-    #     self.run_tasks()
 
     def run_tasks(self):
         try:
@@ -372,12 +369,7 @@ class LeginonFrameTransferJobService:
         # finally:
         #     self.close_connections()
 
-    # ```mermaid
-    # graph LR
-    #     A(Copy Image) --> B(Copy Frame)
-    #     B --> C(Convert Image to PNG)
-    #     C --> D(Compute FFT)
-    # ```
+
     def run_task(self, task_dto: LeginonFrameTransferTaskDto) -> Dict[str, str]:
         try:
             # 1
@@ -452,3 +444,52 @@ class LeginonFrameTransferJobService:
 
         except Exception as e:
             return {"error": str(e)}
+
+    async def create_atlas_images(self, session_id: str):
+        query1 = "SELECT label FROM ImageTargetListData WHERE `REF|SessionData|session` = %s AND mosaic = %s"
+        mosaic_value = 1  # Execute the first query with parameters
+        self.leginon_cursor.execute(query1, (session_id, mosaic_value))
+
+        label_values = [row[0] for row in self.leginon_cursor.fetchall()]  # Define the SQL query for the second query
+
+        query2 = """
+            SELECT a.DEF_id, SQRT(a.pixels) as dimx, SQRT(a.pixels) as dimy, a.filename,
+                   t.`delta row`, t.`delta column`
+            FROM AcquisitionImageData a
+            LEFT JOIN AcquisitionImageTargetData t ON a.`REF|AcquisitionImageTargetData|target` = t.DEF_id
+            WHERE a.`REF|SessionData|session` = %s AND a.label = %s
+        """
+        label = "Grid"
+        # Execute the second query with parameters
+        self.leginon_cursor.execute(query2, (session_id, label))
+        # Fetch all the results from the second query
+        second_query_results = self.leginon_cursor.fetchall()
+        # Create a dictionary to store grouped objects by label
+
+        label_objects = {}
+
+        for row in second_query_results:
+            filename_parts = row[3].split("_")
+            label_match = None
+            for part in filename_parts:
+                if part in label_values:
+                    label_match = part
+                    break
+
+            if label_match:
+                obj = {
+                    "id": row[0],
+                    "dimx": row[1],
+                    "dimy": row[2],
+                    "filename": row[3],
+                    "delta_row": row[4],
+                    "delta_column": row[5]
+                }
+                if label_match in label_objects:
+                    label_objects[label_match].append(obj)
+                else:
+                    label_objects[label_match] = [obj]
+
+        images = create_atlas_images(session_id, label_objects)
+        return {"images": images}
+
