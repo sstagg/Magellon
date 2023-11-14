@@ -636,8 +636,9 @@ async def create_atlas(session_name: str, db_session: Session = Depends(get_db))
 
     atlases_to_insert = []
     for image in images:
-        file_name = os.path.basename(image)
-        atlas = Atlas(Oid=str(uuid.uuid4()), name=file_name)
+        file_name = os.path.basename(image['imageFilePath'])
+        file_name_without_extension = os.path.splitext(file_name)[0]
+        atlas = Atlas(Oid=str(uuid.uuid4()), name=file_name_without_extension, meta=image['imageMap'])
         atlases_to_insert.append(atlas)
     # db_session.add_all(atlases_to_insert)
     db_session.bulk_save_objects(atlases_to_insert)
