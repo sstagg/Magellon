@@ -5,6 +5,7 @@ import cv2
 import os
 import cProfile
 import torch
+import shutil
 
 import numpy as np
 import pandas as pd
@@ -14,6 +15,7 @@ from matplotlib import pyplot as plt
 from tqdm import tqdm
 
 from train import sequence5, MRCNetwork
+import dataset
 
 def normalize(arr, upper=1, round_int=False):
     mini, maxi = arr.min(), arr.max()
@@ -48,7 +50,7 @@ def plot_img_eq(img):
 def plot_img(img, ax=None):
     print(img.min(), img.max(), img.dtype)
     if len(img.shape) == 1:
-        print(np.sqrt(img.shape)[0])
+        # print(np.sqrt(img.shape)[0])
         d = np.round(np.sqrt(img.shape)[0]).astype(np.int32)
         img = img.reshape(d,d)
     img = normalize(img, upper=255).astype(np.uint16)
@@ -70,21 +72,7 @@ def img_zoom_out(img, factor):
     :return: 2D ndarray of the zoomed out image. The shape will be the same as the input image 
     '''
 
-    # First, make a larger black image and place the original image in the middle, then downscale
-    # to the original image size
-
     height, width = img.shape
-    # new_height, new_width = round(height*factor), round(width*factor)
-    # new_img = np.zeros((new_height, new_width))
-
-    # # (a, b) is the top left corner of the original image, centered in the new enlarged image
-    # a, b = (new_height - height) // 2, (new_width - width) // 2
-    # new_img[a:a+height, b:b+width] = img
-
-    
-
-    # return cv2.resize(new_img, img.shape, interpolation=cv2.INTER_AREA)
-
     
     M = cv2.getRotationMatrix2D((width/2, height/2), 0, factor)
     return cv2.warpAffine(img, M, img.shape[::-1], borderMode=cv2.BORDER_REPLICATE)
@@ -116,20 +104,6 @@ def main():
     hdf5_path = '/nfs/home/khom/data120.hdf5'
     h5_dataset = h5py.File(hdf5_path, 'r')['data/images']
 
-    # get_brightness_range(h5_dataset)
-
-    # fig, axes = plt.subplots(2, 2)
-    # zoomed_out = img_zoom_out(h5_dataset[101], 2.0)
-    # # print(h5_dataset[101].shape)
-    # plot_img(zoomed_out, ax=axes[0,0])
-    # plot_img(h5_dataset[101], ax=axes[0,1])
-
-    # zoomed_in = img_zoom_out(h5_dataset[101], 0.5)
-    # plot_img(zoomed_in, ax=axes[1,0])
-    # plot_img(h5_dataset[101], ax=axes[1,1])
-    
-    # plt.show()
-
     p = '/nfs/home/khom/data/'
     arr = []
     for i, particle_name in tqdm(list(enumerate(os.listdir(p)))):
@@ -154,7 +128,7 @@ def main1():
     n = 20
     fig, ax = plt.subplots(4,5)
 
-    hdf5_path = '/nfs/home/khom/data210-2.hdf5'
+    hdf5_path = '/nfs/home/khom/data-vlen2.hdf5'
     h5_dataset = h5py.File(hdf5_path, 'r')['data/images']
 
     ind = np.random.randint(0, len(h5_dataset), size=n)
@@ -182,10 +156,84 @@ def main2():
 
     plt.show()
 
+def main3(replace_existing=False):
+    '''
+    Visualize differing quality of images, for a given particle
+    Useful for subjectively determining the "scale" of manually scoring an image.
+    '''
+
+    n_particles = 5
+    scores = np.arange(0, 1.1, step=0.1)
+    data_path =  '/nfs/home/khom/data'
+    hdf5_path = '/nfs/home/khom/data-vlen-same.hdf5'
+    labeled_img_dir = 'labeled-images'
+
+    if replace_existing:
+        shutil.rmtree(labeled_img_dir, ignore_errors=True)
+        # if os.path.exists(labeled_img_dir):
+        #     os.rmdir(labeled_img_dir)
+        print('Removed existing labeled image directory')
+
+    os.makedirs(labeled_img_dir, exist_ok=True)
+    
+    particles = tuple(np.random.choice(os.listdir(data_path), size=n_particles, replace=False))
+    targets = pd.read_hdf(hdf5_path, 'targets')
+
+
+    images = dataset.MRCImageDataset(
+        mode='hdf5',
+        hdf5_path=hdf5_path,
+        use_features=True,
+        transform=lambda arr: torch.Tensor(arr[0]).unsqueeze(0)
+    )
+
+    sample_targets = targets[targets['img_name'].str.startswith(particles)]
+    sample_targets['particle_name'] = sample_targets['img_name'].str.extract(r'([A-z0-9]+)_\d+')
+
+    def sample_particle_imgs(df):
+        closest_score_idx = lambda scores, target: np.argmin(np.abs(scores-target))
+        desired_idx = [closest_score_idx(df['score'], s) for s in scores]
+
+        return df.iloc[desired_idx]
+
+
+    samples = sample_targets.groupby('particle_name').apply(sample_particle_imgs)
+
+    # print(samples.index.get_level_values(0))
+    # print(samples.loc[samples.index.get_level_values(0)[0]])
+
+    for particle_name in set(samples.index.get_level_values(0)):
+        sampled_particles = samples.loc[particle_name]
+        
+        num_subplots = 12 # number of subplots per plot
+        rows, cols = 3, 4
+        fig, axes = plt.subplots(rows, cols)
+        fig.suptitle(f'Particle: {particle_name}')
+        fig.subplots_adjust(hspace=0.4)
+        fig.subplots_adjust(wspace=0.4)
+
+        for i in range(len(sampled_particles)):
+            img_label = targets.iloc[sampled_particles.index[i]]['score']
+            img, _, _ = images[sampled_particles.index[i]]
+
+            ax = axes[i//cols, i%cols]
+            ax.axis('off')
+            ax.imshow(img[0][0], cmap='gray')
+            ax.set_title(f'{img_label :.4f}')
+
+        fig.savefig(f'{labeled_img_dir}/{particle_name}.png')
+        print(f'Finished {particle_name}')
+
+
+
+
+
+
 if __name__ == '__main__':
     # cProfile.run('main()')
     # main()
 
     # test_ragged_input()
-    main1()
+    # main1()
+    main3(replace_existing=False)
 

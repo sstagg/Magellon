@@ -1,3 +1,4 @@
+Using sequence <function sequence8 at 0x7f5640bcd160>
 
 TRAINING OVERVIEW
 -------------------------------
@@ -7,7 +8,7 @@ Parameter Group 0
     amsgrad: False
     betas: (0.9, 0.999)
     eps: 1e-08
-    lr: 0.0001
+    lr: 1e-05
     weight_decay: 0.0001
 ) 
 -------------------------------
@@ -98,7 +99,8 @@ MODEL ARCHITECTURE:
     (14): Dropout(p=0.25, inplace=False)
     (15): Conv2d(32, 32, kernel_size=(3, 3), stride=(2, 2))
     (16): BatchNorm2d(32, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
-    (17): ResidualConvBlock(
+    (17): Dropout(p=0.25, inplace=False)
+    (18): ResidualConvBlock(
       (nonlinear): ReLU()
       (layer1): Sequential(
         (0): Conv2d(32, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
@@ -115,9 +117,9 @@ MODEL ARCHITECTURE:
         (0): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
       )
     )
-    (18): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
-    (19): Dropout(p=0.25, inplace=False)
-    (20): ResidualConvBlock(
+    (19): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (20): Dropout(p=0.25, inplace=False)
+    (21): ResidualConvBlock(
       (nonlinear): ReLU()
       (layer1): Sequential(
         (0): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
@@ -127,10 +129,13 @@ MODEL ARCHITECTURE:
         (0): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
         (1): ReLU()
       )
+      (batchnorm): Sequential(
+        (0): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
     )
-    (21): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
-    (22): Dropout(p=0.25, inplace=False)
-    (23): ResidualConvBlock(
+    (22): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (23): Dropout(p=0.25, inplace=False)
+    (24): ResidualConvBlock(
       (nonlinear): ReLU()
       (layer1): Sequential(
         (0): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
@@ -140,12 +145,16 @@ MODEL ARCHITECTURE:
         (0): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
         (1): ReLU()
       )
+      (batchnorm): Sequential(
+        (0): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
     )
-    (24): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
-    (25): Dropout(p=0.25, inplace=False)
-    (26): Conv2d(64, 64, kernel_size=(3, 3), stride=(2, 2))
-    (27): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
-    (28): ResidualConvBlock(
+    (25): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (26): Dropout(p=0.25, inplace=False)
+    (27): Conv2d(64, 64, kernel_size=(3, 3), stride=(2, 2))
+    (28): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (29): Dropout(p=0.25, inplace=False)
+    (30): ResidualConvBlock(
       (nonlinear): ReLU()
       (layer1): Sequential(
         (0): Conv2d(64, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
@@ -162,9 +171,9 @@ MODEL ARCHITECTURE:
         (0): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
       )
     )
-    (29): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
-    (30): Dropout(p=0.25, inplace=False)
-    (31): ResidualConvBlock(
+    (31): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (32): Dropout(p=0.25, inplace=False)
+    (33): ResidualConvBlock(
       (nonlinear): ReLU()
       (layer1): Sequential(
         (0): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
@@ -174,10 +183,13 @@ MODEL ARCHITECTURE:
         (0): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
         (1): ReLU()
       )
+      (batchnorm): Sequential(
+        (0): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
     )
-    (32): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
-    (33): Dropout(p=0.25, inplace=False)
-    (34): ResidualConvBlock(
+    (34): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (35): Dropout(p=0.25, inplace=False)
+    (36): ResidualConvBlock(
       (nonlinear): ReLU()
       (layer1): Sequential(
         (0): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
@@ -187,21 +199,21 @@ MODEL ARCHITECTURE:
         (0): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
         (1): ReLU()
       )
+      (batchnorm): Sequential(
+        (0): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
     )
-    (35): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
-    (36): Dropout(p=0.25, inplace=False)
-    (37): Conv2d(128, 128, kernel_size=(3, 3), stride=(2, 2))
-    (38): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
-    (39): AdaptiveAvgPool2d(output_size=(6, 6))
-    (40): Flatten(start_dim=1, end_dim=-1)
-    (41): Linear(in_features=4608, out_features=64, bias=True)
-    (42): ReLU()
-    (43): Dropout(p=0.25, inplace=False)
+    (37): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (38): Dropout(p=0.25, inplace=False)
+    (39): Conv2d(128, 128, kernel_size=(3, 3), stride=(2, 2))
+    (40): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (41): Dropout(p=0.25, inplace=False)
+    (42): AdaptiveAvgPool2d(output_size=(6, 6))
+    (43): Flatten(start_dim=1, end_dim=-1)
+    (44): ReLU()
   )
   (feat_network): Sequential(
-    (0): Linear(in_features=67, out_features=16, bias=True)
-    (1): ReLU()
-    (2): Linear(in_features=16, out_features=1, bias=True)
+    (0): Linear(in_features=4611, out_features=1, bias=True)
   )
 ) 
 -------------------------------
@@ -211,1417 +223,1417 @@ Running on device cuda:0
 Split 10.00% of data for validation data
 Preparing to train in parallel: main device on cuda:0, all devices on [0, 1]
 Will save model to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
+Loading saved weights from /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
 -------------------------------
 
 Fetching MRC image data (mode: hdf5) from /nfs/home/khom/data210-2.hdf5
-Reshaping data: False
 Fetching MRC image data (mode: hdf5) from /nfs/home/khom/data210-2.hdf5
-Reshaping data: False
-Selecting subset of size 23750 out of 26389
-Selecting subset of size 2639 out of 26389
+Using previous training validation set
+Selecting subset of size 23750 out of 26389... done
+Selecting subset of size 2639 out of 26389... done
 Ready to train
 
-Beginning training for 100 epochs (from epoch 1)...
-Epoch 1
+Beginning training for 100 epochs (from epoch 101)...
+Epoch 101
 -------------------------------
-Batch 101/743, loss: 4.198612  [ 3232/23750] (43.307s) val loss: 1.155931
-Batch 201/743, loss: 1.071157  [ 6432/23750] (55.861s) val loss: 0.415731
-Batch 301/743, loss: 0.581828  [ 9632/23750] (56.567s) val loss: 0.386462
-Batch 401/743, loss: 1.128997  [12832/23750] (57.013s) val loss: 0.329400
-Batch 501/743, loss: 0.244997  [16032/23750] (57.232s) val loss: 0.175303
-Batch 601/743, loss: 0.224002  [19232/23750] (57.307s) val loss: 0.146132
-Batch 701/743, loss: 0.193518  [22432/23750] (57.456s) val loss: 0.136965
-Batch 743/743, loss: 0.266317  [23750/23750] (32.348s) val loss: 0.147570
+Batch 101/743, loss: 0.002748  [ 3232/23750] (45.313s) val loss: 0.020444
+Batch 201/743, loss: 0.004039  [ 6432/23750] (58.409s) val loss: 0.018735
+Batch 301/743, loss: 0.012584  [ 9632/23750] (58.583s) val loss: 0.022047
+Batch 401/743, loss: 0.002598  [12832/23750] (58.756s) val loss: 0.022270
+Batch 501/743, loss: 0.005682  [16032/23750] (58.677s) val loss: 0.019629
+Batch 601/743, loss: 0.001297  [19232/23750] (58.726s) val loss: 0.022022
+Batch 701/743, loss: 0.006544  [22432/23750] (58.575s) val loss: 0.021289
+Batch 743/743, loss: 0.041438  [23750/23750] (33.116s) val loss: 0.017920
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 434.329s total
+Took 445.701s total
 -------------------------------
 
-Epoch 2
+Epoch 102
 -------------------------------
-Batch 101/743, loss: 0.115210  [ 3232/23750] (42.866s) val loss: 0.117962
-Batch 201/743, loss: 0.060255  [ 6432/23750] (57.279s) val loss: 0.095671
-Batch 301/743, loss: 0.100455  [ 9632/23750] (57.185s) val loss: 0.118900
-Batch 401/743, loss: 0.074018  [12832/23750] (57.187s) val loss: 0.070862
-Batch 501/743, loss: 0.075836  [16032/23750] (57.191s) val loss: 0.075424
-Batch 601/743, loss: 0.121187  [19232/23750] (57.271s) val loss: 0.065302
-Batch 701/743, loss: 0.075468  [22432/23750] (57.117s) val loss: 0.062508
-Batch 743/743, loss: 0.138012  [23750/23750] (32.259s) val loss: 0.047924
+Batch 101/743, loss: 0.003221  [ 3232/23750] (43.670s) val loss: 0.018526
+Batch 201/743, loss: 0.013606  [ 6432/23750] (58.542s) val loss: 0.022899
+Batch 301/743, loss: 0.003910  [ 9632/23750] (58.722s) val loss: 0.025217
+Batch 401/743, loss: 0.011560  [12832/23750] (58.469s) val loss: 0.028446
+Batch 501/743, loss: 0.004629  [16032/23750] (58.559s) val loss: 0.027596
+Batch 601/743, loss: 0.004461  [19232/23750] (58.621s) val loss: 0.021215
+Batch 701/743, loss: 0.004437  [22432/23750] (58.607s) val loss: 0.021220
+Batch 743/743, loss: 0.001353  [23750/23750] (33.087s) val loss: 0.021054
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 434.523s total
+Took 443.766s total
 -------------------------------
 
-Epoch 3
+Epoch 103
 -------------------------------
-Batch 101/743, loss: 0.060513  [ 3232/23750] (42.728s) val loss: 0.041791
-Batch 201/743, loss: 0.059639  [ 6432/23750] (57.119s) val loss: 0.075651
-Batch 301/743, loss: 0.038560  [ 9632/23750] (57.050s) val loss: 0.070516
-Batch 401/743, loss: 0.043949  [12832/23750] (56.951s) val loss: 0.063184
-Batch 501/743, loss: 0.054871  [16032/23750] (56.987s) val loss: 0.067081
-Batch 601/743, loss: 0.040066  [19232/23750] (56.974s) val loss: 0.053282
-Batch 701/743, loss: 0.034558  [22432/23750] (57.124s) val loss: 0.103545
-Batch 743/743, loss: 0.043835  [23750/23750] (32.357s) val loss: 0.037359
+Batch 101/743, loss: 0.010815  [ 3232/23750] (43.693s) val loss: 0.024247
+Batch 201/743, loss: 0.005507  [ 6432/23750] (58.501s) val loss: 0.023302
+Batch 301/743, loss: 0.005007  [ 9632/23750] (58.512s) val loss: 0.021097
+Batch 401/743, loss: 0.008011  [12832/23750] (58.449s) val loss: 0.023281
+Batch 501/743, loss: 0.001910  [16032/23750] (58.497s) val loss: 0.022739
+Batch 601/743, loss: 0.002362  [19232/23750] (58.499s) val loss: 0.021443
+Batch 701/743, loss: 0.003982  [22432/23750] (58.586s) val loss: 0.020366
+Batch 743/743, loss: 0.008389  [23750/23750] (33.100s) val loss: 0.021623
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 433.687s total
+Took 443.325s total
 -------------------------------
 
-Epoch 4
+Epoch 104
 -------------------------------
-Batch 101/743, loss: 0.048056  [ 3232/23750] (42.789s) val loss: 0.051788
-Batch 201/743, loss: 0.042469  [ 6432/23750] (57.154s) val loss: 0.040468
-Batch 301/743, loss: 0.024411  [ 9632/23750] (57.093s) val loss: 0.033938
-Batch 401/743, loss: 0.020426  [12832/23750] (57.129s) val loss: 0.036352
-Batch 501/743, loss: 0.080837  [16032/23750] (57.043s) val loss: 0.040883
-Batch 601/743, loss: 0.012329  [19232/23750] (57.195s) val loss: 0.035279
-Batch 701/743, loss: 0.040353  [22432/23750] (57.007s) val loss: 0.025318
-Batch 743/743, loss: 0.017354  [23750/23750] (32.270s) val loss: 0.025445
+Batch 101/743, loss: 0.005293  [ 3232/23750] (43.845s) val loss: 0.022559
+Batch 201/743, loss: 0.003703  [ 6432/23750] (58.482s) val loss: 0.028099
+Batch 301/743, loss: 0.009148  [ 9632/23750] (58.458s) val loss: 0.018651
+Batch 401/743, loss: 0.002419  [12832/23750] (58.391s) val loss: 0.023868
+Batch 501/743, loss: 0.004240  [16032/23750] (58.278s) val loss: 0.022681
+Batch 601/743, loss: 0.001727  [19232/23750] (58.434s) val loss: 0.021007
+Batch 701/743, loss: 0.009209  [22432/23750] (58.560s) val loss: 0.022163
+Batch 743/743, loss: 0.012868  [23750/23750] (33.005s) val loss: 0.021208
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 434.345s total
+Took 448.728s total
 -------------------------------
 
-Epoch 5
+Epoch 105
 -------------------------------
-Batch 101/743, loss: 0.015289  [ 3232/23750] (42.675s) val loss: 0.024367
-Batch 201/743, loss: 0.015968  [ 6432/23750] (57.051s) val loss: 0.018932
-Batch 301/743, loss: 0.019451  [ 9632/23750] (57.050s) val loss: 0.023997
-Batch 401/743, loss: 0.015899  [12832/23750] (56.964s) val loss: 0.030212
-Batch 501/743, loss: 0.031668  [16032/23750] (57.070s) val loss: 0.019053
-Batch 601/743, loss: 0.010905  [19232/23750] (57.114s) val loss: 0.041556
-Batch 701/743, loss: 0.028749  [22432/23750] (56.993s) val loss: 0.021208
-Batch 743/743, loss: 0.037034  [23750/23750] (32.152s) val loss: 0.024406
+Batch 101/743, loss: 0.009190  [ 3232/23750] (43.814s) val loss: 0.018391
+Batch 201/743, loss: 0.006227  [ 6432/23750] (58.482s) val loss: 0.022751
+Batch 301/743, loss: 0.003774  [ 9632/23750] (58.457s) val loss: 0.018114
+Batch 401/743, loss: 0.003728  [12832/23750] (58.476s) val loss: 0.022321
+Batch 501/743, loss: 0.005561  [16032/23750] (58.398s) val loss: 0.022699
+Batch 601/743, loss: 0.004750  [19232/23750] (58.389s) val loss: 0.021314
+Batch 701/743, loss: 0.006640  [22432/23750] (58.651s) val loss: 0.025980
+Batch 743/743, loss: 0.003464  [23750/23750] (33.166s) val loss: 0.024446
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 434.108s total
+Took 443.412s total
 -------------------------------
 
-Epoch 6
+Epoch 106
 -------------------------------
-Batch 101/743, loss: 0.022807  [ 3232/23750] (42.698s) val loss: 0.022031
-Batch 201/743, loss: 0.036538  [ 6432/23750] (57.178s) val loss: 0.020110
-Batch 301/743, loss: 0.022607  [ 9632/23750] (57.130s) val loss: 0.016741
-Batch 401/743, loss: 0.011035  [12832/23750] (57.018s) val loss: 0.020081
-Batch 501/743, loss: 0.023916  [16032/23750] (56.867s) val loss: 0.015633
-Batch 601/743, loss: 0.024634  [19232/23750] (56.983s) val loss: 0.023174
-Batch 701/743, loss: 0.007056  [22432/23750] (57.030s) val loss: 0.013617
-Batch 743/743, loss: 0.041212  [23750/23750] (32.116s) val loss: 0.017150
+Batch 101/743, loss: 0.021608  [ 3232/23750] (44.062s) val loss: 0.024174
+Batch 201/743, loss: 0.004346  [ 6432/23750] (58.845s) val loss: 0.017761
+Batch 301/743, loss: 0.025806  [ 9632/23750] (58.767s) val loss: 0.021716
+Batch 401/743, loss: 0.005542  [12832/23750] (58.780s) val loss: 0.022920
+Batch 501/743, loss: 0.005192  [16032/23750] (58.682s) val loss: 0.025820
+Batch 601/743, loss: 0.003883  [19232/23750] (58.664s) val loss: 0.019763
+Batch 701/743, loss: 0.006933  [22432/23750] (58.730s) val loss: 0.023893
+Batch 743/743, loss: 0.007918  [23750/23750] (33.267s) val loss: 0.023608
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 433.256s total
+Took 445.387s total
 -------------------------------
 
-Epoch 7
+Epoch 107
 -------------------------------
-Batch 101/743, loss: 0.037332  [ 3232/23750] (42.726s) val loss: 0.021651
-Batch 201/743, loss: 0.015180  [ 6432/23750] (56.889s) val loss: 0.018300
-Batch 301/743, loss: 0.026211  [ 9632/23750] (56.867s) val loss: 0.019010
-Batch 401/743, loss: 0.021981  [12832/23750] (56.957s) val loss: 0.014851
-Batch 501/743, loss: 0.012337  [16032/23750] (57.007s) val loss: 0.019232
-Batch 601/743, loss: 0.014337  [19232/23750] (56.932s) val loss: 0.012864
-Batch 701/743, loss: 0.012237  [22432/23750] (56.960s) val loss: 0.012325
-Batch 743/743, loss: 0.005138  [23750/23750] (32.185s) val loss: 0.013811
+Batch 101/743, loss: 0.003506  [ 3232/23750] (43.819s) val loss: 0.024675
+Batch 201/743, loss: 0.007776  [ 6432/23750] (58.645s) val loss: 0.024386
+Batch 301/743, loss: 0.010895  [ 9632/23750] (58.585s) val loss: 0.020568
+Batch 401/743, loss: 0.007625  [12832/23750] (58.664s) val loss: 0.020983
+Batch 501/743, loss: 0.002921  [16032/23750] (58.690s) val loss: 0.020644
+Batch 601/743, loss: 0.004997  [19232/23750] (58.663s) val loss: 0.021403
+Batch 701/743, loss: 0.008142  [22432/23750] (58.647s) val loss: 0.023030
+Batch 743/743, loss: 0.000166  [23750/23750] (33.108s) val loss: 0.021943
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 433.330s total
+Took 444.326s total
 -------------------------------
 
-Epoch 8
+Epoch 108
 -------------------------------
-Batch 101/743, loss: 0.009054  [ 3232/23750] (42.667s) val loss: 0.015099
-Batch 201/743, loss: 0.014694  [ 6432/23750] (57.079s) val loss: 0.012345
-Batch 301/743, loss: 0.007858  [ 9632/23750] (57.097s) val loss: 0.014152
-Batch 401/743, loss: 0.030470  [12832/23750] (57.027s) val loss: 0.012027
-Batch 501/743, loss: 0.010754  [16032/23750] (57.103s) val loss: 0.014550
-Batch 601/743, loss: 0.036006  [19232/23750] (57.107s) val loss: 0.012844
-Batch 701/743, loss: 0.004295  [22432/23750] (57.070s) val loss: 0.012678
-Batch 743/743, loss: 0.012881  [23750/23750] (32.269s) val loss: 0.014559
+Batch 101/743, loss: 0.003138  [ 3232/23750] (43.838s) val loss: 0.021632
+Batch 201/743, loss: 0.002484  [ 6432/23750] (58.672s) val loss: 0.023244
+Batch 301/743, loss: 0.008197  [ 9632/23750] (58.607s) val loss: 0.028650
+Batch 401/743, loss: 0.014394  [12832/23750] (58.627s) val loss: 0.025892
+Batch 501/743, loss: 0.007027  [16032/23750] (58.539s) val loss: 0.020789
+Batch 601/743, loss: 0.004109  [19232/23750] (58.273s) val loss: 0.022815
+Batch 701/743, loss: 0.007588  [22432/23750] (58.669s) val loss: 0.021282
+Batch 743/743, loss: 0.004847  [23750/23750] (33.143s) val loss: 0.024058
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 434.454s total
+Took 443.870s total
 -------------------------------
 
-Epoch 9
+Epoch 109
 -------------------------------
-Batch 101/743, loss: 0.025393  [ 3232/23750] (42.579s) val loss: 0.015218
-Batch 201/743, loss: 0.015043  [ 6432/23750] (56.923s) val loss: 0.013001
-Batch 301/743, loss: 0.010037  [ 9632/23750] (57.002s) val loss: 0.012250
-Batch 401/743, loss: 0.006798  [12832/23750] (57.010s) val loss: 0.011370
-Batch 501/743, loss: 0.009311  [16032/23750] (56.946s) val loss: 0.014151
-Batch 601/743, loss: 0.008800  [19232/23750] (56.942s) val loss: 0.013208
-Batch 701/743, loss: 0.017636  [22432/23750] (56.971s) val loss: 0.011855
-Batch 743/743, loss: 0.018154  [23750/23750] (32.215s) val loss: 0.021174
+Batch 101/743, loss: 0.004137  [ 3232/23750] (44.074s) val loss: 0.022467
+Batch 201/743, loss: 0.005597  [ 6432/23750] (58.924s) val loss: 0.026318
+Batch 301/743, loss: 0.006226  [ 9632/23750] (58.895s) val loss: 0.021634
+Batch 401/743, loss: 0.006515  [12832/23750] (58.912s) val loss: 0.020862
+Batch 501/743, loss: 0.003382  [16032/23750] (59.236s) val loss: 0.024175
+Batch 601/743, loss: 0.001808  [19232/23750] (58.803s) val loss: 0.024179
+Batch 701/743, loss: 0.003726  [22432/23750] (58.726s) val loss: 0.023399
+Batch 743/743, loss: 0.003770  [23750/23750] (33.060s) val loss: 0.018399
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 433.623s total
+Took 446.090s total
 -------------------------------
 
-Epoch 10
+Epoch 110
 -------------------------------
-Batch 101/743, loss: 0.019422  [ 3232/23750] (42.666s) val loss: 0.015646
-Batch 201/743, loss: 0.009978  [ 6432/23750] (57.056s) val loss: 0.010180
-Batch 301/743, loss: 0.008707  [ 9632/23750] (57.120s) val loss: 0.011763
-Batch 401/743, loss: 0.010700  [12832/23750] (57.164s) val loss: 0.014872
-Batch 501/743, loss: 0.008098  [16032/23750] (57.061s) val loss: 0.017660
-Batch 601/743, loss: 0.007192  [19232/23750] (57.127s) val loss: 0.019614
-Batch 701/743, loss: 0.012849  [22432/23750] (57.150s) val loss: 0.010838
-Batch 743/743, loss: 0.006761  [23750/23750] (32.222s) val loss: 0.015972
+Batch 101/743, loss: 0.003300  [ 3232/23750] (43.770s) val loss: 0.022485
+Batch 201/743, loss: 0.008704  [ 6432/23750] (58.577s) val loss: 0.022378
+Batch 301/743, loss: 0.009808  [ 9632/23750] (58.564s) val loss: 0.027841
+Batch 401/743, loss: 0.005197  [12832/23750] (58.610s) val loss: 0.023302
+Batch 501/743, loss: 0.005625  [16032/23750] (58.670s) val loss: 0.023805
+Batch 601/743, loss: 0.004307  [19232/23750] (58.660s) val loss: 0.026526
+Batch 701/743, loss: 0.004405  [22432/23750] (58.692s) val loss: 0.023519
+Batch 743/743, loss: 0.082525  [23750/23750] (33.110s) val loss: 0.027503
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 434.818s total
+Took 444.113s total
 -------------------------------
 
-Epoch 11
+Epoch 111
 -------------------------------
-Batch 101/743, loss: 0.006653  [ 3232/23750] (42.785s) val loss: 0.016474
-Batch 201/743, loss: 0.019702  [ 6432/23750] (56.861s) val loss: 0.011114
-Batch 301/743, loss: 0.009132  [ 9632/23750] (56.874s) val loss: 0.014691
-Batch 401/743, loss: 0.011138  [12832/23750] (56.985s) val loss: 0.016251
-Batch 501/743, loss: 0.008525  [16032/23750] (57.094s) val loss: 0.016399
-Batch 601/743, loss: 0.001810  [19232/23750] (57.028s) val loss: 0.017591
-Batch 701/743, loss: 0.013678  [22432/23750] (57.026s) val loss: 0.013107
-Batch 743/743, loss: 0.007202  [23750/23750] (32.252s) val loss: 0.016603
+Batch 101/743, loss: 0.005274  [ 3232/23750] (43.899s) val loss: 0.022319
+Batch 201/743, loss: 0.002841  [ 6432/23750] (58.627s) val loss: 0.027004
+Batch 301/743, loss: 0.017409  [ 9632/23750] (58.590s) val loss: 0.024561
+Batch 401/743, loss: 0.007822  [12832/23750] (58.637s) val loss: 0.019983
+Batch 501/743, loss: 0.003099  [16032/23750] (58.637s) val loss: 0.020868
+Batch 601/743, loss: 0.011803  [19232/23750] (58.383s) val loss: 0.020715
+Batch 701/743, loss: 0.003662  [22432/23750] (57.647s) val loss: 0.021234
+Batch 743/743, loss: 0.002515  [23750/23750] (32.153s) val loss: 0.023863
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 433.740s total
+Took 442.170s total
 -------------------------------
 
-Epoch 12
+Epoch 112
 -------------------------------
-Batch 101/743, loss: 0.006197  [ 3232/23750] (42.680s) val loss: 0.015626
-Batch 201/743, loss: 0.027119  [ 6432/23750] (56.978s) val loss: 0.016690
-Batch 301/743, loss: 0.011452  [ 9632/23750] (56.948s) val loss: 0.011243
-Batch 401/743, loss: 0.017567  [12832/23750] (56.972s) val loss: 0.012206
-Batch 501/743, loss: 0.022180  [16032/23750] (57.020s) val loss: 0.012305
-Batch 601/743, loss: 0.022574  [19232/23750] (56.920s) val loss: 0.016294
-Batch 701/743, loss: 0.006304  [22432/23750] (56.978s) val loss: 0.011080
-Batch 743/743, loss: 0.000032  [23750/23750] (32.164s) val loss: 0.010863
+Batch 101/743, loss: 0.003877  [ 3232/23750] (42.559s) val loss: 0.019330
+Batch 201/743, loss: 0.004480  [ 6432/23750] (56.665s) val loss: 0.025761
+Batch 301/743, loss: 0.005060  [ 9632/23750] (56.584s) val loss: 0.017897
+Batch 401/743, loss: 0.002575  [12832/23750] (56.491s) val loss: 0.022737
+Batch 501/743, loss: 0.006658  [16032/23750] (56.504s) val loss: 0.024970
+Batch 601/743, loss: 0.008498  [19232/23750] (56.468s) val loss: 0.031109
+Batch 701/743, loss: 0.003426  [22432/23750] (56.442s) val loss: 0.022746
+Batch 743/743, loss: 0.004725  [23750/23750] (31.850s) val loss: 0.021650
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 433.878s total
+Took 428.495s total
 -------------------------------
 
-Epoch 13
+Epoch 113
 -------------------------------
-Batch 101/743, loss: 0.014103  [ 3232/23750] (42.712s) val loss: 0.015004
-Batch 201/743, loss: 0.005804  [ 6432/23750] (56.825s) val loss: 0.013816
-Batch 301/743, loss: 0.002939  [ 9632/23750] (56.935s) val loss: 0.014495
-Batch 401/743, loss: 0.020420  [12832/23750] (56.941s) val loss: 0.012203
-Batch 501/743, loss: 0.012692  [16032/23750] (56.908s) val loss: 0.015533
-Batch 601/743, loss: 0.042921  [19232/23750] (56.974s) val loss: 0.010678
-Batch 701/743, loss: 0.007447  [22432/23750] (56.946s) val loss: 0.014352
-Batch 743/743, loss: 0.018592  [23750/23750] (32.239s) val loss: 0.014305
+Batch 101/743, loss: 0.003897  [ 3232/23750] (42.151s) val loss: 0.023366
+Batch 201/743, loss: 0.005699  [ 6432/23750] (56.426s) val loss: 0.024248
+Batch 301/743, loss: 0.005804  [ 9632/23750] (56.425s) val loss: 0.021899
+Batch 401/743, loss: 0.005171  [12832/23750] (56.451s) val loss: 0.019784
+Batch 501/743, loss: 0.004523  [16032/23750] (56.439s) val loss: 0.022908
+Batch 601/743, loss: 0.007390  [19232/23750] (56.427s) val loss: 0.021622
+Batch 701/743, loss: 0.007611  [22432/23750] (56.422s) val loss: 0.026089
+Batch 743/743, loss: 0.006352  [23750/23750] (31.850s) val loss: 0.022640
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 433.882s total
+Took 427.494s total
 -------------------------------
 
-Epoch 14
+Epoch 114
 -------------------------------
-Batch 101/743, loss: 0.004692  [ 3232/23750] (42.718s) val loss: 0.017405
-Batch 201/743, loss: 0.004755  [ 6432/23750] (56.893s) val loss: 0.016989
-Batch 301/743, loss: 0.009923  [ 9632/23750] (56.976s) val loss: 0.015691
-Batch 401/743, loss: 0.007380  [12832/23750] (57.178s) val loss: 0.015705
-Batch 501/743, loss: 0.005495  [16032/23750] (57.102s) val loss: 0.011285
-Batch 601/743, loss: 0.020104  [19232/23750] (57.237s) val loss: 0.019810
-Batch 701/743, loss: 0.008707  [22432/23750] (57.204s) val loss: 0.011149
-Batch 743/743, loss: 0.000561  [23750/23750] (32.283s) val loss: 0.013486
+Batch 101/743, loss: 0.000910  [ 3232/23750] (42.192s) val loss: 0.023120
+Batch 201/743, loss: 0.008162  [ 6432/23750] (56.342s) val loss: 0.025193
+Batch 301/743, loss: 0.005939  [ 9632/23750] (56.341s) val loss: 0.023440
+Batch 401/743, loss: 0.006094  [12832/23750] (56.347s) val loss: 0.023619
+Batch 501/743, loss: 0.009941  [16032/23750] (56.423s) val loss: 0.021096
+Batch 601/743, loss: 0.001292  [19232/23750] (56.403s) val loss: 0.020643
+Batch 701/743, loss: 0.006215  [22432/23750] (56.392s) val loss: 0.016835
+Batch 743/743, loss: 0.000222  [23750/23750] (31.840s) val loss: 0.017441
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 434.865s total
+Took 427.215s total
 -------------------------------
 
-Epoch 15
+Epoch 115
 -------------------------------
-Batch 101/743, loss: 0.011218  [ 3232/23750] (42.803s) val loss: 0.021706
-Batch 201/743, loss: 0.009199  [ 6432/23750] (56.839s) val loss: 0.016099
-Batch 301/743, loss: 0.011386  [ 9632/23750] (56.974s) val loss: 0.021753
-Batch 401/743, loss: 0.009497  [12832/23750] (56.880s) val loss: 0.013598
-Batch 501/743, loss: 0.002646  [16032/23750] (56.971s) val loss: 0.011939
-Batch 601/743, loss: 0.020077  [19232/23750] (56.945s) val loss: 0.011367
-Batch 701/743, loss: 0.008275  [22432/23750] (56.940s) val loss: 0.010939
-Batch 743/743, loss: 0.005578  [23750/23750] (32.121s) val loss: 0.015550
+Batch 101/743, loss: 0.005278  [ 3232/23750] (42.144s) val loss: 0.022438
+Batch 201/743, loss: 0.009551  [ 6432/23750] (56.393s) val loss: 0.022108
+Batch 301/743, loss: 0.007866  [ 9632/23750] (56.373s) val loss: 0.023464
+Batch 401/743, loss: 0.001789  [12832/23750] (56.394s) val loss: 0.021159
+Batch 501/743, loss: 0.001972  [16032/23750] (56.336s) val loss: 0.019348
+Batch 601/743, loss: 0.007232  [19232/23750] (56.422s) val loss: 0.021038
+Batch 701/743, loss: 0.008013  [22432/23750] (56.392s) val loss: 0.019116
+Batch 743/743, loss: 0.013253  [23750/23750] (31.831s) val loss: 0.020736
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 434.034s total
+Took 427.181s total
 -------------------------------
 
-Epoch 16
+Epoch 116
 -------------------------------
-Batch 101/743, loss: 0.011605  [ 3232/23750] (42.739s) val loss: 0.011867
-Batch 201/743, loss: 0.008026  [ 6432/23750] (56.798s) val loss: 0.012087
-Batch 301/743, loss: 0.003157  [ 9632/23750] (56.989s) val loss: 0.012437
-Batch 401/743, loss: 0.011894  [12832/23750] (56.939s) val loss: 0.019995
-Batch 501/743, loss: 0.005779  [16032/23750] (57.008s) val loss: 0.015065
-Batch 601/743, loss: 0.008762  [19232/23750] (56.991s) val loss: 0.013556
-Batch 701/743, loss: 0.005530  [22432/23750] (57.142s) val loss: 0.015942
-Batch 743/743, loss: 0.004811  [23750/23750] (32.334s) val loss: 0.017781
+Batch 101/743, loss: 0.001487  [ 3232/23750] (42.148s) val loss: 0.022467
+Batch 201/743, loss: 0.003030  [ 6432/23750] (56.367s) val loss: 0.018146
+Batch 301/743, loss: 0.002247  [ 9632/23750] (56.404s) val loss: 0.021137
+Batch 401/743, loss: 0.005438  [12832/23750] (56.311s) val loss: 0.024549
+Batch 501/743, loss: 0.004662  [16032/23750] (56.410s) val loss: 0.017854
+Batch 601/743, loss: 0.002578  [19232/23750] (56.378s) val loss: 0.021928
+Batch 701/743, loss: 0.013105  [22432/23750] (56.421s) val loss: 0.019707
+Batch 743/743, loss: 0.003429  [23750/23750] (31.808s) val loss: 0.023345
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 434.237s total
+Took 427.159s total
 -------------------------------
 
-Epoch 17
+Epoch 117
 -------------------------------
-Batch 101/743, loss: 0.009666  [ 3232/23750] (42.683s) val loss: 0.017615
-Batch 201/743, loss: 0.014929  [ 6432/23750] (56.988s) val loss: 0.010393
-Batch 301/743, loss: 0.008376  [ 9632/23750] (56.997s) val loss: 0.014750
-Batch 401/743, loss: 0.013649  [12832/23750] (56.898s) val loss: 0.015553
-Batch 501/743, loss: 0.009393  [16032/23750] (56.951s) val loss: 0.017612
-Batch 601/743, loss: 0.009926  [19232/23750] (56.968s) val loss: 0.015177
-Batch 701/743, loss: 0.011026  [22432/23750] (56.850s) val loss: 0.016197
-Batch 743/743, loss: 0.001399  [23750/23750] (32.031s) val loss: 0.011176
+Batch 101/743, loss: 0.002532  [ 3232/23750] (42.121s) val loss: 0.016868
+Batch 201/743, loss: 0.006776  [ 6432/23750] (56.392s) val loss: 0.017652
+Batch 301/743, loss: 0.014999  [ 9632/23750] (56.414s) val loss: 0.019476
+Batch 401/743, loss: 0.005111  [12832/23750] (56.418s) val loss: 0.018113
+Batch 501/743, loss: 0.007577  [16032/23750] (56.438s) val loss: 0.021321
+Batch 601/743, loss: 0.006576  [19232/23750] (56.370s) val loss: 0.018110
+Batch 701/743, loss: 0.008822  [22432/23750] (56.416s) val loss: 0.022662
+Batch 743/743, loss: 0.051505  [23750/23750] (31.838s) val loss: 0.020804
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 433.688s total
+Took 427.309s total
 -------------------------------
 
-Epoch 18
+Epoch 118
 -------------------------------
-Batch 101/743, loss: 0.005191  [ 3232/23750] (42.702s) val loss: 0.012844
-Batch 201/743, loss: 0.009828  [ 6432/23750] (56.887s) val loss: 0.009612
-Batch 301/743, loss: 0.004326  [ 9632/23750] (56.840s) val loss: 0.015187
-Batch 401/743, loss: 0.004188  [12832/23750] (56.907s) val loss: 0.015131
-Batch 501/743, loss: 0.015649  [16032/23750] (56.919s) val loss: 0.009459
-Batch 601/743, loss: 0.006775  [19232/23750] (56.937s) val loss: 0.011484
-Batch 701/743, loss: 0.002468  [22432/23750] (57.065s) val loss: 0.009768
-Batch 743/743, loss: 0.010197  [23750/23750] (32.310s) val loss: 0.013341
+Batch 101/743, loss: 0.006765  [ 3232/23750] (42.181s) val loss: 0.019896
+Batch 201/743, loss: 0.001632  [ 6432/23750] (56.459s) val loss: 0.021054
+Batch 301/743, loss: 0.007083  [ 9632/23750] (56.361s) val loss: 0.021294
+Batch 401/743, loss: 0.001208  [12832/23750] (56.412s) val loss: 0.020924
+Batch 501/743, loss: 0.001988  [16032/23750] (56.382s) val loss: 0.023973
+Batch 601/743, loss: 0.012266  [19232/23750] (56.452s) val loss: 0.024717
+Batch 701/743, loss: 0.003993  [22432/23750] (56.450s) val loss: 0.021569
+Batch 743/743, loss: 0.004104  [23750/23750] (31.844s) val loss: 0.023634
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 433.546s total
+Took 427.440s total
 -------------------------------
 
-Epoch 19
+Epoch 119
 -------------------------------
-Batch 101/743, loss: 0.006091  [ 3232/23750] (42.729s) val loss: 0.020572
-Batch 201/743, loss: 0.000347  [ 6432/23750] (57.059s) val loss: 0.015074
-Batch 301/743, loss: 0.004957  [ 9632/23750] (56.893s) val loss: 0.014129
-Batch 401/743, loss: 0.013056  [12832/23750] (56.948s) val loss: 0.017507
-Batch 501/743, loss: 0.003183  [16032/23750] (56.881s) val loss: 0.009810
-Batch 601/743, loss: 0.008457  [19232/23750] (57.190s) val loss: 0.009258
-Batch 701/743, loss: 0.008901  [22432/23750] (57.094s) val loss: 0.010700
-Batch 743/743, loss: 0.004219  [23750/23750] (32.362s) val loss: 0.012950
+Batch 101/743, loss: 0.005182  [ 3232/23750] (42.123s) val loss: 0.026562
+Batch 201/743, loss: 0.003139  [ 6432/23750] (56.434s) val loss: 0.021018
+Batch 301/743, loss: 0.003677  [ 9632/23750] (56.393s) val loss: 0.020792
+Batch 401/743, loss: 0.003848  [12832/23750] (56.469s) val loss: 0.019830
+Batch 501/743, loss: 0.002131  [16032/23750] (56.430s) val loss: 0.020751
+Batch 601/743, loss: 0.002669  [19232/23750] (56.419s) val loss: 0.021639
+Batch 701/743, loss: 0.004736  [22432/23750] (56.428s) val loss: 0.017798
+Batch 743/743, loss: 0.001607  [23750/23750] (31.861s) val loss: 0.025285
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 433.603s total
+Took 427.623s total
 -------------------------------
 
-Epoch 20
+Epoch 120
 -------------------------------
-Batch 101/743, loss: 0.011372  [ 3232/23750] (42.677s) val loss: 0.014759
-Batch 201/743, loss: 0.005667  [ 6432/23750] (57.003s) val loss: 0.011337
-Batch 301/743, loss: 0.008138  [ 9632/23750] (56.907s) val loss: 0.009686
-Batch 401/743, loss: 0.007267  [12832/23750] (57.018s) val loss: 0.016142
-Batch 501/743, loss: 0.012433  [16032/23750] (57.103s) val loss: 0.010868
-Batch 601/743, loss: 0.003270  [19232/23750] (57.044s) val loss: 0.013587
-Batch 701/743, loss: 0.004749  [22432/23750] (56.885s) val loss: 0.014464
-Batch 743/743, loss: 0.003810  [23750/23750] (32.245s) val loss: 0.012939
+Batch 101/743, loss: 0.003915  [ 3232/23750] (42.143s) val loss: 0.021820
+Batch 201/743, loss: 0.004847  [ 6432/23750] (56.737s) val loss: 0.022811
+Batch 301/743, loss: 0.009885  [ 9632/23750] (57.522s) val loss: 0.016554
+Batch 401/743, loss: 0.003063  [12832/23750] (57.774s) val loss: 0.020358
+Batch 501/743, loss: 0.005878  [16032/23750] (57.853s) val loss: 0.018811
+Batch 601/743, loss: 0.008734  [19232/23750] (57.686s) val loss: 0.018654
+Batch 701/743, loss: 0.009520  [22432/23750] (57.770s) val loss: 0.018646
+Batch 743/743, loss: 0.003541  [23750/23750] (32.745s) val loss: 0.019837
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 433.213s total
+Took 435.971s total
 -------------------------------
 
-Epoch 21
+Epoch 121
 -------------------------------
-Batch 101/743, loss: 0.009865  [ 3232/23750] (42.571s) val loss: 0.019239
-Batch 201/743, loss: 0.004173  [ 6432/23750] (56.945s) val loss: 0.014277
-Batch 301/743, loss: 0.005943  [ 9632/23750] (56.940s) val loss: 0.011804
-Batch 401/743, loss: 0.004337  [12832/23750] (56.803s) val loss: 0.009714
-Batch 501/743, loss: 0.005399  [16032/23750] (56.900s) val loss: 0.009082
-Batch 601/743, loss: 0.009288  [19232/23750] (56.980s) val loss: 0.012765
-Batch 701/743, loss: 0.011445  [22432/23750] (56.820s) val loss: 0.012412
-Batch 743/743, loss: 0.000068  [23750/23750] (32.032s) val loss: 0.019221
+Batch 101/743, loss: 0.002746  [ 3232/23750] (43.299s) val loss: 0.024113
+Batch 201/743, loss: 0.005284  [ 6432/23750] (58.320s) val loss: 0.020156
+Batch 301/743, loss: 0.006203  [ 9632/23750] (58.372s) val loss: 0.019376
+Batch 401/743, loss: 0.006269  [12832/23750] (58.382s) val loss: 0.019392
+Batch 501/743, loss: 0.005115  [16032/23750] (58.004s) val loss: 0.018482
+Batch 601/743, loss: 0.004671  [19232/23750] (57.705s) val loss: 0.023207
+Batch 701/743, loss: 0.004731  [22432/23750] (57.659s) val loss: 0.022036
+Batch 743/743, loss: 0.000446  [23750/23750] (35.088s) val loss: 0.020154
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 432.766s total
+Took 454.255s total
 -------------------------------
 
-Epoch 22
+Epoch 122
 -------------------------------
-Batch 101/743, loss: 0.014996  [ 3232/23750] (42.620s) val loss: 0.015628
-Batch 201/743, loss: 0.013754  [ 6432/23750] (56.813s) val loss: 0.013458
-Batch 301/743, loss: 0.006794  [ 9632/23750] (56.920s) val loss: 0.011316
-Batch 401/743, loss: 0.003280  [12832/23750] (57.038s) val loss: 0.013462
-Batch 501/743, loss: 0.024883  [16032/23750] (56.971s) val loss: 0.013025
-Batch 601/743, loss: 0.004758  [19232/23750] (56.944s) val loss: 0.013454
-Batch 701/743, loss: 0.006132  [22432/23750] (57.062s) val loss: 0.012855
-Batch 743/743, loss: 0.006278  [23750/23750] (32.307s) val loss: 0.018031
+Batch 101/743, loss: 0.003695  [ 3232/23750] (43.078s) val loss: 0.019795
+Batch 201/743, loss: 0.013096  [ 6432/23750] (59.244s) val loss: 0.019547
+Batch 301/743, loss: 0.002064  [ 9632/23750] (59.313s) val loss: 0.017991
+Batch 401/743, loss: 0.003483  [12832/23750] (58.282s) val loss: 0.021212
+Batch 501/743, loss: 0.005413  [16032/23750] (60.205s) val loss: 0.020085
+Batch 601/743, loss: 0.002743  [19232/23750] (59.938s) val loss: 0.020342
+Batch 701/743, loss: 0.003024  [22432/23750] (59.200s) val loss: 0.020565
+Batch 743/743, loss: 0.008118  [23750/23750] (33.584s) val loss: 0.020044
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 433.706s total
+Took 452.324s total
 -------------------------------
 
-Epoch 23
+Epoch 123
 -------------------------------
-Batch 101/743, loss: 0.003183  [ 3232/23750] (42.740s) val loss: 0.017036
-Batch 201/743, loss: 0.005894  [ 6432/23750] (57.161s) val loss: 0.015373
-Batch 301/743, loss: 0.010610  [ 9632/23750] (56.951s) val loss: 0.011675
-Batch 401/743, loss: 0.004779  [12832/23750] (56.975s) val loss: 0.018903
-Batch 501/743, loss: 0.011290  [16032/23750] (56.894s) val loss: 0.018143
-Batch 601/743, loss: 0.009437  [19232/23750] (56.909s) val loss: 0.011541
-Batch 701/743, loss: 0.007853  [22432/23750] (56.904s) val loss: 0.015722
-Batch 743/743, loss: 0.000156  [23750/23750] (32.113s) val loss: 0.017126
+Batch 101/743, loss: 0.006584  [ 3232/23750] (43.162s) val loss: 0.021710
+Batch 201/743, loss: 0.003450  [ 6432/23750] (58.108s) val loss: 0.019256
+Batch 301/743, loss: 0.002793  [ 9632/23750] (58.283s) val loss: 0.019150
+Batch 401/743, loss: 0.005724  [12832/23750] (58.492s) val loss: 0.019267
+Batch 501/743, loss: 0.003315  [16032/23750] (58.723s) val loss: 0.018774
+Batch 601/743, loss: 0.003458  [19232/23750] (58.657s) val loss: 0.022978
+Batch 701/743, loss: 0.005110  [22432/23750] (58.684s) val loss: 0.020776
+Batch 743/743, loss: 0.008878  [23750/23750] (33.109s) val loss: 0.016705
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 433.599s total
+Took 443.395s total
 -------------------------------
 
-Epoch 24
+Epoch 124
 -------------------------------
-Batch 101/743, loss: 0.008783  [ 3232/23750] (42.594s) val loss: 0.009050
-Batch 201/743, loss: 0.004631  [ 6432/23750] (56.812s) val loss: 0.011058
-Batch 301/743, loss: 0.001588  [ 9632/23750] (56.969s) val loss: 0.016693
-Batch 401/743, loss: 0.013807  [12832/23750] (56.902s) val loss: 0.010561
-Batch 501/743, loss: 0.006347  [16032/23750] (56.990s) val loss: 0.010562
-Batch 601/743, loss: 0.008083  [19232/23750] (57.009s) val loss: 0.013516
-Batch 701/743, loss: 0.001568  [22432/23750] (56.847s) val loss: 0.013656
-Batch 743/743, loss: 0.010530  [23750/23750] (32.146s) val loss: 0.009862
+Batch 101/743, loss: 0.006189  [ 3232/23750] (43.942s) val loss: 0.023512
+Batch 201/743, loss: 0.004480  [ 6432/23750] (58.847s) val loss: 0.023728
+Batch 301/743, loss: 0.002685  [ 9632/23750] (58.828s) val loss: 0.019447
+Batch 401/743, loss: 0.010804  [12832/23750] (58.836s) val loss: 0.018180
+Batch 501/743, loss: 0.006631  [16032/23750] (58.952s) val loss: 0.016955
+Batch 601/743, loss: 0.004594  [19232/23750] (59.061s) val loss: 0.016667
+Batch 701/743, loss: 0.002838  [22432/23750] (58.483s) val loss: 0.017503
+Batch 743/743, loss: 0.000397  [23750/23750] (33.061s) val loss: 0.019074
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 432.797s total
+Took 446.331s total
 -------------------------------
 
-Epoch 25
+Epoch 125
 -------------------------------
-Batch 101/743, loss: 0.003452  [ 3232/23750] (42.578s) val loss: 0.014736
-Batch 201/743, loss: 0.011199  [ 6432/23750] (56.834s) val loss: 0.013410
-Batch 301/743, loss: 0.006904  [ 9632/23750] (56.879s) val loss: 0.009819
-Batch 401/743, loss: 0.004354  [12832/23750] (56.935s) val loss: 0.010809
-Batch 501/743, loss: 0.004757  [16032/23750] (56.899s) val loss: 0.011390
-Batch 601/743, loss: 0.007156  [19232/23750] (56.855s) val loss: 0.017227
-Batch 701/743, loss: 0.005781  [22432/23750] (56.845s) val loss: 0.012906
-Batch 743/743, loss: 0.001299  [23750/23750] (32.144s) val loss: 0.012511
+Batch 101/743, loss: 0.005291  [ 3232/23750] (43.702s) val loss: 0.017475
+Batch 201/743, loss: 0.007106  [ 6432/23750] (58.378s) val loss: 0.016711
+Batch 301/743, loss: 0.003116  [ 9632/23750] (58.552s) val loss: 0.020175
+Batch 401/743, loss: 0.005715  [12832/23750] (58.682s) val loss: 0.017710
+Batch 501/743, loss: 0.001948  [16032/23750] (58.487s) val loss: 0.020019
+Batch 601/743, loss: 0.001008  [19232/23750] (58.535s) val loss: 0.019847
+Batch 701/743, loss: 0.001386  [22432/23750] (58.500s) val loss: 0.019967
+Batch 743/743, loss: 0.010871  [23750/23750] (32.969s) val loss: 0.018823
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 432.166s total
+Took 443.392s total
 -------------------------------
 
-Epoch 26
+Epoch 126
 -------------------------------
-Batch 101/743, loss: 0.003694  [ 3232/23750] (42.689s) val loss: 0.014859
-Batch 201/743, loss: 0.003082  [ 6432/23750] (56.904s) val loss: 0.011374
-Batch 301/743, loss: 0.004407  [ 9632/23750] (56.831s) val loss: 0.011822
-Batch 401/743, loss: 0.007464  [12832/23750] (56.839s) val loss: 0.010770
-Batch 501/743, loss: 0.013959  [16032/23750] (56.767s) val loss: 0.014661
-Batch 601/743, loss: 0.003875  [19232/23750] (56.838s) val loss: 0.013827
-Batch 701/743, loss: 0.007643  [22432/23750] (56.846s) val loss: 0.010536
-Batch 743/743, loss: 0.009066  [23750/23750] (32.147s) val loss: 0.012244
+Batch 101/743, loss: 0.005104  [ 3232/23750] (43.822s) val loss: 0.021440
+Batch 201/743, loss: 0.003160  [ 6432/23750] (58.633s) val loss: 0.019536
+Batch 301/743, loss: 0.013447  [ 9632/23750] (58.657s) val loss: 0.019391
+Batch 401/743, loss: 0.004649  [12832/23750] (58.643s) val loss: 0.020436
+Batch 501/743, loss: 0.004459  [16032/23750] (58.595s) val loss: 0.020150
+Batch 601/743, loss: 0.012081  [19232/23750] (58.552s) val loss: 0.018588
+Batch 701/743, loss: 0.005954  [22432/23750] (58.553s) val loss: 0.021018
+Batch 743/743, loss: 0.006305  [23750/23750] (32.963s) val loss: 0.017043
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 432.133s total
+Took 443.954s total
 -------------------------------
 
-Epoch 27
+Epoch 127
 -------------------------------
-Batch 101/743, loss: 0.010643  [ 3232/23750] (42.529s) val loss: 0.012908
-Batch 201/743, loss: 0.003550  [ 6432/23750] (56.835s) val loss: 0.014018
-Batch 301/743, loss: 0.005945  [ 9632/23750] (56.830s) val loss: 0.011435
-Batch 401/743, loss: 0.004709  [12832/23750] (56.800s) val loss: 0.011680
-Batch 501/743, loss: 0.004173  [16032/23750] (56.923s) val loss: 0.017989
-Batch 601/743, loss: 0.004973  [19232/23750] (56.909s) val loss: 0.009672
-Batch 701/743, loss: 0.008758  [22432/23750] (56.878s) val loss: 0.009277
-Batch 743/743, loss: 0.002427  [23750/23750] (32.083s) val loss: 0.014254
+Batch 101/743, loss: 0.008299  [ 3232/23750] (43.710s) val loss: 0.018997
+Batch 201/743, loss: 0.006323  [ 6432/23750] (58.419s) val loss: 0.021223
+Batch 301/743, loss: 0.002832  [ 9632/23750] (58.449s) val loss: 0.020737
+Batch 401/743, loss: 0.006582  [12832/23750] (58.627s) val loss: 0.024189
+Batch 501/743, loss: 0.002191  [16032/23750] (58.635s) val loss: 0.019898
+Batch 601/743, loss: 0.005016  [19232/23750] (58.664s) val loss: 0.017558
+Batch 701/743, loss: 0.003844  [22432/23750] (58.557s) val loss: 0.019487
+Batch 743/743, loss: 0.000473  [23750/23750] (33.110s) val loss: 0.019202
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 432.258s total
+Took 443.764s total
 -------------------------------
 
-Epoch 28
+Epoch 128
 -------------------------------
-Batch 101/743, loss: 0.008033  [ 3232/23750] (42.715s) val loss: 0.007658
-Batch 201/743, loss: 0.002843  [ 6432/23750] (57.092s) val loss: 0.011331
-Batch 301/743, loss: 0.008505  [ 9632/23750] (56.995s) val loss: 0.014562
-Batch 401/743, loss: 0.007942  [12832/23750] (57.029s) val loss: 0.011026
-Batch 501/743, loss: 0.005792  [16032/23750] (57.136s) val loss: 0.012486
-Batch 601/743, loss: 0.012682  [19232/23750] (56.948s) val loss: 0.015326
-Batch 701/743, loss: 0.009565  [22432/23750] (57.082s) val loss: 0.009806
-Batch 743/743, loss: 0.043476  [23750/23750] (32.145s) val loss: 0.012381
+Batch 101/743, loss: 0.002125  [ 3232/23750] (44.014s) val loss: 0.019140
+Batch 201/743, loss: 0.004598  [ 6432/23750] (58.852s) val loss: 0.014496
+Batch 301/743, loss: 0.003539  [ 9632/23750] (58.875s) val loss: 0.016138
+Batch 401/743, loss: 0.003819  [12832/23750] (58.888s) val loss: 0.018678
+Batch 501/743, loss: 0.004999  [16032/23750] (58.976s) val loss: 0.021003
+Batch 601/743, loss: 0.011319  [19232/23750] (58.900s) val loss: 0.017643
+Batch 701/743, loss: 0.003346  [22432/23750] (58.885s) val loss: 0.017642
+Batch 743/743, loss: 0.010071  [23750/23750] (33.186s) val loss: 0.022190
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 433.367s total
+Took 446.091s total
 -------------------------------
 
-Epoch 29
+Epoch 129
 -------------------------------
-Batch 101/743, loss: 0.001830  [ 3232/23750] (42.546s) val loss: 0.011732
-Batch 201/743, loss: 0.002610  [ 6432/23750] (56.829s) val loss: 0.008340
-Batch 301/743, loss: 0.004608  [ 9632/23750] (56.927s) val loss: 0.007592
-Batch 401/743, loss: 0.003921  [12832/23750] (56.999s) val loss: 0.018306
-Batch 501/743, loss: 0.004514  [16032/23750] (56.892s) val loss: 0.010719
-Batch 601/743, loss: 0.008840  [19232/23750] (57.003s) val loss: 0.012958
-Batch 701/743, loss: 0.006362  [22432/23750] (56.957s) val loss: 0.008010
-Batch 743/743, loss: 0.005019  [23750/23750] (32.191s) val loss: 0.010134
+Batch 101/743, loss: 0.004766  [ 3232/23750] (44.053s) val loss: 0.020560
+Batch 201/743, loss: 0.007850  [ 6432/23750] (58.903s) val loss: 0.016390
+Batch 301/743, loss: 0.009744  [ 9632/23750] (58.907s) val loss: 0.017201
+Batch 401/743, loss: 0.002788  [12832/23750] (59.036s) val loss: 0.018967
+Batch 501/743, loss: 0.005331  [16032/23750] (59.008s) val loss: 0.017479
+Batch 601/743, loss: 0.006523  [19232/23750] (59.005s) val loss: 0.020204
+Batch 701/743, loss: 0.003262  [22432/23750] (58.991s) val loss: 0.019178
+Batch 743/743, loss: 0.001715  [23750/23750] (33.063s) val loss: 0.022042
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 432.659s total
+Took 446.338s total
 -------------------------------
 
-Epoch 30
+Epoch 130
 -------------------------------
-Batch 101/743, loss: 0.003676  [ 3232/23750] (42.744s) val loss: 0.011912
-Batch 201/743, loss: 0.004957  [ 6432/23750] (57.071s) val loss: 0.011280
-Batch 301/743, loss: 0.009925  [ 9632/23750] (57.023s) val loss: 0.009907
-Batch 401/743, loss: 0.011772  [12832/23750] (57.188s) val loss: 0.008230
-Batch 501/743, loss: 0.005163  [16032/23750] (56.989s) val loss: 0.012444
-Batch 601/743, loss: 0.003892  [19232/23750] (57.022s) val loss: 0.011744
-Batch 701/743, loss: 0.004117  [22432/23750] (57.018s) val loss: 0.011323
-Batch 743/743, loss: 0.029348  [23750/23750] (32.231s) val loss: 0.014052
+Batch 101/743, loss: 0.004982  [ 3232/23750] (42.912s) val loss: 0.022593
+Batch 201/743, loss: 0.002963  [ 6432/23750] (56.889s) val loss: 0.020374
+Batch 301/743, loss: 0.010445  [ 9632/23750] (56.679s) val loss: 0.026851
+Batch 401/743, loss: 0.005363  [12832/23750] (56.578s) val loss: 0.019104
+Batch 501/743, loss: 0.008650  [16032/23750] (56.524s) val loss: 0.014984
+Batch 601/743, loss: 0.006150  [19232/23750] (56.595s) val loss: 0.015069
+Batch 701/743, loss: 0.002360  [22432/23750] (56.444s) val loss: 0.017734
+Batch 743/743, loss: 0.015821  [23750/23750] (31.836s) val loss: 0.024169
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 436.969s total
+Took 429.355s total
 -------------------------------
 
-Epoch 31
+Epoch 131
 -------------------------------
-Batch 101/743, loss: 0.008718  [ 3232/23750] (42.660s) val loss: 0.014381
-Batch 201/743, loss: 0.004994  [ 6432/23750] (56.732s) val loss: 0.012472
-Batch 301/743, loss: 0.011364  [ 9632/23750] (56.783s) val loss: 0.010651
-Batch 401/743, loss: 0.008247  [12832/23750] (56.706s) val loss: 0.011345
-Batch 501/743, loss: 0.003420  [16032/23750] (56.787s) val loss: 0.009311
-Batch 601/743, loss: 0.003602  [19232/23750] (56.766s) val loss: 0.010839
-Batch 701/743, loss: 0.002200  [22432/23750] (56.866s) val loss: 0.009362
-Batch 743/743, loss: 0.000737  [23750/23750] (32.073s) val loss: 0.009569
+Batch 101/743, loss: 0.001677  [ 3232/23750] (42.653s) val loss: 0.020414
+Batch 201/743, loss: 0.012491  [ 6432/23750] (58.110s) val loss: 0.027591
+Batch 301/743, loss: 0.008908  [ 9632/23750] (58.084s) val loss: 0.023865
+Batch 401/743, loss: 0.005877  [12832/23750] (58.302s) val loss: 0.024602
+Batch 501/743, loss: 0.002622  [16032/23750] (58.590s) val loss: 0.020198
+Batch 601/743, loss: 0.001721  [19232/23750] (58.720s) val loss: 0.017565
+Batch 701/743, loss: 0.001868  [22432/23750] (58.795s) val loss: 0.019260
+Batch 743/743, loss: 0.005466  [23750/23750] (33.245s) val loss: 0.023367
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 435.230s total
+Took 442.068s total
 -------------------------------
 
-Epoch 32
+Epoch 132
 -------------------------------
-Batch 101/743, loss: 0.006159  [ 3232/23750] (42.584s) val loss: 0.012325
-Batch 201/743, loss: 0.011032  [ 6432/23750] (56.736s) val loss: 0.011983
-Batch 301/743, loss: 0.002317  [ 9632/23750] (56.719s) val loss: 0.008579
-Batch 401/743, loss: 0.002783  [12832/23750] (56.812s) val loss: 0.012221
-Batch 501/743, loss: 0.002698  [16032/23750] (56.868s) val loss: 0.013972
-Batch 601/743, loss: 0.001712  [19232/23750] (56.832s) val loss: 0.010013
-Batch 701/743, loss: 0.002330  [22432/23750] (56.915s) val loss: 0.011048
-Batch 743/743, loss: 0.001564  [23750/23750] (32.147s) val loss: 0.009874
+Batch 101/743, loss: 0.001466  [ 3232/23750] (44.191s) val loss: 0.017267
+Batch 201/743, loss: 0.002335  [ 6432/23750] (58.843s) val loss: 0.024092
+Batch 301/743, loss: 0.000827  [ 9632/23750] (58.769s) val loss: 0.020214
+Batch 401/743, loss: 0.005746  [12832/23750] (58.739s) val loss: 0.018021
+Batch 501/743, loss: 0.004806  [16032/23750] (58.637s) val loss: 0.025178
+Batch 601/743, loss: 0.001271  [19232/23750] (57.391s) val loss: 0.017531
+Batch 701/743, loss: 0.008179  [22432/23750] (57.471s) val loss: 0.016413
+Batch 743/743, loss: 0.029061  [23750/23750] (32.818s) val loss: 0.022613
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 436.168s total
+Took 444.225s total
 -------------------------------
 
-Epoch 33
+Epoch 133
 -------------------------------
-Batch 101/743, loss: 0.006362  [ 3232/23750] (42.685s) val loss: 0.011163
-Batch 201/743, loss: 0.007616  [ 6432/23750] (56.918s) val loss: 0.016179
-Batch 301/743, loss: 0.012928  [ 9632/23750] (56.935s) val loss: 0.009956
-Batch 401/743, loss: 0.007027  [12832/23750] (56.954s) val loss: 0.009569
-Batch 501/743, loss: 0.002210  [16032/23750] (56.960s) val loss: 0.015285
-Batch 601/743, loss: 0.008485  [19232/23750] (56.980s) val loss: 0.010589
-Batch 701/743, loss: 0.003260  [22432/23750] (56.881s) val loss: 0.012495
-Batch 743/743, loss: 0.010915  [23750/23750] (32.184s) val loss: 0.009193
+Batch 101/743, loss: 0.002062  [ 3232/23750] (43.487s) val loss: 0.019481
+Batch 201/743, loss: 0.003444  [ 6432/23750] (58.353s) val loss: 0.021108
+Batch 301/743, loss: 0.005184  [ 9632/23750] (58.684s) val loss: 0.020081
+Batch 401/743, loss: 0.003721  [12832/23750] (58.640s) val loss: 0.016918
+Batch 501/743, loss: 0.008965  [16032/23750] (58.700s) val loss: 0.020994
+Batch 601/743, loss: 0.008327  [19232/23750] (58.679s) val loss: 0.019071
+Batch 701/743, loss: 0.005716  [22432/23750] (58.767s) val loss: 0.019078
+Batch 743/743, loss: 0.005404  [23750/23750] (33.135s) val loss: 0.016312
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 433.972s total
+Took 444.014s total
 -------------------------------
 
-Epoch 34
+Epoch 134
 -------------------------------
-Batch 101/743, loss: 0.009841  [ 3232/23750] (42.698s) val loss: 0.009048
-Batch 201/743, loss: 0.011432  [ 6432/23750] (57.020s) val loss: 0.012252
-Batch 301/743, loss: 0.004855  [ 9632/23750] (56.911s) val loss: 0.012920
-Batch 401/743, loss: 0.002153  [12832/23750] (57.028s) val loss: 0.009372
-Batch 501/743, loss: 0.005826  [16032/23750] (56.997s) val loss: 0.009329
-Batch 601/743, loss: 0.004187  [19232/23750] (56.971s) val loss: 0.008875
-Batch 701/743, loss: 0.006718  [22432/23750] (57.065s) val loss: 0.009735
-Batch 743/743, loss: 0.000329  [23750/23750] (32.260s) val loss: 0.009959
+Batch 101/743, loss: 0.011443  [ 3232/23750] (43.396s) val loss: 0.019248
+Batch 201/743, loss: 0.002189  [ 6432/23750] (57.085s) val loss: 0.023624
+Batch 301/743, loss: 0.003902  [ 9632/23750] (56.837s) val loss: 0.023033
+Batch 401/743, loss: 0.005369  [12832/23750] (56.678s) val loss: 0.019559
+Batch 501/743, loss: 0.002407  [16032/23750] (56.575s) val loss: 0.019655
+Batch 601/743, loss: 0.002678  [19232/23750] (56.509s) val loss: 0.022345
+Batch 701/743, loss: 0.006393  [22432/23750] (56.432s) val loss: 0.019768
+Batch 743/743, loss: 0.004148  [23750/23750] (31.845s) val loss: 0.020922
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 434.631s total
+Took 430.240s total
 -------------------------------
 
-Epoch 35
+Epoch 135
 -------------------------------
-Batch 101/743, loss: 0.003503  [ 3232/23750] (42.695s) val loss: 0.010468
-Batch 201/743, loss: 0.009098  [ 6432/23750] (56.996s) val loss: 0.010639
-Batch 301/743, loss: 0.007510  [ 9632/23750] (57.032s) val loss: 0.012151
-Batch 401/743, loss: 0.016934  [12832/23750] (57.082s) val loss: 0.009194
-Batch 501/743, loss: 0.003058  [16032/23750] (56.917s) val loss: 0.012106
-Batch 601/743, loss: 0.003004  [19232/23750] (57.059s) val loss: 0.013382
-Batch 701/743, loss: 0.011888  [22432/23750] (57.073s) val loss: 0.014095
-Batch 743/743, loss: 0.006421  [23750/23750] (32.099s) val loss: 0.009607
+Batch 101/743, loss: 0.002290  [ 3232/23750] (42.177s) val loss: 0.018229
+Batch 201/743, loss: 0.006326  [ 6432/23750] (56.388s) val loss: 0.022528
+Batch 301/743, loss: 0.002466  [ 9632/23750] (56.357s) val loss: 0.023708
+Batch 401/743, loss: 0.005589  [12832/23750] (56.409s) val loss: 0.022809
+Batch 501/743, loss: 0.005220  [16032/23750] (56.335s) val loss: 0.020155
+Batch 601/743, loss: 0.015318  [19232/23750] (56.428s) val loss: 0.021380
+Batch 701/743, loss: 0.002935  [22432/23750] (56.371s) val loss: 0.021605
+Batch 743/743, loss: 0.002771  [23750/23750] (31.826s) val loss: 0.026067
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 433.171s total
+Took 427.223s total
 -------------------------------
 
-Epoch 36
+Epoch 136
 -------------------------------
-Batch 101/743, loss: 0.006113  [ 3232/23750] (42.672s) val loss: 0.011384
-Batch 201/743, loss: 0.003995  [ 6432/23750] (56.923s) val loss: 0.009655
-Batch 301/743, loss: 0.001040  [ 9632/23750] (56.989s) val loss: 0.011982
-Batch 401/743, loss: 0.000860  [12832/23750] (56.822s) val loss: 0.014222
-Batch 501/743, loss: 0.009219  [16032/23750] (56.928s) val loss: 0.011108
-Batch 601/743, loss: 0.004361  [19232/23750] (57.040s) val loss: 0.012623
-Batch 701/743, loss: 0.005059  [22432/23750] (56.837s) val loss: 0.013077
-Batch 743/743, loss: 0.000321  [23750/23750] (32.068s) val loss: 0.013002
+Batch 101/743, loss: 0.004397  [ 3232/23750] (42.168s) val loss: 0.019751
+Batch 201/743, loss: 0.005029  [ 6432/23750] (56.430s) val loss: 0.022172
+Batch 301/743, loss: 0.003357  [ 9632/23750] (56.411s) val loss: 0.020982
+Batch 401/743, loss: 0.003136  [12832/23750] (56.411s) val loss: 0.018217
+Batch 501/743, loss: 0.006617  [16032/23750] (56.484s) val loss: 0.020659
+Batch 601/743, loss: 0.003824  [19232/23750] (56.428s) val loss: 0.020102
+Batch 701/743, loss: 0.003454  [22432/23750] (56.413s) val loss: 0.020688
+Batch 743/743, loss: 0.006152  [23750/23750] (31.855s) val loss: 0.019243
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 432.699s total
+Took 427.521s total
 -------------------------------
 
-Epoch 37
+Epoch 137
 -------------------------------
-Batch 101/743, loss: 0.003212  [ 3232/23750] (42.591s) val loss: 0.011076
-Batch 201/743, loss: 0.004476  [ 6432/23750] (56.880s) val loss: 0.008242
-Batch 301/743, loss: 0.006433  [ 9632/23750] (56.864s) val loss: 0.008259
-Batch 401/743, loss: 0.002733  [12832/23750] (56.966s) val loss: 0.008950
-Batch 501/743, loss: 0.001971  [16032/23750] (56.799s) val loss: 0.010213
-Batch 601/743, loss: 0.031371  [19232/23750] (56.789s) val loss: 0.010176
-Batch 701/743, loss: 0.000341  [22432/23750] (56.852s) val loss: 0.009632
-Batch 743/743, loss: 0.017087  [23750/23750] (32.142s) val loss: 0.010281
+Batch 101/743, loss: 0.001180  [ 3232/23750] (42.138s) val loss: 0.021362
+Batch 201/743, loss: 0.003259  [ 6432/23750] (56.341s) val loss: 0.017851
+Batch 301/743, loss: 0.004020  [ 9632/23750] (56.350s) val loss: 0.018326
+Batch 401/743, loss: 0.003205  [12832/23750] (56.380s) val loss: 0.020381
+Batch 501/743, loss: 0.002324  [16032/23750] (56.382s) val loss: 0.018877
+Batch 601/743, loss: 0.006261  [19232/23750] (56.340s) val loss: 0.017014
+Batch 701/743, loss: 0.001502  [22432/23750] (56.372s) val loss: 0.022587
+Batch 743/743, loss: 0.000110  [23750/23750] (31.798s) val loss: 0.020228
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 432.854s total
+Took 426.980s total
 -------------------------------
 
-Epoch 38
+Epoch 138
 -------------------------------
-Batch 101/743, loss: 0.001362  [ 3232/23750] (42.522s) val loss: 0.012961
-Batch 201/743, loss: 0.005768  [ 6432/23750] (56.806s) val loss: 0.008857
-Batch 301/743, loss: 0.004498  [ 9632/23750] (56.804s) val loss: 0.010422
-Batch 401/743, loss: 0.001821  [12832/23750] (56.842s) val loss: 0.012527
-Batch 501/743, loss: 0.010194  [16032/23750] (56.772s) val loss: 0.008888
-Batch 601/743, loss: 0.005859  [19232/23750] (56.749s) val loss: 0.011646
-Batch 701/743, loss: 0.009171  [22432/23750] (56.916s) val loss: 0.015784
-Batch 743/743, loss: 0.025085  [23750/23750] (32.124s) val loss: 0.009300
+Batch 101/743, loss: 0.002883  [ 3232/23750] (42.111s) val loss: 0.019790
+Batch 201/743, loss: 0.007164  [ 6432/23750] (56.426s) val loss: 0.020240
+Batch 301/743, loss: 0.013120  [ 9632/23750] (56.387s) val loss: 0.016824
+Batch 401/743, loss: 0.001827  [12832/23750] (56.420s) val loss: 0.019001
+Batch 501/743, loss: 0.003409  [16032/23750] (56.400s) val loss: 0.022378
+Batch 601/743, loss: 0.001685  [19232/23750] (56.423s) val loss: 0.025225
+Batch 701/743, loss: 0.004817  [22432/23750] (56.408s) val loss: 0.018603
+Batch 743/743, loss: 0.002227  [23750/23750] (31.932s) val loss: 0.019122
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 432.079s total
+Took 427.412s total
 -------------------------------
 
-Epoch 39
+Epoch 139
 -------------------------------
-Batch 101/743, loss: 0.004641  [ 3232/23750] (42.583s) val loss: 0.009873
-Batch 201/743, loss: 0.002570  [ 6432/23750] (56.911s) val loss: 0.007469
-Batch 301/743, loss: 0.005396  [ 9632/23750] (57.097s) val loss: 0.009341
-Batch 401/743, loss: 0.003581  [12832/23750] (57.012s) val loss: 0.011389
-Batch 501/743, loss: 0.011138  [16032/23750] (57.023s) val loss: 0.011257
-Batch 601/743, loss: 0.004042  [19232/23750] (56.936s) val loss: 0.011082
-Batch 701/743, loss: 0.007737  [22432/23750] (56.880s) val loss: 0.011885
-Batch 743/743, loss: 0.007426  [23750/23750] (32.050s) val loss: 0.008341
+Batch 101/743, loss: 0.008531  [ 3232/23750] (42.270s) val loss: 0.021809
+Batch 201/743, loss: 0.003289  [ 6432/23750] (56.658s) val loss: 0.018353
+Batch 301/743, loss: 0.004988  [ 9632/23750] (56.566s) val loss: 0.017708
+Batch 401/743, loss: 0.007659  [12832/23750] (56.563s) val loss: 0.019372
+Batch 501/743, loss: 0.003978  [16032/23750] (56.599s) val loss: 0.018251
+Batch 601/743, loss: 0.013765  [19232/23750] (56.606s) val loss: 0.021256
+Batch 701/743, loss: 0.007313  [22432/23750] (56.585s) val loss: 0.019671
+Batch 743/743, loss: 0.024264  [23750/23750] (31.862s) val loss: 0.012497
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 433.479s total
+Took 428.585s total
 -------------------------------
 
-Epoch 40
+Epoch 140
 -------------------------------
-Batch 101/743, loss: 0.003796  [ 3232/23750] (42.589s) val loss: 0.008835
-Batch 201/743, loss: 0.007361  [ 6432/23750] (56.768s) val loss: 0.012503
-Batch 301/743, loss: 0.003509  [ 9632/23750] (56.799s) val loss: 0.010850
-Batch 401/743, loss: 0.008738  [12832/23750] (56.834s) val loss: 0.006461
-Batch 501/743, loss: 0.004206  [16032/23750] (56.839s) val loss: 0.012152
-Batch 601/743, loss: 0.007924  [19232/23750] (56.693s) val loss: 0.012545
-Batch 701/743, loss: 0.008753  [22432/23750] (56.823s) val loss: 0.008958
-Batch 743/743, loss: 0.002996  [23750/23750] (32.013s) val loss: 0.008680
+Batch 101/743, loss: 0.003390  [ 3232/23750] (42.108s) val loss: 0.021932
+Batch 201/743, loss: 0.002006  [ 6432/23750] (56.364s) val loss: 0.020002
+Batch 301/743, loss: 0.000876  [ 9632/23750] (56.388s) val loss: 0.021427
+Batch 401/743, loss: 0.004630  [12832/23750] (56.330s) val loss: 0.023734
+Batch 501/743, loss: 0.018481  [16032/23750] (56.421s) val loss: 0.019902
+Batch 601/743, loss: 0.001521  [19232/23750] (56.325s) val loss: 0.026750
+Batch 701/743, loss: 0.001775  [22432/23750] (56.334s) val loss: 0.019934
+Batch 743/743, loss: 0.005020  [23750/23750] (31.806s) val loss: 0.017473
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 431.433s total
+Took 426.993s total
 -------------------------------
 
-Epoch 41
+Epoch 141
 -------------------------------
-Batch 101/743, loss: 0.002861  [ 3232/23750] (42.498s) val loss: 0.009092
-Batch 201/743, loss: 0.001462  [ 6432/23750] (56.796s) val loss: 0.009658
-Batch 301/743, loss: 0.008507  [ 9632/23750] (56.787s) val loss: 0.009641
-Batch 401/743, loss: 0.002281  [12832/23750] (56.896s) val loss: 0.010917
-Batch 501/743, loss: 0.002102  [16032/23750] (56.881s) val loss: 0.010802
-Batch 601/743, loss: 0.002077  [19232/23750] (56.782s) val loss: 0.008087
-Batch 701/743, loss: 0.007439  [22432/23750] (56.854s) val loss: 0.010528
-Batch 743/743, loss: 0.001552  [23750/23750] (32.065s) val loss: 0.012829
+Batch 101/743, loss: 0.001204  [ 3232/23750] (42.088s) val loss: 0.021662
+Batch 201/743, loss: 0.004277  [ 6432/23750] (56.371s) val loss: 0.021215
+Batch 301/743, loss: 0.003884  [ 9632/23750] (56.397s) val loss: 0.019617
+Batch 401/743, loss: 0.004215  [12832/23750] (56.390s) val loss: 0.019898
+Batch 501/743, loss: 0.008662  [16032/23750] (56.334s) val loss: 0.021316
+Batch 601/743, loss: 0.003640  [19232/23750] (56.299s) val loss: 0.019237
+Batch 701/743, loss: 0.002988  [22432/23750] (56.310s) val loss: 0.025565
+Batch 743/743, loss: 0.001375  [23750/23750] (31.832s) val loss: 0.024004
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 431.888s total
+Took 426.912s total
 -------------------------------
 
-Epoch 42
+Epoch 142
 -------------------------------
-Batch 101/743, loss: 0.003447  [ 3232/23750] (42.542s) val loss: 0.012892
-Batch 201/743, loss: 0.002388  [ 6432/23750] (56.744s) val loss: 0.011811
-Batch 301/743, loss: 0.009806  [ 9632/23750] (56.715s) val loss: 0.012051
-Batch 401/743, loss: 0.003694  [12832/23750] (56.835s) val loss: 0.009519
-Batch 501/743, loss: 0.002766  [16032/23750] (56.804s) val loss: 0.007166
-Batch 601/743, loss: 0.004745  [19232/23750] (56.724s) val loss: 0.010746
-Batch 701/743, loss: 0.004593  [22432/23750] (56.724s) val loss: 0.009867
-Batch 743/743, loss: 0.002554  [23750/23750] (32.081s) val loss: 0.008141
+Batch 101/743, loss: 0.010499  [ 3232/23750] (42.119s) val loss: 0.021233
+Batch 201/743, loss: 0.003599  [ 6432/23750] (56.333s) val loss: 0.025181
+Batch 301/743, loss: 0.003601  [ 9632/23750] (56.387s) val loss: 0.018669
+Batch 401/743, loss: 0.006993  [12832/23750] (56.406s) val loss: 0.022840
+Batch 501/743, loss: 0.007053  [16032/23750] (56.306s) val loss: 0.020539
+Batch 601/743, loss: 0.002236  [19232/23750] (61.497s) val loss: 0.019758
+Batch 701/743, loss: 0.002090  [22432/23750] (56.389s) val loss: 0.020626
+Batch 743/743, loss: 0.004288  [23750/23750] (31.801s) val loss: 0.020335
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 431.444s total
+Took 432.182s total
 -------------------------------
 
-Epoch 43
+Epoch 143
 -------------------------------
-Batch 101/743, loss: 0.005541  [ 3232/23750] (42.579s) val loss: 0.010653
-Batch 201/743, loss: 0.003074  [ 6432/23750] (56.815s) val loss: 0.011774
-Batch 301/743, loss: 0.005056  [ 9632/23750] (56.790s) val loss: 0.010945
-Batch 401/743, loss: 0.005867  [12832/23750] (56.809s) val loss: 0.008817
-Batch 501/743, loss: 0.003266  [16032/23750] (56.882s) val loss: 0.007506
-Batch 601/743, loss: 0.003410  [19232/23750] (56.891s) val loss: 0.011287
-Batch 701/743, loss: 0.005323  [22432/23750] (56.796s) val loss: 0.010235
-Batch 743/743, loss: 0.008614  [23750/23750] (32.135s) val loss: 0.008721
+Batch 101/743, loss: 0.003735  [ 3232/23750] (42.106s) val loss: 0.022289
+Batch 201/743, loss: 0.001586  [ 6432/23750] (56.452s) val loss: 0.023759
+Batch 301/743, loss: 0.006947  [ 9632/23750] (56.413s) val loss: 0.024170
+Batch 401/743, loss: 0.007760  [12832/23750] (56.412s) val loss: 0.021136
+Batch 501/743, loss: 0.002878  [16032/23750] (56.404s) val loss: 0.022526
+Batch 601/743, loss: 0.007414  [19232/23750] (56.485s) val loss: 0.017527
+Batch 701/743, loss: 0.003554  [22432/23750] (56.441s) val loss: 0.020690
+Batch 743/743, loss: 0.009231  [23750/23750] (31.893s) val loss: 0.018256
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 431.616s total
+Took 427.619s total
 -------------------------------
 
-Epoch 44
+Epoch 144
 -------------------------------
-Batch 101/743, loss: 0.001156  [ 3232/23750] (42.550s) val loss: 0.011975
-Batch 201/743, loss: 0.006209  [ 6432/23750] (56.795s) val loss: 0.006578
-Batch 301/743, loss: 0.006361  [ 9632/23750] (56.746s) val loss: 0.007253
-Batch 401/743, loss: 0.002069  [12832/23750] (56.703s) val loss: 0.010931
-Batch 501/743, loss: 0.006582  [16032/23750] (56.830s) val loss: 0.009193
-Batch 601/743, loss: 0.008600  [19232/23750] (56.771s) val loss: 0.011010
-Batch 701/743, loss: 0.005751  [22432/23750] (56.730s) val loss: 0.009467
-Batch 743/743, loss: 0.000053  [23750/23750] (32.131s) val loss: 0.008341
+Batch 101/743, loss: 0.004169  [ 3232/23750] (42.177s) val loss: 0.017133
+Batch 201/743, loss: 0.003614  [ 6432/23750] (56.468s) val loss: 0.017009
+Batch 301/743, loss: 0.002774  [ 9632/23750] (56.461s) val loss: 0.020821
+Batch 401/743, loss: 0.003737  [12832/23750] (56.433s) val loss: 0.020638
+Batch 501/743, loss: 0.014558  [16032/23750] (56.511s) val loss: 0.021057
+Batch 601/743, loss: 0.002327  [19232/23750] (56.441s) val loss: 0.018799
+Batch 701/743, loss: 0.003459  [22432/23750] (56.459s) val loss: 0.016669
+Batch 743/743, loss: 0.004496  [23750/23750] (31.874s) val loss: 0.022177
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 431.895s total
+Took 427.858s total
 -------------------------------
 
-Epoch 45
+Epoch 145
 -------------------------------
-Batch 101/743, loss: 0.008360  [ 3232/23750] (42.578s) val loss: 0.010343
-Batch 201/743, loss: 0.002730  [ 6432/23750] (56.816s) val loss: 0.011863
-Batch 301/743, loss: 0.009835  [ 9632/23750] (56.943s) val loss: 0.007968
-Batch 401/743, loss: 0.001024  [12832/23750] (56.812s) val loss: 0.009154
-Batch 501/743, loss: 0.005877  [16032/23750] (56.948s) val loss: 0.009705
-Batch 601/743, loss: 0.006171  [19232/23750] (56.803s) val loss: 0.009912
-Batch 701/743, loss: 0.009569  [22432/23750] (56.781s) val loss: 0.010295
-Batch 743/743, loss: 0.002087  [23750/23750] (32.005s) val loss: 0.007601
+Batch 101/743, loss: 0.004295  [ 3232/23750] (42.162s) val loss: 0.021210
+Batch 201/743, loss: 0.001898  [ 6432/23750] (56.455s) val loss: 0.020764
+Batch 301/743, loss: 0.003771  [ 9632/23750] (56.446s) val loss: 0.026248
+Batch 401/743, loss: 0.001599  [12832/23750] (56.657s) val loss: 0.022036
+Batch 501/743, loss: 0.014788  [16032/23750] (56.684s) val loss: 0.025376
+Batch 601/743, loss: 0.010062  [19232/23750] (56.611s) val loss: 0.021785
+Batch 701/743, loss: 0.003218  [22432/23750] (56.601s) val loss: 0.022391
+Batch 743/743, loss: 0.003394  [23750/23750] (32.010s) val loss: 0.020465
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 432.038s total
+Took 429.153s total
 -------------------------------
 
-Epoch 46
+Epoch 146
 -------------------------------
-Batch 101/743, loss: 0.001967  [ 3232/23750] (42.508s) val loss: 0.010453
-Batch 201/743, loss: 0.009283  [ 6432/23750] (57.049s) val loss: 0.008191
-Batch 301/743, loss: 0.002273  [ 9632/23750] (56.954s) val loss: 0.009393
-Batch 401/743, loss: 0.004651  [12832/23750] (56.852s) val loss: 0.011580
-Batch 501/743, loss: 0.001233  [16032/23750] (56.902s) val loss: 0.010454
-Batch 601/743, loss: 0.003508  [19232/23750] (56.950s) val loss: 0.010001
-Batch 701/743, loss: 0.006170  [22432/23750] (56.949s) val loss: 0.009805
-Batch 743/743, loss: 0.006317  [23750/23750] (32.260s) val loss: 0.007155
+Batch 101/743, loss: 0.001909  [ 3232/23750] (42.153s) val loss: 0.023986
+Batch 201/743, loss: 0.001988  [ 6432/23750] (56.353s) val loss: 0.021296
+Batch 301/743, loss: 0.005831  [ 9632/23750] (56.415s) val loss: 0.020168
+Batch 401/743, loss: 0.005741  [12832/23750] (56.504s) val loss: 0.018169
+Batch 501/743, loss: 0.005558  [16032/23750] (56.527s) val loss: 0.019286
+Batch 601/743, loss: 0.001078  [19232/23750] (56.435s) val loss: 0.022982
+Batch 701/743, loss: 0.004755  [22432/23750] (56.400s) val loss: 0.021100
+Batch 743/743, loss: 0.001720  [23750/23750] (31.812s) val loss: 0.019206
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 431.896s total
+Took 427.566s total
 -------------------------------
 
-Epoch 47
+Epoch 147
 -------------------------------
-Batch 101/743, loss: 0.002572  [ 3232/23750] (42.647s) val loss: 0.009532
-Batch 201/743, loss: 0.001956  [ 6432/23750] (56.786s) val loss: 0.007927
-Batch 301/743, loss: 0.001898  [ 9632/23750] (56.827s) val loss: 0.011815
-Batch 401/743, loss: 0.004156  [12832/23750] (56.761s) val loss: 0.008158
-Batch 501/743, loss: 0.003728  [16032/23750] (56.835s) val loss: 0.011081
-Batch 601/743, loss: 0.001665  [19232/23750] (56.844s) val loss: 0.007260
-Batch 701/743, loss: 0.003890  [22432/23750] (56.722s) val loss: 0.009099
-Batch 743/743, loss: 0.001503  [23750/23750] (32.108s) val loss: 0.013029
+Batch 101/743, loss: 0.002646  [ 3232/23750] (42.142s) val loss: 0.018143
+Batch 201/743, loss: 0.006281  [ 6432/23750] (56.378s) val loss: 0.020843
+Batch 301/743, loss: 0.000697  [ 9632/23750] (56.360s) val loss: 0.021285
+Batch 401/743, loss: 0.003198  [12832/23750] (56.383s) val loss: 0.020665
+Batch 501/743, loss: 0.006452  [16032/23750] (56.405s) val loss: 0.017221
+Batch 601/743, loss: 0.002227  [19232/23750] (56.377s) val loss: 0.019156
+Batch 701/743, loss: 0.001421  [22432/23750] (56.397s) val loss: 0.016290
+Batch 743/743, loss: 0.000269  [23750/23750] (31.850s) val loss: 0.022011
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 431.365s total
+Took 427.198s total
 -------------------------------
 
-Epoch 48
+Epoch 148
 -------------------------------
-Batch 101/743, loss: 0.001771  [ 3232/23750] (42.494s) val loss: 0.009102
-Batch 201/743, loss: 0.001434  [ 6432/23750] (56.835s) val loss: 0.009132
-Batch 301/743, loss: 0.004083  [ 9632/23750] (56.715s) val loss: 0.007769
-Batch 401/743, loss: 0.007924  [12832/23750] (56.912s) val loss: 0.012619
-Batch 501/743, loss: 0.006410  [16032/23750] (56.840s) val loss: 0.006724
-Batch 601/743, loss: 0.007794  [19232/23750] (56.912s) val loss: 0.010424
-Batch 701/743, loss: 0.003756  [22432/23750] (56.968s) val loss: 0.010505
-Batch 743/743, loss: 0.000832  [23750/23750] (32.219s) val loss: 0.008227
+Batch 101/743, loss: 0.012421  [ 3232/23750] (42.136s) val loss: 0.021705
+Batch 201/743, loss: 0.002304  [ 6432/23750] (56.355s) val loss: 0.018945
+Batch 301/743, loss: 0.005961  [ 9632/23750] (56.356s) val loss: 0.020158
+Batch 401/743, loss: 0.002818  [12832/23750] (56.401s) val loss: 0.020467
+Batch 501/743, loss: 0.003883  [16032/23750] (56.378s) val loss: 0.022663
+Batch 601/743, loss: 0.006821  [19232/23750] (56.327s) val loss: 0.017699
+Batch 701/743, loss: 0.003611  [22432/23750] (56.325s) val loss: 0.019050
+Batch 743/743, loss: 0.003174  [23750/23750] (31.833s) val loss: 0.019374
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 432.258s total
+Took 427.032s total
 -------------------------------
 
-Epoch 49
+Epoch 149
 -------------------------------
-Batch 101/743, loss: 0.006700  [ 3232/23750] (42.536s) val loss: 0.010714
-Batch 201/743, loss: 0.003367  [ 6432/23750] (56.779s) val loss: 0.013111
-Batch 301/743, loss: 0.013617  [ 9632/23750] (56.762s) val loss: 0.009328
-Batch 401/743, loss: 0.003796  [12832/23750] (56.974s) val loss: 0.009708
-Batch 501/743, loss: 0.002497  [16032/23750] (56.937s) val loss: 0.006486
-Batch 601/743, loss: 0.008068  [19232/23750] (56.908s) val loss: 0.010410
-Batch 701/743, loss: 0.001278  [22432/23750] (56.947s) val loss: 0.011887
-Batch 743/743, loss: 0.021405  [23750/23750] (32.131s) val loss: 0.008045
+Batch 101/743, loss: 0.001268  [ 3232/23750] (42.105s) val loss: 0.019427
+Batch 201/743, loss: 0.005121  [ 6432/23750] (56.400s) val loss: 0.019858
+Batch 301/743, loss: 0.002345  [ 9632/23750] (56.362s) val loss: 0.018959
+Batch 401/743, loss: 0.003298  [12832/23750] (56.387s) val loss: 0.022485
+Batch 501/743, loss: 0.005096  [16032/23750] (56.335s) val loss: 0.019493
+Batch 601/743, loss: 0.003349  [19232/23750] (56.371s) val loss: 0.019141
+Batch 701/743, loss: 0.007686  [22432/23750] (56.346s) val loss: 0.019492
+Batch 743/743, loss: 0.003651  [23750/23750] (31.852s) val loss: 0.017708
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 431.889s total
+Took 427.057s total
 -------------------------------
 
-Epoch 50
+Epoch 150
 -------------------------------
-Batch 101/743, loss: 0.002173  [ 3232/23750] (42.518s) val loss: 0.011598
-Batch 201/743, loss: 0.000511  [ 6432/23750] (56.840s) val loss: 0.009884
-Batch 301/743, loss: 0.005329  [ 9632/23750] (56.739s) val loss: 0.009562
-Batch 401/743, loss: 0.004540  [12832/23750] (56.758s) val loss: 0.008415
-Batch 501/743, loss: 0.000878  [16032/23750] (56.742s) val loss: 0.009481
-Batch 601/743, loss: 0.005405  [19232/23750] (56.703s) val loss: 0.011304
-Batch 701/743, loss: 0.010068  [22432/23750] (56.886s) val loss: 0.011983
-Batch 743/743, loss: 0.001867  [23750/23750] (32.181s) val loss: 0.010363
+Batch 101/743, loss: 0.002827  [ 3232/23750] (42.104s) val loss: 0.017722
+Batch 201/743, loss: 0.008810  [ 6432/23750] (56.375s) val loss: 0.019145
+Batch 301/743, loss: 0.001474  [ 9632/23750] (56.365s) val loss: 0.020637
+Batch 401/743, loss: 0.002137  [12832/23750] (56.380s) val loss: 0.021526
+Batch 501/743, loss: 0.002227  [16032/23750] (56.374s) val loss: 0.024976
+Batch 601/743, loss: 0.003280  [19232/23750] (56.362s) val loss: 0.018270
+Batch 701/743, loss: 0.004340  [22432/23750] (56.323s) val loss: 0.018615
+Batch 743/743, loss: 0.003998  [23750/23750] (31.848s) val loss: 0.019399
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 431.364s total
+Took 427.219s total
 -------------------------------
 
-Epoch 51
+Epoch 151
 -------------------------------
-Batch 101/743, loss: 0.006295  [ 3232/23750] (42.553s) val loss: 0.009844
-Batch 201/743, loss: 0.001593  [ 6432/23750] (56.838s) val loss: 0.011134
-Batch 301/743, loss: 0.004514  [ 9632/23750] (56.936s) val loss: 0.008304
-Batch 401/743, loss: 0.001852  [12832/23750] (57.007s) val loss: 0.009286
-Batch 501/743, loss: 0.003889  [16032/23750] (56.931s) val loss: 0.009777
-Batch 601/743, loss: 0.004190  [19232/23750] (56.908s) val loss: 0.007933
-Batch 701/743, loss: 0.003330  [22432/23750] (56.960s) val loss: 0.008045
-Batch 743/743, loss: 0.003048  [23750/23750] (32.160s) val loss: 0.010309
+Batch 101/743, loss: 0.002340  [ 3232/23750] (42.052s) val loss: 0.018683
+Batch 201/743, loss: 0.001766  [ 6432/23750] (56.363s) val loss: 0.018469
+Batch 301/743, loss: 0.005081  [ 9632/23750] (56.340s) val loss: 0.016702
+Batch 401/743, loss: 0.001393  [12832/23750] (56.357s) val loss: 0.018300
+Batch 501/743, loss: 0.002374  [16032/23750] (56.344s) val loss: 0.019419
+Batch 601/743, loss: 0.004756  [19232/23750] (56.367s) val loss: 0.020107
+Batch 701/743, loss: 0.004504  [22432/23750] (56.375s) val loss: 0.023389
+Batch 743/743, loss: 0.001116  [23750/23750] (31.801s) val loss: 0.021922
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 431.830s total
+Took 427.044s total
 -------------------------------
 
-Epoch 52
+Epoch 152
 -------------------------------
-Batch 101/743, loss: 0.001744  [ 3232/23750] (42.567s) val loss: 0.007687
-Batch 201/743, loss: 0.012470  [ 6432/23750] (56.771s) val loss: 0.007964
-Batch 301/743, loss: 0.004215  [ 9632/23750] (56.699s) val loss: 0.010091
-Batch 401/743, loss: 0.006219  [12832/23750] (56.789s) val loss: 0.008160
-Batch 501/743, loss: 0.005874  [16032/23750] (56.811s) val loss: 0.006977
-Batch 601/743, loss: 0.003563  [19232/23750] (56.724s) val loss: 0.010670
-Batch 701/743, loss: 0.002702  [22432/23750] (56.850s) val loss: 0.008618
-Batch 743/743, loss: 0.007519  [23750/23750] (32.028s) val loss: 0.010289
+Batch 101/743, loss: 0.004716  [ 3232/23750] (42.095s) val loss: 0.016659
+Batch 201/743, loss: 0.003634  [ 6432/23750] (56.344s) val loss: 0.017527
+Batch 301/743, loss: 0.002470  [ 9632/23750] (56.348s) val loss: 0.016285
+Batch 401/743, loss: 0.003021  [12832/23750] (56.347s) val loss: 0.018479
+Batch 501/743, loss: 0.002177  [16032/23750] (56.357s) val loss: 0.019687
+Batch 601/743, loss: 0.006067  [19232/23750] (56.370s) val loss: 0.020909
+Batch 701/743, loss: 0.004120  [22432/23750] (56.398s) val loss: 0.019923
+Batch 743/743, loss: 0.015839  [23750/23750] (31.819s) val loss: 0.019136
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 438.964s total
+Took 427.169s total
 -------------------------------
 
-Epoch 53
+Epoch 153
 -------------------------------
-Batch 101/743, loss: 0.001554  [ 3232/23750] (42.553s) val loss: 0.007611
-Batch 201/743, loss: 0.009118  [ 6432/23750] (56.648s) val loss: 0.008676
-Batch 301/743, loss: 0.001597  [ 9632/23750] (56.714s) val loss: 0.007324
-Batch 401/743, loss: 0.004224  [12832/23750] (56.757s) val loss: 0.008249
-Batch 501/743, loss: 0.005758  [16032/23750] (56.643s) val loss: 0.010780
-Batch 601/743, loss: 0.000870  [19232/23750] (56.715s) val loss: 0.009140
-Batch 701/743, loss: 0.005207  [22432/23750] (56.725s) val loss: 0.011239
-Batch 743/743, loss: 0.000401  [23750/23750] (32.013s) val loss: 0.011045
+Batch 101/743, loss: 0.003928  [ 3232/23750] (42.111s) val loss: 0.020907
+Batch 201/743, loss: 0.005468  [ 6432/23750] (56.336s) val loss: 0.019833
+Batch 301/743, loss: 0.005173  [ 9632/23750] (56.353s) val loss: 0.019210
+Batch 401/743, loss: 0.005160  [12832/23750] (56.359s) val loss: 0.016971
+Batch 501/743, loss: 0.001799  [16032/23750] (56.363s) val loss: 0.017125
+Batch 601/743, loss: 0.005100  [19232/23750] (56.411s) val loss: 0.017874
+Batch 701/743, loss: 0.002470  [22432/23750] (56.595s) val loss: 0.019082
+Batch 743/743, loss: 0.032232  [23750/23750] (31.945s) val loss: 0.016293
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 430.722s total
+Took 427.807s total
 -------------------------------
 
-Epoch 54
+Epoch 154
 -------------------------------
-Batch 101/743, loss: 0.005854  [ 3232/23750] (42.559s) val loss: 0.010453
-Batch 201/743, loss: 0.006732  [ 6432/23750] (56.624s) val loss: 0.007963
-Batch 301/743, loss: 0.006978  [ 9632/23750] (56.728s) val loss: 0.009560
-Batch 401/743, loss: 0.004218  [12832/23750] (56.717s) val loss: 0.009233
-Batch 501/743, loss: 0.016317  [16032/23750] (56.690s) val loss: 0.009493
-Batch 601/743, loss: 0.008960  [19232/23750] (56.717s) val loss: 0.006486
-Batch 701/743, loss: 0.001999  [22432/23750] (56.871s) val loss: 0.010823
-Batch 743/743, loss: 0.000566  [23750/23750] (32.199s) val loss: 0.008709
+Batch 101/743, loss: 0.007234  [ 3232/23750] (42.144s) val loss: 0.018697
+Batch 201/743, loss: 0.005317  [ 6432/23750] (56.437s) val loss: 0.018195
+Batch 301/743, loss: 0.000856  [ 9632/23750] (56.412s) val loss: 0.020515
+Batch 401/743, loss: 0.007172  [12832/23750] (56.391s) val loss: 0.019777
+Batch 501/743, loss: 0.005324  [16032/23750] (56.368s) val loss: 0.016735
+Batch 601/743, loss: 0.004055  [19232/23750] (56.362s) val loss: 0.019400
+Batch 701/743, loss: 0.001800  [22432/23750] (56.380s) val loss: 0.016452
+Batch 743/743, loss: 0.012150  [23750/23750] (31.868s) val loss: 0.015023
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 431.198s total
+Took 427.472s total
 -------------------------------
 
-Epoch 55
+Epoch 155
 -------------------------------
-Batch 101/743, loss: 0.001804  [ 3232/23750] (42.636s) val loss: 0.010541
-Batch 201/743, loss: 0.002741  [ 6432/23750] (56.934s) val loss: 0.008948
-Batch 301/743, loss: 0.003661  [ 9632/23750] (56.691s) val loss: 0.009563
-Batch 401/743, loss: 0.003044  [12832/23750] (56.773s) val loss: 0.011847
-Batch 501/743, loss: 0.003725  [16032/23750] (56.919s) val loss: 0.008532
-Batch 601/743, loss: 0.009684  [19232/23750] (56.884s) val loss: 0.008163
-Batch 701/743, loss: 0.004679  [22432/23750] (56.981s) val loss: 0.010420
-Batch 743/743, loss: 0.016196  [23750/23750] (32.092s) val loss: 0.007966
+Batch 101/743, loss: 0.008041  [ 3232/23750] (42.087s) val loss: 0.017414
+Batch 201/743, loss: 0.008437  [ 6432/23750] (56.406s) val loss: 0.016001
+Batch 301/743, loss: 0.009048  [ 9632/23750] (56.341s) val loss: 0.018922
+Batch 401/743, loss: 0.004404  [12832/23750] (56.359s) val loss: 0.020738
+Batch 501/743, loss: 0.004870  [16032/23750] (56.319s) val loss: 0.015300
+Batch 601/743, loss: 0.001547  [19232/23750] (56.421s) val loss: 0.018599
+Batch 701/743, loss: 0.004823  [22432/23750] (56.295s) val loss: 0.016110
+Batch 743/743, loss: 0.005924  [23750/23750] (31.861s) val loss: 0.021226
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 431.217s total
+Took 427.180s total
 -------------------------------
 
-Epoch 56
+Epoch 156
 -------------------------------
-Batch 101/743, loss: 0.001887  [ 3232/23750] (42.491s) val loss: 0.009652
-Batch 201/743, loss: 0.003253  [ 6432/23750] (56.898s) val loss: 0.010284
-Batch 301/743, loss: 0.004977  [ 9632/23750] (56.848s) val loss: 0.011876
-Batch 401/743, loss: 0.007097  [12832/23750] (56.832s) val loss: 0.008869
-Batch 501/743, loss: 0.004933  [16032/23750] (56.757s) val loss: 0.007962
-Batch 601/743, loss: 0.002675  [19232/23750] (56.743s) val loss: 0.007596
-Batch 701/743, loss: 0.002693  [22432/23750] (56.826s) val loss: 0.007732
-Batch 743/743, loss: 0.019128  [23750/23750] (32.125s) val loss: 0.006505
+Batch 101/743, loss: 0.001693  [ 3232/23750] (42.071s) val loss: 0.014611
+Batch 201/743, loss: 0.003042  [ 6432/23750] (56.548s) val loss: 0.016406
+Batch 301/743, loss: 0.001860  [ 9632/23750] (56.759s) val loss: 0.021591
+Batch 401/743, loss: 0.006805  [12832/23750] (57.886s) val loss: 0.019546
+Batch 501/743, loss: 0.000691  [16032/23750] (58.190s) val loss: 0.018034
+Batch 601/743, loss: 0.001658  [19232/23750] (58.232s) val loss: 0.019954
+Batch 701/743, loss: 0.008404  [22432/23750] (58.474s) val loss: 0.025950
+Batch 743/743, loss: 0.001862  [23750/23750] (33.111s) val loss: 0.017621
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 431.205s total
+Took 436.982s total
 -------------------------------
 
-Epoch 57
+Epoch 157
 -------------------------------
-Batch 101/743, loss: 0.007784  [ 3232/23750] (42.560s) val loss: 0.008293
-Batch 201/743, loss: 0.006167  [ 6432/23750] (56.856s) val loss: 0.006633
-Batch 301/743, loss: 0.002860  [ 9632/23750] (56.983s) val loss: 0.008101
-Batch 401/743, loss: 0.005599  [12832/23750] (56.883s) val loss: 0.010890
-Batch 501/743, loss: 0.004197  [16032/23750] (56.902s) val loss: 0.010276
-Batch 601/743, loss: 0.006205  [19232/23750] (56.891s) val loss: 0.009501
-Batch 701/743, loss: 0.006793  [22432/23750] (56.838s) val loss: 0.008240
-Batch 743/743, loss: 0.012526  [23750/23750] (32.102s) val loss: 0.011799
+Batch 101/743, loss: 0.001899  [ 3232/23750] (43.868s) val loss: 0.022247
+Batch 201/743, loss: 0.003580  [ 6432/23750] (58.776s) val loss: 0.016745
+Batch 301/743, loss: 0.009000  [ 9632/23750] (59.346s) val loss: 0.016047
+Batch 401/743, loss: 0.002019  [12832/23750] (59.068s) val loss: 0.018834
+Batch 501/743, loss: 0.003163  [16032/23750] (58.709s) val loss: 0.022763
+Batch 601/743, loss: 0.001726  [19232/23750] (58.720s) val loss: 0.017731
+Batch 701/743, loss: 0.006401  [22432/23750] (58.753s) val loss: 0.016257
+Batch 743/743, loss: 0.001417  [23750/23750] (33.179s) val loss: 0.017338
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 431.179s total
+Took 446.033s total
 -------------------------------
 
-Epoch 58
+Epoch 158
 -------------------------------
-Batch 101/743, loss: 0.003656  [ 3232/23750] (42.510s) val loss: 0.009615
-Batch 201/743, loss: 0.003730  [ 6432/23750] (56.729s) val loss: 0.009743
-Batch 301/743, loss: 0.009616  [ 9632/23750] (56.816s) val loss: 0.008730
-Batch 401/743, loss: 0.005280  [12832/23750] (56.826s) val loss: 0.010865
-Batch 501/743, loss: 0.011544  [16032/23750] (56.803s) val loss: 0.009533
-Batch 601/743, loss: 0.006292  [19232/23750] (56.822s) val loss: 0.007761
-Batch 701/743, loss: 0.002243  [22432/23750] (56.966s) val loss: 0.011836
-Batch 743/743, loss: 0.000065  [23750/23750] (32.190s) val loss: 0.008403
+Batch 101/743, loss: 0.006653  [ 3232/23750] (43.876s) val loss: 0.021369
+Batch 201/743, loss: 0.002166  [ 6432/23750] (58.483s) val loss: 0.018761
+Batch 301/743, loss: 0.006849  [ 9632/23750] (58.471s) val loss: 0.016670
+Batch 401/743, loss: 0.000913  [12832/23750] (58.554s) val loss: 0.023364
+Batch 501/743, loss: 0.003383  [16032/23750] (58.241s) val loss: 0.022480
+Batch 601/743, loss: 0.004717  [19232/23750] (56.992s) val loss: 0.021137
+Batch 701/743, loss: 0.001057  [22432/23750] (56.849s) val loss: 0.015980
+Batch 743/743, loss: 0.000723  [23750/23750] (32.001s) val loss: 0.018905
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 431.116s total
+Took 438.592s total
 -------------------------------
 
-Epoch 59
+Epoch 159
 -------------------------------
-Batch 101/743, loss: 0.002385  [ 3232/23750] (42.617s) val loss: 0.008950
-Batch 201/743, loss: 0.002228  [ 6432/23750] (56.907s) val loss: 0.009501
-Batch 301/743, loss: 0.008042  [ 9632/23750] (56.853s) val loss: 0.010207
-Batch 401/743, loss: 0.003643  [12832/23750] (56.917s) val loss: 0.011269
-Batch 501/743, loss: 0.001448  [16032/23750] (56.952s) val loss: 0.011061
-Batch 601/743, loss: 0.003324  [19232/23750] (56.961s) val loss: 0.008899
-Batch 701/743, loss: 0.001413  [22432/23750] (56.864s) val loss: 0.009496
-Batch 743/743, loss: 0.008999  [23750/23750] (32.087s) val loss: 0.008045
+Batch 101/743, loss: 0.004028  [ 3232/23750] (42.266s) val loss: 0.019138
+Batch 201/743, loss: 0.004527  [ 6432/23750] (56.502s) val loss: 0.013272
+Batch 301/743, loss: 0.001688  [ 9632/23750] (56.485s) val loss: 0.012300
+Batch 401/743, loss: 0.005136  [12832/23750] (56.400s) val loss: 0.017031
+Batch 501/743, loss: 0.005366  [16032/23750] (56.410s) val loss: 0.014830
+Batch 601/743, loss: 0.003548  [19232/23750] (56.373s) val loss: 0.019555
+Batch 701/743, loss: 0.006377  [22432/23750] (56.356s) val loss: 0.016620
+Batch 743/743, loss: 0.005277  [23750/23750] (31.878s) val loss: 0.019779
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 431.377s total
+Took 427.754s total
 -------------------------------
 
-Epoch 60
+Epoch 160
 -------------------------------
-Batch 101/743, loss: 0.003206  [ 3232/23750] (42.512s) val loss: 0.008517
-Batch 201/743, loss: 0.004701  [ 6432/23750] (56.728s) val loss: 0.006761
-Batch 301/743, loss: 0.004609  [ 9632/23750] (57.026s) val loss: 0.010177
-Batch 401/743, loss: 0.012530  [12832/23750] (56.948s) val loss: 0.008084
-Batch 501/743, loss: 0.009028  [16032/23750] (56.977s) val loss: 0.008694
-Batch 601/743, loss: 0.009388  [19232/23750] (56.813s) val loss: 0.010352
-Batch 701/743, loss: 0.006456  [22432/23750] (56.807s) val loss: 0.009141
-Batch 743/743, loss: 0.010534  [23750/23750] (31.990s) val loss: 0.008324
+Batch 101/743, loss: 0.002597  [ 3232/23750] (42.112s) val loss: 0.014338
+Batch 201/743, loss: 0.002579  [ 6432/23750] (56.375s) val loss: 0.015297
+Batch 301/743, loss: 0.008306  [ 9632/23750] (56.359s) val loss: 0.016483
+Batch 401/743, loss: 0.005066  [12832/23750] (56.390s) val loss: 0.023519
+Batch 501/743, loss: 0.002865  [16032/23750] (56.383s) val loss: 0.018057
+Batch 601/743, loss: 0.007134  [19232/23750] (56.385s) val loss: 0.017353
+Batch 701/743, loss: 0.001101  [22432/23750] (56.369s) val loss: 0.017413
+Batch 743/743, loss: 0.006683  [23750/23750] (31.846s) val loss: 0.020707
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 431.040s total
+Took 427.232s total
 -------------------------------
 
-Epoch 61
+Epoch 161
 -------------------------------
-Batch 101/743, loss: 0.028327  [ 3232/23750] (42.535s) val loss: 0.009862
-Batch 201/743, loss: 0.003143  [ 6432/23750] (56.672s) val loss: 0.009960
-Batch 301/743, loss: 0.007850  [ 9632/23750] (56.830s) val loss: 0.009770
-Batch 401/743, loss: 0.003160  [12832/23750] (56.960s) val loss: 0.008004
-Batch 501/743, loss: 0.013652  [16032/23750] (56.929s) val loss: 0.011483
-Batch 601/743, loss: 0.007851  [19232/23750] (56.895s) val loss: 0.007860
-Batch 701/743, loss: 0.001751  [22432/23750] (56.810s) val loss: 0.008054
-Batch 743/743, loss: 0.000208  [23750/23750] (32.081s) val loss: 0.011077
+Batch 101/743, loss: 0.004577  [ 3232/23750] (42.084s) val loss: 0.017114
+Batch 201/743, loss: 0.004242  [ 6432/23750] (56.403s) val loss: 0.018090
+Batch 301/743, loss: 0.010499  [ 9632/23750] (56.416s) val loss: 0.015966
+Batch 401/743, loss: 0.001716  [12832/23750] (56.403s) val loss: 0.019734
+Batch 501/743, loss: 0.002918  [16032/23750] (56.365s) val loss: 0.019211
+Batch 601/743, loss: 0.006903  [19232/23750] (56.377s) val loss: 0.019529
+Batch 701/743, loss: 0.002392  [22432/23750] (56.406s) val loss: 0.019428
+Batch 743/743, loss: 0.001046  [23750/23750] (31.804s) val loss: 0.015963
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 430.984s total
+Took 427.277s total
 -------------------------------
 
-Epoch 62
+Epoch 162
 -------------------------------
-Batch 101/743, loss: 0.012577  [ 3232/23750] (42.581s) val loss: 0.006886
-Batch 201/743, loss: 0.006511  [ 6432/23750] (56.930s) val loss: 0.010671
-Batch 301/743, loss: 0.008557  [ 9632/23750] (56.891s) val loss: 0.007806
-Batch 401/743, loss: 0.004338  [12832/23750] (57.001s) val loss: 0.007845
-Batch 501/743, loss: 0.001253  [16032/23750] (56.884s) val loss: 0.010836
-Batch 601/743, loss: 0.004813  [19232/23750] (57.004s) val loss: 0.009098
-Batch 701/743, loss: 0.001247  [22432/23750] (56.871s) val loss: 0.009021
-Batch 743/743, loss: 0.042393  [23750/23750] (32.244s) val loss: 0.009238
+Batch 101/743, loss: 0.010192  [ 3232/23750] (42.251s) val loss: 0.016001
+Batch 201/743, loss: 0.002163  [ 6432/23750] (56.668s) val loss: 0.015323
+Batch 301/743, loss: 0.003741  [ 9632/23750] (56.620s) val loss: 0.017319
+Batch 401/743, loss: 0.005007  [12832/23750] (56.587s) val loss: 0.016657
+Batch 501/743, loss: 0.005360  [16032/23750] (56.621s) val loss: 0.017191
+Batch 601/743, loss: 0.001977  [19232/23750] (56.681s) val loss: 0.015870
+Batch 701/743, loss: 0.002885  [22432/23750] (56.611s) val loss: 0.017217
+Batch 743/743, loss: 0.009458  [23750/23750] (31.996s) val loss: 0.019372
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 431.584s total
+Took 429.126s total
 -------------------------------
 
-Epoch 63
+Epoch 163
 -------------------------------
-Batch 101/743, loss: 0.005556  [ 3232/23750] (42.550s) val loss: 0.007869
-Batch 201/743, loss: 0.011782  [ 6432/23750] (56.878s) val loss: 0.008830
-Batch 301/743, loss: 0.004835  [ 9632/23750] (56.793s) val loss: 0.009486
-Batch 401/743, loss: 0.006327  [12832/23750] (56.902s) val loss: 0.008463
-Batch 501/743, loss: 0.003399  [16032/23750] (56.865s) val loss: 0.007413
-Batch 601/743, loss: 0.005246  [19232/23750] (56.767s) val loss: 0.009450
-Batch 701/743, loss: 0.005512  [22432/23750] (56.844s) val loss: 0.010562
-Batch 743/743, loss: 0.016141  [23750/23750] (32.015s) val loss: 0.008166
+Batch 101/743, loss: 0.004486  [ 3232/23750] (42.174s) val loss: 0.021550
+Batch 201/743, loss: 0.003134  [ 6432/23750] (56.420s) val loss: 0.018245
+Batch 301/743, loss: 0.001770  [ 9632/23750] (56.356s) val loss: 0.017865
+Batch 401/743, loss: 0.003946  [12832/23750] (56.371s) val loss: 0.015508
+Batch 501/743, loss: 0.002591  [16032/23750] (56.342s) val loss: 0.018888
+Batch 601/743, loss: 0.002964  [19232/23750] (56.352s) val loss: 0.017643
+Batch 701/743, loss: 0.005744  [22432/23750] (56.372s) val loss: 0.021851
+Batch 743/743, loss: 0.015995  [23750/23750] (31.827s) val loss: 0.018706
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 431.055s total
+Took 427.227s total
 -------------------------------
 
-Epoch 64
+Epoch 164
 -------------------------------
-Batch 101/743, loss: 0.009373  [ 3232/23750] (42.514s) val loss: 0.008539
-Batch 201/743, loss: 0.005413  [ 6432/23750] (56.755s) val loss: 0.007924
-Batch 301/743, loss: 0.005585  [ 9632/23750] (56.737s) val loss: 0.007973
-Batch 401/743, loss: 0.002991  [12832/23750] (56.842s) val loss: 0.007992
-Batch 501/743, loss: 0.007916  [16032/23750] (56.874s) val loss: 0.009348
-Batch 601/743, loss: 0.003047  [19232/23750] (56.720s) val loss: 0.009595
-Batch 701/743, loss: 0.006179  [22432/23750] (56.698s) val loss: 0.011158
-Batch 743/743, loss: 0.000552  [23750/23750] (32.090s) val loss: 0.007427
+Batch 101/743, loss: 0.003340  [ 3232/23750] (42.115s) val loss: 0.015649
+Batch 201/743, loss: 0.004173  [ 6432/23750] (56.362s) val loss: 0.017234
+Batch 301/743, loss: 0.002231  [ 9632/23750] (56.366s) val loss: 0.016432
+Batch 401/743, loss: 0.005012  [12832/23750] (56.347s) val loss: 0.017752
+Batch 501/743, loss: 0.004229  [16032/23750] (56.411s) val loss: 0.017730
+Batch 601/743, loss: 0.003353  [19232/23750] (56.409s) val loss: 0.021753
+Batch 701/743, loss: 0.003455  [22432/23750] (56.394s) val loss: 0.016787
+Batch 743/743, loss: 0.001351  [23750/23750] (31.794s) val loss: 0.018932
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 430.391s total
+Took 427.197s total
 -------------------------------
 
-Epoch 65
+Epoch 165
 -------------------------------
-Batch 101/743, loss: 0.004495  [ 3232/23750] (42.536s) val loss: 0.009147
-Batch 201/743, loss: 0.003106  [ 6432/23750] (56.806s) val loss: 0.010281
-Batch 301/743, loss: 0.001827  [ 9632/23750] (56.821s) val loss: 0.008909
-Batch 401/743, loss: 0.003636  [12832/23750] (56.906s) val loss: 0.009641
-Batch 501/743, loss: 0.001975  [16032/23750] (56.792s) val loss: 0.008898
-Batch 601/743, loss: 0.006684  [19232/23750] (56.845s) val loss: 0.007654
-Batch 701/743, loss: 0.003984  [22432/23750] (56.850s) val loss: 0.009455
-Batch 743/743, loss: 0.002776  [23750/23750] (32.154s) val loss: 0.008583
+Batch 101/743, loss: 0.003023  [ 3232/23750] (42.052s) val loss: 0.021242
+Batch 201/743, loss: 0.007299  [ 6432/23750] (56.351s) val loss: 0.024600
+Batch 301/743, loss: 0.000673  [ 9632/23750] (56.347s) val loss: 0.021334
+Batch 401/743, loss: 0.002323  [12832/23750] (56.371s) val loss: 0.019458
+Batch 501/743, loss: 0.001705  [16032/23750] (56.338s) val loss: 0.019302
+Batch 601/743, loss: 0.002711  [19232/23750] (56.353s) val loss: 0.017240
+Batch 701/743, loss: 0.002554  [22432/23750] (56.332s) val loss: 0.018650
+Batch 743/743, loss: 0.006717  [23750/23750] (31.833s) val loss: 0.016820
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 430.934s total
+Took 427.065s total
 -------------------------------
 
-Epoch 66
+Epoch 166
 -------------------------------
-Batch 101/743, loss: 0.004838  [ 3232/23750] (42.581s) val loss: 0.007160
-Batch 201/743, loss: 0.005414  [ 6432/23750] (57.043s) val loss: 0.007210
-Batch 301/743, loss: 0.002831  [ 9632/23750] (56.945s) val loss: 0.007904
-Batch 401/743, loss: 0.003954  [12832/23750] (56.963s) val loss: 0.006049
-Batch 501/743, loss: 0.005661  [16032/23750] (56.963s) val loss: 0.006218
-Batch 601/743, loss: 0.004075  [19232/23750] (56.851s) val loss: 0.006917
-Batch 701/743, loss: 0.002675  [22432/23750] (56.892s) val loss: 0.007716
-Batch 743/743, loss: 0.002551  [23750/23750] (32.151s) val loss: 0.008798
+Batch 101/743, loss: 0.002454  [ 3232/23750] (42.155s) val loss: 0.018987
+Batch 201/743, loss: 0.001822  [ 6432/23750] (56.379s) val loss: 0.020272
+Batch 301/743, loss: 0.003400  [ 9632/23750] (56.343s) val loss: 0.018550
+Batch 401/743, loss: 0.006869  [12832/23750] (56.405s) val loss: 0.018513
+Batch 501/743, loss: 0.003595  [16032/23750] (56.312s) val loss: 0.018856
+Batch 601/743, loss: 0.009688  [19232/23750] (56.388s) val loss: 0.019179
+Batch 701/743, loss: 0.010719  [22432/23750] (56.378s) val loss: 0.018507
+Batch 743/743, loss: 0.020722  [23750/23750] (31.805s) val loss: 0.019259
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 431.590s total
+Took 427.205s total
 -------------------------------
 
-Epoch 67
+Epoch 167
 -------------------------------
-Batch 101/743, loss: 0.007140  [ 3232/23750] (42.417s) val loss: 0.007068
-Batch 201/743, loss: 0.006220  [ 6432/23750] (56.673s) val loss: 0.006524
-Batch 301/743, loss: 0.005782  [ 9632/23750] (56.735s) val loss: 0.008510
-Batch 401/743, loss: 0.009749  [12832/23750] (56.720s) val loss: 0.007872
-Batch 501/743, loss: 0.010159  [16032/23750] (56.653s) val loss: 0.008455
-Batch 601/743, loss: 0.000835  [19232/23750] (56.739s) val loss: 0.007416
-Batch 701/743, loss: 0.005641  [22432/23750] (56.670s) val loss: 0.012744
-Batch 743/743, loss: 0.002623  [23750/23750] (32.066s) val loss: 0.006236
+Batch 101/743, loss: 0.001596  [ 3232/23750] (42.105s) val loss: 0.020954
+Batch 201/743, loss: 0.007115  [ 6432/23750] (56.371s) val loss: 0.021685
+Batch 301/743, loss: 0.002980  [ 9632/23750] (56.401s) val loss: 0.018441
+Batch 401/743, loss: 0.004509  [12832/23750] (56.347s) val loss: 0.014624
+Batch 501/743, loss: 0.003374  [16032/23750] (56.376s) val loss: 0.015778
+Batch 601/743, loss: 0.005197  [19232/23750] (56.416s) val loss: 0.018118
+Batch 701/743, loss: 0.008895  [22432/23750] (56.371s) val loss: 0.019860
+Batch 743/743, loss: 0.017132  [23750/23750] (31.843s) val loss: 0.019424
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 429.825s total
+Took 427.143s total
 -------------------------------
 
-Epoch 68
+Epoch 168
 -------------------------------
-Batch 101/743, loss: 0.002412  [ 3232/23750] (42.405s) val loss: 0.007357
-Batch 201/743, loss: 0.003669  [ 6432/23750] (56.730s) val loss: 0.009233
-Batch 301/743, loss: 0.007921  [ 9632/23750] (56.734s) val loss: 0.009695
-Batch 401/743, loss: 0.003694  [12832/23750] (56.793s) val loss: 0.009428
-Batch 501/743, loss: 0.002617  [16032/23750] (56.926s) val loss: 0.008392
-Batch 601/743, loss: 0.006122  [19232/23750] (57.018s) val loss: 0.006581
-Batch 701/743, loss: 0.005556  [22432/23750] (56.871s) val loss: 0.009098
-Batch 743/743, loss: 0.000479  [23750/23750] (32.089s) val loss: 0.008012
+Batch 101/743, loss: 0.002502  [ 3232/23750] (42.143s) val loss: 0.015649
+Batch 201/743, loss: 0.002725  [ 6432/23750] (56.356s) val loss: 0.019059
+Batch 301/743, loss: 0.002008  [ 9632/23750] (56.353s) val loss: 0.016848
+Batch 401/743, loss: 0.003305  [12832/23750] (56.373s) val loss: 0.019470
+Batch 501/743, loss: 0.004603  [16032/23750] (56.490s) val loss: 0.016887
+Batch 601/743, loss: 0.004568  [19232/23750] (56.386s) val loss: 0.017245
+Batch 701/743, loss: 0.005724  [22432/23750] (56.368s) val loss: 0.017746
+Batch 743/743, loss: 0.004303  [23750/23750] (31.855s) val loss: 0.017609
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 430.847s total
+Took 434.384s total
 -------------------------------
 
-Epoch 69
+Epoch 169
 -------------------------------
-Batch 101/743, loss: 0.000833  [ 3232/23750] (42.485s) val loss: 0.008952
-Batch 201/743, loss: 0.001356  [ 6432/23750] (56.738s) val loss: 0.007010
-Batch 301/743, loss: 0.004171  [ 9632/23750] (56.617s) val loss: 0.006981
-Batch 401/743, loss: 0.002497  [12832/23750] (56.707s) val loss: 0.007699
-Batch 501/743, loss: 0.003487  [16032/23750] (56.702s) val loss: 0.011947
-Batch 601/743, loss: 0.001132  [19232/23750] (56.638s) val loss: 0.011678
-Batch 701/743, loss: 0.006146  [22432/23750] (56.674s) val loss: 0.007456
-Batch 743/743, loss: 0.009165  [23750/23750] (31.949s) val loss: 0.008637
+Batch 101/743, loss: 0.002868  [ 3232/23750] (42.227s) val loss: 0.015134
+Batch 201/743, loss: 0.002578  [ 6432/23750] (56.371s) val loss: 0.016332
+Batch 301/743, loss: 0.005676  [ 9632/23750] (56.362s) val loss: 0.015856
+Batch 401/743, loss: 0.001540  [12832/23750] (56.399s) val loss: 0.016974
+Batch 501/743, loss: 0.002672  [16032/23750] (56.438s) val loss: 0.018717
+Batch 601/743, loss: 0.001553  [19232/23750] (56.380s) val loss: 0.016491
+Batch 701/743, loss: 0.003191  [22432/23750] (56.344s) val loss: 0.013260
+Batch 743/743, loss: 0.002925  [23750/23750] (31.834s) val loss: 0.017090
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 430.010s total
+Took 427.364s total
 -------------------------------
 
-Epoch 70
+Epoch 170
 -------------------------------
-Batch 101/743, loss: 0.004607  [ 3232/23750] (42.381s) val loss: 0.008576
-Batch 201/743, loss: 0.005955  [ 6432/23750] (56.647s) val loss: 0.008106
-Batch 301/743, loss: 0.001997  [ 9632/23750] (56.746s) val loss: 0.008153
-Batch 401/743, loss: 0.001145  [12832/23750] (56.783s) val loss: 0.007944
-Batch 501/743, loss: 0.003610  [16032/23750] (56.712s) val loss: 0.010933
-Batch 601/743, loss: 0.001399  [19232/23750] (56.791s) val loss: 0.008634
-Batch 701/743, loss: 0.001975  [22432/23750] (56.722s) val loss: 0.008990
-Batch 743/743, loss: 0.006118  [23750/23750] (32.077s) val loss: 0.008808
+Batch 101/743, loss: 0.003471  [ 3232/23750] (42.150s) val loss: 0.019579
+Batch 201/743, loss: 0.003483  [ 6432/23750] (56.393s) val loss: 0.018537
+Batch 301/743, loss: 0.002744  [ 9632/23750] (56.436s) val loss: 0.018934
+Batch 401/743, loss: 0.004689  [12832/23750] (56.410s) val loss: 0.019662
+Batch 501/743, loss: 0.002992  [16032/23750] (56.417s) val loss: 0.019671
+Batch 601/743, loss: 0.002740  [19232/23750] (56.426s) val loss: 0.016786
+Batch 701/743, loss: 0.002557  [22432/23750] (56.391s) val loss: 0.017259
+Batch 743/743, loss: 0.001701  [23750/23750] (31.847s) val loss: 0.012034
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 430.045s total
+Took 427.612s total
 -------------------------------
 
-Epoch 71
+Epoch 171
 -------------------------------
-Batch 101/743, loss: 0.004751  [ 3232/23750] (42.436s) val loss: 0.008189
-Batch 201/743, loss: 0.011548  [ 6432/23750] (56.723s) val loss: 0.009025
-Batch 301/743, loss: 0.005906  [ 9632/23750] (56.634s) val loss: 0.008842
-Batch 401/743, loss: 0.003057  [12832/23750] (56.664s) val loss: 0.013039
-Batch 501/743, loss: 0.003778  [16032/23750] (56.736s) val loss: 0.012033
-Batch 601/743, loss: 0.001700  [19232/23750] (56.622s) val loss: 0.012609
-Batch 701/743, loss: 0.008041  [22432/23750] (56.672s) val loss: 0.008568
-Batch 743/743, loss: 0.000776  [23750/23750] (32.034s) val loss: 0.007609
+Batch 101/743, loss: 0.002121  [ 3232/23750] (42.113s) val loss: 0.018883
+Batch 201/743, loss: 0.009897  [ 6432/23750] (56.414s) val loss: 0.019702
+Batch 301/743, loss: 0.002553  [ 9632/23750] (56.429s) val loss: 0.017003
+Batch 401/743, loss: 0.002110  [12832/23750] (56.431s) val loss: 0.019552
+Batch 501/743, loss: 0.004724  [16032/23750] (56.452s) val loss: 0.016506
+Batch 601/743, loss: 0.001787  [19232/23750] (56.482s) val loss: 0.019344
+Batch 701/743, loss: 0.002126  [22432/23750] (56.457s) val loss: 0.020029
+Batch 743/743, loss: 0.008468  [23750/23750] (31.875s) val loss: 0.018333
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 430.224s total
+Took 427.728s total
 -------------------------------
 
-Epoch 72
+Epoch 172
 -------------------------------
-Batch 101/743, loss: 0.010923  [ 3232/23750] (42.570s) val loss: 0.009648
-Batch 201/743, loss: 0.002060  [ 6432/23750] (56.921s) val loss: 0.007982
-Batch 301/743, loss: 0.005326  [ 9632/23750] (56.836s) val loss: 0.007767
-Batch 401/743, loss: 0.003166  [12832/23750] (56.868s) val loss: 0.006395
-Batch 501/743, loss: 0.006289  [16032/23750] (56.996s) val loss: 0.008705
-Batch 601/743, loss: 0.003651  [19232/23750] (56.831s) val loss: 0.011414
-Batch 701/743, loss: 0.001832  [22432/23750] (56.699s) val loss: 0.009908
-Batch 743/743, loss: 0.001341  [23750/23750] (32.075s) val loss: 0.007295
+Batch 101/743, loss: 0.004111  [ 3232/23750] (42.184s) val loss: 0.017202
+Batch 201/743, loss: 0.002404  [ 6432/23750] (56.463s) val loss: 0.015265
+Batch 301/743, loss: 0.007418  [ 9632/23750] (56.441s) val loss: 0.016445
+Batch 401/743, loss: 0.002112  [12832/23750] (56.442s) val loss: 0.016608
+Batch 501/743, loss: 0.003780  [16032/23750] (56.476s) val loss: 0.013943
+Batch 601/743, loss: 0.005672  [19232/23750] (56.423s) val loss: 0.014027
+Batch 701/743, loss: 0.003467  [22432/23750] (56.514s) val loss: 0.017451
+Batch 743/743, loss: 0.004659  [23750/23750] (31.842s) val loss: 0.015224
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 430.983s total
+Took 427.888s total
 -------------------------------
 
-Epoch 73
+Epoch 173
 -------------------------------
-Batch 101/743, loss: 0.003470  [ 3232/23750] (42.477s) val loss: 0.007376
-Batch 201/743, loss: 0.002062  [ 6432/23750] (56.760s) val loss: 0.009026
-Batch 301/743, loss: 0.001179  [ 9632/23750] (56.645s) val loss: 0.008949
-Batch 401/743, loss: 0.001953  [12832/23750] (56.706s) val loss: 0.006820
-Batch 501/743, loss: 0.003137  [16032/23750] (56.769s) val loss: 0.009006
-Batch 601/743, loss: 0.007789  [19232/23750] (56.899s) val loss: 0.009768
-Batch 701/743, loss: 0.004692  [22432/23750] (56.815s) val loss: 0.007385
-Batch 743/743, loss: 0.007704  [23750/23750] (32.184s) val loss: 0.010648
+Batch 101/743, loss: 0.002590  [ 3232/23750] (42.134s) val loss: 0.017019
+Batch 201/743, loss: 0.006144  [ 6432/23750] (56.480s) val loss: 0.019343
+Batch 301/743, loss: 0.001950  [ 9632/23750] (56.458s) val loss: 0.015140
+Batch 401/743, loss: 0.003789  [12832/23750] (56.430s) val loss: 0.017003
+Batch 501/743, loss: 0.003957  [16032/23750] (56.429s) val loss: 0.016877
+Batch 601/743, loss: 0.002842  [19232/23750] (56.413s) val loss: 0.019511
+Batch 701/743, loss: 0.002475  [22432/23750] (56.426s) val loss: 0.013933
+Batch 743/743, loss: 0.002073  [23750/23750] (31.823s) val loss: 0.017600
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 430.514s total
+Took 427.668s total
 -------------------------------
 
-Epoch 74
+Epoch 174
 -------------------------------
-Batch 101/743, loss: 0.007089  [ 3232/23750] (42.566s) val loss: 0.007326
-Batch 201/743, loss: 0.004703  [ 6432/23750] (56.704s) val loss: 0.010898
-Batch 301/743, loss: 0.003237  [ 9632/23750] (56.777s) val loss: 0.008124
-Batch 401/743, loss: 0.004258  [12832/23750] (56.715s) val loss: 0.007111
-Batch 501/743, loss: 0.008380  [16032/23750] (56.795s) val loss: 0.008551
-Batch 601/743, loss: 0.001024  [19232/23750] (56.764s) val loss: 0.005810
-Batch 701/743, loss: 0.003505  [22432/23750] (56.675s) val loss: 0.006972
-Batch 743/743, loss: 0.011918  [23750/23750] (31.977s) val loss: 0.007611
+Batch 101/743, loss: 0.001689  [ 3232/23750] (42.152s) val loss: 0.016389
+Batch 201/743, loss: 0.005374  [ 6432/23750] (56.711s) val loss: 0.016023
+Batch 301/743, loss: 0.002650  [ 9632/23750] (56.876s) val loss: 0.017159
+Batch 401/743, loss: 0.002304  [12832/23750] (56.888s) val loss: 0.014997
+Batch 501/743, loss: 0.003425  [16032/23750] (56.848s) val loss: 0.016764
+Batch 601/743, loss: 0.002194  [19232/23750] (56.834s) val loss: 0.021791
+Batch 701/743, loss: 0.003868  [22432/23750] (56.862s) val loss: 0.016064
+Batch 743/743, loss: 0.009697  [23750/23750] (32.150s) val loss: 0.013862
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 430.160s total
+Took 430.701s total
 -------------------------------
 
-Epoch 75
+Epoch 175
 -------------------------------
-Batch 101/743, loss: 0.001987  [ 3232/23750] (42.599s) val loss: 0.006243
-Batch 201/743, loss: 0.002506  [ 6432/23750] (56.861s) val loss: 0.007038
-Batch 301/743, loss: 0.005061  [ 9632/23750] (56.794s) val loss: 0.007880
-Batch 401/743, loss: 0.002573  [12832/23750] (56.821s) val loss: 0.009028
-Batch 501/743, loss: 0.004199  [16032/23750] (56.634s) val loss: 0.005634
-Batch 601/743, loss: 0.009817  [19232/23750] (56.746s) val loss: 0.010694
-Batch 701/743, loss: 0.004966  [22432/23750] (56.698s) val loss: 0.008534
-Batch 743/743, loss: 0.005013  [23750/23750] (32.034s) val loss: 0.008802
+Batch 101/743, loss: 0.007321  [ 3232/23750] (42.387s) val loss: 0.015329
+Batch 201/743, loss: 0.002622  [ 6432/23750] (56.845s) val loss: 0.015534
+Batch 301/743, loss: 0.005911  [ 9632/23750] (56.802s) val loss: 0.016015
+Batch 401/743, loss: 0.000982  [12832/23750] (56.868s) val loss: 0.016360
+Batch 501/743, loss: 0.004733  [16032/23750] (56.821s) val loss: 0.015314
+Batch 601/743, loss: 0.001559  [19232/23750] (56.872s) val loss: 0.016202
+Batch 701/743, loss: 0.001455  [22432/23750] (56.776s) val loss: 0.018865
+Batch 743/743, loss: 0.002523  [23750/23750] (32.128s) val loss: 0.017853
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 430.390s total
+Took 430.665s total
 -------------------------------
 
-Epoch 76
+Epoch 176
 -------------------------------
-Batch 101/743, loss: 0.001946  [ 3232/23750] (42.506s) val loss: 0.007368
-Batch 201/743, loss: 0.002401  [ 6432/23750] (56.790s) val loss: 0.006484
-Batch 301/743, loss: 0.016953  [ 9632/23750] (56.799s) val loss: 0.011229
-Batch 401/743, loss: 0.002209  [12832/23750] (56.681s) val loss: 0.007721
-Batch 501/743, loss: 0.001372  [16032/23750] (56.795s) val loss: 0.007326
-Batch 601/743, loss: 0.002712  [19232/23750] (56.751s) val loss: 0.009724
-Batch 701/743, loss: 0.000696  [22432/23750] (56.707s) val loss: 0.008515
-Batch 743/743, loss: 0.010958  [23750/23750] (32.198s) val loss: 0.006862
+Batch 101/743, loss: 0.002128  [ 3232/23750] (42.443s) val loss: 0.017593
+Batch 201/743, loss: 0.004965  [ 6432/23750] (56.853s) val loss: 0.020176
+Batch 301/743, loss: 0.002107  [ 9632/23750] (56.770s) val loss: 0.016081
+Batch 401/743, loss: 0.005729  [12832/23750] (56.777s) val loss: 0.017204
+Batch 501/743, loss: 0.006347  [16032/23750] (56.830s) val loss: 0.016545
+Batch 601/743, loss: 0.006382  [19232/23750] (56.782s) val loss: 0.020159
+Batch 701/743, loss: 0.003889  [22432/23750] (56.867s) val loss: 0.017607
+Batch 743/743, loss: 0.002165  [23750/23750] (32.163s) val loss: 0.015205
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 430.631s total
+Took 430.774s total
 -------------------------------
 
-Epoch 77
+Epoch 177
 -------------------------------
-Batch 101/743, loss: 0.002066  [ 3232/23750] (42.561s) val loss: 0.008932
-Batch 201/743, loss: 0.005627  [ 6432/23750] (57.023s) val loss: 0.007976
-Batch 301/743, loss: 0.007497  [ 9632/23750] (56.899s) val loss: 0.006876
-Batch 401/743, loss: 0.006569  [12832/23750] (56.934s) val loss: 0.006712
-Batch 501/743, loss: 0.001648  [16032/23750] (57.038s) val loss: 0.007032
-Batch 601/743, loss: 0.003911  [19232/23750] (57.021s) val loss: 0.007004
-Batch 701/743, loss: 0.005105  [22432/23750] (57.093s) val loss: 0.007243
-Batch 743/743, loss: 0.000052  [23750/23750] (32.212s) val loss: 0.008564
+Batch 101/743, loss: 0.002976  [ 3232/23750] (42.355s) val loss: 0.015306
+Batch 201/743, loss: 0.003773  [ 6432/23750] (56.688s) val loss: 0.014410
+Batch 301/743, loss: 0.001893  [ 9632/23750] (56.672s) val loss: 0.016429
+Batch 401/743, loss: 0.003479  [12832/23750] (56.679s) val loss: 0.015280
+Batch 501/743, loss: 0.001962  [16032/23750] (56.531s) val loss: 0.017683
+Batch 601/743, loss: 0.004058  [19232/23750] (56.552s) val loss: 0.015685
+Batch 701/743, loss: 0.004422  [22432/23750] (56.391s) val loss: 0.013444
+Batch 743/743, loss: 0.012202  [23750/23750] (31.839s) val loss: 0.012821
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 432.263s total
+Took 428.807s total
 -------------------------------
 
-Epoch 78
+Epoch 178
 -------------------------------
-Batch 101/743, loss: 0.003425  [ 3232/23750] (42.774s) val loss: 0.009493
-Batch 201/743, loss: 0.005126  [ 6432/23750] (57.215s) val loss: 0.008266
-Batch 301/743, loss: 0.006970  [ 9632/23750] (57.230s) val loss: 0.006541
-Batch 401/743, loss: 0.001156  [12832/23750] (57.219s) val loss: 0.008579
-Batch 501/743, loss: 0.001678  [16032/23750] (57.126s) val loss: 0.007708
-Batch 601/743, loss: 0.001600  [19232/23750] (57.204s) val loss: 0.006254
-Batch 701/743, loss: 0.002017  [22432/23750] (57.103s) val loss: 0.008940
-Batch 743/743, loss: 0.006102  [23750/23750] (32.357s) val loss: 0.009368
+Batch 101/743, loss: 0.007144  [ 3232/23750] (42.160s) val loss: 0.015330
+Batch 201/743, loss: 0.003756  [ 6432/23750] (56.445s) val loss: 0.018405
+Batch 301/743, loss: 0.001349  [ 9632/23750] (56.416s) val loss: 0.016198
+Batch 401/743, loss: 0.001214  [12832/23750] (56.414s) val loss: 0.014488
+Batch 501/743, loss: 0.001592  [16032/23750] (56.389s) val loss: 0.015200
+Batch 601/743, loss: 0.008549  [19232/23750] (56.427s) val loss: 0.014374
+Batch 701/743, loss: 0.004340  [22432/23750] (56.454s) val loss: 0.017624
+Batch 743/743, loss: 0.012717  [23750/23750] (31.903s) val loss: 0.015039
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 433.639s total
+Took 427.638s total
 -------------------------------
 
-Epoch 79
+Epoch 179
 -------------------------------
-Batch 101/743, loss: 0.004363  [ 3232/23750] (42.618s) val loss: 0.010367
-Batch 201/743, loss: 0.007149  [ 6432/23750] (56.977s) val loss: 0.008261
-Batch 301/743, loss: 0.002816  [ 9632/23750] (56.903s) val loss: 0.009074
-Batch 401/743, loss: 0.002508  [12832/23750] (56.979s) val loss: 0.007758
-Batch 501/743, loss: 0.001773  [16032/23750] (56.920s) val loss: 0.008413
-Batch 601/743, loss: 0.005040  [19232/23750] (57.032s) val loss: 0.008506
-Batch 701/743, loss: 0.001141  [22432/23750] (57.023s) val loss: 0.007032
-Batch 743/743, loss: 0.007166  [23750/23750] (32.155s) val loss: 0.007777
+Batch 101/743, loss: 0.002160  [ 3232/23750] (42.142s) val loss: 0.018768
+Batch 201/743, loss: 0.003826  [ 6432/23750] (56.444s) val loss: 0.016275
+Batch 301/743, loss: 0.001211  [ 9632/23750] (56.398s) val loss: 0.014982
+Batch 401/743, loss: 0.002440  [12832/23750] (56.423s) val loss: 0.012423
+Batch 501/743, loss: 0.003347  [16032/23750] (56.405s) val loss: 0.017842
+Batch 601/743, loss: 0.006554  [19232/23750] (56.410s) val loss: 0.017310
+Batch 701/743, loss: 0.008580  [22432/23750] (56.366s) val loss: 0.018559
+Batch 743/743, loss: 0.002946  [23750/23750] (31.832s) val loss: 0.016976
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 431.992s total
+Took 427.485s total
 -------------------------------
 
-Epoch 80
+Epoch 180
 -------------------------------
-Batch 101/743, loss: 0.003151  [ 3232/23750] (42.628s) val loss: 0.008138
-Batch 201/743, loss: 0.007208  [ 6432/23750] (56.999s) val loss: 0.006981
-Batch 301/743, loss: 0.001307  [ 9632/23750] (56.904s) val loss: 0.007373
-Batch 401/743, loss: 0.001742  [12832/23750] (56.813s) val loss: 0.008355
-Batch 501/743, loss: 0.006846  [16032/23750] (56.829s) val loss: 0.007221
-Batch 601/743, loss: 0.011986  [19232/23750] (56.685s) val loss: 0.007294
-Batch 701/743, loss: 0.010914  [22432/23750] (56.899s) val loss: 0.008446
-Batch 743/743, loss: 0.005325  [23750/23750] (32.127s) val loss: 0.008068
+Batch 101/743, loss: 0.002645  [ 3232/23750] (42.111s) val loss: 0.016549
+Batch 201/743, loss: 0.006381  [ 6432/23750] (56.319s) val loss: 0.015991
+Batch 301/743, loss: 0.001838  [ 9632/23750] (56.345s) val loss: 0.016527
+Batch 401/743, loss: 0.001911  [12832/23750] (56.307s) val loss: 0.014454
+Batch 501/743, loss: 0.010063  [16032/23750] (56.341s) val loss: 0.016037
+Batch 601/743, loss: 0.009139  [19232/23750] (56.293s) val loss: 0.014811
+Batch 701/743, loss: 0.006397  [22432/23750] (56.346s) val loss: 0.017058
+Batch 743/743, loss: 0.005004  [23750/23750] (31.800s) val loss: 0.016793
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 431.109s total
+Took 426.995s total
 -------------------------------
 
-Epoch 81
+Epoch 181
 -------------------------------
-Batch 101/743, loss: 0.004395  [ 3232/23750] (42.484s) val loss: 0.010602
-Batch 201/743, loss: 0.003005  [ 6432/23750] (56.866s) val loss: 0.008454
-Batch 301/743, loss: 0.003537  [ 9632/23750] (56.903s) val loss: 0.006356
-Batch 401/743, loss: 0.002775  [12832/23750] (56.861s) val loss: 0.007294
-Batch 501/743, loss: 0.001775  [16032/23750] (56.979s) val loss: 0.009434
-Batch 601/743, loss: 0.002099  [19232/23750] (56.916s) val loss: 0.006744
-Batch 701/743, loss: 0.000948  [22432/23750] (56.874s) val loss: 0.005996
-Batch 743/743, loss: 0.003664  [23750/23750] (32.127s) val loss: 0.006635
+Batch 101/743, loss: 0.001405  [ 3232/23750] (42.093s) val loss: 0.013527
+Batch 201/743, loss: 0.006040  [ 6432/23750] (56.335s) val loss: 0.012027
+Batch 301/743, loss: 0.003734  [ 9632/23750] (56.337s) val loss: 0.017865
+Batch 401/743, loss: 0.004057  [12832/23750] (56.407s) val loss: 0.014910
+Batch 501/743, loss: 0.003840  [16032/23750] (56.366s) val loss: 0.017697
+Batch 601/743, loss: 0.004030  [19232/23750] (56.281s) val loss: 0.016113
+Batch 701/743, loss: 0.004770  [22432/23750] (56.304s) val loss: 0.013897
+Batch 743/743, loss: 0.001104  [23750/23750] (31.808s) val loss: 0.013630
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 431.397s total
+Took 427.160s total
 -------------------------------
 
-Epoch 82
+Epoch 182
 -------------------------------
-Batch 101/743, loss: 0.010486  [ 3232/23750] (42.566s) val loss: 0.007606
-Batch 201/743, loss: 0.005241  [ 6432/23750] (56.924s) val loss: 0.008206
-Batch 301/743, loss: 0.002205  [ 9632/23750] (56.828s) val loss: 0.007539
-Batch 401/743, loss: 0.002255  [12832/23750] (56.916s) val loss: 0.006492
-Batch 501/743, loss: 0.009695  [16032/23750] (56.801s) val loss: 0.007995
-Batch 601/743, loss: 0.002441  [19232/23750] (56.784s) val loss: 0.006555
-Batch 701/743, loss: 0.001460  [22432/23750] (56.711s) val loss: 0.010601
-Batch 743/743, loss: 0.003108  [23750/23750] (32.158s) val loss: 0.007364
+Batch 101/743, loss: 0.004556  [ 3232/23750] (42.096s) val loss: 0.014252
+Batch 201/743, loss: 0.003583  [ 6432/23750] (56.355s) val loss: 0.015612
+Batch 301/743, loss: 0.003374  [ 9632/23750] (56.338s) val loss: 0.013709
+Batch 401/743, loss: 0.003059  [12832/23750] (56.352s) val loss: 0.014738
+Batch 501/743, loss: 0.003650  [16032/23750] (56.349s) val loss: 0.014313
+Batch 601/743, loss: 0.002455  [19232/23750] (56.436s) val loss: 0.013428
+Batch 701/743, loss: 0.005946  [22432/23750] (56.420s) val loss: 0.013116
+Batch 743/743, loss: 0.004225  [23750/23750] (31.890s) val loss: 0.011231
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 430.910s total
+Took 427.260s total
 -------------------------------
 
-Epoch 83
+Epoch 183
 -------------------------------
-Batch 101/743, loss: 0.002296  [ 3232/23750] (42.568s) val loss: 0.009193
-Batch 201/743, loss: 0.004832  [ 6432/23750] (56.882s) val loss: 0.008914
-Batch 301/743, loss: 0.002619  [ 9632/23750] (56.811s) val loss: 0.008095
-Batch 401/743, loss: 0.001065  [12832/23750] (56.785s) val loss: 0.006345
-Batch 501/743, loss: 0.005475  [16032/23750] (56.878s) val loss: 0.008342
-Batch 601/743, loss: 0.020312  [19232/23750] (56.854s) val loss: 0.008706
-Batch 701/743, loss: 0.006203  [22432/23750] (56.741s) val loss: 0.009568
-Batch 743/743, loss: 0.016690  [23750/23750] (32.061s) val loss: 0.009523
+Batch 101/743, loss: 0.002307  [ 3232/23750] (42.118s) val loss: 0.015241
+Batch 201/743, loss: 0.006036  [ 6432/23750] (56.349s) val loss: 0.014053
+Batch 301/743, loss: 0.002893  [ 9632/23750] (56.384s) val loss: 0.014315
+Batch 401/743, loss: 0.006291  [12832/23750] (56.345s) val loss: 0.016459
+Batch 501/743, loss: 0.004679  [16032/23750] (56.343s) val loss: 0.014176
+Batch 601/743, loss: 0.001302  [19232/23750] (56.429s) val loss: 0.016803
+Batch 701/743, loss: 0.004571  [22432/23750] (56.375s) val loss: 0.015503
+Batch 743/743, loss: 0.000138  [23750/23750] (31.829s) val loss: 0.015107
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 430.679s total
+Took 427.125s total
 -------------------------------
 
-Epoch 84
+Epoch 184
 -------------------------------
-Batch 101/743, loss: 0.003304  [ 3232/23750] (42.440s) val loss: 0.009501
-Batch 201/743, loss: 0.002267  [ 6432/23750] (56.655s) val loss: 0.007436
-Batch 301/743, loss: 0.003701  [ 9632/23750] (56.649s) val loss: 0.007957
-Batch 401/743, loss: 0.001642  [12832/23750] (56.652s) val loss: 0.007421
-Batch 501/743, loss: 0.002854  [16032/23750] (56.734s) val loss: 0.007467
-Batch 601/743, loss: 0.005007  [19232/23750] (56.765s) val loss: 0.007977
-Batch 701/743, loss: 0.002190  [22432/23750] (56.703s) val loss: 0.007644
-Batch 743/743, loss: 0.002082  [23750/23750] (32.113s) val loss: 0.010139
+Batch 101/743, loss: 0.002798  [ 3232/23750] (42.125s) val loss: 0.015779
+Batch 201/743, loss: 0.000993  [ 6432/23750] (56.344s) val loss: 0.014732
+Batch 301/743, loss: 0.003416  [ 9632/23750] (56.356s) val loss: 0.014073
+Batch 401/743, loss: 0.002642  [12832/23750] (56.421s) val loss: 0.015492
+Batch 501/743, loss: 0.001184  [16032/23750] (56.428s) val loss: 0.012919
+Batch 601/743, loss: 0.006113  [19232/23750] (56.384s) val loss: 0.017777
+Batch 701/743, loss: 0.010529  [22432/23750] (56.406s) val loss: 0.015770
+Batch 743/743, loss: 0.016143  [23750/23750] (31.854s) val loss: 0.014197
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 430.430s total
+Took 427.333s total
 -------------------------------
 
-Epoch 85
+Epoch 185
 -------------------------------
-Batch 101/743, loss: 0.001773  [ 3232/23750] (42.570s) val loss: 0.008001
-Batch 201/743, loss: 0.002743  [ 6432/23750] (56.643s) val loss: 0.009343
-Batch 301/743, loss: 0.002811  [ 9632/23750] (56.684s) val loss: 0.010426
-Batch 401/743, loss: 0.004447  [12832/23750] (56.743s) val loss: 0.008038
-Batch 501/743, loss: 0.007576  [16032/23750] (56.617s) val loss: 0.006383
-Batch 601/743, loss: 0.011417  [19232/23750] (56.593s) val loss: 0.007002
-Batch 701/743, loss: 0.003186  [22432/23750] (56.718s) val loss: 0.008567
-Batch 743/743, loss: 0.005831  [23750/23750] (32.001s) val loss: 0.007818
+Batch 101/743, loss: 0.004319  [ 3232/23750] (42.145s) val loss: 0.013541
+Batch 201/743, loss: 0.002847  [ 6432/23750] (56.415s) val loss: 0.011544
+Batch 301/743, loss: 0.003296  [ 9632/23750] (56.407s) val loss: 0.014401
+Batch 401/743, loss: 0.004697  [12832/23750] (56.389s) val loss: 0.014262
+Batch 501/743, loss: 0.001565  [16032/23750] (56.353s) val loss: 0.018589
+Batch 601/743, loss: 0.004345  [19232/23750] (56.404s) val loss: 0.012794
+Batch 701/743, loss: 0.001240  [22432/23750] (56.574s) val loss: 0.014635
+Batch 743/743, loss: 0.012581  [23750/23750] (32.003s) val loss: 0.014114
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 429.726s total
+Took 427.761s total
 -------------------------------
 
-Epoch 86
+Epoch 186
 -------------------------------
-Batch 101/743, loss: 0.002714  [ 3232/23750] (42.407s) val loss: 0.008595
-Batch 201/743, loss: 0.000972  [ 6432/23750] (56.692s) val loss: 0.009666
-Batch 301/743, loss: 0.002084  [ 9632/23750] (56.608s) val loss: 0.007821
-Batch 401/743, loss: 0.006487  [12832/23750] (56.773s) val loss: 0.007467
-Batch 501/743, loss: 0.001031  [16032/23750] (56.770s) val loss: 0.007802
-Batch 601/743, loss: 0.003318  [19232/23750] (56.715s) val loss: 0.009206
-Batch 701/743, loss: 0.007241  [22432/23750] (56.759s) val loss: 0.008709
-Batch 743/743, loss: 0.016508  [23750/23750] (31.999s) val loss: 0.008517
+Batch 101/743, loss: 0.008327  [ 3232/23750] (42.132s) val loss: 0.013080
+Batch 201/743, loss: 0.002306  [ 6432/23750] (56.390s) val loss: 0.014109
+Batch 301/743, loss: 0.007508  [ 9632/23750] (56.367s) val loss: 0.014617
+Batch 401/743, loss: 0.004107  [12832/23750] (56.404s) val loss: 0.013289
+Batch 501/743, loss: 0.001699  [16032/23750] (56.358s) val loss: 0.014053
+Batch 601/743, loss: 0.006143  [19232/23750] (56.426s) val loss: 0.013355
+Batch 701/743, loss: 0.001057  [22432/23750] (56.395s) val loss: 0.011588
+Batch 743/743, loss: 0.000392  [23750/23750] (31.842s) val loss: 0.012927
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 430.030s total
+Took 427.288s total
 -------------------------------
 
-Epoch 87
+Epoch 187
 -------------------------------
-Batch 101/743, loss: 0.003522  [ 3232/23750] (42.450s) val loss: 0.008845
-Batch 201/743, loss: 0.005305  [ 6432/23750] (56.634s) val loss: 0.007937
-Batch 301/743, loss: 0.001719  [ 9632/23750] (56.712s) val loss: 0.007564
-Batch 401/743, loss: 0.009454  [12832/23750] (56.588s) val loss: 0.009288
-Batch 501/743, loss: 0.007097  [16032/23750] (56.704s) val loss: 0.007060
-Batch 601/743, loss: 0.001415  [19232/23750] (56.688s) val loss: 0.006362
-Batch 701/743, loss: 0.001848  [22432/23750] (56.607s) val loss: 0.006634
-Batch 743/743, loss: 0.003746  [23750/23750] (31.962s) val loss: 0.006604
+Batch 101/743, loss: 0.004218  [ 3232/23750] (42.102s) val loss: 0.011722
+Batch 201/743, loss: 0.002300  [ 6432/23750] (56.396s) val loss: 0.015762
+Batch 301/743, loss: 0.002430  [ 9632/23750] (56.359s) val loss: 0.014578
+Batch 401/743, loss: 0.004517  [12832/23750] (56.374s) val loss: 0.011117
+Batch 501/743, loss: 0.004794  [16032/23750] (56.345s) val loss: 0.012399
+Batch 601/743, loss: 0.005415  [19232/23750] (56.429s) val loss: 0.014147
+Batch 701/743, loss: 0.001622  [22432/23750] (56.423s) val loss: 0.014825
+Batch 743/743, loss: 0.002300  [23750/23750] (31.851s) val loss: 0.017425
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 429.559s total
+Took 427.487s total
 -------------------------------
 
-Epoch 88
+Epoch 188
 -------------------------------
-Batch 101/743, loss: 0.001794  [ 3232/23750] (42.588s) val loss: 0.007609
-Batch 201/743, loss: 0.003738  [ 6432/23750] (56.873s) val loss: 0.008758
-Batch 301/743, loss: 0.003187  [ 9632/23750] (56.742s) val loss: 0.006874
-Batch 401/743, loss: 0.002818  [12832/23750] (56.779s) val loss: 0.009502
-Batch 501/743, loss: 0.002048  [16032/23750] (56.766s) val loss: 0.009651
-Batch 601/743, loss: 0.004192  [19232/23750] (56.677s) val loss: 0.008402
-Batch 701/743, loss: 0.003142  [22432/23750] (56.773s) val loss: 0.007467
-Batch 743/743, loss: 0.021165  [23750/23750] (32.075s) val loss: 0.007568
+Batch 101/743, loss: 0.004851  [ 3232/23750] (42.172s) val loss: 0.014080
+Batch 201/743, loss: 0.004396  [ 6432/23750] (56.356s) val loss: 0.012171
+Batch 301/743, loss: 0.003631  [ 9632/23750] (56.380s) val loss: 0.010533
+Batch 401/743, loss: 0.003417  [12832/23750] (56.412s) val loss: 0.013546
+Batch 501/743, loss: 0.003434  [16032/23750] (56.417s) val loss: 0.014329
+Batch 601/743, loss: 0.002298  [19232/23750] (56.350s) val loss: 0.012121
+Batch 701/743, loss: 0.002097  [22432/23750] (56.405s) val loss: 0.016326
+Batch 743/743, loss: 0.003240  [23750/23750] (31.841s) val loss: 0.014093
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 430.654s total
+Took 427.265s total
 -------------------------------
 
-Epoch 89
+Epoch 189
 -------------------------------
-Batch 101/743, loss: 0.004340  [ 3232/23750] (42.491s) val loss: 0.008660
-Batch 201/743, loss: 0.003455  [ 6432/23750] (56.745s) val loss: 0.006500
-Batch 301/743, loss: 0.000653  [ 9632/23750] (56.850s) val loss: 0.007533
-Batch 401/743, loss: 0.001472  [12832/23750] (56.885s) val loss: 0.007821
-Batch 501/743, loss: 0.004609  [16032/23750] (56.856s) val loss: 0.008421
-Batch 601/743, loss: 0.002377  [19232/23750] (56.866s) val loss: 0.010164
-Batch 701/743, loss: 0.002239  [22432/23750] (56.866s) val loss: 0.008490
-Batch 743/743, loss: 0.001719  [23750/23750] (32.141s) val loss: 0.008324
+Batch 101/743, loss: 0.000662  [ 3232/23750] (42.134s) val loss: 0.017618
+Batch 201/743, loss: 0.005639  [ 6432/23750] (56.365s) val loss: 0.015589
+Batch 301/743, loss: 0.000999  [ 9632/23750] (56.392s) val loss: 0.013041
+Batch 401/743, loss: 0.006473  [12832/23750] (56.362s) val loss: 0.014332
+Batch 501/743, loss: 0.005462  [16032/23750] (56.376s) val loss: 0.015398
+Batch 601/743, loss: 0.001931  [19232/23750] (56.327s) val loss: 0.012381
+Batch 701/743, loss: 0.007117  [22432/23750] (56.301s) val loss: 0.013043
+Batch 743/743, loss: 0.002387  [23750/23750] (31.798s) val loss: 0.013079
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 431.350s total
+Took 427.279s total
 -------------------------------
 
-Epoch 90
+Epoch 190
 -------------------------------
-Batch 101/743, loss: 0.005218  [ 3232/23750] (42.548s) val loss: 0.006499
-Batch 201/743, loss: 0.001559  [ 6432/23750] (56.919s) val loss: 0.008184
-Batch 301/743, loss: 0.003252  [ 9632/23750] (56.815s) val loss: 0.008364
-Batch 401/743, loss: 0.005120  [12832/23750] (56.905s) val loss: 0.007618
-Batch 501/743, loss: 0.001628  [16032/23750] (56.858s) val loss: 0.007878
-Batch 601/743, loss: 0.006092  [19232/23750] (56.791s) val loss: 0.007806
-Batch 701/743, loss: 0.002450  [22432/23750] (56.865s) val loss: 0.008108
-Batch 743/743, loss: 0.000232  [23750/23750] (32.096s) val loss: 0.008442
+Batch 101/743, loss: 0.006932  [ 3232/23750] (42.144s) val loss: 0.017226
+Batch 201/743, loss: 0.001617  [ 6432/23750] (56.371s) val loss: 0.017581
+Batch 301/743, loss: 0.005513  [ 9632/23750] (56.430s) val loss: 0.012617
+Batch 401/743, loss: 0.003543  [12832/23750] (56.434s) val loss: 0.013478
+Batch 501/743, loss: 0.002645  [16032/23750] (56.399s) val loss: 0.014067
+Batch 601/743, loss: 0.011357  [19232/23750] (56.380s) val loss: 0.011541
+Batch 701/743, loss: 0.001985  [22432/23750] (56.369s) val loss: 0.013551
+Batch 743/743, loss: 0.004978  [23750/23750] (31.846s) val loss: 0.011691
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 431.025s total
+Took 427.289s total
 -------------------------------
 
-Epoch 91
+Epoch 191
 -------------------------------
-Batch 101/743, loss: 0.001542  [ 3232/23750] (42.440s) val loss: 0.007550
-Batch 201/743, loss: 0.002269  [ 6432/23750] (56.741s) val loss: 0.008105
-Batch 301/743, loss: 0.004461  [ 9632/23750] (56.637s) val loss: 0.007753
-Batch 401/743, loss: 0.003209  [12832/23750] (56.732s) val loss: 0.007005
-Batch 501/743, loss: 0.001826  [16032/23750] (56.711s) val loss: 0.006233
-Batch 601/743, loss: 0.007144  [19232/23750] (56.596s) val loss: 0.008531
-Batch 701/743, loss: 0.007318  [22432/23750] (56.615s) val loss: 0.006241
-Batch 743/743, loss: 0.042929  [23750/23750] (31.998s) val loss: 0.009357
+Batch 101/743, loss: 0.001230  [ 3232/23750] (42.111s) val loss: 0.012156
+Batch 201/743, loss: 0.000704  [ 6432/23750] (56.347s) val loss: 0.011338
+Batch 301/743, loss: 0.001404  [ 9632/23750] (56.377s) val loss: 0.013773
+Batch 401/743, loss: 0.001730  [12832/23750] (56.412s) val loss: 0.017246
+Batch 501/743, loss: 0.002196  [16032/23750] (56.339s) val loss: 0.013056
+Batch 601/743, loss: 0.002590  [19232/23750] (56.393s) val loss: 0.015172
+Batch 701/743, loss: 0.005030  [22432/23750] (56.366s) val loss: 0.017665
+Batch 743/743, loss: 0.008320  [23750/23750] (31.832s) val loss: 0.013941
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 429.673s total
+Took 427.110s total
 -------------------------------
 
-Epoch 92
+Epoch 192
 -------------------------------
-Batch 101/743, loss: 0.003527  [ 3232/23750] (42.461s) val loss: 0.012522
-Batch 201/743, loss: 0.003170  [ 6432/23750] (56.627s) val loss: 0.007003
-Batch 301/743, loss: 0.003411  [ 9632/23750] (56.663s) val loss: 0.006950
-Batch 401/743, loss: 0.002413  [12832/23750] (56.706s) val loss: 0.007866
-Batch 501/743, loss: 0.012197  [16032/23750] (56.752s) val loss: 0.009328
-Batch 601/743, loss: 0.005624  [19232/23750] (56.776s) val loss: 0.009101
-Batch 701/743, loss: 0.008381  [22432/23750] (56.736s) val loss: 0.009317
-Batch 743/743, loss: 0.003496  [23750/23750] (32.062s) val loss: 0.009392
+Batch 101/743, loss: 0.002733  [ 3232/23750] (42.125s) val loss: 0.016432
+Batch 201/743, loss: 0.001764  [ 6432/23750] (56.401s) val loss: 0.015370
+Batch 301/743, loss: 0.002846  [ 9632/23750] (56.360s) val loss: 0.013988
+Batch 401/743, loss: 0.004171  [12832/23750] (56.410s) val loss: 0.012723
+Batch 501/743, loss: 0.000971  [16032/23750] (56.397s) val loss: 0.017361
+Batch 601/743, loss: 0.004048  [19232/23750] (56.346s) val loss: 0.015114
+Batch 701/743, loss: 0.003692  [22432/23750] (56.396s) val loss: 0.013905
+Batch 743/743, loss: 0.004377  [23750/23750] (31.816s) val loss: 0.015870
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 429.955s total
+Took 427.213s total
 -------------------------------
 
-Epoch 93
+Epoch 193
 -------------------------------
-Batch 101/743, loss: 0.001911  [ 3232/23750] (42.441s) val loss: 0.007112
-Batch 201/743, loss: 0.003677  [ 6432/23750] (56.720s) val loss: 0.007578
-Batch 301/743, loss: 0.003658  [ 9632/23750] (56.690s) val loss: 0.007295
-Batch 401/743, loss: 0.007496  [12832/23750] (56.679s) val loss: 0.006502
-Batch 501/743, loss: 0.006137  [16032/23750] (56.580s) val loss: 0.008072
-Batch 601/743, loss: 0.001593  [19232/23750] (56.701s) val loss: 0.007815
-Batch 701/743, loss: 0.002335  [22432/23750] (56.690s) val loss: 0.007881
-Batch 743/743, loss: 0.001933  [23750/23750] (31.947s) val loss: 0.008233
+Batch 101/743, loss: 0.001806  [ 3232/23750] (42.145s) val loss: 0.017288
+Batch 201/743, loss: 0.003543  [ 6432/23750] (56.362s) val loss: 0.013986
+Batch 301/743, loss: 0.002806  [ 9632/23750] (56.396s) val loss: 0.016415
+Batch 401/743, loss: 0.003357  [12832/23750] (56.363s) val loss: 0.013158
+Batch 501/743, loss: 0.005177  [16032/23750] (56.381s) val loss: 0.013958
+Batch 601/743, loss: 0.008432  [19232/23750] (56.394s) val loss: 0.016468
+Batch 701/743, loss: 0.001549  [22432/23750] (56.315s) val loss: 0.015942
+Batch 743/743, loss: 0.017455  [23750/23750] (31.832s) val loss: 0.010784
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 429.558s total
+Took 427.073s total
 -------------------------------
 
-Epoch 94
+Epoch 194
 -------------------------------
-Batch 101/743, loss: 0.002088  [ 3232/23750] (42.608s) val loss: 0.009595
-Batch 201/743, loss: 0.003443  [ 6432/23750] (56.855s) val loss: 0.006991
-Batch 301/743, loss: 0.001356  [ 9632/23750] (56.830s) val loss: 0.010199
-Batch 401/743, loss: 0.001054  [12832/23750] (56.981s) val loss: 0.008048
-Batch 501/743, loss: 0.001823  [16032/23750] (56.893s) val loss: 0.006423
-Batch 601/743, loss: 0.000621  [19232/23750] (56.822s) val loss: 0.008587
-Batch 701/743, loss: 0.001828  [22432/23750] (56.864s) val loss: 0.007793
-Batch 743/743, loss: 0.008430  [23750/23750] (32.068s) val loss: 0.008984
+Batch 101/743, loss: 0.015972  [ 3232/23750] (42.109s) val loss: 0.013551
+Batch 201/743, loss: 0.002431  [ 6432/23750] (56.357s) val loss: 0.015162
+Batch 301/743, loss: 0.003000  [ 9632/23750] (56.387s) val loss: 0.014060
+Batch 401/743, loss: 0.002003  [12832/23750] (56.394s) val loss: 0.011192
+Batch 501/743, loss: 0.001893  [16032/23750] (56.369s) val loss: 0.013734
+Batch 601/743, loss: 0.004574  [19232/23750] (56.349s) val loss: 0.018522
+Batch 701/743, loss: 0.009398  [22432/23750] (56.350s) val loss: 0.013512
+Batch 743/743, loss: 0.006398  [23750/23750] (31.854s) val loss: 0.015084
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 431.211s total
+Took 427.066s total
 -------------------------------
 
-Epoch 95
+Epoch 195
 -------------------------------
-Batch 101/743, loss: 0.000910  [ 3232/23750] (42.514s) val loss: 0.006250
-Batch 201/743, loss: 0.004252  [ 6432/23750] (56.860s) val loss: 0.007586
-Batch 301/743, loss: 0.008956  [ 9632/23750] (56.749s) val loss: 0.006431
-Batch 401/743, loss: 0.002851  [12832/23750] (56.829s) val loss: 0.007852
-Batch 501/743, loss: 0.001785  [16032/23750] (56.868s) val loss: 0.006331
-Batch 601/743, loss: 0.005960  [19232/23750] (56.845s) val loss: 0.005999
-Batch 701/743, loss: 0.001885  [22432/23750] (56.912s) val loss: 0.007754
-Batch 743/743, loss: 0.000160  [23750/23750] (32.088s) val loss: 0.006869
+Batch 101/743, loss: 0.001849  [ 3232/23750] (42.111s) val loss: 0.012347
+Batch 201/743, loss: 0.004041  [ 6432/23750] (56.316s) val loss: 0.013605
+Batch 301/743, loss: 0.009812  [ 9632/23750] (56.377s) val loss: 0.015735
+Batch 401/743, loss: 0.004351  [12832/23750] (56.398s) val loss: 0.012984
+Batch 501/743, loss: 0.003833  [16032/23750] (56.366s) val loss: 0.013528
+Batch 601/743, loss: 0.007962  [19232/23750] (56.408s) val loss: 0.013950
+Batch 701/743, loss: 0.001754  [22432/23750] (56.342s) val loss: 0.014725
+Batch 743/743, loss: 0.004051  [23750/23750] (31.881s) val loss: 0.017392
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 430.855s total
+Took 427.114s total
 -------------------------------
 
-Epoch 96
+Epoch 196
 -------------------------------
-Batch 101/743, loss: 0.001013  [ 3232/23750] (42.415s) val loss: 0.007304
-Batch 201/743, loss: 0.012955  [ 6432/23750] (56.737s) val loss: 0.010821
-Batch 301/743, loss: 0.004803  [ 9632/23750] (56.685s) val loss: 0.008513
-Batch 401/743, loss: 0.002169  [12832/23750] (56.693s) val loss: 0.006053
-Batch 501/743, loss: 0.006920  [16032/23750] (56.703s) val loss: 0.006538
-Batch 601/743, loss: 0.002673  [19232/23750] (56.556s) val loss: 0.007306
-Batch 701/743, loss: 0.005050  [22432/23750] (56.655s) val loss: 0.006645
-Batch 743/743, loss: 0.000017  [23750/23750] (32.139s) val loss: 0.006636
+Batch 101/743, loss: 0.002918  [ 3232/23750] (42.138s) val loss: 0.014390
+Batch 201/743, loss: 0.006503  [ 6432/23750] (56.407s) val loss: 0.012328
+Batch 301/743, loss: 0.002527  [ 9632/23750] (56.342s) val loss: 0.012737
+Batch 401/743, loss: 0.004138  [12832/23750] (56.380s) val loss: 0.011616
+Batch 501/743, loss: 0.003882  [16032/23750] (56.402s) val loss: 0.013827
+Batch 601/743, loss: 0.001579  [19232/23750] (56.418s) val loss: 0.015620
+Batch 701/743, loss: 0.001552  [22432/23750] (56.424s) val loss: 0.013952
+Batch 743/743, loss: 0.002382  [23750/23750] (31.865s) val loss: 0.014694
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 429.705s total
+Took 427.300s total
 -------------------------------
 
-Epoch 97
+Epoch 197
 -------------------------------
-Batch 101/743, loss: 0.002159  [ 3232/23750] (42.575s) val loss: 0.005923
-Batch 201/743, loss: 0.002161  [ 6432/23750] (56.816s) val loss: 0.008034
-Batch 301/743, loss: 0.004370  [ 9632/23750] (56.883s) val loss: 0.009211
-Batch 401/743, loss: 0.000900  [12832/23750] (56.950s) val loss: 0.006751
-Batch 501/743, loss: 0.003903  [16032/23750] (56.817s) val loss: 0.007336
-Batch 601/743, loss: 0.010172  [19232/23750] (56.653s) val loss: 0.005615
-Batch 701/743, loss: 0.001615  [22432/23750] (56.696s) val loss: 0.007054
-Batch 743/743, loss: 0.000105  [23750/23750] (31.935s) val loss: 0.006511
+Batch 101/743, loss: 0.001090  [ 3232/23750] (42.108s) val loss: 0.013027
+Batch 201/743, loss: 0.000703  [ 6432/23750] (56.399s) val loss: 0.013128
+Batch 301/743, loss: 0.001692  [ 9632/23750] (56.391s) val loss: 0.014310
+Batch 401/743, loss: 0.008012  [12832/23750] (56.471s) val loss: 0.013373
+Batch 501/743, loss: 0.003475  [16032/23750] (56.405s) val loss: 0.012896
+Batch 601/743, loss: 0.002660  [19232/23750] (56.393s) val loss: 0.012040
+Batch 701/743, loss: 0.003736  [22432/23750] (56.430s) val loss: 0.011291
+Batch 743/743, loss: 0.004286  [23750/23750] (31.856s) val loss: 0.013286
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 430.462s total
+Took 427.379s total
 -------------------------------
 
-Epoch 98
+Epoch 198
 -------------------------------
-Batch 101/743, loss: 0.004626  [ 3232/23750] (42.427s) val loss: 0.006570
-Batch 201/743, loss: 0.007881  [ 6432/23750] (56.666s) val loss: 0.008828
-Batch 301/743, loss: 0.006287  [ 9632/23750] (56.698s) val loss: 0.006842
-Batch 401/743, loss: 0.002149  [12832/23750] (56.617s) val loss: 0.007136
-Batch 501/743, loss: 0.001202  [16032/23750] (56.649s) val loss: 0.005795
-Batch 601/743, loss: 0.002233  [19232/23750] (56.774s) val loss: 0.008458
-Batch 701/743, loss: 0.002228  [22432/23750] (56.685s) val loss: 0.005860
-Batch 743/743, loss: 0.001517  [23750/23750] (32.013s) val loss: 0.006652
+Batch 101/743, loss: 0.000765  [ 3232/23750] (42.157s) val loss: 0.013307
+Batch 201/743, loss: 0.004127  [ 6432/23750] (56.485s) val loss: 0.012688
+Batch 301/743, loss: 0.003033  [ 9632/23750] (56.434s) val loss: 0.012329
+Batch 401/743, loss: 0.002944  [12832/23750] (56.540s) val loss: 0.011285
+Batch 501/743, loss: 0.007153  [16032/23750] (56.601s) val loss: 0.010601
+Batch 601/743, loss: 0.002093  [19232/23750] (56.495s) val loss: 0.013362
+Batch 701/743, loss: 0.007636  [22432/23750] (56.471s) val loss: 0.013794
+Batch 743/743, loss: 0.001865  [23750/23750] (31.848s) val loss: 0.014150
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 429.547s total
+Took 427.941s total
 -------------------------------
 
-Epoch 99
+Epoch 199
 -------------------------------
-Batch 101/743, loss: 0.003563  [ 3232/23750] (42.485s) val loss: 0.009407
-Batch 201/743, loss: 0.002085  [ 6432/23750] (56.599s) val loss: 0.006542
-Batch 301/743, loss: 0.003114  [ 9632/23750] (56.688s) val loss: 0.007433
-Batch 401/743, loss: 0.002296  [12832/23750] (56.650s) val loss: 0.008444
-Batch 501/743, loss: 0.000799  [16032/23750] (56.587s) val loss: 0.006433
-Batch 601/743, loss: 0.004004  [19232/23750] (56.656s) val loss: 0.007044
-Batch 701/743, loss: 0.004199  [22432/23750] (56.666s) val loss: 0.008350
-Batch 743/743, loss: 0.002145  [23750/23750] (32.020s) val loss: 0.007774
+Batch 101/743, loss: 0.002182  [ 3232/23750] (42.192s) val loss: 0.016942
+Batch 201/743, loss: 0.001235  [ 6432/23750] (56.425s) val loss: 0.013276
+Batch 301/743, loss: 0.005319  [ 9632/23750] (56.348s) val loss: 0.012817
+Batch 401/743, loss: 0.001206  [12832/23750] (56.412s) val loss: 0.012871
+Batch 501/743, loss: 0.000832  [16032/23750] (56.445s) val loss: 0.013974
+Batch 601/743, loss: 0.001716  [19232/23750] (56.431s) val loss: 0.013043
+Batch 701/743, loss: 0.001180  [22432/23750] (56.434s) val loss: 0.014917
+Batch 743/743, loss: 0.001877  [23750/23750] (31.870s) val loss: 0.013560
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 429.373s total
+Took 427.478s total
 -------------------------------
 
-Epoch 100
+Epoch 200
 -------------------------------
-Batch 101/743, loss: 0.004466  [ 3232/23750] (42.535s) val loss: 0.006792
-Batch 201/743, loss: 0.004465  [ 6432/23750] (56.955s) val loss: 0.008280
-Batch 301/743, loss: 0.001899  [ 9632/23750] (56.834s) val loss: 0.006880
-Batch 401/743, loss: 0.006270  [12832/23750] (56.897s) val loss: 0.006919
-Batch 501/743, loss: 0.004409  [16032/23750] (56.920s) val loss: 0.007355
-Batch 601/743, loss: 0.007803  [19232/23750] (56.838s) val loss: 0.006562
-Batch 701/743, loss: 0.001550  [22432/23750] (56.874s) val loss: 0.006293
-Batch 743/743, loss: 0.002724  [23750/23750] (32.078s) val loss: 0.009283
+Batch 101/743, loss: 0.000718  [ 3232/23750] (42.150s) val loss: 0.012570
+Batch 201/743, loss: 0.005926  [ 6432/23750] (56.420s) val loss: 0.012429
+Batch 301/743, loss: 0.003067  [ 9632/23750] (56.421s) val loss: 0.017242
+Batch 401/743, loss: 0.009319  [12832/23750] (56.442s) val loss: 0.013669
+Batch 501/743, loss: 0.001875  [16032/23750] (56.463s) val loss: 0.013577
+Batch 601/743, loss: 0.002152  [19232/23750] (56.425s) val loss: 0.013751
+Batch 701/743, loss: 0.007861  [22432/23750] (56.441s) val loss: 0.012201
+Batch 743/743, loss: 0.001327  [23750/23750] (31.891s) val loss: 0.014090
 Saved to /nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth
-Took 431.112s total
+Took 427.586s total
 -------------------------------
 
-Took 43211.1777 seconds
+Took 43228.7572 seconds
 Done!
 

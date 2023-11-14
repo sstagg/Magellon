@@ -379,6 +379,7 @@ def sequence7(fc_size, num_features=0, dropout=0.25):
         Conv2d(16, 16, 3, stride=2),                                  # /2
         BatchNorm2d(16),
         Dropout(dropout),
+        
         ResidualConvBlock(16, 32, 3, downsample=True, batchnorm=True),
         BatchNorm2d(32),
         Dropout(dropout),
@@ -387,6 +388,7 @@ def sequence7(fc_size, num_features=0, dropout=0.25):
         Dropout(dropout),
         Conv2d(32, 32, 3, stride=2),                                  # /2
         BatchNorm2d(32),
+        Dropout(dropout),
         
         ResidualConvBlock(32, 64, 3, downsample=True, batchnorm=True),
         BatchNorm2d(64),
@@ -399,6 +401,7 @@ def sequence7(fc_size, num_features=0, dropout=0.25):
         Dropout(dropout),
         Conv2d(64, 64, 3, stride=2),                                  # /2
         BatchNorm2d(64),
+        Dropout(dropout),
         
         ResidualConvBlock(64, 128, 3, downsample=True, batchnorm=True),
         BatchNorm2d(128),
@@ -411,18 +414,84 @@ def sequence7(fc_size, num_features=0, dropout=0.25):
         Dropout(dropout),
         Conv2d(128, 128, 3, stride=2),                                # /2
         BatchNorm2d(128),
+        Dropout(dropout),
 
         AdaptiveAvgPool2d((6,6)),
         Flatten(),
-        Linear(4608, 64),
         ReLU(),
-        Dropout(dropout)
+        # Linear(fc_size, 64),
+        # ReLU(),
+        # Dropout(dropout),
     ]
 
     feature_layers = [
-        Linear(64 + num_features, 16),
+        Linear(4608 + num_features, 1),
+        # ReLU(),
+        # Linear(16, 1)
+    ]
+
+    return Sequential(*cnn_layers), Sequential(*feature_layers)
+
+def sequence8(fc_size, num_features=0, dropout=0.25):
+    '''    
+    Based on sequence 7, but with no FC layers, and with batchnorm applied to
+    each layer including inside residual blocks
+    '''
+    cnn_layers = [
+        ResidualConvBlock(1, 16, 3, downsample=True, batchnorm=True), 
+        BatchNorm2d(16),
+        Dropout(dropout),
+        ResidualConvBlock(16, 16, 3, downsample=True, batchnorm=True),
+        BatchNorm2d(16),
+        Dropout(dropout),
+        Conv2d(16, 16, 3, stride=2),                                  # /2
+        BatchNorm2d(16),
+        Dropout(dropout),
+        
+        ResidualConvBlock(16, 32, 3, downsample=True, batchnorm=True),
+        BatchNorm2d(32),
+        Dropout(dropout),
+        ResidualConvBlock(32, 32, 3, downsample=True, batchnorm=True),
+        BatchNorm2d(32),
+        Dropout(dropout),
+        Conv2d(32, 32, 3, stride=2),                                  # /2
+        BatchNorm2d(32),
+        Dropout(dropout),
+        
+        ResidualConvBlock(32, 64, 3, downsample=True, batchnorm=True),
+        BatchNorm2d(64),
+        Dropout(dropout),
+        ResidualConvBlock(64, 64, 3, batchnorm=True),
+        BatchNorm2d(64),
+        Dropout(dropout),
+        ResidualConvBlock(64, 64, 3, batchnorm=True),
+        BatchNorm2d(64),
+        Dropout(dropout),
+        Conv2d(64, 64, 3, stride=2),                                  # /2
+        BatchNorm2d(64),
+        Dropout(dropout),
+        
+        ResidualConvBlock(64, 128, 3, downsample=True, batchnorm=True),
+        BatchNorm2d(128),
+        Dropout(dropout),
+        ResidualConvBlock(128, 128, 3, batchnorm=True),
+        BatchNorm2d(128),
+        Dropout(dropout),
+        ResidualConvBlock(128, 128, 3, batchnorm=True),
+        BatchNorm2d(128),
+        Dropout(dropout),
+        Conv2d(128, 128, 3, stride=2),                                # /2
+        BatchNorm2d(128),
+        Dropout(dropout),
+
+        AdaptiveAvgPool2d((6,6)), # size after this layer is (N,128,6,6)
+        Flatten(),
         ReLU(),
-        Linear(16, 1)
+
+    ]
+
+    feature_layers = [
+        Linear(4608 + num_features, 1),
     ]
 
     return Sequential(*cnn_layers), Sequential(*feature_layers)
@@ -544,12 +613,16 @@ class Trainer:
             self.init_data_parallel(parallel_device_ids)
         if save_path:
             print(f'Will save model to {save_path}')
+        else:
+            print('WARNING: will not save the model to a file!')
         if preload:
             print(f'Loading saved weights from {preload}')
             self.load_model(preload)
         print('-------------------------------\n')
 
         tensor_transformer = lambda arr: torch.tensor(np.array(arr)).unsqueeze(-3)
+        # tensor_transformer = lambda arr: torch.Tensor(arr[0]).unsqueeze(0)
+
 
         self.train_dataset = dataset.MRCImageDataset(
             mode='hdf5',
@@ -582,6 +655,11 @@ class Trainer:
             self.val_ind = val_ind
         else:
             print('Using previous training validation set')
+        
+        # indices = list(range(1000))
+        # self.train_ind, self.val_ind = train_test_split(indices, test_size=val_frac, shuffle=True)
+        # self.train_ind.sort()
+        # self.val_ind.sort()
 
         self.train_dataset.select_subset(self.train_ind)
         self.val_dataset.select_subset(self.val_ind)
@@ -607,12 +685,19 @@ class Trainer:
         '''
 
         def predict_vlen(X, feat, y):
-            a = ([self.model(
+            
+            a = torch.Tensor([self.model(
                 torch.from_numpy(x).to(self.device, dtype=torch.float), 
                 f.unsqueeze(0),
-                ).squeeze() for x,f in zip(X, feat)])
-            return sum([self.loss_fn(a[i], y[i].unsqueeze(-1)) for i in range(torch.numel(y))])
+                ).squeeze() for x,f in zip(X, feat)]).to(self.device)
 
+            # print(a)
+            # print(a.shape)
+            # print(y.shape)
+            # print(self.loss_fn(a, y))
+            loss = self.loss_fn(a, y)
+            loss.requires_grad = True
+            return loss
 
         size, n_batches, batch_size = len(self.train_loader.dataset), len(self.train_loader), self.train_loader.batch_size
         timer = Timer()
@@ -624,9 +709,12 @@ class Trainer:
             y = y.to(self.device, dtype=torch.float)
             feat = feat.to(self.device, dtype=torch.float)
 
-            if type(X) == list:
+
+            if type(X) == list and len(X) > 1:
                 loss = predict_vlen(X, feat, y)
             else:
+                if type(X) == list:
+                    X = X[0]
                 X = X.to(self.device, dtype=torch.float)
                 pred = self.model(X, feat)
                 loss = self.loss_fn(pred, y.unsqueeze(1))
@@ -650,12 +738,13 @@ class Trainer:
         '''
 
         def predict_vlen(X, feat, y):
-            a = ([self.model(
-                torch.from_numpy(x).to(self.device, dtype=torch.float), 
+            a = torch.stack([self.model(
+                x.to(self.device, dtype=torch.float), 
                 f.unsqueeze(0),
-                ).unsqueeze(-1) for x,f in zip(X, feat)])
+                ).squeeze() for x,f in zip(X, feat)]).to(self.device)
 
-            return sum([self.loss_fn(a[i], y[i]) for i in range(torch.numel(y))])
+            loss = self.loss_fn(a, y)
+            return loss
 
         self.model.eval()
 
@@ -725,9 +814,9 @@ class Trainer:
 if __name__ == '__main__':
 
     use_features = True
-    sequence = sequence7
+    sequence = sequence8
     cuda_main_id = 0
-    preload = '/nfs/home/khom/test_projects/CNNTraining/models/experiment_model_2.pth'
+    preload = '/nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth'
 
     device = (
         f'cuda:{cuda_main_id}'
@@ -738,84 +827,23 @@ if __name__ == '__main__':
     )
 
 
+    print(f'Using sequence {sequence}')
     fc_size = 4608 #456 #12800
     model = MRCNetwork(fc_size, sequence, use_features).to(device)
     loss_fn = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-4)
+    optimizer = optim.Adam(model.parameters(), lr=1e-5, weight_decay=1e-4)
 
     
 
     device_ids = [cuda_main_id, cuda_main_id+1]
-    save_path = f'/nfs/home/khom/test_projects/CNNTraining/models/experiment_model_2_cont.pth'
+    save_path = f'/nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth'
     data_path = '/nfs/home/khom/data210-2.hdf5'
 
     trainer = Trainer(model, loss_fn, optimizer, data_path,
-                      val_frac=0.1, 
+                      val_frac=0.1, batch_size=32,
                       save_path=save_path, use_features=use_features,
                       device=device, parallel_device_ids=device_ids,
                       preload=preload)
 
     trainer.run_training(epochs=100)    
 
-    # cuda_main_id = 0
-
-    # device = (
-    #     f'cuda:{cuda_main_id}'
-    #     if torch.cuda.is_available()
-    #     else 'mps'
-    #     if torch.backends.mps.is_available()
-    #     else 'cpu'
-    # )
-    # print(f'Using device: {device}\n\n')
-    
-
-    # train_dataset = dataset.MRCImageDataset(
-    #     data_path='/nfs/home/khom/data.hdf5',
-    #     mode='hdf5',
-    #     transform=ToTensor()
-    # )
-    # val_dataset = dataset.MRCImageDataset(
-    #     data_path='/nfs/home/khom/data.hdf5',
-    #     mode='hdf5',
-    #     transform=ToTensor()
-    # )
-
-
-    # val_frac = 0.10  # Fraction of the data to use as validation data 
-    # batch_size = 32
-    # indices = list(range(len(train_dataset)))
-    # save_path = '/nfs/home/khom/test_projects/CNNTraining/models/base_model_1.pth'
-    
-    # train_ind, val_ind = train_test_split(indices, test_size=val_frac, shuffle=True)
-    # train_ind.sort()
-    # val_ind.sort()
-
-    # train_dataset.select_subset(train_ind)
-    # val_dataset.select_subset(val_ind)
-
-    # train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    # val_loader = DataLoader(val_dataset, batch_size=batch_size)
-
-    # # model = MRCNetwork().to(device)
-    # model = nn.DataParallel(MRCNetwork(), device_ids=[cuda_main_id]).to(device)
-    # loss_fn = nn.MSELoss()
-    # optimizer = optim.Adam(model.parameters(), weight_decay=1e-5)
-
-    # print('\nTRAINING OVERVIEW\n-------------------------------')
-    # print('OPTIMIZER:\n', optimizer, '\n-------------------------------')
-    # print('LOSS FUNCTION:\n', loss_fn, '\n-------------------------------')
-    # print('MODEL ARCHITECTURE:\n', model, '\n-------------------------------')
-    # print('\n')
-
-    # epochs = 25
-    # main_timer, loop_timer = Timer(), Timer()
-    
-    # for e in range(epochs):
-    #     print(f'Epoch {e+1}\n-------------------------------')
-    #     train_loop(model, loss_fn, optimizer, train_loader, val_loader=val_loader)
-    #     torch.save(model.module.state_dict(), save_path)
-    #     print(f'Saved to {save_path}')
-    #     print(f'Took {loop_timer.get_elapsed(reset=True):.3f}s total\n-------------------------------\n')
-
-    # print(f'Took {main_timer.get_elapsed():.4f} seconds')
-    # print('Done!\n')

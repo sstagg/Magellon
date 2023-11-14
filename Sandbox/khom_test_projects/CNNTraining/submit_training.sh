@@ -1,8 +1,8 @@
 #!/bin/tcsh
 ### Job name
 #SBATCH --job-name=Train_Experiment_CNN_1
-#SBATCH --error=/nfs/home/khom/test_projects/CNNTraining/logs/experiment_model_2.err
-#SBATCH --output=/nfs/home/khom/test_projects/CNNTraining/logs/experiment_model_2.out
+#SBATCH --error=/nfs/home/khom/test_projects/CNNTraining/logs/experiment_model_0.err
+#SBATCH --output=/nfs/home/khom/test_projects/CNNTraining/logs/experiment_model_0.out
 ### Queue name
 #SBATCH --partition=cryosparc
 ### Specify the number of nodes and thread (ppn) for your job.

@@ -65,10 +65,9 @@ class MRCPreprocessor:
         self.processed_dir = processed_dir
         
 
-    def execute(self, zoom=False, min_len=None, fixed_len=None):
-        
+    def execute(self, resize=False, min_len=None, fixed_len=None):
         '''
-        In terms of padding images (either zoomed or unzoomed), we can choose to:
+        In terms of padding images (after resizing or not), we can choose to:
         (1) Don't pad at all, and leave the images as their true size (min_len and fixed_len are None)
         (2) Pad only images that are too small with zero (min_len defines the minimum height and width)
         (3) Pad all images to the same size (fixed_len defines the fixed height and width) 
@@ -76,12 +75,12 @@ class MRCPreprocessor:
         assert not (min_len and fixed_len)
         
         timer = Timer()
-        if zoom:
-            print(f'Zooming all images to {PIXEL_SIZE} angstroms per pixel')
+        if resize:
+            print(f'Resizing all images to {PIXEL_SIZE} angstroms per pixel')
         if min_len:
             print(f'Setting minimum image size to ({min_len}, {min_len}) with padding')
         if fixed_len:
-            print(f'Fixing image size to ({fixed_len}, {fixed_len}) with {"padding" if zoom else "resizing"}')
+            print(f'Fixing image size to ({fixed_len}, {fixed_len}) with {"padding" if resize else "resizing"}')
         if self.mode == 'normal':
             if not os.path.exists(self.processed_dir):
                 print('Created new directory')
@@ -90,7 +89,7 @@ class MRCPreprocessor:
             processed_data_dir = os.path.join(self.processed_dir, 'data')
             annotations_file = 'targets.csv'
 
-            MRCPreprocessor.preprocess_mrc(data_path, processed_data_dir, annotations_file, zoom=zoom, min_len=min_len, fixed_len=fixed_len)
+            MRCPreprocessor.preprocess_mrc(data_path, processed_data_dir, annotations_file, resize=resize, min_len=min_len, fixed_len=fixed_len)
 
         else:
             if os.path.isfile(self.hdf5_path):
@@ -100,20 +99,20 @@ class MRCPreprocessor:
             if not os.path.exists(os.path.dirname(self.hdf5_path)):
                 os.makedirs(os.path.dirname(self.hdf5_path))
 
-            MRCPreprocessor.preprocess_mrc_hdf5(self.data_path, self.hdf5_path, zoom=zoom, min_len=min_len, fixed_len=fixed_len)
+            MRCPreprocessor.preprocess_mrc_hdf5(self.data_path, self.hdf5_path, resize=resize, min_len=min_len, fixed_len=fixed_len)
 
         print(f'Took {timer.get_elapsed() :.2f}s\n')
     
     
     @staticmethod
-    @ray.remote(memory=1500 * 1024 * 1024)
-    def process_particle_images_remote(particle_name, out_data_dir, zoom=False, min_len=None, fixed_len=None):
+    @ray.remote(memory=1000 * 1024 * 1024)
+    def process_particle_images_remote(particle_name, out_data_dir, resize=False, min_len=None, fixed_len=None):
         return MRCPreprocessor.process_particle_images(particle_name, out_data_dir=out_data_dir, 
-                                                       zoom=zoom, min_len=min_len, fixed_len=fixed_len)
+                                                       resize=resize, min_len=min_len, fixed_len=fixed_len)
 
 
     @staticmethod
-    def process_particle_images(particle_name, hdf5_dataset=None, out_data_dir=None, zoom=False, min_len=None, fixed_len=None):
+    def process_particle_images(particle_name, hdf5_dataset=None, out_data_dir=None, resize=False, min_len=None, fixed_len=None):
         '''
         Writes all images in chunks (one chunk per image) to the HDF5 file (the file
         must be open already)
@@ -153,13 +152,11 @@ class MRCPreprocessor:
                         hdf5_dataset.resize((cur_size+len(imgs), fixed_len, fixed_len))
 
                 for i, img in enumerate(imgs):
-                    # If zoom, then scale images to fixed pixel size
-                    if zoom:
-                        img = MRCPreprocessor.zoom_img(np.nan_to_num(img), pixel_size/PIXEL_SIZE)
-                        # if img.shape[0] > min_len:
-                        #     print(img.shape)
-                    
-                    
+                    # If resize, then scale images to fixed pixel size
+                    if resize:
+                        img = MRCPreprocessor.resize_img(np.nan_to_num(img), pixel_size/PIXEL_SIZE)
+
+                    img = MRCPreprocessor.normalize(img)
                     
                     # If enforcing a minimum size
                     if min_len and img.shape[0] < min_len:
@@ -170,7 +167,7 @@ class MRCPreprocessor:
                     # If padding to fixed size
                     elif fixed_len:
                         if img.shape[0] > fixed_len: 
-                            if zoom:
+                            if resize:
                                 print(f'Image is larger than the fixed size ({img.shape[0]} > {fixed_len}). '+
                                           f'Rescaling image to fixed size (pixel size is not preserved)')
                             img = MRCPreprocessor.resize_img(img, (fixed_len, fixed_len))
@@ -178,24 +175,12 @@ class MRCPreprocessor:
                         diff = fixed_len - img.shape[0]
                         pad_before = diff // 2
                         pad_after = pad_before + (diff%2)
-                        img = np.pad(img, (pad_before, pad_after))
-
-                    img = MRCPreprocessor.normalize(img)
-
-                        # img = MRCPreprocessor.resize_img(np.nan_to_num(img), IMG_DSIZE)
-                    
-                    # Use INTER_AREA if shrinking the image, otherwise use INTER_CUBIC
-                    # interpolation = cv2.INTER_AREA \
-                    #                     if img.shape[0] > IMG_DSIZE[0] \
-                    #                 else cv2.INTER_CUBIC
-                    
+                        img = np.pad(img, (pad_before, pad_after))                    
                     
                     # If using HDF5, append to the dataset. If using normal, make a new NPY file
                     if hdf5_dataset is not None:
-                        # hdf5_dataset[cur_size+i] = img.flatten()
                         hdf5_dataset[cur_size+i] = img.flatten() if not fixed_len else img
                     else:
-                        # new_img = MRCPreprocessor.normalize(cv2.resize(np.nan_to_num(img), IMG_DSIZE, interpolation=interpolation))
                         np.save(os.path.join(out_data_dir, f'{particle_name}_{i}.npy'), img)
                     
 
@@ -211,7 +196,7 @@ class MRCPreprocessor:
         Calculates class scores (between 0 and 1) for each 2D class average
         '''
 
-        # Taken from RELION 4.0 class_ranker.cpp
+        # Taken from RELION 4.0 class_ranker.cpp. Calculates score from 0 to 1 for a given image
         calculate_score = lambda r: (
             (0.75+r[1]*0.25)*job_score if r[0] == 1 else
             (0.25+r[1]*0.25)*job_score if r[0] == 2 else
@@ -238,7 +223,7 @@ class MRCPreprocessor:
         return df.apply(calculate_score, axis=1)
 
     @staticmethod
-    def resize_img(img, new_shape):
+    def resize_to_shape(img, new_shape):
         '''
         Resize image to the desired shape while keeping the same zoom. The aspect ratio of the 
         image and of the new shape should match
@@ -250,21 +235,21 @@ class MRCPreprocessor:
         return cv2.resize(img, new_shape, interpolation=interpolation)
 
     @staticmethod
-    def zoom_img(img, factor):
+    def resize_img(img, factor):
         '''
-        Zooms in/out on an image with respect to its center.
+        Rescales an image with respect to its center.
 
         :param img: 2D ndarray of the greyscale image
-        :param factor: float representing amount to zoom (e.g. factor=2.0 means zoom in by 2.0x,
-                        factor=0.5 means zoom out by 2.0x)
+        :param factor: float representing amount to resize (e.g. factor=2.0 means double the number of
+                        pixels on each side, factor=0.5 means halve the number of pixels on each side)
 
-        :return: 2D ndarray of the zoomed image. The zoomed shape will be different according to 
-        the zoom factor 
+        :return: 2D ndarray of the resized image. The resized shape will be different according to 
+        the resize factor 
         '''
 
         # Resize the image, and then pad it to a standard size
         new_shape = tuple(np.round(np.array(img.shape) * factor).astype(np.int32))
-        new_img = MRCPreprocessor.resize_img(img, new_shape)
+        new_img = MRCPreprocessor.resize_to_shape(img, new_shape)
         return new_img
     
     @staticmethod
@@ -300,7 +285,7 @@ class MRCPreprocessor:
 
 
     @staticmethod
-    def preprocess_mrc_hdf5(data_path, hdf5_path, zoom=False, min_len=None, fixed_len=None):
+    def preprocess_mrc_hdf5(data_path, hdf5_path, resize=False, min_len=None, fixed_len=None):
         '''
         Does the exact same as `preprocess_mrc` but writes everything to an HDF5 file.
 
@@ -320,7 +305,7 @@ class MRCPreprocessor:
         for particle_name in tqdm(particle_names):
             raw_metadata.append(MRCPreprocessor.process_particle_images(particle_name, 
                                                                         hdf5_dataset=img_dataset, 
-                                                                        zoom=zoom,
+                                                                        resize=resize,
                                                                         min_len=min_len,
                                                                         fixed_len=fixed_len))
         file.close()
@@ -333,7 +318,7 @@ class MRCPreprocessor:
         print(f'\nWrote targets to : {hdf5_path}')
 
     @staticmethod
-    def preprocess_mrc(data_path, out_data_dir, annotations_file, zoom=False, min_len=None, fixed_len=None):
+    def preprocess_mrc(data_path, out_data_dir, annotations_file, resize=False, min_len=None, fixed_len=None):
         '''
         Places each 2D class average in its own PNG file, and creates the labels/metadata
         in a CSV file with each row in the form of:
@@ -341,7 +326,7 @@ class MRCPreprocessor:
         with `score` calculated as done in RELION 4.0. Images are resized to by 80x80 pixels
         '''
 
-        ray.init(ignore_reinit_error=True, num_cpus=16, object_store_memory=(10**9) * 24, 
+        ray.init(ignore_reinit_error=True, num_cpus=8, object_store_memory=(10**9) * 16, 
                  include_dashboard=False)
         
         if not os.path.exists(out_data_dir):
@@ -355,7 +340,7 @@ class MRCPreprocessor:
         raw_metadata = []
         for particle_name in tqdm(particle_names):
             raw_metadata.append(MRCPreprocessor.process_particle_images_remote.remote(
-                particle_name, out_data_dir, zoom=zoom, min_len=min_len, fixed_len=fixed_len
+                particle_name, out_data_dir, resize=resize, min_len=min_len, fixed_len=fixed_len
                 ))
         
         metadata = list(itertools.chain.from_iterable(ray.get(raw_metadata)))
@@ -370,8 +355,8 @@ class MRCPreprocessor:
 class MRCImageDataset(Dataset):
     def __init__(self, mode=None, annotations_file=None, 
                  data_path=None, hdf5_path=None, processed_dir=None,
-                 indices=None, use_features=False,
-                 transform=None, target_transform=None):
+                 indices=None, use_features=False, vlen_data=False,
+                 transform=None, target_transform=None,):
         '''
         :param mode: it should be either 'normal' or 'hdf5' signifying either
                             listing images in one large directory like normal, or storing everything
@@ -403,6 +388,7 @@ class MRCImageDataset(Dataset):
         :param indices: optional; list of indices used to include only a subset of the data in
                             this Dataset.
         :param use_features: whether or not to include metadata as inputs
+        :param vlen_data: whether or not the data source contains variable sized data [CURRENTLY UNUSED]
         :param transform: as required by pyTorch
         :param target_transform: as required by pyTorch                 
         '''
@@ -418,7 +404,7 @@ class MRCImageDataset(Dataset):
         
         self.use_features = use_features
 
-        self.reshape_data = False
+        self.vlen_data = vlen_data
 
         if mode == 'normal':
             if processed_dir is None:
@@ -432,7 +418,7 @@ class MRCImageDataset(Dataset):
             
             # If the data was stored as ragged 1D arrays, make sure to reshape them when indexing data
             if len(self.img_data.shape) == 1:
-                self.reshape_data = True
+                self.vlen_data = True
         else:
             raise RuntimeError(f'Invalid value for mode: {mode}. Should be one of ' + 
                                '"normal", "hdf5"')
@@ -442,7 +428,7 @@ class MRCImageDataset(Dataset):
             self.select_subset(indices)
 
 
-        print(f'Reshaping data: {self.reshape_data}')
+        # print(f'Reshaping data: {self.vlen_data}')
 
 
 
@@ -460,7 +446,7 @@ class MRCImageDataset(Dataset):
             img = np.load(img_path)
         else:
 
-            img = self.img_data[idx] if not self.reshape_data else \
+            img = self.img_data[idx] if not self.vlen_data else \
                     [self.img_data[i].reshape(1, round(np.sqrt(self.img_data[i].shape[0])),
                                               round(np.sqrt(self.img_data[i].shape[0])))
                                                 for i in np.atleast_1d(idx)]
@@ -479,7 +465,7 @@ class MRCImageDataset(Dataset):
         providing `indices` in the constructor.
         '''
 
-        print(f'Selecting subset of size {len(indices)} out of {len(self)}')
+        print(f'Selecting subset of size {len(indices)} out of {len(self)}... ', end='')
 
         if not hasattr(indices, '__getitem__'):
             print(f'Invalid type for indices: {type(indices)}')
@@ -488,6 +474,8 @@ class MRCImageDataset(Dataset):
         # Need to modify the HDF5 dataset to accomodate as well
         if self.mode == 'hdf5':
             self.img_data = self.img_data[indices]
+
+        print('done')
 
 
     def make_collate_fn(self):
@@ -499,12 +487,12 @@ class MRCImageDataset(Dataset):
         def fn(data):
             if self.use_features:
                 imgs, labels, feats = zip(*data)
-                return [np.array(img) for img in imgs], torch.Tensor(labels), torch.stack(feats)
+                return [torch.Tensor(img) for img in imgs], torch.Tensor(labels), torch.stack(feats)
             else:
                 imgs, labels = zip(*data)
                 return torch.stack(imgs), torch.stack(labels)
             
-        return fn if self.reshape_data else None
+        return fn if self.vlen_data else None
 
         
 
@@ -522,71 +510,19 @@ if __name__ == '__main__':
     mpl.use('TkAgg')
 
     data_path = '/nfs/home/khom/data/'
-    hdf5_path = '/nfs/home/khom/data210.hdf5'
+    hdf5_path = '/nfs/home/khom/data-vlen-same.hdf5'
     processed_dir = '/nfs/home/khom/processed_data_200'
 
-    MRCPreprocessor(
-        mode='hdf5',
-        data_path=data_path,
-        hdf5_path=hdf5_path,
-    ).execute(zoom=True, fixed_len=210)
-
-
-
-
-
     # MRCPreprocessor(
-    #     mode='normal',
-    #     data_path=data_path,
-    #     processed_dir=processed_dir,
-    #     zoom=False
-    # ).execute()
-
-    # m = MRCImageDataset(
     #     mode='hdf5',
     #     data_path=data_path,
     #     hdf5_path=hdf5_path,
-    #     use_features=True,
-    # )
-
-    # m = MRCImageDataset(
-    #     mode='normal',
-    #     data_path=data_path,
-    #     processed_dir='/nfs/home/khom/processed_data_200',
-    #     use_features=True,
-    #     preprocess=True
-    # )
+    # ).execute(resize=False)
 
 
+    MRCPreprocessor(
+        mode='normal',
+        data_path=data_path,
+        processed_dir=processed_dir,
+    ).execute(fixed_len=230)
 
-    sys.exit()
-
-
-
-    
-    
-    data_path = '/nfs/home/khom/data/'
-    # data_path = '/nfs/home/khom/processed_data'
-    # data_path = '/nfs/home/khom/data.hdf5'
-
-    hdf5_path = '/nfs/home/khom/data120.hdf5' 
-    processed_dir = '/nfs/home/khom/processed_data_120'
-    start = time.time()
-
-    # m0 = MRCImageDataset(mode='hdf5', data_path=data_path, hdf5_path=hdf5_path,
-    #                     preprocess=True, use_features=True)
-    # m1 = MRCImageDataset(mode='normal', data_path=data_path,processed_dir=processed_dir,
-    #                     preprocess=True, use_features=True)
-    m0 = MRCImageDataset(hdf5_path=hdf5_path, mode='hdf5', use_features=True)
-    m1 = MRCImageDataset(processed_dir=processed_dir, mode='normal', 
-                         annotations_file='targets.csv', use_features=True)
-    print(f'Took {time.time() - start} seconds')
-
-    x, label, feat = m0[0]
-    print(feat.shape)
-    print(x.shape)
-
-    x, label, feat = m1[0]
-    print(feat.shape)
-    print(x.shape)
-    

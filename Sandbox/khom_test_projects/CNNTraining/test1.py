@@ -3,10 +3,10 @@ import pandas as pd
 import matplotlib as mpl
 import os
 import mrcfile
-import starfile
-import ray
-import random
-import time
+# import starfile
+# import ray
+# import random
+# import time
 import h5py
 import torch
 import seaborn as sns
@@ -63,30 +63,53 @@ def count_num_images():
 
     print(f'\n{n} images total')
                 
-def print_scores(idx, torch_path, hdf5_path, display_target=True):
+def print_scores(idx, model, data, display_target=True):
     # file = h5py.File(hdf5_path, 'r')
     # imgs = file['data/images']
     # targets = pd.read_hdf(hdf5_path, 'targets')
 
-    transformer = None#lambda arr: torch.tensor(np.array(arr)).unsqueeze(-3)
+    # transformer = None#lambda arr: torch.tensor(np.array(arr)).unsqueeze(-3)
+    # data = dataset.MRCImageDataset(mode='hdf5', hdf5_path=hdf5_path, use_features=True, transform=transformer)
 
-    data = dataset.MRCImageDataset(mode='hdf5', hdf5_path=hdf5_path, use_features=True, transform=transformer)
-
-    model = train.MRCNetwork(4608, train.sequence7, use_features=True)
-    model.load_state_dict(torch.load(torch_path)['model_state_dict'])
-    model.eval()
+    # model = train.MRCNetwork(4608, train.sequence8, use_features=True)
+    # model.load_state_dict(torch.load(torch_path)['model_state_dict'])
+    # model.eval()
 
     err = 0.
 
-    for i in idx:
-        img, label, feats = data[i]
-        img = torch.Tensor(img).unsqueeze(0).unsqueeze(0)
-        feats = feats.unsqueeze(0)
-        pred = model(img, feats).item()
-        print(label, pred)
-        err += (label - pred)**2
+    shapes = []
+    errors = []
 
+    for i in tqdm(idx):
+        img, label, feats = data[i]
+
+        if not isinstance(img, np.ndarray):
+            img = np.array(img)
+
+
+        # diff = 230 - img.shape[-1]
+        # pad_before = diff // 2
+        # pad_after = pad_before + (diff%2)
+        # img = np.pad(img, ((0,0), (0,0), (pad_before, pad_after), (pad_before, pad_after)))
+        with torch.no_grad():
+            img = torch.Tensor(img).to('cuda:0')#.unsqueeze(0).unsqueeze(0)
+            feats = feats.unsqueeze(0).to('cuda:0')
+            # print(img.shape)
+            pred = model(img, feats).item()
+            # print(label, pred, img.shape)
+            # print(f'{label :.5f} -- {pred :.5f} -- {img.shape}')
+            err += (label - pred)**2
+
+            shapes.append(img.shape[-1])
+            errors.append((label - pred)**2)
+
+
+    # print(shapes)
+    # print(errors)
     print(f'MSE: {err / len(idx)}')
+    plt.scatter(shapes,errors)
+    plt.show()
+    
 
     
     
@@ -133,26 +156,28 @@ def plot_err_over_time(files, titles):
             epoch_end = min(max_ind, len(val_errors) + epoch_start)
             plt.plot(list(range(epoch_start, epoch_end)), val_errors, label=titles[n])
 
-    plt.xlabel('Batch number (in hundreds of batches)')
-    plt.ylabel('MSE loss')
-    plt.legend()
-    plt.show()
+    # plt.xlabel('Batch number (in hundreds of batches)')
+    # plt.ylabel('MSE loss')
+    # plt.legend()
+    # plt.show()
 
 
-def display_scored_images(loader, model, indices, sort=True, clip=True):
+def display_scored_images(data, model, sort=True, clip=True, device='cpu'):
 
+
+    idx = np.sort(np.random.choice(list(range(len(data))), size=100, replace=False))
+    data.select_subset(idx)
     
     num_subplots = 20 # Max number of subplots per plot
     rows, cols = 4, 5
-    num_plots = int(np.ceil(len(loader) / num_subplots))
-    
-
-    print(f'Data shape: {loader[0][0].shape}')
+    num_plots = int(np.ceil(len(data) / num_subplots))
 
     scores = []
-    for i in range(len(loader)):
-        img, score, feat = loader[i]
-        pred_score = model(img.unsqueeze(0), feat.unsqueeze(0)).item()
+    for i in range(len(data)):
+        img, score, feat = data[i]
+        img = torch.Tensor(img).to(device, dtype=torch.float)
+        feat = feat.to(device, dtype=torch.float)
+        pred_score = model(img, feat.unsqueeze(0)).item()
 
         if clip:
             pred_score = min(1.0, max(pred_score, 0.0))
@@ -167,7 +192,7 @@ def display_scored_images(loader, model, indices, sort=True, clip=True):
         fig.subplots_adjust(hspace=0.4)
         fig.subplots_adjust(wspace=0.4)
         
-        for i in range(num_subplots*d, min(num_subplots*(d+1), len(loader))):
+        for i in range(num_subplots*d, min(num_subplots*(d+1), len(data))):
             # Display each 2D class avg in a grid
             # img, score, feat = loader[i]
             # pred_score = model(img.unsqueeze(0), feat.unsqueeze(0)).item()
@@ -176,11 +201,13 @@ def display_scored_images(loader, model, indices, sort=True, clip=True):
             ax = axes[(i%num_subplots)//cols, (i%num_subplots)%cols]
             
             ax.axis('off')
-            ax.imshow(img[0], cmap='gray')
+            ax.imshow(img[0][0], cmap='gray')
             ax.set_title(f'{score:.3f} | {pred_score:.3f}', fontsize=10)
             # ax.set_xlabel(f'Index {indices[i]}')
 
-    plt.show()
+        fig.savefig(f'scored_imgs_{d}.png')
+        print(f'Finished plot {d}')
+
 
 def display_single_scored_images(data, model, indices):
 
@@ -213,10 +240,10 @@ def display_window_radius(data, model, index):
 
     plt.show()
 
-def display_scores_heatmap(data, model, indices=None, device='cpu'):
+def display_scores_heatmap(data, model, idx=None, device='cpu'):
 
-    if indices is None:
-        indices = list(range(len(data)))
+    if idx is None:
+        idx = list(range(len(data)))
 
     
     # imgs, labels, feats = data[indices]
@@ -224,24 +251,32 @@ def display_scores_heatmap(data, model, indices=None, device='cpu'):
     # imgs = imgs.unsqueeze(1)
     # print(imgs.shape)
 
-    data.select_subset(indices)
-
-    loader = DataLoader(data, batch_size=256, shuffle=False)
+    # data.select_subset(indices)
+    # loader = DataLoader(data, batch_size=32, shuffle=False)
+    
     model.eval()
     pred_scores = []
     true_scores = []
 
+    print(f'Plotting scores heatmap')
     print(f'Calculating predictions for {len(data)} samples...')
-    for X, y, feat in tqdm(loader):
-        X, y = X.to(device, dtype=torch.float32), y.to(device, dtype=torch.float32)
-        feat = feat.to(device, dtype=torch.float)
+    with torch.no_grad():
+        for i in tqdm(idx):
+            X, y, feats = data[i]
 
-        pred = model(X.unsqueeze(1), feat)
-        pred_scores.extend(pred.flatten().tolist())
-        true_scores.extend(y.flatten().tolist())
+            if not isinstance(X, np.ndarray):
+                X = np.array(X)
 
-    err = np.mean((np.array(pred_scores) - np.array(true_scores))**2)
-    arr = np.zeros((10, 10), dtype=int)
+            X = torch.Tensor(X).to(device, dtype=torch.float32)
+            feats = feats.to(device, dtype=torch.float).unsqueeze(0)
+
+            pred = model(X, feats)
+            pred_scores.extend(pred.flatten().tolist())
+            true_scores.extend(y.flatten().tolist())
+
+        err = np.mean((np.array(pred_scores) - np.array(true_scores))**2)
+        arr = np.zeros((11, 11), dtype=int)
+
 
     # print(pred_scores)
 
@@ -250,13 +285,15 @@ def display_scores_heatmap(data, model, indices=None, device='cpu'):
         pred_score = pred_scores[k]
         pred_score = min(1.0, max(pred_score, 0.0))
         
-        i = int(10 * pred_score)
-        j = int(10 * true_score)
+        i = round(10 * pred_score)
+        j = round(10 * true_score)
 
-        if i == 10:
-            i -= 1
-        if j == 10:
-            j -= 1
+        # print(f'{true_score :.5f}, {pred_score :.5f}')
+
+        # if i == 10:
+        #     i -= 1
+        # if j == 10:
+        #     j -= 1
 
         arr[i][j] += 1
     
@@ -340,7 +377,7 @@ def plot_scores(model_path, data_path, mode, num=20, use_features=False):
 
     # display_window_radius(data, model, 0)
 
-    display_scores_heatmap(data, model, indices=None, device=device)
+    # display_scores_heatmap(data, model, idx=None, device=device)
     
 
 # Test function for making a HDF5 dataset with variable size arrays
@@ -399,9 +436,7 @@ def main():
         'dropout, batch norm, early stop'
         
     ]
-    plot_err_over_time(['/nfs/home/khom/test_projects/CNNTraining/logs/experiment_model_2.out',
-                        '/nfs/home/khom/test_projects/CNNTraining/logs/experiment_model_0.out'
-                        ], ['model 2', 'model 0'])
+    plot_err_over_time(['/nfs/home/khom/test_projects/CNNTraining/logs/experiment_model_1.out'], ['model 1'])
 
     # model_path = '/nfs/home/khom/test_projects/CNNTraining/models/base_model_0.pth'
     # data_path = '/nfs/home/khom/data120.hdf5'
@@ -410,25 +445,31 @@ def main():
     # use_features = True
     # plot_scores(model_path, data_path, mode=mode, num=num, use_features=use_features)
 
+def main1():
+    mpl.use('TkAgg')
+    # main()
+    transform = lambda arr: torch.tensor(np.array(arr)).unsqueeze(0).unsqueeze(0)
+    device = 'cpu'
 
+    data = dataset.MRCImageDataset(
+            mode='hdf5',
+            hdf5_path='/nfs/home/khom/data-vlen2.hdf5',
+            use_features=True,
+            # transform=transform
+    )
+    # indices = np.random.choice(list(range(26389)), size=200, replace=False)
+    indices = list(range(26389))
+    indices.sort()
+    model = train.MRCNetwork(4608, train.sequence5, use_features=True).to(device)
+
+    model_path = '/nfs/home/khom/test_projects/CNNTraining/models/experiment_model_1.pth'
+    saved_model = torch.load(model_path, map_location=torch.device(device))
+    model.load_state_dict(saved_model['model_state_dict'])
+    
+    # display_scores_heatmap(data, model, idx=indices, device=device)
+    # print_scores(indices, model, data, display_target=True)
+    display_scored_images(data, model, indices, device=device)
 
 if __name__ == '__main__':
-    mpl.use('TkAgg')
-    main()
+    main1()
 
-    # idx = [0, 2392, 23]
-    # idx = np.random.choice(list(range(26389)), size=2500, replace=False)
-    # torch_path = '/nfs/home/khom/test_projects/CNNTraining/models/experiment_model_3.pth'
-    # hdf5_path = '/nfs/home/khom/data210.hdf5'
-    # print_scores(idx, torch_path, hdf5_path, display_target=True)
-
-    # ds = h5py.File(hdf5_path, 'r')['data/images']
-    # lens = []
-    # for i in range(len(ds)):
-    #     img = ds[i]
-    #     s = round(np.sqrt(img.shape[0]))
-    #     lens.append(s)
-    
-    # plt.hist(lens)
-    # plt.show()
-    # print(set(lens))
