@@ -11,8 +11,7 @@ class SlackMessage(BaseModel):
 class AtlasDto(BaseModel):
     Oid: uuid.UUID = Field(None, description='Atlas UUID')
     name: str = Field(None, min_length=2, max_length=30, description='Atlas Name')
-    optimistic_lock_field: Optional[int] = Field(None, description='lock')
-    gcrecord: Optional[int] = Field(None, description='gc')
+    meta: str = Field(None,description='Atlas Meta')
 
     # model_config = ConfigDict(from_attributes=True)
     class Config:
