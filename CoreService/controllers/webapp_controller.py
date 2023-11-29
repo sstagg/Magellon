@@ -169,7 +169,7 @@ def get_images_route(
         raise Exception(f"Database query execution error: {str(e)}")
 
 
-@webapp_router.get('/image/{image_name}')
+@webapp_router.get('/images/{image_name}')
 def get_image_route(
         image_name: str,
         db_session: Session = Depends(get_db)
