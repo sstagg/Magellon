@@ -1,0 +1,5 @@
+(A) Best
+(B) Decent
+(C) Acceptable
+(D) Bad
+(F) Unusable
