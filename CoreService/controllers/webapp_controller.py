@@ -169,6 +169,72 @@ def get_images_route(
         raise Exception(f"Database query execution error: {str(e)}")
 
 
+@webapp_router.get('/images/{image_name}')
+def get_image_route(
+        image_name: str,
+        db_session: Session = Depends(get_db)
+):
+    try:
+        # Assuming the session name is the part of the image name preceding underscore
+        session_name = image_name.split('_')[0]
+
+        # Get the Msession based on the session name
+        msession = db_session.query(Msession).filter(Msession.name == session_name).first()
+        if msession is None:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        try:
+            session_id_binary = msession.Oid.bytes
+        except AttributeError:
+            raise HTTPException(status_code=500, detail="Invalid session ID")
+
+        # Fetch the single image based on the image name
+        query = text("""
+            SELECT
+              i.Oid,
+              i.name,
+              i.defocus,
+              i.dose,
+              i.magnification AS mag,
+              i.pixel_size AS pixelSize,
+              i.parent_id,
+              i.session_id,
+               (
+                SELECT COUNT(*)
+                FROM image c
+                WHERE c.parent_id = i.Oid
+                  AND c.session_id = i.session_id
+              ) AS children_count
+            FROM image i
+            WHERE i.name = :image_name
+              AND i.session_id = :sessionId;
+            """)
+        result = db_session.execute(
+            query,
+            {"image_name": image_name, "sessionId": session_id_binary}
+        )
+        row = result.fetchone()
+
+        if row is not None:
+            image = ImageDto(
+                oid=row.Oid,
+                name=row.name,
+                defocus=row.defocus,
+                dose=row.dose,
+                mag=row.mag,
+                pixelSize=row.pixelSize,
+                parent_id=row.parent_id,
+                session_id=row.session_id,
+                children_count=row.children_count
+            )
+            return {"result": image.dict()}
+
+        raise HTTPException(status_code=404, detail="Image not found")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database query execution error: {str(e)}")
+
+
 # @webapp_router.get('/images')
 # def get_images_route(session_name: str, mag: int, db_session: Session = Depends(get_db)):
 #     # session_name = "22apr01a"
