@@ -1,0 +1,47 @@
+{
+    "blog": {
+      "name": "وبلاگ",
+      "plural": "وبلاگ‌ها",
+      "columns": {
+        "id": "شناسه",
+        "title": "عنوان",
+        "body": "متن"
+      },
+      "create": {
+        "title": "ایجاد پست وبلاگ",
+        "form": {
+          "title": "عنوان",
+          "content": "محتوا",
+          "author": "نویسنده",
+          "category": "دسته‌بندی",
+          "createButton": "ساخت پست"
+        },
+        "success": "<strong>پست وبلاگ با موفقیت ایجاد شد!</strong>",
+        "error": "<strong>خطا در ایجاد پست وبلاگ.</strong> لطفاً دوباره تلاش کنید."
+      },
+      "view": {
+        "title": "پست‌های وبلاگ",
+        "noPosts": "هیچ پست وبلاگی موجود نیست.",
+        "viewButton": "مشاهده",
+        "editButton": "ویرایش",
+        "exportButton": "خروجی",
+        "deleteButton": "حذف"
+      },
+      "edit": {
+        "title": "ویرایش پست وبلاگ",
+        "form": {
+          "updateButton": "به‌روزرسانی پست"
+        },
+        "success": "<strong>پست وبلاگ با موفقیت به‌روزرسانی شد!</strong>",
+        "error": "<strong>خطا در به‌روزرسانی پست وبلاگ.</strong> لطفاً دوباره تلاش کنید."
+      },
+      "delete": {
+        "confirmation": "آیا مطمئن هستید که می‌خواهید این پست وبلاگ را حذف کنید؟",
+        "confirmButton": "بله، حذف",
+        "cancelButton": "لغو",
+        "success": "<strong>پست وبلاگ با موفقیت حذف شد!</strong>",
+        "error": "<strong>خطا در حذف پست وبلاگ.</strong> لطفاً دوباره تلاش کنید."
+      }
+    }
+
+}

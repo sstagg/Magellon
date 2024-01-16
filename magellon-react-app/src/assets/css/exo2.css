@@ -1,0 +1,216 @@
+@font-face {
+    font-family: 'Exo 2';
+    src: url('/assets/fonts/exo2/Exo2-ExtraBoldItalic.eot');
+    src: url('/assets/fonts/exo2/Exo2-ExtraBoldItalic.eot?#iefix') format('embedded-opentype'),
+    url('/assets/fonts/exo2/Exo2-ExtraBoldItalic.woff2') format('woff2'),
+    url('/assets/fonts/exo2/Exo2-ExtraBoldItalic.woff') format('woff'),
+    url('/assets/fonts/exo2/Exo2-ExtraBoldItalic.ttf') format('truetype');
+    font-weight: bold;
+    font-style: italic;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Exo 2';
+    src: url('/assets/fonts/exo2/Exo2-Black.eot');
+    src: url('/assets/fonts/exo2/Exo2-Black.eot?#iefix') format('embedded-opentype'),
+    url('/assets/fonts/exo2/Exo2-Black.woff2') format('woff2'),
+    url('/assets/fonts/exo2/Exo2-Black.woff') format('woff'),
+    url('/assets/fonts/exo2/Exo2-Black.ttf') format('truetype');
+    font-weight: 900;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Exo 2';
+    src: url('/assets/fonts/exo2/Exo2-BlackItalic.eot');
+    src: url('/assets/fonts/exo2/Exo2-BlackItalic.eot?#iefix') format('embedded-opentype'),
+    url('/assets/fonts/exo2/Exo2-BlackItalic.woff2') format('woff2'),
+    url('/assets/fonts/exo2/Exo2-BlackItalic.woff') format('woff'),
+    url('/assets/fonts/exo2/Exo2-BlackItalic.ttf') format('truetype');
+    font-weight: 900;
+    font-style: italic;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Exo 2';
+    src: url('/assets/fonts/exo2/Exo2-Bold.eot');
+    src: url('/assets/fonts/exo2/Exo2-Bold.eot?#iefix') format('embedded-opentype'),
+    url('/assets/fonts/exo2/Exo2-Bold.woff2') format('woff2'),
+    url('/assets/fonts/exo2/Exo2-Bold.woff') format('woff'),
+    url('/assets/fonts/exo2/Exo2-Bold.ttf') format('truetype');
+    font-weight: bold;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Exo 2';
+    src: url('/assets/fonts/exo2/Exo2-BoldItalic.eot');
+    src: url('/assets/fonts/exo2/Exo2-BoldItalic.eot?#iefix') format('embedded-opentype'),
+    url('/assets/fonts/exo2/Exo2-BoldItalic.woff2') format('woff2'),
+    url('/assets/fonts/exo2/Exo2-BoldItalic.woff') format('woff'),
+    url('/assets/fonts/exo2/Exo2-BoldItalic.ttf') format('truetype');
+    font-weight: bold;
+    font-style: italic;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Exo 2';
+    src: url('/assets/fonts/exo2/Exo2-ExtraBold.eot');
+    src: url('/assets/fonts/exo2/Exo2-ExtraBold.eot?#iefix') format('embedded-opentype'),
+    url('/assets/fonts/exo2/Exo2-ExtraBold.woff2') format('woff2'),
+    url('/assets/fonts/exo2/Exo2-ExtraBold.woff') format('woff'),
+    url('/assets/fonts/exo2/Exo2-ExtraBold.ttf') format('truetype');
+    font-weight: bold;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Exo 2';
+    src: url('/assets/fonts/exo2/Exo2-Thin.eot');
+    src: url('/assets/fonts/exo2/Exo2-Thin.eot?#iefix') format('embedded-opentype'),
+    url('/assets/fonts/exo2/Exo2-Thin.woff2') format('woff2'),
+    url('/assets/fonts/exo2/Exo2-Thin.woff') format('woff'),
+    url('/assets/fonts/exo2/Exo2-Thin.ttf') format('truetype');
+    font-weight: 100;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Exo 2';
+    src: url('/assets/fonts/exo2/Exo2-ThinItalic.eot');
+    src: url('/assets/fonts/exo2/Exo2-ThinItalic.eot?#iefix') format('embedded-opentype'),
+    url('/assets/fonts/exo2/Exo2-ThinItalic.woff2') format('woff2'),
+    url('/assets/fonts/exo2/Exo2-ThinItalic.woff') format('woff'),
+    url('/assets/fonts/exo2/Exo2-ThinItalic.ttf') format('truetype');
+    font-weight: 100;
+    font-style: italic;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Exo 2';
+    src: url('/assets/fonts/exo2/Exo2-ExtraLight.eot');
+    src: url('/assets/fonts/exo2/Exo2-ExtraLight.eot?#iefix') format('embedded-opentype'),
+    url('/assets/fonts/exo2/Exo2-ExtraLight.woff2') format('woff2'),
+    url('/assets/fonts/exo2/Exo2-ExtraLight.woff') format('woff'),
+    url('/assets/fonts/exo2/Exo2-ExtraLight.ttf') format('truetype');
+    font-weight: 200;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Exo 2';
+    src: url('/assets/fonts/exo2/Exo2-Medium.eot');
+    src: url('/assets/fonts/exo2/Exo2-Medium.eot?#iefix') format('embedded-opentype'),
+    url('/assets/fonts/exo2/Exo2-Medium.woff2') format('woff2'),
+    url('/assets/fonts/exo2/Exo2-Medium.woff') format('woff'),
+    url('/assets/fonts/exo2/Exo2-Medium.ttf') format('truetype');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Exo 2';
+    src: url('/assets/fonts/exo2/Exo2-Regular.eot');
+    src: url('/assets/fonts/exo2/Exo2-Regular.eot?#iefix') format('embedded-opentype'),
+    url('/assets/fonts/exo2/Exo2-Regular.woff2') format('woff2'),
+    url('/assets/fonts/exo2/Exo2-Regular.woff') format('woff'),
+    url('/assets/fonts/exo2/Exo2-Regular.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Exo 2';
+    src: url('/assets/fonts/exo2/Exo2-Light.eot');
+    src: url('/assets/fonts/exo2/Exo2-Light.eot?#iefix') format('embedded-opentype'),
+    url('/assets/fonts/exo2/Exo2-Light.woff2') format('woff2'),
+    url('/assets/fonts/exo2/Exo2-Light.woff') format('woff'),
+    url('/assets/fonts/exo2/Exo2-Light.ttf') format('truetype');
+    font-weight: 300;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Exo 2';
+    src: url('/assets/fonts/exo2/Exo2-ExtraLightItalic.eot');
+    src: url('/assets/fonts/exo2/Exo2-ExtraLightItalic.eot?#iefix') format('embedded-opentype'),
+    url('/assets/fonts/exo2/Exo2-ExtraLightItalic.woff2') format('woff2'),
+    url('/assets/fonts/exo2/Exo2-ExtraLightItalic.woff') format('woff'),
+    url('/assets/fonts/exo2/Exo2-ExtraLightItalic.ttf') format('truetype');
+    font-weight: 200;
+    font-style: italic;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Exo 2';
+    src: url('/assets/fonts/exo2/Exo2-SemiBoldItalic.eot');
+    src: url('/assets/fonts/exo2/Exo2-SemiBoldItalic.eot?#iefix') format('embedded-opentype'),
+    url('/assets/fonts/exo2/Exo2-SemiBoldItalic.woff2') format('woff2'),
+    url('/assets/fonts/exo2/Exo2-SemiBoldItalic.woff') format('woff'),
+    url('/assets/fonts/exo2/Exo2-SemiBoldItalic.ttf') format('truetype');
+    font-weight: 600;
+    font-style: italic;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Exo 2';
+    src: url('/assets/fonts/exo2/Exo2-SemiBold.eot');
+    src: url('/assets/fonts/exo2/Exo2-SemiBold.eot?#iefix') format('embedded-opentype'),
+    url('/assets/fonts/exo2/Exo2-SemiBold.woff2') format('woff2'),
+    url('/assets/fonts/exo2/Exo2-SemiBold.woff') format('woff'),
+    url('/assets/fonts/exo2/Exo2-SemiBold.ttf') format('truetype');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Exo 2';
+    src: url('/assets/fonts/exo2/Exo2-Italic.eot');
+    src: url('/assets/fonts/exo2/Exo2-Italic.eot?#iefix') format('embedded-opentype'),
+    url('/assets/fonts/exo2/Exo2-Italic.woff2') format('woff2'),
+    url('/assets/fonts/exo2/Exo2-Italic.woff') format('woff'),
+    url('/assets/fonts/exo2/Exo2-Italic.ttf') format('truetype');
+    font-weight: normal;
+    font-style: italic;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Exo 2';
+    src: url('/assets/fonts/exo2/Exo2-LightItalic.eot');
+    src: url('/assets/fonts/exo2/Exo2-LightItalic.eot?#iefix') format('embedded-opentype'),
+    url('/assets/fonts/exo2/Exo2-LightItalic.woff2') format('woff2'),
+    url('/assets/fonts/exo2/Exo2-LightItalic.woff') format('woff'),
+    url('/assets/fonts/exo2/Exo2-LightItalic.ttf') format('truetype');
+    font-weight: 300;
+    font-style: italic;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Exo 2';
+    src: url('/assets/fonts/exo2/Exo2-MediumItalic.eot');
+    src: url('/assets/fonts/exo2/Exo2-MediumItalic.eot?#iefix') format('embedded-opentype'),
+    url('/assets/fonts/exo2/Exo2-MediumItalic.woff2') format('woff2'),
+    url('/assets/fonts/exo2/Exo2-MediumItalic.woff') format('woff'),
+    url('/assets/fonts/exo2/Exo2-MediumItalic.ttf') format('truetype');
+    font-weight: 500;
+    font-style: italic;
+    font-display: swap;
+}
+

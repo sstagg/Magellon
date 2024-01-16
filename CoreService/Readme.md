@@ -52,8 +52,10 @@ Copy your CoreService files to your Debian 11 server using SCP or any other file
 
 Create a virtual environment for your application:
 
-`python3 -m venv myenv
-source myenv/bin/activate`
+`
+python3 -m venv myenv
+source myenv/bin/activate
+`
 
 Install your application's dependencies inside the virtual environment:
 
@@ -63,6 +65,7 @@ Test your application locally:
 
 `uvicorn main:app --reload`
 `uvicorn main:app --port 8080`
+
 Once your application is running correctly, you can configure a Gunicorn systemd service file. Create a file called /etc/systemd/system/myapp.service with the following content:
 
 ```
@@ -109,10 +112,6 @@ prometheus_client
 https://github.com/Kludex/fastapi-prometheus-grafana
 https://github.com/Blueswen/fastapi-observability
 
-
-labrisen.com
-labignite.com
-LabZenith.com
 
 
 Components:
@@ -173,12 +172,6 @@ WITH RECURSIVE cte AS (
 UPDATE image AS t
 JOIN cte ON t.oid = cte.oid
 SET t.level = cte.level;
-
-
-
-
-
-
 
 
 

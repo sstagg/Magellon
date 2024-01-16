@@ -1,0 +1,52 @@
+{
+    "blog": {
+      "name": "Blog",
+      "plural": "I bought {n, plural,  one {# blog} other {# blogs}} $t(blog:blog.name)",
+      "message": "You are logged in as user \"{{username}}\".",
+      "message2": "Welcome, {name}! You have {count, plural,\n  =0 {no messages}\n  one {one message}\n  other {{count} messages}\n}.",
+      "message3": "{gender, select,\n  male {He}\n  female {She}\n  other {They}\n} is an excellent programmer.",
+      "price": "The value is {val, currency(USD)}",
+      "price2": "The price is {n, number, percent}",
+
+      "columns": {
+        "id": "id",
+        "title": "Title",
+        "body": "Body"
+      },
+      "create": {
+        "title": "Create Blog Post",
+        "form": {
+          "title": "Title",
+          "content": "Content",
+          "author": "Author",
+          "category": "Category",
+          "createButton": "Create Post"
+        },
+        "success": "<strong>Blog post created successfully!</strong>",
+        "error": "<strong>Error creating blog post.</strong> Please try again later."
+      },
+      "view": {
+        "title": "Blog Posts",
+        "noPosts": "No blog posts available.",
+        "viewButton": "View",
+        "editButton": "Edit",
+        "exportButton": "Export",
+        "deleteButton": "Delete"
+      },
+      "edit": {
+        "title": "Edit Blog Post",
+        "form": {
+          "updateButton": "Update Post"
+        },
+        "success": "<strong>Blog post updated successfully!</strong>",
+        "error": "<strong>Error updating blog post.</strong> Please try again later."
+      },
+      "delete": {
+        "confirmation": "Are you sure you want to delete this blog post?",
+        "confirmButton": "Yes, Delete",
+        "cancelButton": "Cancel",
+        "success": "<strong>Blog post deleted successfully!</strong>",
+        "error": "<strong>Error deleting blog post.</strong> Please try again later."
+      }
+    }
+}

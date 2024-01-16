@@ -1,0 +1,24 @@
+{
+  "serverless-code": {
+    "app": {
+      "title": "Formulaire de Code Serverless",
+      "description": "Bienvenue dans le formulaire de Code Serverless. Utilisez ce formulaire pour gérer votre code serverless."
+    },
+    "form": {
+      "name": "Nom",
+      "alias": "Alias",
+      "code": "Code",
+      "description": "Description",
+      "runtimeId": "ID du Runtime",
+      "author": "Auteur",
+      "copyright": "Droits d'auteur",
+      "requirements": "Exigences",
+      "createdAt": "Créé le",
+      "updatedAt": "Mis à jour le",
+      "statusId": "ID du Statut",
+      "version": "Version",
+      "submitButton": "Soumettre",
+      "requiredFieldError": "Ce champ est obligatoire."
+    }
+  }
+}

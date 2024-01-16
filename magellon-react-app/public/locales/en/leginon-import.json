@@ -1,0 +1,24 @@
+{
+  "leginon-importer": {
+    "app": {
+      "title": "Leginon Import Tool",
+      "description": "Welcome to the Leginon Import Tool. Use this tool to import your sessions to Magellon."
+    },
+    "form": {
+      "magellonProjectName": "Magellon Project Name",
+      "magellonSessionName": "Magellon Session Name",
+      "cameraDirectory": "Camera Directory",
+      "sessionName": "Session Name",
+      "ifDoSubtasks": "If Do Subtasks",
+      "copyImages": "Copy Images",
+      "retries": "Retries",
+      "leginonMysqlHost": "Leginon MySQL Host",
+      "leginonMysqlPort": "Leginon MySQL Port",
+      "leginonMysqlDb": "Leginon MySQL Database",
+      "leginonMysqlUser": "Leginon MySQL User",
+      "leginonMysqlPass": "Leginon MySQL Password",
+      "submitButton": "Submit",
+      "requiredFieldError": "This field is required."
+    }
+  }
+}

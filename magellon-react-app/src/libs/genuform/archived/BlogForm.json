@@ -1,0 +1,163 @@
+//Layout , initial data , events and event handlers
+{
+  "title": "Blog Form",
+  "description": "Submit a new blog post",
+  "dataSources": [
+    {
+      "name": "data1",
+      "url": "https://example.com/rest",
+      "username": "your-rest-username",
+      "password": "your-rest-password",
+      "type": "rest",
+      "queries": [
+        {
+          "name": "getBlogById",
+          "type": "query",
+          "query": "YOUR_GRAPHQL_GET_BLOG_QUERY"
+        },
+        {
+          "name": "createBlog",
+          "type": "mutation",
+          "url": "https://example.com/rest-create-blog",
+          "method": "POST",
+          "requestHeaders": {
+            "Authorization": "Bearer YOUR_REST_TOKEN"
+          }
+        }
+      ]
+    },
+    {
+      "name": "data2",
+      "url": "https://example.com/graphql",
+      "username": "your-graphql-username",
+      "password": "your-graphql-password",
+      "type": "graphql"
+    }
+  ],
+  "submit": {
+    "isVisible": true,
+    "caption": "Submit",
+    "url": "/submit-blog"
+  },
+  "backButton": {
+    "isVisible": true,
+    "caption": "Back",
+    "url": "/back-to-list"
+  },
+  "fields": [
+    {
+      "name": "userId",
+      "label": "User ID",
+      "type": "number",
+      "required": false,
+      "editorType": "input",
+      "dataSource": "data1",
+      "dataTable": "",
+      "dataField": "userId",
+
+      "validationRules": [
+        { "type": "min", "value": 1, "message": "User ID must be greater than or equal to 1" }
+      ],
+      "editorSettings": {
+        "placeholder": "Enter User ID"
+      },
+      "xs": 12,
+      "md": 6,
+      "labelLocation": "top",
+      "hint": "This is the user's unique identifier.",
+      "fieldOrder": 1,
+      "fieldGroup": "basicInfo"
+    },
+    {
+      "name": "id",
+      "label": "ID",
+      "type": "number",
+      "required": false,
+      "dataSource": "data1",
+      "dataTable": "",
+      "dataField": "id",
+      "editorType": "input",
+      "validationRules": [
+        { "type": "min", "value": 1, "message": "ID must be greater than or equal to 1" }
+      ],
+      "editorSettings": {
+        "placeholder": "Enter ID"
+      },
+      "xs": 12,
+      "md": 6,
+      "labelLocation": "top",
+      "hint": "This is the unique identifier for the blog post.",
+      "fieldOrder": 2,
+      "fieldGroup": "basicInfo"
+    },
+    {
+      "name": "title",
+      "label": "Title",
+      "type": "string",
+      "required": true,
+      "editorType": "input",
+      "dataSource": "data1",
+      "dataTable": "",
+      "dataField": "title",
+      "validationRules": [
+        { "type": "required", "message": "Title is required" }
+      ],
+      "editorSettings": {
+        "placeholder": "Enter Title"
+      },
+      "xs": 12,
+      "md": 12,
+      "labelLocation": "top",
+      "hint": "Enter a descriptive title for the blog post.",
+      "fieldOrder": 3,
+      "fieldGroup": "contentInfo"
+    },
+    {
+      "name": "body",
+      "label": "Body",
+      "type": "string",
+      "required": true,
+      "editorType": "textarea",
+      "validationRules": [
+        { "type": "required", "message": "Body is required" }
+      ],
+      "editorSettings": {
+        "placeholder": "Enter Body"
+      },
+      "xs": 12,
+      "md": 12,
+      "labelLocation": "top",
+      "hint": "Provide the main content of the blog post.",
+      "fieldOrder": 4,
+      "fieldGroup": "contentInfo"
+    }
+  ],
+  "fieldGroups": [
+    {
+      "name": "basicInfo",
+      "label": "Basic Information"
+    },
+    {
+      "name": "contentInfo",
+      "label": "Content Information"
+    }
+  ],
+
+  "methods": [
+    {
+      "name": "submit",
+      "code": "some code",
+      "params": [{"name": "param1", "type": "string"}],
+      "handler": "event1,event2"
+    }
+  ],
+  "Rules": [
+    {
+      "name": "some logic",
+      "if":"condition part",
+      "then": "actions part",
+      "type": "Business|Security|Appearance",
+      "description": " if isUser, isAuthenticated, isInRole , hasPermission"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "serverless-code": {
+    "app": {
+      "title": "Serverless Code Form",
+      "description": "Welcome to the Serverless Code Form. Use this form to manage your serverless code."
+    },
+    "form": {
+      "name": "Name",
+      "alias": "Alias",
+      "code": "Code",
+      "description": "Description",
+      "runtimeId": "Runtime ID",
+      "author": "Author",
+      "copyright": "Copyright",
+      "requirements": "Requirements",
+      "createdAt": "Created At",
+      "updatedAt": "Updated At",
+      "statusId": "Status ID",
+      "version": "Version",
+      "submitButton": "Submit",
+      "requiredFieldError": "This field is required."
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "serverless-code": {
+    "app": {
+      "title": "فرم کد سرورکم‌بوده",
+      "description": "به فرم کد سرور کم‌بوده خوش آمدید. از این فرم برای مدیریت کد‌های سروری خود استفاده کنید."
+    },
+    "form": {
+      "name": "نام",
+      "alias": "نام مستعار",
+      "code": "کد",
+      "description": "توضیحات",
+      "runtimeId": "شناسه اجرا",
+      "author": "نویسنده",
+      "copyright": "حقوق تکثیر",
+      "requirements": "نیازمندی‌ها",
+      "createdAt": "تاریخ ایجاد",
+      "updatedAt": "تاریخ به‌روزرسانی",
+      "statusId": "شناسه وضعیت",
+      "version": "نسخه",
+      "submitButton": "ثبت",
+      "requiredFieldError": "این فیلد الزامی است."
+    }
+  }
+}

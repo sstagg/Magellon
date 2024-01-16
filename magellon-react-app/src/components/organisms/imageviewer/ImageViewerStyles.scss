@@ -1,0 +1,42 @@
+$borderRadius: 10px;
+$thumbImageWidth: 98%;
+$thumbImageHeight: 98%;
+$thumbImageBorderColor: rgba(215, 215, 225, 1); // Adjust the alpha value as needed
+$thumbImageHoveredBorderColor: rgb(137, 243, 8); // Adjust the alpha value as needed
+$thumbImageSelectedBorderColor: rgb(225, 136, 7); // Adjust the alpha value as needed
+$thumbImageHasChildrenBorderColor: rgb(89, 9, 236); // Adjust the alpha value as needed
+
+.thumb-image {
+  border-radius: $borderRadius;
+  width: $thumbImageWidth;
+  height: $thumbImageHeight;
+  object-fit: cover;
+  border: 3px solid $thumbImageBorderColor;
+  transition: border-color 0.3s ease;
+}
+
+.thumb-image:hover {
+  border: 3px solid $thumbImageHoveredBorderColor;
+  //box-shadow: 0 4px 5px $thumbImageHoveredBorderColor;
+  //z-index: 1;
+}
+
+.thumb-image-selected{
+  border: 3px solid $thumbImageSelectedBorderColor !important;
+}
+
+.thumb-image-has-children{
+  border: 3px solid $thumbImageHasChildrenBorderColor;
+}
+
+
+.map-area {
+  outline: 2px solid #e8e2e2; /* Set the border color and width */
+  outline-offset: -2px; /* Adjust the spacing between the border and the area */
+  cursor: pointer; /* Change cursor to pointer on hover */
+}
+
+.map-area:hover {
+  background-color: rgba(252, 245, 245, 0.1); /* Add a background color on hover */
+}
+

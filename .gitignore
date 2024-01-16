@@ -15,6 +15,15 @@
 /MagellonApp/.angular/
 /MagellonApp/.idea/
 
+
+
+/magellon-react-app/node_modules/
+/magellon-react-app/dist/
+/magellon-react-app/test-results/
+/magellon-react-app/playwright-report/
+/magellon-react-app/playwright/.cache/
+
+
 /WebApp/node_modules/
 /WebApp/.angular/
 /WebApp/.idea/

@@ -1,0 +1,8 @@
+{
+  "SERVER_WEB_API_URL": "http://127.0.0.1:8000/web",
+  "apiBaseUrl": "https://jsonplaceholder.typicode.com/",
+  "apiEndpoints": {
+    "blogs": "posts",
+    "searchBlogs": "admin/_search/blogs"
+  }
+}

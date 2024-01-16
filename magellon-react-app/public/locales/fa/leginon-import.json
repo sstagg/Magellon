@@ -1,0 +1,24 @@
+{
+  "leginon-importer": {
+    "app": {
+      "title": "ابزار ورود لجینون",
+      "description": "به ابزار ورود لجینون خوش آمدید. از این ابزار برای وارد کردن نشست‌های خود به ماجلون استفاده کنید."
+    },
+    "form": {
+      "magellonProjectName": "نام پروژه ماجلون",
+      "magellonSessionName": "نام نشست ماجلون",
+      "cameraDirectory": "دایرکتوری دوربین",
+      "sessionName": "نام نشست",
+      "ifDoSubtasks": "در صورت انجام زیر وظایف",
+      "copyImages": "کپی تصاویر",
+      "retries": "تلاش‌ها",
+      "leginonMysqlHost": "میزبان MySQL لجینون",
+      "leginonMysqlPort": "پورت MySQL لجینون",
+      "leginonMysqlDb": "پایگاه داده MySQL لجینون",
+      "leginonMysqlUser": "کاربر MySQL لجینون",
+      "leginonMysqlPass": "رمز عبور MySQL لجینون",
+      "submitButton": "ارسال",
+      "requiredFieldError": "این فیلد اجباری است."
+    }
+  }
+}
