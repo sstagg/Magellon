@@ -103,8 +103,6 @@ sudo docker run -d --restart=always -p 8080:80 khoshbin/magellon-main-service
 docker ps
 
 
-
-
 Note that you can also use a separate environment file to set multiple environment variables. To do this, you can use the --env-file option of the docker run command to specify a file containing environment variable definitions. For example:
 `docker run --env-file my_env_file my_image`
 ### Go to WebApp directory and run:

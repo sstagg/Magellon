@@ -176,3 +176,33 @@ SET t.level = cte.level;
 
 
 
+
+
+
+
+
+
+./MotionCor3 -InMrc 23oct13a_a_00038gr_00001sq_v02_00005hl_00002ex.tif -OutMrc outImg.mrc -kV 300 -Cs 2.7 -PixSize 0.93 FmDose 0.6 -Gain ./K3-20310049.mrc
+
+```
+
+1.Create MagellonSDK
+2.Pass Environment Variables
+3.Service Discovery
+4.
+
+
+## Installation 1
+pip freeze > requirements.txt
+pip download -r requirements.txt --no-binary :all:
+pip install --no-index --find-links=/path/to/local/directory -r requirements.txt
+
+## Installation 2
+pip download -r requirements.txt -d /path/to/wheelhouse
+pip install --no-index --find-links=/path/to/wheelhouse -r requirements.txt
+
+pip download --only-binary=:all: --platform manylinux1_x86_64,win_amd64,macosx_10_15_x86_64 -r requirements.txt -d /path/to/wheelhouse
+
+    --only-binary=:all:: Instructs pip to consider all platforms when looking for pre-built binary distributions (wheels).
+    --platform manylinux1_x86_64,win_amd64,macosx_10_15_x86_64: Specifies the platforms for which to download wheels. In this example, it includes Linux (manylinux1_x86_64), Windows (win_amd64), and macOS (macosx_10_15_x86_64). You can customize the platform list based on your requirements.
+
