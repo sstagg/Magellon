@@ -13203,3 +13203,23 @@ WHERE msession.name = %(name_1)s
 FROM atlas
 2024-01-16 08:14:53,546 [INFO] sqlalchemy.engine.Engine base.py:1906 - [cached since 176.2s ago] {}
 2024-01-16 08:14:53,612 [INFO] sqlalchemy.engine.Engine base.py:1117 - ROLLBACK
+2024-01-16 08:35:18,513 [INFO] sqlalchemy.engine.Engine base.py:1091 - BEGIN (implicit)
+2024-01-16 08:35:18,513 [INFO] sqlalchemy.engine.Engine base.py:1901 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2024-01-16 08:35:18,513 [INFO] sqlalchemy.engine.Engine base.py:1906 - [cached since 1478s ago] {'name_1': '23jun28a', 'param_1': 1}
+2024-01-16 08:35:18,547 [INFO] sqlalchemy.engine.Engine base.py:1901 - SELECT atlas.`Oid` AS `atlas_Oid`, atlas.name AS atlas_name, atlas.meta AS atlas_meta, atlas.session_id AS atlas_session_id, atlas.`OptimisticLockField` AS `atlas_OptimisticLockField`, atlas.`GCRecord` AS `atlas_GCRecord` 
+FROM atlas
+2024-01-16 08:35:18,548 [INFO] sqlalchemy.engine.Engine base.py:1906 - [cached since 1401s ago] {}
+2024-01-16 08:35:18,613 [INFO] sqlalchemy.engine.Engine base.py:1117 - ROLLBACK
+2024-01-16 08:36:20,783 [INFO] sqlalchemy.engine.Engine base.py:1091 - BEGIN (implicit)
+2024-01-16 08:36:20,783 [INFO] sqlalchemy.engine.Engine base.py:1901 - SELECT msession.`Oid` AS `msession_Oid`, msession.name AS msession_name, msession.project_id AS msession_project_id, msession.site_id AS msession_site_id, msession.user_id AS msession_user_id, msession.description AS msession_description, msession.start_on AS msession_start_on, msession.end_on AS msession_end_on, msession.microscope_id AS msession_microscope_id, msession.camera_id AS msession_camera_id, msession.sample_type AS msession_sample_type, msession.sample_name AS msession_sample_name, msession.sample_grid_type AS msession_sample_grid_type, msession.sample_sequence AS msession_sample_sequence, msession.sample_procedure AS msession_sample_procedure, msession.`OptimisticLockField` AS `msession_OptimisticLockField`, msession.`GCRecord` AS `msession_GCRecord` 
+FROM msession 
+WHERE msession.name = %(name_1)s 
+ LIMIT %(param_1)s
+2024-01-16 08:36:20,783 [INFO] sqlalchemy.engine.Engine base.py:1906 - [cached since 1540s ago] {'name_1': '23jun28a', 'param_1': 1}
+2024-01-16 08:36:20,819 [INFO] sqlalchemy.engine.Engine base.py:1901 - SELECT atlas.`Oid` AS `atlas_Oid`, atlas.name AS atlas_name, atlas.meta AS atlas_meta, atlas.session_id AS atlas_session_id, atlas.`OptimisticLockField` AS `atlas_OptimisticLockField`, atlas.`GCRecord` AS `atlas_GCRecord` 
+FROM atlas
+2024-01-16 08:36:20,819 [INFO] sqlalchemy.engine.Engine base.py:1906 - [cached since 1463s ago] {}
+2024-01-16 08:36:20,884 [INFO] sqlalchemy.engine.Engine base.py:1117 - ROLLBACK
