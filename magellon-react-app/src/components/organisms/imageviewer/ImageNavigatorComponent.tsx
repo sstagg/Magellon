@@ -1,9 +1,7 @@
 import {
     ButtonGroup,
     Card,
-    CardActionArea,
     CardContent,
-    CardMedia,
     Grid,
     ImageList,
     ImageListItem,
@@ -11,17 +9,13 @@ import {
 } from "@mui/material";
 import Typography from "@mui/material/Typography";
 import {ImagesStackComponent} from "./ImagesStackComponent.tsx";
-import ImageInfoDto, {AtlasImageDto, PagedImageResponse} from "./ImageInfoDto.ts";
-import {InfiniteData, useInfiniteQuery, useQuery} from "react-query";
-import {fetchImagesPage} from "../../../services/api/imagesApiReactQuery.tsx";
+import ImageInfoDto, {AtlasImageDto} from "./ImageInfoDto.ts";
 import IconButton from "@mui/material/IconButton";
 import {EyeOutlined} from "@ant-design/icons";
 import {useEffect, useState} from "react";
 import InfoIcon from "@mui/icons-material/Info";
-import {ImageColumnComponent} from "./ImageColumnComponent.tsx";
 import {ImageColumnState} from "../../views/panel/ImagesPageView.tsx";
-import {ThumbImage} from "./ThumbImage.tsx";
-import AtlasImage, {ImageMap} from "./AtlasImage.tsx";
+import AtlasImage from "./AtlasImage.tsx";
 
 
 interface ImageNavigatorProps {
@@ -33,20 +27,6 @@ interface ImageNavigatorProps {
 
 
 
-// function jsonToImageMap(jsonString: string | undefined): ImageMap | null {
-//     try {
-//         if (jsonString === undefined) {
-//             console.error('JSON string is undefined');
-//             return null;
-//         }
-// debugger;
-//         const parsedJson = JSON.parse(jsonString);
-//         return parsedJson as ImageMap;
-//     } catch (error) {
-//         console.error('Error parsing JSON:', error);
-//         return null;
-//     }
-// }
 export const ImageNavigatorComponent: React.FC<ImageNavigatorProps>  = ({ onImageClick , selectedImage,ImageColumns,Atlases }) => {
 
     const [isAtlasVisible, setIsAtlasVisible] = useState(true);
@@ -62,10 +42,6 @@ export const ImageNavigatorComponent: React.FC<ImageNavigatorProps>  = ({ onImag
         setCurrentAtlas(atlas);
     };
 
-
-    // const handleLoadNextPage = () => {
-    //     // fetchNextPage();
-    // };
 
     return (
         <Grid container direction="column">

@@ -10,7 +10,7 @@ import {ControlPoint, HighlightOff, Palette, Straighten} from "@mui/icons-materi
 import {InfoLineComponent} from "./InfoLineComponent.tsx";
 import {InfoOutlined} from "@ant-design/icons";
 import ImageInfoDto from "./ImageInfoDto.ts";
-import AtlasImage, { ImageMap } from "./AtlasImage.tsx";
+
 
 interface SoloImageViewerProps {
     selectedImage: ImageInfoDto | null;
@@ -42,12 +42,12 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
                     <Stack direction="row" >
                         <InfoLineComponent icon={<InfoOutlined />} caption="Mag" value={selectedImage?.mag} />
                         <InfoLineComponent icon={<InfoOutlined />} caption="Dose" value={selectedImage?.dose} />
-                        <InfoLineComponent icon={<InfoOutlined />} caption="Defocus" value={selectedImage?.defocus} />
+                        <InfoLineComponent icon={<InfoOutlined />} caption="Defocus" value={`${selectedImage?.defocus} μm`} />
                     </Stack>
                     <Stack direction="row" >
                         {/*<InfoLine icon={<Info />} caption="PixelSize" value={imageInfo?.pixelSize} />*/}
                         {/*<InfoLine icon={<Mail />} caption="Created" value={imageInfo?.filename} />*/}
-                        <InfoLineComponent icon={<InfoOutlined />} caption="PixelSize" value={selectedImage?.pixelSize} />
+                        <InfoLineComponent icon={<InfoOutlined />} caption="PixelSize" value={`${selectedImage?.pixelSize} Å/pix`} />
                         <InfoLineComponent icon={<InfoOutlined />} caption="Researcher" value="Shirin" />
                     </Stack>
 
@@ -62,7 +62,7 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
                             <Tab label="Particle Picking" value="3" />
                             <Tab label="Variations" value="4" />
                             <Tab label="CTF" value="5" />
-                            <Tab label="MotionCore" value="6" />
+                            <Tab label="Frame Alignment" value="6" />
                             <Tab label="Test" value="7" />
                         </TabList>
                     </Box>
@@ -86,7 +86,7 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
                     <TabPanel value="4">Item 4</TabPanel>
                     <TabPanel value="5">Item 5</TabPanel>
                     <TabPanel value="6">
-                        motioncore
+                        Frame Alignment
                     </TabPanel>
                     <TabPanel value="7">
 

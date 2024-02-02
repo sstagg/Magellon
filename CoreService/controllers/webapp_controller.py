@@ -116,6 +116,7 @@ def get_images_route(
           i.magnification AS mag,
           i.pixel_size AS pixelSize,
           i.parent_id,
+          i.binning_x,
           i.session_id,
            (
             SELECT COUNT(*)
@@ -141,10 +142,10 @@ def get_images_route(
             image = ImageDto(
                 oid=row.Oid,
                 name=row.name,
-                defocus=row.defocus,
+                defocus=round(float(row.defocus) * 1.e6, 2),
                 dose=row.dose,
                 mag=row.mag,
-                pixelSize=row.pixelSize,
+                pixelSize=round(float(row.pixelSize) * row.binning_x * 1.e10, 3),
                 parent_id=row.parent_id,
                 session_id=row.session_id,
                 children_count=row.children_count
@@ -198,6 +199,7 @@ def get_image_route(
               i.magnification AS mag,
               i.pixel_size AS pixelSize,
               i.parent_id,
+              i.binning_x,
               i.session_id,
                (
                 SELECT COUNT(*)
@@ -219,10 +221,10 @@ def get_image_route(
             image = ImageDto(
                 oid=row.Oid,
                 name=row.name,
-                defocus=row.defocus,
+                defocus=round(float(row.defocus) * 1.e6, 2),
                 dose=row.dose,
                 mag=row.mag,
-                pixelSize=row.pixelSize,
+                pixelSize= round(float(row.pixelSize) * row.binning_x * 1.e10, 3),
                 parent_id=row.parent_id,
                 session_id=row.session_id,
                 children_count=row.children_count

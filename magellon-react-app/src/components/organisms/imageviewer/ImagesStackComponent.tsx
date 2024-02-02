@@ -1,8 +1,9 @@
 import ImageInfoDto, {PagedImageResponse} from "./ImageInfoDto.ts";
-import {ImageList, ImageListItem, Stack} from "@mui/material";
+import {ImageList} from "@mui/material";
 import './ImageViewerStyles.scss'
 import {ThumbImage} from "./ThumbImage.tsx";
 import {InfiniteData} from "react-query";
+import {useState} from "react";
 
 interface IImagesStackProps{
     images:InfiniteData<PagedImageResponse> | null;
@@ -11,13 +12,20 @@ interface IImagesStackProps{
     level: number;
 }
 export const ImagesStackComponent = ({caption,images,onImageClick,level} : IImagesStackProps) => {
-    // const thumbImageStyle: React.CSSProperties = {
-    //     borderRadius: '10px',
-    //     width: '150px',
-    //     height: '150px',
-    //     objectFit: 'cover',
-    //     border: active ? '3px solid #ff0000' : '3px solid rgba(215, 215, 225)'
-    // };
+    const [selectedImage, setSelectedImage] = useState<ImageInfoDto | null>(null);
+
+
+    const handleImageClick = (image: ImageInfoDto, column : number) => {
+        // If the clicked image is already selected, unselect it
+        // Otherwise, select the clicked image and unselect the previously selected image
+        if (selectedImage === image) {
+            // setSelectedImage(null);
+            //onImageClick(null); // Pass null to indicate that no image is selected
+        } else {
+            setSelectedImage(image);
+            onImageClick(image,column);
+        }
+    };
 
 
     return (
@@ -26,7 +34,13 @@ export const ImagesStackComponent = ({caption,images,onImageClick,level} : IImag
             <ImageList cols={1} rowHeight={170} sx={{ width: 170, height: 700,display:'block'  }}>
                 {images?.pages?.map((_thePagedImageResponse, index) => (
                     _thePagedImageResponse.result.map((img,index)=>
-                        <ThumbImage image={img} key={index} onImageClick={onImageClick} level={level}/>
+                        <ThumbImage
+                            image={img}
+                            key={index}
+                            isSelected={selectedImage === img}
+                            onImageClick={() => handleImageClick(img)}
+                            level={level}
+                        />
                     )
                 ))}
             </ImageList >
