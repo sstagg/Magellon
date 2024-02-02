@@ -1,12 +1,10 @@
-import Link from '@mui/material/Link';
-import {Breadcrumbs, Paper, Stack} from "@mui/material";
+import {Grid, Paper, Stack} from "@mui/material";
 import {ImageNavigatorComponent} from "../../organisms/imageviewer/ImageNavigatorComponent.tsx";
 import { SoloImageViewerComponent } from '../../organisms/imageviewer/SoloImageViewerComponent.tsx';
-import ImageInfoDto, {AtlasImageDto, PagedImageResponse} from '../../organisms/imageviewer/ImageInfoDto.ts';
+import ImageInfoDto, { PagedImageResponse} from '../../organisms/imageviewer/ImageInfoDto.ts';
 import {useEffect, useState} from "react";
 import {InfiniteData} from "react-query";
 import {usePagedImages} from "../../../services/api/usePagedImagesHook.ts";
-import imageInfoDto from "../../organisms/imageviewer/ImageInfoDto.ts";
 import {useAtlasImages} from "../../../services/api/FetchSessionAtlasImages.ts";
 
 export interface ImageColumnState {
@@ -148,13 +146,13 @@ export const ImagesPageView = () => {
     }, [currentImage?.oid, level, data, isSuccess]);
 
     return (
-        <Stack direction="row">
-            <Paper >
+        <Grid container>
+            <Grid item xs={5}>
                 <ImageNavigatorComponent onImageClick={OnCurrentImageChanged}  selectedImage={currentImage} ImageColumns={imageColumns} Atlases={atlasImages}/>
-            </Paper>
-            <Paper >
+            </Grid>
+            <Grid item  xs={7}>
                 <SoloImageViewerComponent selectedImage={currentImage}/>
-            </Paper>
-        </Stack>
+            </Grid>
+        </Grid>
     );
 };

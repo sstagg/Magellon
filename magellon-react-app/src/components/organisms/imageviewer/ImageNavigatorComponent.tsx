@@ -78,6 +78,7 @@ export const ImageNavigatorComponent: React.FC<ImageNavigatorProps>  = ({ onImag
                 </Stack>
 
             </Grid>
+
             <Grid item container sx={{ marginTop:3 }} >
                 <ImagesStackComponent caption={ImageColumns[0].caption} images={ImageColumns[0].images} level={0} onImageClick={(image) => onImageClick(image,0)} />
                 <ImagesStackComponent caption={ImageColumns[1].caption} images={ImageColumns[1].images} level={1} onImageClick={(image) => onImageClick(image,1)} />

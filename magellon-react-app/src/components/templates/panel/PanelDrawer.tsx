@@ -21,7 +21,7 @@ const drawerWidth = 240;
 const links: AppLink[] = [
     new AppLink("Images", "images", "images"),
     new AppLink("Plugins", "domains/plugins", "plugins"),
-    new AppLink("Pipelines", "leginon-transfer", "account-tree"),
+    new AppLink("Pipelines", "domains/plugins", "account-tree"),
     new AppLink("Leginon Import", "leginon-transfer", "import"),
     new AppLink("API", "api", "api"),
     // new AppLink("Blogs", "domains/blogs", "google-icon"),
