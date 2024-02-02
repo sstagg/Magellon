@@ -16,14 +16,10 @@ export const ImagesStackComponent = ({caption,images,onImageClick,level} : IImag
 
 
     const handleImageClick = (image: ImageInfoDto, column : number) => {
-        // If the clicked image is already selected, unselect it
-        // Otherwise, select the clicked image and unselect the previously selected image
-        if (selectedImage === image) {
-            // setSelectedImage(null);
-            //onImageClick(null); // Pass null to indicate that no image is selected
-        } else {
+        if(image!==null && image!==selectedImage) {
             setSelectedImage(image);
             onImageClick(image,column);
+            console.log("image is selected", image.name);
         }
     };
 
@@ -37,7 +33,7 @@ export const ImagesStackComponent = ({caption,images,onImageClick,level} : IImag
                         <ThumbImage
                             image={img}
                             key={index}
-                            isSelected={selectedImage === img}
+                            isSelected={selectedImage?.oid == img?.oid}
                             onImageClick={() => handleImageClick(img)}
                             level={level}
                         />

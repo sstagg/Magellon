@@ -4,26 +4,28 @@ import Drawer from '@mui/material/Drawer';
 import List from '@mui/material/List';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
+import ImageIcon from '@mui/icons-material/Image';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
-import InboxIcon from '@mui/icons-material/MoveToInbox';
 import MailIcon from '@mui/icons-material/Mail';
 import AppLink from "./AppLink.ts";
 import {Link,useNavigate } from "react-router-dom";
 import {blueGrey} from "@mui/material/colors";
+import {AccountTree, Api, Extension, ImportExport, QuestionMark, Settings} from "@mui/icons-material";
 
 const drawerWidth = 240;
 const links: AppLink[] = [
-    new AppLink("Images", "images", "google-icon"),
-    new AppLink("Plugins", "domains/plugins", "facebook-icon"),
-    new AppLink("Processes", "leginon-transfer", "facebook-icon"),
-    new AppLink("Leginon Import", "leginon-transfer", "facebook-icon"),
-    new AppLink("API", "api", "twitter-icon"),
-    new AppLink("Blogs", "domains/blogs", "google-icon"),
+    new AppLink("Images", "images", "images"),
+    new AppLink("Plugins", "domains/plugins", "plugins"),
+    new AppLink("Pipelines", "leginon-transfer", "account-tree"),
+    new AppLink("Leginon Import", "leginon-transfer", "import"),
+    new AppLink("API", "api", "api"),
+    // new AppLink("Blogs", "domains/blogs", "google-icon"),
+    new AppLink("Settings", "domains/blogs", "settings"),
 ];
 const DrawerHeader = styled('div')(({ theme }) => ({
     display: 'flex',
@@ -37,6 +39,31 @@ interface PanelDrawerProps {
     open: boolean;
     handleDrawerClose: () => void;
 }
+
+const getIconByName = (name: string): JSX.Element => {
+    switch (name) {
+        case 'images':
+            return <ImageIcon />;
+        case 'plugins':
+            return <Extension />;
+        case 'import':
+            return <ImportExport />;
+        case 'mail':
+            return <MailIcon />;
+        case 'account-tree':
+            return <AccountTree />;
+        case 'api':
+            return <Api />;
+        case 'settings':
+            return <Settings />;
+        case 'someOther':
+            return <QuestionMark />;
+        // Add more cases for other icon names as needed
+        default:
+            return <QuestionMark />; // Default to InboxIcon if the name is not recognized
+    }
+};
+
 export const PanelDrawer : React.FC<PanelDrawerProps> = ({ open, handleDrawerClose }) => {
     const theme = useTheme();
 
@@ -70,24 +97,14 @@ export const PanelDrawer : React.FC<PanelDrawerProps> = ({ open, handleDrawerClo
 
 
                 <Divider />
-                <List>
-                    {['Inbox', 'Starred', 'Send email', 'Drafts'].map((text, index) => (
-                        <ListItem key={text} disablePadding>
-                            <ListItemButton>
-                                <ListItemIcon>
-                                    {index % 2 === 0 ? <InboxIcon /> : <MailIcon />}
-                                </ListItemIcon>
-                                <ListItemText primary={text} />
-                            </ListItemButton>
-                        </ListItem>
-                    ))}
-                </List>
+
                 <Divider />
                 <List>
                     {links.map((link, index) => (
                         <ListItem key={link.title} disablePadding>
                                         <ListItemButton onClick={() => handlLinkClick(link.url)}>
                                             <ListItemIcon>
+                                                {getIconByName(link.icon)}
                                             </ListItemIcon>
                                             <ListItemText primary={link.title}/>
                                         </ListItemButton>

@@ -63,7 +63,7 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
                             <Tab label="Variations" value="4" />
                             <Tab label="CTF" value="5" />
                             <Tab label="Frame Alignment" value="6" />
-                            <Tab label="Test" value="7" />
+                            <Tab label="Meta" value="7" />
                         </TabList>
                     </Box>
                     <TabPanel value="1">

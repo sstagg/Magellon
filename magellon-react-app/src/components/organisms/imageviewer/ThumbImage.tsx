@@ -17,6 +17,7 @@ export const ThumbImage = ({image,onImageClick,level,isSelected} : IThumbImagesP
 
     const hasChildrenClass = childrenCount > 0 ? 'thumb-image-has-children' : '';
     const hasSelectedClass = isSelected ? 'thumb-image-selected' : '';
+
     const combinedClassName = `thumb-image ${hasChildrenClass} ${hasSelectedClass}`;
 
     const handleMouseEnter = () => {

@@ -16,13 +16,13 @@ $thumbImageHasChildrenBorderColor: rgb(89, 9, 236); // Adjust the alpha value as
 }
 
 .thumb-image:hover {
-  border: 3px solid $thumbImageHoveredBorderColor;
+  border: 2px solid $thumbImageHoveredBorderColor;
   //box-shadow: 0 4px 5px $thumbImageHoveredBorderColor;
   //z-index: 1;
 }
 
 .thumb-image-selected{
-  border: 3px solid $thumbImageSelectedBorderColor !important;
+  border: 4px solid $thumbImageSelectedBorderColor !important;
 }
 
 .thumb-image-has-children{
