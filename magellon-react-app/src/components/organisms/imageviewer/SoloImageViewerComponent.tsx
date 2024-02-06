@@ -12,6 +12,7 @@ import {InfoOutlined} from "@ant-design/icons";
 import ImageInfoDto from "./ImageInfoDto.ts";
 import {settings} from "../../../core/settings.ts";
 import ImageViewer from "./ImageViewer.tsx";
+import ImageParticlePicking from "./ImageParticlePicking.tsx";
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL ;
 interface SoloImageViewerProps {
@@ -83,7 +84,9 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
                             <IconButton  key="three"><ControlPoint/></IconButton>
                             <IconButton  key="four"><HighlightOff/></IconButton>
                         </ButtonGroup>
-                        <img  src={`${BASE_URL}/image_thumbnail?name=${selectedImage?.name}`} alt="image" style={ImageStyle} />
+
+                        <ImageParticlePicking imageUrl={`${BASE_URL}/image_thumbnail?name=${selectedImage?.name}`} width={1024} height={1024} />
+
                     </TabPanel>
                     <TabPanel value="4">Item 4</TabPanel>
                     <TabPanel value="5">Item 5</TabPanel>
