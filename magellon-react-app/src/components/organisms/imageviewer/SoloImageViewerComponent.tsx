@@ -11,6 +11,7 @@ import {InfoLineComponent} from "./InfoLineComponent.tsx";
 import {InfoOutlined} from "@ant-design/icons";
 import ImageInfoDto from "./ImageInfoDto.ts";
 import {settings} from "../../../core/settings.ts";
+import ImageViewer from "./ImageViewer.tsx";
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL ;
 interface SoloImageViewerProps {
@@ -69,8 +70,8 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
                     </Box>
                     <TabPanel value="1">
                         {/*<img src={`/images-controller/${selectedImages?.name}.png`} alt="image" style={ImageStyle}/>*/}
-                        <img  src={`${BASE_URL}/image_thumbnail?name=${selectedImage?.name}`} alt="image" style={ImageStyle} />
-
+                        {/*<img  src={`${BASE_URL}/image_thumbnail?name=${selectedImage?.name}`} alt="image" style={ImageStyle} />*/}
+                        <ImageViewer imageUrl={`${BASE_URL}/image_thumbnail?name=${selectedImage?.name}`} width={1024} height={1024} style={ImageStyle} />
                     </TabPanel>
                     <TabPanel value="2">
                         <img  src={`${BASE_URL}/fft_image?name=${selectedImage?.name}`} alt="image" style={ImageStyle} />
@@ -90,6 +91,7 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
                         Frame Alignment
                     </TabPanel>
                     <TabPanel value="7">
+
 
                     </TabPanel>
                 </TabContext>
