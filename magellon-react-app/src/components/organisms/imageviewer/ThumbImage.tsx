@@ -55,13 +55,14 @@ export const ThumbImage = ({image,onImageClick,level,isSelected} : IThumbImagesP
                     className={combinedClassName}
                 />
             </IconButton>
-            {isHovered && (
-                <ImageListItemBar
-                    title={`${image.children_count} De: ${image.defocus}`}
-                    subtitle={image.name}
-                    sx={barStyle} // Apply the border-radius and margin styles
-                />
-            )}
+            <ImageListItemBar
+                title={`${image.children_count} De: ${image.defocus}`}
+                subtitle={image.name}
+                sx={barStyle} // Apply the border-radius and margin styles
+            />
+            {/*{isHovered && (*/}
+
+            {/*)}*/}
         </ImageListItem>
     );
 };

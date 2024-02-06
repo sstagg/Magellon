@@ -1,7 +1,9 @@
 import { useQuery } from 'react-query';
+import {settings} from "../../core/settings.ts";
 
+const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL ;
 export function FetchSessionAtlasImages(sessionName: string) {
-    return fetch(`http://127.0.0.1:8000/web/atlases?session_name=${sessionName}`).then((response) =>
+    return fetch(`${BASE_URL}/atlases?session_name=${sessionName}`).then((response) =>
         response.json()
     );
 }
