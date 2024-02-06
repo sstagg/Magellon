@@ -1,20 +1,20 @@
-fastapi==0.108.0
-uvicorn==0.25.0
-pydantic==2.4.2
-sqlalchemy==2.0.22
+fastapi==0.109.2
+uvicorn==0.27.0
+pydantic==2.6.1
+sqlalchemy==2.0.25
 sqlalchemy_utils==0.41.1
 # psycopg2
 psycopg2-binary
 PyMySQL==1.1.0
-mrcfile==1.4.3
-numpy==1.26.1
-matplotlib==3.8.0
-scipy==1.11.3
-Pillow==10.1.0
+mrcfile==1.5.0
+numpy==1.26.4
+matplotlib==3.8.2
+scipy==1.12.0
+Pillow==10.2.0
 # cupy-cuda12x==12.0.0
 jinja2
 python-multipart
-boto3==1.28.69
+boto3==1.34.35
 plotly
 dependency-injector
 python-consul
@@ -30,7 +30,7 @@ apache-airflow-client==2.7.2
 
 strawberry-graphql[fastapi]==0.211.1
 # bump-pydantic
-rich==13.6.0
+rich==13.7.0
 # textual
 pyfiglet==1.0.2
 diagrams

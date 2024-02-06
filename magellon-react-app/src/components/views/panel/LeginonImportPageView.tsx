@@ -3,7 +3,6 @@ import {Button, Checkbox, FormControl, FormControlLabel, FormLabel, Grid, InputA
 import {Link, useParams} from "react-router-dom";
 import React from "react";
 import {useForm} from "react-hook-form";
-import {IBlog} from "../../../domains/blog/Blog.Model.ts";
 import {useTranslation} from "react-i18next";
 import {Cached, CalendarMonthOutlined} from "@mui/icons-material";
 

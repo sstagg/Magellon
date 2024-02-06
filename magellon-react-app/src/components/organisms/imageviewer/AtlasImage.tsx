@@ -1,5 +1,8 @@
 import React, {useEffect, useState} from 'react'
 import ImageInfoDto from "./ImageInfoDto.ts";
+import {settings} from "../../../core/settings.ts";
+
+const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL ;
 
 export interface ImageMapArea {
     shape: string;
@@ -71,7 +74,7 @@ export default function AtlasImage({ name, finalWidth , finalHeight ,backgroundC
         const areaName = area['data-name'];
         setSelectedArea((prevSelectedArea) => (prevSelectedArea === areaName ? null : areaName));
         try {
-            const response = await fetch(`http://127.0.0.1:8000/web/images/${areaName}`);
+            const response = await fetch(`${BASE_URL}/images/${areaName}`);
             if (!response.ok) {
                 throw new Error('Image not found');
             }
@@ -114,7 +117,7 @@ export default function AtlasImage({ name, finalWidth , finalHeight ,backgroundC
                         y={y1}
                         width={width }
                         height={height }
-                        href={`http://127.0.0.1:8000/web/image_thumbnail?name=${area['data-name']}`} // Assuming 'data-name' contains the image source
+                        href={`${BASE_URL}/image_thumbnail?name=${area['data-name']}`} // Assuming 'data-name' contains the image source
                         data-name={area['data-name']}
                         data-id={area['data-id']}
                         onMouseOver={() => handleMouseOver(area['data-name'])}

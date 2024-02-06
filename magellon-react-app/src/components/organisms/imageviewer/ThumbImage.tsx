@@ -3,7 +3,8 @@ import ImageInfoDto from "./ImageInfoDto.ts";
 import ImageListItemBar from "@mui/material/ImageListItemBar";
 import {ImageListItem} from "@mui/material";
 import {useState} from "react";
-
+import {settings} from "../../../core/settings.ts";
+const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL ;
 interface IThumbImagesProps{
     image:ImageInfoDto;
     onImageClick: (imageInfo: ImageInfoDto, column : number) => void;
@@ -48,7 +49,7 @@ export const ThumbImage = ({image,onImageClick,level,isSelected} : IThumbImagesP
         >
             <IconButton   sx={{padding:'0px'}} onClick={handleClick} >
                 <img
-                    src={`http://127.0.0.1:8000/web/image_thumbnail?name=${image.name}`}
+                    src={`${BASE_URL}/image_thumbnail?name=${image.name}`}
                     alt="image"
                     loading="lazy"
                     className={combinedClassName}

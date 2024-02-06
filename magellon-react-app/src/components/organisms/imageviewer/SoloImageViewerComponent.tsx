@@ -10,8 +10,9 @@ import {ControlPoint, HighlightOff, Palette, Straighten} from "@mui/icons-materi
 import {InfoLineComponent} from "./InfoLineComponent.tsx";
 import {InfoOutlined} from "@ant-design/icons";
 import ImageInfoDto from "./ImageInfoDto.ts";
+import {settings} from "../../../core/settings.ts";
 
-
+const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL ;
 interface SoloImageViewerProps {
     selectedImage: ImageInfoDto | null;
 }
@@ -68,11 +69,11 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
                     </Box>
                     <TabPanel value="1">
                         {/*<img src={`/images-controller/${selectedImages?.name}.png`} alt="image" style={ImageStyle}/>*/}
-                        <img  src={`http://127.0.0.1:8000/web/image_thumbnail?name=${selectedImage?.name}`} alt="image" style={ImageStyle} />
+                        <img  src={`${BASE_URL}/image_thumbnail?name=${selectedImage?.name}`} alt="image" style={ImageStyle} />
 
                     </TabPanel>
                     <TabPanel value="2">
-                        <img  src={`http://127.0.0.1:8000/web/fft_image?name=${selectedImage?.name}`} alt="image" style={ImageStyle} />
+                        <img  src={`${BASE_URL}/fft_image?name=${selectedImage?.name}`} alt="image" style={ImageStyle} />
                     </TabPanel>
                     <TabPanel value="3">
                         <ButtonGroup size="small" >
@@ -81,7 +82,7 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
                             <IconButton  key="three"><ControlPoint/></IconButton>
                             <IconButton  key="four"><HighlightOff/></IconButton>
                         </ButtonGroup>
-                        <img  src={`http://127.0.0.1:8000/web/image_thumbnail?name=${selectedImage?.name}`} alt="image" style={ImageStyle} />
+                        <img  src={`${BASE_URL}/image_thumbnail?name=${selectedImage?.name}`} alt="image" style={ImageStyle} />
                     </TabPanel>
                     <TabPanel value="4">Item 4</TabPanel>
                     <TabPanel value="5">Item 5</TabPanel>

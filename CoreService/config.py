@@ -1,7 +1,6 @@
 import json
 import os
 import consul
-import uuid
 from fastapi import FastAPI
 
 from models.pydantic_models_settings import AppSettings, ConsulSettings, DirectorySettings, DatabaseSettings

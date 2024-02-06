@@ -16,8 +16,9 @@ import {useEffect, useState} from "react";
 import InfoIcon from "@mui/icons-material/Info";
 import {ImageColumnState} from "../../views/panel/ImagesPageView.tsx";
 import AtlasImage from "./AtlasImage.tsx";
+import {settings} from "../../../core/settings.ts";
 
-
+const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL ;
 interface ImageNavigatorProps {
     onImageClick: (imageInfo: ImageInfoDto, column : number ) => void;
     selectedImage: ImageInfoDto | null;
@@ -57,7 +58,7 @@ export const ImageNavigatorComponent: React.FC<ImageNavigatorProps>  = ({ onImag
                                 <ImageList cols={1} rowHeight={170} sx={{ width: 170, height: 400,display:'block'  }}>
                                     {Atlases?.map((atlas, index) => (
                                         <ImageListItem key={index}  onClick={() => handleAtlasClick(atlas)}>
-                                            <img  src={`http://127.0.0.1:8000/web/atlas-image?name=${atlas?.name}`} alt="atlas" className={"thumb-image"} style={{ cursor: 'pointer' }} />
+                                            <img  src={`${BASE_URL}/atlas-image?name=${atlas?.name}`} alt="atlas" className={"thumb-image"} style={{ cursor: 'pointer' }} />
                                         </ImageListItem>
                                     ))}
                                 </ImageList >

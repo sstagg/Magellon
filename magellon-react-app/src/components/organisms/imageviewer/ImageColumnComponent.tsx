@@ -3,6 +3,8 @@ import {ImagesStackComponent} from "./ImagesStackComponent.tsx";
 import {usePagedImages} from "../../../services/api/usePagedImagesHook.ts";
 import {useEffect, useState} from "react";
 
+
+
 interface ImageColumnProps {
     onImageClick: (imageInfo: ImageInfoDto) => void;
     parentImage: ImageInfoDto | null;
