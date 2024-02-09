@@ -56,7 +56,7 @@ export const ImagesPageView = () => {
 
 
     const pageSize = 100;
-    const sessionName = "23jun28a";
+    const sessionName = "23apr13a";
     const { data: atlasImages, isLoading: isAtlasLoading, isError: isAtlasError  } = useAtlasImages(sessionName);
     const OnAtlasImageAreaClicked = (image: string)  => {
 

@@ -219,7 +219,8 @@ class LeginonFrameTransferJobService:
                 job = Frametransferjob(
                     # Oid=uuid.uuid4(),
                     name="Leginon Import: " + session_name, description="Leginon Import for session: " +
-                    session_name + "in directory: " + session_result["image path"],
+                                                                        session_name + "in directory: " +
+                                                                        session_result["image path"],
                     created_on=datetime.now(), path=session_result["image path"],
                     output_dir=self.params.camera_directory
                     # Set other job properties
@@ -256,6 +257,11 @@ class LeginonFrameTransferJobService:
                     source_frame_path = os.path.join(self.params.camera_directory, image["frame_names"])
                     source_image_path = os.path.join(session_result["image path"], image["image_name"])
 
+                    #TODO:
+                    source_frame_path = source_frame_path.replace("/gpfs/", "Y:/")
+                    source_image_path = source_image_path.replace("/gpfs/", "Y:/")
+
+
                     # Create a new job item and associate it with the job and image
                     job_item = Frametransferjobitem(
                         Oid=uuid.uuid4(),
@@ -291,7 +297,15 @@ class LeginonFrameTransferJobService:
                     # print(f"Filename: {filename}, Spot Size: {spot_size}")
 
                 for db_image in db_image_list:
-                    parent_name = '_'.join(db_image.name.split('_')[:-1])
+                    # split_name = db_image.name.split('_')
+                    # if split_name[-1] == '_v01':
+                    #     parent_name = '_'.join(split_name[:-2])
+                    # else:
+                    #     parent_name = '_'.join(split_name[:-1])
+
+                    image_name = db_image.name
+                    striped_image_name = remove_v_b_substrings(image_name)
+                    parent_name = '_'.join(striped_image_name.split('_')[:-1])
                     if parent_name in image_dict:
                         db_image.parent_id = image_dict[parent_name]
 
@@ -330,7 +344,6 @@ class LeginonFrameTransferJobService:
         finally:
             self.close_connections()
 
-
     def run_tasks(self):
         try:
             # directory_path = os.path.join(self.params.target_directory, self.params.session_name)
@@ -368,7 +381,6 @@ class LeginonFrameTransferJobService:
             print("An unexpected error occurred:", str(e))
         # finally:
         #     self.close_connections()
-
 
     def run_task(self, task_dto: LeginonFrameTransferTaskDto) -> Dict[str, str]:
         try:
@@ -492,4 +504,3 @@ class LeginonFrameTransferJobService:
 
         images = create_atlas_images(session_id, label_objects)
         return {"images": images}
-

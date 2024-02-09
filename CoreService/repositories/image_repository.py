@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from models.pydantic_models import ImageDto
-from models.sqlalchemy_models import Image
+from models.sqlalchemy_models import Image, Msession
 
 
 class ImageRepository:
@@ -23,6 +23,9 @@ class ImageRepository:
 
     def fetch_by_name(db: Session, name: str):
         return db.query(Image).filter(Image.name == name).first()
+    def fetch_all_by_session_name(db: Session, session_name: str):
+        return db.query(Image).join(Msession).filter(Msession.name == session_name).all()
+
 
     def fetch_all(db: Session, skip: int = 0, limit: int = 100):
         return db.query(Image).offset(skip).limit(limit).all()

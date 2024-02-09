@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 import json
 import os
@@ -224,7 +225,7 @@ def get_image_route(
                 defocus=round(float(row.defocus) * 1.e6, 2),
                 dose=row.dose,
                 mag=row.mag,
-                pixelSize= round(float(row.pixelSize) * row.binning_x * 1.e10, 3),
+                pixelSize=round(float(row.pixelSize) * row.binning_x * 1.e10, 3),
                 parent_id=row.parent_id,
                 session_id=row.session_id,
                 children_count=row.children_count
@@ -375,6 +376,39 @@ def get_image_data_route(name: str, db: Session = Depends(get_db)):
         "dose": round(db_image.dose, 2) if db_image.dose is not None else "none",
     }
     return {'result': result}
+
+
+def get_stripped_parent(input_string):
+    # Define the regular expression pattern to match "_v01", "_v02", "-b", "-DW"
+    pattern = r"(_[vV]\d{2})|(-[bB])|(-[dD][wW])"
+    # Use re.sub() to remove the matched substrings
+    return re.sub(pattern, '', input_string)
+
+
+@webapp_router.get('/parent_child')
+def get_correct_image_parent_child(name: str, db_session: Session = Depends(get_db)):
+    db_image_list = ImageRepository.fetch_all_by_session_name(db_session, name)
+    if not db_image_list:
+        raise HTTPException(status_code=404, detail="images not found with the given name")
+    image_dict = {}
+    # for db_image in db_image_list:
+    #     image_dict[db_image.name] = db_image.Oid
+    image_dict = {db_image.name: db_image.Oid for db_image in db_image_list}
+
+    for db_image in db_image_list:
+        split_name = db_image.name.split('_')
+        if split_name[-1] == '_v01':
+            parent_name = '_'.join(split_name[:-2])
+        else:
+            parent_name = '_'.join(split_name[:-1])
+        image_name = db_image.name
+        striped_image_name = get_stripped_parent(image_name)
+        parent_name = '_'.join(striped_image_name.split('_')[:-1])
+
+        if parent_name in image_dict:
+            db_image.parent_id = image_dict[parent_name]
+    db_session.bulk_save_objects(db_image_list)
+    return {'result': "Done!"}
 
 
 # FastAPI endpoint to create a ParticlePickingjobitem

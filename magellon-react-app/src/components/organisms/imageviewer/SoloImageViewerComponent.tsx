@@ -85,7 +85,11 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
                             <IconButton  key="four"><HighlightOff/></IconButton>
                         </ButtonGroup>
 
-                        <ImageParticlePicking imageUrl={`${BASE_URL}/image_thumbnail?name=${selectedImage?.name}`} width={1024} height={1024} />
+                        <ImageParticlePicking
+                            imageUrl={`${BASE_URL}/image_thumbnail?name=${selectedImage?.name}`}
+                            width={1024}
+                            height={1024}
+                                               />
 
                     </TabPanel>
                     <TabPanel value="4">Item 4</TabPanel>
