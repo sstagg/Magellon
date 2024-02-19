@@ -384,6 +384,15 @@ def get_stripped_parent(input_string):
     # Use re.sub() to remove the matched substrings
     return re.sub(pattern, '', input_string)
 
+def get_parent_name(child_name):
+    split_name = child_name.split('_')
+    # if split_name[-1] == 'v01':
+    if re.search(r'[vV]([0-9][0-9])', split_name[-1]):
+        parent_name = '_'.join(split_name[:-2])
+    else:
+        parent_name = '_'.join(split_name[:-1])
+    # Join the parts back together with underscores and return
+    return parent_name
 
 @webapp_router.get('/parent_child')
 def get_correct_image_parent_child(name: str, db_session: Session = Depends(get_db)):
@@ -396,18 +405,12 @@ def get_correct_image_parent_child(name: str, db_session: Session = Depends(get_
     image_dict = {db_image.name: db_image.Oid for db_image in db_image_list}
 
     for db_image in db_image_list:
-        split_name = db_image.name.split('_')
-        if split_name[-1] == '_v01':
-            parent_name = '_'.join(split_name[:-2])
-        else:
-            parent_name = '_'.join(split_name[:-1])
-        image_name = db_image.name
-        striped_image_name = get_stripped_parent(image_name)
-        parent_name = '_'.join(striped_image_name.split('_')[:-1])
+        parent_name = get_parent_name(db_image.name)
 
         if parent_name in image_dict:
             db_image.parent_id = image_dict[parent_name]
     db_session.bulk_save_objects(db_image_list)
+    db_session.commit()
     return {'result': "Done!"}
 
 

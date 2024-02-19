@@ -1,11 +1,12 @@
 import {Grid, Paper, Stack} from "@mui/material";
 import {ImageNavigatorComponent} from "../../organisms/imageviewer/ImageNavigatorComponent.tsx";
 import { SoloImageViewerComponent } from '../../organisms/imageviewer/SoloImageViewerComponent.tsx';
-import ImageInfoDto, { PagedImageResponse} from '../../organisms/imageviewer/ImageInfoDto.ts';
+import ImageInfoDto, {PagedImageResponse, SessionDto} from '../../organisms/imageviewer/ImageInfoDto.ts';
 import {useEffect, useState} from "react";
 import {InfiniteData} from "react-query";
 import {usePagedImages} from "../../../services/api/usePagedImagesHook.ts";
 import {useAtlasImages} from "../../../services/api/FetchSessionAtlasImages.ts";
+import {useSessionNames} from "../../../services/api/FetchUseSessionNames.ts";
 
 export interface ImageColumnState {
     selectedImage: ImageInfoDto | null;
@@ -46,6 +47,7 @@ export const ImagesPageView = () => {
 
     const [imageColumns, setImageColumns] = useState<(ImageColumnState)[]>(initialImageColumns);
     const [currentImage, setCurrentImage] = useState<ImageInfoDto | null>(null);
+    const [currentSesion, setCurrentSession] = useState<SessionDto | null>(null);
 
     // const [atlasImages, setAtlasImages] = useState<AtlasImageDto[]>(initialAtlasImages);
 
@@ -54,9 +56,12 @@ export const ImagesPageView = () => {
     const [parentId, setParentId] = useState<string | null>(null);
     const [level, setLevel] = useState<number >(0);
 
+    const { data: sessionData, isLoading: isSessionDataLoading, isError: isSessionError  } =  useSessionNames();
 
     const pageSize = 100;
     const sessionName = "23apr13a";
+
+
     const { data: atlasImages, isLoading: isAtlasLoading, isError: isAtlasError  } = useAtlasImages(sessionName);
     const OnAtlasImageAreaClicked = (image: string)  => {
 
@@ -148,7 +153,7 @@ export const ImagesPageView = () => {
     return (
         <Grid container>
             <Grid item xs={5}>
-                <ImageNavigatorComponent onImageClick={OnCurrentImageChanged}  selectedImage={currentImage} ImageColumns={imageColumns} Atlases={atlasImages}/>
+                <ImageNavigatorComponent onImageClick={OnCurrentImageChanged}  selectedImage={currentImage} ImageColumns={imageColumns} Sessions={sessionData} Atlases={atlasImages}/>
             </Grid>
             <Grid item  xs={7}>
                 <SoloImageViewerComponent selectedImage={currentImage}/>

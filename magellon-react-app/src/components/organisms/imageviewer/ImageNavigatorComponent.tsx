@@ -1,15 +1,15 @@
 import {
     ButtonGroup,
     Card,
-    CardContent,
+    CardContent, FormControl,
     Grid,
     ImageList,
-    ImageListItem,
+    ImageListItem, InputLabel, MenuItem, Select,
     Stack
 } from "@mui/material";
 import Typography from "@mui/material/Typography";
 import {ImagesStackComponent} from "./ImagesStackComponent.tsx";
-import ImageInfoDto, {AtlasImageDto} from "./ImageInfoDto.ts";
+import ImageInfoDto, {AtlasImageDto, SessionDto} from "./ImageInfoDto.ts";
 import IconButton from "@mui/material/IconButton";
 import {EyeOutlined} from "@ant-design/icons";
 import {useEffect, useState} from "react";
@@ -24,11 +24,12 @@ interface ImageNavigatorProps {
     selectedImage: ImageInfoDto | null;
     ImageColumns: ImageColumnState[];
     Atlases: AtlasImageDto[];
+    Sessions: SessionDto[];
 }
 
 
 
-export const ImageNavigatorComponent: React.FC<ImageNavigatorProps>  = ({ onImageClick , selectedImage,ImageColumns,Atlases }) => {
+export const ImageNavigatorComponent: React.FC<ImageNavigatorProps>  = ({ onImageClick , selectedImage,ImageColumns,Atlases,Sessions }) => {
 
     const [isAtlasVisible, setIsAtlasVisible] = useState(true);
     const [currentAtlas, setCurrentAtlas] = useState<AtlasImageDto>(null);
@@ -48,6 +49,26 @@ export const ImageNavigatorComponent: React.FC<ImageNavigatorProps>  = ({ onImag
         <Grid container direction="column">
             <Grid item container >
                 <Stack>
+                    <FormControl sx={{ m: 1, minWidth: 120 }} size="small">
+                        <InputLabel id="demo-select-small-label">Session</InputLabel>
+                        <Select
+                            labelId="demo-select-small-label"
+                            id="demo-select-small"
+                            value={""}
+                            label="Age"
+                            // onChange={handleChange}
+                        >
+                            <MenuItem value="">
+                                <em>None</em>
+                            </MenuItem>
+                            {Sessions?.map((session, index) => (
+                                <ImageListItem key={index}  onClick={() => handleAtlasClick(session)}>
+                                    <MenuItem  value={`${session?.oid}`}  >{session?.name}</MenuItem>
+                                </ImageListItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+
                     <ButtonGroup size="small" >
                         <IconButton  key="one" ><InfoIcon/></IconButton>
                         <IconButton  key="four"onClick={()=>setIsAtlasVisible(!isAtlasVisible)}><EyeOutlined/></IconButton>

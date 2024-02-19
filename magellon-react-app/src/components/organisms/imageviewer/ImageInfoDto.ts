@@ -18,6 +18,10 @@ export interface AtlasImageDto {
     name?: string;
     meta?: string;
 }
+export interface SessionDto {
+    oid: string;
+    name?: string;
+}
 export interface PagedImageResponse {
     total_count: number;
     page: number;
