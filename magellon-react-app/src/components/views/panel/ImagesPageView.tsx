@@ -47,7 +47,10 @@ export const ImagesPageView = () => {
 
     const [imageColumns, setImageColumns] = useState<(ImageColumnState)[]>(initialImageColumns);
     const [currentImage, setCurrentImage] = useState<ImageInfoDto | null>(null);
-    const [currentSesion, setCurrentSession] = useState<SessionDto | null>(null);
+
+
+    const sessionName = "23apr13a";
+    const [currentSession, setCurrentSession] = useState<SessionDto | null>(null);
 
     // const [atlasImages, setAtlasImages] = useState<AtlasImageDto[]>(initialAtlasImages);
 
@@ -59,8 +62,6 @@ export const ImagesPageView = () => {
     const { data: sessionData, isLoading: isSessionDataLoading, isError: isSessionError  } =  useSessionNames();
 
     const pageSize = 100;
-    const sessionName = "23apr13a";
-
 
     const { data: atlasImages, isLoading: isAtlasLoading, isError: isAtlasError  } = useAtlasImages(sessionName);
     const OnAtlasImageAreaClicked = (image: string)  => {

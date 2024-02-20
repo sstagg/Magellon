@@ -20,6 +20,7 @@ import {AccountTree, Api, Extension, ImportExport, QuestionMark, Settings} from 
 const drawerWidth = 240;
 const links: AppLink[] = [
     new AppLink("Images", "images", "images"),
+    new AppLink("Run Job", "run-job", "plugins"),
     new AppLink("Plugins", "domains/plugins", "plugins"),
     new AppLink("Pipelines", "domains/plugins", "account-tree"),
     new AppLink("Leginon Import", "leginon-transfer", "import"),
