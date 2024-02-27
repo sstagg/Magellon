@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, {useEffect, useState} from 'react';
 
 interface ImageParticlePickingProps {
     imageUrl: string;
@@ -16,6 +16,11 @@ const ImageParticlePicking: React.FC<ImageParticlePickingProps> = ({ imageUrl, w
     const [circles, setCircles] = useState<Point[]>([]);
     const [selectedCircleIndex, setSelectedCircleIndex] = useState<number | null>(null);
 
+    useEffect(() => {
+        // Reset circles when imageUrl changes
+        setCircles([]);
+    }, [imageUrl]);
+
     // const [isDrawing, setIsDrawing] = useState<boolean>(false);
     const handleSvgClick2 = (event: React.MouseEvent<SVGElement>) => {
         const svgRect = event.currentTarget.getBoundingClientRect();
@@ -23,9 +28,6 @@ const ImageParticlePicking: React.FC<ImageParticlePickingProps> = ({ imageUrl, w
         const y = event.clientY - svgRect.top;
 
         setCircles([...circles, { x, y }]);
-
-
-
     };
     const handleSvgClick = (event: React.MouseEvent<SVGElement>) => {
         const svgRect = event.currentTarget.getBoundingClientRect();
