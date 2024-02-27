@@ -555,7 +555,7 @@ async def get_session_atlases(session_name: str, db_session: Session = Depends(g
     if msession is None:
         return {"error": "Session not found"}
     try:
-        return db_session.query(Atlas).all()
+        return db_session.query(Atlas).filter(Atlas.session_id==msession.Oid).all()
     # session_id_binary = msession.Oid.bytes
     except AttributeError:
         return {"error": "Invalid session ID"}
@@ -598,9 +598,9 @@ def get_all_sessions(name: Optional[str] = None, db: Session = Depends(get_db)):
     """
     if name:
         sessions = []
-        db_camera = SessionRepository.fetch_by_name(db, name)
-        print(db_camera)
-        sessions.append(db_camera)
+        db_msession = SessionRepository.fetch_by_name(db, name)
+        print(db_msession)
+        sessions.append(db_msession)
         return sessions
     else:
         return SessionRepository.fetch_all(db)
