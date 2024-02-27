@@ -2,7 +2,7 @@
 import uuid
 
 from sqlalchemy import Column, DECIMAL, ForeignKey, Index, String, Text, Boolean, LargeBinary, DateTime, JSON, DOUBLE
-from sqlalchemy.dialects.mysql import BIGINT, INTEGER, LONGTEXT
+from sqlalchemy.dialects.mysql import BIGINT, INTEGER, LONGTEXT, SMALLINT
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy_utils import UUIDType
@@ -387,6 +387,24 @@ class Image(Base):
     atlas = relationship('Atlas')
 
 
+class ImageMetadata(Base):
+    __tablename__ = 'image_metadata'
+
+    OID = Column(INTEGER(11), primary_key=True)
+    image_id = Column(ForeignKey('image.Oid'), index=True)
+    name = Column(String(100))
+    # job_id = Column(ForeignKey('imagejob.Oid'), index=True)
+    # task_id = Column(String(100))
+    created_on = Column(DateTime)
+    data = Column(LONGTEXT)
+    OptimisticLockField = Column(INTEGER(11))
+    GCRecord = Column(INTEGER(11), index=True)
+    type = Column(INTEGER(11))
+    data_json = Column(JSON)
+
+    image = relationship('Image')
+
+
 class Samplematerial(Base):
     __tablename__ = 'samplematerial'
 
@@ -518,3 +536,46 @@ class Particlepickingjobitem(Base):
 
     image = relationship('Image')
     job = relationship('Particlepickingjob')
+
+
+class ImageJob(Base):
+    __tablename__ = 'image_job'
+
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
+    name = Column(String(100))
+    description = Column(Text)
+    created_on = Column(DateTime)
+    start_on = Column(DateTime)
+    end_on = Column(DateTime)
+    user_id = Column(ForeignKey('sys_sec_party.Oid'), index=True)
+    project_id = Column(ForeignKey('project.Oid'), index=True)
+    msession_id = Column(ForeignKey('msession.Oid'), index=True)
+    status = Column(INTEGER(11))
+    type = Column(INTEGER(11))
+    settings = Column(LONGTEXT)
+    cs = Column(DECIMAL(28, 8))
+    path = Column(String(255))
+    output_dir = Column(String(100))
+    direction = Column(SMALLINT(5))
+    image_selection_criteria = Column(Text)
+    OptimisticLockField = Column(INTEGER(11))
+    GCRecord = Column(INTEGER(11), index=True)
+
+    msession = relationship('Msession')
+    project = relationship('Project')
+    user = relationship('SysSecParty')
+
+
+class ImageJobTask(Base):
+    __tablename__ = 'image_job_task'
+
+    OID = Column(INTEGER(11), primary_key=True)
+    job_id = Column(ForeignKey('image_job.Oid'), index=True)
+    image_id = Column(ForeignKey('image.Oid'), index=True)
+    status = Column(SMALLINT(5))
+    settings = Column(LONGTEXT)
+    OptimisticLockField = Column(INTEGER(11))
+    GCRecord = Column(INTEGER(11), index=True)
+
+    image = relationship('Image')
+    job = relationship('ImageJob')

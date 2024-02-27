@@ -259,3 +259,15 @@ class ImageDto(BaseModel):
     parent_id:  Optional[uuid.UUID]= None
     session_id:  Optional[uuid.UUID]= None
     children_count: Optional[int] = None
+
+
+class ImageMetaDataDto(BaseModel):
+    OID: Optional[int] = None
+    image_id: Optional[int] = None
+    name: Optional[str] = None
+    # created_on: Optional[datetime] = None
+    data: Optional[str] = None
+    OptimisticLockField: Optional[int] = None
+    GCRecord: Optional[int] = None
+    type: Optional[int] = None
+    data_json: Optional[dict] = None
