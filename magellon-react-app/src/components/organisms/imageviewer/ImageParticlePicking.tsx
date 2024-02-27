@@ -11,30 +11,51 @@ interface Point {
     x: number;
     y: number;
 }
-
+enum State {
+    Add = 'Add',
+    Edit = 'Edit',
+    Remove = 'Remove'
+}
 const ImageParticlePicking: React.FC<ImageParticlePickingProps> = ({ imageUrl, width, height, onCirclesSelected }) => {
+    const [tool, setTool] = useState<State>(State.Add);
     const [circles, setCircles] = useState<Point[]>([]);
     const [selectedCircleIndex, setSelectedCircleIndex] = useState<number | null>(null);
-
+    const radius = 15;
     useEffect(() => {
         // Reset circles when imageUrl changes
         setCircles([]);
     }, [imageUrl]);
 
     // const [isDrawing, setIsDrawing] = useState<boolean>(false);
-    const handleSvgClick2 = (event: React.MouseEvent<SVGElement>) => {
-        const svgRect = event.currentTarget.getBoundingClientRect();
-        const x = event.clientX - svgRect.left;
-        const y = event.clientY - svgRect.top;
-
-        setCircles([...circles, { x, y }]);
-    };
+    // const handleSvgClick2 = (event: React.MouseEvent<SVGElement>) => {
+    //     const svgRect = event.currentTarget.getBoundingClientRect();
+    //     const x = event.clientX - svgRect.left;
+    //     const y = event.clientY - svgRect.top;
+    //
+    //     setCircles([...circles, { x, y }]);
+    // };
     const handleSvgClick = (event: React.MouseEvent<SVGElement>) => {
         const svgRect = event.currentTarget.getBoundingClientRect();
         const x = event.clientX - svgRect.left;
         const y = event.clientY - svgRect.top;
         // console.log("Handle clicked");
-       setCircles([...circles, { x, y }]);
+
+        if (event.button === 0 && !event.ctrlKey) { // Left click
+            setCircles([...circles, { x, y }]);
+        } else if (event.ctrlKey) { // Right click
+            const clickedCircleIndex = circles.findIndex(circle => {
+                const dx = circle.x - x;
+                const dy = circle.y - y;
+
+                return dx * dx + dy * dy <= radius * radius;
+            });
+
+            if (clickedCircleIndex !== -1) {
+                const updatedCircles = circles.filter((_, i) => i !== clickedCircleIndex);
+                setCircles(updatedCircles);
+                setSelectedCircleIndex(null);
+            }
+        }
         // Check if any circle is clicked
         // const clickedCircleIndex = circles.findIndex(circle => {
         //     const dx = circle.x - x;
@@ -84,7 +105,7 @@ const ImageParticlePicking: React.FC<ImageParticlePickingProps> = ({ imageUrl, w
                     <circle
                         cx={point.x}
                         cy={point.y}
-                        r={15}
+                        r={radius}
                         fill={selectedCircleIndex === index ? 'seasaltblue' : 'none'}
                         stroke={selectedCircleIndex === index ? 'gray' : 'white'}
                         strokeWidth={2}
