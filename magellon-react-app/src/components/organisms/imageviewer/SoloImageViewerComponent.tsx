@@ -4,15 +4,16 @@ import TabContext from '@mui/lab/TabContext';
 import TabList from '@mui/lab/TabList';
 import TabPanel from '@mui/lab/TabPanel';
 import {SyntheticEvent, useState } from "react";
-import {ButtonGroup, Grid, Stack} from "@mui/material";
+import {ButtonGroup, FormControl, Grid, InputLabel, MenuItem, Select, Stack} from "@mui/material";
 import IconButton from "@mui/material/IconButton";
-import {ControlPoint, HighlightOff, Palette, Straighten} from "@mui/icons-material";
+import {AddOutlined, ControlPoint, HighlightOff, Palette, Save, Straighten, SyncOutlined} from "@mui/icons-material";
 import {InfoLineComponent} from "./InfoLineComponent.tsx";
 import {InfoOutlined} from "@ant-design/icons";
 import ImageInfoDto from "./ImageInfoDto.ts";
 import {settings} from "../../../core/settings.ts";
 import ImageViewer from "./ImageViewer.tsx";
 import ImageParticlePicking from "./ImageParticlePicking.tsx";
+import {CreateParticlePickingDialog} from "./CreateParticlePickingDialog.tsx";
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL ;
 interface SoloImageViewerProps {
@@ -20,6 +21,7 @@ interface SoloImageViewerProps {
 }
 
 export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selectedImage }) => {
+    const [open, setOpen] = useState(false);
     const [value, setValue] = useState('1');
     // const [selectedImage, setSelectedImage] = useState<ImageInfoDto>();
     const handleChange = (event: SyntheticEvent, newValue: string) => {
@@ -34,7 +36,13 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
         border: '3px solid rgba(215,215,225)',
     };
 
+    const handleOpen = () => {
+        setOpen(true);
+    };
 
+    const handleClose = () => {
+        setOpen(false);
+    };
 
     return (
 
@@ -79,11 +87,36 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
                     </TabPanel>
                     <TabPanel value="3">
                         <ButtonGroup size="small" >
-                            <IconButton  key="one" onClick={()=>console.log("clicked")}><Palette/></IconButton>
-                            <IconButton  key="two"><Straighten/></IconButton>
-                            <IconButton  key="three"><ControlPoint/></IconButton>
-                            <IconButton  key="four"><HighlightOff/></IconButton>
+                            {/*<IconButton  key="one" onClick={()=>console.log("clicked")}><Palette/></IconButton>*/}
+                            {/*<IconButton  key="two"><Straighten/></IconButton>*/}
+
+
+                            <FormControl sx={{ m: 1, minWidth: 180 }} size="small"  variant="standard" >
+                                <InputLabel id="demo-select-small-label">Particle Picking</InputLabel>
+                                <Select
+                                    labelId="demo-select-small-label"
+                                    id="demo-select-small"
+                                    // value={selectedSession?.name}
+                                    label="Session"
+                                    // onChange={OnSessionSelected }
+                                >
+                                    <MenuItem value="none" >
+                                        <em>None</em>
+                                    </MenuItem>
+                                    {/*{Sessions?.map((session) => (*/}
+                                    {/*    <MenuItem key={session.Oid} value={session.name}>*/}
+                                    {/*        {session.name}*/}
+                                    {/*    </MenuItem>*/}
+                                    {/*))}*/}
+                                </Select>
+                            </FormControl>
+                            <IconButton  key="load"><SyncOutlined/></IconButton>
+                            <IconButton   onClick={handleOpen} key="new"><AddOutlined/></IconButton>
+                            <IconButton  key="save"><Save/></IconButton>
+                            <IconButton  key="four" ><HighlightOff/></IconButton>
+                            <CreateParticlePickingDialog open={open} onClose={handleClose} />
                         </ButtonGroup>
+
 
                         <ImageParticlePicking
                             imageUrl={`${BASE_URL}/image_thumbnail?name=${selectedImage?.name}`}

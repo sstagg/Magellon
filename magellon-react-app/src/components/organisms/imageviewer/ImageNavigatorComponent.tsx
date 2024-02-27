@@ -58,7 +58,7 @@ export const ImageNavigatorComponent: React.FC<ImageNavigatorProps>  = ({
         <Grid container direction="column">
             <Grid item container >
                 <Stack>
-                    <FormControl sx={{ m: 1, minWidth: 120 }} size="small">
+                    <FormControl sx={{ m: 1, minWidth: 120 }} size="small"  variant="standard" >
                         <InputLabel id="demo-select-small-label">Session</InputLabel>
                         <Select
                             labelId="demo-select-small-label"
