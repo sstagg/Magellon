@@ -4,7 +4,7 @@ import {
     CardContent, FormControl,
     Grid,
     ImageList,
-    ImageListItem, InputLabel, MenuItem, Select,
+    ImageListItem, InputLabel, MenuItem, Select, SelectChangeEvent,
     Stack
 } from "@mui/material";
 import Typography from "@mui/material/Typography";
@@ -20,16 +20,26 @@ import {settings} from "../../../core/settings.ts";
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL ;
 interface ImageNavigatorProps {
-    onImageClick: (imageInfo: ImageInfoDto, column : number ) => void;
-    selectedImage: ImageInfoDto | null;
-    ImageColumns: ImageColumnState[];
-    Atlases: AtlasImageDto[];
-    Sessions: SessionDto[];
+    onImageClick: (imageInfo: ImageInfoDto, column: number) => void,
+    selectedImage: ImageInfoDto | null,
+    selectedSession: SessionDto | null,
+    ImageColumns: ImageColumnState[],
+    Atlases: AtlasImageDto[],
+    Sessions: SessionDto[],
+    OnSessionSelected :(event: SelectChangeEvent) => void
 }
 
 
 
-export const ImageNavigatorComponent: React.FC<ImageNavigatorProps>  = ({ onImageClick , selectedImage,ImageColumns,Atlases,Sessions }) => {
+export const ImageNavigatorComponent: React.FC<ImageNavigatorProps>  = ({
+                                                                            onImageClick,
+                                                                            selectedImage,
+                                                                            selectedSession,
+                                                                            ImageColumns,
+                                                                            Atlases,
+                                                                            Sessions,
+                                                                            OnSessionSelected
+                                                                        }) => {
 
     const [isAtlasVisible, setIsAtlasVisible] = useState(true);
     const [currentAtlas, setCurrentAtlas] = useState<AtlasImageDto>(null);
@@ -44,27 +54,33 @@ export const ImageNavigatorComponent: React.FC<ImageNavigatorProps>  = ({ onImag
         setCurrentAtlas(atlas);
     };
 
+    // const handleChange = (event: SelectChangeEvent) => {
+    //
+    //     debugger;
+    // };
+
 
     return (
         <Grid container direction="column">
             <Grid item container >
                 <Stack>
+                    <h2>{selectedSession?.name}</h2>
                     <FormControl sx={{ m: 1, minWidth: 120 }} size="small">
                         <InputLabel id="demo-select-small-label">Session</InputLabel>
                         <Select
                             labelId="demo-select-small-label"
                             id="demo-select-small"
-                            value={""}
-                            label="Age"
-                            // onChange={handleChange}
+                            value={selectedSession?.Oid}
+                            label={"Session"}
+                             onChange={OnSessionSelected }
                         >
-                            <MenuItem value="">
+                            <MenuItem value="none" >
                                 <em>None</em>
                             </MenuItem>
-                            {Sessions?.map((session, index) => (
-                                <ImageListItem key={index}  onClick={() => handleAtlasClick(session)}>
-                                    <MenuItem  value={`${session?.oid}`}  >{session?.name}</MenuItem>
-                                </ImageListItem>
+                            {Sessions?.map((session) => (
+                                <MenuItem key={session.Oid} value={session.Oid}>
+                                    {session.name}
+                                </MenuItem>
                             ))}
                         </Select>
                     </FormControl>

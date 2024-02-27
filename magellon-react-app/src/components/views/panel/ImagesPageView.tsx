@@ -1,4 +1,4 @@
-import {Grid, Paper, Stack} from "@mui/material";
+import {Grid, Paper, SelectChangeEvent, Stack} from "@mui/material";
 import {ImageNavigatorComponent} from "../../organisms/imageviewer/ImageNavigatorComponent.tsx";
 import { SoloImageViewerComponent } from '../../organisms/imageviewer/SoloImageViewerComponent.tsx';
 import ImageInfoDto, {PagedImageResponse, SessionDto} from '../../organisms/imageviewer/ImageInfoDto.ts';
@@ -44,10 +44,8 @@ const initialImageColumns: ImageColumnState[] = [
 ];
 export const ImagesPageView = () => {
 
-
     const [imageColumns, setImageColumns] = useState<(ImageColumnState)[]>(initialImageColumns);
     const [currentImage, setCurrentImage] = useState<ImageInfoDto | null>(null);
-
 
     const sessionName = "23apr13a";
     const [currentSession, setCurrentSession] = useState<SessionDto | null>(null);
@@ -55,15 +53,20 @@ export const ImagesPageView = () => {
     // const [atlasImages, setAtlasImages] = useState<AtlasImageDto[]>(initialAtlasImages);
 
 
-
     const [parentId, setParentId] = useState<string | null>(null);
     const [level, setLevel] = useState<number >(0);
 
     const { data: sessionData, isLoading: isSessionDataLoading, isError: isSessionError  } =  useSessionNames();
-
+    const { data: atlasImages, isLoading: isAtlasLoading, isError: isAtlasError  } = useAtlasImages(sessionName);
     const pageSize = 100;
 
-    const { data: atlasImages, isLoading: isAtlasLoading, isError: isAtlasError  } = useAtlasImages(sessionName);
+    // useEffect(() => {
+    //     if (currentSession) {
+    //
+    //     }
+    // }, [currentSession]);
+
+
     const OnAtlasImageAreaClicked = (image: string)  => {
 
     }
@@ -95,6 +98,17 @@ export const ImagesPageView = () => {
         setImageColumns(updatedImageColumns);
         setCurrentImage(image);
 
+    };
+    const OnSessionSelected = (event: SelectChangeEvent) => {
+        //debugger;
+        const selectedValue = event.target.value;
+        const sessionDto: SessionDto = {
+            Oid: selectedValue,
+            // Optionally, you can set the name property based on your requirements
+            name: selectedValue,
+        };
+        setCurrentSession(sessionDto);
+        //setCurrentSession(Se);
     };
 
     //
@@ -154,7 +168,7 @@ export const ImagesPageView = () => {
     return (
         <Grid container>
             <Grid item xs={5}>
-                <ImageNavigatorComponent onImageClick={OnCurrentImageChanged}  selectedImage={currentImage} ImageColumns={imageColumns} Sessions={sessionData} Atlases={atlasImages}/>
+                <ImageNavigatorComponent onImageClick={OnCurrentImageChanged} selectedSession={currentSession} OnSessionSelected={OnSessionSelected} selectedImage={currentImage} ImageColumns={imageColumns} Sessions={sessionData} Atlases={atlasImages}/>
             </Grid>
             <Grid item  xs={7}>
                 <SoloImageViewerComponent selectedImage={currentImage}/>

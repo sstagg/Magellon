@@ -1,7 +1,7 @@
-fastapi==0.109.2
-uvicorn==0.27.0
-pydantic==2.6.1
-sqlalchemy==2.0.25
+fastapi
+uvicorn
+pydantic>=2.6.1
+sqlalchemy>=2.0.25
 sqlalchemy_utils==0.41.1
 # psycopg2
 psycopg2-binary
@@ -9,7 +9,7 @@ PyMySQL==1.0.3
 mrcfile==1.5.0
 numpy==1.26.4
 matplotlib==3.8.2
-scipy==1.12.0
+scipy
 Pillow==10.2.0
 # cupy-cuda12x==12.0.0
 jinja2

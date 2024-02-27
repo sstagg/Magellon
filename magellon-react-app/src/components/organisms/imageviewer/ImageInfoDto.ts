@@ -19,7 +19,7 @@ export interface AtlasImageDto {
     meta?: string;
 }
 export interface SessionDto {
-    oid: string;
+    Oid: string;
     name?: string;
 }
 export interface PagedImageResponse {
