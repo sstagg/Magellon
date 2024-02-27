@@ -54,12 +54,6 @@ export const ImageNavigatorComponent: React.FC<ImageNavigatorProps>  = ({
         setCurrentAtlas(atlas);
     };
 
-    // const handleChange = (event: SelectChangeEvent) => {
-    //
-    //     debugger;
-    // };
-
-
     return (
         <Grid container direction="column">
             <Grid item container >
@@ -70,15 +64,15 @@ export const ImageNavigatorComponent: React.FC<ImageNavigatorProps>  = ({
                         <Select
                             labelId="demo-select-small-label"
                             id="demo-select-small"
-                            value={selectedSession?.Oid}
-                            label={"Session"}
+                            value={selectedSession?.name}
+                            label="Session"
                              onChange={OnSessionSelected }
                         >
                             <MenuItem value="none" >
                                 <em>None</em>
                             </MenuItem>
                             {Sessions?.map((session) => (
-                                <MenuItem key={session.Oid} value={session.Oid}>
+                                <MenuItem key={session.Oid} value={session.name}>
                                     {session.name}
                                 </MenuItem>
                             ))}

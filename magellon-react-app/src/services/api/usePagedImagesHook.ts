@@ -9,6 +9,7 @@ interface PagedImagesOptions {
     parentId: string | null;
     pageSize: number;
     level: number;
+    enabled: boolean;
 }
 
 export function usePagedImages({ sessionName, parentId, pageSize,level }: PagedImagesOptions) {

@@ -1,4 +1,4 @@
-import { useQuery } from 'react-query';
+import {useQuery} from 'react-query';
 import {settings} from "../../core/settings.ts";
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL ;
@@ -9,6 +9,9 @@ export function FetchSessionAtlasImages(sessionName: string) {
 }
 
 
-export function useAtlasImages(sessionName: string) {
-    return useQuery(['atlasImages', sessionName], () => FetchSessionAtlasImages(sessionName));
+export function useAtlasImages(sessionName: string,enabled: boolean) {
+    return useQuery(['atlasImages', sessionName], () => FetchSessionAtlasImages(sessionName),{enabled:enabled});
 }
+
+
+

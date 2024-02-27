@@ -43,33 +43,17 @@ const initialImageColumns: ImageColumnState[] = [
     },
 ];
 export const ImagesPageView = () => {
-
+    const [level, setLevel] = useState<number >(0);
+    const [parentId, setParentId] = useState<string | null>(null);
+    const [currentSession, setCurrentSession] = useState<SessionDto | null>(null);
     const [imageColumns, setImageColumns] = useState<(ImageColumnState)[]>(initialImageColumns);
     const [currentImage, setCurrentImage] = useState<ImageInfoDto | null>(null);
 
-    const sessionName = "23apr13a";
-    const [currentSession, setCurrentSession] = useState<SessionDto | null>(null);
-
-    // const [atlasImages, setAtlasImages] = useState<AtlasImageDto[]>(initialAtlasImages);
-
-
-    const [parentId, setParentId] = useState<string | null>(null);
-    const [level, setLevel] = useState<number >(0);
+    const pageSize = 100;
+    let sessionName = currentSession?.name;
 
     const { data: sessionData, isLoading: isSessionDataLoading, isError: isSessionError  } =  useSessionNames();
-    const { data: atlasImages, isLoading: isAtlasLoading, isError: isAtlasError  } = useAtlasImages(sessionName);
-    const pageSize = 100;
-
-    // useEffect(() => {
-    //     if (currentSession) {
-    //
-    //     }
-    // }, [currentSession]);
-
-
-    const OnAtlasImageAreaClicked = (image: string)  => {
-
-    }
+    const { data: atlasImages, isLoading: isAtlasLoading, isError: isAtlasError  } = useAtlasImages(sessionName,currentSession!==null);
 
     const OnCurrentImageChanged = (image: ImageInfoDto,column : number)  => {
         if (column === imageColumns.length) {
@@ -108,17 +92,15 @@ export const ImagesPageView = () => {
             name: selectedValue,
         };
         setCurrentSession(sessionDto);
-        //setCurrentSession(Se);
+        setImageColumns(initialImageColumns);
+        setCurrentImage(null);
     };
 
-    //
     const {
         data,error, isLoading,isSuccess, isError, refetch
         , fetchNextPage, hasNextPage,isFetching,isFetchingNextPage,
         status,
-    } = usePagedImages({   sessionName,parentId: parentId,pageSize, level    });
-
-
+    } = usePagedImages({   sessionName ,parentId: parentId,pageSize, level    });
 
     useEffect(() => {
         //if there is selected image in current collumn , it would fetch data for next column using this column's oid as parent
@@ -156,14 +138,17 @@ export const ImagesPageView = () => {
         };
 
         // Handle the root column
-        getImageColumnsData(-1);
+        if(currentSession!==null){
+            getImageColumnsData(-1);
+        }
+
         // Loop through other columns
         for (let i = 0; i < imageColumns.length-1; i++) {
             if (imageColumns[i].selectedImage !==null && imageColumns[i].selectedImage?.oid !== null ) {
                 getImageColumnsData(i);
             }
         }
-    }, [currentImage?.oid, level, data, isSuccess]);
+    }, [currentImage?.oid, level, data, isSuccess,currentSession]);
 
     return (
         <Grid container>
