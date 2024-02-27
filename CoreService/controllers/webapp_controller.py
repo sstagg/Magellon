@@ -24,7 +24,7 @@ from config import FFT_SUB_URL, IMAGE_SUB_URL, IMAGE_ROOT_DIR, THUMBNAILS_SUB_UR
 from database import get_db
 from lib.image_not_found import get_image_not_found
 from models.pydantic_models import ParticlepickingjobitemDto, MicrographSetDto, SessionDto, ImageDto, AtlasDto
-from models.sqlalchemy_models import Particlepickingjobitem, Image, Particlepickingjob, Msession, Atlas
+from models.sqlalchemy_models import Particlepickingjobitem, Image, Particlepickingjob, Msession, Atlas, ImageMetadata
 from repositories.image_repository import ImageRepository
 from repositories.session_repository import SessionRepository
 from services.atlas import create_atlas_images
@@ -384,6 +384,7 @@ def get_stripped_parent(input_string):
     # Use re.sub() to remove the matched substrings
     return re.sub(pattern, '', input_string)
 
+
 def get_parent_name(child_name):
     split_name = child_name.split('_')
     # if split_name[-1] == 'v01':
@@ -393,6 +394,7 @@ def get_parent_name(child_name):
         parent_name = '_'.join(split_name[:-1])
     # Join the parts back together with underscores and return
     return parent_name
+
 
 @webapp_router.get('/parent_child')
 def get_correct_image_parent_child(name: str, db_session: Session = Depends(get_db)):
@@ -414,9 +416,8 @@ def get_correct_image_parent_child(name: str, db_session: Session = Depends(get_
     return {'result': "Done!"}
 
 
-# FastAPI endpoint to create a ParticlePickingjobitem
-@webapp_router.post("/create_ppji/", summary="creates particle picking job item for a given image and returns it")
-async def create_particle_picking_jobitem(image_name_or_oid: str = Query(...), db: Session = Depends(get_db)):
+@webapp_router.post("/create_ppmd/", summary="creates particle picking metadata for a given image and returns it")
+async def create_particle_picking_item(meta_name: str = Query(...),image_name_or_oid: str = Query(...), db: Session = Depends(get_db)):
     try:
         try:
             # Attempt to convert image_name_or_oid to UUID
@@ -436,42 +437,90 @@ async def create_particle_picking_jobitem(image_name_or_oid: str = Query(...), d
 
     try:
         # Check if a "manual" Particlepickingjob already exists
-        manual_job = db.query(Particlepickingjob).filter_by(name="manual").one()
+        image_meta_data = db.query(ImageMetadata).filter_by(name=meta_name).one()
     except NoResultFound:
         # If it doesn't exist, create a new one
-        manual_job = Particlepickingjob(
-            Oid=uuid.uuid4(),
-            name="manual",
-            description="manual job for particle picking",
+        image_meta_data = ImageMetadata(
+
+            OID=uuid.uuid4(),
+            name=meta_name,
+            # description="manual job for particle picking",
             created_on=datetime.now(),
-            msession=image.msession if image.msession is not None else None,
+            image_id=image.Oid,
+            type=5
+            # msession=image.msession if image.msession is not None else None,
             # Add other necessary fields here
         )
         # if image.msession is not None:
         #     # Include the image's session in the job and item
         #     manual_job.msession = image.msession
-        db.add(manual_job)
+        db.add(image_meta_data)
         db.commit()
-        db.refresh(manual_job)
+        db.refresh(image_meta_data)
 
-    # Create the ParticlePickingjobitem
-    try:
-        jobitem = Particlepickingjobitem(
-            Oid=uuid.uuid4(),
-            job_id=manual_job.Oid,
-            image_id=image.Oid,
-
-            # Add other necessary fields here
-        )
-
-        db.add(jobitem)
-        db.commit()
-        db.refresh(jobitem)
-
-        return jobitem
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# FastAPI endpoint to create a ParticlePickingjobitem
+# @webapp_router.post("/create_ppji/", summary="creates particle picking job item for a given image and returns it")
+# async def create_particle_picking_jobitem(image_name_or_oid: str = Query(...), db: Session = Depends(get_db)):
+#     try:
+#         try:
+#             # Attempt to convert image_name_or_oid to UUID
+#             image_uuid = UUID(image_name_or_oid)
+#             # If convertible to UUID, search by OID
+#             image = db.query(Image).filter_by(Oid=image_uuid).first()
+#         except ValueError:
+#             # If not convertible to UUID, search by filename
+#             image = db.query(Image).filter_by(name=image_name_or_oid).first()
+#
+#         if not image:
+#             return HTTPException(status_code=404, detail="Image not found")
+#
+#     except NoResultFound:
+#         # db.close()
+#         return HTTPException(status_code=404, detail="Image not found")
+#
+#     try:
+#         # Check if a "manual" Particlepickingjob already exists
+#         manual_job = db.query(Particlepickingjob).filter_by(name="manual").one()
+#     except NoResultFound:
+#         # If it doesn't exist, create a new one
+#         manual_job = Particlepickingjob(
+#             Oid=uuid.uuid4(),
+#             name="manual",
+#             description="manual job for particle picking",
+#             created_on=datetime.now(),
+#             msession=image.msession if image.msession is not None else None,
+#             # Add other necessary fields here
+#         )
+#         # if image.msession is not None:
+#         #     # Include the image's session in the job and item
+#         #     manual_job.msession = image.msession
+#         db.add(manual_job)
+#         db.commit()
+#         db.refresh(manual_job)
+#
+#     # Create the ParticlePickingjobitem
+#     try:
+#         jobitem = Particlepickingjobitem(
+#             Oid=uuid.uuid4(),
+#             job_id=manual_job.Oid,
+#             image_id=image.Oid,
+#
+#             # Add other necessary fields here
+#         )
+#
+#         db.add(jobitem)
+#         db.commit()
+#         db.refresh(jobitem)
+#
+#         return jobitem
+#     except Exception as e:
+#         db.rollback()
+#         raise HTTPException(status_code=500, detail=str(e))
 
 
 @webapp_router.get('/particles')
@@ -555,7 +604,7 @@ async def get_session_atlases(session_name: str, db_session: Session = Depends(g
     if msession is None:
         return {"error": "Session not found"}
     try:
-        return db_session.query(Atlas).filter(Atlas.session_id==msession.Oid).all()
+        return db_session.query(Atlas).filter(Atlas.session_id == msession.Oid).all()
     # session_id_binary = msession.Oid.bytes
     except AttributeError:
         return {"error": "Invalid session ID"}

@@ -390,7 +390,7 @@ class Image(Base):
 class ImageMetadata(Base):
     __tablename__ = 'image_metadata'
 
-    OID = Column(INTEGER(11), primary_key=True)
+    OID = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
     image_id = Column(ForeignKey('image.Oid'), index=True)
     name = Column(String(100))
     # job_id = Column(ForeignKey('imagejob.Oid'), index=True)
