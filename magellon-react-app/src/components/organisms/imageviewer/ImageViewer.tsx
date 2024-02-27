@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, {useEffect, useState} from 'react';
 
 interface SvgImageProps {
     width: number;
@@ -14,6 +14,11 @@ interface Point {
 
 const SvgImage: React.FC<SvgImageProps> = ({ width, height, imageUrl, imageStyle }) => {
     const [circles, setCircles] = useState<Point[]>([]);
+
+    useEffect(() => {
+        // Reset circles when imageUrl changes
+        setCircles([]);
+    }, [imageUrl]);
 
     const calculateAngle = (point1: Point, point2: Point): number => {
         return Math.atan2(point2.y - point1.y, point2.x - point1.x) * (180 / Math.PI);
