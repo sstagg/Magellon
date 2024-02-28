@@ -5,7 +5,7 @@ const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL ;
 
 
 export const createParticlePickingEntity = async (metaName: string, imageName: string) => {
-    const response = await fetch(`${BASE_URL}/create_ppmd/?meta_name=${metaName}&image_name_or_oid=${imageName}`, {
+    const response = await fetch(`${BASE_URL}/particle-pickings?meta_name=${metaName}&image_name_or_oid=${imageName}`, {
         method: 'POST',
         // Add headers if necessary
     });
