@@ -271,3 +271,12 @@ class ImageMetaDataDto(BaseModel):
     GCRecord: Optional[int] = None
     type: Optional[int] = None
     data_json: Optional[dict] = None
+
+class ParticlePickingDto(BaseModel):
+    oid: uuid.UUID
+    image_id: uuid.UUID
+    name: Optional[str] = None
+    data: Optional[str] = None
+    data_json: Optional[Json] = None
+    status: Optional[int] = None
+    type: Optional[int] = None

@@ -14,6 +14,8 @@ import {settings} from "../../../core/settings.ts";
 import ImageViewer from "./ImageViewer.tsx";
 import ImageParticlePicking from "./ImageParticlePicking.tsx";
 import {CreateParticlePickingDialog} from "./CreateParticlePickingDialog.tsx";
+import {useImageParticlePickings} from "../../../services/api/ParticlePickingRestService.ts";
+
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL ;
 interface SoloImageViewerProps {
@@ -23,6 +25,9 @@ interface SoloImageViewerProps {
 export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selectedImage }) => {
     const [open, setOpen] = useState(false);
     const [value, setValue] = useState('1');
+
+
+    const { data: ImageParticlePickings, isLoading: isIPPLoading, isError: isIPPError, refetch  } = useImageParticlePickings(selectedImage?.name,false);
     // const [selectedImage, setSelectedImage] = useState<ImageInfoDto>();
     const handleChange = (event: SyntheticEvent, newValue: string) => {
         setValue(newValue);
@@ -36,6 +41,9 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
         border: '3px solid rgba(215,215,225)',
     };
 
+    const handleLoad = () => {
+      refetch();
+    };
     const handleOpen = () => {
         setOpen(true);
     };
@@ -103,14 +111,14 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
                                     <MenuItem value="none" >
                                         <em>None</em>
                                     </MenuItem>
-                                    {/*{Sessions?.map((session) => (*/}
-                                    {/*    <MenuItem key={session.Oid} value={session.name}>*/}
-                                    {/*        {session.name}*/}
-                                    {/*    </MenuItem>*/}
-                                    {/*))}*/}
+                                    {ImageParticlePickings?.map((ipp) => (
+                                        <MenuItem key={ipp.oid} value={ipp.oid}>
+                                            {ipp.name}
+                                        </MenuItem>
+                                    ))}
                                 </Select>
                             </FormControl>
-                            <IconButton  key="load"><SyncOutlined/></IconButton>
+                            <IconButton   onClick={handleLoad} key="load"><SyncOutlined/></IconButton>
                             <IconButton   onClick={handleOpen} key="new"><AddOutlined/></IconButton>
                             <IconButton  key="save"><Save/></IconButton>
                             <IconButton  key="four" ><HighlightOff/></IconButton>

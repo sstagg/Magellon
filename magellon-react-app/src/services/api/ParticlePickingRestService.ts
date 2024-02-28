@@ -1,7 +1,24 @@
-import {useMutation} from "react-query";
+import {useMutation, useQuery} from "react-query";
 import {settings} from "../../core/settings.ts";
+import {FetchSessionAtlasImages} from "./FetchSessionAtlasImages.ts";
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL ;
+
+
+export function FetchImageParticlePicking(img_name: string) {
+    return fetch(`${BASE_URL}/particle-pickings?img_name=${img_name}`).then((response) =>
+        response.json()
+    );
+}
+
+
+export function useImageParticlePickings(img_name: string,enabled: boolean) {
+    return useQuery(['image_particle_picking', img_name], () => FetchImageParticlePicking(img_name),{enabled:enabled});
+}
+
+
+
+
 
 
 export const createParticlePickingEntity = async (metaName: string, imageName: string) => {

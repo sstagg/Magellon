@@ -23,7 +23,8 @@ from config import FFT_SUB_URL, IMAGE_SUB_URL, IMAGE_ROOT_DIR, THUMBNAILS_SUB_UR
 
 from database import get_db
 from lib.image_not_found import get_image_not_found
-from models.pydantic_models import ParticlepickingjobitemDto, MicrographSetDto, SessionDto, ImageDto, AtlasDto
+from models.pydantic_models import ParticlepickingjobitemDto, MicrographSetDto, SessionDto, ImageDto, AtlasDto, \
+    ParticlePickingDto
 from models.sqlalchemy_models import Particlepickingjobitem, Image, Particlepickingjob, Msession, Atlas, ImageMetadata
 from repositories.image_repository import ImageRepository
 from repositories.session_repository import SessionRepository
@@ -473,15 +474,13 @@ def get_image_particles(img_name: str, db: Session = Depends(get_db)):
     response = []
     for row in result:
         image_meta_data = row
-        response.append(ParticlepickingjobitemDto(
-            Oid=image_meta_data.Oid,
-            job=image_meta_data.job,
-            # job_name=particlepickingjobitem.particlepickingjob.name,
-            job_name=job_name,
-            image=particlepickingjobitem.image,
-            data=json.dumps(particlepickingjobitem.settings),
-            status=particlepickingjobitem.status,
-            type=particlepickingjobitem.type
+        response.append(ParticlePickingDto(
+            oid=image_meta_data.OID,
+            name=image_meta_data.name,
+            image_id=image_meta_data.image_id,
+            data_json=json.dumps(image_meta_data.data_json),
+            # status=particlepickingjobitem.status,
+            # type=particlepickingjobitem.type
         ))
     return response
 
