@@ -1,8 +1,7 @@
 
 import {useState} from "react";
 import {
-    AlertProps,
-    Button,
+    Button, CircularProgress,
     Dialog,
     DialogActions,
     DialogContent,
@@ -10,8 +9,9 @@ import {
     Snackbar,
     TextField
 } from "@mui/material";
-import Alert from '@mui/material/Alert';
-import {Check} from "@mui/icons-material";
+
+import {useCreateParticlePickingMutation} from "../../../services/api/ParticlePickingRestService.ts";
+import ImageInfoDto from "./ImageInfoDto.ts";
 
 
 const SuccessBox: React.FC = () => {
@@ -23,29 +23,37 @@ const SuccessBox: React.FC = () => {
         />
     );
 };
-export const CreateParticlePickingDialog: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
+export const CreateParticlePickingDialog: React.FC<{ open: boolean; onClose: () => void ;ImageDto:ImageInfoDto}> = ({ open, onClose,ImageDto }) => {
     const [name, setName] = useState('');
+    const [loading, setLoading] = useState(false);
     const [showError, setShowError] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
+    const mutation = useCreateParticlePickingMutation();
 
     const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setName(e.target.value);
         setShowError(false); // Clear the error when the text changes
     };
 
-    const handleCreate = () => {
+    const handleCreate = async () => {
         if (name.trim() === '') {
             setShowError(true);
         } else {
-            // Here you can perform any action with the entered name, such as sending it to an API
-            setShowSuccess(true);
-            setTimeout(() => {
-                setShowSuccess(false);
-            }, 6000);
-            onClose();
+            try {
+                setLoading(true); // Set loading to true
+                await mutation.mutateAsync({ metaName: name, imageName: ImageDto?.oid });
+                // setShowSuccess(true);
+                // setTimeout(() => {
+                //     setShowSuccess(false);
+                // }, 6000);
+                // onClose();
+            } catch (error) {
+                console.error('Error:', error);
+            } finally {
+                setLoading(false); // Reset loading state
+            }
         }
     };
-
     const handleCloseAlert = () => {
         setShowError(false);
     };
@@ -68,12 +76,16 @@ export const CreateParticlePickingDialog: React.FC<{ open: boolean; onClose: () 
                     onChange={handleTextChange}
                     helperText={showError ? "You have not entered a name" : ""}
                 />
+                {loading && <CircularProgress />}
                 {/*{showError && <Alert severity="error">You have not entered a name</Alert>}*/}
+                {mutation.isLoading && <span>Creating...</span>}
+                {mutation.isError && <span>Error: {mutation.error.message}</span>}
+                {mutation.isSuccess && <span>Entity created successfully</span>}
             </DialogContent>
 
             <DialogActions>
                 <Button onClick={onClose} color="primary">
-                    Cancel
+                    Close
                 </Button>
                 <Button onClick={handleCreate} color="primary">
                     Create

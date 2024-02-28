@@ -114,7 +114,7 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
                             <IconButton   onClick={handleOpen} key="new"><AddOutlined/></IconButton>
                             <IconButton  key="save"><Save/></IconButton>
                             <IconButton  key="four" ><HighlightOff/></IconButton>
-                            <CreateParticlePickingDialog open={open} onClose={handleClose} />
+                            <CreateParticlePickingDialog open={open} onClose={handleClose} ImageDto ={selectedImage}/>
                         </ButtonGroup>
 
 
