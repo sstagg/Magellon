@@ -14,7 +14,7 @@ import {settings} from "../../../core/settings.ts";
 import ImageViewer from "./ImageViewer.tsx";
 import ImageParticlePicking from "./ImageParticlePicking.tsx";
 import {CreateParticlePickingDialog} from "./CreateParticlePickingDialog.tsx";
-import {useImageParticlePickings} from "../../../services/api/ParticlePickingRestService.ts";
+import {useImageParticlePickings, useUpdateParticlePicking} from "../../../services/api/ParticlePickingRestService.ts";
 
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL ;
@@ -27,7 +27,8 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
     const [value, setValue] = useState('1');
 
 
-    const { data: ImageParticlePickings, isLoading: isIPPLoading, isError: isIPPError, refetch  } = useImageParticlePickings(selectedImage?.name,false);
+    const { data: ImageParticlePickings, isLoading: isIPPLoading, isError: isIPPError, refetch:refetchImageParticlePickings  } = useImageParticlePickings(selectedImage?.name,false);
+
     // const [selectedImage, setSelectedImage] = useState<ImageInfoDto>();
     const handleChange = (event: SyntheticEvent, newValue: string) => {
         setValue(newValue);
@@ -41,8 +42,20 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
         border: '3px solid rgba(215,215,225)',
     };
 
+    const mutation = useUpdateParticlePicking();
+    const handleSave = () => {
+        try {
+            mutation.mutateAsync({
+                oid: selectedImage?.oid,
+                // data_json: dataJson,
+            });
+            // Handle success
+        } catch (error) {
+            // Handle error
+        }
+    };
     const handleLoad = () => {
-      refetch();
+        refetchImageParticlePickings();
     };
     const handleOpen = () => {
         setOpen(true);
@@ -50,6 +63,10 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
 
     const handleClose = () => {
         setOpen(false);
+    };
+
+    const ParticlePickingTabClicked = () => {
+        handleLoad();
     };
 
     return (
@@ -78,7 +95,7 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
                         <TabList onChange={handleChange} aria-label="lab API tabs example">
                             <Tab label="Image" value="1" />
                             <Tab label="FFT" value="2" />
-                            <Tab label="Particle Picking" value="3" />
+                            <Tab label="Particle Picking" value="3" onClick={ParticlePickingTabClicked} />
                             <Tab label="Variations" value="4" />
                             <Tab label="CTF" value="5" />
                             <Tab label="Frame Alignment" value="6" />
@@ -102,16 +119,16 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
                             <FormControl sx={{ m: 1, minWidth: 180 }} size="small"  variant="standard" >
                                 <InputLabel id="demo-select-small-label">Particle Picking</InputLabel>
                                 <Select
-                                    labelId="demo-select-small-label"
-                                    id="demo-select-small"
+                                    labelId="session_select-label"
+                                    id="session_select"
                                     // value={selectedSession?.name}
                                     label="Session"
                                     // onChange={OnSessionSelected }
                                 >
-                                    <MenuItem value="none" >
+                                    <MenuItem value="" >
                                         <em>None</em>
                                     </MenuItem>
-                                    {ImageParticlePickings?.map((ipp) => (
+                                    {Array.isArray(ImageParticlePickings) && ImageParticlePickings?.map((ipp) => (
                                         <MenuItem key={ipp.oid} value={ipp.oid}>
                                             {ipp.name}
                                         </MenuItem>
@@ -120,7 +137,7 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
                             </FormControl>
                             <IconButton   onClick={handleLoad} key="load"><SyncOutlined/></IconButton>
                             <IconButton   onClick={handleOpen} key="new"><AddOutlined/></IconButton>
-                            <IconButton  key="save"><Save/></IconButton>
+                            <IconButton  key="save" onClick={handleSave}><Save/></IconButton>
                             <IconButton  key="four" ><HighlightOff/></IconButton>
                             <CreateParticlePickingDialog open={open} onClose={handleClose} ImageDto ={selectedImage}/>
                         </ButtonGroup>

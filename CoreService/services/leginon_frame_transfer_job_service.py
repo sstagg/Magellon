@@ -19,6 +19,7 @@ from models.pydantic_models import LeginonFrameTransferJobDto, LeginonFrameTrans
 from models.sqlalchemy_models import Frametransferjob, Frametransferjobitem, Image, Project, Msession
 from services.atlas import create_atlas_images
 from services.file_service import copy_file, create_directory, check_file_exists
+from services.helper import custom_replace
 from services.mrc_image_service import MrcImageService
 from sqlalchemy.orm import Session
 
@@ -258,8 +259,12 @@ class LeginonFrameTransferJobService:
                     source_image_path = os.path.join(session_result["image path"], image["image_name"])
 
                     #TODO:
-                    source_frame_path = source_frame_path.replace("/gpfs/", "Y:/")
-                    source_image_path = source_image_path.replace("/gpfs/", "Y:/")
+                    # source_frame_path = source_frame_path.replace("/gpfs/", "Y:/")
+                    # source_image_path = source_image_path.replace("/gpfs/", "Y:/")
+
+                    if self.params.replace_type == "regex" or self.params.replace_type == "standard":
+                        source_frame_path = custom_replace(source_frame_path, self.params.replace_type, self.params.replace_pattern, self.params.replace_with)
+                        source_image_path = custom_replace(source_image_path, self.params.replace_type,  self.params.replace_pattern, self.params.replace_with)
 
 
                     # Create a new job item and associate it with the job and image

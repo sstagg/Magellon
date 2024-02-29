@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, Json
+from pydantic import BaseModel, Field, Json, ValidationInfo, field_validator
 from typing import Optional, List
 import uuid
 
@@ -11,7 +11,7 @@ class SlackMessage(BaseModel):
 class AtlasDto(BaseModel):
     Oid: uuid.UUID = Field(None, description='Atlas UUID')
     name: str = Field(None, min_length=2, max_length=30, description='Atlas Name')
-    meta: str = Field(None,description='Atlas Meta')
+    meta: str = Field(None, description='Atlas Meta')
 
     # model_config = ConfigDict(from_attributes=True)
     class Config:
@@ -213,6 +213,20 @@ class LeginonFrameTransferJobBase(BaseModel):
     leginon_mysql_user: Optional[str] = None
     leginon_mysql_pass: Optional[str] = None
 
+    replace_type: str = "none"
+    replace_pattern: Optional[str] = None
+    replace_with: Optional[str] = None
+
+    @field_validator("replace_type")
+    def validate_replace_type(cls, v: str, info: ValidationInfo) -> str:
+        """
+        Validates the replace_type value.
+        """
+        valid_types = ["standard", "none", "regex"]
+        if v not in valid_types:
+            raise ValueError(f"Invalid replace_type: {v}. Valid options are: {', '.join(valid_types)}")
+        return v
+
 
 class LeginonFrameTransferJobDto(LeginonFrameTransferJobBase):
     job_id: Optional[uuid.UUID] = None  # should be removed
@@ -256,8 +270,8 @@ class ImageDto(BaseModel):
     dose: Optional[float] = None
     mag: Optional[float] = None
     pixelSize: Optional[float] = None
-    parent_id:  Optional[uuid.UUID]= None
-    session_id:  Optional[uuid.UUID]= None
+    parent_id: Optional[uuid.UUID] = None
+    session_id: Optional[uuid.UUID] = None
     children_count: Optional[int] = None
 
 
@@ -271,6 +285,7 @@ class ImageMetaDataDto(BaseModel):
     GCRecord: Optional[int] = None
     type: Optional[int] = None
     data_json: Optional[dict] = None
+
 
 class ParticlePickingDto(BaseModel):
     oid: uuid.UUID

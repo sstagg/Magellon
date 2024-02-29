@@ -417,8 +417,8 @@ def get_correct_image_parent_child(name: str, db_session: Session = Depends(get_
     return {'result': "Done!"}
 
 
-@webapp_router.post("/particle-pickings", summary="creates particle picking metadata for a given image and returns it")
-async def create_particle_picking_item(meta_name: str = Query(...),image_name_or_oid: str = Query(...), db: Session = Depends(get_db)):
+@webapp_router.post("/particle-pickings", summary="creates particle picking metadata for a given image and returns it", status_code=201)
+async def create_particle_picking(meta_name: str = Query(...),image_name_or_oid: str = Query(...), db: Session = Depends(get_db)):
     try:
         try:
             # Attempt to convert image_name_or_oid to UUID
@@ -582,28 +582,26 @@ def get_image_particles(img_name: str, db: Session = Depends(get_db)):
 
 
 @webapp_router.get('/particles/{oid}', summary="gets an image particles json by its unique id")
-def get_image_particle_by_id(oid: UUID, db: Session = Depends(get_db)):
-    ppji = db.query(Particlepickingjobitem).filter(Particlepickingjobitem.Oid == oid).all()
+async def get_image_particle_by_id(oid: UUID, db: Session = Depends(get_db)):
+    ppji = db.query(ImageMetadata).filter(ImageMetadata.Oid == oid).all()
     if not ppji:
         raise HTTPException(status_code=404, detail="No Particlepickingjobitem found for Image")
     return ppji[0].data
 
 
-@webapp_router.put("/particles/{oid}", summary="gets particles oid and data and updates it")
-def update_particle_picking_jobitem(oid: UUID,
-                                    req_body: dict,
-                                    db: Session = Depends(get_db)):
+@webapp_router.put("/particle-pickings", summary="Update particle picking data")
+async def update_particle_picking(body_req: ParticlePickingDto, db_session: Session = Depends(get_db)):
     try:
-        db_item = db.query(Particlepickingjobitem).filter(Particlepickingjobitem.Oid == oid).first()
-        if not db_item:
-            raise HTTPException(status_code=404, detail="Particle picking job item not found")
-        db_item.data = req_body
-        db.commit()
-        db.refresh(db_item)
+        image_meta_data = db_session.query(ImageMetadata).filter(ImageMetadata.OID == body_req.oid).first()
+        if not image_meta_data:
+            raise HTTPException(status_code=404, detail="Particle picking  not found")
+        image_meta_data.data_json = image_meta_data.data_json
+        db_session.commit()
+        db_session.refresh(image_meta_data)
     except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error updating Particle picking job item: {str(e)}")
-    return db_item
+        db_session.rollback()
+        raise HTTPException(status_code=500, detail=f"Error updating Particle picking : {str(e)}")
+    return image_meta_data
 
 
 @webapp_router.get("/image_thumbnail")

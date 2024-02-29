@@ -30,3 +30,5 @@ export interface PagedImageResponse {
     result:  ImageInfoDto[]; // Replace with the actual type for `images_as_dict`
 }
 export default ImageInfoDto;
+
+

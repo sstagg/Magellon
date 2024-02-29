@@ -1,4 +1,5 @@
 import React, {useEffect, useState} from 'react';
+import {useUpdateParticlePicking} from "../../../services/api/ParticlePickingRestService.ts";
 
 interface ImageParticlePickingProps {
     imageUrl: string;
@@ -23,7 +24,10 @@ const ImageParticlePicking: React.FC<ImageParticlePickingProps> = ({ imageUrl, w
     // const [tool, setTool] = useState<State>(State.Add);
     const [circles, setCircles] = useState<Point[]>([]);
     const [selectedCircleIndex, setSelectedCircleIndex] = useState<number | null>(null);
-    const radius = 15;
+    const radius = 10;
+
+
+
     useEffect(() => {
         // Reset circles when imageUrl changes
         setCircles([]);
