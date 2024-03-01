@@ -407,15 +407,18 @@ class LeginonFrameTransferJobService:
             # return {'status': 'failure', 'message': f'Task failed with error: {str(e)}'}
 
     def transfer_frame(self, task_dto):
-        # copy frame if exists
-        if task_dto.frame_name:
-            frame_path = check_file_exists(self.params.camera_directory, task_dto.frame_name)
+        try:
+            # copy frame if exists
+            if task_dto.frame_name:
+                frame_path = check_file_exists(self.params.camera_directory, task_dto.frame_name)
 
-            if frame_path:
-                _, file_extension = os.path.splitext(frame_path)
-                target_path = os.path.join(task_dto.job_dto.target_directory, FRAMES_SUB_URL,
-                                           task_dto.file_name + FRAMES_SUFFIX + file_extension)
-                copy_file(frame_path, target_path)
+                if frame_path:
+                    _, file_extension = os.path.splitext(frame_path)
+                    target_path = os.path.join(task_dto.job_dto.target_directory, FRAMES_SUB_URL,
+                                               task_dto.file_name + FRAMES_SUFFIX + file_extension)
+                    copy_file(frame_path, target_path)
+        except Exception as e:
+            print(f"An error occurred during frame transfer: {e}")
 
     def open_leginon_connection(self):
         if self.leginon_db_connection is None:
@@ -443,10 +446,9 @@ class LeginonFrameTransferJobService:
 
     def convert_image_to_png_task(self, abs_file_path, out_dir):
         try:
-            self.mrc_service.convert_mrc_to_png(abs_file_path=abs_file_path,
-                                                out_dir=out_dir)  # generates png and thumbnails
+            # generates png and thumbnails
+            self.mrc_service.convert_mrc_to_png(abs_file_path=abs_file_path, out_dir=out_dir)
             return {"message": "MRC file successfully converted to PNG!"}
-
         except Exception as e:
             return {"error": str(e)}
 
