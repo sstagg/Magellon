@@ -128,7 +128,6 @@ def process_image_job(input_data: LeginonFrameTransferJobBase, db: Session = Dep
     # Generate a unique job ID
 
     job_id = uuid.uuid4()
-
     job_dto = LeginonFrameTransferJobDto(
         magellon_project_name=input_data.magellon_project_name,
         magellon_session_name=input_data.magellon_session_name,
@@ -141,10 +140,16 @@ def process_image_job(input_data: LeginonFrameTransferJobBase, db: Session = Dep
         leginon_mysql_db=input_data.leginon_mysql_db,
         leginon_mysql_user=input_data.leginon_mysql_user,
         leginon_mysql_pass=input_data.leginon_mysql_pass,
+
+        replace_type=input_data.replace_type,
+        replace_pattern=input_data.replace_pattern,
+        replace_with=input_data.replace_with,
+
         job_id=job_id,
         target_directory=os.path.join(IMAGE_ROOT_DIR, input_data.magellon_session_name),
         task_list=[]  # You can set this to None or any desired value
     )
+
 
     # job_dto.job_id = job_id
     job_dto.target_directory = os.path.join(IMAGE_ROOT_DIR, job_dto.session_name)
