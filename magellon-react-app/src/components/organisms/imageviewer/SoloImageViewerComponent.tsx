@@ -4,17 +4,18 @@ import TabContext from '@mui/lab/TabContext';
 import TabList from '@mui/lab/TabList';
 import TabPanel from '@mui/lab/TabPanel';
 import {SyntheticEvent, useState } from "react";
-import {ButtonGroup, FormControl, Grid, InputLabel, MenuItem, Select, Stack} from "@mui/material";
+import {ButtonGroup, FormControl, Grid, InputLabel, MenuItem, Select, SelectChangeEvent, Stack} from "@mui/material";
 import IconButton from "@mui/material/IconButton";
 import {AddOutlined, ControlPoint, HighlightOff, Palette, Save, Straighten, SyncOutlined} from "@mui/icons-material";
 import {InfoLineComponent} from "./InfoLineComponent.tsx";
 import {InfoOutlined} from "@ant-design/icons";
-import ImageInfoDto from "./ImageInfoDto.ts";
+import ImageInfoDto, {SessionDto} from "./ImageInfoDto.ts";
 import {settings} from "../../../core/settings.ts";
 import ImageViewer from "./ImageViewer.tsx";
 import ImageParticlePicking from "./ImageParticlePicking.tsx";
 import {CreateParticlePickingDialog} from "./CreateParticlePickingDialog.tsx";
 import {useImageParticlePickings, useUpdateParticlePicking} from "../../../services/api/ParticlePickingRestService.ts";
+import {ParticlePickingDto} from "../../../domains/ParticlePickingDto.ts";
 
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL ;
@@ -25,6 +26,8 @@ interface SoloImageViewerProps {
 export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selectedImage }) => {
     const [open, setOpen] = useState(false);
     const [value, setValue] = useState('1');
+    const [selectedIpp, setSelectedIpp] = useState<ParticlePickingDto>(null);
+    const [updatedIpp, setUpdatedIpp] = useState<ParticlePickingDto>(null);
 
 
     const { data: ImageParticlePickings, isLoading: isIPPLoading, isError: isIPPError, refetch:refetchImageParticlePickings  } = useImageParticlePickings(selectedImage?.name,false);
@@ -42,16 +45,18 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
         border: '3px solid rgba(215,215,225)',
     };
 
-    const mutation = useUpdateParticlePicking();
+    const updatePPMutation = useUpdateParticlePicking();
     const handleSave = () => {
         try {
-            mutation.mutateAsync({
-                oid: selectedImage?.oid,
-                // data_json: dataJson,
+            updatePPMutation.mutateAsync({
+                oid: updatedIpp.oid,
+                image_id: updatedIpp.image_id,
+                data: updatedIpp?.temp
             });
             // Handle success
         } catch (error) {
             // Handle error
+            console.error(error)
         }
     };
     const handleLoad = () => {
@@ -67,6 +72,29 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
 
     const ParticlePickingTabClicked = () => {
         handleLoad();
+    };
+
+    const OnIppSelected = (event: SelectChangeEvent) => {
+        //debugger;
+        const selectedValue = event.target.value;
+
+        if (selectedValue && selectedValue.trim() !== '' && Array.isArray(ImageParticlePickings)) {
+            const filteredRecords = ImageParticlePickings.filter(record => record.oid === selectedValue);
+            if (filteredRecords.length > 0) {
+                setSelectedIpp(filteredRecords[0]);
+            }
+        }else{
+            setSelectedIpp(null);
+        }
+    };
+
+    const handleIppUpdate = (ipp : ParticlePickingDto) => {
+        // Update the selectedIpp state with the updatedIpp
+        setUpdatedIpp( ipp) ;
+        // console.log(updatedIpp);
+        console.log(updatedIpp);
+        //setSelectedIpp(updatedIpp);
+        // You can perform any additional actions here if needed
     };
 
     return (
@@ -111,21 +139,22 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
                         <img  src={`${BASE_URL}/fft_image?name=${selectedImage?.name}`} alt="image" style={ImageStyle} />
                     </TabPanel>
                     <TabPanel value="3">
-                        <ButtonGroup size="small" >
+                        <h3>{selectedIpp?.name ?? "Empty"}</h3>
+                        <ButtonGroup size="small">
                             {/*<IconButton  key="one" onClick={()=>console.log("clicked")}><Palette/></IconButton>*/}
                             {/*<IconButton  key="two"><Straighten/></IconButton>*/}
 
 
-                            <FormControl sx={{ m: 1, minWidth: 180 }} size="small"  variant="standard" >
+                            <FormControl sx={{m: 1, minWidth: 180}} size="small" variant="standard">
                                 <InputLabel id="demo-select-small-label">Particle Picking</InputLabel>
                                 <Select
                                     labelId="session_select-label"
                                     id="session_select"
-                                    // value={selectedSession?.name}
+                                    value={selectedIpp?.oid}
                                     label="Session"
-                                    // onChange={OnSessionSelected }
+                                     onChange={OnIppSelected }
                                 >
-                                    <MenuItem value="" >
+                                    <MenuItem value="">
                                         <em>None</em>
                                     </MenuItem>
                                     {Array.isArray(ImageParticlePickings) && ImageParticlePickings?.map((ipp) => (
@@ -135,19 +164,22 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
                                     ))}
                                 </Select>
                             </FormControl>
-                            <IconButton   onClick={handleLoad} key="load"><SyncOutlined/></IconButton>
-                            <IconButton   onClick={handleOpen} key="new"><AddOutlined/></IconButton>
-                            <IconButton  key="save" onClick={handleSave}><Save/></IconButton>
-                            <IconButton  key="four" ><HighlightOff/></IconButton>
-                            <CreateParticlePickingDialog open={open} onClose={handleClose} ImageDto ={selectedImage}/>
+                            <IconButton onClick={handleLoad} key="load"><SyncOutlined/></IconButton>
+                            <IconButton onClick={handleOpen} key="new"><AddOutlined/></IconButton>
+                            <IconButton key="save" onClick={handleSave}><Save/></IconButton>
+                            <IconButton key="four"><HighlightOff/></IconButton>
+                            <CreateParticlePickingDialog open={open} onClose={handleClose} ImageDto={selectedImage}/>
                         </ButtonGroup>
 
 
                         <ImageParticlePicking
+                            image={selectedImage}
+                            ipp={selectedIpp}
                             imageUrl={`${BASE_URL}/image_thumbnail?name=${selectedImage?.name}`}
                             width={1024}
                             height={1024}
-                                               />
+                            onIppUpdate={handleIppUpdate}
+                        />
 
                     </TabPanel>
                     <TabPanel value="4">Item 4</TabPanel>

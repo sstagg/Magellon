@@ -595,7 +595,10 @@ async def update_particle_picking(body_req: ParticlePickingDto, db_session: Sess
         image_meta_data = db_session.query(ImageMetadata).filter(ImageMetadata.OID == body_req.oid).first()
         if not image_meta_data:
             raise HTTPException(status_code=404, detail="Particle picking  not found")
-        image_meta_data.data_json = image_meta_data.data_json
+        if body_req.data:
+            image_meta_data.data_json = body_req.data
+
+        # db_session.merge(body_req)
         db_session.commit()
         db_session.refresh(image_meta_data)
     except Exception as e:
