@@ -44,6 +44,15 @@ class UUIDEncoder(json.JSONEncoder):
             return str(obj)
         return super().default(obj)
 
+def get_parent_name(child_name):
+    split_name = child_name.split('_')
+    # if split_name[-1] == 'v01':
+    if re.search(r'[vV]([0-9][0-9])', split_name[-1]):
+        parent_name = '_'.join(split_name[:-2])
+    else:
+        parent_name = '_'.join(split_name[:-1])
+    # Join the parts back together with underscores and return
+    return parent_name
 
 def get_image_base64(base64_string: str):
     # Decode the base64 string into binary data

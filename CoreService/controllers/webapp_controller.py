@@ -30,7 +30,7 @@ from repositories.image_repository import ImageRepository
 from repositories.session_repository import SessionRepository
 from services.atlas import create_atlas_images
 from services.file_service import FileService
-from services.helper import get_response_image
+from services.helper import get_response_image, get_parent_name
 
 # from services.image_file_service import get_images, get_image_by_stack, get_image_data
 
@@ -379,22 +379,14 @@ def get_image_data_route(name: str, db: Session = Depends(get_db)):
     return {'result': result}
 
 
-def get_stripped_parent(input_string):
-    # Define the regular expression pattern to match "_v01", "_v02", "-b", "-DW"
-    pattern = r"(_[vV]\d{2})|(-[bB])|(-[dD][wW])"
-    # Use re.sub() to remove the matched substrings
-    return re.sub(pattern, '', input_string)
+# def get_stripped_parent(input_string):
+#     # Define the regular expression pattern to match "_v01", "_v02", "-b", "-DW"
+#     pattern = r"(_[vV]\d{2})|(-[bB])|(-[dD][wW])"
+#     # Use re.sub() to remove the matched substrings
+#     return re.sub(pattern, '', input_string)
 
 
-def get_parent_name(child_name):
-    split_name = child_name.split('_')
-    # if split_name[-1] == 'v01':
-    if re.search(r'[vV]([0-9][0-9])', split_name[-1]):
-        parent_name = '_'.join(split_name[:-2])
-    else:
-        parent_name = '_'.join(split_name[:-1])
-    # Join the parts back together with underscores and return
-    return parent_name
+
 
 
 @webapp_router.get('/parent_child')
@@ -403,15 +395,13 @@ def get_correct_image_parent_child(name: str, db_session: Session = Depends(get_
     if not db_image_list:
         raise HTTPException(status_code=404, detail="images not found with the given name")
     image_dict = {}
-    # for db_image in db_image_list:
-    #     image_dict[db_image.name] = db_image.Oid
     image_dict = {db_image.name: db_image.Oid for db_image in db_image_list}
 
     for db_image in db_image_list:
         parent_name = get_parent_name(db_image.name)
-
         if parent_name in image_dict:
             db_image.parent_id = image_dict[parent_name]
+
     db_session.bulk_save_objects(db_image_list)
     db_session.commit()
     return {'result': "Done!"}

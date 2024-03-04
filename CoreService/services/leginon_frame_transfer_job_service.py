@@ -19,7 +19,7 @@ from models.pydantic_models import LeginonFrameTransferJobDto, LeginonFrameTrans
 from models.sqlalchemy_models import Frametransferjob, Frametransferjobitem, Image, Project, Msession
 from services.atlas import create_atlas_images
 from services.file_service import copy_file, create_directory, check_file_exists
-from services.helper import custom_replace
+from services.helper import custom_replace, get_parent_name
 from services.mrc_image_service import MrcImageService
 from sqlalchemy.orm import Session
 
@@ -252,6 +252,8 @@ class LeginonFrameTransferJobService:
                     # db_session.flush()
                     db_image_list.append(db_image)
                     image_dict[filename] = db_image.Oid
+                    # image_dict = {db_image.name: db_image.Oid for db_image in db_image_list}
+
 
                     # source_image_path = (session_result["image path"] + separator + filename + ".mrc")
                     # change logic to use image's director instead'
@@ -302,15 +304,7 @@ class LeginonFrameTransferJobService:
                     # print(f"Filename: {filename}, Spot Size: {spot_size}")
 
                 for db_image in db_image_list:
-                    # split_name = db_image.name.split('_')
-                    # if split_name[-1] == '_v01':
-                    #     parent_name = '_'.join(split_name[:-2])
-                    # else:
-                    #     parent_name = '_'.join(split_name[:-1])
-
-                    image_name = db_image.name
-                    striped_image_name = remove_v_b_substrings(image_name)
-                    parent_name = '_'.join(striped_image_name.split('_')[:-1])
+                    parent_name = get_parent_name(db_image.name)
                     if parent_name in image_dict:
                         db_image.parent_id = image_dict[parent_name]
 
