@@ -13,10 +13,10 @@ import pymysql
 from fastapi import Depends, HTTPException
 
 from config import FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, \
-    FFT_SUFFIX, FRAMES_SUFFIX, app_settings
+    FFT_SUFFIX, FRAMES_SUFFIX, app_settings, ATLAS_SUB_URL
 from database import get_db
 from models.pydantic_models import LeginonFrameTransferJobDto, LeginonFrameTransferTaskDto
-from models.sqlalchemy_models import Frametransferjob, Frametransferjobitem, Image, Project, Msession
+from models.sqlalchemy_models import Frametransferjob, Frametransferjobitem, Image, Project, Msession, Atlas
 from services.atlas import create_atlas_images
 from services.file_service import copy_file, create_directory, check_file_exists
 from services.helper import custom_replace, get_parent_name
@@ -29,23 +29,6 @@ logger = logging.getLogger(__name__)
 
 class TaskFailedException(Exception):
     pass
-
-
-# def check_file_exists(folder, filename_without_extension):
-#     file_pattern = os.path.join(folder, filename_without_extension + '.*')
-#     matching_files = glob.glob(file_pattern)
-#
-#     if matching_files:
-#         return os.path.basename(matching_files[0])
-#
-#     return None
-
-# Recursive function to update levels
-# def update_levels(image_list: list[Image], parent_id=None, level=0):
-#     for image in image_list:
-#         if image.parent_id == parent_id:
-#             image.level = level
-#             update_levels(image_list, parent_id=image.Oid, level=level + 1)  # Recursive function to update levels
 
 
 def update_levels(image_list: list[Image], parent_id=None, level=0):
@@ -66,6 +49,7 @@ def create_directories(target_dir: str):
     create_directory(os.path.join(target_dir, FFT_SUB_URL))
     create_directory(os.path.join(target_dir, IMAGE_SUB_URL))
     create_directory(os.path.join(target_dir, THUMBNAILS_SUB_URL))
+    create_directory(os.path.join(target_dir, ATLAS_SUB_URL))
 
 
 def infer_image_levels(name):
@@ -313,26 +297,14 @@ class LeginonFrameTransferJobService:
                 db_session.bulk_save_objects(db_image_list)
                 db_session.bulk_save_objects(db_job_item_list)
 
-                # get all the files in the source directory
-                # print("hello")
-
-                # update_levels_query = text("""
-                #     SET @tlevel = 1;
-                #     UPDATE image set level=NULL;
-                #     UPDATE image SET level = 0 WHERE parent_id IS NULL;
-                #     while  @tlevel < 8 do
-                #         UPDATE image AS child
-                #         JOIN image AS parent ON child.parent_id = parent.oid
-                #         SET child.level = @tlevel + 1
-                #         WHERE parent.level = @tlevel;
-                #
-                #         SET @tlevel = @tlevel + 1;
-                #     end while;""")
-                # db_session.execute(update_levels_query)
                 db_session.commit()  # Commit the changes
-                # create_atlas_images(s)
+
+                # self.create_atlas_pics(self.params.session_name, db_session)
+
                 if self.params.if_do_subtasks if hasattr(self.params, 'if_do_subtasks') else True:
                     self.run_tasks()
+
+
                 # self.create_test_tasks()
         except FileNotFoundError as e:
             print("Source directory not found:", self.params.source_directory)
@@ -434,9 +406,6 @@ class LeginonFrameTransferJobService:
         if self.leginon_db_connection is not None:
             self.leginon_db_connection.close()
             self.leginon_db_connection = None
-        # if self.magellon_db_connection is not None:
-        #     self.magellon_db_connection.close()
-        #     self.magellon_db_connection = None
 
     def convert_image_to_png_task(self, abs_file_path, out_dir):
         try:
@@ -458,7 +427,11 @@ class LeginonFrameTransferJobService:
         except Exception as e:
             return {"error": str(e)}
 
-    async def create_atlas_images(self, session_id: str):
+    async def create_atlas_pics(self, session_name: str ,  db_session: Session):
+        query = "SELECT SessionData.DEF_id FROM SessionData WHERE SessionData.name = %s"
+        self.leginon_cursor.execute(query, (session_name,))
+        session_id = self.leginon_cursor.fetchone()[0]
+
         query1 = "SELECT label FROM ImageTargetListData WHERE `REF|SessionData|session` = %s AND mosaic = %s"
         mosaic_value = 1  # Execute the first query with parameters
         self.leginon_cursor.execute(query1, (session_id, mosaic_value))
@@ -504,4 +477,14 @@ class LeginonFrameTransferJobService:
                     label_objects[label_match] = [obj]
 
         images = create_atlas_images(session_id, label_objects)
+        atlases_to_insert = []
+        for image in images:
+            file_name = os.path.basename(image['imageFilePath'])
+            file_name_without_extension = os.path.splitext(file_name)[0]
+            atlas = Atlas(Oid=str(uuid.uuid4()), name=file_name_without_extension, meta=image['imageMap'])
+            atlases_to_insert.append(atlas)
+        # db_session.add_all(atlases_to_insert)
+        db_session.bulk_save_objects(atlases_to_insert)
+        db_session.commit()
+
         return {"images": images}
