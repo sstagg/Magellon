@@ -299,7 +299,7 @@ class LeginonFrameTransferJobService:
 
                 db_session.commit()  # Commit the changes
 
-                # self.create_atlas_pics(self.params.session_name, db_session)
+                self.create_atlas_pics(self.params.session_name, db_session)
 
                 if self.params.if_do_subtasks if hasattr(self.params, 'if_do_subtasks') else True:
                     self.run_tasks()
@@ -488,3 +488,25 @@ class LeginonFrameTransferJobService:
         db_session.commit()
 
         return {"images": images}
+
+
+def generate_delete_sql(session_name):
+    sql_commands = []
+    # Disable foreign key checks
+    sql_commands.append("SET FOREIGN_KEY_CHECKS = 0;")
+    # Get the session ID based on the session name
+    sql_commands.append("SET @session_id = (SELECT Oid FROM msession WHERE name = '{}');".format(session_name))
+    # Delete records from image table
+    sql_commands.append("DELETE FROM image WHERE session_id = @session_id;")
+    # Delete records from frametransferjobitem table
+    sql_commands.append("DELETE FROM frametransferjobitem WHERE job_id IN (SELECT Oid FROM frametransferjob WHERE msession_id = @session_id);")
+    # Delete records from frametransferjob table
+    sql_commands.append("DELETE FROM frametransferjob WHERE msession_id = @session_id;")
+    # Delete records from atlas table
+    sql_commands.append("DELETE FROM atlas WHERE session_id = @session_id;")
+    # Delete records from msession table
+    sql_commands.append("DELETE FROM msession WHERE Oid = @session_id;")
+    # Re-enable foreign key checks
+    sql_commands.append("SET FOREIGN_KEY_CHECKS = 1;")
+
+    return sql_commands
