@@ -433,10 +433,10 @@ async def create_particle_picking(meta_name: str = Query(...),image_name_or_oid:
         # If it doesn't exist, create a new one
         image_meta_data = ImageMetadata(
 
-            OID=uuid.uuid4(),
+            oid=uuid.uuid4(),
             name=meta_name,
             # description="manual job for particle picking",
-            created_on=datetime.now(),
+            created_date=datetime.now(),
             image_id=image.Oid,
             type=5
             # msession=image.msession if image.msession is not None else None,
@@ -465,7 +465,7 @@ def get_image_particles(img_name: str, db: Session = Depends(get_db)):
     for row in result:
         image_meta_data = row
         response.append(ParticlePickingDto(
-            oid=image_meta_data.OID,
+            oid=image_meta_data.oid,
             name=image_meta_data.name,
             image_id=image_meta_data.image_id,
             data_json=json.dumps(image_meta_data.data_json),
@@ -582,11 +582,11 @@ async def get_image_particle_by_id(oid: UUID, db: Session = Depends(get_db)):
 @webapp_router.put("/particle-pickings", summary="Update particle picking data")
 async def update_particle_picking(body_req: ParticlePickingDto, db_session: Session = Depends(get_db)):
     try:
-        image_meta_data = db_session.query(ImageMetadata).filter(ImageMetadata.OID == body_req.oid).first()
+        image_meta_data = db_session.query(ImageMetadata).filter(ImageMetadata.oid == body_req.oid).first()
         if not image_meta_data:
             raise HTTPException(status_code=404, detail="Particle picking  not found")
         if body_req.data:
-            image_meta_data.data_json = body_req.data
+            image_meta_data.data_json = json.loads(body_req.data)
 
         # db_session.merge(body_req)
         db_session.commit()

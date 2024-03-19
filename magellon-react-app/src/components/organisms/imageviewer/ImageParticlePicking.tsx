@@ -36,7 +36,7 @@ const ImageParticlePicking: React.FC<ImageParticlePickingProps> = ({ imageUrl,im
         if (ipp && ipp?.data_json) {
 
             // If there are existing circles in ipp.temp, parse and set them in the state
-            const parsedCircles: Point[] = JSON.parse(ipp.data_json);
+            const parsedCircles: Point[] = (ipp.data_json);
             setCircles(parsedCircles);
         }else{
             setCircles([])

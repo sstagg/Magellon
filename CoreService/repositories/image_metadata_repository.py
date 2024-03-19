@@ -22,7 +22,7 @@ class ImageMetaDataRepository:
 
     @staticmethod
     def fetch_by_id(db: Session, oid: UUID):
-        return db.query(ImageMetadata).filter(ImageMetadata.OID == oid).first()
+        return db.query(ImageMetadata).filter(ImageMetadata.oid == oid).first()
 
     @staticmethod
     def fetch_all(db: Session, skip: int = 0, limit: int = 100) -> List[ImageMetadata]:
@@ -30,7 +30,7 @@ class ImageMetaDataRepository:
 
     @staticmethod
     async def delete(db: Session, oid: uuid.UUID):
-        image_meta_data_entity = db.query(ImageMetadata).filter(ImageMetadata.OID == oid).first()
+        image_meta_data_entity = db.query(ImageMetadata).filter(ImageMetadata.oid == oid).first()
         if image_meta_data_entity:
             db.delete(image_meta_data_entity)
             db.commit()
@@ -44,7 +44,7 @@ class ImageMetaDataRepository:
 
     async def update_by_data(db: Session, _id: UUID, req_body: str):
         try:
-            db_item = db.query(ImageMetadata).filter(ImageMetadata.OID == _id).first()
+            db_item = db.query(ImageMetadata).filter(ImageMetadata.oid == _id).first()
             if not db_item:
                 raise HTTPException(status_code=404, detail="Image Metadata  not found")
             db_item.data = req_body
@@ -54,7 +54,7 @@ class ImageMetaDataRepository:
             db.rollback()
     @staticmethod
     async def update(db: Session, oid: UUID, image_meta_data_dto: ImageMetaDataDto):
-        image_meta_data_entity = db.query(ImageMetadata).filter(ImageMetadata.OID == oid).first()
+        image_meta_data_entity = db.query(ImageMetadata).filter(ImageMetadata.oid == oid).first()
         if image_meta_data_entity:
             for key, value in image_meta_data_dto.dict(exclude_unset=True).items():
                 setattr(image_meta_data_entity, key, value)

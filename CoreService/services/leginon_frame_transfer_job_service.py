@@ -491,6 +491,17 @@ class LeginonFrameTransferJobService:
 
 
 def generate_delete_sql(session_name):
+    sql_code = """
+        SET FOREIGN_KEY_CHECKS = 0;
+        SET @session_id = (SELECT Oid FROM msession WHERE name = %s);
+        DELETE FROM image WHERE session_id = @session_id;
+        DELETE FROM frametransferjobitem WHERE job_id IN (SELECT Oid FROM frametransferjob WHERE msession_id = @session_id);
+        DELETE FROM frametransferjob WHERE msession_id = @session_id;
+        DELETE FROM atlas WHERE session_id = @session_id;
+        DELETE FROM msession WHERE Oid = @session_id;
+        SET FOREIGN_KEY_CHECKS = 1;
+        """
+
     sql_commands = []
     # Disable foreign key checks
     sql_commands.append("SET FOREIGN_KEY_CHECKS = 0;")

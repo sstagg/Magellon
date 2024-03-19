@@ -388,14 +388,14 @@ class Image(Base):
 
 
 class ImageMetadata(Base):
-    __tablename__ = 'image_metadata'
+    __tablename__ = 'image_meta_data'
 
-    OID = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
+    oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
     image_id = Column(ForeignKey('image.Oid'), index=True)
     name = Column(String(100))
     # job_id = Column(ForeignKey('imagejob.Oid'), index=True)
     # task_id = Column(String(100))
-    created_on = Column(DateTime)
+    created_date = Column(DateTime)
     data = Column(LONGTEXT)
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)
