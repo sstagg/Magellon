@@ -31,6 +31,7 @@ const ImageParticlePicking: React.FC<ImageParticlePickingProps> = ({ imageUrl,im
     const radius = 10;
 
 
+
     useEffect(() => {
         // debugger;
         if (ipp && ipp?.data_json) {
@@ -43,10 +44,11 @@ const ImageParticlePicking: React.FC<ImageParticlePickingProps> = ({ imageUrl,im
         }
     }, [ipp?.oid]);
 
-    // useEffect(() => {
-    //     // Reset circles when imageUrl changes
-    //     setCircles([]);
-    // }, [imageUrl]);
+    useEffect(() => {
+        const updatedIpp = { ...ipp, temp: JSON.stringify(circles) };
+        console.log("circles1 are: ",circles,updatedIpp);
+        onIppUpdate(updatedIpp);
+    }, [circles]); // Dependency array with 'circles' means this effect runs whenever 'circles' state changes
 
 
     const handleSvgClick = (event: React.MouseEvent<SVGElement>) => {
@@ -71,8 +73,8 @@ const ImageParticlePicking: React.FC<ImageParticlePickingProps> = ({ imageUrl,im
                 setSelectedCircleIndex(null);
             }
         }
-        const updatedIpp = { ...ipp, temp: JSON.stringify(circles) };
-        onIppUpdate(updatedIpp);
+        // debugger;
+
 
     };
     // const handleCircleClick = (index: number) => {

@@ -27,7 +27,7 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
     const [open, setOpen] = useState(false);
     const [value, setValue] = useState('1');
     const [selectedIpp, setSelectedIpp] = useState<ParticlePickingDto>(null);
-    const [updatedIpp, setUpdatedIpp] = useState<ParticlePickingDto>(null);
+    // const [updatedIpp, setUpdatedIpp] = useState<ParticlePickingDto>(null);
 
 
     const { data: ImageParticlePickings, isLoading: isIPPLoading, isError: isIPPError, refetch:refetchImageParticlePickings  } = useImageParticlePickings(selectedImage?.name,false);
@@ -49,9 +49,9 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
     const handleSave = () => {
         try {
             updatePPMutation.mutateAsync({
-                oid: updatedIpp.oid,
-                image_id: updatedIpp.image_id,
-                data: updatedIpp?.temp
+                oid: selectedIpp.oid,
+                image_id: selectedIpp.image_id,
+                data: selectedIpp?.temp
             });
             // Handle success
         } catch (error) {
@@ -90,9 +90,9 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
 
     const handleIppUpdate = (ipp : ParticlePickingDto) => {
         // Update the selectedIpp state with the updatedIpp
-        setUpdatedIpp( ipp) ;
+        setSelectedIpp(ipp) ;
         // console.log(updatedIpp);
-        console.log(updatedIpp);
+        console.log(ipp);
         //setSelectedIpp(updatedIpp);
         // You can perform any additional actions here if needed
     };
