@@ -17,6 +17,7 @@ import InfoIcon from "@mui/icons-material/Info";
 import {ImageColumnState} from "../../views/panel/ImagesPageView.tsx";
 import AtlasImage from "./AtlasImage.tsx";
 import {settings} from "../../../core/settings.ts";
+import {AccountTreeRounded, GridViewRounded} from "@mui/icons-material";
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL ;
 interface ImageNavigatorProps {
@@ -43,6 +44,7 @@ export const ImageNavigatorComponent: React.FC<ImageNavigatorProps>  = ({
 
     const [isAtlasVisible, setIsAtlasVisible] = useState(true);
     const [currentAtlas, setCurrentAtlas] = useState<AtlasImageDto>(null);
+    const [viewMode, setViewMode] = useState<'grid' | 'tree'>('grid');
 
     useEffect(() => {
         if (Atlases && Atlases.length > 0) {
@@ -52,6 +54,34 @@ export const ImageNavigatorComponent: React.FC<ImageNavigatorProps>  = ({
 
     const handleAtlasClick = (atlas: AtlasImageDto) => {
         setCurrentAtlas(atlas);
+    };
+
+    const renderNavView = () => {
+        switch (viewMode) {
+            case 'grid':
+                return renderGridView();
+            //case 'table':
+               // return renderTableView();
+            case 'tree':
+                return renderTreeView();
+            default:
+                return null;
+        }
+    };
+    const renderTreeView = () => {
+        // Render tree view
+        return <div>🌳🌲 Get ready for a Tree View coming soon! Stay tuned! 🌳🌲</div>;
+    };
+    const renderGridView = () => {
+        // Render grid view
+        return(
+                <Grid item container sx={{ marginTop:3 }} >
+                    <ImagesStackComponent caption={ImageColumns[0].caption} images={ImageColumns[0].images} level={0} onImageClick={(image) => onImageClick(image,0)} />
+                    <ImagesStackComponent caption={ImageColumns[1].caption} images={ImageColumns[1].images} level={1} onImageClick={(image) => onImageClick(image,1)} />
+                    <ImagesStackComponent caption={ImageColumns[2].caption} images={ImageColumns[2].images}level={2} onImageClick={(image) => onImageClick(image,2)} />
+                    <ImagesStackComponent caption={ImageColumns[3].caption} images={ImageColumns[3].images} level={3} onImageClick={(image) => onImageClick(image,3)} />
+                </Grid>
+            );
     };
 
     return (
@@ -79,8 +109,9 @@ export const ImageNavigatorComponent: React.FC<ImageNavigatorProps>  = ({
                     </FormControl>
 
                     <ButtonGroup size="small" >
-                        <IconButton  key="one" ><InfoIcon/></IconButton>
-                        <IconButton  key="four"onClick={()=>setIsAtlasVisible(!isAtlasVisible)}><EyeOutlined/></IconButton>
+                        <IconButton  key="one" onClick={()=>setIsAtlasVisible(!isAtlasVisible)}><EyeOutlined/></IconButton>
+                        <IconButton  key="two"  onClick={() => setViewMode('grid')}><GridViewRounded/></IconButton>
+                        <IconButton  key="three"  onClick={() => setViewMode('tree')}><AccountTreeRounded/></IconButton>
                     </ButtonGroup>
                     {isAtlasVisible ? (
                         <Grid container >
@@ -109,13 +140,7 @@ export const ImageNavigatorComponent: React.FC<ImageNavigatorProps>  = ({
                 </Stack>
 
             </Grid>
-
-            <Grid item container sx={{ marginTop:3 }} >
-                <ImagesStackComponent caption={ImageColumns[0].caption} images={ImageColumns[0].images} level={0} onImageClick={(image) => onImageClick(image,0)} />
-                <ImagesStackComponent caption={ImageColumns[1].caption} images={ImageColumns[1].images} level={1} onImageClick={(image) => onImageClick(image,1)} />
-                <ImagesStackComponent caption={ImageColumns[2].caption} images={ImageColumns[2].images}level={2} onImageClick={(image) => onImageClick(image,2)} />
-                <ImagesStackComponent caption={ImageColumns[3].caption} images={ImageColumns[3].images} level={3} onImageClick={(image) => onImageClick(image,3)} />
-            </Grid>
+            {renderNavView()}
         </Grid>
     );
 };
