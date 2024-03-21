@@ -295,3 +295,28 @@ class ParticlePickingDto(BaseModel):
     data_json: Optional[Json] = None
     status: Optional[int] = None
     type: Optional[int] = None
+
+
+
+class EPUFrameTransferJobBase(BaseModel):
+    magellon_project_name: str
+    magellon_session_name: str
+    camera_directory: Optional[str] = None  # for copying frames
+    epu_session_name: Optional[str] = None
+    if_do_subtasks: Optional[bool] = True
+    copy_images: Optional[bool] = False
+    retries: Optional[int] = None
+
+    replace_type: str = "none"
+    replace_pattern: Optional[str] = None
+    replace_with: Optional[str] = None
+
+    @field_validator("replace_type")
+    def validate_replace_type(cls, v: str, info: ValidationInfo) -> str:
+        """
+        Validates the replace_type value.
+        """
+        valid_types = ["standard", "none", "regex"]
+        if v not in valid_types:
+            raise ValueError(f"Invalid replace_type: {v}. Valid options are: {', '.join(valid_types)}")
+        return v

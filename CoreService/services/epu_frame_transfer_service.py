@@ -3,7 +3,8 @@ import os
 from fastapi import Depends
 
 from database import get_db
-from models.sqlalchemy_models import Frametransferjob, Frametransferjobitem, Image, Project, Msession, Atlas
+from models.pydantic_models import EPUFrameTransferJobBase
+from models.sqlalchemy_models import  Image, Project, Msession
 from services.file_service import create_directory
 from config import FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, \
     ATLAS_SUB_URL
@@ -25,8 +26,30 @@ def create_directories(target_dir: str):
     create_directory(os.path.join(target_dir, ATLAS_SUB_URL))
 
 
-def get_information_from_xml_files(self, db_session: Session = Depends(get_db)):
+def epu_frame_transfer_process(input_data: EPUFrameTransferJobBase, db_session: Session = Depends(get_db)):
     try:
+        magellon_project: Project = None
+        magellon_session: Msession = None
+        if input_data.magellon_project_name is not None:
+            magellon_project = db_session.query(Project).filter(
+                Project.name == input_data.magellon_project_name).first()
+            if not magellon_project:
+                magellon_project = Project(name=magellon_project_name)
+                db_session.add(magellon_project)
+                db_session.commit()
+                db_session.refresh(magellon_project)
+
+        magellon_session_name = magellon_session_name or session_name
+
+        if self.params.magellon_session_name is not None:
+            magellon_session = db_session.query(Msession).filter(
+                Msession.name == magellon_session_name).first()
+            if not magellon_session:
+                magellon_session = Msession(name=magellon_session_name, project_id=magellon_project.Oid)
+                db_session.add(magellon_session)
+                db_session.commit()
+                db_session.refresh(magellon_session)
+
         db_image_list = []
         db_image = Image(Oid=uuid.uuid4(), name=filename, magnification=image["mag"],
                          defocus=image["defocus"], dose=image["calculated_dose"],
