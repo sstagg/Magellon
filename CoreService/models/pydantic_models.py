@@ -299,8 +299,8 @@ class ParticlePickingDto(BaseModel):
 
 
 class EPUFrameTransferJobBase(BaseModel):
-    magellon_project_name: str
-    magellon_session_name: str
+    magellon_project_name: "EPU"
+    magellon_session_name: "epu_session"
     camera_directory: Optional[str] = None  # for copying frames
     epu_session_name: Optional[str] = None
     if_do_subtasks: Optional[bool] = True

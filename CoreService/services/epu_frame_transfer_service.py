@@ -34,18 +34,18 @@ def epu_frame_transfer_process(input_data: EPUFrameTransferJobBase, db_session: 
             magellon_project = db_session.query(Project).filter(
                 Project.name == input_data.magellon_project_name).first()
             if not magellon_project:
-                magellon_project = Project(name=magellon_project_name)
+                magellon_project = Project(name=input_data.magellon_project_name)
                 db_session.add(magellon_project)
                 db_session.commit()
                 db_session.refresh(magellon_project)
 
-        magellon_session_name = magellon_session_name or session_name
+        magellon_session_name = input_data.magellon_session_name or input_data.epu_session_name
 
-        if self.params.magellon_session_name is not None:
+        if input_data.magellon_session_name is not None:
             magellon_session = db_session.query(Msession).filter(
-                Msession.name == magellon_session_name).first()
+                Msession.name == input_data.magellon_session_name).first()
             if not magellon_session:
-                magellon_session = Msession(name=magellon_session_name, project_id=magellon_project.Oid)
+                magellon_session = Msession(name=input_data.magellon_session_name, project_id=magellon_project.Oid)
                 db_session.add(magellon_session)
                 db_session.commit()
                 db_session.refresh(magellon_session)
