@@ -153,14 +153,24 @@ class CryoEmFftTaskDetailDto(CryoEmImageTaskData):
     frame_path: Optional[str] = None
 
 
-class CryoEmCtfTaskData(BaseModel):
-    image_id: Optional[UUID] = None
-    image_name: Optional[str] = None
-    image_path: Optional[str] = None
-    image_target: Optional[str] = None
-    description: Optional[str] = None
-    copyright: Optional[str] = None
-    version: Optional[str] = None
+class CryoEmCtfTaskData(CryoEmImageTaskData):
+    inputFile: str
+    outputFile: str ="ouput.txt"
+    pixelSize:float=1.0
+    accelerationVoltage: float= 300.0
+    sphericalAberration: float= 2.70
+    amplitudeContrast: float=0.07
+    sizeOfAmplitudeSpectrum: int =512
+    minimumResolution: float =30.0
+    maximumResolution: float=5.0
+    minimumDefocus: float=5000.0
+    maximumDefocus: float=50000.0
+    defocusSearchStep: float=100.0
+    # isastigmatismPresent: bool=False
+    # slowerExhaustiveSearch: bool =False
+    # restraintOnAstogmatism: bool =False
+    # FindAdditionalPhaseShift: bool = False
+    # setExpertOptions:bool =False
 
 
 class RecuirementResultEnum(Enum):
@@ -169,10 +179,30 @@ class RecuirementResultEnum(Enum):
     FAILURE = 30
 
 
-class RecuirementResult(BaseModel):
+class RequirementResult(BaseModel):
     code: Optional[int] = None
     error_type: Optional[CheckRequirementsResult] = None
     result: RecuirementResultEnum = RecuirementResultEnum.FAILURE
     condition: Optional[str] = None
     message: Optional[str] = None
     instructions: Optional[str] = None
+
+
+class CtfInput(BaseModel):
+    inputFile: str
+    outputFile: str ="ouput.txt"
+    pixelSize:float=1.0
+    accelerationVoltage: float= 300.0
+    sphericalAberration: float= 2.70
+    amplitudeContrast: float=0.07
+    sizeOfAmplitudeSpectrum: int =512
+    minimumResolution: float =30.0
+    maximumResolution: float=5.0
+    minimumDefocus: float=5000.0
+    maximumDefocus: float=50000.0
+    defocusSearchStep: float=100.0
+    # isastigmatismPresent: bool=False
+    # slowerExhaustiveSearch: bool =False
+    # restraintOnAstogmatism: bool =False
+    # FindAdditionalPhaseShift: bool = False
+    # setExpertOptions:bool =False

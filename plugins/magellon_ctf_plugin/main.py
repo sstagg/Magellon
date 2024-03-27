@@ -11,7 +11,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from prometheus_client import make_asgi_app, Info
 
 from core.execution_engine import worker_engine
-from core.model_dto import CryoEmFftTaskDetailDto
+from core.model_dto import CryoEmFftTaskDetailDto, CryoEmCtfTaskData
 # from core.process_async_rabbitmq import consume_queue, publish_message
 from core.settings import AppSettingsSingleton
 from service.info import get_plugin_info
@@ -64,8 +64,11 @@ async def setup():
 
 
 @app.post("/execute", summary="Execute Plugin Operation")
-async def execute(request: CryoEmFftTaskDetailDto):
-    return await execute(request)
+async def execute_cmd(request: CryoEmCtfTaskData):
+     return await execute(request)
+
+
+
 
 
 Instrumentator().instrument(app).expose(app)

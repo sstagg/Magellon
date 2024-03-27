@@ -3,13 +3,13 @@ import subprocess
 import sys
 from typing import List
 
-from core.model_dto import RecuirementResult, RecuirementResultEnum, CheckRequirementsResult
+from core.model_dto import RequirementResult, RecuirementResultEnum, CheckRequirementsResult
 
 
-async def check_python_version() -> List[RecuirementResult]:
+async def check_python_version() -> List[RequirementResult]:
     results = []
     if sys.version_info < (3, 8):
-        results.append(RecuirementResult(
+        results.append(RequirementResult(
             code=10,
             result=RecuirementResultEnum.FAILURE,
             error_type=CheckRequirementsResult.FAILURE_PYTHON_VERSION_ERROR,
@@ -20,11 +20,11 @@ async def check_python_version() -> List[RecuirementResult]:
     return results
 
 
-async def check_operating_system() -> List[RecuirementResult]:
+async def check_operating_system() -> List[RequirementResult]:
     results = []
     system = platform.system()
     if system != 'Linux':
-        results.append(RecuirementResult(
+        results.append(RequirementResult(
             code=20,
             result=RecuirementResultEnum.FAILURE,
             error_type=CheckRequirementsResult.FAILURE_OS_ERROR,
@@ -35,12 +35,12 @@ async def check_operating_system() -> List[RecuirementResult]:
     return results
 
 
-async def check_requirements_txt() -> List[RecuirementResult]:
+async def check_requirements_txt() -> List[RequirementResult]:
     results = []
     try:
         subprocess.run([sys.executable, '-m', 'pip', 'check', '-r', 'requirements.txt'], check=True)
     except subprocess.CalledProcessError as e:
-        results.append(RecuirementResult(
+        results.append(RequirementResult(
             code=30,
             result=RecuirementResultEnum.FAILURE,
             error_type=CheckRequirementsResult.FAILURE_REQUIREMENTS,
