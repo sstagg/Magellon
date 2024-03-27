@@ -1,0 +1,29 @@
+fastapi
+uvicorn
+pydantic
+rich
+pyyaml
+
+python-json-logger
+logstash_formatter
+
+prometheus_client
+python-dotenv
+# elastic-apm
+
+python-consul
+pika
+# aio_pika
+
+sqlalchemy
+sqlalchemy_utils
+PyMySQL==1.1.0
+
+mrcfile
+Pillow
+numpy
+scipy
+matplotlib
+
+prometheus-fastapi-instrumentator
+

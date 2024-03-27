@@ -1,0 +1,17 @@
+filebeat.inputs:
+  - type: log
+    paths:
+      - C:\projects\magellon_plugin_mul\app.log
+
+output.elasticsearch:
+  hosts: ["localhost:9200"]
+  protocol: "https"
+  username: "elastic"
+  password: "behd1d2"
+  ssl.verification_mode: none
+  index: "logs_plugins"
+
+setup.kibana:
+  host: "localhost:5601"
+  username: "kibana_system"
+  password: "behd1d2"

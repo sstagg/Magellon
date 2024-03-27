@@ -1,0 +1,18 @@
+
+ENV_TYPE: production
+port_number: 2328
+consul_settings:
+  CONSUL_HOST: localhost
+  CONSUL_PASSWORD: '8500'
+  CONSUL_PORT: 8500
+  CONSUL_SERVICE_ID: magellon-service-11f0bd1e-8c57-412d-82e4-0c940da261c6
+  CONSUL_SERVICE_NAME: magellon-core-service
+  CONSUL_USERNAME: '8500'
+
+database_settings:
+  DB_Driver: mysql+pymysql
+  DB_HOST: localhost
+  DB_NAME: magellon02
+  DB_PASSWORD: behd1d#3454!2
+  DB_Port: 3306
+  DB_USER: behdad

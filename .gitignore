@@ -15,7 +15,7 @@
 /MagellonApp/.angular/
 /MagellonApp/.idea/
 
-
+/CoreService/static/locales/
 
 /magellon-react-app/node_modules/
 /magellon-react-app/dist/
@@ -28,3 +28,8 @@
 /WebApp/.angular/
 /WebApp/.idea/
 /WebApp/dist/
+
+/plugins/magellon_ctf_plugin/.idea/
+/plugins/magellon_ctf_plugin/venv/
+/plugins/magellon_ctf_plugin/support/mysql/data/
+/plugins/magellon_ctf_plugin/support/grafana/data/
