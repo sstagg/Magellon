@@ -1,6 +1,5 @@
 import os
 from pyami import mrc
-from appionlib import basicScript
 from appionlib import apDisplay
 from appionlib.apCtf import ctfdisplay
 

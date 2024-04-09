@@ -1,10 +1,5 @@
 import logging
-import os
-import platform
-import subprocess
-import sys
-import uuid
-from typing import List
+
 
 from pydantic import BaseModel
 
@@ -28,10 +23,10 @@ class InputParams(BaseModel):
 #     result = request.x * request.y
 #     return {"result": result}
 
-def execute(params: CryoEmCtfTaskData):
+async def execute(params: CryoEmCtfTaskData):
     try:
         # fft_path = os.path.join(out_dir, FFT_SUB_URL,os.path.splitext(os.path.basename(abs_file_path))[0] +FFT_SUFFIX)
-        do_ctf(params)
+        await do_ctf(params)
         return {"message": "MRC file successfully converted to fft PNG!"}
 
     except Exception as e:

@@ -1,8 +1,8 @@
 from core.model_dto import PluginInfoSingleton
 
 plugin_info_data = {
-    "id": "29105843-518a-4086-b802-ad295883dfc1",
-    "name": "Mulitiply Plugin",
+    "id": "29105843-518a-4086-b802-ad295883dfe1",
+    "name": "CTF Plugin",
     "developer": "Behdad Khoshbin b.khoshbin@gmail.com",
     "copyright": "Copyright © 2024",
     "version": "1.0.2",

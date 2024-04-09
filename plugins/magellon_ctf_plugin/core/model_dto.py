@@ -140,6 +140,7 @@ class CryoEmImageTaskData(BaseModel):
     image_path: Optional[str] = None
 
 
+
 class CryoEmMrcToPngTaskData(CryoEmImageTaskData):
     image_target: Optional[str] = None
     frame_name: Optional[str] = None
@@ -155,7 +156,7 @@ class CryoEmFftTaskDetailDto(CryoEmImageTaskData):
 
 class CryoEmCtfTaskData(CryoEmImageTaskData):
     inputFile: str
-    outputFile: str ="ouput.txt"
+    outputFile: str = "ouput.txt"
     pixelSize:float=1.0
     accelerationVoltage: float= 300.0
     sphericalAberration: float= 2.70
@@ -188,21 +189,21 @@ class RequirementResult(BaseModel):
     instructions: Optional[str] = None
 
 
-class CtfInput(BaseModel):
-    inputFile: str
-    outputFile: str ="ouput.txt"
-    pixelSize:float=1.0
-    accelerationVoltage: float= 300.0
-    sphericalAberration: float= 2.70
-    amplitudeContrast: float=0.07
-    sizeOfAmplitudeSpectrum: int =512
-    minimumResolution: float =30.0
-    maximumResolution: float=5.0
-    minimumDefocus: float=5000.0
-    maximumDefocus: float=50000.0
-    defocusSearchStep: float=100.0
-    # isastigmatismPresent: bool=False
-    # slowerExhaustiveSearch: bool =False
-    # restraintOnAstogmatism: bool =False
-    # FindAdditionalPhaseShift: bool = False
-    # setExpertOptions:bool =False
+# class CtfInput(BaseModel):
+#     inputFile: str
+#     outputFile: str ="ouput.txt"
+#     pixelSize:float=1.0
+#     accelerationVoltage: float= 300.0
+#     sphericalAberration: float= 2.70
+#     amplitudeContrast: float=0.07
+#     sizeOfAmplitudeSpectrum: int =512
+#     minimumResolution: float =30.0
+#     maximumResolution: float=5.0
+#     minimumDefocus: float=5000.0
+#     maximumDefocus: float=50000.0
+#     defocusSearchStep: float=100.0
+#     # isastigmatismPresent: bool=False
+#     # slowerExhaustiveSearch: bool =False
+#     # restraintOnAstogmatism: bool =False
+#     # FindAdditionalPhaseShift: bool = False
+#     # setExpertOptions:bool =False
