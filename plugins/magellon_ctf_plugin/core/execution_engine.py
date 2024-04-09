@@ -3,6 +3,8 @@ import time
 import pika
 import logging
 
+from core.settings import AppSettingsSingleton
+
 from pika.exceptions import ConnectionClosedByBroker
 from core.model_dto import TaskDto, CryoEmFftTaskDetailDto
 from service.service import execute
@@ -36,8 +38,9 @@ def worker_engine():
 
 def consume(pqueues_and_callbacks):
     # Establish connection
-    credentials = pika.PlainCredentials("rabbit", "behd1d2")
-    connection = pika.BlockingConnection(pika.ConnectionParameters('localhost', credentials=credentials))
+
+    credentials = pika.PlainCredentials(AppSettingsSingleton.get_instance().rabbitmq_settings.USER_NAME, AppSettingsSingleton.get_instance().rabbitmq_settings.PASSWORD)
+    connection = pika.BlockingConnection(pika.ConnectionParameters(AppSettingsSingleton.get_instance().rabbitmq_settings.HOST_NAME, credentials=credentials))
     channel = connection.channel()
 
     for queue_name, callback in pqueues_and_callbacks:

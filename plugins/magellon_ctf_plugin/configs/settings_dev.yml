@@ -16,3 +16,13 @@ database_settings:
   DB_PASSWORD: behd1d#3454!2
   DB_Port: 3306
   DB_USER: behdad
+
+rabbitmq_settings:
+  HOST_NAME: localhost
+  PORT: 5672
+  USER_NAME: rabbit
+  PASSWORD: behd1d2
+  VIRTUAL_HOST: /
+  SSL_ENABLED: false
+  CONNECTION_TIMEOUT: 30
+  PREFETCH_COUNT: 10

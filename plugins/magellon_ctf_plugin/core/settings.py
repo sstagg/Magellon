@@ -32,10 +32,21 @@ class ConsulSettings(BaseModel):
     CONSUL_SERVICE_NAME: Optional[str] = None
     CONSUL_SERVICE_ID: Optional[str] = None
 
+class RabbitMQSettings(BaseModel):
+    HOST_NAME: Optional[str] = None
+    PORT: Optional[int] = 5672
+    USER_NAME: Optional[str] = None
+    PASSWORD: Optional[str] = None
+    VIRTUAL_HOST: Optional[str] = None
+    SSL_ENABLED: Optional[bool] = False
+    CONNECTION_TIMEOUT: Optional[int] = 30
+    PREFETCH_COUNT: Optional[int] = 10
+
 
 class AppSettings(BaseModel):
     consul_settings: ConsulSettings = ConsulSettings()
     database_settings: DatabaseSettings = DatabaseSettings()
+    rabbitmq_settings: RabbitMQSettings = RabbitMQSettings()
     port_number: Optional[int] = None
     BASE_DIRECTORY: Optional[str] = os.path.abspath(os.path.dirname(__file__))
     ENV_TYPE: Optional[str] = None
