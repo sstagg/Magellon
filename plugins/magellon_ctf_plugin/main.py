@@ -1,22 +1,22 @@
 import logging
 import threading
+from rich import traceback
 
 from fastapi import FastAPI
 from fastapi.logger import logger
-from rich import traceback
 
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
-from prometheus_client import make_asgi_app, Info
+from prometheus_client import Info
 
-from core.execution_engine import worker_engine
-from core.model_dto import CryoEmFftTaskDetailDto, CryoEmCtfTaskData
-# from core.process_async_rabbitmq import consume_queue, publish_message
+from core.rabbitmq_consumer_engine import consumer_engine
+from core.model_dto import CryoEmCtfTaskData
 from core.settings import AppSettingsSingleton
 from service.info import get_plugin_info
-from service.service import execute, InputParams, check_requirements
+from service.service import do_execute, check_requirements
 from core.logger_config import setup_logging
+
 # import pdb
 
 
@@ -27,9 +27,10 @@ logger = logging.getLogger(__name__)
 # Install the Rich error handler
 traceback.install()
 
-app = FastAPI(debug=False, title=f"Magellan {plugin_info.name}", description=plugin_info.description,version=plugin_info.version)
-
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],allow_credentials=True)
+app = FastAPI(debug=False, title=f"Magellan {plugin_info.name}", description=plugin_info.description,
+              version=plugin_info.version)
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
+                   allow_credentials=True)
 
 i = Info('plugin', 'information about magellons plugin')
 if plugin_info.description is not None:
@@ -40,7 +41,7 @@ else:
 
 @app.on_event("startup")
 async def startup_event():
-    rabbitmq_thread = threading.Thread(target=worker_engine, daemon=True)
+    rabbitmq_thread = threading.Thread(target=consumer_engine, daemon=True)
     rabbitmq_thread.start()
 
 
@@ -52,7 +53,7 @@ async def shutdown_event():
 
 @app.get("/", summary="Get Plugin Information")
 async def root():
-    number = AppSettingsSingleton.get_instance().port_number
+    number = AppSettingsSingleton.get_instance().PORT_NUMBER
     # pdb.set_trace()
     logger.info("Hello behdad %s", number)
     return {"message": "Welcome ", "plugin_info": plugin_info.dict()}
@@ -67,11 +68,8 @@ async def setup():
 
 
 @app.post("/execute", summary="Execute Plugin Operation")
-async def execute_cmd(request: CryoEmCtfTaskData):
-     return await execute(request)
-
-
-
+async def execute_endpoint(request: CryoEmCtfTaskData):
+    return await do_execute(request)
 
 
 Instrumentator().instrument(app).expose(app)

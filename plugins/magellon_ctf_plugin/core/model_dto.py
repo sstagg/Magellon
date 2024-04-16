@@ -133,6 +133,22 @@ class TaskStatusEnum(Enum):
     COMPLETED = {"code": 2, "name": "completed", "description": "Task has been completed"}
     FAILED = {"code": 3, "name": "failed", "description": "Task has failed"}
 
+class RecuirementResultEnum(Enum):
+    SUCCESS = 10
+    WARNING = 20
+    FAILURE = 30
+
+
+class RequirementResult(BaseModel):
+    code: Optional[int] = None
+    error_type: Optional[CheckRequirementsResult] = None
+    result: RecuirementResultEnum = RecuirementResultEnum.FAILURE
+    condition: Optional[str] = None
+    message: Optional[str] = None
+    instructions: Optional[str] = None
+
+
+
 
 class CryoEmImageTaskData(BaseModel):
     image_id: Optional[UUID] = None
@@ -174,36 +190,3 @@ class CryoEmCtfTaskData(CryoEmImageTaskData):
     # setExpertOptions:bool =False
 
 
-class RecuirementResultEnum(Enum):
-    SUCCESS = 10
-    WARNING = 20
-    FAILURE = 30
-
-
-class RequirementResult(BaseModel):
-    code: Optional[int] = None
-    error_type: Optional[CheckRequirementsResult] = None
-    result: RecuirementResultEnum = RecuirementResultEnum.FAILURE
-    condition: Optional[str] = None
-    message: Optional[str] = None
-    instructions: Optional[str] = None
-
-
-# class CtfInput(BaseModel):
-#     inputFile: str
-#     outputFile: str ="ouput.txt"
-#     pixelSize:float=1.0
-#     accelerationVoltage: float= 300.0
-#     sphericalAberration: float= 2.70
-#     amplitudeContrast: float=0.07
-#     sizeOfAmplitudeSpectrum: int =512
-#     minimumResolution: float =30.0
-#     maximumResolution: float=5.0
-#     minimumDefocus: float=5000.0
-#     maximumDefocus: float=50000.0
-#     defocusSearchStep: float=100.0
-#     # isastigmatismPresent: bool=False
-#     # slowerExhaustiveSearch: bool =False
-#     # restraintOnAstogmatism: bool =False
-#     # FindAdditionalPhaseShift: bool = False
-#     # setExpertOptions:bool =False

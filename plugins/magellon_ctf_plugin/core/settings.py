@@ -48,7 +48,11 @@ class AppSettings(BaseModel):
     consul_settings: ConsulSettings = ConsulSettings()
     database_settings: DatabaseSettings = DatabaseSettings()
     rabbitmq_settings: RabbitMQSettings = RabbitMQSettings()
-    port_number: Optional[int] = None
+    PORT_NUMBER: Optional[int] = None
+    ROOT_DIR: Optional[str] = None
+    REPLACE_TYPE: Optional[str] = None
+    REPLACE_PATTERN: Optional[str] = None
+    REPLACE_WITH: Optional[str] = None
     BASE_DIRECTORY: Optional[str] = os.path.abspath(os.path.dirname(__file__))
     ENV_TYPE: Optional[str] = None
 

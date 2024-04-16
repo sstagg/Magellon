@@ -1,47 +1,10 @@
 import logging
 import uuid
-import pika
 
 from core.model_dto import FFT_TASK, PENDING, TaskDto, CryoEmFftTaskDetailDto, CryoEmCtfTaskData
-from core.settings import AppSettingsSingleton
+from core.rabbitmq_consumer_engine import publish_message
 
 logger = logging.getLogger(__name__)
-
-
-def publish_message(message: str, queue_name=AppSettingsSingleton.get_instance().rabbitmq_settings.QUEUE_NAME) -> bool:
-    try:
-        # Attempt to establish a connection to RabbitMQ
-        credentials = pika.PlainCredentials(AppSettingsSingleton.get_instance().rabbitmq_settings.USER_NAME, AppSettingsSingleton.get_instance().rabbitmq_settings.PASSWORD)
-        connection = pika.BlockingConnection(pika.ConnectionParameters(AppSettingsSingleton.get_instance().rabbitmq_settings.HOST_NAME, credentials=credentials))
-        channel = connection.channel()
-
-        # Declare the queue if it doesn't exist
-        channel.queue_declare(queue=queue_name, durable=True)
-
-        # Publish the message to the queue
-        channel.basic_publish(
-            exchange='',
-            routing_key=('%s' % queue_name),
-            body=message,
-            properties=pika.BasicProperties(
-                delivery_mode=2,  # Make the message persistent
-            )
-        )
-
-        logger.info("Message published to %s" % queue_name)
-        return True
-
-    except Exception as e:
-        # Handle exceptions, e.g., connection issues, channel errors
-        logger.error(f"Error publishing message: {e}")
-        return False
-
-    finally:
-        # Ensure the connection is closed, even if an exception occurs
-        try:
-            connection.close()
-        except Exception as e:
-            logger.error(f"Error closing connection: {e}")
 
 
 def publish1():
