@@ -1,12 +1,18 @@
 import logging
-from core.model_dto import CryoEmCtfTaskData
+from core.model_dto import CryoEmCtfTaskData, TaskDto
 from core.setup_plugin import check_python_version, check_operating_system, check_requirements_txt
 from service.ctf_service import do_ctf
 
 logger = logging.getLogger(__name__)
 
 
-
+async def do_execute_task(task_object: TaskDto):
+    try:
+        the_data = CryoEmCtfTaskData.model_validate(task_object.data)
+        await do_execute(the_data)
+        return {"message": "MRC file successfully converted to fft PNG!"}
+    except Exception as exc:
+        return {"error": str(exc)}
 
 
 async def do_execute(params: CryoEmCtfTaskData):

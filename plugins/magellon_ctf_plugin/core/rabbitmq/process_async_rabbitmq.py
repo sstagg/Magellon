@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 async def publish_message(message: str):
     connection = await connect_robust("amqp://rabbit:behd1d2@localhost/")
     channel = await connection.channel()
-    await channel.default_exchange.publish(Message(message.encode()), routing_key="tasks_queue")
+    await channel.default_exchange.push_task_to_task_queue(Message(message.encode()), routing_key="tasks_queue")
     await connection.close()
     logger.info('Message published to Rabbit')
 

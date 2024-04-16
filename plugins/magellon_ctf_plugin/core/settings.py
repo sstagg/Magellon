@@ -35,6 +35,7 @@ class ConsulSettings(BaseModel):
 class RabbitMQSettings(BaseModel):
     HOST_NAME: Optional[str] = None
     QUEUE_NAME: Optional[str] = None
+    OUT_QUEUE_NAME: Optional[str] = None
     PORT: Optional[int] = 5672
     USER_NAME: Optional[str] = None
     PASSWORD: Optional[str] = None

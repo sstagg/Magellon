@@ -1,5 +1,7 @@
 import re
 
+from core.model_dto import TaskDto, CryoEmCtfTaskData
+
 
 def custom_replace(input_string, replace_type, replace_pattern, replace_with):
     """
@@ -25,3 +27,27 @@ def custom_replace(input_string, replace_type, replace_pattern, replace_with):
 
     else:
         raise ValueError("Invalid replace_type. Use 'none', 'normal', or 'regex'.")
+
+
+def append_json_to_file(file_path, json_str):
+    try:
+        # Append the JSON string as a new line to the file
+        with open(file_path, 'a') as file:
+            file.write(json_str + '\n')
+
+        return True  # Success
+    except Exception as e:
+        print(f"Error appending JSON to file: {e}")
+        return False  # Failure
+
+
+def parse_message_to_task_object(message_str):
+    return TaskDto.model_validate_json(message_str)
+
+
+def extract_task_data_from_object(task_object):
+    return CryoEmCtfTaskData.model_validate(task_object.data)
+
+
+def parse_json_for_cryoemctftask(message_str):
+    return CryoEmCtfTaskData.model_validate(TaskDto.model_validate_json(message_str).data)
