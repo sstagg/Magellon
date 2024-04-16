@@ -1,6 +1,6 @@
 import logging.config
 from pythonjsonlogger import jsonlogger
-from service.info import get_plugin_info
+from service.service import get_plugin_info
 
 
 ##This is to add custom keys

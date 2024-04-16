@@ -4,7 +4,6 @@ import pika
 import logging
 from pika.exceptions import AMQPConnectionError, ChannelError
 
-from core.settings import AppSettingsSingleton
 logger = logging.getLogger(__name__)
 
 class RabbitmqClient:

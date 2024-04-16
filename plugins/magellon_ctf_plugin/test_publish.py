@@ -2,7 +2,7 @@ import logging
 import uuid
 
 from core.model_dto import FFT_TASK, PENDING, TaskDto, CryoEmCtfTaskData
-from core.rabbitmq.rabbitmq_client import RabbitmqClient
+from core.rabbitmq_client import RabbitmqClient
 from core.settings import AppSettingsSingleton
 
 logger = logging.getLogger(__name__)

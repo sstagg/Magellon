@@ -3,13 +3,13 @@ import time
 import logging
 
 from core.helper import append_json_to_file, parse_json_for_cryoemctftask
-from core.rabbitmq.rabbitmq_client import RabbitmqClient
+from core.rabbitmq_client import RabbitmqClient
 from core.settings import AppSettingsSingleton
 
 from pika.exceptions import ConnectionClosedByBroker
 
-logger = logging.getLogger(__name__)
 file_path = "output_file.json"
+logger = logging.getLogger(__name__)
 settings = AppSettingsSingleton.get_instance().rabbitmq_settings
 rabbitmq_client = RabbitmqClient(settings)  # Create the client with settings
 
@@ -20,7 +20,7 @@ def process_message(ch, method, properties, body):
         the_task_data = parse_json_for_cryoemctftask(body.decode("utf-8"))
         # do_execute(params=the_task_data)
         # Acknowledge the message
-        rabbitmq_client.channel.basic_ack(delivery_tag=method.delivery_tag)
+        ch.basic_ack(delivery_tag=method.delivery_tag)
 
     except json.JSONDecodeError as e:
         logger.error(f"Error decoding JSON: {e}")
