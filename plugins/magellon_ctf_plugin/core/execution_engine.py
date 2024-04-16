@@ -85,7 +85,7 @@ def process_task(ch, method, properties, body):
 
 
 queues_and_callbacks = [
-    ('fft_tasks_queue', process_task),
+    (AppSettingsSingleton.get_instance().rabbitmq_settings.QUEUE_NAME, process_task),
 ]
 
 # def publish_message(message: str, queue_name='fft_tasks_queue') -> bool:

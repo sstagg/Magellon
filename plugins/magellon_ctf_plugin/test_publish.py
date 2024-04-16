@@ -3,15 +3,16 @@ import uuid
 import pika
 
 from core.model_dto import FFT_TASK, PENDING, TaskDto, CryoEmFftTaskDetailDto, CryoEmCtfTaskData
+from core.settings import AppSettingsSingleton
 
 logger = logging.getLogger(__name__)
 
 
-def publish_message(message: str, queue_name='fft_tasks_queue') -> bool:
+def publish_message(message: str, queue_name=AppSettingsSingleton.get_instance().rabbitmq_settings.QUEUE_NAME) -> bool:
     try:
         # Attempt to establish a connection to RabbitMQ
-        credentials = pika.PlainCredentials("rabbit", "behd1d2")
-        connection = pika.BlockingConnection(pika.ConnectionParameters('localhost', credentials=credentials))
+        credentials = pika.PlainCredentials(AppSettingsSingleton.get_instance().rabbitmq_settings.USER_NAME, AppSettingsSingleton.get_instance().rabbitmq_settings.PASSWORD)
+        connection = pika.BlockingConnection(pika.ConnectionParameters(AppSettingsSingleton.get_instance().rabbitmq_settings.HOST_NAME, credentials=credentials))
         channel = connection.channel()
 
         # Declare the queue if it doesn't exist
@@ -80,7 +81,7 @@ def publish():
         image_id=uuid.uuid4(),
         image_name="Image1",
         image_path=r"C:\temp\target\23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc",
-        inputFile="23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc",
+        inputFile=r"C:\temp\23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc",
         outputFile="ouput.txt",
         pixelSize=1,
         accelerationVoltage=300,

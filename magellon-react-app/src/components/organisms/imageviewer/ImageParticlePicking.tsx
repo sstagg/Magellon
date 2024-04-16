@@ -23,7 +23,6 @@ interface Point {
 //     Remove = 'Remove'
 // }
 
-
 const ImageParticlePicking: React.FC<ImageParticlePickingProps> = ({ imageUrl,image,ipp, width, height, onCirclesSelected ,onIppUpdate}) => {
     // const [tool, setTool] = useState<State>(State.Add);
     const [circles, setCircles] = useState<Point[]>([]);
@@ -82,8 +81,6 @@ const ImageParticlePicking: React.FC<ImageParticlePickingProps> = ({ imageUrl,im
     //     setSelectedCircleIndex(index);
     // };
 
-
-
     return (
         <>
             <svg
@@ -113,9 +110,9 @@ const ImageParticlePicking: React.FC<ImageParticlePickingProps> = ({ imageUrl,im
                               strokeWidth={2}/>
                     </g>
                 ))}
-                <text x="10" y="20" fill="white">
-                    {circles.length > 0 ? JSON.stringify(circles) : "No circles"}
-                </text>
+                {/*<text x="10" y="20" fill="white">*/}
+                {/*    {circles.length > 0 ? JSON.stringify(circles) : "No circles"}*/}
+                {/*</text>*/}
             </svg>
 
         </>

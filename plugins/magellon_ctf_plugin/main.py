@@ -17,6 +17,8 @@ from core.settings import AppSettingsSingleton
 from service.info import get_plugin_info
 from service.service import execute, InputParams, check_requirements
 from core.logger_config import setup_logging
+# import pdb
+
 
 plugin_info = get_plugin_info()
 setup_logging()
@@ -51,6 +53,7 @@ async def shutdown_event():
 @app.get("/", summary="Get Plugin Information")
 async def root():
     number = AppSettingsSingleton.get_instance().port_number
+    # pdb.set_trace()
     logger.info("Hello behdad %s", number)
     return {"message": "Welcome ", "plugin_info": plugin_info.dict()}
 

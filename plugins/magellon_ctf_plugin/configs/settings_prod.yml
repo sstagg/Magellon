@@ -2,6 +2,7 @@
 
 ENV_TYPE: production
 port_number: 2328
+
 consul_settings:
   CONSUL_HOST: host.docker.internal
   CONSUL_PASSWORD: '8500'
@@ -27,3 +28,4 @@ rabbitmq_settings:
   SSL_ENABLED: false
   CONNECTION_TIMEOUT: 30
   PREFETCH_COUNT: 10
+  QUEUE_NAME: fft_tasks_queue
