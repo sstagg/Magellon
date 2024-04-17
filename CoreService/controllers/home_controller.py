@@ -76,6 +76,11 @@ async def html(request: Request):
     return TEMPLATES.TemplateResponse("index.html", {"request": request, "html_content": html_content})
 
 
+
 @home_router.get("/hello/{name}")
 async def say_hello(name: str):
+    return {"message": f"Hello {name}"}
+
+@home_router.get("/hello/{name}")
+async def get_xml_info(name: str):
     return {"message": f"Hello {name}"}

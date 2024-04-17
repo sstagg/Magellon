@@ -1,17 +1,6 @@
 version: '3.8'
 
 services:
-#  ctf-plugin: # Replace with your desired service name
-#    build: ..  # Build the image from the current directory (./)
-#    ports:
-#      - "81:8000"  # Map container port 80 to host port 80
-#    volumes:
-#      - ./configs:/configs  # Mount configs directory from host to container
-#      - app_data:/app/data  # Create a named volume for application data
-#    environment:
-#      - APP_ENV=${APP_ENV:-production}  # Set APP_ENV (defaults to production)
-#      - DATA_DIR=/app/data  # Set data directory environment variable
-#      - PYTHONUNBUFFERED=1  # Disable output buffering
 
   rabbitmq:
     image: rabbitmq:management-alpine
@@ -44,76 +33,6 @@ services:
     networks:
       magellon-network:
         ipv4_address: 172.16.238.9
-
-  mysql:
-    image: mysql:latest
-    container_name: mysql_container
-    environment:
-      MYSQL_ROOT_PASSWORD: behd1d2
-      MYSQL_DATABASE: magellon
-      MYSQL_USER: magellon_user
-      MYSQL_PASSWORD: behd1d2
-    volumes:
-      - ./mysql/data:/var/lib/mysql:rw
-      - ./mysql/conf:/etc/mysql/conf
-      - ./mysql/init/magellon02db.sql:/docker-entrypoint-initdb.d/magellon02db.sql
-    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci  --lower-case-table-names=1
-    restart: always
-    ports:
-      - "3306:3306"
-    networks:
-      magellon-network:
-        ipv4_address: 172.16.238.10
-
-
-  prometheus:
-    image: prom/prometheus:latest
-    #    network_mode: host
-    restart: unless-stopped
-    container_name: prometheus
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-    command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-    networks:
-      magellon-network:
-        ipv4_address: 172.16.238.11
-
-  grafana:
-    image: grafana/grafana-oss:latest
-    restart: unless-stopped
-    user: "472"
-    container_name: grafana
-    depends_on:
-      - prometheus
-    ports:
-      - "3000:3000"
-    environment:
-      - GF_INSTALL_PLUGINS=grafana-clock-panel
-    volumes:
-      - './grafana/data:/var/lib/grafana'
-    ##      - 'grafana_storage:/var/lib/grafana'
-    #      - ./grafana/prometheus-datasource.yml:/etc/grafana/provisioning/datasources/prometheus-datasource.yml
-    #      - ./grafana/fastapi-dashboard.json:/etc/grafana/provisioning/dashboards/fastapi-dashboard.json
-    env_file:
-      - ./grafana/config.monitoring
-    networks:
-      magellon-network:
-        ipv4_address: 172.16.238.12
-
-  cache:
-    image: redis:latest
-    restart: always
-    ports:
-      - '6379:6379'
-    volumes:
-      - cache:/data
-    environment:
-      - REDIS_PASSWORD=behd1d2
-      - REDIS_PORT=6379
-      - REDIS_DATABASES=16
 
 volumes:
   rabbitmq-data: { }

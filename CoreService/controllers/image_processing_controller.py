@@ -124,9 +124,9 @@ def generate_diagram():
     return leginon_frame_transfer_diagram()
 
 
-@image_processing_router.post("/epu_images_job")
-def process_epu_import(input_data: EPUFrameTransferJobBase, db: Session = Depends(get_db)):
-    epu_frame_transfer_process(input_data, db)
+# @image_processing_router.post("/epu_images_job")
+# def process_epu_import(input_data: EPUFrameTransferJobBase, db: Session = Depends(get_db)):
+#     epu_frame_transfer_process(input_data, db)
 
 @image_processing_router.post("/transfer_images_job")
 def process_image_job(input_data: LeginonFrameTransferJobBase, db: Session = Depends(get_db)):
