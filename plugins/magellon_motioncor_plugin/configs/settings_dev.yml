@@ -1,0 +1,36 @@
+
+ENV_TYPE: development
+port_number: 2328
+
+ROOT_DIR: /gpfs/
+REPLACE_TYPE: none
+REPLACE_PATTERN: /gpfs/
+REPLACE_WITH: /gpfs/
+
+consul_settings:
+  CONSUL_HOST: localhost
+  CONSUL_PASSWORD: '8500'
+  CONSUL_PORT: 8500
+  CONSUL_SERVICE_ID: magellon-service-11f0bd1e-8c57-412d-82e4-0c940da261c6
+  CONSUL_SERVICE_NAME: magellon-ctf-service
+  CONSUL_USERNAME: '8500'
+
+database_settings:
+  DB_Driver: mysql+pymysql
+  DB_HOST: localhost
+  DB_NAME: magellon02
+  DB_PASSWORD: behd1d#3454!2
+  DB_Port: 3306
+  DB_USER: behdad
+
+rabbitmq_settings:
+  HOST_NAME: localhost
+  PORT: 5672
+  USER_NAME: rabbit
+  PASSWORD: behd1d2
+  VIRTUAL_HOST: /
+  SSL_ENABLED: false
+  CONNECTION_TIMEOUT: 30
+  PREFETCH_COUNT: 10
+  QUEUE_NAME: ctf_tasks_queue
+  OUT_QUEUE_NAME: ctf_out_tasks_queue

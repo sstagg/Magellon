@@ -33,3 +33,8 @@
 /plugins/magellon_ctf_plugin/venv/
 /plugins/magellon_ctf_plugin/support/mysql/data/
 /plugins/magellon_ctf_plugin/support/grafana/data/
+
+/plugins/magellon_motioncor_plugin/.idea/
+/plugins/magellon_motioncor_plugin/venv/
+/plugins/magellon_motioncor_plugin/support/mysql/data/
+/plugins/magellon_motioncor_plugin/support/grafana/data/
