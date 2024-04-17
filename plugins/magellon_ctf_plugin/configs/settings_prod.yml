@@ -2,6 +2,7 @@
 
 ENV_TYPE: production
 port_number: 2328
+
 ROOT_DIR: /gpfs/
 REPLACE_TYPE: none
 REPLACE_PATTERN: /gpfs/

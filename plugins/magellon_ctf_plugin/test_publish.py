@@ -44,8 +44,8 @@ def push_task_to_task_queue():
     data1 = CryoEmCtfTaskData(
         image_id=uuid.uuid4(),
         image_name="Image1",
-        image_path=r"C:\temp\target\23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc",
-        inputFile=r"C:\temp\23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc",
+        image_path=r"/gpfs/23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc",
+        inputFile=r"/gpfs/23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc",
         outputFile="ouput.txt",
         pixelSize=1,
         accelerationVoltage=300,

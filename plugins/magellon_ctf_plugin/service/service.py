@@ -31,7 +31,7 @@ async def do_execute_task(task_object: TaskDto):
 async def do_execute(params: CryoEmCtfTaskData):
     try:
         await do_ctf(params)
-        return {"message": "MRC file successfully converted to fft PNG!"}
+        return {"message": "CTF successfully executed"}
     except Exception as exc:
         return {"error": str(exc)}
     #     compute_file_fft(mrc_abs_path=request.image_path, abs_out_file_name=request.target_path)

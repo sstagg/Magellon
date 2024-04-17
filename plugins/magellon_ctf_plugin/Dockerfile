@@ -23,7 +23,7 @@ COPY configs ./configs
 COPY configs/settings_dev.yml ./configs/settings_dev.yml
 COPY configs/settings_prod.yml ./configs/settings_prod.yml
 COPY core ./core
-COPY core/rabbitmq ./core/rabbitmq
+#COPY core/rabbitmq ./core/rabbitmq
 COPY pyami ./pyami
 COPY service ./service
 COPY tests ./tests

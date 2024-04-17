@@ -84,6 +84,15 @@ sudo docker rm -f magellon-core-service01
 # Remove a Docker image forcefully (replace <yourname>/<plugin-name> with your actual image name)
 sudo docker rmi -f <yourname>/<plugin-name>
 ```
+
+docker run -d \
+-p 80:80 \
+-v /path/to/your/data:/app/data \
+-v /path/to/your/configs:/configs \
+--env APP_ENV=production  # Or APP_ENV=development for development mode
+magellon-ctf-plugin
+
+
 ### Development
 Writing Your Plugin
 

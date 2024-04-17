@@ -1,12 +1,14 @@
 import json
 import time
 import logging
-
+import asyncio
 from core.helper import append_json_to_file, parse_json_for_cryoemctftask
 from core.rabbitmq_client import RabbitmqClient
 from core.settings import AppSettingsSingleton
 
 from pika.exceptions import ConnectionClosedByBroker
+
+from service.service import do_execute
 
 file_path = "output_file.json"
 logger = logging.getLogger(__name__)
@@ -18,7 +20,7 @@ def process_message(ch, method, properties, body):
     try:
         append_json_to_file(file_path, body.decode("utf-8"))
         the_task_data = parse_json_for_cryoemctftask(body.decode("utf-8"))
-        # do_execute(params=the_task_data)
+        asyncio.run(do_execute(params=the_task_data))
         # Acknowledge the message
         ch.basic_ack(delivery_tag=method.delivery_tag)
 
