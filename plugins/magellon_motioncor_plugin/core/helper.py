@@ -1,6 +1,6 @@
 import re
 
-from core.model_dto import TaskDto, CryoEmCtfTaskData
+from core.model_dto import TaskDto, CryoEmMotionCorTaskData
 
 
 def custom_replace(input_string, replace_type, replace_pattern, replace_with):
@@ -46,8 +46,8 @@ def parse_message_to_task_object(message_str):
 
 
 def extract_task_data_from_object(task_object):
-    return CryoEmCtfTaskData.model_validate(task_object.data)
+    return CryoEmMotionCorTaskData.model_validate(task_object.data)
 
 
 def parse_json_for_cryoemctftask(message_str):
-    return CryoEmCtfTaskData.model_validate(TaskDto.model_validate_json(message_str).data)
+    return CryoEmMotionCorTaskData.model_validate(TaskDto.model_validate_json(message_str).data)
