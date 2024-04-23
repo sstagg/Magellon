@@ -27,3 +27,4 @@ matplotlib
 
 prometheus-fastapi-instrumentator
 
+websockets

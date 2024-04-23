@@ -1,5 +1,6 @@
 import json
 import os
+import uuid
 from typing import Any, Optional
 
 import consul
@@ -38,10 +39,10 @@ def register_with_consul(app: FastAPI,
     # Register service with Consul
     consul_client.agent.service.register(
         name=service_name,
-        service_id=service_id,
+        service_id=str(uuid.uuid4()),
         address=service_address,
         port=service_port,
-        check=consul.Check.http(url=f'http://{service_address}:{service_port}/{health_check_route}', interval='10s')
+        check=consul.Check.http(url=f'http://{service_address}:{service_port}/{health_check_route}', interval='30s')
     )
 
     # Define shutdown function to deregister service when application is shut down

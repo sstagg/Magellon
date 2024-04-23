@@ -73,6 +73,12 @@ async def execute_endpoint(request: CryoEmMotionCorTaskData):
 
 Instrumentator().instrument(app).expose(app)
 
+# Define a health check route
+@app.get('/health')
+async def health_check():
+    logger.info("Logger is working")
+    print("Health check")
+    return {'status': 'ok'}
 
 @app.exception_handler(Exception)
 def app_exception_handler(request, err):
