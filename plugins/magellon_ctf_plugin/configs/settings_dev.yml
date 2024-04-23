@@ -1,6 +1,7 @@
 
 ENV_TYPE: development
-port_number: 2328
+LOCAL_IP_ADDRESS: localhost
+PORT_NUMBER: 8000
 
 ROOT_DIR: /gpfs/
 REPLACE_TYPE: none
