@@ -49,10 +49,9 @@ if os.environ.get('APP_ENV', "development") == 'production':
     local_ip_address = AppSettingsSingleton.get_instance().LOCAL_IP_ADDRESS
 else:
     local_ip_address = socket.gethostbyname(local_hostname)
+local_port_number = AppSettingsSingleton.get_instance().PORT_NUMBER
 
 # local_ip_address = "host.docker.internal"
-
-local_port_number = AppSettingsSingleton.get_instance().PORT_NUMBER
 # local_ip_address = "host.docker.internal"
 # local_port_number = uvicorn.Config(app).port
 

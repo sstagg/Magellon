@@ -49,6 +49,7 @@ class AppSettings(BaseModel):
     consul_settings: ConsulSettings = ConsulSettings()
     database_settings: DatabaseSettings = DatabaseSettings()
     rabbitmq_settings: RabbitMQSettings = RabbitMQSettings()
+    LOCAL_IP_ADDRESS: Optional[str] = None
     PORT_NUMBER: Optional[int] = None
     ROOT_DIR: Optional[str] = None
     REPLACE_TYPE: Optional[str] = None

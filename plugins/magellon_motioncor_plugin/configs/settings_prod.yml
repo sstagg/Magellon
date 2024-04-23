@@ -1,7 +1,8 @@
 
 
 ENV_TYPE: production
-port_number: 2328
+LOCAL_IP_ADDRESS: host.docker.internal
+PORT_NUMBER: 8181
 
 ROOT_DIR: /gpfs/
 REPLACE_TYPE: none
@@ -12,8 +13,8 @@ consul_settings:
   CONSUL_HOST: host.docker.internal
   CONSUL_PASSWORD: '8500'
   CONSUL_PORT: 8500
-  CONSUL_SERVICE_ID: magellon-service-11f0bd1e-8c57-412d-82e4-0c940da261c6
-  CONSUL_SERVICE_NAME: magellon-ctf-service
+  CONSUL_SERVICE_ID: 11f0bd1e-8c57-412d-82e4-0c940da261c6
+  CONSUL_SERVICE_NAME: magellon-motioncor-service
   CONSUL_USERNAME: '8500'
 
 database_settings:

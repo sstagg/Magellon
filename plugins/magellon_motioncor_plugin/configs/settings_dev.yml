@@ -1,6 +1,7 @@
 
 ENV_TYPE: development
-port_number: 2328
+LOCAL_IP_ADDRESS: localhost
+PORT_NUMBER: 8000
 
 ROOT_DIR: /gpfs/
 REPLACE_TYPE: none
@@ -9,11 +10,11 @@ REPLACE_WITH: /gpfs/
 
 consul_settings:
   CONSUL_HOST: localhost
+  CONSUL_USERNAME: '8500'
   CONSUL_PASSWORD: '8500'
   CONSUL_PORT: 8500
-  CONSUL_SERVICE_ID: magellon-service-11f0bd1e-8c57-412d-82e4-0c940da261c6
-  CONSUL_SERVICE_NAME: magellon-ctf-service
-  CONSUL_USERNAME: '8500'
+  CONSUL_SERVICE_ID: 11f0bd1e-8c57-412d-82e4-0c940da261c6
+  CONSUL_SERVICE_NAME: magellon-motioncor-service
 
 database_settings:
   DB_Driver: mysql+pymysql
