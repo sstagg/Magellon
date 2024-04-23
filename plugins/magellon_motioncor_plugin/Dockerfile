@@ -17,14 +17,14 @@ ENV PYTHONUNBUFFERED 1
 
 
 #COPY . .
-COPY appionlib ./appionlib
+#COPY appionlib ./appionlib
 COPY assets ./assets
 COPY configs ./configs
 COPY configs/settings_dev.yml ./configs/settings_dev.yml
 COPY configs/settings_prod.yml ./configs/settings_prod.yml
 COPY core ./core
 #COPY core/rabbitmq ./core/rabbitmq
-COPY pyami ./pyami
+#COPY pyami ./pyami
 COPY service ./service
 COPY tests ./tests
 COPY main.py ./main.py
@@ -32,11 +32,9 @@ COPY main.py ./main.py
 #COPY core/logger_config.py ./core/logger_config.py
 #COPY core/settings.py ./core/settings.py
 
-COPY ctffind ./ctffind
-COPY ctffind_plot_results.sh ./ctffind_plot_results.sh
 COPY test_main.http ./
 COPY test_publish.py ./test_publish.py
-COPY utils.py ./utils.py
+
 
 
 ## Install SSH server
