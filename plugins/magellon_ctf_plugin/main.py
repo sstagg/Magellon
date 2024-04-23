@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import os
 import socket
 import threading
 
@@ -40,11 +41,17 @@ app = FastAPI(debug=False, title=f"Magellan {plugin_info.name}", description=plu
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
                    allow_credentials=True)
 
-# local_hostname = socket.gethostname()
+
 local_hostname = socket.gethostname()
 # local_ip_address = socket.gethostbyname(local_hostname)
+
+if os.environ.get('APP_ENV', "development") == 'production':
+    local_ip_address = AppSettingsSingleton.get_instance().LOCAL_IP_ADDRESS
+else:
+    local_ip_address = socket.gethostbyname(local_hostname)
+
 # local_ip_address = "host.docker.internal"
-local_ip_address = AppSettingsSingleton.get_instance().LOCAL_IP_ADDRESS
+
 local_port_number = AppSettingsSingleton.get_instance().PORT_NUMBER
 # local_ip_address = "host.docker.internal"
 # local_port_number = uvicorn.Config(app).port
