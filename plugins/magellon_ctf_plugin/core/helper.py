@@ -1,6 +1,9 @@
 import re
 
-from core.model_dto import TaskDto, CryoEmCtfTaskData
+from core.model_dto import TaskDto, CryoEmCtfTaskData, CryoEmTaskResultDto
+from core.rabbitmq_client import RabbitmqClient
+from core.settings import AppSettingsSingleton
+from test_publish import logger
 
 
 def custom_replace(input_string, replace_type, replace_pattern, replace_with):
@@ -51,3 +54,18 @@ def extract_task_data_from_object(task_object):
 
 def parse_json_for_cryoemctftask(message_str):
     return CryoEmCtfTaskData.model_validate(TaskDto.model_validate_json(message_str).data)
+
+
+def push_result_to_out_queue(result : CryoEmTaskResultDto):
+    try:
+        settings = AppSettingsSingleton.get_instance().rabbitmq_settings
+        rabbitmq_client = RabbitmqClient(settings)
+        rabbitmq_client.connect()  # Connect to RabbitMQ
+        rabbitmq_client.publish_message(result.model_dump_json(), AppSettingsSingleton.get_instance().rabbitmq_settings.OUT_QUEUE_NAME)  # Use client method
+        logger.info(f"Message published to {AppSettingsSingleton.get_instance().rabbitmq_settings.OUT_QUEUE_NAME}")
+        return True
+    except Exception as e:
+        logger.error(f"Error publishing message: {e}")
+        return False
+    finally:
+        rabbitmq_client.close_connection() # Disconnect from RabbitMQ
