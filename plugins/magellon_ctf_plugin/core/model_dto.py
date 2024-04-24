@@ -189,4 +189,30 @@ class CryoEmCtfTaskData(CryoEmImageTaskData):
     # FindAdditionalPhaseShift: bool = False
     # setExpertOptions:bool =False
 
+class ImageMetaData(BaseModel):
+    key: str
+    value: str
+    is_persistent: Optional[bool] = None
+    image_id: Optional[str] = None
 
+class OutputFile(BaseModel):
+    name: Optional[str] = None
+    path: Optional[str] = None
+    required: bool
+
+class CryoEmTaskResultDto(BaseModel):
+    worker_instance_id: Optional[UUID] = None  # Instance ID of the worker
+    task_id: Optional[str] = str(uuid.uuid4())
+    image_id: Optional[str] = None
+    image_path: Optional[str] = None
+    code: Optional[int] = None
+    message: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[TaskStatus] = None
+    type: Optional[TaskType] = None  # Adjust the type based on your needs
+    created_date: Optional[datetime] = datetime.now()  # Created date and time
+    started_on: Optional[datetime] = None  # Start time of task execution
+    ended_on: Optional[datetime] = None  # End time of task execution
+    output_data: Dict[str, Any] = {}  # Additional output data
+    meta_data: List[ImageMetaData]
+    output_files: List[OutputFile]
