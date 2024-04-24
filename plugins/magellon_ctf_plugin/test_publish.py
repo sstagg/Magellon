@@ -1,9 +1,8 @@
 import logging
 import uuid
 
+from core.helper import push_task_to_task_queue
 from core.model_dto import FFT_TASK, PENDING, TaskDto, CryoEmCtfTaskData
-from core.rabbitmq_client import RabbitmqClient
-from core.settings import AppSettingsSingleton
 
 logger = logging.getLogger(__name__)
 
@@ -37,10 +36,7 @@ logger = logging.getLogger(__name__)
 #     publish_message(task1.model_dump_json())
 #     return task1.model_dump_json()
 
-
-def push_task_to_task_queue():
-    print("Running Publish")
-
+def create_task():
     data1 = CryoEmCtfTaskData(
         image_id=uuid.uuid4(),
         image_name="Image1",
@@ -62,22 +58,12 @@ def push_task_to_task_queue():
     instance_id1 = uuid.uuid4()  # Replace with your specific worker instance ID
     job_id1 = uuid.uuid4()  # Replace with your specific job ID
 
-    task1 = TaskDto.create(data1.model_dump(), FFT_TASK, PENDING, instance_id1, job_id1)
-
-    try:
-        settings = AppSettingsSingleton.get_instance().rabbitmq_settings
-        rabbitmq_client = RabbitmqClient(settings)
-        rabbitmq_client.connect()  # Connect to RabbitMQ
-        rabbitmq_client.publish_message(task1.model_dump_json(), AppSettingsSingleton.get_instance().rabbitmq_settings.QUEUE_NAME)  # Use client method
-        logger.info(f"Message published to {AppSettingsSingleton.get_instance().rabbitmq_settings.QUEUE_NAME}")
-        return True
-    except Exception as e:
-        logger.error(f"Error publishing message: {e}")
-        return False
-    finally:
-        rabbitmq_client.close_connection() # Disconnect from RabbitMQ
-    return task1.model_dump_json()
+    return TaskDto.create(data1.model_dump(), FFT_TASK, PENDING, instance_id1, job_id1)
 
 
-push_task_to_task_queue()
+def create_push_task_to_task_queue():
+    print("Running Publish")
+    return push_task_to_task_queue(create_task())
 
+
+create_push_task_to_task_queue()

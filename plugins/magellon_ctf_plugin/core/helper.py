@@ -1,10 +1,13 @@
+import logging
 import re
+
+from pydantic import BaseModel
 
 from core.model_dto import TaskDto, CryoEmCtfTaskData, CryoEmTaskResultDto
 from core.rabbitmq_client import RabbitmqClient
 from core.settings import AppSettingsSingleton
-from test_publish import logger
 
+logger = logging.getLogger(__name__)
 
 def custom_replace(input_string, replace_type, replace_pattern, replace_with):
     """
@@ -56,16 +59,34 @@ def parse_json_for_cryoemctftask(message_str):
     return CryoEmCtfTaskData.model_validate(TaskDto.model_validate_json(message_str).data)
 
 
-def push_result_to_out_queue(result : CryoEmTaskResultDto):
+def publish_message_to_queue(message: BaseModel, queue_name: str)-> bool:
+    """
+    This function publishes a message to a specified RabbitMQ queue.
+
+    Args:
+        message: The message object to be published. Can be either a CryoEmTaskResultDto or a TaskDto.
+        queue_name: The name of the RabbitMQ queue to publish to.
+
+    Returns:
+        True on success, False on error.
+    """
     try:
         settings = AppSettingsSingleton.get_instance().rabbitmq_settings
         rabbitmq_client = RabbitmqClient(settings)
         rabbitmq_client.connect()  # Connect to RabbitMQ
-        rabbitmq_client.publish_message(result.model_dump_json(), AppSettingsSingleton.get_instance().rabbitmq_settings.OUT_QUEUE_NAME)  # Use client method
-        logger.info(f"Message published to {AppSettingsSingleton.get_instance().rabbitmq_settings.OUT_QUEUE_NAME}")
+        rabbitmq_client.publish_message(message.model_dump_json(), queue_name)  # Use client method
+        logger.info(f"Message published to {queue_name}")
         return True
     except Exception as e:
         logger.error(f"Error publishing message: {e}")
         return False
     finally:
-        rabbitmq_client.close_connection() # Disconnect from RabbitMQ
+        rabbitmq_client.close_connection()  # Disconnect from RabbitMQ
+
+
+def push_result_to_out_queue(result: CryoEmTaskResultDto):
+    return publish_message_to_queue(result, AppSettingsSingleton.get_instance().rabbitmq_settings.OUT_QUEUE_NAME)
+
+
+def push_task_to_task_queue(task: TaskDto):
+    return publish_message_to_queue(task, AppSettingsSingleton.get_instance().rabbitmq_settings.QUEUE_NAME)
