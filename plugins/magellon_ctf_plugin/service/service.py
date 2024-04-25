@@ -19,19 +19,20 @@ def get_plugin_info():
     return PluginInfoSingleton.get_instance(**plugin_info_data)
 
 
-async def do_execute_task(task_object: TaskDto):
+# async def do_execute_task(task_object: TaskDto):
+#     try:
+#         the_data = CryoEmCtfTaskData.model_validate(task_object.data)
+#         await do_execute(the_data)
+#         return {"message": "MRC file successfully converted to fft PNG!"}
+#     except Exception as exc:
+#         return {"error": str(exc)}
+
+
+async def do_execute(params: TaskDto):
     try:
-        the_data = CryoEmCtfTaskData.model_validate(task_object.data)
-        await do_execute(the_data)
-        return {"message": "MRC file successfully converted to fft PNG!"}
-    except Exception as exc:
-        return {"error": str(exc)}
-
-
-async def do_execute(params: CryoEmCtfTaskData):
-    try:
-
+        # the_data = CryoEmCtfTaskData.model_validate(params.data)
         await do_ctf(params)
+        # logger("success")
 
         return {"message": "CTF successfully executed"}
     except Exception as exc:

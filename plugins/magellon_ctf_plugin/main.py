@@ -18,7 +18,7 @@ from prometheus_client import Info
 
 from core.consul import register_with_consul, init_consul_client
 from core.rabbitmq_consumer_engine import consumer_engine
-from core.model_dto import CryoEmCtfTaskData
+from core.model_dto import  TaskDto
 from core.settings import AppSettingsSingleton
 from service.service import do_execute, check_requirements, get_plugin_info
 from core.logger_config import setup_logging
@@ -93,9 +93,9 @@ async def shutdown_event():
 
 @app.get("/", summary="Get Plugin Information")
 async def root():
-    number = AppSettingsSingleton.get_instance().PORT_NUMBER
+    # number = AppSettingsSingleton.get_instance().PORT_NUMBER
     # pdb.set_trace()
-    logger.info("Hello behdad %s", number)
+    # logger.info("Hello behdad %s", number)
     return {"message": "Welcome ", "plugin_info": plugin_info.dict()}
 
 
@@ -108,8 +108,9 @@ async def setup():
 
 
 @app.post("/execute", summary="Execute Plugin Operation")
-async def execute_endpoint(request: CryoEmCtfTaskData):
+async def execute_endpoint(request: TaskDto):
     return await do_execute(request)
+
 
 # Data to be streamed (replace with your data source)
 # async def get_data():
@@ -125,7 +126,6 @@ async def execute_endpoint(request: CryoEmCtfTaskData):
 #     # Stream data to the client
 #     async for message in get_data():
 #         await websocket.send_text(json.dumps(message))
-
 
 Instrumentator().instrument(app).expose(app)
 

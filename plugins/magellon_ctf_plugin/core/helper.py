@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 
 from pydantic import BaseModel
@@ -8,6 +9,27 @@ from core.rabbitmq_client import RabbitmqClient
 from core.settings import AppSettingsSingleton
 
 logger = logging.getLogger(__name__)
+
+
+def create_directory(path):
+    """
+    Creates the directory for the given image path if it does not exist.
+
+    Args:
+    image_path (str): The absolute path of the image file.
+
+    Returns:
+    None
+    """
+    try:
+        directory = os.path.dirname(path)
+        if not os.path.exists(directory):
+            os.makedirs(directory, exist_ok=True)
+            # Set permissions to 777
+            # os.chmod(directory, 0o777)
+    except Exception as e:
+        print(f"An error occurred while creating the directory: {str(e)}")
+
 
 def custom_replace(input_string, replace_type, replace_pattern, replace_with):
     """
@@ -59,7 +81,7 @@ def parse_json_for_cryoemctftask(message_str):
     return CryoEmCtfTaskData.model_validate(TaskDto.model_validate_json(message_str).data)
 
 
-def publish_message_to_queue(message: BaseModel, queue_name: str)-> bool:
+def publish_message_to_queue(message: BaseModel, queue_name: str) -> bool:
     """
     This function publishes a message to a specified RabbitMQ queue.
 

@@ -2,7 +2,8 @@ import json
 import time
 import logging
 import asyncio
-from core.helper import append_json_to_file, parse_json_for_cryoemctftask
+from core.helper import append_json_to_file, parse_json_for_cryoemctftask, parse_message_to_task_object, \
+    extract_task_data_from_object
 from core.rabbitmq_client import RabbitmqClient
 from core.settings import AppSettingsSingleton
 
@@ -18,9 +19,10 @@ rabbitmq_client = RabbitmqClient(settings)  # Create the client with settings
 
 def process_message(ch, method, properties, body):
     try:
-        append_json_to_file(file_path, body.decode("utf-8"))
-        the_task_data = parse_json_for_cryoemctftask(body.decode("utf-8"))
-        asyncio.run(do_execute(params=the_task_data))
+        append_json_to_file(file_path, body.decode("utf-8"))  # just for testing , it adds a record to output_file.json
+        the_task = parse_message_to_task_object(body.decode("utf-8"))
+        # the_task_data = extract_task_data_from_object(the_task)
+        asyncio.run(do_execute(params=the_task))
         # Acknowledge the message
         ch.basic_ack(delivery_tag=method.delivery_tag)
 
@@ -53,7 +55,7 @@ def consume(pqueues_and_message_processors):
 
     for queue_name, callback in pqueues_and_message_processors:
         # Declare the queue if it doesn't exist
-        rabbitmq_client.declare_queue( queue_name)
+        rabbitmq_client.declare_queue(queue_name)
         rabbitmq_client.consume(queue_name, callback)
 
     # Start consuming messages
@@ -64,6 +66,3 @@ def consume(pqueues_and_message_processors):
 queues_and_callbacks = [
     (AppSettingsSingleton.get_instance().rabbitmq_settings.QUEUE_NAME, process_message),
 ]
-
-
-
