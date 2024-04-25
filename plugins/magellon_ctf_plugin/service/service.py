@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 plugin_info_data = {
     "id": "29105843-518a-4086-b802-ad295883dfe1",
     "name": "CTF Plugin",
-    "developer": "Behdad Khoshbin b.khoshbin@gmail.com",
+    "developer": "Behdad Khoshbin b.khoshbin@gmail.com & Puneeth Reddy",
     "copyright": "Copyright © 2024",
     "version": "1.0.2",
     "port_number": 8000
@@ -30,7 +30,9 @@ async def do_execute_task(task_object: TaskDto):
 
 async def do_execute(params: CryoEmCtfTaskData):
     try:
+
         await do_ctf(params)
+
         return {"message": "CTF successfully executed"}
     except Exception as exc:
         return {"error": str(exc)}

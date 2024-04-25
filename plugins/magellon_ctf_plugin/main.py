@@ -22,7 +22,7 @@ from core.model_dto import CryoEmCtfTaskData
 from core.settings import AppSettingsSingleton
 from service.service import do_execute, check_requirements, get_plugin_info
 from core.logger_config import setup_logging
-
+from dotenv import load_dotenv
 # import pdb
 
 
@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 # Install the Rich error handler
 traceback.install()
 
-
+load_dotenv()
 
 
 app = FastAPI(debug=False, title=f"Magellan {plugin_info.name}", description=plugin_info.description,

@@ -133,6 +133,7 @@ class TaskStatusEnum(Enum):
     COMPLETED = {"code": 2, "name": "completed", "description": "Task has been completed"}
     FAILED = {"code": 3, "name": "failed", "description": "Task has failed"}
 
+
 class RecuirementResultEnum(Enum):
     SUCCESS = 10
     WARNING = 20
@@ -148,13 +149,10 @@ class RequirementResult(BaseModel):
     instructions: Optional[str] = None
 
 
-
-
 class CryoEmImageTaskData(BaseModel):
     image_id: Optional[UUID] = None
     image_name: Optional[str] = None
     image_path: Optional[str] = None
-
 
 
 class CryoEmMrcToPngTaskData(CryoEmImageTaskData):
@@ -173,21 +171,22 @@ class CryoEmFftTaskDetailDto(CryoEmImageTaskData):
 class CryoEmCtfTaskData(CryoEmImageTaskData):
     inputFile: str
     outputFile: str = "ouput.txt"
-    pixelSize:float=1.0
-    accelerationVoltage: float= 300.0
-    sphericalAberration: float= 2.70
-    amplitudeContrast: float=0.07
-    sizeOfAmplitudeSpectrum: int =512
-    minimumResolution: float =30.0
-    maximumResolution: float=5.0
-    minimumDefocus: float=5000.0
-    maximumDefocus: float=50000.0
-    defocusSearchStep: float=100.0
+    pixelSize: float = 1.0
+    accelerationVoltage: float = 300.0
+    sphericalAberration: float = 2.70
+    amplitudeContrast: float = 0.07
+    sizeOfAmplitudeSpectrum: int = 512
+    minimumResolution: float = 30.0
+    maximumResolution: float = 5.0
+    minimumDefocus: float = 5000.0
+    maximumDefocus: float = 50000.0
+    defocusSearchStep: float = 100.0
     # isastigmatismPresent: bool=False
     # slowerExhaustiveSearch: bool =False
     # restraintOnAstogmatism: bool =False
     # FindAdditionalPhaseShift: bool = False
     # setExpertOptions:bool =False
+
 
 class ImageMetaData(BaseModel):
     key: str
@@ -195,10 +194,12 @@ class ImageMetaData(BaseModel):
     is_persistent: Optional[bool] = None
     image_id: Optional[str] = None
 
+
 class OutputFile(BaseModel):
     name: Optional[str] = None
     path: Optional[str] = None
     required: bool
+
 
 class CryoEmTaskResultDto(BaseModel):
     worker_instance_id: Optional[UUID] = None  # Instance ID of the worker
