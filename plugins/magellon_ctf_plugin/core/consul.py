@@ -9,7 +9,8 @@ from core.settings import AppSettingsSingleton
 
 app_settings = AppSettingsSingleton.get_instance()
 
-consul_client = None
+# consul_client: consul.Consul = None
+consul_client= None
 
 consul_config = {
     "host": app_settings.consul_settings.CONSUL_HOST,
@@ -22,6 +23,7 @@ def init_consul_client():
     try:
         # consul_client = consul.Consul(host=CONSUL_HOST, port=CONSUL_PORT)
         consul_client = consul.Consul(**consul_config)
+
 
     except:
         consul_client = None
@@ -73,6 +75,7 @@ def get_kv_value(key: str, default: Optional[str] = None) -> str:
     try:
         if consul_client:
             _, key_value = consul_client.kv.get(key)
+
             if key_value is not None and 'Value' in key_value:
                 return key_value['Value'].decode('utf-8')
             else:
@@ -81,6 +84,20 @@ def get_kv_value(key: str, default: Optional[str] = None) -> str:
         print(f"Consul error: {e}")
 
     return os.getenv(key, default)
+
+
+def get_services(service_name:str) -> dict:
+    # http://localhost:8500/v1/catalog/service/magellon-ctf-service
+    try:
+        if consul_client:
+            key, services = consul_client.catalog.service(service_name)
+            # for service in services:
+            #     service_address = service.get("ServiceAddress")
+            #     service_port = service.get("ServicePort")
+            #     print(service_address,service_port,service)
+            return services
+    except (consul.ConsulException, json.JSONDecodeError) as e:
+        print(f"Error fetching configurations: {e}")
 
 
 def fetch_configurations() -> dict:

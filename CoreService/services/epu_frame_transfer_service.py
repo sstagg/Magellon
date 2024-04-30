@@ -10,7 +10,6 @@ from config import FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL, ORIGINAL_IMAG
     ATLAS_SUB_URL
 import logging
 import uuid
-from services.mrc_image_service import MrcImageService
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)

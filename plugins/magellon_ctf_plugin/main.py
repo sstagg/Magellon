@@ -15,7 +15,7 @@ from starlette.responses import JSONResponse, StreamingResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 from prometheus_client import Info
 
-from core.consul import register_with_consul, init_consul_client
+from core.consul import register_with_consul, init_consul_client, get_kv_value, get_services
 from core.rabbitmq_consumer_engine import consumer_engine
 from core.model_dto import TaskDto
 from core.settings import AppSettingsSingleton
@@ -72,10 +72,8 @@ async def startup_event():
         # Start RabbitMQ consumer thread
         rabbitmq_thread = threading.Thread(target=consumer_engine, daemon=True)
         rabbitmq_thread.start()
-
         # Initialize Consul client
         init_consul_client()
-
         # Register with Consul
         register_with_consul(
             app,
@@ -85,6 +83,12 @@ async def startup_event():
             local_port_number,
             'health'
         )
+
+        # configurations = get_kv_value("magellon-ctf-service-configuration")
+        
+        # services = get_services("magellon-ctf-service")
+
+
     except Exception as e:
         print(f"Error during startup: {e}")
 
@@ -113,24 +117,7 @@ async def setup():
 async def execute_endpoint(request: TaskDto):
     return await do_execute(request)
 
-
-# Data to be streamed (replace with your data source)
-# async def get_data():
-#     for i in range(10):
-#         await asyncio.sleep(1)
-#         yield {"data": f"Message {i+1}"}
-#
-# @app.websocket("/sse")
-# async def sse_endpoint(websocket: WebSocket):
-#     logger.info("SSE endpoint")
-#     await websocket.accept()
-#     await websocket.send_text("Hi")
-#     # Stream data to the client
-#     async for message in get_data():
-#         await websocket.send_text(json.dumps(message))
-
 Instrumentator().instrument(app).expose(app)
-
 
 @app.get('/health')
 async def health_check():
@@ -141,6 +128,23 @@ async def health_check():
 def app_exception_handler(request, err):
     return JSONResponse(status_code=400,
                         content={"message": f"Failed to execute: {request.method}: {request.url}. Detail: {err}"})
+
+# Data to be streamed (replace with your data source)
+# async def get_data():
+#     for i in range(10):
+#         await asyncio.sleep(1)
+#         yield {"data": f"Message {i+1}"}
+
+
+# @app.websocket("/sse")
+# async def sse_endpoint(websocket: WebSocket):
+#     logger.info("SSE endpoint")
+#     await websocket.accept()
+#     await websocket.send_text("Hi")
+#     # Stream data to the client
+#     async for message in get_data():
+#         await websocket.send_text(json.dumps(message))
+
 
 # def setup_metrics_route():
 #     # Add prometheus asgi middleware to route /metrics requests
