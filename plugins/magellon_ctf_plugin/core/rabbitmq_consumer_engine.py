@@ -2,13 +2,10 @@ import json
 import time
 import logging
 import asyncio
-from core.helper import append_json_to_file, parse_json_for_cryoemctftask, parse_message_to_task_object, \
-    extract_task_data_from_object
+from core.helper import append_json_to_file,  parse_message_to_task_object
 from core.rabbitmq_client import RabbitmqClient
 from core.settings import AppSettingsSingleton
-
 from pika.exceptions import ConnectionClosedByBroker
-
 from service.service import do_execute
 
 file_path = "output_file.json"
@@ -63,6 +60,4 @@ def consume(pqueues_and_message_processors):
     rabbitmq_client.start_consuming()
 
 
-queues_and_callbacks = [
-    (AppSettingsSingleton.get_instance().rabbitmq_settings.QUEUE_NAME, process_message),
-]
+queues_and_callbacks = [(AppSettingsSingleton.get_instance().rabbitmq_settings.QUEUE_NAME, process_message),]

@@ -3,7 +3,6 @@ import math
 import os
 import subprocess
 
-from core.helper import create_directory
 from core.model_dto import CryoEmCtfTaskData, TaskDto, CryoEmTaskResultDto
 from service.ctfeval import run_ctf_evaluation
 from utils import buildCtfCommand, readLastLine, getFileContents
@@ -11,7 +10,7 @@ from utils import buildCtfCommand, readLastLine, getFileContents
 logger = logging.getLogger(__name__)
 
 
-async def do_ctf(the_task: TaskDto):
+async def do_ctf(the_task: TaskDto) -> CryoEmTaskResultDto:
     try:
         # create_directory()
         the_task_data = CryoEmCtfTaskData.model_validate(the_task.data)
@@ -39,7 +38,8 @@ async def do_ctf(the_task: TaskDto):
 
         outputFileName = "".join(the_task_data.outputFile.split(".")[:-1])
         CTFestimationValues = await readLastLine(f'{os.getcwd()}/{outputFileName}.txt')
-        result = run_ctf_evaluation(f'{os.getcwd()}/{the_task_data.outputFile}', the_task_data.pixelSize, the_task_data.sphericalAberration,
+        result = run_ctf_evaluation(f'{os.getcwd()}/{the_task_data.outputFile}', the_task_data.pixelSize,
+                                    the_task_data.sphericalAberration,
                                     the_task_data.accelerationVoltage, the_task_data.maximumResolution,
                                     float(CTFestimationValues[1]) * 1e-3, float(CTFestimationValues[2]) * 1e-3,
                                     the_task_data.amplitudeContrast, CTFestimationValues[4],

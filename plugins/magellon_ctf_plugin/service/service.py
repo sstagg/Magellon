@@ -1,4 +1,6 @@
 import logging
+
+from core.helper import push_result_to_out_queue
 from core.model_dto import CryoEmCtfTaskData, TaskDto, PluginInfoSingleton
 from core.setup_plugin import check_python_version, check_operating_system, check_requirements_txt
 from service.ctf_service import do_ctf
@@ -31,7 +33,9 @@ def get_plugin_info():
 async def do_execute(params: TaskDto):
     try:
         # the_data = CryoEmCtfTaskData.model_validate(params.data)
-        await do_ctf(params)
+        result = await do_ctf(params)
+        if result is not None:
+            push_result_to_out_queue(result)
         # logger("success")
 
         return {"message": "CTF successfully executed"}

@@ -5,10 +5,9 @@ import os
 import socket
 import threading
 
-import uvicorn
 from rich import traceback
 
-from fastapi import FastAPI,WebSocket,Response
+from fastapi import FastAPI, WebSocket, Response
 from fastapi.logger import logger
 
 from starlette.middleware.cors import CORSMiddleware
@@ -18,11 +17,12 @@ from prometheus_client import Info
 
 from core.consul import register_with_consul, init_consul_client
 from core.rabbitmq_consumer_engine import consumer_engine
-from core.model_dto import  TaskDto
+from core.model_dto import TaskDto
 from core.settings import AppSettingsSingleton
 from service.service import do_execute, check_requirements, get_plugin_info
 from core.logger_config import setup_logging
 from dotenv import load_dotenv
+
 # import pdb
 
 
@@ -35,12 +35,16 @@ traceback.install()
 
 load_dotenv()
 
-
-app = FastAPI(debug=False, title=f"Magellan {plugin_info.name}", description=plugin_info.description,
+app = FastAPI(debug=False,
+              title=f"Magellan {plugin_info.name}",
+              description=plugin_info.description,
               version=plugin_info.version)
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
-                   allow_credentials=True)
 
+app.add_middleware(CORSMiddleware,
+                   allow_origins=["*"],
+                   allow_methods=["*"],
+                   allow_headers=["*"],
+                   allow_credentials=True)
 
 local_hostname = socket.gethostname()
 # local_ip_address = socket.gethostbyname(local_hostname)
@@ -93,9 +97,7 @@ async def shutdown_event():
 
 @app.get("/", summary="Get Plugin Information")
 async def root():
-    # number = AppSettingsSingleton.get_instance().PORT_NUMBER
     # pdb.set_trace()
-    # logger.info("Hello behdad %s", number)
     return {"message": "Welcome ", "plugin_info": plugin_info.dict()}
 
 
@@ -129,11 +131,11 @@ async def execute_endpoint(request: TaskDto):
 
 Instrumentator().instrument(app).expose(app)
 
+
 @app.get('/health')
 async def health_check():
-    # logger.info("Logger is working")
-    # print("Health check")
     return {'status': 'ok'}
+
 
 @app.exception_handler(Exception)
 def app_exception_handler(request, err):
