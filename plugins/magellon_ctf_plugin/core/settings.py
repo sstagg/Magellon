@@ -146,6 +146,19 @@ class AppSettingsSingleton:
         except ValidationError:
             # Handle validation error if necessary
             return None
+
+    # @classmethod
+    # def subscribe_to_consul_changes(cls, key: str):
+    #     """
+    #     Subscribe to changes in Consul's key-value store for the given key.
+    #     """
+    #     def callback(index, data):
+    #         # Callback function to update settings on change
+    #         cls.update_settings_from_yaml(key)
+
+        # watch = Watch()
+        # watch.add_key(key, callback)
+        # watch.run_forever()
 # app_settings: AppSettings = None
 #
 # if os.environ.get('APP_ENV', "development") == 'production':

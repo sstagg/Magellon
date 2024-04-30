@@ -84,13 +84,17 @@ async def startup_event():
             'health'
         )
 
-        # configurations = get_kv_value("magellon-ctf-service-configuration")
-        
+        # configurations_data = get_kv_value("magellon-ctf-service-configuration")
+        # AppSettingsSingleton.update_settings_from_yaml(configurations_data)
         # services = get_services("magellon-ctf-service")
 
 
     except Exception as e:
         print(f"Error during startup: {e}")
+
+
+# def callback(key, value, **kwargs):
+#     print(f"Key '{key}' updated. New value: {value}")
 
 
 @app.on_event("shutdown")
@@ -117,7 +121,9 @@ async def setup():
 async def execute_endpoint(request: TaskDto):
     return await do_execute(request)
 
+
 Instrumentator().instrument(app).expose(app)
+
 
 @app.get('/health')
 async def health_check():
