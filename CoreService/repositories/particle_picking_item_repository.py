@@ -5,7 +5,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from models.pydantic_models import ParticlepickingjobitemDto
-from models.sqlalchemy_models import Particlepickingjobitem, Image
+from models.sqlalchemy_models import  Image
 
 
 class ParticlepickingjobitemRepository:

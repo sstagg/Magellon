@@ -28,6 +28,9 @@ apache-airflow-client==2.7.2
 # bcrypt
 # starlette-graphene3
 
+#sqlacodegen
+#mysqlclient
+
 strawberry-graphql[fastapi]==0.211.1
 # bump-pydantic
 rich==13.7.0

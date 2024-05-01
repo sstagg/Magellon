@@ -23,9 +23,9 @@ from config import FFT_SUB_URL, IMAGE_SUB_URL, IMAGE_ROOT_DIR, THUMBNAILS_SUB_UR
 
 from database import get_db
 from lib.image_not_found import get_image_not_found
-from models.pydantic_models import ParticlepickingjobitemDto, MicrographSetDto, SessionDto, ImageDto, AtlasDto, \
+from models.pydantic_models import  SessionDto, ImageDto, AtlasDto, \
     ParticlePickingDto
-from models.sqlalchemy_models import Particlepickingjobitem, Image, Particlepickingjob, Msession, Atlas, ImageMetadata
+from models.sqlalchemy_models import Image, Msession, ImageMetaData
 from repositories.image_repository import ImageRepository
 from repositories.session_repository import SessionRepository
 from services.atlas import create_atlas_images
@@ -55,7 +55,7 @@ def get_session_mags(session_name: str, db_session: Session = Depends(get_db)):
     if msession is None:
         return {"error": "Session not found"}
     try:
-        session_id_binary = msession.Oid.bytes
+        session_id_binary = msession.oid.bytes
     except AttributeError:
         return {"error": "Invalid session ID"}
 
@@ -88,7 +88,7 @@ def get_images_route(
     if msession is None:
         return {"error": "Session not found"}
     try:
-        session_id_binary = msession.Oid.bytes
+        session_id_binary = msession.oid.bytes
     except AttributeError:
         return {"error": "Invalid session ID"}
 
@@ -142,7 +142,7 @@ def get_images_route(
         images_as_dict = []
         for row in rows:
             image = ImageDto(
-                oid=row.Oid,
+                oid=row.oid,
                 name=row.name,
                 defocus=round(float(row.defocus) * 1.e6, 2),
                 dose=row.dose,
@@ -187,7 +187,7 @@ def get_image_route(
             raise HTTPException(status_code=404, detail="Session not found")
 
         try:
-            session_id_binary = msession.Oid.bytes
+            session_id_binary = msession.oid.bytes
         except AttributeError:
             raise HTTPException(status_code=500, detail="Invalid session ID")
 
@@ -221,7 +221,7 @@ def get_image_route(
 
         if row is not None:
             image = ImageDto(
-                oid=row.Oid,
+                oid=row.oid,
                 name=row.name,
                 defocus=round(float(row.defocus) * 1.e6, 2),
                 dose=row.dose,
@@ -395,7 +395,7 @@ def get_correct_image_parent_child(name: str, db_session: Session = Depends(get_
     if not db_image_list:
         raise HTTPException(status_code=404, detail="images not found with the given name")
     image_dict = {}
-    image_dict = {db_image.name: db_image.Oid for db_image in db_image_list}
+    image_dict = {db_image.name: db_image.oid for db_image in db_image_list}
 
     for db_image in db_image_list:
         parent_name = get_parent_name(db_image.name)
@@ -428,16 +428,16 @@ async def create_particle_picking(meta_name: str = Query(...),image_name_or_oid:
 
     try:
         # Check if a "manual" Particlepickingjob already exists
-        image_meta_data = db.query(ImageMetadata).filter_by(name=meta_name).one()
+        image_meta_data = db.query(ImageMetaData).filter_by(name=meta_name).one()
     except NoResultFound:
         # If it doesn't exist, create a new one
-        image_meta_data = ImageMetadata(
+        image_meta_data = ImageMetaData(
 
             oid=uuid.uuid4(),
             name=meta_name,
             # description="manual job for particle picking",
             created_date=datetime.now(),
-            image_id=image.Oid,
+            image_id=image.oid,
             type=5
             # msession=image.msession if image.msession is not None else None,
             # Add other necessary fields here
@@ -455,8 +455,8 @@ async def create_particle_picking(meta_name: str = Query(...),image_name_or_oid:
 
 @webapp_router.get('/particle-pickings')
 def get_image_particles(img_name: str, db: Session = Depends(get_db)):
-    result = db.query(ImageMetadata). \
-        join(Image, ImageMetadata.image_id == Image.Oid). \
+    result = db.query(ImageMetaData). \
+        join(Image, ImageMetaData.image_id == Image.Oid). \
         filter(Image.name == img_name). \
         all()
     if not result:
@@ -573,7 +573,7 @@ def get_image_particles(img_name: str, db: Session = Depends(get_db)):
 
 @webapp_router.get('/particles/{oid}', summary="gets an image particles json by its unique id")
 async def get_image_particle_by_id(oid: UUID, db: Session = Depends(get_db)):
-    ppji = db.query(ImageMetadata).filter(ImageMetadata.Oid == oid).all()
+    ppji = db.query(ImageMetaData).filter(ImageMetaData.Oid == oid).all()
     if not ppji:
         raise HTTPException(status_code=404, detail="No Particlepickingjobitem found for Image")
     return ppji[0].data
@@ -582,7 +582,7 @@ async def get_image_particle_by_id(oid: UUID, db: Session = Depends(get_db)):
 @webapp_router.put("/particle-pickings", summary="Update particle picking data")
 async def update_particle_picking(body_req: ParticlePickingDto, db_session: Session = Depends(get_db)):
     try:
-        image_meta_data = db_session.query(ImageMetadata).filter(ImageMetadata.oid == body_req.oid).first()
+        image_meta_data = db_session.query(ImageMetaData).filter(ImageMetaData.oid == body_req.oid).first()
         if not image_meta_data:
             raise HTTPException(status_code=404, detail="Particle picking  not found")
         if body_req.data:
@@ -617,7 +617,7 @@ async def get_session_atlases(session_name: str, db_session: Session = Depends(g
     if msession is None:
         return {"error": "Session not found"}
     try:
-        return db_session.query(Atlas).filter(Atlas.session_id == msession.Oid).all()
+        return db_session.query(Atlas).filter(Atlas.session_id == msession.oid).all()
     # session_id_binary = msession.Oid.bytes
     except AttributeError:
         return {"error": "Invalid session ID"}

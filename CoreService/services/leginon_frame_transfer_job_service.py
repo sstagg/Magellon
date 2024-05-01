@@ -16,7 +16,7 @@ from config import FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL, ORIGINAL_IMAG
     FFT_SUFFIX, FRAMES_SUFFIX, app_settings, ATLAS_SUB_URL
 from database import get_db
 from models.pydantic_models import LeginonFrameTransferJobDto, LeginonFrameTransferTaskDto
-from models.sqlalchemy_models import Frametransferjob, Frametransferjobitem, Image, Project, Msession, Atlas
+from models.sqlalchemy_models import Image, Project, Msession, ImageJob, ImageJobTask
 from services.atlas import create_atlas_images
 from services.file_service import copy_file, create_directory, check_file_exists
 from services.helper import custom_replace, get_parent_name
@@ -163,13 +163,14 @@ class LeginonFrameTransferJobService:
                     sem.`SUBD|stage position|y` AS stage_y,
                     cem.`exposure time` AS camera_exposure_time,
                     cem.`save frames` AS save_frames,
-                    cem.`frames name` AS frame_names,
+                    cem.`frames name` AS frame_names,   
                     cem.`SUBD|binning|x` AS bining_x,
                     cem.`SUBD|binning|y` AS bining_y,
                     pd.dose AS preset_dose,
                     pd.`exposure time` AS preset_exposure_time,
                     pd.dose * POWER(10, -20) * cem.`exposure time` / pd.`exposure time` AS calculated_dose,
                     psc.pixelsize AS pixelsize,
+                    sem.`high tension`  / 1000 AS accelerationVoltage,
                     psc.pixelsize * cem.`SUBD|binning|x` AS result_pixelSize
                 FROM AcquisitionImageData ai
                 LEFT OUTER JOIN ScopeEMData sem ON ai.`REF|ScopeEMData|scope` = sem.DEF_id
@@ -201,7 +202,7 @@ class LeginonFrameTransferJobService:
                 # image_dict = {image["filename"]: image for image in leginon_image_list}
                 image_dict = {}
                 # Create a new job
-                job = Frametransferjob(
+                job = ImageJob(
                     # Oid=uuid.uuid4(),
                     name="Leginon Import: " + session_name, description="Leginon Import for session: " +
                                                                         session_name + "in directory: " +
@@ -220,7 +221,7 @@ class LeginonFrameTransferJobService:
                     filename = image["filename"]
                     # source_image_path = os.path.join(session_result["image path"], filename)
 
-                    db_image = Image(Oid=uuid.uuid4(), name=filename, magnification=image["mag"],
+                    db_image = Image(oid=uuid.uuid4(), name=filename, magnification=image["mag"],
                                      defocus=image["defocus"], dose=image["calculated_dose"],
                                      pixel_size=image["pixelsize"], binning_x=image["bining_x"],
                                      stage_x=image["stage_x"], stage_y=image["stage_y"],
@@ -235,7 +236,7 @@ class LeginonFrameTransferJobService:
                     # db_session.add(db_image)
                     # db_session.flush()
                     db_image_list.append(db_image)
-                    image_dict[filename] = db_image.Oid
+                    image_dict[filename] = db_image.oid
                     # image_dict = {db_image.name: db_image.Oid for db_image in db_image_list}
 
 
@@ -254,7 +255,7 @@ class LeginonFrameTransferJobService:
 
 
                     # Create a new job item and associate it with the job and image
-                    job_item = Frametransferjobitem(
+                    job_item = ImageJobTask(
                         Oid=uuid.uuid4(),
                         job_id=job.Oid,
                         frame_name=image["frame_names"],
