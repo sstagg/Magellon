@@ -840,7 +840,7 @@ class CtfDisplay(object):
 
 		pyplot.subplots_adjust(wspace=0.22, hspace=0.50,
 			bottom=0.08, left=0.07, top=0.95, right=0.965, )
-		self.plotsfile = apDisplay.short(self.imgname)+"-plots.png"
+		self.plotsfile = self.imgname+"-plots.png"
 		apDisplay.printMsg("Saving 1D graph to file %s"%(self.plotsfile))
 		try:
 			pyplot.savefig(self.plotsfile, format="png", dpi=300, orientation='landscape', pad_inches=0.0)
@@ -1493,7 +1493,7 @@ class CtfDisplay(object):
 		self.imgname = imgdata['filename']
 		if self.debug is True:
 			print(apDisplay.short(self.imgname))
-		self.powerspecfile = apDisplay.short(self.imgname)+"-powerspec.jpg"
+		self.powerspecfile = self.imgname+"-powerspec.jpg"
 
 		### get peak of CTF
 		self.cs = ctfdata['cs']*1e-3

@@ -34,6 +34,7 @@
 /plugins/magellon_ctf_plugin/support/mysql/data/
 /plugins/magellon_ctf_plugin/support/grafana/data/
 /plugins/magellon_ctf_plugin/support/consul/data/
+/plugins/magellon_ctf_plugin/outputs/
 
 /plugins/magellon_motioncor_plugin/.idea/
 /plugins/magellon_motioncor_plugin/venv/

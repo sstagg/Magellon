@@ -1,11 +1,10 @@
 import logging
 import uuid
-
+import os
 from core.helper import push_task_to_task_queue
 from core.model_dto import FFT_TASK, PENDING, TaskDto, CryoEmCtfTaskData
 
 logger = logging.getLogger(__name__)
-
 
 # def publish1():
 #     data1 = {"key1": "value1", "key2": "value2"}
@@ -40,9 +39,9 @@ def create_task():
     data1 = CryoEmCtfTaskData(
         image_id=uuid.uuid4(),
         image_name="Image1",
-        image_path=r"/gpfs/23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc",
-        inputFile=r"/gpfs/23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc",
-        outputFile="ouput.txt",
+        image_path=os.path.join(os.getcwd(),"gpfs","23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc"),
+        inputFile=os.path.join(os.getcwd(),"gpfs","23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc"),
+        outputFile="ouput.mrc",
         pixelSize=1,
         accelerationVoltage=300,
         sphericalAberration=2.7,
