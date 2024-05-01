@@ -10,16 +10,16 @@ from models.sqlalchemy_models import Camera
 class CameraRepository:
 
     async def create(db: Session, camera_dto: CameraDto):
-        if camera_dto.Oid is None:
-            camera_dto.Oid = str(uuid.uuid4())
-        camera = Camera(Oid=camera_dto.Oid, name=camera_dto.name)
+        if camera_dto.oid is None:
+            camera_dto.oid = str(uuid.uuid4())
+        camera = Camera(oid=camera_dto.oid, name=camera_dto.name)
         db.add(camera)
         db.commit()
         db.refresh(camera)
         return camera
 
     def fetch_by_id(db: Session, _id: UUID):
-        return db.query(Camera).filter(Camera.Oid == _id).first()
+        return db.query(Camera).filter(Camera.oid == _id).first()
 
     def fetch_by_name(db: Session, name: str):
         return db.query(Camera).filter(Camera.name == name).first()
@@ -28,7 +28,7 @@ class CameraRepository:
         return db.query(Camera).offset(skip).limit(limit).all()
 
     async def delete(db: Session, _id: UUID):
-        db_camera = db.query(Camera).filter_by(Oid=_id).first()
+        db_camera = db.query(Camera).filter_by(oid=_id).first()
         db.delete(db_camera)
         db.commit()
 

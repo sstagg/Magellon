@@ -25,7 +25,7 @@ from database import get_db
 from lib.image_not_found import get_image_not_found
 from models.pydantic_models import  SessionDto, ImageDto, AtlasDto, \
     ParticlePickingDto
-from models.sqlalchemy_models import Image, Msession, ImageMetaData
+from models.sqlalchemy_models import Image, Msession, ImageMetaData, Atlas
 from repositories.image_repository import ImageRepository
 from repositories.session_repository import SessionRepository
 from services.atlas import create_atlas_images

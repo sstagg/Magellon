@@ -9,7 +9,7 @@ class SlackMessage(BaseModel):
 
 
 class AtlasDto(BaseModel):
-    Oid: uuid.UUID = Field(None, description='Atlas UUID')
+    oid: uuid.UUID = Field(None, description='Atlas UUID')
     name: str = Field(None, min_length=2, max_length=30, description='Atlas Name')
     meta: str = Field(None, description='Atlas Meta')
 
@@ -19,7 +19,7 @@ class AtlasDto(BaseModel):
 
 
 class CameraDto(BaseModel):
-    Oid: uuid.UUID = Field(None, description='Camera UUID')
+    oid: uuid.UUID = Field(None, description='Camera UUID')
     name: str = Field(None, min_length=2, max_length=30, description='Camera Name')
     optimistic_lock_field: Optional[int] = Field(None, description='lock')
     gcrecord: Optional[int] = Field(None, description='gc')
@@ -30,7 +30,7 @@ class CameraDto(BaseModel):
 
 
 class SessionDto(BaseModel):
-    Oid: uuid.UUID = Field(None, description='Session UUID')
+    oid: uuid.UUID = Field(None, description='Session UUID')
     name: str = Field(None, min_length=2, max_length=30, description='Camera Name')
     optimistic_lock_field: Optional[int] = Field(None, description='lock')
     gcrecord: Optional[int] = Field(None, description='gc')
@@ -93,7 +93,7 @@ class ImageDtoUpdate(ImageDtoBase):
 
 
 class ImageDtoInDBBase(ImageDtoBase):
-    Oid: uuid.UUID = Field(description='Image UUID')
+    oid: uuid.UUID = Field(description='Image UUID')
 
     class Config:
         from_attributes = True
@@ -113,66 +113,66 @@ class ImageDtoWithParent(ImageDto):
 
 
 # ================================================================================================
-class Particlepickingjob(BaseModel):
-    Oid: uuid.UUID
-    name: Optional[str] = None
-    description: Optional[str] = None
-    # created_on: datetime
-    # end_on: datetime
-    user: Optional[str] = None
-    project: Optional[str] = None
-    msession: Optional[str] = None
-    status: Optional[int]
-    type: Optional[int]
-    data: Optional[Json]
-    # cs: Decimal
-    path: Optional[str] = None
-    output_dir: Optional[str] = None
-    direction: Optional[int]
-    image_selection_criteria: Optional[str]
-    OptimisticLockField: Optional[int]
-    GCRecord: Optional[int]
+# class Particlepickingjob(BaseModel):
+#     Oid: uuid.UUID
+#     name: Optional[str] = None
+#     description: Optional[str] = None
+#     # created_on: datetime
+#     # end_on: datetime
+#     user: Optional[str] = None
+#     project: Optional[str] = None
+#     msession: Optional[str] = None
+#     status: Optional[int]
+#     type: Optional[int]
+#     data: Optional[Json]
+#     # cs: Decimal
+#     path: Optional[str] = None
+#     output_dir: Optional[str] = None
+#     direction: Optional[int]
+#     image_selection_criteria: Optional[str]
+#     OptimisticLockField: Optional[int]
+#     GCRecord: Optional[int]
+#
+#
+# class ParticlepickingjobitemBase(BaseModel):
+#     job: uuid.UUID
+#     job_name: Optional[str] = None
+#     image: uuid.UUID
+#     data: Optional[Json] = None
+#     status: Optional[int] = None
+#     type: Optional[int] = None
 
 
-class ParticlepickingjobitemBase(BaseModel):
-    job: uuid.UUID
-    job_name: Optional[str] = None
-    image: uuid.UUID
-    data: Optional[Json] = None
-    status: Optional[int] = None
-    type: Optional[int] = None
+# class ParticlepickingjobDto(Particlepickingjob):
+#     pass
+#
+#
+# class ParticlepickingjobitemCreate(ParticlepickingjobitemBase):
+#     pass
+#
+#
+# class ParticlepickingjobitemUpdate(ParticlepickingjobitemBase):
+#     pass
+#
+#
+# class ParticlepickingjobitemInDBBase(ParticlepickingjobitemBase):
+#     Oid: uuid.UUID
+#
+#     class Config:
+#         from_attributes = True
 
 
-class ParticlepickingjobDto(Particlepickingjob):
-    pass
-
-
-class ParticlepickingjobitemCreate(ParticlepickingjobitemBase):
-    pass
-
-
-class ParticlepickingjobitemUpdate(ParticlepickingjobitemBase):
-    pass
-
-
-class ParticlepickingjobitemInDBBase(ParticlepickingjobitemBase):
-    Oid: uuid.UUID
-
-    class Config:
-        from_attributes = True
-
-
-class ParticlepickingjobitemDto(ParticlepickingjobitemInDBBase):
-    pass
-
-
-class Particlepickingjobitem(ParticlepickingjobitemInDBBase):
-    pass
-
-
-class ParticlepickingjobitemInDB(ParticlepickingjobitemInDBBase):
-    GCRecord: Optional[int] = None
-    OptimisticLockField: Optional[int] = None
+# class ParticlepickingjobitemDto(ParticlepickingjobitemInDBBase):
+#     pass
+#
+#
+# class Particlepickingjobitem(ParticlepickingjobitemInDBBase):
+#     pass
+#
+#
+# class ParticlepickingjobitemInDB(ParticlepickingjobitemInDBBase):
+#     GCRecord: Optional[int] = None
+#     OptimisticLockField: Optional[int] = None
 
 
 # ================================================================================================

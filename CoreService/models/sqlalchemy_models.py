@@ -79,7 +79,7 @@ class Xpobjecttype(Base):
 class SysSecRole(Base):
     __tablename__ = 'sys_sec_role'
 
-    oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
     Name = Column(String(100))
     IsAdministrative = Column(BIT(1))
     CanEditModel = Column(BIT(1))
@@ -211,7 +211,7 @@ class Site(Base):
 class SysSecActionPermission(Base):
     __tablename__ = 'sys_sec_action_permission'
 
-    oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
     ActionId = Column(String(100))
     Role = Column(ForeignKey('sys_sec_role.Oid'), index=True)
     OptimisticLockField = Column(INTEGER(11))
@@ -226,7 +226,7 @@ class SysSecLoginInfo(Base):
         Index('iLoginProviderNameProviderUserKey_sys_sec_login_info', 'LoginProviderName', 'ProviderUserKey', unique=True),
     )
 
-    oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
     LoginProviderName = Column(String(100))
     ProviderUserKey = Column(String(100))
     User = Column(ForeignKey('sys_sec_user.oid'), index=True)
@@ -238,7 +238,7 @@ class SysSecLoginInfo(Base):
 class SysSecNavigationPermission(Base):
     __tablename__ = 'sys_sec_navigation_permission'
 
-    oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
     ItemPath = Column(LONGTEXT)
     NavigateState = Column(INTEGER(11))
     Role = Column(ForeignKey('sys_sec_role.Oid'), index=True)
@@ -251,7 +251,7 @@ class SysSecNavigationPermission(Base):
 class SysSecTypePermission(Base):
     __tablename__ = 'sys_sec_type_permission'
 
-    oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
+    Oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
     Role = Column(ForeignKey('sys_sec_role.Oid'), index=True)
     TargetType = Column(LONGTEXT)
     ReadState = Column(INTEGER(11))

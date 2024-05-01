@@ -10,9 +10,9 @@ from models.sqlalchemy_models import Msession
 class SessionRepository:
 
     async def create(self, db: Session, session_dto: SessionDto):
-        if session_dto.Oid is None:
-            session_dto.Oid = str(uuid.uuid4())
-        session_instance = Msession(Oid=session_dto.Oid, name=session_dto.name)
+        if session_dto.oid is None:
+            session_dto.oid = str(uuid.uuid4())
+        session_instance = Msession(oid=session_dto.oid, name=session_dto.name)
         db.add(session_instance)
         db.commit()
         db.refresh(session_instance)

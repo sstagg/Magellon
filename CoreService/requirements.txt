@@ -38,3 +38,6 @@ rich==13.7.0
 pyfiglet==1.0.2
 diagrams
 pyyaml==6.0.1
+
+
+fabric

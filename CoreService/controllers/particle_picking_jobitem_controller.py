@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from starlette import status
 
 from database import get_db
-from models.pydantic_models import ParticlepickingjobitemDto
+# from models.pydantic_models import ParticlepickingjobitemDto
 
 from fastapi import APIRouter
 import logging

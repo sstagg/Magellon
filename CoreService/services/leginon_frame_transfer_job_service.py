@@ -16,6 +16,7 @@ from config import FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL, ORIGINAL_IMAG
     FFT_SUFFIX, FRAMES_SUFFIX, app_settings, ATLAS_SUB_URL
 from database import get_db
 from models.pydantic_models import LeginonFrameTransferJobDto, LeginonFrameTransferTaskDto
+# from models.pydantic_models import LeginonFrameTransferJobDto, LeginonFrameTransferTaskDto
 from models.sqlalchemy_models import Image, Project, Msession, ImageJob, ImageJobTask
 from services.atlas import create_atlas_images
 from services.file_service import copy_file, create_directory, check_file_exists

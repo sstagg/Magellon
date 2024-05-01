@@ -20,7 +20,7 @@ class ParticlepickingjobitemRepository:
         return ppji_dto
 
     def fetch_by_id(db: Session, _id: UUID):
-        return db.query(Particlepickingjobitem).filter(Particlepickingjobitem.Oid == _id).first()
+        return db.query(Particlepickingjobitem).filter(Particlepickingjobitem.oid == _id).first()
 
     def fetch_by_image_name(db: Session, image_name: str):
         particlepickingjobitems = db.query(Particlepickingjobitem).join(Image).filter(Image.name == image_name).all()
@@ -45,7 +45,7 @@ class ParticlepickingjobitemRepository:
 
     async def update_by_data(db: Session, _id: UUID, req_body: str):
         try:
-            db_item = db.query(Particlepickingjobitem).filter(Particlepickingjobitem.Oid == _id).first()
+            db_item = db.query(Particlepickingjobitem).filter(Particlepickingjobitem.oid == _id).first()
             if not db_item:
                 raise HTTPException(status_code=404, detail="Particle picking job item not found")
             db_item.data = req_body

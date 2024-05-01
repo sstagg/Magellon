@@ -22,7 +22,7 @@ from controllers.db_controller import db_router
 from controllers.graph_controller import graph_router
 from controllers.home_controller import home_router
 from controllers.image_processing_controller import image_processing_router
-from controllers.particle_picking_jobitem_controller import ppji_router
+# from controllers.particle_picking_jobitem_controller import ppji_router
 from controllers.slack_controller import slack_router
 
 from controllers.webapp_controller import webapp_router
