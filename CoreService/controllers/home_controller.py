@@ -33,8 +33,8 @@ async def catch_all(request: Request, rest_of_path: str):
 # Define a health check route
 @home_router.get('/health')
 def health_check():
-    logger.info("Logger is working")
-    print("Health check")
+    # logger.info("Logger is working")
+    # print("Health check")
     # raise Exception("just to test this")
     # try:
     #

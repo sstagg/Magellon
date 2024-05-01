@@ -111,7 +111,7 @@ def get_images_route(
 
     query = text("""
         SELECT
-          i.Oid,
+          i.oid,
           i.name ,
           i.defocus,
           i.dose,
@@ -123,7 +123,7 @@ def get_images_route(
            (
             SELECT COUNT(*)
             FROM image c
-            WHERE c.parent_id = i.Oid
+            WHERE c.parent_id = i.oid
               AND c.session_id = i.session_id
           ) AS children_count
         FROM image i
@@ -456,7 +456,7 @@ async def create_particle_picking(meta_name: str = Query(...),image_name_or_oid:
 @webapp_router.get('/particle-pickings')
 def get_image_particles(img_name: str, db: Session = Depends(get_db)):
     result = db.query(ImageMetaData). \
-        join(Image, ImageMetaData.image_id == Image.Oid). \
+        join(Image, ImageMetaData.image_id == Image.oid). \
         filter(Image.name == img_name). \
         all()
     if not result:
