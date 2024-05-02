@@ -1,5 +1,5 @@
-FROM continuumio/anaconda3
-#FROM python:3.11.7
+#FROM continuumio/anaconda3
+FROM python:3.11.7
 
 WORKDIR /app
 
