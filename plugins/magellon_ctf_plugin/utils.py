@@ -14,6 +14,7 @@ def getSubCommand(attribute: str, value: Optional[str] = None) -> List[str]:
 # \n512\n30.0\n5.0\n5000.0\n50000.0\n100.0\nno\nno\nno\nno\nno\nno\n" | ./ctffind
 
 def buildCtfCommand(params: CryoEmCtfTaskData) -> str:
+    # ctf_file=os.environ.get("CTF_ESTIMATION_FILE")
     ctf_file=os.environ.get("CTF_ESTIMATION_FILE")
     values = [
         params.inputFile or "None",
@@ -35,7 +36,7 @@ def buildCtfCommand(params: CryoEmCtfTaskData) -> str:
         # "no" if not params.FindAdditionalPhaseShift else "yes",
         # "no" if not params.setExpertOptions else "yes",
     ]
-    return f'echo -e "{chr(10).join(values)}" | ./{ctf_file}'
+    return f'echo -e "{chr(10).join(values)}" | {ctf_file}'
 
 
 async def getFileContents(file_path:str)->str:

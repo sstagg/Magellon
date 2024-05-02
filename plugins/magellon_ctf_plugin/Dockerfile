@@ -1,4 +1,5 @@
-FROM python:3.11.7
+FROM continuumio/anaconda3
+#FROM python:3.11.7
 
 WORKDIR /app
 
@@ -16,7 +17,7 @@ ENV PYTHONDONTWRITEBYTECODE 1
 # Turns off buffering for easier container logging
 ENV PYTHONUNBUFFERED 1
 
-
+RUN which python3
 #COPY . .
 COPY appionlib ./appionlib
 COPY assets ./assets
@@ -68,6 +69,7 @@ ENV PYTHONPATH=/app
 ENV APP_MODULE=main:app
 
 ENV APP_ENV=production
+ENV CTF_ESTIMATION_FILE=/app/ctffind
 
 # Expose port 80
 EXPOSE 80
