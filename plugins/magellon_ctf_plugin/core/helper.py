@@ -1,5 +1,6 @@
 import logging
 import os
+import pdb
 import re
 
 from pydantic import BaseModel
@@ -96,6 +97,7 @@ def publish_message_to_queue(message: BaseModel, queue_name: str) -> bool:
         settings = AppSettingsSingleton.get_instance().rabbitmq_settings
         rabbitmq_client = RabbitmqClient(settings)
         rabbitmq_client.connect()  # Connect to RabbitMQ
+        # pdb.set_trace()
         rabbitmq_client.publish_message(message.model_dump_json(), queue_name)  # Use client method
         logger.info(f"Message published to {queue_name}")
         return True

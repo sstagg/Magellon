@@ -16,6 +16,7 @@ rabbitmq_client = RabbitmqClient(settings)  # Create the client with settings
 
 def process_message(ch, method, properties, body):
     try:
+        logger.info("Just Got Message : ",body.decode("utf-8"))
         append_json_to_file(file_path, body.decode("utf-8"))  # just for testing , it adds a record to output_file.json
         the_task = parse_message_to_task_object(body.decode("utf-8"))
         # the_task_data = extract_task_data_from_object(the_task)

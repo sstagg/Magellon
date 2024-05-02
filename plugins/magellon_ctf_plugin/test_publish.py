@@ -39,8 +39,8 @@ def create_task():
     data1 = CryoEmCtfTaskData(
         image_id=uuid.uuid4(),
         image_name="Image1",
-        image_path=os.path.join(os.getcwd(),"gpfs","23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc"),
-        inputFile=os.path.join(os.getcwd(),"gpfs","23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc"),
+        image_path=os.path.join("gpfs","23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc"),
+        inputFile=os.path.join("gpfs","23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc"),
         outputFile="ouput.mrc",
         pixelSize=1,
         accelerationVoltage=300,
@@ -61,8 +61,9 @@ def create_task():
 
 
 def create_push_task_to_task_queue():
-    print("Running Publish")
-    return push_task_to_task_queue(create_task())
+    task = create_task()
+    print("Running Publish with object ", task)
+    return push_task_to_task_queue(task)
 
 
 create_push_task_to_task_queue()

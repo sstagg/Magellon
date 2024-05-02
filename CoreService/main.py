@@ -19,6 +19,7 @@ from configs.production_test import production_intilization
 # from config import register_with_consul, CONSUL_SERVICE_NAME, CONSUL_SERVICE_ID
 from controllers.camera_controller import camera_router
 from controllers.db_controller import db_router
+from controllers.deployment_docker_controller import deployment_docker_router
 from controllers.graph_controller import graph_router
 from controllers.home_controller import home_router
 from controllers.image_processing_controller import image_processing_router
@@ -102,6 +103,7 @@ app.mount("/assets", StaticFiles(directory="static/assets"), name="assets")
 app.include_router(home_router, tags=["Home"])
 app.include_router(db_router, tags=["Database"], prefix="/db")
 app.include_router(camera_router, tags=["Cameras"], prefix="/db/cameras")
+app.include_router(deployment_docker_router, tags=["Docker"], prefix="/deployment/docker")
 # app.include_router(ppji_router, tags=["Particle Picking Job Item"], prefix="/db/ppji")
 app.include_router(image_processing_router, tags=['Image Processing'], prefix="/image")
 app.include_router(webapp_router, tags=['Image Viewer - WebApp'], prefix="/web")
