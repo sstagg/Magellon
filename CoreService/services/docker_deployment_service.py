@@ -1,7 +1,9 @@
 import logging
+import os
 from typing import Dict, Optional
 
 import docker
+from docker.errors import BuildError
 from pydantic import BaseModel
 
 
@@ -23,10 +25,11 @@ class DockerContainerInput(BaseModel):
 class DockerDeployment:
     def __init__(self):
         self.client = docker.from_env()
+        # self.client = docker(base_url=f"tcp://{target_ip}:2375")
 
     def create_and_run_container(self, input_data: DockerContainerInput):
-        if not input_data.container_name:
-            input_data.container_name = f"{input_data.image_name}-container"
+        # Generate container name if not provided
+        input_data.container_name = input_data.container_name or f"{input_data.image_name}-container"
 
         # Define container options
         container_options = {
@@ -64,3 +67,29 @@ class DockerDeployment:
         container = self.client.containers.run(**container_options)
 
         return container
+
+    def build_image_from_dockerfile(self, dockerfile_path: str, input_data: DockerContainerInput, tag: Optional[str] = None):
+        """
+        Builds a Docker image from a Dockerfile at the specified path.
+
+        Args:
+            dockerfile_path (str): Path to the Dockerfile.
+            tag (str, optional): Tag for the built image. Defaults to None.
+
+        Raises:
+            BuildError: If there's an error during the build process.
+        """
+
+        # Build context (directory containing Dockerfile)
+        build_context = os.path.dirname(dockerfile_path)
+
+        # Build arguments (optional)
+        # You can add logic to accept and pass build arguments here
+
+        try:
+            # Build the image with optional tag
+            self.client.images.build(path=build_context, tag=tag)
+            logger.info(f"Image built successfully: {tag or input_data.image_name}")
+        except BuildError as e:
+            logger.error(f"Error building image: {e}")
+            raise
