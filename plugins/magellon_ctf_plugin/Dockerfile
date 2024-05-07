@@ -23,7 +23,7 @@ RUN apt-get update && \
     echo "deb http://ftp.de.debian.org/debian buster main contrib non-free" >> /etc/apt/sources.list && \
 #    apt-add-repository 'deb http://ftp.de.debian.org/debian buster main' && \
     apt-get update && \
-    apt-get install -y libwxbase3.0-0v5 libtiff5 libfftw3-single3
+    apt-get install -y libwxbase3.0-0v5 libtiff5 libfftw3-single3 libomp-dev
 
 
 #RUN apt-get install libwxbase3.0-0-unofficial \
