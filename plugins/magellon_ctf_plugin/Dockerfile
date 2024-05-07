@@ -1,13 +1,17 @@
 FROM continuumio/miniconda3:latest
-RUN apt update && apt clean && rm -rf /var/lib/apt/lists/*
-# Install wxPython using conda
-RUN conda update conda
-RUN conda install -c conda-forge wxpython
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y libpq-dev
+
+# Update Conda and install wxPython
+RUN conda update -n base -c defaults conda && conda install -c conda-forge wxpython
+
 # Create a conda environment
-#RUN conda create -n myenv python=3.8  # Replace with desired python version
+
+#RUN conda create --name myenv
 WORKDIR /app
 #RUN source activate myenv
-#RUN apt-get update && apt-get install -y libpq-dev
+
 #RUN apt-get install -y graphviz nano wget
 RUN pip install psycopg2-binary --no-cache-dir
 
