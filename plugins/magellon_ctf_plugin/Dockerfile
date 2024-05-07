@@ -1,26 +1,44 @@
-FROM continuumio/miniconda3:latest
+#FROM continuumio/anaconda3
+FROM python:3.11.7
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y libpq-dev
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y \
+    apt-file \
+    software-properties-common
 
-# Update Conda and install wxPython
-RUN conda update -n base -c defaults conda && conda install -c conda-forge wxpython
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y \
+    build-essential \
+    cmake \
+    apt-file
 
-# Create a conda environment
+RUN apt-get update
 
-#RUN conda create --name myenv
+
+RUN curl -L http://repos.codelite.org/CodeLite.asc | apt-key add -
+
+RUN apt-add-repository 'deb http://repos.codelite.org/wx3.0.5/debian/ buster libs'
+RUN apt-add-repository 'deb http://ftp.de.debian.org/debian buster main'
+
+RUN apt-get update
+RUN apt-get install -y libwxbase3.0-0v5 libtiff5 libfftw3-single3
+#RUN apt-get install libwxbase3.0-0-unofficial \
+#                 libwxbase3.0-dev \
+#                 libwxgtk3.0-0-unofficial \
+#                 libwxgtk3.0-dev
+
 WORKDIR /app
-#RUN source activate myenv
 
+RUN apt-get update && apt-get install -y libpq-dev
 #RUN apt-get install -y graphviz nano wget
 RUN pip install psycopg2-binary --no-cache-dir
 
 COPY requirements.txt ./
-RUN #apt-get update &&  apt-get install -y gcc g++ git-svn gtk+3.0
 RUN pip install --no-cache-dir  --upgrade -r ./requirements.txt
 #RUN pip3 install --no-cache-dir  -r ./requirements.txt
-
-
+RUN apt-get update &&  apt-get install -y gcc g++ git-svn
 #    build-base
 #    gcc \
 #    git-svn \
@@ -35,14 +53,14 @@ RUN pip install --no-cache-dir  --upgrade -r ./requirements.txt
 
 #Run pip install -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/centos-7 wxPython==4.0.0
 #RUN pip install wxPython
-#RUN pip install debugpy
+RUN pip install debugpy
 
 # Keeps Python from generating .pyc files in the container
 ENV PYTHONDONTWRITEBYTECODE 1
 # Turns off buffering for easier container logging
 ENV PYTHONUNBUFFERED 1
 
-#RUN which python3
+RUN which python3
 #COPY . .
 COPY appionlib ./appionlib
 COPY assets ./assets
