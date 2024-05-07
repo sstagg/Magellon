@@ -1,16 +1,21 @@
-#FROM continuumio/anaconda3
-FROM python:3.11.7
-
+FROM continuumio/miniconda3:latest
+RUN apt update && apt clean && rm -rf /var/lib/apt/lists/*
+# Install wxPython using conda
+RUN conda update conda
+RUN conda install -c conda-forge wxpython
+# Create a conda environment
+#RUN conda create -n myenv python=3.8  # Replace with desired python version
 WORKDIR /app
-
+#RUN source activate myenv
 #RUN apt-get update && apt-get install -y libpq-dev
 #RUN apt-get install -y graphviz nano wget
 RUN pip install psycopg2-binary --no-cache-dir
 
 COPY requirements.txt ./
+RUN #apt-get update &&  apt-get install -y gcc g++ git-svn gtk+3.0
 RUN pip install --no-cache-dir  --upgrade -r ./requirements.txt
 #RUN pip3 install --no-cache-dir  -r ./requirements.txt
-RUN apt-get update &&  apt-get install -y gcc g++ git-svn gtk+3.0
+
 
 #    build-base
 #    gcc \
@@ -24,16 +29,16 @@ RUN apt-get update &&  apt-get install -y gcc g++ git-svn gtk+3.0
 #    wxgtk-dev \
 #    zlib-dev
 
-Run pip install -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/centos-7 wxPython==4.0.0
+#Run pip install -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/centos-7 wxPython==4.0.0
 #RUN pip install wxPython
-RUN pip install debugpy
+#RUN pip install debugpy
 
 # Keeps Python from generating .pyc files in the container
 ENV PYTHONDONTWRITEBYTECODE 1
 # Turns off buffering for easier container logging
 ENV PYTHONUNBUFFERED 1
 
-RUN which python3
+#RUN which python3
 #COPY . .
 COPY appionlib ./appionlib
 COPY assets ./assets
