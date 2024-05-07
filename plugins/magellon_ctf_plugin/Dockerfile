@@ -1,29 +1,31 @@
 #FROM continuumio/anaconda3
 FROM python:3.11.7
-
+#
+#RUN apt-get update && \
+#    apt-get upgrade -y && \
+#    apt-get install -y \
+#    apt-file \
+#    software-properties-common
+#
+#RUN apt-get update && \
+#    apt-get upgrade -y && \
+#    apt-get install -y \
+#    build-essential \
+#    cmake \
+#    apt-file
+#
+#RUN apt-get update
+#
+#
+#RUN curl -L http://repos.codelite.org/CodeLite.asc | apt-key add -
+#RUN apt-add-repository 'deb http://repos.codelite.org/wx3.0.5/debian/ buster libs'
 RUN apt-get update && \
-    apt-get upgrade -y && \
-    apt-get install -y \
-    apt-file \
-    software-properties-common
-
-RUN apt-get update && \
-    apt-get upgrade -y && \
-    apt-get install -y \
-    build-essential \
-    cmake \
-    apt-file
-
-RUN apt-get update
+    echo "deb http://ftp.de.debian.org/debian buster main contrib non-free" >> /etc/apt/sources.list && \
+#    apt-add-repository 'deb http://ftp.de.debian.org/debian buster main' && \
+    apt-get update && \
+    apt-get install -y libwxbase3.0-0v5 libtiff5 libfftw3-single3
 
 
-RUN curl -L http://repos.codelite.org/CodeLite.asc | apt-key add -
-
-RUN apt-add-repository 'deb http://repos.codelite.org/wx3.0.5/debian/ buster libs'
-RUN apt-add-repository 'deb http://ftp.de.debian.org/debian buster main'
-
-RUN apt-get update
-RUN apt-get install -y libwxbase3.0-0v5 libtiff5 libfftw3-single3
 #RUN apt-get install libwxbase3.0-0-unofficial \
 #                 libwxbase3.0-dev \
 #                 libwxgtk3.0-0-unofficial \
@@ -38,7 +40,7 @@ RUN pip install psycopg2-binary --no-cache-dir
 COPY requirements.txt ./
 RUN pip install --no-cache-dir  --upgrade -r ./requirements.txt
 #RUN pip3 install --no-cache-dir  -r ./requirements.txt
-RUN apt-get update &&  apt-get install -y gcc g++ git-svn
+#RUN apt-get update &&  apt-get install -y gcc g++ git-svn
 #    build-base
 #    gcc \
 #    git-svn \
@@ -118,3 +120,4 @@ ENV CTF_ESTIMATION_FILE=/app/ctffind
 EXPOSE 80
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80"]
+#CMD ["python3", "-m", "debugpy", "--listen", "0.0.0.0:5678", "-m", "uvicorn", "main:app", "--reload", "--host", "0.0.0.0", "--port", "80"]

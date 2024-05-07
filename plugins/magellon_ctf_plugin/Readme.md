@@ -10,6 +10,8 @@ Before diving into the development process, ensure you have the following prereq
 1. Magellon CLI
 2. Python 3.8 or later
 
+cat /etc/os-release
+
 ldd /app/ctffind
 apt-key adv --fetch-keys http://repos.codelite.org/CodeLite.asc
 apt-add-repository 'deb http://repos.codelite.org/wx3.0.5/debian/ buster libs'
@@ -26,13 +28,15 @@ wx3.0-i18n \
 wx3.0-examples \
 wx3.0-doc
 
-echo -e "/gpfs/23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc output.mrc 1.0 300.0 2.7 0.07 512 30.0 5.0 5000.0 50000.0 100.0 no no no no no" | /app/ctffind
+echo -e "/gpfs/23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc /gpfs/output.mrc 1.0 300.0 2.7 0.07 512 30.0 5.0 5000.0 50000.0 100.0 no no no no no" | /app/ctffind
 
 uname -m
 x86_64 or amd64: This indicates a 64-bit Intel or AMD processor.
 
 apt-file search libwx_baseu-3.0.so.0
 apt-get install libwxbase3.0-0v5 libtiff5 libfftw3-single3
+
+
 ## Setting Up Your Plugin
 
 ### Create a New Plugin
