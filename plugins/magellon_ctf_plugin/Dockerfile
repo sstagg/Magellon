@@ -3,13 +3,29 @@ FROM python:3.11.7
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y libpq-dev
-RUN apt-get install -y graphviz nano wget
+#RUN apt-get update && apt-get install -y libpq-dev
+#RUN apt-get install -y graphviz nano wget
 RUN pip install psycopg2-binary --no-cache-dir
 
 COPY requirements.txt ./
 RUN pip install --no-cache-dir  --upgrade -r ./requirements.txt
 #RUN pip3 install --no-cache-dir  -r ./requirements.txt
+RUN apt-get update &&  apt-get install -y gcc g++ git-svn gtk+3.0
+
+#    build-base
+#    gcc \
+#    git-svn \
+#    gtk+3.0 \
+#    g++ \
+#    jpeg-dev \
+#    libc-dev \
+#    python-dev \
+#    wxgtk \
+#    wxgtk-dev \
+#    zlib-dev
+
+Run pip install -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/centos-7 wxPython==4.0.0
+#RUN pip install wxPython
 RUN pip install debugpy
 
 # Keeps Python from generating .pyc files in the container
