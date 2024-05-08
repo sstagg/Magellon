@@ -27,4 +27,5 @@ async def deploy_docker_container_by_image_name(request: DockerContainerInput):
     #     container_name="magellon-core-service01"
     # )
 
-    deployer.create_and_run_container(request)
+    result = deployer.create_and_run_container(request)
+    return result

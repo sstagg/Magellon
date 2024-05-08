@@ -6,12 +6,12 @@ import docker
 from docker.errors import BuildError
 from pydantic import BaseModel
 
-from config import DOCKER_USERNAME, DOCKER_PASSWORD
+from config import DOCKER_USERNAME, DOCKER_PASSWORD, DOCKER_URL
 
 logger = logging.getLogger(__name__)
 
 endpoint = "npipe:////./pipe/docker_engine"
-endpoint = "tcp://localhost:2375"
+endpoint = DOCKER_URL
 
 
 class DockerContainerInput(BaseModel):
@@ -32,11 +32,11 @@ class DockerDeployment:
         # self.client = docker.DockerClient(base_url=endpoint)
         # self.client = docker.from_env()
         self.client = docker.DockerClient(base_url=endpoint)
-        self.client.login(username=DOCKER_USERNAME, password=DOCKER_PASSWORD)
+        # self.client.login(username=DOCKER_USERNAME, password=DOCKER_PASSWORD)
 
     def create_and_run_container(self, input_data: DockerContainerInput):
         # Generate container name if not provided
-        input_data.container_name = input_data.container_name or f"{input_data.image_name}-container"
+        input_data.container_name = input_data.container_name or f"{input_data.image_name.split(':')[0]}-container"
 
         # Define container options
         container_options = {
@@ -71,9 +71,16 @@ class DockerDeployment:
             self.client.images.pull(input_data.image_name)
 
         # Create and run the container
-        container = self.client.containers.run(**container_options)
-
-        return container
+        try:
+            # Create and run the container
+            container = self.client.containers.run(**container_options)
+            return f"Container {input_data.container_name} started successfully. ID: {container.id}"
+        except docker.errors.APIError as e:
+            if "409" in str(e):
+                return f"Container name {input_data.container_name} is already in use."
+            return f"Failed to start container {input_data.container_name}: {str(e)}"
+        except Exception as e:
+             return f"An error occurred: {str(e)}"
 
 
     def build_image_from_dockerfile(self, dockerfile_path: str, input_data: DockerContainerInput, tag: Optional[str] = None):
