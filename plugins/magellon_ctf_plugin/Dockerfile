@@ -1,11 +1,11 @@
 #FROM continuumio/anaconda3
 FROM python:3.11.7
 #
-#RUN apt-get update && \
-#    apt-get upgrade -y && \
-#    apt-get install -y \
-#    apt-file \
-#    software-properties-common
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y \
+    apt-file \
+    software-properties-common
 #
 #RUN apt-get update && \
 #    apt-get upgrade -y && \
@@ -34,6 +34,12 @@ RUN apt-get update && \
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y libpq-dev
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y \
+    intel-mkl
+RUN apt-get install -y intel-mkl
+RUN apt-get install -y libwxbase3.0-0v5 libwxbase3.0-dev libwxgtk3.0-0v5 libwxgtk3.0-dev wx3.0-headers wx-common libwxgtk-webview3.0-gtk3-0v5 libwxgtk-webview3.0-gtk3-dev libwxgtk-media3.0-0v5 libwxgtk-media3.0-dev wx3.0-i18n wx3.0-examples
 #RUN apt-get install -y graphviz nano wget
 RUN pip install psycopg2-binary --no-cache-dir
 

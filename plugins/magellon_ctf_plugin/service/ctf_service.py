@@ -15,8 +15,8 @@ async def do_ctf(the_task: TaskDto) -> CryoEmTaskResultDto:
     try:
         logger.info(f"Starting task {the_task.id} ")
         the_task_data = CryoEmCtfTaskData.model_validate(the_task.data)
-        os.makedirs(f'{os.path.join(os.getcwd(), "outputs")}', exist_ok=True)
-        directory_path = os.path.join(os.getcwd(), "outputs", the_task.id)
+        os.makedirs(f'{os.path.join("/gpfs", "outputs")}', exist_ok=True)
+        directory_path = os.path.join("/gpfs", "outputs", the_task.id)
         # the_task_data.outputFile = f'{directory_path}/{the_task.data["outputFile"]}'
         the_task.data["outputFile"] = f'{directory_path}/{the_task.data["outputFile"]}'
         os.makedirs(directory_path, exist_ok=True)
@@ -39,7 +39,7 @@ async def do_ctf(the_task: TaskDto) -> CryoEmTaskResultDto:
         # logger.info("output", output)
         # logger.info("Return Code: %s", return_code)
         if return_code != 0:
-            logger.error("Error output: %s", error_output)
+            logger.error("Error output: %s", error_output , output)
             # executeMethodFailure.inc()
             return {"error_output": error_output}
 
