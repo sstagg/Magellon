@@ -39,6 +39,32 @@ RUN apt-get update && \
     apt-get install -y \
     intel-mkl
 RUN apt-get install -y intel-mkl
+
+#
+#RUN apt-get update  \
+# && apt-get upgrade  \
+# && apt-get install -y -qq   bzip2 \
+#                      cmake \
+#                      cpio \
+#                      curl \
+#                      g++ \
+#                      gcc \
+#                      gfortran \
+#                      git \
+#                      gosu \
+#                      libblas-dev \
+#                      liblapack-dev \
+#                      libopenmpi-dev \
+#                      openmpi-bin \
+#                      wget \
+#                      zlib1g-dev \
+#                      vim       \
+#                      htop      \
+
+#                      python3-dev \
+#                      python3-pip \
+#                      virtualenv \
+
 RUN apt-get install -y libwxbase3.0-0v5 libwxbase3.0-dev libwxgtk3.0-0v5 libwxgtk3.0-dev wx3.0-headers wx-common libwxgtk-webview3.0-gtk3-0v5 libwxgtk-webview3.0-gtk3-dev libwxgtk-media3.0-0v5 libwxgtk-media3.0-dev wx3.0-i18n wx3.0-examples
 #RUN apt-get install -y graphviz nano wget
 RUN pip install psycopg2-binary --no-cache-dir
