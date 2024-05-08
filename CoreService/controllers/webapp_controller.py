@@ -414,7 +414,7 @@ async def create_particle_picking(meta_name: str = Query(...),image_name_or_oid:
             # Attempt to convert image_name_or_oid to UUID
             image_uuid = UUID(image_name_or_oid)
             # If convertible to UUID, search by OID
-            image = db.query(Image).filter_by(Oid=image_uuid).first()
+            image = db.query(Image).filter_by(oid=image_uuid).first()
         except ValueError:
             # If not convertible to UUID, search by filename
             image = db.query(Image).filter_by(name=image_name_or_oid).first()
