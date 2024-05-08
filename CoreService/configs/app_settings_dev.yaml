@@ -1,5 +1,10 @@
 BASE_DIRECTORY: C:\projects\Magellon01\CoreService\config
 ENV_TYPE: development
+
+DOCKER_REPOSITORY: development
+DOCKER_USERNAME: khoshbin
+DOCKER_PASSWORD: khoshbin
+
 SLACK_TOKEN: xoxb-5284990093169-5258053840439-aJ8x7uHcUCNqCKSZkbOSbAlq
 consul_settings:
   CONSUL_HOST: 192.168.92.133

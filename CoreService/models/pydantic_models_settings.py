@@ -58,6 +58,9 @@ class AppSettings(BaseModel):
     database_settings: DatabaseSettings = DatabaseSettings()
     SLACK_TOKEN: Optional[str] = None
     BASE_DIRECTORY: Optional[str] = os.path.abspath(os.path.dirname(__file__))
+    DOCKER_REPOSITORY: Optional[str] = None
+    DOCKER_USERNAME: Optional[str] = None
+    DOCKER_PASSWORD: Optional[str] = None
     ENV_TYPE: Optional[str] = None
 
     @classmethod

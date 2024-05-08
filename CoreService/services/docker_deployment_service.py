@@ -6,8 +6,13 @@ import docker
 from docker.errors import BuildError
 from pydantic import BaseModel
 
+from config import DOCKER_USERNAME, DOCKER_PASSWORD
 
 logger = logging.getLogger(__name__)
+
+endpoint = "npipe:////./pipe/docker_engine"
+endpoint = "tcp://localhost:2375"
+
 
 class DockerContainerInput(BaseModel):
     image_name: str
@@ -24,8 +29,10 @@ class DockerContainerInput(BaseModel):
 
 class DockerDeployment:
     def __init__(self):
-        self.client = docker.from_env()
-        # self.client = docker(base_url=f"tcp://{target_ip}:2375")
+        # self.client = docker.DockerClient(base_url=endpoint)
+        # self.client = docker.from_env()
+        self.client = docker.DockerClient(base_url=endpoint)
+        self.client.login(username=DOCKER_USERNAME, password=DOCKER_PASSWORD)
 
     def create_and_run_container(self, input_data: DockerContainerInput):
         # Generate container name if not provided
@@ -67,6 +74,7 @@ class DockerDeployment:
         container = self.client.containers.run(**container_options)
 
         return container
+
 
     def build_image_from_dockerfile(self, dockerfile_path: str, input_data: DockerContainerInput, tag: Optional[str] = None):
         """

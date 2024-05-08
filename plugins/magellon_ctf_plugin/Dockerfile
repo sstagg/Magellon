@@ -1,5 +1,5 @@
 #FROM continuumio/anaconda3
-FROM python:3.11.7
+FROM ubuntu
 #
 RUN apt-get update && \
     apt-get upgrade -y && \

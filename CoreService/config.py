@@ -50,6 +50,10 @@ THUMBNAILS_DIR = f"{IMAGE_ROOT_DIR}/{THUMBNAILS_SUB_URL}"
 JOBS_DIR = f"{IMAGE_ROOT_DIR}/{JOBS_PROCESSING_SUB_URL}"
 
 
+DOCKER_USERNAME = app_settings.DOCKER_USERNAME
+DOCKER_PASSWORD = app_settings.DOCKER_PASSWORD
+
+
 def init_consul_client():
     global consul_client
     try:
