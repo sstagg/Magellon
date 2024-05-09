@@ -10,6 +10,9 @@ Before diving into the development process, ensure you have the following prereq
 1. Magellon CLI
 2. Python 3.8 or later
 
+python-poetry.org
+https://pdm-project.org/
+pendulum
 cat /etc/os-release
 
 ldd /app/ctffind

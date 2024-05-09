@@ -20,12 +20,11 @@ sqlalchemy_utils
 PyMySQL==1.1.0
 
 mrcfile
-#Pillow==7.0.0 #for ctf evaluation the syntax supports only this version
+Pillow==7.0.0 #for ctf evaluation the syntax supports only this version
 numpy
 scipy
-#matplotlib==3.3.4  #for ctf evaluation the syntax supports only this version
-matplotlib
-Pillow
+matplotlib==3.3.4  #for ctf evaluation the syntax supports only this version
+
 prometheus-fastapi-instrumentator
 
 websockets
