@@ -34,9 +34,12 @@ RUN apt-get install -y libpq-dev
     # graphviz \
     # nano \
     # wget# Install pip
-RUN apt-get install -y python3-pip
+RUN apt-get update && \
+    apt-get install -y  python3-pip
+
 # Install psycopg2-binary
 RUN pip install psycopg2-binary
+
 # Clear pip cache
 RUN rm -rf /root/.cache/pip/*
 # Install other Python dependencies
@@ -44,6 +47,9 @@ COPY requirements.txt ./
 RUN pip install  --upgrade -r ./requirements.txt
 # Install debugpy
 RUN pip install debugpy
+RUN pip install matplotlib==3.3.4
+RUN pip install Pillow==7.0.0
+RUN pip install logstash_formatter
 # Keeps Python from generating .pyc files in the container
 ENV PYTHONDONTWRITEBYTECODE 1
 # Turns off buffering for easier container logging
