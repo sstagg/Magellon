@@ -287,15 +287,15 @@ class ImageDto(BaseModel):
 
 
 class ImageMetaDataDto(BaseModel):
-    OID: Optional[int] = None
-    image_id: Optional[int] = None
+    oid: Optional[uuid.UUID] = None
+    image_id: Optional[uuid.UUID] = None
     name: Optional[str] = None
     # created_on: Optional[datetime] = None
     data: Optional[str] = None
     OptimisticLockField: Optional[int] = None
     GCRecord: Optional[int] = None
     type: Optional[int] = None
-    data_json: Optional[dict] = None
+    data_json: Optional[str] = None
 
 
 class ParticlePickingDto(BaseModel):
