@@ -295,7 +295,7 @@ class ImageMetaDataDto(BaseModel):
     OptimisticLockField: Optional[int] = None
     GCRecord: Optional[int] = None
     type: Optional[int] = None
-    data_json: Optional[str] = None
+    data_json: Optional[list] = None
 
 
 class ParticlePickingDto(BaseModel):

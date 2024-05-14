@@ -18,6 +18,17 @@ import {useImageParticlePickings, useUpdateParticlePicking} from "../../../servi
 import {ParticlePickingDto} from "../../../domains/ParticlePickingDto.ts";
 
 
+import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
+import { TreeItem } from '@mui/x-tree-view/TreeItem';
+
+import { RichTreeView } from '@mui/x-tree-view/RichTreeView';
+import { TreeItem2 } from '@mui/x-tree-view/TreeItem2';
+
+import { JsonEditor as Editor } from 'jsoneditor-react'
+import 'jsoneditor-react/es/editor.min.css';
+
+import data from '../../../assets/data/editor.json'
+
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL ;
 interface SoloImageViewerProps {
     selectedImage: ImageInfoDto | null;
@@ -96,7 +107,7 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
         //setSelectedIpp(updatedIpp);
         // You can perform any additional actions here if needed
     };
-
+    const [json, setJson] = useState(data)
     return (
 
         <Stack>
@@ -188,6 +199,63 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
                         Frame Alignment
                     </TabPanel>
                     <TabPanel value="7">
+                        <Grid container spacing={2}>
+                            <Grid item xs={4}>
+                                <Box sx={{ height: 620, flexGrow: 1, maxWidth: 200 }}>
+                                    {/*<RichTreeView items={MUI_X_PRODUCTS} />*/}
+                                    <SimpleTreeView>
+                                        <TreeItem itemId="grid" label="Analysis">
+                                            <TreeItem itemId="grid-community" label="FFT" />
+                                            <TreeItem itemId="grid-pro" label="CTF" />
+                                            <TreeItem itemId="grid-premium" label="Frame Alignment" />
+                                            <TreeItem itemId="pp" label="Partilce Picking" />
+                                        </TreeItem>
+                                        <TreeItem itemId="pickers" label="Other">
+                                            <TreeItem itemId="pickers-community" label="example 1" />
+                                            <TreeItem itemId="pickers-pro" label="example 2" />
+                                        </TreeItem>
+                                    </SimpleTreeView>
+                                </Box>
+                            </Grid>
+                            <Grid item xs={8}>
+                                <Box>
+                                    <ButtonGroup size="small">
+                                        <FormControl sx={{m: 1, minWidth: 180}} size="small" variant="standard">
+                                            <InputLabel id="demo-select-small-label">Particle Picking</InputLabel>
+                                            <Select
+                                                labelId="session_select-label"
+                                                id="session_select2"
+                                                value={selectedIpp?.oid}
+                                                label="Session"
+                                                onChange={OnIppSelected }
+                                            >
+                                                <MenuItem value="">
+                                                    <em>None</em>
+                                                </MenuItem>
+                                                {Array.isArray(ImageParticlePickings) && ImageParticlePickings?.map((ipp) => (
+                                                    <MenuItem key={ipp.oid} value={ipp.oid}>
+                                                        {ipp.name}
+                                                    </MenuItem>
+                                                ))}
+                                            </Select>
+                                        </FormControl>
+                                        <IconButton onClick={handleLoad} key="load"><SyncOutlined/></IconButton>
+                                        <IconButton onClick={handleOpen} key="new"><AddOutlined/></IconButton>
+                                        <IconButton key="save" onClick={handleSave}><Save/></IconButton>
+                                        <IconButton key="four"><HighlightOff/></IconButton>
+                                    </ButtonGroup>
+                                    <Editor
+                                        mode="tree"
+                                        history
+                                        value={json}
+                                        onChange={setJson}
+                                    />
+                                </Box>
+                            </Grid>
+                        </Grid>
+
+
+
 
 
                     </TabPanel>
