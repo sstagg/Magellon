@@ -7,17 +7,27 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get upgrade -y && \
     apt-get install -y \
-    software-properties-common wget nano curl
+    apt-file \
+    software-properties-common curl wget nano
 # Add deadsnakes PPA for Python 3.11
-RUN add-apt-repository ppa:deadsnakes/ppa && \
+RUN add-apt-repository universe
+RUN add-apt-repository multiverse
+
+
+RUN apt update
+
+# Add Debian Buster repository (temporarily) to install specific packages
+RUN echo "deb [trusted=yes] http://ftp.de.debian.org/debian buster main contrib non-free" > /etc/apt/sources.list.d/buster.list && \
     apt-get update && \
-    apt-get install -y
+    apt-get install -y libwxbase3.0-0v5 libtiff5 libfftw3-single3 libomp-dev && \
+    rm /etc/apt/sources.list.d/buster.list && \
+    apt-get clean && \
+    apt-get update \
+
+RUN apt-get install -y libwxbase3.0-0v5 libwxbase3.0-dev libwxgtk3.0-0v5 libwxgtk3.0-dev wx3.0-headers wx-common libwxgtk-webview3.0-gtk3-0v5 libwxgtk-webview3.0-gtk3-dev libwxgtk-media3.0-0v5 libwxgtk-media3.0-dev wx3.0-i18n wx3.0-examples
+
 WORKDIR /app
 
-# Update and install required packages
-RUN apt-get update && \
-    apt-get install -y wget bzip2 && \
-    apt-get clean
 
 #RUN wget https://repo.anaconda.com/archive/Anaconda3-2024.02-1-Linux-x86_64.sh
 #RUN bash Anaconda3-2024.02-1-Linux-x86_64.sh
@@ -31,8 +41,18 @@ RUN /opt/miniconda/bin/conda init bash
 # Add Miniconda to PATH
 ENV PATH="/opt/miniconda/bin:$PATH"
 RUN conda config --add channels conda-forge
+
+RUN apt install -y intel-mkl
 # Echo the current shell
 #RUN echo "The current shell is: $SHELL"
+# Update and install required packages from Ubuntu and Debian Buster repository
+#RUN apt-get update && \
+#    echo "deb http://ftp.de.debian.org/debian buster main contrib non-free" >> /etc/apt/sources.list
+
+#RUN apt-get update && \
+#    apt-get install -y wget bzip2 libwxbase3.0-0v5 libtiff5 libfftw3-single3 libomp-dev && \
+#    apt-get clean
+
 
 # Install required packages
 #RUN apt-get install -y libpq-dev libjpeg-dev libopenjp2-7-dev
