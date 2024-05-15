@@ -43,32 +43,6 @@ RUN conda config --add channels conda-forge
 
 RUN apt install -y intel-mkl
 
-ARG CONDA_ENV=myenv
-SHELL ["/bin/bash", "-c"]
-#RUN echo "source activate base" > ~/.bashrc
-
-RUN echo ". /opt/miniconda/etc/profile.d/conda.sh" >> ~/.bashrc
-RUN conda create -y --name ${CONDA_ENV} python=3.8
-
-RUN echo "source activate ${CONDA_ENV}" > ~/.bashrc
-#RUN echo "conda activate ${CONDA_ENV}" >> ~/.bashrc
-RUN echo ". /opt/miniconda/etc/profile.d/conda.sh" >> ~/.bashrc
-#RUN source /opt/miniconda/etc/profile.d/conda.sh
-RUN source ~/.bashrc
-RUN source ~/.bashrc && conda activate ${CONDA_ENV}
-#RUN conda init bash && conda activate ${CONDA_ENV}
-RUN conda install -n ${CONDA_ENV} psycopg2-binary matplotlib==3.3.4 Pillow==7.0.0
-
-#RUN conda activate ${CONDA_ENV}
-#ENV PATH="/opt/miniconda/bin:$PATH"
-#ENV PATH="/opt/miniconda/bin/python:$PATH"
-
-#RUN export CONDA_EXE='/opt/miniconda/bin/conda'
-#RUN export CONDA_PYTHON_EXE='/opt/miniconda/bin/python'
-
-#RUN /bin/sh -c ". /opt/miniconda/etc/profile.d/conda.sh"
-#RUN ". /opt/miniconda/etc/profile.d/conda.sh"
-
 RUN conda install matplotlib==3.3.4
 RUN conda install Pillow
 
@@ -115,4 +89,3 @@ ENV CTF_ESTIMATION_FILE=/app/ctffind
 # Expose port 80
 EXPOSE 80
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80"]
-#CMD ["conda", "run", "-n", "myenv", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80"]
