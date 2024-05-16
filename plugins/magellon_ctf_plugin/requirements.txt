@@ -1,6 +1,6 @@
 fastapi
 uvicorn
-pydantic == 2.7.1
+pydantic 
 rich
 pyyaml
 
@@ -23,7 +23,8 @@ mrcfile
 #Pillow==7.0.0 #for ctf evaluation the syntax supports only this version
 numpy
 scipy
-#matplotlib==3.3.4  #for ctf evaluation the syntax supports only this version
+Pillow
+matplotlib
 
 prometheus-fastapi-instrumentator
 

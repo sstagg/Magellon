@@ -50,8 +50,9 @@ RUN conda install Pillow
 RUN rm -rf /root/.cache/pip/*
 # Install other Python dependencies
 COPY requirements.txt ./
-
-RUN pip  install  --upgrade -r ./requirements.txt
+# RUN pip install matplotlib==3.3.4
+# RUN pip install Pillow==7.0.0
+RUN pip install  --upgrade -r ./requirements.txt
 # Install debugpy
 RUN pip install --upgrade pip
 RUN pip install debugpy
@@ -79,7 +80,8 @@ COPY utils.py ./utils.py
 # Create a volume for the application data
 VOLUME /app/data
 # VOLUME ./configs
-# VOLUME /gpfs# Set the environment variable for the data directory
+VOLUME /app/gpfs 
+# Set the environment variable for the data directory
 ENV DATA_DIR=/app/data
 # Set environment variables for the app
 ENV PYTHONPATH=/app

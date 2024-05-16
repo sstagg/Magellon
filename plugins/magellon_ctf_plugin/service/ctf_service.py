@@ -15,38 +15,33 @@ async def do_ctf(the_task: TaskDto) -> CryoEmTaskResultDto:
     try:
         logger.info(f"Starting task {the_task.id} ")
         the_task_data = CryoEmCtfTaskData.model_validate(the_task.data)
-        os.makedirs(f'{os.path.join("/gpfs", "outputs")}', exist_ok=True)
-        directory_path = os.path.join("/gpfs", "outputs", the_task.id)
-        # the_task_data.outputFile = f'{directory_path}/{the_task.data["outputFile"]}'
-        the_task.data["outputFile"] = f'{directory_path}/{the_task.data["outputFile"]}'
+        os.makedirs(f'{os.path.join(os.getcwd(),"gpfs", "outputs")}', exist_ok=True)
+        directory_path = os.path.join(os.getcwd(),"gpfs", "outputs", the_task.id)
+        the_task_data.outputFile = f'{directory_path}/{the_task.data["outputFile"]}'
         os.makedirs(directory_path, exist_ok=True)
-        # create_directory(directory_path)
-
         input_string = buildCtfCommand(the_task_data)
         logger.info("Input String:%s", input_string)
         process = subprocess.run(
             input_string,
             cwd=os.getcwd(),
             shell=True,
+            text=True,
+            check=True,
+            executable="/bin/bash",
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            universal_newlines=True
         )
 
         output = process.stdout
         error_output = process.stderr
         return_code = process.returncode
-        # logger.info("output", output)
-        # logger.info("Return Code: %s", return_code)
         if return_code != 0:
             logger.error("Error output: %s", error_output , output)
             # executeMethodFailure.inc()
             return {"error_output": error_output}
-
         outputFileName = "".join(the_task_data.outputFile.split(".")[:-1])
-
         CTFestimationValues = await readLastLine(f'{outputFileName}.txt')
-        result = run_ctf_evaluation(f'{the_task_data.outputFile}', the_task_data.pixelSize,
+        result =  await run_ctf_evaluation(f'{the_task_data.outputFile}', the_task_data.pixelSize,
                                     the_task_data.sphericalAberration,
                                     the_task_data.accelerationVoltage, the_task_data.maximumResolution,
                                     float(CTFestimationValues[1]) * 1e-3, float(CTFestimationValues[2]) * 1e-3,
@@ -88,7 +83,17 @@ async def do_ctf(the_task: TaskDto) -> CryoEmTaskResultDto:
 
     except subprocess.CalledProcessError as e:
         error_message = f"An error occurred: {str(e)}"
+        logger.error(error_message)
         outputErrorResult = {
             "status_code": 500,
             "error_message": error_message
         }
+    except Exception as e:
+        error_message = f"An error occurred: {str(e)}"
+        logger.error(error_message)
+        outputErrorResult = {
+            "status_code": 500,
+            "error_message": error_message
+        }
+
+

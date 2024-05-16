@@ -3,7 +3,7 @@ from pyami import mrc
 from appionlib import apDisplay
 from appionlib.apCtf import ctfdisplay
 
-def run_ctf_evaluation(imagefile, apix, cs, kv, reslimit=5.0, defocus1=None, defocus2=None,
+async def run_ctf_evaluation(imagefile, apix, cs, kv, reslimit=5.0, defocus1=None, defocus2=None,
                        ampcontrast=None, extraphaseshift=None, astigangle=None, debug=False):
     imgdata = {
         'filename': os.path.abspath(imagefile),
@@ -46,7 +46,6 @@ def run_ctf_evaluation(imagefile, apix, cs, kv, reslimit=5.0, defocus1=None, def
         'amplitude_contrast': float(ampcontrast),
         "extra_phase_shift": float(extraphaseshift)
     }
-    
     for i in ctfdata:
         print(type(i))
     a = ctfdisplay.CtfDisplay()

@@ -39,9 +39,9 @@ def create_task():
     data1 = CryoEmCtfTaskData(
         image_id=uuid.uuid4(),
         image_name="Image1",
-        image_path=os.path.join("/gpfs","23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc"),
-        inputFile=os.path.join("/gpfs","23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc"),
-        outputFile=os.path.join("/gpfs","output.mrc"),
+        image_path=os.path.join(os.getcwd(),"gpfs","23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc"),
+        inputFile=os.path.join(os.getcwd(),"gpfs","23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc"),
+        outputFile="output.mrc",
         pixelSize=1,
         accelerationVoltage=300,
         sphericalAberration=2.7,
@@ -56,7 +56,6 @@ def create_task():
 
     instance_id1 = uuid.uuid4()  # Replace with your specific worker instance ID
     job_id1 = uuid.uuid4()  # Replace with your specific job ID
-
     return TaskDto.create(data1.model_dump(), FFT_TASK, PENDING, instance_id1, job_id1)
 
 

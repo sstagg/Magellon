@@ -36,7 +36,7 @@ def buildCtfCommand(params: CryoEmCtfTaskData) -> str:
         # "no" if not params.FindAdditionalPhaseShift else "yes",
         # "no" if not params.setExpertOptions else "yes",
     ]
-    return f'echo -e "{chr(10).join(values)}" | {ctf_file}'
+    return f'echo -e "{chr(10).join(values)}" | {os.path.join(os.getcwd(),ctf_file)}'
 
 
 async def getFileContents(file_path:str)->str:
