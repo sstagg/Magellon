@@ -1,70 +1,50 @@
 FROM ubuntu:latest
-# Set non-interactive mode for apt-get
-ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
     apt-get upgrade -y && \
     apt-get install -y \
-    apt-file \
-    software-properties-common curl wget nano
+    software-properties-common \
+    libc6
+
 # Add deadsnakes PPA for Python 3.11
-RUN add-apt-repository universe
-RUN add-apt-repository multiverse
-
-
-RUN apt update
-
-# Add Debian Buster repository (temporarily) to install specific packages
-RUN echo "deb [trusted=yes] http://ftp.de.debian.org/debian buster main contrib non-free" > /etc/apt/sources.list.d/buster.list && \
+RUN add-apt-repository ppa:deadsnakes/ppa && \
     apt-get update && \
-    apt-get install -y libwxbase3.0-0v5 libtiff5 libfftw3-single3 libomp-dev && \
-    apt-get install -y libwxbase3.0-0v5 libwxbase3.0-dev libwxgtk3.0-0v5 libwxgtk3.0-dev wx3.0-headers wx-common libwxgtk-webview3.0-gtk3-0v5 \
-    libwxgtk-webview3.0-gtk3-dev libwxgtk-media3.0-0v5 libwxgtk-media3.0-dev wx3.0-i18n wx3.0-examples && \
-    rm /etc/apt/sources.list.d/buster.list && \
-    apt-get clean && \
-    apt-get update
+    apt-get install -y \
+    python3.11 \
+    python3.11-dev \
+    python3.11-distutils
 
+# Make python3.11 the default python3
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
 WORKDIR /app
+# Install required packages
+RUN apt-get install -y libpq-dev libjpeg-dev libopenjp2-7-dev
+RUN apt-get install -y libtiff5-dev libjpeg8-dev libopenjp2-7-dev zlib1g-dev \
+                           libfreetype6-dev liblcms2-dev libwebp-dev tcl8.6-dev tk8.6-dev python3-tk \
+                           libharfbuzz-dev libfribidi-dev libxcb1-dev libimagequant-dev  libtiff-dev libtiff5-dev
 
-#RUN wget https://repo.anaconda.com/archive/Anaconda3-2024.02-1-Linux-x86_64.sh
-#RUN bash Anaconda3-2024.02-1-Linux-x86_64.sh
+# Install pip
+RUN apt-get install -y python3-pip
 
-RUN mkdir -p /opt/conda
-#RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /opt/conda/miniconda.sh
-RUN wget https://repo.anaconda.com/miniconda/Miniconda3-py39_24.3.0-0-Linux-x86_64.sh -O /opt/conda/miniconda.sh
-RUN bash /opt/conda/miniconda.sh -b -u -p /opt/miniconda
-
-RUN rm -rf /opt/conda
-#RUN /opt/miniconda/bin/conda init bash
-# Add Miniconda to PATH
-ENV PATH="/opt/miniconda/bin:$PATH"
-RUN export  PATH="/opt/miniconda/bin:$PATH"
-RUN conda config --add channels conda-forge
-
-RUN apt install -y intel-mkl
-
-RUN conda install matplotlib==3.3.4
-RUN conda install Pillow
+# Install psycopg2-binary
+RUN pip install psycopg2-binary
 
 # Clear pip cache
 RUN rm -rf /root/.cache/pip/*
+
 # Install other Python dependencies
 COPY requirements.txt ./
-# RUN pip install matplotlib==3.3.4
-# RUN pip install Pillow==7.0.0
 RUN pip install  --upgrade -r ./requirements.txt
 # Install debugpy
 RUN pip install --upgrade pip
 RUN pip install debugpy
-#RUN pip install logstash_formatter
+
 # Keeps Python from generating .pyc files in the container
 ENV PYTHONDONTWRITEBYTECODE 1
 # Turns off buffering for easier container logging
 ENV PYTHONUNBUFFERED 1
 # Copy application files
 COPY appionlib ./appionlib
-COPY assets ./assets
-COPY configs ./configs
 COPY configs/settings_dev.yml ./configs/settings_dev.yml
 COPY configs/settings_prod.yml ./configs/settings_prod.yml
 COPY core ./core
@@ -76,11 +56,9 @@ COPY ctffind_plot_results.sh ./ctffind_plot_results.sh
 COPY test_main.http ./
 COPY test_publish.py ./test_publish.py
 COPY utils.py ./utils.py
-
 # Create a volume for the application data
 VOLUME /app/data
-# VOLUME ./configs
-VOLUME /app/gpfs 
+VOLUME /app/gpfs
 # Set the environment variable for the data directory
 ENV DATA_DIR=/app/data
 # Set environment variables for the app
@@ -91,3 +69,4 @@ ENV CTF_ESTIMATION_FILE=/app/ctffind
 # Expose port 80
 EXPOSE 80
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80"]
+
