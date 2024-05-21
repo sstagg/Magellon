@@ -26,17 +26,19 @@ async def do_ctf(the_task: TaskDto) -> CryoEmTaskResultDto:
             cwd=os.getcwd(),
             shell=True,
             text=True,
-            check=True,
+            check=False,
             executable="/bin/bash",
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
 
-        output = process.stdout
-        error_output = process.stderr
+        output = process.stdout.strip()
+        error_output = process.stderr.strip()
         return_code = process.returncode
         if return_code != 0:
-            logger.error("Error output: %s", error_output , output)
+            # logger.error("Standard output: %s", output)
+            # logger.error("Error output: %s", error_output)
+            raise Exception(f"Command failed with return code {process.returncode}:{output} {error_output}")
             # executeMethodFailure.inc()
             return {"error_output": error_output}
         outputFileName = "".join(the_task_data.outputFile.split(".")[:-1])
@@ -82,7 +84,7 @@ async def do_ctf(the_task: TaskDto) -> CryoEmTaskResultDto:
         return {"data": outputSuccessResult}
 
     except subprocess.CalledProcessError as e:
-        error_message = f"An error occurred: {str(e)}"
+        error_message = f"Command '{e.cmd}' failed with return code {e.returncode}: {e.stderr}"
         logger.error(error_message)
         return {
             "status_code": 500,
