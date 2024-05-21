@@ -6,7 +6,6 @@ import math
 import numpy
 import pyami.quietscipy
 from pyami import imagefun
-from scipy import ndimage
 ## appion
 from appionlib import apDisplay
 from appionlib.apImage import imagefilter

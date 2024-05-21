@@ -13,6 +13,7 @@ from appionlib.apImage import imagestat
 debug = False
 
 #===================
+#used
 def generateCTF1d(radii=None, focus=1.0e-6, cs=2e-3, volts=120000, ampconst=0.07, extra_phase_shift=0.0, 
 		failParams=False, overfocus=False):
 	"""
@@ -133,12 +134,14 @@ def generateCTF1dACE2(radii=None, focus=1.0e-6, cs=2e-3, volts=120000, ampconst=
 	return ctf**2
 
 #===================
+#used
 def generateRadii1d(numpoints=256, pixelsize=1e-10):
 	radfreq = 1.0/( numpoints*pixelsize )
 	radii = numpy.arange(numpoints) * radfreq
 	return radii
 
 #===================
+#used
 def generateCTF2dFromCtfData(ctfdata, apix, volts, fieldsize):
 	focus1 = ctfdata['defocus1']
 	focus2 = ctfdata['defocus2']
@@ -153,6 +156,7 @@ def generateCTF2dFromCtfData(ctfdata, apix, volts, fieldsize):
 	return generateCTF2d(focus1, focus2, theta, shape, mpix, cs, volts, ampconst, extra_phase_shift)
 
 #===================
+#used
 def generateCTF2d(focus1=-1.0e-6, focus2=-1.0e-6, theta=0.0, 
 	shape=(256,256), pixelsize=1.0e-10, cs=2e-3, volts=120000, ampconst=0.000, extra_phase_shift=0.0):
 	"""
@@ -188,6 +192,7 @@ def generateCTF2d(focus1=-1.0e-6, focus2=-1.0e-6, theta=0.0,
 	return ctf
 
 #===================
+#used
 def generateLocalFocus2d(focus1=-1.0e-6, focus2=-1.0e-6, theta=0.0, shape=(256,256)):
 	t0 = time.time()
 	if debug is True:
@@ -209,6 +214,7 @@ def generateLocalFocus2d(focus1=-1.0e-6, focus2=-1.0e-6, theta=0.0, shape=(256,2
 	return localfocus
 
 #===================
+#used
 def generateGamma2d(focus1=-1.0e-6, focus2=-1.0e-6, theta=0.0, 
 	shape=(256,256), pixelsize=1.0e-10, cs=2e-3, volts=120000, ampconst=0.000, extra_phase_shift=0.0):
 	"""
@@ -281,6 +287,7 @@ def generateGamma2d(focus1=-1.0e-6, focus2=-1.0e-6, theta=0.0,
 	return gamma1
 
 #============
+#used
 def equiPhaseAverage(image, ellipratio,
 		focus1, focus2, angle, pixelsize, cs, volts, ampconst, extra_phase_shift,
 		ringwidth=2.0, innercutradius=None, full=False):
@@ -456,6 +463,7 @@ class Angular(object):
 		return angle
 
 #===================
+#used
 def generateAngular2d(shape):
 	"""
 	this method is about 2x faster than method 1
@@ -521,6 +529,7 @@ class Radial(object):
 		return dist
 
 #===================
+#used
 def generateRadial2d(shape, xfreq, yfreq):
 	"""
 	this method is about 4x faster than method 1
@@ -546,6 +555,7 @@ def generateRadial2d(shape, xfreq, yfreq):
 	return circular
 
 #===================
+#used
 def checkParams(focus1=-1.0e-6, focus2=-1.0e-6, pixelsize=1.5e-10, 
 	cs=2e-3, volts=120000, ampconst=0.07, extra_phase_shift=0.0, failParams=False):
 	if debug is True:

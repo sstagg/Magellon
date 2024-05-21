@@ -9,7 +9,6 @@ import numpy
 from numpy import ma
 ## appion
 from appionlib import apDisplay
-from appionlib import apFile
 from appionlib.apImage import imagenorm
 ## pyami
 from pyami import mrc, imagefun, spider

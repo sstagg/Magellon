@@ -8,7 +8,6 @@ from scipy import ndimage
 from numpy import linalg
 ## appion
 from appionlib import apDisplay
-from appionlib.apSpider import filters
 ## pyami
 from pyami import imagefun, fftengine
  

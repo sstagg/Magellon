@@ -84,14 +84,15 @@ async def do_ctf(the_task: TaskDto) -> CryoEmTaskResultDto:
     except subprocess.CalledProcessError as e:
         error_message = f"An error occurred: {str(e)}"
         logger.error(error_message)
-        outputErrorResult = {
+        return {
             "status_code": 500,
             "error_message": error_message
         }
+        
     except Exception as e:
         error_message = f"An error occurred: {str(e)}"
         logger.error(error_message)
-        outputErrorResult = {
+        return {
             "status_code": 500,
             "error_message": error_message
         }
