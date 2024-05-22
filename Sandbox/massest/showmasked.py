@@ -12,6 +12,8 @@ from matplotlib import pyplot
 def parseArgs():
     parser = argparse.ArgumentParser()
     parser.add_argument("--stackpath", dest="stackpath", type=str, help="Path to stack")
+    parser.add_argument("--writemasked", dest="writemasked", type=str, default=None, help="Write out a masked stack with the given name, e.g. '--writemasked out.mrc'. Default is no output")
+    parser.add_argument("--nomask", dest="nomask", action='store_true', default=False, help="Don't apply the mask")
     args = parser.parse_args()
     if len(sys.argv) == 1:
         parser.print_help()
@@ -63,17 +65,17 @@ def create_montage_with_numbers(images, ncols=5, padding=4):
 if __name__ == '__main__':
 
     args = parseArgs()
-    border = 20
-
-	
     stackheader=mrc.open(args.stackpath, header_only=True)
     apix=stackheader.voxel_size
     apix=apix.tolist()
     apix=apix[0]
     stackarray=mrc.read(args.stackpath)
-    for avg in stackarray:
-        mel.maskAvgByStatistics(img=avg)
-        #mel.mask_otsu_thresholding(avg)
-    mrc.write('masked.mrc', stackarray, overwrite=True)
+    if args.nomask is not True:
+        for avg in stackarray:
+            particlemask, backgroundmask=mel.make_masks_by_statistics(img=avg)
+            mean, std=mel.get_edge_stats_for_box(avg,clippix=3)
+            avg[backgroundmask]=mean
+        if args.writemasked is not None:
+                mrc.write(args.writemasked, stackarray, overwrite=True)
     fig = create_montage_with_numbers(stackarray)
     pyplot.show()

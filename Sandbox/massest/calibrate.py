@@ -23,8 +23,6 @@ def parseArgs():
 if __name__ == '__main__':
 
     args = parseArgs()
-    border = 20
-
     stacks = glob.glob(os.path.join(args.stackpath, 'EMD*'))
 
     ### make dictionary of filenames and masses
@@ -51,19 +49,19 @@ if __name__ == '__main__':
         experimentalmass = float(lines[1].split()[-1])
         stackarray = mrc.read(stackfile)
         for avg in stackarray:
-            estmass = mel.calcMass(avg=avg, apix=apix, border=border)
+            estmass = mel.calc_mass(avg=avg, apix=apix, usebackground=True)
             masses.append(theoreticalmass)
             sums.append(estmass)
             # print (experimentalmass, estmass)
 
         allstackarray = mrc.read(allavgstackfilename)
         for avg in allstackarray:
-            estmass = mel.calcMass(avg=avg, apix=apix, border=border)
+            estmass = mel.calc_mass(avg=avg, apix=apix, usebackground=True)
             allmasses.append(theoreticalmass)
             allsums.append(estmass)
             # print (experimentalmass, estmass)
 
-    pyplot.plot(allmasses, allsums, 'ro')
+    #pyplot.plot(allmasses, allsums, 'ro')
     pyplot.plot(masses, sums, 'bo')
     pyplot.show()
     f=open("calibration.txt", 'w')
@@ -71,31 +69,3 @@ if __name__ == '__main__':
         avgsum=sums[n]
         f.write('%s\t%s\n' % (mass,avgsum))
     f.close()
-    #
-    # ### loop over the stacks and averages and estimate masses
-    # for stackfile in stacks:
-    #     filename=os.path.split(stackfile)[-1]
-    #     stackroot=filename.split('.')[0].split('proj')[0]
-    #     stack=mrc.read(stackfile)
-    #     for n,avg in enumerate(stack):
-    #         estmass = 0.5*mel.calcMass(avg=avg,apix=apix, border=border)
-    #         # estmass = mel.calcMass(avg=avg,apix=apix, border=border)
-    #         print ("Estimated mass for avg %d from file %s is %d kDa" % (n, stackroot, estmass))
-    #         sums.append(estmass)
-    #         masses.append(massdict[stackroot])
-    #
-    # # Perform linear fit
-    # coeffs = numpy.polyfit(masses, sums, 1)
-    # linear_fit = numpy.poly1d(coeffs)
-    #
-    # # Create a linear fit line
-    # fit_line = linear_fit(masses)
-    #
-    # # Plot the data points and the linear fit
-    # pyplot.plot(masses, sums, 'bo', label='Data')
-    # pyplot.plot(masses, fit_line, 'r-', label=f'Linear Fit: y = {coeffs[0]:.2f}x + {coeffs[1]:.2f}')
-    # pyplot.xlabel('Mass')
-    # pyplot.ylabel('Estimated Mass')
-    # pyplot.legend()
-    # pyplot.title('Linear Fit of Mass Estimation Data')
-    # pyplot.show()
