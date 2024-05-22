@@ -1,4 +1,5 @@
 import logging
+import sys
 
 from core.helper import push_result_to_out_queue
 from core.model_dto import TaskDto, PluginInfoSingleton
@@ -13,7 +14,8 @@ plugin_info_data = {
     "developer": "Behdad Khoshbin b.khoshbin@gmail.com & Puneeth Reddy",
     "copyright": "Copyright © 2024",
     "version": "1.0.2",
-    "port_number": 8000
+    "port_number": 8000,
+    "Python version": sys.version
 }
 
 

@@ -57,10 +57,10 @@ COPY test_main.http ./
 COPY test_publish.py ./test_publish.py
 COPY utils.py ./utils.py
 # Create a volume for the application data
-VOLUME /app/data
+#VOLUME /app/data
 VOLUME /app/gpfs
 # Set the environment variable for the data directory
-ENV DATA_DIR=/app/data
+#ENV DATA_DIR=/app/data
 # Set environment variables for the app
 ENV PYTHONPATH=/app
 ENV APP_MODULE=main:app
