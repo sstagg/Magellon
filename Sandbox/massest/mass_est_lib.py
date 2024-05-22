@@ -1,8 +1,10 @@
 import numpy
-import mrcfile as mrc
-import cv2
+import numpy as np
+from matplotlib import pyplot
 
-def calc_mass(avg=None, apix=None, scalefactor=1, usebackground=False):
+#import cv2
+
+def calc_mass(avg=None, apix=None, scalefactor=26.455, usebackground=True):
     particlemask, backgroundmask = make_masks_by_statistics(nstd=3, img=avg)
     backgroundmean = numpy.average(avg[backgroundmask])
 
@@ -31,41 +33,66 @@ def get_edge_stats_for_box(img, clippix):
     std = edgepix.std()
     return mean, std
 
-def sum_pixels_inside_boolmask(boolmask=None, img=None):
-    boolarray = img > (mean + std * nstd)
-    notboolarray = numpy.invert(boolarray)
-    notptclmean = numpy.average(img[notboolarray])
-    #img = img - notptclmean
-    img = img - mean
-    # scaled=img/(mean+std*nstd)
-    # img = img/(mean+std*nstd)
-    pixelsum = numpy.sum(img[boolmask])
-    return pixelsum
+# def mask_otsu_thresholding(image):
+#     """
+#     Perform Otsu Thresholding.
+#
+#     Returns:
+#         bool mask
+#     """
+#     # Convert the floating-point image to a suitable format (e.g., 8-bit)
+#     normalized_image = cv2.normalize(image, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
+#
+#     # Perform light Gaussian filter
+#     filtered = cv2.GaussianBlur(normalized_image, (5,5),0 )
+#
+#     # Apply Otsu's thresholding on the converted image
+#     threshvalue, thresholded = cv2.threshold(filtered, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+#
+#     particlemask = thresholded > 0
+#     backgroundmask = numpy.invert(boolarray)
+#
+#     return particlemask, backgroundmask
 
-
-
-
-def mask_otsu_thresholding(image):
+def create_montage_with_numbers(images, numbers=None, ncols=5, padding=4):
     """
-    Perform Otsu Thresholding.
+    Create a montage of images with overlayed image numbers and padding between images from a numpy array of 2D images.
+
+    Parameters:
+        images (numpy.ndarray): A 3D numpy array of shape (num_images, height, width).
+        ncols (int): Number of columns in the montage grid.
+        padding (int): Padding between images in pixels.
 
     Returns:
-        bool mask
+        matplotlib.figure.Figure: The matplotlib figure object.
     """
-    # Convert the floating-point image to a suitable format (e.g., 8-bit)
-    normalized_image = cv2.normalize(image, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
+    n_images, height, width = images.shape
+    nrows = int(np.ceil(n_images / ncols))
 
-    # Perform light Gaussian filter
-    filtered = cv2.GaussianBlur(normalized_image, (5,5),0 )
-    mrc.write('filtered.mrc', filtered, overwrite=True)
+    montage_height = nrows * height + (nrows - 1) * padding
+    montage_width = ncols * width + (ncols - 1) * padding
 
-    # Apply Otsu's thresholding on the converted image
-    threshvalue, thresholded = cv2.threshold(filtered, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    montage = np.zeros((montage_height, montage_width))
 
-    boolarray = thresholded > 0
-    notboolarray = numpy.invert(boolarray)
+    for i in range(n_images):
+        row = i // ncols
+        col = i % ncols
+        start_row = row * (height + padding)
+        start_col = col * (width + padding)
+        end_row = start_row + height
+        end_col = start_col + width
+        montage[start_row:end_row, start_col:end_col] = images[i]
 
-    mean, std = getEdgeStatsForBox(image,3)
-    image[notboolarray]=mean
+    fig, ax = pyplot.subplots()
+    ax.imshow(montage, cmap='gray')
+    ax.axis('off')
 
+    for i in range(n_images):
+        row = i // ncols
+        col = i % ncols
+        if numbers is None:
+            ax.text(col * (width + padding) + padding, (row + 1) * (height + padding) - padding, str(i), color='red', ha='left', va='bottom')
+        else:
+            ax.text(col * (width + padding) + padding, (row + 1) * (height + padding) - padding, str(numbers[i]), color='red', ha='left', va='bottom')
 
+    return fig
