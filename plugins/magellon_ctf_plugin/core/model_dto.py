@@ -5,16 +5,16 @@ from enum import Enum
 from typing import Dict, Any, List, Optional
 from uuid import uuid4, UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
-class TaskType(BaseModel):
+class TaskCategory(BaseModel):
     code: int
     name: str
     description: str
 
 
-class TaskResult(BaseModel):
+class TaskOutcome(BaseModel):
     code: int
     message: str
     description: str
@@ -27,16 +27,16 @@ class TaskStatus(BaseModel):
     description: str
 
 
-class TaskBaseDto(BaseModel):
+class TaskBase(BaseModel):
     id: Optional[str] = str(uuid.uuid4())
     worker_instance_id: Optional[UUID] = None  # Instance ID of the worker
     data: Dict[str, Any]  # Assuming data is a dictionary; adjust the type accordingly
     status: Optional[TaskStatus] = None
-    type: Optional[TaskType] = None  # Adjust the type based on your needs
+    type: Optional[TaskCategory] = None  # Adjust the type based on your needs
     created_date: Optional[datetime] = datetime.now()  # Created date and time
     start_on: Optional[datetime] = None  # Start time of task execution
     end_on: Optional[datetime] = None  # End time of task execution
-    result: Optional[TaskResult] = None
+    result: Optional[TaskOutcome] = None
 
     # class Config:
     #     allow_mutation = False  # Make the model immutable to prevent accidental changes
@@ -48,29 +48,28 @@ class TaskBaseDto(BaseModel):
         return hashlib.sha256(data_str.encode('utf-8')).hexdigest()
 
 
-class TaskDto(TaskBaseDto):
+class TaskDto(TaskBase):
     job_id: Optional[UUID] = (uuid.uuid4())
 
     @classmethod
-    def create(cls, data: Dict[str, Any], ptype: TaskType, pstatus: TaskStatus, instance_id: UUID, job_id: UUID):
-        # Create a new instance of TaskDto with the provided data
+    def create(cls, pid: UUID,job_id: UUID, ptype: TaskCategory, pstatus: TaskStatus, instance_id: UUID, data: Dict[str, Any]):
         task = cls(
-            id=str(uuid4()),
-            data=data,
+            id=pid,  #str(uuid4()),
+            job_id=job_id,
+            worker_instance_id=instance_id,
             created_date=datetime.now(),
             status=pstatus,
             type=ptype,
-            worker_instance_id=instance_id,
-            job_id=job_id
-        )
+            data=data)
+        # Create a new instance of TaskDto with the provided data
         return task
 
 
-class JobDto(TaskBaseDto):
+class JobDto(TaskBase):
     tasks: List[TaskDto] = []  # List of associated tasks
 
     @classmethod
-    def create(cls, pdata: Dict[str, Any], ptype: TaskType):
+    def create(cls, pdata: Dict[str, Any], ptype: TaskCategory):
         # Create a new instance of JobModel with the provided data
         job = cls(
             uuid=uuid4(),
@@ -80,6 +79,56 @@ class JobDto(TaskBaseDto):
             type=ptype
         )
         return job
+
+
+class CryoEmImageTaskData(BaseModel):
+    image_id: Optional[UUID] = None
+    image_name: Optional[str] = None
+    image_path: Optional[str] = None
+
+
+class MrcToPngTaskData(CryoEmImageTaskData):
+    image_target: Optional[str] = None
+    frame_name: Optional[str] = None
+    frame_path: Optional[str] = None
+
+
+class FftTaskData(CryoEmImageTaskData):
+    target_name: Optional[str] = None
+    target_path: Optional[str] = None
+    frame_name: Optional[str] = None
+    frame_path: Optional[str] = None
+
+
+class CtfTaskData(CryoEmImageTaskData):
+    inputFile: str
+    outputFile: str = "ouput.mrc"
+    pixelSize: float = 1.0
+    accelerationVoltage: float = 300.0
+    sphericalAberration: float = 2.70
+    amplitudeContrast: float = 0.07
+    sizeOfAmplitudeSpectrum: int = 512
+    minimumResolution: float = 30.0
+    maximumResolution: float = 5.0
+    minimumDefocus: float = 5000.0
+    maximumDefocus: float = 50000.0
+    defocusSearchStep: float = 100.0
+
+
+class FftTask(TaskDto):
+    data: FftTaskData
+
+
+class CtfTask(TaskDto):
+    data: CtfTaskData
+
+
+class TaskStatusEnum(Enum):
+    # Enums for TaskStatus
+    PENDING = {"code": 0, "name": "pending", "description": "Task is pending"}
+    IN_PROGRESS = {"code": 1, "name": "in_progress", "description": "Task is in progress"}
+    COMPLETED = {"code": 2, "name": "completed", "description": "Task has been completed"}
+    FAILED = {"code": 3, "name": "failed", "description": "Task has failed"}
 
 
 class PluginInfo(BaseModel):
@@ -112,28 +161,6 @@ class CheckRequirementsResult(Enum):
     FAILURE_REQUIREMENTS = 203
 
 
-# Enums for TaskType
-FFT_TASK = TaskType(code=1, name="FFT", description="Fast Fourier Transform")
-CTF_TASK = TaskType(code=2, name="CTF", description="Contrast Transfer Function")
-PARTICLE_PICKING = TaskType(code=3, name="Particle Picking", description="Identifying particles in images")
-TWO_D_CLASSIFICATION = TaskType(code=4, name="2D Classification", description="Classifying 2D images")
-MOTIONCOR = TaskType(code=5, name="MotionCor", description="Motion correction for electron microscopy")
-
-# Enums for TaskStatus
-PENDING = TaskStatus(code=0, name="pending", description="Task is pending")
-IN_PROGRESS = TaskStatus(code=1, name="in_progress", description="Task is in progress")
-COMPLETED = TaskStatus(code=2, name="completed", description="Task has been completed")
-FAILED = TaskStatus(code=3, name="failed", description="Task has failed")
-
-
-class TaskStatusEnum(Enum):
-    # Enums for TaskStatus
-    PENDING = {"code": 0, "name": "pending", "description": "Task is pending"}
-    IN_PROGRESS = {"code": 1, "name": "in_progress", "description": "Task is in progress"}
-    COMPLETED = {"code": 2, "name": "completed", "description": "Task has been completed"}
-    FAILED = {"code": 3, "name": "failed", "description": "Task has failed"}
-
-
 class RecuirementResultEnum(Enum):
     SUCCESS = 10
     WARNING = 20
@@ -149,43 +176,25 @@ class RequirementResult(BaseModel):
     instructions: Optional[str] = None
 
 
-class CryoEmImageTaskData(BaseModel):
-    image_id: Optional[UUID] = None
-    image_name: Optional[str] = None
-    image_path: Optional[str] = None
+# Enums for TaskType
+FFT_TASK = TaskCategory(code=1, name="FFT", description="Fast Fourier Transform")
+CTF_TASK = TaskCategory(code=2, name="CTF", description="Contrast Transfer Function")
+PARTICLE_PICKING = TaskCategory(code=3, name="Particle Picking", description="Identifying particles in images")
+TWO_D_CLASSIFICATION = TaskCategory(code=4, name="2D Classification", description="Classifying 2D images")
+MOTIONCOR = TaskCategory(code=5, name="MotionCor", description="Motion correction for electron microscopy")
+
+# Enums for TaskStatus
+PENDING = TaskStatus(code=0, name="pending", description="Task is pending")
+IN_PROGRESS = TaskStatus(code=1, name="in_progress", description="Task is in progress")
+COMPLETED = TaskStatus(code=2, name="completed", description="Task has been completed")
+FAILED = TaskStatus(code=3, name="failed", description="Task has failed")
 
 
-class CryoEmMrcToPngTaskData(CryoEmImageTaskData):
-    image_target: Optional[str] = None
-    frame_name: Optional[str] = None
-    frame_path: Optional[str] = None
-
-
-class CryoEmFftTaskDetailDto(CryoEmImageTaskData):
-    target_name: Optional[str] = None
-    target_path: Optional[str] = None
-    frame_name: Optional[str] = None
-    frame_path: Optional[str] = None
-
-
-class CryoEmCtfTaskData(CryoEmImageTaskData):
-    inputFile: str
-    outputFile: str = "ouput.mrc"
-    pixelSize: float = 1.0
-    accelerationVoltage: float = 300.0
-    sphericalAberration: float = 2.70
-    amplitudeContrast: float = 0.07
-    sizeOfAmplitudeSpectrum: int = 512
-    minimumResolution: float = 30.0
-    maximumResolution: float = 5.0
-    minimumDefocus: float = 5000.0
-    maximumDefocus: float = 50000.0
-    defocusSearchStep: float = 100.0
-    # isastigmatismPresent: bool=False
-    # slowerExhaustiveSearch: bool =False
-    # restraintOnAstogmatism: bool =False
-    # FindAdditionalPhaseShift: bool = False
-    # setExpertOptions:bool =False
+# isastigmatismPresent: bool=False
+# slowerExhaustiveSearch: bool =False
+# restraintOnAstogmatism: bool =False
+# FindAdditionalPhaseShift: bool = False
+# setExpertOptions:bool =False
 
 
 class ImageMetaData(BaseModel):
@@ -201,7 +210,7 @@ class OutputFile(BaseModel):
     required: bool
 
 
-class CryoEmTaskResultDto(BaseModel):
+class TaskResultDto(BaseModel):
     worker_instance_id: Optional[UUID] = None  # Instance ID of the worker
     task_id: Optional[str] = str(uuid.uuid4())
     image_id: Optional[str] = None
@@ -210,7 +219,7 @@ class CryoEmTaskResultDto(BaseModel):
     message: Optional[str] = None
     description: Optional[str] = None
     status: Optional[TaskStatus] = None
-    type: Optional[TaskType] = None  # Adjust the type based on your needs
+    type: Optional[TaskCategory] = None  # Adjust the type based on your needs
     created_date: Optional[datetime] = datetime.now()  # Created date and time
     started_on: Optional[datetime] = None  # Start time of task execution
     ended_on: Optional[datetime] = None  # End time of task execution

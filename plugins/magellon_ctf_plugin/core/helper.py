@@ -5,7 +5,7 @@ import re
 
 from pydantic import BaseModel
 
-from core.model_dto import TaskDto, CryoEmCtfTaskData, CryoEmTaskResultDto
+from core.model_dto import TaskDto, CtfTaskData, CryoEmTaskResultDto
 from core.rabbitmq_client import RabbitmqClient
 from core.settings import AppSettingsSingleton
 
@@ -75,11 +75,11 @@ def parse_message_to_task_object(message_str):
 
 
 def extract_task_data_from_object(task_object):
-    return CryoEmCtfTaskData.model_validate(task_object.data)
+    return CtfTaskData.model_validate(task_object.data)
 
 
 def parse_json_for_cryoemctftask(message_str):
-    return CryoEmCtfTaskData.model_validate(TaskDto.model_validate_json(message_str).data)
+    return CtfTaskData.model_validate(TaskDto.model_validate_json(message_str).data)
 
 
 def publish_message_to_queue(message: BaseModel, queue_name: str) -> bool:

@@ -4,7 +4,7 @@ import os
 import subprocess
 from datetime import datetime
 
-from core.model_dto import CryoEmCtfTaskData, OutputFile, TaskDto, CryoEmTaskResultDto, ImageMetaData
+from core.model_dto import CtfTaskData, OutputFile, TaskDto, CryoEmTaskResultDto, ImageMetaData
 from service.ctfeval import run_ctf_evaluation
 from utils import buildCtfCommand, readLastLine, getFileContents
 
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 async def do_ctf(the_task: TaskDto) -> CryoEmTaskResultDto:
     try:
         logger.info(f"Starting task {the_task.id} ")
-        the_task_data = CryoEmCtfTaskData.model_validate(the_task.data)
+        the_task_data = CtfTaskData.model_validate(the_task.data)
         os.makedirs(f'{os.path.join(os.getcwd(),"gpfs", "outputs")}', exist_ok=True)
         directory_path = os.path.join(os.getcwd(),"gpfs", "outputs", the_task.id)
         the_task_data.outputFile = f'{directory_path}/{the_task.data["outputFile"]}'

@@ -3,7 +3,7 @@ from typing import Optional,List
 # from model import CtfInput
 import subprocess
 
-from core.model_dto import CryoEmCtfTaskData
+from core.model_dto import CtfTaskData
 
 # from loggerSetup import setupLogger
 # logger=setupLogger()
@@ -13,7 +13,7 @@ def getSubCommand(attribute: str, value: Optional[str] = None) -> List[str]:
 # echo -e "23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc\ndiagnostic_output.mrc\n1.0\n300.0\n2.70\n0.07
 # \n512\n30.0\n5.0\n5000.0\n50000.0\n100.0\nno\nno\nno\nno\nno\nno\n" | ./ctffind
 
-def buildCtfCommand(params: CryoEmCtfTaskData) -> str:
+def buildCtfCommand(params: CtfTaskData) -> str:
     # ctf_file=os.environ.get("CTF_ESTIMATION_FILE")
     ctf_file=os.environ.get("CTF_ESTIMATION_FILE")
     values = [
