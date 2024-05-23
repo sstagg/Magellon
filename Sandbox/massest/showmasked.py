@@ -34,6 +34,6 @@ if __name__ == '__main__':
             mean, std=mel.get_edge_stats_for_box(avg,clippix=3)
             avg[backgroundmask]=mean
         if args.writemasked is not None:
-                mrc.write(args.writemasked, stackarray, overwrite=True)
+            mrc.write(args.writemasked, stackarray, overwrite=True)
     fig = mel.create_montage_with_numbers(stackarray)
     pyplot.show()
