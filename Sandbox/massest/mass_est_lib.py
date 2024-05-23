@@ -1,6 +1,9 @@
 import numpy
 import numpy as np
+from scipy import stats
 from matplotlib import pyplot
+import mrcfile as mrc
+import sys
 
 #import cv2
 
@@ -17,6 +20,34 @@ def calc_mass(avg=None, apix=None, scalefactor=26.455, usebackground=True):
     angsum = pixsum * apix ** 2
     estmass = angsum * scalefactor
     return estmass
+
+def calc_mass_stats_for_stack(avgfilename):
+    stackheader=mrc.open(avgfilename, header_only=True)
+    apix=stackheader.voxel_size
+    apix=apix.tolist()
+    apix=apix[0]
+    stackarray=mrc.read(avgfilename)
+
+    masses=[]
+    for avg in stackarray:
+        masses.append(calc_mass(avg=avg, apix=apix, usebackground=True))
+
+    masses=numpy.array(masses)
+    mean=masses.mean()
+    median=numpy.median(masses)
+    mode=stats.mode(masses, keepdims=False)
+    mode=mode.mode
+    print (f'mean {mean}, median {median}, mode {mode}')
+    statlist=[]
+    for mass in masses:
+        statdict={}
+        statdict['dmean']=abs(mass-mean)
+        statdict['dmedian']=abs(mass-median)
+        statdict['dmode']=abs(mass-mode)
+        statdict['mass']=mass
+        statlist.append(statdict)
+    return statlist
+
 
 def make_masks_by_statistics(nstd=3, img=None):
     mean, std = get_edge_stats_for_box(img, 3) # use stats for 3 pixels inside edge to avoid edge effects
@@ -96,3 +127,7 @@ def create_montage_with_numbers(images, numbers=None, ncols=5, padding=4):
             ax.text(col * (width + padding) + padding, (row + 1) * (height + padding) - padding, str(numbers[i]), color='red', ha='left', va='bottom')
 
     return fig
+
+if __name__ == '__main__':
+    stackstats=calc_mass_stats_for_stack(sys.argv[1])
+    print(stackstats)
