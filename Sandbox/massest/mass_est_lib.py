@@ -130,4 +130,5 @@ def create_montage_with_numbers(images, numbers=None, ncols=5, padding=4):
 
 if __name__ == '__main__':
     stackstats=calc_mass_stats_for_stack(sys.argv[1])
-    print(stackstats)
+    for stat in stackstats:
+        print (stat)
