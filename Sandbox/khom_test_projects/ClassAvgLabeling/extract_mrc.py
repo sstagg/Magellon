@@ -1,3 +1,11 @@
+# extract_mrc.py
+# By Keenan Hom
+# Written on Python 3.8.3
+# Tested on Python 3.8.3
+# 
+# 
+# Copyright 2023 Keenan Hom
+
 import os
 import re
 import json
@@ -7,11 +15,12 @@ import mrcfile
 
 import numpy as np
 import pandas as pd
-# import matplotlib as mpl
+import matplotlib as mpl
+mpl.use('TkAgg')
 
-# from tqdm import tqdm
 from PIL import Image
-# from matplotlib import pyplot as plt
+
+from massest.mass_est_lib import calc_mass_stats_for_stack
 
 ''' 
 Python program to extract 2D class average images from an MRC file into individual JPGs. Also 
@@ -22,7 +31,7 @@ exctracts the necessary metadata (estimated resolution, class distribution, and 
 
 class CryosparcExtractor:
     '''
-    
+    Extract images and metadata from a single job
     '''
     def __init__(self, data_dir=None, processed_dir=None):
         assert data_dir is not None and processed_dir is not None, \
@@ -30,10 +39,10 @@ class CryosparcExtractor:
         assert os.path.isdir(data_dir), f'ERROR: job directory `{data_dir}` is not a valid path'
         assert os.path.isdir(processed_dir), f'ERROR: lab directory `{processed_dir} is not a valid path`'
 
-        self.data_dir = data_dir
-        self.processed_dir = processed_dir
-        self.image_dir = os.path.join(processed_dir, 'images/')
-        self.metadata_dir = os.path.join(processed_dir, 'metadata/')
+        self.data_dir = data_dir # Path to the CryoSPARC job
+        self.processed_dir = processed_dir # Path to the directory to put 'images' and 'metadata' folders
+        self.image_dir = os.path.join(processed_dir, 'images/') # Contains JPGs of class averages
+        self.metadata_dir = os.path.join(processed_dir, 'metadata/') # Contains NPY files of metadata 
 
         if not os.path.exists(self.image_dir):
             os.mkdir(self.image_dir)
@@ -56,6 +65,9 @@ class CryosparcExtractor:
                      for name in os.listdir(self.data_dir)
                       if re.search(pattern, name)}
         
+        assert len(mrc_iter_dict) > 0, \
+            f'ERROR: Could not find MRC file in job {self.data_dir}. Please check!'
+
         max_iter = max(mrc_iter_dict.keys())
         mrc_name = mrc_iter_dict[max_iter]
 
@@ -93,6 +105,7 @@ class CryosparcExtractor:
 
         print(f'Extracting from: {self.data_dir}')
         print(f'\t{os.path.basename(self.mrc_path)}')
+
         with mrcfile.open(self.mrc_path) as mrc:
             imgs = mrc.data
             for i in range(len(imgs)):
@@ -100,30 +113,49 @@ class CryosparcExtractor:
                 img.save(os.path.join(self.processed_subdir, f'{self.unique_name}_{i}.jpg'))
 
         print(f'\t{os.path.basename(self.metadata_path)}')
+
+        # Metadata will be ordered as:
+        # 1. Estimated resolution in Angstroms
+        # 2. Class distribution (fraction)
+        # 3. Pixel size in Angstroms
+        # 4. Mean mass
+        # 5. Median mass
+        # 6. Mode mass
+
+        # Metadata stored in .cs files
         metadata_names = ['est_res', 'class_dist', 'pixel_size']
         metadata = [None, None, None]
 
+        # Metadata from the mass estimator (remove estimated mass; it is useless as a parameter)
+        mass_est_names = ['dmean_mass', 'dmedian_mass', 'dmode_mass']
+        mass_est = pd.DataFrame.from_records(calc_mass_stats_for_stack(self.mrc_path))
+        mass_est['dmode'] = mass_est['dmode'].apply(lambda x: x[0])
+        mass_est = mass_est.drop(columns=['mass']).to_numpy()
+        
+        # Grab resolution and pixel size directly from the .cs averages file
         class_metadata = np.load(self.metadata_path)
         metadata[0] = class_metadata['blob/res_A']
         metadata[2] = class_metadata['blob/psize_A']
 
+        # Calculate class distribution from the .cs particles file
         particle_metadata = np.load(self.particles_path, mmap_mode='r')
         particles_df = pd.DataFrame(particle_metadata[['uid', 'alignments2D/class']])
         class_dist = particles_df.groupby('alignments2D/class').count()
         metadata[1] = class_dist['uid'] / len(particles_df)
+        metadata[1] = metadata[1].reindex(list(range(len(metadata[0])))).fillna(0.)
 
-        metadata = np.rec.fromarrays(metadata, names=metadata_names)
-        np.save(os.path.join(self.metadata_dir, self.unique_name+'.npy'), metadata)
+        # Assemble everything into a single structured array representing all class averages in the file
+        metadata = np.rec.array(np.vstack(metadata), names=metadata_names).T
+        all_metadata = np.rec.fromarrays(np.concatenate((metadata, mass_est), axis=1).T, 
+                              names=metadata_names+mass_est_names)
 
-        
+        np.save(os.path.join(self.metadata_dir, self.unique_name+'.npy'), all_metadata)
 
 
-
-        
 
 class MultiCryosparcExtractor:
     '''
-    
+    Extract images and metadata from multiple jobs
     '''
     def __init__(self, data_dir_file=None, processed_dir=None):
         assert data_dir_file is not None and processed_dir is not None, \
@@ -156,23 +188,20 @@ class MultiCryosparcExtractor:
         for job_dir in (self.job_dirs):
             extractor = CryosparcExtractor(data_dir=job_dir, processed_dir=self.processed_dir)
             extractor.extract()
-            # print(f'Finished {job_dir}')
 
         
 
 
 if __name__ == '__main__':
-    # mpl.use('TkAgg')
-
-    # TODO finish help description
-    parser = argparse.ArgumentParser(description='Default help')
+    parser = argparse.ArgumentParser(description='See README.md for more detailed help')
     parser.add_argument('-j', '--job-dir', help='Path to the folder containing results of '+
                         '2D extraction (must be a cryoSPARC job!)')
     parser.add_argument('-l', '--job-dir-list', help='Path to a text file that contains a list of various '+
                         'job directories. Each line should contain one path to job folder (no commas).')
-    parser.add_argument('-d', '--directory', help='Path to the folder for your lab (e.g. LanderData), '+
-					 'or any folder that you would like to store the data in.')
+    parser.add_argument('-d', '--directory', help='The path to the directory to place the data and metadata into. '+
+                        'The directory must exist.')
     args = parser.parse_args()
+
 
     # Users may only provide one job directory, or one file with a list of job directories
     assert (args.job_dir is not None) != (args.job_dir_list is not None), \
@@ -186,7 +215,9 @@ if __name__ == '__main__':
         print('Running single job extraction')
         extractor = CryosparcExtractor(data_dir=args.job_dir, processed_dir=args.directory)
         extractor.extract()
+        print('done')
     else:
         print('Running multiple job extraction')
         multi_extractor = MultiCryosparcExtractor(data_dir_file=args.job_dir_list, processed_dir=args.directory)
         multi_extractor.extract_all()
+        print('done')

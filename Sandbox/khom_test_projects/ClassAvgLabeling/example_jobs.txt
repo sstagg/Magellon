@@ -1,6 +1,4 @@
 /nfs/home/czerio/cryosparc/CS-polqhel-50ss-6mh-dna/J79/
 /nfs/home/czerio/cryosparc/CS-polqhel-5phos-24-16-dna/J73/
-/nfs/home/jmindrebo/cryosparc/CS-23mar10x-2/J39/
 /nfs/home/lgebert/cryosparc/CS-40s-ires-a2/J336/
-/nfs/home/jmindrebo/cryosparc/P209/J18/
-/nfs/home/glander/cryosparc/P175/J66
+/nfs/home/glander/cryosparc/P175/J66/

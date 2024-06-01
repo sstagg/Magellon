@@ -51,7 +51,7 @@ except NameError:
 
 class tkteach:
 	
-	def __init__(self, master, dir, cat_file):
+	def __init__(self, master, dir, email, cat_file):
 		print("-->__init__")
 		
 		self.master = master
@@ -71,7 +71,7 @@ class tkteach:
 
 		# New attributes 
 		self.dir = dir
-		self.storage_path = os.path.join(dir, 'storage.db')
+		self.storage_path = os.path.join(dir, f'storage_{email}.db')
 		self.cat_file = cat_file
 		
 		self.initialize()
@@ -433,16 +433,18 @@ class tkteach:
 
 
 if __name__ == "__main__":
-	parser = argparse.ArgumentParser(description='Default help')
-	# parser.add_argument('-d', '--database', help='Path to the SQL database to store the scores in. If it doesn\'t exist, it will be created.')
+	parser = argparse.ArgumentParser(description='See README.md for more detailed help')
 	parser.add_argument('-d', '--directory', help='Path to the folder for your lab (e.g. LanderData), '+
 					 'or any folder that you would like to store the data in.')
+	parser.add_argument('-e', '--email', help='Your organizational email. This is used to uniquely identify labelers.')
 	parser.add_argument('-c', '--categories', help='Path to the file containing the possible categories for '+
 					 'manual labeling. If not given, will use the default provided categories.txt')
 	args = parser.parse_args()
 
 	assert args.directory is not None, f'ERROR: Please provide `--directory`'
 	assert os.path.isdir(args.directory), f'ERROR: {args.directory} is not a valid folder'
+
+	assert args.email is not None, f'ERROR: Please provide `--email`'
 	
 	# If providing a custom categories
 	if args.categories:
@@ -451,10 +453,10 @@ if __name__ == "__main__":
 	else:
 		cur_path = os.path.dirname(os.path.realpath(__file__))
 		args.categories = os.path.join(cur_path, 'categories.txt')
-		assert os.path.isfile(args.categories), f'ERROR: categories.txt not found. Please make sure it is next to ' + \
+		assert os.path.isfile(args.categories), f'ERROR: Default categories.txt not found. Please make sure it is next to ' + \
 							'tkteach.py, or provide your own categories file with `--categories`'
 		
 	
 	root = tk.Tk()
-	my_gui = tkteach(root, args.directory, args.categories)
+	my_gui = tkteach(root, args.directory, args.email, args.categories)
 	root.mainloop()

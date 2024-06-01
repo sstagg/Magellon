@@ -10,9 +10,37 @@ from torch import nn, optim
 from torch.nn import Conv2d, Linear, Dropout, ReLU, MaxPool2d, Flatten, Sequential, BatchNorm2d, AdaptiveAvgPool2d
 
 from torch.utils.data import DataLoader
-# from torchvision.transforms import ToTensor
 from sklearn.model_selection import train_test_split
 
+
+'''
+
+
+RELION 4.0's method is:
+
+target = (a*weight + b)*job_score
+
+where 
+    weight is (min_job_resolution / resolution) ** 2
+    a and b are hyperparameters depending on the manually assigned score 
+        (a,b) = (0.75, 0.25) if score is 1
+        (a,b) = (0.5, 0.25) is score is 5
+        (a,b) = (0.25, 0.25) if score is 2
+        (a,b) = (0, 0.25) is score is 3 or 4
+        (a,b) = (0,0) otherwise (e.g. 0)
+    job_score is a manually assigned value from 0 to 1 that quantifies the quality of 
+    the 2D classification job overall. Sometimes, this value is 0, often leading to
+    images of high quality that are have a target of 0.
+
+Possible new scoring methodology:
+target = (a + b)
+Remove weight and job_score. This discretizes the possible targets to (1, 0.75, 0.5, 0.25, 0)
+However, having only 4 target scores may not be enough to differentiate among classes.
+
+Alternatively, we could directly manually assign target scores of 0, 0.1, 0.2,..., 1.0.
+
+
+'''
 
 
 

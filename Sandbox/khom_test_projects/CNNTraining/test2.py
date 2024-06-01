@@ -77,25 +77,10 @@ def img_zoom_out(img, factor):
     M = cv2.getRotationMatrix2D((width/2, height/2), 0, factor)
     return cv2.warpAffine(img, M, img.shape[::-1], borderMode=cv2.BORDER_REPLICATE)
 
-# Sanity check for passing in batches of images of non-uniform size
-def test_ragged_input():
-
-    hdf5_path = '/nfs/home/khom/data-vlen.hdf5'
-    h5_dataset = h5py.File(hdf5_path, 'r')['data/images']
-
-    shapes = []
+def compute_class_dist(particles, passthrough):
     
-    for i in range(len(h5_dataset)):
-        w =  round(np.sqrt(h5_dataset[i].shape[0]))
+    pass
 
-
-        if w < 31:
-            shapes.append(w)
-        # print(h5_dataset)
-
-    print(shapes)
-    plt.hist(shapes)
-    plt.show()
         
 
 def main():
