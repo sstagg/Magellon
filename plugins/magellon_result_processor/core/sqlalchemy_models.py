@@ -1,11 +1,12 @@
 # coding: utf-8
 import uuid
-from sqlalchemy_utils import UUIDType
+
 from sqlalchemy.orm import relationship
-from sqlalchemy_uuid_type import SqlalchemyUuidType
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.dialects.mysql import BIGINT, INTEGER, LONGTEXT, SMALLINT, BIT,  LONGBLOB ,DOUBLE
 from sqlalchemy import Column, DECIMAL, ForeignKey, Index, String, Text, Boolean, LargeBinary, DateTime, JSON,  BINARY, Float
+
+from core.sqlalchemy_uuid_type import SqlalchemyUuidType
 
 Base = declarative_base()
 metadata = Base.metadata

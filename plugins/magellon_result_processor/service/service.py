@@ -1,16 +1,20 @@
 import logging
 import sys
+from typing import Optional
+from fastapi import Depends, HTTPException
+from sqlalchemy.orm import Session
 
+from core.database import get_db
 from core.helper import push_result_to_out_queue
 from core.model_dto import TaskDto, PluginInfoSingleton
 from core.setup_plugin import check_python_version, check_operating_system, check_requirements_txt
-
+from core.sqlalchemy_models import Camera
 
 logger = logging.getLogger(__name__)
 
 plugin_info_data = {
     "id": "29105843-518a-4086-b802-ad295883dfe1",
-    "name": "CTF Plugin",
+    "name": "Output Processor Plugin",
     "developer": "Behdad Khoshbin b.khoshbin@gmail.com & Puneeth Reddy",
     "copyright": "Copyright © 2024",
     "version": "1.0.2",
@@ -21,6 +25,22 @@ plugin_info_data = {
 
 def get_plugin_info():
     return PluginInfoSingleton.get_instance(**plugin_info_data)
+
+
+async def get_all_cameras(name: Optional[str] = None, db: Session = Depends(get_db)):
+    """
+    Get all the cameras camerad in database
+    """
+    if name:
+        cameras = []
+        db_camera = db.query(Camera).filter(Camera.name == name).first()
+        print(db_camera)
+        cameras.append(db_camera)
+        return cameras
+    else:
+        skip: int = 0
+        limit: int = 100
+        return db.query(Camera).offset(skip).limit(limit).all()
 
 
 async def do_execute(params: TaskDto):

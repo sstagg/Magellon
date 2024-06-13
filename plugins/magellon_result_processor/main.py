@@ -4,11 +4,13 @@ import logging
 import os
 import socket
 import threading
+from typing import Optional, List
 
 from rich import traceback
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.logger import logger
+from sqlalchemy.orm import Session
 
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse, StreamingResponse
@@ -19,12 +21,14 @@ from core.consul import register_with_consul, init_consul_client, get_kv_value, 
 from core.rabbitmq_consumer_engine import consumer_engine
 from core.model_dto import TaskDto
 from core.settings import AppSettingsSingleton
+from core.sqlalchemy_models import Camera
+from service import service
 from service.service import do_execute, check_requirements, get_plugin_info
 from core.logger_config import setup_logging
 from dotenv import load_dotenv
 
 # import pdb
-
+from core.database import engine, session_local, get_db
 
 plugin_info = get_plugin_info()
 setup_logging()
@@ -45,6 +49,9 @@ app.add_middleware(CORSMiddleware,
                    allow_methods=["*"],
                    allow_headers=["*"],
                    allow_credentials=True)
+
+app.dbengine = engine
+app.dbsession = session_local
 
 local_hostname = socket.gethostname()
 # local_ip_address = socket.gethostbyname(local_hostname)
@@ -108,6 +115,13 @@ async def root():
     # pdb.set_trace()
     return {"message": "Welcome ", "plugin_info": plugin_info.dict()}
 
+@app.get('/cameras')
+async def get_all_cameras(name: Optional[str] = None, db: Session = Depends(get_db)):
+    """
+    Get all the cameras camerad in database
+    """
+    cameras= await service.get_all_cameras(name, db)
+    return {"result returned"}
 
 # This function checks for all the requirements of the plugin, attempts to install and fix them,
 # and returns success or failure codes along with relevant messages and instructions for the user.
