@@ -1,6 +1,6 @@
 steps to create a virtual environment inside a directory using the command[ReadMe.md](..%2Finfrastructure%2Fdocker%2FReadMe.md) line:
 
-    Open your terminal or command prompt.
+Open your terminal or command prompt.
     Navigate to the directory where you want to create the virtual environment. You can use the cd command to change directories. For example: cd /path/to/directory
     Once you are in the directory, run the following command to create a new virtual environment:
 

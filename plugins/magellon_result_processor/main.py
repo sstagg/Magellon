@@ -7,7 +7,7 @@ import threading
 
 from rich import traceback
 
-from fastapi import FastAPI, WebSocket, Response
+from fastapi import FastAPI
 from fastapi.logger import logger
 
 from starlette.middleware.cors import CORSMiddleware

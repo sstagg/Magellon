@@ -4,7 +4,7 @@ import sys
 from core.helper import push_result_to_out_queue
 from core.model_dto import TaskDto, PluginInfoSingleton
 from core.setup_plugin import check_python_version, check_operating_system, check_requirements_txt
-from service.ctf_service import do_ctf
+
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +26,10 @@ def get_plugin_info():
 async def do_execute(params: TaskDto):
     try:
         # the_data = CryoEmCtfTaskData.model_validate(params.data)
-        result = await do_ctf(params)
-        if result is not None:
-            push_result_to_out_queue(result)
+        # result = await do_ctf(params)
+
+        # if result is not None:
+        #     push_result_to_out_queue(result)
         #     compute_file_fft(mrc_abs_path=request.image_path, abs_out_file_name=request.target_path)
         return {"message": "CTF successfully executed"}
     except Exception as exc:
