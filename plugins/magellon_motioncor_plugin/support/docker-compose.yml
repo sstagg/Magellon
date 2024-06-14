@@ -22,7 +22,7 @@ services:
         ipv4_address: 172.16.238.8
 
   consul:
-    image: consul:latest
+    image: consul:1.15.4
     restart: unless-stopped
     container_name: consul-container
     ports:

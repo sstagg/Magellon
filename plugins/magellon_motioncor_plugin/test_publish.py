@@ -40,23 +40,29 @@ logger = logging.getLogger(__name__)
 
 def push_task_to_task_queue():
     print("Running Publish")
-
-    data1 = CryoEmMotionCorTaskData(
-        image_id=uuid.uuid4(),
-        image_name="Image1",
-        image_path=r"/gpfs/23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc",
-        inputFile=r"/gpfs/23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc",
-        outputFile="ouput.txt",
-        pixelSize=1
-
-    )
-
-    instance_id1 = uuid.uuid4()  # Replace with your specific worker instance ID
-    job_id1 = uuid.uuid4()  # Replace with your specific job ID
-
-    task1 = TaskDto.create(data1.model_dump(), FFT_TASK, PENDING, instance_id1, job_id1)
-
     try:
+        data1 = CryoEmMotionCorTaskData(
+            image_id=uuid.uuid4(),
+            image_name="Image1",
+            image_path=r"/gpfs/24mar28a_s_00012gr_00018sq_v01_00019hl_00007ex.frames.tif",
+            inputFile=r"/gpfs/24mar28a_s_00012gr_00018sq_v01_00019hl_00007ex.frames.tif",
+            InTiff=r"/gpfs/24mar28a_s_00012gr_00018sq_v01_00019hl_00007ex.frames.tif",
+            OutMrc="ouput.mrc",
+        Gain= r"/gpfs/20240328_04283_gain_multi_ref_superres.mrc",
+        PatchesX= 5,
+        PatchesY= 5,
+        SumRangeMinDose= 0,
+        SumRangeMaxDose= 0,
+        FmDose= 0.75,
+        PixSize= 0.705,
+        Group= 3
+
+        )
+        instance_id1 = uuid.uuid4()  # Replace with your specific worker instance ID
+        job_id1 = uuid.uuid4()  # Replace with your specific job ID
+
+        task1 = TaskDto.create(data1.model_dump(), FFT_TASK, PENDING, instance_id1, job_id1)
+
         settings = AppSettingsSingleton.get_instance().rabbitmq_settings
         rabbitmq_client = RabbitmqClient(settings)
         rabbitmq_client.connect()  # Connect to RabbitMQ
