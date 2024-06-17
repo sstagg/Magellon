@@ -12,10 +12,13 @@ from torch.nn import Conv2d, Linear, Dropout, ReLU, MaxPool2d, Flatten, Sequenti
 from torch.utils.data import DataLoader
 from sklearn.model_selection import train_test_split
 
-
+'''
+ISSUES:
+- Look for all TODOs
+- Place a safeguard so that sequences that can only accept vlen data will perform a pre-check 
 '''
 
-
+'''
 RELION 4.0's method is:
 
 target = (a*weight + b)*job_score
@@ -153,7 +156,6 @@ def sequence2(num_features=0, dropout=0.25):
 
     return Sequential(*cnn_layers), Sequential(*feature_layers)
 
-
 def sequence3(num_features=0, dropout=0.25):
     cnn_layers = [
         Conv2d(1, 32, 3, padding=1),
@@ -234,7 +236,6 @@ def sequence3(num_features=0, dropout=0.25):
 
     return Sequential(*cnn_layers), Sequential(*feature_layers)
 
-
 def sequence4(fc_size, num_features=0, dropout=0.25):
     cnn_layers = [
         ResidualConvBlock(1, 16, 3, downsample=True),
@@ -282,6 +283,7 @@ def sequence4(fc_size, num_features=0, dropout=0.25):
 def sequence5(fc_size, num_features=0, dropout=0.25):
     '''
     Based on sequence 4, but designed for variable size data (must still be square) 
+    THIS IS THE BEST ONE FOR VLEN DATA!!
     '''
     cnn_layers = [
         ResidualConvBlock(1, 16, 3, downsample=True),
@@ -332,7 +334,7 @@ def sequence6(fc_size, num_features=0, dropout=0.25):
     '''
     Based on sequence 4, but with batch normalization applied after each residual block
 
-    Input image dimensions must be at least 
+    THIS IS THE BEST ONE FOR SAME SHAPE DATA!!
     '''
     cnn_layers = [
         ResidualConvBlock(1, 16, 3, downsample=True, batchnorm=True), 
@@ -593,10 +595,10 @@ class ResidualConvBlock(nn.Module):
 
 
 class MRCNetwork(nn.Module):
-    def __init__(self, fc_size, sequence, use_features=False):
+    def __init__(self, fc_size, sequence, num_features):
         super().__init__()
-        self.cnn_network, self.feat_network = sequence(fc_size, 3 if use_features else 0)
-        self.use_features = use_features
+        self.cnn_network, self.feat_network = sequence(fc_size, num_features)
+        self.use_features = num_features > 0
 
     def forward(self, x, feat=None):
         x = self.cnn_network(x)
@@ -612,7 +614,7 @@ class Trainer:
     '''
     def __init__(self, model, loss_fn, optimizer, data_path,
                  batch_size=32, val_frac=None, device='cuda:0', parallel_device_ids=None, 
-                 use_features=False, 
+                 use_features=False, vlen_data=False,
                  save_path=None, preload=None):
         self.model = model
         self.loss_fn = loss_fn
@@ -623,6 +625,7 @@ class Trainer:
         self.device = device
         self.parallel_device_ids = parallel_device_ids
         self.use_features = use_features
+        self.vlen_data = vlen_data
         self.save_path = save_path
 
         self.cur_epoch = 0
@@ -646,24 +649,32 @@ class Trainer:
         if preload:
             print(f'Loading saved weights from {preload}')
             self.load_model(preload)
+
+        if vlen_data:
+             print('Expecting variable sized data')
+             tensor_transformer = lambda arr: torch.Tensor(arr[0]).unsqueeze(0) # Use for variable size data
+        else:
+            print('Expecting fixed size data')
+            tensor_transformer = lambda arr: torch.tensor(np.array(arr)).unsqueeze(-3) # Use for fixed size data
+
         print('-------------------------------\n')
 
-        tensor_transformer = lambda arr: torch.tensor(np.array(arr)).unsqueeze(-3)
-        # tensor_transformer = lambda arr: torch.Tensor(arr[0]).unsqueeze(0)
-
+        feature_scale = {'dmean_mass': 1e-5, 'dmedian_mass': 1e-5, 'dmode_mass': 1e-5}
 
         self.train_dataset = dataset.MRCImageDataset(
             mode='hdf5',
             hdf5_path=data_path,
             use_features=use_features,
-            transform=tensor_transformer
+            transform=tensor_transformer,
+            feature_scale=feature_scale
         )
 
         self.val_dataset = dataset.MRCImageDataset(
             mode='hdf5',
             hdf5_path=data_path,
             use_features=use_features,
-            transform=tensor_transformer
+            transform=tensor_transformer,
+            feature_scale=feature_scale
         )
 
         indices = list(range(len(self.train_dataset)))
@@ -703,7 +714,7 @@ class Trainer:
     def init_data_parallel(self, device_ids):
         self.model = nn.DataParallel(self.model, device_ids=device_ids).to(self.device)
 
-    def train_loop(self):
+    def train_loop(self, print_freq=100):
         '''
         Trains the model for one epoch
 
@@ -713,9 +724,9 @@ class Trainer:
         '''
 
         def predict_vlen(X, feat, y):
-            
+
             a = torch.Tensor([self.model(
-                torch.from_numpy(x).to(self.device, dtype=torch.float), 
+                x.to(self.device, dtype=torch.float), 
                 f.unsqueeze(0),
                 ).squeeze() for x,f in zip(X, feat)]).to(self.device)
 
@@ -726,7 +737,7 @@ class Trainer:
             loss = self.loss_fn(a, y)
             loss.requires_grad = True
             return loss
-
+        
         size, n_batches, batch_size = len(self.train_loader.dataset), len(self.train_loader), self.train_loader.batch_size
         timer = Timer()
 
@@ -751,7 +762,7 @@ class Trainer:
             self.optimizer.step()
             self.optimizer.zero_grad()
 
-            if (batch % 100 == 0 or batch == n_batches-1) and batch > 0:
+            if (batch % print_freq == 0 or batch == n_batches-1) and batch > 0:
                 loss, current = loss.item(), min((batch + 1) * batch_size, size)
                 elapsed = timer.get_elapsed(reset=True)
                 print(f'Batch {batch+1:>3d}/{n_batches}, loss: {loss:>7f}  [{current:>5d}/{size:>5d}] ({elapsed:.3f}s)', end=' ')
@@ -791,14 +802,14 @@ class Trainer:
         
         return total_loss / n_batches
     
-    def run_training(self, epochs=10):
+    def run_training(self, epochs=10, print_freq=100):
         main_timer, loop_timer = Timer(), Timer()
         print(f'Beginning training for {epochs} epochs (from epoch {self.cur_epoch+1})...')
         
         for e in range(epochs):
             self.cur_epoch += 1
             print(f'Epoch {self.cur_epoch}\n-------------------------------')
-            self.train_loop()
+            self.train_loop(print_freq=print_freq)
 
             if self.save_path:
                 self.save_model(self.cur_epoch)
@@ -832,17 +843,17 @@ class Trainer:
         self.val_ind = checkpoint['val_ind']
 
         if 'train_ind' not in checkpoint:
+            # TODO don't hardcode this!!!
             self.train_ind = [i for i in range(26389) if i not in self.val_ind]
         else:
             self.train_ind = checkpoint['train_ind']
 
 
 
-
-if __name__ == '__main__':
+def main_old():
 
     use_features = True
-    sequence = sequence8
+    sequence = sequence5
     cuda_main_id = 0
     preload = '/nfs/home/khom/test_projects/CNNTraining/models/experiment_model_0.pth'
 
@@ -875,3 +886,76 @@ if __name__ == '__main__':
 
     trainer.run_training(epochs=100)    
 
+def main1():
+    num_features = 6
+    use_features = num_features > 0
+    sequence = sequence5
+    cuda_main_id = 0
+    preload = None
+
+    device = (
+        f'cuda:{cuda_main_id}'
+        if torch.cuda.is_available()
+        # else 'mps'
+        # if torch.backends.mps.is_available()
+        else 'cpu'
+    )
+
+
+    print(f'Using sequence {sequence}')
+    fc_size = 4608 #456 #12800
+    model = MRCNetwork(fc_size, sequence, num_features).to(device)
+    loss_fn = nn.MSELoss()
+    optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-4)
+
+    
+
+    device_ids = [cuda_main_id]
+    save_path = None
+    data_path = '/nfs/home/khom/test_projects/ClassAvgLabeling/ProcessedData/alldata_vlen.hdf5'
+
+    trainer = Trainer(model, loss_fn, optimizer, data_path,
+                      val_frac=0.1, batch_size=1,
+                      save_path=save_path, use_features=use_features,
+                      vlen_data=True, device=device, 
+                      parallel_device_ids=device_ids, preload=preload)
+
+    trainer.run_training(epochs=100, print_freq=200)    
+
+def main2():
+    num_features = 6
+    use_features = num_features > 0
+    sequence = sequence6
+    cuda_main_id = 0
+    preload = None
+
+    device = (
+        f'cuda:{cuda_main_id}'
+        if torch.cuda.is_available()
+        # else 'mps'
+        # if torch.backends.mps.is_available()
+        else 'cpu'
+    )
+
+
+    print(f'Using sequence {sequence}')
+    fc_size = 4608 #456 #12800
+    model = MRCNetwork(fc_size, sequence, num_features).to(device)
+    loss_fn = nn.MSELoss()
+    optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-4)
+
+    
+
+    device_ids = [cuda_main_id]
+    save_path = None
+    data_path = '/nfs/home/khom/test_projects/ClassAvgLabeling/ProcessedData/alldata_flen.hdf5'
+
+    trainer = Trainer(model, loss_fn, optimizer, data_path,
+                      val_frac=0.1, batch_size=32,
+                      save_path=save_path, use_features=use_features,
+                      vlen_data=False, device=device,
+                      parallel_device_ids=device_ids, preload=preload)
+
+    trainer.run_training(epochs=100, print_freq=25)    
+if __name__ == '__main__':
+    main2()

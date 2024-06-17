@@ -1,23 +1,26 @@
 #!/bin/tcsh
 ### Job name
-#SBATCH --job-name=Train_Experiment_CNN_1
-#SBATCH --error=/nfs/home/khom/test_projects/CNNTraining/logs/experiment_model_0.err
-#SBATCH --output=/nfs/home/khom/test_projects/CNNTraining/logs/experiment_model_0.out
+#SBATCH --job-name=Train_NN
+#SBATCH --error=/nfs/home/khom/test_projects/ClassAvgLabeling/sanitytest.out
+#SBATCH --output=/nfs/home/khom/test_projects/ClassAvgLabeling/sanitytest.out
 ### Queue name
-#SBATCH --partition=cryosparc
+#SBATCH --partition=cryosparc2
 ### Specify the number of nodes and thread (ppn) for your job.
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
-#SBATCH --gres=gpu:2
+#SBATCH --gres=gpu:1
 ### Specify memory
-#SBATCH --mem=32G
+#SBATCH --mem=24G
 ### Tell PBS the anticipated run-time for your job, where walltime=HH:MM:SS
-#SBATCH --time=24:00:00
+#SBATCH --time=36:00:00
 ### Specify scratch
 ##SBATCH --gres=lscratch:8gb
 #################################
+
+# $1 is the path to the Python script to run
+
 cd $SLURM_SUBMIT_DIR
-module load relion/4.0b1-cuda
-module load pytorch
-module load tensorflow
-python -u train.py
+module load cuda/11.3
+module load relion/3.1-cuda
+module load pytorch/1.11.1py38-cuda
+python -u "$1"
