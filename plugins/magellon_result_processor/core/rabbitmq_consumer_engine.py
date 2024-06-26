@@ -3,7 +3,7 @@ import pdb
 import time
 import logging
 import asyncio
-from core.helper import append_json_to_file,  parse_message_to_task_object
+from core.helper import append_json_to_file, parse_message_to_task_object
 from core.rabbitmq_client import RabbitmqClient
 from core.settings import AppSettingsSingleton
 from pika.exceptions import ConnectionClosedByBroker
@@ -23,16 +23,16 @@ def process_message(ch, method, properties, body):
         append_json_to_file(file_path, body.decode("utf-8"))  # just for testing , it adds a record to output_file.json
         the_task = parse_message_to_task_object(body.decode("utf-8"))
         # the_task_data = extract_task_data_from_object(the_task)
-        asyncio.run(do_execute(params=the_task))
+        asyncio.run(do_execute(task_result_param=the_task))
         # Acknowledge the message
         ch.basic_ack(delivery_tag=method.delivery_tag)
 
     except json.JSONDecodeError as e:
-        logger.error(f"Error decoding JSON: " ,e)
+        logger.error(f"Error decoding JSON: ", e)
         # Optionally, you can reject or handle the message differently in case of a JSON decoding error
         ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
     except Exception as e:
-        logger.error(f"Error processing message: " ,e)
+        logger.error(f"Error processing message: ", e)
 
 
 # keep a live connection to rabbitmq server and
@@ -64,4 +64,4 @@ def consume(pqueues_and_message_processors):
     rabbitmq_client.start_consuming()
 
 
-queues_and_callbacks = [(AppSettingsSingleton.get_instance().rabbitmq_settings.QUEUE_NAME, process_message),]
+queues_and_callbacks = [(AppSettingsSingleton.get_instance().rabbitmq_settings.QUEUE_NAME, process_message), ]

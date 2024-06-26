@@ -1,14 +1,15 @@
 import logging
 import sys
+import uuid
 from typing import Optional
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from core.database import get_db
 from core.helper import push_result_to_out_queue
-from core.model_dto import TaskDto, PluginInfoSingleton
+from core.model_dto import TaskDto, PluginInfoSingleton, TaskResultDto
 from core.setup_plugin import check_python_version, check_operating_system, check_requirements_txt
-from core.sqlalchemy_models import Camera
+from core.sqlalchemy_models import Camera, ImageJobTask, ImageMetaData
 
 logger = logging.getLogger(__name__)
 
@@ -43,8 +44,28 @@ async def get_all_cameras(name: Optional[str] = None, db: Session = Depends(get_
         return db.query(Camera).offset(skip).limit(limit).all()
 
 
-async def do_execute(params: TaskDto):
+async def do_execute(task_result_param: TaskResultDto, db: Session = Depends(get_db)):
     try:
+
+
+        for ofile in task_result_param.output_files:
+            # copy files
+
+        for meta_data in task_result_param.meta_data:
+            # sd
+            db_meta = ImageMetaData(oid=uuid.uuid4())
+            db_meta.task_id=task_result_param.task_id
+            db.add(db_meta)
+            db.commit()
+            # db_meta.created_date
+
+        # set tht task to done ,
+        db_task = db.query(ImageJobTask).filter(ImageJobTask.oid == task_result_param.task_id).first()
+        db_task.stage = 5
+        db.commit()
+
+
+
         # the_data = CryoEmCtfTaskData.model_validate(params.data)
         # result = await do_ctf(params)
 

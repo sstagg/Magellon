@@ -199,3 +199,18 @@ pip download --only-binary=:all: --platform manylinux1_x86_64,win_amd64,macosx_1
     --only-binary=:all:: Instructs pip to consider all platforms when looking for pre-built binary distributions (wheels).
     --platform manylinux1_x86_64,win_amd64,macosx_10_15_x86_64: Specifies the platforms for which to download wheels. In this example, it includes Linux (manylinux1_x86_64), Windows (win_amd64), and macOS (macosx_10_15_x86_64). You can customize the platform list based on your requirements.
 
+
+
+{
+"session_name": "22apr01a",
+"magellon_project_name": "Leginon",
+"magellon_session_name": "22apr01a",
+"camera_directory": "/gpfs",
+"copy_images": false,
+"retries": 0,
+"leginon_mysql_user": "usr_object",
+"leginon_mysql_pass": "ThPHMn3m39Ds",
+"leginon_mysql_host": "localhost",
+"leginon_mysql_port": 3310,
+"leginon_mysql_db": "dbemdata"
+}

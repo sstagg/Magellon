@@ -119,7 +119,7 @@ class LeginonFrameTransferJobService:
                 magellon_session = db_session.query(Msession).filter(
                     Msession.name == magellon_session_name).first()
                 if not magellon_session:
-                    magellon_session = Msession(name=magellon_session_name, project_id=magellon_project.Oid)
+                    magellon_session = Msession(name=magellon_session_name, project_id=magellon_project.oid)
                     db_session.add(magellon_session)
                     db_session.commit()
                     db_session.refresh(magellon_session)
@@ -208,8 +208,8 @@ class LeginonFrameTransferJobService:
                     name="Leginon Import: " + session_name, description="Leginon Import for session: " +
                                                                         session_name + "in directory: " +
                                                                         session_result["image path"],
-                    created_on=datetime.now(), path=session_result["image path"],
-                    output_dir=self.params.camera_directory
+                    created_date=datetime.now(), #path=session_result["image path"],
+                    output_directory=self.params.camera_directory
                     # Set other job properties
                 )
                 db_session.add(job)
@@ -232,7 +232,7 @@ class LeginonFrameTransferJobService:
                                      atlas_delta_column=image["delta_column"],
                                      binning_y=image["bining_y"],
                                      level=get_image_levels(filename, presets_result["regex_pattern"]),
-                                     old_id=image["image_id"], session_id=magellon_session.Oid)
+                                     previous_id=image["image_id"], session_id=magellon_session.oid)
                     # get_image_levels(filename,presets_result["regex_pattern"])
                     # db_session.add(db_image)
                     # db_session.flush()
@@ -257,15 +257,15 @@ class LeginonFrameTransferJobService:
 
                     # Create a new job item and associate it with the job and image
                     job_item = ImageJobTask(
-                        Oid=uuid.uuid4(),
-                        job_id=job.Oid,
+                        oid=uuid.uuid4(),
+                        job_id=job.oid,
                         frame_name=image["frame_names"],
                         frame_path=source_frame_path,
                         image_name=image["image_name"],
                         image_path=source_image_path,
-                        status=1,
+                        status_id=1,
                         steps=0,
-                        image_id=db_image.Oid,
+                        image_id=db_image.oid,
                         # Set job item properties
                     )
                     db_job_item_list.append(job_item)

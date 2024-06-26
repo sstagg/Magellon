@@ -5,6 +5,7 @@ import React from "react";
 import {useForm} from "react-hook-form";
 import {useTranslation} from "react-i18next";
 import {Cached, CalendarMonthOutlined} from "@mui/icons-material";
+import axios from "axios";
 
 
 
@@ -32,9 +33,34 @@ export const LeginonImportPageView = () => {
     });
     const { t, i18n } = useTranslation(['leginon-import', 'global']);
 
-    const OnFormSubmit = (data) => {
-        // Example: axios.post('/api/yourEndpoint', data);
+    // const OnFormSubmit = (data) => {
+    //     // Example: axios.post('/api/yourEndpoint', data);
+    // }
+
+
+    const OnFormSubmit = async (data) => {
+        try {
+            console.log(data);
+            // debugger;
+            //
+            // const response = await axios.post('http://localhost:8000/image/transfer_images_job', {
+            //     ...data,
+            //     replace_type: "none", // You can set additional fields here if needed
+            //     replace_pattern: "string",
+            //     replace_with: "string"
+            // }, {
+            //     headers: {
+            //         'Content-Type': 'application/json',
+            //         'Accept': 'application/json'
+            //     }
+            // });
+            //
+            // console.log(response.data); // Handle the response as needed
+        } catch (error) {
+            console.error("There was an error submitting the form!", error);
+        }
     }
+
 
     return (
         <Container>

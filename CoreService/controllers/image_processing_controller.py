@@ -5,7 +5,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, Depends
 
 from config import IMAGE_ROOT_DIR
-from models.pydantic_models import LeginonFrameTransferJobBase, EPUFrameTransferJobBase
+from models.pydantic_models import LeginonFrameTransferJobBase, EPUFrameTransferJobBase, LeginonFrameTransferJobDto
 # from models.pydantic_plugins_models import MotionCor2Input
 from services.diagrams_service import leginon_frame_transfer_diagram
 # from services.epu_frame_transfer_service import epu_frame_transfer_process
