@@ -6,7 +6,7 @@ from fastapi import HTTPException
 from config import app_settings
 
 
-async def create_atlas_images(session_name, label_objects):
+def create_atlas_images(session_name, label_objects):
     canvas_width = 1600
     canvas_height = 1600
     background_color = "black"
@@ -19,7 +19,7 @@ async def create_atlas_images(session_name, label_objects):
         names = image_info[0]["filename"].split("_")
         save_path = "_".join(names[:-1] + ["atlas.png"])
         file_path = os.path.join(current_directory, "atlases", save_path)
-        result = await create_atlas_picture(session_name, image_info, canvas_width, canvas_height,
+        result = create_atlas_picture(session_name, image_info, canvas_width, canvas_height,
                                             background_color, file_path, output_format)
 
         html_code,path=result
@@ -33,7 +33,7 @@ async def create_atlas_images(session_name, label_objects):
     return images
 
 
-async def create_atlas_picture(session_name, image_info, final_width, final_height, background_color,
+def create_atlas_picture(session_name, image_info, final_width, final_height, background_color,
                                save_path, output_format="PNG"):
     try:
         min_x = float('inf')

@@ -94,6 +94,7 @@ class LeginonFrameTransferJobService:
             start_time = time.time()  # Start measuring the time
             result = self.create_job(db_session)
             end_time = time.time()  # Stop measuring the time
+
             execution_time = end_time - start_time
             return result
 
@@ -143,7 +144,7 @@ class LeginonFrameTransferJobService:
             presets_result = self.leginon_cursor.fetchone()
             print(presets_result)
 
-            self.create_atlas_pics(self.params.session_name, db_session)
+            # self.create_atlas_pics(self.params.session_name, db_session)
             # presets_results = self.leginon_cursor.fetchall()
             # for presets_result in presets_results:
             #     print(presets_result)
@@ -303,10 +304,10 @@ class LeginonFrameTransferJobService:
 
                 db_session.commit()  # Commit the changes
 
-                # self.create_atlas_pics(self.params.session_name, db_session)
+
 
                 if self.params.if_do_subtasks if hasattr(self.params, 'if_do_subtasks') else True:
-                    self.run_tasks()
+                    self.run_tasks(db_session)
 
             return {'status': 'success', 'message': 'Job completed successfully.' , "job_id": self.params.job_id}
                 # self.create_test_tasks()
@@ -322,10 +323,9 @@ class LeginonFrameTransferJobService:
             error_message = f"An unexpected error occurred: {str(e)}"
             logger.error(error_message, exc_info=True)
             return {"error": error_message, "exception": str(e)}
-        finally:
-            self.close_connections()
 
-    def run_tasks(self):
+
+    def run_tasks(self, db_session: Session):
         try:
             # directory_path = os.path.join(self.params.target_directory, self.params.session_name)
             create_directories(self.params.target_directory)
@@ -358,10 +358,13 @@ class LeginonFrameTransferJobService:
                     if retry_count == MAX_RETRIES:
                         print(f"Max retries exceeded for task: {task.task_alias}")
                         # Perform any additional handling for failed tasks
+                self.create_atlas_pics(self.params.session_name, db_session)
         except Exception as e:
             print("An unexpected error occurred:", str(e))
         # finally:
         #     self.close_connections()
+        finally:
+            self.close_connections()
 
     def run_task(self, task_dto: LeginonFrameTransferTaskDto) -> Dict[str, str]:
         try:
@@ -438,15 +441,24 @@ class LeginonFrameTransferJobService:
             return {"error": str(e)}
 
     def create_atlas_pics(self, session_name: str ,  db_session: Session):
-        query = "SELECT SessionData.DEF_id FROM SessionData WHERE SessionData.name = %s"
-        self.leginon_cursor.execute(query, (session_name,))
-        session_id = self.leginon_cursor.fetchone()[0]
+
+        try:
+            # Execute the first query to get session_id
+            query = "SELECT SessionData.DEF_id FROM SessionData WHERE SessionData.name = %s"
+            self.leginon_cursor.execute(query, (session_name,))
+            session_result = self.leginon_cursor.fetchone()
+            session_id = session_result["DEF_id"]
+
+        except Exception as e:
+            print(f"Error fetching session_id: {e}")
+            return {"error": f"Error fetching session_id: {e}"}
+
 
         query1 = "SELECT label FROM ImageTargetListData WHERE `REF|SessionData|session` = %s AND mosaic = %s"
         mosaic_value = 1  # Execute the first query with parameters
         self.leginon_cursor.execute(query1, (session_id, mosaic_value))
 
-        label_values = [row[0] for row in self.leginon_cursor.fetchall()]  # Define the SQL query for the second query
+        label_values = [row['label'] for row in self.leginon_cursor.fetchall()]  # Define the SQL query for the second query
 
         query2 = """
             SELECT a.DEF_id, SQRT(a.pixels) as dimx, SQRT(a.pixels) as dimy, a.filename,
@@ -465,7 +477,7 @@ class LeginonFrameTransferJobService:
         label_objects = {}
 
         for row in second_query_results:
-            filename_parts = row[3].split("_")
+            filename_parts = row['filename'].split("_")
             label_match = None
             for part in filename_parts:
                 if part in label_values:
@@ -474,19 +486,20 @@ class LeginonFrameTransferJobService:
 
             if label_match:
                 obj = {
-                    "id": row[0],
-                    "dimx": row[1],
-                    "dimy": row[2],
-                    "filename": row[3],
-                    "delta_row": row[4],
-                    "delta_column": row[5]
+                    "id": row['DEF_id'],
+                    "dimx": row['dimx'],
+                    "dimy": row['dimy'],
+                    "filename": row['filename'],
+                    "delta_row": row['delta row'],
+                    "delta_column": row['delta column']
                 }
                 if label_match in label_objects:
                     label_objects[label_match].append(obj)
                 else:
                     label_objects[label_match] = [obj]
 
-        images = create_atlas_images(session_id, label_objects)
+        # images = create_atlas_images(session_id, label_objects)
+        images = create_atlas_images(session_name, label_objects)
         atlases_to_insert = []
         for image in images:
             file_name = os.path.basename(image['imageFilePath'])
