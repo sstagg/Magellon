@@ -163,7 +163,7 @@ def process_image_job(input_data: LeginonFrameTransferJobBase, db: Session = Dep
     # lft_service.setup(input_json)
 
     lft_service.setup_data(job_dto)
-    lft_service.process(db)
+    result= lft_service.process(db)
 
     # Create a client to communicate with the Airflow API
     # airflow_client = Client(None)
@@ -175,7 +175,7 @@ def process_image_job(input_data: LeginonFrameTransferJobBase, db: Session = Dep
     # )
 
     # Return the job ID as the response
-    return {"job_id": job_id}
+    return result
 
 # async def process_image_job(job_request: JobRequest):
 #     # Generate a unique job_id

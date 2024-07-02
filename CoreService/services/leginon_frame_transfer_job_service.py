@@ -91,13 +91,13 @@ class LeginonFrameTransferJobService:
     def process(self, db_session: Session = Depends(get_db)) -> Dict[str, str]:
         try:
             start_time = time.time()  # Start measuring the time
-            self.create_job(db_session)
+            result = self.create_job(db_session)
             end_time = time.time()  # Stop measuring the time
             execution_time = end_time - start_time
-            return {'status': 'success', 'message': 'Task completed successfully.',
-                    'execution_time': f'{execution_time} seconds'}
+            return result
+
         except Exception as e:
-            return {'status': 'failure', 'message': f'Task failed with error: {str(e)}'}
+            return {'status': 'failure', 'message': f'Job failed with error: {str(e)} Job ID: {self.params.job_id}' }
 
     def create_job(self, db_session: Session):
         try:
@@ -264,7 +264,7 @@ class LeginonFrameTransferJobService:
                         image_name=image["image_name"],
                         image_path=source_image_path,
                         status_id=1,
-                        steps=0,
+                        stage=0,
                         image_id=db_image.oid,
                         # Set job item properties
                     )
@@ -306,14 +306,20 @@ class LeginonFrameTransferJobService:
                 if self.params.if_do_subtasks if hasattr(self.params, 'if_do_subtasks') else True:
                     self.run_tasks()
 
-
+            return {'status': 'success', 'message': 'Job completed successfully.' , "job_id": self.params.job_id}
                 # self.create_test_tasks()
         except FileNotFoundError as e:
-            print("Source directory not found:", self.params.source_directory)
+            error_message = f"Source directory not found: {self.params.source_directory}"
+            logger.error(error_message, exc_info=True)
+            return {"error": error_message, "exception": str(e)}
         except OSError as e:
-            print("Error accessing source directory:", self.params.source_directory)
+            error_message = f"Error accessing source directory: {self.params.source_directory}"
+            logger.error(error_message, exc_info=True)
+            return {"error": error_message, "exception": str(e)}
         except Exception as e:
-            print("An unexpected error occurred:", str(e))
+            error_message = f"An unexpected error occurred: {str(e)}"
+            logger.error(error_message, exc_info=True)
+            return {"error": error_message, "exception": str(e)}
         finally:
             self.close_connections()
 
