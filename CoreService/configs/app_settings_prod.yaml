@@ -25,6 +25,7 @@ directory_settings:
   FFT_DIR: null
   FFT_SUB_URL: ffts/
   FFT_SUFFIX: _fft.png
+  CTF_SUB_URL: ctf/
   FRAMES_SUB_URL: frames/
   FRAMES_SUFFIX: _frame
   IMAGES_DIR: null

@@ -13,11 +13,11 @@ import pymysql
 from fastapi import Depends, HTTPException
 
 from config import FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, \
-    FFT_SUFFIX, FRAMES_SUFFIX, app_settings, ATLAS_SUB_URL
+    FFT_SUFFIX, FRAMES_SUFFIX, app_settings, ATLAS_SUB_URL, CTF_SUB_URL
 from database import get_db
 from models.pydantic_models import LeginonFrameTransferJobDto, LeginonFrameTransferTaskDto
 # from models.pydantic_models import LeginonFrameTransferJobDto, LeginonFrameTransferTaskDto
-from models.sqlalchemy_models import Image, Project, Msession, ImageJob, ImageJobTask
+from models.sqlalchemy_models import Image, Project, Msession, ImageJob, ImageJobTask, Atlas
 from services.atlas import create_atlas_images
 from services.file_service import copy_file, create_directory, check_file_exists
 from services.helper import custom_replace, get_parent_name
@@ -51,6 +51,7 @@ def create_directories(target_dir: str):
     create_directory(os.path.join(target_dir, IMAGE_SUB_URL))
     create_directory(os.path.join(target_dir, THUMBNAILS_SUB_URL))
     create_directory(os.path.join(target_dir, ATLAS_SUB_URL))
+    create_directory(os.path.join(target_dir, CTF_SUB_URL))
 
 
 def infer_image_levels(name):
@@ -142,6 +143,7 @@ class LeginonFrameTransferJobService:
             presets_result = self.leginon_cursor.fetchone()
             print(presets_result)
 
+            self.create_atlas_pics(self.params.session_name, db_session)
             # presets_results = self.leginon_cursor.fetchall()
             # for presets_result in presets_results:
             #     print(presets_result)
@@ -301,7 +303,7 @@ class LeginonFrameTransferJobService:
 
                 db_session.commit()  # Commit the changes
 
-                self.create_atlas_pics(self.params.session_name, db_session)
+                # self.create_atlas_pics(self.params.session_name, db_session)
 
                 if self.params.if_do_subtasks if hasattr(self.params, 'if_do_subtasks') else True:
                     self.run_tasks()
@@ -435,7 +437,7 @@ class LeginonFrameTransferJobService:
         except Exception as e:
             return {"error": str(e)}
 
-    async def create_atlas_pics(self, session_name: str ,  db_session: Session):
+    def create_atlas_pics(self, session_name: str ,  db_session: Session):
         query = "SELECT SessionData.DEF_id FROM SessionData WHERE SessionData.name = %s"
         self.leginon_cursor.execute(query, (session_name,))
         session_id = self.leginon_cursor.fetchone()[0]
@@ -489,7 +491,7 @@ class LeginonFrameTransferJobService:
         for image in images:
             file_name = os.path.basename(image['imageFilePath'])
             file_name_without_extension = os.path.splitext(file_name)[0]
-            atlas = Atlas(Oid=str(uuid.uuid4()), name=file_name_without_extension, meta=image['imageMap'])
+            atlas = Atlas(oid=str(uuid.uuid4()), name=file_name_without_extension, meta=image['imageMap'])
             atlases_to_insert.append(atlas)
         # db_session.add_all(atlases_to_insert)
         db_session.bulk_save_objects(atlases_to_insert)

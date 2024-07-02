@@ -212,5 +212,31 @@ pip download --only-binary=:all: --platform manylinux1_x86_64,win_amd64,macosx_1
 "leginon_mysql_pass": "ThPHMn3m39Ds",
 "leginon_mysql_host": "localhost",
 "leginon_mysql_port": 3310,
-"leginon_mysql_db": "dbemdata"
+"leginon_mysql_db": "dbemdata",
+"replace_type": "standard",
+"replace_pattern": "/gpfs",
+"replace_with": "Y:\\"
+}
+
+sshfs.exe bk22n@hpc-login.rcc.fsu.edu:/gpfs X:
+
+SiriKali
+bk22n@hpc-login.rcc.fsu.edu:/gpfs
+
+
+{
+"session_name": "24mar25a",
+"magellon_project_name": "Leginon",
+"magellon_session_name": "24mar25a",
+"camera_directory": "/gpfs",
+"copy_images": false,
+"retries": 0,
+"leginon_mysql_user": "usr_object",
+"leginon_mysql_pass": "ThPHMn3m39Ds",
+"leginon_mysql_host": "localhost",
+"leginon_mysql_port": 3310,
+"leginon_mysql_db": "dbemdata",
+"replace_type": "standard",
+"replace_pattern": "/gpfs",
+"replace_with": "Y:\\"
 }

@@ -21,18 +21,19 @@ class DirectorySettings(BaseModel):
     IMAGE_SUB_URL: Optional[str] = None
     THUMBNAILS_SUB_URL: Optional[str] = None
     FRAMES_SUB_URL: Optional[str] = None
-    FFT_SUB_URL: Optional[str] = None
     JOBS_PROCESSING_SUB_URL: Optional[str] = None
     THUMBNAILS_SUFFIX: Optional[str] = None
     FRAMES_SUFFIX: Optional[str] = None
+    FFT_SUB_URL: Optional[str] = None
     FFT_SUFFIX: Optional[str] = None
+    FFT_DIR: Optional[str] = None
     IMAGE_ROOT_DIR: Optional[str] = None
     NFS_ROOT_DIR: Optional[str] = None
     IMAGES_DIR: Optional[str] = None
-    FFT_DIR: Optional[str] = None
     THUMBNAILS_DIR: Optional[str] = None
     JOBS_DIR: Optional[str] = None
     ATLAS_SUB_URL: Optional[str] = None
+    CTF_SUB_URL: Optional[str] = None
     ATLAS_SUFFIX: Optional[str] = None
 
 
