@@ -17,18 +17,12 @@ rabbitmq_client = RabbitmqClient(settings)  # Create the client with settings
 
 def process_message(ch, method, properties, body):
     try:
-        print("ok1")
         # pdb.set_trace()
-
         # logger.info("Just Got Message : ",body.decode("utf-8"))
-        print("ok2")
         append_json_to_file(file_path, body.decode("utf-8"))  # just for testing , it adds a record to output_file.json
-        print("ok3")
         the_task = parse_message_to_task_object(body.decode("utf-8"))
-        print("ok4")
         # the_task_data = extract_task_data_from_object(the_task)
         asyncio.run(do_execute(params=the_task))
-        print("ok5")
         # Acknowledge the message
         ch.basic_ack(delivery_tag=method.delivery_tag)
 

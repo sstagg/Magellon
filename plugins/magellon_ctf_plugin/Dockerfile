@@ -36,7 +36,7 @@ RUN rm -rf /root/.cache/pip/*
 COPY requirements.txt ./
 RUN pip install  --upgrade -r ./requirements.txt
 # Install debugpy
-RUN pip install --upgrade pip
+#RUN pip install --upgrade pip
 RUN pip install debugpy
 
 # Keeps Python from generating .pyc files in the container

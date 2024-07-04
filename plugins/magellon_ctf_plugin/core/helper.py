@@ -5,7 +5,7 @@ import re
 
 from pydantic import BaseModel
 
-from core.model_dto import TaskDto, CtfTaskData, CryoEmTaskResultDto
+from core.model_dto import TaskDto, CtfTaskData, TaskResultDto
 from core.rabbitmq_client import RabbitmqClient
 from core.settings import AppSettingsSingleton
 
@@ -108,7 +108,7 @@ def publish_message_to_queue(message: BaseModel, queue_name: str) -> bool:
         rabbitmq_client.close_connection()  # Disconnect from RabbitMQ
 
 
-def push_result_to_out_queue(result: CryoEmTaskResultDto):
+def push_result_to_out_queue(result: TaskResultDto):
     return publish_message_to_queue(result, AppSettingsSingleton.get_instance().rabbitmq_settings.OUT_QUEUE_NAME)
 
 

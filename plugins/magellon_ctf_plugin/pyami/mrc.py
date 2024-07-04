@@ -85,7 +85,6 @@ numpy2mrc = {
 	numpy.uint64: 2,
 
 	## convert these to complex64
-	numpy.complex_: 4,
 	numpy.complex64: 4,
 	numpy.complex128: 4,
 

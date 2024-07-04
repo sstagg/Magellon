@@ -4,14 +4,14 @@ import os
 import subprocess
 from datetime import datetime
 
-from core.model_dto import CtfTaskData, OutputFile, TaskDto, CryoEmTaskResultDto, ImageMetaData
+from core.model_dto import CtfTaskData, OutputFile, TaskDto, TaskResultDto, ImageMetaData
 from service.ctfeval import run_ctf_evaluation
 from utils import buildCtfCommand, readLastLine, getFileContents
 
 logger = logging.getLogger(__name__)
 
 
-async def do_ctf(the_task: TaskDto) -> CryoEmTaskResultDto:
+async def do_ctf(the_task: TaskDto) -> TaskResultDto:
     try:
         logger.info(f"Starting task {the_task.id} ")
         the_task_data = CtfTaskData.model_validate(the_task.data)
@@ -54,7 +54,7 @@ async def do_ctf(the_task: TaskDto) -> CryoEmTaskResultDto:
         for key, value in result.items():
             metaDataList.append(ImageMetaData(key=key, value=str(value)))
 
-        outputSuccessResult = CryoEmTaskResultDto(
+        outputSuccessResult = TaskResultDto(
             worker_instance_id=the_task.worker_instance_id,
             task_id=str(the_task.job_id),
             image_id=the_task.data["image_id"],
