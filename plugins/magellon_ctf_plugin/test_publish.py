@@ -56,7 +56,7 @@ def create_task():
         defocusSearchStep=100
     )
 
-    return CtfTaskFactory.create_task(pid=uuid.uuid4(), instance_id=uuid.uuid4(), job_id=uuid.uuid4(),
+    return CtfTaskFactory.create_task(pid=str(uuid.uuid4()), instance_id=uuid.uuid4(), job_id=uuid.uuid4(),
                                       data=data1.model_dump(), ptype=FFT_TASK, pstatus=PENDING)
     # return TaskDto.create(data1.model_dump(), FFT_TASK, PENDING, instance_id1, job_id1)
 
