@@ -55,6 +55,7 @@ class AppSettings(BaseModel):
     REPLACE_TYPE: Optional[str] = None
     REPLACE_PATTERN: Optional[str] = None
     REPLACE_WITH: Optional[str] = None
+    OUTPUT_DIR: Optional[str] = None
     BASE_DIRECTORY: Optional[str] = os.path.abspath(os.path.dirname(__file__))
     ENV_TYPE: Optional[str] = None
 

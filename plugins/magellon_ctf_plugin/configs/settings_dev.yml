@@ -8,6 +8,8 @@ REPLACE_TYPE: standard
 REPLACE_PATTERN: /gpfs/
 REPLACE_WITH: Y:/
 
+OUTPUT_DIR: c:/temp/outputs
+
 consul_settings:
   CONSUL_HOST: localhost
   CONSUL_PASSWORD: '8500'

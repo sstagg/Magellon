@@ -25,7 +25,7 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
         # os.makedirs(f'{os.path.join(os.getcwd(),"gpfs", "outputs")}', exist_ok=True)
         # directory_path = os.path.join(os.getcwd(),"gpfs", "outputs", the_task.id)
 
-        directory_path = os.path.join( "c:/temp/outputs", the_task.id)
+        directory_path = os.path.join( AppSettingsSingleton.get_instance().OUTPUT_DIR, the_task.id)
         the_task_data.outputFile = f'{directory_path}/{the_task.data["outputFile"]}'
         os.makedirs(directory_path, exist_ok=True)
 
