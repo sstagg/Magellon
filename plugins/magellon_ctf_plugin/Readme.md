@@ -3,6 +3,11 @@ Welcome aboard! We appreciate your choice in Magellon for your plugin developmen
 and each plugin is implemented as a FastAPI application. This README is designed to furnish you with a comprehensive guide on how to develop,
 compile, run, test, and deploy plugins using the Magellon CLI.
 
+/gpfs/research/stagg/leginondata/23oct13x/rawdata/23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc
+/Y:/research
+
+docker run -d --name magellon_ctf_plugin_container --restart always -v C:\temp\gpfs:/app/gpfs -v C:\temp\outputs:/outputs -v Y:\:/nfs -p 8181:80 -p 5678:5678 -e APP_ENV=production magellon_ctf_plugin_image
+
 
 ## Getting Started
 

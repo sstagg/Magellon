@@ -1,6 +1,7 @@
 import logging
 import math
 import os
+import shutil
 import subprocess
 from datetime import datetime
 
@@ -15,10 +16,20 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
     try:
         logger.info(f"Starting task {the_task.id} ")
         the_task_data = CtfTaskData.model_validate(the_task.data)
-        os.makedirs(f'{os.path.join(os.getcwd(),"gpfs", "outputs")}', exist_ok=True)
-        directory_path = os.path.join(os.getcwd(),"gpfs", "outputs", the_task.id)
+
+        the_task_data.inputFile = the_task_data.inputFile.replace("/gpfs/", "Y:/")
+        the_task_data.image_path = the_task_data.image_path.replace("/gpfs/", "Y:/")
+
+        # os.makedirs(f'{os.path.join(os.getcwd(),"gpfs", "outputs")}', exist_ok=True)
+        # directory_path = os.path.join(os.getcwd(),"gpfs", "outputs", the_task.id)
+
+        directory_path = os.path.join( "c:/temp/outputs", the_task.id)
         the_task_data.outputFile = f'{directory_path}/{the_task.data["outputFile"]}'
         os.makedirs(directory_path, exist_ok=True)
+
+        #testing if really we have access to input files
+        shutil.copy2(the_task_data.inputFile, directory_path)
+
         input_string = buildCtfCommand(the_task_data)
         logger.info("Input String:%s", input_string)
         process = subprocess.run(
