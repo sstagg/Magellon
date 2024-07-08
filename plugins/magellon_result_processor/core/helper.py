@@ -73,6 +73,9 @@ def append_json_to_file(file_path, json_str):
 def parse_message_to_task_object(message_str):
     return TaskDto.model_validate_json(message_str)
 
+def parse_message_to_task_result_object(message_str):
+    return TaskResultDto.model_validate_json(message_str)
+
 
 def extract_task_data_from_object(task_object):
     return CtfTaskData.model_validate(task_object.data)

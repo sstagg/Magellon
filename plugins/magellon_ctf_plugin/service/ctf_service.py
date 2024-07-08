@@ -27,6 +27,7 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
 
         directory_path = os.path.join( AppSettingsSingleton.get_instance().OUTPUT_DIR, the_task.id)
         the_task_data.outputFile = f'{directory_path}/{the_task.data["outputFile"]}'
+        print(directory_path)
         os.makedirs(directory_path, exist_ok=True)
 
         #testing if really we have access to input files
@@ -94,7 +95,7 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
             ]
         )
         # executeMethodSuccess.inc()
-        return {"data": outputSuccessResult}
+        return outputSuccessResult
 
     except subprocess.CalledProcessError as e:
         error_message = f"Command '{e.cmd}' failed with return code {e.returncode}: {e.stderr}"

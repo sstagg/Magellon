@@ -33,5 +33,5 @@ rabbitmq_settings:
   SSL_ENABLED: false
   CONNECTION_TIMEOUT: 30
   PREFETCH_COUNT: 10
-  QUEUE_NAME: ctf_tasks_queue
+  QUEUE_NAME: ctf_out_tasks_queue
   OUT_QUEUE_NAME: ctf_out_tasks_queue

@@ -50,6 +50,7 @@ async def do_execute(task_result_param: TaskResultDto, db: Session = Depends(get
 
         for ofile in task_result_param.output_files:
             # copy files
+            print("hello")
 
         for meta_data in task_result_param.meta_data:
             # sd

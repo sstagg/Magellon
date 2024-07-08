@@ -2,7 +2,7 @@ import logging
 import uuid
 import os
 from core.helper import push_task_to_task_queue
-from core.model_dto import FFT_TASK, PENDING, TaskDto, CtfTaskData
+from core.model_dto import FFT_TASK, PENDING, TaskDto, CtfTaskData, CTF_TASK
 from core.task_factory import CtfTaskFactory
 
 logger = logging.getLogger(__name__)
@@ -41,10 +41,10 @@ def create_task():
     data1 = CtfTaskData(
         image_id=uuid.uuid4(),
         image_name="Image1",
-        # image_path=os.path.join(os.getcwd(), "gpfs", "23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc"),
-        # inputFile=os.path.join(os.getcwd(), "gpfs", "23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc"),
-        image_path= "/gpfs/research/stagg/leginondata/23oct13x/rawdata/23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc",
-        inputFile="/gpfs/research/stagg/leginondata/23oct13x/rawdata/23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc",
+        image_path=os.path.join(os.getcwd(), "gpfs", "23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc"),
+        inputFile=os.path.join(os.getcwd(), "gpfs", "23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc"),
+        # image_path= "/gpfs/research/stagg/leginondata/23oct13x/rawdata/23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc",
+        # inputFile="/gpfs/research/stagg/leginondata/23oct13x/rawdata/23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc",
         outputFile="23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex_ctf_output.mrc",
         pixelSize=1,
         accelerationVoltage=300,
@@ -59,7 +59,7 @@ def create_task():
     )
 
     return CtfTaskFactory.create_task(pid=str(uuid.uuid4()), instance_id=uuid.uuid4(), job_id=uuid.uuid4(),
-                                      data=data1.model_dump(), ptype=FFT_TASK, pstatus=PENDING)
+                                      data=data1.model_dump(), ptype=CTF_TASK, pstatus=PENDING)
     # return TaskDto.create(data1.model_dump(), FFT_TASK, PENDING, instance_id1, job_id1)
 
 

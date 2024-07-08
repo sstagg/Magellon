@@ -3,7 +3,7 @@ import pdb
 import time
 import logging
 import asyncio
-from core.helper import append_json_to_file, parse_message_to_task_object
+from core.helper import append_json_to_file, parse_message_to_task_object, parse_message_to_task_result_object
 from core.rabbitmq_client import RabbitmqClient
 from core.settings import AppSettingsSingleton
 from pika.exceptions import ConnectionClosedByBroker
@@ -21,11 +21,11 @@ def process_message(ch, method, properties, body):
 
         # logger.info("Just Got Message : ",body.decode("utf-8"))
         append_json_to_file(file_path, body.decode("utf-8"))  # just for testing , it adds a record to output_file.json
-        the_task = parse_message_to_task_object(body.decode("utf-8"))
+        the_task = parse_message_to_task_result_object(body.decode("utf-8"))
         # the_task_data = extract_task_data_from_object(the_task)
         asyncio.run(do_execute(task_result_param=the_task))
         # Acknowledge the message
-        ch.basic_ack(delivery_tag=method.delivery_tag)
+        #ch.basic_ack(delivery_tag=method.delivery_tag)
 
     except json.JSONDecodeError as e:
         logger.error(f"Error decoding JSON: ", e)
