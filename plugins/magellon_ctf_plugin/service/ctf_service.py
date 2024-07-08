@@ -6,6 +6,7 @@ import subprocess
 from datetime import datetime
 
 from core.model_dto import CtfTaskData, OutputFile, TaskDto, TaskResultDto, ImageMetaData
+from core.settings import AppSettingsSingleton
 from service.ctfeval import run_ctf_evaluation
 from utils import buildCtfCommand, readLastLine, getFileContents
 
@@ -17,8 +18,9 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
         logger.info(f"Starting task {the_task.id} ")
         the_task_data = CtfTaskData.model_validate(the_task.data)
 
-        the_task_data.inputFile = the_task_data.inputFile.replace("/gpfs/", "Y:/")
-        the_task_data.image_path = the_task_data.image_path.replace("/gpfs/", "Y:/")
+        if AppSettingsSingleton.get_instance().REPLACE_TYPE=="standard" :
+            the_task_data.inputFile = the_task_data.inputFile.replace(AppSettingsSingleton.get_instance().REPLACE_PATTERN, AppSettingsSingleton.get_instance().REPLACE_WITH)
+            the_task_data.image_path = the_task_data.image_path.replace(AppSettingsSingleton.get_instance().REPLACE_PATTERN, AppSettingsSingleton.get_instance().REPLACE_WITH)
 
         # os.makedirs(f'{os.path.join(os.getcwd(),"gpfs", "outputs")}', exist_ok=True)
         # directory_path = os.path.join(os.getcwd(),"gpfs", "outputs", the_task.id)

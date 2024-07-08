@@ -5,9 +5,9 @@ LOCAL_IP_ADDRESS: host.docker.internal
 PORT_NUMBER: 8181
 
 ROOT_DIR: /gpfs/
-REPLACE_TYPE: none
+REPLACE_TYPE: standard
 REPLACE_PATTERN: /gpfs/
-REPLACE_WITH: /gpfs/
+REPLACE_WITH: Y:/
 
 consul_settings:
   CONSUL_HOST: host.docker.internal
