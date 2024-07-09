@@ -64,6 +64,12 @@ def move_file_to_directory(file_path, destination_dir):
     except Exception as e:
         print(f"Error: {e}")
 
+def is_valid_json(my_json: str) -> bool:
+    try:
+        json.loads(my_json)
+        return True
+    except ValueError:
+        return False
 
 async def do_execute(task_result_param: TaskResultDto):
     try:
@@ -93,11 +99,14 @@ async def do_execute(task_result_param: TaskResultDto):
             except Exception as exc:
                 return {"error": str(exc)}
         if task_result_param.meta_data is not None and task_result_param.meta_data != "":
+            meta_list_dicts = [meta.dict(exclude_none=True) for meta in task_result_param.meta_data]
+            json_str = json.dumps(meta_list_dicts, indent=4)
             # Create a new ImageMetaData instance
             ctf_meta_data = ImageMetaData(
                 oid=uuid.uuid4(),
                 name="CTF Meta Data",
-                data_json=json.dumps(task_result_param.meta_data).encode("utf-8"),
+                data_json=json.loads(json_str),
+                # data_json=json.dumps(task_result_param.meta_data).encode("utf-8"),
                 # image_id=task_result_param.image_id,
                 # task_id=task_result_param.task_id
             )
