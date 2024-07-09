@@ -4,11 +4,14 @@ LOCAL_IP_ADDRESS: localhost
 PORT_NUMBER: 8000
 
 ROOT_DIR: /gpfs/
+HOST_ROOT_DIR: C:\temp\gpfs
+
 REPLACE_TYPE: none
 REPLACE_PATTERN: /gpfs/
 REPLACE_WITH: Y:/
 
 OUTPUT_DIR: /outputs
+HOST_OUTPUT_DIR: C:\temp\outputs
 
 consul_settings:
   CONSUL_HOST: localhost

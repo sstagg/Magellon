@@ -65,27 +65,31 @@ def move_file_to_directory(file_path, destination_dir):
 async def do_execute(task_result_param: TaskResultDto, db: Session = Depends(get_db)):
     try:
         # db_m_session = db.query(Msession).filter(Msession.name == name).first()
-        db_task : ImageJobTask= db.query(ImageJobTask).filter(ImageJobTask.oid == task_result_param.task_id).first()
+        # db_task : ImageJobTask= db.query(ImageJobTask).filter(ImageJobTask.oid == task_result_param.task_id).first()
         # db_task.image_id
 
-        destination_dir=os.path.join(AppSettingsSingleton.get_instance().ROOT_DIR,"ctf", task_result_param.session_name)
+        destination_dir=os.path.join(AppSettingsSingleton.get_instance().ROOT_DIR, task_result_param.session_name,"ctf")
+        #task_result_param.output_data
         for ofile in task_result_param.output_files:
             # copy files
             move_file_to_directory(ofile.path,destination_dir)
             print("hello")
 
-        for meta_data in task_result_param.meta_data:
-            # sd
-            db_meta = ImageMetaData(oid=uuid.uuid4())
-            db_meta.task_id=task_result_param.task_id
-            db.add(db_meta)
-            db.commit()
+        # for meta_data in task_result_param.meta_data:
+        #     # sd
+        #     db_meta = ImageMetaData(oid=uuid.uuid4())
+        #     #db_meta.name=meta_data.
+        #     db_meta.task_id=task_result_param.task_id
+        #     db.add(db_meta)
+        #     db.commit()
+
+
             # db_meta.created_date
 
         # set tht task to done ,
 
-        db_task.stage = 5
-        db.commit()
+        # db_task.stage = 5
+        # db.commit()
 
 
 

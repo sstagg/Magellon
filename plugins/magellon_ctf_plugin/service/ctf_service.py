@@ -18,16 +18,22 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
         logger.info(f"Starting task {the_task.id} ")
         the_task_data = CtfTaskData.model_validate(the_task.data)
 
-        if AppSettingsSingleton.get_instance().REPLACE_TYPE=="standard" :
-            the_task_data.inputFile = the_task_data.inputFile.replace(AppSettingsSingleton.get_instance().REPLACE_PATTERN, AppSettingsSingleton.get_instance().REPLACE_WITH)
-            the_task_data.image_path = the_task_data.image_path.replace(AppSettingsSingleton.get_instance().REPLACE_PATTERN, AppSettingsSingleton.get_instance().REPLACE_WITH)
+        if AppSettingsSingleton.get_instance().REPLACE_TYPE == "standard":
+            the_task_data.inputFile = the_task_data.inputFile.replace(
+                AppSettingsSingleton.get_instance().REPLACE_PATTERN, AppSettingsSingleton.get_instance().REPLACE_WITH)
+            the_task_data.image_path = the_task_data.image_path.replace(
+                AppSettingsSingleton.get_instance().REPLACE_PATTERN, AppSettingsSingleton.get_instance().REPLACE_WITH)
 
         # os.makedirs(f'{os.path.join(os.getcwd(),"gpfs", "outputs")}', exist_ok=True)
         # directory_path = os.path.join(os.getcwd(),"gpfs", "outputs", the_task.id)
 
-        directory_path = os.path.join( AppSettingsSingleton.get_instance().OUTPUT_DIR, str(the_task.id))
-        the_task_data.outputFile = f'{directory_path}/{the_task.data["outputFile"]}'
-        print(directory_path)
+        directory_path = os.path.join(AppSettingsSingleton.get_instance().OUTPUT_DIR, str(the_task.id))
+        host_dir_path = os.path.join(AppSettingsSingleton.get_instance().HOST_OUTPUT_DIR, str(the_task.id))
+        host_file_path = os.path.join(host_dir_path, the_task.data["outputFile"])
+        the_task_data.outputFile = os.path.join(directory_path, the_task.data[
+            "outputFile"])  # f'{directory_path}/{the_task.data["outputFile"]}'
+        host_output_file_name="".join(host_file_path.split(".")[:-1])
+        # print(directory_path)
         os.makedirs(directory_path, exist_ok=True)
 
         #testing if really we have access to input files
@@ -57,12 +63,12 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
             return {"error_output": error_output}
         outputFileName = "".join(the_task_data.outputFile.split(".")[:-1])
         CTFestimationValues = await readLastLine(f'{outputFileName}.txt')
-        result =  await run_ctf_evaluation(f'{the_task_data.outputFile}', the_task_data.pixelSize,
-                                    the_task_data.sphericalAberration,
-                                    the_task_data.accelerationVoltage, the_task_data.maximumResolution,
-                                    float(CTFestimationValues[1]) * 1e-3, float(CTFestimationValues[2]) * 1e-3,
-                                    the_task_data.amplitudeContrast, CTFestimationValues[4],
-                                    math.radians(float(CTFestimationValues[3])))
+        result = await run_ctf_evaluation(f'{the_task_data.outputFile}', the_task_data.pixelSize,
+                                          the_task_data.sphericalAberration,
+                                          the_task_data.accelerationVoltage, the_task_data.maximumResolution,
+                                          float(CTFestimationValues[1]) * 1e-3, float(CTFestimationValues[2]) * 1e-3,
+                                          the_task_data.amplitudeContrast, CTFestimationValues[4],
+                                          math.radians(float(CTFestimationValues[3])))
         metaDataList = []
 
         for key, value in result.items():
@@ -71,7 +77,7 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
         outputSuccessResult = TaskResultDto(
             worker_instance_id=the_task.worker_instance_id,
             task_id=the_task.id,
-            job_id= the_task.job_id , #  str(the_task.job_id),
+            job_id=the_task.job_id,  #  str(the_task.job_id),
             image_id=the_task.data["image_id"],
             image_path=the_task.data["image_path"],
             session_name=the_task.sesson_name,
@@ -89,11 +95,11 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
             },
             meta_data=metaDataList,
             output_files=[
-                OutputFile(name="ctfevalplots", path=f"{outputFileName}.mrc-plots.png", required=True),
-                OutputFile(name="ctfevalpowerspec", path=f"{outputFileName}.mrc-powerspec.jpg", required=True),
-                OutputFile(name="ctfestimationOutputFile", path=f"{outputFileName}.mrc", required=True),
-                OutputFile(name="ctfestimationOutputTextFile", path=f"{outputFileName}.txt", required=True),
-                OutputFile(name="ctfestimationOutputAvrotFile", path=f"{outputFileName}_avrot.txt", required=True),
+                OutputFile(name="ctfevalplots", path=f"{host_output_file_name}.mrc-plots.png", required=True),
+                OutputFile(name="ctfevalpowerspec", path=f"{host_output_file_name}.mrc-powerspec.jpg", required=True),
+                OutputFile(name="ctfestimationOutputFile", path=f"{host_output_file_name}.mrc", required=True),
+                OutputFile(name="ctfestimationOutputTextFile", path=f"{host_output_file_name}.txt", required=True),
+                OutputFile(name="ctfestimationOutputAvrotFile", path=f"{host_output_file_name}_avrot.txt", required=True),
             ]
         )
         # executeMethodSuccess.inc()
@@ -106,7 +112,7 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
             "status_code": 500,
             "error_message": error_message
         }
-        
+
     except Exception as e:
         error_message = f"An error occurred: {str(e)}"
         logger.error(error_message)
@@ -114,5 +120,3 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
             "status_code": 500,
             "error_message": error_message
         }
-
-
