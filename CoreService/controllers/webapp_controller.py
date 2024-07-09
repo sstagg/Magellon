@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session, joinedload
 from starlette.responses import FileResponse, JSONResponse
 
 from config import FFT_SUB_URL, IMAGE_SUB_URL, IMAGE_ROOT_DIR, THUMBNAILS_SUB_URL, app_settings, THUMBNAILS_SUFFIX, \
-    FFT_SUFFIX, ATLAS_SUB_URL
+    FFT_SUFFIX, ATLAS_SUB_URL, CTF_SUB_URL
 
 from database import get_db
 from lib.image_not_found import get_image_not_found
@@ -360,6 +360,21 @@ def get_fft_image_route(name: str):
     underscore_index = name.find('_')
     session_name = name[:underscore_index]
     file_path = f"{app_settings.directory_settings.IMAGE_ROOT_DIR}/{session_name}/{FFT_SUB_URL}{name}{FFT_SUFFIX}"
+    return FileResponse(file_path, media_type='image/png')
+
+@webapp_router.get('/ctf_image')
+def get_ctf_image_route(name: str,type: str):
+    underscore_index = name.find('_')
+    session_name = name[:underscore_index]
+    file_path = f"{app_settings.directory_settings.IMAGE_ROOT_DIR}/{session_name}/{CTF_SUB_URL}{name}"
+    file_paths = {
+        "powerspec": os.path.join(file_path, "_ctf_output.mrc-powerspec.jpg"),
+        "plots": os.path.join(file_path, "_ctf_output.mrc-plots.png")
+    }
+
+    file_path = file_paths.get(type)
+    if not file_path or not os.path.exists(file_path):
+        return  get_image_not_found()
     return FileResponse(file_path, media_type='image/png')
 
 

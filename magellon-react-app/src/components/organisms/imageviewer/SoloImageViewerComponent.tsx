@@ -194,7 +194,12 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
 
                     </TabPanel>
                     <TabPanel value="4">Item 4</TabPanel>
-                    <TabPanel value="5">Item 5</TabPanel>
+                    <TabPanel value="5">
+                        <img width={900} src={`${BASE_URL}/ctf_image?type=powerspec&name=${selectedImage?.name}`} alt="ctf power spec image" style={ImageStyle}/>
+                        <img width={900} src={`${BASE_URL}/ctf_image?type=plots&name=${selectedImage?.name}`} alt="ctf plots image" style={ImageStyle}/>
+
+
+                    </TabPanel>
                     <TabPanel value="6">
                         Frame Alignment
                     </TabPanel>
