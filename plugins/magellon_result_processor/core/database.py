@@ -3,6 +3,8 @@ from sqlalchemy.orm import sessionmaker
 
 from core.settings import AppSettingsSingleton
 
+# from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+
 
 # from controller.context_manager import context_set_db_session_rollback
 # engine = create_engine(get_db_connection(), connect_args={"check_same_thread": False})
@@ -22,6 +24,21 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+# Asynchronous session
+# async_engine = create_async_engine(get_db_connection(), echo=True, future=True)
+# # Async session factory
+# async_session = sessionmaker(
+#     bind=async_engine,
+#     class_=AsyncSession,
+#     expire_on_commit=False
+# )
+#
+#
+# async def get_async_db():
+#     async with async_session() as session:
+#         yield session
 
 # def get_db():
 #     """this function is used to inject db_session dependency in every rest api requests"""

@@ -3,11 +3,14 @@ import pdb
 import time
 import logging
 import asyncio
+
+from core.database import get_db
 from core.helper import append_json_to_file, parse_message_to_task_object, parse_message_to_task_result_object
 from core.rabbitmq_client import RabbitmqClient
 from core.settings import AppSettingsSingleton
 from pika.exceptions import ConnectionClosedByBroker
 from service.service import do_execute
+from sqlalchemy.orm import Session
 
 file_path = "output_file.json"
 logger = logging.getLogger(__name__)
@@ -58,7 +61,8 @@ def consume(pqueues_and_message_processors):
         # Declare the queue if it doesn't exist
         rabbitmq_client.declare_queue(queue_name)
         rabbitmq_client.consume(queue_name, callback)
-
+        # Pass `db` to callback function (assuming callback requires `db`)
+        # rabbitmq_client.consume(queue_name, lambda ch, method, properties, body: callback(ch, method, properties, body, db))
     # Start consuming messages
     logger.info('Waiting for messages. To exit press CTRL+C')
     rabbitmq_client.start_consuming()

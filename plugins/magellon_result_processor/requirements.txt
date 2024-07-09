@@ -30,3 +30,6 @@ prometheus-fastapi-instrumentator
 
 websockets
 debugpy
+
+aiomysql
+#asyncpg

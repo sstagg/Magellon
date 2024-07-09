@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import shutil
@@ -5,14 +6,17 @@ import sys
 import uuid
 from typing import Optional
 from fastapi import Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
 
-from core.database import get_db
+from core.database import get_db,  get_db_connection
 from core.helper import push_result_to_out_queue
 from core.model_dto import TaskDto, PluginInfoSingleton, TaskResultDto
 from core.settings import AppSettingsSingleton
 from core.setup_plugin import check_python_version, check_operating_system, check_requirements_txt
 from core.sqlalchemy_models import Camera, ImageJobTask, ImageMetaData , Msession
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -62,18 +66,49 @@ def move_file_to_directory(file_path, destination_dir):
         print(f"Error: {e}")
 
 
-async def do_execute(task_result_param: TaskResultDto, db: Session = Depends(get_db)):
+async def do_execute(task_result_param: TaskResultDto ):
     try:
         # db_m_session = db.query(Msession).filter(Msession.name == name).first()
         # db_task : ImageJobTask= db.query(ImageJobTask).filter(ImageJobTask.oid == task_result_param.task_id).first()
         # db_task.image_id
 
+
+
         destination_dir=os.path.join(AppSettingsSingleton.get_instance().ROOT_DIR, task_result_param.session_name,"ctf")
-        #task_result_param.output_data
+
         for ofile in task_result_param.output_files:
             # copy files
             move_file_to_directory(ofile.path,destination_dir)
             print("hello")
+        output_data = task_result_param.output_data
+
+
+        engine = create_engine(get_db_connection())
+        session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        db = session_local()
+        if output_data is not None and output_data != "":
+            # Create a new ImageMetaData instance
+            image_meta_data = ImageMetaData(
+                oid=uuid.uuid4(),
+                name="CTF Data",
+                data=json.dumps(output_data).encode("utf-8"),
+                # image_id=task_result_param.image_id,
+                # task_id=task_result_param.task_id
+            )
+            try:
+                db.add(image_meta_data)
+                db.commit()
+            # ... your database operations using `db` here ...
+            except Exception as exc:
+                return {"error": str(exc)}
+
+
+
+                # Add the new instance to the database session
+
+                # Commit the transaction
+
+
 
         # for meta_data in task_result_param.meta_data:
         #     # sd
@@ -102,6 +137,8 @@ async def do_execute(task_result_param: TaskResultDto, db: Session = Depends(get
         return {"message": "CTF successfully executed"}
     except Exception as exc:
         return {"error": str(exc)}
+    finally:
+        db.close()
 
 
 async def check_requirements():

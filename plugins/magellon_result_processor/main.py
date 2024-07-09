@@ -74,10 +74,11 @@ else:
 
 
 @app.on_event("startup")
+# async def startup_event(db: Session = Depends(get_db)):
 async def startup_event():
     try:
         # Start RabbitMQ consumer thread
-        rabbitmq_thread = threading.Thread(target=consumer_engine, daemon=True)
+        rabbitmq_thread = threading.Thread(target=consumer_engine,  daemon=True)
         rabbitmq_thread.start()
         # Initialize Consul client
         init_consul_client()
@@ -132,8 +133,8 @@ async def setup():
 
 
 @app.post("/execute", summary="Execute Plugin Operation")
-async def execute_endpoint(request: TaskDto):
-    return await do_execute(request)
+async def execute_endpoint(request: TaskDto, db: Session = Depends(get_db)):
+    return await do_execute(request,db)
 
 
 Instrumentator().instrument(app).expose(app)
