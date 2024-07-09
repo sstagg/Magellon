@@ -10,7 +10,7 @@ mrcfile==1.5.0
 numpy==1.26.4
 matplotlib==3.8.2
 scipy
-Pillow==10.2.0
+Pillow==10.3.0
 # cupy-cuda12x==12.0.0
 jinja2
 python-multipart
@@ -36,9 +36,10 @@ strawberry-graphql[fastapi]==0.211.1
 rich==13.7.0
 # textual
 pyfiglet==1.0.2
-diagrams
+#diagrams
 pyyaml==6.0.1
 
+pika
 
 fabric
 docker

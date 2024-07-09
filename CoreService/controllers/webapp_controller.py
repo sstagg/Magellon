@@ -20,9 +20,12 @@ from starlette.responses import FileResponse, JSONResponse
 
 from config import FFT_SUB_URL, IMAGE_SUB_URL, IMAGE_ROOT_DIR, THUMBNAILS_SUB_URL, app_settings, THUMBNAILS_SUFFIX, \
     FFT_SUFFIX, ATLAS_SUB_URL, CTF_SUB_URL
+from core.helper import push_task_to_task_queue
+from core.task_factory import CtfTaskFactory
 
 from database import get_db
 from lib.image_not_found import get_image_not_found
+from models.plugins_models import CtfTaskData, CTF_TASK, PENDING
 from models.pydantic_models import  SessionDto, ImageDto, AtlasDto, \
     ParticlePickingDto
 from models.sqlalchemy_models import Image, Msession, ImageMetaData, Atlas
@@ -826,6 +829,44 @@ async def create_atlas(session_name: str, db_session: Session = Depends(get_db))
     db_session.bulk_save_objects(atlases_to_insert)
     db_session.commit()
     return {"images": images}
+
+
+
+@webapp_router.get('/do_ctf')
+async def get_do_image_ctf_route(full_image_path: str):
+    # full_image_path="/gpfs/research/stagg/leginondata/23oct13x/rawdata/23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc"
+    # session_name = "23oct13x"
+    # file_name = "23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex"
+
+    # Extract file name without extension
+    file_name = os.path.splitext(os.path.basename(full_image_path))[0]
+    session_name = file_name.split("_")[0]
+    out_file_name = f"{file_name}_ctf_output.mrc"
+
+    ctf_task_data = CtfTaskData(
+        image_id=uuid.uuid4(),
+        image_name="Image1",
+        image_path=full_image_path,
+        inputFile=full_image_path,
+        outputFile=out_file_name,
+        pixelSize=1,
+        accelerationVoltage=300,
+        sphericalAberration=2.7,
+        amplitudeContrast=0.07,
+        sizeOfAmplitudeSpectrum=512,
+        minimumResolution=30,
+        maximumResolution=5,
+        minimumDefocus=5000,
+        maximumDefocus=50000,
+        defocusSearchStep=100
+    )
+
+    ctf_task = CtfTaskFactory.create_task(pid=str(uuid.uuid4()), instance_id=uuid.uuid4(), job_id=uuid.uuid4(),
+                                          data=ctf_task_data.model_dump(), ptype=CTF_TASK, pstatus=PENDING)
+    ctf_task.sesson_name=session_name
+    return  push_task_to_task_queue(ctf_task)
+
+
 
 # @image_viewer_router.get("/download_file")
 # async def download_file(file_path: str):

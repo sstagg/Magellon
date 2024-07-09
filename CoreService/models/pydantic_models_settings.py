@@ -15,6 +15,19 @@ class ConsulSettings(BaseModel):
     CONSUL_SERVICE_ID: Optional[str] = None
 
 
+class RabbitMQSettings(BaseModel):
+    HOST_NAME: Optional[str] = None
+    CTF_QUEUE_NAME: Optional[str] = None
+    CTF_OUT_QUEUE_NAME: Optional[str] = None
+    PORT: Optional[int] = 5672
+    USER_NAME: Optional[str] = None
+    PASSWORD: Optional[str] = None
+    VIRTUAL_HOST: Optional[str] = None
+    SSL_ENABLED: Optional[bool] = False
+    CONNECTION_TIMEOUT: Optional[int] = 30
+    PREFETCH_COUNT: Optional[int] = 10
+
+
 class DirectorySettings(BaseModel):
     IMAGE_ROOT_URL: Optional[str] = None
     ORIGINAL_IMAGES_SUB_URL: Optional[str] = None
@@ -57,6 +70,7 @@ class AppSettings(BaseModel):
     consul_settings: ConsulSettings = ConsulSettings()
     directory_settings: DirectorySettings = DirectorySettings()
     database_settings: DatabaseSettings = DatabaseSettings()
+    rabbitmq_settings: RabbitMQSettings = RabbitMQSettings()
     SLACK_TOKEN: Optional[str] = None
     BASE_DIRECTORY: Optional[str] = os.path.abspath(os.path.dirname(__file__))
     DOCKER_URL: Optional[str] = None
@@ -82,6 +96,7 @@ class AppSettings(BaseModel):
         else:
             # Handle case when file doesn't exist
             return None
+
     @classmethod
     def load_settings_json(cls, file_path):
         """
