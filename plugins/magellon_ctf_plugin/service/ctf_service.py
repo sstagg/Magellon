@@ -25,7 +25,7 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
         # os.makedirs(f'{os.path.join(os.getcwd(),"gpfs", "outputs")}', exist_ok=True)
         # directory_path = os.path.join(os.getcwd(),"gpfs", "outputs", the_task.id)
 
-        directory_path = os.path.join( AppSettingsSingleton.get_instance().OUTPUT_DIR, the_task.id)
+        directory_path = os.path.join( AppSettingsSingleton.get_instance().OUTPUT_DIR, str(the_task.id))
         the_task_data.outputFile = f'{directory_path}/{the_task.data["outputFile"]}'
         print(directory_path)
         os.makedirs(directory_path, exist_ok=True)
@@ -70,9 +70,11 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
 
         outputSuccessResult = TaskResultDto(
             worker_instance_id=the_task.worker_instance_id,
-            task_id=str(the_task.job_id),
+            task_id=the_task.id,
+            job_id= the_task.job_id , #  str(the_task.job_id),
             image_id=the_task.data["image_id"],
             image_path=the_task.data["image_path"],
+            session_name=the_task.sesson_name,
             code=200,
             message="ctf executed successfully",
             description="output for ctf estimation and evaluation for a input file",

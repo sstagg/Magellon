@@ -1,4 +1,6 @@
 import logging
+import os
+import shutil
 import sys
 import uuid
 from typing import Optional
@@ -8,8 +10,9 @@ from sqlalchemy.orm import Session
 from core.database import get_db
 from core.helper import push_result_to_out_queue
 from core.model_dto import TaskDto, PluginInfoSingleton, TaskResultDto
+from core.settings import AppSettingsSingleton
 from core.setup_plugin import check_python_version, check_operating_system, check_requirements_txt
-from core.sqlalchemy_models import Camera, ImageJobTask, ImageMetaData
+from core.sqlalchemy_models import Camera, ImageJobTask, ImageMetaData , Msession
 
 logger = logging.getLogger(__name__)
 
@@ -43,13 +46,32 @@ async def get_all_cameras(name: Optional[str] = None, db: Session = Depends(get_
         limit: int = 100
         return db.query(Camera).offset(skip).limit(limit).all()
 
+def move_file_to_directory(file_path, destination_dir):
+    # Extract the file name from the full file path
+    filename = os.path.basename(file_path)
+    # Create the destination path by joining the destination directory and the file name
+    destination_path = os.path.join(destination_dir, filename)
+
+    try:
+        # Create the destination directory if it doesn't exist
+        if not os.path.exists(destination_dir):
+            os.makedirs(destination_dir)
+        shutil.move(file_path, destination_path)
+        print(f"File moved from {file_path} to {destination_path}")
+    except Exception as e:
+        print(f"Error: {e}")
+
 
 async def do_execute(task_result_param: TaskResultDto, db: Session = Depends(get_db)):
     try:
+        # db_m_session = db.query(Msession).filter(Msession.name == name).first()
+        db_task : ImageJobTask= db.query(ImageJobTask).filter(ImageJobTask.oid == task_result_param.task_id).first()
+        # db_task.image_id
 
-
+        destination_dir=os.path.join(AppSettingsSingleton.get_instance().ROOT_DIR,"ctf", task_result_param.session_name)
         for ofile in task_result_param.output_files:
             # copy files
+            move_file_to_directory(ofile.path,destination_dir)
             print("hello")
 
         for meta_data in task_result_param.meta_data:
@@ -61,7 +83,7 @@ async def do_execute(task_result_param: TaskResultDto, db: Session = Depends(get
             # db_meta.created_date
 
         # set tht task to done ,
-        db_task = db.query(ImageJobTask).filter(ImageJobTask.oid == task_result_param.task_id).first()
+
         db_task.stage = 5
         db.commit()
 

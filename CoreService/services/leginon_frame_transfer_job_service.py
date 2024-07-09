@@ -212,7 +212,8 @@ class LeginonFrameTransferJobService:
                                                                         session_name + "in directory: " +
                                                                         session_result["image path"],
                     created_date=datetime.now(), #path=session_result["image path"],
-                    output_directory=self.params.camera_directory
+                    output_directory=self.params.camera_directory,
+                    msession_id=magellon_session.oid
                     # Set other job properties
                 )
                 db_session.add(job)
@@ -277,19 +278,19 @@ class LeginonFrameTransferJobService:
                     # Get the file name and extension from the source path
                     # source_filename, source_extension = os.path.splitext(source_image_path)
 
-                    task = LeginonFrameTransferTaskDto(
-                        task_id=uuid.uuid4(),
-                        task_alias=f"lftj_{filename}_{self.params.job_id}",
-                        file_name=f"{filename}",
-                        image_name=image["image_name"],
-                        frame_name=image["frame_names"],
-                        image_path=source_image_path,
-                        frame_path=source_frame_path,
-                        # target_path=self.params.target_directory + "/frames/" + f"{image['frame_names']}{source_extension}",
-                        job_dto=self.params,
-                        status=1
-                    )
-                    self.params.task_list.append(task)
+                    # task = LeginonFrameTransferTaskDto(
+                    #     task_id=uuid.uuid4(),
+                    #     task_alias=f"lftj_{filename}_{self.params.job_id}",
+                    #     file_name=f"{filename}",
+                    #     image_name=image["image_name"],
+                    #     frame_name=image["frame_names"],
+                    #     image_path=source_image_path,
+                    #     frame_path=source_frame_path,
+                    #     # target_path=self.params.target_directory + "/frames/" + f"{image['frame_names']}{source_extension}",
+                    #     job_dto=self.params,
+                    #     status=1
+                    # )
+                    # self.params.task_list.append(task)
                     # print(f"Filename: {filename}, Spot Size: {spot_size}")
 
                 for db_image in db_image_list:

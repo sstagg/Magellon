@@ -28,7 +28,9 @@ class TaskStatus(BaseModel):
 
 
 class TaskBase(BaseModel):
-    id: Optional[str] = str(uuid.uuid4())
+    id: Optional[UUID] = None  #str(uuid.uuid4())
+    sesson_id: Optional[UUID] = None  #str(uuid.uuid4())
+    sesson_name: Optional[str] = None
     worker_instance_id: Optional[UUID] = None  # Instance ID of the worker
     data: Dict[str, Any]  # Assuming data is a dictionary; adjust the type accordingly
     status: Optional[TaskStatus] = None
@@ -52,7 +54,8 @@ class TaskDto(TaskBase):
     job_id: Optional[UUID] = (uuid.uuid4())
 
     @classmethod
-    def create(cls, pid: UUID,job_id: UUID, ptype: TaskCategory, pstatus: TaskStatus, instance_id: UUID, data: Dict[str, Any]):
+    def create(cls, pid: UUID, job_id: UUID, ptype: TaskCategory, pstatus: TaskStatus, instance_id: UUID,
+               data: Dict[str, Any]):
         task = cls(
             id=pid,  #str(uuid4()),
             job_id=job_id,
@@ -212,9 +215,12 @@ class OutputFile(BaseModel):
 
 class TaskResultDto(BaseModel):
     worker_instance_id: Optional[UUID] = None  # Instance ID of the worker
-    task_id: Optional[str] = str(uuid.uuid4())
-    image_id: Optional[str] = None
+    job_id: Optional[UUID] = None
+    task_id: UUID = None  # str(uuid.uuid4())
+    image_id: UUID = None
     image_path: Optional[str] = None
+    session_id: Optional[UUID] = None
+    session_name: Optional[str] = None
     code: Optional[int] = None
     message: Optional[str] = None
     description: Optional[str] = None

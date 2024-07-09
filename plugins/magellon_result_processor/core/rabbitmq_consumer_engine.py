@@ -25,7 +25,7 @@ def process_message(ch, method, properties, body):
         # the_task_data = extract_task_data_from_object(the_task)
         asyncio.run(do_execute(task_result_param=the_task))
         # Acknowledge the message
-        #ch.basic_ack(delivery_tag=method.delivery_tag)
+        ch.basic_ack(delivery_tag=method.delivery_tag)
 
     except json.JSONDecodeError as e:
         logger.error(f"Error decoding JSON: ", e)
