@@ -20,13 +20,13 @@ from starlette.responses import FileResponse, JSONResponse
 
 from config import FFT_SUB_URL, IMAGE_SUB_URL, IMAGE_ROOT_DIR, THUMBNAILS_SUB_URL, app_settings, THUMBNAILS_SUFFIX, \
     FFT_SUFFIX, ATLAS_SUB_URL, CTF_SUB_URL
-from core.helper import push_task_to_task_queue
+from core.helper import push_task_to_task_queue, dispatch_ctf_task
 from core.task_factory import CtfTaskFactory
 
 from database import get_db
 from lib.image_not_found import get_image_not_found
 from models.plugins_models import CtfTaskData, CTF_TASK, PENDING
-from models.pydantic_models import  SessionDto, ImageDto, AtlasDto, \
+from models.pydantic_models import SessionDto, ImageDto, AtlasDto, \
     ParticlePickingDto
 from models.sqlalchemy_models import Image, Msession, ImageMetaData, Atlas
 from repositories.image_repository import ImageRepository
@@ -365,8 +365,9 @@ def get_fft_image_route(name: str):
     file_path = f"{app_settings.directory_settings.IMAGE_ROOT_DIR}/{session_name}/{FFT_SUB_URL}{name}{FFT_SUFFIX}"
     return FileResponse(file_path, media_type='image/png')
 
+
 @webapp_router.get('/ctf_image')
-def get_ctf_image_route(name: str,type: str):
+def get_ctf_image_route(name: str, type: str):
     underscore_index = name.find('_')
     session_name = name[:underscore_index]
     file_path = f"{app_settings.directory_settings.IMAGE_ROOT_DIR}/{session_name}/{CTF_SUB_URL}{name}"
@@ -377,7 +378,7 @@ def get_ctf_image_route(name: str,type: str):
 
     file_path = file_paths.get(type)
     if not file_path or not os.path.exists(file_path):
-        return  get_image_not_found()
+        return get_image_not_found()
     return FileResponse(file_path, media_type='image/png')
 
 
@@ -404,9 +405,6 @@ def get_image_data_route(name: str, db: Session = Depends(get_db)):
 #     return re.sub(pattern, '', input_string)
 
 
-
-
-
 @webapp_router.get('/parent_child')
 def get_correct_image_parent_child(name: str, db_session: Session = Depends(get_db)):
     db_image_list = ImageRepository.fetch_all_by_session_name(db_session, name)
@@ -425,8 +423,10 @@ def get_correct_image_parent_child(name: str, db_session: Session = Depends(get_
     return {'result': "Done!"}
 
 
-@webapp_router.post("/particle-pickings", summary="creates particle picking metadata for a given image and returns it", status_code=201)
-async def create_particle_picking(meta_name: str = Query(...),image_name_or_oid: str = Query(...), db: Session = Depends(get_db)):
+@webapp_router.post("/particle-pickings", summary="creates particle picking metadata for a given image and returns it",
+                    status_code=201)
+async def create_particle_picking(meta_name: str = Query(...), image_name_or_oid: str = Query(...),
+                                  db: Session = Depends(get_db)):
     try:
         try:
             # Attempt to convert image_name_or_oid to UUID
@@ -470,6 +470,7 @@ async def create_particle_picking(meta_name: str = Query(...),image_name_or_oid:
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @webapp_router.get('/particle-pickings')
 def get_image_particles(img_name: str, db: Session = Depends(get_db)):
@@ -831,7 +832,6 @@ async def create_atlas(session_name: str, db_session: Session = Depends(get_db))
     return {"images": images}
 
 
-
 @webapp_router.get('/do_ctf')
 async def get_do_image_ctf_route(full_image_path: str):
     # full_image_path="/gpfs/research/stagg/leginondata/23oct13x/rawdata/23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc"
@@ -839,34 +839,34 @@ async def get_do_image_ctf_route(full_image_path: str):
     # file_name = "23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex"
 
     # Extract file name without extension
-    file_name = os.path.splitext(os.path.basename(full_image_path))[0]
-    session_name = file_name.split("_")[0]
-    out_file_name = f"{file_name}_ctf_output.mrc"
-
-    ctf_task_data = CtfTaskData(
-        image_id=uuid.uuid4(),
-        image_name="Image1",
-        image_path=full_image_path,
-        inputFile=full_image_path,
-        outputFile=out_file_name,
-        pixelSize=1,
-        accelerationVoltage=300,
-        sphericalAberration=2.7,
-        amplitudeContrast=0.07,
-        sizeOfAmplitudeSpectrum=512,
-        minimumResolution=30,
-        maximumResolution=5,
-        minimumDefocus=5000,
-        maximumDefocus=50000,
-        defocusSearchStep=100
-    )
-
-    ctf_task = CtfTaskFactory.create_task(pid=str(uuid.uuid4()), instance_id=uuid.uuid4(), job_id=uuid.uuid4(),
-                                          data=ctf_task_data.model_dump(), ptype=CTF_TASK, pstatus=PENDING)
-    ctf_task.sesson_name=session_name
-    return  push_task_to_task_queue(ctf_task)
+    return await dispatch_ctf_task(uuid.uuid4(), full_image_path)
 
 
+# async def dispatch_ctf_task(image_id, full_image_path):
+#     file_name = os.path.splitext(os.path.basename(full_image_path))[0]
+#     session_name = file_name.split("_")[0]
+#     out_file_name = f"{file_name}_ctf_output.mrc"
+#     ctf_task_data = CtfTaskData(
+#         image_id=image_id,
+#         image_name="Image1",
+#         image_path=full_image_path,
+#         inputFile=full_image_path,
+#         outputFile=out_file_name,
+#         pixelSize=1,
+#         accelerationVoltage=300,
+#         sphericalAberration=2.7,
+#         amplitudeContrast=0.07,
+#         sizeOfAmplitudeSpectrum=512,
+#         minimumResolution=30,
+#         maximumResolution=5,
+#         minimumDefocus=5000,
+#         maximumDefocus=50000,
+#         defocusSearchStep=100
+#     )
+#     ctf_task = CtfTaskFactory.create_task(pid=str(uuid.uuid4()), instance_id=uuid.uuid4(), job_id=uuid.uuid4(),
+#                                           data=ctf_task_data.model_dump(), ptype=CTF_TASK, pstatus=PENDING)
+#     ctf_task.sesson_name = session_name
+#     return push_task_to_task_queue(ctf_task)
 
 # @image_viewer_router.get("/download_file")
 # async def download_file(file_path: str):
