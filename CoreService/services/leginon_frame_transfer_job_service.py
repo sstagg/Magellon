@@ -14,6 +14,7 @@ from fastapi import Depends, HTTPException
 
 from config import FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, \
     FFT_SUFFIX, FRAMES_SUFFIX, app_settings, ATLAS_SUB_URL, CTF_SUB_URL
+from core.helper import dispatch_ctf_task
 from database import get_db
 from models.pydantic_models import LeginonFrameTransferJobDto, LeginonFrameTransferTaskDto
 # from models.pydantic_models import LeginonFrameTransferJobDto, LeginonFrameTransferTaskDto
@@ -380,6 +381,10 @@ class LeginonFrameTransferJobService:
             # Generate FFT using the REST API
             self.convert_image_to_png_task(task_dto.image_path, task_dto.job_dto.target_directory)
             self.compute_fft_png_task(task_dto.image_path, task_dto.job_dto.target_directory)
+            # self.compute_ctf_task(task_dto.image_path,task_dto)
+
+
+
             return {'status': 'success', 'message': 'Task completed successfully.'}
 
         except Exception as e:
@@ -437,6 +442,17 @@ class LeginonFrameTransferJobService:
             # self.compute_fft(img=mic, abs_out_file_name=fft_path)
             self.mrc_service.compute_file_fft(mrc_abs_path=abs_file_path, abs_out_file_name=fft_path)
             return {"message": "MRC file successfully converted to fft PNG!"}
+
+        except Exception as e:
+            return {"error": str(e)}
+
+    def compute_ctf_task(self, abs_file_path: str,task_dto: LeginonFrameTransferTaskDto):
+        try:
+            # self.create_image_directory(fft_path)
+            # self.compute_fft(img=mic, abs_out_file_name=fft_path)
+            # dispatch_ctf_task(uuid.uuid4(), abs_file_path)
+            dispatch_ctf_task(task_dto.task_id, abs_file_path)
+            return {"message": "Converting to ctf on the way!"}
 
         except Exception as e:
             return {"error": str(e)}

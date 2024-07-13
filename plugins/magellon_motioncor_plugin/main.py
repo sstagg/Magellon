@@ -14,7 +14,7 @@ from prometheus_client import Info
 
 from core.consul import register_with_consul, init_consul_client
 from core.rabbitmq_consumer_engine import consumer_engine
-from core.model_dto import CryoEmMotionCorTaskData
+from core.model_dto import CryoEmMotionCorTaskData, TaskDto
 from core.settings import AppSettingsSingleton
 from service.service import do_execute, check_requirements, get_plugin_info
 from core.logger_config import setup_logging
@@ -100,7 +100,7 @@ async def setup():
 
 
 @app.post("/execute", summary="Execute Plugin Operation")
-async def execute_endpoint(request: CryoEmMotionCorTaskData):
+async def execute_endpoint(request: TaskDto):
     return await do_execute(request)
 
 

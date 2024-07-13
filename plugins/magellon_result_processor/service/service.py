@@ -9,14 +9,12 @@ from fastapi import Depends, HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from core.database import get_db,  get_db_connection
+from core.database import get_db, get_db_connection
 from core.helper import push_result_to_out_queue
 from core.model_dto import TaskDto, PluginInfoSingleton, TaskResultDto
 from core.settings import AppSettingsSingleton
 from core.setup_plugin import check_python_version, check_operating_system, check_requirements_txt
-from core.sqlalchemy_models import Camera, ImageJobTask, ImageMetaData , Msession
-
-
+from core.sqlalchemy_models import Camera, ImageJobTask, ImageMetaData, Msession
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +48,7 @@ async def get_all_cameras(name: Optional[str] = None, db: Session = Depends(get_
         limit: int = 100
         return db.query(Camera).offset(skip).limit(limit).all()
 
+
 def move_file_to_directory(file_path, destination_dir):
     # Extract the file name from the full file path
     filename = os.path.basename(file_path)
@@ -65,27 +64,25 @@ def move_file_to_directory(file_path, destination_dir):
     except Exception as e:
         print(f"Error: {e}")
 
-
-async def do_execute(task_result_param: TaskResultDto ):
+def is_valid_json(my_json: str) -> bool:
     try:
-        # db_m_session = db.query(Msession).filter(Msession.name == name).first()
-        # db_task : ImageJobTask= db.query(ImageJobTask).filter(ImageJobTask.oid == task_result_param.task_id).first()
-        # db_task.image_id
+        json.loads(my_json)
+        return True
+    except ValueError:
+        return False
 
-
-
-        destination_dir=os.path.join(AppSettingsSingleton.get_instance().ROOT_DIR, task_result_param.session_name,"ctf")
-
-        for ofile in task_result_param.output_files:
-            # copy files
-            move_file_to_directory(ofile.path,destination_dir)
-            print("hello")
-        output_data = task_result_param.output_data
-
-
+async def do_execute(task_result_param: TaskResultDto):
+    try:
         engine = create_engine(get_db_connection())
         session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
         db = session_local()
+        destination_dir = os.path.join(AppSettingsSingleton.get_instance().ROOT_DIR, task_result_param.session_name, "ctf")
+
+        for ofile in task_result_param.output_files:
+            # copy files
+            move_file_to_directory(ofile.path, destination_dir)
+
+        output_data = task_result_param.output_data
         if output_data is not None and output_data != "":
             # Create a new ImageMetaData instance
             image_meta_data = ImageMetaData(
@@ -101,39 +98,30 @@ async def do_execute(task_result_param: TaskResultDto ):
             # ... your database operations using `db` here ...
             except Exception as exc:
                 return {"error": str(exc)}
+        if task_result_param.meta_data is not None and task_result_param.meta_data != "":
+            meta_list_dicts = [meta.dict(exclude_none=True) for meta in task_result_param.meta_data]
+            json_str = json.dumps(meta_list_dicts, indent=4)
+            # Create a new ImageMetaData instance
+            ctf_meta_data = ImageMetaData(
+                oid=uuid.uuid4(),
+                name="CTF Meta Data",
+                data_json=json.loads(json_str),
+                # data_json=json.dumps(task_result_param.meta_data).encode("utf-8"),
+                # image_id=task_result_param.image_id,
+                # task_id=task_result_param.task_id
+            )
+            try:
+                db.add(ctf_meta_data)
+                db.commit()
+            except Exception as exc:
+                return {"error": str(exc)}
 
-
-
-                # Add the new instance to the database session
-
-                # Commit the transaction
-
-
-
-        # for meta_data in task_result_param.meta_data:
-        #     # sd
-        #     db_meta = ImageMetaData(oid=uuid.uuid4())
-        #     #db_meta.name=meta_data.
-        #     db_meta.task_id=task_result_param.task_id
-        #     db.add(db_meta)
+        # try:
+        #     db_task : ImageJobTask= db.query(ImageJobTask).filter(ImageJobTask.oid == task_result_param.task_id).first()
+        #     db_task.stage = 5
         #     db.commit()
-
-
-            # db_meta.created_date
-
-        # set tht task to done ,
-
-        # db_task.stage = 5
-        # db.commit()
-
-
-
-        # the_data = CryoEmCtfTaskData.model_validate(params.data)
-        # result = await do_ctf(params)
-
-        # if result is not None:
-        #     push_result_to_out_queue(result)
-        #     compute_file_fft(mrc_abs_path=request.image_path, abs_out_file_name=request.target_path)
+        # except Exception as exc:
+        #     return {"error": str(exc)}
         return {"message": "CTF successfully executed"}
     except Exception as exc:
         return {"error": str(exc)}

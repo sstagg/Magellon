@@ -1,11 +1,19 @@
-import re
-import os
 import logging
-from core.model_dto import TaskDto, CryoEmMotionCorTaskData
-from core.rabbitmq_client import RabbitmqClient
-from core.settings import AppSettingsSingleton
+import os
+# import pdb
+import re
+import uuid
+
 from pydantic import BaseModel
+
+from config import app_settings
+from core.rabbitmq_client import RabbitmqClient
+from core.task_factory import CtfTaskFactory
+from models.plugins_models import TaskDto, CtfTaskData, TaskResultDto, CTF_TASK, PENDING
+
 logger = logging.getLogger(__name__)
+
+
 def create_directory(path):
     """
     Creates the directory for the given image path if it does not exist.
@@ -24,6 +32,7 @@ def create_directory(path):
             # os.chmod(directory, 0o777)
     except Exception as e:
         print(f"An error occurred while creating the directory: {str(e)}")
+
 
 def custom_replace(input_string, replace_type, replace_pattern, replace_with):
     """
@@ -51,16 +60,6 @@ def custom_replace(input_string, replace_type, replace_pattern, replace_with):
         raise ValueError("Invalid replace_type. Use 'none', 'normal', or 'regex'.")
 
 
-def append_json_to_file(file_path, json_str):
-    try:
-        # Append the JSON string as a new line to the file
-        with open(file_path, 'a') as file:
-            file.write(json_str + '\n')
-
-        return True  # Success
-    except Exception as e:
-        print(f"Error appending JSON to file: {e}")
-        return False  # Failure
 
 
 def parse_message_to_task_object(message_str):
@@ -68,11 +67,12 @@ def parse_message_to_task_object(message_str):
 
 
 def extract_task_data_from_object(task_object):
-    return CryoEmMotionCorTaskData.model_validate(task_object.data)
+    return CtfTaskData.model_validate(task_object.data)
 
 
 def parse_json_for_cryoemctftask(message_str):
-    return CryoEmMotionCorTaskData.model_validate(TaskDto.model_validate_json(message_str).data)
+    return CtfTaskData.model_validate(TaskDto.model_validate_json(message_str).data)
+
 
 def publish_message_to_queue(message: BaseModel, queue_name: str) -> bool:
     """
@@ -86,7 +86,7 @@ def publish_message_to_queue(message: BaseModel, queue_name: str) -> bool:
         True on success, False on error.
     """
     try:
-        settings = AppSettingsSingleton.get_instance().rabbitmq_settings
+        settings = app_settings.rabbitmq_settings
         rabbitmq_client = RabbitmqClient(settings)
         rabbitmq_client.connect()  # Connect to RabbitMQ
         # pdb.set_trace()
@@ -100,9 +100,36 @@ def publish_message_to_queue(message: BaseModel, queue_name: str) -> bool:
         rabbitmq_client.close_connection()  # Disconnect from RabbitMQ
 
 
-# def push_result_to_out_queue(result: CryoEmTaskResultDto):
-#     return publish_message_to_queue(result, AppSettingsSingleton.get_instance().rabbitmq_settings.OUT_QUEUE_NAME)
+def push_result_to_out_queue(result: TaskResultDto):
+    return publish_message_to_queue(result, app_settings.rabbitmq_settings.CTF_OUT_QUEUE_NAME)
 
 
 def push_task_to_task_queue(task: TaskDto):
-    return publish_message_to_queue(task, AppSettingsSingleton.get_instance().rabbitmq_settings.QUEUE_NAME)
+    return publish_message_to_queue(task, app_settings.rabbitmq_settings.CTF_QUEUE_NAME)
+
+
+async def dispatch_ctf_task(image_id, full_image_path):
+    file_name = os.path.splitext(os.path.basename(full_image_path))[0]
+    session_name = file_name.split("_")[0]
+    out_file_name = f"{file_name}_ctf_output.mrc"
+    ctf_task_data = CtfTaskData(
+        image_id=image_id,
+        image_name="Image1",
+        image_path=full_image_path,
+        inputFile=full_image_path,
+        outputFile=out_file_name,
+        pixelSize=1,
+        accelerationVoltage=300,
+        sphericalAberration=2.7,
+        amplitudeContrast=0.07,
+        sizeOfAmplitudeSpectrum=512,
+        minimumResolution=30,
+        maximumResolution=5,
+        minimumDefocus=5000,
+        maximumDefocus=50000,
+        defocusSearchStep=100
+    )
+    ctf_task = CtfTaskFactory.create_task(pid=str(uuid.uuid4()), instance_id=uuid.uuid4(), job_id=uuid.uuid4(),
+                                          data=ctf_task_data.model_dump(), ptype=CTF_TASK, pstatus=PENDING)
+    ctf_task.sesson_name = session_name
+    return push_task_to_task_queue(ctf_task)

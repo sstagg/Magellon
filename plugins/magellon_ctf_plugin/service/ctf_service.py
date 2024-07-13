@@ -37,7 +37,7 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
         os.makedirs(directory_path, exist_ok=True)
 
         #testing if really we have access to input files
-        shutil.copy2(the_task_data.inputFile, directory_path)
+        # shutil.copy2(the_task_data.inputFile, directory_path)
 
         input_string = buildCtfCommand(the_task_data)
         logger.info("Input String:%s", input_string)

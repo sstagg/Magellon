@@ -12,7 +12,8 @@ def getSubCommand(attribute: str, value: Optional[str] = None) -> List[str]:
     return [attribute, value] if value is not None else [attribute]
     
 def build_motioncor3_command(params: CryoEmMotionCorTaskData) -> str:
-    cmd=[os.environ.get("MOTIONCORFILE")]
+    # cmd=[os.environ.get("MOTIONCORFILE")]
+    cmd=["MotionCor2_1.6.4_Cuda121_Mar312023"]
     # cmd = ['motioncor3']
     if params.InMrc is not None:
         cmd+=getSubCommand("-InMrc",params.InMrc)
@@ -233,9 +234,8 @@ def getPatchFrameAlignment(fileName):
         raise Exception(f"Error reading file {fileName}: {e}")
 
 
-def isFilePresent(directory, fileName):
-    filePath = os.path.join(directory, fileName)
-    return os.path.isfile(filePath)
+def isFilePresent(fileName):
+    return os.path.isfile(fileName)
 
 def getRequirements(filePath):
     try:

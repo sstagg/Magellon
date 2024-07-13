@@ -81,6 +81,18 @@ def get_kv_value(key: str, default: Optional[str] = None) -> str:
 
     return os.getenv(key, default)
 
+def get_services(service_name:str) -> dict:
+    # http://localhost:8500/v1/catalog/service/magellon-ctf-service
+    try:
+        if consul_client:
+            key, services = consul_client.catalog.service(service_name)
+            # for service in services:
+            #     service_address = service.get("ServiceAddress")
+            #     service_port = service.get("ServicePort")
+            #     print(service_address,service_port,service)
+            return services
+    except (consul.ConsulException, json.JSONDecodeError) as e:
+        print(f"Error fetching configurations: {e}")
 
 def fetch_configurations() -> dict:
     """

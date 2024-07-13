@@ -1,6 +1,6 @@
 import logging
 import uuid
-
+import os
 from core.model_dto import FFT_TASK, PENDING, TaskDto,  CryoEmMotionCorTaskData
 from core.rabbitmq_client import RabbitmqClient
 from core.settings import AppSettingsSingleton
@@ -44,11 +44,11 @@ def push_task_to_task_queue():
         data1 = CryoEmMotionCorTaskData(
             image_id=uuid.uuid4(),
             image_name="Image1",
-            image_path=r"/gpfs/24mar28a_s_00012gr_00018sq_v01_00019hl_00007ex.frames.tif",
-            inputFile=r"/gpfs/24mar28a_s_00012gr_00018sq_v01_00019hl_00007ex.frames.tif",
-            InTiff=r"/gpfs/24mar28a_s_00012gr_00018sq_v01_00019hl_00007ex.frames.tif",
-            OutMrc="ouput.mrc",
-        Gain= r"/gpfs/20240328_04283_gain_multi_ref_superres.mrc",
+            image_path=os.path.join(os.getcwd(),"gpfs","24mar28a_s_00012gr_00018sq_v01_00019hl_00007ex.frames.tif"),
+            inputFile=os.path.join(os.getcwd(),"gpfs","24mar28a_s_00012gr_00018sq_v01_00019hl_00007ex.frames.tif"),
+            InTiff=os.path.join(os.getcwd(),"gpfs","24mar28a_s_00012gr_00018sq_v01_00019hl_00007ex.frames.tif"),
+            OutMrc="output.files.mrc",
+            Gain=os.path.join(os.getcwd(),"gpfs","20240328_04283_gain_multi_ref_superres.mrc"),
         PatchesX= 5,
         PatchesY= 5,
         SumRangeMinDose= 0,
