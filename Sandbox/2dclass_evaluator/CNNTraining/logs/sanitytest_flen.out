@@ -1,0 +1,594 @@
+Using sequence <function sequence8 at 0x7fa7b6652700>
+
+TRAINING OVERVIEW
+-------------------------------
+OPTIMIZER:
+ Adam (
+Parameter Group 0
+    amsgrad: False
+    betas: (0.9, 0.999)
+    eps: 1e-08
+    lr: 0.0001
+    maximize: False
+    weight_decay: 0.0001
+) 
+-------------------------------
+LOSS FUNCTION:
+ MSELoss() 
+-------------------------------
+MODEL ARCHITECTURE:
+ MRCNetwork(
+  (cnn_network): Sequential(
+    (0): ResidualConvBlock(
+      (nonlinear): ReLU()
+      (layer1): Sequential(
+        (0): Conv2d(1, 16, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (layer2): Sequential(
+        (0): Conv2d(16, 16, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (downsampler): Sequential(
+        (0): Conv2d(1, 16, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+      )
+      (batchnorm): Sequential(
+        (0): BatchNorm2d(16, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+    (1): BatchNorm2d(16, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (2): Dropout(p=0.25, inplace=False)
+    (3): ResidualConvBlock(
+      (nonlinear): ReLU()
+      (layer1): Sequential(
+        (0): Conv2d(16, 16, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (layer2): Sequential(
+        (0): Conv2d(16, 16, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (downsampler): Sequential(
+        (0): Conv2d(16, 16, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+      )
+      (batchnorm): Sequential(
+        (0): BatchNorm2d(16, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+    (4): BatchNorm2d(16, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (5): Dropout(p=0.25, inplace=False)
+    (6): Conv2d(16, 16, kernel_size=(3, 3), stride=(2, 2))
+    (7): BatchNorm2d(16, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (8): Dropout(p=0.25, inplace=False)
+    (9): ResidualConvBlock(
+      (nonlinear): ReLU()
+      (layer1): Sequential(
+        (0): Conv2d(16, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (layer2): Sequential(
+        (0): Conv2d(32, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (downsampler): Sequential(
+        (0): Conv2d(16, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+      )
+      (batchnorm): Sequential(
+        (0): BatchNorm2d(32, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+    (10): BatchNorm2d(32, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (11): Dropout(p=0.25, inplace=False)
+    (12): ResidualConvBlock(
+      (nonlinear): ReLU()
+      (layer1): Sequential(
+        (0): Conv2d(32, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (layer2): Sequential(
+        (0): Conv2d(32, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (downsampler): Sequential(
+        (0): Conv2d(32, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+      )
+      (batchnorm): Sequential(
+        (0): BatchNorm2d(32, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+    (13): BatchNorm2d(32, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (14): Dropout(p=0.25, inplace=False)
+    (15): Conv2d(32, 32, kernel_size=(3, 3), stride=(2, 2))
+    (16): BatchNorm2d(32, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (17): Dropout(p=0.25, inplace=False)
+    (18): ResidualConvBlock(
+      (nonlinear): ReLU()
+      (layer1): Sequential(
+        (0): Conv2d(32, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (layer2): Sequential(
+        (0): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (downsampler): Sequential(
+        (0): Conv2d(32, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+      )
+      (batchnorm): Sequential(
+        (0): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+    (19): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (20): Dropout(p=0.25, inplace=False)
+    (21): ResidualConvBlock(
+      (nonlinear): ReLU()
+      (layer1): Sequential(
+        (0): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (layer2): Sequential(
+        (0): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (batchnorm): Sequential(
+        (0): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+    (22): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (23): Dropout(p=0.25, inplace=False)
+    (24): ResidualConvBlock(
+      (nonlinear): ReLU()
+      (layer1): Sequential(
+        (0): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (layer2): Sequential(
+        (0): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (batchnorm): Sequential(
+        (0): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+    (25): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (26): Dropout(p=0.25, inplace=False)
+    (27): Conv2d(64, 64, kernel_size=(3, 3), stride=(2, 2))
+    (28): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (29): Dropout(p=0.25, inplace=False)
+    (30): ResidualConvBlock(
+      (nonlinear): ReLU()
+      (layer1): Sequential(
+        (0): Conv2d(64, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (layer2): Sequential(
+        (0): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (downsampler): Sequential(
+        (0): Conv2d(64, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+      )
+      (batchnorm): Sequential(
+        (0): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+    (31): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (32): Dropout(p=0.25, inplace=False)
+    (33): ResidualConvBlock(
+      (nonlinear): ReLU()
+      (layer1): Sequential(
+        (0): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (layer2): Sequential(
+        (0): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (batchnorm): Sequential(
+        (0): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+    (34): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (35): Dropout(p=0.25, inplace=False)
+    (36): ResidualConvBlock(
+      (nonlinear): ReLU()
+      (layer1): Sequential(
+        (0): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (layer2): Sequential(
+        (0): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (batchnorm): Sequential(
+        (0): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+    (37): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (38): Dropout(p=0.25, inplace=False)
+    (39): Conv2d(128, 128, kernel_size=(3, 3), stride=(2, 2))
+    (40): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (41): Dropout(p=0.25, inplace=False)
+    (42): AdaptiveAvgPool2d(output_size=(6, 6))
+    (43): Flatten(start_dim=1, end_dim=-1)
+    (44): ReLU()
+  )
+  (feat_network): Sequential(
+    (0): Linear(in_features=4614, out_features=1, bias=True)
+  )
+) 
+-------------------------------
+OTHER:
+Training with batch size of 32
+Running on device cuda:0
+Split 10.00% of data for validation data
+Preparing to train in parallel: main device on cuda:0, all devices on [0]
+Will save model to /nfs/home/khom/test_projects/CNNTraining/models/sanitytest_flen.pth
+Expecting fixed size data
+-------------------------------
+
+Fetching MRC image data (mode: hdf5) from /nfs/home/khom/test_projects/ClassAvgLabeling/ProcessedData/alldata_flen.hdf5
+Reshaping data: False
+Fetching MRC image data (mode: hdf5) from /nfs/home/khom/test_projects/ClassAvgLabeling/ProcessedData/alldata_flen.hdf5
+Reshaping data: False
+Selecting subset of size 5233 out of 5815... done
+Selecting subset of size 582 out of 5815... done
+Ready to train
+
+Beginning training for 100 epochs (from epoch 1)...
+Epoch 1
+-------------------------------
+Batch  26/164, loss: 0.086968  [  832/ 5233] (16.776s) val loss: 0.254703
+Batch  51/164, loss: 0.221174  [ 1632/ 5233] (19.956s) val loss: 0.219011
+Batch  76/164, loss: 0.146830  [ 2432/ 5233] (19.971s) val loss: 0.241129
+Batch 101/164, loss: 0.075745  [ 3232/ 5233] (20.036s) val loss: 0.213218
+Batch 126/164, loss: 0.165054  [ 4032/ 5233] (20.005s) val loss: 0.156276
+Batch 151/164, loss: 0.143703  [ 4832/ 5233] (20.029s) val loss: 0.128569
+Batch 164/164, loss: 0.078014  [ 5233/ 5233] (12.228s) val loss: 0.113275
+Saved to /nfs/home/khom/test_projects/CNNTraining/models/sanitytest_flen.pth
+Took 133.629s total
+-------------------------------
+
+Epoch 2
+-------------------------------
+Batch  26/164, loss: 0.103144  [  832/ 5233] (16.391s) val loss: 0.141282
+Batch  51/164, loss: 0.114458  [ 1632/ 5233] (20.045s) val loss: 0.113538
+Batch  76/164, loss: 0.141890  [ 2432/ 5233] (20.047s) val loss: 0.105353
+Batch 101/164, loss: 0.238425  [ 3232/ 5233] (20.047s) val loss: 0.128371
+Batch 126/164, loss: 0.087992  [ 4032/ 5233] (20.054s) val loss: 0.107827
+Batch 151/164, loss: 0.093671  [ 4832/ 5233] (20.057s) val loss: 0.092811
+Batch 164/164, loss: 0.079188  [ 5233/ 5233] (12.237s) val loss: 0.106534
+Saved to /nfs/home/khom/test_projects/CNNTraining/models/sanitytest_flen.pth
+Took 133.417s total
+-------------------------------
+
+Epoch 3
+-------------------------------
+Batch  26/164, loss: 0.041088  [  832/ 5233] (16.425s) val loss: 0.085348
+Batch  51/164, loss: 0.089639  [ 1632/ 5233] (20.069s) val loss: 0.096345
+Batch  76/164, loss: 0.057992  [ 2432/ 5233] (20.059s) val loss: 0.105671
+Batch 101/164, loss: 0.062793  [ 3232/ 5233] (20.076s) val loss: 0.087239
+Batch 126/164, loss: 0.111261  [ 4032/ 5233] (20.083s) val loss: 0.120668
+Batch 151/164, loss: 0.152833  [ 4832/ 5233] (20.081s) val loss: 0.109035
+Batch 164/164, loss: 0.081363  [ 5233/ 5233] (12.252s) val loss: 0.162391
+Saved to /nfs/home/khom/test_projects/CNNTraining/models/sanitytest_flen.pth
+Took 133.661s total
+-------------------------------
+
+Epoch 4
+-------------------------------
+Batch  26/164, loss: 0.083366  [  832/ 5233] (16.450s) val loss: 0.071921
+Batch  51/164, loss: 0.053193  [ 1632/ 5233] (20.117s) val loss: 0.074290
+Batch  76/164, loss: 0.064105  [ 2432/ 5233] (20.119s) val loss: 0.112287
+Batch 101/164, loss: 0.028675  [ 3232/ 5233] (20.121s) val loss: 0.069831
+Batch 126/164, loss: 0.057927  [ 4032/ 5233] (20.112s) val loss: 0.093738
+Batch 151/164, loss: 0.057363  [ 4832/ 5233] (20.115s) val loss: 0.096912
+Batch 164/164, loss: 0.076834  [ 5233/ 5233] (12.276s) val loss: 0.089334
+Saved to /nfs/home/khom/test_projects/CNNTraining/models/sanitytest_flen.pth
+Took 133.891s total
+-------------------------------
+
+Epoch 5
+-------------------------------
+Batch  26/164, loss: 0.050638  [  832/ 5233] (16.442s) val loss: 0.068162
+Batch  51/164, loss: 0.066671  [ 1632/ 5233] (20.122s) val loss: 0.101914
+Batch  76/164, loss: 0.045090  [ 2432/ 5233] (20.113s) val loss: 0.093980
+Batch 101/164, loss: 0.072524  [ 3232/ 5233] (20.109s) val loss: 0.117016
+Batch 126/164, loss: 0.042079  [ 4032/ 5233] (20.108s) val loss: 0.104614
+Batch 151/164, loss: 0.063764  [ 4832/ 5233] (20.105s) val loss: 0.074691
+Batch 164/164, loss: 0.076813  [ 5233/ 5233] (12.265s) val loss: 0.067344
+Saved to /nfs/home/khom/test_projects/CNNTraining/models/sanitytest_flen.pth
+Took 133.876s total
+-------------------------------
+
+Epoch 6
+-------------------------------
+Batch  26/164, loss: 0.057768  [  832/ 5233] (16.455s) val loss: 0.083687
+Batch  51/164, loss: 0.053998  [ 1632/ 5233] (20.115s) val loss: 0.094558
+Batch  76/164, loss: 0.042424  [ 2432/ 5233] (20.110s) val loss: 0.098702
+Batch 101/164, loss: 0.055339  [ 3232/ 5233] (20.116s) val loss: 0.073819
+Batch 126/164, loss: 0.059200  [ 4032/ 5233] (20.100s) val loss: 0.086482
+Batch 151/164, loss: 0.046695  [ 4832/ 5233] (20.107s) val loss: 0.063477
+Batch 164/164, loss: 0.072330  [ 5233/ 5233] (12.266s) val loss: 0.061688
+Saved to /nfs/home/khom/test_projects/CNNTraining/models/sanitytest_flen.pth
+Took 133.848s total
+-------------------------------
+
+Epoch 7
+-------------------------------
+Batch  26/164, loss: 0.038971  [  832/ 5233] (16.439s) val loss: 0.058840
+Batch  51/164, loss: 0.049245  [ 1632/ 5233] (20.096s) val loss: 0.073811
+Batch  76/164, loss: 0.040965  [ 2432/ 5233] (20.095s) val loss: 0.077771
+Batch 101/164, loss: 0.025167  [ 3232/ 5233] (20.094s) val loss: 0.061482
+Batch 126/164, loss: 0.047766  [ 4032/ 5233] (20.103s) val loss: 0.066571
+Batch 151/164, loss: 0.058034  [ 4832/ 5233] (20.099s) val loss: 0.072649
+Batch 164/164, loss: 0.052522  [ 5233/ 5233] (12.265s) val loss: 0.095813
+Saved to /nfs/home/khom/test_projects/CNNTraining/models/sanitytest_flen.pth
+Took 133.762s total
+-------------------------------
+
+Epoch 8
+-------------------------------
+Batch  26/164, loss: 0.042724  [  832/ 5233] (16.446s) val loss: 0.070666
+Batch  51/164, loss: 0.065032  [ 1632/ 5233] (20.102s) val loss: 0.084677
+Batch  76/164, loss: 0.030969  [ 2432/ 5233] (20.096s) val loss: 0.060394
+Batch 101/164, loss: 0.035126  [ 3232/ 5233] (20.109s) val loss: 0.067942
+Batch 126/164, loss: 0.031358  [ 4032/ 5233] (20.097s) val loss: 0.089577
+Batch 151/164, loss: 0.038005  [ 4832/ 5233] (20.103s) val loss: 0.062621
+Batch 164/164, loss: 0.053267  [ 5233/ 5233] (12.269s) val loss: 0.054706
+Saved to /nfs/home/khom/test_projects/CNNTraining/models/sanitytest_flen.pth
+Took 133.797s total
+-------------------------------
+
+Epoch 9
+-------------------------------
+Batch  26/164, loss: 0.042711  [  832/ 5233] (16.434s) val loss: 0.084001
+Batch  51/164, loss: 0.042747  [ 1632/ 5233] (20.109s) val loss: 0.061413
+Batch  76/164, loss: 0.037267  [ 2432/ 5233] (20.099s) val loss: 0.056955
+Batch 101/164, loss: 0.056223  [ 3232/ 5233] (20.105s) val loss: 0.062659
+Batch 126/164, loss: 0.056573  [ 4032/ 5233] (20.096s) val loss: 0.071510
+Batch 151/164, loss: 0.032621  [ 4832/ 5233] (20.088s) val loss: 0.081654
+Batch 164/164, loss: 0.039236  [ 5233/ 5233] (12.264s) val loss: 0.104718
+Saved to /nfs/home/khom/test_projects/CNNTraining/models/sanitytest_flen.pth
+Took 133.743s total
+-------------------------------
+
+Epoch 10
+-------------------------------
+Batch  26/164, loss: 0.039975  [  832/ 5233] (16.461s) val loss: 0.083314
+Batch  51/164, loss: 0.027396  [ 1632/ 5233] (20.076s) val loss: 0.093857
+Batch  76/164, loss: 0.032164  [ 2432/ 5233] (20.066s) val loss: 0.063571
+Batch 101/164, loss: 0.033444  [ 3232/ 5233] (20.084s) val loss: 0.089458
+Batch 126/164, loss: 0.047886  [ 4032/ 5233] (20.098s) val loss: 0.063835
+Batch 151/164, loss: 0.026404  [ 4832/ 5233] (20.067s) val loss: 0.111342
+Batch 164/164, loss: 0.022992  [ 5233/ 5233] (12.248s) val loss: 0.075150
+Saved to /nfs/home/khom/test_projects/CNNTraining/models/sanitytest_flen.pth
+Took 133.661s total
+-------------------------------
+
+Epoch 11
+-------------------------------
+Batch  26/164, loss: 0.037961  [  832/ 5233] (16.420s) val loss: 0.073586
+Batch  51/164, loss: 0.041910  [ 1632/ 5233] (20.069s) val loss: 0.075964
+Batch  76/164, loss: 0.038317  [ 2432/ 5233] (20.071s) val loss: 0.066169
+Batch 101/164, loss: 0.030070  [ 3232/ 5233] (20.075s) val loss: 0.067641
+Batch 126/164, loss: 0.049421  [ 4032/ 5233] (20.076s) val loss: 0.072584
+Batch 151/164, loss: 0.016848  [ 4832/ 5233] (20.071s) val loss: 0.090367
+Batch 164/164, loss: 0.051792  [ 5233/ 5233] (12.242s) val loss: 0.078988
+Saved to /nfs/home/khom/test_projects/CNNTraining/models/sanitytest_flen.pth
+Took 133.581s total
+-------------------------------
+
+Epoch 12
+-------------------------------
+Batch  26/164, loss: 0.025253  [  832/ 5233] (16.416s) val loss: 0.067467
+Batch  51/164, loss: 0.032006  [ 1632/ 5233] (20.073s) val loss: 0.088218
+Batch  76/164, loss: 0.020395  [ 2432/ 5233] (20.082s) val loss: 0.070947
+Batch 101/164, loss: 0.045896  [ 3232/ 5233] (20.080s) val loss: 0.082825
+Batch 126/164, loss: 0.025488  [ 4032/ 5233] (20.079s) val loss: 0.079135
+Batch 151/164, loss: 0.036463  [ 4832/ 5233] (20.091s) val loss: 0.079615
+Batch 164/164, loss: 0.021483  [ 5233/ 5233] (12.241s) val loss: 0.075392
+Saved to /nfs/home/khom/test_projects/CNNTraining/models/sanitytest_flen.pth
+Took 133.724s total
+-------------------------------
+
+Epoch 13
+-------------------------------
+Batch  26/164, loss: 0.033104  [  832/ 5233] (16.427s) val loss: 0.081921
+Batch  51/164, loss: 0.018796  [ 1632/ 5233] (20.067s) val loss: 0.090347
+Batch  76/164, loss: 0.021449  [ 2432/ 5233] (20.068s) val loss: 0.108136
+Batch 101/164, loss: 0.103543  [ 3232/ 5233] (20.068s) val loss: 0.082011
+Batch 126/164, loss: 0.024969  [ 4032/ 5233] (20.078s) val loss: 0.083547
+Batch 151/164, loss: 0.021588  [ 4832/ 5233] (20.067s) val loss: 0.067133
+Batch 164/164, loss: 0.022833  [ 5233/ 5233] (12.246s) val loss: 0.081303
+Saved to /nfs/home/khom/test_projects/CNNTraining/models/sanitytest_flen.pth
+Took 133.593s total
+-------------------------------
+
+Epoch 14
+-------------------------------
+Batch  26/164, loss: 0.025776  [  832/ 5233] (16.407s) val loss: 0.069817
+Batch  51/164, loss: 0.037327  [ 1632/ 5233] (20.074s) val loss: 0.066732
+Batch  76/164, loss: 0.017400  [ 2432/ 5233] (20.073s) val loss: 0.077593
+Batch 101/164, loss: 0.029520  [ 3232/ 5233] (20.072s) val loss: 0.110968
+Batch 126/164, loss: 0.033764  [ 4032/ 5233] (20.068s) val loss: 0.080241
+Batch 151/164, loss: 0.018331  [ 4832/ 5233] (20.065s) val loss: 0.085245
+Batch 164/164, loss: 0.018399  [ 5233/ 5233] (12.240s) val loss: 0.084839
+Saved to /nfs/home/khom/test_projects/CNNTraining/models/sanitytest_flen.pth
+Took 134.864s total
+-------------------------------
+
+Epoch 15
+-------------------------------
+Batch  26/164, loss: 0.016142  [  832/ 5233] (16.450s) val loss: 0.093091
+Batch  51/164, loss: 0.021229  [ 1632/ 5233] (20.090s) val loss: 0.085477
+Batch  76/164, loss: 0.020658  [ 2432/ 5233] (20.073s) val loss: 0.072101
+Batch 101/164, loss: 0.016318  [ 3232/ 5233] (20.069s) val loss: 0.092829
+Batch 126/164, loss: 0.025149  [ 4032/ 5233] (20.089s) val loss: 0.076127
+Batch 151/164, loss: 0.018546  [ 4832/ 5233] (20.076s) val loss: 0.077418
+Batch 164/164, loss: 0.015433  [ 5233/ 5233] (12.241s) val loss: 0.071229
+Saved to /nfs/home/khom/test_projects/CNNTraining/models/sanitytest_flen.pth
+Took 133.626s total
+-------------------------------
+
+Epoch 16
+-------------------------------
+Batch  26/164, loss: 0.017019  [  832/ 5233] (16.418s) val loss: 0.080538
+Batch  51/164, loss: 0.024150  [ 1632/ 5233] (20.067s) val loss: 0.077803
+Batch  76/164, loss: 0.018265  [ 2432/ 5233] (20.079s) val loss: 0.065895
+Batch 101/164, loss: 0.032261  [ 3232/ 5233] (20.075s) val loss: 0.080142
+Batch 126/164, loss: 0.022540  [ 4032/ 5233] (20.072s) val loss: 0.079516
+Batch 151/164, loss: 0.031977  [ 4832/ 5233] (20.077s) val loss: 0.075330
+Batch 164/164, loss: 0.034699  [ 5233/ 5233] (12.241s) val loss: 0.067951
+Saved to /nfs/home/khom/test_projects/CNNTraining/models/sanitytest_flen.pth
+Took 133.567s total
+-------------------------------
+
+Epoch 17
+-------------------------------
+Batch  26/164, loss: 0.017909  [  832/ 5233] (16.407s) val loss: 0.090501
+Batch  51/164, loss: 0.025955  [ 1632/ 5233] (20.075s) val loss: 0.082751
+Batch  76/164, loss: 0.045577  [ 2432/ 5233] (20.064s) val loss: 0.090579
+Batch 101/164, loss: 0.009665  [ 3232/ 5233] (20.058s) val loss: 0.078533
+Batch 126/164, loss: 0.017716  [ 4032/ 5233] (20.081s) val loss: 0.082725
+Batch 151/164, loss: 0.024068  [ 4832/ 5233] (20.083s) val loss: 0.081029
+Batch 164/164, loss: 0.022203  [ 5233/ 5233] (12.246s) val loss: 0.084015
+Saved to /nfs/home/khom/test_projects/CNNTraining/models/sanitytest_flen.pth
+Took 133.804s total
+-------------------------------
+
+Epoch 18
+-------------------------------
+Batch  26/164, loss: 0.015543  [  832/ 5233] (16.460s) val loss: 0.083013
+Batch  51/164, loss: 0.023028  [ 1632/ 5233] (20.085s) val loss: 0.084118
+Batch  76/164, loss: 0.026782  [ 2432/ 5233] (20.056s) val loss: 0.081501
+Batch 101/164, loss: 0.019746  [ 3232/ 5233] (20.080s) val loss: 0.075985
+Batch 126/164, loss: 0.021707  [ 4032/ 5233] (20.071s) val loss: 0.081582
+Batch 151/164, loss: 0.019480  [ 4832/ 5233] (20.069s) val loss: 0.068909
+Batch 164/164, loss: 0.015579  [ 5233/ 5233] (12.256s) val loss: 0.068078
+Saved to /nfs/home/khom/test_projects/CNNTraining/models/sanitytest_flen.pth
+Took 133.628s total
+-------------------------------
+
+Epoch 19
+-------------------------------
+Batch  26/164, loss: 0.019333  [  832/ 5233] (16.413s) val loss: 0.069424
+Batch  51/164, loss: 0.023778  [ 1632/ 5233] (20.078s) val loss: 0.075050
+Batch  76/164, loss: 0.018872  [ 2432/ 5233] (20.058s) val loss: 0.097259
+Batch 101/164, loss: 0.016817  [ 3232/ 5233] (20.067s) val loss: 0.079886
+Batch 126/164, loss: 0.020734  [ 4032/ 5233] (20.075s) val loss: 0.090569
+Batch 151/164, loss: 0.019679  [ 4832/ 5233] (20.089s) val loss: 0.104332
+Batch 164/164, loss: 0.011058  [ 5233/ 5233] (12.248s) val loss: 0.088227
+Saved to /nfs/home/khom/test_projects/CNNTraining/models/sanitytest_flen.pth
+Took 133.660s total
+-------------------------------
+
+Epoch 20
+-------------------------------
+Batch  26/164, loss: 0.026043  [  832/ 5233] (16.433s) val loss: 0.067016
+Batch  51/164, loss: 0.017330  [ 1632/ 5233] (20.073s) val loss: 0.068919
+Batch  76/164, loss: 0.063054  [ 2432/ 5233] (20.081s) val loss: 0.092685
+Batch 101/164, loss: 0.018201  [ 3232/ 5233] (20.076s) val loss: 0.076543
+Batch 126/164, loss: 0.011790  [ 4032/ 5233] (20.078s) val loss: 0.078507
+Batch 151/164, loss: 0.024991  [ 4832/ 5233] (20.075s) val loss: 0.098166
+Batch 164/164, loss: 0.018386  [ 5233/ 5233] (12.240s) val loss: 0.086077
+Saved to /nfs/home/khom/test_projects/CNNTraining/models/sanitytest_flen.pth
+Took 133.617s total
+-------------------------------
+
+Epoch 21
+-------------------------------
+Batch  26/164, loss: 0.020130  [  832/ 5233] (16.469s) val loss: 0.072034
+Batch  51/164, loss: 0.015580  [ 1632/ 5233] (20.103s) val loss: 0.098563
+Batch  76/164, loss: 0.012772  [ 2432/ 5233] (20.097s) val loss: 0.090791
+Batch 101/164, loss: 0.018160  [ 3232/ 5233] (20.088s) val loss: 0.078423
+Batch 126/164, loss: 0.012841  [ 4032/ 5233] (20.102s) val loss: 0.089296
+Batch 151/164, loss: 0.010041  [ 4832/ 5233] (20.089s) val loss: 0.095483
+Batch 164/164, loss: 0.012854  [ 5233/ 5233] (12.263s) val loss: 0.089199
+Saved to /nfs/home/khom/test_projects/CNNTraining/models/sanitytest_flen.pth
+Took 133.762s total
+-------------------------------
+
+Epoch 22
+-------------------------------
+Batch  26/164, loss: 0.017628  [  832/ 5233] (16.431s) val loss: 0.081661
+Batch  51/164, loss: 0.012090  [ 1632/ 5233] (20.092s) val loss: 0.071175
+Batch  76/164, loss: 0.016160  [ 2432/ 5233] (20.090s) val loss: 0.069505
+Batch 101/164, loss: 0.021826  [ 3232/ 5233] (20.096s) val loss: 0.086247
+Batch 126/164, loss: 0.011954  [ 4032/ 5233] (20.092s) val loss: 0.090030
+Batch 151/164, loss: 0.024282  [ 4832/ 5233] (20.091s) val loss: 0.061568
+Batch 164/164, loss: 0.036999  [ 5233/ 5233] (12.279s) val loss: 0.071142
+Saved to /nfs/home/khom/test_projects/CNNTraining/models/sanitytest_flen.pth
+Took 134.853s total
+-------------------------------
+
+Epoch 23
+-------------------------------
+Batch  26/164, loss: 0.027810  [  832/ 5233] (16.463s) val loss: 0.074682
+Batch  51/164, loss: 0.012971  [ 1632/ 5233] (20.099s) val loss: 0.074729
+Batch  76/164, loss: 0.011861  [ 2432/ 5233] (20.101s) val loss: 0.079414
+Batch 101/164, loss: 0.009875  [ 3232/ 5233] (20.085s) val loss: 0.074596
+Batch 126/164, loss: 0.016035  [ 4032/ 5233] (20.096s) val loss: 0.057100
+Batch 151/164, loss: 0.015954  [ 4832/ 5233] (20.090s) val loss: 0.068891
+Batch 164/164, loss: 0.009895  [ 5233/ 5233] (12.269s) val loss: 0.078399
+Saved to /nfs/home/khom/test_projects/CNNTraining/models/sanitytest_flen.pth
+Took 133.754s total
+-------------------------------
+
+Epoch 24
+-------------------------------
+Batch  26/164, loss: 0.020332  [  832/ 5233] (16.435s) val loss: 0.076305
+Batch  51/164, loss: 0.011932  [ 1632/ 5233] (20.092s) val loss: 0.079572
+Batch  76/164, loss: 0.012504  [ 2432/ 5233] (20.137s) val loss: 0.072068
+Batch 101/164, loss: 0.024457  [ 3232/ 5233] (20.096s) val loss: 0.049244
+Batch 126/164, loss: 0.014689  [ 4032/ 5233] (20.096s) val loss: 0.089666
+Batch 151/164, loss: 0.012232  [ 4832/ 5233] (20.107s) val loss: 0.063122
+Batch 164/164, loss: 0.014322  [ 5233/ 5233] (12.260s) val loss: 0.048498
+Saved to /nfs/home/khom/test_projects/CNNTraining/models/sanitytest_flen.pth
+Took 133.917s total
+-------------------------------
+
+Epoch 25
+-------------------------------
+Batch  26/164, loss: 0.013982  [  832/ 5233] (16.455s) val loss: 0.049808
+Batch  51/164, loss: 0.007981  [ 1632/ 5233] (20.103s) val loss: 0.053533
+Batch  76/164, loss: 0.020597  [ 2432/ 5233] (20.086s) val loss: 0.070955
+Batch 101/164, loss: 0.017656  [ 3232/ 5233] (20.094s) val loss: 0.056581
+Batch 126/164, loss: 0.018470  [ 4032/ 5233] (20.085s) val loss: 0.054746
+Batch 151/164, loss: 0.011139  [ 4832/ 5233] (20.083s) val loss: 0.051994
+Batch 164/164, loss: 0.011100  [ 5233/ 5233] (12.254s) val loss: 0.067533
+Saved to /nfs/home/khom/test_projects/CNNTraining/models/sanitytest_flen.pth
+Took 133.713s total
+-------------------------------
+
+Epoch 26
+-------------------------------
+Batch  26/164, loss: 0.013833  [  832/ 5233] (16.423s) val loss: 0.057209
+Batch  51/164, loss: 0.028964  [ 1632/ 5233] (20.063s) val loss: 0.055877
+Batch  76/164, loss: 0.019972  [ 2432/ 5233] (20.082s) val loss: 0.028574
+Batch 101/164, loss: 0.018633  [ 3232/ 5233] (20.062s) val loss: 0.058310
+Batch 126/164, loss: 0.010744  [ 4032/ 5233] (20.055s) val loss: 0.062106
+Batch 151/164, loss: 0.018626  [ 4832/ 5233] (20.053s) val loss: 0.043766
+Batch 164/164, loss: 0.010783  [ 5233/ 5233] (12.243s) val loss: 0.039084
+Saved to /nfs/home/khom/test_projects/CNNTraining/models/sanitytest_flen.pth
+Took 133.585s total
+-------------------------------
+
+Epoch 27
+-------------------------------
+Batch  26/164, loss: 0.010302  [  832/ 5233] (16.408s) val loss: 0.058667
+Batch  51/164, loss: 0.013939  [ 1632/ 5233] (20.058s) val loss: 0.057619
+Batch  76/164, loss: 0.013166  [ 2432/ 5233] (20.057s) val loss: 0.050007
+Batch 101/164, loss: 0.010007  [ 3232/ 5233] (20.062s) val loss: 0.051380
+Batch 126/164, loss: 0.012635  [ 4032/ 5233] (20.062s) val loss: 0.050703
+Batch 151/164, loss: 0.012381  [ 4832/ 5233] (20.059s) val loss: 0.040550
+Batch 164/164, loss: 0.012148  [ 5233/ 5233] (12.249s) val loss: 0.036627
+Saved to /nfs/home/khom/test_projects/CNNTraining/models/sanitytest_flen.pth
+Took 133.671s total
+-------------------------------
+
+Epoch 28
+-------------------------------
+Batch  26/164, loss: 0.005030  [  832/ 5233] (16.420s) val loss: 0.053434
+Batch  51/164, loss: 0.012716  [ 1632/ 5233] (20.069s) val loss: 0.037461
+Batch  76/164, loss: 0.012212  [ 2432/ 5233] (20.065s) slurmstepd: error: *** JOB 50231 ON nodeb1930 CANCELLED AT 2024-06-28T22:46:34 ***

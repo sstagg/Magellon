@@ -1,0 +1,487 @@
+Using sequence <function sequence5 at 0x7f9dbd2fe310>
+
+TRAINING OVERVIEW
+-------------------------------
+OPTIMIZER:
+ Adam (
+Parameter Group 0
+    amsgrad: False
+    betas: (0.9, 0.999)
+    eps: 1e-08
+    lr: 1e-05
+    maximize: False
+    weight_decay: 0.0001
+) 
+-------------------------------
+LOSS FUNCTION:
+ MSELoss() 
+-------------------------------
+MODEL ARCHITECTURE:
+ MRCNetwork(
+  (cnn_network): Sequential(
+    (0): ResidualConvBlock(
+      (nonlinear): ReLU()
+      (layer1): Sequential(
+        (0): Conv2d(1, 16, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (layer2): Sequential(
+        (0): Conv2d(16, 16, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (downsampler): Sequential(
+        (0): Conv2d(1, 16, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+      )
+    )
+    (1): Dropout(p=0.25, inplace=False)
+    (2): ResidualConvBlock(
+      (nonlinear): ReLU()
+      (layer1): Sequential(
+        (0): Conv2d(16, 16, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (layer2): Sequential(
+        (0): Conv2d(16, 16, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (downsampler): Sequential(
+        (0): Conv2d(16, 16, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+      )
+    )
+    (3): Dropout(p=0.25, inplace=False)
+    (4): Conv2d(16, 16, kernel_size=(3, 3), stride=(2, 2))
+    (5): Dropout(p=0.25, inplace=False)
+    (6): ResidualConvBlock(
+      (nonlinear): ReLU()
+      (layer1): Sequential(
+        (0): Conv2d(16, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (layer2): Sequential(
+        (0): Conv2d(32, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (downsampler): Sequential(
+        (0): Conv2d(16, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+      )
+    )
+    (7): Dropout(p=0.25, inplace=False)
+    (8): ResidualConvBlock(
+      (nonlinear): ReLU()
+      (layer1): Sequential(
+        (0): Conv2d(32, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (layer2): Sequential(
+        (0): Conv2d(32, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (downsampler): Sequential(
+        (0): Conv2d(32, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+      )
+    )
+    (9): Dropout(p=0.25, inplace=False)
+    (10): Conv2d(32, 32, kernel_size=(3, 3), stride=(2, 2))
+    (11): ResidualConvBlock(
+      (nonlinear): ReLU()
+      (layer1): Sequential(
+        (0): Conv2d(32, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (layer2): Sequential(
+        (0): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (downsampler): Sequential(
+        (0): Conv2d(32, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+      )
+    )
+    (12): Dropout(p=0.25, inplace=False)
+    (13): ResidualConvBlock(
+      (nonlinear): ReLU()
+      (layer1): Sequential(
+        (0): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (layer2): Sequential(
+        (0): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+    )
+    (14): Dropout(p=0.25, inplace=False)
+    (15): ResidualConvBlock(
+      (nonlinear): ReLU()
+      (layer1): Sequential(
+        (0): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (layer2): Sequential(
+        (0): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+    )
+    (16): Dropout(p=0.25, inplace=False)
+    (17): Conv2d(64, 64, kernel_size=(3, 3), stride=(2, 2))
+    (18): ResidualConvBlock(
+      (nonlinear): ReLU()
+      (layer1): Sequential(
+        (0): Conv2d(64, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (layer2): Sequential(
+        (0): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (downsampler): Sequential(
+        (0): Conv2d(64, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+      )
+    )
+    (19): Dropout(p=0.25, inplace=False)
+    (20): ResidualConvBlock(
+      (nonlinear): ReLU()
+      (layer1): Sequential(
+        (0): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (layer2): Sequential(
+        (0): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+    )
+    (21): Dropout(p=0.25, inplace=False)
+    (22): ResidualConvBlock(
+      (nonlinear): ReLU()
+      (layer1): Sequential(
+        (0): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+      (layer2): Sequential(
+        (0): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        (1): ReLU()
+      )
+    )
+    (23): Dropout(p=0.25, inplace=False)
+    (24): Conv2d(128, 128, kernel_size=(3, 3), stride=(2, 2))
+    (25): AdaptiveAvgPool2d(output_size=(6, 6))
+    (26): Dropout(p=0.25, inplace=False)
+    (27): Flatten(start_dim=1, end_dim=-1)
+    (28): Linear(in_features=4608, out_features=64, bias=True)
+    (29): ReLU()
+    (30): Dropout(p=0.25, inplace=False)
+  )
+  (feat_network): Sequential(
+    (0): Linear(in_features=70, out_features=16, bias=True)
+    (1): ReLU()
+    (2): Linear(in_features=16, out_features=1, bias=True)
+  )
+) 
+-------------------------------
+OTHER:
+Training with batch size of 1
+Running on device cuda:0
+Split 10.00% of data for validation data
+Preparing to train in parallel: main device on cuda:0, all devices on [0]
+WARNING: will not save the model to a file!
+Expecting variable sized data
+-------------------------------
+
+Fetching MRC image data (mode: hdf5) from /nfs/home/khom/test_projects/ClassAvgLabeling/ProcessedData/alldata_vlen.hdf5
+Reshaping data: True
+Fetching MRC image data (mode: hdf5) from /nfs/home/khom/test_projects/ClassAvgLabeling/ProcessedData/alldata_vlen.hdf5
+Reshaping data: True
+Selecting subset of size 5233 out of 5815... done
+Selecting subset of size 582 out of 5815... done
+Ready to train
+
+Beginning training for 100 epochs (from epoch 1)...
+Epoch 1
+-------------------------------
+Batch 201/5233, loss: 0.000913  [  201/ 5233] (5.615s) val loss: 1.070251
+Batch 401/5233, loss: 1.059384  [  401/ 5233] (11.641s) val loss: 0.377658
+Batch 601/5233, loss: 0.099032  [  601/ 5233] (11.654s) val loss: 0.364409
+Batch 801/5233, loss: 0.066820  [  801/ 5233] (11.767s) val loss: 0.227224
+Batch 1001/5233, loss: 7.593408  [ 1001/ 5233] (11.792s) val loss: 0.206042
+Batch 1201/5233, loss: 0.126677  [ 1201/ 5233] (11.748s) val loss: 0.209028
+Batch 1401/5233, loss: 2.661475  [ 1401/ 5233] (11.471s) val loss: 0.222932
+Batch 1601/5233, loss: 7.650363  [ 1601/ 5233] (11.707s) val loss: 0.472989
+Batch 1801/5233, loss: 0.180507  [ 1801/ 5233] (11.812s) val loss: 0.182699
+Batch 2001/5233, loss: 0.017028  [ 2001/ 5233] (11.616s) val loss: 0.202651
+Batch 2201/5233, loss: 0.011494  [ 2201/ 5233] (11.412s) val loss: 0.183891
+Batch 2401/5233, loss: 0.049852  [ 2401/ 5233] (11.592s) val loss: 0.193973
+Batch 2601/5233, loss: 0.706539  [ 2601/ 5233] (12.133s) val loss: 0.185989
+Batch 2801/5233, loss: 2.451936  [ 2801/ 5233] (12.047s) val loss: 0.188203
+Batch 3001/5233, loss: 0.057964  [ 3001/ 5233] (11.466s) val loss: 0.189482
+Batch 3201/5233, loss: 0.010089  [ 3201/ 5233] (11.452s) val loss: 0.211455
+Batch 3401/5233, loss: 0.081228  [ 3401/ 5233] (11.520s) val loss: 0.204990
+Batch 3601/5233, loss: 0.710052  [ 3601/ 5233] (12.118s) val loss: 0.175653
+Batch 3801/5233, loss: 0.023902  [ 3801/ 5233] (11.967s) val loss: 0.171416
+Batch 4001/5233, loss: 0.738296  [ 4001/ 5233] (11.605s) val loss: 0.201501
+Batch 4201/5233, loss: 0.678792  [ 4201/ 5233] (11.784s) val loss: 0.236059
+Batch 4401/5233, loss: 0.063489  [ 4401/ 5233] (11.860s) val loss: 0.267361
+Batch 4601/5233, loss: 0.182140  [ 4601/ 5233] (12.139s) val loss: 0.258218
+Batch 4801/5233, loss: 0.261078  [ 4801/ 5233] (11.870s) val loss: 0.230813
+Batch 5001/5233, loss: 1.055638  [ 5001/ 5233] (11.723s) val loss: 0.217534
+Batch 5201/5233, loss: 1.606301  [ 5201/ 5233] (11.432s) val loss: 0.224259
+Batch 5233/5233, loss: 0.061296  [ 5233/ 5233] (7.199s) val loss: 0.227627
+Took 312.484s total
+-------------------------------
+
+Epoch 2
+-------------------------------
+Batch 201/5233, loss: 0.025196  [  201/ 5233] (5.575s) val loss: 0.228348
+Batch 401/5233, loss: 0.015612  [  401/ 5233] (11.389s) val loss: 0.238299
+Batch 601/5233, loss: 0.018814  [  601/ 5233] (11.755s) val loss: 0.199373
+Batch 801/5233, loss: 0.125393  [  801/ 5233] (11.722s) val loss: 0.180460
+Batch 1001/5233, loss: 0.224957  [ 1001/ 5233] (11.517s) val loss: 0.186307
+Batch 1201/5233, loss: 1.269405  [ 1201/ 5233] (11.639s) val loss: 0.183680
+Batch 1401/5233, loss: 0.039025  [ 1401/ 5233] (11.567s) val loss: 0.194376
+Batch 1601/5233, loss: 1.281165  [ 1601/ 5233] (11.616s) val loss: 0.196438
+Batch 1801/5233, loss: 0.753313  [ 1801/ 5233] (11.945s) val loss: 0.183652
+Batch 2001/5233, loss: 0.455312  [ 2001/ 5233] (11.645s) val loss: 0.174287
+Batch 2201/5233, loss: 0.037275  [ 2201/ 5233] (11.930s) val loss: 0.185300
+Batch 2401/5233, loss: 0.703105  [ 2401/ 5233] (11.804s) val loss: 0.180183
+Batch 2601/5233, loss: 0.348755  [ 2601/ 5233] (11.510s) val loss: 0.182575
+Batch 2801/5233, loss: 0.000003  [ 2801/ 5233] (12.015s) val loss: 0.166685
+Batch 3001/5233, loss: 0.540159  [ 3001/ 5233] (11.558s) val loss: 0.210296
+Batch 3201/5233, loss: 0.073150  [ 3201/ 5233] (11.627s) val loss: 0.248727
+Batch 3401/5233, loss: 0.021805  [ 3401/ 5233] (11.704s) val loss: 0.184230
+Batch 3601/5233, loss: 0.059821  [ 3601/ 5233] (11.693s) val loss: 0.176358
+Batch 3801/5233, loss: 0.204896  [ 3801/ 5233] (11.607s) val loss: 0.175266
+Batch 4001/5233, loss: 46.876160  [ 4001/ 5233] (12.065s) val loss: 0.417492
+Batch 4201/5233, loss: 0.058520  [ 4201/ 5233] (11.762s) val loss: 0.340392
+Batch 4401/5233, loss: 0.054900  [ 4401/ 5233] (11.900s) val loss: 0.159245
+Batch 4601/5233, loss: 0.135932  [ 4601/ 5233] (11.811s) val loss: 0.159011
+Batch 4801/5233, loss: 0.483950  [ 4801/ 5233] (11.896s) val loss: 0.159235
+Batch 5001/5233, loss: 8.537432  [ 5001/ 5233] (12.393s) val loss: 0.159988
+Batch 5201/5233, loss: 0.183573  [ 5201/ 5233] (11.633s) val loss: 0.183315
+Batch 5233/5233, loss: 0.476999  [ 5233/ 5233] (7.135s) val loss: 0.183047
+Took 312.752s total
+-------------------------------
+
+Epoch 3
+-------------------------------
+Batch 201/5233, loss: 0.000917  [  201/ 5233] (5.773s) val loss: 0.174951
+Batch 401/5233, loss: 0.022346  [  401/ 5233] (11.818s) val loss: 0.162590
+Batch 601/5233, loss: 3.086438  [  601/ 5233] (11.688s) val loss: 0.158301
+Batch 801/5233, loss: 5.903064  [  801/ 5233] (11.763s) val loss: 0.503040
+Batch 1001/5233, loss: 0.956092  [ 1001/ 5233] (11.627s) val loss: 0.246312
+Batch 1201/5233, loss: 7.416467  [ 1201/ 5233] (11.818s) val loss: 0.161714
+Batch 1401/5233, loss: 1.241622  [ 1401/ 5233] (11.681s) val loss: 0.155699
+Batch 1601/5233, loss: 0.361348  [ 1601/ 5233] (11.800s) val loss: 0.161227
+Batch 1801/5233, loss: 7.181669  [ 1801/ 5233] (11.749s) val loss: 0.154687
+Batch 2001/5233, loss: 1.602924  [ 2001/ 5233] (11.969s) val loss: 0.176779
+Batch 2201/5233, loss: 1.496770  [ 2201/ 5233] (11.820s) val loss: 0.197113
+Batch 2401/5233, loss: 0.210646  [ 2401/ 5233] (11.652s) val loss: 0.157009
+Batch 2601/5233, loss: 0.923733  [ 2601/ 5233] (11.489s) val loss: 0.153056
+Batch 2801/5233, loss: 0.070355  [ 2801/ 5233] (11.608s) val loss: 0.154561
+Batch 3001/5233, loss: 2.397999  [ 3001/ 5233] (11.907s) val loss: 0.154239
+Batch 3201/5233, loss: 0.036733  [ 3201/ 5233] (11.866s) val loss: 0.152099
+Batch 3401/5233, loss: 4.339873  [ 3401/ 5233] (11.602s) val loss: 0.152503
+Batch 3601/5233, loss: 0.054316  [ 3601/ 5233] (11.480s) val loss: 0.153266
+Batch 3801/5233, loss: 0.083762  [ 3801/ 5233] (11.897s) val loss: 0.153624
+Batch 4001/5233, loss: 1.228038  [ 4001/ 5233] (11.705s) val loss: 0.157260
+Batch 4201/5233, loss: 0.142508  [ 4201/ 5233] (11.750s) val loss: 0.158539
+Batch 4401/5233, loss: 0.484355  [ 4401/ 5233] (11.478s) val loss: 0.152919
+Batch 4601/5233, loss: 0.033798  [ 4601/ 5233] (11.736s) val loss: 0.160479
+Batch 4801/5233, loss: 0.012150  [ 4801/ 5233] (11.999s) val loss: 0.157578
+Batch 5001/5233, loss: 0.172192  [ 5001/ 5233] (11.895s) val loss: 0.154377
+Batch 5201/5233, loss: 0.064765  [ 5201/ 5233] (11.604s) val loss: 0.164852
+Batch 5233/5233, loss: 0.668923  [ 5233/ 5233] (7.261s) val loss: 0.164343
+Took 312.749s total
+-------------------------------
+
+Epoch 4
+-------------------------------
+Batch 201/5233, loss: 0.089508  [  201/ 5233] (5.480s) val loss: 0.165354
+Batch 401/5233, loss: 0.205949  [  401/ 5233] (11.885s) val loss: 0.160079
+Batch 601/5233, loss: 0.003327  [  601/ 5233] (11.703s) val loss: 0.168839
+Batch 801/5233, loss: 0.021451  [  801/ 5233] (11.564s) val loss: 0.166675
+Batch 1001/5233, loss: 0.485990  [ 1001/ 5233] (11.738s) val loss: 0.190969
+Batch 1201/5233, loss: 0.002304  [ 1201/ 5233] (11.813s) val loss: 0.155603
+Batch 1401/5233, loss: 0.080385  [ 1401/ 5233] (11.793s) val loss: 0.153592
+Batch 1601/5233, loss: 10.017163  [ 1601/ 5233] (11.697s) val loss: 0.147768
+Batch 1801/5233, loss: 10.856350  [ 1801/ 5233] (11.535s) val loss: 0.148134
+Batch 2001/5233, loss: 0.178650  [ 2001/ 5233] (11.655s) val loss: 0.146941
+Batch 2201/5233, loss: 0.022628  [ 2201/ 5233] (11.577s) val loss: 0.149161
+Batch 2401/5233, loss: 0.035897  [ 2401/ 5233] (11.475s) val loss: 0.151748
+Batch 2601/5233, loss: 0.835225  [ 2601/ 5233] (11.814s) val loss: 0.152297
+Batch 2801/5233, loss: 0.921889  [ 2801/ 5233] (11.711s) val loss: 0.147326
+Batch 3001/5233, loss: 0.393484  [ 3001/ 5233] (11.874s) val loss: 0.147036
+Batch 3201/5233, loss: 0.000005  [ 3201/ 5233] (12.066s) val loss: 0.156187
+Batch 3401/5233, loss: 1.411807  [ 3401/ 5233] (11.704s) val loss: 0.147171
+Batch 3601/5233, loss: 0.179731  [ 3601/ 5233] (11.654s) val loss: 0.152212
+Batch 3801/5233, loss: 0.434651  [ 3801/ 5233] (11.455s) val loss: 0.159108
+Batch 4001/5233, loss: 0.065978  [ 4001/ 5233] (11.607s) val loss: 0.149610
+Batch 4201/5233, loss: 0.110362  [ 4201/ 5233] (11.711s) val loss: 0.146717
+Batch 4401/5233, loss: 0.764126  [ 4401/ 5233] (11.438s) val loss: 0.184930
+Batch 4601/5233, loss: 2.451138  [ 4601/ 5233] (11.942s) val loss: 1.759347
+Batch 4801/5233, loss: 3.318223  [ 4801/ 5233] (12.108s) val loss: 0.143486
+Batch 5001/5233, loss: 3.616609  [ 5001/ 5233] (11.800s) val loss: 0.146051
+Batch 5201/5233, loss: 0.409738  [ 5201/ 5233] (12.012s) val loss: 0.147771
+Batch 5233/5233, loss: 0.035837  [ 5233/ 5233] (7.247s) val loss: 0.147243
+Took 312.405s total
+-------------------------------
+
+Epoch 5
+-------------------------------
+Batch 201/5233, loss: 3.137539  [  201/ 5233] (5.609s) val loss: 0.151899
+Batch 401/5233, loss: 0.286553  [  401/ 5233] (12.135s) val loss: 8.366664
+Batch 601/5233, loss: 0.951903  [  601/ 5233] (11.759s) val loss: 0.223395
+Batch 801/5233, loss: 3.692453  [  801/ 5233] (11.702s) val loss: 0.250837
+Batch 1001/5233, loss: 0.077964  [ 1001/ 5233] (11.555s) val loss: 0.144941
+Batch 1201/5233, loss: 15.125861  [ 1201/ 5233] (11.845s) val loss: 0.167360
+Batch 1401/5233, loss: 1.086349  [ 1401/ 5233] (11.746s) val loss: 0.139000
+Batch 1601/5233, loss: 1.580991  [ 1601/ 5233] (11.631s) val loss: 0.139232
+Batch 1801/5233, loss: 0.018811  [ 1801/ 5233] (11.642s) val loss: 0.143395
+Batch 2001/5233, loss: 11.510574  [ 2001/ 5233] (11.569s) val loss: 0.139348
+Batch 2201/5233, loss: 0.167482  [ 2201/ 5233] (11.656s) val loss: 0.140653
+Batch 2401/5233, loss: 1.758720  [ 2401/ 5233] (11.718s) val loss: 0.151266
+Batch 2601/5233, loss: 0.903667  [ 2601/ 5233] (11.565s) val loss: 0.141840
+Batch 2801/5233, loss: 0.010742  [ 2801/ 5233] (11.578s) val loss: 0.143879
+Batch 3001/5233, loss: 0.017699  [ 3001/ 5233] (11.718s) val loss: 0.171680
+Batch 3201/5233, loss: 0.147131  [ 3201/ 5233] (11.671s) val loss: 0.159032
+Batch 3401/5233, loss: 0.075281  [ 3401/ 5233] (11.958s) val loss: 0.154427
+Batch 3601/5233, loss: 0.032419  [ 3601/ 5233] (11.670s) val loss: 0.151441
+Batch 3801/5233, loss: 1.381300  [ 3801/ 5233] (11.781s) val loss: 0.152574
+Batch 4001/5233, loss: 1.457518  [ 4001/ 5233] (11.707s) val loss: 0.157031
+Batch 4201/5233, loss: 8.948521  [ 4201/ 5233] (11.578s) val loss: 0.321699
+Batch 4401/5233, loss: 0.014338  [ 4401/ 5233] (11.898s) val loss: 0.137334
+Batch 4601/5233, loss: 0.482340  [ 4601/ 5233] (11.721s) val loss: 0.158808
+Batch 4801/5233, loss: 0.018293  [ 4801/ 5233] (11.727s) val loss: 0.135170
+Batch 5001/5233, loss: 0.367430  [ 5001/ 5233] (11.793s) val loss: 0.137191
+Batch 5201/5233, loss: 0.588723  [ 5201/ 5233] (11.975s) val loss: 0.141672
+Batch 5233/5233, loss: 0.374792  [ 5233/ 5233] (7.236s) val loss: 0.141101
+Took 312.464s total
+-------------------------------
+
+Epoch 6
+-------------------------------
+Batch 201/5233, loss: 1.019647  [  201/ 5233] (5.480s) val loss: 0.136228
+Batch 401/5233, loss: 5.988054  [  401/ 5233] (11.579s) val loss: 0.137224
+Batch 601/5233, loss: 0.249827  [  601/ 5233] (11.803s) val loss: 0.138938
+Batch 801/5233, loss: 1.754175  [  801/ 5233] (11.877s) val loss: 0.141378
+Batch 1001/5233, loss: 4.111144  [ 1001/ 5233] (11.965s) val loss: 0.136554
+Batch 1201/5233, loss: 0.026122  [ 1201/ 5233] (11.760s) val loss: 0.137466
+Batch 1401/5233, loss: 0.050099  [ 1401/ 5233] (11.772s) val loss: 0.143744
+Batch 1601/5233, loss: 9.685897  [ 1601/ 5233] (11.930s) val loss: 0.163807
+Batch 1801/5233, loss: 0.735071  [ 1801/ 5233] (11.766s) val loss: 0.134638
+Batch 2001/5233, loss: 4.155573  [ 2001/ 5233] (11.724s) val loss: 0.273959
+Batch 2201/5233, loss: 0.017108  [ 2201/ 5233] (11.666s) val loss: 0.132334
+Batch 2401/5233, loss: 2.629885  [ 2401/ 5233] (11.585s) val loss: 0.140949
+Batch 2601/5233, loss: 0.364067  [ 2601/ 5233] (11.715s) val loss: 0.149705
+Batch 2801/5233, loss: 1.351396  [ 2801/ 5233] (11.916s) val loss: 0.201198
+Batch 3001/5233, loss: 1.311031  [ 3001/ 5233] (11.846s) val loss: 0.145696
+Batch 3201/5233, loss: 0.050717  [ 3201/ 5233] (11.808s) val loss: 0.168470
+Batch 3401/5233, loss: 0.585099  [ 3401/ 5233] (11.702s) val loss: 0.149773
+Batch 3601/5233, loss: 41.795116  [ 3601/ 5233] (11.656s) val loss: 0.139159
+Batch 3801/5233, loss: 0.169371  [ 3801/ 5233] (11.902s) val loss: 0.139933
+Batch 4001/5233, loss: 0.021938  [ 4001/ 5233] (11.665s) val loss: 0.140047
+Batch 4201/5233, loss: 0.787710  [ 4201/ 5233] (11.811s) val loss: 0.140219
+Batch 4401/5233, loss: 0.179116  [ 4401/ 5233] (11.708s) val loss: 0.142443
+Batch 4601/5233, loss: 0.313307  [ 4601/ 5233] (11.662s) val loss: 0.144710
+Batch 4801/5233, loss: 0.087802  [ 4801/ 5233] (11.596s) val loss: 0.146172
+Batch 5001/5233, loss: 0.001646  [ 5001/ 5233] (11.689s) val loss: 0.145993
+Batch 5201/5233, loss: 0.000000  [ 5201/ 5233] (11.969s) val loss: 0.140650
+Batch 5233/5233, loss: 0.254241  [ 5233/ 5233] (7.167s) val loss: 0.140585
+Took 313.039s total
+-------------------------------
+
+Epoch 7
+-------------------------------
+Batch 201/5233, loss: 2.989166  [  201/ 5233] (5.363s) val loss: 0.144810
+Batch 401/5233, loss: 0.011454  [  401/ 5233] (12.105s) val loss: 0.142545
+Batch 601/5233, loss: 0.001335  [  601/ 5233] (11.738s) val loss: 0.142210
+Batch 801/5233, loss: 0.002627  [  801/ 5233] (11.779s) val loss: 0.140276
+Batch 1001/5233, loss: 0.008471  [ 1001/ 5233] (11.965s) val loss: 0.147210
+Batch 1201/5233, loss: 0.261352  [ 1201/ 5233] (12.040s) val loss: 0.136157
+Batch 1401/5233, loss: 0.128103  [ 1401/ 5233] (11.652s) val loss: 0.143524
+Batch 1601/5233, loss: 0.309235  [ 1601/ 5233] (11.723s) val loss: 0.141742
+Batch 1801/5233, loss: 0.000532  [ 1801/ 5233] (11.556s) val loss: 0.141431
+Batch 2001/5233, loss: 0.053129  [ 2001/ 5233] (11.909s) val loss: 0.136636
+Batch 2201/5233, loss: 1.740235  [ 2201/ 5233] (11.677s) val loss: 0.133777
+Batch 2401/5233, loss: 0.293677  [ 2401/ 5233] (11.908s) val loss: 0.134133
+Batch 2601/5233, loss: 0.019133  [ 2601/ 5233] (11.623s) val loss: 0.681647
+Batch 2801/5233, loss: 2.060942  [ 2801/ 5233] (11.590s) val loss: 0.136354
+Batch 3001/5233, loss: 0.915140  [ 3001/ 5233] (11.803s) val loss: 0.132960
+Batch 3201/5233, loss: 0.804381  [ 3201/ 5233] (11.892s) val loss: 0.150112
+Batch 3401/5233, loss: 0.445599  [ 3401/ 5233] (11.735s) val loss: 0.127949
+Batch 3601/5233, loss: 0.088604  [ 3601/ 5233] (11.708s) val loss: 0.129162
+Batch 3801/5233, loss: 0.678423  [ 3801/ 5233] (11.411s) val loss: 0.130543
+Batch 4001/5233, loss: 0.153159  [ 4001/ 5233] (11.898s) val loss: 0.130492
+Batch 4201/5233, loss: 0.290305  [ 4201/ 5233] (11.701s) val loss: 0.128979
+Batch 4401/5233, loss: 0.042231  [ 4401/ 5233] (11.606s) val loss: 0.130749
+Batch 4601/5233, loss: 0.184491  [ 4601/ 5233] (11.744s) val loss: 0.139551
+Batch 4801/5233, loss: 0.302679  [ 4801/ 5233] (11.848s) val loss: 0.131743
+Batch 5001/5233, loss: 0.048985  [ 5001/ 5233] (11.569s) val loss: 0.139490
+Batch 5201/5233, loss: 0.059437  [ 5201/ 5233] (11.741s) val loss: 0.137250
+Batch 5233/5233, loss: 0.136766  [ 5233/ 5233] (7.215s) val loss: 0.132730
+Took 312.828s total
+-------------------------------
+
+Epoch 8
+-------------------------------
+Batch 201/5233, loss: 1.768098  [  201/ 5233] (5.336s) val loss: 0.129831
+Batch 401/5233, loss: 0.003657  [  401/ 5233] (11.907s) val loss: 0.141740
+Batch 601/5233, loss: 0.072289  [  601/ 5233] (11.683s) val loss: 0.149096
+Batch 801/5233, loss: 0.080050  [  801/ 5233] (11.810s) val loss: 0.144444
+Batch 1001/5233, loss: 0.425858  [ 1001/ 5233] (11.677s) val loss: 0.131333
+Batch 1201/5233, loss: 0.000040  [ 1201/ 5233] (11.692s) val loss: 0.122186
+Batch 1401/5233, loss: 0.014380  [ 1401/ 5233] (11.551s) val loss: 0.121717
+Batch 1601/5233, loss: 0.084144  [ 1601/ 5233] (11.787s) val loss: 0.121763
+Batch 1801/5233, loss: 0.001153  [ 1801/ 5233] (11.860s) val loss: 0.121617
+Batch 2001/5233, loss: 0.903705  [ 2001/ 5233] (11.443s) val loss: 0.121863
+Batch 2201/5233, loss: 0.306235  [ 2201/ 5233] (11.467s) val loss: 0.122219
+Batch 2401/5233, loss: 0.227124  [ 2401/ 5233] (11.744s) val loss: 0.122537
+Batch 2601/5233, loss: 0.277868  [ 2601/ 5233] (11.811s) val loss: 0.122738
+Batch 2801/5233, loss: 0.116625  [ 2801/ 5233] (11.985s) val loss: 0.129077
+Batch 3001/5233, loss: 0.093898  [ 3001/ 5233] (11.488s) val loss: 0.126423
+Batch 3201/5233, loss: 0.157921  [ 3201/ 5233] (12.019s) val loss: 0.125551
+Batch 3401/5233, loss: 0.051846  [ 3401/ 5233] (11.643s) val loss: 0.124736
+Batch 3601/5233, loss: 0.208980  [ 3601/ 5233] (11.776s) val loss: 0.124732
+Batch 3801/5233, loss: 0.000027  [ 3801/ 5233] (11.632s) val loss: 0.125322
+Batch 4001/5233, loss: 0.100180  [ 4001/ 5233] (11.978s) val loss: 0.127332
+Batch 4201/5233, loss: 0.198831  [ 4201/ 5233] (11.966s) val loss: 0.127862
+Batch 4401/5233, loss: 0.224242  [ 4401/ 5233] (11.916s) val loss: 0.126238
+Batch 4601/5233, loss: 7.402010  [ 4601/ 5233] (11.839s) val loss: 0.121900
+Batch 4801/5233, loss: 1.470403  [ 4801/ 5233] (11.707s) val loss: 0.142416
+Batch 5001/5233, loss: 1.096411  [ 5001/ 5233] (11.698s) val loss: 0.130737
+Batch 5201/5233, loss: 0.006639  [ 5201/ 5233] (11.735s) val loss: 0.147477
+Batch 5233/5233, loss: 0.044101  [ 5233/ 5233] (7.375s) val loss: 0.143190
+Took 312.893s total
+-------------------------------
+
+Epoch 9
+-------------------------------
+Batch 201/5233, loss: 0.001087  [  201/ 5233] (5.500s) val loss: 0.157454
+Batch 401/5233, loss: 0.130089  [  401/ 5233] (11.652s) val loss: 0.161805
+Batch 601/5233, loss: 0.100525  [  601/ 5233] (11.946s) val loss: 0.135054
+Batch 801/5233, loss: 3.539199  [  801/ 5233] (11.437s) val loss: 0.143270
+Batch 1001/5233, loss: 0.188537  [ 1001/ 5233] (11.935s) val loss: 0.151917
+Batch 1201/5233, loss: 0.003324  [ 1201/ 5233] (11.624s) val loss: 0.141263
+Batch 1401/5233, loss: 0.135660  [ 1401/ 5233] (12.195s) val loss: 0.128995
+Batch 1601/5233, loss: 1.862736  [ 1601/ 5233] (11.552s) val loss: 0.136733
+Batch 1801/5233, loss: 0.792776  [ 1801/ 5233] (11.597s) val loss: 0.187180
+Batch 2001/5233, loss: 0.709499  [ 2001/ 5233] (11.599s) val loss: 0.202844
+Batch 2201/5233, loss: 3.835387  [ 2201/ 5233] (11.657s) val loss: 0.219590
+Batch 2401/5233, loss: 0.000018  [ 2401/ 5233] (11.695s) val loss: 0.129443
+Batch 2601/5233, loss: 0.389163  [ 2601/ 5233] (11.671s) val loss: 0.130947
+Batch 2801/5233, loss: 0.623092  [ 2801/ 5233] (11.878s) val loss: 0.132279
+Batch 3001/5233, loss: 0.054436  [ 3001/ 5233] (11.585s) val loss: 0.131024
+Batch 3201/5233, loss: 0.000033  [ 3201/ 5233] (11.827s) val loss: 0.132083
+Batch 3401/5233, loss: 0.586107  [ 3401/ 5233] (11.911s) val loss: 0.125669
+Batch 3601/5233, loss: 0.070350  [ 3601/ 5233] (11.929s) val loss: 0.127689
+Batch 3801/5233, loss: 0.340640  [ 3801/ 5233] (11.690s) val loss: 0.129888
+Batch 4001/5233, loss: 0.004610  [ 4001/ 5233] (11.645s) val loss: 0.134189
+Batch 4201/5233, loss: 0.249012  [ 4201/ 5233] (11.694s) val loss: 0.135541
+Batch 4401/5233, loss: 0.167892  [ 4401/ 5233] (11.610s) val loss: 0.134201
+Batch 4601/5233, loss: 0.147311  [ 4601/ 5233] (12.109s) val loss: 0.135215
+Batch 4801/5233, loss: 0.000117  [ 4801/ 5233] (11.648s) val loss: 0.133868
+Batch 5001/5233, loss: 0.077488  [ 5001/ 5233] (11.637s) val loss: 0.124580
+Batch 5201/5233, loss: 0.090948  [ 5201/ 5233] (11.826s) val loss: 0.128191
+Batch 5233/5233, loss: 0.119861  [ 5233/ 5233] (7.180s) val loss: 0.128196
+Took 312.580s total
+-------------------------------
+
+Epoch 10
+-------------------------------
+Batch 201/5233, loss: 0.075874  [  201/ 5233] (5.289s) slurmstepd: error: *** JOB 49717 ON nodeb1922 CANCELLED AT 2024-06-17T22:33:41 ***
