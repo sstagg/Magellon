@@ -107,16 +107,53 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
 
     except subprocess.CalledProcessError as e:
         error_message = f"Command '{e.cmd}' failed with return code {e.returncode}: {e.stderr}"
-        logger.error(error_message)
-        return {
-            "status_code": 500,
-            "error_message": error_message
-        }
+        # return {
+        #     "status_code": 500,
+        #     "error_message": error_message
+        # }
+        return TaskResultDto(
+            worker_instance_id=the_task.worker_instance_id,
+            task_id=the_task.id,
+            job_id=the_task.job_id,  #  str(the_task.job_id),
+            image_id=the_task.data["image_id"],
+            image_path=the_task.data["image_path"],
+            session_name=the_task.sesson_name,
+            code=500,
+            message="ctf execution is unsuccessfull",
+            description=error_message,
+            status=the_task.status,
+            type=the_task.type,
+            created_date=datetime.now(),
+            started_on=the_task.start_on,
+            ended_on=datetime.now(),
+            output_data={},
+            meta_data=[],
+            output_files=[]
+        )
 
     except Exception as e:
         error_message = f"An error occurred: {str(e)}"
-        logger.error(error_message)
-        return {
-            "status_code": 500,
-            "error_message": error_message
-        }
+        # logger.error(error_message)
+        # return {
+        #     "status_code": 500,
+        #     "error_message": error_message
+        # }
+    return TaskResultDto(
+            worker_instance_id=the_task.worker_instance_id,
+            task_id=the_task.id,
+            job_id=the_task.job_id,  #  str(the_task.job_id),
+            image_id=the_task.data["image_id"],
+            image_path=the_task.data["image_path"],
+            session_name=the_task.sesson_name,
+            code=500,
+            message="ctf execution is unsuccessfull",
+            description=error_message,
+            status=the_task.status,
+            type=the_task.type,
+            created_date=datetime.now(),
+            started_on=the_task.start_on,
+            ended_on=datetime.now(),
+            output_data={},
+            meta_data=[],
+            output_files=[]
+        )
