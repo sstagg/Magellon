@@ -136,6 +136,8 @@ https://www.bionode.io/
 
 
 ssh -N -L 3310:kriosdb.rcc.fsu.edu:3306 bk2n@hpc-login.rcc.fsu.edu
+hpc-login.rcc.fsu.edu
+maia.cryoem.fsu.edu
 
 ```WITH RECURSIVE image_hierarchy AS (
 -- Anchor member: get the initial level (level 0)
