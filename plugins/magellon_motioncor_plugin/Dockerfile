@@ -91,7 +91,7 @@ ENV APP_ENV=production
 EXPOSE 80
 
 # Copy MotionCor2 binaries and libraries
-COPY MotionCor2_1.6.4_Cuda121_Mar312023 /MotionCor2
+COPY MotionCor2_1.6.4_Cuda121_Mar312023 ./MotionCor2_1.6.4_Cuda121_Mar312023
 
 # Set executable permissions for MotionCor2
 # RUN chmod +x /MotionCor2/MotionCor2

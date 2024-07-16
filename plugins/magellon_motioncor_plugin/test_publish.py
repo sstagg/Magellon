@@ -1,10 +1,11 @@
 import logging
 import uuid
 import os
-from core.model_dto import FFT_TASK, PENDING, TaskDto,  CryoEmMotionCorTaskData
+from core.helper import push_task_to_task_queue
+from core.model_dto import FFT_TASK, PENDING, MOTIONCOR,MotioncorTask,  CryoEmMotionCorTaskData
 from core.rabbitmq_client import RabbitmqClient
 from core.settings import AppSettingsSingleton
-
+from core.task_factory import MotioncorTaskFactory
 logger = logging.getLogger(__name__)
 
 
@@ -38,7 +39,7 @@ logger = logging.getLogger(__name__)
 #     return task1.model_dump_json()
 
 
-def push_task_to_task_queue():
+def create_task():
     print("Running Publish")
     try:
         data1 = CryoEmMotionCorTaskData(
@@ -58,24 +59,19 @@ def push_task_to_task_queue():
         Group= 3
 
         )
-        instance_id1 = uuid.uuid4()  # Replace with your specific worker instance ID
-        job_id1 = uuid.uuid4()  # Replace with your specific job ID
-
-        task1 = TaskDto.create(data1.model_dump(), FFT_TASK, PENDING, instance_id1, job_id1)
-
-        settings = AppSettingsSingleton.get_instance().rabbitmq_settings
-        rabbitmq_client = RabbitmqClient(settings)
-        rabbitmq_client.connect()  # Connect to RabbitMQ
-        rabbitmq_client.publish_message(task1.model_dump_json(), AppSettingsSingleton.get_instance().rabbitmq_settings.QUEUE_NAME)  # Use client method
-        logger.info(f"Message published to {AppSettingsSingleton.get_instance().rabbitmq_settings.QUEUE_NAME}")
-        return True
+        motioncor_task = MotioncorTaskFactory.create_task(pid=str(uuid.uuid4()), instance_id=uuid.uuid4(), job_id=uuid.uuid4(),
+                                      data=data1.model_dump(), ptype=MOTIONCOR, pstatus=PENDING)
+        motioncor_task.sesson_name="24mar28a"
+        return motioncor_task
     except Exception as e:
         logger.error(f"Error publishing message: {e}")
         return False
-    finally:
-        rabbitmq_client.close_connection() # Disconnect from RabbitMQ
-    return task1.model_dump_json()
+
+def create_push_task_to_task_queue():
+    task = create_task()
+    print("Running Publish with object ", task)
+    return push_task_to_task_queue(task)
 
 
-push_task_to_task_queue()
+create_push_task_to_task_queue()
 

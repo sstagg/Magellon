@@ -1,5 +1,6 @@
 import json
 import os
+import uuid
 from typing import Any, Optional
 
 import consul
@@ -8,7 +9,8 @@ from core.settings import AppSettingsSingleton
 
 app_settings = AppSettingsSingleton.get_instance()
 
-consul_client = None
+# consul_client: consul.Consul = None
+consul_client= None
 
 consul_config = {
     "host": app_settings.consul_settings.CONSUL_HOST,
@@ -21,6 +23,7 @@ def init_consul_client():
     try:
         # consul_client = consul.Consul(host=CONSUL_HOST, port=CONSUL_PORT)
         consul_client = consul.Consul(**consul_config)
+
 
     except:
         consul_client = None
@@ -38,7 +41,7 @@ def register_with_consul(app: FastAPI,
     # Register service with Consul
     consul_client.agent.service.register(
         name=service_name,
-        service_id=service_id,
+        service_id=str(uuid.uuid4()),
         address=service_address,
         port=service_port,
         check=consul.Check.http(url=f'http://{service_address}:{service_port}/{health_check_route}', interval='10s')
@@ -72,6 +75,7 @@ def get_kv_value(key: str, default: Optional[str] = None) -> str:
     try:
         if consul_client:
             _, key_value = consul_client.kv.get(key)
+
             if key_value is not None and 'Value' in key_value:
                 return key_value['Value'].decode('utf-8')
             else:
@@ -81,8 +85,9 @@ def get_kv_value(key: str, default: Optional[str] = None) -> str:
 
     return os.getenv(key, default)
 
+
 def get_services(service_name:str) -> dict:
-    # http://localhost:8500/v1/catalog/service/magellon-ctf-service
+    # http://localhost:8500/v1/catalog/service/magellon-motioncor-service
     try:
         if consul_client:
             key, services = consul_client.catalog.service(service_name)
@@ -93,6 +98,7 @@ def get_services(service_name:str) -> dict:
             return services
     except (consul.ConsulException, json.JSONDecodeError) as e:
         print(f"Error fetching configurations: {e}")
+
 
 def fetch_configurations() -> dict:
     """

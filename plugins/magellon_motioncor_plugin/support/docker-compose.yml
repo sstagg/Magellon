@@ -1,6 +1,18 @@
 version: '3.8'
 
 services:
+  postgres:
+    image: postgis/postgis:latest
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: behd1d2
+      POSTGRES_DB: kashane01
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
 
   rabbitmq:
     image: rabbitmq:management-alpine
@@ -36,6 +48,7 @@ services:
 
 volumes:
   rabbitmq-data: { }
+  postgres_data: { }
   app_data:  # Define a named volume for application data
   cache:
     driver: local

@@ -1,11 +1,17 @@
-import re
-import os
 import logging
-from core.model_dto import TaskDto, CryoEmMotionCorTaskData
+import os
+import pdb
+import re
+
+from pydantic import BaseModel
+
+from core.model_dto import TaskDto, TaskResultDto,CryoEmMotionCorTaskData
 from core.rabbitmq_client import RabbitmqClient
 from core.settings import AppSettingsSingleton
-from pydantic import BaseModel
+
 logger = logging.getLogger(__name__)
+
+
 def create_directory(path):
     """
     Creates the directory for the given image path if it does not exist.
@@ -24,6 +30,7 @@ def create_directory(path):
             # os.chmod(directory, 0o777)
     except Exception as e:
         print(f"An error occurred while creating the directory: {str(e)}")
+
 
 def custom_replace(input_string, replace_type, replace_pattern, replace_with):
     """
@@ -74,6 +81,7 @@ def extract_task_data_from_object(task_object):
 def parse_json_for_cryoemctftask(message_str):
     return CryoEmMotionCorTaskData.model_validate(TaskDto.model_validate_json(message_str).data)
 
+
 def publish_message_to_queue(message: BaseModel, queue_name: str) -> bool:
     """
     This function publishes a message to a specified RabbitMQ queue.
@@ -100,8 +108,8 @@ def publish_message_to_queue(message: BaseModel, queue_name: str) -> bool:
         rabbitmq_client.close_connection()  # Disconnect from RabbitMQ
 
 
-# def push_result_to_out_queue(result: CryoEmTaskResultDto):
-#     return publish_message_to_queue(result, AppSettingsSingleton.get_instance().rabbitmq_settings.OUT_QUEUE_NAME)
+def push_result_to_out_queue(result: TaskResultDto):
+    return publish_message_to_queue(result, AppSettingsSingleton.get_instance().rabbitmq_settings.OUT_QUEUE_NAME)
 
 
 def push_task_to_task_queue(task: TaskDto):

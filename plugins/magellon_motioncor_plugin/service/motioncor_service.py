@@ -11,23 +11,24 @@ from core.model_dto import CryoEmMotionCorTaskData, OutputFile, TaskDto, TaskRes
 logger = logging.getLogger(__name__)
 
 
-async def do_motioncor(params: TaskDto):
+async def do_motioncor(params: TaskDto)->TaskResultDto:
     
     try:
-        print(params)
+        the_task_data = CryoEmMotionCorTaskData.model_validate(params.data)
+
         os.makedirs(f'{os.path.join(os.getcwd(),"gpfs", "outputs")}', exist_ok=True)
-        directory_path = os.path.join(os.getcwd(),"gpfs", "outputs", str(params.image_id))
-        params.OutMrc = f'{directory_path}/{params.OutMrc}'
+        directory_path = os.path.join(os.getcwd(),"gpfs", "outputs", str(params.id))
+        params.data["OutMrc"] = f'{directory_path}/{params.data["OutMrc"]}'
         os.makedirs(directory_path, exist_ok=True)
-        command = build_motioncor3_command(params)
+        command = build_motioncor3_command(the_task_data)
         logger.info("Command: %s", command)
         fileName = ""
-        if params.InMrc is not None:
-            fileName, _ = os.path.splitext(params.InMrc)
-        if params.InEer is not None:
-            fileName, _ = os.path.splitext(params.InEer)
-        if params.InTiff is not None:
-            fileName, _ = os.path.splitext(params.InTiff)
+        if params.data["InMrc"] is not None:
+            fileName, _ = os.path.splitext(params.data["InMrc"])
+        if params.data["InEer"] is not None:
+            fileName, _ = os.path.splitext(params.data["InEer"])
+        if params.data["InTiff"] is not None:
+            fileName, _ = os.path.splitext(params.data["InTiff"])
         process = subprocess.run(
             os.path.join(os.getcwd(),command),
             cwd=os.getcwd(),
@@ -56,7 +57,7 @@ async def do_motioncor(params: TaskDto):
                 output_data["frameAlignment"]=getFilecontentsfromThread(getFrameAlignment, f'{inputFileName}-Full.log',executor)
                 source_path = f'{inputFileName}-Full.log'
                 base_path = "/".join(inputFileName.split("/")[:-1])
-                destination_path = f'{base_path}/gpfs/outputs/{str(params.image_id)}/{os.path.splitext(os.path.basename(inputFileName))[0]}-Full.log'
+                destination_path = f'{base_path}/gpfs/outputs/{str(params.id)}/{os.path.splitext(os.path.basename(inputFileName))[0]}-Full.log'
                 os.rename(source_path, destination_path)
                 output_files.append(OutputFile(name="frameAlignment",path=destination_path,required=True))
         
@@ -64,7 +65,7 @@ async def do_motioncor(params: TaskDto):
                 output_data["patchFrameAlignment"]=getFilecontentsfromThread(getPatchFrameAlignment, f'{inputFileName}-Patch-Frame.log',executor)
                 source_path = f'{inputFileName}-Patch-Frame.log'
                 base_path = "/".join(inputFileName.split("/")[:-1])
-                destination_path = f'{base_path}/gpfs/outputs/{str(params.image_id)}/{os.path.splitext(os.path.basename(inputFileName))[0]}-Patch-Frame.log'
+                destination_path = f'{base_path}/gpfs/outputs/{str(params.id)}/{os.path.splitext(os.path.basename(inputFileName))[0]}-Patch-Frame.log'
                 os.rename(source_path, destination_path)
                 output_files.append(OutputFile(name="patchFrameAlignment",path=destination_path,required=True))
 
@@ -72,7 +73,7 @@ async def do_motioncor(params: TaskDto):
                 output_data["patchFullAlignment"]=getFilecontentsfromThread(getFrameAlignment, f'{inputFileName}-Patch-Full.log',executor)
                 source_path = f'{inputFileName}-Patch-Full.log'
                 base_path = "/".join(inputFileName.split("/")[:-1])
-                destination_path = f'{base_path}/gpfs/outputs/{str(params.image_id)}/{os.path.splitext(os.path.basename(inputFileName))[0]}-Patch-Full.log'
+                destination_path = f'{base_path}/gpfs/outputs/{str(params.id)}/{os.path.splitext(os.path.basename(inputFileName))[0]}-Patch-Full.log'
                 os.rename(source_path, destination_path)
                 output_files.append(OutputFile(name="patchFullAlignment",path=destination_path,required=True))
 
@@ -80,12 +81,12 @@ async def do_motioncor(params: TaskDto):
                 output_data["patchAlignment"]=getFilecontentsfromThread(getPatchFrameAlignment, f'{inputFileName}-Patch-Patch.log',executor)
                 source_path = f'{inputFileName}-Patch-Patch.log'
                 base_path = "/".join(inputFileName.split("/")[:-1])
-                destination_path = f'{base_path}/gpfs/outputs/{str(params.image_id)}/{os.path.splitext(os.path.basename(inputFileName))[0]}-Patch-Patch.log'
+                destination_path = f'{base_path}/gpfs/outputs/{str(params.id)}/{os.path.splitext(os.path.basename(inputFileName))[0]}-Patch-Patch.log'
                 os.rename(source_path, destination_path)
                 output_files.append(OutputFile(name="patchAlignment",path=destination_path,required=True))
 
-        outputMrcs=[params.OutMrc]
-        values=params.OutMrc.split("/")
+        outputMrcs=[params.data["OutMrc"]]
+        values=params.data["OutMrc"].split("/")
         outputFileName=f'{".".join(values[-1].split(".")[:-1])}_DW.mrc'
         values[-1]=outputFileName
         fileNameDW="/".join(values)
@@ -96,7 +97,7 @@ async def do_motioncor(params: TaskDto):
         #     # worker_instance_id=params.worker_instance_id,
         #     # task_id=params.id,
         #     # job_id=params.job_id, 
-        #     image_id=params.image_id,
+        #     image_id=params.id,
         #     image_path=params.image_path,
         #     # session_name=params.sesson_name,
         #     code=200,

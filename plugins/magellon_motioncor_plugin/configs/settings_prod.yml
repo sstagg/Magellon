@@ -5,15 +5,21 @@ LOCAL_IP_ADDRESS: host.docker.internal
 PORT_NUMBER: 8181
 
 ROOT_DIR: /gpfs/
-REPLACE_TYPE: none
+HOST_ROOT_DIR: C:\temp\gpfs
+
+
+REPLACE_TYPE: standard
 REPLACE_PATTERN: /gpfs/
-REPLACE_WITH: /gpfs/
+REPLACE_WITH: /app/gpfs/
+
+OUTPUT_DIR: /outputs
+HOST_OUTPUT_DIR: C:\temp\outputs
 
 consul_settings:
   CONSUL_HOST: host.docker.internal
   CONSUL_PASSWORD: '8500'
   CONSUL_PORT: 8500
-  CONSUL_SERVICE_ID: 11f0bd1e-8c57-412d-82e4-0c940da261c6
+  CONSUL_SERVICE_ID: magellon-service-11f0bd1e-8c57-412d-82e4-0c940da261c6
   CONSUL_SERVICE_NAME: magellon-motioncor-service
   CONSUL_USERNAME: '8500'
 
@@ -34,5 +40,5 @@ rabbitmq_settings:
   SSL_ENABLED: false
   CONNECTION_TIMEOUT: 30
   PREFETCH_COUNT: 10
-  QUEUE_NAME: ctf_tasks_queue
-  OUT_QUEUE_NAME: ctf_out_tasks_queue
+  QUEUE_NAME: motioncor_tasks_queue
+  OUT_QUEUE_NAME: motioncor_out_tasks_queue

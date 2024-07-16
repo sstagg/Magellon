@@ -4,14 +4,19 @@ LOCAL_IP_ADDRESS: localhost
 PORT_NUMBER: 8000
 
 ROOT_DIR: /gpfs/
+HOST_ROOT_DIR: C:\temp\gpfs
+
 REPLACE_TYPE: none
 REPLACE_PATTERN: /gpfs/
-REPLACE_WITH: /gpfs/
+REPLACE_WITH: Y:/
+
+OUTPUT_DIR: /outputs
+HOST_OUTPUT_DIR: C:\temp\outputs
 
 consul_settings:
   CONSUL_HOST: localhost
-  CONSUL_USERNAME: '8500'
   CONSUL_PASSWORD: '8500'
+  CONSUL_USERNAME: '8500'
   CONSUL_PORT: 8500
   CONSUL_SERVICE_ID: 11f0bd1e-8c57-412d-82e4-0c940da261c6
   CONSUL_SERVICE_NAME: magellon-motioncor-service
@@ -33,5 +38,5 @@ rabbitmq_settings:
   SSL_ENABLED: false
   CONNECTION_TIMEOUT: 30
   PREFETCH_COUNT: 10
-  QUEUE_NAME: ctf_tasks_queue
-  OUT_QUEUE_NAME: ctf_out_tasks_queue
+  QUEUE_NAME: motioncor_tasks_queue
+  OUT_QUEUE_NAME: motioncor_out_tasks_queue

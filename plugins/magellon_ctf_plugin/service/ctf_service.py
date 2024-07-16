@@ -138,22 +138,22 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
         #     "status_code": 500,
         #     "error_message": error_message
         # }
-    return TaskResultDto(
-            worker_instance_id=the_task.worker_instance_id,
-            task_id=the_task.id,
-            job_id=the_task.job_id,  #  str(the_task.job_id),
-            image_id=the_task.data["image_id"],
-            image_path=the_task.data["image_path"],
-            session_name=the_task.sesson_name,
-            code=500,
-            message="ctf execution is unsuccessfull",
-            description=error_message,
-            status=the_task.status,
-            type=the_task.type,
-            created_date=datetime.now(),
-            started_on=the_task.start_on,
-            ended_on=datetime.now(),
-            output_data={},
-            meta_data=[],
-            output_files=[]
-        )
+        return TaskResultDto(
+                worker_instance_id=the_task.worker_instance_id,
+                task_id=the_task.id,
+                job_id=the_task.job_id,  #  str(the_task.job_id),
+                image_id=the_task.data["image_id"],
+                image_path=the_task.data["image_path"],
+                session_name=the_task.sesson_name,
+                code=500,
+                message="ctf execution is unsuccessfull",
+                description=error_message,
+                status=the_task.status,
+                type=the_task.type,
+                created_date=datetime.now(),
+                started_on=the_task.start_on,
+                ended_on=datetime.now(),
+                output_data={},
+                meta_data=[],
+                output_files=[]
+            )
