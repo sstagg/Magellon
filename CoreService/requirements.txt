@@ -16,7 +16,7 @@ jinja2
 python-multipart
 boto3==1.34.35
 plotly
-dependency-injector
+#dependency-injector
 python-consul
 pylint==3.0.2
 # prometheus-client
@@ -41,7 +41,7 @@ pyyaml==6.0.1
 
 pika
 
-fabric
+#fabric
 docker
-pypiwin32
+#pypiwin32
 #Pendulum

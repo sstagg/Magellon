@@ -48,7 +48,6 @@ async def update_camera(camera_request: CameraDto, db: Session = Depends(get_db)
     """
     Update a Camera and save it in the database
     """
-
     return await CameraRepository.update(db=db, camera_dto=camera_request)
 
 

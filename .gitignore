@@ -16,6 +16,8 @@
 /MagellonApp/.idea/
 
 /CoreService/static/locales/
+/CoreService/env/
+/CoreService/venv/
 
 /magellon-react-app/node_modules/
 /magellon-react-app/dist/

@@ -6,12 +6,7 @@ from fastapi import APIRouter, HTTPException, Depends
 
 from config import IMAGE_ROOT_DIR
 from models.pydantic_models import LeginonFrameTransferJobBase, EPUFrameTransferJobBase, LeginonFrameTransferJobDto
-# from models.pydantic_plugins_models import MotionCor2Input
-from services.diagrams_service import leginon_frame_transfer_diagram
-# from services.epu_frame_transfer_service import epu_frame_transfer_process
 from services.leginon_frame_transfer_job_service import LeginonFrameTransferJobService
-# from services.motioncor2_service import build_motioncor2_command
-# from fastapi import APIRouter, Depends, UploadFile, File
 from sqlalchemy.orm import Session
 from database import get_db
 # from services.image_fft_service import ImageFFTService
@@ -116,12 +111,6 @@ async def calculate_ctf(abs_file_path: str, abs_out_file_name: str = ""):
 
     except Exception as e:
         return {"error": str(e)}
-
-
-
-@image_processing_router.get("/diagram")
-def generate_diagram():
-    return leginon_frame_transfer_diagram()
 
 
 # @image_processing_router.post("/epu_images_job")

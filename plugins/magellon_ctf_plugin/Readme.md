@@ -62,10 +62,11 @@ create it without passing any arguments. Subsequently, you can edit the file and
 ```
 python3 -m venv venv
 
-source env/bin/activate
+source venv/bin/activate
 or win: >.\env\Scripts\activate  and finally: >deactivate
 ```
 
+pip3 install -r requirements.txt
 
 ### Install Dependencies
 
