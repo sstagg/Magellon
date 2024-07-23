@@ -23,3 +23,35 @@ sudo apt-get install python3-dev
 
 ssh -N -L 3310:kriosdb.rcc.fsu.edu:3306 bk2n@hpc-login.rcc.fsu.edu
 sshfs bk22n@hpc-login.rcc.fsu.edu:/gpfs /rcc_gpfs
+
+Sessios to test:
+14210 14228 14232 14211 14204
+24jun28a 24jul02a 24jul03a 24jul17a 24jul23b
+
+
+
+
+{
+    "session_name": "24jun28a",
+    "magellon_project_name": "Leginon",
+    "magellon_session_name": "24jun28a",
+    "camera_directory": "/rcc_gpfs",
+    "copy_images": false,
+    "retries": 0,
+    "leginon_mysql_user": "usr_object",
+    "leginon_mysql_pass": "ThPHMn3m39Ds",
+    "leginon_mysql_host": "localhost",
+    "leginon_mysql_port": 3310,
+    "leginon_mysql_db": "dbemdata",
+    "replace_type": "standard",
+    "replace_pattern": "/gpfs",
+    "replace_with": "/rcc_gpfs"
+}
+
+
+
+
+sshfs.exe bk22n@hpc-login.rcc.fsu.edu:/gpfs X:
+
+SiriKali
+bk22n@hpc-login.rcc.fsu.edu:/gpfs
