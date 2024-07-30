@@ -50,8 +50,54 @@ Sessios to test:
 
 
 
+pip install setuptools
 
 sshfs.exe bk22n@hpc-login.rcc.fsu.edu:/gpfs X:
 
 SiriKali
 bk22n@hpc-login.rcc.fsu.edu:/gpfs
+
+
+sudo docker network create --driver bridge --subnet 172.16.238.0/24 magellon-network
+
+sudo docker volume create rabbitmq-data
+sudo docker volume create postgres_data
+sudo docker volume create app_data
+sudo docker volume create cache
+
+sudo docker run -d \
+--name postgres \
+--restart always \
+-e POSTGRES_USER=postgres \
+-e POSTGRES_PASSWORD=behd1d2 \
+-e POSTGRES_DB=magellon01 \
+-p 5432:5432 \
+-v postgres_data:/var/lib/postgresql/data \
+--network magellon-network \
+postgis/postgis:latest
+
+
+sudo docker run -d \
+--hostname my-rabbit \
+--name rabbitmq-container \
+--restart unless-stopped \
+-e RABBITMQ_DEFAULT_USER=rabbit \
+-e RABBITMQ_DEFAULT_PASS=behd1d2 \
+-p 5672:5672 \
+-p 15672:15672 \
+-v rabbitmq-data:/var/lib/rabbitmq \
+--network magellon-network \
+--ip 172.16.238.8 \
+rabbitmq:management-alpine
+
+
+sudo docker run -d \
+--name consul-container \
+--restart unless-stopped \
+-p 8500:8500 \
+-v $(pwd)/consul/data:/consul/data \
+-v $(pwd)/consul/config:/consul/config \
+--network magellon-network \
+--ip 172.16.238.9 \
+consul:1.15.4
+

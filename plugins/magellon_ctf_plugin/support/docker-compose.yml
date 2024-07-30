@@ -13,6 +13,26 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  mysql:
+    image: mysql:latest
+    container_name: mysql_container
+    environment:
+      MYSQL_ROOT_PASSWORD: behd1d2
+      MYSQL_DATABASE: magellon
+      MYSQL_USER: magellon_user
+      MYSQL_PASSWORD: behd1d2
+    volumes:
+      - ./mysql/data:/var/lib/mysql:rw
+      - ./mysql/conf:/etc/mysql/conf
+      - ./mysql/init/magellon02db.sql:/docker-entrypoint-initdb.d/magellon02db.sql
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci  --lower-case-table-names=1
+    restart: always
+    ports:
+      - "3306:3306"
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.7
+
 
   rabbitmq:
     image: rabbitmq:management-alpine
