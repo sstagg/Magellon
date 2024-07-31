@@ -101,3 +101,39 @@ sudo docker run -d \
 --ip 172.16.238.9 \
 consul:1.15.4
 
+sudo docker run -d \
+--name mysql_container \
+--env MYSQL_ROOT_PASSWORD=behd1d2 \
+--env MYSQL_DATABASE=magellon \
+--env MYSQL_USER=magellon_user \
+--env MYSQL_PASSWORD=behd1d2 \
+--volume $(pwd)/mysql/data:/var/lib/mysql:rw \
+--volume $(pwd)/mysql/conf:/etc/mysql/conf \
+--volume $(pwd)/mysql/init/magellon02db.sql:/docker-entrypoint-initdb.d/magellon02db.sql \
+--network magellon-network \
+--ip 172.16.238.7 \
+--restart always \
+-p 3306:3306 \
+mysql:8 \
+mysqld --mysql-native-password=ON \
+--character-set-server=utf8mb4 \
+--collation-server=utf8mb4_unicode_ci \
+--lower-case-table-names=1
+
+
+sudo docker run -p 3306:3306 --name mysql_container -e MYSQL_ROOT_PASSWORD=behd1d2 -d mysql:8 mysqld --default-authentication-plugin=mysql_native_password
+
+docker run -d \
+--name mysql_container \
+-e MYSQL_ROOT_PASSWORD=my-pass \
+-e MYSQL_DATABASE=my-proj \
+-e MYSQL_USER=proj_user \
+-e MYSQL_PASSWORD=pro_pass \
+-v $(pwd)/mysql/data:/var/lib/mysql:rw \
+-v $(pwd)/mysql/conf:/etc/mysql/conf \
+-v $(pwd)/mysql/init/projectdb.sql:/docker-entrypoint-initdb.d/project.sql \
+--restart always \
+-p 3306:3306 \
+mysql:latest mysqld --lower_case_table_names=1
+
+
