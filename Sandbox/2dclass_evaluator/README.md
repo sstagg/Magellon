@@ -1,13 +1,33 @@
 # Automatic Deep Learning Based 2D Class Average Evaluator 
-### By Keenan Hom
+### Original contributor: Keenan Hom. Updated by Michael Cianfrocco August 2024.
 
-This project contains everything I used to train a deep learning neural network that can take in a 2D class average (or several at once) along with some metadata, and output a "grade" for each one. This way, we can automate process of picking good class averages.
+This project contains everything used to train and evaluate a deep learning neural network that can take in a 2D class average (or several at once) along with some metadata and output a "grade" for each one. This automates the process of selecting good class averages.
 
-This is an alternative to the class average evaluator offered in RELION 4.0 called *Class Ranker*, which can only evaluate a 2D average if it was produced from a previous step in RELION's pipeline. This new project can accept data from any software, provided it has 3 simple pieces of metadata for each image.
+This is an alternative to 2DAssess (Cianfrocco lab; Li et al. 2020) and the class average evaluator offered in RELION 4.0 called Class Ranker (Scheres lab; Kimanius et al. 2021) . 2DAssess simply worked on the image data whereas Class Ranker used both image data and associated RELION meta-data. Class Ranker performed better than 2DAssess, however, its use was restricted to RELION-generated class averages. 
 
-The end product is a pyTorch model stored in `CNNTraining/final_model/final_model.pth`. It has been trained until convergence. It was trained on a combined dataset consisting of the 26389 images, and a dataset  Its mean squared error of 0.0058 beats RELION 4.0's *Class Ranker* of ~0.01.
+Our new 2D class average evaluator builds on both of these software to evaluate 2D averages and associated meta data from either RELION or cryoSPARC class averages. The end product is a pyTorch model stored in `CNNTraining/final_model/final_model.pth`. It has been trained until convergence. It was trained on a combined dataset consisting of the 26389 images, and a dataset  Its mean squared error of 0.0058 beats RELION 4.0's Class Ranker of ~0.01.
 
-## ClassAvgLabeling
+## 2D class average evaluation using pre-trained assessing tool
+
+### Software installation
+
+To install software for using the pre-trained model, you will need download this Github repo, create a conda environment, and then install python dependencies. 
+
+'''
+$ git clone https://github.com/sstagg/Magellon
+$ conda create -n magellon2DAssess python=3.12
+$ conda activate magellon2DAssess
+$ pip3 install -r /path/to/Magellon/Sandbox/2dclass_evaluator/requirements.txt
+'''
+
+### cryoSPARC 2D averages
+
+### RELION 2D averages 
+
+
+## What is in this repository: 
+
+### ClassAvgLabeling
 
 This folder contains code and directions to help you convert your cryoSPARC class average data into a format that can be used to further train the model, if you so desire. You will need to also assign manual labels to your images, which may be time-consuming. 
 
@@ -17,7 +37,7 @@ It has its own `README` and other Markdown files that you should read for more i
 
 `tkteach.py` provides a GUI to let you manually label your images on a letter grade scale (Best, Decent, Acceptable, Bad, Unusable). Multiple people can (and should) label the same set of images, by running `tkteach.py` and passing in their email address as a unique identifier; in this case, labels will be averaged for each image. **IMAGES *MUST* BE LABELED IN ORDER TO BE USED TO TRAIN THE MODEL!**
 
-## CNNTraining
+### CNNTraining
 
 This folder contains Python files that will construct a dataset (from your extracted cryoSPARC data, from RELION data stored in EMPIAR-10812, or both), and train a model on that data.
 
@@ -31,7 +51,7 @@ This folder contains Python files that will construct a dataset (from your extra
 
 `util.py` contains a menagerie of helper classes and functions that the other files use for convenience.
 
-## Example Workflow
+## Full workflow: data > preprocessing > model training > model evalulation
 
 Below is an example of how you can assemble your data, preprocess it, assemble a model, train the model, and evaulate the model.
 

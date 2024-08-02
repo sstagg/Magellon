@@ -1,0 +1,11 @@
+opencv-python
+numpy
+pandas
+mrcfile
+starfile
+h5py
+torch
+pysqlite3
+tqdm
+matplotlib
+scikit-learn
