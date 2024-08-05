@@ -1,11 +1,13 @@
 # Automatic Deep Learning Based 2D Class Average Evaluator 
-### Original contributor: Keenan Hom. Updated by Michael Cianfrocco August 2024.
 
 This project contains everything used to train and evaluate a deep learning neural network that can take in a 2D class average (or several at once) along with some metadata and output a "grade" for each one. This automates the process of selecting good class averages.
 
 This is an alternative to 2DAssess (Cianfrocco lab; Li et al. 2020) and the class average evaluator offered in RELION 4.0 called Class Ranker (Scheres lab; Kimanius et al. 2021). 2DAssess simply worked on the image data whereas Class Ranker used both image data and associated RELION meta-data. Class Ranker performed better than 2DAssess, however, its use was restricted to RELION-generated class averages. 
 
 Our new 2D class average evaluator builds on both of these software to evaluate 2D averages and associated meta data from either RELION or cryoSPARC class averages. The end product is a pyTorch model stored in `CNNTraining/final_model/final_model.pth`.  It was trained on a combined dataset consisting of the 26389 images from the Cianfrocco, Lander, and Stagg labs. 
+
+Neural network architecting & software: Keenan Hom (Lander Lab)
+Data labeling: Cianfrocco, Lander, Stagg labs
 
 ## 2D class average evaluation using pre-trained assessing tool
 
@@ -25,20 +27,20 @@ To assess RELION 2D average quality with the pre-trained model, run the followin
     Usage: relion_2DavgAssess.py -i <RELION .mrcs avgs> -m <RELION model.star file>
 
     Assess RELION 2D class averages
-
-    -h, --help            show this help message and exit
-    -i FILE, --input=FILE
+    
     Options:
+    -h, --help              show this help message and exit
+    -i FILE, --input=FILE
                             RELION stack of class averages (.mrcs)
     -m FILE, --model=FILE
                             RELION model.star file associated with 2D averages
+    -w FILE, --weights=FILE 
                             Pre-trained neural network weights file (e.g.,
-    -w FILE, --weights=FILE
                             final_model_cont.pth)
 
 Example usage:
 
-    CNNTraining/relion_2DavgAssess.py -i Class2D/job013/run_it025_classes.mrcs -m Class2D/job013/run_it025_model.star  -w /path/to/Magellon/Sandbox/2dclass_evaluator/CNNTraining/final_model/final_model_cont.pt
+    $ CNNTraining/relion_2DavgAssess.py -i Class2D/job013/run_it025_classes.mrcs -m Class2D/job013/run_it025_model.star  -w /path/to/Magellon/Sandbox/2dclass_evaluator/CNNTraining/final_model/final_model_cont.pt
 
 
 ### cryoSPARC 2D averages
