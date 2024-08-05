@@ -7,6 +7,7 @@ This is an alternative to 2DAssess (Cianfrocco lab; Li et al. 2020) and the clas
 Our new 2D class average evaluator builds on both of these software to evaluate 2D averages and associated meta data from either RELION or cryoSPARC class averages. The end product is a pyTorch model stored in `CNNTraining/final_model/final_model.pth`.  It was trained on a combined dataset consisting of the 26389 images from the Cianfrocco, Lander, and Stagg labs. 
 
 Neural network architecting & software: Keenan Hom (Lander Lab)
+
 Data labeling: Cianfrocco, Lander, Stagg labs
 
 ## 2D class average evaluation using pre-trained assessing tool
