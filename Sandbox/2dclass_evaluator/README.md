@@ -13,35 +13,33 @@ Our new 2D class average evaluator builds on both of these software to evaluate 
 
 To install software for using the pre-trained model, you will need download this Github repo, create a conda environment, and then install python dependencies. 
 
-'''
-$ git clone https://github.com/sstagg/Magellon
-$ conda create -n magellon2DAssess python=3.12
-$ conda activate magellon2DAssess
-$ pip3 install -r /path/to/Magellon/Sandbox/2dclass_evaluator/requirements.txt
-'''
+    $ git clone https://github.com/sstagg/Magellon
+    $ conda create -n magellon2DAssess python=3.12
+    $ conda activate magellon2DAssess
+    $ pip3 install -r /path/to/Magellon/Sandbox/2dclass_evaluator/requirements.txt
+
 ### RELION 2D averages 
 To assess RELION 2D average quality with the pre-trained model, run the following script: 
-'''
-CNNTraining/relion_2DavgAssess.py 
-Usage: relion_2DavgAssess.py -i <RELION .mrcs avgs> -m <RELION model.star file>
 
-Assess RELION 2D class averages
+    CNNTraining/relion_2DavgAssess.py 
+    Usage: relion_2DavgAssess.py -i <RELION .mrcs avgs> -m <RELION model.star file>
 
-Options:
-  -h, --help            show this help message and exit
-  -i FILE, --input=FILE
-                        RELION stack of class averages (.mrcs)
-  -m FILE, --model=FILE
-                        RELION model.star file associated with 2D averages
-  -w FILE, --weights=FILE
-                        Pre-trained neural network weights file (e.g.,
-                        final_model_cont.pth)
-'''
+    Assess RELION 2D class averages
+
+    -h, --help            show this help message and exit
+    -i FILE, --input=FILE
+    Options:
+                            RELION stack of class averages (.mrcs)
+    -m FILE, --model=FILE
+                            RELION model.star file associated with 2D averages
+                            Pre-trained neural network weights file (e.g.,
+    -w FILE, --weights=FILE
+                            final_model_cont.pth)
 
 Example usage:
-'''
-CNNTraining/relion_2DavgAssess.py -i Class2D/job013/run_it025_classes.mrcs -m Class2D/job013/run_it025_model.star  -w /path/to/Magellon/Sandbox/2dclass_evaluator/CNNTraining/final_model/final_model_cont.pt
-'''
+
+    CNNTraining/relion_2DavgAssess.py -i Class2D/job013/run_it025_classes.mrcs -m Class2D/job013/run_it025_model.star  -w /path/to/Magellon/Sandbox/2dclass_evaluator/CNNTraining/final_model/final_model_cont.pt
+
 
 ### cryoSPARC 2D averages
 Work in progress
