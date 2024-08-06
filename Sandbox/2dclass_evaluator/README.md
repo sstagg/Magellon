@@ -59,7 +59,35 @@ You can visualize and sort the class averages based on the Magellon 2D Assessing
 Above each average will be the Magellon 2D Assessing score. 
 
 ### cryoSPARC 2D averages
-Work in progress
+To assess cryoSPARC 2D averages, run the following script: 
+
+    CNNTraining/cryosparc_2DavgAssess.py
+    Usage: cryosparc_2DavgAssess.py -i <cryoSPARC job dir> -w <weights file>
+
+    Assess cryoSPARC 2D class averages
+
+    Options:
+    -h, --help            show this help message and exit
+    -i DIRECTORY, --input=DIRECTORY
+                            cryoSPARC job directory
+    -o DIRECTORY, --output=DIRECTORY
+                            Output directory
+    -w FILE, --weights=FILE
+                            Pre-trained neural network weights file (e.g.,
+                            final_model_cont.pth)
+    Usage: cryosparc_2DavgAssess.py -i <cryoSPARC job dir> -w <weights file>
+
+Example usage: 
+
+    CNNTraining/cryosparc_2DavgAssess.py -i /path/to/cryosparc_project_directories/CS-job/J8 -o P147_W1_J8 -w /path/to/Magellon/Sandbox/2dclass_evaluator/CNNTraining/final_model/final_model_cont.pt 
+
+The output directory will contain the scores per average in the "_model.star" file. You can visualize and sort the class averages based on the Magellon 2D Assessing score. 
+
+    $ relion_display --i P147_W1_J8/J8_040_class_averages_model.star --gui
+
+    > Check box "Sort images on:"
+    > Select "rlnClassPriorOffsetY"
+    > Check box "Display label?"
 
 ## What is in this repository: 
 
