@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-
+import shutil 
+import linecache
 import os,sys
 import optparse
 import numpy as np
@@ -61,11 +62,38 @@ def relion_prediction(params):
     pred = predictor.predict_single(mrcs_path, model_path, recover_labels=True,
                                     feature_scale=feature_scale, fixed_len=fixed_len)
 
-    #pd.set_option('display.max_rows', None)
-    #print(pd.DataFrame(data={'pred': pred, 'true': labels}))
-    print('Here are the predicted scores, in order!')
-    print(pred.tolist())
-	
+    out='%s_magellon_model.star' %(params['model'][:-11])
+    o1=open(out,'w')
+    shutil.copyfile(params['input'],'%s_magellon_classes.mrcs' %(params['model'][:-11]))
+    shutil.copyfile('%s_data.star' %(params['model'][:-11]),'%s_magellon_data.star' %(params['model'][:-11]))
+
+    for line in open(params['model'],'r'):
+        if '_rlnClassPriorOffsetY' in line:
+            priorcolnum=int(line.split('#')[-1])
+
+    counter=0
+    while counter <len(open(params['model'],'r').readlines()):
+        line=linecache.getline(params['model'],counter)
+        #for line in open(params['model'],'r'):
+        if 'data_model_class_1' in line:
+            counter=10000
+            #if '_rlnReferenceImage' in line:
+            #    line=line.replace('_rlnReferenceImage','_rlnImageName')
+        if len(line)==0:
+            o1.write(line)
+        if len(line)>0:
+            if '.mrcs' in line:
+                partnum=int(line.split('@')[0])
+                l=line.split()
+                l[priorcolnum-1]=str(pred.tolist()[partnum-1])
+                line='\t'.join(l)
+                o1.write('%s\n' %(line))
+            if not '.mrcs' in line:
+                o1.write(line)
+        counter=counter+1
+    o1.close()
+        
+
 if __name__ == '__main__':
     params = setupParserOptions()
     checkConflicts(params)
