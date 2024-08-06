@@ -219,7 +219,7 @@ class CryosparcPredictor(Predictor):
         # Metadata from the mass estimator (remove estimated mass; it is useless as a parameter)
         mass_est_names = ['dmean_mass', 'dmedian_mass', 'dmode_mass']
         mass_est = pd.DataFrame.from_records(calc_mass_stats_for_stack(mrc_path))
-        mass_est['dmode'] = mass_est['dmode'].apply(lambda x: x[0])
+        #mass_est['dmode'] = mass_est['dmode'].apply(lambda x: x[0])
         mass_est = mass_est.drop(columns=['mass']).to_numpy()
         
         # Grab resolution and pixel size directly from the .cs averages file
@@ -339,7 +339,7 @@ class RelionPredictor(Predictor):
         
 
         mass_est = pd.DataFrame.from_records(calc_mass_stats_for_stack(mrcs_path))
-        mass_est['dmode'] = mass_est['dmode'].apply(lambda x: x[0])
+        #mass_est['dmode'] = mass_est['dmode'].apply(lambda x: x[0])
         mass_est = mass_est.drop(columns=['mass']).clip(upper=1e9).add_suffix('_mass') 
 
         metadata = pd.DataFrame(data={
