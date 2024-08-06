@@ -93,6 +93,7 @@ docker build .
 
 # Build the Docker image with a specified tag
 docker build -t <yourname>/<plugin-name> .
+docker build -t magellon_ctf_plugin .
 
 sudo docker network create magellon
 

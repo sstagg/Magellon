@@ -27,12 +27,12 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
         # os.makedirs(f'{os.path.join(os.getcwd(),"gpfs", "outputs")}', exist_ok=True)
         # directory_path = os.path.join(os.getcwd(),"gpfs", "outputs", the_task.id)
 
-        directory_path = os.path.join(AppSettingsSingleton.get_instance().OUTPUT_DIR, str(the_task.id))
         host_dir_path = os.path.join(AppSettingsSingleton.get_instance().HOST_OUTPUT_DIR, str(the_task.id))
         host_file_path = os.path.join(host_dir_path, the_task.data["outputFile"])
-        the_task_data.outputFile = os.path.join(directory_path, the_task.data[
-            "outputFile"])  # f'{directory_path}/{the_task.data["outputFile"]}'
-        host_output_file_name="".join(host_file_path.split(".")[:-1])
+
+        directory_path = os.path.join(AppSettingsSingleton.get_instance().OUTPUT_DIR, str(the_task.id))
+        the_task_data.outputFile = os.path.join(directory_path, the_task.data["outputFile"])
+        host_output_file_name = "".join(host_file_path.split(".")[:-1])
         # print(directory_path)
         os.makedirs(directory_path, exist_ok=True)
 
@@ -99,7 +99,8 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
                 OutputFile(name="ctfevalpowerspec", path=f"{host_output_file_name}.mrc-powerspec.jpg", required=True),
                 OutputFile(name="ctfestimationOutputFile", path=f"{host_output_file_name}.mrc", required=True),
                 OutputFile(name="ctfestimationOutputTextFile", path=f"{host_output_file_name}.txt", required=True),
-                OutputFile(name="ctfestimationOutputAvrotFile", path=f"{host_output_file_name}_avrot.txt", required=True),
+                OutputFile(name="ctfestimationOutputAvrotFile", path=f"{host_output_file_name}_avrot.txt",
+                           required=True),
             ]
         )
         # executeMethodSuccess.inc()
@@ -139,21 +140,21 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
         #     "error_message": error_message
         # }
         return TaskResultDto(
-                worker_instance_id=the_task.worker_instance_id,
-                task_id=the_task.id,
-                job_id=the_task.job_id,  #  str(the_task.job_id),
-                image_id=the_task.data["image_id"],
-                image_path=the_task.data["image_path"],
-                session_name=the_task.sesson_name,
-                code=500,
-                message="ctf execution is unsuccessfull",
-                description=error_message,
-                status=the_task.status,
-                type=the_task.type,
-                created_date=datetime.now(),
-                started_on=the_task.start_on,
-                ended_on=datetime.now(),
-                output_data={},
-                meta_data=[],
-                output_files=[]
-            )
+            worker_instance_id=the_task.worker_instance_id,
+            task_id=the_task.id,
+            job_id=the_task.job_id,  #  str(the_task.job_id),
+            image_id=the_task.data["image_id"],
+            image_path=the_task.data["image_path"],
+            session_name=the_task.sesson_name,
+            code=500,
+            message="ctf execution is unsuccessfull",
+            description=error_message,
+            status=the_task.status,
+            type=the_task.type,
+            created_date=datetime.now(),
+            started_on=the_task.start_on,
+            ended_on=datetime.now(),
+            output_data={},
+            meta_data=[],
+            output_files=[]
+        )

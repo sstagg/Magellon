@@ -100,7 +100,7 @@ class LeginonFrameTransferJobService:
             return result
 
         except Exception as e:
-            return {'status': 'failure', 'message': f'Job failed with error: {str(e)} Job ID: {self.params.job_id}' }
+            return {'status': 'failure', 'message': f'Job failed with error: {str(e)} Job ID: {self.params.job_id}'}
 
     def create_job(self, db_session: Session):
         try:
@@ -209,10 +209,11 @@ class LeginonFrameTransferJobService:
                 # Create a new job
                 job = ImageJob(
                     # Oid=uuid.uuid4(),
-                    name="Leginon Import: " + session_name, description="Leginon Import for session: " +
-                                                                        session_name + "in directory: " +
-                                                                        session_result["image path"],
-                    created_date=datetime.now(), #path=session_result["image path"],
+                    name="Leginon Import: " + session_name,
+                    description="Leginon Import for session: " +
+                    session_name + "in directory: " +
+                    session_result["image path"],
+                    created_date=datetime.now(),  #path=session_result["image path"],
                     output_directory=self.params.camera_directory,
                     msession_id=magellon_session.oid
                     # Set other job properties
@@ -227,24 +228,31 @@ class LeginonFrameTransferJobService:
                     filename = image["filename"]
                     # source_image_path = os.path.join(session_result["image path"], filename)
 
-                    db_image = Image(oid=uuid.uuid4(), name=filename, magnification=image["mag"],
-                                     defocus=image["defocus"], dose=image["calculated_dose"],
-                                     pixel_size=image["pixelsize"], binning_x=image["bining_x"],
-                                     stage_x=image["stage_x"], stage_y=image["stage_y"],
+                    db_image = Image(oid=uuid.uuid4(),
+                                     name=filename,
+                                     magnification=image["mag"],
+                                     defocus=image["defocus"],
+                                     dose=image["calculated_dose"],
+                                     pixel_size=image["pixelsize"],
+                                     binning_x=image["bining_x"],
+                                     stage_x=image["stage_x"],
+                                     stage_y=image["stage_y"],
                                      stage_alpha_tilt=image["stage_alpha_tilt"],
                                      atlas_dimxy=image["dimx"],
                                      atlas_delta_row=image["delta_row"],
                                      atlas_delta_column=image["delta_column"],
                                      binning_y=image["bining_y"],
                                      level=get_image_levels(filename, presets_result["regex_pattern"]),
-                                     previous_id=image["image_id"], session_id=magellon_session.oid)
+                                     previous_id=image["image_id"],
+                                     acceleration_voltage=image["accelerationVoltage"],
+                                     spherical_aberration=image["accelerationVoltage"],
+                                     session_id=magellon_session.oid)
                     # get_image_levels(filename,presets_result["regex_pattern"])
                     # db_session.add(db_image)
                     # db_session.flush()
                     db_image_list.append(db_image)
                     image_dict[filename] = db_image.oid
                     # image_dict = {db_image.name: db_image.Oid for db_image in db_image_list}
-
 
                     # source_image_path = (session_result["image path"] + separator + filename + ".mrc")
                     # change logic to use image's director instead'
@@ -256,9 +264,10 @@ class LeginonFrameTransferJobService:
                     # source_image_path = source_image_path.replace("/gpfs/", "Y:/")
 
                     if self.params.replace_type == "regex" or self.params.replace_type == "standard":
-                        source_frame_path = custom_replace(source_frame_path, self.params.replace_type, self.params.replace_pattern, self.params.replace_with)
-                        source_image_path = custom_replace(source_image_path, self.params.replace_type,  self.params.replace_pattern, self.params.replace_with)
-
+                        source_frame_path = custom_replace(source_frame_path, self.params.replace_type,
+                                                           self.params.replace_pattern, self.params.replace_with)
+                        source_image_path = custom_replace(source_image_path, self.params.replace_type,
+                                                           self.params.replace_pattern, self.params.replace_with)
 
                     # Create a new job item and associate it with the job and image
                     job_item = ImageJobTask(
@@ -306,13 +315,11 @@ class LeginonFrameTransferJobService:
 
                 db_session.commit()  # Commit the changes
 
-
-
                 if self.params.if_do_subtasks if hasattr(self.params, 'if_do_subtasks') else True:
                     self.run_tasks(db_session)
 
-            return {'status': 'success', 'message': 'Job completed successfully.' , "job_id": self.params.job_id}
-                # self.create_test_tasks()
+            return {'status': 'success', 'message': 'Job completed successfully.', "job_id": self.params.job_id}
+            # self.create_test_tasks()
         except FileNotFoundError as e:
             error_message = f"Source directory not found: {self.params.source_directory}"
             logger.error(error_message, exc_info=True)
@@ -326,47 +333,62 @@ class LeginonFrameTransferJobService:
             logger.error(error_message, exc_info=True)
             return {"error": error_message, "exception": str(e)}
 
-
     def run_tasks(self, db_session: Session):
         try:
-            # directory_path = os.path.join(self.params.target_directory, self.params.session_name)
             create_directories(self.params.target_directory)
-            # self.create_directories(self.params.target_directory + "/" + self.params.session_name)
-            # self.open_leginon_connection()
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 # The run_task function is submitted to the executor using executor.submit, and the resulting Future
                 # objects are stored in a dictionary future_to_task to keep track of each task.
                 future_to_task = {executor.submit(self.run_task, task): task for task in
                                   self.params.task_list}  # LeginonFrameTransferTaskDto
-
-                # The as_completed function from concurrent.futures is used to iterate through completed futures as
-                # they become available. Within the loop, the code checks for task results and implements the retry
-                # logic by catching exceptions and retrying up to the maximum retry count.
-                for future in concurrent.futures.as_completed(future_to_task):
-                    task = future_to_task[future]
-                    retry_count = 0
-                    while retry_count < MAX_RETRIES:
-                        try:
-                            future.result()
-                            print(f"Task completed successfully: {task.task_alias}")
-                            break  # Task completed successfully, exit the retry loop
-                        except TaskFailedException as e:
-                            print(f"Task failed: {str(e)}")
-                            retry_count += 1
-                            if retry_count < MAX_RETRIES:
-                                print(f"Retrying... Attempt {retry_count}")
-                                time.sleep(1)  # Add a small delay before retrying
-
-                    if retry_count == MAX_RETRIES:
-                        print(f"Max retries exceeded for task: {task.task_alias}")
-                        # Perform any additional handling for failed tasks
+                for future in future_to_task:
+                    future.result()  # Wait for all futures to complete
                 self.create_atlas_pics(self.params.session_name, db_session)
         except Exception as e:
             print("An unexpected error occurred:", str(e))
-        # finally:
-        #     self.close_connections()
         finally:
             self.close_connections()
+
+    # def run_tasks(self, db_session: Session):
+    #     try:
+    #         # directory_path = os.path.join(self.params.target_directory, self.params.session_name)
+    #         create_directories(self.params.target_directory)
+    #         # self.create_directories(self.params.target_directory + "/" + self.params.session_name)
+    #         # self.open_leginon_connection()
+    #         with concurrent.futures.ThreadPoolExecutor() as executor:
+    #             # The run_task function is submitted to the executor using executor.submit, and the resulting Future
+    #             # objects are stored in a dictionary future_to_task to keep track of each task.
+    #             future_to_task = {executor.submit(self.run_task, task): task for task in
+    #                               self.params.task_list}  # LeginonFrameTransferTaskDto
+    #
+    #             # The as_completed function from concurrent.futures is used to iterate through completed futures as
+    #             # they become available. Within the loop, the code checks for task results and implements the retry
+    #             # logic by catching exceptions and retrying up to the maximum retry count.
+    #             for future in concurrent.futures.as_completed(future_to_task):
+    #                 task = future_to_task[future]
+    #                 retry_count = 0
+    #                 while retry_count < MAX_RETRIES:
+    #                     try:
+    #                         future.result()
+    #                         print(f"Task completed successfully: {task.task_alias}")
+    #                         break  # Task completed successfully, exit the retry loop
+    #                     except TaskFailedException as e:
+    #                         print(f"Task failed: {str(e)}")
+    #                         retry_count += 1
+    #                         if retry_count < MAX_RETRIES:
+    #                             print(f"Retrying... Attempt {retry_count}")
+    #                             time.sleep(1)  # Add a small delay before retrying
+    #
+    #                 if retry_count == MAX_RETRIES:
+    #                     print(f"Max retries exceeded for task: {task.task_alias}")
+    #                     # Perform any additional handling for failed tasks
+    #             self.create_atlas_pics(self.params.session_name, db_session)
+    #     except Exception as e:
+    #         print("An unexpected error occurred:", str(e))
+    #     # finally:
+    #     #     self.close_connections()
+    #     finally:
+    #         self.close_connections()
 
     def run_task(self, task_dto: LeginonFrameTransferTaskDto) -> Dict[str, str]:
         try:
@@ -382,8 +404,6 @@ class LeginonFrameTransferJobService:
             self.convert_image_to_png_task(task_dto.image_path, task_dto.job_dto.target_directory)
             self.compute_fft_png_task(task_dto.image_path, task_dto.job_dto.target_directory)
             # self.compute_ctf_task(task_dto.image_path,task_dto)
-
-
 
             return {'status': 'success', 'message': 'Task completed successfully.'}
 
@@ -446,7 +466,7 @@ class LeginonFrameTransferJobService:
         except Exception as e:
             return {"error": str(e)}
 
-    def compute_ctf_task(self, abs_file_path: str,task_dto: LeginonFrameTransferTaskDto):
+    def compute_ctf_task(self, abs_file_path: str, task_dto: LeginonFrameTransferTaskDto):
         try:
             # self.create_image_directory(fft_path)
             # self.compute_fft(img=mic, abs_out_file_name=fft_path)
@@ -457,7 +477,7 @@ class LeginonFrameTransferJobService:
         except Exception as e:
             return {"error": str(e)}
 
-    def create_atlas_pics(self, session_name: str ,  db_session: Session):
+    def create_atlas_pics(self, session_name: str, db_session: Session):
 
         try:
             # Execute the first query to get session_id
@@ -470,12 +490,12 @@ class LeginonFrameTransferJobService:
             print(f"Error fetching session_id: {e}")
             return {"error": f"Error fetching session_id: {e}"}
 
-
         query1 = "SELECT label FROM ImageTargetListData WHERE `REF|SessionData|session` = %s AND mosaic = %s"
         mosaic_value = 1  # Execute the first query with parameters
         self.leginon_cursor.execute(query1, (session_id, mosaic_value))
 
-        label_values = [row['label'] for row in self.leginon_cursor.fetchall()]  # Define the SQL query for the second query
+        label_values = [row['label'] for row in
+                        self.leginon_cursor.fetchall()]  # Define the SQL query for the second query
 
         query2 = """
             SELECT a.DEF_id, SQRT(a.pixels) as dimx, SQRT(a.pixels) as dimy, a.filename,
@@ -535,10 +555,10 @@ def generate_delete_sql(session_name):
         SET FOREIGN_KEY_CHECKS = 0;
         SET @session_id = (SELECT Oid FROM msession WHERE name = %s);
         DELETE FROM image WHERE session_id = @session_id;
-        DELETE FROM frametransferjobitem WHERE job_id IN (SELECT Oid FROM frametransferjob WHERE msession_id = @session_id);
-        DELETE FROM frametransferjob WHERE msession_id = @session_id;
+        DELETE FROM image_job_task WHERE job_id IN (SELECT oid FROM image_job WHERE msession_id = @session_id);
+        DELETE FROM image_job WHERE msession_id = @session_id;
         DELETE FROM atlas WHERE session_id = @session_id;
-        DELETE FROM msession WHERE Oid = @session_id;
+        DELETE FROM msession WHERE oid = @session_id;
         SET FOREIGN_KEY_CHECKS = 1;
         """
 
@@ -550,9 +570,10 @@ def generate_delete_sql(session_name):
     # Delete records from image table
     sql_commands.append("DELETE FROM image WHERE session_id = @session_id;")
     # Delete records from frametransferjobitem table
-    sql_commands.append("DELETE FROM frametransferjobitem WHERE job_id IN (SELECT Oid FROM frametransferjob WHERE msession_id = @session_id);")
+    sql_commands.append(
+        "DELETE FROM image_job_task WHERE job_id IN (SELECT Oid FROM image_job WHERE msession_id = @session_id);")
     # Delete records from frametransferjob table
-    sql_commands.append("DELETE FROM frametransferjob WHERE msession_id = @session_id;")
+    sql_commands.append("DELETE FROM image_job WHERE msession_id = @session_id;")
     # Delete records from atlas table
     sql_commands.append("DELETE FROM atlas WHERE session_id = @session_id;")
     # Delete records from msession table

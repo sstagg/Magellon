@@ -21,7 +21,7 @@ sudo chmod -R 777 /rcc_gpfs
 sudo apt install python3.12-venv
 sudo apt-get install python3-dev
 
-ssh -N -L 3310:kriosdb.rcc.fsu.edu:3306 bk2n@hpc-login.rcc.fsu.edu
+ssh -N -L 3310:kriosdb.rcc.fsu.edu:3306 bk22n@hpc-login.rcc.fsu.edu
 sshfs bk22n@hpc-login.rcc.fsu.edu:/gpfs /rcc_gpfs
 
 Sessios to test:
@@ -140,4 +140,7 @@ docker run -d \
 -p 3306:3306 \
 mysql:latest mysqld --lower_case_table_names=1
 
+
+
+docker build -t magellon_ctf_plugin .
 
