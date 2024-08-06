@@ -175,7 +175,7 @@ class LeginonFrameTransferJobService:
                     pd.`exposure time` AS preset_exposure_time,
                     pd.dose * POWER(10, -20) * cem.`exposure time` / pd.`exposure time` AS calculated_dose,
                     psc.pixelsize AS pixelsize,
-                    sem.`high tension`  / 1000 AS accelerationVoltage,
+                    sem.`high tension`  / 1000 AS acceleration_voltage,
                     psc.pixelsize * cem.`SUBD|binning|x` AS result_pixelSize
                 FROM AcquisitionImageData ai
                 LEFT OUTER JOIN ScopeEMData sem ON ai.`REF|ScopeEMData|scope` = sem.DEF_id
@@ -244,8 +244,8 @@ class LeginonFrameTransferJobService:
                                      binning_y=image["bining_y"],
                                      level=get_image_levels(filename, presets_result["regex_pattern"]),
                                      previous_id=image["image_id"],
-                                     acceleration_voltage=image["accelerationVoltage"],
-                                     spherical_aberration=image["accelerationVoltage"],
+                                     acceleration_voltage=image["acceleration_voltage"],
+                                     spherical_aberration=image["acceleration_voltage"],
                                      session_id=magellon_session.oid)
                     # get_image_levels(filename,presets_result["regex_pattern"])
                     # db_session.add(db_image)
@@ -288,19 +288,19 @@ class LeginonFrameTransferJobService:
                     # Get the file name and extension from the source path
                     # source_filename, source_extension = os.path.splitext(source_image_path)
 
-                    # task = LeginonFrameTransferTaskDto(
-                    #     task_id=uuid.uuid4(),
-                    #     task_alias=f"lftj_{filename}_{self.params.job_id}",
-                    #     file_name=f"{filename}",
-                    #     image_name=image["image_name"],
-                    #     frame_name=image["frame_names"],
-                    #     image_path=source_image_path,
-                    #     frame_path=source_frame_path,
-                    #     # target_path=self.params.target_directory + "/frames/" + f"{image['frame_names']}{source_extension}",
-                    #     job_dto=self.params,
-                    #     status=1
-                    # )
-                    # self.params.task_list.append(task)
+                    task = LeginonFrameTransferTaskDto(
+                        task_id=uuid.uuid4(),
+                        task_alias=f"lftj_{filename}_{self.params.job_id}",
+                        file_name=f"{filename}",
+                        image_name=image["image_name"],
+                        frame_name=image["frame_names"],
+                        image_path=source_image_path,
+                        frame_path=source_frame_path,
+                        # target_path=self.params.target_directory + "/frames/" + f"{image['frame_names']}{source_extension}",
+                        job_dto=self.params,
+                        status=1
+                    )
+                    self.params.task_list.append(task)
                     # print(f"Filename: {filename}, Spot Size: {spot_size}")
 
                 for db_image in db_image_list:
@@ -336,14 +336,10 @@ class LeginonFrameTransferJobService:
     def run_tasks(self, db_session: Session):
         try:
             create_directories(self.params.target_directory)
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                # The run_task function is submitted to the executor using executor.submit, and the resulting Future
-                # objects are stored in a dictionary future_to_task to keep track of each task.
-                future_to_task = {executor.submit(self.run_task, task): task for task in
-                                  self.params.task_list}  # LeginonFrameTransferTaskDto
-                for future in future_to_task:
-                    future.result()  # Wait for all futures to complete
-                self.create_atlas_pics(self.params.session_name, db_session)
+            # Iterate over each task in the task list and run it synchronously
+            for task in self.params.task_list:
+                self.run_task(task)
+            self.create_atlas_pics(self.params.session_name, db_session)
         except Exception as e:
             print("An unexpected error occurred:", str(e))
         finally:
