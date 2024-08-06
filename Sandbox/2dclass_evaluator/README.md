@@ -44,9 +44,9 @@ Example usage:
     $ CNNTraining/relion_2DavgAssess.py -i Class2D/job013/run_it025_classes.mrcs -m Class2D/job013/run_it025_model.star  -w /path/to/Magellon/Sandbox/2dclass_evaluator/CNNTraining/final_model/final_model_cont.pt
 
 The output will be files with the name `magellon` in them. For the above example, the output files would be: 
-    *Class2D/job013/run_it025_magellon_model.star
-    *Class2D/job013/run_it025_magellon_classes.mrcs
-    *Class2D/job013/run_it025_magellon_data.star 
+* Class2D/job013/run_it025_magellon_model.star
+* Class2D/job013/run_it025_magellon_classes.mrcs
+* Class2D/job013/run_it025_magellon_data.star 
 
 You can visualize and sort the class averages based on the Magellon 2D Assessing score. 
 
