@@ -61,8 +61,6 @@ def custom_replace(input_string, replace_type, replace_pattern, replace_with):
         raise ValueError("Invalid replace_type. Use 'none', 'normal', or 'regex'.")
 
 
-
-
 def parse_message_to_task_object(message_str):
     return TaskDto.model_validate_json(message_str)
 
@@ -109,7 +107,7 @@ def push_task_to_task_queue(task: TaskDto):
     return publish_message_to_queue(task, app_settings.rabbitmq_settings.CTF_QUEUE_NAME)
 
 
-async def dispatch_ctf_task(image_id, full_image_path):
+async def dispatch_ctf_task(image_id, full_image_path, task_dto: LeginonFrameTransferTaskDto):
     file_name = os.path.splitext(os.path.basename(full_image_path))[0]
 
     session_name = file_name.split("_")[0]
@@ -120,9 +118,9 @@ async def dispatch_ctf_task(image_id, full_image_path):
         image_path=full_image_path,
         inputFile=full_image_path,
         outputFile=out_file_name,
-        pixelSize=1,
-        accelerationVoltage=300,
-        sphericalAberration=2.7,
+        pixelSize=task_dto.pixel_size,  #1
+        accelerationVoltage=task_dto.acceleration_voltage,
+        sphericalAberration=task_dto.spherical_aberration * 1000,  #    2.7,
         amplitudeContrast=0.07,
         sizeOfAmplitudeSpectrum=512,
         minimumResolution=30,
@@ -135,7 +133,6 @@ async def dispatch_ctf_task(image_id, full_image_path):
                                           data=ctf_task_data.model_dump(), ptype=CTF_TASK, pstatus=PENDING)
     ctf_task.sesson_name = session_name
     return push_task_to_task_queue(ctf_task)
-
 
 # async def dispatch_ctf_task(task_dto : LeginonFrameTransferTaskDto):
 #     file_name = os.path.splitext(os.path.basename(full_image_path))[0]

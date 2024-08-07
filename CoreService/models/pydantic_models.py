@@ -255,7 +255,9 @@ class LeginonFrameTransferTaskDto(BaseModel):
     frame_path: Optional[str] = None
     job_dto: LeginonFrameTransferJobDto
     status: Optional[int] = None
-
+    pixel_size: Optional[float] = None
+    acceleration_voltage: Optional[float] = None
+    spherical_aberration: Optional[float] = None
 
 class LeginonImageDto(BaseModel):
     defocus: float

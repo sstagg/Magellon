@@ -176,7 +176,8 @@ class LeginonFrameTransferJobService:
                     pd.dose * POWER(10, -20) * cem.`exposure time` / pd.`exposure time` AS calculated_dose,
                     psc.pixelsize AS pixelsize,
                     sem.`high tension`  / 1000 AS acceleration_voltage,
-                    psc.pixelsize * cem.`SUBD|binning|x` AS result_pixelSize
+                    psc.pixelsize * cem.`SUBD|binning|x` AS result_pixelSize,
+                    TemInstrumentData.cs AS spherical_aberration
                 FROM AcquisitionImageData ai
                 LEFT OUTER JOIN ScopeEMData sem ON ai.`REF|ScopeEMData|scope` = sem.DEF_id
                 LEFT OUTER JOIN CameraEMData cem ON ai.`REF|CameraEMData|camera` = cem.DEF_id
@@ -211,8 +212,8 @@ class LeginonFrameTransferJobService:
                     # Oid=uuid.uuid4(),
                     name="Leginon Import: " + session_name,
                     description="Leginon Import for session: " +
-                    session_name + "in directory: " +
-                    session_result["image path"],
+                                session_name + "in directory: " +
+                                session_result["image path"],
                     created_date=datetime.now(),  #path=session_result["image path"],
                     output_directory=self.params.camera_directory,
                     msession_id=magellon_session.oid
@@ -245,7 +246,7 @@ class LeginonFrameTransferJobService:
                                      level=get_image_levels(filename, presets_result["regex_pattern"]),
                                      previous_id=image["image_id"],
                                      acceleration_voltage=image["acceleration_voltage"],
-                                     spherical_aberration=image["acceleration_voltage"],
+                                     spherical_aberration=image["spherical_aberration"],
                                      session_id=magellon_session.oid)
                     # get_image_levels(filename,presets_result["regex_pattern"])
                     # db_session.add(db_image)
@@ -298,7 +299,10 @@ class LeginonFrameTransferJobService:
                         frame_path=source_frame_path,
                         # target_path=self.params.target_directory + "/frames/" + f"{image['frame_names']}{source_extension}",
                         job_dto=self.params,
-                        status=1
+                        status=1,
+                        pixel_size=image["pixelsize"],
+                        acceleration_voltage=image["acceleration_voltage"],
+                        spherical_aberration=image["spherical_aberration"]
                     )
                     self.params.task_list.append(task)
                     # print(f"Filename: {filename}, Spot Size: {spot_size}")
