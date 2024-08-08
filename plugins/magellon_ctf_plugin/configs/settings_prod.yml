@@ -4,16 +4,16 @@ ENV_TYPE: production
 LOCAL_IP_ADDRESS: host.docker.internal
 PORT_NUMBER: 8181
 
+#we don't need and have not used root dir in app , it is just for allowing docker image access to outside
 ROOT_DIR: /gpfs/
-HOST_ROOT_DIR: C:\temp\gpfs
-
+HOST_ROOT_DIR: /rcc_gpfs/
 
 REPLACE_TYPE: standard
-REPLACE_PATTERN: /gpfs/
-REPLACE_WITH: /app/gpfs/
+REPLACE_PATTERN: /rcc_gpfs/
+REPLACE_WITH: /gpfs/
 
 OUTPUT_DIR: /outputs
-HOST_OUTPUT_DIR: C:\temp\outputs
+HOST_OUTPUT_DIR: /magellon/jobs
 
 consul_settings:
   CONSUL_HOST: host.docker.internal
@@ -26,10 +26,10 @@ consul_settings:
 database_settings:
   DB_Driver: mysql+pymysql
   DB_HOST: host.docker.internal
-  DB_NAME: magellon02
-  DB_PASSWORD: behd1d#3454!2
+  DB_NAME: magellon00
+  DB_PASSWORD: behd1d2
   DB_Port: 3306
-  DB_USER: behdad
+  DB_USER: root
 
 rabbitmq_settings:
   HOST_NAME: host.docker.internal

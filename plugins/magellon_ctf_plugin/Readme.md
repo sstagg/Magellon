@@ -355,3 +355,14 @@ To Execute initially run the fastapi application using command "uvicorn main:app
 
 
 
+docker run -v C:\temp\gpfs:/app/gpfs -v C:\temp\outputs:/outputs -e APP_ENV=production -p 8181:80  magellon_ctf_plugin_image
+docker run -v /rcc_gpfs:/gpfs -v C:\temp\outputs:/outputs -e APP_ENV=production -p 8181:80  magellon_ctf_plugin_image
+
+
+sudo docker run \
+-v /rcc_gpfs:/gpfs \
+-v /magellon/jobs:/outputs \
+-e APP_ENV=production \
+-p 8181:80 \
+--name magellon_ctf_plugin_container \
+magellon_ctf_plugin_image

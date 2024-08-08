@@ -258,6 +258,14 @@ class LeginonFrameTransferTaskDto(BaseModel):
     pixel_size: Optional[float] = None
     acceleration_voltage: Optional[float] = None
     spherical_aberration: Optional[float] = None
+    amplitude_contrast:Optional[float] = 0.07
+    size_of_amplitude_spectrum: Optional[int] = 512
+    minimum_resolution: Optional[int] = 30
+    maximum_resolution: Optional[int] = 5
+    minimum_defocus: Optional[int] = 5000
+    maximum_defocus: Optional[int] = 50000
+    defocus_search_step: Optional[int] = 100
+
 
 class LeginonImageDto(BaseModel):
     defocus: float

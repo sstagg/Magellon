@@ -107,27 +107,28 @@ def push_task_to_task_queue(task: TaskDto):
     return publish_message_to_queue(task, app_settings.rabbitmq_settings.CTF_QUEUE_NAME)
 
 
-async def dispatch_ctf_task(image_id, full_image_path, task_dto: LeginonFrameTransferTaskDto):
+def dispatch_ctf_task(image_id, full_image_path, task_dto: LeginonFrameTransferTaskDto):
     file_name = os.path.splitext(os.path.basename(full_image_path))[0]
 
+    #converting LeginonFrameTransferTaskDto to ctf task
     session_name = file_name.split("_")[0]
     out_file_name = f"{file_name}_ctf_output.mrc"
     ctf_task_data = CtfTaskData(
         image_id=image_id,
-        image_name="Image1",
+        image_name=file_name,
         image_path=full_image_path,
         inputFile=full_image_path,
         outputFile=out_file_name,
         pixelSize=task_dto.pixel_size * 10**10,  #1
         accelerationVoltage=task_dto.acceleration_voltage,
         sphericalAberration=task_dto.spherical_aberration * 1000,  #    2.7,
-        amplitudeContrast=0.07,
-        sizeOfAmplitudeSpectrum=512,
-        minimumResolution=30,
-        maximumResolution=5,
-        minimumDefocus=5000,
-        maximumDefocus=50000,
-        defocusSearchStep=100
+        amplitudeContrast=task_dto.amplitude_contrast,
+        sizeOfAmplitudeSpectrum=task_dto.size_of_amplitude_spectrum,
+        minimumResolution=task_dto.minimum_resolution,
+        maximumResolution=task_dto.maximum_resolution,
+        minimumDefocus=task_dto.minimum_defocus,
+        maximumDefocus=task_dto.maximum_defocus,
+        defocusSearchStep=task_dto.defocus_search_step
     )
     ctf_task = CtfTaskFactory.create_task(pid=str(uuid.uuid4()), instance_id=uuid.uuid4(), job_id=uuid.uuid4(),
                                           data=ctf_task_data.model_dump(), ptype=CTF_TASK, pstatus=PENDING)

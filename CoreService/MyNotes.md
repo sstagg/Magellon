@@ -144,3 +144,46 @@ mysql:latest mysqld --lower_case_table_names=1
 
 docker build -t magellon_ctf_plugin .
 
+
+
+
+
+
+{
+    "id": "dc1b1b71-6d11-4ec4-b784-fced8298846a",
+    "sesson_id": null,
+    "sesson_name": "24jun28a",
+    "worker_instance_id": "c0f9c6cf-398b-40e3-af61-6e0babdc0c7d",
+    "data": {
+        "image_id": "a9266994-209c-4a9f-b34d-85e40a79dea2",
+        "image_name": "24jun28a_Valle001-01_00003gr",
+        "image_path": "/rcc_gpfs/research/secm4/leginondata/24jun28a/rawdata/24jun28a_Valle001-01_00003gr.mrc",
+        "inputFile": "/rcc_gpfs/research/secm4/leginondata/24jun28a/rawdata/24jun28a_Valle001-01_00003gr.mrc",
+        "outputFile": "24jun28a_Valle001-01_00003gr_ctf_output.mrc",
+        "pixelSize": 339.844,
+        "accelerationVoltage": 300.0,
+        "sphericalAberration": 2.7,
+        "amplitudeContrast": 0.07,
+        "sizeOfAmplitudeSpectrum": 512,
+        "minimumResolution": 30.0,
+        "maximumResolution": 5.0,
+        "minimumDefocus": 5000.0,
+        "maximumDefocus": 50000.0,
+        "defocusSearchStep": 100.0
+    },
+    "status": {
+        "code": 0,
+        "name": "pending",
+        "description": "Task is pending"
+    },
+    "type": {
+        "code": 2,
+        "name": "CTF",
+        "description": "Contrast Transfer Function"
+    },
+    "created_date": "2024-08-08T08:51:03.189117",
+    "start_on": null,
+    "end_on": null,
+    "result": null,
+    "job_id": "225d0936-733a-4578-a718-f93171cecd0e"
+}

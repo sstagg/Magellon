@@ -58,8 +58,7 @@ COPY test_publish.py ./test_publish.py
 COPY utils.py ./utils.py
 # Create a volume for the application data
 #VOLUME /app/data
-VOLUME /app/gpfs
-VOLUME /nfs
+VOLUME /gpfs
 VOLUME /outputs
 # Set the environment variable for the data directory
 #ENV DATA_DIR=/app/data

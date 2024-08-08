@@ -103,6 +103,7 @@ class FftTaskData(CryoEmImageTaskData):
     frame_path: Optional[str] = None
 
 
+
 class CtfTaskData(CryoEmImageTaskData):
     inputFile: str
     outputFile: str = "ouput.mrc"
