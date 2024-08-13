@@ -3,8 +3,8 @@ ENV_TYPE: development
 LOCAL_IP_ADDRESS: localhost
 PORT_NUMBER: 8000
 
-ROOT_DIR: /gpfs/
-HOST_ROOT_DIR: C:\temp\gpfs
+#ROOT_DIR: /gpfs/
+#HOST_ROOT_DIR: C:\temp\gpfs
 
 REPLACE_TYPE: none
 REPLACE_PATTERN: /gpfs/

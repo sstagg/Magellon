@@ -66,6 +66,19 @@ services:
       magellon-network:
         ipv4_address: 172.16.238.9
 
+
+
+  magellon_ctf_plugin:
+    image: magellon_ctf_plugin_image
+    container_name: magellon_ctf_plugin_container
+    environment:
+      - APP_ENV=production
+    volumes:
+      - C:\temp\magellon:/gpfs
+      - C:\temp\magellon\jobs:/outputs
+    ports:
+      - "8181:80"
+
 volumes:
   rabbitmq-data: { }
   postgres_data: { }

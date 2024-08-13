@@ -1,7 +1,6 @@
 import logging
 import math
 import os
-import shutil
 import subprocess
 from datetime import datetime
 

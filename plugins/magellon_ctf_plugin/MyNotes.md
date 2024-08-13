@@ -17,5 +17,23 @@ sudo docker run \
 --name magellon_ctf_plugin_container \
 magellon_ctf_plugin_image
 
-rsync -avz --progress bk22n@hpc-login.rcc.fsu.edu:/gpfs/research/secm4/leginondata/24jun28a/rawdata/ /magellon/gpfs/24jun28a/rawdata/
+sudo docker run \
+-v C:\temp\magellon:/gpfs \
+-v C:\temp\magellon\jobs:/outputs \
+-e APP_ENV=production \
+-p 8181:80 \
+--name magellon_ctf_plugin_container \
+magellon_ctf_plugin_image
 
+rsync -avz --progress bk22n@hpc-login.rcc.fsu.edu:/gpfs/research/secm4/leginondata/24jun28a/rawdata/ /magellon/gpfs/24jun28a/rawdata/
+rsync -avz --progress bk22n@hpc-login.rcc.fsu.edu:/gpfs/research/secm4/leginondata/24jun28a/rawdata/ c:/temp/magellon/gpfs/24jun28a/rawdata/
+
+/rcc_gpfs/research/secm4/leginondata/24jun28a/rawdata/24jun28a_Valle001-01_00003gr.mrc
+/gpfs/research/secm4/leginondata/24jun28a/rawdata/24jun28a_Valle001-01_00003gr.mrc
+C:\temp\magellon\24jun28a
+
+Y:/research/secm4/leginondata/24jun28a/rawdata/24jun28a_Valle001-01_00003gr.mrc
+/gpfs/24jun28a/rawdata/24jun28a_Valle001-01_00003gr.mrc
+
+
+C:\temp\magellon\24jun28a
