@@ -2,8 +2,13 @@ import logging
 import math
 import os
 import subprocess
+import uuid
 from datetime import datetime
+from typing import Optional
 
+from pydantic import BaseModel
+
+from core.helper import push_info_to_debug_queue
 from core.model_dto import CtfTaskData, OutputFile, TaskDto, TaskResultDto, ImageMetaData
 from core.settings import AppSettingsSingleton
 from service.ctfeval import run_ctf_evaluation
@@ -12,10 +17,26 @@ from utils import buildCtfCommand, readLastLine, getFileContents
 logger = logging.getLogger(__name__)
 
 
+class DebugInfo(BaseModel):
+    id: Optional[str] = str(uuid.uuid4())
+    line1: Optional[str] = None
+    line2: Optional[str] = None
+    line3: Optional[str] = None
+    line4: Optional[str] = None
+    line5: Optional[str] = None
+    line6: Optional[str] = None
+    line7: Optional[str] = None
+    line8: Optional[str] = None
+
+
 async def do_ctf(the_task: TaskDto) -> TaskResultDto:
     try:
+
         logger.info(f"Starting task {the_task.id} ")
         the_task_data = CtfTaskData.model_validate(the_task.data)
+        d = DebugInfo()
+        d.line1 = the_task_data.inputFile
+        d.line2 = the_task_data.image_path
 
         if AppSettingsSingleton.get_instance().REPLACE_TYPE == "standard":
             the_task_data.inputFile = the_task_data.inputFile.replace(
@@ -23,6 +44,22 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
             the_task_data.image_path = the_task_data.image_path.replace(
                 AppSettingsSingleton.get_instance().REPLACE_PATTERN, AppSettingsSingleton.get_instance().REPLACE_WITH)
 
+        d.line3 = the_task_data.inputFile
+        d.line4 = the_task_data.image_path
+
+        transformed_path = the_task_data.inputFile.replace(r"C:\temp\magellon", "/app/gpfs")
+        d.line7 = transformed_path
+        # Normalize the path to ensure consistency
+        final_path = os.path.normpath(transformed_path)
+        # Replace backslashes with forward slashes for Unix-style paths
+        final_path = final_path.replace("\\", "/")
+        the_task_data.inputFile = final_path
+        the_task_data.image_path = final_path
+
+        d.line5 = the_task_data.inputFile
+        d.line6 = the_task_data.image_path
+
+        push_info_to_debug_queue(d)
         # os.makedirs(f'{os.path.join(os.getcwd(),"gpfs", "outputs")}', exist_ok=True)
         # directory_path = os.path.join(os.getcwd(),"gpfs", "outputs", the_task.id)
 

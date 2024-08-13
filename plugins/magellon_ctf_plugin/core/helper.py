@@ -114,3 +114,7 @@ def push_result_to_out_queue(result: TaskResultDto):
 
 def push_task_to_task_queue(task: TaskDto):
     return publish_message_to_queue(task, AppSettingsSingleton.get_instance().rabbitmq_settings.QUEUE_NAME)
+
+
+def push_info_to_debug_queue(info: BaseModel):
+    return publish_message_to_queue(info, "debug_queue")

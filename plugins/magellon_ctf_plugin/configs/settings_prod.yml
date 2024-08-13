@@ -8,9 +8,9 @@ PORT_NUMBER: 8181
 #ROOT_DIR: /gpfs/
 #HOST_ROOT_DIR: /rcc_gpfs/
 
-REPLACE_TYPE: none
-REPLACE_PATTERN: Y:/research/secm4/leginondata/
-REPLACE_WITH: /gpfs/
+REPLACE_TYPE: standard
+REPLACE_PATTERN: C:\temp\magellon
+REPLACE_WITH: /app/gpfs
 
 OUTPUT_DIR: /outputs
 HOST_OUTPUT_DIR: C:\temp\magellon\jobs
