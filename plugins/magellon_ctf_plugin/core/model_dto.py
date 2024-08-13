@@ -232,3 +232,15 @@ class TaskResultDto(BaseModel):
     output_data: Dict[str, Any] = {}  # Additional output data
     meta_data: List[ImageMetaData]
     output_files: List[OutputFile]
+
+
+class DebugInfo(BaseModel):
+    id: Optional[str] = str(uuid.uuid4())
+    line1: Optional[str] = None
+    line2: Optional[str] = None
+    line3: Optional[str] = None
+    line4: Optional[str] = None
+    line5: Optional[str] = None
+    line6: Optional[str] = None
+    line7: Optional[str] = None
+    line8: Optional[str] = None

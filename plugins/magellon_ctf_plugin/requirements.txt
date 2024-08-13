@@ -12,21 +12,22 @@ python-dotenv
 # elastic-apm
 
 python-consul
-pika
+pika==1.3.2
 # aio_pika
 
 sqlalchemy
 sqlalchemy_utils
 PyMySQL==1.1.0
 
-mrcfile
+mrcfile==1.5.0
 #Pillow==7.0.0 #for ctf evaluation the syntax supports only this version
 numpy == 1.26.4
-scipy
-Pillow
+scipy == 1.12.0
+Pillow==10.2.0
+#matplotlib==3.3.4
 matplotlib
 
 prometheus-fastapi-instrumentator
 
-websockets
+#websockets
 debugpy

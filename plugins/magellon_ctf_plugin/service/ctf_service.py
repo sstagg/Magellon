@@ -2,31 +2,15 @@ import logging
 import math
 import os
 import subprocess
-import uuid
 from datetime import datetime
-from typing import Optional
-
-from pydantic import BaseModel
 
 from core.helper import push_info_to_debug_queue
-from core.model_dto import CtfTaskData, OutputFile, TaskDto, TaskResultDto, ImageMetaData
+from core.model_dto import CtfTaskData, OutputFile, TaskDto, TaskResultDto, ImageMetaData, DebugInfo
 from core.settings import AppSettingsSingleton
 from service.ctfeval import run_ctf_evaluation
 from utils import buildCtfCommand, readLastLine, getFileContents
 
 logger = logging.getLogger(__name__)
-
-
-class DebugInfo(BaseModel):
-    id: Optional[str] = str(uuid.uuid4())
-    line1: Optional[str] = None
-    line2: Optional[str] = None
-    line3: Optional[str] = None
-    line4: Optional[str] = None
-    line5: Optional[str] = None
-    line6: Optional[str] = None
-    line7: Optional[str] = None
-    line8: Optional[str] = None
 
 
 async def do_ctf(the_task: TaskDto) -> TaskResultDto:
