@@ -48,8 +48,8 @@ def create_task():
         # image_path=os.path.join( "/app/gpfs/24jun28a/rawdata", "23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc"),
         # inputFile=os.path.join( "/app/gpfs/24jun28a/rawdata", "23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc"),
 
-        image_path=os.path.join( "/app/gpfs/24jun28a/rawdata", "24jun28a_Valle001-02_00041gr_00001sq_v01_00002hl_00002ex.mrc"),
-        inputFile=os.path.join( "/app/gpfs/24jun28a/rawdata", "24jun28a_Valle001-02_00041gr_00001sq_v01_00002hl_00002ex.mrc"),
+        image_path=os.path.join( "/gpfs/24jun28a/rawdata", "24jun28a_Valle001-02_00041gr_00001sq_v01_00002hl_00002ex.mrc"),
+        inputFile=os.path.join( "/gpfs/24jun28a/rawdata", "24jun28a_Valle001-02_00041gr_00001sq_v01_00002hl_00002ex.mrc"),
         # image_path=os.path.join(os.getcwd(), "gpfs", "23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc"),
         # inputFile=os.path.join(os.getcwd(), "gpfs", "23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc"),
 

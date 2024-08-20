@@ -31,7 +31,7 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
         d.line3 = the_task_data.inputFile
         d.line4 = the_task_data.image_path
 
-        transformed_path = the_task_data.inputFile.replace(r"C:\temp\magellon", "/app/gpfs")
+        transformed_path = the_task_data.inputFile.replace(r"C:\temp\magellon", "/gpfs")
         d.line7 = transformed_path
         # Normalize the path to ensure consistency
         final_path = os.path.normpath(transformed_path)
