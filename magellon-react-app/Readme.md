@@ -8,6 +8,9 @@ npm run build
 Behdad2328
 
 
+npx tsc --noEmit
+npx eslint . --ext .ts,.tsx
+
 ### Commands:
 
 magellon install app
