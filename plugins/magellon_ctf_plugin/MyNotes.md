@@ -37,3 +37,11 @@ Y:/research/secm4/leginondata/24jun28a/rawdata/24jun28a_Valle001-01_00003gr.mrc
 
 
 C:\temp\magellon\24jun28a
+
+
+
+ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'behd1d2';
+CREATE USER 'behdad'@'%'    IDENTIFIED WITH mysql_native_password BY 'behd1d2';
+GRANT ALL PRIVILEGES ON * .* TO 'behdad'@'%';
+
+

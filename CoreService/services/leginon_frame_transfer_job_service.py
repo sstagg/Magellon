@@ -403,7 +403,7 @@ class LeginonFrameTransferJobService:
             # Generate FFT using the REST API
             self.convert_image_to_png_task(task_dto.image_path, task_dto.job_dto.target_directory)
             self.compute_fft_png_task(task_dto.image_path, task_dto.job_dto.target_directory)
-            self.compute_ctf_task(task_dto.image_path,task_dto)
+            self.compute_ctf_task(task_dto.image_path, task_dto)
 
             return {'status': 'success', 'message': 'Task completed successfully.'}
 
@@ -466,14 +466,14 @@ class LeginonFrameTransferJobService:
         except Exception as e:
             return {"error": str(e)}
 
-
     def compute_ctf_task(self, abs_file_path: str, task_dto: LeginonFrameTransferTaskDto):
         try:
-            dispatch_ctf_task(task_dto.task_id, abs_file_path,task_dto)
-            return {"message": "Converting to ctf on the way! " + abs_file_path}
+            if (task_dto.pixel_size * 10 ** 10) <= 5:
+                dispatch_ctf_task(task_dto.task_id, abs_file_path, task_dto)
+                return {"message": "Converting to ctf on the way! " + abs_file_path}
+
         except Exception as e:
             return {"error": str(e)}
-
 
     def create_atlas_pics(self, session_name: str, db_session: Session):
         try:

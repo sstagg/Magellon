@@ -41,15 +41,21 @@ def create_task():
     ctf_task_data = CtfTaskData(
         image_id=uuid.uuid4(),
         image_name="Image1",
-        image_path=os.path.join( "/app/gpfs/24jun28a/rawdata", "24jun28a_Valle001-04_00011gr_00002sq_v01_00002hl_00001fc.mrc"),
-        inputFile=os.path.join( "/app/gpfs/24jun28a/rawdata", "24jun28a_Valle001-04_00011gr_00002sq_v01_00002hl_00001fc.mrc"),
+        # image_path=os.path.join( "/app/gpfs/24jun28a/rawdata", "24jun28a_Valle001-04_00011gr_00002sq_v01_00002hl_00001fc.mrc"),
+        # inputFile=os.path.join( "/app/gpfs/24jun28a/rawdata", "24jun28a_Valle001-04_00011gr_00002sq_v01_00002hl_00001fc.mrc"),
 
+
+        # image_path=os.path.join( "/app/gpfs/24jun28a/rawdata", "23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc"),
+        # inputFile=os.path.join( "/app/gpfs/24jun28a/rawdata", "23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc"),
+
+        image_path=os.path.join( "/app/gpfs/24jun28a/rawdata", "24jun28a_Valle001-02_00041gr_00001sq_v01_00002hl_00002ex.mrc"),
+        inputFile=os.path.join( "/app/gpfs/24jun28a/rawdata", "24jun28a_Valle001-02_00041gr_00001sq_v01_00002hl_00002ex.mrc"),
         # image_path=os.path.join(os.getcwd(), "gpfs", "23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc"),
         # inputFile=os.path.join(os.getcwd(), "gpfs", "23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc"),
 
         # image_path= "/gpfs/research/stagg/leginondata/23oct13x/rawdata/23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc",
         # inputFile="/gpfs/research/stagg/leginondata/23oct13x/rawdata/23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc",
-        outputFile="23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex_ctf_output.mrc",
+        outputFile="24jun28a_Valle001-02_00041gr_00001sq_v01_00002hl_00002ex_ctf_output.mrc",
         pixelSize=1,
         accelerationVoltage=300,
         sphericalAberration=2.7,

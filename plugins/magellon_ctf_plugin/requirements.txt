@@ -6,7 +6,6 @@ pyyaml
 
 python-json-logger
 
-
 prometheus_client
 python-dotenv
 # elastic-apm
@@ -25,7 +24,7 @@ numpy == 1.26.4
 scipy == 1.12.0
 Pillow==10.2.0
 #matplotlib==3.3.4
-matplotlib
+matplotlib == 3.9.2
 
 prometheus-fastapi-instrumentator
 

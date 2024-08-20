@@ -1,7 +1,9 @@
 import base64
 import io
 import json
+import os
 import re
+import time
 from _operator import itemgetter
 from base64 import b64encode
 from itertools import groupby
@@ -89,3 +91,20 @@ def custom_replace(input_string, replace_type, replace_pattern, replace_with):
 
     else:
         raise ValueError("Invalid replace_type. Use 'none', 'normal', or 'regex'.")
+
+
+def delete_old_empty_directories(parent_dir):
+    current_time = time.time()
+
+    # Walk through the directory tree
+    for dirpath, dirnames, filenames in os.walk(parent_dir, topdown=False):
+        # Check if the directory is empty
+        if not os.listdir(dirpath):
+            # Check the last modification time
+            mod_time = os.path.getmtime(dirpath)
+            if current_time - mod_time > 5 * 60:  # 5 minutes in seconds
+                try:
+                    os.rmdir(dirpath)
+                    print(f"Deleted empty directory: {dirpath}")
+                except Exception as e:
+                    print(f"Failed to delete {dirpath}: {e}")

@@ -3,18 +3,23 @@ version: '3.8'
 services:
   postgres:
     image: postgis/postgis:latest
+    container_name: postgres_container
     restart: always
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: behd1d2
       POSTGRES_DB: magellon01
+    volumes:
+      - ./postgres/data:/var/lib/postgresql/data:rw
+      - ./postgres/conf:/etc/postgresql/postgresql.conf:rw
     ports:
       - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.6
 
   mysql:
-    image: mysql:latest
+    image: mysql:8.4.2
     container_name: mysql_container
     environment:
       MYSQL_ROOT_PASSWORD: behd1d2
@@ -25,7 +30,7 @@ services:
       - ./mysql/data:/var/lib/mysql:rw
       - ./mysql/conf:/etc/mysql/conf
       - ./mysql/init/magellon02db.sql:/docker-entrypoint-initdb.d/magellon02db.sql
-    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci  --lower-case-table-names=1
+    command: --mysql-native-password=ON --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci  --lower-case-table-names=1
     restart: always
     ports:
       - "3306:3306"
@@ -65,8 +70,6 @@ services:
     networks:
       magellon-network:
         ipv4_address: 172.16.238.9
-
-
 
   magellon_ctf_plugin:
     image: magellon_ctf_plugin_image
