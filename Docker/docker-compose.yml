@@ -79,7 +79,7 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
     networks:
@@ -96,14 +96,33 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./datasource.yml:/etc/grafana/provisioning/datasource.yml
+      - ./grafana/datasource.yml:/etc/grafana/provisioning/datasource.yml
     env_file:
-      - ./config.monitoring
+      - ./grafana/config.monitoring
     networks:
       magellon-network:
         ipv4_address: 172.16.238.12
 
-
+  backend:
+    build:
+      context: ../CoreService
+      dockerfile: Dockerfile
+    image: magellon-core-image
+    container_name: magellon-core-container
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    volumes:
+      - /mnt/hpc:/app/data
+    environment:
+      - CONSUL_HOST=consul
+      - RABBITMQ_HOST=rabbitmq
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.15
+        
+        
+        
   magellon_ctf_plugin:
     build:
       context: ../plugins/magellon_ctf_plugin
@@ -119,6 +138,9 @@ services:
       - ${MAGELLON_JOBS_PATH}:/outputs
     ports:
       - "8010:80"
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.20
 
 volumes:
   rabbitmq-data: { }
