@@ -9,7 +9,7 @@ from core.helper import append_json_to_file, parse_message_to_task_object, parse
 from core.rabbitmq_client import RabbitmqClient
 from core.settings import AppSettingsSingleton
 from pika.exceptions import ConnectionClosedByBroker
-from service.service import do_execute
+from services.service import do_execute
 from sqlalchemy.orm import Session
 
 file_path = "output_file.json"

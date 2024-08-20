@@ -123,6 +123,23 @@ services:
         
         
         
+  magellon_result_plugin:
+    build:
+      context: ../plugins/magellon_result_processor
+      dockerfile: Dockerfile
+    image: magellon_result_plugin_image
+    container_name: magellon_ctf_result_container
+    environment:
+      - APP_ENV=production
+      - GPFS_ROOT=${MAGELLON_PATH}
+    volumes:
+      - ${MAGELLON_PATH}:/gpfs
+    ports:
+      - "8010:80"
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.20        
+        
   magellon_ctf_plugin:
     build:
       context: ../plugins/magellon_ctf_plugin
@@ -137,10 +154,10 @@ services:
       - ${MAGELLON_PATH}:/gpfs
       - ${MAGELLON_JOBS_PATH}:/outputs
     ports:
-      - "8010:80"
+      - "8011:80"
     networks:
       magellon-network:
-        ipv4_address: 172.16.238.20
+        ipv4_address: 172.16.238.21
 
 volumes:
   rabbitmq-data: { }

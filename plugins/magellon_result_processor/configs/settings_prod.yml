@@ -1,10 +1,9 @@
-
-
 ENV_TYPE: production
 LOCAL_IP_ADDRESS: host.docker.internal
 PORT_NUMBER: 8181
 
 ROOT_DIR: /gpfs/
+
 REPLACE_TYPE: none
 REPLACE_PATTERN: /gpfs/
 REPLACE_WITH: /gpfs/

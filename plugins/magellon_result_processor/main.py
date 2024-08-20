@@ -1,5 +1,3 @@
-import asyncio
-import json
 import logging
 import os
 import socket
@@ -21,9 +19,8 @@ from core.consul import register_with_consul, init_consul_client, get_kv_value, 
 from core.rabbitmq_consumer_engine import consumer_engine
 from core.model_dto import TaskDto
 from core.settings import AppSettingsSingleton
-from core.sqlalchemy_models import Camera
-from service import service
-from service.service import do_execute, check_requirements, get_plugin_info
+from services import service
+from services.service import do_execute, check_requirements, get_plugin_info
 from core.logger_config import setup_logging
 from dotenv import load_dotenv
 

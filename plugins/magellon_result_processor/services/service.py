@@ -10,7 +10,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from core.database import get_db, get_db_connection
-from core.helper import push_result_to_out_queue
 from core.model_dto import TaskDto, PluginInfoSingleton, TaskResultDto
 from core.settings import AppSettingsSingleton
 from core.setup_plugin import check_python_version, check_operating_system, check_requirements_txt
