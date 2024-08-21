@@ -46,7 +46,7 @@ directory_settings:
   FRAMES_SUB_URL: frames/
   FRAMES_SUFFIX: _frame
   IMAGES_DIR: null
-  IMAGE_ROOT_DIR: /app/data
+  IMAGE_ROOT_DIR: /magellon
   NFS_ROOT_DIR: /gpfs
   IMAGE_ROOT_URL: http://localhost/cdn/
   IMAGE_SUB_URL: images/

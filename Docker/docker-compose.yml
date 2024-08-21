@@ -1,8 +1,10 @@
-version: '3.8'
+version: '3.9'
 
 services:
   postgres:
     image: postgis/postgis:latest
+    profiles:
+      - optional
     container_name: postgres_container
     restart: always
     environment:
@@ -20,6 +22,8 @@ services:
 
   mysql:
     image: mysql:8.4.2
+    profiles:
+      - default
     container_name: mysql_container
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
@@ -41,6 +45,8 @@ services:
 
   rabbitmq:
     image: rabbitmq:management-alpine
+    profiles:
+      - default
 #    image: rabbitmq:latest
 #    image: rabbitmq:3-management
     hostname: my-rabbit
@@ -60,6 +66,8 @@ services:
 
   consul:
     image: consul:1.15.4
+    profiles:
+      - default
     restart: unless-stopped
     container_name: consul-container
     ports:
@@ -74,6 +82,8 @@ services:
 
   prometheus:
     image: prom/prometheus:latest
+    profiles:
+      - optional
     restart: unless-stopped
     container_name: prometheus
     ports:
@@ -88,6 +98,8 @@ services:
 
   grafana:
     image: grafana/grafana:latest
+    profiles:
+      - optional
     restart: unless-stopped
     user: "472"
     container_name: grafana
@@ -108,37 +120,44 @@ services:
       context: ../CoreService
       dockerfile: Dockerfile
     image: magellon-core-image
+    profiles:
+      - default
     container_name: magellon-core-container
     restart: unless-stopped
     ports:
       - "8000:80"
     volumes:
-      - /mnt/hpc:/app/data
+      - ${MAGELLON_HOME_PATH}:/magellon
+      - ${MAGELLON_GPFS_PATH}:/gpfs
     environment:
+      - APP_ENV=production
+      - MAGELLON_ENV =docker
+      - GPFS_PATH=${MAGELLON_GPFS_PATH}
+      - HOME_PATH=${MAGELLON_HOME_PATH}
       - CONSUL_HOST=consul
       - RABBITMQ_HOST=rabbitmq
     networks:
       magellon-network:
         ipv4_address: 172.16.238.15
         
-  web:
-    build:
-      context: ../magellon-react-app
-      dockerfile: Dockerfile
-    image: magellon-react-app-image
-    container_name: magellon-react-app-container
-    restart: unless-stopped
-    depends_on:
-      - backend
-    ports:
-      - "8080:80"
-    environment:
-      - BACKEND_HOST=backend
-      - CONSUL_HOST=consul
-      - REACT_APP_API_URL=http://backend:5000
-    networks:
-      magellon-network:
-        ipv4_address: 172.16.238.16
+#  web:
+#    build:
+#      context: ../magellon-react-app
+#      dockerfile: Dockerfile
+#    image: magellon-react-app-image
+#    container_name: magellon-react-app-container
+#    restart: unless-stopped
+#    depends_on:
+#      - backend
+#    ports:
+#      - "8080:80"
+#    environment:
+#      - BACKEND_HOST=backend
+#      - CONSUL_HOST=consul
+#      - REACT_APP_API_URL=http://backend:5000
+#    networks:
+#      magellon-network:
+#        ipv4_address: 172.16.238.16
 
 
   magellon_result_plugin:
@@ -146,12 +165,15 @@ services:
       context: ../plugins/magellon_result_processor
       dockerfile: Dockerfile
     image: magellon_result_plugin_image
+    profiles:
+      - default
     container_name: magellon_ctf_result_container
     environment:
       - APP_ENV=production
-      - GPFS_ROOT=${MAGELLON_PATH}
+      - GPFS_ROOT=${MAGELLON_HOME_PATH}
+      - JOBS_PATH=${MAGELLON_JOBS_PATH}
     volumes:
-      - ${MAGELLON_PATH}:/gpfs
+      - ${MAGELLON_HOME_PATH}:/gpfs
     ports:
       - "8010:80"
     networks:
@@ -163,13 +185,15 @@ services:
       context: ../plugins/magellon_ctf_plugin
       dockerfile: Dockerfile
     image: magellon_ctf_plugin_image
+    profiles:
+      - default
     container_name: magellon_ctf_plugin_container
     environment:
       - APP_ENV=production
-      - GPFS_ROOT=${MAGELLON_PATH}
+      - GPFS_ROOT=${MAGELLON_HOME_PATH}
       - JOBS_PATH=${MAGELLON_JOBS_PATH}
     volumes:
-      - ${MAGELLON_PATH}:/gpfs
+      - ${MAGELLON_HOME_PATH}:/gpfs
       - ${MAGELLON_JOBS_PATH}:/outputs
     ports:
       - "8011:80"
