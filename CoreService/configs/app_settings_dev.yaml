@@ -36,6 +36,10 @@ rabbitmq_settings:
   CTF_OUT_QUEUE_NAME: ctf_out_tasks_queue
 
 directory_settings:
+  IMAGE_ROOT_DIR: c:/temp/data
+  IMAGE_ROOT_URL: http://localhost/cdn/
+  NFS_ROOT_DIR: c:/temp/data
+
   FFT_DIR: null
   FFT_SUB_URL: ffts/
   FFT_SUFFIX: _fft.png
@@ -44,16 +48,16 @@ directory_settings:
 
   FRAMES_SUB_URL: frames/
   FRAMES_SUFFIX: _frame
+
   IMAGES_DIR: null
-  IMAGE_ROOT_DIR: c:/temp/data
-  NFS_ROOT_DIR: c:/temp/data
-  IMAGE_ROOT_URL: http://localhost/cdn/
   IMAGE_SUB_URL: images/
   JOBS_DIR: null
   JOBS_PROCESSING_SUB_URL: processing/
   ORIGINAL_IMAGES_SUB_URL: original/
-  THUMBNAILS_DIR: null
+
+  THUMBNAILS_DIR: thumbnails/
   THUMBNAILS_SUB_URL: thumbnails/
   THUMBNAILS_SUFFIX: _thumb.png
+
   ATLAS_SUB_URL: atlases/
   ATLAS_SUFFIX: _atlas.png
