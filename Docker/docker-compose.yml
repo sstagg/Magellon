@@ -37,7 +37,7 @@ services:
     command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci  --lower-case-table-names=1
     restart: always
     ports:
-      - "3306:3306"
+      - "${MYSQL_PORT}:3306"
     networks:
       magellon-network:
         ipv4_address: 172.16.238.7
@@ -55,8 +55,8 @@ services:
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq  # Persist data
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "${RABBITMQ_PORT}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT}:15672"
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
@@ -71,7 +71,7 @@ services:
     restart: unless-stopped
     container_name: consul-container
     ports:
-      - "8500:8500"
+      - "${CONSUL_PORT}:8500"
     volumes:
       - ./consul/data:/consul/data
       - ./consul/config:/consul/config
