@@ -12,26 +12,26 @@ MySQL - 10.5.23-MariaDB-0+deb11u1 : Database - magellon05
 /*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
 /*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
-CREATE DATABASE /*!32312 IF NOT EXISTS*/`magellon02` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci */;
+CREATE DATABASE /*!32312 IF NOT EXISTS*/`magellon01` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci */;
 
-USE `magellon02`;
+USE `magellon01`;
 
 /*Table structure for table `atlas` */
 
 DROP TABLE IF EXISTS `atlas`;
 
 CREATE TABLE `atlas` (
-  `oid` binary(16) NOT NULL,
-  `name` varchar(100) DEFAULT NULL,
-  `meta` longtext DEFAULT NULL,
-  `OptimisticLockField` int(11) DEFAULT NULL,
-  `GCRecord` int(11) DEFAULT NULL,
-  `session_id` binary(16) DEFAULT NULL,
+  `oid` BINARY(16) NOT NULL,
+  `name` VARCHAR(100) DEFAULT NULL,
+  `meta` LONGTEXT DEFAULT NULL,
+  `OptimisticLockField` INT(11) DEFAULT NULL,
+  `GCRecord` INT(11) DEFAULT NULL,
+  `session_id` BINARY(16) DEFAULT NULL,
   PRIMARY KEY (`oid`),
   KEY `iGCRecord_Atlas` (`GCRecord`),
   KEY `imsession_id_Atlas` (`session_id`),
   CONSTRAINT `FK_Atlas_msession_id` FOREIGN KEY (`session_id`) REFERENCES `msession` (`oid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci AVG_ROW_LENGTH=12288;
+) ENGINE=INNODB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci AVG_ROW_LENGTH=12288;
 
 /*Data for the table `atlas` */
 
@@ -40,19 +40,18 @@ CREATE TABLE `atlas` (
 DROP TABLE IF EXISTS `camera`;
 
 CREATE TABLE `camera` (
-  `oid` binary(16) NOT NULL,
-  `name` varchar(30) DEFAULT NULL,
-  `OptimisticLockField` int(11) DEFAULT NULL,
-  `GCRecord` int(11) DEFAULT NULL,
+  `oid` BINARY(16) NOT NULL,
+  `name` VARCHAR(30) DEFAULT NULL,
+  `OptimisticLockField` INT(11) DEFAULT NULL,
+  `GCRecord` INT(11) DEFAULT NULL,
   PRIMARY KEY (`oid`),
   KEY `iGCRecord_Camera` (`GCRecord`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci AVG_ROW_LENGTH=5461;
+) ENGINE=INNODB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci AVG_ROW_LENGTH=5461;
 
 /*Data for the table `camera` */
 
-insert  into `camera`(`oid`,`name`,`OptimisticLockField`,`GCRecord`) values 
+INSERT  INTO `camera`(`oid`,`name`,`OptimisticLockField`,`GCRecord`) VALUES 
 ('?�_dWEb��,�?f��','Kasha Lab #1 Cam',NULL,NULL),
-('?�_dWEb��,�?f��','camera2',NULL,NULL),
 ('x�����OǢ|�6_��','Alpine',NULL,NULL);
 
 /*Table structure for table `image` */
@@ -60,11 +59,11 @@ insert  into `camera`(`oid`,`name`,`OptimisticLockField`,`GCRecord`) values
 DROP TABLE IF EXISTS `image`;
 
 CREATE TABLE `image` (
-  `oid` binary(16) NOT NULL,
-  `name` varchar(100) DEFAULT NULL,
-  `path` varchar(300) DEFAULT NULL,
-  `parent_id` binary(16) DEFAULT NULL,
-  `session_id` binary(16) DEFAULT NULL,
+  `oid` BINARY(16) NOT NULL,
+  `name` VARCHAR(100) DEFAULT NULL,
+  `path` VARCHAR(300) DEFAULT NULL,
+  `parent_id` BINARY(16) DEFAULT NULL,
+  `session_id` BINARY(16) DEFAULT NULL,
   `magnification` bigint(20) DEFAULT NULL,
   `dose` decimal(28,8) DEFAULT NULL,
   `focus` decimal(28,8) DEFAULT NULL,
