@@ -75,7 +75,7 @@ async def do_execute(task_result_param: TaskResultDto):
         engine = create_engine(get_db_connection())
         session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
         db = session_local()
-        destination_dir = os.path.join(AppSettingsSingleton.get_instance().ROOT_DIR, task_result_param.session_name, "ctf")
+        destination_dir = os.path.join(AppSettingsSingleton.get_instance().MAGELLON_HOME_DIR, task_result_param.session_name, "ctf")
 
         for ofile in task_result_param.output_files:
             # copy files
@@ -106,7 +106,7 @@ async def do_execute(task_result_param: TaskResultDto):
                 name="CTF Meta Data",
                 data_json=json.loads(json_str),
                 # data_json=json.dumps(task_result_param.meta_data).encode("utf-8"),
-                # image_id=task_result_param.image_id,
+                image_id=task_result_param.image_id,
                 # task_id=task_result_param.task_id
             )
             try:

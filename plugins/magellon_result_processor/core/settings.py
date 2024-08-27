@@ -51,7 +51,7 @@ class AppSettings(BaseModel):
     rabbitmq_settings: RabbitMQSettings = RabbitMQSettings()
     LOCAL_IP_ADDRESS: Optional[str] = None
     PORT_NUMBER: Optional[int] = None
-    ROOT_DIR: Optional[str] = None
+    MAGELLON_HOME_DIR: Optional[str] = None
     REPLACE_TYPE: Optional[str] = None
     REPLACE_PATTERN: Optional[str] = None
     REPLACE_WITH: Optional[str] = None
