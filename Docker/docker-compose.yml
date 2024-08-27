@@ -125,13 +125,13 @@ services:
     container_name: magellon-core-container
     restart: unless-stopped
     ports:
-      - "8000:80"
+      - "${MAGELLON_BACKEND_PORT}:80"
     volumes:
       - ${MAGELLON_HOME_PATH}:/magellon
       - ${MAGELLON_GPFS_PATH}:/gpfs
     environment:
       - APP_ENV=production
-      - MAGELLON_ENV =docker
+      - CORE_ENV =docker
       - GPFS_PATH=${MAGELLON_GPFS_PATH}
       - HOME_PATH=${MAGELLON_HOME_PATH}
       - CONSUL_HOST=consul
@@ -175,7 +175,7 @@ services:
     volumes:
       - ${MAGELLON_HOME_PATH}:/gpfs
     ports:
-      - "8010:80"
+      - "${MAGELLON_RESULT_PLUGIN_PORT}:80"
     networks:
       magellon-network:
         ipv4_address: 172.16.238.20        
@@ -196,7 +196,7 @@ services:
       - ${MAGELLON_HOME_PATH}:/gpfs
       - ${MAGELLON_JOBS_PATH}:/outputs
     ports:
-      - "8011:80"
+      - "${MAGELLON_CTF_PLUGIN_PORT}:80"
     networks:
       magellon-network:
         ipv4_address: 172.16.238.21
