@@ -21,7 +21,7 @@ services:
         ipv4_address: 172.16.238.6
 
   mysql:
-    image: mysql:8.4.2
+    image: mysql:8.0.30
     profiles:
       - default
     container_name: mysql_container
@@ -34,7 +34,7 @@ services:
       - ./mysql/data:/var/lib/mysql:rw
       - ./mysql/conf:/etc/mysql/conf
       - ./mysql/init/magellon02db.sql:/docker-entrypoint-initdb.d/magellon02db.sql
-    command: --mysql-native-password=ON --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci  --lower-case-table-names=1
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci  --lower-case-table-names=1
     restart: always
     ports:
       - "3306:3306"

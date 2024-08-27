@@ -19,6 +19,9 @@
 /CoreService/env/
 /CoreService/venv/
 
+/Docker/mysql/data/
+/Docker/consul/data/
+
 /magellon-react-app/node_modules/
 /magellon-react-app/dist/
 /magellon-react-app/test-results/
