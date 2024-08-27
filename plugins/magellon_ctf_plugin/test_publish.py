@@ -70,7 +70,7 @@ def create_task():
 
     ctf_task = CtfTaskFactory.create_task(pid=str(uuid.uuid4()), instance_id=uuid.uuid4(), job_id=uuid.uuid4(),
                                       data=ctf_task_data.model_dump(), ptype=CTF_TASK, pstatus=PENDING)
-    ctf_task.sesson_name="23oct13x"
+    ctf_task.sesson_name="24jun28a"
     return ctf_task
     # return TaskDto.create(ctf_task_data.model_dump(), FFT_TASK, PENDING, instance_id1, job_id1)
 

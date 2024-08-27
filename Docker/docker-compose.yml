@@ -5,7 +5,7 @@ services:
     image: postgis/postgis:latest
     profiles:
       - optional
-    container_name: postgres_container
+    container_name: magellon-postgres_container
     restart: always
     environment:
       POSTGRES_USER: postgres
@@ -24,7 +24,7 @@ services:
     image: mysql:8.0.30
     profiles:
       - default
-    container_name: mysql_container
+    container_name: magellon-mysql_container
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
@@ -51,7 +51,7 @@ services:
 #    image: rabbitmq:3-management
     hostname: my-rabbit
     restart: unless-stopped
-    container_name: rabbitmq-container
+    container_name: magellon-rabbitmq-container
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq  # Persist data
     ports:
@@ -69,7 +69,7 @@ services:
     profiles:
       - default
     restart: unless-stopped
-    container_name: consul-container
+    container_name: magellon-consul-container
     ports:
       - "${CONSUL_PORT}:8500"
     volumes:
@@ -85,7 +85,7 @@ services:
     profiles:
       - optional
     restart: unless-stopped
-    container_name: prometheus
+    container_name: magellon-prometheus-container
     ports:
       - "9090:9090"
     volumes:
@@ -102,7 +102,7 @@ services:
       - optional
     restart: unless-stopped
     user: "472"
-    container_name: grafana
+    container_name: magellon-grafana-container
     depends_on:
       - prometheus
     ports:
