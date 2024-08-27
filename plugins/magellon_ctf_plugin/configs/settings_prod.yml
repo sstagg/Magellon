@@ -8,12 +8,12 @@ PORT_NUMBER: 8181
 #ROOT_DIR: /gpfs/
 #HOST_ROOT_DIR: /rcc_gpfs/
 
-REPLACE_TYPE: standard
+REPLACE_TYPE: none
 REPLACE_PATTERN: C:\temp\magellon
 REPLACE_WITH: /gpfs
 
-OUTPUT_DIR: /outputs
-HOST_OUTPUT_DIR: C:\temp\magellon\jobs
+JOBS_DIR: /jobs
+HOST_JOBS_DIR: C:\temp\magellon\jobs
 
 consul_settings:
   CONSUL_HOST: host.docker.internal

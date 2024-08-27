@@ -10,8 +10,8 @@ REPLACE_TYPE: none
 REPLACE_PATTERN: /gpfs/
 REPLACE_WITH: Y:/
 
-OUTPUT_DIR: /outputs
-HOST_OUTPUT_DIR: C:\temp\outputs
+JOBS_DIR: /outputs
+HOST_JOBS_DIR: C:\temp\outputs
 
 consul_settings:
   CONSUL_HOST: localhost

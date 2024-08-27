@@ -15,10 +15,10 @@ logger = logging.getLogger(__name__)
 
 async def do_ctf(the_task: TaskDto) -> TaskResultDto:
     try:
-
+        d = DebugInfo()
         logger.info(f"Starting task {the_task.id} ")
         the_task_data = CtfTaskData.model_validate(the_task.data)
-        d = DebugInfo()
+
         d.line1 = the_task_data.inputFile
         d.line2 = the_task_data.image_path
 
@@ -31,10 +31,10 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
         d.line3 = the_task_data.inputFile
         d.line4 = the_task_data.image_path
 
-        transformed_path = the_task_data.inputFile.replace(r"C:\temp\magellon", "/gpfs")
-        d.line7 = transformed_path
+        # transformed_path = the_task_data.inputFile.replace(r"C:\temp\magellon", "/gpfs")
+        # d.line7 = transformed_path
         # Normalize the path to ensure consistency
-        final_path = os.path.normpath(transformed_path)
+        final_path = os.path.normpath(the_task_data.inputFile)
         # Replace backslashes with forward slashes for Unix-style paths
         final_path = final_path.replace("\\", "/")
         the_task_data.inputFile = final_path
@@ -47,10 +47,10 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
         # os.makedirs(f'{os.path.join(os.getcwd(),"gpfs", "outputs")}', exist_ok=True)
         # directory_path = os.path.join(os.getcwd(),"gpfs", "outputs", the_task.id)
 
-        host_dir_path = os.path.join(AppSettingsSingleton.get_instance().HOST_OUTPUT_DIR, str(the_task.id))
+        host_dir_path = os.path.join(AppSettingsSingleton.get_instance().HOST_JOBS_DIR, str(the_task.id))
         host_file_path = os.path.join(host_dir_path, the_task.data["outputFile"])
 
-        directory_path = os.path.join(AppSettingsSingleton.get_instance().OUTPUT_DIR, str(the_task.id))
+        directory_path = os.path.join(AppSettingsSingleton.get_instance().JOBS_DIR, str(the_task.id))
         the_task_data.outputFile = os.path.join(directory_path, the_task.data["outputFile"])
         host_output_file_name = "".join(host_file_path.split(".")[:-1])
         # print(directory_path)
@@ -83,6 +83,7 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
             return {"error_output": error_output}
         outputFileName = "".join(the_task_data.outputFile.split(".")[:-1])
         CTFestimationValues = await readLastLine(f'{outputFileName}.txt')
+        report_file_name= outputFileName # host_output_file_name
         result = await run_ctf_evaluation(f'{the_task_data.outputFile}', the_task_data.pixelSize,
                                           the_task_data.sphericalAberration,
                                           the_task_data.accelerationVoltage, the_task_data.maximumResolution,
@@ -115,11 +116,11 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
             },
             meta_data=metaDataList,
             output_files=[
-                OutputFile(name="ctfevalplots", path=f"{host_output_file_name}.mrc-plots.png", required=True),
-                OutputFile(name="ctfevalpowerspec", path=f"{host_output_file_name}.mrc-powerspec.jpg", required=True),
-                OutputFile(name="ctfestimationOutputFile", path=f"{host_output_file_name}.mrc", required=True),
-                OutputFile(name="ctfestimationOutputTextFile", path=f"{host_output_file_name}.txt", required=True),
-                OutputFile(name="ctfestimationOutputAvrotFile", path=f"{host_output_file_name}_avrot.txt",
+                OutputFile(name="ctfevalplots", path=f"{report_file_name}.mrc-plots.png", required=True),
+                OutputFile(name="ctfevalpowerspec", path=f"{report_file_name}.mrc-powerspec.jpg", required=True),
+                OutputFile(name="ctfestimationOutputFile", path=f"{report_file_name}.mrc", required=True),
+                OutputFile(name="ctfestimationOutputTextFile", path=f"{report_file_name}.txt", required=True),
+                OutputFile(name="ctfestimationOutputAvrotFile", path=f"{report_file_name}_avrot.txt",
                            required=True),
             ]
         )
