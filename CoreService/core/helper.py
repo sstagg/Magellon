@@ -120,7 +120,7 @@ def dispatch_ctf_task(image_id, full_image_path, task_dto: LeginonFrameTransferT
         image_path=full_image_path,
         inputFile=full_image_path,
         outputFile=out_file_name,
-        pixelSize= max(1, math.ceil(task_dto.pixel_size * 10**10)),  #1
+        pixelSize= task_dto.pixel_size * 10**10,  #1
         accelerationVoltage=task_dto.acceleration_voltage,
         sphericalAberration=task_dto.spherical_aberration * 1000,  #    2.7,
         amplitudeContrast=task_dto.amplitude_contrast,
