@@ -67,6 +67,7 @@ ENV PYTHONPATH=/app
 ENV APP_MODULE=main:app
 ENV APP_ENV=production
 ENV CTF_ESTIMATION_FILE=/app/ctffind
+RUN chmod +x ./ctffind
 # Expose port 80
 EXPOSE 80
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80"]
