@@ -59,7 +59,7 @@ COPY utils.py ./utils.py
 # Create a volume for the application data
 #VOLUME /app/data
 VOLUME /gpfs
-VOLUME /outputs
+VOLUME /jobs
 # Set the environment variable for the data directory
 #ENV DATA_DIR=/app/data
 # Set environment variables for the app

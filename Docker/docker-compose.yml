@@ -10,7 +10,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: behd1d2
-      POSTGRES_DB: magellon01
+      POSTGRES_DB: magellondb
     volumes:
       - ./postgres/data:/var/lib/postgresql/data:rw
       - ./postgres/conf:/etc/postgresql/postgresql.conf:rw
@@ -175,6 +175,7 @@ services:
       - HOME_PATH=${MAGELLON_HOME_PATH}
     volumes:
       - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_JOBS_PATH}:/jobs
       - ${MAGELLON_HOME_PATH}:/magellon
     ports:
       - "${MAGELLON_RESULT_PLUGIN_PORT}:80"

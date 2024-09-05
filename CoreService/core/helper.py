@@ -108,14 +108,14 @@ def push_task_to_task_queue(task: TaskDto):
     return publish_message_to_queue(task, app_settings.rabbitmq_settings.CTF_QUEUE_NAME)
 
 
-def dispatch_ctf_task(image_id, full_image_path, task_dto: LeginonFrameTransferTaskDto):
+def dispatch_ctf_task(task_id, full_image_path, task_dto: LeginonFrameTransferTaskDto):
     file_name = os.path.splitext(os.path.basename(full_image_path))[0]
 
     #converting LeginonFrameTransferTaskDto to ctf task
     session_name = file_name.split("_")[0]
     out_file_name = f"{file_name}_ctf_output.mrc"
     ctf_task_data = CtfTaskData(
-        image_id=image_id,
+        image_id=task_dto.image_id,
         image_name=file_name,
         image_path=full_image_path,
         inputFile=full_image_path,
@@ -131,7 +131,8 @@ def dispatch_ctf_task(image_id, full_image_path, task_dto: LeginonFrameTransferT
         maximumDefocus=task_dto.maximum_defocus,
         defocusSearchStep=task_dto.defocus_search_step
     )
-    ctf_task = CtfTaskFactory.create_task(pid=str(uuid.uuid4()), instance_id=uuid.uuid4(), job_id=uuid.uuid4(),
+    # str(uuid.uuid4())
+    ctf_task = CtfTaskFactory.create_task(pid=task_dto.task_id, instance_id=uuid.uuid4(), job_id=task_dto.job_dto.job_id,
                                           data=ctf_task_data.model_dump(), ptype=CTF_TASK, pstatus=PENDING)
     ctf_task.sesson_name = session_name
     return push_task_to_task_queue(ctf_task)

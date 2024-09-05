@@ -249,6 +249,7 @@ class LeginonFrameTransferTaskDto(BaseModel):
     task_id: uuid.UUID
     task_alias: Optional[str] = None
     file_name: Optional[str] = None
+    image_id: Optional[uuid.UUID] = None
     image_name: Optional[str] = None
     image_path: Optional[str] = None
     frame_name: Optional[str] = None

@@ -10,6 +10,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from core.database import get_db, get_db_connection
+from core.helper import append_json_to_file
 from core.model_dto import TaskDto, PluginInfoSingleton, TaskResultDto
 from core.settings import AppSettingsSingleton
 from core.setup_plugin import check_python_version, check_operating_system, check_requirements_txt
@@ -72,10 +73,23 @@ def is_valid_json(my_json: str) -> bool:
 
 async def do_execute(task_result_param: TaskResultDto):
     try:
+        # print(task_result_param)
         engine = create_engine(get_db_connection())
         session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
         db = session_local()
-        destination_dir = os.path.join(AppSettingsSingleton.get_instance().MAGELLON_HOME_DIR, task_result_param.session_name, "ctf")
+        file_name = os.path.splitext(os.path.basename(task_result_param.image_path))[0]
+        destination_dir = os.path.join(AppSettingsSingleton.get_instance().MAGELLON_HOME_DIR,
+                                       task_result_param.session_name,"ctf",
+                                       file_name )
+        try:
+            # Create the destination directory if it doesn't exist
+            if not os.path.exists(destination_dir):
+                os.makedirs(destination_dir)
+            append_json_to_file( os.path.join(destination_dir,"ctf_message.json") , task_result_param.model_dump_json())
+        except Exception as e:
+            print(f"Error: {e}")
+        # for debugging purposes we save the message
+
 
         for ofile in task_result_param.output_files:
             # copy files
@@ -88,7 +102,7 @@ async def do_execute(task_result_param: TaskResultDto):
                 oid=uuid.uuid4(),
                 name="CTF Data",
                 data=json.dumps(output_data).encode("utf-8"),
-                # image_id=task_result_param.image_id,
+                image_id=task_result_param.image_id,
                 # task_id=task_result_param.task_id
             )
             try:
@@ -97,7 +111,7 @@ async def do_execute(task_result_param: TaskResultDto):
             # ... your database operations using `db` here ...
             except Exception as exc:
                 return {"error": str(exc)}
-        if task_result_param.meta_data is not None and task_result_param.meta_data != "":
+        if task_result_param.meta_data and len(task_result_param.meta_data) > 0:
             meta_list_dicts = [meta.dict(exclude_none=True) for meta in task_result_param.meta_data]
             json_str = json.dumps(meta_list_dicts, indent=4)
             # Create a new ImageMetaData instance

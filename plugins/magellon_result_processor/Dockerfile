@@ -16,7 +16,9 @@ COPY main.py ./main.py
 RUN pip3 install --no-cache-dir  --upgrade -r ./requirements.txt
 # Create a volume for the application data
 VOLUME ./configs
+
 VOLUME /gpfs
+VOLUME /jobs
 VOLUME /magellon
 #VOLUME /app/data
 # Set the environment variable for the data directory
