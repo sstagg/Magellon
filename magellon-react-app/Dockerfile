@@ -1,15 +1,21 @@
 # Stage 1: Build the application
-FROM node:20.16.0 as build
+FROM node:20.9.0-alpine as build
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+#RUN wget -qO- https://get.pnpm.io/install.sh | ENV="$HOME/.shrc" SHELL="$(which sh)" sh -
 # Install pnpm with corepack
-RUN corepack enable && corepack prepare pnpm@latest --activate
+#RUN corepack enable && corepack prepare pnpm@latest --activate
 
 # Enable `pnpm add --global` on Alpine Linux by setting
 # home location environment variable to a location already in $PATH
 # https://github.com/pnpm/pnpm/issues/784#issuecomment-1518582235
-ENV PNPM_HOME=/usr/local/bin
+#ENV PNPM_HOME=/usr/local/bin
 
 # Add a global package
-RUN pnpm add --global @upleveled/preflight@latest
+#RUN pnpm add --global @upleveled/preflight@latest
+RUN apk add --no-cache git
+#RUN npm install -g pnpm
 
 #SHELL ["zsh", "-c"]
 #SHELL ["/bin/bash", "-c"]
@@ -27,12 +33,13 @@ COPY ./nginx.conf /app/nginx/
 #RUN if [ -n "${API_URL}" ]; then \
 #      sed -i "s|http://backend:8000/web/|${API_URL}|g" /app/src/environments/environment.prod.ts; \
 #    fi
-RUN pnpm install -g typescript
+#RUN pnpm install -g typescript
 # Install dependencies
-RUN pnpm install
+RUN npm install --force
+#RUN pnpm install
 
 # Build the application
-RUN pnpm run build
+RUN npm run build
 
 # Stage 2: Serve the application
 FROM nginx:alpine

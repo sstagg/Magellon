@@ -15,6 +15,16 @@ from models.pydantic_models import LeginonFrameTransferTaskDto
 
 logger = logging.getLogger(__name__)
 
+def append_json_to_file(file_path, json_str):
+    try:
+        # Append the JSON string as a new line to the file
+        with open(file_path, 'a') as file:
+            file.write(json_str + '\n')
+
+        return True  # Success
+    except Exception as e:
+        print(f"Error appending JSON to file: {e}")
+        return False  # Failure
 
 def create_directory(path):
     """
@@ -85,6 +95,17 @@ def publish_message_to_queue(message: BaseModel, queue_name: str) -> bool:
     Returns:
         True on success, False on error.
     """
+
+    try:
+        destination_dir =os.path.join("/magellon", "messages", queue_name )
+        # Create the destination directory if it doesn't exist
+        if not os.path.exists(destination_dir):
+            os.makedirs(destination_dir)
+        append_json_to_file( os.path.join(destination_dir,"messages.json") , message.model_dump_json())
+    except Exception as e:
+        print(f"Error: {e}")
+
+
     try:
         settings = app_settings.rabbitmq_settings
         rabbitmq_client = RabbitmqClient(settings)

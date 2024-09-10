@@ -37,7 +37,7 @@ COPY database.py ./database.py
 COPY test_main.http ./
 
 # Create a volume for the application data
-VOLUME /app/data
+VOLUME /magellon
 VOLUME ./configs
 VOLUME /gpfs
 
