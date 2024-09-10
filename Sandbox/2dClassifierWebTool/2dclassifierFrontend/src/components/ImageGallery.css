@@ -1,0 +1,58 @@
+.gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); /* Responsive: auto adjusts between 100px min and 1fr max */
+    gap: 10px;
+    padding: 10px;
+  }
+  
+  .gallery-item {
+    position: relative; /* Allows for positioning of input overlay */
+    aspect-ratio: 1; /* Ensures the images are square or maintains aspect ratio */
+    overflow: hidden; /* Prevents content overflow */
+  }
+  
+  .gallery-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Ensures images cover the area without stretching */
+  }
+  
+  .overlay-input {
+    position: absolute; /* Position input over the image */
+    top: 8px; /* Position input 8px from the top */
+    left: 8px; /* Position input 8px from the left */
+    width: calc(100% - 16px); /* Full width minus padding for alignment */
+    background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent black background */
+    color: white; /* Text color */
+    border: none; /* Removes border */
+    outline: none; /* Removes default outline */
+    padding: 4px; /* Padding for the input */
+    border-radius: 4px; /* Rounded corners for input field */
+    font-size: 14px; /* Font size for input text */
+    pointer-events: none; /* Prevents interaction when disabled */
+  }
+  
+  .overlay-input:not(.disabled) {
+    pointer-events: auto; /* Allows interaction when not disabled */
+    background-color: rgba(0, 0, 0, 0.8); /* Slightly darker background when editing */
+  }
+  
+  .edit-buttons {
+    margin-top: 20px; /* Spacing above the edit buttons */
+    display: flex; /* Flexbox for alignment */
+    gap: 10px; /* Space between buttons */
+  }
+  
+  .edit-buttons button {
+    padding: 6px 12px; /* Button padding */
+    font-size: 14px; /* Button text size */
+    cursor: pointer; /* Pointer cursor for hover effect */
+  }
+  
+  /* Media Query for Large Screens */
+  @media (min-width: 1200px) {
+    .gallery {
+      grid-template-columns: repeat(8, 1fr); /* Exactly 8 images per row on wider screens */
+    }
+  }
+  
