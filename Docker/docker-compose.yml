@@ -144,17 +144,19 @@ services:
     build:
       context: ../magellon-react-app
       dockerfile: Dockerfile
+      args:
+        API_URL: http://backend:${MAGELLON_BACKEND_PORT}
     image: magellon-react-app-image
     container_name: magellon-react-app-container
     restart: unless-stopped
     depends_on:
       - backend
     ports:
-      - "8080:80"
+      - "${WEB_PORT}:80"
     environment:
       - BACKEND_HOST=backend
       - CONSUL_HOST=consul
-      - API_URL=http://backend:5000
+      - API_URL=http://backend:${MAGELLON_BACKEND_PORT}
     networks:
       magellon-network:
         ipv4_address: 172.16.238.16

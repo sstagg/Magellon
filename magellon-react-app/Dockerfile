@@ -3,23 +3,9 @@ FROM node:20.9.0-alpine as build
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
-#RUN wget -qO- https://get.pnpm.io/install.sh | ENV="$HOME/.shrc" SHELL="$(which sh)" sh -
-# Install pnpm with corepack
-#RUN corepack enable && corepack prepare pnpm@latest --activate
 
-# Enable `pnpm add --global` on Alpine Linux by setting
-# home location environment variable to a location already in $PATH
-# https://github.com/pnpm/pnpm/issues/784#issuecomment-1518582235
-#ENV PNPM_HOME=/usr/local/bin
-
-# Add a global package
-#RUN pnpm add --global @upleveled/preflight@latest
 RUN apk add --no-cache git
-#RUN npm install -g pnpm
 
-#SHELL ["zsh", "-c"]
-#SHELL ["/bin/bash", "-c"]
-# Set working directory
 WORKDIR /app
 ARG API_URL
 # Copy package.json and pnpm-lock.yaml (if available)
@@ -30,16 +16,18 @@ COPY ./ /app/
 COPY ./nginx.conf /app/nginx/
 
 # If API_URL is provided, perform the replacement
-#RUN if [ -n "${API_URL}" ]; then \
-#      sed -i "s|http://backend:8000/web/|${API_URL}|g" /app/src/environments/environment.prod.ts; \
-#    fi
-#RUN pnpm install -g typescript
+RUN if [ -n "${API_URL}" ]; then \
+      sed -i "s|http://127.0.0.1:8000|${API_URL}|g" /app/src/config/configs.json; \
+    fi
+
+#RUN cp /app/src/config/configs.json /app/configs.json
 # Install dependencies
 RUN npm install --force
-#RUN pnpm install
 
 # Build the application
 RUN npm run build
+
+
 
 # Stage 2: Serve the application
 FROM nginx:alpine
@@ -47,8 +35,8 @@ FROM nginx:alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 # Copy built files from the build stage
 COPY --from=build /app/dist /usr/share/nginx/html
+#COPY --from=build /app/configs.json /usr/share/nginx/html/configs.json
 
-#COPY --from=build /app/dist/magellon-app /usr/share/nginx/html
 #COPY --from=build /app/nginx/nginx.conf /etc/nginx/conf.d/default.conf
 
 ENV API_URL="${API_URL}"
