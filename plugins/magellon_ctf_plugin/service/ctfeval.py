@@ -3,10 +3,10 @@ from pyami import mrc
 from appionlib import apDisplay
 from appionlib.apCtf import ctfdisplay
 
-async def run_ctf_evaluation(imagefile, apix, cs, kv, reslimit=5.0, defocus1=None, defocus2=None,
+async def run_ctf_evaluation(imagefile,ouputimageFile, apix, cs, kv, reslimit=5.0, defocus1=None, defocus2=None,
                        ampcontrast=None, extraphaseshift=None, astigangle=None, debug=False):
     imgdata = {
-        'filename': os.path.abspath(imagefile),
+        'filename': os.path.abspath(ouputimageFile),
         'image': mrc.read(imagefile),
     }
     if not os.path.isfile(imagefile):
