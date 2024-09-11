@@ -75,9 +75,9 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
 
         try:
             result = await run_ctf_evaluation(
-                f'{the_task_data.outputFile}', the_task_data.pixelSize, the_task_data.sphericalAberration,
+                f'{the_task_data.inputFile}', the_task_data.pixelSize, the_task_data.sphericalAberration,
                 the_task_data.accelerationVoltage, the_task_data.maximumResolution,
-                float(CTFestimationValues[1]) * 1e-3, float(CTFestimationValues[2]) * 1e-3,
+                float(CTFestimationValues[1]) * 1e-4, float(CTFestimationValues[2]) * 1e-4,
                 the_task_data.amplitudeContrast, CTFestimationValues[4],
                 math.radians(float(CTFestimationValues[3]))
             )
