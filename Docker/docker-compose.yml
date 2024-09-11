@@ -152,7 +152,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "${WEB_PORT}:80"
+      - "${MAGELLON_FRONTEND_PORT}:80"
     environment:
       - BACKEND_HOST=backend
       - CONSUL_HOST=consul
