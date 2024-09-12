@@ -1,6 +1,6 @@
 ENV_TYPE: production
 LOCAL_IP_ADDRESS: host.docker.internal
-PORT_NUMBER: 8181
+PORT_NUMBER: 8030
 
 MAGELLON_HOME_DIR: /magellon
 
@@ -12,7 +12,7 @@ consul_settings:
   CONSUL_HOST: host.docker.internal
   CONSUL_PASSWORD: '8500'
   CONSUL_PORT: 8500
-  CONSUL_SERVICE_ID: magellon-service-11f0bd1e-8c57-412d-82e4-0c940da261c6
+  CONSUL_SERVICE_ID: magellon-service-11f0bd1e-8c57-412d-8211-0c940da261c6
   CONSUL_SERVICE_NAME: magellon-result-plugin-service
   CONSUL_USERNAME: '8500'
 

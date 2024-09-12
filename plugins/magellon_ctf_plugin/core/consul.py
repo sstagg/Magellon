@@ -13,6 +13,7 @@ app_settings = AppSettingsSingleton.get_instance()
 consul_client= None
 
 consul_config = {
+    # "host": app_settings.LOCAL_IP_ADDRESS,
     "host": app_settings.consul_settings.CONSUL_HOST,
     "port": app_settings.consul_settings.CONSUL_PORT
 }

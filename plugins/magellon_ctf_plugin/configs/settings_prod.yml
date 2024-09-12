@@ -2,7 +2,7 @@
 
 ENV_TYPE: production
 LOCAL_IP_ADDRESS: host.docker.internal
-PORT_NUMBER: 8181
+PORT_NUMBER: 8035
 
 #we don't need and have not used root dir in app , it is just for allowing docker image access to outside
 #ROOT_DIR: /gpfs/
