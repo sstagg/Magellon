@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   postgres:
     image: postgis/postgis:latest
@@ -83,7 +81,7 @@ services:
   prometheus:
     image: prom/prometheus:latest
     profiles:
-      - optional
+      - default
     restart: unless-stopped
     container_name: magellon-prometheus-container
     ports:
@@ -99,9 +97,8 @@ services:
   grafana:
     image: grafana/grafana:latest
     profiles:
-      - optional
+      - default
     restart: unless-stopped
-    user: "472"
     container_name: magellon-grafana-container
     depends_on:
       - prometheus
@@ -109,8 +106,11 @@ services:
       - "3000:3000"
     volumes:
       - ./grafana/datasource.yml:/etc/grafana/provisioning/datasource.yml
-    env_file:
-      - ./grafana/config.monitoring
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER_NAME}      # Default admin username
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_USER_PASS}    # Default admin password
+#    env_file:
+#      - ./grafana/config.monitoring
     networks:
       magellon-network:
         ipv4_address: 172.16.238.12
