@@ -1,7 +1,10 @@
 #!/bin/bash
 
+rm -rf ./mysql/data/*
+rm -rf ./consul/data/*
+
 # Step 1: Start Docker Compose
-docker-compose up -d
+docker-compose --profile default up -d
 
 # Step 2: Wait for services to be ready (optional)
 # You can add a sleep here to give the services some time to start, or use a more sophisticated health check
@@ -17,8 +20,7 @@ sleep 15
 #    "http://localhost:3000"
 #    "http://localhost:9090"
 #  )
-rm -rf ./mysql/data/*
-rm -rf ./consul/data/*
+
 
 
 
