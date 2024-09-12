@@ -8,15 +8,19 @@ docker-compose up -d
 sleep 15
 
 
-open_urls() {
-  local urls=(
-    "http://localhost:8080/en/panel/images"
-    "http://localhost:8000"
-    "http://localhost:15672"
-    "http://localhost:8500"
-    "http://localhost:3000"
-    "http://localhost:9090"
-  )
+#open_urls() {
+#  local urls=(
+#    "http://localhost:8080/en/panel/images"
+#    "http://localhost:8000"
+#    "http://localhost:15672"
+#    "http://localhost:8500"
+#    "http://localhost:3000"
+#    "http://localhost:9090"
+#  )
+rm -rf ./mysql/data/*
+rm -rf ./consul/data/*
+
+
 
 # Step 3: Open browser with links
 # Replace the URL with the desired URL for your service

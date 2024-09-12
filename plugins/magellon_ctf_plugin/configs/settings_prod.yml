@@ -16,7 +16,7 @@ JOBS_DIR: /jobs
 HOST_JOBS_DIR: C:\temp\magellon\jobs
 
 consul_settings:
-  CONSUL_HOST: host.docker.internal
+  CONSUL_HOST: consul
   CONSUL_PASSWORD: '8500'
   CONSUL_PORT: 8500
   CONSUL_SERVICE_ID: magellon-service-11f0bd1e-8c57-412d-82e4-0c940da261c6

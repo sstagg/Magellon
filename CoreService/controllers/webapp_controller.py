@@ -367,19 +367,29 @@ def get_fft_image_route(name: str):
 
 
 @webapp_router.get('/ctf_image')
-def get_ctf_image_route(name: str, type: str):
-    underscore_index = name.find('_')
-    session_name = name[:underscore_index]
-    file_path = f"{app_settings.directory_settings.IMAGE_ROOT_DIR}/{session_name}/{CTF_SUB_URL}{name}"
-    file_paths = {
-        "powerspec": os.path.join(file_path, "_ctf_output.mrc-powerspec.jpg"),
-        "plots": os.path.join(file_path, "_ctf_output.mrc-plots.png")
-    }
+def get_ctf_image_route(name: str, image_type: str):
+    try:
+        session_name = name.split('_', 1)[0]  # Use split instead of find
+        base_path = os.path.join(app_settings.directory_settings.IMAGE_ROOT_DIR, session_name, CTF_SUB_URL,name)
 
-    file_path = file_paths.get(type)
-    if not file_path or not os.path.exists(file_path):
+
+        # Define a mapping for file paths based on the image type
+        file_paths = {
+            "powerspec": f"{base_path}/{name}_ctf_output.mrc-powerspec.jpg",
+            "plots": f"{base_path}/{name}_ctf_output.mrc-plots.png"
+        }
+
+        # Fetch the corresponding file path
+        file_path = file_paths.get(image_type)
+        if not file_path or not os.path.exists(file_path):
+            return get_image_not_found()
+
+        return FileResponse(file_path, media_type='image/png')
+
+    except Exception as e:
+        # Add logging if needed, and return an appropriate error response
+        print(f"Error fetching CTF image: {e}")
         return get_image_not_found()
-    return FileResponse(file_path, media_type='image/png')
 
 
 @webapp_router.get('/image_info')
