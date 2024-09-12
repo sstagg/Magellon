@@ -34,13 +34,13 @@ from repositories.session_repository import SessionRepository
 from services.atlas import create_atlas_images
 from services.file_service import FileService
 from services.helper import get_response_image, get_parent_name
-
+import logging
 # from services.image_file_service import get_images, get_image_by_stack, get_image_data
 
 webapp_router = APIRouter()
 file_service = FileService("transfer.log")
 
-
+logger = logging.getLogger(__name__)
 # @webapp_router.get('/images_old')
 # def get_images_old_route():
 #     return get_images()
@@ -378,6 +378,7 @@ def get_ctf_image_route(name: str, image_type: str):
             "powerspec": f"{base_path}/{name}_ctf_output.mrc-powerspec.jpg",
             "plots": f"{base_path}/{name}_ctf_output.mrc-plots.png"
         }
+        logger.debug("file_paths: {}".format(file_paths))
 
         # Fetch the corresponding file path
         file_path = file_paths.get(image_type)
