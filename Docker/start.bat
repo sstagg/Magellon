@@ -13,9 +13,10 @@ timeout /t 15
 
 
 REM Step 3: Open browser with links
-start chrome "http://localhost:8080/en/panel/images"
-start chrome "http://localhost:8000"
-start chrome "http://localhost:15672"
-start chrome "http://localhost:8500"
-start chrome "http://localhost:3000"
-start chrome "http://localhost:9090"
+start firefox "http://localhost:8080/en/panel/images"
+start firefox "http://localhost:8000"
+start firefox "http://localhost:15672"
+start firefox "http://localhost:8500"
+start firefox "http://localhost:3000"
+start firefox "http://localhost:9090"
+REM start chrome "http://localhost:9090"
