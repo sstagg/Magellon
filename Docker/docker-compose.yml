@@ -105,7 +105,11 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./grafana/datasource.yml:/etc/grafana/provisioning/datasource.yml
+      - 'grafana_storage:/var/lib/grafana'
+      - './grafana.db:/tmp/grafana.db'
+    #      - ./grafana/datasource.yml:/etc/grafana/provisioning/datasource.yml
+    command: |
+      sh -c "cp /tmp/grafana.db /var/lib/grafana/grafana.db && /run.sh"
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_USER_NAME}      # Default admin username
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_USER_PASS}    # Default admin password
@@ -210,6 +214,7 @@ services:
 volumes:
   rabbitmq-data: { }
   postgres_data: { }
+  grafana_storage: { }
   app_data:  # Define a named volume for application data
   cache:
     driver: local
