@@ -145,11 +145,6 @@ class LeginonFrameTransferJobService:
             presets_result = self.leginon_cursor.fetchone()
             print(presets_result)
 
-            # self.create_atlas_pics(self.params.session_name, db_session)
-            # presets_results = self.leginon_cursor.fetchall()
-            # for presets_result in presets_results:
-            #     print(presets_result)
-
             # get all the images in the leginon database
             # SQL query
             query = """
@@ -201,8 +196,6 @@ class LeginonFrameTransferJobService:
             self.leginon_cursor.execute(query, (session_name + "%",))
             leginon_image_list = self.leginon_cursor.fetchall()
 
-            # wants to copy image from target_dir + image.name to base_dir + session_name + images dir + image.name
-            # wants to copy image from camera_dir + frame.name to base_dir + session_name + frames dir + image.name_frame
 
             if len(leginon_image_list) > 0:
                 # image_dict = {image["filename"]: image for image in leginon_image_list}
@@ -351,46 +344,7 @@ class LeginonFrameTransferJobService:
         finally:
             self.close_connections()
 
-    # def run_tasks(self, db_session: Session):
-    #     try:
-    #         # directory_path = os.path.join(self.params.target_directory, self.params.session_name)
-    #         create_directories(self.params.target_directory)
-    #         # self.create_directories(self.params.target_directory + "/" + self.params.session_name)
-    #         # self.open_leginon_connection()
-    #         with concurrent.futures.ThreadPoolExecutor() as executor:
-    #             # The run_task function is submitted to the executor using executor.submit, and the resulting Future
-    #             # objects are stored in a dictionary future_to_task to keep track of each task.
-    #             future_to_task = {executor.submit(self.run_task, task): task for task in
-    #                               self.params.task_list}  # LeginonFrameTransferTaskDto
-    #
-    #             # The as_completed function from concurrent.futures is used to iterate through completed futures as
-    #             # they become available. Within the loop, the code checks for task results and implements the retry
-    #             # logic by catching exceptions and retrying up to the maximum retry count.
-    #             for future in concurrent.futures.as_completed(future_to_task):
-    #                 task = future_to_task[future]
-    #                 retry_count = 0
-    #                 while retry_count < MAX_RETRIES:
-    #                     try:
-    #                         future.result()
-    #                         print(f"Task completed successfully: {task.task_alias}")
-    #                         break  # Task completed successfully, exit the retry loop
-    #                     except TaskFailedException as e:
-    #                         print(f"Task failed: {str(e)}")
-    #                         retry_count += 1
-    #                         if retry_count < MAX_RETRIES:
-    #                             print(f"Retrying... Attempt {retry_count}")
-    #                             time.sleep(1)  # Add a small delay before retrying
-    #
-    #                 if retry_count == MAX_RETRIES:
-    #                     print(f"Max retries exceeded for task: {task.task_alias}")
-    #                     # Perform any additional handling for failed tasks
-    #             self.create_atlas_pics(self.params.session_name, db_session)
-    #     except Exception as e:
-    #         print("An unexpected error occurred:", str(e))
-    #     # finally:
-    #     #     self.close_connections()
-    #     finally:
-    #         self.close_connections()
+
 
     def run_task(self, task_dto: LeginonFrameTransferTaskDto) -> Dict[str, str]:
         try:

@@ -3,8 +3,10 @@ FROM node:20.9.0-alpine as build
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
+RUN corepack prepare pnpm@latest --activate
 
 RUN apk add --no-cache git
+#RUN npm install --global yarn
 
 WORKDIR /app
 ARG API_URL
@@ -22,10 +24,13 @@ RUN if [ -n "${API_URL}" ]; then \
 
 #RUN cp /app/src/config/configs.json /app/configs.json
 # Install dependencies
-RUN npm install --force
+#RUN pnpm install
+RUN pnpm install --force
+#RUN yarn install
 
 # Build the application
 RUN npm run build
+#RUN vite build
 
 
 

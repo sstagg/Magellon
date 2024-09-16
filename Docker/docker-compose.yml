@@ -145,12 +145,13 @@ services:
         ipv4_address: 172.16.238.15
         
   web:
-    build:
-      context: ../magellon-react-app
-      dockerfile: Dockerfile
-      args:
-        API_URL: http://backend:${MAGELLON_BACKEND_PORT}
-    image: magellon-react-app-image
+#    build:
+#      context: ../magellon-react-app
+#      dockerfile: Dockerfile
+#      args:
+#        API_URL: http://backend:${MAGELLON_BACKEND_PORT}
+#    image: magellon-react-app-image
+    image: khoshbin/magellon-react-app-image
     container_name: magellon-react-app-container
     restart: unless-stopped
     depends_on:
