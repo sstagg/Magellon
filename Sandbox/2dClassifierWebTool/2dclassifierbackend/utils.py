@@ -1,9 +1,13 @@
 import os
 from enum import Enum
+import mrcfile
+import glob
+import matplotlib.pyplot as plt
+import re
 current_directory = os.getcwd()
 sandbox_directory = os.path.dirname(os.path.dirname(current_directory))
 Project2DDirectory = os.path.join(sandbox_directory, '2dclass_evaluator')
-UploadsDirectory=os.path.join(os.getcwd(),'')
+UploadsDirectory=os.path.join(os.getcwd(),'uploads')
 
 class SelectedValue(str, Enum):
     cryo = "cryo"
@@ -50,4 +54,38 @@ def getCommand(type,uuid):
     elif type==SelectedValue.relion:
         return 
 
+def getMrcsFileName(path,filePattern):
+    file_pattern = os.path.join(path, filePattern)
+    matching_files = glob.glob(file_pattern)
+    if len(matching_files) >= 1:
+        return matching_files[0]   
+    elif len(matching_files) == 0:
+        raise FileNotFoundError(f"No file matching the pattern {file_pattern} was found.")
 
+async def getImageFilePaths(uuid,outputImageDir):
+    imageFilepaths=[]
+    fileName=getMrcsFileName(os.path.join(UploadsDirectory,uuid,"outputs","output"),'*_classes.mrcs')
+    with mrcfile.open(os.path.join(UploadsDirectory,uuid,"outputs","output",fileName), mode='r') as mrc:
+        data = mrc.data
+        for i in range(data.shape[0]):
+            relative_path = os.path.join(*outputImageDir.split(os.sep)[-3:])
+            imageDir=os.path.join("/images",relative_path)
+            output_file_path = os.path.join(outputImageDir, f'slice_{i}.png')
+            plt.imshow(data[i], cmap='gray')
+            plt.savefig(output_file_path)
+            plt.close()
+            imageFilepaths.append(os.path.join(imageDir, f'slice_{i}.png'))
+    return imageFilepaths
+
+
+async def getClassifiedOutputValues(uuid):
+    pattern = r'\d{5}@.*\s(\d+\.\d+)'
+    extracted_values = []
+    fileName=getMrcsFileName(os.path.join(UploadsDirectory,uuid,"outputs","output"),'*_model.star')
+    with open(os.path.join(UploadsDirectory,uuid,"outputs","output",fileName), 'r') as file:
+        lines = file.readlines()
+    for line in lines:
+        match = re.search(pattern, line)
+        if match:
+            extracted_values.append(float(match.group(1)))
+    return extracted_values
