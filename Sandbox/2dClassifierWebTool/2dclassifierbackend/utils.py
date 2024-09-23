@@ -50,10 +50,6 @@ def getCommand(type,uuid):
         mrcsfile,starfile=getrelionfiles(os.path.join(os.getcwd(),"uploads",uuid))
         return ' '.join([os.path.join(Project2DDirectory,"CNNTraining","relion_2DavgAssess.py"),"-i",mrcsfile,"-m",starfile,"-w",os.path.join(Project2DDirectory,"CNNTraining","final_model","final_model_cont.pth")])
 
-
-    elif type==SelectedValue.relion:
-        return 
-
 def getMrcsFileName(path,filePattern):
     file_pattern = os.path.join(path, filePattern)
     matching_files = glob.glob(file_pattern)
@@ -62,9 +58,14 @@ def getMrcsFileName(path,filePattern):
     elif len(matching_files) == 0:
         raise FileNotFoundError(f"No file matching the pattern {file_pattern} was found.")
 
-async def getImageFilePaths(uuid,outputImageDir):
+async def getImageFilePaths(uuid,outputImageDir,selectedValue):
     imageFilepaths=[]
-    fileName=getMrcsFileName(os.path.join(UploadsDirectory,uuid,"outputs","output"),'*_classes.mrcs')
+    if selectedValue==SelectedValue.cryo:
+        fileName=getMrcsFileName(os.path.join(UploadsDirectory,uuid,"outputs","output"),'*_classes.mrcs')
+        
+    if selectedValue==SelectedValue.relion:
+        fileName=getMrcsFileName(os.path.join(UploadsDirectory,uuid),'*_magellon_classes.mrcs')
+    
     with mrcfile.open(os.path.join(UploadsDirectory,uuid,"outputs","output",fileName), mode='r') as mrc:
         data = mrc.data
         for i in range(data.shape[0]):
@@ -78,7 +79,7 @@ async def getImageFilePaths(uuid,outputImageDir):
     return imageFilepaths
 
 
-async def getClassifiedOutputValues(uuid):
+async def getClassifiedOutputValues(uuid,selectedValue):
     pattern = r'\d{5}@.*\s(\d+\.\d+)'
     extracted_values = []
     fileName=getMrcsFileName(os.path.join(UploadsDirectory,uuid,"outputs","output"),'*_model.star')

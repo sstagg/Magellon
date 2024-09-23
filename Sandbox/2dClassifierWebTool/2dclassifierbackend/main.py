@@ -74,14 +74,17 @@ async def upload_files(uuid: str = Form(...),selectedValue: SelectedValue = Form
 
     outputImageDir = os.path.join(os.getcwd(), "uploads", uuid, "outputs", "images")
     os.makedirs(outputImageDir, exist_ok=True)
-    imageFilepaths=await getImageFilePaths(uuid,outputImageDir)
-    classifiedOutputValues=await getClassifiedOutputValues(uuid)
-    if len(imageFilepaths)!=len(classifiedOutputValues):
-        raise("error: value extraction went wrong")
+    imageFilepaths=await getImageFilePaths(uuid,outputImageDir,selectedValue)
+    classifiedOutputValues=[]
+    # classifiedOutputValues=await getClassifiedOutputValues(uuid,selectedValue)
+    # if len(imageFilepaths)!=len(classifiedOutputValues):
+    #     raise("error: value extraction went wrong")
     
     # Todo delete the files
 
-    return JSONResponse(content={"imageFilepaths":imageFilepaths,"extractedValues":classifiedOutputValues}, status_code=200)
+    return JSONResponse(content={"imageFilepaths":imageFilepaths,
+                                 "extractedValues":classifiedOutputValues
+                                 }, status_code=200)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
