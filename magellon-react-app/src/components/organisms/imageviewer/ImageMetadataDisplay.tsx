@@ -7,8 +7,10 @@ import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
 import {TreeItem} from "@mui/x-tree-view/TreeItem";
 import {CategoryDto, MetadataDto} from "./ImageInfoDto.ts";
 import {SoloImageViewerProps} from "./SoloImageViewerComponent.tsx";
+import Box from "@mui/material/Box";
 
-
+import { JsonEditor as Editor } from 'jsoneditor-react'
+import 'jsoneditor-react/es/editor.min.css';
 
 const ImageMetadataDisplay: React.FC<SoloImageViewerProps> = ({ selectedImage }) => {
     const { data: imageMetadata, error, isLoading, refetch } = useFetchImageMetaData(selectedImage?.name, false);
@@ -62,6 +64,7 @@ const ImageMetadataDisplay: React.FC<SoloImageViewerProps> = ({ selectedImage })
 
             {/* Right part: Metadata Table */}
             <Grid item xs={6}>
+                <h3> Metadata Records</h3>
                 {selectedCategory && selectedCategory.metadata && (
                     <Table>
                         <TableHead>
@@ -91,7 +94,7 @@ const ImageMetadataDisplay: React.FC<SoloImageViewerProps> = ({ selectedImage })
                     <TextField
                         label="Metadata Details"
                         multiline
-                        rows={6}
+                        rows={20}
                         fullWidth
                         variant="outlined"
                         value={selectedMeta.data_json ? JSON.stringify(selectedMeta.data_json, null, 2) : selectedMeta.data}
@@ -101,6 +104,17 @@ const ImageMetadataDisplay: React.FC<SoloImageViewerProps> = ({ selectedImage })
                     />
                 )}
             </Grid>
+            {selectedMeta && selectedMeta.data_json &&(
+                <Grid item xs={12}>
+                        <Editor
+                            mode="tree"
+                            history
+                            value={selectedMeta.data_json}
+                            // onChange={setJson}
+                        />
+                </Grid>
+            )}
+
         </Grid>
     );
 };
