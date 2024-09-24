@@ -366,7 +366,7 @@ def get_fft_image_route(name: str):
     file_path = f"{app_settings.directory_settings.IMAGE_ROOT_DIR}/{session_name}/{FFT_SUB_URL}{name}{FFT_SUFFIX}"
     return FileResponse(file_path, media_type='image/png')
 
-@webapp_router.get('/ctf_info')
+@webapp_router.get('/ctf-info')
 def get_image_ctf_data_route(image_name_or_oid: str, db: Session = Depends(get_db)):
     try:
         try:
@@ -405,15 +405,22 @@ def get_image_ctf_data_route(image_name_or_oid: str, db: Session = Depends(get_d
     resolution = next((round(float(item['value']), 2) for item in data_json if item['key'] == 'resolution_50_percent'), None)
 
     # Building the result
+    # result = {
+    #     "filename": db_image.name,
+    #     "defocus1": f"{defocus1:.2f} μm" if defocus1 is not None else None,
+    #     "defocus2": f"{defocus2:.2f} μm" if defocus2 is not None else None,
+    #     "angleAstigmatism": f"{angle_astigmatism:.2f}°" if angle_astigmatism is not None else None,
+    #     "resolution": f"{resolution:.2f} Å" if resolution is not None else None,
+    # }
     result = {
         "filename": db_image.name,
-        "defocus1": f"{defocus1:.2f} μm" if defocus1 is not None else None,
-        "defocus2": f"{defocus2:.2f} μm" if defocus2 is not None else None,
-        "angleAstigmatism": f"{angle_astigmatism:.2f}°" if angle_astigmatism is not None else None,
-        "resolution": f"{resolution:.2f} Å" if resolution is not None else None,
+        "defocus1": round(defocus1, 2) if defocus1 is not None else None,  # Float value for defocus1
+        "defocus2": round(defocus2, 2) if defocus2 is not None else None,  # Float value for defocus2
+        "angleAstigmatism": round(angle_astigmatism, 2) if angle_astigmatism is not None else None,  # Float value for angleAstigmatism
+        "resolution": round(resolution, 2) if resolution is not None else None  # Float value for resolution
     }
 
-    return {'result': result}
+    return result
 
 
 @webapp_router.get('/ctf_image')

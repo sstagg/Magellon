@@ -1,6 +1,5 @@
 import {useMutation, useQuery} from "react-query";
 import {settings} from "../../core/settings.ts";
-import {FetchSessionAtlasImages} from "./FetchSessionAtlasImages.ts";
 import {ParticlePickingDto} from "../../domains/ParticlePickingDto.ts";
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL ;

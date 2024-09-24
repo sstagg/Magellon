@@ -11,8 +11,14 @@ interface ImageInfoDto {
     children_count?: number;
     selected?: boolean;
     level?: number;
+    //ctf?: ImageCtfInfo;
 }
-
+export interface ImageCtfInfo {
+    defocus1: number | null;               // Defocus 1 value in μm, can be a number or null
+    defocus2: number | null;               // Defocus 2 value in μm, can be a number or null
+    angleAstigmatism: number | null;       // Angle astigmatism in degrees, can be a number or null
+    resolution: number | null;              // Resolution 50% value in Å, can be a number or null
+}
 export interface AtlasImageDto {
     oid: string;
     name?: string;
