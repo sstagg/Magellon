@@ -29,7 +29,7 @@ from lib.image_not_found import get_image_not_found
 from models.plugins_models import CtfTaskData, CTF_TASK, PENDING
 from models.pydantic_models import SessionDto, ImageDto, AtlasDto, \
     ParticlePickingDto
-from models.sqlalchemy_models import Image, Msession, ImageMetaData, Atlas
+from models.sqlalchemy_models import Image, Msession, ImageMetaData, Atlas, ImageMetaDataCategory
 from repositories.image_repository import ImageRepository
 from repositories.session_repository import SessionRepository
 from services.atlas import create_atlas_images
@@ -365,6 +365,83 @@ def get_fft_image_route(name: str):
     session_name = name[:underscore_index]
     file_path = f"{app_settings.directory_settings.IMAGE_ROOT_DIR}/{session_name}/{FFT_SUB_URL}{name}{FFT_SUFFIX}"
     return FileResponse(file_path, media_type='image/png')
+
+
+
+# Endpoint to get image metadata
+@webapp_router.get("/images/{image_id}/metadata")#, response_model=List[CategoryResponse]
+def get_image_metadata(image_id: str, db: Session = Depends(get_db)):
+    # Fetch the image by its ID (name field in this case)
+    db_image = db.query(Image).filter_by(name=image_id).first()
+    if not db_image:
+        raise HTTPException(status_code=404, detail="Image not found.")
+
+    # Fetch all metadata associated with the image
+    metas = db.query(ImageMetaData).filter(ImageMetaData.image_id == db_image.oid).all()
+
+    # Fetch all categories
+    categories = db.query(ImageMetaDataCategory).all()
+
+
+    # Create a mapping of categories by their parent-child relationship
+    category_dict = {}
+    for category in categories:
+        category_dict[category.oid] = {
+            "oid": category.oid,
+            "name": category.name,
+            "parent": category.parent_id,
+            "metadata": [],
+            "children": []
+        }
+
+    # Attach metadata to categories
+    for meta in metas:
+        # Find the category this metadata belongs to
+        if meta.category_id and meta.category_id in category_dict:
+            category_dict[meta.category_id]["metadata"].append({
+                "oid": meta.oid,
+                "name": meta.name,
+                "data": meta.data,
+                "data_json": meta.data_json
+            })
+        else:
+            # Create an "orphan" category for metadata without a category
+            if "orphan" not in category_dict:
+                category_dict["orphan"] = {
+                    "oid": "orphan",
+                    "name": "Orphan Category",
+                    "parent": None,
+                    "metadata": [],
+                    "children": []
+                }
+            category_dict["orphan"]["metadata"].append({
+                "oid": meta.oid,
+                "name": meta.name,
+                "data": meta.data,
+                "data_json": meta.data_json
+            })
+
+    # Organize the hierarchy: add children to their parents
+    category_hierarchy = []
+    for category in category_dict.values():
+        if category["parent"] is None:
+            # Top-level category
+            category_hierarchy.append(category)
+        else:
+            # Attach to its parent
+            if category["parent"] in category_dict:
+                category_dict[category["parent"]]["children"].append(category)
+
+    # Return the hierarchical structure
+    return category_hierarchy
+    #categories = db.query(ImageMetaDataCategory).outerjoin(ImageMetaData).filter(ImageMetaData.image_id == db_image.oid).all()
+    # categories = db.query(ImageMetaDataCategory).outerjoin(ImageMetaData).filter(ImageMetaData.image_id == image_id).all()
+
+
+
+
+
+
 
 @webapp_router.get('/ctf-info')
 def get_image_ctf_data_route(image_name_or_oid: str, db: Session = Depends(get_db)):
