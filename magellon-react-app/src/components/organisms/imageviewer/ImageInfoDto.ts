@@ -38,3 +38,22 @@ export interface PagedImageResponse {
 export default ImageInfoDto;
 
 
+// Type for the Metadata DTO
+export interface MetadataDto {
+    oid: string;
+    name: string;
+    data: string;
+    data_json?: Record<string, any>;  // Optional, as it may not always be present
+}
+
+// Type for the Category DTO
+export interface CategoryDto {
+    oid: string;
+    name: string;
+    parent?: string | null;           // Optional, and `null` if it's a top-level category
+    metadata?: MetadataDto[];         // Optional, in case the category has no metadata
+    children?: CategoryDto[];         // Optional, for categories with no subcategories
+}
+
+// The response type for the entire result, which is an array of top-level categories
+export type ImageMetadataResponseDto = CategoryDto[];
