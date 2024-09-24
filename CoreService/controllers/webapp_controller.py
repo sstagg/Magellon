@@ -1,3 +1,4 @@
+import math
 import re
 from datetime import datetime
 import json
@@ -365,6 +366,55 @@ def get_fft_image_route(name: str):
     file_path = f"{app_settings.directory_settings.IMAGE_ROOT_DIR}/{session_name}/{FFT_SUB_URL}{name}{FFT_SUFFIX}"
     return FileResponse(file_path, media_type='image/png')
 
+@webapp_router.get('/ctf_info')
+def get_image_ctf_data_route(image_name_or_oid: str, db: Session = Depends(get_db)):
+    try:
+        try:
+            # Attempt to convert image_name_or_oid to UUID
+            image_uuid = UUID(image_name_or_oid)
+            # If convertible to UUID, search by OID
+            db_image = db.query(Image).filter_by(oid=image_uuid).first()
+        except ValueError:
+            # If not convertible to UUID, search by filename
+            db_image = db.query(Image).filter_by(name=image_name_or_oid).first()
+
+        if not db_image:
+            return HTTPException(status_code=404, detail="Image not found")
+
+    except NoResultFound:
+        return HTTPException(status_code=404, detail="Image not found")
+
+    db_ctf = db.query(ImageMetaData).filter(
+        ImageMetaData.image_id == db_image.oid,
+        ImageMetaData.data_json != None
+    ).first()
+    if not db_ctf:
+        raise HTTPException(status_code=404, detail="CTF data not found")
+        # data_json is like : [{"key": "volts", "value": "300000.0"}, {"key": "cs", "value": "2.7"}, {"key": "apix", "value": "0.395"}, {"key": "defocus1", "value": "1.7631689452999998e-06"}, {"key": "defocus2", "value": "1.5946771484000002e-06"}, {"key": "angle_astigmatism", "value": "-1.1467587588191854"}, {"key": "amplitude_contrast", "value": "0.07"}, {"key": "extra_phase_shift", "value": "0.0"}, {"key": "confidence_30_10", "value": "-0.2375991372968843"}, {"key": "confidence_5_peak", "value": "-0.07497673401657018"}, {"key": "overfocus_conf_30_10", "value": "-0.26712254410180497"}, {"key": "overfocus_conf_5_peak", "value": "-0.10697129942661074"}, {"key": "resolution_80_percent", "value": "18.057936148038742"}, {"key": "resolution_50_percent", "value": "16.380544285663692"}, {"key": "confidence", "value": "-0.07497673401657018"}]
+        # get re
+    data_json = db_ctf.data_json
+
+    # Defocus1 and Defocus2: Multiply by 10^6 and add units of μm
+    defocus1 = next((float(item['value']) * 1e6 for item in data_json if item['key'] == 'defocus1'), None)
+    defocus2 = next((float(item['value']) * 1e6 for item in data_json if item['key'] == 'defocus2'), None)
+
+    # Angle Astigmatism: Convert from radians to degrees and add units of °
+    angle_astigmatism = next((math.degrees(float(item['value'])) for item in data_json if item['key'] == 'angle_astigmatism'), None)
+
+    # Resolution: Round to the 100th place and add units of Å
+    resolution = next((round(float(item['value']), 2) for item in data_json if item['key'] == 'resolution_50_percent'), None)
+
+    # Building the result
+    result = {
+        "filename": db_image.name,
+        "defocus1": f"{defocus1:.2f} μm" if defocus1 is not None else None,
+        "defocus2": f"{defocus2:.2f} μm" if defocus2 is not None else None,
+        "angleAstigmatism": f"{angle_astigmatism:.2f}°" if angle_astigmatism is not None else None,
+        "resolution": f"{resolution:.2f} Å" if resolution is not None else None,
+    }
+
+    return {'result': result}
+
 
 @webapp_router.get('/ctf_image')
 def get_ctf_image_route(name: str, image_type: str):
@@ -671,18 +721,6 @@ async def get_atlas_image(name: str):
 async def get_image_thumbnail_url(name: str):
     return f"{app_settings.directory_settings.IMAGE_ROOT_DIR}/{IMAGE_SUB_URL}{name}.png"
 
-
-# @webapp_router.post("/transfer_files")
-# async def transfer_files(source_path: str, destination_path: str, delete_original: bool = False,
-#                          compress: bool = False):
-#     try:
-#         file_service.transfer_files(source_path, destination_path, delete_original)
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
-#     else:
-#         return {"message": "Files transferred successfully."}
-
-
 @webapp_router.get('/sessions', response_model=List[SessionDto])
 def get_all_sessions(name: Optional[str] = None, db: Session = Depends(get_db)):
     """
@@ -853,41 +891,4 @@ async def get_do_image_ctf_route(full_image_path: str):
     return await dispatch_ctf_task(uuid.uuid4(), full_image_path)
 
 
-# async def dispatch_ctf_task(image_id, full_image_path):
-#     file_name = os.path.splitext(os.path.basename(full_image_path))[0]
-#     session_name = file_name.split("_")[0]
-#     out_file_name = f"{file_name}_ctf_output.mrc"
-#     ctf_task_data = CtfTaskData(
-#         image_id=image_id,
-#         image_name="Image1",
-#         image_path=full_image_path,
-#         inputFile=full_image_path,
-#         outputFile=out_file_name,
-#         pixelSize=1,
-#         accelerationVoltage=300,
-#         sphericalAberration=2.7,
-#         amplitudeContrast=0.07,
-#         sizeOfAmplitudeSpectrum=512,
-#         minimumResolution=30,
-#         maximumResolution=5,
-#         minimumDefocus=5000,
-#         maximumDefocus=50000,
-#         defocusSearchStep=100
-#     )
-#     ctf_task = CtfTaskFactory.create_task(pid=str(uuid.uuid4()), instance_id=uuid.uuid4(), job_id=uuid.uuid4(),
-#                                           data=ctf_task_data.model_dump(), ptype=CTF_TASK, pstatus=PENDING)
-#     ctf_task.sesson_name = session_name
-#     return push_task_to_task_queue(ctf_task)
 
-# @image_viewer_router.get("/download_file")
-# async def download_file(file_path: str):
-#     return FileResponse(path=file_path, filename=file_path.split("/")[-1])
-
-# @image_viewer_router.get("/download_png/{name}")
-# async def download_png(name: str):
-#     folder = Path(BASE_PATH) / "images"
-#     file_path = folder / f"{name}.png"
-#     if not file_path.is_file():
-#         return "File not found", 404
-#     file_stream = file_path.open("rb")
-#     return StreamingResponse(file_stream, media_type="image/png")
