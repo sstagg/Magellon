@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 
-import { Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material'; // Table for metadata
+import {Table, TableBody, TableCell, tableCellClasses, TableHead, TableRow} from '@mui/material'; // Table for metadata
 import { TextField, Grid } from '@mui/material';
 import {useFetchImageMetaData} from "../../../services/api/ImageMetaDataRestService.ts";
 import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
@@ -11,6 +11,31 @@ import Box from "@mui/material/Box";
 
 import { JsonEditor as Editor } from 'jsoneditor-react'
 import 'jsoneditor-react/es/editor.min.css';
+import {styled} from "@mui/material/styles";
+
+const StyledTableCell = styled(TableCell)(({ theme }) => ({
+    [`&.${tableCellClasses.head}`]: {
+        backgroundColor: theme.palette.common.black,
+        color: theme.palette.common.white,
+        fontSize: 14,
+        fontWeight: 'bold', // Makes the font bold
+    },
+    [`&.${tableCellClasses.body}`]: {
+        fontSize: 14,
+    },
+}));
+
+const StyledTableRow = styled(TableRow)(({ theme }) => ({
+    '&:nth-of-type(odd)': {
+        backgroundColor: theme.palette.action.hover,
+    },
+    // hide last border
+    '&:last-child td, &:last-child th': {
+        border: 0,
+    },
+}));
+
+
 
 const ImageMetadataDisplay: React.FC<SoloImageViewerProps> = ({ selectedImage }) => {
     const { data: imageMetadata, error, isLoading, refetch } = useFetchImageMetaData(selectedImage?.name, false);
@@ -38,9 +63,9 @@ const ImageMetadataDisplay: React.FC<SoloImageViewerProps> = ({ selectedImage })
     if (error) return <p>Error loading metadata</p>;
 
     return (
-        <Grid container spacing={2}>
+        <Grid container spacing={5}>
             {/* Left part: Categories Tree */}
-            <Grid item xs={3}>
+            <Grid item xs={4}>
                 <SimpleTreeView>
                     {imageMetadata && imageMetadata.map((category: CategoryDto) => (
                         <TreeItem
@@ -63,25 +88,25 @@ const ImageMetadataDisplay: React.FC<SoloImageViewerProps> = ({ selectedImage })
             </Grid>
 
             {/* Right part: Metadata Table */}
-            <Grid item xs={6}>
-                <h3> Metadata Records</h3>
+            <Grid item xs={8}>
+
                 {selectedCategory && selectedCategory.metadata && (
                     <Table>
                         <TableHead>
                             <TableRow>
-                                <TableCell>Name</TableCell>
+                                <StyledTableCell>Metadata Records</StyledTableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
                             {selectedCategory.metadata.map((meta) => (
-                                <TableRow
+                                <StyledTableRow
                                     key={meta.oid}
                                     hover
                                     onClick={() => handleMetaClick(meta)}
                                     selected={selectedMeta?.oid === meta.oid}
                                 >
-                                    <TableCell>{meta.name}</TableCell>
-                                </TableRow>
+                                    <StyledTableCell >{meta.name}</StyledTableCell >
+                                </StyledTableRow >
                             ))}
                         </TableBody>
                     </Table>
@@ -89,6 +114,7 @@ const ImageMetadataDisplay: React.FC<SoloImageViewerProps> = ({ selectedImage })
             </Grid>
 
             {/* Bottom part: Metadata Details */}
+            {selectedMeta && selectedMeta.data &&(
             <Grid item xs={12}>
                 {selectedMeta && (
                     <TextField
@@ -97,6 +123,7 @@ const ImageMetadataDisplay: React.FC<SoloImageViewerProps> = ({ selectedImage })
                         rows={20}
                         fullWidth
                         variant="outlined"
+                        //value={selectedMeta.data_json ? JSON.stringify(selectedMeta.data_json, null, 2) : selectedMeta.data}
                         value={selectedMeta.data_json ? JSON.stringify(selectedMeta.data_json, null, 2) : selectedMeta.data}
                         InputProps={{
                             readOnly: true,
@@ -104,6 +131,7 @@ const ImageMetadataDisplay: React.FC<SoloImageViewerProps> = ({ selectedImage })
                     />
                 )}
             </Grid>
+            )}
             {selectedMeta && selectedMeta.data_json &&(
                 <Grid item xs={12}>
                         <Editor
