@@ -315,7 +315,7 @@ class LeginonFrameTransferJobService:
                 db_session.commit()  # Commit the changes
 
                 if self.params.if_do_subtasks if hasattr(self.params, 'if_do_subtasks') else True:
-                    self.run_tasks(db_session)
+                    self.run_tasks(db_session,magellon_session )
 
             return {'status': 'success', 'message': 'Job completed successfully.', "job_id": self.params.job_id}
             # self.create_test_tasks()
@@ -332,13 +332,13 @@ class LeginonFrameTransferJobService:
             logger.error(error_message, exc_info=True)
             return {"error": error_message, "exception": str(e)}
 
-    def run_tasks(self, db_session: Session):
+    def run_tasks(self, db_session: Session,magellon_session :Msession):
         try:
             create_directories(self.params.target_directory)
             # Iterate over each task in the task list and run it synchronously
             for task in self.params.task_list:
-                self.run_task(task)
-            self.create_atlas_pics(self.params.session_name, db_session)
+                self.run_task(task,magellon_session)
+            self.create_atlas_pics(self.params.session_name, db_session,magellon_session)
         except Exception as e:
             print("An unexpected error occurred:", str(e))
         finally:
@@ -346,7 +346,7 @@ class LeginonFrameTransferJobService:
 
 
 
-    def run_task(self, task_dto: LeginonFrameTransferTaskDto) -> Dict[str, str]:
+    def run_task(self, task_dto: LeginonFrameTransferTaskDto,magellon_session :Msession) -> Dict[str, str]:
         try:
             # 1
             self.transfer_frame(task_dto)
@@ -431,13 +431,13 @@ class LeginonFrameTransferJobService:
         except Exception as e:
             return {"error": str(e)}
 
-    def create_atlas_pics(self, session_name: str, db_session: Session):
+    def create_atlas_pics(self, session_name: str, db_session: Session,magellon_session :Msession):
         try:
             # Execute the first query to get session_id
             query = "SELECT SessionData.DEF_id FROM SessionData WHERE SessionData.name = %s"
             self.leginon_cursor.execute(query, (session_name,))
             session_result = self.leginon_cursor.fetchone()
-            session_id = session_result["DEF_id"]
+            leginon_session_id = session_result["DEF_id"]
 
         except Exception as e:
             print(f"Error fetching session_id: {e}")
@@ -445,7 +445,7 @@ class LeginonFrameTransferJobService:
 
         query1 = "SELECT label FROM ImageTargetListData WHERE `REF|SessionData|session` = %s AND mosaic = %s"
         mosaic_value = 1  # Execute the first query with parameters
-        self.leginon_cursor.execute(query1, (session_id, mosaic_value))
+        self.leginon_cursor.execute(query1, (leginon_session_id, mosaic_value))
 
         label_values = [row['label'] for row in
                         self.leginon_cursor.fetchall()]  # Define the SQL query for the second query
@@ -459,7 +459,7 @@ class LeginonFrameTransferJobService:
         """
         label = "Grid"
         # Execute the second query with parameters
-        self.leginon_cursor.execute(query2, (session_id, label))
+        self.leginon_cursor.execute(query2, (leginon_session_id, label))
         # Fetch all the results from the second query
         second_query_results = self.leginon_cursor.fetchall()
         # Create a dictionary to store grouped objects by label
@@ -494,7 +494,7 @@ class LeginonFrameTransferJobService:
         for image in images:
             file_name = os.path.basename(image['imageFilePath'])
             file_name_without_extension = os.path.splitext(file_name)[0]
-            atlas = Atlas(oid=str(uuid.uuid4()), name=file_name_without_extension, meta=image['imageMap'])
+            atlas = Atlas(oid=str(uuid.uuid4()), name=file_name_without_extension, meta=image['imageMap'] , session_id=magellon_session.oid)
             atlases_to_insert.append(atlas)
         # db_session.add_all(atlases_to_insert)
         db_session.bulk_save_objects(atlases_to_insert)

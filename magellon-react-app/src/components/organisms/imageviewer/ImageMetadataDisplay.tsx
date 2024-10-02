@@ -113,7 +113,6 @@ const ImageMetadataDisplay: React.FC<SoloImageViewerProps> = ({ selectedImage })
                 )}
             </Grid>
 
-            {/* Bottom part: Metadata Details */}
             {selectedMeta && selectedMeta.data &&(
             <Grid item xs={12}>
                 {selectedMeta && (
@@ -123,7 +122,6 @@ const ImageMetadataDisplay: React.FC<SoloImageViewerProps> = ({ selectedImage })
                         rows={20}
                         fullWidth
                         variant="outlined"
-                        //value={selectedMeta.data_json ? JSON.stringify(selectedMeta.data_json, null, 2) : selectedMeta.data}
                         value={selectedMeta.data_json ? JSON.stringify(selectedMeta.data_json, null, 2) : selectedMeta.data}
                         InputProps={{
                             readOnly: true,
@@ -132,6 +130,7 @@ const ImageMetadataDisplay: React.FC<SoloImageViewerProps> = ({ selectedImage })
                 )}
             </Grid>
             )}
+
             {selectedMeta && selectedMeta.data_json &&(
                 <Grid item xs={12}>
                         <Editor

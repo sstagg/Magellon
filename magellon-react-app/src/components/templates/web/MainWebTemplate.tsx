@@ -19,12 +19,12 @@ export const MainWebTemplate = () => {
                 <WebHeader/>
                 {/*<Drawer open={open} handleDrawerToggle={handleDrawerToggle} />*/}
                 {/*    /!*<Outlet />*!/*/}
-             <h1 className="mb3 text-amber-500">Hello again</h1>
+             <h1 className="mb3 text-amber-500">Magellon</h1>
                 <Container>
                     <Paper style={{ padding: '20px', marginTop: '20px' }}>
                         {/* Add your main content here */}
-                        <Typography variant="h4">Welcome to Your App</Typography>
-                        <p>This is the main content of your app.</p>
+                        <Typography variant="h4">Welcome to Magellon</Typography>
+                        <p>CryoEm application.</p>
                     </Paper>
                     <MainWebRoutes/>
                 </Container>

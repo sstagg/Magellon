@@ -3,13 +3,13 @@ import Tab from '@mui/material/Tab';
 import TabContext from '@mui/lab/TabContext';
 import TabList from '@mui/lab/TabList';
 import TabPanel from '@mui/lab/TabPanel';
-import {SyntheticEvent, useState } from "react";
+import {SyntheticEvent, useEffect, useState} from "react";
 import {ButtonGroup, FormControl, Grid, InputLabel, MenuItem, Select, SelectChangeEvent, Stack} from "@mui/material";
 import IconButton from "@mui/material/IconButton";
-import {AddOutlined, ControlPoint, HighlightOff, Palette, Save, Straighten, SyncOutlined} from "@mui/icons-material";
+import {AddOutlined,  HighlightOff,  Save,  SyncOutlined} from "@mui/icons-material";
 import {InfoLineComponent} from "./InfoLineComponent.tsx";
 import {InfoOutlined} from "@ant-design/icons";
-import ImageInfoDto, {SessionDto} from "./ImageInfoDto.ts";
+import ImageInfoDto, {ImageCtfInfo} from "./ImageInfoDto.ts";
 import {settings} from "../../../core/settings.ts";
 import ImageViewer from "./ImageViewer.tsx";
 import ImageParticlePicking from "./ImageParticlePicking.tsx";
@@ -18,19 +18,16 @@ import {useImageParticlePickings, useUpdateParticlePicking} from "../../../servi
 import {ParticlePickingDto} from "../../../domains/ParticlePickingDto.ts";
 
 
-import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
-import { TreeItem } from '@mui/x-tree-view/TreeItem';
 
-import { RichTreeView } from '@mui/x-tree-view/RichTreeView';
-import { TreeItem2 } from '@mui/x-tree-view/TreeItem2';
-
-import { JsonEditor as Editor } from 'jsoneditor-react'
-import 'jsoneditor-react/es/editor.min.css';
-
-import data from '../../../assets/data/editor.json'
+// import data from '../../../assets/data/editor.json'
+import CtfInfoCards from "./CtfInfoCards.tsx";
+import {useFetchImageCtfInfo} from "../../../services/api/CtfRestService.ts";
+// import {useFetchImageMetaData} from "../../../services/api/ImageMetaDataRestService.ts";
+import ImageMetadataDisplay from "./ImageMetadataDisplay.tsx";
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL ;
-interface SoloImageViewerProps {
+
+export interface SoloImageViewerProps {
     selectedImage: ImageInfoDto | null;
 }
 
@@ -38,10 +35,22 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
     const [open, setOpen] = useState(false);
     const [value, setValue] = useState('1');
     const [selectedIpp, setSelectedIpp] = useState<ParticlePickingDto>(null);
-    // const [updatedIpp, setUpdatedIpp] = useState<ParticlePickingDto>(null);
 
+    // const [ctfData, setCtfData] = useState<ImageCtfInfo>({
+    //     defocus1: null,
+    //     defocus2: null,
+    //     angleAstigmatism: null,
+    //     resolution: null,
+    // });
 
+    const { data:ImageCtfData, error:isCtfInfoError, isLoading: isCtfInfoLoading  ,refetch:refetchCtfInfo } = useFetchImageCtfInfo(selectedImage?.name, false);
     const { data: ImageParticlePickings, isLoading: isIPPLoading, isError: isIPPError, refetch:refetchImageParticlePickings  } = useImageParticlePickings(selectedImage?.name,false);
+
+    useEffect(() => {
+        if (selectedImage?.name) {
+            refetchCtfInfo();
+        }
+    }, [selectedImage?.name, refetchCtfInfo]);
 
     // const [selectedImage, setSelectedImage] = useState<ImageInfoDto>();
     const handleChange = (event: SyntheticEvent, newValue: string) => {
@@ -70,8 +79,11 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
             console.error(error)
         }
     };
-    const handleLoad = () => {
+    const handleParticlePickingLoad = () => {
         refetchImageParticlePickings();
+    };
+    const handleCtfInfoLoad = () => {
+        refetchCtfInfo();
     };
     const handleOpen = () => {
         setOpen(true);
@@ -82,7 +94,7 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
     };
 
     const ParticlePickingTabClicked = () => {
-        handleLoad();
+        handleParticlePickingLoad();
     };
 
     const OnIppSelected = (event: SelectChangeEvent) => {
@@ -107,7 +119,7 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
         //setSelectedIpp(updatedIpp);
         // You can perform any additional actions here if needed
     };
-    const [json, setJson] = useState(data)
+
     return (
 
         <Stack>
@@ -136,7 +148,7 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
                             <Tab label="FFT" value="2" />
                             <Tab label="Particle Picking" value="3" onClick={ParticlePickingTabClicked} />
                             <Tab label="Variations" value="4" />
-                            <Tab label="CTF" value="5" />
+                            <Tab label="CTF" value="5" onClick={handleCtfInfoLoad} />
                             <Tab label="Frame Alignment" value="6" />
                             <Tab label="Meta" value="7" />
                         </TabList>
@@ -175,7 +187,7 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
                                     ))}
                                 </Select>
                             </FormControl>
-                            <IconButton onClick={handleLoad} key="load"><SyncOutlined/></IconButton>
+                            <IconButton onClick={handleParticlePickingLoad} key="load"><SyncOutlined/></IconButton>
                             <IconButton onClick={handleOpen} key="new"><AddOutlined/></IconButton>
                             <IconButton key="save" onClick={handleSave}><Save/></IconButton>
                             <IconButton key="four"><HighlightOff/></IconButton>
@@ -195,6 +207,26 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
                     </TabPanel>
                     <TabPanel value="4">Item 4</TabPanel>
                     <TabPanel value="5">
+
+
+                        <div>
+                            {isCtfInfoLoading ? (
+                                <p>Loading CTF data...</p>
+                            ) : isCtfInfoError ? (
+                                <p>Error loading CTF data: {isCtfInfoError.message}</p>
+                            ) : ImageCtfData && ImageCtfData.defocus1 !== null ? (
+                                <CtfInfoCards
+                                    defocus1Micrometers={ImageCtfData.defocus1}
+                                    defocus2Micrometers={ImageCtfData.defocus2}
+                                    angleAstigmatismDegrees={ImageCtfData.angleAstigmatism}
+                                    resolutionAngstroms={ImageCtfData.resolution}
+                                />
+                            ) : (
+                                <p>No CTF data available.</p>
+                            )}
+                        </div>
+
+
                         <img width={900} src={`${BASE_URL}/ctf_image?image_type=powerspec&name=${selectedImage?.name}`} alt="ctf power spec image" style={ImageStyle}/>
                         <img width={900} src={`${BASE_URL}/ctf_image?image_type=plots&name=${selectedImage?.name}`} alt="ctf plots image" style={ImageStyle}/>
 
@@ -204,64 +236,7 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
                         Frame Alignment
                     </TabPanel>
                     <TabPanel value="7">
-                        <Grid container spacing={2}>
-                            <Grid item xs={4}>
-                                <Box sx={{ height: 620, flexGrow: 1, maxWidth: 200 }}>
-                                    {/*<RichTreeView items={MUI_X_PRODUCTS} />*/}
-                                    <SimpleTreeView>
-                                        <TreeItem itemId="grid" label="Analysis">
-                                            <TreeItem itemId="grid-community" label="FFT" />
-                                            <TreeItem itemId="grid-pro" label="CTF" />
-                                            <TreeItem itemId="grid-premium" label="Frame Alignment" />
-                                            <TreeItem itemId="pp" label="Partilce Picking" />
-                                        </TreeItem>
-                                        <TreeItem itemId="pickers" label="Other">
-                                            <TreeItem itemId="pickers-community" label="example 1" />
-                                            <TreeItem itemId="pickers-pro" label="example 2" />
-                                        </TreeItem>
-                                    </SimpleTreeView>
-                                </Box>
-                            </Grid>
-                            <Grid item xs={8}>
-                                <Box>
-                                    <ButtonGroup size="small">
-                                        <FormControl sx={{m: 1, minWidth: 180}} size="small" variant="standard">
-                                            <InputLabel id="demo-select-small-label">Particle Picking</InputLabel>
-                                            <Select
-                                                labelId="session_select-label"
-                                                id="session_select2"
-                                                value={selectedIpp?.oid}
-                                                label="Session"
-                                                onChange={OnIppSelected }
-                                            >
-                                                <MenuItem value="">
-                                                    <em>None</em>
-                                                </MenuItem>
-                                                {Array.isArray(ImageParticlePickings) && ImageParticlePickings?.map((ipp) => (
-                                                    <MenuItem key={ipp.oid} value={ipp.oid}>
-                                                        {ipp.name}
-                                                    </MenuItem>
-                                                ))}
-                                            </Select>
-                                        </FormControl>
-                                        <IconButton onClick={handleLoad} key="load"><SyncOutlined/></IconButton>
-                                        <IconButton onClick={handleOpen} key="new"><AddOutlined/></IconButton>
-                                        <IconButton key="save" onClick={handleSave}><Save/></IconButton>
-                                        <IconButton key="four"><HighlightOff/></IconButton>
-                                    </ButtonGroup>
-                                    <Editor
-                                        mode="tree"
-                                        history
-                                        value={json}
-                                        onChange={setJson}
-                                    />
-                                </Box>
-                            </Grid>
-                        </Grid>
-
-
-
-
+                        <ImageMetadataDisplay selectedImage={selectedImage} />
 
                     </TabPanel>
                 </TabContext>
