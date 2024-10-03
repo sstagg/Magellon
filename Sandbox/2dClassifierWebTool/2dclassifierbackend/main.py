@@ -75,11 +75,9 @@ async def upload_files(uuid: str = Form(...),selectedValue: SelectedValue = Form
     outputImageDir = os.path.join(os.getcwd(), "uploads", uuid, "outputs", "images")
     os.makedirs(outputImageDir, exist_ok=True)
     imageFilepaths=await getImageFilePaths(uuid,outputImageDir,selectedValue)
-    classifiedOutputValues=[]
-    # classifiedOutputValues=await getClassifiedOutputValues(uuid,selectedValue)
-    # if len(imageFilepaths)!=len(classifiedOutputValues):
-    #     raise("error: value extraction went wrong")
-    
+    classifiedOutputValues=await getClassifiedOutputValues(uuid,selectedValue)
+    if len(imageFilepaths)!=len(classifiedOutputValues):
+        raise("error: classification value extraction went wrong")
     # Todo delete the files
 
     return JSONResponse(content={"imageFilepaths":imageFilepaths,

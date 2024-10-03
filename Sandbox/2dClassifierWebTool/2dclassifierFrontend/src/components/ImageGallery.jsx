@@ -14,7 +14,7 @@ const ImageGallery = ({ items }) => {
 
   const handleValueSelect = (index, value) => {
     const newValues = [...tempValues];
-    newValues[index] = value;
+    newValues[index] = newValues[index] === value ? null : value;
     setTempValues(newValues);
   };
 
@@ -86,17 +86,33 @@ const ImageGallery = ({ items }) => {
             padding: 2,
           }}
         >
-          {/* Image */}
-          <img
-            src={`${BackendURL}${item.image}`}
-            alt={`Image ${index}`}
-            style={{
-              width: '100%',
-              height: '150px',
-              objectFit: 'cover',
-              borderRadius: '5px',
-            }}
-          />
+          <Box sx={{ position: 'relative' }}>
+      <Typography
+        sx={{
+          position: 'absolute',
+          top: 5,
+          right: 5,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          color: 'white',
+          padding: '2px 6px',
+          borderRadius: '3px',
+          fontSize: '12px',
+        }}
+      >
+        {item.value}
+      </Typography>
+      {/* Image */}
+      <img
+        src={`${BackendURL}${item.image}`}
+        alt={`Image ${index}`}
+        style={{
+          width: '100%',
+          height: '150px',
+          objectFit: 'cover',
+          borderRadius: '5px',
+        }}
+      />
+    </Box>
   
           {isEditing && (
             <Box sx={{ width: '100%', margin: '10px auto', display: 'flex', justifyContent: 'center' }}>
