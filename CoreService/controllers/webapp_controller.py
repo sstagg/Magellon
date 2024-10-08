@@ -1,5 +1,4 @@
 import math
-import re
 from datetime import datetime
 import json
 import os
@@ -22,11 +21,9 @@ from starlette.responses import FileResponse, JSONResponse
 from config import FFT_SUB_URL, IMAGE_SUB_URL, IMAGE_ROOT_DIR, THUMBNAILS_SUB_URL, app_settings, THUMBNAILS_SUFFIX, \
     FFT_SUFFIX, ATLAS_SUB_URL, CTF_SUB_URL
 from core.helper import push_task_to_task_queue, dispatch_ctf_task
-from core.task_factory import CtfTaskFactory
 
 from database import get_db
 from lib.image_not_found import get_image_not_found
-from models.plugins_models import CtfTaskData, CTF_TASK, PENDING
 from models.pydantic_models import SessionDto, ImageDto, AtlasDto, \
     ParticlePickingDto
 from models.sqlalchemy_models import Image, Msession, ImageMetaData, Atlas, ImageMetaDataCategory

@@ -24,13 +24,6 @@ database_settings:
   DB_Port: 3306
   DB_USER: root
 
-#database_settings:
-#  DB_Driver: mysql+pymysql
-#  DB_HOST: 5.161.212.237
-#  DB_NAME: magellon05
-#  DB_PASSWORD: behd1d#3454!
-#  DB_Port: 3306
-#  DB_USER: behdad
 
 rabbitmq_settings:
   HOST_NAME: host.docker.internal
