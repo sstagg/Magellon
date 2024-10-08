@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Box, Button, ButtonGroup, Typography } from '@mui/material';
+import { LabelAssign } from './LabelAssign';
 
 const ImageGallery = ({ items }) => {
   const BackendURL = "http://localhost:8001";
@@ -46,28 +47,29 @@ const ImageGallery = ({ items }) => {
       backgroundColor: '#f9f9f9',
     }}
   >
-
-    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-      {isEditing ? (
-        <Box>
-          <Button variant="contained" color="primary" onClick={handleSave}>
-            Save
-          </Button>
-          <Button variant="outlined" color="secondary" onClick={handleCancel} sx={{ ml: 1 }}>
-            Cancel
-          </Button>
-        </Box>
-      ) : (
-        <Box>
-          <Button variant="contained" color="secondary" onClick={handleEditClick}>
-            Edit
-          </Button>
-          <Button variant="contained" color="secondary" onClick={handleRestoreClick} sx={{ ml: 1 }}>
-            Restore
-          </Button>
-        </Box>
-      )}
+    
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+  <LabelAssign />
+  {isEditing ? (
+    <Box>
+      <Button variant="contained" color="primary" onClick={handleSave}>
+        Save
+      </Button>
+      <Button variant="outlined" color="secondary" onClick={handleCancel} sx={{ ml: 1 }}>
+        Cancel
+      </Button>
     </Box>
+  ) : (
+    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+      <Button variant="contained" color="secondary" onClick={handleEditClick}>
+        Edit
+      </Button>
+      <Button variant="contained" color="secondary" onClick={handleRestoreClick} sx={{ ml: 1 }}>
+        Restore
+      </Button>
+    </Box>
+  )}
+</Box>
   
     <Box
       sx={{
