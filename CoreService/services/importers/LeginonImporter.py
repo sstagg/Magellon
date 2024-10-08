@@ -1,10 +1,12 @@
+import pymysql
+
 import BaseImporter
 
 class LeginonImporter(BaseImporter):
     def __init__(self):
         super().__init__()
         self.leginon_db_connection = None
-        self.leginon_cursor = None
+        self.leginon_cursor: pymysql.cursors.Cursor = None
         self.image_tasks = []
 
     def import_data(self):

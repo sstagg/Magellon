@@ -11,3 +11,10 @@ class ImporterFactory:
             return EPUImporter()
         else:
             raise ValueError(f"Unknown importer type: {importer_type}")
+
+
+
+def import_data(importer_type, input_data, db_session):
+    importer = ImporterFactory.get_importer(importer_type)
+    importer.setup(input_data)
+    return importer.process(db_session)
