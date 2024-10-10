@@ -19,6 +19,9 @@
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
   </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 4
+}]]></component>
   <component name="ProjectId" id="2MQdLGzkLbHK5lPP8irCaR4CBKH" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -31,8 +34,9 @@
     "RunOnceActivity.go.formatter.settings.were.checked": "true",
     "RunOnceActivity.go.migrated.go.modules.settings": "true",
     "WebServerToolWindowFactoryState": "false",
+    "git-widget-placeholder": "main",
     "go.import.settings.migrated": "true",
-    "last_opened_file_path": "C:/projects/magellon01",
+    "last_opened_file_path": "C:/Users/schot/Magellon/Magellon",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -55,6 +59,7 @@
       <updated>1677703683576</updated>
       <workItem from="1677703685066" duration="526000" />
       <workItem from="1677708473949" duration="3399000" />
+      <workItem from="1727705783977" duration="107000" />
     </task>
     <servers />
   </component>

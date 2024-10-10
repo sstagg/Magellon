@@ -35,5 +35,5 @@ if __name__ == '__main__':
             particlemask, backgroundmask=mel.make_masks_by_statistics(img=avg)
             mean, std=mel.get_edge_stats_for_box(avg,clippix=3)
             avg[backgroundmask]=mean
-    fig = mel.create_montage_with_numbers(stackarray,numbers=masses)
+    fig = mel. display_dynamic_montage(stackarray,numbers=masses)
     pyplot.show()
