@@ -1,5 +1,4 @@
 import math
-import re
 from datetime import datetime
 import json
 import os
@@ -22,11 +21,9 @@ from starlette.responses import FileResponse, JSONResponse
 from config import FFT_SUB_URL, IMAGE_SUB_URL, IMAGE_ROOT_DIR, THUMBNAILS_SUB_URL, app_settings, THUMBNAILS_SUFFIX, \
     FFT_SUFFIX, ATLAS_SUB_URL, CTF_SUB_URL
 from core.helper import push_task_to_task_queue, dispatch_ctf_task
-from core.task_factory import CtfTaskFactory
 
 from database import get_db
 from lib.image_not_found import get_image_not_found
-from models.plugins_models import CtfTaskData, CTF_TASK, PENDING
 from models.pydantic_models import SessionDto, ImageDto, AtlasDto, \
     ParticlePickingDto
 from models.sqlalchemy_models import Image, Msession, ImageMetaData, Atlas, ImageMetaDataCategory
@@ -198,7 +195,7 @@ def get_image_route(
         # Fetch the single image based on the image name
         query = text("""
             SELECT
-              i.Oid,
+              i.oid,
               i.name,
               i.defocus,
               i.dose,
@@ -243,121 +240,8 @@ def get_image_route(
         raise HTTPException(status_code=500, detail=f"Database query execution error: {str(e)}")
 
 
-# @webapp_router.get('/images')
-# def get_images_route(session_name: str, mag: int, db_session: Session = Depends(get_db)):
-#     # session_name = "22apr01a"
-#     # level = 4
-#
-#     # Get the Msession based on the session name
-#     msession = db_session.query(Msession).filter(Msession.name == session_name).first()
-#     if msession is None:
-#         return {"error": "Session not found"}
-#
-#     try:
-#         session_id_binary = msession.Oid.bytes
-#     except AttributeError:
-#         return {"error": "Invalid session ID"}
-#
-#     query = text("""
-#         SELECT
-#           child.Oid,
-#           child.name,
-#           child.level,
-#           child.parent_id,
-#           child.parent_name
-#         FROM (
-#           SELECT
-#             image.Oid,
-#             image.name,
-#             image.parent_id,
-#             parent.name AS parent_name,
-#             image.level,
-#             image.magnification,
-#             ROW_NUMBER() OVER (PARTITION BY image.parent_id ORDER BY image.oid) AS row_num,
-#             image.session_id
-#           FROM image
-#           INNER JOIN image parent ON image.parent_id = parent.Oid
-#           WHERE image.magnification = :mag
-#             AND image.session_id = :session_id
-#         ) child
-#         WHERE child.row_num <= 3
-#         GROUP BY child.parent_name, child.Oid, child.name, child.parent_id, child.level, child.session_id
-#     """)
-#     return execute_images_query(db_session, query, session_name, {"mag": mag, "session_id": session_id_binary})
-#
-#
-# @webapp_router.get('/images_by_stack')
-# def get_images_by_stack_route(ext: str, db_session: Session = Depends(get_db)):
-#     try:
-#         parts = ext.split('_')
-#         if len(parts) >= 1:
-#             session_name = parts[0]
-#         else:
-#             return {"error": "Session is not included in the file name"}
-#
-#         # session_name = parts[0] if parts else None
-#
-#         query = text("""
-#             SELECT
-#               image.Oid,
-#               image.name,
-#               image.level,
-#               image.parent_id,
-#               parent.name AS parent_name
-#             FROM image parent
-#               INNER JOIN image
-#                 ON image.parent_id = parent.Oid
-#             WHERE parent.name = :image_name
-#                 """)
-#         return execute_images_query(db_session, query, session_name, {"image_name": ext})
-#
-#     except Exception as e:
-#         return {"error": str(e)}
-#
-#
-# def execute_images_query(db_session: Session, query, session_name, params=None):
-#     try:
-#         # result = db_session.execute(query) if params is None else db_session.execute(query, params)
-#         result = db_session.execute(query, params)
-#         rows = result.fetchall()
-#         return {"result": (process_image_rows(rows, session_name))}
-#     except Exception as e:
-#         raise Exception(f"Database query execution error: {str(e)}")
-#
-#
-# def process_image_rows(rows, session_name):
-#     images_by_parent = {}
-#     for row in rows:
-#         oid, name, level, parent_id, parent_name = row[:5]
-#         image = MicrographSetDto(
-#             oid=oid,
-#             name=name,
-#             level=level,
-#             parent_id=parent_id,
-#             parent_name=parent_name
-#         )
-#         file_path = os.path.join(f"{IMAGE_ROOT_DIR}/{session_name}/{THUMBNAILS_SUB_URL}",
-#                                  image.name + THUMBNAILS_SUFFIX)
-#         print(file_path)
-#         if os.path.isfile(file_path):
-#             image.encoded_image = get_response_image(file_path)
-#
-#         if parent_id not in images_by_parent:
-#             parent_path = os.path.join(f"{IMAGE_ROOT_DIR}/{session_name}/{THUMBNAILS_SUB_URL}",
-#                                        parent_name + THUMBNAILS_SUFFIX)
-#             parent_image = get_response_image(parent_path) if os.path.isfile(parent_path) else None
-#             images_by_parent[parent_id] = {
-#                 "parent_id": uuid.UUID(bytes=parent_id),
-#                 "encoded_image": parent_image,
-#                 "parent_name": parent_name,
-#                 "images": []
-#             }
-#
-#         images_by_parent[parent_id]["images"].append(image)
-#
-#     result_list = list(images_by_parent.values())
-#     return result_list
-#
+
+
 
 @webapp_router.get('/fft_image')
 def get_fft_image_route(name: str):
@@ -434,8 +318,6 @@ def get_image_metadata(image_id: str, db: Session = Depends(get_db)):
 
     # Return the hierarchical structure
     return category_hierarchy
-    #categories = db.query(ImageMetaDataCategory).outerjoin(ImageMetaData).filter(ImageMetaData.image_id == db_image.oid).all()
-    # categories = db.query(ImageMetaDataCategory).outerjoin(ImageMetaData).filter(ImageMetaData.image_id == image_id).all()
 
 
 
@@ -481,14 +363,6 @@ def get_image_ctf_data_route(image_name_or_oid: str, db: Session = Depends(get_d
     # Resolution: Round to the 100th place and add units of Å
     resolution = next((round(float(item['value']), 2) for item in data_json if item['key'] == 'resolution_50_percent'), None)
 
-    # Building the result
-    # result = {
-    #     "filename": db_image.name,
-    #     "defocus1": f"{defocus1:.2f} μm" if defocus1 is not None else None,
-    #     "defocus2": f"{defocus2:.2f} μm" if defocus2 is not None else None,
-    #     "angleAstigmatism": f"{angle_astigmatism:.2f}°" if angle_astigmatism is not None else None,
-    #     "resolution": f"{resolution:.2f} Å" if resolution is not None else None,
-    # }
     result = {
         "filename": db_image.name,
         "defocus1": round(defocus1, 2) if defocus1 is not None else None,  # Float value for defocus1
@@ -543,11 +417,6 @@ def get_image_data_route(name: str, db: Session = Depends(get_db)):
     return {'result': result}
 
 
-# def get_stripped_parent(input_string):
-#     # Define the regular expression pattern to match "_v01", "_v02", "-b", "-DW"
-#     pattern = r"(_[vV]\d{2})|(-[bB])|(-[dD][wW])"
-#     # Use re.sub() to remove the matched substrings
-#     return re.sub(pattern, '', input_string)
 
 
 @webapp_router.get('/parent_child')
@@ -639,100 +508,6 @@ def get_image_particles(img_name: str, db: Session = Depends(get_db)):
     return response
 
 
-# FastAPI endpoint to create a ParticlePickingjobitem
-# @webapp_router.post("/create_ppji/", summary="creates particle picking job item for a given image and returns it")
-# async def create_particle_picking_jobitem(image_name_or_oid: str = Query(...), db: Session = Depends(get_db)):
-#     try:
-#         try:
-#             # Attempt to convert image_name_or_oid to UUID
-#             image_uuid = UUID(image_name_or_oid)
-#             # If convertible to UUID, search by OID
-#             image = db.query(Image).filter_by(Oid=image_uuid).first()
-#         except ValueError:
-#             # If not convertible to UUID, search by filename
-#             image = db.query(Image).filter_by(name=image_name_or_oid).first()
-#
-#         if not image:
-#             return HTTPException(status_code=404, detail="Image not found")
-#
-#     except NoResultFound:
-#         # db.close()
-#         return HTTPException(status_code=404, detail="Image not found")
-#
-#     try:
-#         # Check if a "manual" Particlepickingjob already exists
-#         manual_job = db.query(Particlepickingjob).filter_by(name="manual").one()
-#     except NoResultFound:
-#         # If it doesn't exist, create a new one
-#         manual_job = Particlepickingjob(
-#             Oid=uuid.uuid4(),
-#             name="manual",
-#             description="manual job for particle picking",
-#             created_on=datetime.now(),
-#             msession=image.msession if image.msession is not None else None,
-#             # Add other necessary fields here
-#         )
-#         # if image.msession is not None:
-#         #     # Include the image's session in the job and item
-#         #     manual_job.msession = image.msession
-#         db.add(manual_job)
-#         db.commit()
-#         db.refresh(manual_job)
-#
-#     # Create the ParticlePickingjobitem
-#     try:
-#         jobitem = Particlepickingjobitem(
-#             Oid=uuid.uuid4(),
-#             job_id=manual_job.Oid,
-#             image_id=image.Oid,
-#
-#             # Add other necessary fields here
-#         )
-#
-#         db.add(jobitem)
-#         db.commit()
-#         db.refresh(jobitem)
-#
-#         return jobitem
-#     except Exception as e:
-#         db.rollback()
-#         raise HTTPException(status_code=500, detail=str(e))
-
-
-# @webapp_router.get('/particles')
-# def get_image_particles(img_name: str, db: Session = Depends(get_db)):
-#     # result = \
-#     #     db.query(Particlepickingjobitem,  Particlepickingjob.name). \
-#     #     join(Image, Particlepickingjobitem.image_id == Image.Oid). \
-#     #     join(Particlepickingjob, Particlepickingjobitem.job == Particlepickingjob.Oid).filter(Image.name == img_name).\
-#     #     options( joinedload(Particlepickingjobitem.particlepickingjob)). \
-#     #     all()
-#
-#     result = db.query(Particlepickingjobitem, Particlepickingjob.name). \
-#         join(Image, Particlepickingjobitem.image_id == Image.Oid). \
-#         join(Particlepickingjob, Particlepickingjobitem.job.has(Particlepickingjob.Oid)). \
-#         filter(Image.name == img_name). \
-#         options(joinedload(Particlepickingjobitem.job)). \
-#         all()
-#
-#     if not result:
-#         raise HTTPException(status_code=404, detail="No Particlepickingjobitems found for Image")
-#
-#     response = []
-#
-#     for row in result:
-#         particlepickingjobitem, job_name = row
-#         response.append(ParticlepickingjobitemDto(
-#             Oid=particlepickingjobitem.Oid,
-#             job=particlepickingjobitem.job,
-#             # job_name=particlepickingjobitem.particlepickingjob.name,
-#             job_name=job_name,
-#             image=particlepickingjobitem.image,
-#             data=json.dumps(particlepickingjobitem.settings),
-#             status=particlepickingjobitem.status,
-#             type=particlepickingjobitem.type
-#         ))
-#     return response
 
 
 @webapp_router.get('/particles/{oid}', summary="gets an image particles json by its unique id")

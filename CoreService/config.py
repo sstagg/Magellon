@@ -121,6 +121,3 @@ def fetch_configurations():
 
 def get_db_connection():
     return f'{app_settings.database_settings.DB_Driver}://{app_settings.database_settings.DB_USER}:{app_settings.database_settings.DB_PASSWORD}@{app_settings.database_settings.DB_HOST}:{app_settings.database_settings.DB_Port}/{app_settings.database_settings.DB_NAME}'
-    # return "mysql+pymysql://admin:behd1d2@192.168.92.133:3306/magellon04"
-    # return "mysql+pymysql://admin:behd1d2@192.168.92.133:3306/magellon02?check_same_thread=False"
-    # return os.getenv("DB_CONN")

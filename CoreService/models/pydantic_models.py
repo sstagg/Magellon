@@ -1,3 +1,5 @@
+from enum import Enum
+
 from pydantic import BaseModel, Field, Json, ValidationInfo, field_validator
 from typing import Optional, List
 import uuid
@@ -123,84 +125,6 @@ class ImageDtoWithParent(ImageDto):
     parent1: Optional[ImageDto] = None
 
 
-# ================================================================================================
-# class Particlepickingjob(BaseModel):
-#     Oid: uuid.UUID
-#     name: Optional[str] = None
-#     description: Optional[str] = None
-#     # created_on: datetime
-#     # end_on: datetime
-#     user: Optional[str] = None
-#     project: Optional[str] = None
-#     msession: Optional[str] = None
-#     status: Optional[int]
-#     type: Optional[int]
-#     data: Optional[Json]
-#     # cs: Decimal
-#     path: Optional[str] = None
-#     output_dir: Optional[str] = None
-#     direction: Optional[int]
-#     image_selection_criteria: Optional[str]
-#     OptimisticLockField: Optional[int]
-#     GCRecord: Optional[int]
-#
-#
-# class ParticlepickingjobitemBase(BaseModel):
-#     job: uuid.UUID
-#     job_name: Optional[str] = None
-#     image: uuid.UUID
-#     data: Optional[Json] = None
-#     status: Optional[int] = None
-#     type: Optional[int] = None
-
-
-# class ParticlepickingjobDto(Particlepickingjob):
-#     pass
-#
-#
-# class ParticlepickingjobitemCreate(ParticlepickingjobitemBase):
-#     pass
-#
-#
-# class ParticlepickingjobitemUpdate(ParticlepickingjobitemBase):
-#     pass
-#
-#
-# class ParticlepickingjobitemInDBBase(ParticlepickingjobitemBase):
-#     Oid: uuid.UUID
-#
-#     class Config:
-#         from_attributes = True
-
-
-# class ParticlepickingjobitemDto(ParticlepickingjobitemInDBBase):
-#     pass
-#
-#
-# class Particlepickingjobitem(ParticlepickingjobitemInDBBase):
-#     pass
-#
-#
-# class ParticlepickingjobitemInDB(ParticlepickingjobitemInDBBase):
-#     GCRecord: Optional[int] = None
-#     OptimisticLockField: Optional[int] = None
-
-
-# ================================================================================================
-# class LightImageDto(BaseModel):
-#     name: str = Optional[str]
-#
-#
-# class ParticlepickingjobitemResult(BaseModel):
-#     JobItem: ParticlepickingjobitemDto
-#     Job: ParticlepickingjobDto
-#
-#
-# class QueryResult(BaseModel):
-#     results: List[ParticlepickingjobitemResult]
-
-
-# ================================================================================================
 class MySQLConnectionSettings(BaseModel):
     host: str
     port: int
@@ -208,8 +132,14 @@ class MySQLConnectionSettings(BaseModel):
     password: str
     database: str
 
+class ReplaceType(str, Enum):
+    NONE = "none"
+    STANDARD = "standard"
+    REGEX = "regex"
 
-class LeginonFrameTransferJobBase(BaseModel):
+
+class ImportJobBase(BaseModel):
+    job_id: Optional[uuid.UUID] = None
     magellon_project_name: str
     magellon_session_name: str
     camera_directory: Optional[str] = None  # for copying frames
@@ -217,6 +147,41 @@ class LeginonFrameTransferJobBase(BaseModel):
     if_do_subtasks: Optional[bool] = True
     copy_images: Optional[bool] = False
     retries: Optional[int] = None
+    task_list: Optional[List] = None  # List to store the tasks List[LeginonFrameTransferTaskDto]
+    replace_type: ReplaceType = ReplaceType.NONE
+    replace_pattern: Optional[str] = None
+    replace_with: Optional[str] = None
+
+    @field_validator("replace_type")
+    def validate_replace_type(cls, v):
+        if v not in ReplaceType.__members__.values():
+            raise ValueError(f"Invalid replace_type: {v}. Valid options are: {', '.join(ReplaceType.__members__.keys())}")
+        return v
+
+class ImportTaskDto(BaseModel):
+    task_id: uuid.UUID = Field(default_factory=uuid.uuid4)
+    task_alias: Optional[str] = None
+    file_name: Optional[str] = None
+    image_id: Optional[uuid.UUID] = None
+    image_name: Optional[str] = None
+    image_path: Optional[str] = None
+    frame_name: Optional[str] = None
+    frame_path: Optional[str] = None
+    job_dto: ImportJobBase
+    status: Optional[int] = None
+    pixel_size: Optional[float] = None
+    acceleration_voltage: Optional[float] = None
+    spherical_aberration: Optional[float] = None
+    amplitude_contrast:Optional[float] = 0.07
+    size_of_amplitude_spectrum: Optional[int] = 512
+    minimum_resolution: Optional[int] = 30
+    maximum_resolution: Optional[int] = 5
+    minimum_defocus: Optional[int] = 5000
+    maximum_defocus: Optional[int] = 50000
+    defocus_search_step: Optional[int] = 100
+
+
+class LeginonFrameTransferJobBase(ImportJobBase):
 
     leginon_mysql_host: Optional[str] = None
     leginon_mysql_port: Optional[int]
@@ -240,9 +205,9 @@ class LeginonFrameTransferJobBase(BaseModel):
 
 
 class LeginonFrameTransferJobDto(LeginonFrameTransferJobBase):
-    job_id: Optional[uuid.UUID] = None  # should be removed
     target_directory: Optional[str] = None  # should be removed, it is base directory + magellon_session_name name
-    task_list: Optional[List] = None  # List to store the tasks List[LeginonFrameTransferTaskDto]
+
+
 
 
 class LeginonFrameTransferTaskDto(BaseModel):

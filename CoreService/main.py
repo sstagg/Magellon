@@ -51,15 +51,7 @@ rich.traceback.install(show_locals=True)
 title = pyfiglet.figlet_format('Magellon', font='speed')
 print(f'[magenta]{title}[/magenta]')
 
-# console = Console()
-# try:
-#     raise Exception("just to test this")
-# except Exception:
-#     console.print_exception(show_locals=True)
-
 logger = logging.getLogger(__name__)
-# FORMAT = "%(levelname)s:%(message)s"
-# logging.basicConfig(format=FORMAT, level=logging.INFO)
 logging.config.dictConfig(LOGGING_CONFIG)
 logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
@@ -108,7 +100,7 @@ app.include_router(camera_router, tags=["Cameras"], prefix="/db/cameras")
 app.include_router(image_meta_data_category_router, tags=["MetaData Category"], prefix="/db/meta-data-category")
 app.include_router(image_meta_data_router, tags=["MetaData"], prefix="/db/meta-data")
 app.include_router(deployment_docker_router, tags=["Docker"], prefix="/deployment/docker")
-# app.include_router(ppji_router, tags=["Particle Picking Job Item"], prefix="/db/ppji")
+
 app.include_router(image_processing_router, tags=['Image Processing'], prefix="/image")
 app.include_router(webapp_router, tags=['Image Viewer - WebApp'], prefix="/web")
 app.include_router(graph_router, tags=['Graphs'], prefix="/graphs")
@@ -118,68 +110,7 @@ Instrumentator().instrument(app).expose(app)
 app.include_router(strawberry_graphql_router, prefix="/graphql")
 
 
-# app.add_route("/graphql", GraphQLApp(schema=schema))
-# @app.post("/graphql")
-# async def post_graphql(
-#         request: fastapi.Request,
-#         session: Session = Depends(get_db()),
-# ):
-#     content_type = request.headers.get("Content-Type", "")
-#
-#     if "application/json" in content_type:
-#         data = await request.json()
-#
-#     elif "application/graphql" in content_type:
-#         body = await request.body()
-#         text = body.decode()
-#         data = {"query": text}
-#
-#     elif "query" in request.query_params:
-#         data = request.query_params
-#
-#     else:
-#         raise fastapi.HTTPException(
-#             status_code=fastapi.status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-#             detail="Unsupported Media Type",
-#         )
-#
-#     if not (q_body := data.get("query")):
-#         raise fastapi.HTTPException(status_code=400, detail=f"Unsupported method: {q_body}")
-#
-#     res = graphene_schema.execute(
-#         q_body,
-#         context_value={"request": request, "session": session},
-#     )
-#
-#     return res.to_dict()
-
-# app.mount("/graphql", GraphQLApp(graphene_schema, on_get=make_graphiql_handler()))  # Graphiql IDE
-
-
-# @app.on_event("startup")
-# async def startup_event():
-#     await on_startup()
-#
-#
-# async def on_startup():
-#     await show_app_banner()
-#
-#
-# async def show_app_banner():
-#     title = pyfiglet.figlet_format('Magellon', font='speed')
-#     print(f'[magenta]{title}[/magenta]')
-
-
 @app.exception_handler(Exception)
 def app_exception_handler(request, err):
-    # console = Console()
-    # traceback1 = rich_traceback.Traceback.from_exception(type(err),
-    #                                                      err,
-    #                                                      err.__traceback__,
-    #                                                      show_locals=True,
-    #                                                      locals_max_length=1000,
-    #                                                      locals_max_string=1000, )
-    # console.print(traceback1)
-    # console.print_exception(show_locals=True)
     return JSONResponse(status_code=400,
                         content={"message": f"Failed to execute: {request.method}: {request.url}. Detail: {err}"})

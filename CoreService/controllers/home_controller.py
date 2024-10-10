@@ -21,7 +21,6 @@ logger = logging.getLogger(__name__)
 
 @home_router.get("/")
 async def home(request: Request):
-    # return TEMPLATES.TemplateResponse("index.html", {"request": request})
     return RedirectResponse(url="/docs/")
 
 @home_router.get("/en/{rest_of_path:path}", response_class=HTMLResponse)
@@ -33,24 +32,7 @@ async def catch_all(request: Request, rest_of_path: str):
 # Define a health check route
 @home_router.get('/health')
 def health_check():
-    # logger.info("Logger is working")
-    # print("Health check")
-    # raise Exception("just to test this")
-    # try:
-    #
-    # except Exception:
-    #     console = Console()
-    #     console.print_exception(show_locals=True)
     return {'status': 'ok'}
-
-
-# @home_router.get("/notfound")
-# async def get_not_found():
-#     # image_path = r"c:/temp/icon-image-not-found.png"
-#     # base64_string = image_to_base64(image_path)
-#     # print(base64_string)
-#     # return get_image_base64(base64_string)
-#     return get_image_not_found()
 
 
 @home_router.get("/configs")
@@ -58,9 +40,6 @@ async def get_configs():
     return app_settings.dict()
 
 
-# @home_router.get("/env_type")
-# async def get_env_type():
-#     return {"Environment Type": ENV_TYPE, "DATA_DIR": IMAGE_ROOT_DIR}
 @home_router.get("/image_root_dir")
 async def get_image_root_dir():
     root_dir = fetch_image_root_dir()
@@ -76,11 +55,3 @@ async def html(request: Request):
     return TEMPLATES.TemplateResponse("index.html", {"request": request, "html_content": html_content})
 
 
-
-@home_router.get("/hello/{name}")
-async def say_hello(name: str):
-    return {"message": f"Hello {name}"}
-
-@home_router.get("/hello/{name}")
-async def get_xml_info(name: str):
-    return {"message": f"Hello {name}"}

@@ -158,28 +158,4 @@ def dispatch_ctf_task(task_id, full_image_path, task_dto: LeginonFrameTransferTa
     ctf_task.sesson_name = session_name
     return push_task_to_task_queue(ctf_task)
 
-# async def dispatch_ctf_task(task_dto : LeginonFrameTransferTaskDto):
-#     file_name = os.path.splitext(os.path.basename(full_image_path))[0]
-#     session_name = file_name.split("_")[0]
-#     out_file_name = f"{file_name}_ctf_output.mrc"
-#     ctf_task_data = CtfTaskData(
-#         image_id=image_id,
-#         image_name="Image1",
-#         image_path=full_image_path,
-#         inputFile=full_image_path,
-#         outputFile=out_file_name,
-#         pixelSize=1,
-#         accelerationVoltage=300,
-#         sphericalAberration=2.7,
-#         amplitudeContrast=0.07,
-#         sizeOfAmplitudeSpectrum=512,
-#         minimumResolution=30,
-#         maximumResolution=5,
-#         minimumDefocus=5000,
-#         maximumDefocus=50000,
-#         defocusSearchStep=100
-#     )
-#     ctf_task = CtfTaskFactory.create_task(pid=str(uuid.uuid4()), instance_id=uuid.uuid4(), job_id=uuid.uuid4(),
-#                                           data=ctf_task_data.model_dump(), ptype=CTF_TASK, pstatus=PENDING)
-#     ctf_task.sesson_name = session_name
-#     return push_task_to_task_queue(ctf_task)
+
