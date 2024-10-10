@@ -3,7 +3,7 @@ import { Box, Button, ButtonGroup, Typography } from '@mui/material';
 import { LabelAssign } from './LabelAssign';
 
 const ImageGallery = ({ items }) => {
-  const BackendURL = "http://localhost:8001";
+  const BackendURL = process.env.REACT_APP_BACKEND_URL
   const [isEditing, setIsEditing] = useState(false); 
   const [selectedValues, setSelectedValues] = useState(Array(items.length).fill(null)); 
   const [tempValues, setTempValues] = useState(Array(items.length).fill(null)); 
@@ -70,7 +70,7 @@ const ImageGallery = ({ items }) => {
     </Box>
   )}
 </Box>
-  
+
     <Box
       sx={{
         display: 'grid',

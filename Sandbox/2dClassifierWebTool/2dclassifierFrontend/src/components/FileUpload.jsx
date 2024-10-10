@@ -19,7 +19,11 @@ import { v4 as uuidv4 } from 'uuid';
 import ImageGallery from './ImageGallery';
 
 const FileUpload = () => {
-  const BackendURL = 'http://localhost:8001';
+  const BackendURL = process.env.REACT_APP_BACKEND_URL
+  if (!BackendURL) {
+    console.error("Backend URL is not defined. Please check your environment variable settings.");
+  }
+  
   const [files, setFiles] = useState([]);
   const [selectedValue, setSelectedValue] = useState('');
   const [loading, setLoading] = useState(false);
