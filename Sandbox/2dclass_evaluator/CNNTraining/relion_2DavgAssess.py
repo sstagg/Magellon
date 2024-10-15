@@ -65,7 +65,7 @@ def relion_prediction(params):
     out='%s_magellon_model.star' %(params['model'][:-11])
     o1=open(out,'w')
     shutil.copyfile(params['input'],'%s_magellon_classes.mrcs' %(params['model'][:-11]))
-    shutil.copyfile('%s_data.star' %(params['model'][:-11]),'%s_magellon_data.star' %(params['model'][:-11]))
+    # shutil.copyfile('%s_data.star' %(params['model'][:-11]),'%s_magellon_data.star' %(params['model'][:-11]))
 
     for line in open(params['model'],'r'):
         if '_rlnClassPriorOffsetY' in line:
