@@ -36,7 +36,7 @@ from services.file_service import FileService
 from services.helper import get_response_image, get_parent_name
 import logging
 
-from services.importers.EPUImporter import EPUImporter
+from services.importers.EPUImporter import EPUImporter, scan_directory
 
 # from services.image_file_service import get_images, get_image_by_stack, get_image_data
 
@@ -753,6 +753,11 @@ async def get_do_image_ctf_route(full_image_path: str):
 
     # Extract file name without extension
     return await dispatch_ctf_task(uuid.uuid4(), full_image_path)
+
+
+@webapp_router.get("/scan_directory")
+async def get_directory_structure(path: str):
+    return scan_directory(path)
 
 
 # parse_xml_file(file: UploadFile = File(...)):

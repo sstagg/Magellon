@@ -5,7 +5,9 @@ import uuid
 from fastapi import APIRouter, HTTPException, Depends
 
 from config import IMAGE_ROOT_DIR
-from models.pydantic_models import LeginonFrameTransferJobBase, EPUFrameTransferJobBase, LeginonFrameTransferJobDto
+from models.pydantic_models import LeginonFrameTransferJobBase, EPUFrameTransferJobBase, LeginonFrameTransferJobDto, \
+    EpuImportJobBase, EpuImportJobDto
+from services.importers.EPUImporter import EPUImporter
 from services.leginon_frame_transfer_job_service import LeginonFrameTransferJobService
 from sqlalchemy.orm import Session
 from database import get_db
@@ -117,7 +119,7 @@ async def calculate_ctf(abs_file_path: str, abs_out_file_name: str = ""):
 # def process_epu_import(input_data: EPUFrameTransferJobBase, db: Session = Depends(get_db)):
 #     epu_frame_transfer_process(input_data, db)
 
-@image_processing_router.post("/transfer_images_job")
+@image_processing_router.post("/import_leginon_job")
 def process_image_job(input_data: LeginonFrameTransferJobBase, db: Session = Depends(get_db)):
     # Generate a unique job ID
 
@@ -165,6 +167,42 @@ def process_image_job(input_data: LeginonFrameTransferJobBase, db: Session = Dep
 
     # Return the job ID as the response
     return result
+
+
+
+@image_processing_router.post("/import_epu_job")
+def import_epu_job(input_data: EpuImportJobBase, db: Session = Depends(get_db)):
+    # Generate a unique job ID
+
+    job_id = uuid.uuid4()
+    job_dto = EpuImportJobDto(
+        magellon_project_name=input_data.magellon_project_name,
+        magellon_session_name=input_data.magellon_session_name,
+        camera_directory=input_data.camera_directory,
+        session_name=input_data.session_name,
+        copy_images=input_data.copy_images,
+        retries=input_data.retries,
+
+        epu_dir_path=input_data.epu_dir_path,
+        replace_type=input_data.replace_type,
+        replace_pattern=input_data.replace_pattern,
+        replace_with=input_data.replace_with,
+
+        job_id=job_id,
+        target_directory=os.path.join(IMAGE_ROOT_DIR, input_data.magellon_session_name),
+        task_list=[]  # You can set this to None or any desired value
+    )
+
+    job_dto.target_directory = os.path.join(IMAGE_ROOT_DIR, job_dto.session_name)
+    epu_importer = EPUImporter()
+    # xml_contents = await file.read()
+    # epu_importer.import_data(xml_contents)
+    # epu_importer.process_imported_data()
+    epu_importer.setup_data(job_dto)
+    result= epu_importer.process(db)
+    return result
+
+
 
 # async def process_image_job(job_request: JobRequest):
 #     # Generate a unique job_id
