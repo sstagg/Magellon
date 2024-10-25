@@ -203,6 +203,26 @@ class LeginonFrameTransferJobBase(ImportJobBase):
             raise ValueError(f"Invalid replace_type: {v}. Valid options are: {', '.join(valid_types)}")
         return v
 
+class EpuImportJobBase(ImportJobBase):
+
+    epu_dir_path: Optional[str] = None
+
+    replace_type: str = "none"
+    replace_pattern: Optional[str] = None
+    replace_with: Optional[str] = None
+
+    @field_validator("replace_type")
+    def validate_replace_type(cls, v: str, info: ValidationInfo) -> str:
+        """
+        Validates the replace_type value.
+        """
+        valid_types = ["standard", "none", "regex"]
+        if v not in valid_types:
+            raise ValueError(f"Invalid replace_type: {v}. Valid options are: {', '.join(valid_types)}")
+        return v
+
+class EpuImportJobDto(EpuImportJobBase):
+    target_directory: Optional[str] = None  # should be removed, it is base directory + magellon_session_name name
 
 class LeginonFrameTransferJobDto(LeginonFrameTransferJobBase):
     target_directory: Optional[str] = None  # should be removed, it is base directory + magellon_session_name name
@@ -211,6 +231,29 @@ class LeginonFrameTransferJobDto(LeginonFrameTransferJobBase):
 
 
 class LeginonFrameTransferTaskDto(BaseModel):
+    task_id: uuid.UUID
+    task_alias: Optional[str] = None
+    file_name: Optional[str] = None
+    image_id: Optional[uuid.UUID] = None
+    image_name: Optional[str] = None
+    image_path: Optional[str] = None
+    frame_name: Optional[str] = None
+    frame_path: Optional[str] = None
+    job_dto: LeginonFrameTransferJobDto
+    status: Optional[int] = None
+    pixel_size: Optional[float] = None
+    acceleration_voltage: Optional[float] = None
+    spherical_aberration: Optional[float] = None
+    amplitude_contrast:Optional[float] = 0.07
+    size_of_amplitude_spectrum: Optional[int] = 512
+    minimum_resolution: Optional[int] = 30
+    maximum_resolution: Optional[int] = 5
+    minimum_defocus: Optional[int] = 5000
+    maximum_defocus: Optional[int] = 50000
+    defocus_search_step: Optional[int] = 100
+
+
+class EPUImportTaskDto(BaseModel):
     task_id: uuid.UUID
     task_alias: Optional[str] = None
     file_name: Optional[str] = None

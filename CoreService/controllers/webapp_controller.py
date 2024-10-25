@@ -3,8 +3,10 @@ from datetime import datetime
 import json
 import os
 import uuid
+from io import BytesIO
 from typing import List, Optional
 from uuid import UUID
+from lxml import etree
 
 import airflow_client.client
 import pymysql
@@ -12,7 +14,7 @@ from airflow_client.client import ApiClient
 from airflow_client.client.api import dag_run_api
 from airflow_client.client.model.dag_run import DAGRun
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy import text
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import Session, joinedload
@@ -33,6 +35,9 @@ from services.atlas import create_atlas_images
 from services.file_service import FileService
 from services.helper import get_response_image, get_parent_name
 import logging
+
+from services.importers.EPUImporter import EPUImporter, scan_directory
+
 # from services.image_file_service import get_images, get_image_by_stack, get_image_data
 
 webapp_router = APIRouter()
@@ -750,4 +755,21 @@ async def get_do_image_ctf_route(full_image_path: str):
     return await dispatch_ctf_task(uuid.uuid4(), full_image_path)
 
 
+@webapp_router.get("/scan_directory")
+async def get_directory_structure(path: str):
+    return scan_directory(path)
 
+
+# parse_xml_file(file: UploadFile = File(...)):
+# contents = await file.read()
+# results = parse_xml(contents)
+# return json.dumps(results, indent=2)
+@webapp_router.post("/parse-epu-xml/")
+# async def parse_epu_xml_files(files: List[UploadFile] = File(...)):
+async def parse_epu_xml_files(file: UploadFile = File(...)):
+    epu_importer = EPUImporter()
+    xml_contents = await file.read()
+    # epu_importer.import_data(xml_contents)
+    # epu_importer.process_imported_data()
+    results = epu_importer.parse_epu_xml(xml_contents)
+    return  results
