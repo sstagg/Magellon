@@ -5,8 +5,7 @@ import glob
 import matplotlib.pyplot as plt
 import re
 current_directory = os.getcwd()
-sandbox_directory = os.path.dirname(os.path.dirname(current_directory))
-Project2DDirectory = os.path.join(sandbox_directory, '2dclass_evaluator')
+Project2DDirectory = os.path.join(current_directory, '2dclass_evaluator')
 UploadsDirectory=os.path.join(os.getcwd(),'uploads')
 
 class SelectedValue(str, Enum):
@@ -42,40 +41,60 @@ def getrelionfiles(directory_path):
     return mrcsFilePath, starFilePath
 
 
-def getCommand(type,uuid):
-    if type==SelectedValue.cryo:
-        # CNNTraining/cryosparc_2DavgAssess.py -i /path/to/cryosparc_project_directories/CS-job/J8 -o P147_W1_J8 -w /path/to/Magellon/Sandbox/2dclass_evaluator/CNNTraining/final_model/final_model_cont.pt 
-        return ' '.join([os.path.join(Project2DDirectory,"CNNTraining","cryosparc_2DavgAssess.py"),"-i",os.path.join(os.getcwd(),"uploads",uuid),"-o",os.path.join(os.getcwd(),"uploads",uuid,"outputs","output"),"-w",os.path.join(Project2DDirectory,"CNNTraining","final_model","final_model_cont.pth")])
-    if type==SelectedValue.relion:
-        mrcsfile,starfile=getrelionfiles(os.path.join(os.getcwd(),"uploads",uuid))
-        return ' '.join([os.path.join(Project2DDirectory,"CNNTraining","relion_2DavgAssess.py"),"-i",mrcsfile,"-m",starfile,"-w",os.path.join(Project2DDirectory,"CNNTraining","final_model","final_model_cont.pth")])
+def getCommand(selected_value,uuid):
+    if selected_value == SelectedValue.cryo:
+        return ' '.join([
+            os.path.join(Project2DDirectory, "CNNTraining", "cryosparc_2DavgAssess.py"),
+            "-i", os.path.join(UploadsDirectory, uuid),
+            "-o", os.path.join(UploadsDirectory, uuid, "outputs", "output"),
+            "-w", os.path.join(Project2DDirectory, "CNNTraining", "final_model", "final_model_cont.pth")
+        ])
+    elif selected_value == SelectedValue.relion:
+        mrcs_file, star_file = getrelionfiles(os.path.join(UploadsDirectory, uuid))
+        return ' '.join([
+            os.path.join(Project2DDirectory, "CNNTraining", "relion_2DavgAssess.py"),
+            "-i", mrcs_file,
+            "-m", star_file,
+            "-w", os.path.join(Project2DDirectory, "CNNTraining", "final_model", "final_model_cont.pth")
+        ])
+    
 
-def getMrcsFileName(path,filePattern):
-    file_pattern = os.path.join(path, filePattern)
-    matching_files = glob.glob(file_pattern)
-    if len(matching_files) >= 1:
+def getMrcsFileName(path,file_pattern):
+    file_pattern_path = os.path.join(path, file_pattern)
+    matching_files = glob.glob(file_pattern_path)
+    if len(matching_files) == 1:
         return matching_files[0]   
     elif len(matching_files) == 0:
         raise FileNotFoundError(f"No file matching the pattern {file_pattern} was found.")
+    else:
+        raise ValueError(f"Multiple files match the pattern {file_pattern}. Please refine your pattern.")
+
 
 async def getImageFilePaths(uuid,outputImageDir,selectedValue):
     imageFilepaths=[]
-    if selectedValue==SelectedValue.cryo:
-        fileName=getMrcsFileName(os.path.join(UploadsDirectory,uuid,"outputs","output"),'*_classes.mrcs')
+    try:
+        if selectedValue==SelectedValue.cryo:
+            fileName=getMrcsFileName(os.path.join(UploadsDirectory,uuid,"outputs","output"),'*_classes.mrcs')
+            
+        if selectedValue==SelectedValue.relion:
+            fileName=getMrcsFileName(os.path.join(UploadsDirectory,uuid),'*_magellon_classes.mrcs')
         
-    if selectedValue==SelectedValue.relion:
-        fileName=getMrcsFileName(os.path.join(UploadsDirectory,uuid),'*_magellon_classes.mrcs')
-    
-    with mrcfile.open(os.path.join(UploadsDirectory,uuid,"outputs","output",fileName), mode='r') as mrc:
-        data = mrc.data
-        for i in range(data.shape[0]):
-            relative_path = os.path.join(*outputImageDir.split(os.sep)[-3:])
-            imageDir=os.path.join("/images",relative_path)
-            output_file_path = os.path.join(outputImageDir, f'slice_{i}.png')
-            plt.imshow(data[i], cmap='gray')
-            plt.savefig(output_file_path)
-            plt.close()
-            imageFilepaths.append(os.path.join(imageDir, f'slice_{i}.png'))
+        with mrcfile.open(os.path.join(UploadsDirectory,uuid,"outputs","output",fileName), mode='r') as mrc:
+            data = mrc.data
+            for i in range(data.shape[0]):
+                relative_path = os.path.join(*outputImageDir.split(os.sep)[-3:])
+                imageDir=os.path.join("/images",relative_path)
+                output_file_path = os.path.join(outputImageDir, f'slice_{i}.png')
+                plt.imshow(data[i], cmap='gray')
+                plt.savefig(output_file_path)
+                plt.close()
+                imageFilepaths.append(os.path.join(imageDir, f'slice_{i}.png'))
+    except FileNotFoundError as e:
+        print(f"Error: {e}. Please check the file paths and ensure the required files are available.")
+    except PermissionError as e:
+        print(f"Permission denied: {e}. Please check your permissions for the output directory.")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
     return imageFilepaths
 
 

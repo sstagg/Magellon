@@ -20,36 +20,33 @@ app.add_middleware(
     allow_methods=["*"],  
     allow_headers=["*"],  
 )
-UPLOAD_DIRECTORY=os.path.join(os.getcwd(),'uploads')
+UPLOAD_DIRECTORY = os.path.join(os.getcwd(), os.getenv('UPLOAD_DIR', 'uploads'))
 
 os.makedirs(UPLOAD_DIRECTORY, exist_ok=True)
 
-app.mount("/images", StaticFiles(directory=os.path.join(os.getcwd(), "uploads")), name="images")
+app.mount("/images", StaticFiles(directory=UPLOAD_DIRECTORY), name="images")
 
-#temporary to add permissions to execute
+evaluator_directory = os.path.join(os.getcwd(),"2dclass_evaluator","CNNTraining")
+script_paths = [
+    os.path.join(evaluator_directory, "relion_2DavgAssess.py"),
+    os.path.join(evaluator_directory, "cryosparc_2DavgAssess.py")
+]
 
-script_path = "/Users/puneethreddymotukurudamodar/Magellon/Sandbox/2dclass_evaluator/CNNTraining/relion_2DavgAssess.py"
-
-# Ensure the script has executable permissions
-os.chmod(script_path, os.stat(script_path).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-
-script_path = "/Users/puneethreddymotukurudamodar/Magellon/Sandbox/2dclass_evaluator/CNNTraining/cryosparc_2DavgAssess.py"
-
-# Ensure the script has executable permissions
-os.chmod(script_path, os.stat(script_path).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-
+# Ensure the scripts have executable permissions
+for script_path in script_paths:
+    os.chmod(script_path, os.stat(script_path).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
 @app.post("/upload")
 async def upload_files(uuid: str = Form(...),selectedValue: SelectedValue = Form(...), files: list[UploadFile] = File(...)):
     if selectedValue not in SelectedValue:
         raise HTTPException(status_code=400, detail="Invalid selected value.")
-    if not os.path.exists(f"{UPLOAD_DIRECTORY}/{uuid}"):
-        os.makedirs(f"{UPLOAD_DIRECTORY}/{uuid}")
-    if not os.path.exists(f"{UPLOAD_DIRECTORY}/{uuid}/outputs"):
-        os.makedirs(f"{UPLOAD_DIRECTORY}/{uuid}/outputs")
+    upload_path = os.path.join(UPLOAD_DIRECTORY, uuid)
+    os.makedirs(upload_path, exist_ok=True)
+    output_path = os.path.join(upload_path, "outputs")
+    os.makedirs(output_path, exist_ok=True)
 
     for file in files:
-        file_location = f"{UPLOAD_DIRECTORY}/{uuid}/{file.filename}"
+        file_location = os.path.join(upload_path, file.filename)
         with open(file_location, "wb") as f:
             f.write(await file.read())
     
@@ -72,12 +69,13 @@ async def upload_files(uuid: str = Form(...),selectedValue: SelectedValue = Form
         print("error",error_output)
 
 
-    outputImageDir = os.path.join(os.getcwd(), "uploads", uuid, "outputs", "images")
+    outputImageDir = os.path.join(output_path, "images")
     os.makedirs(outputImageDir, exist_ok=True)
     imageFilepaths=await getImageFilePaths(uuid,outputImageDir,selectedValue)
     classifiedOutputValues=await getClassifiedOutputValues(uuid,selectedValue)
-    if len(imageFilepaths)!=len(classifiedOutputValues):
-        raise("error: classification value extraction went wrong")
+    if len(imageFilepaths) != len(classifiedOutputValues):
+        raise HTTPException(status_code=500, detail="Error: classification value extraction went wrong")
+    
     # Todo delete the files
 
     return JSONResponse(content={"imageFilepaths":imageFilepaths,
