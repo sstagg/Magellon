@@ -9,3 +9,11 @@ services:
       - ../2dclass_evaluator:/app/2dclass_evaluator
     ports:
       - "8000:8000"
+  frontend:
+    build:
+      context: ./2dclassifierFrontend
+      dockerfile: Dockerfile
+      args:
+        - REACT_APP_BACKEND_URL=http://localhost:8000 
+    ports:
+      - "3000:80" 

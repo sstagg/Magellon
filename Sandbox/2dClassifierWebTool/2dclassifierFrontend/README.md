@@ -5,40 +5,9 @@ Welcome to the 2D Classifier project! This application allows users to interact 
 
 ## Table of Contents
 
-- [Installation Using Docker](#installation-using-docker)
-  - [Build the Docker Image](#build-the-docker-image)
-  - [Run the Docker Image](#run-the-docker-image)
 - [Installation Without Docker](#installation-without-docker)
   - [Prerequisites](#prerequisites)
   - [Steps to Run the Project](#steps-to-run-the-project)
-
----
-
-## Installation Using Docker
-
-### Build the Docker Image
-
-To build the Docker image, use the following command:
-
-```bash
-docker build --build-arg REACT_APP_BACKEND_URL={backendurl} -t {imagename} .
-```
-
-**Example:**
-
-```bash
-docker build --build-arg REACT_APP_BACKEND_URL=http://localhost:8001 -t 2dclassifierfrontend .
-```
-
-> **Note:** Make sure to replace `{backendurl}` with your actual backend URL. The `REACT_APP_BACKEND_URL` must be passed as an argument while building the image.
-
-### Run the Docker Image
-
-To run the Docker container, execute the following command:
-
-```bash
-docker run -d -p 80:80 2dclassifierfrontend
-```
 
 ---
 

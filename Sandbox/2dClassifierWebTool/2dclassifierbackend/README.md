@@ -7,33 +7,12 @@ The 2D Classifier application is designed for users to interact with a backend m
 
 ## Table of Contents
 
-- [Installation Using Docker](#installation-using-docker)
-  - [Build the Docker Image](#build-the-docker-image)
 - [Installation Without Docker](#installation-without-docker)
   - [Prerequisites](#prerequisites)
   - [Steps to Run the Project](#steps-to-run-the-project)
 - [Configuration](#configuration)
 - [Usage](#usage)
 - [Troubleshooting](#troubleshooting)
-
----
-
-## Installation Using Docker
-
-### Build the Docker Image
-
-1. Clone the project repository to your local machine.
-
-2. Navigate to the "2dClassifierWebTool" one level above "2dclassifierbackend"  where the docker-compose file is located.
-
-3. Build the docker-compose file with the following command:
-
-   ```bash
-   docker-compose up --build
-
-   ```
-
-   This command will automatically run the image after building the image and runs on port 8000.
 
 ---
 
@@ -90,8 +69,5 @@ The 2D Classifier application is designed for users to interact with a backend m
 - Access the app at `http://localhost:8000` if using Docker, or at `http://localhost:8001` for a local setup.
 - Use the endpoints to interact with the model for predictions, modifications, and retraining.
 
-## Troubleshooting
 
-- **Docker Memory Issues**: Ensure Docker has enough allocated memory (recommended: 8GB or more).
-- **Port Conflicts**: Make sure the chosen ports (8000 or 8001) are not being used by other services.
 
