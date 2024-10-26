@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./2dclassifierbackend
+      dockerfile: Dockerfile
+    volumes:
+      - ../2dclass_evaluator:/app/2dclass_evaluator
+    ports:
+      - "8000:8000"

@@ -9,7 +9,6 @@ The 2D Classifier application is designed for users to interact with a backend m
 
 - [Installation Using Docker](#installation-using-docker)
   - [Build the Docker Image](#build-the-docker-image)
-  - [Run the Docker Container](#run-the-docker-container)
 - [Installation Without Docker](#installation-without-docker)
   - [Prerequisites](#prerequisites)
   - [Steps to Run the Project](#steps-to-run-the-project)
@@ -25,29 +24,16 @@ The 2D Classifier application is designed for users to interact with a backend m
 
 1. Clone the project repository to your local machine.
 
-2. Navigate to the project directory where the Dockerfile is located.
+2. Navigate to the "2dClassifierWebTool" one level above "2dclassifierbackend"  where the docker-compose file is located.
 
-3. Build the Docker image with the following command:
-
-   ```bash
-   docker build -t <imagename> .
-   ```
-
-   **Example:**
+3. Build the docker-compose file with the following command:
 
    ```bash
-   docker build -t 2dclassifierbackend .
+   docker-compose up --build
+
    ```
 
-### Run the Docker Container
-
-1. Run the Docker container using:
-
-   ```bash
-   docker run -p 8000:8000 2dclassifierbackend
-   ```
-
-   This command will run the app on port 8000 of your localhost.
+   This command will automatically run the image after building the image and runs on port 8000.
 
 ---
 
@@ -57,7 +43,8 @@ The 2D Classifier application is designed for users to interact with a backend m
 
 1. Ensure **conda** is installed on your machine.
 2. Clone the project repository to your local machine.
-3. Create a new conda environment with Python 3.12:
+3. Copy 2d_class_evaluator folder inside 2dclassifierbackend folder.
+4. Create a new conda environment with Python 3.12:
 
    ```bash
    conda create -n <environment-name> python=3.12
@@ -69,7 +56,7 @@ The 2D Classifier application is designed for users to interact with a backend m
    conda create -n magellon2DAssess python=3.12
    ```
 
-4. Activate the environment:
+5. Activate the environment:
 
    ```bash
    conda activate magellon2DAssess
@@ -77,7 +64,7 @@ The 2D Classifier application is designed for users to interact with a backend m
 
 ### Steps to Run the Project
 
-1. **Create an `.env` file** inside the `2dclassifierFrontend` directory.
+1. **Create an `.env` file** inside the `2dclassifierbackend` directory.
 2. **Copy the contents** of `.env.dev` to `.env` file.
 3. **Install the project dependencies**:
 

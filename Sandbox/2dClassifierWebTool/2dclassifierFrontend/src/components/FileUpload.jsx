@@ -35,6 +35,7 @@ const FileUpload = () => {
   };
 
   const handleUpload = async () => {
+    setData([])
     if (files.length === 0 || !selectedValue) {
       setNotification({
         open: true,

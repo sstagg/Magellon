@@ -19,7 +19,8 @@ RUN mkdir -p /app/uploads
 COPY main.py /app/main.py
 COPY utils.py /app/utils.py
 COPY requirements.txt /app/requirements.txt
-COPY 2dclass_evaluator /app/2dclass_evaluator
+# COPY 2dclass_evaluator /app/2dclass_evaluator
+
 
 # Install dependencies
 RUN pip install --no-cache-dir -r /app/requirements.txt
