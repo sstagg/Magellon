@@ -4,6 +4,8 @@ import mrcfile
 import glob
 import matplotlib.pyplot as plt
 import re
+from pydantic import BaseModel, Field
+from typing import List, Optional
 current_directory = os.getcwd()
 Project2DDirectory = os.path.join(current_directory, '2dclass_evaluator')
 UploadsDirectory=os.path.join(os.getcwd(),'uploads')
@@ -12,6 +14,14 @@ class SelectedValue(str, Enum):
     cryo = "cryo"
     relion = "relion"
 
+class Item(BaseModel):
+    updated: bool
+    oldValue: Optional[float] = Field(None, description="The previous value")
+    newValue: Optional[int] = Field(None, description="The new value if updated")
+
+class Payload(BaseModel):
+    uuid: str
+    items: List[Item]
 
 def getrelionfiles(directory_path):
     # Ensure the provided path is a directory

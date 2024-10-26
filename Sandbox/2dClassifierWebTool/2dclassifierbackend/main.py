@@ -2,14 +2,13 @@ from fastapi import FastAPI, File, UploadFile,Form,HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-
-
-
+import uuid as uuid_lib
 import uvicorn
 import stat
+import json
 import os
 import subprocess
-from utils import SelectedValue, getClassifiedOutputValues, getCommand, getImageFilePaths
+from utils import SelectedValue, getClassifiedOutputValues, getCommand, getImageFilePaths,Payload
 
 
 app = FastAPI()
@@ -79,8 +78,33 @@ async def upload_files(uuid: str = Form(...),selectedValue: SelectedValue = Form
     # Todo delete the files
 
     return JSONResponse(content={"imageFilepaths":imageFilepaths,
-                                 "extractedValues":classifiedOutputValues
+                                 "extractedValues":classifiedOutputValues,
+                                 "uuid":uuid
                                  }, status_code=200)
+
+
+@app.post("/update")
+async def receive_payload(payload: Payload):
+    try:
+        uuid_lib.UUID(payload.uuid)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid UUID format")
+    processed_items = []
+    for item in payload.items:
+        processed_items.append({
+            "updated": item.updated,
+            "oldValue": item.oldValue,
+            "newValue": item.newValue
+        })
+    upload_path = os.path.join(UPLOAD_DIRECTORY, payload.uuid)
+    if os.path.exists(upload_path) and os.path.isdir(upload_path):
+        json_file_path = os.path.join(upload_path, 'updatedvalues.json')
+        with open(json_file_path, 'w') as json_file:
+            json.dump(processed_items, json_file, indent=4)
+
+        return {"message": "Payload received successfully and JSON file created."}
+    else:
+        raise HTTPException(status_code=404, detail=f"Folder '{payload.uuid}' does not exist.")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
