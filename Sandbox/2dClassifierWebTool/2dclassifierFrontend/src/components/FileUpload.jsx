@@ -1,29 +1,17 @@
 // FileUpload.js
-import React, { useState, useRef } from 'react';
-import {
-  Button,
-  Typography,
-  CircularProgress,
-  LinearProgress,
-  Box,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Select,
-  Snackbar,
-  Alert,
-} from '@mui/material';
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import React, { useState } from 'react';
+import { Button, Box } from '@mui/material';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
+import Notification from './Notification';
+import FileSelector from './FileSelector';
+import ValueSelector from './ValueSelector';
+import UploadProgress from './UploadProgress';
 import ImageGallery from './ImageGallery';
 
 const FileUpload = () => {
-  const BackendURL = process.env.REACT_APP_BACKEND_URL
-  if (!BackendURL) {
-    console.error("Backend URL is not defined. Please check your environment variable settings.");
-  }
-  
+  const BackendURL = process.env.REACT_APP_BACKEND_URL;
+
   const [files, setFiles] = useState([]);
   const [selectedValue, setSelectedValue] = useState('');
   const [loading, setLoading] = useState(false);
@@ -34,12 +22,12 @@ const FileUpload = () => {
     severity: 'success',
   });
   const [data, setData] = useState([]); 
-
-  const fileInputRef = useRef(null);
+  const [uuid, setUuid] = useState();
 
   const handleFileChange = (e) => {
     setFiles(e.target.files);
     setUploadProgress(0);
+    setUuid(null);
   };
 
   const handleValueChange = (e) => {
@@ -47,7 +35,6 @@ const FileUpload = () => {
   };
 
   const handleUpload = async () => {
-    setData([])
     if (files.length === 0 || !selectedValue) {
       setNotification({
         open: true,
@@ -56,7 +43,7 @@ const FileUpload = () => {
       });
       return;
     }
-    
+
     const formData = new FormData();
     const uniqueId = uuidv4();
     formData.append('uuid', uniqueId);
@@ -79,6 +66,7 @@ const FileUpload = () => {
           setUploadProgress(percentCompleted);
         },
       });
+      setUuid(uniqueId);
 
       const combinedData = response.data.imageFilepaths.map((path, index) => ({
         image: path,
@@ -93,9 +81,6 @@ const FileUpload = () => {
       });
       setFiles([]);
       setSelectedValue('');
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
     } catch (error) {
       console.error('Error uploading files:', error);
       setNotification({
@@ -129,57 +114,9 @@ const FileUpload = () => {
           boxShadow: 3,
         }}
       >
-        {/* Notification Snackbar */}
-        <Snackbar
-          open={notification.open}
-          autoHideDuration={5000}
-          onClose={handleCloseNotification}
-          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        >
-          <Alert
-            onClose={handleCloseNotification}
-            severity={notification.severity}
-            sx={{ width: '100%' }}
-          >
-            {notification.message}
-          </Alert>
-        </Snackbar>
-        <FormControl fullWidth size="small">
-          <InputLabel>Select a Value</InputLabel>
-          <Select
-            value={selectedValue}
-            onChange={handleValueChange}
-            disabled={loading}
-            label="Select a Value"
-          >
-            <MenuItem value="cryo">CryoSparc 2Davg</MenuItem>
-            <MenuItem value="relion">Relion 2Davg</MenuItem>
-          </Select>
-        </FormControl>
-
-        <Button
-          variant="outlined"
-          component="label"
-          fullWidth
-          startIcon={<CloudUploadIcon />}
-          disabled={loading}
-        >
-          Select Files
-          <input
-            type="file"
-            multiple
-            hidden
-            onChange={handleFileChange}
-            ref={fileInputRef}
-          />
-        </Button>
-
-        {files.length > 0 && (
-          <Typography variant="body2" color="textSecondary">
-            {files.length} {files.length === 1 ? 'file' : 'files'} selected
-          </Typography>
-        )}
-
+        <Notification notification={notification} onClose={handleCloseNotification} />
+        <ValueSelector selectedValue={selectedValue} onValueChange={handleValueChange} loading={loading} />
+        <FileSelector files={files} onFileChange={handleFileChange} loading={loading} />
         <Button
           onClick={handleUpload}
           variant="contained"
@@ -189,36 +126,12 @@ const FileUpload = () => {
         >
           {loading ? 'Uploading...' : 'Upload Files'}
         </Button>
-
-        {loading && (
-          <>
-            {uploadProgress < 100 ? (
-              <Box sx={{ width: '100%', mt: 2 }}>
-                <LinearProgress variant="determinate" value={uploadProgress} />
-                <Typography variant="body2" align="center">
-                  Uploading Files: {uploadProgress}%
-                </Typography>
-              </Box>
-            ) : (
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  mt: 2,
-                }}
-              >
-                <CircularProgress size={24} sx={{ mr: 2 }} />
-                <Typography variant="body2">Processing files...</Typography>
-              </Box>
-            )}
-          </>
-        )}
+        <UploadProgress loading={loading} uploadProgress={uploadProgress} />
       </Box>
 
-      {data.length > 0 && <ImageGallery items={data} />}
+      {data.length > 0 && <ImageGallery items={data} uuid={uuid} />}
     </>
   );
 };
 
-export  {FileUpload};
+export {FileUpload};
