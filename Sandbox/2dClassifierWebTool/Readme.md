@@ -46,7 +46,7 @@ The Docker Compose setup will build and start both the backend and frontend serv
 2. **Start the Application**:
    Use the following command to build and start both services:
    ```bash
-   docker-compose up --build
+   BACKEND_URL=http://localhost:8000 docker-compose up --build
    ```
 
    This will:
@@ -77,7 +77,7 @@ services:
       context: ./2dclassifierFrontend
       dockerfile: Dockerfile
       args:
-        - REACT_APP_BACKEND_URL=http://localhost:8000
+        - REACT_APP_BACKEND_URL=${BACKEND_URL}
     ports:
       - "3000:80"
 ```
