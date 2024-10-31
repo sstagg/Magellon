@@ -1,4 +1,5 @@
 import datetime
+import glob
 import os
 import time
 from typing import Dict, Any
@@ -10,6 +11,7 @@ from io import BytesIO
 from typing import List, Optional
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+from datetime import datetime
 
 from core.helper import custom_replace
 from database import get_db
@@ -26,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 class EPUMetadata(BaseModel):
     uniqueID: Optional[str] = None
+    file_path: Optional[str] = None
     DoseOnCamera: Optional[float] = None
     Dose: Optional[float] = None
     Defocus: Optional[float] = None
@@ -115,8 +118,10 @@ def parse_xml(xml_content: bytes) -> EPUMetadata:
 
 class DirectoryStructure(BaseModel):
     name: str
+    path: str
     type: str
     children: list = None
+
 
 def scan_directory(path):
     try:
@@ -124,14 +129,14 @@ def scan_directory(path):
             raise HTTPException(status_code=404, detail="Path not found")
 
         if os.path.isfile(path):
-            return DirectoryStructure(name=os.path.basename(path), type="file")
+            return DirectoryStructure(name=os.path.basename(path), path=path, type="file")
 
-        structure = DirectoryStructure(name=os.path.basename(path), type="directory", children=[])
+        structure = DirectoryStructure(name=os.path.basename(path), path=path, type="directory", children=[])
 
         for item in os.listdir(path):
             item_path = os.path.join(path, item)
             if os.path.isfile(item_path):
-                structure.children.append(DirectoryStructure(name=item, type="file"))
+                structure.children.append(DirectoryStructure(name=item, path=item_path, type="file"))
             elif os.path.isdir(item_path):
                 structure.children.append(scan_directory(item_path))
 
@@ -140,9 +145,38 @@ def scan_directory(path):
         raise HTTPException(status_code=403, detail="Permission denied")
 
 
+def parse_directory(directory_structure):
+    try:
+        image_metadata = []
 
+        # Recursively traverse the directory structure
+        def traverse_directory(structure):
+            if structure.type == "file" and structure.name.endswith(".xml"):
+                with open(structure.path, 'rb') as f:
+                    xml_content = f.read()
+                metadata = parse_xml(xml_content)
+                metadata.file_path= structure.path
+                image_metadata.append(metadata)
+            elif structure.type == "directory" and structure.children:
+                for child in structure.children:
+                    traverse_directory(child)
 
+        traverse_directory(directory_structure)
+        return image_metadata
 
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Permission denied")
+
+def get_first_eer_file(source_image_path):
+    # Get the base name of the source image without extension
+    base_name = os.path.splitext(source_image_path)[0]
+
+    # Use glob to search for any file that starts with the base name and ends with .eer
+    eer_file_pattern = f"{base_name}*.eer"  # Adjust the pattern if needed
+    matching_files = glob.glob(eer_file_pattern)
+
+    # Return the first matching .eer file if it exists, otherwise None
+    return matching_files[0] if matching_files else None
 
 class EPUImporter(BaseImporter):
     def __init__(self):
@@ -198,11 +232,18 @@ class EPUImporter(BaseImporter):
 
             session_name = self.params.session_name
 
-            epu_image_list=[]
+            eepu_image_list: List[EPUMetadata] = []
             # NOW Scan the directory and get all xml files and process them and put in epu_image_list
+            files = scan_directory(self.params.epu_dir_path)
+            meta_datas = parse_directory(files)
+            #Now for each file , if it is xml , use parse xml to get most important information
+            epu_image_list: List[EPUMetadata]=meta_datas
 
 
             if len(epu_image_list) > 0:
+                # Create required directories in home directory
+                self.create_directories()
+
                     # image_dict = {image["filename"]: image for image in epu_image_list}
                 image_dict = {}
                 # Create a new job
@@ -222,28 +263,28 @@ class EPUImporter(BaseImporter):
                 db_image_list = []
                 db_job_item_list = []
                 separator = "/"
-                for image in epu_image_list:
-                    filename = image["filename"]
+                for image  in epu_image_list:
+                    filename = os.path.splitext(os.path.basename(image.file_path))[0]
                     # source_image_path = os.path.join(session_result["image path"], filename)
 
                     db_image = Image(oid=uuid.uuid4(),
                                      name=filename,
-                                     magnification=image["mag"],
-                                     defocus=image["defocus"],
-                                     dose=image["calculated_dose"],
-                                     pixel_size=image["pixelsize"],
-                                     binning_x=image["bining_x"],
-                                     stage_x=image["stage_x"],
-                                     stage_y=image["stage_y"],
-                                     stage_alpha_tilt=image["stage_alpha_tilt"],
-                                     atlas_dimxy=image["dimx"],
-                                     atlas_delta_row=image["delta_row"],
-                                     atlas_delta_column=image["delta_column"],
-                                     binning_y=image["bining_y"],
+                                     #magnification=image.magnification,
+                                     defocus=image.Defocus,
+                                     dose=image.Dose,
+                                     pixel_size=image.pixelSize_x,
+                                     binning_x=image.binning_x,
+                                     stage_x=image.stage_position_x,
+                                     stage_y=image.stage_position_y,
+                                     stage_alpha_tilt=image.stage_alpha_tilt,
+                                     #atlas_dimxy=image.atl,
+                                     atlas_delta_row= image.atlas_delta_row,
+                                     atlas_delta_column=image.atlas_delta_column,
+                                     binning_y=image.binning_y,
                                      # level=get_image_levels(filename, presets_result["regex_pattern"]),
-                                     previous_id=image["image_id"],
-                                     acceleration_voltage=image["acceleration_voltage"],
-                                     spherical_aberration=image["spherical_aberration"],
+                                     #previous_id=image.uniqueID,
+                                     # acceleration_voltage= image.acceleration_voltage,
+                                     # spherical_aberration=image.spherical_aberration,
                                      session_id=magellon_session.oid)
                     # get_image_levels(filename,presets_result["regex_pattern"])
                     # db_session.add(db_image)
@@ -254,8 +295,9 @@ class EPUImporter(BaseImporter):
 
                     # source_image_path = (session_result["image path"] + separator + filename + ".mrc")
                     # change logic to use image's director instead'
-                    source_frame_path = os.path.join(self.params.camera_directory, image["frame_names"])
-                    # source_image_path = os.path.join(session_result["image path"], image["image_name"])
+
+                    source_image_path = image.file_path
+                    source_frame_path = get_first_eer_file(source_image_path)
 
                     #TODO:
                     # source_frame_path = source_frame_path.replace("/gpfs/", "Y:/")
@@ -267,13 +309,14 @@ class EPUImporter(BaseImporter):
                         source_image_path = custom_replace(source_image_path, self.params.replace_type,
                                                            self.params.replace_pattern, self.params.replace_with)
 
+                    frame_name = os.path.splitext(os.path.basename(source_frame_path))[0] if source_frame_path else ""
                     # Create a new job item and associate it with the job and image
                     job_item = ImageJobTask(
                         oid=uuid.uuid4(),
                         job_id=job.oid,
-                        frame_name=image["frame_names"],
+                        frame_name=frame_name,
                         frame_path=source_frame_path,
-                        image_name=image["image_name"],
+                        image_name=os.path.splitext(os.path.basename(source_image_path))[0],
                         image_path=source_image_path,
                         status_id=1,
                         stage=0,
@@ -291,17 +334,17 @@ class EPUImporter(BaseImporter):
                         task_alias=f"lftj_{filename}_{self.params.job_id}",
                         file_name=f"{filename}",
                         image_id=db_image.oid,
-                        image_name=image["image_name"],
-                        frame_name=image["frame_names"],
-                        image_path=source_image_path,
+                        image_name= os.path.splitext(os.path.basename(source_image_path))[0],
+                        frame_name= frame_name,
+                        image_path= source_image_path,
 
                         frame_path=source_frame_path,
                         # target_path=self.params.target_directory + "/frames/" + f"{image['frame_names']}{source_extension}",
                         job_dto=self.params,
                         status=1,
-                        pixel_size=image["pixelsize"],
-                        acceleration_voltage=image["acceleration_voltage"],
-                        spherical_aberration=image["spherical_aberration"]
+                        pixel_size=image.pixelSize_x
+                        # acceleration_voltage=image["acceleration_voltage"],
+                        # spherical_aberration=image["spherical_aberration"]
                     )
                     self.params.task_list.append(task)
                     # print(f"Filename: {filename}, Spot Size: {spot_size}")

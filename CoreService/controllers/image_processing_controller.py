@@ -184,6 +184,7 @@ def import_epu_job(input_data: EpuImportJobBase, db: Session = Depends(get_db)):
         retries=input_data.retries,
 
         epu_dir_path=input_data.epu_dir_path,
+
         replace_type=input_data.replace_type,
         replace_pattern=input_data.replace_pattern,
         replace_with=input_data.replace_with,
