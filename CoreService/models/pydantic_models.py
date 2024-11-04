@@ -262,7 +262,7 @@ class EPUImportTaskDto(BaseModel):
     image_path: Optional[str] = None
     frame_name: Optional[str] = None
     frame_path: Optional[str] = None
-    job_dto: LeginonFrameTransferJobDto
+    job_dto: EpuImportJobDto
     status: Optional[int] = None
     pixel_size: Optional[float] = None
     acceleration_voltage: Optional[float] = None
