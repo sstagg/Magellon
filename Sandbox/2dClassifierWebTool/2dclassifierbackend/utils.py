@@ -110,11 +110,11 @@ async def getImageFilePaths(uuid,outputImageDir,selectedValue):
 
 async def getClassifiedOutputValues(uuid,selectedValue):
     if selectedValue==SelectedValue.cryo:
-        pattern = r'\d{5}@.*\s(\d+\.\d+)'
+        pattern = r'\d{5}@.*\s(\d+\.\d+|nan)'
         fileName=getMrcsFileName(os.path.join(UploadsDirectory,uuid,"outputs","output"),'*_model.star')
         searchFolder=os.path.join(UploadsDirectory,uuid,"outputs","output",fileName)
     if selectedValue==SelectedValue.relion:
-        pattern = r"@[^\t]*\t.*\t([0-9.]+)$"
+        pattern = r"@[^\t]*\t.*\t([0-9.]+|nan)$"
         fileName=getMrcsFileName(os.path.join(UploadsDirectory,uuid),'*_magellon_model.star')
         searchFolder=os.path.join(UploadsDirectory,uuid,fileName)
     extracted_values = []
@@ -124,5 +124,9 @@ async def getClassifiedOutputValues(uuid,selectedValue):
     for line in lines:
         match = re.search(pattern, line)
         if match:
-            extracted_values.append(round(float(match.group(1)), 3))
+            value = match.group(1)
+            if value.lower() == 'nan':
+                extracted_values.append(None)
+            else:
+                extracted_values.append(round(float(value), 3))
     return extracted_values
