@@ -46,7 +46,7 @@ The Docker Compose setup will build and start both the backend and frontend serv
 2. **Start the Application**:
    Use the following command to build and start both services:
    ```bash
-   BACKEND_URL=http://localhost:8000 docker-compose up --build
+    UPLOADS_DIR=/Users/puneethreddymotukurudamodar/uploads BACKEND_URL=http://localhost:8000 docker-compose up --build
    ```
 
    This will:

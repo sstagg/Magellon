@@ -6,9 +6,18 @@ services:
       context: ./2dclassifierbackend
       dockerfile: Dockerfile
     volumes:
+      - ${UPLOADS_DIR}:/app/uploads # Ensure UPLOADS_DIR exists on the host server
       - ../2dclass_evaluator:/app/2dclass_evaluator
     ports:
       - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1  # Ensures Python output is sent to logs immediately
+    restart: unless-stopped  # Automatically restart unless explicitly stopped
+    deploy:
+      resources:
+        reservations:
+          cpus: '1'
+          memory: 8G
   frontend:
     build:
       context: ./2dclassifierFrontend

@@ -47,8 +47,11 @@ async def upload_files(uuid: str = Form(...),selectedValue: SelectedValue = Form
     for file in files:
         file_location = os.path.join(upload_path, file.filename)
         with open(file_location, "wb") as f:
-            f.write(await file.read())
-    
+            while True:
+                chunk = await file.read(1024 * 1024)  # Read 1 MB chunks
+                if not chunk:
+                    break
+                f.write(chunk)
     command =getCommand(selectedValue.value,uuid)
     print(command)
     process = subprocess.run(
