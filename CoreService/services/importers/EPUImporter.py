@@ -398,11 +398,18 @@ class EPUImporter(BaseImporter):
             # 1
             self.transfer_frame(task_dto)
             # 2
-            # if task_dto.job_dto.copy_images:
-            #     target_image_path = task_dto.job_dto.target_directory + "/" + ORIGINAL_IMAGES_SUB_URL + task_dto.image_name
-            #     copy_file(task_dto.image_path, target_image_path)
-            #     task_dto.image_path = target_image_path
-            #
+            if task_dto.job_dto.copy_images:
+                # Construct the source and target paths
+                source_image_path = os.path.splitext(task_dto.image_path)[0] + ".tiff"
+                target_image_path = os.path.join(
+                    task_dto.job_dto.target_directory, ORIGINAL_IMAGES_SUB_URL, task_dto.image_name + ".tiff"
+                )
+
+                # Check if the source file exists before copying
+                if os.path.exists(source_image_path):
+                    copy_file(source_image_path, target_image_path)
+                    task_dto.image_path = target_image_path
+
             # # Generate FFT using the REST API
             # self.convert_image_to_png_task(task_dto.image_path, task_dto.job_dto.target_directory)
             # self.compute_fft_png_task(task_dto.image_path, task_dto.job_dto.target_directory)
