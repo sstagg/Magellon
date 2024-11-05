@@ -13,6 +13,12 @@ from models.sqlalchemy_models import Project, Msession
 import logging
 logger = logging.getLogger(__name__)
 
+
+class TaskFailedException(Exception):
+    pass
+
+
+
 class BaseImporter(ABC):
     def __init__(self):
         self.params = None
