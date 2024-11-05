@@ -1,3 +1,4 @@
+import os
 import socket
 # import sys
 # import traceback
@@ -5,12 +6,14 @@ import socket
 
 # import fastapi
 import uvicorn
-from fastapi import FastAPI
+from PIL.Image import Image
+from fastapi import FastAPI, UploadFile, File, HTTPException
 # from rich.logging import RichHandler
 from rich.traceback import Traceback
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 from starlette.staticfiles import StaticFiles
+
 
 from configs.production_test import production_intilization
 # from starlette_graphene3 import GraphQLApp, make_graphiql_handler
@@ -46,6 +49,9 @@ from models.graphql_strawberry_schema import strawberry_graphql_router
 # from rich import get_console
 
 import rich.traceback
+
+from services.importers.TiffHelper import convert_tiff_to_jpeg, parse_tif
+
 rich.traceback.install(show_locals=True)
 
 title = pyfiglet.figlet_format('Magellon', font='speed')
@@ -92,6 +98,29 @@ app.dbsession = session_local
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/assets", StaticFiles(directory="static/assets"), name="assets")
+
+
+@app.post("/convert-tiff-to-jpeg/")
+async def convert_tiff_to_jpeg_route(file: UploadFile = File(...)):
+    # Ensure the file is a TIFF
+    if not file.filename.lower().endswith(".tiff"):
+        raise HTTPException(status_code=400, detail="Invalid file type. Please upload a TIFF file.")
+    try:
+        # Define the file paths
+
+        tiff_path = "C:/temp/test/"+file.filename
+        jpeg_path = tiff_path.rsplit(".", 1)[0] + ".jpeg"
+        # Save the uploaded TIFF file temporarily
+        # Parse the TIFF file
+        result = parse_tif(tiff_path)
+        convert_tiff_to_jpeg(tiff_path,jpeg_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error converting TIFF to JPEG: {str(e)}")
+    # finally:
+    #     os.remove(tiff_path)  # Clean up the TIFF file after conversion
+
+    return JSONResponse(content={"message": "TIFF file converted to JPEG", "jpeg_path": jpeg_path})
+
 
 
 app.include_router(home_router, tags=["Home"])

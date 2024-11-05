@@ -165,11 +165,6 @@ class MrcImageService:
             self.create_image_directory(png_path)
             self.create_image_directory(thumbnail_path)
 
-            # fft_path = os.path.join(out_dir, FFT_SUB_URL,
-            #                         os.path.splitext(os.path.basename(abs_file_path))[0] + "_FFT.png")
-            # self.create_image_directory(fft_path)
-            # self.compute_fft(img=mic, abs_out_file_name=fft_path)
-
             new_image = self.scale_image(mic, height)
             new_image.save(png_path)
 

@@ -27,6 +27,9 @@ from config import FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL, ORIGINAL_IMAG
 
 
 import logging
+
+from services.mrc_image_service import MrcImageService
+
 logger = logging.getLogger(__name__)
 
 
@@ -187,6 +190,7 @@ class EPUImporter(BaseImporter):
     def __init__(self):
         super().__init__()
         self.image_tasks = []
+        self.mrc_service = MrcImageService()
 
     def import_data(self):
         # Implement EPU-specific data import logic
@@ -395,12 +399,13 @@ class EPUImporter(BaseImporter):
 
     def run_task(self, task_dto: EPUImportTaskDto,magellon_session :Msession) -> Dict[str, str]:
         try:
+            source_image_path = os.path.splitext(task_dto.image_path)[0] + ".tiff"
             # 1
             self.transfer_frame(task_dto)
             # 2
             if task_dto.job_dto.copy_images:
                 # Construct the source and target paths
-                source_image_path = os.path.splitext(task_dto.image_path)[0] + ".tiff"
+
                 target_image_path = os.path.join(
                     task_dto.job_dto.target_directory, ORIGINAL_IMAGES_SUB_URL, task_dto.image_name + ".tiff"
                 )
@@ -411,7 +416,8 @@ class EPUImporter(BaseImporter):
                     task_dto.image_path = target_image_path
 
             # # Generate FFT using the REST API
-            # self.convert_image_to_png_task(task_dto.image_path, task_dto.job_dto.target_directory)
+            if os.path.exists(source_image_path):
+                self.convert_image_to_png_task(source_image_path, task_dto.job_dto.target_directory)
             # self.compute_fft_png_task(task_dto.image_path, task_dto.job_dto.target_directory)
             # self.compute_ctf_task(task_dto.image_path, task_dto)
 
@@ -419,6 +425,15 @@ class EPUImporter(BaseImporter):
 
         except Exception as e:
             raise TaskFailedException(f"Task failed with error: {str(e)}")
+
+    def convert_image_to_png_task(self, abs_file_path, out_dir):
+        try:
+            # generates png and thumbnails
+            self.mrc_service.convert_mrc_to_png(abs_file_path=abs_file_path, out_dir=out_dir)
+            return {"message": "MRC file successfully converted to PNG!"}
+        except Exception as e:
+            return {"error": str(e)}
+
 
     def transfer_frame(self, task_dto):
         try:

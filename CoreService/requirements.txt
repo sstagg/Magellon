@@ -49,3 +49,5 @@ docker
 cryptography
 
 lxml
+
+TiffFile
