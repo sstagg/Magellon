@@ -65,7 +65,31 @@ class MrcImageService:
         return
 
 
-    def compute_file_fft(self, mrc_abs_path, abs_out_file_name, height=1024):
+    def compute_tiff_fft(self, tiff_abs_path, abs_out_file_name, height=1024):
+        try:
+            # Load TIFF data
+            with TiffFile(tiff_abs_path) as tiff:
+                image_data = tiff.asarray()
+
+            # Convert to float for FFT computation
+            image_data = np.array(image_data, dtype=float)
+
+            # Perform Fourier Transform
+            F1 = fft2(image_data)
+            F2 = scipy.fft.fftshift(F1)  # Shift low frequencies to the center
+            fft_magnitude = np.log(1 + np.abs(F2))  # Log scale for visibility
+
+            # Downsample the FFT result
+            downsampled_fft = self.down_sample(fft_magnitude, height)
+
+            # Save the resulting image as grayscale
+            plt.imsave(abs_out_file_name, downsampled_fft, cmap='gray')
+
+        except Exception as e:
+            print(f"An error occurred while processing {tiff_abs_path}: {e}")
+
+
+    def compute_mrc_fft(self, mrc_abs_path, abs_out_file_name, height=1024):
         # Fourier transform of the image
         with mrcfile.open(mrc_abs_path, permissive=True) as mrc:
             mic = mrc.data.reshape(mrc.data.shape[-2], mrc.data.shape[-1])

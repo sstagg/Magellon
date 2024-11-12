@@ -418,7 +418,7 @@ class EPUImporter(BaseImporter):
             # # Generate FFT using the REST API
             if os.path.exists(source_image_path):
                 self.convert_image_to_png_task(source_image_path, task_dto.job_dto.target_directory)
-            # self.compute_fft_png_task(task_dto.image_path, task_dto.job_dto.target_directory)
+            self.compute_fft_png_task(source_image_path, task_dto.job_dto.target_directory)
             # self.compute_ctf_task(task_dto.image_path, task_dto)
 
             return {'status': 'success', 'message': 'Task completed successfully.'}
@@ -434,6 +434,17 @@ class EPUImporter(BaseImporter):
         except Exception as e:
             return {"error": str(e)}
 
+    def compute_fft_png_task(self, abs_file_path: str, out_dir: str):
+        try:
+            fft_path = os.path.join(out_dir, FFT_SUB_URL,
+                                    os.path.splitext(os.path.basename(abs_file_path))[0] + FFT_SUFFIX)
+            # self.create_image_directory(fft_path)
+            # self.compute_fft(img=mic, abs_out_file_name=fft_path)
+            self.mrc_service.compute_tiff_fft(tiff_abs_path=abs_file_path, abs_out_file_name=fft_path)
+            return {"message": "MRC file successfully converted to fft PNG!"}
+
+        except Exception as e:
+            return {"error": str(e)}
 
     def transfer_frame(self, task_dto):
         try:
@@ -445,6 +456,9 @@ class EPUImporter(BaseImporter):
                     copy_file(task_dto.frame_path, target_path)
         except Exception as e:
             print(f"An error occurred during frame transfer: {e}")
+
+
+
     def get_image_tasks(self):
         return self.image_tasks
 

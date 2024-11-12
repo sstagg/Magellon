@@ -416,7 +416,7 @@ class LeginonFrameTransferJobService:
                                     os.path.splitext(os.path.basename(abs_file_path))[0] + FFT_SUFFIX)
             # self.create_image_directory(fft_path)
             # self.compute_fft(img=mic, abs_out_file_name=fft_path)
-            self.mrc_service.compute_file_fft(mrc_abs_path=abs_file_path, abs_out_file_name=fft_path)
+            self.mrc_service.compute_mrc_fft(mrc_abs_path=abs_file_path, abs_out_file_name=fft_path)
             return {"message": "MRC file successfully converted to fft PNG!"}
 
         except Exception as e:
