@@ -4,8 +4,6 @@ from scipy import stats
 from matplotlib import pyplot
 import mrcfile as mrc
 import sys
-import tkinter as tk
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 #import cv2
 
@@ -88,6 +86,17 @@ def get_edge_stats_for_box(img, clippix):
 #     return particlemask, backgroundmask
 
 def create_montage_with_numbers(images, numbers=None, ncols=5, padding=4):
+    """
+    Create a montage of images with overlayed image numbers and padding between images from a numpy array of 2D images.
+
+    Parameters:
+        images (numpy.ndarray): A 3D numpy array of shape (num_images, height, width).
+        ncols (int): Number of columns in the montage grid.
+        padding (int): Padding between images in pixels.
+
+    Returns:
+        matplotlib.figure.Figure: The matplotlib figure object.
+    """
     n_images, height, width = images.shape
     nrows = int(np.ceil(n_images / ncols))
 
@@ -119,33 +128,6 @@ def create_montage_with_numbers(images, numbers=None, ncols=5, padding=4):
 
     return fig
 
-
-def update_montage(canvas, images, numbers, frame_width, frame_height):
-    ncols = max(1, frame_width // (images.shape[2] + 4))  # Adjust number of columns based on window width
-    figure = create_montage_with_numbers(images, numbers, ncols=ncols)
-    canvas.figure = figure
-    canvas.draw()
-
-
-def on_resize(event, canvas, images, numbers):
-    frame_width = event.width
-    frame_height = event.height
-    update_montage(canvas, images, numbers, frame_width, frame_height)
-
-
-def display_dynamic_montage(images, numbers=None):
-    # Initialize Tkinter window
-    root = tk.Tk()
-    root.title("Dynamic Image Montage")
-
-    fig = create_montage_with_numbers(images, numbers)
-    canvas = FigureCanvasTkAgg(fig, master=root)
-    canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-
-    # Bind the resize event to update the montage dynamically
-    canvas.get_tk_widget().bind("<Configure>", lambda event: on_resize(event, canvas, images, numbers))
-
-    root.mainloop()
 if __name__ == '__main__':
     stackstats=calc_mass_stats_for_stack(sys.argv[1])
     for stat in stackstats:
