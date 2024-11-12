@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from datetime import datetime
 
-from core.helper import custom_replace
+from core.helper import custom_replace, dispatch_ctf_task
 from database import get_db
 from models.pydantic_models import EPUImportTaskDto
 from models.sqlalchemy_models import Image, Msession, Project, ImageJob, ImageJobTask
@@ -457,7 +457,14 @@ class EPUImporter(BaseImporter):
         except Exception as e:
             print(f"An error occurred during frame transfer: {e}")
 
+    def compute_ctf_task(self, abs_file_path: str, task_dto: EPUImportTaskDto):
+        try:
+            if (task_dto.pixel_size * 10 ** 10) <= 5:
+                dispatch_ctf_task(task_dto.task_id, abs_file_path, task_dto)
+                return {"message": "Converting to ctf on the way! " + abs_file_path}
 
+        except Exception as e:
+            return {"error": str(e)}
 
     def get_image_tasks(self):
         return self.image_tasks

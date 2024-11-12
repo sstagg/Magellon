@@ -11,7 +11,7 @@ from config import app_settings
 from core.rabbitmq_client import RabbitmqClient
 from core.task_factory import CtfTaskFactory
 from models.plugins_models import TaskDto, CtfTaskData, TaskResultDto, CTF_TASK, PENDING
-from models.pydantic_models import LeginonFrameTransferTaskDto
+from models.pydantic_models import LeginonFrameTransferTaskDto, EPUImportTaskDto, ImportTaskDto
 
 logger = logging.getLogger(__name__)
 
@@ -129,7 +129,7 @@ def push_task_to_task_queue(task: TaskDto):
     return publish_message_to_queue(task, app_settings.rabbitmq_settings.CTF_QUEUE_NAME)
 
 
-def dispatch_ctf_task(task_id, full_image_path, task_dto: LeginonFrameTransferTaskDto):
+def dispatch_ctf_task(task_id, full_image_path, task_dto: ImportTaskDto):
     file_name = os.path.splitext(os.path.basename(full_image_path))[0]
 
     #converting LeginonFrameTransferTaskDto to ctf task
@@ -157,5 +157,6 @@ def dispatch_ctf_task(task_id, full_image_path, task_dto: LeginonFrameTransferTa
                                           data=ctf_task_data.model_dump(), ptype=CTF_TASK, pstatus=PENDING)
     ctf_task.sesson_name = session_name
     return push_task_to_task_queue(ctf_task)
+
 
 

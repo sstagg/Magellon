@@ -230,7 +230,7 @@ class LeginonFrameTransferJobDto(LeginonFrameTransferJobBase):
 
 
 
-class LeginonFrameTransferTaskDto(BaseModel):
+class ImportTaskDto(BaseModel):
     task_id: uuid.UUID
     task_alias: Optional[str] = None
     file_name: Optional[str] = None
@@ -239,41 +239,23 @@ class LeginonFrameTransferTaskDto(BaseModel):
     image_path: Optional[str] = None
     frame_name: Optional[str] = None
     frame_path: Optional[str] = None
+    status: Optional[int] = None
+    pixel_size: Optional[float] = None
+    acceleration_voltage: Optional[float] = None
+    spherical_aberration: Optional[float] = None
+    amplitude_contrast: Optional[float] = 0.07
+    size_of_amplitude_spectrum: Optional[int] = 512
+    minimum_resolution: Optional[int] = 30
+    maximum_resolution: Optional[int] = 5
+    minimum_defocus: Optional[int] = 5000
+    maximum_defocus: Optional[int] = 50000
+    defocus_search_step: Optional[int] = 100
+
+class LeginonFrameTransferTaskDto(ImportTaskDto):
     job_dto: LeginonFrameTransferJobDto
-    status: Optional[int] = None
-    pixel_size: Optional[float] = None
-    acceleration_voltage: Optional[float] = None
-    spherical_aberration: Optional[float] = None
-    amplitude_contrast:Optional[float] = 0.07
-    size_of_amplitude_spectrum: Optional[int] = 512
-    minimum_resolution: Optional[int] = 30
-    maximum_resolution: Optional[int] = 5
-    minimum_defocus: Optional[int] = 5000
-    maximum_defocus: Optional[int] = 50000
-    defocus_search_step: Optional[int] = 100
 
-
-class EPUImportTaskDto(BaseModel):
-    task_id: uuid.UUID
-    task_alias: Optional[str] = None
-    file_name: Optional[str] = None
-    image_id: Optional[uuid.UUID] = None
-    image_name: Optional[str] = None
-    image_path: Optional[str] = None
-    frame_name: Optional[str] = None
-    frame_path: Optional[str] = None
+class EPUImportTaskDto(ImportTaskDto):
     job_dto: EpuImportJobDto
-    status: Optional[int] = None
-    pixel_size: Optional[float] = None
-    acceleration_voltage: Optional[float] = None
-    spherical_aberration: Optional[float] = None
-    amplitude_contrast:Optional[float] = 0.07
-    size_of_amplitude_spectrum: Optional[int] = 512
-    minimum_resolution: Optional[int] = 30
-    maximum_resolution: Optional[int] = 5
-    minimum_defocus: Optional[int] = 5000
-    maximum_defocus: Optional[int] = 50000
-    defocus_search_step: Optional[int] = 100
 
 
 class LeginonImageDto(BaseModel):
