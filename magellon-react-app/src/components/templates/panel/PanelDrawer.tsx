@@ -25,6 +25,7 @@ const links: AppLink[] = [
     new AppLink("Pipelines", "domains/plugins", "account-tree"),
     new AppLink("Leginon Import", "leginon-transfer", "import"),
     new AppLink("API", "api", "api"),
+    new AppLink("Mrc Viewer", "mrc-viewer", "image"),
     // new AppLink("Blogs", "domains/blogs", "google-icon"),
     new AppLink("Settings", "domains/blogs", "settings"),
 ];
