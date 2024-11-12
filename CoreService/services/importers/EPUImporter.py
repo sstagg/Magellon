@@ -429,8 +429,8 @@ class EPUImporter(BaseImporter):
     def convert_image_to_png_task(self, abs_file_path, out_dir):
         try:
             # generates png and thumbnails
-            self.mrc_service.convert_mrc_to_png(abs_file_path=abs_file_path, out_dir=out_dir)
-            return {"message": "MRC file successfully converted to PNG!"}
+            self.mrc_service.convert_tiff_to_png(abs_file_path=abs_file_path, out_dir=out_dir)
+            return {"message": "Tiff file successfully converted to PNG!"}
         except Exception as e:
             return {"error": str(e)}
 

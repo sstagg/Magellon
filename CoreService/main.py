@@ -108,7 +108,7 @@ async def convert_tiff_to_jpeg_route(file: UploadFile = File(...)):
     try:
         # Define the file paths
 
-        tiff_path = "C:/temp/test/"+file.filename
+        tiff_path = "C:/temp/test/" + file.filename
         jpeg_path = tiff_path.rsplit(".", 1)[0] + ".jpeg"
         # Save the uploaded TIFF file temporarily
         # Parse the TIFF file

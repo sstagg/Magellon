@@ -119,6 +119,47 @@ def parse_tif(file_path):
 
 
 
+def convert_tiff_to_image(tiff_path, output_path, output_type='jpeg', quality=95, size_ratio=1.0):
+    """
+    Convert a TIFF file to either JPEG or PNG format, with options for quality and size ratio.
+
+    Parameters:
+        tiff_path (str): Path to the input TIFF file.
+        output_path (str): Path to the output file.
+        output_type (str): 'jpeg' or 'png' to specify the output format.
+        quality (int, optional): JPEG quality, from 0 (worst) to 100 (best). Defaults to 95.
+        size_ratio (float, optional): Ratio to resize the image. Defaults to 1.0 (no resize).
+
+    Returns:
+        str: The path to the saved output file.
+    """
+    # Validate output type
+    if output_type.lower() not in ['jpeg', 'png']:
+        raise ValueError("Output type must be 'jpeg' or 'png'")
+
+    # Open the TIFF file
+    with TiffFile(tiff_path) as tiff:
+        image = tiff.asarray()
+
+    # Convert 16-bit images to 8-bit
+    if image.dtype == np.uint16:
+        image = ((image - image.min()) * (255.0 / (image.max() - image.min()))).astype(np.uint8)
+
+    # Convert to PIL Image
+    pil_image = Image.fromarray(image)
+
+    # Resize if size_ratio is specified
+    if size_ratio != 1.0:
+        new_size = (int(pil_image.width * size_ratio), int(pil_image.height * size_ratio))
+        pil_image = pil_image.resize(new_size, resample= Image.Resampling.LANCZOS)
+
+    # Save image in the specified format
+    save_params = {'quality': quality} if output_type.lower() == 'jpeg' else {}
+    pil_image.save(output_path, output_type.upper(), **save_params)
+
+    return output_path
+
+
 def convert_tiff_to_jpeg(tiff_path, jpeg_path):
     """
      Convert TIFF to JPEG with appropriate handling for EPU TIFF files.
@@ -141,41 +182,28 @@ def convert_tiff_to_jpeg(tiff_path, jpeg_path):
 
         return jpeg_path
 
-        # Print the successful conversion message
-#         print(f"Converted {tiff_path} to {jpeg_path}")
-# def convert_tiff_to_jpeg(tiff_path, jpeg_path):
-#     # Open the TIFF file
-#     # Open the TIFF file
-#     with TiffFile(tiff_path) as tiff:
-#         for page in tiff.pages:
-#             for tag in page.tags:
-#                 print(tag.code, tag.dtype)
-#             # Get the first image from the TIFF file
-#             image = page.asarray()
-#
-#             # Check if the TIFF image has a 16-bit depth
-#             if image.dtype == "uint16":
-#                 # Rescale the 16-bit image to 8-bit
-#                 image = (image / 256).astype("uint8")
-#
-#             # Create the JPEG file
-#             Image.fromarray(image).save(jpeg_path)
-#
-#             # Print the successful conversion message
-#             print(f"Converted {tiff_path} to {jpeg_path}")
-#         # Get the first image from the TIFF file
-#         image = tiff.asarray()
-#
-#         # Check if the TIFF image has a 16-bit depth
-#         if image.dtype == "uint16":
-#             # Rescale the 16-bit image to 8-bit
-#             image = (image / 256).astype("uint8")
-#
-#         # Create the JPEG file
-#         Image.fromarray(image).save(jpeg_path)
-#
-#         # Print the successful conversion message
-#         print(f"Converted {tiff_path} to {jpeg_path}")
 
-# Example usage
+
+def convert_tiff_to_png(tiff_path, png_path):
+    """
+    Convert TIFF to PNG with appropriate handling for EPU TIFF files.
+    Returns the path to the saved PNG file.
+    """
+    with TiffFile(tiff_path) as tiff:
+        # Get the first image from the TIFF file
+        image = tiff.asarray()
+
+        # Handle 16-bit images
+        if image.dtype == np.uint16:
+            # Scale to 8-bit
+            image = ((image - image.min()) * (255.0 / (image.max() - image.min()))).astype(np.uint8)
+
+        # Convert to PIL Image
+        pil_image = Image.fromarray(image)
+
+        # Save as PNG
+        pil_image.save(png_path, 'PNG')
+
+        return png_path
+
 
