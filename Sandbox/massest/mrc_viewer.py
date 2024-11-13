@@ -8,7 +8,6 @@ import argparse
 from math import ceil
 from PIL import Image, ImageTk
 
-json_files = ['example.JSON', 'example2.JSON', 'example3.JSON']
 
 def parse_json(file_path):
     with open(file_path, 'r') as f:
@@ -22,8 +21,7 @@ def parse_json(file_path):
     return values
 
 meta_data = {}
-for json_file_path in json_files:
-    meta_data[json_file_path] = parse_json(json_file_path)
+
 
 class ImageGridApp:
     def __init__(self, root, images_data):
@@ -337,6 +335,7 @@ def read_images_from_mrc(file_path):
 def parseArgs():
     parser = argparse.ArgumentParser()
     parser.add_argument("--stackpath", dest="stackpath", type=str, help="Path to stack")
+    parser.add_argument('--metadata', nargs='*', type=str, dest="metadata",help='Path to desired metadata files to be overlaid')
     args = parser.parse_args()
     if len(sys.argv) == 1:
         parser.print_help()
@@ -347,6 +346,9 @@ def parseArgs():
 if __name__ == "__main__":
     args = parseArgs()
     mrc_file_path = args.stackpath
+    metadata_path = args.metadata
+    for json_file_path in metadata_path:
+        meta_data[json_file_path] = parse_json(json_file_path)
     mrcfile.validate(mrc_file_path)
     images_data = read_images_from_mrc(mrc_file_path)
 
