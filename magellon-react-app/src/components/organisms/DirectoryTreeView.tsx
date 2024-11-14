@@ -6,6 +6,7 @@ import { TreeItem } from '@mui/x-tree-view/TreeItem';
 type TreeNode = {
     id: string;
     label: string;
+    path: string;
     children?: TreeNode[] | null;
 };
 
@@ -33,7 +34,7 @@ const DirectoryTreeView: React.FC = () => {
     }, []);
 
     const renderTree = (nodes: TreeNode[]) => {
-        console.log("nodes : " + JSON.stringify(nodes));
+        //console.log("nodes : " + JSON.stringify(nodes));
         if (nodes.length === 0) return null;  // Return null if nodes array is empty
 
         return nodes.map(node => (

@@ -759,7 +759,7 @@ async def get_do_image_ctf_route(full_image_path: str):
 
 
 @webapp_router.get("/scan_directory")
-async def get_directory_structure(path: str):
+async def get_directory_structure_route(path: str):
     return scan_directory(path)
 
 
@@ -780,10 +780,8 @@ async def parse_epu_xml_files(file: UploadFile = File(...)):
 class DirectoryNode(BaseModel):
     id: str
     label: str
+    abs_path: str  # Absolute path for each directory or file
     children: Optional[List["DirectoryNode"]] = None
-
-
-
 
 def get_directory_structure(root_path: str) -> List[DirectoryNode]:
     if not os.path.isdir(root_path):
@@ -791,6 +789,7 @@ def get_directory_structure(root_path: str) -> List[DirectoryNode]:
 
     def build_tree(path: str) -> DirectoryNode:
         label = os.path.basename(path) or path  # Root may not have a basename
+
         node_id = str(uuid.uuid4())  # Unique ID for each node
         children = []
 
@@ -798,15 +797,16 @@ def get_directory_structure(root_path: str) -> List[DirectoryNode]:
             for entry in os.scandir(path):
                 if entry.is_dir():
                     children.append(build_tree(entry.path))
-                else:
-                    children.append(DirectoryNode(id=str(uuid.uuid4()), label=entry.name))
+                elif entry.is_file() and (entry.name.endswith('.mrc') or entry.name.endswith('.tiff')):
+                    # Including the absolute path for each file
+                    children.append(DirectoryNode(id=str(uuid.uuid4()), label=entry.name, abs_path=entry.path))
         except PermissionError:
             pass  # Skip directories/files that can't be accessed
 
-        return DirectoryNode(id=node_id, label=label, children=children or None)
+        # Return node with the absolute path
+        return DirectoryNode(id=node_id, label=label, abs_path=path, children=children or None)
 
     return [build_tree(root_path)]
-
 
 @webapp_router.get("/directory-tree", response_model=List[DirectoryNode])
 def directory_tree(root_path: str):
