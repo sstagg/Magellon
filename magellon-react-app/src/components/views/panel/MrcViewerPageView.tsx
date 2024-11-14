@@ -10,6 +10,7 @@ import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
 import { TreeItem } from '@mui/x-tree-view/TreeItem';
 import { settings } from "../../../core/settings.ts";
 import Button from "@mui/material/Button";
+import DirectoryTreeView from "../../organisms/DirectoryTreeView.tsx";
 
 
 
@@ -35,6 +36,7 @@ interface MetadataType {
 const BASE_URL = settings.ConfigData.SERVER_API_URL;
 
 const MrcViewerPageView: React.FC<MRCViewerProps> = ({ mrcFilePath, metadataFiles = [] }) => {
+
     const [selectedDirectory, setSelectedDirectory] = useState('');
     const [selectedImage, setSelectedImage] = useState(null);
 
@@ -177,23 +179,8 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({ mrcFilePath, metadataFile
                     <Typography variant="h6" gutterBottom>
                         Directory Tree
                     </Typography>
-                    <SimpleTreeView>
-                        <TreeItem itemId="grid" label="Data Grid">
-                            <TreeItem itemId="grid-community" label="@mui/x-data-grid" />
-                            <TreeItem itemId="grid-pro" label="@mui/x-data-grid-pro" />
-                            <TreeItem itemId="grid-premium" label="@mui/x-data-grid-premium" />
-                        </TreeItem>
-                        <TreeItem itemId="pickers" label="Date and Time Pickers">
-                            <TreeItem itemId="pickers-community" label="@mui/x-date-pickers" />
-                            <TreeItem itemId="pickers-pro" label="@mui/x-date-pickers-pro" />
-                        </TreeItem>
-                        <TreeItem itemId="charts" label="Charts">
-                            <TreeItem itemId="charts-community" label="@mui/x-charts" />
-                        </TreeItem>
-                        <TreeItem itemId="tree-view" label="Tree View">
-                            <TreeItem itemId="tree-view-community" label="@mui/x-tree-view" />
-                        </TreeItem>
-                    </SimpleTreeView>
+
+                    <DirectoryTreeView></DirectoryTreeView>
 
             </Grid>
 

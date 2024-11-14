@@ -777,6 +777,43 @@ async def parse_epu_xml_files(file: UploadFile = File(...)):
     results = epu_importer.parse_epu_xml(xml_contents)
     return  results
 
+class DirectoryNode(BaseModel):
+    id: str
+    label: str
+    children: Optional[List["DirectoryNode"]] = None
+
+
+
+
+def get_directory_structure(root_path: str) -> List[DirectoryNode]:
+    if not os.path.isdir(root_path):
+        raise HTTPException(status_code=400, detail="Invalid root directory path")
+
+    def build_tree(path: str) -> DirectoryNode:
+        label = os.path.basename(path) or path  # Root may not have a basename
+        node_id = str(uuid.uuid4())  # Unique ID for each node
+        children = []
+
+        try:
+            for entry in os.scandir(path):
+                if entry.is_dir():
+                    children.append(build_tree(entry.path))
+                else:
+                    children.append(DirectoryNode(id=str(uuid.uuid4()), label=entry.name))
+        except PermissionError:
+            pass  # Skip directories/files that can't be accessed
+
+        return DirectoryNode(id=node_id, label=label, children=children or None)
+
+    return [build_tree(root_path)]
+
+
+@webapp_router.get("/directory-tree", response_model=List[DirectoryNode])
+def directory_tree(root_path: str):
+    root_path=r"C:\temp\test"
+    return get_directory_structure(root_path)
+
+
 
 class ImageResponse(BaseModel):
     images: List[List[List[float]]]
@@ -786,6 +823,8 @@ class ImageResponse(BaseModel):
 
 class MetadataResponse(BaseModel):
     metadata: Dict[str, List[int]]
+
+
 
 def read_images_from_mrc(file_path: str, start_idx: int, count: int) -> ImageResponse:
     """Read a subset of images from an MRC file."""
