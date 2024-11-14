@@ -17,6 +17,7 @@ export const PanelRoutes = () => {
             <Route path="/leginon-transfer" element={<LeginonImportPageView />} />
             <Route path="/domains/*" element={<DomainRoutes />} />
             <Route path="/mrc-viewer" element={<MrcViewerPageView />} />
+            <Route path="/2d-ass" element={<MrcViewerPageView />} />
             <Route path="/api" element={<ApiView />} />
         </Routes>
     );
