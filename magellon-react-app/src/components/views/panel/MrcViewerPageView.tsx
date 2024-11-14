@@ -200,35 +200,50 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({ mrcFilePath, metadataFile
             {/* Main Panel - 8 columns */}
             <Grid container size={9} spacing={2}>
 
-               {/*<Grid size={12}   ref={gridRef}>*/}
-               <Grid size={12}   >
 
-                       <Grid container spacing={2} sx={{ flexGrow: 1 }}>
+                    <Grid size={9} container direction="row">
+                        {imageData?.images ? (
+                            imageData.images.map((image, index) => (
+                                renderImage(image, index)
+                            ))
+                        ) : (
+                            <Box
+                                display="flex"
+                                justifyContent="center"
+                                alignItems="center"
+                                height="200px"
+                            >
+                                <Typography variant="h2" color="error">
+                                    Error: Failed to load images
+                                </Typography>
+                            </Box>
+                        )}
 
-                       </Grid>
-                </Grid>
-                <Grid size={12}>
-                    {imageData?.images ? (
-                        imageData.images.map((image, index) => (
-                            renderImage(image, index)
-                        ))
-                    ) : (
-                        <Box
-                            display="flex"
-                            justifyContent="center"
-                            alignItems="center"
-                            height="200px"
-                        >
-                            <Typography variant="h6" color="error">
-                                Error: Failed to load images
-                            </Typography>
-                        </Box>
-                    )}
-                </Grid>
+                        <Grid size={3} >
+
+                            Table containing metadadata of selected image in disctionary format of key value
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Key</th>
+                                        <th>Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <th>Key</th>
+                                        <th>Value</th>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </Grid>
+
+
+                    </Grid>
                 <Grid container size={12}>
 
-                        <Grid size={6}>
-                            <Typography>Brightness</Typography>
+                    <Grid size={6}>
+                    <Typography>Brightness</Typography>
                             <Slider
                                 value={brightness}
                                 onChange={(_, value) => setBrightness(value as number)}
