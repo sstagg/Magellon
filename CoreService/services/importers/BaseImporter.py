@@ -13,6 +13,12 @@ from models.sqlalchemy_models import Project, Msession
 import logging
 logger = logging.getLogger(__name__)
 
+
+class TaskFailedException(Exception):
+    pass
+
+
+
 class BaseImporter(ABC):
     def __init__(self):
         self.params = None
@@ -128,7 +134,7 @@ class BaseImporter(ABC):
         try:
             fft_path = os.path.join(self.params.target_directory, FFT_SUB_URL,
                                     os.path.splitext(os.path.basename(task.image_path))[0] + FFT_SUFFIX)
-            self.mrc_service.compute_file_fft(mrc_abs_path=task.image_path, abs_out_file_name=fft_path)
+            self.mrc_service.compute_mrc_fft(mrc_abs_path=task.image_path, abs_out_file_name=fft_path)
         except Exception as e:
             print(f"Error computing FFT: {str(e)}")
 

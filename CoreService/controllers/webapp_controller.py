@@ -4,8 +4,10 @@ import json
 import os
 import uuid
 from io import BytesIO
-from typing import List, Optional
+from typing import List, Optional, Dict
 from uuid import UUID
+
+import mrcfile
 from lxml import etree
 
 import airflow_client.client
@@ -15,6 +17,7 @@ from airflow_client.client.api import dag_run_api
 from airflow_client.client.model.dag_run import DAGRun
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import Session, joinedload
@@ -756,7 +759,7 @@ async def get_do_image_ctf_route(full_image_path: str):
 
 
 @webapp_router.get("/scan_directory")
-async def get_directory_structure(path: str):
+async def get_directory_structure_route(path: str):
     return scan_directory(path)
 
 
@@ -773,3 +776,85 @@ async def parse_epu_xml_files(file: UploadFile = File(...)):
     # epu_importer.process_imported_data()
     results = epu_importer.parse_epu_xml(xml_contents)
     return  results
+
+class DirectoryNode(BaseModel):
+    id: str
+    label: str
+    abs_path: str  # Absolute path for each directory or file
+    children: Optional[List["DirectoryNode"]] = None
+
+def get_directory_structure(root_path: str) -> List[DirectoryNode]:
+    if not os.path.isdir(root_path):
+        raise HTTPException(status_code=400, detail="Invalid root directory path")
+
+    def build_tree(path: str) -> DirectoryNode:
+        label = os.path.basename(path) or path  # Root may not have a basename
+
+        node_id = str(uuid.uuid4())  # Unique ID for each node
+        children = []
+
+        try:
+            for entry in os.scandir(path):
+                if entry.is_dir():
+                    children.append(build_tree(entry.path))
+                elif entry.is_file() and (entry.name.endswith('.mrc') or entry.name.endswith('.tiff')):
+                    # Including the absolute path for each file
+                    children.append(DirectoryNode(id=str(uuid.uuid4()), label=entry.name, abs_path=entry.path))
+        except PermissionError:
+            pass  # Skip directories/files that can't be accessed
+
+        # Return node with the absolute path
+        return DirectoryNode(id=node_id, label=label, abs_path=path, children=children or None)
+
+    return [build_tree(root_path)]
+
+@webapp_router.get("/directory-tree", response_model=List[DirectoryNode])
+def directory_tree(root_path: str):
+    root_path=r"C:\temp\test"
+    return get_directory_structure(root_path)
+
+
+
+class ImageResponse(BaseModel):
+    images: List[List[List[float]]]
+    total_images: int
+    height: int
+    width: int
+
+class MetadataResponse(BaseModel):
+    metadata: Dict[str, List[int]]
+
+
+
+def read_images_from_mrc(file_path: str, start_idx: int, count: int) -> ImageResponse:
+    """Read a subset of images from an MRC file."""
+    try:
+        with mrcfile.mmap(file_path, mode='r', permissive=True) as mrc:
+            data = mrc.data
+            total_images = data.shape[0]
+
+            # Validate indices
+            if start_idx >= total_images:
+                raise HTTPException(status_code=400, message="Start index out of range")
+
+            end_idx = min(start_idx + count, total_images)
+            subset = data[start_idx:end_idx]
+
+            # Normalize the data
+            data_min = subset.min()
+            data_max = subset.max()
+            normalized_data = ((subset - data_min) / (data_max - data_min) * 255).tolist()
+
+            return ImageResponse(
+                images=normalized_data,
+                total_images=total_images,
+                height=data.shape[1],
+                width=data.shape[2]
+            )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@webapp_router.get("/mrc/")
+async def get_images(file_path: str, start_idx: int = 0, count: int = 10) -> ImageResponse:
+    """Get a subset of images from the MRC file."""
+    return read_images_from_mrc(file_path, start_idx, count)

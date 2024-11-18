@@ -95,7 +95,7 @@ async def fft_of_mrc_dir(in_dir: str, out_dir: str = ""):
 async def fft_of_mrc_file(abs_file_path: str, abs_out_file_name: str = ""):
     try:
         # out_dir = "C:/temp/images/"
-        mrc_service.compute_file_fft(mrc_abs_path=abs_file_path, abs_out_file_name=abs_out_file_name)
+        mrc_service.compute_mrc_fft(mrc_abs_path=abs_file_path, abs_out_file_name=abs_out_file_name)
         return {"message": "MRC file successfully converted to fft PNG!"}
 
     except Exception as e:

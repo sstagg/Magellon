@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from scipy import fftpack
 from scipy.fft import fft2
 import scipy.fftpack
+from tifffile import TiffFile
 
 from config import IMAGE_SUB_URL, THUMBNAILS_SUB_URL, FFT_SUB_URL , THUMBNAILS_SUFFIX
 
@@ -35,6 +36,7 @@ class MrcImageService:
         except Exception as e:
             print(f"An error occurred while creating the directory: {str(e)}")
 
+
     def compute_dir_fft(self, in_dir, out_dir, height=1024):
         files = [os.path.abspath(os.path.join(in_dir, f)) for f in os.listdir(in_dir) if
                  os.path.isfile(os.path.join(in_dir, f))]
@@ -46,6 +48,7 @@ class MrcImageService:
             with mrcfile.open(abs_file_name, permissive=True) as mrc:
                 mic = mrc.data.reshape(mrc.data.shape[-2], mrc.data.shape[-1])
             self.compute_fft(img=mic, abs_out_file_name=fft_file_path, height=height)
+
 
     def compute_fft(self, img, abs_out_file_name, height=1024):
         # Fourier transform of the image
@@ -61,39 +64,32 @@ class MrcImageService:
         plt.imsave(abs_out_file_name, new_img, cmap='gray')
         return
 
-    def compute_file_ctf(self,image):
-        """Calculate the contrast transfer function (CTF) of an image."""
-        rows, cols = image.shape
-        x = np.linspace(-cols / 2, cols / 2 - 1, cols)
-        y = np.linspace(-rows / 2, rows / 2 - 1, rows)
-        xx, yy = np.meshgrid(x, y)
-        radius = np.sqrt(xx ** 2 + yy ** 2)
-        ctf = np.abs(fftpack.fftshift(fftpack.fft2(image))) / np.max(image)
-        ctf = np.log10(1 / (1 - ctf))
-        return ctf
 
-    def calculate_and_save_ctf(self,mrc_path, save_path):
-        # Load MRC file
-        with mrcfile.open(mrc_path) as mrc:
-            image = np.array(mrc.data)
-        # Calculate CTF
-        rows, cols = image.shape
-        x = np.linspace(-cols / 2, cols / 2 - 1, cols)
-        y = np.linspace(-rows / 2, rows / 2 - 1, rows)
-        xx, yy = np.meshgrid(x, y)
-        radius = np.sqrt(xx**2 + yy**2)
-        ctf = np.abs(fftpack.fftshift(fftpack.fft2(image))) / np.max(image)
-        ctf = np.log10(1 / (1 - ctf))
+    def compute_tiff_fft(self, tiff_abs_path, abs_out_file_name, height=1024):
+        try:
+            # Load TIFF data
+            with TiffFile(tiff_abs_path) as tiff:
+                image_data = tiff.asarray()
 
-        # Normalize CTF to 0-255 range and convert to uint8
-        ctf_normalized = (ctf - np.min(ctf)) / (np.max(ctf) - np.min(ctf)) * 255
-        ctf_uint8 = ctf_normalized.astype(np.uint8)
+            # Convert to float for FFT computation
+            image_data = np.array(image_data, dtype=float)
 
-        # Save CTF as PNG image
-        ctf_image = Image.fromarray(ctf_uint8)
-        ctf_image.save(save_path)
+            # Perform Fourier Transform
+            F1 = fft2(image_data)
+            F2 = scipy.fft.fftshift(F1)  # Shift low frequencies to the center
+            fft_magnitude = np.log(1 + np.abs(F2))  # Log scale for visibility
 
-    def compute_file_fft(self, mrc_abs_path, abs_out_file_name, height=1024):
+            # Downsample the FFT result
+            downsampled_fft = self.down_sample(fft_magnitude, height)
+
+            # Save the resulting image as grayscale
+            plt.imsave(abs_out_file_name, downsampled_fft, cmap='gray')
+
+        except Exception as e:
+            print(f"An error occurred while processing {tiff_abs_path}: {e}")
+
+
+    def compute_mrc_fft(self, mrc_abs_path, abs_out_file_name, height=1024):
         # Fourier transform of the image
         with mrcfile.open(mrc_abs_path, permissive=True) as mrc:
             mic = mrc.data.reshape(mrc.data.shape[-2], mrc.data.shape[-1])
@@ -131,6 +127,7 @@ class MrcImageService:
         new_image.rotate(180)
         return new_image
 
+
     def convert_mrc_dir_to_png(self, in_dir, out_dir, height=1024, thumbnail_height=494):
         """
             Convert all MRC files in the input directory to PNG format and save them in the output directory.
@@ -150,6 +147,7 @@ class MrcImageService:
         for filename in files:
             self.convert_mrc_to_png(filename, out_dir, height, thumbnail_height)
 
+
     def convert_mrc_to_png(self, abs_file_path, out_dir, height=1024, thumbnail_height=494):
         try:
             print(f"filename {abs_file_path}")
@@ -165,11 +163,6 @@ class MrcImageService:
             self.create_image_directory(png_path)
             self.create_image_directory(thumbnail_path)
 
-            # fft_path = os.path.join(out_dir, FFT_SUB_URL,
-            #                         os.path.splitext(os.path.basename(abs_file_path))[0] + "_FFT.png")
-            # self.create_image_directory(fft_path)
-            # self.compute_fft(img=mic, abs_out_file_name=fft_path)
-
             new_image = self.scale_image(mic, height)
             new_image.save(png_path)
 
@@ -178,6 +171,44 @@ class MrcImageService:
 
         except ValueError:
             print(f"An error occurred when trying to save png {abs_file_path}")
+
+    def convert_tiff_to_png(self, abs_file_path, out_dir, height=1024, thumbnail_height=494):
+        try:
+            print(f"Processing file: {abs_file_path}")
+
+            # Load TIFF data
+            with TiffFile(abs_file_path) as tiff:
+                image_data = tiff.asarray()
+
+            # Convert to 8-bit if the image is 16-bit
+            if image_data.dtype == np.uint16:
+                image_data = ((image_data - image_data.min()) * (255.0 / (image_data.max() - image_data.min()))).astype(np.uint8)
+
+            # Convert to PIL Image
+            pil_image = Image.fromarray(image_data)
+
+            # Paths for full image and thumbnail
+            png_path = os.path.join(out_dir, IMAGE_SUB_URL,
+                                    os.path.splitext(os.path.basename(abs_file_path))[0] + ".png")
+            thumbnail_path = os.path.join(out_dir, THUMBNAILS_SUB_URL,
+                                          os.path.splitext(os.path.basename(abs_file_path))[0] + THUMBNAILS_SUFFIX)
+
+            # Resize and save the full-size image
+            full_width = int((pil_image.width / pil_image.height) * height)
+            full_image = pil_image.resize((full_width, height), resample=Image.Resampling.LANCZOS)
+            full_image.save(png_path, "PNG")
+
+            # Resize and save the thumbnail
+            thumb_width = int((pil_image.width / pil_image.height) * thumbnail_height)
+            thumbnail_image = pil_image.resize((thumb_width, thumbnail_height), resample=Image.Resampling.LANCZOS)
+            thumbnail_image.save(thumbnail_path, "PNG")
+
+        except Exception as e:
+            print(f"An error occurred while processing {abs_file_path}: {e}")
+
+
+
+
 
     # def convert_mrc_to_png(self, abs_file_path, outdir, height=1024, thumbnail_height=494):
     #     try:

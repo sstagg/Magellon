@@ -13,15 +13,23 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from datetime import datetime
 
-from core.helper import custom_replace
+from core.helper import custom_replace, dispatch_ctf_task
 from database import get_db
 from models.pydantic_models import EPUImportTaskDto
 from models.sqlalchemy_models import Image, Msession, Project, ImageJob, ImageJobTask
 from fastapi import Depends
 
-from services.importers.BaseImporter import  BaseImporter
+from services.file_service import copy_file
+from services.importers.BaseImporter import BaseImporter, TaskFailedException
+from config import FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, \
+    FFT_SUFFIX, FRAMES_SUFFIX, app_settings, ATLAS_SUB_URL, CTF_SUB_URL
+
+
 
 import logging
+
+from services.mrc_image_service import MrcImageService
+
 logger = logging.getLogger(__name__)
 
 
@@ -182,6 +190,7 @@ class EPUImporter(BaseImporter):
     def __init__(self):
         super().__init__()
         self.image_tasks = []
+        self.mrc_service = MrcImageService()
 
     def import_data(self):
         # Implement EPU-specific data import logic
@@ -380,7 +389,82 @@ class EPUImporter(BaseImporter):
             logger.error(error_message, exc_info=True)
             return {"error": error_message, "exception": str(e)}
 
+    def run_tasks(self, db_session: Session,magellon_session :Msession):
+        try:
+            # Iterate over each task in the task list and run it synchronously
+            for task in self.params.task_list:
+                self.run_task(task,magellon_session)
+        except Exception as e:
+            print("An unexpected error occurred:", str(e))
 
+    def run_task(self, task_dto: EPUImportTaskDto,magellon_session :Msession) -> Dict[str, str]:
+        try:
+            source_image_path = os.path.splitext(task_dto.image_path)[0] + ".tiff"
+            # 1
+            self.transfer_frame(task_dto)
+            # 2
+            if task_dto.job_dto.copy_images:
+                # Construct the source and target paths
+
+                target_image_path = os.path.join(
+                    task_dto.job_dto.target_directory, ORIGINAL_IMAGES_SUB_URL, task_dto.image_name + ".tiff"
+                )
+
+                # Check if the source file exists before copying
+                if os.path.exists(source_image_path):
+                    copy_file(source_image_path, target_image_path)
+                    task_dto.image_path = target_image_path
+
+            # # Generate FFT using the REST API
+            if os.path.exists(source_image_path):
+                self.convert_image_to_png_task(source_image_path, task_dto.job_dto.target_directory)
+            self.compute_fft_png_task(source_image_path, task_dto.job_dto.target_directory)
+            # self.compute_ctf_task(task_dto.image_path, task_dto)
+
+            return {'status': 'success', 'message': 'Task completed successfully.'}
+
+        except Exception as e:
+            raise TaskFailedException(f"Task failed with error: {str(e)}")
+
+    def convert_image_to_png_task(self, abs_file_path, out_dir):
+        try:
+            # generates png and thumbnails
+            self.mrc_service.convert_tiff_to_png(abs_file_path=abs_file_path, out_dir=out_dir)
+            return {"message": "Tiff file successfully converted to PNG!"}
+        except Exception as e:
+            return {"error": str(e)}
+
+    def compute_fft_png_task(self, abs_file_path: str, out_dir: str):
+        try:
+            fft_path = os.path.join(out_dir, FFT_SUB_URL,
+                                    os.path.splitext(os.path.basename(abs_file_path))[0] + FFT_SUFFIX)
+            # self.create_image_directory(fft_path)
+            # self.compute_fft(img=mic, abs_out_file_name=fft_path)
+            self.mrc_service.compute_tiff_fft(tiff_abs_path=abs_file_path, abs_out_file_name=fft_path)
+            return {"message": "MRC file successfully converted to fft PNG!"}
+
+        except Exception as e:
+            return {"error": str(e)}
+
+    def transfer_frame(self, task_dto):
+        try:
+            # copy frame if exists
+            if task_dto.frame_path:
+                    _, file_extension = os.path.splitext(task_dto.frame_path)
+                    target_path = os.path.join(task_dto.job_dto.target_directory, FRAMES_SUB_URL,
+                                               task_dto.file_name + FRAMES_SUFFIX + file_extension)
+                    copy_file(task_dto.frame_path, target_path)
+        except Exception as e:
+            print(f"An error occurred during frame transfer: {e}")
+
+    def compute_ctf_task(self, abs_file_path: str, task_dto: EPUImportTaskDto):
+        try:
+            if (task_dto.pixel_size * 10 ** 10) <= 5:
+                dispatch_ctf_task(task_dto.task_id, abs_file_path, task_dto)
+                return {"message": "Converting to ctf on the way! " + abs_file_path}
+
+        except Exception as e:
+            return {"error": str(e)}
 
     def get_image_tasks(self):
         return self.image_tasks
