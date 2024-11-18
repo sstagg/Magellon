@@ -113,7 +113,10 @@ class CryosparcExtractor:
         # Metadata from the mass estimator (remove estimated mass; it is useless as a parameter)
         mass_est_names = ['dmean_mass', 'dmedian_mass', 'dmode_mass']
         mass_est = pd.DataFrame.from_records(calc_mass_stats_for_stack(self.mrc_path))
-        mass_est['dmode'] = mass_est['dmode'].apply(lambda x: x[0])
+        # print(mass_est['dmode'].head())
+        # mass_est['dmode'] = mass_est['dmode'].apply(lambda x: x[0])
+        mass_est['dmode'] = mass_est['dmode'].astype(float)  # Ensure it's float if needed
+
         mass_est = mass_est.drop(columns=['mass']).to_numpy()
         
         # Grab resolution and pixel size directly from the .cs averages file

@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 current_directory = os.getcwd()
 Project2DDirectory = os.path.join(current_directory, '2dclass_evaluator')
-UploadsDirectory=os.path.join(os.getcwd(),'uploads')
+UploadsDirectory=os.path.join(os.getcwd(), os.getenv('UPLOAD_DIR', 'uploads'))
 
 class SelectedValue(str, Enum):
     cryo = "cryo"
@@ -21,6 +21,7 @@ class Item(BaseModel):
 
 class Payload(BaseModel):
     uuid: str
+    selectedValue:str
     items: List[Item]
 
 def getrelionfiles(directory_path):
@@ -52,15 +53,16 @@ def getrelionfiles(directory_path):
 
 
 def getCommand(selected_value,uuid):
+    folder_name = f"{selected_value}_{uuid}"
     if selected_value == SelectedValue.cryo:
         return ' '.join([
             os.path.join(Project2DDirectory, "CNNTraining", "cryosparc_2DavgAssess.py"),
-            "-i", os.path.join(UploadsDirectory, uuid),
-            "-o", os.path.join(UploadsDirectory, uuid, "outputs", "output"),
+            "-i", os.path.join(UploadsDirectory, folder_name),
+            "-o", os.path.join(UploadsDirectory, folder_name, "outputs", "output"),
             "-w", os.path.join(Project2DDirectory, "CNNTraining", "final_model", "final_model_cont.pth")
         ])
     elif selected_value == SelectedValue.relion:
-        mrcs_file, star_file = getrelionfiles(os.path.join(UploadsDirectory, uuid))
+        mrcs_file, star_file = getrelionfiles(os.path.join(UploadsDirectory, folder_name))
         return ' '.join([
             os.path.join(Project2DDirectory, "CNNTraining", "relion_2DavgAssess.py"),
             "-i", mrcs_file,

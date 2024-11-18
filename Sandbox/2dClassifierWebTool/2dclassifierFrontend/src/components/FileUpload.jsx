@@ -14,6 +14,7 @@ const FileUpload = () => {
 
   const [files, setFiles] = useState([]);
   const [selectedValue, setSelectedValue] = useState('');
+  const [updateSelectedValue,setUpdateSelectedValue]=useState('')
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [notification, setNotification] = useState({
@@ -28,6 +29,7 @@ const FileUpload = () => {
     setFiles(e.target.files);
     setUploadProgress(0);
     setUuid(null);
+    setUpdateSelectedValue('')
   };
 
   const handleValueChange = (e) => {
@@ -68,6 +70,7 @@ const FileUpload = () => {
         },
       });
       setUuid(uniqueId);
+      setUpdateSelectedValue(response.data.selectedValue)
 
       const combinedData = response.data.imageFilepaths.map((path, index) => ({
         image: path,
@@ -130,7 +133,7 @@ const FileUpload = () => {
         <UploadProgress loading={loading} uploadProgress={uploadProgress} />
       </Box>
 
-      {data.length > 0 && <ImageGallery items={data} uuid={uuid} />}
+      {data.length > 0 && <ImageGallery items={data} uuid={uuid} updateSelectedValue={updateSelectedValue}/>}
     </>
   );
 };

@@ -39,7 +39,8 @@ for script_path in script_paths:
 async def upload_files(uuid: str = Form(...),selectedValue: SelectedValue = Form(...), files: list[UploadFile] = File(...)):
     if selectedValue not in SelectedValue:
         raise HTTPException(status_code=400, detail="Invalid selected value.")
-    upload_path = os.path.join(UPLOAD_DIRECTORY, uuid)
+    folder_name = f"{selectedValue.value}_{uuid}"
+    upload_path = os.path.join(UPLOAD_DIRECTORY, folder_name)
     os.makedirs(upload_path, exist_ok=True)
     output_path = os.path.join(upload_path, "outputs")
     os.makedirs(output_path, exist_ok=True)
@@ -48,7 +49,7 @@ async def upload_files(uuid: str = Form(...),selectedValue: SelectedValue = Form
         file_location = os.path.join(upload_path, file.filename)
         with open(file_location, "wb") as f:
             while True:
-                chunk = await file.read(1024 * 1024)  # Read 1 MB chunks
+                chunk = await file.read(1024 * 1024)  
                 if not chunk:
                     break
                 f.write(chunk)
@@ -73,8 +74,8 @@ async def upload_files(uuid: str = Form(...),selectedValue: SelectedValue = Form
 
     outputImageDir = os.path.join(output_path, "images")
     os.makedirs(outputImageDir, exist_ok=True)
-    imageFilepaths=await getImageFilePaths(uuid,outputImageDir,selectedValue)
-    classifiedOutputValues=await getClassifiedOutputValues(uuid,selectedValue)
+    imageFilepaths=await getImageFilePaths(folder_name,outputImageDir,selectedValue)
+    classifiedOutputValues=await getClassifiedOutputValues(folder_name,selectedValue)
     if len(imageFilepaths) != len(classifiedOutputValues):
         raise HTTPException(status_code=500, detail="Error: classification value extraction went wrong")
     
@@ -82,7 +83,8 @@ async def upload_files(uuid: str = Form(...),selectedValue: SelectedValue = Form
 
     return JSONResponse(content={"imageFilepaths":imageFilepaths,
                                  "extractedValues":classifiedOutputValues,
-                                 "uuid":uuid
+                                 "uuid":uuid,
+                                 "selectedValue":selectedValue.value
                                  }, status_code=200)
 
 
@@ -99,7 +101,7 @@ async def receive_payload(payload: Payload):
             "oldValue": item.oldValue,
             "newValue": item.newValue
         })
-    upload_path = os.path.join(UPLOAD_DIRECTORY, payload.uuid)
+    upload_path = os.path.join(UPLOAD_DIRECTORY, f"{payload.selectedValue}_{payload.uuid}")
     if os.path.exists(upload_path) and os.path.isdir(upload_path):
         json_file_path = os.path.join(upload_path, 'updatedvalues.json')
         with open(json_file_path, 'w') as json_file:
@@ -107,7 +109,7 @@ async def receive_payload(payload: Payload):
 
         return {"message": "Payload received successfully and JSON file created."}
     else:
-        raise HTTPException(status_code=404, detail=f"Folder '{payload.uuid}' does not exist.")
+        raise HTTPException(status_code=404, detail=f"Folder '{payload.selectedValue}_{payload.uuid}' does not exist.")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

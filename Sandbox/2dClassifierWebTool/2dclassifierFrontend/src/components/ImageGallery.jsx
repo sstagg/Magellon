@@ -7,7 +7,7 @@ import Notification from './Notification';
 import axios from 'axios';
 import { LabelAssign } from './LabelAssign';
 
-const ImageGallery = ({ items, uuid }) => {
+const ImageGallery = ({ items, uuid,updateSelectedValue }) => {
   const BackendURL = process.env.REACT_APP_BACKEND_URL;
   const [isEditing, setIsEditing] = useState(false);
   const [selectedValues, setSelectedValues] = useState(Array(items.length).fill(null));
@@ -48,6 +48,7 @@ const ImageGallery = ({ items, uuid }) => {
   const handleSendUpdate = async () => {
     const payload = {
       uuid,
+      selectedValue:updateSelectedValue,
       items: items.map((item, index) => ({
         updated: tempValues[index] !== null,
         oldValue: item.value,
