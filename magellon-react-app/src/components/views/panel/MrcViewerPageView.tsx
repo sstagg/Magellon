@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {Box, MenuItem, Select, Slider, Typography} from '@mui/material';
+import {Box, MenuItem, Select, Slider, Typography,Pagination } from '@mui/material';
 import Grid from '@mui/material/Grid2';
 import {settings} from "../../../core/settings.ts";
 import DirectoryTreeView from "../../organisms/DirectoryTreeView.tsx";
@@ -176,9 +176,10 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath, metadataFiles
                         top: 2,
                         left: 2,
                         backgroundColor: 'background.default',
-                        color: 'text.primary',
+                        color: selectedImage === index ? 'blue' : 'text.primary', // Change color for selected image
                         borderRadius: 1,
                         padding: '2px 4px',
+                        transition: 'color 0.3s ease',
                     }}
                 >
                     {index + 1}
@@ -186,11 +187,13 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath, metadataFiles
             </Box>
         );
     };
-
+    const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
+        setPage(value);
+    };
     return (
         <Grid container spacing={2}>
             {/* Left Panel - 3 columns */}
-            <Grid size={3}>
+            <Grid size={2}>
 
                 <Typography variant="h6" gutterBottom>
                     Directory Tree
@@ -201,7 +204,7 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath, metadataFiles
             </Grid>
 
             {/* Main Panel - 8 columns */}
-            <Grid container size={9} spacing={2}>
+            <Grid container size={10} spacing={2}>
 
 
                 <Grid size={9} container direction="row">
@@ -259,9 +262,9 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath, metadataFiles
                     </tbody>
                 </table>
             </Grid>
-                <Grid container size={12}>
 
-                    <Grid size={6}>
+
+                    <Grid size={2}>
                         <Grid size={12}>
                             <Typography variant="h6" display="inline" style={{marginRight: 8}}>
                                 Brightness:
@@ -279,7 +282,7 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath, metadataFiles
                             step={1}
                         />
                     </Grid>
-                    <Grid size={6}>
+                    <Grid size={2}>
                         <Grid size={12}>
                             <Typography variant="h6" display="inline" style={{marginRight: 8}}>
                                 Contrast:
@@ -298,11 +301,11 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath, metadataFiles
                     </Grid>
 
 
-                </Grid>
-                <Grid container size={12} spacing={2} alignItems="center">
 
 
-                    <Grid size={6}>
+
+
+                    <Grid size={2}>
                         <Grid size={12}>
                             <Typography variant="h6" display="inline" style={{marginRight: 8}}>
                                 Scale:
@@ -320,24 +323,42 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath, metadataFiles
                             aria-labelledby="scale-slider"
                         />
                     </Grid>
+                    <Grid container size={6}>
 
-                    <Grid>
-                        <Typography>Items per page:</Typography>
+                        <Grid >
+                            <Typography variant="h6" display="inline" style={{marginRight: 8}}>
+                                Items per page:
+                            </Typography>
+                        </Grid>
+
+                        <Grid >
+                            <Select
+                                value={String(itemsPerPage)}
+                                onChange={(event) => setItemsPerPage(Number(event.target.value))}
+                            >
+                                {[1, 5, 10, 25, 50, 100].map((value) => (
+                                    <MenuItem key={value} value={value}>
+                                        {value}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </Grid>
+
+                        <Grid >
+                            <Pagination
+                                count={Math.ceil(imageData?.total_images / itemsPerPage) || 0}
+                                page={page}
+                                onChange={handlePageChange}
+                                color="primary"
+                            />
+                        </Grid>
                     </Grid>
-                    <Grid>
-                        <Select
-                            value={String(itemsPerPage)}
-                            onChange={(event) => setItemsPerPage(Number(event.target.value))}
-                        >
-                            {[1, 5, 10, 25, 50, 100].map((value) => (
-                                <MenuItem key={value} value={value}>
-                                    {value}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </Grid>
+
+
                 </Grid>
-            </Grid>
+
+
+
         </Grid>
     );
 
