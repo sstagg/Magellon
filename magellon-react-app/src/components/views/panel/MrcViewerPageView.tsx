@@ -152,7 +152,14 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath, metadataFiles
                     padding: 2,
                     width: scaledWidth + 20,
                     height: scaledHeight + 20,
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                        boxShadow: '0 0 10px rgba(0, 0, 255, 0.5)', // Hover effect
+                        transform: 'scale(1.05)', // Slight zoom effect
+                    },
+                    border: selectedImage === index ? '3px solid blue' : 'none', // Border for selected image
                 }}
+                onClick={() => setSelectedImage(index)}
             >
                 <img
                     src={canvas.toDataURL()}
@@ -176,21 +183,6 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath, metadataFiles
                 >
                     {index + 1}
                 </Box>
-                {selectedMetadata && metadata[selectedMetadata] && (
-                    <Box
-                        sx={{
-                            position: 'absolute',
-                            bottom: 2,
-                            left: 2,
-                            backgroundColor: 'background.default',
-                            color: 'text.primary',
-                            borderRadius: 1,
-                            padding: '2px 4px',
-                        }}
-                    >
-                        {metadata[selectedMetadata][index]}
-                    </Box>
-                )}
             </Box>
         );
     };
