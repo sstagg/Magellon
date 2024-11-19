@@ -1,17 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-    Box,
-    Divider,
-    Typography,Badge,
- Slider, Select, MenuItem
-} from '@mui/material';
+import React, {useEffect, useState} from 'react';
+import {Box, MenuItem, Select, Slider, Typography} from '@mui/material';
 import Grid from '@mui/material/Grid2';
-import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
-import { TreeItem } from '@mui/x-tree-view/TreeItem';
-import { settings } from "../../../core/settings.ts";
-import Button from "@mui/material/Button";
+import {settings} from "../../../core/settings.ts";
 import DirectoryTreeView from "../../organisms/DirectoryTreeView.tsx";
-
 
 
 interface MRCViewerProps {
@@ -35,7 +26,7 @@ interface MetadataType {
 
 const BASE_URL = settings.ConfigData.SERVER_API_URL;
 
-const MrcViewerPageView: React.FC<MRCViewerProps> = ({ mrcFilePath, metadataFiles = [] }) => {
+const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath, metadataFiles = []}) => {
 
     const [selectedDirectory, setSelectedDirectory] = useState('');
     const [selectedImage, setSelectedImage] = useState(null);
@@ -50,7 +41,6 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({ mrcFilePath, metadataFile
     const [brightness, setBrightness] = useState(50);
     const [contrast, setContrast] = useState(50);
     const [columns, setColumns] = useState(3);
-
 
 
     useEffect(() => {
@@ -78,42 +68,77 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({ mrcFilePath, metadataFile
         fetchImages();
     }, [mrcFilePath, page, itemsPerPage]);
 
+    const adjustImageData = (imageArray: number[][], scale: number) => {
+        if (!imageArray || imageArray.length === 0 || imageArray[0].length === 0) {
+            console.error('Invalid imageArray data');
+            return null;
+        }
 
+        const originalHeight = imageArray.length;
+        const originalWidth = imageArray[0].length;
+        const scaledHeight = Math.round(originalHeight * scale);
+        const scaledWidth = Math.round(originalWidth * scale);
 
-    const adjustImageData = (imageArray: number[][]) => {
-        const adjustedArray = imageArray.map(row =>
+        const scaledArray = Array.from({ length: scaledHeight }, () =>
+            new Array(scaledWidth).fill(0)
+        );
+
+        for (let y = 0; y < scaledHeight; y++) {
+            for (let x = 0; x < scaledWidth; x++) {
+                const originalY = Math.floor(y / scale);
+                const originalX = Math.floor(x / scale);
+                scaledArray[y][x] = imageArray[originalY][originalX];
+            }
+        }
+
+        const adjustedArray = scaledArray.map(row =>
             row.map(pixel => {
                 let adjusted = pixel * (brightness / 50);
                 adjusted = 128 + (contrast / 50) * (adjusted - 128);
                 return Math.max(0, Math.min(255, adjusted));
             })
         );
+
         return adjustedArray;
     };
 
-    const renderImage = (imageArray: number[][], index: number) => {
-        const adjustedData = adjustImageData(imageArray);
+    const renderImage = (
+        imageArray: number[][],
+        index: number,
+        scale: number
+    ) => {
+        if (!imageArray || imageArray.length === 0 || imageArray[0].length === 0) {
+            return <div>Error: Invalid image data</div>;
+        }
+
+        const adjustedData = adjustImageData(imageArray, scale);
+
+        if (!adjustedData || adjustedData.length === 0 || !adjustedData[0]) {
+            return <div>Error: Failed to adjust image data</div>;
+        }
+
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         if (!ctx) return null;
 
-        const scaledHeight = imageData?.height ? imageData.height * scale : 256;
-        const scaledWidth = imageData?.width ? imageData.width * scale : 256;
+        const scaledHeight = adjustedData.length;
+        const scaledWidth = adjustedData[0].length;
 
         canvas.width = scaledWidth;
         canvas.height = scaledHeight;
 
         const canvasImageData = ctx.createImageData(scaledWidth, scaledHeight);
-        for (let i = 0; i < adjustedData.length; i++) {
-            for (let j = 0; j < adjustedData[i].length; j++) {
+        for (let i = 0; i < scaledHeight; i++) {
+            for (let j = 0; j < scaledWidth; j++) {
                 const pixelIndex = (i * scaledWidth + j) * 4;
                 const value = adjustedData[i][j];
                 canvasImageData.data[pixelIndex] = value;
                 canvasImageData.data[pixelIndex + 1] = value;
                 canvasImageData.data[pixelIndex + 2] = value;
-                canvasImageData.data[pixelIndex + 3] = 255;
+                canvasImageData.data[pixelIndex + 3] = 255; // Alpha channel
             }
         }
+
         ctx.putImageData(canvasImageData, 0, 0);
 
         return (
@@ -170,17 +195,16 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({ mrcFilePath, metadataFile
         );
     };
 
-
     return (
         <Grid container spacing={2}>
             {/* Left Panel - 3 columns */}
             <Grid size={3}>
 
-                    <Typography variant="h6" gutterBottom>
-                        Directory Tree
-                    </Typography>
+                <Typography variant="h6" gutterBottom>
+                    Directory Tree
+                </Typography>
 
-                    <DirectoryTreeView></DirectoryTreeView>
+                <DirectoryTreeView></DirectoryTreeView>
 
             </Grid>
 
@@ -188,50 +212,66 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({ mrcFilePath, metadataFile
             <Grid container size={9} spacing={2}>
 
 
-                    <Grid size={9} container direction="row">
-                        {imageData?.images ? (
-                            imageData.images.map((image, index) => (
-                                renderImage(image, index)
-                            ))
-                        ) : (
-                            <Box
-                                display="flex"
-                                justifyContent="center"
-                                alignItems="center"
-                                height="200px"
-                            >
-                                <Typography variant="h2" color="error">
-                                    Error: Failed to load images
-                                </Typography>
-                            </Box>
-                        )}
+                <Grid size={9} container direction="row">
+                    {imageData?.images?.length ? (
+                        imageData.images.map((image, index) =>
+                            renderImage(image, index, scale)
+                        )
+                    ) : (
+                        <Box
+                            display="flex"
+                            justifyContent="center"
+                            alignItems="center"
+                            height="200px"
+                        >
+                            <Typography variant="h2" color="error">
+                                Error: Failed to load images
+                            </Typography>
+                        </Box>
+                    )}
+                </Grid>
 
-                        <Grid size={3} >
+                <Grid size={3}>
 
-                            Table containing metadadata of selected image in disctionary format of key value
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Key</th>
-                                        <th>Value</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <th>Key</th>
-                                        <th>Value</th>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </Grid>
-
-
-                    </Grid>
+                <Typography variant="h6" display="inline" style={{marginRight: 8}}>
+                    Metadata:
+                </Typography>
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Key</th>
+                        <th>Value</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td>First Name</td>
+                        <td>John</td>
+                    </tr>
+                    <tr>
+                        <td>Last Name</td>
+                        <td>Doe</td>
+                    </tr>
+                    <tr>
+                        <td>Age</td>
+                        <td>30</td>
+                    </tr>
+                    <tr>
+                        <td>Country</td>
+                        <td>United States</td>
+                    </tr>
+                    <tr>
+                        <td>Email</td>
+                        <td>john.doe@example.com</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </Grid>
                 <Grid container size={12}>
 
                     <Grid size={6}>
-                        <Grid  size={12}>
-                            <Typography variant="h6" display="inline" style={{ marginRight: 8 }}>
+                        <Grid size={12}>
+                            <Typography variant="h6" display="inline" style={{marginRight: 8}}>
                                 Brightness:
                             </Typography>
                             <Typography variant="h6" display="inline" color="primary">
@@ -239,77 +279,71 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({ mrcFilePath, metadataFile
                             </Typography>
                         </Grid>
 
-                            <Slider
-                                value={brightness}
-                                onChange={(_, value) => setBrightness(value as number)}
-                                min={0}
-                                max={100}
-                                step={1}
-                            />
+                        <Slider
+                            value={brightness}
+                            onChange={(_, value) => setBrightness(value as number)}
+                            min={0}
+                            max={100}
+                            step={1}
+                        />
+                    </Grid>
+                    <Grid size={6}>
+                        <Grid size={12}>
+                            <Typography variant="h6" display="inline" style={{marginRight: 8}}>
+                                Contrast:
+                            </Typography>
+                            <Typography variant="h6" display="inline" color="primary">
+                                {contrast}
+                            </Typography>
                         </Grid>
-                        <Grid size={6}>
-                            <Grid  size={12}>
-                                <Typography variant="h6" display="inline" style={{ marginRight: 8 }}>
-                                    Contrast:
-                                </Typography>
-                                <Typography variant="h6" display="inline" color="primary">
-                                    {contrast}
-                                </Typography>
-                            </Grid>
-                            <Slider
-                                value={contrast}
-                                onChange={(_, value) => setContrast(value as number)}
-                                min={0}
-                                max={100}
-                                step={1}
-                            />
-                        </Grid>
+                        <Slider
+                            value={contrast}
+                            onChange={(_, value) => setContrast(value as number)}
+                            min={0}
+                            max={100}
+                            step={1}
+                        />
+                    </Grid>
 
 
                 </Grid>
                 <Grid container size={12} spacing={2} alignItems="center">
 
 
-                            <Grid >
-                                <Typography>Scale:</Typography>
-                            </Grid>
-                            <Grid >
-                                <Button
-                                    variant="outlined"
-                                    onClick={() => setScale(s => Math.max(0.1, s - 0.1))}
-                                >
-                                    -
-                                </Button>
-                            </Grid>
-                            <Grid >
-                                <Typography>{scale.toFixed(1)}</Typography>
-                            </Grid>
-                            <Grid >
-                                <Button
-                                    variant="outlined"
-                                    onClick={() => setScale(s => s + 0.1)}
-                                >
-                                    +
-                                </Button>
-                            </Grid>
+                    <Grid size={6}>
+                        <Grid size={12}>
+                            <Typography variant="h6" display="inline" style={{marginRight: 8}}>
+                                Scale:
+                            </Typography>
+                            <Typography variant="h6" display="inline" color="primary">
+                                {scale}
+                            </Typography>
+                        </Grid>
+                        <Slider
+                            value={scale}
+                            onChange={(_, value) => setScale(value as number)}
+                            min={0.1}
+                            max={5}
+                            step={0.1}
+                            aria-labelledby="scale-slider"
+                        />
+                    </Grid>
 
-
-
-                            <Grid >
-                                <Typography>Items per page:</Typography>
-                            </Grid>
-                            <Grid >
-                                <Select
-                                    value={String(itemsPerPage)}
-                                    onChange={(event) => setItemsPerPage(Number(event.target.value))}
-                                >
-                                    {[1, 5, 10, 25, 50, 100].map((value) => (
-                                        <MenuItem key={value} value={value}>
-                                            {value}
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                            </Grid>
+                    <Grid>
+                        <Typography>Items per page:</Typography>
+                    </Grid>
+                    <Grid>
+                        <Select
+                            value={String(itemsPerPage)}
+                            onChange={(event) => setItemsPerPage(Number(event.target.value))}
+                        >
+                            {[1, 5, 10, 25, 50, 100].map((value) => (
+                                <MenuItem key={value} value={value}>
+                                    {value}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </Grid>
                 </Grid>
             </Grid>
         </Grid>
