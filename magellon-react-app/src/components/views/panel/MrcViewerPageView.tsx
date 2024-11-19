@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
     Box,
     Divider,
-    Typography,
+    Typography,Badge,
  Slider, Select, MenuItem
 } from '@mui/material';
 import Grid from '@mui/material/Grid2';
@@ -230,7 +230,15 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({ mrcFilePath, metadataFile
                 <Grid container size={12}>
 
                     <Grid size={6}>
-                    <Typography>Brightness</Typography>
+                        <Grid  size={12}>
+                            <Typography variant="h6" display="inline" style={{ marginRight: 8 }}>
+                                Brightness:
+                            </Typography>
+                            <Typography variant="h6" display="inline" color="primary">
+                                {brightness}
+                            </Typography>
+                        </Grid>
+
                             <Slider
                                 value={brightness}
                                 onChange={(_, value) => setBrightness(value as number)}
@@ -240,7 +248,14 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({ mrcFilePath, metadataFile
                             />
                         </Grid>
                         <Grid size={6}>
-                            <Typography>Contrast</Typography>
+                            <Grid  size={12}>
+                                <Typography variant="h6" display="inline" style={{ marginRight: 8 }}>
+                                    Contrast:
+                                </Typography>
+                                <Typography variant="h6" display="inline" color="primary">
+                                    {contrast}
+                                </Typography>
+                            </Grid>
                             <Slider
                                 value={contrast}
                                 onChange={(_, value) => setContrast(value as number)}
@@ -277,6 +292,9 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({ mrcFilePath, metadataFile
                                     +
                                 </Button>
                             </Grid>
+
+
+
                             <Grid >
                                 <Typography>Items per page:</Typography>
                             </Grid>
@@ -292,8 +310,6 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({ mrcFilePath, metadataFile
                                     ))}
                                 </Select>
                             </Grid>
-
-
                 </Grid>
             </Grid>
         </Grid>
