@@ -152,12 +152,37 @@ async def process_relion(subfolder_path: str, folder_name: str):
         ensure_directory_exists(hdf5_folder)
         image_folder = os.path.join(hdf5_folder, "outputs", "images")
         ensure_directory_exists(image_folder)
+        header_lines = """\
+            # version 30001
+
+            data_
+
+            loop_ 
+            _rlnSelected #1
+            """
+        with open(os.path.join(subfolder_path,"updatedvalues.json"), "r") as file:
+                data = json.load(file)
+                output_file_path = os.path.join(hdf5_folder,"outputs", "backup_selection.star")
+                with open(output_file_path, "w") as outfile:
+                    outfile.write(header_lines + "\n")
+                    for item in data:
+                        if item["updated"] and item["newValue"] is not None:
+                            outfile.write(f"{item['newValue']}\n")
+                        else:
+                            outfile.write(f"{round(item['oldValue'])}\n")
+        if not os.path.exists(os.path.join(hdf5_folder,"outputs","job_score.txt")):
+            with open(os.path.join(hdf5_folder,"outputs","job_score.txt"), "w") as file:
+                file.write("1.0")
+        try:
+            shutil.copytree(os.path.join(subfolder_path,"outputs","images"), image_folder, dirs_exist_ok=True)
+        except Exception as e:
+            log_error(f"Error: {e}")
         mrcs_file, star_file = getrelionfiles(subfolder_path)
         shutil.copy2(mrcs_file, os.path.join(hdf5_folder, "outputs", "run_classes.mrcs"))
         shutil.copy2(star_file, os.path.join(hdf5_folder, "outputs", "run_model.star"))
         preprocessor = MRCPreprocessor(
             data_dir=hdf5_folder,
-            hdf5_path=f'{hdf5_folder}.hdf5'
+            hdf5_path=os.path.join(hdf5_folder, f'{folder_name}.hdf5')
         )
         preprocessor.execute()
     except Exception as e:
@@ -174,8 +199,11 @@ async def main(parent_folder: str):
     try:
         if not os.path.isdir(parent_folder):
             raise FileNotFoundError(f"The specified folder '{parent_folder}' does not exist.")
-        tasks = [process_subfolder(os.path.join(parent_folder, item)) 
-                 for item in os.listdir(parent_folder) if os.path.isdir(os.path.join(parent_folder, item))]
+        tasks = []
+        for item in os.listdir(parent_folder):
+            item_path = os.path.join(parent_folder, item)
+            if item != 'hdf5files' and os.path.isdir(item_path):
+                tasks.append(process_subfolder(item_path))
         await asyncio.gather(*tasks)
     except Exception as e:
         log_error("Main processing failed", e)
