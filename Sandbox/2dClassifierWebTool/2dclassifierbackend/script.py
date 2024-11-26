@@ -1,129 +1,58 @@
 import os
 import subprocess
 import asyncio
-from utils import SelectedValue
 import sqlite3 as sq
 import json
 import sys
-from scriptUtils import categories,extractCommand,set_permissions
+import numpy as np
+import shutil
+from utils import SelectedValue, getrelionfiles
+from scriptUtils import categories, extractCommand,log_error,ensure_directory_exists
+from typing import Tuple, List
+
 project_path = os.path.dirname(__file__)
 cnntraining_path = os.path.join(project_path, '2dclass_evaluator', 'CNNTraining')
 sys.path.append(cnntraining_path)
-from dataset import JPGPreprocessor
+from dataset import JPGPreprocessor, MRCPreprocessor
 
-def insert_categories(db,cursor):
+UPLOAD_DIRECTORY = os.path.join(os.getcwd(), os.getenv('UPLOAD_DIR', 'uploads'))
+HDF5_FOLDER_PATH = os.path.join(UPLOAD_DIRECTORY, 'hdf5files')
+
+# Database Operations
+def initialize_database(db_path: str, subfolder_path: str, folder_name: str):
     try:
-        for category in categories:
-            cursor.execute('INSERT OR IGNORE INTO categories(categoryName) VALUES(?)', (category,))
-        db.commit()
+        with sq.connect(db_path) as db:
+            cursor = db.cursor()
+            create_tables(cursor)
+            insert_categories(db, cursor)
+            insert_datasets(db, cursor, subfolder_path, folder_name)
     except Exception as e:
-        print(f"Error occurred while inserting categories: {e}")
-        db.rollback()
+        log_error("Database initialization failed", e)
 
-def insert_datasets(db,cursor,subfolder_path,folder_name):
-    img_path = os.path.join(subfolder_path, 'images')
-    dataSetsListDir = [os.path.join(img_path, dataset) for dataset in os.listdir(img_path)]
-    dataSetsListStr = [os.path.basename(d) for d in dataSetsListDir]
-    with open(os.path.join(UPLOAD_DIRECTORY,folder_name,'updatedvalues.json'), 'r') as file:
-                json_data = json.load(file)
-    for i in range(len(dataSetsListStr)):
-        dataSetName = dataSetsListStr[i]
-        dataSetPath = dataSetsListDir[i]
-        cursor.execute(
-            'INSERT OR IGNORE INTO dataSets(dataSetName, dataSetPath) VALUES(?, ?)',
-            (dataSetName, dataSetPath)
-        )
-        
-        cursor.execute(
-            'SELECT id FROM dataSets WHERE dataSetName = ? AND dataSetPath = ?',
-            (dataSetName, dataSetPath)
-        )
-        dataSet_id = cursor.fetchone()[0]
-        image_dir = dataSetPath
-        imageListStr = os.listdir(image_dir)
-        imageListDir = [os.path.join(image_dir, img) for img in imageListStr]  
-        for imagei in range(len(imageListStr)):
-            imageName = str(imageListStr[imagei])
-            imagePath = str(imageListDir[imagei])
-            
-            cursor.execute(
-                'INSERT OR IGNORE INTO images(dataSet_id, imageName, imagePath) VALUES(?, ?, ?)',
-                (dataSet_id, imageName, imagePath)
-            )
-            cursor.execute(
-            'SELECT id FROM images WHERE imageName = ? AND imagePath = ?',
-            (imageName, imagePath)
-        )
-            image_id = cursor.fetchone()[0]
-            
-            
-            parts = imageName.split('_')
-            image_data = json_data[int(parts[-1].split('.')[0])] 
-            value = image_data["newValue"] if image_data["updated"] else image_data["oldValue"]
-            rounded_value = round(value)
-            if 1 <= rounded_value <= 5:
-                category_id = rounded_value
-            elif rounded_value<1:
-                category_id=1
-            elif rounded_value>5:
-                category_id=5
-            else:
-                raise ValueError("Value out of expected range for categorization.")
-            
-            cursor.execute(
-                'INSERT INTO labels(category_id, image_id) VALUES(?, ?)',
-                (category_id, image_id)
-            )
-        
-    
-   
-            
-            
-    
-    db.commit()
-    jpg_preprocessor = JPGPreprocessor(
-    jpg_dir=img_path,
-    metadata_dir=os.path.join(subfolder_path, 'metadata'),
-    label_paths=[os.path.join(subfolder_path, 'database.db')],
-    hdf5_path=os.path.join(subfolder_path, f'{folder_name}.hdf5')
-)
-
-    jpg_preprocessor.execute(fixed_len=210)
-    
-
-
-
-
-
-def initialize_database(db_path,subfolder_path,folder_name):
+def create_tables(cursor: sq.Cursor):
     try:
-        db = sq.connect(db_path)
-        cursor = db.cursor()
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS dataSets (
-                id INTEGER NOT NULL PRIMARY KEY, 
+                id INTEGER PRIMARY KEY, 
                 dataSetName TEXT, 
                 dataSetPath TEXT UNIQUE
             )
         ''')
-
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS images (
-                id INTEGER NOT NULL PRIMARY KEY, 
+                id INTEGER PRIMARY KEY, 
                 dataSet_id INTEGER, 
                 imageName TEXT, 
                 imagePath TEXT UNIQUE, 
                 FOREIGN KEY(dataSet_id) REFERENCES dataSets(id)
             )
         ''')
-
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS categories (
-                id INTEGER NOT NULL PRIMARY KEY, 
+                id INTEGER PRIMARY KEY, 
                 categoryName TEXT UNIQUE
             )
         ''')
-
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS labels (
                 category_id INTEGER, 
@@ -132,82 +61,128 @@ def initialize_database(db_path,subfolder_path,folder_name):
                 FOREIGN KEY(image_id) REFERENCES images(id)
             )
         ''')
-
-        insert_categories(db,cursor)
-        insert_datasets(db,cursor,subfolder_path,folder_name)
-        
-        db.commit()
-        db.close()
-        
     except Exception as e:
-        print(f"Error occurred: {e}")
+        log_error("Failed to create database tables", e)
 
-async def process_subfolder(subfolder_path):
-    
-    last_part = subfolder_path.split(os.sep)[-1]
-    name, uuid = last_part.split("_")
+def insert_categories(db: sq.Connection, cursor: sq.Cursor):
+    try:
+        for category in categories:
+            cursor.execute('INSERT OR IGNORE INTO categories(categoryName) VALUES(?)', (category,))
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        log_error("Failed to insert categories", e)
 
-    if name == SelectedValue.cryo:
-        hdf5_folder = os.path.join(hdf5_folder_path, last_part)
-        os.makedirs(hdf5_folder, exist_ok=True)
-        set_permissions(hdf5_folder, 0o775)
-        # Generate the command to run extract.py
-        command = await extractCommand(hdf5_folder, subfolder_path)
-       
-        
-        process = await asyncio.create_subprocess_shell(
-            command,
-            cwd=os.getcwd(),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        
-        stdout, stderr = await process.communicate()
-        
-        output = stdout.decode().strip()
-        error_output = stderr.decode().strip()
-        return_code = process.returncode
-        
-        if return_code != 0:
-            raise("Error:", error_output)
+def insert_datasets(db: sq.Connection, cursor: sq.Cursor, subfolder_path: str, folder_name: str):
+    try:
+        img_path = os.path.join(subfolder_path, 'images')
+        datasets = [os.path.join(img_path, ds) for ds in os.listdir(img_path)]
+        with open(os.path.join(UPLOAD_DIRECTORY, folder_name, 'updatedvalues.json'), 'r') as file:
+            json_data = json.load(file)
+        for dataset_path in datasets:
+            dataset_name = os.path.basename(dataset_path)
+            cursor.execute('INSERT OR IGNORE INTO dataSets(dataSetName, dataSetPath) VALUES(?, ?)', 
+                           (dataset_name, dataset_path))
+            dataset_id = cursor.execute('SELECT id FROM dataSets WHERE dataSetName = ?', 
+                                        (dataset_name,)).fetchone()[0]
+            insert_images(cursor, dataset_id, dataset_path, json_data)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        log_error("Failed to insert datasets", e)
+
+def insert_images(cursor: sq.Cursor, dataset_id: int, dataset_path: str, json_data: dict):
+    try:
+        for image_name in os.listdir(dataset_path):
+            image_path = os.path.join(dataset_path, image_name)
+            cursor.execute('INSERT OR IGNORE INTO images(dataSet_id, imageName, imagePath) VALUES(?, ?, ?)', 
+                           (dataset_id, image_name, image_path))
+            image_id = cursor.execute('SELECT id FROM images WHERE imageName = ?', 
+                                      (image_name,)).fetchone()[0]
+            insert_labels(cursor, image_id, image_name, json_data)
+    except Exception as e:
+        log_error(f"Failed to insert images for dataset ID {dataset_id}", e)
+
+def insert_labels(cursor: sq.Cursor, image_id: int, image_name: str, json_data: dict):
+    try:
+        index = int(image_name.split('_')[-1].split('.')[0])
+        image_data = json_data[index]
+        value = round(image_data["newValue"] if image_data["updated"] else image_data["oldValue"])
+        category_id = max(1, min(value, 5))
+        cursor.execute('INSERT INTO labels(category_id, image_id) VALUES(?, ?)', (category_id, image_id))
+    except Exception as e:
+        log_error(f"Failed to insert labels for image ID {image_id}", e)
+
+# Processing Functions
+async def process_subfolder(subfolder_path: str):
+    try:
+        folder_name = os.path.basename(subfolder_path)
+        name, uuid = folder_name.split("_")
+
+        if name == SelectedValue.cryo:
+            await process_cryo(subfolder_path, folder_name)
+        elif name == SelectedValue.relion:
+            await process_relion(subfolder_path, folder_name)
         else:
-            print("Output:", output)
-        db_path = f'{hdf5_folder}/database.db'
-        set_permissions(db_path, 0o664) 
-        if not os.path.exists(db_path):
-            initialize_database(db_path,hdf5_folder,last_part)
-        
-        
-       
-        
-    elif name == SelectedValue.relion:
-        print(f"Processing {name} with UUID {uuid}")
+            raise ValueError("Unknown folder type")
+    except Exception as e:
+        log_error("Failed to process subfolder", e)
 
-async def main(parent_folder):
-   
-    if not os.path.isdir(parent_folder):
-        print(f"Error: The specified folder '{parent_folder}' does not exist.")
-        return
-    
-    tasks = []
-    
-    for item in os.listdir(parent_folder):
-        item_path = os.path.join(parent_folder, item)
-        
-        if item == 'hdf5files':
-            continue
-        
-        if os.path.isdir(item_path):
-            tasks.append(process_subfolder(item_path))
+async def process_cryo(subfolder_path: str, folder_name: str):
+    try:
+        hdf5_folder = os.path.join(HDF5_FOLDER_PATH, folder_name)
+        ensure_directory_exists(hdf5_folder)
+        command = await extractCommand(hdf5_folder, subfolder_path)
+        await run_command(command)
+        db_path = os.path.join(hdf5_folder, 'database.db')
+        initialize_database(db_path, hdf5_folder, folder_name)
+        preprocessor = JPGPreprocessor(
+            jpg_dir=os.path.join(hdf5_folder, 'images'),
+            metadata_dir=os.path.join(hdf5_folder, 'metadata'),
+            label_paths=[db_path],
+            hdf5_path=os.path.join(hdf5_folder, f'{folder_name}.hdf5')
+        )
+        preprocessor.execute(fixed_len=210)
+    except Exception as e:
+        log_error("Cryo processing failed", e)
 
-    await asyncio.gather(*tasks)
+async def process_relion(subfolder_path: str, folder_name: str):
+    try:
+        hdf5_folder = os.path.join(HDF5_FOLDER_PATH, folder_name)
+        ensure_directory_exists(hdf5_folder)
+        image_folder = os.path.join(hdf5_folder, "outputs", "images")
+        ensure_directory_exists(image_folder)
+        mrcs_file, star_file = getrelionfiles(subfolder_path)
+        shutil.copy2(mrcs_file, os.path.join(hdf5_folder, "outputs", "run_classes.mrcs"))
+        shutil.copy2(star_file, os.path.join(hdf5_folder, "outputs", "run_model.star"))
+        preprocessor = MRCPreprocessor(
+            data_dir=hdf5_folder,
+            hdf5_path=f'{hdf5_folder}.hdf5'
+        )
+        preprocessor.execute()
+    except Exception as e:
+        log_error("Relion processing failed", e)
+
+async def run_command(command: str):
+    process = await asyncio.create_subprocess_shell(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = await process.communicate()
+    if process.returncode != 0:
+        raise RuntimeError(f"Command failed with error: {stderr.decode()}")
+
+
+async def main(parent_folder: str):
+    try:
+        if not os.path.isdir(parent_folder):
+            raise FileNotFoundError(f"The specified folder '{parent_folder}' does not exist.")
+        tasks = [process_subfolder(os.path.join(parent_folder, item)) 
+                 for item in os.listdir(parent_folder) if os.path.isdir(os.path.join(parent_folder, item))]
+        await asyncio.gather(*tasks)
+    except Exception as e:
+        log_error("Main processing failed", e)
 
 if __name__ == "__main__":
     try:
-        UPLOAD_DIRECTORY = os.path.join(os.getcwd(), os.getenv('UPLOAD_DIR', 'uploads'))
-        hdf5_folder_path = os.path.join(UPLOAD_DIRECTORY, 'hdf5files')
-        os.makedirs(hdf5_folder_path, exist_ok=True)  
+        ensure_directory_exists(HDF5_FOLDER_PATH)
         asyncio.run(main(UPLOAD_DIRECTORY))
-
     except Exception as e:
-        print(f"Error occurred: {e}")
+        log_error("Program execution failed", e)

@@ -531,7 +531,8 @@ class MRCPreprocessor:
                 imgs = mrc.data
 
                 mass_est = pd.DataFrame.from_records(calc_mass_stats_for_stack(mrc_full_path))
-                mass_est['dmode'] = mass_est['dmode'].apply(lambda x: x[0])
+
+                # mass_est['dmode'] = mass_est['dmode'].apply(lambda x: x[0])
                 mass_est = mass_est.drop(columns=['mass']).clip(upper=1e9)
 
                 if hdf5_dataset is not None:

@@ -96,11 +96,11 @@ async def getImageFilePaths(uuid,outputImageDir,selectedValue):
             for i in range(data.shape[0]):
                 relative_path = os.path.join(*outputImageDir.split(os.sep)[-3:])
                 imageDir=os.path.join("/images",relative_path)
-                output_file_path = os.path.join(outputImageDir, f'slice_{i}.png')
+                output_file_path = os.path.join(outputImageDir, f'slice_{i}.jpg')
                 plt.imshow(data[i], cmap='gray')
                 plt.savefig(output_file_path)
                 plt.close()
-                imageFilepaths.append(os.path.join(imageDir, f'slice_{i}.png'))
+                imageFilepaths.append(os.path.join(imageDir, f'slice_{i}.jpg'))
     except FileNotFoundError as e:
         print(f"Error: {e}. Please check the file paths and ensure the required files are available.")
     except PermissionError as e:
