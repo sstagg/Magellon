@@ -34,15 +34,21 @@ const DirectoryTreeView: React.FC = () => {
     }, []);
 
     const renderTree = (nodes: TreeNode[]) => {
-        //console.log("nodes : " + JSON.stringify(nodes));
-        if (nodes.length === 0) return null;  // Return null if nodes array is empty
-
         return nodes.map(node => (
-            <TreeItem key={node.id} itemId={node.id} label={node.label}>
-                {node.children && Array.isArray(node.children) && renderTree(node.children)}
-            </TreeItem>
+            node.children && node.children.length > 0 ? (
+                <TreeItem
+                    key={node.id}
+                    itemId={node.id}
+                    label={node.label}
+                >
+                    {renderTree(node.children)}
+                </TreeItem>
+            ) : (
+                <TreeItem key={node.id} itemId={node.id} label={node.label} />
+            )
         ));
     };
+
 
     if (loading) {
         return <p>Loading...</p>;
@@ -50,7 +56,10 @@ const DirectoryTreeView: React.FC = () => {
 
     return (
         <SimpleTreeView>
-            {treeData.length > 0 ? renderTree(treeData) : <p>No data available</p>}
+            {/* Render only the children of the root nodes */}
+            {treeData.flatMap(rootNode =>
+                rootNode.children ? renderTree(rootNode.children) : []
+            )}
         </SimpleTreeView>
     );
 };
