@@ -44,7 +44,12 @@ rabbitmq_settings:
   CTF_OUT_QUEUE_NAME: ctf_out_tasks_queue
 
 directory_settings:
-  IMAGE_ROOT_DIR: C:/temp/magellon/home
+  MAGELLON_HOME_DIR: C:/temp/magellon/home
+  MAGELLON_JOBS_DIR: C:/temp/magellon/home/jobs
+  JOBS_DIR: null
+  JOBS_PROCESSING_SUB_URL: processing/
+  ORIGINAL_IMAGES_SUB_URL: original/
+
   IMAGE_ROOT_URL: http://localhost/cdn/
   NFS_ROOT_DIR: /gpfs
 
@@ -59,9 +64,7 @@ directory_settings:
 
   IMAGES_DIR: null
   IMAGE_SUB_URL: images/
-  JOBS_DIR: null
-  JOBS_PROCESSING_SUB_URL: processing/
-  ORIGINAL_IMAGES_SUB_URL: original/
+
 
   THUMBNAILS_DIR: thumbnails/
   THUMBNAILS_SUB_URL: thumbnails/

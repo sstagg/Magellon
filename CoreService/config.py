@@ -43,12 +43,12 @@ FFT_SUFFIX = app_settings.directory_settings.FFT_SUFFIX
 ATLAS_SUFFIX = app_settings.directory_settings.ATLAS_SUFFIX
 
 # my_config_value = os.environ.get('MY_CONFIG_VALUE')
-IMAGE_ROOT_DIR = app_settings.directory_settings.IMAGE_ROOT_DIR or os.getenv('DATA_DIR', '/app/data')
+MAGELLON_HOME_DIR = app_settings.directory_settings.MAGELLON_HOME_DIR or os.getenv('DATA_DIR', '/app/data')
 
-IMAGES_DIR = f"{IMAGE_ROOT_DIR}/{IMAGE_SUB_URL}"
-FFT_DIR = f"{IMAGE_ROOT_DIR}/{FFT_SUB_URL}"
-THUMBNAILS_DIR = f"{IMAGE_ROOT_DIR}/{THUMBNAILS_SUB_URL}"
-JOBS_DIR = f"{IMAGE_ROOT_DIR}/{JOBS_PROCESSING_SUB_URL}"
+IMAGES_DIR = f"{MAGELLON_HOME_DIR}/{IMAGE_SUB_URL}"
+FFT_DIR = f"{MAGELLON_HOME_DIR}/{FFT_SUB_URL}"
+THUMBNAILS_DIR = f"{MAGELLON_HOME_DIR}/{THUMBNAILS_SUB_URL}"
+JOBS_DIR = f"{MAGELLON_HOME_DIR}/{JOBS_PROCESSING_SUB_URL}"
 
 
 DOCKER_URL = app_settings.DOCKER_URL

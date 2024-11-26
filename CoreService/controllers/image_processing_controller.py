@@ -4,7 +4,7 @@ import uuid
 
 from fastapi import APIRouter, HTTPException, Depends
 
-from config import IMAGE_ROOT_DIR
+from config import MAGELLON_HOME_DIR
 from models.pydantic_models import LeginonFrameTransferJobBase, EPUFrameTransferJobBase, LeginonFrameTransferJobDto, \
     EpuImportJobBase, EpuImportJobDto
 from services.importers.EPUImporter import EPUImporter
@@ -142,13 +142,13 @@ def process_image_job(input_data: LeginonFrameTransferJobBase, db: Session = Dep
         replace_with=input_data.replace_with,
 
         job_id=job_id,
-        target_directory=os.path.join(IMAGE_ROOT_DIR, input_data.magellon_session_name),
+        target_directory=os.path.join(MAGELLON_HOME_DIR, input_data.magellon_session_name),
         task_list=[]  # You can set this to None or any desired value
     )
 
 
     # job_dto.job_id = job_id
-    job_dto.target_directory = os.path.join(IMAGE_ROOT_DIR, job_dto.session_name)
+    job_dto.target_directory = os.path.join(MAGELLON_HOME_DIR, job_dto.session_name)
 
     # input_json = json.dumps(job_dto.dict(), cls=UUIDEncoder)
     # lft_service.setup(input_json)
@@ -190,11 +190,11 @@ def import_epu_job(input_data: EpuImportJobBase, db: Session = Depends(get_db)):
         replace_with=input_data.replace_with,
 
         job_id=job_id,
-        target_directory=os.path.join(IMAGE_ROOT_DIR, input_data.magellon_session_name),
+        target_directory=os.path.join(MAGELLON_HOME_DIR, input_data.magellon_session_name),
         task_list=[]  # You can set this to None or any desired value
     )
 
-    job_dto.target_directory = os.path.join(IMAGE_ROOT_DIR, job_dto.session_name)
+    job_dto.target_directory = os.path.join(MAGELLON_HOME_DIR, job_dto.session_name)
     epu_importer = EPUImporter()
     # xml_contents = await file.read()
     # epu_importer.import_data(xml_contents)

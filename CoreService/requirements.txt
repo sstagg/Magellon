@@ -31,7 +31,7 @@ apache-airflow-client==2.7.2
 #sqlacodegen
 #mysqlclient
 
-strawberry-graphql[fastapi]==0.211.1
+strawberry-graphql[fastapi]==0.243.0
 # bump-pydantic
 rich==13.7.0
 # textual
@@ -51,3 +51,6 @@ cryptography
 lxml
 
 TiffFile
+
+py7zr
+

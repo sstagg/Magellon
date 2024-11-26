@@ -12,7 +12,7 @@ def create_atlas_images(session_name, label_objects):
     background_color = "black"
     output_format = "PNG"
     images = []
-    current_directory = f"{app_settings.directory_settings.IMAGE_ROOT_DIR}/{session_name}"
+    current_directory = f"{app_settings.directory_settings.MAGELLON_HOME_DIR}/{session_name}"
 
     for label, image_info in label_objects.items():
 
@@ -53,7 +53,7 @@ def create_atlas_picture(session_name, image_info, final_width, final_height, ba
         canvas_height = int(max_y - min_y + (2 * image_info[0]["dimy"]))
         big_picture = Image.new('RGB', (canvas_width, canvas_height), background_color)
 
-        current_directory = f"{app_settings.directory_settings.IMAGE_ROOT_DIR}/{session_name}"
+        current_directory = f"{app_settings.directory_settings.MAGELLON_HOME_DIR}/{session_name}"
         separator =""
         for obj in image_info:
             delta_row, delta_column, filename = obj["delta_row"], obj["delta_column"], obj["filename"]

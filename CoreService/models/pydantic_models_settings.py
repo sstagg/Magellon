@@ -40,10 +40,11 @@ class DirectorySettings(BaseModel):
     FFT_SUB_URL: Optional[str] = None
     FFT_SUFFIX: Optional[str] = None
     FFT_DIR: Optional[str] = None
-    IMAGE_ROOT_DIR: Optional[str] = None
+    MAGELLON_HOME_DIR: Optional[str] = None
     NFS_ROOT_DIR: Optional[str] = None
     IMAGES_DIR: Optional[str] = None
     THUMBNAILS_DIR: Optional[str] = None
+    MAGELLON_JOBS_DIR: Optional[str] = None
     JOBS_DIR: Optional[str] = None
     ATLAS_SUB_URL: Optional[str] = None
     CTF_SUB_URL: Optional[str] = None

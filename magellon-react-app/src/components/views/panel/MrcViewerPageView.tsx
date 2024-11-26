@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {Box, MenuItem, Select, Slider, Typography,Pagination } from '@mui/material';
+import {Box, MenuItem, Pagination, Select, Slider, Typography} from '@mui/material';
 import Grid from '@mui/material/Grid2';
 import {settings} from "../../../core/settings.ts";
 import DirectoryTreeView from "../../organisms/DirectoryTreeView.tsx";
@@ -79,7 +79,7 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath, metadataFiles
         const scaledHeight = Math.round(originalHeight * scale);
         const scaledWidth = Math.round(originalWidth * scale);
 
-        const scaledArray = Array.from({ length: scaledHeight }, () =>
+        const scaledArray = Array.from({length: scaledHeight}, () =>
             new Array(scaledWidth).fill(0)
         );
 
@@ -228,135 +228,131 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath, metadataFiles
 
                 <Grid size={3}>
 
-                <Typography variant="h6" display="inline" style={{marginRight: 8}}>
-                    Metadata:
-                </Typography>
-                <table>
-                    <thead>
-                    <tr>
-                        <th>Key</th>
-                        <th>Value</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    <tr>
-                        <td>First Name</td>
-                        <td>John</td>
-                    </tr>
-                    <tr>
-                        <td>Last Name</td>
-                        <td>Doe</td>
-                    </tr>
-                    <tr>
-                        <td>Age</td>
-                        <td>30</td>
-                    </tr>
-                    <tr>
-                        <td>Country</td>
-                        <td>United States</td>
-                    </tr>
-                    <tr>
-                        <td>Email</td>
-                        <td>john.doe@example.com</td>
-                    </tr>
-                    </tbody>
-                </table>
-            </Grid>
-
-
-                    <Grid size={2}>
-                        <Grid size={12}>
-                            <Typography variant="h6" display="inline" style={{marginRight: 8}}>
-                                Brightness:
-                            </Typography>
-                            <Typography variant="h6" display="inline" color="primary">
-                                {brightness}
-                            </Typography>
-                        </Grid>
-
-                        <Slider
-                            value={brightness}
-                            onChange={(_, value) => setBrightness(value as number)}
-                            min={0}
-                            max={100}
-                            step={1}
-                        />
-                    </Grid>
-                    <Grid size={2}>
-                        <Grid size={12}>
-                            <Typography variant="h6" display="inline" style={{marginRight: 8}}>
-                                Contrast:
-                            </Typography>
-                            <Typography variant="h6" display="inline" color="primary">
-                                {contrast}
-                            </Typography>
-                        </Grid>
-                        <Slider
-                            value={contrast}
-                            onChange={(_, value) => setContrast(value as number)}
-                            min={0}
-                            max={100}
-                            step={1}
-                        />
-                    </Grid>
-
-
-
-
-
-
-                    <Grid size={2}>
-                        <Grid size={12}>
-                            <Typography variant="h6" display="inline" style={{marginRight: 8}}>
-                                Scale:
-                            </Typography>
-                            <Typography variant="h6" display="inline" color="primary">
-                                {scale}
-                            </Typography>
-                        </Grid>
-                        <Slider
-                            value={scale}
-                            onChange={(_, value) => setScale(value as number)}
-                            min={0.1}
-                            max={5}
-                            step={0.1}
-                            aria-labelledby="scale-slider"
-                        />
-                    </Grid>
-                    <Grid container size={6}>
-
-                        <Grid >
-                            <Typography variant="h6" display="inline" style={{marginRight: 8}}>
-                                Items per page:
-                            </Typography>
-                        </Grid>
-
-                        <Grid >
-                            <Select
-                                value={String(itemsPerPage)}
-                                onChange={(event) => setItemsPerPage(Number(event.target.value))}
-                            >
-                                {[1, 5, 10, 25, 50, 100].map((value) => (
-                                    <MenuItem key={value} value={value}>
-                                        {value}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </Grid>
-
-                        <Grid >
-                            <Pagination
-                                count={Math.ceil(imageData?.total_images / itemsPerPage) || 0}
-                                page={page}
-                                onChange={handlePageChange}
-                                color="primary"
-                            />
-                        </Grid>
-                    </Grid>
-
-
+                    <Typography variant="h6" display="inline" style={{marginRight: 8}}>
+                        Metadata:
+                    </Typography>
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>Key</th>
+                            <th>Value</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr>
+                            <td>Dose</td>
+                            <td>5</td>
+                        </tr>
+                        <tr>
+                            <td>magnification</td>
+                            <td>2</td>
+                        </tr>
+                        <tr>
+                            <td>defocus</td>
+                            <td>30</td>
+                        </tr>
+                        <tr>
+                            <td>intensity</td>
+                            <td>11</td>
+                        </tr>
+                        <tr>
+                            <td>shift_x</td>
+                            <td>12</td>
+                        </tr>
+                        </tbody>
+                    </table>
                 </Grid>
 
+                <Grid container size={6}>
+
+                    <Grid>
+                        <Typography variant="h6" display="inline" style={{marginRight: 8}}>
+                            Items per page:
+                        </Typography>
+                    </Grid>
+
+                    <Grid>
+                        <Select
+                            value={String(itemsPerPage)}
+                            onChange={(event) => setItemsPerPage(Number(event.target.value))}
+                        >
+                            {[1, 5, 10, 25, 50, 100].map((value) => (
+                                <MenuItem key={value} value={value}>
+                                    {value}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </Grid>
+
+                    <Grid>
+                        <Pagination
+                            count={Math.ceil(imageData?.total_images / itemsPerPage) || 0}
+                            page={page}
+                            onChange={handlePageChange}
+                            color="primary"
+                            size="large"
+                        />
+                    </Grid>
+                </Grid>
+
+                <Grid size={2}>
+                    <Grid size={12}>
+                        <Typography variant="h6" display="inline" style={{marginRight: 8}}>
+                            Brightness:
+                        </Typography>
+                        <Typography variant="h6" display="inline" color="primary">
+                            {brightness}
+                        </Typography>
+                    </Grid>
+
+                    <Slider
+                        value={brightness}
+                        onChange={(_, value) => setBrightness(value as number)}
+                        min={0}
+                        max={100}
+                        step={1}
+                    />
+                </Grid>
+                <Grid size={2}>
+                    <Grid size={12}>
+                        <Typography variant="h6" display="inline" style={{marginRight: 8}}>
+                            Contrast:
+                        </Typography>
+                        <Typography variant="h6" display="inline" color="primary">
+                            {contrast}
+                        </Typography>
+                    </Grid>
+                    <Slider
+                        value={contrast}
+                        onChange={(_, value) => setContrast(value as number)}
+                        min={0}
+                        max={100}
+                        step={1}
+                    />
+                </Grid>
+
+
+                <Grid size={2}>
+                    <Grid size={12}>
+                        <Typography variant="h6" display="inline" style={{marginRight: 8}}>
+                            Scale:
+                        </Typography>
+                        <Typography variant="h6" display="inline" color="primary">
+                            {scale}
+                        </Typography>
+                    </Grid>
+                    <Slider
+                        value={scale}
+                        onChange={(_, value) => setScale(value as number)}
+                        min={0.1}
+                        max={5}
+                        step={0.1}
+                        aria-labelledby="scale-slider"
+                    />
+                </Grid>
+
+
+            </Grid>
 
 
         </Grid>
