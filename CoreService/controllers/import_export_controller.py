@@ -1,3 +1,4 @@
+import shutil
 import uuid
 from datetime import datetime
 import json
@@ -6,6 +7,7 @@ from uuid import UUID
 import logging
 from typing import List, Optional, Dict, Any
 
+import py7zr
 from fastapi import APIRouter, HTTPException, Depends, UploadFile
 from sqlalchemy.orm import Session
 from config import app_settings
