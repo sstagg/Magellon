@@ -28,6 +28,7 @@ from controllers.home_controller import home_router
 from controllers.image_meta_data_category_controller import image_meta_data_category_router
 from controllers.image_meta_data_controller import image_meta_data_router
 from controllers.image_processing_controller import image_processing_router
+from controllers.import_export_controller import export_router
 # from controllers.particle_picking_jobitem_controller import ppji_router
 from controllers.slack_controller import slack_router
 
@@ -125,11 +126,11 @@ async def convert_tiff_to_jpeg_route(file: UploadFile = File(...)):
 
 app.include_router(home_router, tags=["Home"])
 app.include_router(db_router, tags=["Database"], prefix="/db")
+app.include_router(export_router, tags=["Export"], prefix="/export")
 app.include_router(camera_router, tags=["Cameras"], prefix="/db/cameras")
 app.include_router(image_meta_data_category_router, tags=["MetaData Category"], prefix="/db/meta-data-category")
 app.include_router(image_meta_data_router, tags=["MetaData"], prefix="/db/meta-data")
 app.include_router(deployment_docker_router, tags=["Docker"], prefix="/deployment/docker")
-
 app.include_router(image_processing_router, tags=['Image Processing'], prefix="/image")
 app.include_router(webapp_router, tags=['Image Viewer - WebApp'], prefix="/web")
 app.include_router(graph_router, tags=['Graphs'], prefix="/graphs")
