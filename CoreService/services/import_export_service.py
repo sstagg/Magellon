@@ -67,195 +67,65 @@ class ImportExportService:
             print(f"An unexpected error occurred: {e}")
 
 
-
     @staticmethod
-    def create_archives_directory() -> str:
+    def create_archive(base_dir: str, output_file_name: str) -> str:
         """
-        Ensure archives directory exists.
-
-        Returns:
-            str: Path to the archives directory
-        """
-        archives_dir = os.path.join(os.getcwd(), 'archives')
-        os.makedirs(archives_dir, exist_ok=True)
-        return archives_dir
-
-    @staticmethod
-    def import_files(
-        files: List[UploadFile], 
-        destination_dir: Optional[str] = None
-    ) -> List[str]:
-        """
-        Import uploaded files to a specified or generated temporary directory.
+        Creates a 7zip archive of a directory with .mag extension.
 
         Args:
-            files (List[UploadFile]): List of files to import
-            destination_dir (str, optional): Directory to save files. 
-                                             Creates a new temp dir if not provided.
+            base_dir (str): Path to the directory to archive.
+            output_file_name (str): Name of the output archive file (without extension).
 
         Returns:
-            List[str]: Paths of saved files
+            str: Path to the created archive file.
+
+        Raises:
+            FileNotFoundError: If the source directory doesn't exist.
+            PermissionError: If there are permission issues during archive creation.
+            py7zr.Bad7zFile: If there is an error with the 7zip file.
+            OSError: If there are filesystem restrictions.
         """
-        if not destination_dir:
-            destination_dir = ImportExportService.create_temp_directory()
-
-        saved_files = []
-        for uploaded_file in files:
-            # Sanitize filename to prevent directory traversal
-            safe_filename = uploaded_file.filename.replace('..', '').replace('/', '_')
-            file_path = os.path.join(destination_dir, safe_filename)
-            
-            # Ensure directory exists
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
-            
-            # Save file
-            with open(file_path, "wb") as buffer:
-                shutil.copyfileobj(uploaded_file.file, buffer)
-            saved_files.append(file_path)
-
-        return saved_files
-
-    @staticmethod
-    def export_archive(
-        source_paths: Union[str, List[str]], 
-        archive_name: Optional[str] = None, 
-        extension: str = '.mag'
-    ) -> str:
-        """
-        Create a 7-Zip archive from specified files/directories.
-
-        Args:
-            source_paths (str or List[str]): Paths to files/directories to archive
-            archive_name (str, optional): Name of the archive. 
-                                          Uses UUID if not provided.
-            extension (str, optional): Archive file extension
-
-        Returns:
-            str: Path to the created archive
-        """
-        # Ensure source_paths is a list
-        if isinstance(source_paths, str):
-            source_paths = [source_paths]
-
-        # Create a unique directory with UUID
-        temp_dir = ImportExportService.create_temp_directory()
-        archives_dir = ImportExportService.create_archives_directory()
-
         try:
-            # Copy files and directories to the temp directory
-            for source in source_paths:
-                source = os.path.abspath(source)
-                dest = os.path.join(temp_dir, os.path.basename(source))
-                
-                if os.path.isdir(source):
-                    shutil.copytree(source, dest)
-                elif os.path.isfile(source):
-                    shutil.copy2(source, dest)
-                else:
-                    print(f"Warning: {source} not found and will be skipped.")
+            # Validate input directory
+            if not os.path.exists(base_dir):
+                raise FileNotFoundError(f"Directory '{base_dir}' does not exist.")
 
-            # Generate archive name if not provided
-            if not archive_name:
-                archive_name = str(uuid.uuid4())
+            # Ensure output filename has .mag extension
+            if not output_file_name.endswith('.mag'):
+                output_file_name += '.mag'
 
-            # Ensure archive name has the right extension
-            if not archive_name.endswith(extension):
-                archive_name += extension
-            
-            # Create 7-Zip archive
-            archive_path = os.path.join(archives_dir, archive_name)
+            # Create full output path
+            output_path = os.path.join(os.path.dirname(base_dir), output_file_name)
 
-            with py7zr.SevenZipFile(archive_path, 'w') as archive:
-                for root, dirs, files in os.walk(temp_dir):
-                    for file in files:
-                        file_path = os.path.join(root, file)
-                        arcname = os.path.relpath(file_path, temp_dir)
-                        archive.write(file_path, arcname=arcname)
-            
-            # Remove temporary directory after archiving
-            shutil.rmtree(temp_dir)
-            
-            return archive_path
+            # Remove existing archive if it exists
+            if os.path.exists(output_path):
+                os.remove(output_path)
+
+            # Create 7zip archive with maximum compression
+            with py7zr.SevenZipFile(output_path, 'w') as archive:
+                archive.writeall(base_dir, os.path.basename(base_dir))
+
+            logging.info(f"Successfully created archive at '{output_path}'")
+            return output_path
+
+        except FileNotFoundError as e:
+            logging.error(f"Error: {e}")
+            raise
+
+        except PermissionError as e:
+            logging.error(f"Permission Error: {e}. Ensure you have the required permissions.")
+            raise
+
+        except py7zr.Bad7zFile as e:
+            logging.error(f"7zip Error: {e}. There was an error creating the archive.")
+            raise
+
+        except OSError as e:
+            logging.error(f"OS Error: {e}. This might be due to filesystem restrictions.")
+            raise
 
         except Exception as e:
-            # Cleanup in case of error
-            if os.path.exists(temp_dir):
-                shutil.rmtree(temp_dir)
-            raise HTTPException(status_code=500, detail=str(e))
+            logging.error(f"An unexpected error occurred: {e}")
+            raise
 
-    @staticmethod
-    def extract_archive(
-        archive_path: str, 
-        extract_path: Optional[str] = None
-    ) -> str:
-        """
-        Extract a 7-Zip archive to a specified or generated directory.
 
-        Args:
-            archive_path (str): Path to the archive file
-            extract_path (str, optional): Directory to extract to. 
-                                          Creates a new temp dir if not provided.
-
-        Returns:
-            str: Path to the extraction directory
-        """
-        if not extract_path:
-            extract_path = ImportExportService.create_temp_directory()
-
-        try:
-            with py7zr.SevenZipFile(archive_path, mode='r') as z:
-                z.extractall(path=extract_path)
-            
-            return extract_path
-
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
-
-    @staticmethod
-    def list_archives() -> List[str]:
-        """
-        List all available archives.
-
-        Returns:
-            List[str]: Names of available archives
-        """
-        archives_dir = ImportExportService.create_archives_directory()
-        return [f for f in os.listdir(archives_dir) if f.endswith('.mag')]
-
-    @staticmethod
-    def delete_archive(archive_name: str) -> bool:
-        """
-        Delete a specific archive.
-
-        Args:
-            archive_name (str): Name of the archive to delete
-
-        Returns:
-            bool: True if deletion successful, False otherwise
-        """
-        archives_dir = ImportExportService.create_archives_directory()
-        archive_path = os.path.join(archives_dir, archive_name)
-        
-        if os.path.exists(archive_path):
-            os.remove(archive_path)
-            return True
-        return False
-
-    @staticmethod
-    def get_archive_path(archive_name: str) -> str:
-        """
-        Get the full path of a specific archive.
-
-        Args:
-            archive_name (str): Name of the archive
-
-        Returns:
-            str: Full path to the archive
-        """
-        archives_dir = ImportExportService.create_archives_directory()
-        archive_path = os.path.join(archives_dir, archive_name)
-        
-        if not os.path.exists(archive_path):
-            raise HTTPException(status_code=404, detail="Archive not found")
-        
-        return archive_path

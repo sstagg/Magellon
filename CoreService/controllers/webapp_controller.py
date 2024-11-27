@@ -973,7 +973,7 @@ async def create_archive(session_name: str, db: Session = Depends(get_db)):
         save_to_json(result, json_path )
         ImportExportService.copy_directory(from_dir, home_dir)
         #now copy files from home directory to archive
-
+        ImportExportService.create_archive(temp_dir, session_name + ".mag")
         # file_path = ImportExportService.get_archive_path(filename)
         # return FileResponse(file_path, filename=filename)
         # return {
