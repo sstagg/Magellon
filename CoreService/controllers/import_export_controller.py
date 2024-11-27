@@ -1,11 +1,12 @@
+import uuid
 from datetime import datetime
 import json
 import os
 from uuid import UUID
 import logging
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, UploadFile
 from sqlalchemy.orm import Session
 from config import app_settings
 from database import get_db
@@ -159,4 +160,140 @@ async def create_archive(session_name: str, db: Session = Depends(get_db)):
         #     "archive": os.path.basename(archive_path)
         # }
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+async def import_session_data(json_data: Dict[Any, Any], db: Session) -> None:
+    """Import session data from JSON into database."""
+    # First import the msession
+    msession_data = json_data["msession"]
+
+    # Convert string UUIDs back to UUID objects
+    msession_data["oid"] = uuid.UUID(msession_data["oid"])
+    if msession_data["project_id"]:
+        msession_data["project_id"] = uuid.UUID(msession_data["project_id"])
+    if msession_data["site_id"]:
+        msession_data["site_id"] = uuid.UUID(msession_data["site_id"])
+    if msession_data["user_id"]:
+        msession_data["user_id"] = uuid.UUID(msession_data["user_id"])
+    if msession_data["microscope_id"]:
+        msession_data["microscope_id"] = uuid.UUID(msession_data["microscope_id"])
+    if msession_data["camera_id"]:
+        msession_data["camera_id"] = uuid.UUID(msession_data["camera_id"])
+    if msession_data["sample_type"]:
+        msession_data["sample_type"] = uuid.UUID(msession_data["sample_type"])
+    if msession_data["sample_grid_type"]:
+        msession_data["sample_grid_type"] = uuid.UUID(msession_data["sample_grid_type"])
+
+    # Convert datetime strings back to datetime objects
+    if msession_data["start_on"]:
+        msession_data["start_on"] = datetime.fromisoformat(msession_data["start_on"])
+    if msession_data["end_on"]:
+        msession_data["end_on"] = datetime.fromisoformat(msession_data["end_on"])
+    if msession_data["last_accessed_date"]:
+        msession_data["last_accessed_date"] = datetime.fromisoformat(msession_data["last_accessed_date"])
+
+    # Create new Msession object
+    new_msession = Msession(**msession_data)
+    db.add(new_msession)
+
+    # Now process the images hierarchy
+    async def process_images(images_data: List[Dict[Any, Any]], parent_id: Optional[uuid.UUID] = None):
+        for image_data in images_data:
+            # Convert string UUID to UUID object
+            image_data["oid"] = uuid.UUID(image_data["oid"])
+            image_data["parent_id"] = parent_id
+
+            # Process metadata first so we can reference it
+            metadata_list = image_data.pop("metadata", [])
+            children = image_data.pop("children", [])
+
+            # Create new Image object
+            new_image = Image(**image_data)
+            db.add(new_image)
+
+            # Process metadata for this image
+            for metadata in metadata_list:
+                metadata["oid"] = uuid.UUID(metadata["oid"])
+                if metadata["category_id"]:
+                    metadata["category_id"] = uuid.UUID(metadata["category_id"])
+                if metadata["plugin_id"]:
+                    metadata["plugin_id"] = uuid.UUID(metadata["plugin_id"])
+                metadata["image_id"] = new_image.oid
+
+                new_metadata = ImageMetaData(**metadata)
+                db.add(new_metadata)
+
+            # Process children recursively
+            if children:
+                await process_images(children, new_image.oid)
+
+    # Start processing the image hierarchy
+    await process_images(json_data["images"])
+
+    # Commit all changes
+    db.commit()
+
+@export_router.post("/import")
+async def import_session(
+        file: UploadFile,
+        db: Session = Depends(get_db)
+):
+    """
+    Import a session from a .mag archive file.
+
+    The function will:
+    1. Extract the archive
+    2. Import session data from JSON
+    3. Copy the extracted files to the appropriate directory
+    """
+    if not file.filename.endswith('.mag'):
+        raise HTTPException(status_code=400, detail="Invalid file format. Must be a .mag file")
+
+    try:
+        # Create temporary directory for extraction
+        temp_dir = os.path.join(app_settings.directory_settings.MAGELLON_JOBS_DIR, 'import', str(uuid.uuid4()))
+        os.makedirs(temp_dir, exist_ok=True)
+
+        # Save uploaded file
+        archive_path = os.path.join(temp_dir, file.filename)
+        with open(archive_path, 'wb') as buffer:
+            content = await file.read()
+            buffer.write(content)
+
+        # Extract archive
+        with py7zr.SevenZipFile(archive_path, 'r') as archive:
+            archive.extractall(temp_dir)
+
+        # Read session.json
+        json_path = os.path.join(temp_dir, 'session.json')
+        if not os.path.exists(json_path):
+            raise HTTPException(status_code=400, detail="Invalid archive structure: session.json not found")
+
+        with open(json_path, 'r') as f:
+            session_data = json.load(f)
+
+        # Import session data to database
+        await import_session_data(session_data, db)
+
+        # Copy files to appropriate directory
+        session_name = session_data["msession"]["name"]
+        home_dir = os.path.join(temp_dir, 'home')
+        target_dir = os.path.join(app_settings.directory_settings.MAGELLON_HOME_DIR, session_name)
+
+        if os.path.exists(target_dir):
+            raise HTTPException(status_code=409, detail=f"Session directory {session_name} already exists")
+
+        shutil.copytree(home_dir, target_dir)
+
+        # Clean up temporary directory
+        shutil.rmtree(temp_dir)
+
+        return {"message": f"Session {session_name} imported successfully"}
+
+    except Exception as e:
+        # Clean up temporary directory in case of error
+        if 'temp_dir' in locals() and os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
         raise HTTPException(status_code=500, detail=str(e))
