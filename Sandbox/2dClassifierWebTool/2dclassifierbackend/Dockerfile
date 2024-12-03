@@ -18,12 +18,14 @@ RUN mkdir -p /app/uploads
 # Copy the entire backend directory (including evaluator) into the container
 COPY main.py /app/main.py
 COPY utils.py /app/utils.py
+COPY script.py /app/script.py
+COPY scriptUtils.py /app/scriptUtils.py
 COPY requirements.txt /app/requirements.txt
 # COPY 2dclass_evaluator /app/2dclass_evaluator
 
 
 # Install dependencies
-RUN pip install --no-cache-dir -r /app/requirements.txt
+RUN pip install --default-timeout=100 --no-cache-dir -r /app/requirements.txt
 
 # Expose port 8000 for FastAPI
 EXPOSE 8000

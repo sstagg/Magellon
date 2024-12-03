@@ -118,6 +118,8 @@ async def process_subfolder(subfolder_path: str):
     try:
         folder_name = os.path.basename(subfolder_path)
         name, uuid = folder_name.split("_")
+        
+        #Todo: check if updatedvalues.json file is present else skip or delete the folder.
 
         if name == SelectedValue.cryo:
             await process_cryo(subfolder_path, folder_name)
