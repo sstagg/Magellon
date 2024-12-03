@@ -1,6 +1,6 @@
 // FileUpload.js
 import React, { useState } from 'react';
-import { Button, Box } from '@mui/material';
+import { Button, Box,Typography } from '@mui/material';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import Notification from './Notification';
@@ -120,6 +120,13 @@ const FileUpload = () => {
       >
         <Notification notification={notification} onClose={handleCloseNotification} />
         <ValueSelector selectedValue={selectedValue} onValueChange={handleValueChange} loading={loading} />
+        <Typography variant="subtitle1" color="textSecondary">
+          <strong>Required Files:</strong>
+          <ul style={{ marginTop: 5, paddingLeft: 20 }}>
+            <li><strong>CryoSPARC:</strong> class_avg.cs, class_avg.mrc, particles.cs, job.json</li>
+            <li><strong>Relion:</strong> classes.mrcs, model.star</li>
+          </ul>
+        </Typography>
         <FileSelector files={files} onFileChange={handleFileChange} loading={loading} />
         <Button
           onClick={handleUpload}
