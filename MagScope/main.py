@@ -10,14 +10,14 @@ async def root():
 
 
 @app.get("/camera/image")
-async def test_camera(name: str):
-    c = de.DeApollo()
+async def test_camera():
+    c = de.Apollo()
     image = c.getImage()
-    return {"message": f"Hello {name}"}
+    return {"message": f"Hello"}
 
 
 @app.get("/scope/image")
-async def test_camera():
+async def test_scope():
     t = fei.Krios()
     mag = t.getMagnification()
     return {"mag": f"{mag}"}
