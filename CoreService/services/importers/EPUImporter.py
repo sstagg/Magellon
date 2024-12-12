@@ -203,7 +203,7 @@ class EPUImporter(BaseImporter):
     def process(self, db_session: Session = Depends(get_db)) -> Dict[str, str]:
         try:
             start_time = time.time()  # Start measuring the time
-            result = self.create_job(db_session)
+            result = self.create_db_project_session(db_session)
             end_time = time.time()  # Stop measuring the time
 
             execution_time = end_time - start_time
@@ -214,7 +214,7 @@ class EPUImporter(BaseImporter):
 
 
 
-    def create_job(self, db_session: Session):
+    def create_db_project_session(self, db_session: Session):
         try:
 
             magellon_project: Project = None

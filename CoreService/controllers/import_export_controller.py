@@ -15,6 +15,7 @@ from database import get_db
 from models.sqlalchemy_models import Msession, Image, ImageMetaData, Project
 
 from services.import_export_service import ImportExportService
+from services.importers.MagellonImporter import MagellonImporter
 
 export_router = APIRouter()
 
@@ -316,4 +317,82 @@ async def import_session(
         # Clean up temporary directory in case of error
         if 'temp_dir' in locals() and os.path.exists(temp_dir):
             shutil.rmtree(temp_dir)
+        raise HTTPException(status_code=500, detail=str(e))
+
+import os
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
+from database import get_db
+from models.pydantic_models import ImportJobBase
+from services.import_export_service import ImportExportService
+import logging
+
+logger = logging.getLogger(__name__)
+
+export_router = APIRouter()
+
+class ImportDirectoryRequest(ImportJobBase):
+    source_directory: str
+    target_directory: Optional[str] = None
+
+@export_router.post("/import-directory")
+async def import_session_directory(
+        request: ImportDirectoryRequest,
+        db: Session = Depends(get_db)
+):
+    """
+    Import a session from a directory containing session.json and image files.
+
+    Directory structure should be:
+    /source_directory
+        /session.json
+        /images/
+            image1.mrc
+            image2.mrc
+            ...
+        /frames/
+            image1_frames.mrc
+            image2_frames.mrc
+            ...
+    """
+    try:
+        # Validate source directory exists
+        if not os.path.exists(request.source_directory):
+            raise HTTPException(
+                status_code=404,
+                detail=f"Source directory not found: {request.source_directory}"
+            )
+
+        # Set default target directory if not provided
+        if not request.target_directory:
+            request.target_directory = os.path.join(
+                ImportExportService.get_default_import_directory(),
+                os.path.basename(request.source_directory)
+            )
+
+        # Initialize and run importer
+        importer = MagellonImporter()
+        importer.setup_data(request)
+        result = importer.process(db)
+
+        if result.get('status') == 'failure':
+            raise HTTPException(
+                status_code=500,
+                detail=result.get('message', 'Import failed')
+            )
+
+        return {
+            "message": "Session imported successfully",
+            "session_name": result.get('session_name'),
+            "target_directory": request.target_directory,
+            "job_id": result.get('job_id')
+        }
+
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error during import: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
