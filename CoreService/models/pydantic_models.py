@@ -158,6 +158,11 @@ class ImportJobBase(BaseModel):
             raise ValueError(f"Invalid replace_type: {v}. Valid options are: {', '.join(ReplaceType.__members__.keys())}")
         return v
 
+
+class MagellonImportJobDto(ImportJobBase):
+    source_directory: str
+
+
 class ImportTaskDto(BaseModel):
     task_id: uuid.UUID = Field(default_factory=uuid.uuid4)
     task_alias: Optional[str] = None

@@ -12,6 +12,7 @@ from fastapi import APIRouter, HTTPException, Depends, UploadFile
 from sqlalchemy.orm import Session
 from config import app_settings
 from database import get_db
+from models.pydantic_models import ImportJobBase, MagellonImportJobDto
 from models.sqlalchemy_models import Msession, Image, ImageMetaData, Project
 
 from services.import_export_service import ImportExportService
@@ -256,8 +257,8 @@ async def import_session_data(json_data: Dict[Any, Any], db: Session) -> None:
     # Commit all changes
     db.commit()
 
-@export_router.post("/import")
-async def import_session(
+@export_router.post("/import1")
+async def import_session1(
         file: UploadFile,
         db: Session = Depends(get_db)
 ):
@@ -319,26 +320,12 @@ async def import_session(
             shutil.rmtree(temp_dir)
         raise HTTPException(status_code=500, detail=str(e))
 
-import os
-from typing import Optional
-from fastapi import APIRouter, HTTPException, Depends
-from sqlalchemy.orm import Session
-from database import get_db
-from models.pydantic_models import ImportJobBase
-from services.import_export_service import ImportExportService
-import logging
 
-logger = logging.getLogger(__name__)
 
-export_router = APIRouter()
-
-class ImportDirectoryRequest(ImportJobBase):
-    source_directory: str
-    target_directory: Optional[str] = None
 
 @export_router.post("/import-directory")
 async def import_session_directory(
-        request: ImportDirectoryRequest,
+        request: MagellonImportJobDto,
         db: Session = Depends(get_db)
 ):
     """
@@ -365,11 +352,11 @@ async def import_session_directory(
             )
 
         # Set default target directory if not provided
-        if not request.target_directory:
-            request.target_directory = os.path.join(
-                ImportExportService.get_default_import_directory(),
-                os.path.basename(request.source_directory)
-            )
+        # if not request.target_directory:
+        #     request.target_directory = os.path.join(
+        #         ImportExportService.get_default_import_directory(),
+        #         os.path.basename(request.source_directory)
+        #     )
 
         # Initialize and run importer
         importer = MagellonImporter()
@@ -385,7 +372,7 @@ async def import_session_directory(
         return {
             "message": "Session imported successfully",
             "session_name": result.get('session_name'),
-            "target_directory": request.target_directory,
+            # "target_directory": request.target_directory,
             "job_id": result.get('job_id')
         }
 
