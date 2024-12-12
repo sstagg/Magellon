@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException, Depends, UploadFile
 from sqlalchemy.orm import Session
 from config import app_settings
 from database import get_db
-from models.sqlalchemy_models import Msession, Image, ImageMetaData
+from models.sqlalchemy_models import Msession, Image, ImageMetaData, Project
 
 from services.import_export_service import ImportExportService
 
@@ -102,7 +102,24 @@ def save_to_json(data: Dict, file_path: str):
 
     return file_path
 
+def get_project_data(db: Session, project_id: UUID) -> Dict:
+    project = db.query(Project).filter(
+        Project.oid == project_id,
+        Project.GCRecord.is_(None)
+    ).first()
 
+    if not project:
+        return None
+
+    return {
+        "oid": serialize_uuid(project.oid),
+        "name": project.name,
+        "description": project.description,
+        "start_on": serialize_datetime(project.start_on),
+        "end_on": serialize_datetime(project.end_on),
+        "owner_id": serialize_uuid(project.owner_id),
+        "last_accessed_date": serialize_datetime(project.last_accessed_date)
+    }
 
 @export_router.post("/export")
 async def create_archive(session_name: str, db: Session = Depends(get_db)):
@@ -113,13 +130,13 @@ async def create_archive(session_name: str, db: Session = Depends(get_db)):
         dict: Information about created archive
     """
     try:
-        msession = db.query(Msession).filter(
-            Msession.name == session_name,
-            Msession.GCRecord.is_(None)
-        ).first()
+        msession = db.query(Msession).filter(            Msession.name == session_name, Msession.GCRecord.is_(None)  ).first()
         if not msession:
-            raise HTTPException(status_code=404, detail="MSession not found")
-
+            raise HTTPException(status_code=404, detail="Session not found")
+        # Get project data if available
+        project_data = None
+        if msession.project_id:
+            project_data = get_project_data(db, msession.project_id)
         from_dir=os.path.join(app_settings.directory_settings.MAGELLON_HOME_DIR, session_name)
         if not os.path.exists(from_dir):
             raise HTTPException(status_code=404, detail="Home directory is empty")
@@ -129,6 +146,7 @@ async def create_archive(session_name: str, db: Session = Depends(get_db)):
         temp_dir, home_dir = ImportExportService.create_temp_directory(app_settings.directory_settings.MAGELLON_JOBS_DIR)
         # Get root level images (no parent_id)
         result = {
+            "project": project_data,  # Include project data in export
             "msession": {
                 "oid": serialize_uuid(msession.oid),
                 "name": msession.name,
@@ -154,7 +172,7 @@ async def create_archive(session_name: str, db: Session = Depends(get_db)):
         save_to_json(result, json_path )
         ImportExportService.copy_directory(from_dir, home_dir)
         #now copy files from home directory to archive
-        ImportExportService.create_archive(temp_dir, session_name + ".mag")
+        # ImportExportService.create_archive(temp_dir, session_name + ".mag")
         # file_path = ImportExportService.get_archive_path(filename)
         # return FileResponse(file_path, filename=filename)
         # return {

@@ -1,27 +1,23 @@
 services:
-  postgres:
-    image: postgis/postgis:latest
-    profiles:
-      - optional
-    container_name: magellon-postgres_container
-    restart: always
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: behd1d2
-      POSTGRES_DB: magellondb
-    volumes:
-      - ./postgres/data:/var/lib/postgresql/data:rw
-      - ./postgres/conf:/etc/postgresql/postgresql.conf:rw
-    ports:
-      - "5432:5432"
-    networks:
-      magellon-network:
-        ipv4_address: 172.16.238.6
+#  postgres:
+#    image: postgis/postgis:latest
+#    container_name: magellon-postgres_container
+#    restart: always
+#    environment:
+#      POSTGRES_USER: postgres
+#      POSTGRES_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+#      POSTGRES_DB: ${MYSQL_DATABASE}
+#    volumes:
+#      - ./postgres/data:/var/lib/postgresql/data:rw
+#      - ./postgres/conf:/etc/postgresql/postgresql.conf:rw
+#    ports:
+#      - "5432:5432"
+#    networks:
+#      magellon-network:
+#        ipv4_address: 172.16.238.6
 
   mysql:
     image: mysql:8.2.0
-    profiles:
-      - default
     container_name: magellon-mysql_container
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
@@ -43,8 +39,6 @@ services:
 
   rabbitmq:
     image: rabbitmq:management-alpine
-    profiles:
-      - default
 #    image: rabbitmq:latest
 #    image: rabbitmq:3-management
     hostname: my-rabbit
@@ -64,8 +58,6 @@ services:
 
   consul:
     image: consul:1.15.4
-    profiles:
-      - default
     restart: unless-stopped
     container_name: magellon-consul-container
     ports:
@@ -80,8 +72,6 @@ services:
 
   prometheus:
     image: prom/prometheus:latest
-    profiles:
-      - default
     restart: unless-stopped
     container_name: magellon-prometheus-container
     ports:
@@ -96,8 +86,6 @@ services:
 
   grafana:
     image: grafana/grafana:latest
-    profiles:
-      - default
     restart: unless-stopped
     container_name: magellon-grafana-container
     depends_on:
@@ -124,8 +112,6 @@ services:
       context: ../CoreService
       dockerfile: Dockerfile
     image: magellon-core-image
-    profiles:
-      - default
     container_name: magellon-core-container
     restart: unless-stopped
     ports:
@@ -172,8 +158,6 @@ services:
       context: ../plugins/magellon_result_processor
       dockerfile: Dockerfile
     image: magellon_result_plugin_image
-    profiles:
-      - default
     container_name: magellon_ctf_result_container
     environment:
       - APP_ENV=production
@@ -195,8 +179,6 @@ services:
       context: ../plugins/magellon_ctf_plugin
       dockerfile: Dockerfile
     image: magellon_ctf_plugin_image
-    profiles:
-      - default
     container_name: magellon_ctf_plugin_container
     environment:
       - APP_ENV=production
