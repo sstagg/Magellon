@@ -1,9 +1,11 @@
 # Use a base image with CUDA 12.1
-FROM --platform=linux/amd64 nvidia/cuda:12.1.1-base-ubuntu20.04
+FROM --platform=linux/amd64 nvidia/cuda:12.1.1-devel-ubuntu20.04
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
-ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+ENV PATH=/usr/local/cuda/bin:$PATH
+ENV LD_LIBRARY_PATH=/usr/local/cuda-12.1/lib64:/usr/local/cuda-12.1/compat:$LD_LIBRARY_PATH
+
 
 # Install required dependencies
 RUN apt-get update && apt-get install -y \
@@ -78,6 +80,9 @@ COPY main.py ./main.py
 COPY test_main.http ./
 COPY test_publish.py ./test_publish.py
 COPY utils.py ./utils.py
+# COPY 20241202_53597_gain_multi_ref.tif ./20241202_53597_gain_multi_ref.tif
+# COPY 20241203_54449_integrated_movie.mrc.tif ./20241203_54449_integrated_movie.mrc.tif
+# COPY ctffind ./ctffind
 
 # Create a volume for the application data
 VOLUME /app/gpfs
