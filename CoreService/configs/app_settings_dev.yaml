@@ -59,6 +59,7 @@ directory_settings:
 
   CTF_SUB_URL: ctf/
 
+  GAIN_SUB_URL: gain/
   FRAMES_SUB_URL: frames/
   FRAMES_SUFFIX: _frame
 

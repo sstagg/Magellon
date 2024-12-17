@@ -85,6 +85,8 @@ class BaseImporter(ABC):
         """Main processing pipeline"""
         try:
             self.db_session = db_session
+
+            # for data initilization
             self.setup_data()
 
             # Database initialization

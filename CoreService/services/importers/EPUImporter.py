@@ -20,7 +20,7 @@ from models.sqlalchemy_models import Image, Msession, Project, ImageJob, ImageJo
 from fastapi import Depends
 
 from services.file_service import copy_file
-from services.importers.BaseImporter import BaseImporter, TaskFailedException
+from services.importers.BaseImporter import BaseImporter
 from config import FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, \
     FFT_SUFFIX, FRAMES_SUFFIX, app_settings, ATLAS_SUB_URL, CTF_SUB_URL
 

@@ -6,9 +6,11 @@ from datetime import datetime
 from typing import Dict, Any, List, Optional
 
 from models.pydantic_models import MagellonImportJobDto
-from .BaseImporter import BaseImporter, TaskFailedException
+
 
 import logging
+
+from services.importers.BaseImporter import BaseImporter
 
 logger = logging.getLogger(__name__)
 class MagellonImporter(BaseImporter):
@@ -69,6 +71,4 @@ class MagellonImporter(BaseImporter):
         except Exception as e:
             raise ImportError(f"Failed to process imported data: {str(e)}")
 
-    def get_image_tasks(self) -> List[MagellonImportTaskDto]:
-        """Return list of image processing tasks"""
-        return self.tasks
+
