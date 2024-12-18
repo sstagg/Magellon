@@ -15,8 +15,9 @@ from database import get_db
 from models.pydantic_models import ImportJobBase, MagellonImportJobDto
 from models.sqlalchemy_models import Msession, Image, ImageMetaData, Project
 
-from services.import_export_service import ImportExportService
+
 from services.importers.MagellonImporter import MagellonImporter
+from services.importers.import_file_service import ImportFileService
 
 export_router = APIRouter()
 
@@ -84,7 +85,7 @@ def process_image_hierarchy(db: Session, parent_id: UUID = None, processed_image
             "exposure_time": float(image.exposure_time) if image.exposure_time else None,
             "stage_x": float(image.stage_x) if image.stage_x else None,
             "stage_y": float(image.stage_y) if image.stage_y else None,
-            "metadata": get_image_metadata(db, image.oid),
+            # "metadata": get_image_metadata(db, image.oid),
             "children": process_image_hierarchy(db, image.oid, processed_images)
         }
         result.append(image_dict)
@@ -144,10 +145,20 @@ async def create_archive(session_name: str, db: Session = Depends(get_db)):
             raise HTTPException(status_code=404, detail="Home directory is empty")
             return
 
-
-        temp_dir, home_dir = ImportExportService.create_temp_directory(app_settings.directory_settings.MAGELLON_JOBS_DIR)
+        # Add metadata to the export
+        metadata = {
+            "exporter": "Magellon Essential Data Exporter",
+            "version": "1.0",
+            "doc_type": "Session Essential Data",
+            "export_date": serialize_datetime(datetime.now()),
+            "export_format_version": "1.0",
+            "created_by": "Magellon Export Service",
+            "schema_version": "1.0"
+        }
+        temp_dir, home_dir = ImportFileService.create_temp_directory(app_settings.directory_settings.MAGELLON_JOBS_DIR)
         # Get root level images (no parent_id)
         result = {
+            "metadata": metadata,
             "project": project_data,  # Include project data in export
             "msession": {
                 "oid": serialize_uuid(msession.oid),
@@ -172,10 +183,10 @@ async def create_archive(session_name: str, db: Session = Depends(get_db)):
         json_path= os.path.join(temp_dir , "session.json")
 
         save_to_json(result, json_path )
-        ImportExportService.copy_directory(from_dir, home_dir)
+        ImportFileService.copy_directory(from_dir, home_dir)
         #now copy files from home directory to archive
-        # ImportExportService.create_archive(temp_dir, session_name + ".mag")
-        # file_path = ImportExportService.get_archive_path(filename)
+        # ImportFileService.create_archive(temp_dir, session_name + ".mag")
+        # file_path = ImportFileService.get_archive_path(filename)
         # return FileResponse(file_path, filename=filename)
         # return {
         #     "message": "Archive created successfully",
@@ -354,7 +365,7 @@ async def import_session_directory(
         # Set default target directory if not provided
         # if not request.target_directory:
         #     request.target_directory = os.path.join(
-        #         ImportExportService.get_default_import_directory(),
+        #         ImportFileService.get_default_import_directory(),
         #         os.path.basename(request.source_directory)
         #     )
 

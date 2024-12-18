@@ -11,8 +11,10 @@ from models.pydantic_models import MagellonImportJobDto
 import logging
 
 from services.importers.BaseImporter import BaseImporter
-
 logger = logging.getLogger(__name__)
+
+
+
 class MagellonImporter(BaseImporter):
     """
     Concrete implementation of BaseImporter for Magellon microscopy data.
