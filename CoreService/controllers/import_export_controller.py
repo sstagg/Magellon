@@ -185,13 +185,15 @@ async def create_archive(session_name: str, db: Session = Depends(get_db)):
         save_to_json(result, json_path )
         ImportFileService.copy_directory(from_dir, home_dir)
         #now copy files from home directory to archive
-        # ImportFileService.create_archive(temp_dir, session_name + ".mag")
+        output_dir = os.path.dirname(temp_dir)  # Go one directory level up
+        output_archive = os.path.join(output_dir, session_name + ".mag")
+        ImportFileService.create_archive(temp_dir, output_archive,"zip")
         # file_path = ImportFileService.get_archive_path(filename)
         # return FileResponse(file_path, filename=filename)
-        # return {
-        #     "message": "Archive created successfully",
-        #     "archive": os.path.basename(archive_path)
-        # }
+        return {
+            "message": "Archive created successfully",
+            "archive": output_archive
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

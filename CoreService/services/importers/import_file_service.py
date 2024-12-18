@@ -1,3 +1,6 @@
+import shutil
+import tarfile
+import zipfile
 from datetime import datetime
 import os
 import logging
@@ -78,6 +81,9 @@ class ImportFileService:
         copy_file(task.image_path, target)
         task.image_path = target
 
+
+
+
     def process_image(self, task: Any) -> None:
         """Process image file including conversion to PNG and FFT computation"""
         self.mrc_service.convert_mrc_to_png(
@@ -115,6 +121,9 @@ class ImportFileService:
         home_dir = os.path.join(temp_dir, 'home')
         os.makedirs(home_dir, exist_ok=True)
         return temp_dir , home_dir
+
+
+
 
     @staticmethod
     def copy_directory(source_dir: str, destination_dir: str) -> None:
@@ -157,7 +166,7 @@ class ImportFileService:
 
 
     @staticmethod
-    def create_archive(base_dir: str, output_file_name: str) -> str:
+    def create_7archive(base_dir: str, output_file_name: str) -> str:
         """
         Creates a 7zip archive of a directory with .mag extension.
 
@@ -218,3 +227,21 @@ class ImportFileService:
             raise
 
 
+    @staticmethod
+    def create_archive(source_dir: str, output_file_name: str,compression :str='zip') -> str:
+        return shutil.make_archive(output_file_name, compression , source_dir)
+
+    @staticmethod
+    def create_zip(source_dir, output_archive):
+        with zipfile.ZipFile(output_archive, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for root, dirs, files in os.walk(source_dir):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    arcname = os.path.relpath(file_path, source_dir)
+                    zipf.write(file_path, arcname)
+
+
+    def create_tar(source_dir, output_archive, compression='gz'):  # 'gz' for .tar.gz, 'bz2' for .tar.bz2
+        mode = f"w:{compression}" if compression else "w"
+        with tarfile.open(output_archive, mode) as tar:
+            tar.add(source_dir, arcname='.')
