@@ -44,7 +44,7 @@ rabbitmq_settings:
   CTF_OUT_QUEUE_NAME: ctf_out_tasks_queue
 
 directory_settings:
-  MAGELLON_HOME_DIR: C:/temp/magellon/home
+  MAGELLON_HOME_DIR: C:/temp/data
   MAGELLON_JOBS_DIR: C:/temp/magellon/home/jobs
   JOBS_DIR: null
   JOBS_PROCESSING_SUB_URL: processing/
