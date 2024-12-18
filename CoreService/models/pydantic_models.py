@@ -139,7 +139,7 @@ class ReplaceType(str, Enum):
 
 
 class ImportJobBase(BaseModel):
-    job_id: Optional[uuid.UUID] = None
+    # job_id: Optional[uuid.UUID] = None
     magellon_project_name: str
     magellon_session_name: str
     camera_directory: Optional[str] = None  # for copying frames
@@ -159,8 +159,8 @@ class ImportJobBase(BaseModel):
         return v
 
 
-class MagellonImportJobDto(ImportJobBase):
-    source_directory: str
+class MagellonImportJobDto(BaseModel):
+    source_file: str
 
 
 class ImportTaskDto(BaseModel):

@@ -98,12 +98,16 @@ class CustomJSONEncoder(json.JSONEncoder):
             return str(obj)
         return super().default(obj)
 
+
+
 def save_to_json(data: Dict, file_path: str):
     # Save the data with pretty printing and custom encoder
     with open(file_path, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2, cls=CustomJSONEncoder, ensure_ascii=False)
 
     return file_path
+
+
 
 def get_project_data(db: Session, project_id: UUID) -> Dict:
     project = db.query(Project).filter(
@@ -270,76 +274,14 @@ async def import_session_data(json_data: Dict[Any, Any], db: Session) -> None:
     # Commit all changes
     db.commit()
 
-@export_router.post("/import1")
-async def import_session1(
-        file: UploadFile,
-        db: Session = Depends(get_db)
-):
-    """
-    Import a session from a .mag archive file.
-
-    The function will:
-    1. Extract the archive
-    2. Import session data from JSON
-    3. Copy the extracted files to the appropriate directory
-    """
-    if not file.filename.endswith('.mag'):
-        raise HTTPException(status_code=400, detail="Invalid file format. Must be a .mag file")
-
-    try:
-        # Create temporary directory for extraction
-        temp_dir = os.path.join(app_settings.directory_settings.MAGELLON_JOBS_DIR, 'import', str(uuid.uuid4()))
-        os.makedirs(temp_dir, exist_ok=True)
-
-        # Save uploaded file
-        archive_path = os.path.join(temp_dir, file.filename)
-        with open(archive_path, 'wb') as buffer:
-            content = await file.read()
-            buffer.write(content)
-
-        # Extract archive
-        with py7zr.SevenZipFile(archive_path, 'r') as archive:
-            archive.extractall(temp_dir)
-
-        # Read session.json
-        json_path = os.path.join(temp_dir, 'session.json')
-        if not os.path.exists(json_path):
-            raise HTTPException(status_code=400, detail="Invalid archive structure: session.json not found")
-
-        with open(json_path, 'r') as f:
-            session_data = json.load(f)
-
-        # Import session data to database
-        await import_session_data(session_data, db)
-
-        # Copy files to appropriate directory
-        session_name = session_data["msession"]["name"]
-        home_dir = os.path.join(temp_dir, 'home')
-        target_dir = os.path.join(app_settings.directory_settings.MAGELLON_HOME_DIR, session_name)
-
-        if os.path.exists(target_dir):
-            raise HTTPException(status_code=409, detail=f"Session directory {session_name} already exists")
-
-        shutil.copytree(home_dir, target_dir)
-
-        # Clean up temporary directory
-        shutil.rmtree(temp_dir)
-
-        return {"message": f"Session {session_name} imported successfully"}
-
-    except Exception as e:
-        # Clean up temporary directory in case of error
-        if 'temp_dir' in locals() and os.path.exists(temp_dir):
-            shutil.rmtree(temp_dir)
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 
 
-@export_router.post("/import-directory")
-async def import_session_directory(
+@export_router.post("/import-file")
+async def import_session_file(
         request: MagellonImportJobDto,
-        db: Session = Depends(get_db)
+        db_session: Session = Depends(get_db)
 ):
     """
     Import a session from a directory containing session.json and image files.
@@ -364,17 +306,10 @@ async def import_session_directory(
                 detail=f"Source directory not found: {request.source_directory}"
             )
 
-        # Set default target directory if not provided
-        # if not request.target_directory:
-        #     request.target_directory = os.path.join(
-        #         ImportFileService.get_default_import_directory(),
-        #         os.path.basename(request.source_directory)
-        #     )
-
         # Initialize and run importer
         importer = MagellonImporter()
         importer.setup_data(request)
-        result = importer.process(db)
+        result = importer.process(db_session)
 
         if result.get('status') == 'failure':
             raise HTTPException(

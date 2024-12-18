@@ -228,8 +228,8 @@ class ImportFileService:
 
 
     @staticmethod
-    def create_archive(source_dir: str, output_file_name: str,compression :str='zip') -> str:
-        return shutil.make_archive(output_file_name, compression , source_dir)
+    def create_archive(source_dir: str, output_file_name: str,archive_format :str='zip') -> str:
+        return shutil.make_archive(output_file_name, archive_format , source_dir)
 
     @staticmethod
     def create_zip(source_dir, output_archive):
@@ -245,3 +245,24 @@ class ImportFileService:
         mode = f"w:{compression}" if compression else "w"
         with tarfile.open(output_archive, mode) as tar:
             tar.add(source_dir, arcname='.')
+
+    @staticmethod
+    def extract_archive(archive_path, extract_to):
+        if archive_path.endswith(".zip"):
+            # Handle ZIP archives
+            with zipfile.ZipFile(archive_path, 'r') as zipf:
+                zipf.extractall(extract_to)
+        elif archive_path.endswith(".tar.gz") or archive_path.endswith(".tgz"):
+            # Handle TAR.GZ archives
+            with tarfile.open(archive_path, 'r:gz') as tarf:
+                tarf.extractall(extract_to)
+        elif archive_path.endswith(".tar.bz2"):
+            # Handle TAR.BZ2 archives
+            with tarfile.open(archive_path, 'r:bz2') as tarf:
+                tarf.extractall(extract_to)
+        elif archive_path.endswith(".tar"):
+            # Handle plain TAR archives
+            with tarfile.open(archive_path, 'r') as tarf:
+                tarf.extractall(extract_to)
+        else:
+            raise ValueError(f"Unsupported archive format: {archive_path}")
