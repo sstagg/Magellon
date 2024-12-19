@@ -29,7 +29,7 @@ class DatabaseError(ImportError):
     pass
 
 
-class BaseImporter:
+class BaseImporter(ABC):
     """Abstract base class for all importers"""
 
     def __init__(self):
@@ -46,39 +46,40 @@ class BaseImporter:
         self.db_job_task_list: List[ImageJobTask] = []
         self.task_dto_list: Optional[List] = None
 
-    def setup(self, input_data: BaseModel) -> None:
+    def setup(self,input_data: BaseModel,  db_session: Session = Depends(get_db)) -> None:
         """Initialize the importer with basic parameters"""
         self.params = input_data
         self.file_service = ImportFileService(target_directory= None, camera_directory= None  )
+        self.db_service = ImportDatabaseService(db_session)
 
 
-    def process(self, db_session: Session = Depends(get_db)) -> Dict[str, str]:
-        """Main processing pipeline"""
-        try:
+    # def process(self, db_session: Session = Depends(get_db)) -> Dict[str, str]:
+    #     """Main processing pipeline"""
+    #     try:
+    #
+    #         self.db_service = ImportDatabaseService(db_session)
+    #         # self.file_service = ImportFileService()
+    #         # Initialize data and database records
+    #         # self.setup_data()
+    #         # self._init_database_records()
+    #
+    #         result = self.run_job(db_session)
+    #         return result
+    #
+    #         # Process files if required
+    #         # if getattr(self.params, 'if_do_subtasks', True):
+    #         #     self._process_files()
+    #
+    #     except ImportError as e:
+    #         logger.error(f"Import failed: {str(e)}")
+    #         return {'status': 'failure', 'message': str(e)}
+    #     except Exception as e:
+    #         logger.error(f"Unexpected error: {str(e)}")
+    #         return {'status': 'failure', 'message': f'Unexpected error: {str(e)}'}
 
-            self.db_service = ImportDatabaseService(db_session)
-            # self.file_service = ImportFileService()
-            # Initialize data and database records
-            # self.setup_data()
-            # self._init_database_records()
-
-            result = self.run_job(db_session)
-            return result
-
-            # Process files if required
-            # if getattr(self.params, 'if_do_subtasks', True):
-            #     self._process_files()
-
-        except ImportError as e:
-            logger.error(f"Import failed: {str(e)}")
-            return {'status': 'failure', 'message': str(e)}
-        except Exception as e:
-            logger.error(f"Unexpected error: {str(e)}")
-            return {'status': 'failure', 'message': f'Unexpected error: {str(e)}'}
-
-    @abstractmethod
-    def run_job(self, db_session: Session = Depends(get_db)) -> Dict[str, str]:
-        pass
+    # @abstractmethod
+    # def run_job(self, db_session: Session = Depends(get_db)) -> Dict[str, str]:
+    #     pass
 
     def _init_database_records(self) -> None:
         """Initialize all necessary database records"""

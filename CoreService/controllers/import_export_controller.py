@@ -302,7 +302,7 @@ def import_directory(request: MagellonImportJobDto,  db_session: Session = Depen
 
         # Initialize and run importer
         importer = MagellonImporter()
-        importer.setup(request)
+        importer.setup(request, db_session)
         result = importer.process(db_session)
 
         if result.get('status') == 'failure':

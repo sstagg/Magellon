@@ -14,16 +14,14 @@ from database import get_db
 from config import (
     IMAGE_SUB_URL, THUMBNAILS_SUB_URL, FFT_SUB_URL,
     ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, ATLAS_SUB_URL, CTF_SUB_URL, MAGELLON_HOME_DIR)
-
+from services.importers.import_database_service import ImportDatabaseService
 
 logger = logging.getLogger(__name__)
 
 
 class MagellonImporter(BaseImporter):
 
-
-
-    def run_job(self, db_session: Session = Depends(get_db)) -> Dict[str, str]:
+    def process(self, db_session: Session = Depends(get_db)) -> Dict[str, str]:
         try:
             # Create temporary directory for extraction
             # temp_dir = os.path.join(self.params.target_directory, 'import', str(uuid.uuid4()))
@@ -34,7 +32,7 @@ class MagellonImporter(BaseImporter):
 
             # Read and validate session.json
 
-            json_path = os.path.join(self.params.source_file, 'session.json')
+            json_path = os.path.join(self.params.source_dir, 'session.json')
             if not os.path.exists(json_path):
                 raise HTTPException( status_code=400, detail="Invalid archive structure: session.json not found"   )
 
@@ -51,11 +49,10 @@ class MagellonImporter(BaseImporter):
 
             session_dir= os.path.join(MAGELLON_HOME_DIR, self.db_msession.name)
             if os.path.exists(session_dir):
-                return {"message": "this project already exists"}
+                return {'status': 'failure',"message": "this project already exists"}
 
 
-            # Process all images and get list for file processing
-            images_to_process = self.process_images(session_data["images"])
+
 
             # Create job record
             job = ImageJob(
@@ -74,16 +71,17 @@ class MagellonImporter(BaseImporter):
 
             db_session.commit()
             self.db_job=job
-
+            # Process all images and get list for file processing
+            images_to_process = self.process_images(db_session,session_data["images"])
             # Create directory structure
             # session_dir = os.path.join(self.params.target_directory, self.db_msession.name)
 
 
-            self.file_service.target_directory = session_dir
+            self.file_service.target_directory = os.path.normpath(session_dir)
             self.file_service.create_required_directories()
 
             # Copy original directories
-            source_original = os.path.join(self.params.source_file, 'home', ORIGINAL_IMAGES_SUB_URL)
+            source_original = os.path.join(self.params.source_dir, 'home', ORIGINAL_IMAGES_SUB_URL)
 
             if os.path.exists(source_original):
                 shutil.copytree(source_original,os.path.join(session_dir, ORIGINAL_IMAGES_SUB_URL), dirs_exist_ok=True)
@@ -116,8 +114,133 @@ class MagellonImporter(BaseImporter):
             return {
                 'status': 'faliure',
                 'message': 'Import completed encountered problem.',
-                'session_name': self.db_msession.name
+                'session_name': self.db_msession.name,
+                'messagae': str(e)
             }
+
+
+
+
+    #         return {'status': 'failure', 'message': f'Unexpected error: {str(e)}'}
+    # def process(self, db_session: Session = Depends(get_db)) -> Dict[str, str]:
+    #     """Main processing pipeline"""
+    #     try:
+    #
+    #         self.db_service = ImportDatabaseService(db_session)
+    #         # self.file_service = ImportFileService()
+    #         # Initialize data and database records
+    #         # self.setup_data()
+    #         # self._init_database_records()
+    #
+    #         result = self.run_job(db_session)
+    #         return result
+    #
+    #         # Process files if required
+    #         # if getattr(self.params, 'if_do_subtasks', True):
+    #         #     self._process_files()
+    #
+    #     except ImportError as e:
+    #         logger.error(f"Import failed: {str(e)}")
+    #         return {'status': 'failure', 'message': str(e)}
+    #     except Exception as e:
+    #         logger.error(f"Unexpected error: {str(e)}")
+    #         return {'status': 'failure', 'message': f'Unexpected error: {str(e)}'}
+
+    # def run_job(self, db_session: Session = Depends(get_db)) -> Dict[str, str]:
+    #     try:
+    #         # Create temporary directory for extraction
+    #         # temp_dir = os.path.join(self.params.target_directory, 'import', str(uuid.uuid4()))
+    #         # os.makedirs(temp_dir, exist_ok=True)
+    #
+    #         # Extract archive
+    #         # self.file_service.extract_archive(self.params.source_file, temp_dir)
+    #
+    #         # Read and validate session.json
+    #
+    #         json_path = os.path.join(self.params.source_file, 'session.json')
+    #         if not os.path.exists(json_path):
+    #             raise HTTPException( status_code=400, detail="Invalid archive structure: session.json not found"   )
+    #
+    #         with open(json_path, 'r') as f:
+    #             session_data = json.load(f)
+    #
+    #         # Process project data if exists
+    #
+    #         if "project" in session_data and session_data["project"]:
+    #             self.db_project = self._upsert_project(db_session, session_data["project"])
+    #
+    #         # Process session data
+    #         self.db_msession = self._upsert_session(db_session, session_data["msession"], self.db_project.oid if self.db_project else None)
+    #
+    #         session_dir= os.path.join(MAGELLON_HOME_DIR, self.db_msession.name)
+    #         if os.path.exists(session_dir):
+    #             return {"message": "this project already exists"}
+    #
+    #
+    #         # Process all images and get list for file processing
+    #         images_to_process = self.process_images(session_data["images"])
+    #
+    #         # Create job record
+    #         job = ImageJob(
+    #             oid=uuid.uuid4(),
+    #             name=f"Import: {self.db_msession.name}",
+    #             description=f"Import job for session: {self.db_msession.name}",
+    #             created_date=datetime.now(),
+    #             msession_id=self.db_msession.oid,
+    #             status_id=1,  # Pending status
+    #             type_id=1     # Import type
+    #         )
+    #
+    #
+    #         db_session.add(job)
+    #         db_session.flush()
+    #
+    #         db_session.commit()
+    #         self.db_job=job
+    #
+    #         # Create directory structure
+    #         # session_dir = os.path.join(self.params.target_directory, self.db_msession.name)
+    #
+    #
+    #         self.file_service.target_directory = session_dir
+    #         self.file_service.create_required_directories()
+    #
+    #         # Copy original directories
+    #         source_original = os.path.join(self.params.source_file, 'home', ORIGINAL_IMAGES_SUB_URL)
+    #
+    #         if os.path.exists(source_original):
+    #             shutil.copytree(source_original,os.path.join(session_dir, ORIGINAL_IMAGES_SUB_URL), dirs_exist_ok=True)
+    #         # Copy frames directories
+    #         source_frames = os.path.join(self.params.source_file, 'home', FRAMES_SUB_URL)
+    #         if os.path.exists(source_frames):
+    #             shutil.copytree( source_frames, os.path.join(session_dir, FRAMES_SUB_URL), dirs_exist_ok=True)
+    #
+    #         # Process each image
+    #         for image, file_path in images_to_process:
+    #             base_name = os.path.splitext(image.name)[0]
+    #
+    #             # self.file_service.process_image()
+    #
+    #         # Clean up temporary directory
+    #         # shutil.rmtree(temp_dir)
+    #
+    #         return {
+    #             'status': 'success',
+    #             'message': 'Import completed successfully.',
+    #             'session_name': self.db_msession.name,
+    #             'job_id': str(job.oid)
+    #         }
+    #
+    #     except Exception as e:
+    #         # Clean up temporary directory in case of error
+    #         # if 'temp_dir' in locals() and os.path.exists(temp_dir):
+    #         #     shutil.rmtree(temp_dir)
+    #         # raise HTTPException(status_code=500, detail=str(e))
+    #         return {
+    #             'status': 'faliure',
+    #             'message': 'Import completed encountered problem.',
+    #             'session_name': self.db_msession.name
+    #         }
 
 
     def _upsert_project(self, db_session: Session, project_data: Dict[str, Any]) -> Project:
@@ -221,7 +344,7 @@ class MagellonImporter(BaseImporter):
                     db_session.add(image)
 
                 # Get original file path
-                original_file = os.path.join(self.params.source_file, 'home', ORIGINAL_IMAGES_SUB_URL, f"{image.name}.mrc")
+                original_file = os.path.normpath(os.path.join(self.params.source_dir, 'home', ORIGINAL_IMAGES_SUB_URL, f"{image.name}.mrc"))
                 # if not os.path.exists(original_file):
                 #     original_file = os.path.join(self.params.source_file, 'home', ORIGINAL_IMAGES_SUB_URL, f"{image.name}.tiff")
                 #
@@ -242,7 +365,7 @@ class MagellonImporter(BaseImporter):
                         status_id=1,  # Pending
                         stage=0,
                         image_name=image.name,
-                        image_path=original_file,
+                        image_path=os.path.normpath(original_file),
                         # frame_name=os.path.basename(frame_file) if frame_file else None,
                         # frame_path=frame_file
                     )
@@ -251,6 +374,6 @@ class MagellonImporter(BaseImporter):
 
                 # Process children recursively
                 if image_data.get("children"):
-                    results.extend(self.process_images(image_data["children"], image_oid))
+                    results.extend(self.process_images(db_session,image_data["children"], image_oid))
 
             return results
