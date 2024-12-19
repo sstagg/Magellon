@@ -28,6 +28,8 @@ class DatabaseError(ImportError):
     """Exception for database operation errors"""
     pass
 
+class TaskFailedException(Exception):
+    pass
 
 class BaseImporter(ABC):
     """Abstract base class for all importers"""
@@ -44,7 +46,7 @@ class BaseImporter(ABC):
         self.image_dict: Dict[str, uuid.UUID] = {}
         self.db_image_list: List[Image] = []
         self.db_job_task_list: List[ImageJobTask] = []
-        self.task_dto_list: Optional[List] = None
+        self.task_dto_list: Optional[List] = []
 
     def setup(self,input_data: BaseModel,  db_session: Session = Depends(get_db)) -> None:
         """Initialize the importer with basic parameters"""

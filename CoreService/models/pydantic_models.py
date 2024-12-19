@@ -237,6 +237,7 @@ class LeginonFrameTransferJobDto(LeginonFrameTransferJobBase):
 
 class ImportTaskDto(BaseModel):
     task_id: uuid.UUID
+    job_id: Optional[uuid.UUID] = None
     task_alias: Optional[str] = None
     file_name: Optional[str] = None
     image_id: Optional[uuid.UUID] = None
