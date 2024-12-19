@@ -140,8 +140,8 @@ services:
 #    image: khoshbin/magellon-react-app-image
     container_name: magellon-react-app-container
     restart: unless-stopped
-    depends_on:
-      - backend
+#    depends_on:
+#      - backend
     ports:
       - "${MAGELLON_FRONTEND_PORT}:80"
     environment:

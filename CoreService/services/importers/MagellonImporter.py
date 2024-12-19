@@ -399,6 +399,12 @@ class MagellonImporter(BaseImporter):
                         exposure_time=image_data.get("exposure_time"),
                         stage_x=image_data.get("stage_x"),
                         stage_y=image_data.get("stage_y"),
+                        atlas_delta_row=image_data.get("atlas_delta_row"),
+                        atlas_delta_column=image_data.get("atlas_delta_column"),
+                        atlas_dimxy=image_data.get("atlas_dimxy"),
+                        acceleration_voltage=image_data.get("acceleration_voltage"),
+                        spherical_aberration=image_data.get("spherical_aberration"),
+                        stage_alpha_tilt=image_data.get("stage_alpha_tilt"),
                         last_accessed_date=datetime.now()
                     )
                     db_session.add(image)
