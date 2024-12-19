@@ -1,20 +1,22 @@
 import json
 import os
+import re
 import shutil
 import uuid
 from datetime import datetime
 from typing import Dict, Any, List, Optional, Tuple
 import logging
-
+from sqlalchemy import text
 from models.pydantic_models import ImportTaskDto
-from models.sqlalchemy_models import Msession, ImageJob, Image, ImageJobTask, Project
+from models.sqlalchemy_models import Msession, ImageJob, Image, ImageJobTask, Project, Atlas
+from services.atlas import create_atlas_images
 from services.importers.BaseImporter import BaseImporter, TaskFailedException
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
 from config import (
     IMAGE_SUB_URL, THUMBNAILS_SUB_URL, FFT_SUB_URL,
-    ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, ATLAS_SUB_URL, CTF_SUB_URL, MAGELLON_HOME_DIR, FFT_SUFFIX)
+    ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, ATLAS_SUB_URL, CTF_SUB_URL, MAGELLON_HOME_DIR, FFT_SUFFIX, GAINS_SUB_URL)
 from services.importers.import_database_service import ImportDatabaseService
 
 logger = logging.getLogger(__name__)
@@ -48,12 +50,13 @@ class MagellonImporter(BaseImporter):
             # Process session data
             self.db_msession = self._upsert_session(db_session, session_data["msession"], self.db_project.oid if self.db_project else None)
 
-            session_dir= os.path.join(MAGELLON_HOME_DIR, self.db_msession.name)
+            session_dir=os.path.normpath( os.path.join(MAGELLON_HOME_DIR, self.db_msession.name.lower()))
+
+            # self.create_magellon_atlas(db_session)
+            # return
+
             if os.path.exists(session_dir):
                 return {'status': 'failure',"message": f"this project already exists: {session_dir}"}
-
-
-
 
             # Create job record
             job = ImageJob(
@@ -78,14 +81,20 @@ class MagellonImporter(BaseImporter):
             # session_dir = os.path.join(self.params.target_directory, self.db_msession.name)
 
             db_session.commit()
-            self.file_service.target_directory = os.path.normpath(session_dir)
+            self.file_service.target_directory = session_dir
             self.file_service.create_required_directories()
 
             # Copy original directories
             source_original = os.path.join(self.params.source_dir, 'home', ORIGINAL_IMAGES_SUB_URL)
-
             if os.path.exists(source_original):
                 shutil.copytree(source_original,os.path.join(session_dir, ORIGINAL_IMAGES_SUB_URL), dirs_exist_ok=True)
+
+            # Copy gains directories
+            source_gains = os.path.join(self.params.source_dir, 'home', GAINS_SUB_URL)
+            if os.path.exists(source_gains):
+                shutil.copytree(source_gains, os.path.join(session_dir, GAINS_SUB_URL), dirs_exist_ok=True)
+
+
             # Copy frames directories
             # source_frames = os.path.join(self.params.source_file, 'home', FRAMES_SUB_URL)
             # if os.path.exists(source_frames):
@@ -116,7 +125,7 @@ class MagellonImporter(BaseImporter):
 
             self.run_tasks(db_session )
                 # self.file_service.process_image()
-
+            self.create_magellon_atlas(db_session)
             # Clean up temporary directory
             # shutil.rmtree(temp_dir)
 
@@ -138,6 +147,7 @@ class MagellonImporter(BaseImporter):
                 'session_name': self.db_msession.name,
                 'messagae': str(e)
             }
+
 
     def run_tasks(self, db_session: Session):
         try:
@@ -189,6 +199,108 @@ class MagellonImporter(BaseImporter):
 
         except Exception as e:
             return {"error": str(e)}
+
+
+    def extract_grid_label(self,filename: str) -> str:
+        """
+        Extracts the grid name from a file name.
+        The grid name is assumed to be a substring starting with an underscore and
+        containing letters/numbers, followed by another underscore.
+
+        Parameters:
+            filename (str): The file name to process.
+
+        Returns:
+            str: The extracted grid name, or 'empty' if no grid name is found.
+        """
+        # Regular expression to match the grid name pattern (e.g., _g4d_)
+        match = re.search(r'_([a-zA-Z0-9]+)_', filename)
+
+        # Return the grid name or 'empty' if not found
+        return match.group(1) if match else "empty"
+
+
+
+    def create_magellon_atlas(self, db_session: Session ):
+        """
+        Create atlas images for a Magellon session using the Image table.
+        """
+        try:
+            # Get the session ID from Msession table
+            try:
+                session_id_binary = self.db_msession.oid.bytes
+            except AttributeError:
+                return {"error": "Invalid session ID"}
+            # Query to get all atlas-related images for the session
+            # This query gets images where parent_id is null (top-level images)
+            query = text("""
+                SELECT 
+                    i.oid as id,
+                    i.dimension_x as dimx,
+                    i.dimension_y as dimy,
+                    i.name as filename,
+                    i.atlas_delta_row as delta_row,
+                    i.atlas_delta_column as delta_column
+                FROM image i
+                WHERE i.session_id = :session_id 
+                AND i.atlas_delta_row IS NOT NULL 
+                AND i.atlas_delta_column IS NOT NULL
+                AND i.parent_id IS NULL
+                AND i.GCRecord IS NULL
+            """)
+
+            result = db_session.execute(query, {"session_id": session_id_binary})
+            atlas_images = result.fetchall()
+
+            if not atlas_images:
+                raise HTTPException(status_code=404, detail="No atlas images found for this session")
+
+            # Group images by their grid label prefix use extract_grid_label(row.filename) to get the grid label
+            label_objects = {}
+
+            for row in atlas_images:
+                # Get the prefix of the filename (everything before the first underscore)
+                # filename_parts = row.filename.split('_')
+                prefix = self.extract_grid_label(row.filename) # Using first part as the group identifier
+
+                obj = {
+                    "id": str(row.id),
+                    "dimx": float(row.dimx) if row.dimx else 0,
+                    "dimy": float(row.dimy) if row.dimy else 0,
+                    "filename": row.filename,
+                    "delta_row": float(row.delta_row) if row.delta_row else 0,
+                    "delta_column": float(row.delta_column) if row.delta_column else 0
+                }
+
+                if prefix in label_objects:
+                    label_objects[prefix].append(obj)
+                else:
+                    label_objects[prefix] = [obj]
+
+            # Create atlas images using the existing create_atlas_images function
+            images = create_atlas_images(self.db_msession.name, label_objects)
+
+            # Insert the atlas records into the database
+            atlases_to_insert = []
+            for image in images:
+                file_name = os.path.basename(image['imageFilePath'])
+                file_name_without_extension = os.path.splitext(file_name)[0]
+                atlas = Atlas(
+                    oid=uuid.uuid4(),
+                    name=file_name_without_extension,
+                    meta=image['imageMap'],
+                    session_id=self.db_msession.oid
+                )
+                atlases_to_insert.append(atlas)
+
+            db_session.bulk_save_objects(atlases_to_insert)
+            db_session.commit()
+
+            return {"images": images}
+
+        except Exception as e:
+            db_session.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
 
 
     def _upsert_project(self, db_session: Session, project_data: Dict[str, Any]) -> Project:
