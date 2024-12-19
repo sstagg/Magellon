@@ -57,12 +57,13 @@ class BaseImporter:
         try:
 
             self.db_service = ImportDatabaseService(db_session)
-            # self.db_service = ImportFileService()
+            # self.file_service = ImportFileService()
             # Initialize data and database records
             # self.setup_data()
             # self._init_database_records()
 
-            return self.run_job(db_session)
+            result = self.run_job(db_session)
+            return result
 
             # Process files if required
             # if getattr(self.params, 'if_do_subtasks', True):
@@ -75,14 +76,8 @@ class BaseImporter:
             logger.error(f"Unexpected error: {str(e)}")
             return {'status': 'failure', 'message': f'Unexpected error: {str(e)}'}
 
-    def run_job(self, db_session: Session = Depends(get_db))-> Dict[str, str]:
-        """Run the import job using the provided database session"""
-
-        # return {
-        #     'status': 'success',
-        #     'message': 'Import completed successfully.',
-        #     'job_id': self.params.job_id
-        # }
+    @abstractmethod
+    def run_job(self, db_session: Session = Depends(get_db)) -> Dict[str, str]:
         pass
 
     def _init_database_records(self) -> None:

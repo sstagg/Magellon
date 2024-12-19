@@ -2,10 +2,8 @@ import json
 import os
 import shutil
 import uuid
-from abc import ABC
 from datetime import datetime
 from typing import Dict, Any, List, Optional, Tuple
-from models.pydantic_models import MagellonImportJobDto
 import logging
 
 from models.sqlalchemy_models import Msession, ImageJob, Image, ImageJobTask, Project
@@ -15,9 +13,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from config import (
     IMAGE_SUB_URL, THUMBNAILS_SUB_URL, FFT_SUB_URL,
-    ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, ATLAS_SUB_URL,
-    CTF_SUB_URL
-)
+    ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, ATLAS_SUB_URL, CTF_SUB_URL, MAGELLON_HOME_DIR)
 
 
 logger = logging.getLogger(__name__)
@@ -37,12 +33,10 @@ class MagellonImporter(BaseImporter):
             # self.file_service.extract_archive(self.params.source_file, temp_dir)
 
             # Read and validate session.json
+
             json_path = os.path.join(self.params.source_file, 'session.json')
             if not os.path.exists(json_path):
-                raise HTTPException(
-                    status_code=400,
-                    detail="Invalid archive structure: session.json not found"
-                )
+                raise HTTPException( status_code=400, detail="Invalid archive structure: session.json not found"   )
 
             with open(json_path, 'r') as f:
                 session_data = json.load(f)
@@ -55,6 +49,14 @@ class MagellonImporter(BaseImporter):
             # Process session data
             self.db_msession = self._upsert_session(db_session, session_data["msession"], self.db_project.oid if self.db_project else None)
 
+            session_dir= os.path.join(MAGELLON_HOME_DIR, self.db_msession.name)
+            if os.path.exists(session_dir):
+                return {"message": "this project already exists"}
+
+
+            # Process all images and get list for file processing
+            images_to_process = self.process_images(session_data["images"])
+
             # Create job record
             job = ImageJob(
                 oid=uuid.uuid4(),
@@ -65,80 +67,57 @@ class MagellonImporter(BaseImporter):
                 status_id=1,  # Pending status
                 type_id=1     # Import type
             )
+
+
             db_session.add(job)
             db_session.flush()
 
-            # Process all images and get list for file processing
-            images_to_process = process_images(session_data["images"])
             db_session.commit()
+            self.db_job=job
 
             # Create directory structure
-            session_dir = os.path.join(self.params.target_directory, msession.name)
-            os.makedirs(session_dir, exist_ok=True)
+            # session_dir = os.path.join(self.params.target_directory, self.db_msession.name)
 
-            subdirs = [
-                IMAGE_SUB_URL, THUMBNAILS_SUB_URL, FFT_SUB_URL,
-                ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, ATLAS_SUB_URL,
-                CTF_SUB_URL
-            ]
-            for subdir in subdirs:
-                os.makedirs(os.path.join(session_dir, subdir), exist_ok=True)
 
-            # Copy original and frames directories
-            source_original = os.path.join(temp_dir, 'home', ORIGINAL_IMAGES_SUB_URL)
-            source_frames = os.path.join(temp_dir, 'home', FRAMES_SUB_URL)
+            self.file_service.target_directory = session_dir
+            self.file_service.create_required_directories()
+
+            # Copy original directories
+            source_original = os.path.join(self.params.source_file, 'home', ORIGINAL_IMAGES_SUB_URL)
 
             if os.path.exists(source_original):
-                shutil.copytree(
-                    source_original,
-                    os.path.join(session_dir, ORIGINAL_IMAGES_SUB_URL),
-                    dirs_exist_ok=True
-                )
-
+                shutil.copytree(source_original,os.path.join(session_dir, ORIGINAL_IMAGES_SUB_URL), dirs_exist_ok=True)
+            # Copy frames directories
+            source_frames = os.path.join(self.params.source_file, 'home', FRAMES_SUB_URL)
             if os.path.exists(source_frames):
-                shutil.copytree(
-                    source_frames,
-                    os.path.join(session_dir, FRAMES_SUB_URL),
-                    dirs_exist_ok=True
-                )
+                shutil.copytree( source_frames, os.path.join(session_dir, FRAMES_SUB_URL), dirs_exist_ok=True)
 
             # Process each image
             for image, file_path in images_to_process:
                 base_name = os.path.splitext(image.name)[0]
 
-                # Convert to PNG and create thumbnail
-                self.mrc_service.convert_mrc_to_png(
-                    abs_file_path=file_path,
-                    out_dir=session_dir
-                )
-
-                # Compute FFT
-                fft_path = os.path.join(session_dir, FFT_SUB_URL, f"{base_name}_fft.png")
-                self.mrc_service.compute_mrc_fft(
-                    mrc_abs_path=file_path,
-                    abs_out_file_name=fft_path
-                )
-
-                # Compute CTF if needed
-                if image.pixel_size and (image.pixel_size * 10 ** 10) <= 5:
-                    dispatch_ctf_task(uuid.uuid4(), file_path, None)
+                # self.file_service.process_image()
 
             # Clean up temporary directory
-            shutil.rmtree(temp_dir)
+            # shutil.rmtree(temp_dir)
 
             return {
                 'status': 'success',
                 'message': 'Import completed successfully.',
-                'session_name': msession.name,
+                'session_name': self.db_msession.name,
                 'job_id': str(job.oid)
             }
 
         except Exception as e:
             # Clean up temporary directory in case of error
-            if 'temp_dir' in locals() and os.path.exists(temp_dir):
-                shutil.rmtree(temp_dir)
-            raise HTTPException(status_code=500, detail=str(e))
-
+            # if 'temp_dir' in locals() and os.path.exists(temp_dir):
+            #     shutil.rmtree(temp_dir)
+            # raise HTTPException(status_code=500, detail=str(e))
+            return {
+                'status': 'faliure',
+                'message': 'Import completed encountered problem.',
+                'session_name': self.db_msession.name
+            }
 
 
     def _upsert_project(self, db_session: Session, project_data: Dict[str, Any]) -> Project:
@@ -242,36 +221,36 @@ class MagellonImporter(BaseImporter):
                     db_session.add(image)
 
                 # Get original file path
-                original_file = os.path.join(temp_dir, 'home', ORIGINAL_IMAGES_SUB_URL, f"{image.name}.mrc")
-                if not os.path.exists(original_file):
-                    original_file = os.path.join(temp_dir, 'home', ORIGINAL_IMAGES_SUB_URL, f"{image.name}.tiff")
-
-                # Get frame file if exists
-                frame_file = None
-                frame_path = os.path.join(temp_dir, 'home', FRAMES_SUB_URL)
-                if os.path.exists(frame_path):
-                    frame_files = [f for f in os.listdir(frame_path) if f.startswith(image.name)]
-                    if frame_files:
-                        frame_file = os.path.join(frame_path, frame_files[0])
+                original_file = os.path.join(self.params.source_file, 'home', ORIGINAL_IMAGES_SUB_URL, f"{image.name}.mrc")
+                # if not os.path.exists(original_file):
+                #     original_file = os.path.join(self.params.source_file, 'home', ORIGINAL_IMAGES_SUB_URL, f"{image.name}.tiff")
+                #
+                # # Get frame file if exists
+                # frame_file = None
+                # frame_path = os.path.join(self.params.source_file, 'home', FRAMES_SUB_URL)
+                # if os.path.exists(frame_path):
+                #     frame_files = [f for f in os.listdir(frame_path) if f.startswith(image.name)]
+                #     if frame_files:
+                #         frame_file = os.path.join(frame_path, frame_files[0])
 
                 # Create job task record
                 if os.path.exists(original_file):
                     task = ImageJobTask(
                         oid=uuid.uuid4(),
-                        job_id=job.oid,
+                        job_id=self.db_job.oid,
                         image_id=image.oid,
                         status_id=1,  # Pending
                         stage=0,
                         image_name=image.name,
                         image_path=original_file,
-                        frame_name=os.path.basename(frame_file) if frame_file else None,
-                        frame_path=frame_file
+                        # frame_name=os.path.basename(frame_file) if frame_file else None,
+                        # frame_path=frame_file
                     )
                     db_session.add(task)
                     results.append((image, original_file))
 
                 # Process children recursively
                 if image_data.get("children"):
-                    results.extend(process_images(image_data["children"], image_oid))
+                    results.extend(self.process_images(image_data["children"], image_oid))
 
             return results

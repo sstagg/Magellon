@@ -102,8 +102,10 @@ class ImportFileService:
         )
 
         # Dispatch CTF task if needed
-        if hasattr(task, 'pixel_size') and (task.pixel_size * 10 ** 10) <= 5:
-            dispatch_ctf_task(task.task_id, task.image_path, task)
+        # if hasattr(task, 'pixel_size') and (task.pixel_size * 10 ** 10) <= 5:
+        #     dispatch_ctf_task(task.task_id, task.image_path, task)
+
+
 
 
     @staticmethod
