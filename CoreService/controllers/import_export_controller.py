@@ -278,11 +278,8 @@ async def import_session_data(json_data: Dict[Any, Any], db: Session) -> None:
 
 
 
-@export_router.post("/import-file")
-async def import_session_file(
-        request: MagellonImportJobDto,
-        db_session: Session = Depends(get_db)
-):
+@export_router.post("/import-dir")
+async def import_directory(request: MagellonImportJobDto,  db_session: Session = Depends(get_db)):
     """
     Import a session from a directory containing session.json and image files.
 
@@ -300,15 +297,15 @@ async def import_session_file(
     """
     try:
         # Validate source directory exists
-        if not os.path.exists(request.source_directory):
+        if not os.path.exists(request.source_dir):
             raise HTTPException(
                 status_code=404,
-                detail=f"Source directory not found: {request.source_directory}"
+                detail=f"Source directory not found: {request.source_dir}"
             )
 
         # Initialize and run importer
         importer = MagellonImporter()
-        importer.setup_data(request)
+        importer.setup(request)
         result = importer.process(db_session)
 
         if result.get('status') == 'failure':

@@ -8,19 +8,13 @@ from fastapi import Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from core.helper import create_directory, dispatch_ctf_task
-from config import FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, \
-    FFT_SUFFIX, ATLAS_SUB_URL, CTF_SUB_URL, FRAMES_SUFFIX
 
 from database import get_db
-from models.pydantic_models import ImportJobBase
 from models.sqlalchemy_models import Project, Msession, ImageJob, ImageJobTask, Image
 import logging
 
-from services.file_service import copy_file
 from services.importers.import_database_service import ImportDatabaseService
 from services.importers.import_file_service import ImportFileService, TaskError, FileError
-from services.mrc_image_service import MrcImageService
 
 logger = logging.getLogger(__name__)
 
@@ -55,16 +49,7 @@ class BaseImporter:
     def setup(self, input_data: BaseModel) -> None:
         """Initialize the importer with basic parameters"""
         self.params = input_data
-        self.file_service = ImportFileService(
-            target_directory="",
-            camera_directory=input_data.camera_directory
-        )
-
-    @abstractmethod
-    def setup_data(self) -> None:
-        """Initialize importer with type-specific parameters"""
-
-        pass
+        self.file_service = ImportFileService(target_directory= None, camera_directory= None  )
 
 
     def process(self, db_session: Session = Depends(get_db)) -> Dict[str, str]:
@@ -72,7 +57,7 @@ class BaseImporter:
         try:
 
             self.db_service = ImportDatabaseService(db_session)
-            self.db_service = ImportFileService()
+            # self.db_service = ImportFileService()
             # Initialize data and database records
             # self.setup_data()
             # self._init_database_records()

@@ -160,7 +160,7 @@ class ImportJobBase(BaseModel):
 
 
 class MagellonImportJobDto(BaseModel):
-    source_file: str
+    source_dir: str
 
 
 class ImportTaskDto(BaseModel):
