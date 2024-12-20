@@ -6,11 +6,11 @@ import os
 from uuid import UUID
 import logging
 from typing import List, Optional, Dict, Any
-from decimal import Decimal
-
+from decimal import Decimal, InvalidOperation
 
 import py7zr
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from config import app_settings
 from database import get_db
@@ -32,8 +32,21 @@ def serialize_datetime(dt: datetime) -> str:
 def serialize_uuid(uuid: UUID) -> str:
     return str(uuid) if uuid else None
 
+
 def safe_decimal(value):
-    return value if value is not None else None
+    if value is None:
+        return None
+    try:
+        # Convert to Decimal while preserving exact representation
+        if isinstance(value, Decimal):
+            # If it's already a Decimal, normalize it to remove exponents
+            return value.normalize()
+        # For other types, first convert to string with full precision
+        str_val = f"{value:.20f}" if isinstance(value, float) else str(value)
+        return Decimal(str_val)
+    except InvalidOperation:
+        raise ValueError(f"Invalid decimal value: {value}")
+
 
     # Helper function for BIGINT and INTEGER values
 def safe_bigint(value):
@@ -169,23 +182,50 @@ def process_image_hierarchy(db: Session, parent_id: UUID = None, processed_image
         result.append(image_dict)
     return result
 
+
 class CustomJSONEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, (datetime, UUID)):
+    def default(self, obj: Any) -> Any:
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        elif isinstance(obj, UUID):
             return str(obj)
         elif isinstance(obj, Decimal):
-            return str(obj)  # Convert Decimal to string to preserve precision
+            # Convert Decimal to string and handle scientific notation
+            s = str(obj)
+            if 'E' in s.upper():
+                # Split into mantissa and exponent
+                mantissa, exp = s.split('E')
+                exp = int(exp)
+                # Remove decimal point from mantissa and handle negative numbers
+                is_negative = mantissa.startswith('-')
+                mantissa = mantissa.replace('.', '').replace('-', '')
+                # Add decimal point at correct position
+                if exp < 0:
+                    result = '0.' + '0' * (-exp - 1) + mantissa
+                    return '-' + result if is_negative else result
+                else:
+                    result = mantissa + '0' * exp
+                    return '-' + result if is_negative else result
+            return s
         return super().default(obj)
 
+def save_to_json(data: Dict, file_path: str) -> str:
+    """
+    Save the given data to a JSON file with pretty printing, using a custom encoder.
 
+    Args:
+        data (Dict): The data to save.
+        file_path (str): The path to the JSON file.
 
-def save_to_json(data: Dict, file_path: str):
-    # Save the data with pretty printing and custom encoder
-    with open(file_path, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=2, cls=CustomJSONEncoder, ensure_ascii=False)
-
+    Returns:
+        str: The path to the saved JSON file.
+    """
+    try:
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, cls=CustomJSONEncoder, ensure_ascii=False)
+    except Exception as e:
+        raise ValueError(f"Error saving data to JSON: {e}")
     return file_path
-
 
 
 def get_project_data(db: Session, project_id: UUID) -> Dict:
@@ -328,73 +368,84 @@ def import_directory(request: MagellonImportJobDto,  db_session: Session = Depen
         logger.error(f"Error during import: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-
-@export_router.post("/session-stats/")
-async def get_session_stats(file: UploadFile = File(...)):
-    """
-    Read an uploaded session.json file and return image statistics.
-
-    Args:
-        file: Uploaded JSON file
-
-    Returns:
-        dict: Contains total number of images and other relevant statistics
-    """
-    try:
-        # Verify file has .json extension
-        if not file.filename.endswith('.json'):
-            raise HTTPException(
-                status_code=400,
-                detail="File must be a JSON file"
-            )
-
-        # Read the uploaded file content
-        content = await file.read()
-
-        # Parse the JSON content
-        try:
-            data = json.loads(content.decode('utf-8'))
-        except UnicodeDecodeError:
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid file encoding. File must be UTF-8 encoded"
-            )
-
-        # Function to count images recursively
-        def count_images(images_list):
-            if not images_list:
-                return 0
-
-            total = len(images_list)
-            # Count children recursively
-            for image in images_list:
-                if "children" in image and image["children"]:
-                    total += count_images(image["children"])
-            return total
-
-        # Get the images list from the JSON
-        images = data.get("images", [])
-        total_images = count_images(images)
-
-        # Get session name and other metadata
-        session_name = data.get("msession", {}).get("name", "Unknown")
-        export_date = data.get("metadata", {}).get("export_date", "Unknown")
-
-        return {
-            "session_name": session_name,
-            "total_images": total_images,
-            "export_date": export_date,
-            "filename": file.filename
-        }
-
-    except json.JSONDecodeError:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid JSON file content"
-        )
-    except Exception as e:
-        logger.error(f"Error reading session stats: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error processing file: {str(e)}"
-        )
+# class DecimalInput(BaseModel):
+#     value: str  # Accept as string to ensure accurate input processing
+#
+# # Endpoint to test safe_decimal
+# @export_router.post("/test-decimal/")
+# async def test_decimal(input_data: DecimalInput):
+#     try:
+#         processed_value = safe_decimal(input_data.value)
+#         return {"original_value": input_data.value, "processed_value": str(processed_value)}
+#     except ValueError as e:
+#         raise HTTPException(status_code=400, detail=str(e))
+#
+# @export_router.post("/session-stats/")
+# async def get_session_stats(file: UploadFile = File(...)):
+#     """
+#     Read an uploaded session.json file and return image statistics.
+#
+#     Args:
+#         file: Uploaded JSON file
+#
+#     Returns:
+#         dict: Contains total number of images and other relevant statistics
+#     """
+#     try:
+#         # Verify file has .json extension
+#         if not file.filename.endswith('.json'):
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail="File must be a JSON file"
+#             )
+#
+#         # Read the uploaded file content
+#         content = await file.read()
+#
+#         # Parse the JSON content
+#         try:
+#             data = json.loads(content.decode('utf-8'))
+#         except UnicodeDecodeError:
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail="Invalid file encoding. File must be UTF-8 encoded"
+#             )
+#
+#         # Function to count images recursively
+#         def count_images(images_list):
+#             if not images_list:
+#                 return 0
+#
+#             total = len(images_list)
+#             # Count children recursively
+#             for image in images_list:
+#                 if "children" in image and image["children"]:
+#                     total += count_images(image["children"])
+#             return total
+#
+#         # Get the images list from the JSON
+#         images = data.get("images", [])
+#         total_images = count_images(images)
+#
+#         # Get session name and other metadata
+#         session_name = data.get("msession", {}).get("name", "Unknown")
+#         export_date = data.get("metadata", {}).get("export_date", "Unknown")
+#
+#         return {
+#             "session_name": session_name,
+#             "total_images": total_images,
+#             "export_date": export_date,
+#             "filename": file.filename
+#         }
+#
+#     except json.JSONDecodeError:
+#         raise HTTPException(
+#             status_code=400,
+#             detail="Invalid JSON file content"
+#         )
+#     except Exception as e:
+#         logger.error(f"Error reading session stats: {str(e)}", exc_info=True)
+#         raise HTTPException(
+#             status_code=500,
+#             detail=f"Error processing file: {str(e)}"
+#         )
