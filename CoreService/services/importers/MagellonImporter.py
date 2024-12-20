@@ -7,6 +7,8 @@ from datetime import datetime
 from typing import Dict, Any, List, Optional, Tuple
 import logging
 from sqlalchemy import text
+
+from core.helper import dispatch_ctf_task
 from models.pydantic_models import ImportTaskDto
 from models.sqlalchemy_models import Msession, ImageJob, Image, ImageJobTask, Project, Atlas
 from services.atlas import create_atlas_images
@@ -14,12 +16,28 @@ from services.importers.BaseImporter import BaseImporter, TaskFailedException
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
-from config import (
-    IMAGE_SUB_URL, THUMBNAILS_SUB_URL, FFT_SUB_URL,
-    ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, ATLAS_SUB_URL, CTF_SUB_URL, MAGELLON_HOME_DIR, FFT_SUFFIX, GAINS_SUB_URL)
-from services.importers.import_database_service import ImportDatabaseService
+from config import ( FFT_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, ATLAS_SUB_URL, CTF_SUB_URL, MAGELLON_HOME_DIR, FFT_SUFFIX, GAINS_SUB_URL)
 
 logger = logging.getLogger(__name__)
+
+
+def extract_grid_label(filename: str) -> str:
+    """
+    Extracts the grid name from a file name.
+    The grid name is assumed to be a substring starting with an underscore and
+    containing letters/numbers, followed by another underscore.
+
+    Parameters:
+        filename (str): The file name to process.
+
+    Returns:
+        str: The extracted grid name, or 'empty' if no grid name is found.
+    """
+    # Regular expression to match the grid name pattern (e.g., _g4d_)
+    match = re.search(r'_([a-zA-Z0-9]+)_', filename)
+
+    # Return the grid name or 'empty' if not found
+    return match.group(1) if match else "empty"
 
 
 class MagellonImporter(BaseImporter):
@@ -173,7 +191,7 @@ class MagellonImporter(BaseImporter):
 
             self.convert_image_to_png_task(task_dto.image_path, self.file_service.target_directory )
             self.compute_fft_png_task(task_dto.image_path, self.file_service.target_directory )
-            # self.compute_ctf_task(task_dto.image_path, task_dto)
+            self.compute_ctf_task(task_dto.image_path, task_dto)
 
             return {'status': 'success', 'message': 'Task completed successfully.'}
 
@@ -200,26 +218,14 @@ class MagellonImporter(BaseImporter):
         except Exception as e:
             return {"error": str(e)}
 
+    def compute_ctf_task(self, abs_file_path: str, task_dto: ImportTaskDto):
+        try:
+            if (task_dto.pixel_size * 10 ** 10) <= 5:
+                dispatch_ctf_task(task_dto.task_id, abs_file_path, task_dto)
+                return {"message": "Converting to ctf on the way! " + abs_file_path}
 
-    def extract_grid_label(self,filename: str) -> str:
-        """
-        Extracts the grid name from a file name.
-        The grid name is assumed to be a substring starting with an underscore and
-        containing letters/numbers, followed by another underscore.
-
-        Parameters:
-            filename (str): The file name to process.
-
-        Returns:
-            str: The extracted grid name, or 'empty' if no grid name is found.
-        """
-        # Regular expression to match the grid name pattern (e.g., _g4d_)
-        match = re.search(r'_([a-zA-Z0-9]+)_', filename)
-
-        # Return the grid name or 'empty' if not found
-        return match.group(1) if match else "empty"
-
-
+        except Exception as e:
+            return {"error": str(e)}
 
     def create_magellon_atlas(self, db_session: Session ):
         """
@@ -261,7 +267,7 @@ class MagellonImporter(BaseImporter):
             for row in atlas_images:
                 # Get the prefix of the filename (everything before the first underscore)
                 # filename_parts = row.filename.split('_')
-                prefix = self.extract_grid_label(row.filename) # Using first part as the group identifier
+                prefix = extract_grid_label(row.filename) # Using first part as the group identifier
 
                 obj = {
                     "id": str(row.id),
