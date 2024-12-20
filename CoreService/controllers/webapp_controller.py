@@ -766,8 +766,8 @@ def create_magellon_atlas(session_name: str, db_session: Session = Depends(get_d
         query = text("""
             SELECT 
                 i.oid as id,
-                i.dimension_x as dimx,
-                i.dimension_y as dimy,
+                i.atlas_dimxy as dimx,
+                i.atlas_dimxy as dimy,
                 i.name as filename,
                 i.atlas_delta_row as delta_row,
                 i.atlas_delta_column as delta_column
@@ -777,6 +777,7 @@ def create_magellon_atlas(session_name: str, db_session: Session = Depends(get_d
             AND i.atlas_delta_column IS NOT NULL
             AND i.parent_id IS NULL
             AND i.GCRecord IS NULL
+            ORDER BY filename
         """)
 
         result = db_session.execute(query, {"session_id": session_id_binary})

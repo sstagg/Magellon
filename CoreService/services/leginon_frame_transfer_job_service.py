@@ -136,6 +136,11 @@ class LeginonFrameTransferJobService:
             # Fetch all the results
             session_result = self.leginon_cursor.fetchone()
 
+
+            # self.create_atlas_pics(self.params.session_name, db_session,magellon_session)
+            # return
+
+            # create directories
             presets_query = """
             SELECT GROUP_CONCAT(DISTINCT p.name ORDER BY LENGTH(p.name) DESC SEPARATOR '|')  AS regex_pattern FROM PresetData p
             LEFT JOIN SessionData s ON  p.`REF|SessionData|session` = s.DEF_id
