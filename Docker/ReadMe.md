@@ -161,12 +161,14 @@ docker system prune
 
 
 
-`docker-compose --profile default up -d
+```bash
+docker-compose --profile default up -d
 docker-compose --profile optional up
 docker-compose --profile dev up
-docker-compose -f docker-compose.yml -f docker-compose.optional.yml up`
-
+docker-compose -f docker-compose.yml -f docker-compose.optional.yml up
 ```
+
+```json
 {
 "session_name": "24DEC03A",
 "magellon_project_name": "Leginon",
@@ -190,11 +192,14 @@ docker-compose -f docker-compose.yml -f docker-compose.optional.yml up`
 24jun28a  24jul02a  24jul03a 24jul17a 24jul23b
 
 
+```sql
 DELETE FROM  `atlas`;
 DELETE FROM  `image_job_task`;
 DELETE FROM  `image_job`;
 DELETE FROM  `image_meta_data`;
 DELETE FROM  `image`;
-
+DELETE FROM  `msession`;
+DELETE FROM  `project`;
+```
 
 
