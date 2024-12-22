@@ -4,7 +4,18 @@ rm -rf ./mysql/data/*
 rm -rf ./consul/data/*
 
 # Step 1: Start Docker Compose
-docker-compose --profile default up -d
+if command -v docker-compose &> /dev/null; then
+    DOCKER_CMD="docker-compose"
+elif docker compose version &> /dev/null; then
+    DOCKER_CMD="docker compose"
+else
+    echo "Neither 'docker-compose' nor 'docker compose' is available in the PATH."
+    exit 1
+fi
+
+echo "Using command: $DOCKER_CMD"
+
+$DOCKER_CMD --profile default up -d
 
 # Step 2: Wait for services to be ready (optional)
 # You can add a sleep here to give the services some time to start, or use a more sophisticated health check
