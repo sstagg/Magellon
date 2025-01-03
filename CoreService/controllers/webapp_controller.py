@@ -6,7 +6,7 @@ import uuid
 from io import BytesIO
 from typing import List, Optional, Dict
 from uuid import UUID
-
+import re
 import mrcfile
 from lxml import etree
 
@@ -38,7 +38,7 @@ from services.file_service import FileService
 from services.helper import get_response_image, get_parent_name
 import logging
 
-from services.import_export_service import ImportExportService
+
 from services.importers.EPUImporter import EPUImporter, scan_directory
 from pathlib import Path
 # from services.image_file_service import get_images, get_image_by_stack, get_image_data
@@ -644,7 +644,7 @@ async def run_dag():
 
 
 @webapp_router.get("/create_atlas")
-async def create_atlas(session_name: str, db_session: Session = Depends(get_db)):
+def create_leginon_atlas(session_name: str, db_session: Session = Depends(get_db)):
 
 
     # session_id = "13892"
@@ -664,7 +664,7 @@ async def create_atlas(session_name: str, db_session: Session = Depends(get_db))
     cursor.execute(query, (session_name,))
     session_id = cursor.fetchone()[0]
 
-    query1 = "SELECT label FROM ImageTargetListData WHERE `REF|SessionData|session` = %s AND mosaic = %s"
+    query1 = "SELECT * FROM ImageTargetListData WHERE `REF|SessionData|session` = %s AND mosaic = %s"
 
     mosaic_value = 1  # Execute the first query with parameters
     cursor.execute(query1, (session_id, mosaic_value))  # Fetch all the label results into a Python array
@@ -712,7 +712,7 @@ async def create_atlas(session_name: str, db_session: Session = Depends(get_db))
     cursor.close()
     connection.close()
 
-    images = await create_atlas_images(session_name, label_objects)
+    images =  create_atlas_images(session_name, label_objects)
 
     atlases_to_insert = []
     for image in images:
@@ -724,6 +724,116 @@ async def create_atlas(session_name: str, db_session: Session = Depends(get_db))
     db_session.bulk_save_objects(atlases_to_insert)
     db_session.commit()
     return {"images": images}
+
+
+
+def extract_grid_label(filename: str) -> str:
+    """
+    Extracts the grid name from a file name.
+    The grid name is assumed to be a substring starting with an underscore and
+    containing letters/numbers, followed by another underscore.
+
+    Parameters:
+        filename (str): The file name to process.
+
+    Returns:
+        str: The extracted grid name, or 'empty' if no grid name is found.
+    """
+    # Regular expression to match the grid name pattern (e.g., _g4d_)
+    match = re.search(r'_([a-zA-Z0-9]+)_', filename)
+
+    # Return the grid name or 'empty' if not found
+    return match.group(1) if match else "empty"
+
+@webapp_router.get("/create_magellon_atlas")
+def create_magellon_atlas(session_name: str, db_session: Session = Depends(get_db)):
+    """
+    Create atlas images for a Magellon session using the Image table.
+    """
+    try:
+        # Get the session ID from Msession table
+        msession = db_session.query(Msession).filter(Msession.name == session_name).first()
+        if not msession:
+            raise HTTPException(status_code=404, detail="Session not found")
+        if msession is None:
+            return {"error": "Session not found"}
+        try:
+            session_id_binary = msession.oid.bytes
+        except AttributeError:
+            return {"error": "Invalid session ID"}
+        # Query to get all atlas-related images for the session
+        # This query gets images where parent_id is null (top-level images)
+        query = text("""
+            SELECT 
+                i.oid as id,
+                i.atlas_dimxy as dimx,
+                i.atlas_dimxy as dimy,
+                i.name as filename,
+                i.atlas_delta_row as delta_row,
+                i.atlas_delta_column as delta_column
+            FROM image i
+            WHERE i.session_id = :session_id 
+            AND i.atlas_delta_row IS NOT NULL 
+            AND i.atlas_delta_column IS NOT NULL
+            AND i.parent_id IS NULL
+            AND i.GCRecord IS NULL
+            ORDER BY filename
+        """)
+
+        result = db_session.execute(query, {"session_id": session_id_binary})
+        atlas_images = result.fetchall()
+
+        if not atlas_images:
+            raise HTTPException(status_code=404, detail="No atlas images found for this session")
+
+        # Group images by their grid label prefix use extract_grid_label(row.filename) to get the grid label
+        label_objects = {}
+
+        for row in atlas_images:
+            # Get the prefix of the filename (everything before the first underscore)
+            # filename_parts = row.filename.split('_')
+            prefix = extract_grid_label(row.filename) # Using first part as the group identifier
+
+            obj = {
+                "id": str(row.id),
+                "dimx": float(row.dimx) if row.dimx else 0,
+                "dimy": float(row.dimy) if row.dimy else 0,
+                "filename": row.filename,
+                "delta_row": float(row.delta_row) if row.delta_row else 0,
+                "delta_column": float(row.delta_column) if row.delta_column else 0
+            }
+
+            if prefix in label_objects:
+                label_objects[prefix].append(obj)
+            else:
+                label_objects[prefix] = [obj]
+
+        # Create atlas images using the existing create_atlas_images function
+        images = create_atlas_images(session_name, label_objects)
+
+        # Insert the atlas records into the database
+        atlases_to_insert = []
+        for image in images:
+            file_name = os.path.basename(image['imageFilePath'])
+            file_name_without_extension = os.path.splitext(file_name)[0]
+            atlas = Atlas(
+                oid=uuid.uuid4(),
+                name=file_name_without_extension,
+                meta=image['imageMap'],
+                session_id=msession.oid
+            )
+            atlases_to_insert.append(atlas)
+
+        db_session.bulk_save_objects(atlases_to_insert)
+        db_session.commit()
+
+        return {"images": images}
+
+    except Exception as e:
+        db_session.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 
 
 @webapp_router.get('/do_ctf')

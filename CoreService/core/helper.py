@@ -152,8 +152,13 @@ def dispatch_ctf_task(task_id, full_image_path, task_dto: ImportTaskDto):
         maximumDefocus=task_dto.maximum_defocus,
         defocusSearchStep=task_dto.defocus_search_step
     )
+
+    job_id = task_dto.job_dto.job_id if getattr(task_dto, 'job_dto', None) else task_dto.job_id
+    # job_id = getattr(task_dto.job_dto, 'job_id', getattr(task_dto, 'job_id', None))
+
+
     # str(uuid.uuid4())
-    ctf_task = CtfTaskFactory.create_task(pid=task_dto.task_id, instance_id=uuid.uuid4(), job_id=task_dto.job_dto.job_id,
+    ctf_task = CtfTaskFactory.create_task(pid=task_dto.task_id, instance_id=uuid.uuid4(), job_id=job_id,
                                           data=ctf_task_data.model_dump(), ptype=CTF_TASK, pstatus=PENDING)
     ctf_task.sesson_name = session_name
     return push_task_to_task_queue(ctf_task)

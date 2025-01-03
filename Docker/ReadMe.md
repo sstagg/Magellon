@@ -161,12 +161,14 @@ docker system prune
 
 
 
-`docker-compose --profile default up -d
+```bash
+docker-compose --profile default up -d
 docker-compose --profile optional up
 docker-compose --profile dev up
-docker-compose -f docker-compose.yml -f docker-compose.optional.yml up`
-
+docker-compose -f docker-compose.yml -f docker-compose.optional.yml up
 ```
+
+```json
 {
 "session_name": "24DEC03A",
 "magellon_project_name": "Leginon",
@@ -190,11 +192,39 @@ docker-compose -f docker-compose.yml -f docker-compose.optional.yml up`
 24jun28a  24jul02a  24jul03a 24jul17a 24jul23b
 
 
+```sql
 DELETE FROM  `atlas`;
 DELETE FROM  `image_job_task`;
 DELETE FROM  `image_job`;
 DELETE FROM  `image_meta_data`;
 DELETE FROM  `image`;
+DELETE FROM  `msession`;
+DELETE FROM  `project`;
+```
 
 
+{
+"source_dir": "C:/temp/magellon/24dec03a"
+}
 
+{
+"source_dir": "/gpfs/24dec03a"
+}
+
+
+{
+"session_name": "24DEC03A",
+"magellon_project_name": "Leginon",
+"magellon_session_name": "24DEC03A",
+"camera_directory": "/gpfs/24dec03a/home/frames",
+"copy_images": false,
+"retries": 0,
+"leginon_mysql_user": "usr_object",
+"leginon_mysql_pass": "ThPHMn3m39Ds",
+"leginon_mysql_host": "host.docker.internal",
+"leginon_mysql_port": 3310,
+"leginon_mysql_db": "dbemdata",
+"replace_type": "standard",
+"replace_pattern": "/gpfs/research/secm4/leginondata/",
+"replace_with": "/gpfs/"
+}
