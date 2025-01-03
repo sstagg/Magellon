@@ -12,13 +12,54 @@ from utils import buildCtfCommand, readLastLine, getFileContents
 
 logger = logging.getLogger(__name__)
 
+def validateInput(params):
+    if not params.inputFile or not isinstance(params.inputFile, str) or not params.inputFile.strip():
+        raise ValueError("inputFile must be a non-empty string.")
+    
+    if not isinstance(params.pixelSize, (float, int)) or params.pixelSize <= 0:
+        raise ValueError("pixelSize must be a number and greater than zero.")
+    
+    if not isinstance(params.accelerationVoltage, (float, int)) or params.accelerationVoltage <= 0:
+        raise ValueError("accelerationVoltage must be a number and greater than zero.")
+    
+    if not isinstance(params.sphericalAberration, (float, int)) or params.sphericalAberration <= 0:
+        raise ValueError("sphericalAberration must be a number and greater than zero.")
+    
+    if not isinstance(params.amplitudeContrast, (float, int)) or params.amplitudeContrast <= 0:
+        raise ValueError("amplitudeContrast must be a number between 0 and 1.")
+    
+    if not isinstance(params.sizeOfAmplitudeSpectrum, int) or params.sizeOfAmplitudeSpectrum <= 0:
+        raise ValueError("sizeOfAmplitudeSpectrum must be a number and greater than zero.")
+    
+    if not isinstance(params.minimumResolution, (float, int)) or params.minimumResolution <= 0:
+        raise ValueError("minimumResolution must be a number and greater than zero.")
+    
+    if not isinstance(params.maximumResolution, (float, int)) or params.maximumResolution <= 0:
+        raise ValueError("maximumResolution must be a number and greater than zero.")
+    
+    if not isinstance(params.minimumDefocus, (float, int)) or params.minimumDefocus <= 0:
+        raise ValueError("minimumDefocus must be a number and greater than zero.")
+    
+    if not isinstance(params.maximumDefocus, (float, int)) or params.maximumDefocus <= 0:
+        raise ValueError("maximumDefocus must be a number and greater than zero.")
+    
+    if not isinstance(params.defocusSearchStep, (float, int)) or params.defocusSearchStep <= 0:
+        raise ValueError("defocusSearchStep must be a number and greater than zero.")
+
+    return True
 
 async def do_ctf(the_task: TaskDto) -> TaskResultDto:
     try:
         d = DebugInfo()
         logger.info(f"Starting task {the_task.id} ")
         the_task_data = CtfTaskData.model_validate(the_task.data)
-
+        # validate the input
+        try:
+            if not validateInput(the_task_data):
+                raise Exception("Validation failed.")
+            print("Validation passed. Proceeding with task...")
+        except ValueError as e:
+            raise Exception(f"Input validation error: {e}")
         d.line1 = the_task_data.inputFile
         d.line2 = the_task_data.image_path
 
