@@ -23,6 +23,7 @@ const links: AppLink[] = [
     new AppLink("Run Job", "run-job", "plugins"),
     new AppLink("Plugins", "domains/plugins", "plugins"),
     new AppLink("Pipelines", "domains/plugins", "account-tree"),
+    new AppLink("Import", "import-job", "import"),
     new AppLink("Leginon Import", "leginon-transfer", "import"),
     new AppLink("API", "api", "api"),
     new AppLink("Mrc Viewer", "mrc-viewer", "image"),

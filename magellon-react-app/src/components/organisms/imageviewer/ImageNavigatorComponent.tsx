@@ -13,13 +13,13 @@ import ImageInfoDto, {AtlasImageDto, SessionDto} from "./ImageInfoDto.ts";
 import IconButton from "@mui/material/IconButton";
 import {EyeOutlined} from "@ant-design/icons";
 import {useEffect, useState} from "react";
-import InfoIcon from "@mui/icons-material/Info";
 import {ImageColumnState} from "../../views/panel/ImagesPageView.tsx";
 import AtlasImage from "./AtlasImage.tsx";
 import {settings} from "../../../core/settings.ts";
 import {AccountTreeRounded, GridViewRounded} from "@mui/icons-material";
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL ;
+
 interface ImageNavigatorProps {
     onImageClick: (imageInfo: ImageInfoDto, column: number) => void,
     selectedImage: ImageInfoDto | null,

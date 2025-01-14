@@ -97,6 +97,7 @@
       "edit": "Edit",
       "open": "Open",
       "save": "Save",
+      "import": "Import",
       "view": "View",
       "show": "Show {{otherEntity}}"
     },
