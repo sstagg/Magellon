@@ -63,7 +63,7 @@ export const LeginonImportComponent = () => {
                     </FormControl>
                 </Grid>
 
-                <Grid  size={12}>
+                <Grid  size={6}>
                     <FormControl fullWidth>
                         <TextField
                             label={t('leginon-importer.form.magellonSessionName', { ns: 'leginon-import' })}
@@ -82,7 +82,7 @@ export const LeginonImportComponent = () => {
                         />
                     </FormControl>
                 </Grid>
-                <Grid  size={12}>
+                <Grid  size={6}>
                     <FormControl fullWidth>
                         <TextField
                             label={t('leginon-importer.form.sessionName', {
@@ -101,7 +101,7 @@ export const LeginonImportComponent = () => {
                         />
                     </FormControl>
                 </Grid>
-                <Grid  size={12}>
+                <Grid  size={6}>
                     <FormControl fullWidth>
                         {/*<FormLabel>*/}
                         {/*    {t('leginon-importer.form.cameraDirectory', {*/}
@@ -123,35 +123,7 @@ export const LeginonImportComponent = () => {
                         />
                     </FormControl>
                 </Grid>
-
-                <Grid  size={12}>
-                    <FormControlLabel
-                        control={
-                            <Checkbox
-                                {...register('if_do_subtasks')}
-                                defaultChecked={false}
-                                color="primary"
-                            />
-                        }
-                        label={t('leginon-importer.form.ifDoSubtasks', { ns: 'leginon-import' })}
-                    />
-                </Grid>
-                <Grid  size={12}>
-                    <FormControlLabel
-                        control={
-                            <Checkbox
-                                {...register('copy_images')}
-                                defaultChecked={false}
-                                color="primary"
-                            />
-                        }
-                        label={t('leginon-importer.form.copyImages', {
-                            ns: 'leginon-import',
-                        })}
-                    />
-                </Grid>
-
-                <Grid  size={12}>
+                <Grid  size={6}>
                     <FormControl fullWidth>
 
                         <TextField
@@ -179,8 +151,36 @@ export const LeginonImportComponent = () => {
                         />
                     </FormControl>
                 </Grid>
+                <Grid  size={6}>
+                    <FormControlLabel
+                        control={
+                            <Checkbox
+                                {...register('if_do_subtasks')}
+                                defaultChecked={false}
+                                color="primary"
+                            />
+                        }
+                        label={t('leginon-importer.form.ifDoSubtasks', { ns: 'leginon-import' })}
+                    />
+                </Grid>
+                <Grid  size={6}>
+                    <FormControlLabel
+                        control={
+                            <Checkbox
+                                {...register('copy_images')}
+                                defaultChecked={false}
+                                color="primary"
+                            />
+                        }
+                        label={t('leginon-importer.form.copyImages', {
+                            ns: 'leginon-import',
+                        })}
+                    />
+                </Grid>
 
-                <Grid  size={12}>
+
+
+                <Grid  size={9}>
                     <FormControl fullWidth>
 
                         <TextField
@@ -201,7 +201,7 @@ export const LeginonImportComponent = () => {
                     </FormControl>
                 </Grid>
 
-                <Grid  size={12}>
+                <Grid  size={3}>
                     <FormControl fullWidth>
 
                         <TextField
@@ -244,7 +244,7 @@ export const LeginonImportComponent = () => {
                     </FormControl>
                 </Grid>
 
-                <Grid  size={12}>
+                <Grid  size={6}>
                     <FormControl fullWidth>
 
                         <TextField
@@ -265,7 +265,7 @@ export const LeginonImportComponent = () => {
                     </FormControl>
                 </Grid>
 
-                <Grid  size={12}>
+                <Grid  size={6}>
                     <FormControl fullWidth>
 
                         <TextField

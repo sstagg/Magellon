@@ -16,7 +16,6 @@ export const PanelRoutes = () => {
             <Route path="/images" element={<ImagesPageView />} />
             <Route path="/run-job" element={<RunJobPageView />} />
             <Route path="/import-job" element={<ImportPageView />} />
-            <Route path="/leginon-transfer" element={<LeginonImportComponent />} />
             <Route path="/domains/*" element={<DomainRoutes />} />
             <Route path="/mrc-viewer" element={<MrcViewerPageView />} />
             <Route path="/2d-ass" element={<MrcViewerPageView />} />
