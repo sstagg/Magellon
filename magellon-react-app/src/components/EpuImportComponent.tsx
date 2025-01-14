@@ -9,7 +9,8 @@ export const EpuImportComponent = () => {
                 EPU Importer
             </Typography>
             <Typography variant="body2" color="textSecondary" paragraph>
-                Import data from EPU microscope sessions
+                If you are using Docker, please select a directory from the MAGELLON_GPFS_PATH that was configured
+                during installation in the .env file.
             </Typography>
             <Box sx={{mt: 2}}>
                 <input

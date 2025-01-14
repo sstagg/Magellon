@@ -948,3 +948,30 @@ async def get_images(file_path: str, start_idx: int = 0, count: int = 10) -> Ima
     return read_images_from_mrc(file_path, start_idx, count)
 
 
+
+@webapp_router.get("/files/browse")
+async def browse_directory(path: str = "/gpfs"):
+    try:
+        directory = Path(path)
+        if not directory.exists():
+            raise HTTPException(status_code=404, detail="Directory not found")
+
+        # Get directories and files
+        items = []
+        for item in directory.iterdir():
+            items.append({
+                "name": item.name,
+                "path": str(item),
+                "type": "directory" if item.is_dir() else "file",
+                "is_session": item.name == "session.json"
+            })
+
+        # Sort: directories first, then files
+        items.sort(key=lambda x: (x["type"] == "file", x["name"]))
+
+        return {
+            "current_path": str(directory),
+            "items": items
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
