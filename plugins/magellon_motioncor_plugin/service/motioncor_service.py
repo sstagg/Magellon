@@ -3,8 +3,9 @@ import math
 import os
 import subprocess
 import concurrent.futures
+from typing import Optional
 from core.helper import push_info_to_debug_queue
-from utils import build_motioncor3_command,getFrameAlignment,getPatchFrameAlignment,isFilePresent,getRequirements,getFilecontentsfromThread
+from utils import validateInput,build_motioncor3_command,getFrameAlignment,getPatchFrameAlignment,isFilePresent,getRequirements,getFilecontentsfromThread
 from datetime import datetime
 from core.settings import AppSettingsSingleton
 from core.model_dto import CryoEmMotionCorTaskData, OutputFile, TaskDto, TaskResultDto,DebugInfo
@@ -18,33 +19,54 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
     try:
 
         d = DebugInfo()
-        # logger.info(f"Starting task {params.id} ")
+        logger.info(f"Starting task {params.id} ")
         the_task_data = CryoEmMotionCorTaskData.model_validate(params.data)
-        # d.line1 = the_task_data.inputFile
-        # d.line2 = the_task_data.image_path
-        # replace_settings = AppSettingsSingleton.get_instance()
-        # if replace_settings.REPLACE_TYPE == "standard":
-        #     the_task_data.inputFile = the_task_data.inputFile.replace(
-        #         replace_settings.REPLACE_PATTERN, replace_settings.REPLACE_WITH
-        #     )
-        #     the_task_data.image_path = the_task_data.image_path.replace(
-        #         replace_settings.REPLACE_PATTERN, replace_settings.REPLACE_WITH
-        #     )
-        # d.line3 = the_task_data.inputFile
-        # d.line4 = the_task_data.image_path
+        # try:
+        #     if not validateInput(the_task_data):
+        #         raise Exception("Validation failed.")
+        #     print("Validation passed. Proceeding with task...")
+        # except ValueError as e:
+        #     raise Exception(f"Input validation error: {e}")
+        
+        #check the type of inputfile and assign 
+        input_file=the_task_data.inputFile.strip()
+        file_extension = os.path.splitext(input_file)[1].lower() 
 
-        # final_path = os.path.normpath(the_task_data.inputFile).replace("\\", "/")
-        # the_task_data.inputFile = final_path
-        # the_task_data.image_path = final_path
+        if file_extension == '.mrc':
+            the_task_data.InMrc = input_file
+        elif file_extension == '.tif':
+            the_task_data.InTiff = input_file
+        elif file_extension == '.eer':
+            the_task_data.InEer = input_file
+        else:
+            raise ValueError("Invalid file type. Must be .mrc, .tif, or .eer.")
+        d.line1 = the_task_data.inputFile
+        d.line2 = the_task_data.image_path
+        replace_settings = AppSettingsSingleton.get_instance()
+        if replace_settings.REPLACE_TYPE == "standard":
+            the_task_data.inputFile = the_task_data.inputFile.replace(
+                replace_settings.REPLACE_PATTERN, replace_settings.REPLACE_WITH
+            )
+            the_task_data.image_path = the_task_data.image_path.replace(
+                replace_settings.REPLACE_PATTERN, replace_settings.REPLACE_WITH
+            )
+        d.line3 = the_task_data.inputFile
+        d.line4 = the_task_data.image_path
 
-        # d.line5 = the_task_data.inputFile
-        # d.line6 = the_task_data.image_path
-        # push_info_to_debug_queue(d)
-        os.makedirs(f'{os.path.join(os.getcwd(),"gpfs", "outputs")}', exist_ok=True)
-        directory_path = os.path.join(os.getcwd(),"gpfs", "outputs", str(params.id))
-        params.data["OutMrc"] = f'{directory_path}/{params.data["OutMrc"]}'
+        final_path = os.path.normpath(the_task_data.inputFile).replace("\\", "/")
+        the_task_data.inputFile = final_path
+        the_task_data.image_path = final_path
+
+        d.line5 = the_task_data.inputFile
+        d.line6 = the_task_data.image_path
+        push_info_to_debug_queue(d)
+        directory_path = os.path.join(AppSettingsSingleton.get_instance().JOBS_DIR, str(the_task_data.image_id))
         os.makedirs(directory_path, exist_ok=True)
-        the_task_data.OutMrc = params.data["OutMrc"]
+        host_file_path = os.path.join(AppSettingsSingleton.get_instance().HOST_JOBS_DIR, str(the_task_data.image_id), the_task_data.outputFile)
+        the_task_data.outputFile = os.path.join(directory_path, the_task_data.outputFile)
+        # directory_path = os.path.join(os.getcwd(),"gpfs", "outputs", str(params.id))
+        params.data["OutMrc"] = the_task_data.outputFile
+        the_task_data.OutMrc = the_task_data.outputFile
         the_task_data.LogDir= directory_path
         command = build_motioncor3_command(the_task_data)
         logger.info("Command: %s", command)

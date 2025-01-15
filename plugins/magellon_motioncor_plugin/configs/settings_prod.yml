@@ -4,16 +4,16 @@ ENV_TYPE: production
 LOCAL_IP_ADDRESS: host.docker.internal
 PORT_NUMBER: 8181
 
-ROOT_DIR: /gpfs/
-HOST_ROOT_DIR: C:\temp\gpfs
+# ROOT_DIR: /gpfs/
+# HOST_ROOT_DIR: C:\temp\gpfs
 
 
 REPLACE_TYPE: standard
 REPLACE_PATTERN: /gpfs/
 REPLACE_WITH: /app/gpfs/
 
-OUTPUT_DIR: /outputs
-HOST_OUTPUT_DIR: C:\temp\outputs
+JOBS_DIR: /jobs
+HOST_JOBS_DIR: C:\temp\outputs
 
 consul_settings:
   CONSUL_HOST: host.docker.internal

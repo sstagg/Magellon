@@ -80,12 +80,13 @@ COPY main.py ./main.py
 COPY test_main.http ./
 COPY test_publish.py ./test_publish.py
 COPY utils.py ./utils.py
-# COPY 20241202_53597_gain_multi_ref.tif ./20241202_53597_gain_multi_ref.tif
-# COPY 20241203_54449_integrated_movie.mrc.tif ./20241203_54449_integrated_movie.mrc.tif
-# COPY ctffind ./ctffind
+# COPY gpfs/20241202_53597_gain_multi_ref.tif ./gpfs/20241202_53597_gain_multi_ref.tif
+# COPY gpfs/20241203_54449_integrated_movie.mrc.tif ./gpfs/20241203_54449_integrated_movie.mrc.tif
+
 
 # Create a volume for the application data
-VOLUME /app/gpfs
+VOLUME /gpfs
+VOLUME /jobs
 
 # Set the environment variable for the data directory
 ENV APP_MODULE=main:app

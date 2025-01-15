@@ -121,8 +121,10 @@ class CryoEmMotionCorTaskData(CryoEmImageTaskData):
     InMrc: Optional[str] = None
     InTiff: Optional[str] = None
     InEer: Optional[str] = None
+    inputFile:str
     # InSuffix: Optional[str] = None
     OutMrc: str ="output.mrc" 
+    outputFile:str="output.mrc"
     # ArcDir: Optional[str] = None
     Gain: str
     Dark: Optional[str] = None

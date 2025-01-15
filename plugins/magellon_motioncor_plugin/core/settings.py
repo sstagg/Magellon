@@ -51,12 +51,12 @@ class AppSettings(BaseModel):
     rabbitmq_settings: RabbitMQSettings = RabbitMQSettings()
     LOCAL_IP_ADDRESS: Optional[str] = None
     PORT_NUMBER: Optional[int] = None
-    ROOT_DIR: Optional[str] = None
+    # ROOT_DIR: Optional[str] = None
     REPLACE_TYPE: Optional[str] = None
     REPLACE_PATTERN: Optional[str] = None
     REPLACE_WITH: Optional[str] = None
-    OUTPUT_DIR: Optional[str] = None
-    HOST_OUTPUT_DIR: Optional[str] = None
+    JOBS_DIR: Optional[str] = None
+    HOST_JOBS_DIR: Optional[str] = None
     BASE_DIRECTORY: Optional[str] = os.path.abspath(os.path.dirname(__file__))
     ENV_TYPE: Optional[str] = None
 
@@ -131,8 +131,10 @@ class AppSettingsSingleton:
     @classmethod
     def _create_instance(cls) -> AppSettings:
         if os.environ.get('APP_ENV', "development") == 'production':
+            print("production")
             return AppSettings.load_yaml_file_settings("./configs/settings_prod.yml")
         else:
+            print("development")
             return AppSettings.load_yaml_file_settings("./configs/settings_dev.yml")
 
     @classmethod
