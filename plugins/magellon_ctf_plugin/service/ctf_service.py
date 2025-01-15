@@ -122,9 +122,6 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
                 the_task_data.amplitudeContrast, CTFestimationValues[4],
                 math.radians(float(CTFestimationValues[3]))
             )
-
-            metaDataList = [ImageMetaData(key=key, value=str(value)) for key, value in result.items()]
-
             return TaskResultDto(
                 worker_instance_id=the_task.worker_instance_id,
                 task_id=the_task.id,
@@ -144,7 +141,7 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
                     "output_txt": await getFileContents(f"{outputFileName}.txt"),
                     "output_avrot": await getFileContents(f"{outputFileName}_avrot.txt")
                 },
-                meta_data=metaDataList,
+                meta_data=result,
                 output_files=[
                     OutputFile(name="ctfevalplots", path=f"{outputFileName}.mrc-plots.png", required=True),
                     OutputFile(name="ctfevalpowerspec", path=f"{outputFileName}.mrc-powerspec.jpg", required=True),
