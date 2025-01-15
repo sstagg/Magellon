@@ -140,54 +140,173 @@ Once your environment is set up, you can run MotionCor2 using the following comm
     - <outputfilenamee>.mrc    
 
 
-    
+   
+
 
 ## Installation with Docker
 
-### 1. Run the rabbitMq
-   - Make sure the docker is installed. Go to **support** folder in project and run the docker-compose file.
+### 1. Run RabbitMQ
+- Ensure Docker is installed. Navigate to the **support** folder in the project and run the `docker-compose` file.
 
 ```bash
     docker-compose up
 ```
 
-### 2. Build the image
-- Make sure you are in the root of the motioncor plugin and you will see a **Dockerfile** in it.
-- Make sure you copy ctffind, movie file and Gain file in the same directory and add them in dockerfile too.
+### 2. Build the Image
+- Navigate to the root of the motioncor plugin project where the **Dockerfile** is located.
+- Ensure you have copied the necessary files (e.g., `ctffind`, movie file, Gain file) into the directory. Add these files to the `Dockerfile` as shown:
 
-```bash
+```dockerfile
 COPY 20241202_53597_gain_multi_ref.tif ./20241202_53597_gain_multi_ref.tif
 COPY 20241203_54449_integrated_movie.mrc.tif ./20241203_54449_integrated_movie.mrc.tif
 COPY ctffind ./ctffind
 ```
 
-#### 1. Build the Image
-```bash
-docker build --tag motioncor .
-```
+#### Steps to Build and Run
 
-#### 2. Run the container
-```bash
-docker run moioncor
-```
+1. **Build the Image**
+   ```bash
+   docker build --tag motioncor .
+   ```
 
-#### 3. Run the test file
-- go to bash inside the container
-- Get the container id.
+2. **Run the Container**
+   ```bash
+   docker run --gpus all motioncor
+   ```
 
-```bash
-docker ps
-```
+3. **Run the Test File**
+   - Enter the container's bash shell:
+     ```bash
+     docker ps
+     ```
+   - Copy the container ID and run:
+     ```bash
+     docker exec -it <containerid> /bin/bash
+     ```
+   - Inside the container, execute the test script:
+     ```bash
+     python3 test_publish.py
+     ```
 
-- copy the id of the container
-- run the bash 
+---
 
-```bash
-docker exec -it <containerid> /bin/bash
-```
+## Installation on Windows
 
-- inside run the **test_publish.py** file
-```bash
-python3 test_publish.py
-```
+1. **Install Docker Desktop**
+   - Download and install Docker Desktop from the official Docker website.
+
+2. **Install WSL and Enable WSL2**
+   - Open PowerShell as Administrator and run:
+     ```bash
+     wsl --install
+     ```
+   - Ensure WSL2 is enabled:
+     ```bash
+     wsl --set-default-version 2
+     ```
+
+3. **Install Ubuntu 22.04**
+   - Install Ubuntu 22.04 from the Microsoft Store.
+
+4. **Configure Docker Desktop**
+   - Open Docker Desktop and navigate to **Settings > Resources > WSL Integration**.
+   - Enable integration for WSL2 and your Ubuntu distribution.
+
+5. **Install NVIDIA Drivers**
+   - Search for drivers on the NVIDIA website. Select a driver with CUDA 12.6 support. you need to select windows version as the driver is installed on the host machine i.e windows.
+   - For NVIDIA GeForce 4700 series, install the Game Ready Driver (e.g., version 560.7).
+   - Test the installation by running:
+     ```bash
+     nvidia-smi
+     ```
+     Ensure the driver and CUDA version are displayed.
+     ![driver installation](image.png)
+
+6. **Install CUDA Toolkit 12.6.3**
+   - Install CUDA Toolkit 12.6.3 on Ubuntu so you need to choose i.e wsl-ubuntu version. Verify installation with:
+     ```bash
+     nvcc --version
+     ```
+     ![cuda toolkit installtion](image-1.png)
+   - If CUDA is installed but not recognized, add it to your PATH.
+
+   - Add the following to your **~/.bashrc** file:
+   ```bash
+   if [ -d $HOME/.local/bin ]; then
+    export PATH=$HOME/.local/bin:$PATH
+   fi
+
+   export CUDA_HOME=/usr/local/cuda
+
+   if [ -d $CUDA_HOME/bin ]; then
+      export PATH=$CUDA_HOME/bin:$PATH
+   fi
+
+   if [ -d $CUDA_HOME/lib64 ]; then
+      export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
+   fi
+   ```
+   - Restart your terminal or run:
+   ```bash
+   source ~/.bashrc
+   ```
+
+7. **Install cuDNN 9.6**
+   - Download the cuDNN tar file.
+   - Extract the files and copy them to the CUDA Toolkit directory.
+   [CuDNN Download](https://developer.nvidia.com/cudnn-downloads?target_os=Linux&target_arch=x86_64&Distribution=Agnostic&cuda_version=12)
+
+   - extract the file
+   ```bash
+   tar -xvf cudnn-linux-x86_64-9.6.0.74_cuda12-archive.tar.xz
+   ```
+   - Copy the cuDNN files to the CUDA directory:
+   ```bash
+   sudo cp cuda-*-archive/include/cudnn*.h /usr/local/cuda/include
+   sudo cp -P cudnn-*-archive/lib/libcudnn* /usr/local/cuda/lib64
+   sudo chmod a+r /usr/local/cuda/include/cudnn*.h /usr/local/cuda/lib64/libcudnn*
+   ```
+8. **Install NVIDIA Container Toolkit**
+   - Install the NVIDIA Container Toolkit to enable GPU support in Docker.
+
+9. **Dockerize and Test the Application**
+   - Follow the Docker steps mentioned earlier to build and run the application.
+
+---
+
+## Installation on Linux
+
+1. **Install Docker**
+   - Install Docker using your distribution’s package manager. For example, on Ubuntu:
+     ```bash
+     sudo apt update
+     sudo apt install docker.io
+     ```
+
+2. **Install NVIDIA Drivers**
+   - Install the latest NVIDIA drivers with CUDA 12.6 support. Verify installation with:
+     ```bash
+     nvidia-smi
+     ```
+
+3. **Install CUDA Toolkit 12.6.3**
+   - Download and install CUDA Toolkit 12.6.3. Add it to your PATH if required and verify:
+     ```bash
+     nvcc --version
+     ```
+
+4. **Install cuDNN 9.6**
+   - Download and extract the cuDNN tar file. Copy the files to the appropriate CUDA Toolkit directories.
+
+5. **Install NVIDIA Container Toolkit**
+   - Install NVIDIA Container Toolkit to enable GPU access in Docker.
+
+6. **Build and Run the Application**
+   - Follow the steps mentioned earlier to build and test the Docker application.
+
+---
+
+**Note:**
+
+If the CUDA driver version is 12.7, it should theoretically support all 12.x versions, including 12.6, as long as the APIs used have not changed between versions. However, to be on the safe side, we are opting for a driver that explicitly supports CUDA 12.6. The compatibility matrix for API changes between versions is not officially documented, making it difficult to confirm compatibility in advance. If this understanding is incorrect, I would be glad to learn otherwise.
 
