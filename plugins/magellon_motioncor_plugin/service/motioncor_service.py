@@ -21,12 +21,12 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
         d = DebugInfo()
         logger.info(f"Starting task {params.id} ")
         the_task_data = CryoEmMotionCorTaskData.model_validate(params.data)
-        # try:
-        #     if not validateInput(the_task_data):
-        #         raise Exception("Validation failed.")
-        #     print("Validation passed. Proceeding with task...")
-        # except ValueError as e:
-        #     raise Exception(f"Input validation error: {e}")
+        try:
+            if not validateInput(the_task_data):
+                raise Exception("Validation failed.")
+            print("Validation passed. Proceeding with task...")
+        except ValueError as e:
+            raise Exception(f"Input validation error: {e}")
         
         #check the type of inputfile and assign 
         input_file=the_task_data.inputFile.strip()

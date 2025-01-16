@@ -409,31 +409,31 @@ def validateInput(params):
         print(params.SumRangeMinDose)
         if not isinstance(params.SumRangeMinDose, (int, float)):
             raise ValueError("SumRangeMinDose must be a positive integer or None.")
-        if params.SumRangeMinDose <= 0:
+        if params.SumRangeMinDose < 0:
             raise ValueError("SumRangeMinDose must be a positive integer.")
 
     if params.SumRangeMaxDose is not None:
         if not isinstance(params.SumRangeMaxDose, (int, float)):
             raise ValueError("SumRangeMaxDose must be a positive integer or None.")
-        if params.SumRangeMaxDose <= 0:
+        if params.SumRangeMaxDose < 0:
             raise ValueError("SumRangeMaxDose must be a positive integer.")
 
     if params.RotGain is not None:
         if not isinstance(params.RotGain, (int, float)):
             raise ValueError("RotGain must be a positive integer or None.")
-        if params.RotGain <= 0:
+        if params.RotGain < 0:
             raise ValueError("RotGain must be a positive integer.")
     
     if params.FlipGain is not None:
         if not isinstance(params.FlipGain, (int, float)):
             raise ValueError("FlipGain must be a positive integer or None.")
-        if params.FlipGain <= 0:
+        if params.FlipGain < 0:
             raise ValueError("FlipGain must be a positive integer.")
     
     if params.InvGain is not None:
         if not isinstance(params.InvGain, (int, float)):
             raise ValueError("InvGain must be a positive integer or None.")
-        if params.InvGain <= 0:
+        if params.InvGain < 0:
             raise ValueError("InvGain must be a positive integer.")
     
     return True
