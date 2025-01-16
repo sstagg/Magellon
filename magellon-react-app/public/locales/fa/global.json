@@ -4,10 +4,10 @@
     "browsehappy": "شما از مرورگر <strong>قدیمی</strong> استفاده می‌کنید. لطفا <a href=\"http://browsehappy.com/?locale=en\">مرورگر خود را به روز کنید</a>",
     "menu": {
       "home": "خانه",
-      "jhipster-needle-menu-add-element": "JHipster will add additional menu entries here (do not translate!)",
+      "Magellon-needle-menu-add-element": "Magellon will add additional menu entries here (do not translate!)",
       "entities": {
         "main": "ماهیت ها",
-        "jhipster-needle-menu-add-entry": "JHipster will add additional entities here (do not translate!)"
+        "Magellon-needle-menu-add-entry": "Magellon will add additional entities here (do not translate!)"
       },
       "account": {
         "main": "حساب",
@@ -28,7 +28,7 @@
         "logs": "وقایع ثبت شده",
         "apidocs": "ای‌پی‌آی",
         "database": "پایگاه داده",
-        "jhipster-needle-menu-add-admin-element": "JHipster will add additional menu entries here (do not translate!)"
+        "Magellon-needle-menu-add-admin-element": "Magellon will add additional menu entries here (do not translate!)"
       },
       "language": "زبان"
     },

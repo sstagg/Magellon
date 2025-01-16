@@ -4,7 +4,7 @@ import {
   File,
   ChevronRight,
   ArrowUp,
-  Loader
+  Loader, ArrowUpIcon, FileIcon, FolderIcon
 } from 'lucide-react';
 
 interface FileItem {
@@ -25,6 +25,7 @@ const FileBrowser = ({ onSelect, initialPath = '/gpfs' }: FileBrowserProps) => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [hoveredPath, setHoveredPath] = useState<string | null>(null);
 
   const fetchDirectory = async (path: string) => {
     setLoading(true);
@@ -73,24 +74,22 @@ const FileBrowser = ({ onSelect, initialPath = '/gpfs' }: FileBrowserProps) => {
 
   return (
       <div className="bg-white rounded-lg shadow-lg p-6">
-        <h2 className="text-xl font-semibold mb-4">
-          File Browser
-        </h2>
+        <h2 className="text-xl font-semibold mb-4">File Browser</h2>
 
         {/* Breadcrumb navigation */}
-        <div className="flex items-center gap-1 mb-4 text-sm">
+        <div className="flex items-center gap-1 mb-4 text-sm overflow-x-auto">
           <button
               onClick={() => fetchDirectory('/')}
-              className="text-blue-600 hover:text-blue-800"
+              className="text-blue-600 hover:text-blue-800 whitespace-nowrap"
           >
             root
           </button>
           {pathParts.map((part, index) => (
               <React.Fragment key={index}>
-                <ChevronRight className="text-gray-400" size={16} />
+                <ChevronRight className="text-gray-400 flex-shrink-0" size={16} />
                 <button
                     onClick={() => handleBreadcrumbClick(index)}
-                    className="text-blue-600 hover:text-blue-800"
+                    className="text-blue-600 hover:text-blue-800 whitespace-nowrap"
                 >
                   {part}
                 </button>
@@ -109,14 +108,16 @@ const FileBrowser = ({ onSelect, initialPath = '/gpfs' }: FileBrowserProps) => {
               <Loader className="animate-spin text-blue-500" size={32} />
             </div>
         ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-96 overflow-y-auto p-4">
+            <div className="flex flex-wrap gap-4 max-h-96 overflow-y-auto p-4">
               {currentPath !== '/' && (
                   <div
                       onClick={handleNavigateUp}
-                      className="bg-gray-50 rounded-lg shadow-sm p-4 flex items-center gap-3 cursor-pointer transform transition-all duration-200 hover:shadow-md hover:scale-105 hover:bg-gray-100 border border-gray-200"
+                      onMouseEnter={() => setHoveredPath('up')}
+                      onMouseLeave={() => setHoveredPath(null)}
+                      className={`relative h-16 w-16 bg-gray-50 rounded-lg flex flex-col items-center justify-center cursor-pointer border border-gray-200
+              ${hoveredPath === 'up' ? 'bg-blue-50 border-blue-300 shadow-lg' : ''}`}
                   >
-                    <ArrowUp className="text-gray-500" size={32} />
-                    <span className="font-medium">..</span>
+                    <ArrowUpIcon className={`${hoveredPath === 'up' ? 'text-blue-500' : 'text-gray-500'}`} size={24}/>
                   </div>
               )}
 
@@ -124,19 +125,33 @@ const FileBrowser = ({ onSelect, initialPath = '/gpfs' }: FileBrowserProps) => {
                   <div
                       key={item.path}
                       onClick={() => handleItemClick(item)}
-                      className={`bg-white rounded-lg shadow-sm p-4 flex items-center gap-3 cursor-pointer transform transition-all duration-200 hover:shadow-md hover:scale-105 border border-gray-200
-                ${item.path === selectedPath ? 'ring-2 ring-blue-500 bg-blue-50' : 'hover:bg-gray-50'}
-              `}
+                      onMouseEnter={() => setHoveredPath(item.path)}
+                      onMouseLeave={() => setHoveredPath(null)}
+                      className={`relative h-16 w-16 bg-white rounded-lg p-1 flex flex-col items-center cursor-pointer border-2
+              ${item.path === selectedPath ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}
+              ${hoveredPath === item.path ? 'bg-blue-50 border-blue-300 shadow-lg' : ''}`}
                   >
                     {item.type === 'directory' ? (
-                        <Folder className="text-blue-500 flex-shrink-0" size={32} />
+                        <FolderIcon
+                            className={`flex-shrink-0 mt-1 ${hoveredPath === item.path ? 'text-blue-500' : 'text-gray-500'}`}
+                            size={40}
+                        />
                     ) : (
-                        <File className="text-gray-500 flex-shrink-0" size={32} />
+                        <FileIcon
+                            className={`flex-shrink-0 mt-1 ${hoveredPath === item.path ? 'text-blue-500' : 'text-gray-500'}`}
+                            size={40}
+                        />
                     )}
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium truncate">{item.name}</div>
+                    <div className="w-full flex-1 flex flex-col justify-start items-center">
+                      <div className={`text-[10px] leading-tight text-center break-words line-clamp-2
+                ${hoveredPath === item.path ? 'text-blue-600' : 'text-gray-600'}`}>
+                        {item.name}
+                      </div>
                       {item.is_session && (
-                          <span className="text-xs text-gray-500">(session)</span>
+                          <div className={`text-[8px] text-center
+                  ${hoveredPath === item.path ? 'text-blue-500' : 'text-gray-500'}`}>
+                            (session)
+                          </div>
                       )}
                     </div>
                   </div>

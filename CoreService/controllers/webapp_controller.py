@@ -1,4 +1,5 @@
 import math
+import mimetypes
 from datetime import datetime
 import json
 import os
@@ -17,7 +18,7 @@ from airflow_client.client.api import dag_run_api
 from airflow_client.client.model.dag_run import DAGRun
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import Session, joinedload
@@ -949,29 +950,43 @@ async def get_images(file_path: str, start_idx: int = 0, count: int = 10) -> Ima
 
 
 
-@webapp_router.get("/files/browse")
+class FileItem(BaseModel):
+    id: int
+    name: str = Field(..., description="The name of the file or folder")
+    is_directory: bool = Field(..., description="True if the item is a folder, False if it's a file")
+    path: str = Field(..., description="The full path of the item")
+    parent_id: Optional[int] = Field(None, description="The ID of the parent folder")
+    size: Optional[int] = Field(None, description="The size of the file in bytes (only for files)")
+    mime_type: Optional[str] = Field(None, description="The MIME type of the file (only for files)")
+    created_at: datetime
+    updated_at: datetime
+
+@webapp_router.get("/files/browse", response_model=List[FileItem])
 async def browse_directory(path: str = "/gpfs"):
     try:
         directory = Path(path)
         if not directory.exists():
             raise HTTPException(status_code=404, detail="Directory not found")
 
-        # Get directories and files
         items = []
         for item in directory.iterdir():
-            items.append({
-                "name": item.name,
-                "path": str(item),
-                "type": "directory" if item.is_dir() else "file",
-                "is_session": item.name == "session.json"
-            })
+            stat = item.stat()
+            file_item = FileItem(
+                id=hash(str(item)),  # Generate a unique ID based on path hash
+                name=item.name,
+                is_directory=item.is_dir(),
+                path=str(item),
+                parent_id=hash(str(item.parent)) if str(item.parent) != path else None,
+                size=stat.st_size if not item.is_dir() else None,
+                mime_type=mimetypes.guess_type(item.name)[0] if not item.is_dir() else None,
+                created_at=datetime.fromtimestamp(stat.st_ctime),
+                updated_at=datetime.fromtimestamp(stat.st_mtime)
+            )
+            items.append(file_item)
 
         # Sort: directories first, then files
-        items.sort(key=lambda x: (x["type"] == "file", x["name"]))
+        items.sort(key=lambda x: (not x.is_directory, x.name))
 
-        return {
-            "current_path": str(directory),
-            "items": items
-        }
+        return items
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
