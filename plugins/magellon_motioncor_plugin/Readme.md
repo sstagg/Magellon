@@ -13,6 +13,7 @@
 5. [Run MotionCor Plugin](#run-motioncor-plugin)
 6. [Results](#results)
 7. [Installtion with Docker](#installation-with-docker)
+8. [Running Docker with GPU](#running-docker-with-gpu)
 
 
 ---
@@ -189,7 +190,7 @@ COPY ctffind ./ctffind
      ```
 
 ---
-
+## Running Docker with GPU
 ## Installation on Windows
 
 1. **Install Docker Desktop**
@@ -213,7 +214,7 @@ COPY ctffind ./ctffind
    - Enable integration for WSL2 and your Ubuntu distribution.
 
 5. **Install NVIDIA Drivers**
-   - Search for drivers on the NVIDIA website. Select a driver with CUDA 12.6 support. you need to select windows version as the driver is installed on the host machine i.e windows.
+   - Search for drivers on the NVIDIA website.[Nvidi driver Installation link](https://www.nvidia.com/en-us/drivers/) Select a driver with CUDA 12.6 support. you need to select windows version as the driver is installed on the host machine i.e windows.
    - For NVIDIA GeForce 4700 series, install the Game Ready Driver (e.g., version 560.7).
    - Test the installation by running:
      ```bash
@@ -223,7 +224,7 @@ COPY ctffind ./ctffind
      ![driver installation](image.png)
 
 6. **Install CUDA Toolkit 12.6.3**
-   - Install CUDA Toolkit 12.6.3 on Ubuntu so you need to choose i.e wsl-ubuntu version. Verify installation with:
+   - Install CUDA Toolkit 12.6.3 on Ubuntu so you need to choose i.e wsl-ubuntu version. [cuda toolkit Installation link](https://developer.nvidia.com/cuda-12-6-3-download-archive) Verify installation with:
      ```bash
      nvcc --version
      ```
@@ -267,7 +268,7 @@ COPY ctffind ./ctffind
    sudo chmod a+r /usr/local/cuda/include/cudnn*.h /usr/local/cuda/lib64/libcudnn*
    ```
 8. **Install NVIDIA Container Toolkit**
-   - Install the NVIDIA Container Toolkit to enable GPU support in Docker.
+   - Install the NVIDIA Container Toolkit to enable GPU support in Docker. [Nvidia container toolkit Installation link](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
 
 9. **Dockerize and Test the Application**
    - Follow the Docker steps mentioned earlier to build and run the application.
@@ -310,3 +311,4 @@ COPY ctffind ./ctffind
 
 If the CUDA driver version is 12.7, it should theoretically support all 12.x versions, including 12.6, as long as the APIs used have not changed between versions. However, to be on the safe side, we are opting for a driver that explicitly supports CUDA 12.6. The compatibility matrix for API changes between versions is not officially documented, making it difficult to confirm compatibility in advance. If this understanding is incorrect, I would be glad to learn otherwise.
 
+I followed the instructions from the GitHub link provided below for the CUDA installation on WSL2 with Ubuntu. If you have any doubts, you can refer to it: [cuda-wsl2-ubuntu installtion](https://gist.github.com/Ayke/5f37ebdb84c758f57d7a3c8b847648bb)
