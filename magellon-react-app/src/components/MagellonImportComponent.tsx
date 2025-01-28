@@ -31,8 +31,8 @@ export const MagellonImportComponent = () => {
     const [files, setFiles] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    // const [currentPath, setCurrentPath] = useState("/gpfs");
-    const [currentPath, setCurrentPath] = useState("c:/temp/test2");
+    const [currentPath, setCurrentPath] = useState("/gpfs");
+    // const [currentPath, setCurrentPath] = useState("c:/temp/test2");
 
     const fetchDirectory = async (path: string) => {
         setLoading(true);

@@ -19,6 +19,8 @@ class RabbitMQSettings(BaseModel):
     HOST_NAME: Optional[str] = None
     CTF_QUEUE_NAME: Optional[str] = None
     CTF_OUT_QUEUE_NAME: Optional[str] = None
+    MOTIONCOR_QUEUE_NAME: Optional[str] = None
+    MOTIONCOR_OUT_QUEUE_NAME: Optional[str] = None
     PORT: Optional[int] = 5672
     USER_NAME: Optional[str] = None
     PASSWORD: Optional[str] = None

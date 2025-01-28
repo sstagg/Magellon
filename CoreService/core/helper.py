@@ -9,8 +9,9 @@ from pydantic import BaseModel
 
 from config import app_settings
 from core.rabbitmq_client import RabbitmqClient
-from core.task_factory import CtfTaskFactory
-from models.plugins_models import TaskDto, CtfTaskData, TaskResultDto, CTF_TASK, PENDING
+from core.task_factory import CtfTaskFactory, MotioncorTaskFactory
+from models.plugins_models import TaskDto, CtfTaskData, TaskResultDto, CTF_TASK, PENDING, CryoEmMotionCorTaskData, \
+    MOTIONCOR_TASK
 from models.pydantic_models import LeginonFrameTransferTaskDto, EPUImportTaskDto, ImportTaskDto
 
 logger = logging.getLogger(__name__)
@@ -120,13 +121,80 @@ def publish_message_to_queue(message: BaseModel, queue_name: str) -> bool:
     finally:
         rabbitmq_client.close_connection()  # Disconnect from RabbitMQ
 
+def get_queue_name_by_task_type(task_type: str, is_result: bool = False) -> str:
+    """
+    Get the appropriate queue name based on task type and whether it's for results
 
-def push_result_to_out_queue(result: TaskResultDto):
-    return publish_message_to_queue(result, app_settings.rabbitmq_settings.CTF_OUT_QUEUE_NAME)
+    Args:
+        task_type (str): Type of the task (e.g., MOTIONCOR_TASK, CTF_TASK)
+        is_result (bool): If True, returns result queue name, else task queue name
+
+    Returns:
+        str: Queue name from app settings
+    """
+    queue_mapping = {
+        MOTIONCOR_TASK: {
+            'task': app_settings.rabbitmq_settings.MOTIONCOR_QUEUE_NAME,
+            'result': app_settings.rabbitmq_settings.MOTIONCOR_OUT_QUEUE_NAME
+        },
+        CTF_TASK: {
+            'task': app_settings.rabbitmq_settings.CTF_QUEUE_NAME,
+            'result': app_settings.rabbitmq_settings.CTF_OUT_QUEUE_NAME
+        },
+        # Add other task types and their corresponding queues here
+    }
+
+    if task_type not in queue_mapping:
+        return None
+
+    return queue_mapping[task_type]['result' if is_result else 'task']
+
+# def push_task_to_task_queue(task: TaskDto):
+#     return publish_message_to_queue(task, app_settings.rabbitmq_settings.CTF_QUEUE_NAME)
+
+def push_task_to_task_queue(task: TaskDto) -> bool:
+    """
+    Push a task to its appropriate queue based on task type
+
+    Args:
+        task (TaskDto): Task to be published
+
+    Returns:
+        bool: True if successfully published, False otherwise
+    """
+    try:
+        queue_name = get_queue_name_by_task_type(task.ptype, is_result=False)
+        if not queue_name:
+            logger.error(f"No queue found for task type: {task.ptype}")
+            return False
+
+        return publish_message_to_queue(task, queue_name)
+    except Exception as e:
+        logger.error(f"Error pushing task to queue: {e}")
+        return False
 
 
-def push_task_to_task_queue(task: TaskDto):
-    return publish_message_to_queue(task, app_settings.rabbitmq_settings.CTF_QUEUE_NAME)
+def push_result_to_out_queue(result: TaskResultDto) -> bool:
+    """
+    Push a task result to its appropriate output queue based on task type
+
+    Args:
+        result (TaskResultDto): Result to be published
+
+    Returns:
+        bool: True if successfully published, False otherwise
+    """
+    try:
+        queue_name = get_queue_name_by_task_type(result.ptype, is_result=True)
+        if not queue_name:
+            logger.error(f"No result queue found for task type: {result.ptype}")
+            return False
+
+        return publish_message_to_queue(result, queue_name)
+    except Exception as e:
+        logger.error(f"Error pushing result to queue: {e}")
+        return False
+
 
 
 def dispatch_ctf_task(task_id, full_image_path, task_dto: ImportTaskDto):
@@ -162,6 +230,107 @@ def dispatch_ctf_task(task_id, full_image_path, task_dto: ImportTaskDto):
                                           data=ctf_task_data.model_dump(), ptype=CTF_TASK, pstatus=PENDING)
     ctf_task.sesson_name = session_name
     return push_task_to_task_queue(ctf_task)
+
+
+def create_motioncor_task_data(image_path, gain_path, session_name=None):
+    """
+    Create the common MotionCor task data structure used across different task creation methods.
+
+    Args:
+        image_path (str): Path to the input image file
+        gain_path (str): Path to the gain reference file
+        session_name (str, optional): Session name to use. If None, will be extracted from filename
+
+    Returns:
+        CryoEmMotionCorTaskData: Configured task data object
+    """
+    file_name = os.path.splitext(os.path.basename(image_path))[0]
+
+    if session_name is None:
+        session_name = file_name.split("_")[0]
+
+    return CryoEmMotionCorTaskData(
+        image_id=uuid.uuid4(),
+        image_name="Image1",
+        image_path=image_path,
+        inputFile=image_path,
+        OutMrc="output.files.mrc",
+        Gain=gain_path,
+        PatchesX=5,
+        PatchesY=5,
+        SumRangeMinDose=0,
+        SumRangeMaxDose=0,
+        FmDose=0.75,
+        PixSize=0.705,
+        Group=3
+    )
+
+
+def create_motioncor_task(image_path=None, gain_path=None, session_name=None, task_id=None, job_id=None):
+    """
+    Creates a MotionCor task with specified parameters
+
+    Args:
+        image_path (str, optional): Path to the input image file
+        gain_path (str, optional): Path to the gain reference file
+        session_name (str, optional): Session name
+        task_id (str, optional): Task ID to use
+        job_id (UUID, optional): Job ID to use
+
+    Returns:
+        MotioncorTask: Created task object or False if error occurs
+    """
+
+    try:
+        # Use provided paths or defaults
+        default_image = os.path.join(os.getcwd(), "gpfs", "20241203_54449_integrated_movie.mrc.tif")
+        default_gain = os.path.join(os.getcwd(), "gpfs", "20241202_53597_gain_multi_ref.tif")
+
+        image_path = image_path or default_image
+        gain_path = gain_path or default_gain
+
+        task_data = create_motioncor_task_data(image_path, gain_path, session_name)
+
+        motioncor_task = MotioncorTaskFactory.create_task(
+            pid=task_id or str(uuid.uuid4()),
+            instance_id=uuid.uuid4(),
+            job_id=job_id or uuid.uuid4(),
+            data=task_data.model_dump(),
+            ptype=MOTIONCOR_TASK,
+            pstatus=PENDING
+        )
+        motioncor_task.sesson_name = session_name or "24mar28a"
+        return motioncor_task
+    except Exception as e:
+        logger.error(f"Error publishing message: {e}")
+        return False
+
+
+def dispatch_motioncor_task(task_id, full_image_path, task_dto: ImportTaskDto):
+    """
+    Creates and dispatches a MotionCor task based on an import task DTO
+
+    Args:
+        task_id (str): ID for the new task
+        full_image_path (str): Path to the input image file
+        task_dto (ImportTaskDto): Import task data transfer object
+
+    Returns:
+        bool: True if task was successfully pushed to queue
+    """
+    job_id = task_dto.job_dto.job_id if getattr(task_dto, 'job_dto', None) else task_dto.job_id
+
+    motioncor_task = create_motioncor_task(
+        image_path=full_image_path,
+        task_id=task_id,
+        job_id=job_id
+    )
+
+    if motioncor_task:
+        return push_task_to_task_queue(motioncor_task)
+    return False
+
+
 
 
 

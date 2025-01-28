@@ -42,6 +42,8 @@ rabbitmq_settings:
   PREFETCH_COUNT: 10
   CTF_QUEUE_NAME: ctf_tasks_queue
   CTF_OUT_QUEUE_NAME: ctf_out_tasks_queue
+  MOTIONCOR_QUEUE_NAME: motioncor_tasks_queue
+  MOTIONCOR_OUT_QUEUE_NAME: motioncor_out_tasks_queue
 
 directory_settings:
   MAGELLON_HOME_DIR: C:/temp/data
