@@ -8,7 +8,7 @@ from typing import Dict, Any, List, Optional, Tuple
 import logging
 from sqlalchemy import text
 
-from core.helper import dispatch_ctf_task
+from core.helper import dispatch_ctf_task, dispatch_motioncor_task
 from models.pydantic_models import ImportTaskDto
 from models.sqlalchemy_models import Msession, ImageJob, Image, ImageJobTask, Project, Atlas
 from services.atlas import create_atlas_images
@@ -192,6 +192,7 @@ class MagellonImporter(BaseImporter):
             self.convert_image_to_png_task(task_dto.image_path, self.file_service.target_directory )
             self.compute_fft_png_task(task_dto.image_path, self.file_service.target_directory )
             self.compute_ctf_task(task_dto.image_path, task_dto)
+            self.compute_motioncor_task(task_dto.image_path, task_dto)
 
             return {'status': 'success', 'message': 'Task completed successfully.'}
 
@@ -223,6 +224,14 @@ class MagellonImporter(BaseImporter):
             if (task_dto.pixel_size * 10 ** 10) <= 5:
                 dispatch_ctf_task(task_dto.task_id, abs_file_path, task_dto)
                 return {"message": "Converting to ctf on the way! " + abs_file_path}
+
+        except Exception as e:
+            return {"error": str(e)}
+
+    def compute_motioncor_task(self, abs_file_path: str, task_dto: ImportTaskDto):
+        try:
+            dispatch_motioncor_task(task_dto.task_id, abs_file_path, task_dto)
+            return {"message": "Converting to ctf on the way! " + abs_file_path}
 
         except Exception as e:
             return {"error": str(e)}

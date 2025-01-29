@@ -26,10 +26,12 @@ from starlette.responses import FileResponse, JSONResponse
 
 from config import FFT_SUB_URL, IMAGE_SUB_URL, MAGELLON_HOME_DIR, THUMBNAILS_SUB_URL, app_settings, THUMBNAILS_SUFFIX, \
     FFT_SUFFIX, ATLAS_SUB_URL, CTF_SUB_URL
-from core.helper import push_task_to_task_queue, dispatch_ctf_task
+from core.helper import push_task_to_task_queue, dispatch_ctf_task, dispatch_motioncor_task
+from core.task_factory import MotioncorTaskFactory
 
 from database import get_db
 from lib.image_not_found import get_image_not_found
+from models.plugins_models import CryoEmMotionCorTaskData, MOTIONCOR_TASK, PENDING
 from models.pydantic_models import SessionDto, ImageDto, AtlasDto,     ParticlePickingDto
 from models.sqlalchemy_models import Image, Msession, ImageMetaData, Atlas, ImageMetaDataCategory
 from repositories.image_repository import ImageRepository
@@ -990,3 +992,51 @@ async def browse_directory(path: str = "/gpfs"):
         return items
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@webapp_router.get("/test-motioncor")
+async def test_motioncor():
+    try:
+        # dispatch_motioncor_task(task_dto.task_id, abs_file_path, task_dto)
+        motioncor_task = create_task()
+        if motioncor_task:
+            return push_task_to_task_queue(motioncor_task)
+        return {"message": "Motioncor on the way! " }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+def create_task():
+    print("Running Publish")
+    try:
+        data1 = CryoEmMotionCorTaskData(
+            image_id=uuid.uuid4(),
+            image_name="Image1",
+            # image_path=os.path.join(os.getcwd(),"gpfs","20241203_54449_integrated_movie.mrc.tif"),
+            image_path="/gpfs/20241203_54449_integrated_movie.mrc.tif",
+            inputFile="gpfs/20241203_54449_integrated_movie.mrc.tif",
+            # InTiff=os.path.join(os.getcwd(),"gpfs","20241203_54449_integrated_movie.mrc.tif"),
+            OutMrc="output.files.mrc",
+            Gain="/gpfs/20241202_53597_gain_multi_ref.tif",
+            PatchesX= 5,
+            PatchesY= 5,
+            SumRangeMinDose= 0,
+            SumRangeMaxDose= 0,
+            FmDose= 0.75,
+            PixSize= 0.705,
+            Group= 3
+
+        )
+
+        motioncor_task = MotioncorTaskFactory.create_task(
+            pid= uuid.uuid4(),
+            instance_id=uuid.uuid4(),
+            job_id= uuid.uuid4(),
+            data=data1.model_dump(),
+            ptype=MOTIONCOR_TASK,
+            pstatus=PENDING
+        )
+
+        motioncor_task.sesson_name="24mar28a"
+        return motioncor_task
+    except Exception as e:
+        logger.error(f"Error publishing message: {e}")
+        return False

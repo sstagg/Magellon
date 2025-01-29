@@ -11,7 +11,7 @@ from config import app_settings
 from core.rabbitmq_client import RabbitmqClient
 from core.task_factory import CtfTaskFactory, MotioncorTaskFactory
 from models.plugins_models import TaskDto, CtfTaskData, TaskResultDto, CTF_TASK, PENDING, CryoEmMotionCorTaskData, \
-    MOTIONCOR_TASK
+    MOTIONCOR_TASK, TaskCategory
 from models.pydantic_models import LeginonFrameTransferTaskDto, EPUImportTaskDto, ImportTaskDto
 
 logger = logging.getLogger(__name__)
@@ -121,7 +121,7 @@ def publish_message_to_queue(message: BaseModel, queue_name: str) -> bool:
     finally:
         rabbitmq_client.close_connection()  # Disconnect from RabbitMQ
 
-def get_queue_name_by_task_type(task_type: str, is_result: bool = False) -> str:
+def get_queue_name_by_task_type(task_type: TaskCategory, is_result: bool = False) -> str:
     """
     Get the appropriate queue name based on task type and whether it's for results
 
@@ -133,21 +133,33 @@ def get_queue_name_by_task_type(task_type: str, is_result: bool = False) -> str:
         str: Queue name from app settings
     """
     queue_mapping = {
-        MOTIONCOR_TASK: {
+        5: {  # MOTIONCOR_TASK.code
             'task': app_settings.rabbitmq_settings.MOTIONCOR_QUEUE_NAME,
             'result': app_settings.rabbitmq_settings.MOTIONCOR_OUT_QUEUE_NAME
         },
-        CTF_TASK: {
+        2: {  # CTF_TASK.code
             'task': app_settings.rabbitmq_settings.CTF_QUEUE_NAME,
             'result': app_settings.rabbitmq_settings.CTF_OUT_QUEUE_NAME
         },
         # Add other task types and their corresponding queues here
+        # FFT_TASK: {
+        #     'task': app_settings.rabbitmq_settings.FFT_QUEUE_NAME,
+        #     'result': app_settings.rabbitmq_settings.FFT_OUT_QUEUE_NAME
+        # },
+        # PARTICLE_PICKING: {
+        #     'task': app_settings.rabbitmq_settings.PARTICLE_PICKING_QUEUE_NAME,
+        #     'result': app_settings.rabbitmq_settings.PARTICLE_PICKING_OUT_QUEUE_NAME
+        # },
+        # TWO_D_CLASSIFICATION: {
+        #     'task': app_settings.rabbitmq_settings.TWO_D_CLASSIFICATION_QUEUE_NAME,
+        #     'result': app_settings.rabbitmq_settings.TWO_D_CLASSIFICATION_OUT_QUEUE_NAME
+        # }
     }
 
-    if task_type not in queue_mapping:
+    if task_type.code not in queue_mapping:
         return None
 
-    return queue_mapping[task_type]['result' if is_result else 'task']
+    return queue_mapping[task_type.code]['result' if is_result else 'task']
 
 # def push_task_to_task_queue(task: TaskDto):
 #     return publish_message_to_queue(task, app_settings.rabbitmq_settings.CTF_QUEUE_NAME)
@@ -163,9 +175,9 @@ def push_task_to_task_queue(task: TaskDto) -> bool:
         bool: True if successfully published, False otherwise
     """
     try:
-        queue_name = get_queue_name_by_task_type(task.ptype, is_result=False)
+        queue_name = get_queue_name_by_task_type(task.type, is_result=False)
         if not queue_name:
-            logger.error(f"No queue found for task type: {task.ptype}")
+            logger.error(f"No queue found for task type: {task.type}")
             return False
 
         return publish_message_to_queue(task, queue_name)
@@ -185,9 +197,9 @@ def push_result_to_out_queue(result: TaskResultDto) -> bool:
         bool: True if successfully published, False otherwise
     """
     try:
-        queue_name = get_queue_name_by_task_type(result.ptype, is_result=True)
+        queue_name = get_queue_name_by_task_type(result.type, is_result=True)
         if not queue_name:
-            logger.error(f"No result queue found for task type: {result.ptype}")
+            logger.error(f"No result queue found for task type: {result.type}")
             return False
 
         return publish_message_to_queue(result, queue_name)

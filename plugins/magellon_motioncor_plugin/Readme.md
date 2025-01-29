@@ -255,6 +255,9 @@ COPY 20241203_54449_integrated_movie.mrc.tif ./20241203_54449_integrated_movie.m
 2. **Run the Container**
    ```bash
    docker run --gpus all motioncor
+   docker run --name magellon-motioncor-container --gpus all --restart always magellon_motioncor_plugin_image
+docker run --name magellon-motioncor-container --gpus all --restart always -v /gpfs:/temp/motioncor magellon_motioncor_plugin_image
+
    ```
 
 3. **Run the Test File**

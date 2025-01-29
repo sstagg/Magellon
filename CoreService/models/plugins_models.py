@@ -12,7 +12,13 @@ class TaskCategory(BaseModel):
     code: int
     name: str
     description: str
+    def __hash__(self):
+        return hash(self.code)  # Using code as the unique identifier
 
+    def __eq__(self, other):
+        if not isinstance(other, TaskCategory):
+            return False
+        return self.code == other.code
 
 class TaskOutcome(BaseModel):
     code: int
