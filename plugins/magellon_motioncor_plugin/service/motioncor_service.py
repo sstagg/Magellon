@@ -34,10 +34,13 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
 
         if file_extension == '.mrc':
             the_task_data.InMrc = input_file
+            params.data["InMrc"]=input_file
         elif file_extension == '.tif':
             the_task_data.InTiff = input_file
+            params.data["InTiff"]=input_file
         elif file_extension == '.eer':
             the_task_data.InEer = input_file
+            params.data["InEer"] =input_file
         else:
             raise ValueError("Invalid file type. Must be .mrc, .tif, or .eer.")
         d.line1 = the_task_data.inputFile
@@ -98,33 +101,30 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
              "message": "MotionCor process completed successfully", 
         }
         inputFileName=fileName.split("/")[-1].split(".")[0]
-        output_data={}
+        # output_data={}
         output_files=[]
         with concurrent.futures.ThreadPoolExecutor() as executor:
             if(isFilePresent(f'{os.path.join(directory_path,inputFileName)}-Full.log')):   
-                output_data["frameAlignment"]=getFilecontentsfromThread(getFrameAlignment, f'{inputFileName}-Full.log',executor)
+                # output_data["frameAlignment"]=getFilecontentsfromThread(getFrameAlignment, f'{inputFileName}-Full.log',executor)
                 output_files.append(OutputFile(name="frameAlignment",path=f'{os.path.join(directory_path,inputFileName)}-Full.log',required=True))
         
             if(isFilePresent(f'{os.path.join(directory_path,inputFileName)}-Patch-Frame.log')): 
-                output_data["patchFrameAlignment"]=getFilecontentsfromThread(getPatchFrameAlignment, f'{os.path.join(directory_path,inputFileName)}-Patch-Frame.log',executor)
+                # output_data["patchFrameAlignment"]=getFilecontentsfromThread(getPatchFrameAlignment, f'{os.path.join(directory_path,inputFileName)}-Patch-Frame.log',executor)
                 output_files.append(OutputFile(name="patchFrameAlignment",path=f'{os.path.join(directory_path,inputFileName)}-Patch-Frame.log',required=True))
 
             if(isFilePresent(f'{os.path.join(directory_path,inputFileName)}-Patch-Full.log')): 
-                output_data["patchFullAlignment"]=getFilecontentsfromThread(getFrameAlignment, f'{os.path.join(directory_path,inputFileName)}-Patch-Full.log',executor)
+                # output_data["patchFullAlignment"]=getFilecontentsfromThread(getFrameAlignment, f'{os.path.join(directory_path,inputFileName)}-Patch-Full.log',executor)
                 output_files.append(OutputFile(name="patchFullAlignment",path=f'{os.path.join(directory_path,inputFileName)}-Patch-Full.log',required=True))
 
             if(isFilePresent(f'{os.path.join(directory_path,inputFileName)}-Patch-Patch.log')): 
-                output_data["patchAlignment"]=getFilecontentsfromThread(getPatchFrameAlignment, f'{os.path.join(directory_path,inputFileName)}-Patch-Patch.log',executor)
+                # output_data["patchAlignment"]=getFilecontentsfromThread(getPatchFrameAlignment, f'{os.path.join(directory_path,inputFileName)}-Patch-Patch.log',executor)
                 output_files.append(OutputFile(name="patchAlignment",path=f'{os.path.join(directory_path,inputFileName)}-Patch-Patch.log',required=True))
-
-        outputMrcs=[params.data["OutMrc"]]
         values=params.data["OutMrc"].split("/")
         outputFileName=f'{".".join(values[-1].split(".")[:-1])}_DW.mrc'
         values[-1]=outputFileName
         fileNameDW="/".join(values)
         if isFilePresent( fileNameDW):
-            outputMrcs.append(fileNameDW)
-        outputSuccessResult["outputMrcs"]=outputMrcs
+            output_files.append(OutputFile(name="outputDWMrc",path=fileNameDW,required=True))
         return TaskResultDto(
                 worker_instance_id=params.worker_instance_id,
                 task_id=params.id,
@@ -140,7 +140,6 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
                 created_date=datetime.now(),
                 started_on=params.start_on,
                 ended_on=datetime.now(),
-                output_data=output_data,
                 meta_data=[],
                 output_files=output_files
             )
@@ -161,7 +160,6 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
             created_date=datetime.now(),
             started_on=params.start_on,
             ended_on=datetime.now(),
-            output_data={},
             meta_data=[],
             output_files=[]
         )
@@ -182,7 +180,6 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
             created_date=datetime.now(),
             started_on=params.start_on,
             ended_on=datetime.now(),
-            output_data={},
             meta_data=[],
             output_files=[]
         )
