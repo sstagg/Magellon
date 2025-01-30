@@ -1004,17 +1004,17 @@ async def test_motioncor():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-def create_task():
+def create_task(session_name="24mar28a",file_name = "20241203_54449_integrated_movie"):
     print("Running Publish")
     try:
-        data1 = CryoEmMotionCorTaskData(
+        motion_cor_task_data = CryoEmMotionCorTaskData(
             image_id=uuid.uuid4(),
-            image_name="Image1",
+            image_name=file_name,
             # image_path=os.path.join(os.getcwd(),"gpfs","20241203_54449_integrated_movie.mrc.tif"),
-            image_path="/gpfs/20241203_54449_integrated_movie.mrc.tif",
-            inputFile="gpfs/20241203_54449_integrated_movie.mrc.tif",
+            image_path=("/gpfs/%s.mrc.tif" % file_name), #seems to be unnecessary
+            inputFile=file_name,
             # InTiff=os.path.join(os.getcwd(),"gpfs","20241203_54449_integrated_movie.mrc.tif"),
-            OutMrc="output.files.mrc",
+            outputFile=("%s.output.files.mrc" % file_name),
             Gain="/gpfs/20241202_53597_gain_multi_ref.tif",
             PatchesX= 5,
             PatchesY= 5,
@@ -1030,12 +1030,12 @@ def create_task():
             pid= uuid.uuid4(),
             instance_id=uuid.uuid4(),
             job_id= uuid.uuid4(),
-            data=data1.model_dump(),
+            data=motion_cor_task_data.model_dump(),
             ptype=MOTIONCOR_TASK,
             pstatus=PENDING
         )
 
-        motioncor_task.sesson_name="24mar28a"
+        motioncor_task.sesson_name= session_name
         return motioncor_task
     except Exception as e:
         logger.error(f"Error publishing message: {e}")

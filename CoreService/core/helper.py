@@ -295,11 +295,8 @@ def create_motioncor_task(image_path=None, gain_path=None, session_name=None, ta
 
     try:
         # Use provided paths or defaults
-        default_image = os.path.join(os.getcwd(), "gpfs", "20241203_54449_integrated_movie.mrc.tif")
-        default_gain = os.path.join(os.getcwd(), "gpfs", "20241202_53597_gain_multi_ref.tif")
-
-        image_path = image_path or default_image
-        gain_path = gain_path or default_gain
+        if image_path is None:
+            image_path = os.path.join(os.getcwd(), "gpfs", "20241203_54449_integrated_movie.mrc.tif")
 
         task_data = create_motioncor_task_data(image_path, gain_path, session_name)
 
@@ -311,7 +308,8 @@ def create_motioncor_task(image_path=None, gain_path=None, session_name=None, ta
             ptype=MOTIONCOR_TASK,
             pstatus=PENDING
         )
-        motioncor_task.sesson_name = session_name or "24mar28a"
+        # Set session name from task data if not explicitly provided
+        motioncor_task.sesson_name = session_name or task_data.image_name.split("_")[0]
         return motioncor_task
     except Exception as e:
         logger.error(f"Error publishing message: {e}")
@@ -341,7 +339,6 @@ def dispatch_motioncor_task(task_id, full_image_path, task_dto: ImportTaskDto):
     if motioncor_task:
         return push_task_to_task_queue(motioncor_task)
     return False
-
 
 
 
