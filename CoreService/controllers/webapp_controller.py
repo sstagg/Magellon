@@ -994,16 +994,51 @@ async def browse_directory(path: str = "/gpfs"):
         raise HTTPException(status_code=500, detail=str(e))
 
 @webapp_router.get("/test-motioncor")
-async def test_motioncor():
-    try:
-        # dispatch_motioncor_task(task_dto.task_id, abs_file_path, task_dto)
-        motioncor_task = create_task()
-        if motioncor_task:
-            return push_task_to_task_queue(motioncor_task)
-        return {"message": "Motioncor on the way! " }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+async def test_motioncor(
+        session_name: str = "24mar28a",
+        file_name: str = "20241203_54449_integrated_movie"
+):
+    """
+    API endpoint to test motioncor task creation and dispatch
 
+    Args:
+        session_name (str): Optional session name, defaults to "24mar28a"
+        file_name (str): Optional file name, defaults to "20241203_54449_integrated_movie"
+
+    Returns:
+        dict: Status message indicating task creation result
+
+    Raises:
+        HTTPException: If task creation or queue push fails
+    """
+    try:
+        motioncor_task = create_task(session_name, file_name)
+        if not motioncor_task:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to create motioncor task"
+            )
+
+        queue_result = push_task_to_task_queue(motioncor_task)
+        if not queue_result:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to push task to queue"
+            )
+
+        return {
+            "status": "success",
+            "message": "Motioncor task created and queued successfully",
+            "task_id": str(motioncor_task.pid),
+            "session_name": session_name
+        }
+
+    except Exception as e:
+        logger.error(f"Error in test_motioncor endpoint: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error: {str(e)}"
+        )
 def create_task(session_name="24mar28a", file_name="20241203_54449_integrated_movie"):
     """
     Creates a motioncor task with specified session name and file name
