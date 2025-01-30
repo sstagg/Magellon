@@ -26,7 +26,7 @@ from starlette.responses import FileResponse, JSONResponse
 
 from config import FFT_SUB_URL, IMAGE_SUB_URL, MAGELLON_HOME_DIR, THUMBNAILS_SUB_URL, app_settings, THUMBNAILS_SUFFIX, \
     FFT_SUFFIX, ATLAS_SUB_URL, CTF_SUB_URL
-from core.helper import push_task_to_task_queue, dispatch_ctf_task, dispatch_motioncor_task
+from core.helper import push_task_to_task_queue, dispatch_ctf_task, dispatch_motioncor_task, create_motioncor_task
 from core.task_factory import MotioncorTaskFactory
 
 from database import get_db
@@ -1004,39 +1004,35 @@ async def test_motioncor():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-def create_task(session_name="24mar28a",file_name = "20241203_54449_integrated_movie"):
+def create_task(session_name="24mar28a", file_name="20241203_54449_integrated_movie"):
+    """
+    Creates a motioncor task with specified session name and file name
+
+    Args:
+        session_name (str): Name of the session, defaults to "24mar28a"
+        file_name (str): Base name of the file, defaults to "20241203_54449_integrated_movie"
+
+    Returns:
+        MotioncorTask: Created task object or False if error occurs
+    """
     print("Running Publish")
+
     try:
-        motion_cor_task_data = CryoEmMotionCorTaskData(
-            image_id=uuid.uuid4(),
-            image_name=file_name,
-            # image_path=os.path.join(os.getcwd(),"gpfs","20241203_54449_integrated_movie.mrc.tif"),
-            image_path=("/gpfs/%s.mrc.tif" % file_name), #seems to be unnecessary
-            inputFile=file_name,
-            # InTiff=os.path.join(os.getcwd(),"gpfs","20241203_54449_integrated_movie.mrc.tif"),
-            outputFile=("%s.output.files.mrc" % file_name),
-            Gain="/gpfs/20241202_53597_gain_multi_ref.tif",
-            PatchesX= 5,
-            PatchesY= 5,
-            SumRangeMinDose= 0,
-            SumRangeMaxDose= 0,
-            FmDose= 0.75,
-            PixSize= 0.705,
-            Group= 3
+        # Construct the full image path
+        image_path = f"/gpfs/{file_name}.mrc.tif"
+        gain_path = "/gpfs/20241202_53597_gain_multi_ref.tif"
 
+        # Use the consolidated create_motioncor_task function
+        motioncor_task = create_motioncor_task(
+            image_path=image_path,
+            gain_path=gain_path,
+            session_name=session_name,
+            task_id=str(uuid.uuid4()),  # Generate new UUID for task
+            job_id=uuid.uuid4()  # Generate new UUID for job
         )
 
-        motioncor_task = MotioncorTaskFactory.create_task(
-            pid= uuid.uuid4(),
-            instance_id=uuid.uuid4(),
-            job_id= uuid.uuid4(),
-            data=motion_cor_task_data.model_dump(),
-            ptype=MOTIONCOR_TASK,
-            pstatus=PENDING
-        )
-
-        motioncor_task.sesson_name= session_name
         return motioncor_task
+
     except Exception as e:
         logger.error(f"Error publishing message: {e}")
         return False
