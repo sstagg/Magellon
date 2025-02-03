@@ -43,6 +43,15 @@ you can check for Support matrix between GPU, CUDA toolkit and CUDA driver Requi
 
 ## Installation on Windows
 
+**Check out the overall installation process and each installation step below:**
+
+- Install Docker Desktop, enable WSL, install Ubuntu, configure Docker Desktop, and install the Nvidia driver on Windows.
+- Install CUDA Toolkit, cuDNN, and Nvidia Container Toolkit on Ubuntu (Linux).
+
+
+
+
+
 
 1. **Install Docker Desktop**
    - Download and install Docker Desktop from the official Docker website.
@@ -120,6 +129,7 @@ you can check for Support matrix between GPU, CUDA toolkit and CUDA driver Requi
    ```
 8. **Install NVIDIA Container Toolkit to run on docker**
    - Install the NVIDIA Container Toolkit to enable GPU support in Docker. [Nvidia container toolkit Installation link](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+   - configure the container toolkit [toolkit Configuration](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html#configuration)
 
 9. **Dockerize and Test the Application**
    - Follow the Docker steps mentioned earlier to build and run the application.
