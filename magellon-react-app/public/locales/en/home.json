@@ -5,15 +5,15 @@
     "logged": {
       "message": "You are logged in as user \"{{username}}\"."
     },
-    "question": "If you have any question on JHipster:",
+    "question": "If you have any question on Magellon:",
     "link": {
-      "homepage": "JHipster homepage",
-      "stackoverflow": "JHipster on Stack Overflow",
-      "bugtracker": "JHipster bug tracker",
-      "chat": "JHipster public chat room",
-      "follow": "follow @jhipster on Twitter"
+      "homepage": "Magellon homepage",
+      "stackoverflow": "Magellon on Stack Overflow",
+      "bugtracker": "Magellon bug tracker",
+      "chat": "Magellon public chat room",
+      "follow": "follow @Magellon on Twitter"
     },
-    "like": "If you like JHipster, don't forget to give us a star on",
+    "like": "If you like Magellon, don't forget to give us a star on",
     "github": "GitHub"
   }
 }

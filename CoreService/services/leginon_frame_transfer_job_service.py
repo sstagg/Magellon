@@ -136,6 +136,11 @@ class LeginonFrameTransferJobService:
             # Fetch all the results
             session_result = self.leginon_cursor.fetchone()
 
+
+            # self.create_atlas_pics(self.params.session_name, db_session,magellon_session)
+            # return
+
+            # create directories
             presets_query = """
             SELECT GROUP_CONCAT(DISTINCT p.name ORDER BY LENGTH(p.name) DESC SEPARATOR '|')  AS regex_pattern FROM PresetData p
             LEFT JOIN SessionData s ON  p.`REF|SessionData|session` = s.DEF_id
@@ -284,12 +289,13 @@ class LeginonFrameTransferJobService:
 
                     task = LeginonFrameTransferTaskDto(
                         task_id=uuid.uuid4(),
-                        task_alias=f"lftj_{filename}_{self.params.job_id}",
+                        task_alias=f"lftj_{filename}_{job_item.oid}",
                         file_name=f"{filename}",
                         image_id=db_image.oid,
                         image_name=image["image_name"],
                         frame_name=image["frame_names"],
                         image_path=source_image_path,
+                        job_id=job_item.oid,
 
                         frame_path=source_frame_path,
                         # target_path=self.params.target_directory + "/frames/" + f"{image['frame_names']}{source_extension}",
@@ -443,7 +449,7 @@ class LeginonFrameTransferJobService:
             print(f"Error fetching session_id: {e}")
             return {"error": f"Error fetching session_id: {e}"}
 
-        query1 = "SELECT label FROM ImageTargetListData WHERE `REF|SessionData|session` = %s AND mosaic = %s"
+        query1 = "SELECT * FROM ImageTargetListData WHERE `REF|SessionData|session` = %s AND mosaic = %s"
         mosaic_value = 1  # Execute the first query with parameters
         self.leginon_cursor.execute(query1, (leginon_session_id, mosaic_value))
 
@@ -468,25 +474,23 @@ class LeginonFrameTransferJobService:
 
         for row in second_query_results:
             filename_parts = row['filename'].split("_")
+            combined_parts = "_".join(filename_parts[1:-1])
             label_match = None
-            for part in filename_parts:
-                if part in label_values:
-                    label_match = part
-                    break
+            if combined_parts in label_values:
+                label_match = combined_parts
 
-            if label_match:
-                obj = {
-                    "id": row['DEF_id'],
-                    "dimx": row['dimx'],
-                    "dimy": row['dimy'],
-                    "filename": row['filename'],
-                    "delta_row": row['delta row'],
-                    "delta_column": row['delta column']
-                }
-                if label_match in label_objects:
-                    label_objects[label_match].append(obj)
-                else:
-                    label_objects[label_match] = [obj]
+            obj = {
+                "id": row['DEF_id'],
+                "dimx": row['dimx'],
+                "dimy": row['dimy'],
+                "filename": row['filename'],
+                "delta_row": row['delta row'],
+                "delta_column": row['delta column']
+            }
+            if label_match in label_objects:
+                label_objects[label_match].append(obj)
+            else:
+                label_objects[""] = [obj]
 
         # images = create_atlas_images(session_id, label_objects)
         images = create_atlas_images(session_name, label_objects)

@@ -12,7 +12,13 @@ class TaskCategory(BaseModel):
     code: int
     name: str
     description: str
+    def __hash__(self):
+        return hash(self.code)  # Using code as the unique identifier
 
+    def __eq__(self, other):
+        if not isinstance(other, TaskCategory):
+            return False
+        return self.code == other.code
 
 class TaskOutcome(BaseModel):
     code: int
@@ -118,6 +124,74 @@ class CtfTaskData(CryoEmImageTaskData):
     maximumDefocus: float = 50000.0
     defocusSearchStep: float = 100.0
 
+class CryoEmMotionCorTaskData(CryoEmImageTaskData):
+    InMrc: Optional[str] = None
+    InTiff: Optional[str] = None
+    InEer: Optional[str] = None
+    inputFile:str
+    # InSuffix: Optional[str] = None
+    OutMrc: str ="output.mrc"
+    outputFile:str="output.mrc"
+    # ArcDir: Optional[str] = None
+    Gain: str
+    Dark: Optional[str] = None
+    DefectFile: Optional[str] = None
+    # InAln: Optional[str] = None
+    # OutAln: Optional[str] = None
+    DefectMap: Optional[str] = None
+    # FullSum: Optional[str] = None
+    # Patches: Optional[str] = None
+    PatchesX:int=1
+    PatchesY:int=1
+    Iter: int = 5
+    Tol: float = 0.5
+    Bft: int = 100
+    # PhaseOnly: int = 0
+    # TmpFile: Optional[str] = None
+    LogDir: str = "."
+    Gpu: str = '0'
+    # StackZ: Optional[str] = None
+    FtBin: float = 2
+    # Align: int | None = None
+    # InitDose: Optional[str] = None
+    FmDose: Optional[float] = None
+    PixSize: Optional[float] = False
+    kV: int = 300
+    Cs: int = 0
+    AmpCont: float = 0.07
+    ExtPhase: float = 0
+    # Throw: int = 0
+    # Trunc: int = 0
+    # SumRange: Optional[str] = None
+    SumRangeMinDose: int=3
+    SumRangeMaxDose: int=25
+    Group: Optional[int] = None
+    # GroupGlobalAlignment:int |None =None
+    # GroupPatchAlignment:int | None=None
+    # FmRef: int | None= None
+    # Serial: Optional[str] = None
+    # Tilt: Optional[str] = None
+    # Crop: Optional[str] = None
+    # # OutStack: Optional[str] = None
+    # OutStackAlignment: int | None =None
+    # OutStackZbinning: int | None =None
+    RotGain: int = 0
+    FlipGain: int = 0
+    InvGain: Optional[int]  = None
+    # Mag: Optional[str] = None
+    # MagMajoraxes: int | None=None
+    # MagMinoraxes: int | None=None
+    # MagAngle:int | None=None
+    # InFmMotion: int | None = None
+    # GpuMemUsage: float = 0.5
+    # UseGpus: int | None = None
+    # SplitSum: bool = False
+    # FmIntFile: Optional[str] = None
+    # EerSampling: Optional[str] = None
+    # OutStar: bool = False
+    # TiffOrder: Optional[str] = None
+    # CorrInterp: Optional[str] = None
+
 
 class FftTask(TaskDto):
     data: FftTaskData
@@ -126,6 +200,9 @@ class FftTask(TaskDto):
 class CtfTask(TaskDto):
     data: CtfTaskData
 
+
+class MotioncorTask(TaskDto):
+    data: CryoEmMotionCorTaskData
 
 class TaskStatusEnum(Enum):
     # Enums for TaskStatus
@@ -185,7 +262,7 @@ FFT_TASK = TaskCategory(code=1, name="FFT", description="Fast Fourier Transform"
 CTF_TASK = TaskCategory(code=2, name="CTF", description="Contrast Transfer Function")
 PARTICLE_PICKING = TaskCategory(code=3, name="Particle Picking", description="Identifying particles in images")
 TWO_D_CLASSIFICATION = TaskCategory(code=4, name="2D Classification", description="Classifying 2D images")
-MOTIONCOR = TaskCategory(code=5, name="MotionCor", description="Motion correction for electron microscopy")
+MOTIONCOR_TASK = TaskCategory(code=5, name="MotionCor", description="Motion correction for electron microscopy")
 
 # Enums for TaskStatus
 PENDING = TaskStatus(code=0, name="pending", description="Task is pending")

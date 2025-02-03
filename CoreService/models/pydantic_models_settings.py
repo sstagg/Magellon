@@ -19,6 +19,8 @@ class RabbitMQSettings(BaseModel):
     HOST_NAME: Optional[str] = None
     CTF_QUEUE_NAME: Optional[str] = None
     CTF_OUT_QUEUE_NAME: Optional[str] = None
+    MOTIONCOR_QUEUE_NAME: Optional[str] = None
+    MOTIONCOR_OUT_QUEUE_NAME: Optional[str] = None
     PORT: Optional[int] = 5672
     USER_NAME: Optional[str] = None
     PASSWORD: Optional[str] = None
@@ -48,6 +50,7 @@ class DirectorySettings(BaseModel):
     JOBS_DIR: Optional[str] = None
     ATLAS_SUB_URL: Optional[str] = None
     CTF_SUB_URL: Optional[str] = None
+    GAIN_SUB_URL: Optional[str] = None
     ATLAS_SUFFIX: Optional[str] = None
 
 

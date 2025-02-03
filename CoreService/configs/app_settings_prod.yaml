@@ -36,6 +36,9 @@ rabbitmq_settings:
   PREFETCH_COUNT: 10
   CTF_QUEUE_NAME: ctf_tasks_queue
   CTF_OUT_QUEUE_NAME: ctf_out_tasks_queue
+  MOTIONCOR_QUEUE_NAME: motioncor_tasks_queue
+  MOTIONCOR_OUT_QUEUE_NAME: motioncor_out_tasks_queue
+
 
 directory_settings:
   FFT_DIR: null
@@ -43,6 +46,8 @@ directory_settings:
   FFT_SUFFIX: _fft.png
 
   CTF_SUB_URL: ctf/
+  GAIN_SUB_URL: gains/
+
   FRAMES_SUB_URL: frames/
   FRAMES_SUFFIX: _frame
   IMAGES_DIR: null

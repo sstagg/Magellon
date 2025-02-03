@@ -12,13 +12,54 @@ from utils import buildCtfCommand, readLastLine, getFileContents
 
 logger = logging.getLogger(__name__)
 
+def validateInput(params):
+    if not params.inputFile or not isinstance(params.inputFile, str) or not params.inputFile.strip():
+        raise ValueError("inputFile must be a non-empty string.")
+    
+    if not isinstance(params.pixelSize, (float, int)) or params.pixelSize <= 0:
+        raise ValueError("pixelSize must be a number and greater than zero.")
+    
+    if not isinstance(params.accelerationVoltage, (float, int)) or params.accelerationVoltage <= 0:
+        raise ValueError("accelerationVoltage must be a number and greater than zero.")
+    
+    if not isinstance(params.sphericalAberration, (float, int)) or params.sphericalAberration <= 0:
+        raise ValueError("sphericalAberration must be a number and greater than zero.")
+    
+    if not isinstance(params.amplitudeContrast, (float, int)) or params.amplitudeContrast <= 0:
+        raise ValueError("amplitudeContrast must be a number between 0 and 1.")
+    
+    if not isinstance(params.sizeOfAmplitudeSpectrum, int) or params.sizeOfAmplitudeSpectrum <= 0:
+        raise ValueError("sizeOfAmplitudeSpectrum must be a number and greater than zero.")
+    
+    if not isinstance(params.minimumResolution, (float, int)) or params.minimumResolution <= 0:
+        raise ValueError("minimumResolution must be a number and greater than zero.")
+    
+    if not isinstance(params.maximumResolution, (float, int)) or params.maximumResolution <= 0:
+        raise ValueError("maximumResolution must be a number and greater than zero.")
+    
+    if not isinstance(params.minimumDefocus, (float, int)) or params.minimumDefocus <= 0:
+        raise ValueError("minimumDefocus must be a number and greater than zero.")
+    
+    if not isinstance(params.maximumDefocus, (float, int)) or params.maximumDefocus <= 0:
+        raise ValueError("maximumDefocus must be a number and greater than zero.")
+    
+    if not isinstance(params.defocusSearchStep, (float, int)) or params.defocusSearchStep <= 0:
+        raise ValueError("defocusSearchStep must be a number and greater than zero.")
+
+    return True
 
 async def do_ctf(the_task: TaskDto) -> TaskResultDto:
     try:
         d = DebugInfo()
         logger.info(f"Starting task {the_task.id} ")
         the_task_data = CtfTaskData.model_validate(the_task.data)
-
+        # validate the input
+        try:
+            if not validateInput(the_task_data):
+                raise Exception("Validation failed.")
+            print("Validation passed. Proceeding with task...")
+        except ValueError as e:
+            raise Exception(f"Input validation error: {e}")
         d.line1 = the_task_data.inputFile
         d.line2 = the_task_data.image_path
 
@@ -77,13 +118,11 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
             result = await run_ctf_evaluation(
                 f'{the_task_data.inputFile}',os.path.join(directory_path, the_task.data["outputFile"]), the_task_data.pixelSize, the_task_data.sphericalAberration,
                 the_task_data.accelerationVoltage, the_task_data.maximumResolution,
-                float(CTFestimationValues[1]) * 1e-4, float(CTFestimationValues[2]) * 1e-4,
+                float(CTFestimati
+                onValues[1]) * 1e-4, float(CTFestimationValues[2]) * 1e-4,
                 the_task_data.amplitudeContrast, CTFestimationValues[4],
                 math.radians(float(CTFestimationValues[3]))
             )
-
-            metaDataList = [ImageMetaData(key=key, value=str(value)) for key, value in result.items()]
-
             return TaskResultDto(
                 worker_instance_id=the_task.worker_instance_id,
                 task_id=the_task.id,
@@ -103,7 +142,7 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
                     "output_txt": await getFileContents(f"{outputFileName}.txt"),
                     "output_avrot": await getFileContents(f"{outputFileName}_avrot.txt")
                 },
-                meta_data=metaDataList,
+                meta_data=result,
                 output_files=[
                     OutputFile(name="ctfevalplots", path=f"{outputFileName}.mrc-plots.png", required=True),
                     OutputFile(name="ctfevalpowerspec", path=f"{outputFileName}.mrc-powerspec.jpg", required=True),

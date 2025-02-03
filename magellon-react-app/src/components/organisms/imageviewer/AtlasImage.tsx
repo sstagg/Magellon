@@ -9,7 +9,7 @@ export interface ImageMapArea {
     coords: string;
     alt: string;
     "data-name": string;
-    "data-id": number;
+    "data-id": string;
 }
 
 export interface ImageMap {
@@ -119,7 +119,7 @@ export default function AtlasImage({ name, finalWidth , finalHeight ,backgroundC
                         height={height }
                         href={`${BASE_URL}/image_thumbnail?name=${area['data-name']}`} // Assuming 'data-name' contains the image source
                         data-name={area['data-name']}
-                        data-id={area['data-id']}
+                        // data-id={area['data-id']}
                         onMouseOver={() => handleMouseOver(area['data-name'])}
                         onMouseOut={handleMouseOut}
                         // onClick={() => handleImageClick(area['data-name'])}

@@ -1,4 +1,5 @@
 import math
+import mimetypes
 from datetime import datetime
 import json
 import os
@@ -6,7 +7,7 @@ import uuid
 from io import BytesIO
 from typing import List, Optional, Dict
 from uuid import UUID
-
+import re
 import mrcfile
 from lxml import etree
 
@@ -17,7 +18,7 @@ from airflow_client.client.api import dag_run_api
 from airflow_client.client.model.dag_run import DAGRun
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import Session, joinedload
@@ -25,10 +26,12 @@ from starlette.responses import FileResponse, JSONResponse
 
 from config import FFT_SUB_URL, IMAGE_SUB_URL, MAGELLON_HOME_DIR, THUMBNAILS_SUB_URL, app_settings, THUMBNAILS_SUFFIX, \
     FFT_SUFFIX, ATLAS_SUB_URL, CTF_SUB_URL
-from core.helper import push_task_to_task_queue, dispatch_ctf_task
+from core.helper import push_task_to_task_queue, dispatch_ctf_task, dispatch_motioncor_task, create_motioncor_task
+from core.task_factory import MotioncorTaskFactory
 
 from database import get_db
 from lib.image_not_found import get_image_not_found
+from models.plugins_models import CryoEmMotionCorTaskData, MOTIONCOR_TASK, PENDING
 from models.pydantic_models import SessionDto, ImageDto, AtlasDto,     ParticlePickingDto
 from models.sqlalchemy_models import Image, Msession, ImageMetaData, Atlas, ImageMetaDataCategory
 from repositories.image_repository import ImageRepository
@@ -38,7 +41,7 @@ from services.file_service import FileService
 from services.helper import get_response_image, get_parent_name
 import logging
 
-from services.import_export_service import ImportExportService
+
 from services.importers.EPUImporter import EPUImporter, scan_directory
 from pathlib import Path
 # from services.image_file_service import get_images, get_image_by_stack, get_image_data
@@ -644,7 +647,7 @@ async def run_dag():
 
 
 @webapp_router.get("/create_atlas")
-async def create_atlas(session_name: str, db_session: Session = Depends(get_db)):
+def create_leginon_atlas(session_name: str, db_session: Session = Depends(get_db)):
 
 
     # session_id = "13892"
@@ -664,7 +667,7 @@ async def create_atlas(session_name: str, db_session: Session = Depends(get_db))
     cursor.execute(query, (session_name,))
     session_id = cursor.fetchone()[0]
 
-    query1 = "SELECT label FROM ImageTargetListData WHERE `REF|SessionData|session` = %s AND mosaic = %s"
+    query1 = "SELECT * FROM ImageTargetListData WHERE `REF|SessionData|session` = %s AND mosaic = %s"
 
     mosaic_value = 1  # Execute the first query with parameters
     cursor.execute(query1, (session_id, mosaic_value))  # Fetch all the label results into a Python array
@@ -712,7 +715,7 @@ async def create_atlas(session_name: str, db_session: Session = Depends(get_db))
     cursor.close()
     connection.close()
 
-    images = await create_atlas_images(session_name, label_objects)
+    images =  create_atlas_images(session_name, label_objects)
 
     atlases_to_insert = []
     for image in images:
@@ -724,6 +727,116 @@ async def create_atlas(session_name: str, db_session: Session = Depends(get_db))
     db_session.bulk_save_objects(atlases_to_insert)
     db_session.commit()
     return {"images": images}
+
+
+
+def extract_grid_label(filename: str) -> str:
+    """
+    Extracts the grid name from a file name.
+    The grid name is assumed to be a substring starting with an underscore and
+    containing letters/numbers, followed by another underscore.
+
+    Parameters:
+        filename (str): The file name to process.
+
+    Returns:
+        str: The extracted grid name, or 'empty' if no grid name is found.
+    """
+    # Regular expression to match the grid name pattern (e.g., _g4d_)
+    match = re.search(r'_([a-zA-Z0-9]+)_', filename)
+
+    # Return the grid name or 'empty' if not found
+    return match.group(1) if match else "empty"
+
+@webapp_router.get("/create_magellon_atlas")
+def create_magellon_atlas(session_name: str, db_session: Session = Depends(get_db)):
+    """
+    Create atlas images for a Magellon session using the Image table.
+    """
+    try:
+        # Get the session ID from Msession table
+        msession = db_session.query(Msession).filter(Msession.name == session_name).first()
+        if not msession:
+            raise HTTPException(status_code=404, detail="Session not found")
+        if msession is None:
+            return {"error": "Session not found"}
+        try:
+            session_id_binary = msession.oid.bytes
+        except AttributeError:
+            return {"error": "Invalid session ID"}
+        # Query to get all atlas-related images for the session
+        # This query gets images where parent_id is null (top-level images)
+        query = text("""
+            SELECT 
+                i.oid as id,
+                i.atlas_dimxy as dimx,
+                i.atlas_dimxy as dimy,
+                i.name as filename,
+                i.atlas_delta_row as delta_row,
+                i.atlas_delta_column as delta_column
+            FROM image i
+            WHERE i.session_id = :session_id 
+            AND i.atlas_delta_row IS NOT NULL 
+            AND i.atlas_delta_column IS NOT NULL
+            AND i.parent_id IS NULL
+            AND i.GCRecord IS NULL
+            ORDER BY filename
+        """)
+
+        result = db_session.execute(query, {"session_id": session_id_binary})
+        atlas_images = result.fetchall()
+
+        if not atlas_images:
+            raise HTTPException(status_code=404, detail="No atlas images found for this session")
+
+        # Group images by their grid label prefix use extract_grid_label(row.filename) to get the grid label
+        label_objects = {}
+
+        for row in atlas_images:
+            # Get the prefix of the filename (everything before the first underscore)
+            # filename_parts = row.filename.split('_')
+            prefix = extract_grid_label(row.filename) # Using first part as the group identifier
+
+            obj = {
+                "id": str(row.id),
+                "dimx": float(row.dimx) if row.dimx else 0,
+                "dimy": float(row.dimy) if row.dimy else 0,
+                "filename": row.filename,
+                "delta_row": float(row.delta_row) if row.delta_row else 0,
+                "delta_column": float(row.delta_column) if row.delta_column else 0
+            }
+
+            if prefix in label_objects:
+                label_objects[prefix].append(obj)
+            else:
+                label_objects[prefix] = [obj]
+
+        # Create atlas images using the existing create_atlas_images function
+        images = create_atlas_images(session_name, label_objects)
+
+        # Insert the atlas records into the database
+        atlases_to_insert = []
+        for image in images:
+            file_name = os.path.basename(image['imageFilePath'])
+            file_name_without_extension = os.path.splitext(file_name)[0]
+            atlas = Atlas(
+                oid=uuid.uuid4(),
+                name=file_name_without_extension,
+                meta=image['imageMap'],
+                session_id=msession.oid
+            )
+            atlases_to_insert.append(atlas)
+
+        db_session.bulk_save_objects(atlases_to_insert)
+        db_session.commit()
+
+        return {"images": images}
+
+    except Exception as e:
+        db_session.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 
 
 @webapp_router.get('/do_ctf')
@@ -838,3 +951,123 @@ async def get_images(file_path: str, start_idx: int = 0, count: int = 10) -> Ima
     return read_images_from_mrc(file_path, start_idx, count)
 
 
+
+class FileItem(BaseModel):
+    id: int
+    name: str = Field(..., description="The name of the file or folder")
+    is_directory: bool = Field(..., description="True if the item is a folder, False if it's a file")
+    path: str = Field(..., description="The full path of the item")
+    parent_id: Optional[int] = Field(None, description="The ID of the parent folder")
+    size: Optional[int] = Field(None, description="The size of the file in bytes (only for files)")
+    mime_type: Optional[str] = Field(None, description="The MIME type of the file (only for files)")
+    created_at: datetime
+    updated_at: datetime
+
+@webapp_router.get("/files/browse", response_model=List[FileItem])
+async def browse_directory(path: str = "/gpfs"):
+    try:
+        directory = Path(path)
+        if not directory.exists():
+            raise HTTPException(status_code=404, detail="Directory not found")
+
+        items = []
+        for item in directory.iterdir():
+            stat = item.stat()
+            file_item = FileItem(
+                id=hash(str(item)),  # Generate a unique ID based on path hash
+                name=item.name,
+                is_directory=item.is_dir(),
+                path=str(item),
+                parent_id=hash(str(item.parent)) if str(item.parent) != path else None,
+                size=stat.st_size if not item.is_dir() else None,
+                mime_type=mimetypes.guess_type(item.name)[0] if not item.is_dir() else None,
+                created_at=datetime.fromtimestamp(stat.st_ctime),
+                updated_at=datetime.fromtimestamp(stat.st_mtime)
+            )
+            items.append(file_item)
+
+        # Sort: directories first, then files
+        items.sort(key=lambda x: (not x.is_directory, x.name))
+
+        return items
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@webapp_router.get("/test-motioncor")
+async def test_motioncor(
+        session_name: str = "24mar28a",
+        file_name: str = "20241203_54449_integrated_movie"
+):
+    """
+    API endpoint to test motioncor task creation and dispatch
+
+    Args:
+        session_name (str): Optional session name, defaults to "24mar28a"
+        file_name (str): Optional file name, defaults to "20241203_54449_integrated_movie"
+
+    Returns:
+        dict: Status message indicating task creation result
+
+    Raises:
+        HTTPException: If task creation or queue push fails
+    """
+    try:
+        motioncor_task = create_task(session_name, file_name)
+        if not motioncor_task:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to create motioncor task"
+            )
+
+        queue_result = push_task_to_task_queue(motioncor_task)
+        if not queue_result:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to push task to queue"
+            )
+
+        return {
+            "status": "success",
+            "message": "Motioncor task created and queued successfully",
+            "task_id": str(motioncor_task.pid),
+            "session_name": session_name
+        }
+
+    except Exception as e:
+        logger.error(f"Error in test_motioncor endpoint: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error: {str(e)}"
+        )
+def create_task(session_name="24mar28a", file_name="20241203_54449_integrated_movie"):
+    """
+    Creates a motioncor task with specified session name and file name
+
+    Args:
+        session_name (str): Name of the session, defaults to "24mar28a"
+        file_name (str): Base name of the file, defaults to "20241203_54449_integrated_movie"
+
+    Returns:
+        MotioncorTask: Created task object or False if error occurs
+    """
+    print("Running Publish")
+
+    try:
+        # Construct the full image path
+        image_path = f"/gpfs/{file_name}.mrc.tif"
+        gain_path = "/gpfs/20241202_53597_gain_multi_ref.tif"
+
+        # Use the consolidated create_motioncor_task function
+        motioncor_task = create_motioncor_task(
+            image_path=image_path,
+            gain_path=gain_path,
+            session_name=session_name,
+            task_id=str(uuid.uuid4()),  # Generate new UUID for task
+            job_id=uuid.uuid4()  # Generate new UUID for job
+        )
+
+        return motioncor_task
+
+    except Exception as e:
+        logger.error(f"Error publishing message: {e}")
+        return False

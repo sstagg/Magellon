@@ -3,9 +3,12 @@ import math
 import os
 import subprocess
 import concurrent.futures
-from utils import build_motioncor3_command,getFrameAlignment,getPatchFrameAlignment,isFilePresent,getRequirements,getFilecontentsfromThread
+from typing import Optional
+from core.helper import push_info_to_debug_queue
+from utils import validateInput,build_motioncor3_command,getFrameAlignment,getPatchFrameAlignment,isFilePresent,getRequirements,getFilecontentsfromThread
 from datetime import datetime
-from core.model_dto import CryoEmMotionCorTaskData, OutputFile, TaskDto, TaskResultDto
+from core.settings import AppSettingsSingleton
+from core.model_dto import CryoEmMotionCorTaskData, OutputFile, TaskDto, TaskResultDto,DebugInfo
 
 
 logger = logging.getLogger(__name__)
@@ -14,12 +17,60 @@ logger = logging.getLogger(__name__)
 async def do_motioncor(params: TaskDto)->TaskResultDto:
     
     try:
-        the_task_data = CryoEmMotionCorTaskData.model_validate(params.data)
 
-        os.makedirs(f'{os.path.join(os.getcwd(),"gpfs", "outputs")}', exist_ok=True)
-        directory_path = os.path.join(os.getcwd(),"gpfs", "outputs", str(params.id))
-        params.data["OutMrc"] = f'{directory_path}/{params.data["OutMrc"]}'
+        d = DebugInfo()
+        logger.info(f"Starting task {params.id} ")
+        the_task_data = CryoEmMotionCorTaskData.model_validate(params.data)
+        try:
+            if not validateInput(the_task_data):
+                raise Exception("Validation failed.")
+            print("Validation passed. Proceeding with task...")
+        except ValueError as e:
+            raise Exception(f"Input validation error: {e}")
+        
+        #check the type of inputfile and assign 
+        input_file=the_task_data.inputFile.strip()
+        file_extension = os.path.splitext(input_file)[1].lower() 
+
+        if file_extension == '.mrc':
+            the_task_data.InMrc = input_file
+            params.data["InMrc"]=input_file
+        elif file_extension == '.tif':
+            the_task_data.InTiff = input_file
+            params.data["InTiff"]=input_file
+        elif file_extension == '.eer':
+            the_task_data.InEer = input_file
+            params.data["InEer"] =input_file
+        else:
+            raise ValueError("Invalid file type. Must be .mrc, .tif, or .eer.")
+        d.line1 = the_task_data.inputFile
+        d.line2 = the_task_data.image_path
+        replace_settings = AppSettingsSingleton.get_instance()
+        if replace_settings.REPLACE_TYPE == "standard":
+            the_task_data.inputFile = the_task_data.inputFile.replace(
+                replace_settings.REPLACE_PATTERN, replace_settings.REPLACE_WITH
+            )
+            the_task_data.image_path = the_task_data.image_path.replace(
+                replace_settings.REPLACE_PATTERN, replace_settings.REPLACE_WITH
+            )
+        d.line3 = the_task_data.inputFile
+        d.line4 = the_task_data.image_path
+
+        final_path = os.path.normpath(the_task_data.inputFile).replace("\\", "/")
+        the_task_data.inputFile = final_path
+        the_task_data.image_path = final_path
+
+        d.line5 = the_task_data.inputFile
+        d.line6 = the_task_data.image_path
+        push_info_to_debug_queue(d)
+        directory_path = os.path.join(AppSettingsSingleton.get_instance().JOBS_DIR, str(the_task_data.image_id))
         os.makedirs(directory_path, exist_ok=True)
+        host_file_path = os.path.join(AppSettingsSingleton.get_instance().HOST_JOBS_DIR, str(the_task_data.image_id), the_task_data.outputFile)
+        the_task_data.outputFile = os.path.join(directory_path, the_task_data.outputFile)
+        # directory_path = os.path.join(os.getcwd(),"gpfs", "outputs", str(params.id))
+        params.data["OutMrc"] = the_task_data.outputFile
+        the_task_data.OutMrc = the_task_data.outputFile
+        the_task_data.LogDir= directory_path
         command = build_motioncor3_command(the_task_data)
         logger.info("Command: %s", command)
         fileName = ""
@@ -49,83 +100,86 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
         outputSuccessResult={
              "message": "MotionCor process completed successfully", 
         }
-        inputFileName=os.path.join(os.getcwd(),fileName.split("/")[-1])
-        output_data={}
+        inputFileName=fileName.split("/")[-1].split(".")[0]
+        # output_data={}
         output_files=[]
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            if(isFilePresent(f'{inputFileName}-Full.log')):          
-                output_data["frameAlignment"]=getFilecontentsfromThread(getFrameAlignment, f'{inputFileName}-Full.log',executor)
-                source_path = f'{inputFileName}-Full.log'
-                base_path = "/".join(inputFileName.split("/")[:-1])
-                destination_path = f'{base_path}/gpfs/outputs/{str(params.id)}/{os.path.splitext(os.path.basename(inputFileName))[0]}-Full.log'
-                os.rename(source_path, destination_path)
-                output_files.append(OutputFile(name="frameAlignment",path=destination_path,required=True))
+            if(isFilePresent(f'{os.path.join(directory_path,inputFileName)}-Full.log')):   
+                # output_data["frameAlignment"]=getFilecontentsfromThread(getFrameAlignment, f'{inputFileName}-Full.log',executor)
+                output_files.append(OutputFile(name="frameAlignment",path=f'{os.path.join(directory_path,inputFileName)}-Full.log',required=True))
         
-            if(isFilePresent(f'{inputFileName}-Patch-Frame.log')): 
-                output_data["patchFrameAlignment"]=getFilecontentsfromThread(getPatchFrameAlignment, f'{inputFileName}-Patch-Frame.log',executor)
-                source_path = f'{inputFileName}-Patch-Frame.log'
-                base_path = "/".join(inputFileName.split("/")[:-1])
-                destination_path = f'{base_path}/gpfs/outputs/{str(params.id)}/{os.path.splitext(os.path.basename(inputFileName))[0]}-Patch-Frame.log'
-                os.rename(source_path, destination_path)
-                output_files.append(OutputFile(name="patchFrameAlignment",path=destination_path,required=True))
+            if(isFilePresent(f'{os.path.join(directory_path,inputFileName)}-Patch-Frame.log')): 
+                # output_data["patchFrameAlignment"]=getFilecontentsfromThread(getPatchFrameAlignment, f'{os.path.join(directory_path,inputFileName)}-Patch-Frame.log',executor)
+                output_files.append(OutputFile(name="patchFrameAlignment",path=f'{os.path.join(directory_path,inputFileName)}-Patch-Frame.log',required=True))
 
-            if(isFilePresent(f'{inputFileName}-Patch-Full.log')): 
-                output_data["patchFullAlignment"]=getFilecontentsfromThread(getFrameAlignment, f'{inputFileName}-Patch-Full.log',executor)
-                source_path = f'{inputFileName}-Patch-Full.log'
-                base_path = "/".join(inputFileName.split("/")[:-1])
-                destination_path = f'{base_path}/gpfs/outputs/{str(params.id)}/{os.path.splitext(os.path.basename(inputFileName))[0]}-Patch-Full.log'
-                os.rename(source_path, destination_path)
-                output_files.append(OutputFile(name="patchFullAlignment",path=destination_path,required=True))
+            if(isFilePresent(f'{os.path.join(directory_path,inputFileName)}-Patch-Full.log')): 
+                # output_data["patchFullAlignment"]=getFilecontentsfromThread(getFrameAlignment, f'{os.path.join(directory_path,inputFileName)}-Patch-Full.log',executor)
+                output_files.append(OutputFile(name="patchFullAlignment",path=f'{os.path.join(directory_path,inputFileName)}-Patch-Full.log',required=True))
 
-            if(isFilePresent(f'{inputFileName}-Patch-Patch.log')): 
-                output_data["patchAlignment"]=getFilecontentsfromThread(getPatchFrameAlignment, f'{inputFileName}-Patch-Patch.log',executor)
-                source_path = f'{inputFileName}-Patch-Patch.log'
-                base_path = "/".join(inputFileName.split("/")[:-1])
-                destination_path = f'{base_path}/gpfs/outputs/{str(params.id)}/{os.path.splitext(os.path.basename(inputFileName))[0]}-Patch-Patch.log'
-                os.rename(source_path, destination_path)
-                output_files.append(OutputFile(name="patchAlignment",path=destination_path,required=True))
-
-        outputMrcs=[params.data["OutMrc"]]
+            if(isFilePresent(f'{os.path.join(directory_path,inputFileName)}-Patch-Patch.log')): 
+                # output_data["patchAlignment"]=getFilecontentsfromThread(getPatchFrameAlignment, f'{os.path.join(directory_path,inputFileName)}-Patch-Patch.log',executor)
+                output_files.append(OutputFile(name="patchAlignment",path=f'{os.path.join(directory_path,inputFileName)}-Patch-Patch.log',required=True))
         values=params.data["OutMrc"].split("/")
         outputFileName=f'{".".join(values[-1].split(".")[:-1])}_DW.mrc'
         values[-1]=outputFileName
         fileNameDW="/".join(values)
         if isFilePresent( fileNameDW):
-            outputMrcs.append(fileNameDW)
-        outputSuccessResult["outputMrcs"]=outputMrcs
-        # outputSuccessResult = TaskResultDto(
-        #     # worker_instance_id=params.worker_instance_id,
-        #     # task_id=params.id,
-        #     # job_id=params.job_id, 
-        #     image_id=params.id,
-        #     image_path=params.image_path,
-        #     # session_name=params.sesson_name,
-        #     code=200,
-        #     message="motioncor executed successfully",
-        #     description="output for motioncor estimation and evaluation for a input file",
-        #     # status=params.status,
-        #     # type=params.type,
-        #     created_date=datetime.now(),
-        #     # started_on=params.start_on,
-        #     ended_on=datetime.now(),
-        #     output_data=output_data,
-        #     # meta_data=metaDataList,
-        #     output_files=output_files
-        # )
-        # executeMethodSuccess.inc()
-        print(outputSuccessResult,output_data,output_files)
-        return outputSuccessResult
+            output_files.append(OutputFile(name="outputDWMrc",path=fileNameDW,required=True))
+        return TaskResultDto(
+                worker_instance_id=params.worker_instance_id,
+                task_id=params.id,
+                job_id=params.job_id,
+                image_id=params.data["image_id"],
+                image_path=params.data["image_path"],
+                session_name=params.sesson_name,
+                code=200,
+                message="Motioncor executed successfully",
+                description="Output for Motioncor for an input file",
+                status=params.status,
+                type=params.type,
+                created_date=datetime.now(),
+                started_on=params.start_on,
+                ended_on=datetime.now(),
+                meta_data=[],
+                output_files=output_files
+            )
     except subprocess.CalledProcessError as e:
-        logger.error("Error running executable: %s", e)
-        # executeMethodFailure.inc()
-        # executeMethodSuccess.inc()
-        return {
-        "data":outputSuccessResult
-        }
+        logger.error(f"An error occurred: {str(e)}")
+        return TaskResultDto(
+            worker_instance_id=params.worker_instance_id,
+            task_id=params.id,
+            job_id=params.job_id,
+            image_id=params.data["image_id"],
+            image_path=params.data["image_path"],
+            session_name=params.sesson_name,
+            code=500,
+            message="Motioncor execution was unsuccessful",
+            description=f"An error occurred: {str(e)}",
+            status=params.status,
+            type=params.type,
+            created_date=datetime.now(),
+            started_on=params.start_on,
+            ended_on=datetime.now(),
+            meta_data=[],
+            output_files=[]
+        )
     except Exception as e:
-        error_message = f"An error occurred: {str(e) if e else 'Unknown error'}"
-        logger.error(error_message)
-        return {
-            "status_code": 500,
-            "error_message": error_message
-        }
+        logger.error(f"An error occurred: {str(e)}")
+        return TaskResultDto(
+            worker_instance_id=params.worker_instance_id,
+            task_id=params.id,
+            job_id=params.job_id,
+            image_id=params.data["image_id"],
+            image_path=params.data["image_path"],
+            session_name=params.sesson_name,
+            code=500,
+            message="Motioncor execution was unsuccessful",
+            description=f"An error occurred: {str(e)}",
+            status=params.status,
+            type=params.type,
+            created_date=datetime.now(),
+            started_on=params.start_on,
+            ended_on=datetime.now(),
+            meta_data=[],
+            output_files=[]
+        )

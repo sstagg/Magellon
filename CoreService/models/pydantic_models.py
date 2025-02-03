@@ -139,7 +139,7 @@ class ReplaceType(str, Enum):
 
 
 class ImportJobBase(BaseModel):
-    job_id: Optional[uuid.UUID] = None
+    # job_id: Optional[uuid.UUID] = None
     magellon_project_name: str
     magellon_session_name: str
     camera_directory: Optional[str] = None  # for copying frames
@@ -157,6 +157,11 @@ class ImportJobBase(BaseModel):
         if v not in ReplaceType.__members__.values():
             raise ValueError(f"Invalid replace_type: {v}. Valid options are: {', '.join(ReplaceType.__members__.keys())}")
         return v
+
+
+class MagellonImportJobDto(BaseModel):
+    source_dir: str
+
 
 class ImportTaskDto(BaseModel):
     task_id: uuid.UUID = Field(default_factory=uuid.uuid4)
@@ -232,6 +237,7 @@ class LeginonFrameTransferJobDto(LeginonFrameTransferJobBase):
 
 class ImportTaskDto(BaseModel):
     task_id: uuid.UUID
+    job_id: Optional[uuid.UUID] = None
     task_alias: Optional[str] = None
     file_name: Optional[str] = None
     image_id: Optional[uuid.UUID] = None

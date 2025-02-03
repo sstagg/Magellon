@@ -18,7 +18,7 @@ class TaskOutcome(BaseModel):
     code: int
     message: str
     description: str
-    output_data: Dict[str, Any] = {}  # Additional output data
+    # output_data: Dict[str, Any] = {}  # Additional output data
 
 
 class TaskStatus(BaseModel):
@@ -121,8 +121,10 @@ class CryoEmMotionCorTaskData(CryoEmImageTaskData):
     InMrc: Optional[str] = None
     InTiff: Optional[str] = None
     InEer: Optional[str] = None
+    inputFile:str
     # InSuffix: Optional[str] = None
     OutMrc: str ="output.mrc" 
+    outputFile:str="output.mrc"
     # ArcDir: Optional[str] = None
     Gain: str
     Dark: Optional[str] = None
@@ -294,6 +296,18 @@ class TaskResultDto(BaseModel):
     created_date: Optional[datetime] = datetime.now()  # Created date and time
     started_on: Optional[datetime] = None  # Start time of task execution
     ended_on: Optional[datetime] = None  # End time of task execution
-    output_data: Dict[str, Any] = {}  # Additional output data
-    meta_data: List[ImageMetaData]
+    # output_data: Dict[str, Any] = {}  # Additional output data
+    meta_data: Optional[List[ImageMetaData]]
     output_files: List[OutputFile]
+
+
+class DebugInfo(BaseModel):
+    id: Optional[str] = str(uuid.uuid4())
+    line1: Optional[str] = None
+    line2: Optional[str] = None
+    line3: Optional[str] = None
+    line4: Optional[str] = None
+    line5: Optional[str] = None
+    line6: Optional[str] = None
+    line7: Optional[str] = None
+    line8: Optional[str] = None

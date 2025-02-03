@@ -293,3 +293,147 @@ def getRequirements(filePath):
     except Exception as e:
         errorMessage = f"Error reading requirements file {filePath}: {e}"
         raise Exception(errorMessage)
+
+def validateInput(params):
+    if params.InMrc is not None:
+        if not isinstance(params.InMrc, str):
+            raise ValueError("InMrc must be a string or None.")
+        if not params.InMrc.strip().endswith(".mrc"):
+            raise ValueError("InMrc must end with .mrc.")
+    
+    if params.InTiff is not None:
+        if not isinstance(params.InTiff, str):
+            raise ValueError("InTiff must be a string or None.")
+        if not params.InTiff.strip().endswith(".tif"):
+            raise ValueError("InTiff must end with .tif.")
+    
+    if params.InEer is not None:
+        if not isinstance(params.InEer, str):
+            raise ValueError("InEer must be a string or None.")
+        if not params.InEer.strip().endswith(".eer"):
+            raise ValueError("InEer must end with .eer.")
+    
+    if not params.inputFile or not isinstance(params.inputFile, str) or not params.inputFile.strip():
+        raise ValueError("inputFile must be a non-empty string.")
+    
+    if params.OutMrc is not None:
+        if not isinstance(params.OutMrc, str):
+            raise ValueError("OutMrc must be a string or None.")
+        if not params.OutMrc.strip().endswith(".mrc"):
+            raise ValueError("OutMrc must end with .mrc.")
+    
+    if params.outputFile is not None:
+        if not isinstance(params.outputFile, str):
+            raise ValueError("outputFile must be a string or None.")
+        if not params.outputFile.strip().endswith(".mrc"):
+            raise ValueError("outputFile must end with .mrc.")
+    
+    if not params.Gain or not isinstance(params.Gain, str) or not params.Gain.strip():
+        raise ValueError("Gain must be a non-empty string.")
+    
+    if params.Dark is not None and not isinstance(params.Dark, str):
+        raise ValueError("Dark must be a string or None.")
+    
+    if params.DefectFile is not None and not isinstance(params.DefectFile, str):
+        raise ValueError("DefectFile must be a string or None.")
+    
+    if not isinstance(params.PatchesX, int) or params.PatchesX <= 0:
+        raise ValueError("PatchesX must be a positive integer.")
+    
+    if not isinstance(params.PatchesY, int) or params.PatchesY <= 0:
+        raise ValueError("PatchesY must be a positive integer.")
+    
+    if params.Iter is not None:
+        if not isinstance(params.Iter, int):
+            raise ValueError("Iter must be a positive integer or None.")
+        if params.Iter <= 0:
+            raise ValueError("Iter must be a positive integer.")
+
+    if params.Tol is not None:
+        if not isinstance(params.Tol, (float, int)):
+            raise ValueError("Tol must be a positive integer or None.")
+        if params.Tol <= 0:
+            raise ValueError("Tol must be a positive integer.")
+
+    if params.Bft is not None:
+        if not isinstance(params.Bft, int):
+            raise ValueError("Bft must be a positive integer or None.")
+        if params.Bft <= 0:
+            raise ValueError("Bft must be a positive integer.")
+    
+    if params.LogDir is not None:
+        if not isinstance(params.LogDir, str):
+            raise ValueError("LogDir must be a string or None.")
+    
+    if params.Gpu is not None:
+        if not isinstance(params.Gpu, str):
+            raise ValueError("Gpu must be a string or None example '0'.")
+
+    if params.FtBin is not None:
+        if not isinstance(params.FtBin, (float, int)):
+            raise ValueError("FtBin must be a positive integer or None.")
+        if params.FtBin <= 0:
+            raise ValueError("FtBin must be a positive integer.")
+    
+    if params.FmDose is not None and not isinstance(params.FmDose, (float, int)):
+        raise ValueError("FmDose must be a number or None.")
+    
+    if params.PixSize is not None and not isinstance(params.PixSize, (float, int)):
+        raise ValueError("PixSize must be a number or None.")
+    
+    if params.kV is not None:
+        if not isinstance(params.kV, (int, float)):
+            raise ValueError("KV must be a positive integer or None.")
+        if params.kV <= 0:
+            raise ValueError("KV must be a positive integer.")
+
+    # if params.Cs is not None:
+    #     if not isinstance(params.Cs, int):
+    #         raise ValueError("Cs must be a positive integer or None.")
+    #     if params.Cs <= 0:
+    #         raise ValueError("Cs must be a positive integer.")
+    
+    # if params.AmpCont is not None:
+    #     if not isinstance(params.AmpCont, (int, float)):
+    #         raise ValueError("AmpCont must be a positive integer or None.")
+    #     if params.AmpCont <= 0:
+    #         raise ValueError("AmpCont must be a positive integer.")
+    
+    # if params.ExtPhase is not None:
+    #     if not isinstance(params.ExtPhase, (int, float)):
+    #         raise ValueError("ExtPhase must be a positive integer or None.")
+    #     if params.ExtPhase <= 0:
+    #         raise ValueError("ExtPhase must be a positive integer.")
+    
+    if params.SumRangeMinDose is not None:
+        print(params.SumRangeMinDose)
+        if not isinstance(params.SumRangeMinDose, (int, float)):
+            raise ValueError("SumRangeMinDose must be a positive integer or None.")
+        if params.SumRangeMinDose < 0:
+            raise ValueError("SumRangeMinDose must be a positive integer.")
+
+    if params.SumRangeMaxDose is not None:
+        if not isinstance(params.SumRangeMaxDose, (int, float)):
+            raise ValueError("SumRangeMaxDose must be a positive integer or None.")
+        if params.SumRangeMaxDose < 0:
+            raise ValueError("SumRangeMaxDose must be a positive integer.")
+
+    if params.RotGain is not None:
+        if not isinstance(params.RotGain, (int, float)):
+            raise ValueError("RotGain must be a positive integer or None.")
+        if params.RotGain < 0:
+            raise ValueError("RotGain must be a positive integer.")
+    
+    if params.FlipGain is not None:
+        if not isinstance(params.FlipGain, (int, float)):
+            raise ValueError("FlipGain must be a positive integer or None.")
+        if params.FlipGain < 0:
+            raise ValueError("FlipGain must be a positive integer.")
+    
+    if params.InvGain is not None:
+        if not isinstance(params.InvGain, (int, float)):
+            raise ValueError("InvGain must be a positive integer or None.")
+        if params.InvGain < 0:
+            raise ValueError("InvGain must be a positive integer.")
+    
+    return True
