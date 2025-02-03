@@ -318,7 +318,7 @@ class ImageGridApp:
         self.update_info_grid(self.info_frame)
 
         # Ensure the layout refreshes immediately
-        self.grid_canvas.update_idletasks() 
+        self.grid_canvas.update_idletasks()
 
     def adjust_scale(self, delta):
         """Adjust the scale factor by the given delta."""
