@@ -229,6 +229,7 @@ class LeginonFrameTransferJobService:
 
                     db_image = Image(oid=uuid.uuid4(),
                                      name=filename,
+                                     frame_name=image["frame_names"],
                                      magnification=image["mag"],
                                      defocus=image["defocus"],
                                      dose=image["calculated_dose"],
@@ -323,7 +324,7 @@ class LeginonFrameTransferJobService:
                 if self.params.if_do_subtasks if hasattr(self.params, 'if_do_subtasks') else True:
                     self.run_tasks(db_session,magellon_session )
 
-            return {'status': 'success', 'message': 'Job completed successfully.', "job_id": self.params.job_id}
+            return {'status': 'success', 'message': 'Job completed successfully.', "job_id": job_item.oid}
             # self.create_test_tasks()
         except FileNotFoundError as e:
             error_message = f"Source directory not found: {self.params.source_directory}"

@@ -233,9 +233,13 @@ def dispatch_ctf_task(task_id, full_image_path, task_dto: ImportTaskDto):
         defocusSearchStep=task_dto.defocus_search_step
     )
 
-    job_id = task_dto.job_dto.job_id if getattr(task_dto, 'job_dto', None) else task_dto.job_id
-    # job_id = getattr(task_dto.job_dto, 'job_id', getattr(task_dto, 'job_id', None))
+    job_id = None
 
+    if task_dto is not None:
+        if hasattr(task_dto, 'job_id'):
+            job_id = task_dto.job_id
+        elif hasattr(task_dto, 'job_dto') and task_dto.job_dto is not None:
+            job_id = getattr(task_dto.job_dto, 'job_id', None)
 
     # str(uuid.uuid4())
     ctf_task = CtfTaskFactory.create_task(pid=task_dto.task_id, instance_id=uuid.uuid4(), job_id=job_id,

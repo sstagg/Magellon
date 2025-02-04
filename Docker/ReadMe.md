@@ -211,7 +211,7 @@ DELETE FROM  `project`;
 "source_dir": "/gpfs/24dec03a"
 }
 
-
+Docker : 
 {
 "session_name": "24DEC03A",
 "magellon_project_name": "Leginon",
@@ -227,4 +227,24 @@ DELETE FROM  `project`;
 "replace_type": "standard",
 "replace_pattern": "/gpfs/research/secm4/leginondata/",
 "replace_with": "/gpfs/"
+}
+
+
+Development: 
+
+{
+"session_name": "24DEC03A",
+"magellon_project_name": "Leginon",
+"magellon_session_name": "24DEC03A",
+"camera_directory": "/gpfs/24dec03a/home/frames",
+"copy_images": false,
+"retries": 0,
+"leginon_mysql_user": "usr_object",
+"leginon_mysql_pass": "ThPHMn3m39Ds",
+"leginon_mysql_host": "localhost",
+"leginon_mysql_port": 3310,
+"leginon_mysql_db": "dbemdata",
+"replace_type": "standard",
+"replace_pattern": "/gpfs/research/secm4/leginondata/",
+"replace_with": "C:/temp/magellon/"
 }

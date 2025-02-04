@@ -121,6 +121,7 @@ class MagellonImporter(BaseImporter):
             # Process each image
             for image, file_path in images_to_process:
                 base_name = os.path.splitext(image.name)[0]
+
                 task_dto = ImportTaskDto(
                     task_id=uuid.uuid4(),
                     job_id=self.db_job.oid,
@@ -163,7 +164,7 @@ class MagellonImporter(BaseImporter):
                 'status': 'failure',
                 'message': 'Import encountered problem.',
                 'session_name': self.db_msession.name,
-                'messagae': str(e)
+                'error': str(e)
             }
 
 

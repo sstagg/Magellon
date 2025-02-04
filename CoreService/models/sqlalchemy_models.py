@@ -428,6 +428,8 @@ class Image(Base):
 
     oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
     name = Column(String(100))
+    frame_name = Column(String(100))
+    frame_count = Column(INTEGER(11))
     path = Column(String(300))
     parent_id = Column(ForeignKey('image.oid', ondelete='CASCADE', onupdate='CASCADE'), index=True)
     session_id = Column(ForeignKey('msession.oid', ondelete='CASCADE', onupdate='CASCADE'), index=True)
@@ -473,7 +475,6 @@ class Image(Base):
     stage_y = Column(DECIMAL(asdecimal=True))
     atlas_id = Column(ForeignKey('atlas.oid'), index=True)
     last_accessed_date = Column(DateTime)
-    frame_count = Column(INTEGER(11))
     acceleration_voltage = Column(DECIMAL(asdecimal=True))
     spherical_aberration = Column(DECIMAL(asdecimal=True))
 

@@ -1020,6 +1020,7 @@ async def test_motioncor(
             )
 
         queue_result = push_task_to_task_queue(motioncor_task)
+
         if not queue_result:
             raise HTTPException(
                 status_code=500,
@@ -1039,7 +1040,9 @@ async def test_motioncor(
             status_code=500,
             detail=f"Internal server error: {str(e)}"
         )
-def create_task(session_name="24mar28a", file_name="20241203_54449_integrated_movie"):
+
+
+def create_task(session_name="24mar28a", file_name="20241203_54449_integrated_movie",gain_path = "/gpfs/20241202_53597_gain_multi_ref.tif"):
     """
     Creates a motioncor task with specified session name and file name
 
@@ -1050,12 +1053,10 @@ def create_task(session_name="24mar28a", file_name="20241203_54449_integrated_mo
     Returns:
         MotioncorTask: Created task object or False if error occurs
     """
-    print("Running Publish")
 
     try:
         # Construct the full image path
         image_path = f"/gpfs/{file_name}.mrc.tif"
-        gain_path = "/gpfs/20241202_53597_gain_multi_ref.tif"
 
         # Use the consolidated create_motioncor_task function
         motioncor_task = create_motioncor_task(

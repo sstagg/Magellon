@@ -209,9 +209,9 @@ pip download --only-binary=:all: --platform manylinux1_x86_64,win_amd64,macosx_1
 
 
 {
-    "session_name": "22apr01a",
+    "session_name": "24dec03a",
     "magellon_project_name": "Leginon",
-    "magellon_session_name": "22apr01a",
+    "magellon_session_name": "24dec03a",
     "camera_directory": "/gpfs",
     "copy_images": false,
     "retries": 0,
