@@ -14,9 +14,9 @@ from fastapi import Depends, HTTPException
 
 from config import FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, \
     FFT_SUFFIX, FRAMES_SUFFIX, app_settings, ATLAS_SUB_URL, CTF_SUB_URL
-from core.helper import dispatch_ctf_task
+from core.helper import dispatch_ctf_task, dispatch_motioncor_task
 from database import get_db
-from models.pydantic_models import LeginonFrameTransferJobDto, LeginonFrameTransferTaskDto
+from models.pydantic_models import LeginonFrameTransferJobDto, LeginonFrameTransferTaskDto, ImportTaskDto
 # from models.pydantic_models import LeginonFrameTransferJobDto, LeginonFrameTransferTaskDto
 from models.sqlalchemy_models import Image, Project, Msession, ImageJob, ImageJobTask, Atlas
 from services.atlas import create_atlas_images
@@ -273,9 +273,8 @@ class LeginonFrameTransferJobService:
                     job_item = ImageJobTask(
                         oid=uuid.uuid4(),
                         job_id=job.oid,
-                        frame_name=image["frame_names"],
-                        frame_path=source_frame_path,
-                        image_name=image["image_name"],
+                        frame_name=image["frame_names"] if image.get("frame_names") else None,
+                        frame_path=source_frame_path +".tif" if image.get("frame_names") else None,
                         image_path=source_image_path,
                         status_id=1,
                         stage=0,
@@ -368,6 +367,9 @@ class LeginonFrameTransferJobService:
             self.compute_fft_png_task(task_dto.image_path, task_dto.job_dto.target_directory)
             self.compute_ctf_task(task_dto.image_path, task_dto)
 
+            if task_dto.frame_name:
+                self.compute_motioncor_task(task_dto.frame_path, task_dto)
+
             return {'status': 'success', 'message': 'Task completed successfully.'}
 
         except Exception as e:
@@ -434,6 +436,14 @@ class LeginonFrameTransferJobService:
             if (task_dto.pixel_size * 10 ** 10) <= 5:
                 dispatch_ctf_task(task_dto.task_id, abs_file_path, task_dto)
                 return {"message": "Converting to ctf on the way! " + abs_file_path}
+
+        except Exception as e:
+            return {"error": str(e)}
+
+    def compute_motioncor_task(self, abs_file_path: str, task_dto: ImportTaskDto):
+        try:
+            dispatch_motioncor_task(task_dto.task_id, abs_file_path+".tif", task_dto)
+            return {"message": "Converting to ctf on the way! " + abs_file_path}
 
         except Exception as e:
             return {"error": str(e)}

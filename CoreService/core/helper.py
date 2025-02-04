@@ -335,12 +335,23 @@ def dispatch_motioncor_task(task_id, full_image_path, task_dto: ImportTaskDto):
     Returns:
         bool: True if task was successfully pushed to queue
     """
-    job_id = task_dto.job_dto.job_id if getattr(task_dto, 'job_dto', None) else task_dto.job_id
+    job_id = None
+
+    if task_dto is not None:
+        if hasattr(task_dto, 'job_id'):
+            job_id = task_dto.job_id
+        elif hasattr(task_dto, 'job_dto') and task_dto.job_dto is not None:
+            job_id = getattr(task_dto.job_dto, 'job_id', None)
+
+    if app_settings.DEBUG_CTF:
+        full_image_path = full_image_path.replace(app_settings.DEBUG_CTF_PATH, app_settings.DEBUG_CTF_REPLACE)
 
     motioncor_task = create_motioncor_task(
         image_path=full_image_path,
         task_id=task_id,
-        job_id=job_id
+        job_id=job_id,
+        gain_path="/gpfs/20241202_53597_gain_multi_ref.tif",
+        session_name="24dec03a"
     )
 
     if motioncor_task:

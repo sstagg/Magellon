@@ -187,7 +187,6 @@ class ImportTaskDto(BaseModel):
 
 
 class LeginonFrameTransferJobBase(ImportJobBase):
-
     leginon_mysql_host: Optional[str] = None
     leginon_mysql_port: Optional[int]
     leginon_mysql_db: Optional[str] = None
