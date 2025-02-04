@@ -81,6 +81,11 @@ class AppSettings(BaseModel):
     DOCKER_REPOSITORY: Optional[str] = None
     DOCKER_USERNAME: Optional[str] = None
     DOCKER_PASSWORD: Optional[str] = None
+
+    DEBUG_CTF: Optional[bool] = None
+    DEBUG_CTF_PATH: Optional[str] = None
+    DEBUG_CTF_REPLACE: Optional[str] = None
+
     ENV_TYPE: Optional[str] = None
 
     @classmethod
@@ -94,7 +99,8 @@ class AppSettings(BaseModel):
             try:
                 obj = cls.parse_obj(data_dict)
                 return obj
-            except ValidationError:
+            except ValidationError as e:
+                print(f"Validation error: {e}")
                 # Handle validation error if necessary
                 return None
         else:

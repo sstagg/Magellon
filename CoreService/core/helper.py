@@ -210,6 +210,9 @@ def push_result_to_out_queue(result: TaskResultDto) -> bool:
 
 
 def dispatch_ctf_task(task_id, full_image_path, task_dto: ImportTaskDto):
+    if app_settings.DEBUG_CTF:
+        full_image_path = full_image_path.replace(app_settings.DEBUG_CTF_PATH, app_settings.DEBUG_CTF_REPLACE)
+
     file_name = os.path.splitext(os.path.basename(full_image_path))[0]
 
     #converting LeginonFrameTransferTaskDto to ctf task

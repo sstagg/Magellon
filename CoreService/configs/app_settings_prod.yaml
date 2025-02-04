@@ -6,6 +6,12 @@ DOCKER_REPOSITORY: tcp://localhost:2375
 DOCKER_USERNAME: khoshbin
 DOCKER_PASSWORD: khoshbin
 
+
+DEBUG_CTF: false
+DEBUG_CTF_PATH : C:/temp/magellon
+DEBUG_CTF_REPLACE : /gpfs
+
+
 SLACK_TOKEN: xoxb-5284990093169-5258053840439-aJ8x7uHcUCNqCKSZkbOSbAlt
 
 consul_settings:
