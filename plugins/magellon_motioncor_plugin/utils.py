@@ -4,6 +4,9 @@ from typing import Optional,List
 import os
 import platform
 import subprocess
+import mrcfile
+import numpy as np
+import matplotlib.pyplot as plt
 # from loggerSetup import setupLogger
 from core.model_dto import CryoEmMotionCorTaskData
 # logger=setupLogger()
@@ -232,6 +235,10 @@ def getPatchFrameAlignment(fileName):
         raise FileNotFoundError(f"File not found: {fileName}")
     except Exception as e:
         raise Exception(f"Error reading file {fileName}: {e}")
+    
+
+
+
 
 
 def isFilePresent(fileName):
@@ -437,3 +444,96 @@ def validateInput(params):
             raise ValueError("InvGain must be a positive integer.")
     
     return True
+
+def createframealignImage(outputmrcpath, data, directory_path,originalsize):
+    
+    with mrcfile.open(outputmrcpath) as mrc:
+        new_data = mrc.data.copy()
+        original_header = mrc.header.copy()
+    
+    # Calculate scaling factors
+    scale_y = new_data.shape[0] / originalsize[0]
+    scale_x = new_data.shape[1] / originalsize[1]
+    
+    dot_size = max(1, int(5 * min(scale_x, scale_y)))  # Scale dot size, minimum 1 pixel
+    
+    # Mark the image with white dots at the scaled coordinates
+    for _, x, y, deltax, deltay, _ in data:
+        px = int((x + deltax * 10) * scale_x)
+        py = int((y + deltay * 10) * scale_y)
+        
+        # Create a dot using numpy operations
+        y_indices, x_indices = np.ogrid[-dot_size:dot_size+1, -dot_size:dot_size+1]
+        mask = x_indices*x_indices + y_indices*y_indices <= dot_size*dot_size
+        
+        # Calculate boundaries for the dot
+        y_start, y_end = max(0, py-dot_size), min(new_data.shape[0], py+dot_size+1)
+        x_start, x_end = max(0, px-dot_size), min(new_data.shape[1], px+dot_size+1)
+        
+        # Apply the dot to the image
+        mask_slice = mask[y_start-py+dot_size:y_end-py+dot_size, x_start-px+dot_size:x_end-px+dot_size]
+        new_data[y_start:y_end, x_start:x_end][mask_slice] = np.max(new_data)
+    
+    base_name = os.path.basename(outputmrcpath)
+    new_filename = f"modified_{base_name}"
+    new_filepath = os.path.join(directory_path, new_filename)
+    
+    with mrcfile.new(new_filepath, overwrite=True) as new_mrc:
+        new_mrc.set_data(new_data)
+        
+        for field in original_header.dtype.names:
+            if field != 'map' and field != 'machst':
+                setattr(new_mrc.header, field, original_header[field])
+        
+        new_mrc.update_header_from_data()
+        new_mrc.update_header_stats()
+
+    print(f"Modified MRC file saved as: {new_filepath}")
+
+
+
+def createframealignCenterImage(outputmrcpath, data, directory_path,originalsize):
+    
+    with mrcfile.open(outputmrcpath) as mrc:
+        new_data = mrc.data.copy()
+        original_header = mrc.header.copy()
+    
+    # Calculate scaling factors
+    scale_y = new_data.shape[0] / originalsize[0]
+    scale_x = new_data.shape[1] / originalsize[1]
+    
+    dot_size = max(1, int(5 * min(scale_x, scale_y)))  # Scale dot size, minimum 1 pixel
+    center_x,center_y = originalsize[0] // 2, originalsize[1] // 2
+    
+    # Mark the image with white dots at the scaled coordinates
+    for _, deltax, deltay in data:
+        px = int((center_x + deltax * 10) * scale_x)
+        py = int((center_y + deltay * 10) * scale_y)
+        
+        # Create a dot using numpy operations
+        y_indices, x_indices = np.ogrid[-dot_size:dot_size+1, -dot_size:dot_size+1]
+        mask = x_indices*x_indices + y_indices*y_indices <= dot_size*dot_size
+        
+        # Calculate boundaries for the dot
+        y_start, y_end = max(0, py-dot_size), min(new_data.shape[0], py+dot_size+1)
+        x_start, x_end = max(0, px-dot_size), min(new_data.shape[1], px+dot_size+1)
+        
+        # Apply the dot to the image
+        mask_slice = mask[y_start-py+dot_size:y_end-py+dot_size, x_start-px+dot_size:x_end-px+dot_size]
+        new_data[y_start:y_end, x_start:x_end][mask_slice] = np.max(new_data)
+    
+    base_name = os.path.basename(outputmrcpath)
+    new_filename = f"modified_center{base_name}"
+    new_filepath = os.path.join(directory_path, new_filename)
+    
+    with mrcfile.new(new_filepath, overwrite=True) as new_mrc:
+        new_mrc.set_data(new_data)
+        
+        for field in original_header.dtype.names:
+            if field != 'map' and field != 'machst':
+                setattr(new_mrc.header, field, original_header[field])
+        
+        new_mrc.update_header_from_data()
+        new_mrc.update_header_stats()
+
+    print(f"Modified MRC file saved as: {new_filepath}")

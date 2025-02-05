@@ -5,7 +5,7 @@ import subprocess
 import concurrent.futures
 from typing import Optional
 from core.helper import push_info_to_debug_queue
-from utils import validateInput,build_motioncor3_command,getFrameAlignment,getPatchFrameAlignment,isFilePresent,getRequirements,getFilecontentsfromThread
+from utils import validateInput,build_motioncor3_command,getFrameAlignment,getPatchFrameAlignment,createframealignImage,isFilePresent,createframealignCenterImage,getFilecontentsfromThread
 from datetime import datetime
 from core.settings import AppSettingsSingleton
 from core.model_dto import CryoEmMotionCorTaskData, OutputFile, TaskDto, TaskResultDto,DebugInfo
@@ -101,8 +101,12 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
              "message": "MotionCor process completed successfully", 
         }
         inputFileName=fileName.split("/")[-1].split(".")[0]
-        # output_data={}
+        output_data={}
         output_files=[]
+        values=params.data["OutMrc"].split("/")
+        outputFileName=f'{".".join(values[-1].split(".")[:-1])}_DW.mrc'
+        values[-1]=outputFileName
+        fileNameDW="/".join(values)
         with concurrent.futures.ThreadPoolExecutor() as executor:
             if(isFilePresent(f'{os.path.join(directory_path,inputFileName)}-Full.log')):   
                 # output_data["frameAlignment"]=getFilecontentsfromThread(getFrameAlignment, f'{inputFileName}-Full.log',executor)
@@ -113,18 +117,20 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
                 output_files.append(OutputFile(name="patchFrameAlignment",path=f'{os.path.join(directory_path,inputFileName)}-Patch-Frame.log',required=True))
 
             if(isFilePresent(f'{os.path.join(directory_path,inputFileName)}-Patch-Full.log')): 
-                # output_data["patchFullAlignment"]=getFilecontentsfromThread(getFrameAlignment, f'{os.path.join(directory_path,inputFileName)}-Patch-Full.log',executor)
+                output_data["patchFullAlignment"]=getFilecontentsfromThread(getFrameAlignment, f'{os.path.join(directory_path,inputFileName)}-Patch-Full.log',executor)
                 output_files.append(OutputFile(name="patchFullAlignment",path=f'{os.path.join(directory_path,inputFileName)}-Patch-Full.log',required=True))
 
             if(isFilePresent(f'{os.path.join(directory_path,inputFileName)}-Patch-Patch.log')): 
-                # output_data["patchAlignment"]=getFilecontentsfromThread(getPatchFrameAlignment, f'{os.path.join(directory_path,inputFileName)}-Patch-Patch.log',executor)
+                output_data["patchAlignment"]=getFilecontentsfromThread(getPatchFrameAlignment, f'{os.path.join(directory_path,inputFileName)}-Patch-Patch.log',executor)
+                createframealignImage(fileNameDW,output_data["patchAlignment"]["values"],directory_path,output_data["patchAlignment"]["movie_size"])
                 output_files.append(OutputFile(name="patchAlignment",path=f'{os.path.join(directory_path,inputFileName)}-Patch-Patch.log',required=True))
-        values=params.data["OutMrc"].split("/")
-        outputFileName=f'{".".join(values[-1].split(".")[:-1])}_DW.mrc'
-        values[-1]=outputFileName
-        fileNameDW="/".join(values)
+            else:
+                raise Exception("Patch-Patch-log file not found")
         if isFilePresent( fileNameDW):
             output_files.append(OutputFile(name="outputDWMrc",path=fileNameDW,required=True))
+            createframealignCenterImage(fileNameDW,output_data["patchFullAlignment"],directory_path,output_data["patchAlignment"]["movie_size"])
+        else:
+            raise Exception("output_DW output file not found")
         return TaskResultDto(
                 worker_instance_id=params.worker_instance_id,
                 task_id=params.id,
@@ -141,7 +147,8 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
                 started_on=params.start_on,
                 ended_on=datetime.now(),
                 meta_data=[],
-                output_files=output_files
+                output_files=output_files,
+                output_data=output_data
             )
     except subprocess.CalledProcessError as e:
         logger.error(f"An error occurred: {str(e)}")
@@ -161,7 +168,8 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
             started_on=params.start_on,
             ended_on=datetime.now(),
             meta_data=[],
-            output_files=[]
+            output_files=[],
+            output_data=output_data
         )
     except Exception as e:
         logger.error(f"An error occurred: {str(e)}")
@@ -181,5 +189,6 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
             started_on=params.start_on,
             ended_on=datetime.now(),
             meta_data=[],
-            output_files=[]
+            output_files=[],
+            output_data=output_data
         )

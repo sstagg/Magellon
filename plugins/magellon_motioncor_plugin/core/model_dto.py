@@ -296,7 +296,7 @@ class TaskResultDto(BaseModel):
     created_date: Optional[datetime] = datetime.now()  # Created date and time
     started_on: Optional[datetime] = None  # Start time of task execution
     ended_on: Optional[datetime] = None  # End time of task execution
-    # output_data: Dict[str, Any] = {}  # Additional output data
+    output_data: Dict[str, Any] = {}  # Additional output data
     meta_data: Optional[List[ImageMetaData]]
     output_files: List[OutputFile]
 
