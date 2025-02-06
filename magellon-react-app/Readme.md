@@ -5,7 +5,6 @@ pnpm install
 npm run dev
 npm run build
 
-Behdad2328
 
 
 npx tsc --noEmit

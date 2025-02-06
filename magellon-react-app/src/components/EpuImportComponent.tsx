@@ -1,6 +1,6 @@
 import {Typography} from "@mui/material";
 import Box from "@mui/material/Box";
-import TusUploader from "./TusdUploader.tsx";
+
 
 
 export const EpuImportComponent = () => {
@@ -24,12 +24,7 @@ export const EpuImportComponent = () => {
                     }}
                 />
             </Box>
-            <TusUploader
-                endpoint="http://localhost:83/files/"
-                onSuccess={(uploadUrl) => {
-                    console.log('File available at:', uploadUrl);
-                }}
-            />
+
         </div>
     );
 };

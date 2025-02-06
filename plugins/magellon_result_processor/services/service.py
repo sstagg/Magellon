@@ -73,11 +73,14 @@ def is_valid_json(my_json: str) -> bool:
         return False
 
 async def do_execute(task_result_param: TaskResultDto):
-    engine = create_engine(get_db_connection())
-    session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    db_session = session_local()
-    processor = TaskOutputProcessor(db_session)
-    return processor.process(task_result_param)
+    try:
+        engine = create_engine(get_db_connection())
+        session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        db_session = session_local()
+        processor = TaskOutputProcessor(db_session)
+        return processor.process(task_result_param)
+    except Exception as e:
+        print(f"Error: {e}")
 
 # async def do_execute(task_result_param: TaskResultDto):
 #     try:
