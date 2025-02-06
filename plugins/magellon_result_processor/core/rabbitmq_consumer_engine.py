@@ -3,6 +3,7 @@ import pdb
 import time
 import logging
 import asyncio
+from typing import List, Tuple, Callable
 
 from core.database import get_db
 from core.helper import append_json_to_file, parse_message_to_task_object, parse_message_to_task_result_object
@@ -17,6 +18,10 @@ logger = logging.getLogger(__name__)
 settings = AppSettingsSingleton.get_instance().rabbitmq_settings
 rabbitmq_client = RabbitmqClient(settings)  # Create the client with settings
 
+def get_output_queues() -> List[Tuple[str, Callable]]:
+    """Configure output queues and their processors."""
+    settings = AppSettingsSingleton.get_instance().rabbitmq_settings
+    return [(queue.name, process_message) for queue in settings.OUT_QUEUES]
 
 def process_message(ch, method, properties, body):
     try:
@@ -42,7 +47,7 @@ def process_message(ch, method, properties, body):
 def consumer_engine():
     while True:
         try:
-            consume(queues_and_callbacks)
+            consume(get_output_queues())
         except KeyboardInterrupt:
             logger.info('Exiting...')
             break
@@ -68,4 +73,4 @@ def consume(pqueues_and_message_processors):
     rabbitmq_client.start_consuming()
 
 
-queues_and_callbacks = [(AppSettingsSingleton.get_instance().rabbitmq_settings.QUEUE_NAME, process_message), ]
+# queues_and_callbacks = [(AppSettingsSingleton.get_instance().rabbitmq_settings.QUEUE_NAME, process_message), ]

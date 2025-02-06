@@ -2,6 +2,7 @@ import logging
 import os
 import pdb
 import re
+import shutil
 
 from pydantic import BaseModel
 
@@ -117,3 +118,22 @@ def push_result_to_out_queue(result: TaskResultDto):
 
 def push_task_to_task_queue(task: TaskDto):
     return publish_message_to_queue(task, AppSettingsSingleton.get_instance().rabbitmq_settings.QUEUE_NAME)
+
+
+def move_file_to_directory(file_path: str, destination_dir: str) -> None:
+    """
+    Move a file to specified directory, creating the directory if it doesn't exist.
+
+    Args:
+        file_path: Source file path
+        destination_dir: Destination directory path
+    """
+    try:
+        if not os.path.exists(destination_dir):
+            os.makedirs(destination_dir)
+
+        filename = os.path.basename(file_path)
+        destination_path = os.path.join(destination_dir, filename)
+        shutil.move(file_path, destination_path)
+    except Exception as e:
+        print(f"Error moving file {file_path}: {e}")

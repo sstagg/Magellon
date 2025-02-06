@@ -1,5 +1,6 @@
 import os
-from typing import Optional
+from enum import Enum
+from typing import Optional, List
 
 import pydantic_core
 import yaml
@@ -32,6 +33,16 @@ class ConsulSettings(BaseModel):
     CONSUL_SERVICE_NAME: Optional[str] = None
     CONSUL_SERVICE_ID: Optional[str] = None
 
+class QueueType(str, Enum):
+    CTF = "ctf"
+    MOTIONCOR = "motioncor"
+    PARTICLE_PICKING = "particle_picking"
+    DEBUG = "debug"
+
+class OutQueueConfig(BaseModel):
+    name: str
+    queue_type: QueueType
+
 class RabbitMQSettings(BaseModel):
     HOST_NAME: Optional[str] = None
     QUEUE_NAME: Optional[str] = None
@@ -43,6 +54,11 @@ class RabbitMQSettings(BaseModel):
     SSL_ENABLED: Optional[bool] = False
     CONNECTION_TIMEOUT: Optional[int] = 30
     PREFETCH_COUNT: Optional[int] = 10
+    OUT_QUEUES: List[OutQueueConfig] = []
+        # OutQueueConfig(name="ctf_out_tasks_queue", queue_type=QueueType.CTF),
+        # OutQueueConfig(name="motioncor_out_tasks_queue", queue_type=QueueType.MOTIONCOR),
+        # OutQueueConfig(name="debug_queue", queue_type=QueueType.DEBUG)
+
 
 
 class AppSettings(BaseModel):

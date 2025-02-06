@@ -305,18 +305,18 @@ def create_motioncor_task(image_path=None, gain_path=None, session_name=None, ta
         if image_path is None:
             image_path = os.path.join(os.getcwd(), "gpfs", "20241203_54449_integrated_movie.mrc.tif")
 
-        task_data = create_motioncor_task_data(image_path, gain_path, session_name)
+        motioncor_task_data = create_motioncor_task_data(image_path, gain_path, session_name)
 
         motioncor_task = MotioncorTaskFactory.create_task(
             pid=task_id or str(uuid.uuid4()),
             instance_id=uuid.uuid4(),
             job_id=job_id or uuid.uuid4(),
-            data=task_data.model_dump(),
+            data=motioncor_task_data.model_dump(),
             ptype=MOTIONCOR_TASK,
             pstatus=PENDING
         )
         # Set session name from task data if not explicitly provided
-        motioncor_task.sesson_name = session_name or task_data.image_name.split("_")[0]
+        motioncor_task.sesson_name = session_name or motioncor_task_data.image_name.split("_")[0]
         return motioncor_task
     except Exception as e:
         logger.error(f"Error publishing message: {e}")

@@ -35,3 +35,8 @@ rabbitmq_settings:
   PREFETCH_COUNT: 10
   QUEUE_NAME: ctf_out_tasks_queue
   OUT_QUEUE_NAME: ctf_out_tasks_queue
+  OUT_QUEUES:
+    - name: ctf_out_tasks_queue
+      queue_type: ctf
+    - name: motioncor_out_tasks_queue
+      queue_type: motioncor

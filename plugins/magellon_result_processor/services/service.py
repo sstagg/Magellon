@@ -15,6 +15,7 @@ from core.model_dto import TaskDto, PluginInfoSingleton, TaskResultDto
 from core.settings import AppSettingsSingleton
 from core.setup_plugin import check_python_version, check_operating_system, check_requirements_txt
 from core.sqlalchemy_models import Camera, ImageJobTask, ImageMetaData, Msession
+from services.task_output_processor import TaskOutputProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -72,75 +73,85 @@ def is_valid_json(my_json: str) -> bool:
         return False
 
 async def do_execute(task_result_param: TaskResultDto):
-    try:
-        # print(task_result_param)
-        engine = create_engine(get_db_connection())
-        session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-        db = session_local()
-        file_name = os.path.splitext(os.path.basename(task_result_param.image_path))[0]
-        destination_dir = os.path.join(AppSettingsSingleton.get_instance().MAGELLON_HOME_DIR,
-                                       task_result_param.session_name,"ctf",
-                                       file_name )
-        try:
-            # Create the destination directory if it doesn't exist
-            if not os.path.exists(destination_dir):
-                os.makedirs(destination_dir)
-            append_json_to_file( os.path.join(destination_dir,"ctf_message.json") , task_result_param.model_dump_json())
-        except Exception as e:
-            print(f"Error: {e}")
-        # for debugging purposes we save the message
+    engine = create_engine(get_db_connection())
+    session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    db_session = session_local()
+    processor = TaskOutputProcessor(db_session)
+    return processor.process(task_result_param)
 
-
-        for ofile in task_result_param.output_files:
-            # copy files
-            move_file_to_directory(ofile.path, destination_dir)
-
-        output_data = task_result_param.output_data
-        if output_data is not None and output_data != "":
-            # Create a new ImageMetaData instance
-            image_meta_data = ImageMetaData(
-                oid=uuid.uuid4(),
-                name="CTF Data",
-                data=json.dumps(output_data).encode("utf-8"),
-                image_id=task_result_param.image_id,
-                # task_id=task_result_param.task_id
-            )
-            try:
-                db.add(image_meta_data)
-                db.commit()
-            # ... your database operations using `db` here ...
-            except Exception as exc:
-                return {"error": str(exc)}
-        if task_result_param.meta_data and len(task_result_param.meta_data) > 0:
-            meta_list_dicts = [meta.dict(exclude_none=True) for meta in task_result_param.meta_data]
-            json_str = json.dumps(meta_list_dicts, indent=4)
-            # Create a new ImageMetaData instance
-            ctf_meta_data = ImageMetaData(
-                oid=uuid.uuid4(),
-                name="CTF Meta Data",
-                data_json=json.loads(json_str),
-                # data_json=json.dumps(task_result_param.meta_data).encode("utf-8"),
-                image_id=task_result_param.image_id,
-                # task_id=task_result_param.task_id
-            )
-            try:
-                db.add(ctf_meta_data)
-                db.commit()
-            except Exception as exc:
-                return {"error": str(exc)}
-
-        # try:
-        #     db_task : ImageJobTask= db.query(ImageJobTask).filter(ImageJobTask.oid == task_result_param.task_id).first()
-        #     db_task.stage = 5
-        #     db.commit()
-        # except Exception as exc:
-        #     return {"error": str(exc)}
-        return {"message": "CTF successfully executed"}
-    except Exception as exc:
-        return {"error": str(exc)}
-    finally:
-        db.close()
-
+# async def do_execute(task_result_param: TaskResultDto):
+#     try:
+#         # print(task_result_param)
+#         engine = create_engine(get_db_connection())
+#         session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+#         db = session_local()
+#
+#         file_name = os.path.splitext(os.path.basename(task_result_param.image_path))[0]
+#         destination_dir = os.path.join(AppSettingsSingleton.get_instance().MAGELLON_HOME_DIR,
+#                                        task_result_param.session_name,"ctf",
+#                                        file_name )
+#         try:
+#             # Create the destination directory if it doesn't exist
+#             if not os.path.exists(destination_dir):
+#                 os.makedirs(destination_dir)
+#
+#             #For Debugging purposes Write the model dump JSON to a file in the destination directory
+#             append_json_to_file( os.path.join(destination_dir,"ctf_message.json") , task_result_param.model_dump_json())
+#         except Exception as e:
+#             print(f"Error: {e}")
+#         # for debugging purposes we save the message
+#
+#
+#         for ofile in task_result_param.output_files:
+#             # copy files
+#             move_file_to_directory(ofile.path, destination_dir)
+#
+#         output_data = task_result_param.output_data
+#         if output_data is not None and output_data != "":
+#             # Create a new ImageMetaData instance
+#             image_meta_data = ImageMetaData(
+#                 oid=uuid.uuid4(),
+#                 name="CTF Data",
+#                 data=json.dumps(output_data).encode("utf-8"),
+#                 image_id=task_result_param.image_id,
+#                 # task_id=task_result_param.task_id
+#             )
+#             try:
+#                 db.add(image_meta_data)
+#                 db.commit()
+#             # ... your database operations using `db` here ...
+#             except Exception as exc:
+#                 return {"error": str(exc)}
+#         if task_result_param.meta_data and len(task_result_param.meta_data) > 0:
+#             meta_list_dicts = [meta.dict(exclude_none=True) for meta in task_result_param.meta_data]
+#             json_str = json.dumps(meta_list_dicts, indent=4)
+#             # Create a new ImageMetaData instance
+#             ctf_meta_data = ImageMetaData(
+#                 oid=uuid.uuid4(),
+#                 name="CTF Meta Data",
+#                 data_json=json.loads(json_str),
+#                 # data_json=json.dumps(task_result_param.meta_data).encode("utf-8"),
+#                 image_id=task_result_param.image_id,
+#                 # task_id=task_result_param.task_id
+#             )
+#             try:
+#                 db.add(ctf_meta_data)
+#                 db.commit()
+#             except Exception as exc:
+#                 return {"error": str(exc)}
+#
+#         # try:
+#         #     db_task : ImageJobTask= db.query(ImageJobTask).filter(ImageJobTask.oid == task_result_param.task_id).first()
+#         #     db_task.stage = 5
+#         #     db.commit()
+#         # except Exception as exc:
+#         #     return {"error": str(exc)}
+#         return {"message": "CTF successfully executed"}
+#     except Exception as exc:
+#         return {"error": str(exc)}
+#     finally:
+#         db.close()
+#
 
 async def check_requirements():
     all_results = []
