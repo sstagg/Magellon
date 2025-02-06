@@ -1,7 +1,7 @@
 import {Grid, Paper, SelectChangeEvent, Stack} from "@mui/material";
-import {ImageNavigatorComponent} from "../../organisms/imageviewer/ImageNavigatorComponent.tsx";
-import { SoloImageViewerComponent } from '../../organisms/imageviewer/SoloImageViewerComponent.tsx';
-import ImageInfoDto, {PagedImageResponse, SessionDto} from '../../organisms/imageviewer/ImageInfoDto.ts';
+import {ImageNavigatorComponent} from "../features/imageviewer/ImageNavigatorComponent.tsx";
+import { SoloImageViewerComponent } from '../features/imageviewer/SoloImageViewerComponent.tsx';
+import ImageInfoDto, {PagedImageResponse, SessionDto} from '../features/imageviewer/ImageInfoDto.ts';
 import {useEffect, useState} from "react";
 import {InfiniteData} from "react-query";
 import {usePagedImages} from "../../../services/api/usePagedImagesHook.ts";

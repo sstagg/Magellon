@@ -1,7 +1,7 @@
 
 import {useInfiniteQuery, useQuery} from 'react-query';
 import {fetchImagesPage} from "./imagesApiReactQuery.tsx";
-import ImageInfoDto, {PagedImageResponse} from "../../components/organisms/imageviewer/ImageInfoDto.ts";
+import ImageInfoDto, {PagedImageResponse} from "../../components/panel/features/imageviewer/ImageInfoDto.ts";
 
 
 export const useFetchImages = (

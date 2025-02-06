@@ -13,9 +13,9 @@ import ImageInfoDto, {AtlasImageDto, SessionDto} from "./ImageInfoDto.ts";
 import IconButton from "@mui/material/IconButton";
 import {EyeOutlined} from "@ant-design/icons";
 import {useEffect, useState} from "react";
-import {ImageColumnState} from "../../views/panel/ImagesPageView.tsx";
+import {ImageColumnState} from "../../pages/ImagesPageView.tsx";
 import AtlasImage from "./AtlasImage.tsx";
-import {settings} from "../../../core/settings.ts";
+import {settings} from "../../../../core/settings.ts";
 import {AccountTreeRounded, GridViewRounded} from "@mui/icons-material";
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL ;

@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import ImageInfoDto from "./ImageInfoDto.ts";
-import {ParticlePickingDto} from "../../../domains/ParticlePickingDto.ts";
+import {ParticlePickingDto} from "../../../../domains/ParticlePickingDto.ts";
 
 interface ImageParticlePickingProps {
     imageUrl: string;

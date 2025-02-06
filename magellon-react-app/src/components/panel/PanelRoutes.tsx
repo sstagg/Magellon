@@ -1,12 +1,12 @@
 import {Route, Routes} from "react-router-dom";
-import {Home} from "../../views/web/Home.tsx";
-import {ApiView} from "../../views/panel/ApiView.tsx";
-import DomainRoutes from "../../../domains/DomainRoutes.tsx";
-import {ImagesPageView} from "../../views/panel/ImagesPageView.tsx";
-import {LeginonImportComponent} from "../../LeginonImportComponent.tsx";
-import {RunJobPageView} from "../../views/panel/RunJobPageView.tsx";
-import MrcViewerPageView from "../../views/panel/MrcViewerPageView.tsx";
-import {ImportPageView} from "../../views/panel/ImportPageView.tsx";
+import {Home} from "../web/Home.tsx";
+import {ApiView} from "./pages/ApiView.tsx";
+import DomainRoutes from "../../domains/DomainRoutes.tsx";
+import {ImagesPageView} from "./pages/ImagesPageView.tsx";
+import {LeginonImportComponent} from "./LeginonImportComponent.tsx";
+import {RunJobPageView} from "./pages/RunJobPageView.tsx";
+import MrcViewerPageView from "./pages/MrcViewerPageView.tsx";
+import {ImportPageView} from "./pages/ImportPageView.tsx";
 
 
 export const PanelRoutes = () => {

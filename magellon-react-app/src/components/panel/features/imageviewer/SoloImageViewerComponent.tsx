@@ -10,18 +10,18 @@ import {AddOutlined,  HighlightOff,  Save,  SyncOutlined} from "@mui/icons-mater
 import {InfoLineComponent} from "./InfoLineComponent.tsx";
 import {InfoOutlined} from "@ant-design/icons";
 import ImageInfoDto, {ImageCtfInfo} from "./ImageInfoDto.ts";
-import {settings} from "../../../core/settings.ts";
+import {settings} from "../../../../core/settings.ts";
 import ImageViewer from "./ImageViewer.tsx";
 import ImageParticlePicking from "./ImageParticlePicking.tsx";
 import {CreateParticlePickingDialog} from "./CreateParticlePickingDialog.tsx";
-import {useImageParticlePickings, useUpdateParticlePicking} from "../../../services/api/ParticlePickingRestService.ts";
-import {ParticlePickingDto} from "../../../domains/ParticlePickingDto.ts";
+import {useImageParticlePickings, useUpdateParticlePicking} from "../../../../services/api/ParticlePickingRestService.ts";
+import {ParticlePickingDto} from "../../../../domains/ParticlePickingDto.ts";
 
 
 
 // import data from '../../../assets/data/editor.json'
 import CtfInfoCards from "./CtfInfoCards.tsx";
-import {useFetchImageCtfInfo} from "../../../services/api/CtfRestService.ts";
+import {useFetchImageCtfInfo} from "../../../../services/api/CtfRestService.ts";
 // import {useFetchImageMetaData} from "../../../services/api/ImageMetaDataRestService.ts";
 import ImageMetadataDisplay from "./ImageMetadataDisplay.tsx";
 

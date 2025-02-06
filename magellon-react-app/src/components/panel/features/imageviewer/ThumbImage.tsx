@@ -3,7 +3,7 @@ import ImageInfoDto from "./ImageInfoDto.ts";
 import ImageListItemBar from "@mui/material/ImageListItemBar";
 import {ImageListItem} from "@mui/material";
 import {useState} from "react";
-import {settings} from "../../../core/settings.ts";
+import {settings} from "../../../../core/settings.ts";
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL ;
 interface IThumbImagesProps{
     image:ImageInfoDto;

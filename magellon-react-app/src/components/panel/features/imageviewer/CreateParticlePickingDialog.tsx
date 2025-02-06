@@ -10,7 +10,7 @@ import {
     TextField
 } from "@mui/material";
 
-import {useCreateParticlePickingMutation} from "../../../services/api/ParticlePickingRestService.ts";
+import {useCreateParticlePickingMutation} from "../../../../services/api/ParticlePickingRestService.ts";
 import ImageInfoDto from "./ImageInfoDto.ts";
 
 

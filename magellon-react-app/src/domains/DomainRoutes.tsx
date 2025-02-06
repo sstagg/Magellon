@@ -1,7 +1,7 @@
 import React from 'react'
 import {Navigate, Route, Routes} from "react-router-dom";
 
-import PanelHomeComponent from "../components/views/panel/PanelHomeComponent.tsx";
+import PanelHomeComponent from "../components/panel/pages/PanelHomeComponent.tsx";
 
 
 

@@ -2,7 +2,7 @@ import React, {useEffect, useState} from 'react';
 
 import {Table, TableBody, TableCell, tableCellClasses, TableHead, TableRow} from '@mui/material'; // Table for metadata
 import { TextField, Grid } from '@mui/material';
-import {useFetchImageMetaData} from "../../../services/api/ImageMetaDataRestService.ts";
+import {useFetchImageMetaData} from "../../../../services/api/ImageMetaDataRestService.ts";
 import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
 import {TreeItem} from "@mui/x-tree-view/TreeItem";
 import {CategoryDto, MetadataDto} from "./ImageInfoDto.ts";

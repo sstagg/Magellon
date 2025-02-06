@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react'
 import ImageInfoDto from "./ImageInfoDto.ts";
-import {settings} from "../../../core/settings.ts";
+import {settings} from "../../../../core/settings.ts";
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL ;
 
