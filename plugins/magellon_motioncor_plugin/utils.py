@@ -9,6 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 # from loggerSetup import setupLogger
 from core.model_dto import CryoEmMotionCorTaskData
+from PIL import Image
 # logger=setupLogger()
 logger = logging.getLogger(__name__)
 def getSubCommand(attribute: str, value: Optional[str] = None) -> List[str]:
@@ -475,19 +476,21 @@ def createframealignImage(outputmrcpath, data, directory_path,originalsize,input
         mask_slice = mask[y_start-py+dot_size:y_end-py+dot_size, x_start-px+dot_size:x_end-px+dot_size]
         new_data[y_start:y_end, x_start:x_end][mask_slice] = np.max(new_data)
     
-    base_name = os.path.basename(outputmrcpath)
-    new_filename = f"{inputFileName}_mco_two.mrc"
+    normalized_data = ((new_data - np.min(new_data)) / (np.max(new_data) - np.min(new_data)) * 255).astype(np.uint8)
+    img = Image.fromarray(normalized_data)
+    new_filename = f"{inputFileName}_mco_two.png"
     new_filepath = os.path.join(directory_path, new_filename)
+    img.save(new_filepath)
     
-    with mrcfile.new(new_filepath, overwrite=True) as new_mrc:
-        new_mrc.set_data(new_data)
+    # with mrcfile.new(new_filepath, overwrite=True) as new_mrc:
+    #     new_mrc.set_data(new_data)
         
-        for field in original_header.dtype.names:
-            if field != 'map' and field != 'machst':
-                setattr(new_mrc.header, field, original_header[field])
+    #     for field in original_header.dtype.names:
+    #         if field != 'map' and field != 'machst':
+    #             setattr(new_mrc.header, field, original_header[field])
         
-        new_mrc.update_header_from_data()
-        new_mrc.update_header_stats()
+    #     new_mrc.update_header_from_data()
+    #     new_mrc.update_header_stats()
 
     return new_filepath
 
@@ -523,18 +526,20 @@ def createframealignCenterImage(outputmrcpath, data, directory_path,originalsize
         mask_slice = mask[y_start-py+dot_size:y_end-py+dot_size, x_start-px+dot_size:x_end-px+dot_size]
         new_data[y_start:y_end, x_start:x_end][mask_slice] = np.max(new_data)
     
-    base_name = os.path.basename(outputmrcpath)
-    new_filename = f"{inputFileName}_mco_one.mrc"
+    normalized_data = ((new_data - np.min(new_data)) / (np.max(new_data) - np.min(new_data)) * 255).astype(np.uint8)
+    img = Image.fromarray(normalized_data)
+    new_filename = f"{inputFileName}_mco_one.png"
     new_filepath = os.path.join(directory_path, new_filename)
+    img.save(new_filepath)
     
-    with mrcfile.new(new_filepath, overwrite=True) as new_mrc:
-        new_mrc.set_data(new_data)
+    # with mrcfile.new(new_filepath, overwrite=True) as new_mrc:
+    #     new_mrc.set_data(new_data)
         
-        for field in original_header.dtype.names:
-            if field != 'map' and field != 'machst':
-                setattr(new_mrc.header, field, original_header[field])
+    #     for field in original_header.dtype.names:
+    #         if field != 'map' and field != 'machst':
+    #             setattr(new_mrc.header, field, original_header[field])
         
-        new_mrc.update_header_from_data()
-        new_mrc.update_header_stats()
+    #     new_mrc.update_header_from_data()
+    #     new_mrc.update_header_stats()
 
     return new_filepath
