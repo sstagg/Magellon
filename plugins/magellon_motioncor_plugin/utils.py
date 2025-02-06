@@ -180,9 +180,10 @@ def build_motioncor3_command(params: CryoEmMotionCorTaskData) -> str:
     # if params.FmIntFile is not None:
     #     cmd.append('-FmIntFile')
     #     cmd.append(params.FmIntFile)
-    # if params.EerSampling is not None:
-    #     cmd.append('-EerSampling')
-    #     cmd.append(str(params.EerSampling))
+    if params.EerSampling is not None:
+        cmd+=getSubCommand('-EerSampling',str(params.EerSampling))
+    else:
+        cmd+=getSubCommand('-EerSampling',"1")
     # if params.OutStar:
     #     cmd.append('-OutStar')
     #     cmd.append('1')
@@ -445,7 +446,7 @@ def validateInput(params):
     
     return True
 
-async def createframealignImage(outputmrcpath, data, directory_path,originalsize,inputFileName):
+def createframealignImage(outputmrcpath, data, directory_path,originalsize,inputFileName):
     
     with mrcfile.open(outputmrcpath) as mrc:
         new_data = mrc.data.copy()
@@ -492,7 +493,7 @@ async def createframealignImage(outputmrcpath, data, directory_path,originalsize
 
 
 
-async def createframealignCenterImage(outputmrcpath, data, directory_path,originalsize,inputFileName):
+def createframealignCenterImage(outputmrcpath, data, directory_path,originalsize,inputFileName):
     
     with mrcfile.open(outputmrcpath) as mrc:
         new_data = mrc.data.copy()

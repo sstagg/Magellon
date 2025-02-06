@@ -115,7 +115,7 @@ async def execute_endpoint(request: TaskDto):
 @app.post("/create-frame-align-center-image/")
 async def create_frame_align_center_image(request: CreateFrameAlignRequest):
     try:
-        modified_center_image_path = await createframealignCenterImage(
+        modified_center_image_path = createframealignCenterImage(
             request.outputmrcpath, request.data, request.directory_path, request.originalsize
         )
         return {"message": "Image created successfully","modified_center_image_path": modified_center_image_path}
@@ -132,7 +132,7 @@ async def create_frame_align_center_image(request: CreateFrameAlignRequest):
 async def create_frame_align_image(request: CreateFrameAlignRequest):
     try:
         
-        modified_image_path = await createframealignImage(
+        modified_image_path = createframealignImage(
             request.outputmrcpath, request.data, request.directory_path, request.originalsize
         )
         return {"message": "Image created successfully", "modified_image_path": modified_image_path}
