@@ -7,6 +7,11 @@ from uuid import uuid4, UUID
 
 from pydantic import BaseModel
 
+class CreateFrameAlignRequest(BaseModel):
+    outputmrcpath: str
+    data: list 
+    directory_path: str
+    originalsize: list
 
 class TaskCategory(BaseModel):
     code: int

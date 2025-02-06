@@ -445,7 +445,7 @@ def validateInput(params):
     
     return True
 
-def createframealignImage(outputmrcpath, data, directory_path,originalsize):
+async def createframealignImage(outputmrcpath, data, directory_path,originalsize):
     
     with mrcfile.open(outputmrcpath) as mrc:
         new_data = mrc.data.copy()
@@ -488,11 +488,11 @@ def createframealignImage(outputmrcpath, data, directory_path,originalsize):
         new_mrc.update_header_from_data()
         new_mrc.update_header_stats()
 
-    print(f"Modified MRC file saved as: {new_filepath}")
+    return new_filepath
 
 
 
-def createframealignCenterImage(outputmrcpath, data, directory_path,originalsize):
+async def createframealignCenterImage(outputmrcpath, data, directory_path,originalsize):
     
     with mrcfile.open(outputmrcpath) as mrc:
         new_data = mrc.data.copy()
@@ -536,4 +536,4 @@ def createframealignCenterImage(outputmrcpath, data, directory_path,originalsize
         new_mrc.update_header_from_data()
         new_mrc.update_header_stats()
 
-    print(f"Modified MRC file saved as: {new_filepath}")
+    return new_filepath

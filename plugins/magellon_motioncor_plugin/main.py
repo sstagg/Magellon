@@ -4,7 +4,7 @@ import socket
 import threading
 from rich import traceback
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.logger import logger
 
 from starlette.middleware.cors import CORSMiddleware
@@ -14,11 +14,11 @@ from prometheus_client import Info
 
 from core.consul import register_with_consul, init_consul_client
 from core.rabbitmq_consumer_engine import consumer_engine
-from core.model_dto import CryoEmMotionCorTaskData, TaskDto
+from core.model_dto import CryoEmMotionCorTaskData, TaskDto,CreateFrameAlignRequest
 from core.settings import AppSettingsSingleton
 from service.service import do_execute, check_requirements, get_plugin_info
 from core.logger_config import setup_logging
-
+from utils import createframealignCenterImage, createframealignImage
 # import pdb
 
 
@@ -102,6 +102,42 @@ async def setup():
 @app.post("/execute", summary="Execute Plugin Operation")
 async def execute_endpoint(request: TaskDto):
     return await do_execute(request)
+
+
+
+#usage 
+# curl -X 'POST' 'http://127.0.0.1:8001/create-frame-align-center-image/'     -H 'Content-Type: application/json'     -d '{
+    #    "outputmrcpath": "/mnt/c/Users/punee/Desktop/test_jobs/49f76a1a-7b91-41ce-b5d0-8f44c928cc4d/output.files_DW.mrc",
+    #    "data": [[0, 10, 20], [1, -5, 15]],
+    #    "directory_path": "/mnt/c/Users/punee/Desktop/test_jobs/49f76a1a-7b91-41ce-b5d0-8f44c928cc4d",
+    #    "originalsize": [4096, 4096]
+    #  }'
+@app.post("/create-frame-align-center-image/")
+async def create_frame_align_center_image(request: CreateFrameAlignRequest):
+    try:
+        modified_center_image_path = await createframealignCenterImage(
+            request.outputmrcpath, request.data, request.directory_path, request.originalsize
+        )
+        return {"message": "Image created successfully","modified_center_image_path": modified_center_image_path}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+#usage
+# curl -X 'POST' 'http://127.0.0.1:8001/create-frame-align-image/'     -H 'Content-Type: application/json'     -d '{
+#        "outputmrcpath": "/mnt/c/Users/punee/Desktop/test_jobs/49f76a1a-7b91-41ce-b5d0-8f44c928cc4d/output.files_DW.mrc",
+#        "data": [[0, 896, 895, -1,-2 ,0], [1,896,896, -5, 15,0]],
+#        "directory_path": "/mnt/c/Users/punee/Desktop/test_jobs/49f76a1a-7b91-41ce-b5d0-8f44c928cc4d",
+#        "originalsize": [4096, 4096]
+#      }'
+@app.post("/create-frame-align-image/")
+async def create_frame_align_image(request: CreateFrameAlignRequest):
+    try:
+        
+        modified_image_path = await createframealignImage(
+            request.outputmrcpath, request.data, request.directory_path, request.originalsize
+        )
+        return {"message": "Image created successfully", "modified_image_path": modified_image_path}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 Instrumentator().instrument(app).expose(app)
