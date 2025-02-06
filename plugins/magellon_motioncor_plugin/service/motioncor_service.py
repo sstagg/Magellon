@@ -101,7 +101,7 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
                 data=getFilecontentsfromThread(getPatchFrameAlignment, f'{os.path.join(directory_path,inputFileName)}-Patch-Patch.log',executor)
                 output_data["patchAlignment"] = data  
                 meta_data.append(ImageMetaData(key="patchAlignment_Image_data",value=json.dumps(data)))
-                output_files.append(OutputFile(name="patchAlignment_Image",path=createframealignImage(fileNameDW,data["values"],directory_path,data["movie_size"]),required=True))
+                output_files.append(OutputFile(name="patchAlignment_Image",path=createframealignImage(fileNameDW,data["values"],directory_path,data["movie_size"],inputFileName),required=True))
                 output_files.append(OutputFile(name="patchAlignment",path=f'{os.path.join(directory_path,inputFileName)}-Patch-Patch.log',required=True))
             else:
                 raise Exception("Patch-Patch-log file not found")
@@ -110,7 +110,7 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
                 output_data["patchFullAlignment"]=getFilecontentsfromThread(getFrameAlignment, f'{os.path.join(directory_path,inputFileName)}-Patch-Full.log',executor)
                 output_files.append(OutputFile(name="patchFullAlignment",path=f'{os.path.join(directory_path,inputFileName)}-Patch-Full.log',required=True))
                 meta_data.append(ImageMetaData(key="patchFullAlignment_Image_data",value=json.dumps(output_data["patchFullAlignment"])))
-                output_files.append(OutputFile(name="patchFullAlignment_Image",path=createframealignCenterImage(fileNameDW,output_data["patchFullAlignment"],directory_path,output_data["patchAlignment"]["movie_size"]),required=True))
+                output_files.append(OutputFile(name="patchFullAlignment_Image",path=createframealignCenterImage(fileNameDW,output_data["patchFullAlignment"],directory_path,output_data["patchAlignment"]["movie_size"],inputFileName),required=True))
             else:
                 raise Exception("Patch-Full-log file not found")
     

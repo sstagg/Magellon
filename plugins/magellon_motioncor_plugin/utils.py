@@ -445,7 +445,7 @@ def validateInput(params):
     
     return True
 
-async def createframealignImage(outputmrcpath, data, directory_path,originalsize):
+async def createframealignImage(outputmrcpath, data, directory_path,originalsize,inputFileName):
     
     with mrcfile.open(outputmrcpath) as mrc:
         new_data = mrc.data.copy()
@@ -475,7 +475,7 @@ async def createframealignImage(outputmrcpath, data, directory_path,originalsize
         new_data[y_start:y_end, x_start:x_end][mask_slice] = np.max(new_data)
     
     base_name = os.path.basename(outputmrcpath)
-    new_filename = f"modified_{base_name}"
+    new_filename = f"{inputFileName}_mco_two.mrc"
     new_filepath = os.path.join(directory_path, new_filename)
     
     with mrcfile.new(new_filepath, overwrite=True) as new_mrc:
@@ -492,7 +492,7 @@ async def createframealignImage(outputmrcpath, data, directory_path,originalsize
 
 
 
-async def createframealignCenterImage(outputmrcpath, data, directory_path,originalsize):
+async def createframealignCenterImage(outputmrcpath, data, directory_path,originalsize,inputFileName):
     
     with mrcfile.open(outputmrcpath) as mrc:
         new_data = mrc.data.copy()
@@ -523,7 +523,7 @@ async def createframealignCenterImage(outputmrcpath, data, directory_path,origin
         new_data[y_start:y_end, x_start:x_end][mask_slice] = np.max(new_data)
     
     base_name = os.path.basename(outputmrcpath)
-    new_filename = f"modified_center{base_name}"
+    new_filename = f"{inputFileName}_mco_one.mrc"
     new_filepath = os.path.join(directory_path, new_filename)
     
     with mrcfile.new(new_filepath, overwrite=True) as new_mrc:
