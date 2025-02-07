@@ -49,6 +49,7 @@ def create_task():
             inputFile=os.path.join(os.getcwd(),"gpfs","20241203_54449_integrated_movie.mrc.tif"),
             # InTiff=os.path.join(os.getcwd(),"gpfs","20241203_54449_integrated_movie.mrc.tif"),
             outputFile="output.files.mrc",
+            FmIntFile=os.path.join("/gpfs","fminit.txt"),
             Gain=os.path.join(os.getcwd(),"gpfs","20241202_53597_gain_multi_ref.tif"),
         PatchesX= 5,
         PatchesY= 5,

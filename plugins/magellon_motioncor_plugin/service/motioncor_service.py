@@ -28,6 +28,8 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
         file_map = {'.mrc': 'InMrc', '.tif': 'InTiff', '.eer': 'InEer'}
         if file_extension not in file_map:
             raise ValueError("Invalid file type. Must be .mrc, .tif, or .eer.")
+        if file_extension == '.eer' and params.data["FmIntFile"] is None:
+            raise ValueError("FmIntFile must be provided when the file extension is .eer.")
         
         setattr(the_task_data, file_map[file_extension], input_file)
         params.data[file_map[file_extension]] = input_file
@@ -91,36 +93,36 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
         if not isFilePresent( fileNameDW):
                 raise Exception("output_DW output file not found")
         output_files.append(OutputFile(name="outputDWMrc",path=fileNameDW,required=True))
-        
         inputFileName=fileName.split("/")[-1].split(".")[0]
         meta_data=[]
         output_data={}
         output_files=[]
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            if(isFilePresent(f'{os.path.join(directory_path,inputFileName)}-Patch-Patch.log')): 
-                data=getFilecontentsfromThread(getPatchFrameAlignment, f'{os.path.join(directory_path,inputFileName)}-Patch-Patch.log',executor)
-                output_data["patchAlignment"] = data  
-                meta_data.append(ImageMetaData(key="patchAlignment_Image_data",value=json.dumps(data)))
-                output_files.append(OutputFile(name="patchAlignment_Image",path=createframealignImage(fileNameDW,data["values"],directory_path,data["movie_size"],inputFileName),required=True))
-                output_files.append(OutputFile(name="patchAlignment",path=f'{os.path.join(directory_path,inputFileName)}-Patch-Patch.log',required=True))
-            else:
-                raise Exception("Patch-Patch-log file not found")
-            
-            if(isFilePresent(f'{os.path.join(directory_path,inputFileName)}-Patch-Full.log')): 
-                output_data["patchFullAlignment"]=getFilecontentsfromThread(getFrameAlignment, f'{os.path.join(directory_path,inputFileName)}-Patch-Full.log',executor)
-                output_files.append(OutputFile(name="patchFullAlignment",path=f'{os.path.join(directory_path,inputFileName)}-Patch-Full.log',required=True))
-                meta_data.append(ImageMetaData(key="patchFullAlignment_Image_data",value=json.dumps(output_data["patchFullAlignment"])))
-                output_files.append(OutputFile(name="patchFullAlignment_Image",path=createframealignCenterImage(fileNameDW,output_data["patchFullAlignment"],directory_path,output_data["patchAlignment"]["movie_size"],inputFileName),required=True))
-            else:
-                raise Exception("Patch-Full-log file not found")
-    
-            if(isFilePresent(f'{os.path.join(directory_path,inputFileName)}-Full.log')):   
-                # output_data["frameAlignment"]=getFilecontentsfromThread(getFrameAlignment, f'{inputFileName}-Full.log',executor)
-                output_files.append(OutputFile(name="frameAlignment",path=f'{os.path.join(directory_path,inputFileName)}-Full.log',required=True))
+        if params.data["PatchesX"]>1 or params.data["PatchesY"]>1:
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                if(isFilePresent(f'{os.path.join(directory_path,inputFileName)}-Patch-Patch.log')): 
+                    data=getFilecontentsfromThread(getPatchFrameAlignment, f'{os.path.join(directory_path,inputFileName)}-Patch-Patch.log',executor)
+                    output_data["patchAlignment"] = data  
+                    meta_data.append(ImageMetaData(key="patchAlignment_Image_data",value=json.dumps(data)))
+                    output_files.append(OutputFile(name="patchAlignment_Image",path=createframealignImage(fileNameDW,data["values"],directory_path,data["movie_size"],inputFileName),required=True))
+                    output_files.append(OutputFile(name="patchAlignment",path=f'{os.path.join(directory_path,inputFileName)}-Patch-Patch.log',required=True))
+                else:
+                    raise Exception("Patch-Patch-log file not found")
+                
+                if(isFilePresent(f'{os.path.join(directory_path,inputFileName)}-Patch-Full.log')): 
+                    output_data["patchFullAlignment"]=getFilecontentsfromThread(getFrameAlignment, f'{os.path.join(directory_path,inputFileName)}-Patch-Full.log',executor)
+                    output_files.append(OutputFile(name="patchFullAlignment",path=f'{os.path.join(directory_path,inputFileName)}-Patch-Full.log',required=True))
+                    meta_data.append(ImageMetaData(key="patchFullAlignment_Image_data",value=json.dumps(output_data["patchFullAlignment"])))
+                    output_files.append(OutputFile(name="patchFullAlignment_Image",path=createframealignCenterImage(fileNameDW,output_data["patchFullAlignment"],directory_path,output_data["patchAlignment"]["movie_size"],inputFileName),required=True))
+                else:
+                    raise Exception("Patch-Full-log file not found")
         
-            if(isFilePresent(f'{os.path.join(directory_path,inputFileName)}-Patch-Frame.log')): 
-                # output_data["patchFrameAlignment"]=getFilecontentsfromThread(getPatchFrameAlignment, f'{os.path.join(directory_path,inputFileName)}-Patch-Frame.log',executor)
-                output_files.append(OutputFile(name="patchFrameAlignment",path=f'{os.path.join(directory_path,inputFileName)}-Patch-Frame.log',required=True))
+                if(isFilePresent(f'{os.path.join(directory_path,inputFileName)}-Full.log')):   
+                    # output_data["frameAlignment"]=getFilecontentsfromThread(getFrameAlignment, f'{inputFileName}-Full.log',executor)
+                    output_files.append(OutputFile(name="frameAlignment",path=f'{os.path.join(directory_path,inputFileName)}-Full.log',required=True))
+            
+                if(isFilePresent(f'{os.path.join(directory_path,inputFileName)}-Patch-Frame.log')): 
+                    # output_data["patchFrameAlignment"]=getFilecontentsfromThread(getPatchFrameAlignment, f'{os.path.join(directory_path,inputFileName)}-Patch-Frame.log',executor)
+                    output_files.append(OutputFile(name="patchFrameAlignment",path=f'{os.path.join(directory_path,inputFileName)}-Patch-Frame.log',required=True))
 
         return TaskResultDto(
                 worker_instance_id=params.worker_instance_id,

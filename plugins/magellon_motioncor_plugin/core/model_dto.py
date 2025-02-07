@@ -184,7 +184,7 @@ class CryoEmMotionCorTaskData(CryoEmImageTaskData):
     # GpuMemUsage: float = 0.5
     # UseGpus: int | None = None
     # SplitSum: bool = False
-    # FmIntFile: Optional[str] = None
+    FmIntFile: Optional[str] = None
     EerSampling: int =1
     # OutStar: bool = False
     # TiffOrder: Optional[str] = None

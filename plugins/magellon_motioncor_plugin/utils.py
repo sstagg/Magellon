@@ -178,9 +178,8 @@ def build_motioncor3_command(params: CryoEmMotionCorTaskData) -> str:
     # if params.SplitSum:
     #     cmd.append('-SplitSum')
         # cmd.append(params.SplitSum)
-    # if params.FmIntFile is not None:
-    #     cmd.append('-FmIntFile')
-    #     cmd.append(params.FmIntFile)
+    if params.FmIntFile is not None:
+        cmd+=getSubCommand("-FmIntFile",params.FmIntFile)
     if params.EerSampling is not None:
         cmd+=getSubCommand('-EerSampling',str(params.EerSampling))
     else:
