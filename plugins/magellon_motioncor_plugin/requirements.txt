@@ -24,6 +24,6 @@ Pillow
 numpy
 scipy
 matplotlib
-
+tifffile
 prometheus-fastapi-instrumentator
 

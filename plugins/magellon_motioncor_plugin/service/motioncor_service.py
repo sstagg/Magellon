@@ -4,7 +4,7 @@ import subprocess
 import json
 import concurrent.futures
 from core.helper import push_info_to_debug_queue
-from utils import validateInput,build_motioncor3_command,getFrameAlignment,getPatchFrameAlignment,createframealignImage,isFilePresent,createframealignCenterImage,getFilecontentsfromThread
+from utils import getImageSize,validateInput,build_motioncor3_command,getFrameAlignment,getPatchFrameAlignment,createframealignImage,isFilePresent,createframealignCenterImage,getFilecontentsfromThread
 from datetime import datetime
 from core.settings import AppSettingsSingleton
 from core.model_dto import CryoEmMotionCorTaskData, OutputFile, TaskDto, TaskResultDto,DebugInfo,ImageMetaData
@@ -25,11 +25,12 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
         #check the type of inputfile and assign 
         input_file=the_task_data.inputFile.strip()
         file_extension = os.path.splitext(input_file)[1].lower() 
+        x_size,y_size=getImageSize(params.data["inputFile"],file_extension)
         file_map = {'.mrc': 'InMrc', '.tif': 'InTiff', '.eer': 'InEer'}
         if file_extension not in file_map:
             raise ValueError("Invalid file type. Must be .mrc, .tif, or .eer.")
-        if file_extension == '.eer' and params.data["FmIntFile"] is None:
-            raise ValueError("FmIntFile must be provided when the file extension is .eer.")
+        # if file_extension == '.eer' and params.data["FmIntFile"] is None:
+        #     raise ValueError("FmIntFile must be provided when the file extension is .eer.")
         
         setattr(the_task_data, file_map[file_extension], input_file)
         params.data[file_map[file_extension]] = input_file
@@ -97,8 +98,8 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
         meta_data=[]
         output_data={}
         output_files=[]
-        if params.data["PatchesX"]>1 or params.data["PatchesY"]>1:
-            with concurrent.futures.ThreadPoolExecutor() as executor:
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            if params.data["PatchesX"]>1 or params.data["PatchesY"]>1:
                 if(isFilePresent(f'{os.path.join(directory_path,inputFileName)}-Patch-Patch.log')): 
                     data=getFilecontentsfromThread(getPatchFrameAlignment, f'{os.path.join(directory_path,inputFileName)}-Patch-Patch.log',executor)
                     output_data["patchAlignment"] = data  
@@ -106,24 +107,26 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
                     output_files.append(OutputFile(name="patchAlignment_Image",path=createframealignImage(fileNameDW,data["values"],directory_path,data["movie_size"],inputFileName),required=True))
                     output_files.append(OutputFile(name="patchAlignment",path=f'{os.path.join(directory_path,inputFileName)}-Patch-Patch.log',required=True))
                 else:
-                    raise Exception("Patch-Patch-log file not found")
-                
+                    raise Exception("Patch-Patch-log file not found")  
                 if(isFilePresent(f'{os.path.join(directory_path,inputFileName)}-Patch-Full.log')): 
                     output_data["patchFullAlignment"]=getFilecontentsfromThread(getFrameAlignment, f'{os.path.join(directory_path,inputFileName)}-Patch-Full.log',executor)
                     output_files.append(OutputFile(name="patchFullAlignment",path=f'{os.path.join(directory_path,inputFileName)}-Patch-Full.log',required=True))
                     meta_data.append(ImageMetaData(key="patchFullAlignment_Image_data",value=json.dumps(output_data["patchFullAlignment"])))
-                    output_files.append(OutputFile(name="patchFullAlignment_Image",path=createframealignCenterImage(fileNameDW,output_data["patchFullAlignment"],directory_path,output_data["patchAlignment"]["movie_size"],inputFileName),required=True))
+                    output_files.append(OutputFile(name="patchFullAlignment_Image",path=createframealignCenterImage(fileNameDW,output_data["patchFullAlignment"],directory_path,[x_size,y_size],inputFileName),required=True))
                 else:
                     raise Exception("Patch-Full-log file not found")
-        
-                if(isFilePresent(f'{os.path.join(directory_path,inputFileName)}-Full.log')):   
-                    # output_data["frameAlignment"]=getFilecontentsfromThread(getFrameAlignment, f'{inputFileName}-Full.log',executor)
-                    output_files.append(OutputFile(name="frameAlignment",path=f'{os.path.join(directory_path,inputFileName)}-Full.log',required=True))
-            
+                
                 if(isFilePresent(f'{os.path.join(directory_path,inputFileName)}-Patch-Frame.log')): 
                     # output_data["patchFrameAlignment"]=getFilecontentsfromThread(getPatchFrameAlignment, f'{os.path.join(directory_path,inputFileName)}-Patch-Frame.log',executor)
                     output_files.append(OutputFile(name="patchFrameAlignment",path=f'{os.path.join(directory_path,inputFileName)}-Patch-Frame.log',required=True))
 
+            else:
+                if(isFilePresent(f'{os.path.join(directory_path,inputFileName)}-Full.log')):   
+                    output_data["fullAlignment"]=getFilecontentsfromThread(getFrameAlignment, f'{os.path.join(directory_path,inputFileName)}-Full.log',executor)
+                    # output_data["frameAlignment"]=getFilecontentsfromThread(getFrameAlignment, f'{inputFileName}-Full.log',executor)
+                    output_files.append(OutputFile(name="frameAlignment",path=f'{os.path.join(directory_path,inputFileName)}-Full.log',required=True))
+                    meta_data.append(ImageMetaData(key="frameAlignment_Image_data",value=json.dumps(output_data["fullAlignment"])))
+                    output_files.append(OutputFile(name="frameAlignment_Image",path=createframealignCenterImage(fileNameDW,output_data["fullAlignment"],directory_path,[x_size,y_size],inputFileName),required=True))
         return TaskResultDto(
                 worker_instance_id=params.worker_instance_id,
                 task_id=params.id,

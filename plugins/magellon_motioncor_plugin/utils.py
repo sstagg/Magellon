@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 # from loggerSetup import setupLogger
 from core.model_dto import CryoEmMotionCorTaskData
 from PIL import Image
+import tifffile
 # logger=setupLogger()
 logger = logging.getLogger(__name__)
 def getSubCommand(attribute: str, value: Optional[str] = None) -> List[str]:
@@ -542,3 +543,16 @@ def createframealignCenterImage(outputmrcpath, data, directory_path,originalsize
     #     new_mrc.update_header_stats()
 
     return new_filepath
+
+
+def getImageSize(file,filetype):
+    if filetype== ".tif" or filetype==".eer":
+        with tifffile.TiffFile(file) as tif:
+            width, height = tif.pages[0].shape
+            return width,height
+    elif filetype==".mrc":
+        with mrcfile.open(file, permissive=True) as mrc:
+            x_size, y_size, z_size = mrc.header.nx, mrc.header.ny, mrc.header.nz
+            return x_size, y_size
+    else:
+        raise ValueError("Invalid file type. Must be .mrc, .tif, or .eer.")
