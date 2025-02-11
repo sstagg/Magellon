@@ -53,6 +53,7 @@ def create_directories(target_dir: str):
     create_directory(os.path.join(target_dir, THUMBNAILS_SUB_URL))
     create_directory(os.path.join(target_dir, ATLAS_SUB_URL))
     create_directory(os.path.join(target_dir, CTF_SUB_URL))
+    create_directory(os.path.join(target_dir, CTF_SUB_URL))
 
 
 def infer_image_levels(name):

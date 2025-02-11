@@ -52,6 +52,7 @@ directory_settings:
   FFT_SUFFIX: _fft.png
 
   CTF_SUB_URL: ctf/
+  FAO_SUB_URL: fao/
   GAIN_SUB_URL: gains/
 
   FRAMES_SUB_URL: frames/

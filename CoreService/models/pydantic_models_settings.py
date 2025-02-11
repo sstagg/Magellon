@@ -50,6 +50,7 @@ class DirectorySettings(BaseModel):
     JOBS_DIR: Optional[str] = None
     ATLAS_SUB_URL: Optional[str] = None
     CTF_SUB_URL: Optional[str] = None
+    FAO_SUB_URL: Optional[str] = None
     GAIN_SUB_URL: Optional[str] = None
     ATLAS_SUFFIX: Optional[str] = None
 

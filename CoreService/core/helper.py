@@ -251,7 +251,7 @@ def dispatch_ctf_task(task_id, full_image_path, task_dto: ImportTaskDto):
     return push_task_to_task_queue(ctf_task)
 
 
-def create_motioncor_task_data(image_path, gain_path, session_name=None):
+def create_motioncor_task_data(image_path, gain_path, session_name=None,task_dto: ImportTaskDto=None):
     """
     Create the common MotionCor task data structure used across different task creation methods.
 
@@ -264,28 +264,34 @@ def create_motioncor_task_data(image_path, gain_path, session_name=None):
         CryoEmMotionCorTaskData: Configured task data object
     """
     file_name = os.path.splitext(os.path.basename(image_path))[0]
-
+    # motioncor_task_data.PixSize= task_dto.pixel_size
     if session_name is None:
         session_name = file_name.split("_")[0]
 
     return CryoEmMotionCorTaskData(
-        image_id=uuid.uuid4(),
-        image_name="Image1",
+        image_id=task_dto.image_id,
+        image_name=file_name,
         image_path=image_path,
         inputFile=image_path,
-        OutMrc="output.files.mrc",
+        # OutMrc="output.files.mrc",
+        OutMrc=file_name +"mco.mrc",
         Gain=gain_path,
         PatchesX=5,
         PatchesY=5,
         SumRangeMinDose=0,
         SumRangeMaxDose=0,
         FmDose=0.75,
-        PixSize=0.705,
+        PixSize=task_dto.pixel_size,
         Group=3
     )
 
 
-def create_motioncor_task(image_path=None, gain_path=None, session_name=None, task_id=None, job_id=None):
+def create_motioncor_task(image_path=None,
+                          gain_path=None,
+                          session_name=None,
+                          task_id=None,
+                          job_id=None,
+                          task_dto: ImportTaskDto=None):
     """
     Creates a MotionCor task with specified parameters
 
@@ -298,6 +304,7 @@ def create_motioncor_task(image_path=None, gain_path=None, session_name=None, ta
 
     Returns:
         MotioncorTask: Created task object or False if error occurs
+        :param task_dto:
     """
 
     try:
@@ -305,7 +312,8 @@ def create_motioncor_task(image_path=None, gain_path=None, session_name=None, ta
         if image_path is None:
             image_path = os.path.join(os.getcwd(), "gpfs", "20241203_54449_integrated_movie.mrc.tif")
 
-        motioncor_task_data = create_motioncor_task_data(image_path, gain_path, session_name)
+        motioncor_task_data = create_motioncor_task_data(image_path, gain_path, session_name,task_dto)
+        # motioncor_task_data.PixSize= task_dto.pixel_size
 
         motioncor_task = MotioncorTaskFactory.create_task(
             pid=task_id or str(uuid.uuid4()),
@@ -317,13 +325,17 @@ def create_motioncor_task(image_path=None, gain_path=None, session_name=None, ta
         )
         # Set session name from task data if not explicitly provided
         motioncor_task.sesson_name = session_name or motioncor_task_data.image_name.split("_")[0]
+
         return motioncor_task
     except Exception as e:
         logger.error(f"Error publishing message: {e}")
         return False
 
 
-def dispatch_motioncor_task(task_id, full_image_path, task_dto: ImportTaskDto):
+def dispatch_motioncor_task(task_id, full_image_path,
+                            task_dto: ImportTaskDto,
+                            gain_path="/gpfs/20241202_53597_gain_multi_ref.tif",
+                            session_name="24dec03a"):
     """
     Creates and dispatches a MotionCor task based on an import task DTO
 
@@ -350,8 +362,10 @@ def dispatch_motioncor_task(task_id, full_image_path, task_dto: ImportTaskDto):
         image_path=full_image_path,
         task_id=task_id,
         job_id=job_id,
-        gain_path="/gpfs/20241202_53597_gain_multi_ref.tif",
-        session_name="24dec03a"
+        gain_path=gain_path,
+        session_name=session_name,
+        task_dto=task_dto
+
     )
 
     if motioncor_task:
