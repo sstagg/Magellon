@@ -193,6 +193,26 @@ services:
     networks:
       magellon-network:
         ipv4_address: 172.16.238.21
+  
+  magellon_motioncor_plugin:
+    build:
+      context: ../plugins/magellon_motioncor_plugin
+      dockerfile: Dockerfile
+    image: magellon_motioncor_plugin_image
+    container_name: magellon_motioncor_plugin_container
+    environment:
+      - APP_ENV=production
+      - RUN_ENV =docker
+      - GPFS_ROOT=${MAGELLON_GPFS_PATH}
+      - JOBS_PATH=${MAGELLON_JOBS_PATH}
+    volumes:
+      - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_JOBS_PATH}:/jobs
+    ports:
+      - "${MAGELLON_MOTIONCOR_PLUGIN_PORT}:80"
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.22
 
 volumes:
   rabbitmq-data: { }
