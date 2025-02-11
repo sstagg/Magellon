@@ -1,5 +1,4 @@
 import numpy
-import numpy as np
 from scipy import stats
 from matplotlib import pyplot
 import mrcfile as mrc
@@ -98,12 +97,12 @@ def create_montage_with_numbers(images, numbers=None, ncols=5, padding=4):
         matplotlib.figure.Figure: The matplotlib figure object.
     """
     n_images, height, width = images.shape
-    nrows = int(np.ceil(n_images / ncols))
+    nrows = int(numpy.ceil(n_images / ncols))
 
     montage_height = nrows * height + (nrows - 1) * padding
     montage_width = ncols * width + (ncols - 1) * padding
 
-    montage = np.zeros((montage_height, montage_width))
+    montage = numpy.zeros((montage_height, montage_width))
 
     for i in range(n_images):
         row = i // ncols
