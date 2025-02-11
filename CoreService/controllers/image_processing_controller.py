@@ -3,6 +3,7 @@ import subprocess
 import uuid
 
 from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel
 
 from config import MAGELLON_HOME_DIR
 from models.pydantic_models import LeginonFrameTransferJobBase, EPUFrameTransferJobBase, LeginonFrameTransferJobDto, \
@@ -118,6 +119,13 @@ async def calculate_ctf(abs_file_path: str, abs_out_file_name: str = ""):
 # @image_processing_router.post("/epu_images_job")
 # def process_epu_import(input_data: EPUFrameTransferJobBase, db: Session = Depends(get_db)):
 #     epu_frame_transfer_process(input_data, db)
+
+
+class LeginonImportResponse(BaseModel):
+    status: str
+    message: str
+    job_id: uuid.UUID = None
+
 
 @image_processing_router.post("/import_leginon_job")
 def process_image_job(input_data: LeginonFrameTransferJobBase, db: Session = Depends(get_db)):
