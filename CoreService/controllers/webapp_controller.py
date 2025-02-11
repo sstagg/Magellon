@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session, joinedload
 from starlette.responses import FileResponse, JSONResponse
 
 from config import FFT_SUB_URL, IMAGE_SUB_URL, MAGELLON_HOME_DIR, THUMBNAILS_SUB_URL, app_settings, THUMBNAILS_SUFFIX, \
-    FFT_SUFFIX, ATLAS_SUB_URL, CTF_SUB_URL
+    FFT_SUFFIX, ATLAS_SUB_URL, CTF_SUB_URL, FAO_SUB_URL
 from core.helper import push_task_to_task_queue, dispatch_ctf_task, dispatch_motioncor_task, create_motioncor_task
 from core.task_factory import MotioncorTaskFactory
 
@@ -410,6 +410,31 @@ def get_ctf_image_route(name: str, image_type: str):
         # Add logging if needed, and return an appropriate error response
         print(f"Error fetching CTF image: {e}")
         return get_image_not_found()
+@webapp_router.get('/fao_image')
+def get_ctf_image_route(name: str, image_type: str):
+    try:
+        session_name = name.split('_', 1)[0]  # Use split instead of find
+        base_path = os.path.join(app_settings.directory_settings.MAGELLON_HOME_DIR, session_name, FAO_SUB_URL, name)
+
+
+        # Define a mapping for file paths based on the image type
+        file_paths = {
+            "one": f"{base_path}/{name}_mco_one.png",
+            "two": f"{base_path}/{name}_mco_two.png"
+        }
+        logger.debug("file_paths: {}".format(file_paths))
+
+        # Fetch the corresponding file path
+        file_path = file_paths.get(image_type)
+        if not file_path or not os.path.exists(file_path):
+            return get_image_not_found()
+
+        return FileResponse(file_path, media_type='image/png')
+
+    except Exception as e:
+        # Add logging if needed, and return an appropriate error response
+        print(f"Error fetching CTF image: {e}")
+        return get_image_not_found()
 
 
 @webapp_router.get('/image_info')
@@ -606,44 +631,44 @@ def get_all_sessions(name: Optional[str] = None, db: Session = Depends(get_db)):
         return SessionRepository.fetch_all(db)
 
 
-@webapp_router.post("/run_dag")
-async def run_dag():
-    try:
-        # post 'http://128.186.103.43:8383/api/v1/dags/my_dag/dagRuns'
-        configuration = airflow_client.client.Configuration(
-            host="http://128.186.103.43:8383/api/v1",
-
-            username='admin',
-            password='admin'
-        )
-        configuration.verify_ssl = False
-        DAG_ID = "my_dag"
-        # Enter a context with an instance of the API client
-        api_client = ApiClient(configuration)
-
-        errors = False
-
-        print('[blue]Triggering a DAG run')
-        dag_run_api_instance = dag_run_api.DAGRunApi(api_client)
-        try:
-            # Create a DAGRun object (no dag_id should be specified because it is read-only property of DAGRun)
-            # dag_run id is generated randomly to allow multiple executions of the script
-            dag_run = DAGRun(
-                dag_run_id='some_test_run_' + uuid.uuid4().hex,
-            )
-            api_response = dag_run_api_instance.post_dag_run(DAG_ID, dag_run)
-            print(api_response)
-        except airflow_client.client.exceptions.OpenApiException as e:
-            print("[red]Exception when calling DAGRunAPI->post_dag_run: %s\n" % e)
-            errors = True
-        else:
-            print('[green]Posting DAG Run successful')
-
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    else:
-        return {"message": "Files transferred successfully."}
+# @webapp_router.post("/run_dag")
+# async def run_dag():
+#     try:
+#         # post 'http://128.186.103.43:8383/api/v1/dags/my_dag/dagRuns'
+#         configuration = airflow_client.client.Configuration(
+#             host="http://128.186.103.43:8383/api/v1",
+#
+#             username='admin',
+#             password='admin'
+#         )
+#         configuration.verify_ssl = False
+#         DAG_ID = "my_dag"
+#         # Enter a context with an instance of the API client
+#         api_client = ApiClient(configuration)
+#
+#         errors = False
+#
+#         print('[blue]Triggering a DAG run')
+#         dag_run_api_instance = dag_run_api.DAGRunApi(api_client)
+#         try:
+#             # Create a DAGRun object (no dag_id should be specified because it is read-only property of DAGRun)
+#             # dag_run id is generated randomly to allow multiple executions of the script
+#             dag_run = DAGRun(
+#                 dag_run_id='some_test_run_' + uuid.uuid4().hex,
+#             )
+#             api_response = dag_run_api_instance.post_dag_run(DAG_ID, dag_run)
+#             print(api_response)
+#         except airflow_client.client.exceptions.OpenApiException as e:
+#             print("[red]Exception when calling DAGRunAPI->post_dag_run: %s\n" % e)
+#             errors = True
+#         else:
+#             print('[green]Posting DAG Run successful')
+#
+#
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
+#     else:
+#         return {"message": "Files transferred successfully."}
 
 
 @webapp_router.get("/create_atlas")

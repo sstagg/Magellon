@@ -13,7 +13,8 @@ import pymysql
 from fastapi import Depends, HTTPException
 
 from config import FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, \
-    FFT_SUFFIX, FRAMES_SUFFIX, app_settings, ATLAS_SUB_URL, CTF_SUB_URL
+    FFT_SUFFIX, FRAMES_SUFFIX, app_settings, ATLAS_SUB_URL, CTF_SUB_URL, FAO_SUB_URL
+
 from core.helper import dispatch_ctf_task, dispatch_motioncor_task
 from database import get_db
 from models.pydantic_models import LeginonFrameTransferJobDto, LeginonFrameTransferTaskDto, ImportTaskDto
@@ -53,7 +54,7 @@ def create_directories(target_dir: str):
     create_directory(os.path.join(target_dir, THUMBNAILS_SUB_URL))
     create_directory(os.path.join(target_dir, ATLAS_SUB_URL))
     create_directory(os.path.join(target_dir, CTF_SUB_URL))
-    create_directory(os.path.join(target_dir, CTF_SUB_URL))
+    create_directory(os.path.join(target_dir, FAO_SUB_URL))
 
 
 def infer_image_levels(name):
@@ -443,7 +444,20 @@ class LeginonFrameTransferJobService:
 
     def compute_motioncor_task(self, abs_file_path: str, task_dto: ImportTaskDto):
         try:
-            dispatch_motioncor_task(task_dto.task_id, abs_file_path+".tif", task_dto)
+            settings = {
+                'FmDose': 1.0,
+                'PatchesX': 7,
+                'PatchesY': 7,
+                'Group': 4
+            }
+
+
+            dispatch_motioncor_task(
+                task_id = task_dto.task_id,
+                full_image_path= abs_file_path+".tif",
+                task_dto= task_dto,
+                motioncor_settings= settings
+            )
             return {"message": "Converting to ctf on the way! " + abs_file_path}
 
         except Exception as e:

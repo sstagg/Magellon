@@ -233,7 +233,9 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
 
                     </TabPanel>
                     <TabPanel value="6">
-                        Frame Alignment
+                        <img width={900} src={`${BASE_URL}/fao_image?image_type=powerspec&name=${selectedImage?.name}`} alt="motioncor power spec image" style={ImageStyle}/>
+                        <img width={900} src={`${BASE_URL}/fao_image?image_type=plots&name=${selectedImage?.name}`} alt="motioncor plots image" style={ImageStyle}/>
+
                     </TabPanel>
                     <TabPanel value="7">
                         <ImageMetadataDisplay selectedImage={selectedImage} />
