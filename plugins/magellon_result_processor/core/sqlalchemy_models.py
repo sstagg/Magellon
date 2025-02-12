@@ -24,7 +24,7 @@ class Camera(Base):
 class ImageMetaDataCategory(Base):
     __tablename__ = 'image_meta_data_category'
 
-    oid = Column(Column(INTEGER(11)), primary_key=True)  # UUIDType
+    oid = Column(INTEGER(11), primary_key=True)  # UUIDType
     name = Column(String(100))
     parent_id = Column(ForeignKey('image_meta_data_category.oid'), index=True)
     OptimisticLockField = Column(INTEGER(11))
