@@ -444,21 +444,23 @@ class LeginonFrameTransferJobService:
 
     def compute_motioncor_task(self, abs_file_path: str, task_dto: ImportTaskDto):
         try:
-            settings = {
+           
+
+            if task_dto.frame_name:
+                settings = {
                 'FmDose': 1.0,
                 'PatchesX': 7,
                 'PatchesY': 7,
                 'Group': 4
-            }
-
-
-            dispatch_motioncor_task(
-                task_id = task_dto.task_id,
-                full_image_path= abs_file_path+".tif",
-                task_dto= task_dto,
-                motioncor_settings= settings
-            )
-            return {"message": "Converting to ctf on the way! " + abs_file_path}
+                }
+                print("full_image_path",abs_file_path,abs_file_path+".tif")
+                dispatch_motioncor_task(
+                    task_id = task_dto.task_id,
+                    full_image_path= abs_file_path+".tif",
+                    task_dto= task_dto,
+                    motioncor_settings= settings
+                )
+                return {"message": "Converting to ctf on the way! " + abs_file_path}
 
         except Exception as e:
             return {"error": str(e)}
