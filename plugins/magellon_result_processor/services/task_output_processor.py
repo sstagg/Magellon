@@ -13,15 +13,18 @@ class TaskOutputProcessor:
     def __init__(self, db: Session):
         self.db = db
         self.settings = AppSettingsSingleton.get_instance()
-        self._queue_type_output_dirs = self._build_queue_type_output_dirs()
+        self._queue_type_output_config = self._build_queue_type_output_config()
 
-    def _build_queue_type_output_dirs(self) -> Dict[QueueType, str]:
+    def _build_queue_type_output_config(self) -> Dict[QueueType, Dict[str, Any]]:
         """
-        Build a dictionary mapping queue types to their output directory names.
+        Build a dictionary mapping queue types to their configuration details.
         Uses the OUT_QUEUES configuration from RabbitMQ settings.
         """
         return {
-            queue_config.queue_type: queue_config.dir_name
+            queue_config.queue_type: {
+                "dir_name": queue_config.dir_name,
+                "category": queue_config.category
+            }
             for queue_config in self.settings.rabbitmq_settings.OUT_QUEUES
         }
 
@@ -33,7 +36,18 @@ class TaskOutputProcessor:
         :param queue_type: The queue type to look up
         :return: The output directory name, or None if not found
         """
-        return self._queue_type_output_dirs.get(queue_type)
+        queue_config = self._queue_type_output_config.get(queue_type, {})
+        return queue_config.get("dir_name")
+
+    def _get_queue_type_category(self, queue_type: QueueType) -> Optional[int]:
+        """
+        Get the category for a specific queue type.
+
+        :param queue_type: The queue type to look up
+        :return: The category, or None if not found
+        """
+        queue_config = self._queue_type_output_config.get(queue_type, {})
+        return queue_config.get("category")
 
     def _get_destination_dir(self, task_result: TaskResultDto) -> str:
         """Get the appropriate destination directory based on task type."""
@@ -81,11 +95,14 @@ class TaskOutputProcessor:
         """Save task metadata to database."""
         if task_result.meta_data:
             meta_list_dicts = [meta.dict(exclude_none=True) for meta in task_result.meta_data]
+            category_id = self._get_queue_type_category(task_result.type) or 10  # Default to 10 if no category found
+
             meta_data = ImageMetaData(
                 oid=UUID(int=0).int,
                 name=f"{task_result.type.name} Meta Data",
                 data_json=json.loads(json.dumps(meta_list_dicts, indent=4)),
-                image_id=task_result.image_id
+                image_id=task_result.image_id,
+                category_id =category_id # if task_result.type == ctf , if it is motioncor it would be 3
             )
             self.db.add(meta_data)
 
