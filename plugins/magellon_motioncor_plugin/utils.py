@@ -478,9 +478,18 @@ def createframealignImage(outputmrcpath, data, directory_path,originalsize,input
     
     normalized_data = ((new_data - np.min(new_data)) / (np.max(new_data) - np.min(new_data)) * 255).astype(np.uint8)
     img = Image.fromarray(normalized_data)
-    new_filename = f"{inputFileName}_mco_two.png"
+    resize_factor=0.3
+    width, height = img.size
+
+# Calculate new dimensions
+    new_width = int(width * resize_factor)
+    new_height = int(height * resize_factor)
+
+    # Resize image
+    img = img.resize((new_width, new_height), Image.LANCZOS)
+    new_filename = f"{inputFileName}_mco_two.jpg"
     new_filepath = os.path.join(directory_path, new_filename)
-    img.save(new_filepath)
+    img.save(new_filepath, "JPEG", quality=80)
     
     # with mrcfile.new(new_filepath, overwrite=True) as new_mrc:
     #     new_mrc.set_data(new_data)
@@ -528,9 +537,18 @@ def createframealignCenterImage(outputmrcpath, data, directory_path,originalsize
     
     normalized_data = ((new_data - np.min(new_data)) / (np.max(new_data) - np.min(new_data)) * 255).astype(np.uint8)
     img = Image.fromarray(normalized_data)
-    new_filename = f"{inputFileName}_mco_one.png"
+    resize_factor=0.3
+    width, height = img.size
+
+# Calculate new dimensions
+    new_width = int(width * resize_factor)
+    new_height = int(height * resize_factor)
+
+    # Resize image
+    img = img.resize((new_width, new_height), Image.LANCZOS)
+    new_filename = f"{inputFileName}_mco_one.jpg"
     new_filepath = os.path.join(directory_path, new_filename)
-    img.save(new_filepath)
+    img.save(new_filepath, "JPEG", quality=50)
     
     # with mrcfile.new(new_filepath, overwrite=True) as new_mrc:
     #     new_mrc.set_data(new_data)
