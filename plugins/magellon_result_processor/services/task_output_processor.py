@@ -5,7 +5,7 @@ import json
 from sqlalchemy.orm import Session
 
 from core.model_dto import TaskResultDto
-from core.settings import AppSettingsSingleton
+from core.settings import AppSettingsSingleton, QueueType
 from core.sqlalchemy_models import ImageMetaData
 from core.helper import move_file_to_directory
 
@@ -13,15 +13,40 @@ class TaskOutputProcessor:
     def __init__(self, db: Session):
         self.db = db
         self.settings = AppSettingsSingleton.get_instance()
+        self._queue_type_output_dirs = self._build_queue_type_output_dirs()
+
+    def _build_queue_type_output_dirs(self) -> Dict[QueueType, str]:
+        """
+        Build a dictionary mapping queue types to their output directory names.
+        Uses the OUT_QUEUES configuration from RabbitMQ settings.
+        """
+        return {
+            queue_config.queue_type: queue_config.dir_name
+            for queue_config in self.settings.rabbitmq_settings.OUT_QUEUES
+        }
+
+
+    def _get_queue_type_output_dir(self, queue_type: QueueType) -> Optional[str]:
+        """
+        Get the output directory name for a specific queue type.
+
+        :param queue_type: The queue type to look up
+        :return: The output directory name, or None if not found
+        """
+        return self._queue_type_output_dirs.get(queue_type)
 
     def _get_destination_dir(self, task_result: TaskResultDto) -> str:
         """Get the appropriate destination directory based on task type."""
         task_type = task_result.type.name.lower()
+        # Try to get directory from queue type first
+        queue_specific_dir = self._get_queue_type_output_dir(task_result.type)
+        dir_name = queue_specific_dir or task_type
+
         file_name = os.path.splitext(os.path.basename(task_result.image_path))[0]
         return os.path.join(
             self.settings.MAGELLON_HOME_DIR,
             task_result.session_name,
-            task_type,
+            dir_name,
             file_name
         )
 

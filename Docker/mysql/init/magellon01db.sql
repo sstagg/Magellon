@@ -61,6 +61,7 @@ DROP TABLE IF EXISTS `image`;
 CREATE TABLE `image` (
   `oid` BINARY(16) NOT NULL,
   `name` VARCHAR(100) DEFAULT NULL,
+  `frame_name` VARCHAR(100) DEFAULT NULL,
   `path` VARCHAR(300) DEFAULT NULL,
   `parent_id` BINARY(16) DEFAULT NULL,
   `session_id` BINARY(16) DEFAULT NULL,
@@ -208,7 +209,7 @@ CREATE TABLE `image_meta_data` (
   `alias` varchar(100) DEFAULT NULL,
   `job_id` binary(16) DEFAULT NULL,
   `task_id` binary(16) DEFAULT NULL,
-  `category_id` binary(16) DEFAULT NULL,
+  `category_id` int(11) DEFAULT NULL,
   `data` longtext DEFAULT NULL,
   `data_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`data_json`)),
   `processed_json` longtext DEFAULT NULL,
@@ -247,9 +248,9 @@ CREATE TABLE `image_meta_data` (
 DROP TABLE IF EXISTS `image_meta_data_category`;
 
 CREATE TABLE `image_meta_data_category` (
-  `oid` binary(16) NOT NULL,
+  `oid` int(11) NOT NULL,
   `name` varchar(100) DEFAULT NULL,
-  `parent_id` binary(16) DEFAULT NULL,
+  `parent_id` int(11) DEFAULT NULL,
   `OptimisticLockField` int(11) DEFAULT NULL,
   `GCRecord` int(11) DEFAULT NULL,
   PRIMARY KEY (`oid`),
@@ -261,11 +262,11 @@ CREATE TABLE `image_meta_data_category` (
 /*Data for the table `image_meta_data_category` */
 
 insert  into `image_meta_data_category`(`oid`,`name`,`parent_id`,`OptimisticLockField`,`GCRecord`) values 
-('4=�N�D9�F���w�','Particle Picking',NULL,NULL,NULL),
-('T�׸�M��lS�kZ','Other',NULL,NULL,NULL),
-('�~CC\\&Oa�b2�Oƻ�','Frame Alignment',NULL,NULL,NULL),
-('�h�6$�L(����>FG�','CTF',NULL,NULL,NULL),
-('����KѾ{V���','FFT',NULL,NULL,NULL);
+(4,'Particle Picking',NULL,NULL,NULL),
+(10,'Other',NULL,NULL,NULL),
+(3,'Frame Alignment',NULL,NULL,NULL),
+(2,'CTF',NULL,NULL,NULL),
+(1,'FFT',NULL,NULL,NULL);
 
 /*Table structure for table `microscope` */
 
@@ -327,7 +328,6 @@ CREATE TABLE `msession` (
 
 insert  into `msession`(`oid`,`name`,`project_id`,`site_id`,`user_id`,`description`,`start_on`,`end_on`,`microscope_id`,`camera_id`,`sample_type`,`sample_name`,`sample_grid_type`,`sample_sequence`,`sample_procedure`,`OptimisticLockField`,`GCRecord`,`last_accessed_date`) values 
 ('�L�\rF\\���	4��','23apr13a','勳l��B��yхъ�',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
-('	�ժF�������wa','23jun28a','勳l��B��yхъ�',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 ('���գAM��ן�.	�','22apr01a','勳l��B��yхъ�',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
 
 /*Table structure for table `pipeline` */
@@ -799,17 +799,6 @@ CREATE TABLE `xpobjecttype` (
 
 /*Data for the table `xpobjecttype` */
 
-insert  into `xpobjecttype`(`OID`,`TypeName`,`AssemblyName`) values 
-(1,'Magellon.Security.User','Magellon.Module'),
-(2,'Magellon.Security.PermissionPolicyRole','Magellon.Module'),
-(3,'Magellon.Security.ApplicationUserLoginInfo','Magellon.Module'),
-(4,'Magellon.Security.PermissionPolicyTypePermissionObject','Magellon.Module'),
-(5,'Magellon.Security.PermissionPolicyObjectPermissionsObject','Magellon.Module'),
-(6,'Magellon.Security.PermissionPolicyNavigationPermissionObject','Magellon.Module'),
-(7,'Magellon.Security.PermissionPolicyMemberPermissionsObject','Magellon.Module'),
-(8,'sys_sec_user_role',''),
-(9,'DevExpress.Persistent.BaseImpl.ModelDifference','DevExpress.Persistent.BaseImpl.Xpo.v23.2'),
-(10,'DevExpress.Persistent.BaseImpl.ModelDifferenceAspect','DevExpress.Persistent.BaseImpl.Xpo.v23.2');
 
 /* Procedure structure for procedure `update_levels` */
 

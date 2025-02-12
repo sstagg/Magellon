@@ -23,7 +23,7 @@ class Camera(Base):
 class ImageMetaDataCategory(Base):
     __tablename__ = 'image_meta_data_category'
 
-    oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)  # UUIDType
+    oid = Column(INTEGER(11), primary_key=True)
     name = Column(String(100))
     parent_id = Column(ForeignKey('image_meta_data_category.oid'), index=True)
     OptimisticLockField = Column(INTEGER(11))

@@ -42,6 +42,8 @@ class QueueType(str, Enum):
 class OutQueueConfig(BaseModel):
     name: str
     queue_type: QueueType
+    dir_name: Optional[str] = None
+    category: Optional[int] = None
 
 class RabbitMQSettings(BaseModel):
     HOST_NAME: Optional[str] = None

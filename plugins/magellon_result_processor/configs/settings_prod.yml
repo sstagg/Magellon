@@ -38,5 +38,9 @@ rabbitmq_settings:
   OUT_QUEUES:
     - name: ctf_out_tasks_queue
       queue_type: ctf
+      dir_name: ctf
+      category: 2
     - name: motioncor_out_tasks_queue
       queue_type: motioncor
+      dir_name: fao
+      category: 3
