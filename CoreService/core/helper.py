@@ -291,7 +291,9 @@ def create_motioncor_task_data(image_path, gain_path, session_name=None,task_dto
             image_id=task_dto.image_id,
             image_name=file_name,
             image_path=image_path,
-            inputFile=image_path,
+            inputFile=task_dto.frame_path,
+
+
             # OutMrc="output.files.mrc",
             OutMrc=file_name +"mco.mrc",
             Gain=gain_path,
