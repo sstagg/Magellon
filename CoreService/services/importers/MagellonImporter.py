@@ -133,7 +133,7 @@ class MagellonImporter(BaseImporter):
                     image_path=file_path,
 
                     frame_name=image.frame_name,
-                    frame_path= os.path.join(source_frame_dir_path, image.frame_name+".tif") ,
+                    frame_path= os.path.join(source_frame_dir_path, image.frame_name) ,
 
                     # target_path=self.params.target_directory + "/frames/" + f"{image['frame_names']}{source_extension}",
                     # job_dto=db_job.,
