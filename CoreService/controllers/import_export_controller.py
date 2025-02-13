@@ -323,6 +323,38 @@ async def create_archive(session_name: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@export_router.get("/validate-magellon-directory")
+def validate_directory(source_dir: str):
+    try:
+        # Check source directory exists
+        if not os.path.exists(source_dir):
+            raise HTTPException(status_code=404, detail="Source directory not found")
+
+        # Check session.json exists
+        session_file = os.path.join(source_dir, "session.json")
+        if not os.path.exists(session_file):
+            raise HTTPException(status_code=400, detail="session.json not found")
+
+        # Check required directories exist
+        images_dir = os.path.join(source_dir,"home", "original")
+        frames_dir = os.path.join(source_dir,"home", "frames")
+        gains_dir = os.path.join(source_dir, "home","frames")
+
+        if not os.path.exists(images_dir):
+            raise HTTPException(status_code=400, detail="original directory not found")
+
+        if not os.path.exists(frames_dir):
+            raise HTTPException(status_code=400, detail="frames directory not found")
+
+        if not os.path.exists(gains_dir):
+            raise HTTPException(status_code=400, detail="gains directory not found")
+
+        return {"status": "valid", "message": "Directory structure is valid"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @export_router.post("/magellon-import")
 def import_directory(request: MagellonImportJobDto,  db_session: Session = Depends(get_db)):

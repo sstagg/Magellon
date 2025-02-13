@@ -40,19 +40,47 @@ export const MagellonImportComponent = () => {
     const [selectedFile, setSelectedFile] = useState<string | null>(null);
     const [importStatus, setImportStatus] = useState<ImportStatus>('idle');
     const [importError, setImportError] = useState<string | null>(null);
+    const [validationStatus, setValidationStatus] = useState<'none' | 'validating' | 'valid' | 'invalid'>('none');
 
+    const exportUrl: string = BASE_URL.replace(/\/web$/, '/export');
+
+
+    const validateDirectory = async (dirPath: string) => {
+        setValidationStatus('validating');
+        try {
+            const response = await fetch(`${exportUrl}/validate-magellon-directory?source_dir=${encodeURIComponent(dirPath)}`);
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail);
+            }
+            setValidationStatus('valid');
+            return true;
+        } catch (err) {
+            setValidationStatus('invalid');
+            setError(err instanceof Error ? err.message : 'Validation failed');
+            return false;
+        }
+    };
+    const handleItemClick = async (item: FileItem) => {
+        if (!item.is_directory && item.name.endsWith('.json')) {
+            const dirPath = item.path.split(/[\/\\]/).slice(0, -1).join('/');
+            if (await validateDirectory(dirPath)) {
+                setSelectedFile(item.path);
+            }
+        }
+    };
 
     const handleImport = async () => {
         if (!selectedFile) return;
-
+        const selectedDir = selectedFile.split(/[\/\\]/).slice(0, -1).join('/');
         // Get the directory path of the selected file
-        const selectedDir = selectedFile.substring(0, selectedFile.lastIndexOf('/'));
+        // const selectedDir = selectedFile.substring(0, selectedFile.lastIndexOf('/'));
 
         setImportStatus('processing');
         setImportError(null);
 
         try {
-            let exportUrl: string = BASE_URL.replace(/\/web$/, '/export');
+
             const response = await fetch(`${exportUrl}/magellon-import`, {
                 method: 'POST',
                 headers: {
@@ -106,12 +134,6 @@ export const MagellonImportComponent = () => {
         }
     };
 
-    const handleItemClick = (item: FileItem) => {
-        if (!item.is_directory && item.name.endsWith('.json')) {
-            setSelectedFile(item.path);
-            console.log('Selected session file:', item);
-        }
-    };
 
     const handleCloseDialog = () => {
         setImportStatus('idle');
