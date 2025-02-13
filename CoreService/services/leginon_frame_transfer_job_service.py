@@ -272,7 +272,7 @@ class LeginonFrameTransferJobService:
                                                            self.params.replace_pattern, self.params.replace_with)
 
                     # Create a new job item and associate it with the job and image
-                    job_item = ImageJobTask(
+                    db_job_task = ImageJobTask(
                         oid=uuid.uuid4(),
                         job_id=job.oid,
                         frame_name=image["frame_names"] if image.get("frame_names") else None,
@@ -283,21 +283,21 @@ class LeginonFrameTransferJobService:
                         image_id=db_image.oid,
                         # Set job item properties
                     )
-                    db_job_item_list.append(job_item)
+                    db_job_item_list.append(db_job_task)
                     # db_session.add(job_item)
 
                     # Get the file name and extension from the source path
                     # source_filename, source_extension = os.path.splitext(source_image_path)
 
-                    task = LeginonFrameTransferTaskDto(
+                    task_dto = LeginonFrameTransferTaskDto(
                         task_id=uuid.uuid4(),
-                        task_alias=f"lftj_{filename}_{job_item.oid}",
+                        task_alias=f"lftj_{filename}_{db_job_task.oid}",
                         file_name=f"{filename}",
                         image_id=db_image.oid,
                         image_name=image["image_name"],
                         frame_name=image["frame_names"],
                         image_path=source_image_path,
-                        job_id=job_item.oid,
+                        job_id=db_job_task.oid,
 
                         frame_path=source_frame_path,
                         # target_path=self.params.target_directory + "/frames/" + f"{image['frame_names']}{source_extension}",
@@ -307,7 +307,7 @@ class LeginonFrameTransferJobService:
                         acceleration_voltage=image["acceleration_voltage"],
                         spherical_aberration=image["spherical_aberration"]
                     )
-                    self.params.task_list.append(task)
+                    self.params.task_list.append(task_dto)
                     # print(f"Filename: {filename}, Spot Size: {spot_size}")
 
                 for db_image in db_image_list:
@@ -325,7 +325,7 @@ class LeginonFrameTransferJobService:
                 if self.params.if_do_subtasks if hasattr(self.params, 'if_do_subtasks') else True:
                     self.run_tasks(db_session,magellon_session )
 
-            return {'status': 'success', 'message': 'Job completed successfully.', "job_id": job_item.oid}
+            return {'status': 'success', 'message': 'Job completed successfully.', "job_id": db_job_task.oid}
             # self.create_test_tasks()
         except FileNotFoundError as e:
             error_message = f"Source directory not found: {self.params.source_directory}"
@@ -444,8 +444,6 @@ class LeginonFrameTransferJobService:
 
     def compute_motioncor_task(self, abs_file_path: str, task_dto: ImportTaskDto):
         try:
-           
-
             if task_dto.frame_name:
                 settings = {
                 'FmDose': 1.0,

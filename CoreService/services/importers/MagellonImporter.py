@@ -114,7 +114,7 @@ class MagellonImporter(BaseImporter):
 
 
             # Copy frames directories
-            # source_frames = os.path.join(self.params.source_file, 'home', FRAMES_SUB_URL)
+            source_frame_dir_path = os.path.join(self.params.source_dir, 'home', "frames")
             # if os.path.exists(source_frames):
             #     shutil.copytree( source_frames, os.path.join(session_dir, FRAMES_SUB_URL), dirs_exist_ok=True)
 
@@ -127,12 +127,14 @@ class MagellonImporter(BaseImporter):
                     job_id=self.db_job.oid,
                     task_alias=f"lftj_{image.path}_{self.db_job.oid}",
                     file_name=f"{image.name}",
+
                     image_id=image.oid,
                     image_name=image.name,
-                    frame_name=image.name,
                     image_path=file_path,
 
-                    frame_path=file_path,
+                    frame_name=image.frame_name,
+                    frame_path= os.path.join(source_frame_dir_path, image.frame_name+".tif") ,
+
                     # target_path=self.params.target_directory + "/frames/" + f"{image['frame_names']}{source_extension}",
                     # job_dto=db_job.,
                     status=1,
@@ -193,7 +195,9 @@ class MagellonImporter(BaseImporter):
             self.convert_image_to_png_task(task_dto.image_path, self.file_service.target_directory )
             self.compute_fft_png_task(task_dto.image_path, self.file_service.target_directory )
             self.compute_ctf_task(task_dto.image_path, task_dto)
-            self.compute_motioncor_task(task_dto.image_path, task_dto)
+
+            if task_dto.frame_name:
+                self.compute_motioncor_task(task_dto.image_path, task_dto)
 
             return {'status': 'success', 'message': 'Task completed successfully.'}
 
@@ -231,8 +235,36 @@ class MagellonImporter(BaseImporter):
 
     def compute_motioncor_task(self, abs_file_path: str, task_dto: ImportTaskDto):
         try:
-            dispatch_motioncor_task(task_dto.task_id, abs_file_path, task_dto)
-            return {"message": "Converting to ctf on the way! " + abs_file_path}
+            if task_dto.frame_name:
+                settings = {
+                    'FmDose': 1.0,
+                    'PatchesX': 7,
+                    'PatchesY': 7,
+                    'Group': 4
+                }
+                source_gains_dir = os.path.join(self.params.source_dir, 'home', GAINS_SUB_URL)
+
+                # Search for gain files in the gains directory
+                gain_files = []
+                if os.path.exists(source_gains_dir):
+                    for file in os.listdir(source_gains_dir):
+                        if file.endswith('_gain_multi_ref.tif'):
+                            gain_files.append(os.path.join(source_gains_dir, file))
+
+                if not gain_files:
+                    source_gains_file = "/gpfs/24dec03a/home/gains/20241202_53597_gain_multi_ref.tif"
+
+                # Use the most recent gain file (assuming date format in filename)
+                source_gains_file = sorted(gain_files)[-1]
+
+                dispatch_motioncor_task(
+                    task_id = task_dto.task_id,
+                    gain_path=source_gains_file,
+                    full_image_path= abs_file_path+".tif",
+                    task_dto= task_dto,
+                    motioncor_settings= settings
+                )
+                return {"message": "Converting to motioncor on the way! " + abs_file_path}
 
         except Exception as e:
             return {"error": str(e)}
@@ -402,6 +434,7 @@ class MagellonImporter(BaseImporter):
                     image = Image(
                         oid=image_oid,
                         name=image_data["name"],
+                        frame_name=image_data["frame_name"],
                         path=image_data.get("path"),
                         parent_id=parent_id,
                         session_id=self.db_msession.oid,
