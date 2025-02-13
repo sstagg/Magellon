@@ -5,6 +5,7 @@ import json
 import os
 import uuid
 from io import BytesIO
+from operator import truediv
 from typing import List, Optional, Dict
 from uuid import UUID
 import re
@@ -991,6 +992,10 @@ class FileItem(BaseModel):
 @webapp_router.get("/files/browse", response_model=List[FileItem])
 async def browse_directory(path: str = "/gpfs"):
     try:
+        development = True
+        if development and path.startswith("/gpfs"):
+            path = path.replace("/gpfs", "C:/magellon/gpfs", 1)
+
         directory = Path(path)
         if not directory.exists():
             raise HTTPException(status_code=404, detail="Directory not found")
@@ -1003,7 +1008,7 @@ async def browse_directory(path: str = "/gpfs"):
                 name=item.name,
                 is_directory=item.is_dir(),
                 path=str(item),
-                parent_id=hash(str(item.parent)) if str(item.parent) != path else None,
+                parent_id=hash(str(item.parent).replace("C:/magellon/gpfs", "/gpfs", 1) if development else str(item.parent)) if str(item.parent) != path else None,
                 size=stat.st_size if not item.is_dir() else None,
                 mime_type=mimetypes.guess_type(item.name)[0] if not item.is_dir() else None,
                 created_at=datetime.fromtimestamp(stat.st_ctime),

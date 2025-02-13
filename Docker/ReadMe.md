@@ -246,5 +246,5 @@ Development:
 "leginon_mysql_db": "dbemdata",
 "replace_type": "standard",
 "replace_pattern": "/gpfs/research/secm4/leginondata/",
-"replace_with": "C:/temp/magellon/"
+"replace_with": "C:/magellon/gpfs/"
 }

@@ -324,7 +324,7 @@ async def create_archive(session_name: str, db: Session = Depends(get_db)):
 
 
 
-@export_router.post("/import-dir")
+@export_router.post("/magellon-import")
 def import_directory(request: MagellonImportJobDto,  db_session: Session = Depends(get_db)):
     """
     Import a session from a directory containing session.json and image files.

@@ -10,7 +10,7 @@ SLACK_TOKEN: xoxb-5284990093169-5258053840439-aJ8x7uHcUCNqCKSZkbOSbAlq
 
 
 DEBUG_CTF: true
-DEBUG_CTF_PATH : C:/temp/magellon
+DEBUG_CTF_PATH : C:/magellon/gpfs
 DEBUG_CTF_REPLACE : /gpfs
 
 
@@ -53,8 +53,8 @@ rabbitmq_settings:
   MOTIONCOR_OUT_QUEUE_NAME: motioncor_out_tasks_queue
 
 directory_settings:
-  MAGELLON_HOME_DIR: C:/temp/magellon/home
-  MAGELLON_JOBS_DIR: C:/temp/magellon/home/jobs
+  MAGELLON_HOME_DIR: C:/magellon/home
+  MAGELLON_JOBS_DIR: C:/magellon/jobs
   JOBS_DIR: null
   JOBS_PROCESSING_SUB_URL: processing/
   ORIGINAL_IMAGES_SUB_URL: original/
