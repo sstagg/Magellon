@@ -992,7 +992,7 @@ class FileItem(BaseModel):
 @webapp_router.get("/files/browse", response_model=List[FileItem])
 async def browse_directory(path: str = "/gpfs"):
     try:
-        development = True
+        development = False
         if development and path.startswith("/gpfs"):
             path = path.replace("/gpfs", "C:/magellon/gpfs", 1)
 
