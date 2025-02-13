@@ -3,11 +3,14 @@ from uuid import UUID
 import os
 import json
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
+
 from core.model_dto import TaskResultDto
 from core.settings import AppSettingsSingleton, QueueType
 from core.sqlalchemy_models import ImageMetaData
 from core.helper import move_file_to_directory
-
+import logging
+logger = logging.getLogger(__name__)
 class TaskOutputProcessor:
     def __init__(self, db: Session):
         self.db = db
@@ -92,18 +95,34 @@ class TaskOutputProcessor:
 
     def _save_metadata(self, task_result: TaskResultDto):
         """Save task metadata to database."""
-        if task_result.meta_data:
-            meta_list_dicts = [meta.dict(exclude_none=True) for meta in task_result.meta_data]
-            category_id = self._get_queue_type_category(task_result.type) or 10  # Default to 10 if no category found
+        try:
+            if task_result.meta_data:
+                meta_list_dicts = [meta.dict(exclude_none=True) for meta in task_result.meta_data]
+                category_id = self._get_queue_type_category(task_result.type) or 10  # Default to 10 if no category found
 
-            meta_data = ImageMetaData(
-                oid=UUID(int=0).int,
-                name=f"{task_result.type.name} Meta Data",
-                data_json=json.loads(json.dumps(meta_list_dicts, indent=4)),
-                image_id=task_result.image_id,
-                category_id =category_id # if task_result.type == ctf , if it is motioncor it would be 3
-            )
-            self.db.add(meta_data)
+                meta_data = ImageMetaData(
+                    oid=UUID(int=0).int,
+                    name=f"{task_result.type.name} Meta Data",
+                    data_json=json.loads(json.dumps(meta_list_dicts, indent=4)),
+                    image_id=task_result.image_id,
+                    category_id=category_id  # if task_result.type == ctf, if it is motioncor it would be 3
+                )
+
+                self.db.add(meta_data)
+                self.db.commit()
+        
+        except SQLAlchemyError as db_err:
+            self.db.rollback()  # Rollback transaction in case of database error
+            print(f"Database error: {db_err}")
+        
+        except (ValueError, TypeError, json.JSONDecodeError) as json_err:
+            print(f"JSON processing error: {json_err}")
+        
+        except AttributeError as attr_err:
+            print(f"Attribute error: {attr_err}")
+        
+        except Exception as e:
+            print(f"Unexpected error: {e}")
 
     def process(self, task_result: TaskResultDto) -> Dict[str, Any]:
         """
@@ -112,26 +131,31 @@ class TaskOutputProcessor:
         try:
             destination_dir = self._get_destination_dir(task_result)
 
-            # Save debug information
-            # self._save_debug_info(task_result, destination_dir)
-
             # Process output files
             self._process_output_files(task_result, destination_dir)
 
             # Save output data and metadata
             self._save_output_data(task_result)
+            logger.info("Successfully copied files.")
+
             self._save_metadata(task_result)
 
             # Commit database changes
             self.db.commit()
+            logger.info("Successfully added to database.")
 
             return {"message": f"{task_result.type.name} successfully processed"}
 
         except Exception as exc:
+            logger.error(f"Error processing {task_result.type.name}: {exc}", exc_info=True)
             self.db.rollback()
             return {"error": str(exc)}
+
         finally:
-            self.db.close()
+            try:
+                self.db.close()
+            except Exception as db_close_err:
+                logger.error(f"Error closing the database connection: {db_close_err}", exc_info=True)
 
 # Updated do_execute function
 # async def do_execute(task_result_param: TaskResultDto, db: Session):
