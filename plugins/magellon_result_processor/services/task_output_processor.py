@@ -4,7 +4,7 @@ import os
 import json
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
-
+import uuid
 from core.model_dto import TaskResultDto
 from core.settings import AppSettingsSingleton, QueueType
 from core.sqlalchemy_models import ImageMetaData
@@ -101,7 +101,7 @@ class TaskOutputProcessor:
                 category_id = self._get_queue_type_category(task_result.type) or 10  # Default to 10 if no category found
 
                 meta_data = ImageMetaData(
-                    oid=UUID(int=0).int,
+                    oid=uuid.uuid4(),
                     name=f"{task_result.type.name} Meta Data",
                     data_json=json.loads(json.dumps(meta_list_dicts, indent=4)),
                     image_id=task_result.image_id,
