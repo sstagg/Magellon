@@ -158,6 +158,7 @@ def process_image_hierarchy(db: Session, parent_id: UUID = None, processed_image
             # String fields
             "beam_bank": image.beam_bank,
             "metadata": image.metadata_,
+            "frame_name": image.frame_name,
 
             # BIT field
             "energy_filtered": safe_bit(image.energy_filtered),

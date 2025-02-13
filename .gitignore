@@ -63,3 +63,5 @@ CoreService/app.log
 /CoreService/dist
 CoreService/app.log
 CoreService/app.log
+plugins/magellon_result_processor/app.log
+CoreService/app.log
