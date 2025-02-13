@@ -113,7 +113,14 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
 
         # Initialize metadata list
         metaDataList = []
-
+        output_files=[]
+        files_to_check = [
+                ("ctfevalplots", f"{outputFileName}.mrc-plots.png"),
+                ("ctfevalpowerspec", f"{outputFileName}.mrc-powerspec.jpg"),
+                ("ctfestimationOutputFile", f"{outputFileName}.mrc"),
+                ("ctfestimationOutputTextFile", f"{outputFileName}.txt"),
+                ("ctfestimationOutputAvrotFile", f"{outputFileName}_avrot.txt"),
+            ]
         try:
             result = await run_ctf_evaluation(
                 f'{the_task_data.inputFile}',os.path.join(directory_path, the_task.data["outputFile"]), the_task_data.pixelSize, the_task_data.sphericalAberration,
@@ -122,6 +129,10 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
                 the_task_data.amplitudeContrast, CTFestimationValues[4],
                 math.radians(float(CTFestimationValues[3]))
             )
+            for name, path in files_to_check:
+                if os.path.exists(path):  
+                    output_files.append(OutputFile(name=name, path=path, required=True))
+
             return TaskResultDto(
                 worker_instance_id=the_task.worker_instance_id,
                 task_id=the_task.id,
@@ -142,13 +153,7 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
                     "output_avrot": await getFileContents(f"{outputFileName}_avrot.txt")
                 },
                 meta_data=result,
-                output_files=[
-                    OutputFile(name="ctfevalplots", path=f"{outputFileName}.mrc-plots.png", required=True),
-                    OutputFile(name="ctfevalpowerspec", path=f"{outputFileName}.mrc-powerspec.jpg", required=True),
-                    OutputFile(name="ctfestimationOutputFile", path=f"{outputFileName}.mrc", required=True),
-                    OutputFile(name="ctfestimationOutputTextFile", path=f"{outputFileName}.txt", required=True),
-                    OutputFile(name="ctfestimationOutputAvrotFile", path=f"{outputFileName}_avrot.txt", required=True),
-                ]
+                output_files=output_files
             )
 
         except Exception as eval_error:
@@ -173,11 +178,7 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
                     "output_avrot": await getFileContents(f"{outputFileName}_avrot.txt")
                 },
                 meta_data=[],
-                output_files=[
-                    OutputFile(name="ctfestimationOutputFile", path=f"{outputFileName}.mrc", required=True),
-                    OutputFile(name="ctfestimationOutputTextFile", path=f"{outputFileName}.txt", required=True),
-                    OutputFile(name="ctfestimationOutputAvrotFile", path=f"{outputFileName}_avrot.txt", required=True),
-                ]
+                output_files=output_files
             )
 
     except Exception as e:

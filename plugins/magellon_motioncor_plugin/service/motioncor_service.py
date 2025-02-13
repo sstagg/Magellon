@@ -97,7 +97,6 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
         inputFileName=fileName.split("/")[-1].split(".")[0]
         meta_data=[]
         output_data={}
-        output_files=[]
         with concurrent.futures.ThreadPoolExecutor() as executor:
     
 
