@@ -286,16 +286,18 @@ def create_motioncor_task_data(image_path, gain_path, session_name=None,task_dto
     # motioncor_task_data.PixSize= task_dto.pixel_size
     if session_name is None:
         session_name = file_name.split("_")[0]
-
+    # base_name, ext = os.path.splitext(task_dto.image_name)
+    # output_file_name = f"{base_name}.mco{ext}"
     return CryoEmMotionCorTaskData(
             image_id=task_dto.image_id,
-            image_name=file_name,
-            image_path=image_path,
-            inputFile=image_path,
+            image_name=os.path.basename(task_dto.image_path),
+            image_path=task_dto.image_path,
 
+            inputFile=task_dto.frame_path+".tif",
 
+            outputFile=os.path.basename(task_dto.image_path),
             # OutMrc="output.files.mrc",
-            OutMrc=file_name +"mco.mrc",
+            OutMrc=os.path.basename(task_dto.image_path),
             Gain=gain_path,
             PixSize=task_dto.pixel_size,
             **settings
@@ -329,12 +331,12 @@ def create_motioncor_task(image_path=None,
 
     try:
         # Use provided paths or defaults
-        if image_path is None:
-            image_path = os.path.join(os.getcwd(), "gpfs", "20241203_54449_integrated_movie.mrc.tif")
+        # if image_path is None:
+        #     image_path = os.path.join(os.getcwd(), "gpfs", "20241203_54449_integrated_movie.mrc.tif")
 
             # Create task data
         motioncor_task_data = create_motioncor_task_data(
-            image_path=image_path,
+            image_path=task_dto.frame_name+".tif",
             gain_path=gain_path,
             session_name=session_name,
             task_dto=task_dto,
@@ -358,7 +360,8 @@ def create_motioncor_task(image_path=None,
         return False
 
 
-def dispatch_motioncor_task(task_id, full_image_path,
+def dispatch_motioncor_task(task_id,
+                            full_image_path,
                             task_dto: ImportTaskDto,
                             gain_path="/gpfs/20241202_53597_gain_multi_ref.tif",
                             session_name="24dec03a",

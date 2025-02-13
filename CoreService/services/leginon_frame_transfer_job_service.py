@@ -370,7 +370,7 @@ class LeginonFrameTransferJobService:
             self.compute_ctf_task(task_dto.image_path, task_dto)
 
             if task_dto.frame_name:
-                self.compute_motioncor_task(task_dto.frame_path, task_dto)
+                self.compute_motioncor_task(task_dto.image_path, task_dto)
 
             return {'status': 'success', 'message': 'Task completed successfully.'}
 
@@ -453,14 +453,13 @@ class LeginonFrameTransferJobService:
                 'PatchesY': 7,
                 'Group': 4
                 }
-                print("full_image_path",abs_file_path,abs_file_path+".tif")
                 dispatch_motioncor_task(
                     task_id = task_dto.task_id,
                     full_image_path= abs_file_path+".tif",
                     task_dto= task_dto,
                     motioncor_settings= settings
                 )
-                return {"message": "Converting to ctf on the way! " + abs_file_path}
+                return {"message": "Converting to motioncor on the way! " + abs_file_path}
 
         except Exception as e:
             return {"error": str(e)}
