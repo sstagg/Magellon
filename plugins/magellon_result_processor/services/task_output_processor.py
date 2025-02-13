@@ -86,7 +86,7 @@ class TaskOutputProcessor:
         """Save task output data to database."""
         if task_result.output_data:
             output_meta = ImageMetaData(
-                oid=UUID(int=0).int,
+                oid=uuid.uuid4(),
                 name=f"{task_result.type.name} Data",
                 data=json.dumps(task_result.output_data).encode("utf-8"),
                 image_id=task_result.image_id
@@ -98,7 +98,8 @@ class TaskOutputProcessor:
         try:
             if task_result.meta_data:
                 meta_list_dicts = [meta.dict(exclude_none=True) for meta in task_result.meta_data]
-                category_id = self._get_queue_type_category(task_result.type) or 10  # Default to 10 if no category found
+                task_type = task_result.type.name.lower()
+                category_id = self._get_queue_type_category(task_type) or 10  # Default to 10 if no category found
 
                 meta_data = ImageMetaData(
                     oid=uuid.uuid4(),
