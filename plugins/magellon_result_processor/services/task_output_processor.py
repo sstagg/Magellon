@@ -3,7 +3,6 @@ from uuid import UUID
 import os
 import json
 from sqlalchemy.orm import Session
-
 from core.model_dto import TaskResultDto
 from core.settings import AppSettingsSingleton, QueueType
 from core.sqlalchemy_models import ImageMetaData
@@ -53,7 +52,7 @@ class TaskOutputProcessor:
         """Get the appropriate destination directory based on task type."""
         task_type = task_result.type.name.lower()
         # Try to get directory from queue type first
-        queue_specific_dir = self._get_queue_type_output_dir(task_result.type)
+        queue_specific_dir = self._get_queue_type_output_dir(task_type)
         dir_name = queue_specific_dir or task_type
 
         file_name = os.path.splitext(os.path.basename(task_result.image_path))[0]

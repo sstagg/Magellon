@@ -419,8 +419,8 @@ def get_ctf_image_route(name: str, image_type: str):
 
         # Define a mapping for file paths based on the image type
         file_paths = {
-            "one": f"{base_path}/{name}_mco_one.png",
-            "two": f"{base_path}/{name}_mco_two.png"
+            "one": f"{base_path}/{name}_mco_one.jpg",
+            "two": f"{base_path}/{name}_mco_two.jpg"
         }
         logger.debug("file_paths: {}".format(file_paths))
 
