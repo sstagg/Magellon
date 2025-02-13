@@ -1,10 +1,24 @@
-import { Typography, List, ListItem, ListItemIcon, ListItemText, Box } from "@mui/material";
+import {
+    Typography,
+    List,
+    ListItem,
+    ListItemIcon,
+    ListItemText,
+    Box,
+    Dialog,
+    DialogContent,
+    CircularProgress
+} from "@mui/material";
 import FolderIcon from '@mui/icons-material/Folder';
+import ErrorIcon from '@mui/icons-material/Error';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import { useState, useEffect } from "react";
 import { settings } from "../../core/settings.ts";
+import Button from "@mui/material/Button";
+import {CheckCircleIcon} from "lucide-react";
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
+
 
 type FileItem = {
     id: number;
@@ -16,12 +30,51 @@ type FileItem = {
     updated_at: string;
 };
 
+type ImportStatus = 'idle' | 'processing' | 'success' | 'error';
+
 export const MagellonImportComponent = () => {
     const [files, setFiles] = useState<FileItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [currentPath, setCurrentPath] = useState("/gpfs");
     const [selectedFile, setSelectedFile] = useState<string | null>(null);
+    const [importStatus, setImportStatus] = useState<ImportStatus>('idle');
+    const [importError, setImportError] = useState<string | null>(null);
+
+
+    const handleImport = async () => {
+        if (!selectedFile) return;
+
+        // Get the directory path of the selected file
+        const selectedDir = selectedFile.substring(0, selectedFile.lastIndexOf('/'));
+
+        setImportStatus('processing');
+        setImportError(null);
+
+        try {
+            let exportUrl: string = BASE_URL.replace(/\/web$/, '/export');
+            const response = await fetch(`${exportUrl}/magellon-import`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    source_dir: selectedDir
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Import failed');
+            }
+
+            setImportStatus('success');
+        } catch (err) {
+            setImportStatus('error');
+            setImportError(err instanceof Error ? err.message : 'Import failed');
+        }
+    };
+
 
     const fetchDirectory = async (path: string) => {
         setLoading(true);
@@ -60,6 +113,10 @@ export const MagellonImportComponent = () => {
         }
     };
 
+    const handleCloseDialog = () => {
+        setImportStatus('idle');
+        setImportError(null);
+    };
     return (
         <div>
             <Typography variant="h6" gutterBottom>
@@ -139,10 +196,72 @@ export const MagellonImportComponent = () => {
             </Box>
 
             {selectedFile && (
-                <Typography sx={{ mt: 2 }} color="primary">
-                    Selected file: {selectedFile}
-                </Typography>
+                <>
+                    <Typography sx={{ mt: 2 }} color="primary">
+                        Selected file: {selectedFile}
+                    </Typography>
+                    <Button
+                        variant="contained"
+                        color="primary"
+                        onClick={handleImport}
+                        disabled={importStatus === 'processing'}
+                    >
+                        Import Data
+                    </Button>
+                </>
+
+
             )}
+            {/* Status Dialog */}
+            <Dialog
+                open={importStatus !== 'idle'}
+                onClose={importStatus !== 'processing' ? handleCloseDialog : undefined}
+            >
+                <DialogContent sx={{
+                    minWidth: 300,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 2,
+                    p: 4
+                }}>
+                    {importStatus === 'processing' && (
+                        <>
+                            <CircularProgress size={48} />
+                            <Typography>
+                                Processing import... Please wait
+                            </Typography>
+                        </>
+                    )}
+                    {importStatus === 'success' && (
+                        <>
+                            <CheckCircleIcon color="success" sx={{ fontSize: 48 }} />
+                            <Typography>
+                                Import completed successfully
+                            </Typography>
+                            <Button onClick={handleCloseDialog}>
+                                Close
+                            </Button>
+                        </>
+                    )}
+                    {importStatus === 'error' && (
+                        <>
+                            <ErrorIcon color="error" sx={{ fontSize: 48 }} />
+                            <Typography color="error">
+                                Import failed
+                            </Typography>
+                            {importError && (
+                                <Typography variant="body2" color="error">
+                                    {importError}
+                                </Typography>
+                            )}
+                            <Button onClick={handleCloseDialog}>
+                                Close
+                            </Button>
+                        </>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };
