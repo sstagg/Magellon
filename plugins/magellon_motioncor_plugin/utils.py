@@ -476,7 +476,9 @@ def createframealignImage(outputmrcpath, data, directory_path,originalsize,input
         mask_slice = mask[y_start-py+dot_size:y_end-py+dot_size, x_start-px+dot_size:x_end-px+dot_size]
         new_data[y_start:y_end, x_start:x_end][mask_slice] = np.max(new_data)
     
-    normalized_data = ((new_data - np.min(new_data)) / (np.max(new_data) - np.min(new_data)) * 255).astype(np.uint8)
+    min_val, max_val = np.percentile(new_data, (1, 99)) 
+    new_data = np.clip(new_data, min_val, max_val)
+    normalized_data = ((new_data - min_val) / (max_val - min_val) * 255).astype(np.uint8)
     img = Image.fromarray(normalized_data)
     resize_factor=0.3
     width, height = img.size
