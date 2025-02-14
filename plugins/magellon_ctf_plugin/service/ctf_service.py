@@ -9,6 +9,7 @@ from core.model_dto import CtfTaskData, OutputFile, TaskDto, TaskResultDto, Imag
 from core.settings import AppSettingsSingleton
 from service.ctfeval import run_ctf_evaluation
 from utils import buildCtfCommand, readLastLine, getFileContents
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +153,7 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
                     "output_txt": await getFileContents(f"{outputFileName}.txt"),
                     "output_avrot": await getFileContents(f"{outputFileName}_avrot.txt")
                 },
-                meta_data=result,
+                meta_data=[ImageMetaData(key="CTF", value=json.dumps(result), image_id=f"{outputFileName}.mrc")],
                 output_files=output_files
             )
 
@@ -177,7 +178,7 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
                     "output_txt": await getFileContents(f"{outputFileName}.txt"),
                     "output_avrot": await getFileContents(f"{outputFileName}_avrot.txt")
                 },
-                meta_data=[],
+                meta_data=[ImageMetaData(key="CTF", value=json.dumps(result), image_id=f"{outputFileName}.mrc")],
                 output_files=output_files
             )
 

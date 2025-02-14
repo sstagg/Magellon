@@ -359,29 +359,38 @@ def get_image_ctf_data_route(image_name_or_oid: str, db: Session = Depends(get_d
         ImageMetaData.image_id == db_image.oid,
         ImageMetaData.data_json != None
     ).first()
-    if not db_ctf:
-        raise HTTPException(status_code=404, detail="CTF data not found")
-        # data_json is like : [{"key": "volts", "value": "300000.0"}, {"key": "cs", "value": "2.7"}, {"key": "apix", "value": "0.395"}, {"key": "defocus1", "value": "1.7631689452999998e-06"}, {"key": "defocus2", "value": "1.5946771484000002e-06"}, {"key": "angle_astigmatism", "value": "-1.1467587588191854"}, {"key": "amplitude_contrast", "value": "0.07"}, {"key": "extra_phase_shift", "value": "0.0"}, {"key": "confidence_30_10", "value": "-0.2375991372968843"}, {"key": "confidence_5_peak", "value": "-0.07497673401657018"}, {"key": "overfocus_conf_30_10", "value": "-0.26712254410180497"}, {"key": "overfocus_conf_5_peak", "value": "-0.10697129942661074"}, {"key": "resolution_80_percent", "value": "18.057936148038742"}, {"key": "resolution_50_percent", "value": "16.380544285663692"}, {"key": "confidence", "value": "-0.07497673401657018"}]
-        # get re
-    data_json = db_ctf.data_json
+    # if not db_ctf:
+    #     raise HTTPException(status_code=404, detail="CTF data not found")
+    #     # data_json is like : [{"key": "volts", "value": "300000.0"}, {"key": "cs", "value": "2.7"}, {"key": "apix", "value": "0.395"}, {"key": "defocus1", "value": "1.7631689452999998e-06"}, {"key": "defocus2", "value": "1.5946771484000002e-06"}, {"key": "angle_astigmatism", "value": "-1.1467587588191854"}, {"key": "amplitude_contrast", "value": "0.07"}, {"key": "extra_phase_shift", "value": "0.0"}, {"key": "confidence_30_10", "value": "-0.2375991372968843"}, {"key": "confidence_5_peak", "value": "-0.07497673401657018"}, {"key": "overfocus_conf_30_10", "value": "-0.26712254410180497"}, {"key": "overfocus_conf_5_peak", "value": "-0.10697129942661074"}, {"key": "resolution_80_percent", "value": "18.057936148038742"}, {"key": "resolution_50_percent", "value": "16.380544285663692"}, {"key": "confidence", "value": "-0.07497673401657018"}]
+    #     # get re
+    # data_json = db_ctf.data_json
+    try:
+        ctf_entry = next(item for item in db_ctf.data_json if item['key'] == 'CTF')
+        ctf_value = ctf_entry['value']
+        
+        # If value is a string, it should be a stringified JSON, so we need to parse it
+        if isinstance(ctf_value, str):
+            ctf_data = json.loads(ctf_value)
+        else:
+            ctf_data = ctf_value  # If it's already a dictionary, use it directly
+    except (KeyError, StopIteration, json.JSONDecodeError):
+        raise HTTPException(status_code=500, detail="Invalid CTF data format")
+
 
     # Defocus1 and Defocus2: Multiply by 10^6 and add units of μm
-    defocus1 = next((float(item['value']) * 1e6 for item in data_json if item['key'] == 'defocus1'), None)
-    defocus2 = next((float(item['value']) * 1e6 for item in data_json if item['key'] == 'defocus2'), None)
-
-    # Angle Astigmatism: Convert from radians to degrees and add units of °
-    angle_astigmatism = next((math.degrees(float(item['value'])) for item in data_json if item['key'] == 'angle_astigmatism'), None)
-
-    # Resolution: Round to the 100th place and add units of Å
-    resolution = next((round(float(item['value']), 2) for item in data_json if item['key'] == 'resolution_50_percent'), None)
+    defocus1 = round(float(ctf_data.get('defocus1', 0)) * 1e6, 2) if 'defocus1' in ctf_data else None
+    defocus2 = round(float(ctf_data.get('defocus2', 0)) * 1e6, 2) if 'defocus2' in ctf_data else None
+    angle_astigmatism = round(math.degrees(float(ctf_data.get('angle_astigmatism', 0))), 2) if 'angle_astigmatism' in ctf_data else None
+    resolution = round(float(ctf_data.get('resolution_50_percent', 0)), 2) if 'resolution_50_percent' in ctf_data else None
 
     result = {
         "filename": db_image.name,
-        "defocus1": round(defocus1, 2) if defocus1 is not None else None,  # Float value for defocus1
-        "defocus2": round(defocus2, 2) if defocus2 is not None else None,  # Float value for defocus2
-        "angleAstigmatism": round(angle_astigmatism, 2) if angle_astigmatism is not None else None,  # Float value for angleAstigmatism
-        "resolution": round(resolution, 2) if resolution is not None else None  # Float value for resolution
+        "defocus1": defocus1,
+        "defocus2": defocus2,
+        "angleAstigmatism": angle_astigmatism,
+        "resolution": resolution
     }
+
 
     return result
 
