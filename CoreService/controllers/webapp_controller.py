@@ -357,7 +357,8 @@ def get_image_ctf_data_route(image_name_or_oid: str, db: Session = Depends(get_d
 
     db_ctf = db.query(ImageMetaData).filter(
         ImageMetaData.image_id == db_image.oid,
-        ImageMetaData.data_json != None
+        ImageMetaData.data_json != None,
+        ImageMetaData.name=="CTF Meta Data"
     ).first()
     # if not db_ctf:
     #     raise HTTPException(status_code=404, detail="CTF data not found")
