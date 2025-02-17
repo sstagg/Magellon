@@ -1,8 +1,5 @@
 #!/bin/bash
 
-rm -rf ./mysql/data/*
-rm -rf ./consul/data/*
-
 # Step 1: Start Docker Compose
 if command -v docker-compose &> /dev/null; then
     DOCKER_CMD="docker-compose"
