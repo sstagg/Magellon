@@ -16,10 +16,13 @@ def getSubCommand(attribute: str, value: Optional[str] = None) -> List[str]:
 def buildCtfCommand(params: CtfTaskData) -> str:
     # ctf_file=os.environ.get("CTF_ESTIMATION_FILE")
     ctf_file=os.environ.get("CTF_ESTIMATION_FILE")
+    binning = params.binning_x if params.binning_x is not None else 1
+    adjusted_pixelSize = params.pixelSize * binning if params.pixelSize is not None else 1.0
+
     values = [
         params.inputFile or "None",
         params.outputFile or "output.mrc",
-        str(params.pixelSize) if params.pixelSize is not None else "1.0",
+        str(adjusted_pixelSize),
         str(params.accelerationVoltage) if params.accelerationVoltage is not None else "300.0",
         str(params.sphericalAberration) if params.sphericalAberration is not None else "2.70",
         str(params.amplitudeContrast) if params.amplitudeContrast is not None else "0.07",

@@ -233,8 +233,9 @@ def dispatch_ctf_task(task_id, full_image_path, task_dto: ImportTaskDto):
         maximumResolution=task_dto.maximum_resolution,
         minimumDefocus=task_dto.minimum_defocus,
         maximumDefocus=task_dto.maximum_defocus,
-        defocusSearchStep=task_dto.defocus_search_step
-    )
+        defocusSearchStep=task_dto.defocus_search_step,
+        binning_x=task_dto.binning_x
+        )
 
     job_id = None
 

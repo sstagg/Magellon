@@ -35,7 +35,8 @@ class CtfTaskFactory(TaskFactory):
                 maximumResolution=5,
                 minimumDefocus=5000,
                 maximumDefocus=50000,
-                defocusSearchStep=100
+                defocusSearchStep=100,
+                binning_x=1
             ).model_dump()
         else:
             ctf_data = data

@@ -116,6 +116,7 @@ class CtfTaskData(CryoEmImageTaskData):
     minimumDefocus: float = 5000.0
     maximumDefocus: float = 50000.0
     defocusSearchStep: float = 100.0
+    binning_x:int=1
 
 
 class FftTask(TaskDto):

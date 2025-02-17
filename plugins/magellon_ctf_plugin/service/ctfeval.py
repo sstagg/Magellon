@@ -3,7 +3,7 @@ from pyami import mrc
 from appionlib import apDisplay
 from appionlib.apCtf import ctfdisplay
 
-async def run_ctf_evaluation(imagefile,ouputimageFile, apix, cs, kv, reslimit=5.0, defocus1=None, defocus2=None,
+async def run_ctf_evaluation(imagefile,ouputimageFile, apix, cs, kv,binning, reslimit=5.0, defocus1=None, defocus2=None,
                        ampcontrast=None, extraphaseshift=None, astigangle=None, debug=False):
     imgdata = {
         'filename': os.path.abspath(ouputimageFile),
@@ -39,7 +39,7 @@ async def run_ctf_evaluation(imagefile,ouputimageFile, apix, cs, kv, reslimit=5.
     ctfdata = {
         'volts': float(kv)* 1e3,
         'cs': float(cs),
-        'apix': float(apix),
+        'apix': float(apix*binning),
         'defocus1': float(defocus1) * 1e-6 if defocus1 is not None else None,
         'defocus2': float(defocus2) * 1e-6 if defocus2 is not None else None,
         'angle_astigmatism': float(astigangle),

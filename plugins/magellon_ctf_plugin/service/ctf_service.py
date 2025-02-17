@@ -32,6 +32,9 @@ def validateInput(params):
     if not isinstance(params.sizeOfAmplitudeSpectrum, int) or params.sizeOfAmplitudeSpectrum <= 0:
         raise ValueError("sizeOfAmplitudeSpectrum must be a number and greater than zero.")
     
+    if not isinstance(params.binning_x, int) or params.binning_x <= 0:
+        raise ValueError("binning must be a number and greater than zero.")
+    
     if not isinstance(params.minimumResolution, (float, int)) or params.minimumResolution <= 0:
         raise ValueError("minimumResolution must be a number and greater than zero.")
     
@@ -125,7 +128,7 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
         try:
             result = await run_ctf_evaluation(
                 f'{the_task_data.inputFile}',os.path.join(directory_path, the_task.data["outputFile"]), the_task_data.pixelSize, the_task_data.sphericalAberration,
-                the_task_data.accelerationVoltage, the_task_data.maximumResolution,
+                the_task_data.accelerationVoltage, the_task_data.binning_x, the_task_data.maximumResolution,
                 float(CTFestimationValues[1]) * 1e-4, float(CTFestimationValues[2]) * 1e-4,
                 the_task_data.amplitudeContrast, CTFestimationValues[4],
                 math.radians(float(CTFestimationValues[3]))

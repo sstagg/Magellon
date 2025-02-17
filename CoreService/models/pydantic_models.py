@@ -184,6 +184,7 @@ class ImportTaskDto(BaseModel):
     minimum_defocus: Optional[int] = 5000
     maximum_defocus: Optional[int] = 50000
     defocus_search_step: Optional[int] = 100
+    binning_x:Optional[int]=1
 
 
 class LeginonFrameTransferJobBase(ImportJobBase):
@@ -255,6 +256,7 @@ class ImportTaskDto(BaseModel):
     minimum_defocus: Optional[int] = 5000
     maximum_defocus: Optional[int] = 50000
     defocus_search_step: Optional[int] = 100
+    binning_x: Optional[int]=1
 
 class LeginonFrameTransferTaskDto(ImportTaskDto):
     job_dto: LeginonFrameTransferJobDto

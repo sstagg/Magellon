@@ -65,7 +65,8 @@ def create_task():
         maximumResolution=5,
         minimumDefocus=5000,
         maximumDefocus=50000,
-        defocusSearchStep=100
+        defocusSearchStep=100,
+        binning_x=2
     )
 
     ctf_task = CtfTaskFactory.create_task(pid=str(uuid.uuid4()), instance_id=uuid.uuid4(), job_id=uuid.uuid4(),
