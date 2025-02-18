@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from core.model_dto import CryoEmMotionCorTaskData
 from PIL import Image
 import tifffile
+import cv2
 # logger=setupLogger()
 logger = logging.getLogger(__name__)
 def getSubCommand(attribute: str, value: Optional[str] = None) -> List[str]:
@@ -476,19 +477,24 @@ def createframealignImage(outputmrcpath, data, directory_path,originalsize,input
         mask_slice = mask[y_start-py+dot_size:y_end-py+dot_size, x_start-px+dot_size:x_end-px+dot_size]
         new_data[y_start:y_end, x_start:x_end][mask_slice] = np.max(new_data)
     
-    min_val, max_val = np.percentile(new_data, (1, 99)) 
+    min_val, max_val = np.percentile(new_data, (1, 99))
     new_data = np.clip(new_data, min_val, max_val)
     normalized_data = ((new_data - min_val) / (max_val - min_val) * 255).astype(np.uint8)
-    img = Image.fromarray(normalized_data)
-    resize_factor=0.3
-    width, height = img.size
+    
+    alpha = 1.5  # Contrast control (1.0-3.0)
+    beta = 20    # Brightness control (0-100)
+    enhanced_data = cv2.convertScaleAbs(normalized_data, alpha=alpha, beta=beta)
 
-# Calculate new dimensions
-    new_width = int(width * resize_factor)
-    new_height = int(height * resize_factor)
+    # Convert to PIL Image
+    img = Image.fromarray(enhanced_data)
 
     # Resize image
+    resize_factor = 0.3
+    new_width = int(img.width * resize_factor)
+    new_height = int(img.height * resize_factor)
     img = img.resize((new_width, new_height), Image.LANCZOS)
+
+    # Save the image
     new_filename = f"{inputFileName}_mco_two.jpg"
     new_filepath = os.path.join(directory_path, new_filename)
     img.save(new_filepath, "JPEG", quality=80)
@@ -536,22 +542,27 @@ def createframealignCenterImage(outputmrcpath, data, directory_path,originalsize
         # Apply the dot to the image
         mask_slice = mask[y_start-py+dot_size:y_end-py+dot_size, x_start-px+dot_size:x_end-px+dot_size]
         new_data[y_start:y_end, x_start:x_end][mask_slice] = np.max(new_data)
+    min_val, max_val = np.percentile(new_data, (1, 99))
+    new_data = np.clip(new_data, min_val, max_val)
+    normalized_data = ((new_data - min_val) / (max_val - min_val) * 255).astype(np.uint8)
     
-    normalized_data = ((new_data - np.min(new_data)) / (np.max(new_data) - np.min(new_data)) * 255).astype(np.uint8)
-    img = Image.fromarray(normalized_data)
-    resize_factor=0.3
-    width, height = img.size
+    alpha = 1.5  # Contrast control (1.0-3.0)
+    beta = 20    # Brightness control (0-100)
+    enhanced_data = cv2.convertScaleAbs(normalized_data, alpha=alpha, beta=beta)
 
-# Calculate new dimensions
-    new_width = int(width * resize_factor)
-    new_height = int(height * resize_factor)
+    # Convert to PIL Image
+    img = Image.fromarray(enhanced_data)
 
     # Resize image
+    resize_factor = 0.3
+    new_width = int(img.width * resize_factor)
+    new_height = int(img.height * resize_factor)
     img = img.resize((new_width, new_height), Image.LANCZOS)
+
+    # Save the image
     new_filename = f"{inputFileName}_mco_one.jpg"
     new_filepath = os.path.join(directory_path, new_filename)
-    img.save(new_filepath, "JPEG", quality=50)
-    
+    img.save(new_filepath, "JPEG", quality=80)
     # with mrcfile.new(new_filepath, overwrite=True) as new_mrc:
     #     new_mrc.set_data(new_data)
         
