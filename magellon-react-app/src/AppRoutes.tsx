@@ -10,7 +10,7 @@ const AppRoutes = () => {
     return (
         <Routes>
             {/*<Route path="/" element={<Home/>}/>*/}
-            <Route path="/" element={<Navigate to='/en/web'/>}/>
+            <Route path="/" element={<Navigate to='/en/panel/images'/>}/>
             <Route path="*" element={<Navigate to='/404'/>}/>
             <Route path="404" element={<PageNotFoundView/>}/>
             <Route path="/:lang/web/*" element={<MainWebTemplate/>}/>

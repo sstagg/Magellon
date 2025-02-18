@@ -25,7 +25,7 @@ export default function WebHeader() {
                     <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
                         Magellon
                     </Typography>
-                    <Button color="inherit" onClick={()=> navigate("/en/panel")}>Login</Button>
+                    <Button color="inherit" onClick={()=> navigate("/en/panel")}>Panel</Button>
                 </Toolbar>
             </AppBar>
 

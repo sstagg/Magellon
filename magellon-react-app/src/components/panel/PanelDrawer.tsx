@@ -20,15 +20,15 @@ import {AccountTree, Api, Extension, ImportExport, QuestionMark, Settings} from 
 const drawerWidth = 240;
 const links: AppLink[] = [
     new AppLink("Images", "images", "images"),
-    new AppLink("Run Job", "run-job", "plugins"),
-    new AppLink("Plugins", "domains/plugins", "plugins"),
-    new AppLink("Pipelines", "domains/plugins", "account-tree"),
+    // new AppLink("Run Job", "run-job", "plugins"),
+    // new AppLink("Plugins", "domains/plugins", "plugins"),
+    // new AppLink("Pipelines", "domains/plugins", "account-tree"),
     new AppLink("Import", "import-job", "import"),
-    new AppLink("API", "api", "api"),
-    new AppLink("Mrc Viewer", "mrc-viewer", "image"),
-    new AppLink("2D Assessment", "2d-assess", "image"),
+    // new AppLink("API", "api", "api"),
+    // new AppLink("Mrc Viewer", "mrc-viewer", "image"),
+    // new AppLink("2D Assessment", "2d-assess", "image"),
     // new AppLink("Blogs", "domains/blogs", "google-icon"),
-    new AppLink("Settings", "domains/blogs", "settings"),
+    // new AppLink("Settings", "domains/blogs", "settings"),
 ];
 const DrawerHeader = styled('div')(({ theme }) => ({
     display: 'flex',

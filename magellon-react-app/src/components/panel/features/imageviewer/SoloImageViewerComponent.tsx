@@ -135,7 +135,7 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
                         {/*<InfoLine icon={<Info />} caption="PixelSize" value={imageInfo?.pixelSize} />*/}
                         {/*<InfoLine icon={<Mail />} caption="Created" value={imageInfo?.filename} />*/}
                         <InfoLineComponent icon={<InfoOutlined />} caption="PixelSize" value={`${selectedImage?.pixelSize} Å/pix`} />
-                        <InfoLineComponent icon={<InfoOutlined />} caption="Researcher" value="Shirin" />
+                        <InfoLineComponent icon={<InfoOutlined />} caption="Researcher" value="Magellon User" />
                     </Stack>
 
                 </Stack>
@@ -147,7 +147,7 @@ export const SoloImageViewerComponent : React.FC<SoloImageViewerProps>= ({ selec
                             <Tab label="Image" value="1" />
                             <Tab label="FFT" value="2" />
                             <Tab label="Particle Picking" value="3" onClick={ParticlePickingTabClicked} />
-                            <Tab label="Variations" value="4" />
+                            {/*<Tab label="Variations" value="4" />*/}
                             <Tab label="CTF" value="5" onClick={handleCtfInfoLoad} />
                             <Tab label="Frame Alignment" value="6" />
                             <Tab label="Meta" value="7" />
