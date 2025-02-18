@@ -142,7 +142,7 @@ export const MagellonImportComponent = () => {
     return (
         <div>
             <Typography variant="h6" gutterBottom>
-                Import Data from Magellan Microscope Sessions
+                Import Data from Magellon Microscope Sessions
             </Typography>
 
             <Typography variant="body2" color="textSecondary" gutterBottom>
