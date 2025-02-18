@@ -38,21 +38,15 @@ if which xdg-open > /dev/null
 then
   xdg-open "http://localhost:8080/en/panel/images"
   xdg-open "http://localhost:8000"
-  xdg-open "http://localhost:15672"
-  xdg-open "http://localhost:8500"
-  xdg-open "http://localhost:3000"
+
 elif which gnome-open > /dev/null
 then
   gnome-open "http://localhost:8080/en/panel/images"
   gnome-open "http://localhost:8000"
-  gnome-open "http://localhost:15672"
-  gnome-open "http://localhost:8500"
-  gnome-open "http://localhost:3000"
+
 elif which open > /dev/null    # For macOS
 then
   open "http://localhost:8080/en/panel/images"
   open "http://localhost:8000"
-  open "http://localhost:15672"
-  open "http://localhost:8500"
-  open "http://localhost:3000"
+
 fi
