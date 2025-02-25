@@ -8,6 +8,7 @@ import uuid
 from typing import Optional
 
 from services.importers.EPUImporter import parse_xml, scan_directory, parse_directory, EPUImporter
+from services.importers.SerialEmImporter import parse_mdoc
 
 # from EPUImporter import parse_xml, EPUMetadata, scan_directory, parse_directory
 # from models.pydantic_models import EPUImportJobDto
@@ -149,3 +150,68 @@ async def test_scan_directory(directory_path: str = Form(...)):
 #             status_code=500,
 #             content={"status": "error", "message": f"Error creating EPU import job: {str(e)}"}
 #         )
+
+
+
+
+@test_router.post("/parse-mdoc")
+async def test_parse_mdoc(file: UploadFile = File(...)):
+    """
+    Test parsing a SerialEM .mdoc file.
+    """
+    # Create a temporary file to store the uploaded mdoc
+    temp_dir = tempfile.mkdtemp()
+    temp_file_path = os.path.join(temp_dir, file.filename)
+
+    try:
+        # Write the uploaded file to the temporary location
+        with open(temp_file_path, "wb") as temp_file:
+            content = await file.read()
+            temp_file.write(content)
+
+        # Parse the mdoc file
+        result = parse_mdoc(temp_file_path)
+
+        # Convert to dict for JSON response
+        return {"status": "success", "result": result.dict()}
+    except Exception as e:
+        logger.error(f"Error parsing SerialEM mdoc: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"status": "error", "message": f"Error parsing SerialEM mdoc: {str(e)}"}
+        )
+    finally:
+        # Clean up the temporary file
+        if os.path.exists(temp_file_path):
+            os.remove(temp_file_path)
+        os.rmdir(temp_dir)
+
+@test_router.post("/parse-mdoc-content")
+async def test_parse_mdoc_content(mdoc_content: str = Form(...)):
+    """
+    Test parsing raw SerialEM .mdoc content.
+    """
+    try:
+        # Create a temporary file with the mdoc content
+        temp_dir = tempfile.mkdtemp()
+        temp_file_path = os.path.join(temp_dir, "test.mdoc")
+
+        with open(temp_file_path, "w") as f:
+            f.write(mdoc_content)
+
+        # Parse the mdoc
+        result = parse_mdoc(temp_file_path)
+
+        return {"status": "success", "result": result.dict()}
+    except Exception as e:
+        logger.error(f"Error parsing SerialEM mdoc content: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"status": "error", "message": f"Error parsing SerialEM mdoc content: {str(e)}"}
+        )
+    finally:
+        # Clean up
+        if os.path.exists(temp_file_path):
+            os.remove(temp_file_path)
+        os.rmdir(temp_dir)
+
