@@ -4,11 +4,10 @@ import subprocess
 import json
 import concurrent.futures
 from core.helper import push_info_to_debug_queue
-from utils import getImageSize,validateInput,build_motioncor3_command,getFrameAlignment,getPatchFrameAlignment,createframealignImage,isFilePresent,createframealignCenterImage,getFilecontentsfromThread
+from utils import save_gain_file,convertToMRC,is_mrc_file,getImageSize,validateInput,build_motioncor3_command,getFrameAlignment,getPatchFrameAlignment,createframealignImage,isFilePresent,createframealignCenterImage,getFilecontentsfromThread
 from datetime import datetime
 from core.settings import AppSettingsSingleton
 from core.model_dto import CryoEmMotionCorTaskData, OutputFile, TaskDto, TaskResultDto,DebugInfo,ImageMetaData
-
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +62,9 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
         params.data["OutMrc"] = os.path.join(directory_path, the_task_data.OutMrc)
         the_task_data.OutMrc =  params.data["OutMrc"] 
         the_task_data.LogDir= directory_path
+        if not is_mrc_file(the_task_data.Gain):
+            the_task_data.Gain=convertToMRC(the_task_data.Gain,directory_path)
+            save_gain_file(the_task_data.Gain,directory_path)
         command = build_motioncor3_command(the_task_data)
         logger.info("Command: %s", command)
         process = subprocess.run(

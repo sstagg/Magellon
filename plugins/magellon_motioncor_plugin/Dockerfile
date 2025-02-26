@@ -60,6 +60,7 @@ RUN rm -rf /root/.cache/pip/*
 # Install other Python dependencies
 COPY requirements.txt ./
 RUN pip install --upgrade -r ./requirements.txt
+RUN ln -s /usr/lib/x86_64-linux-gnu/libtiff.so.5 /usr/lib/x86_64-linux-gnu/libtiff.so.6
 
 # Install debugpy
 RUN pip install --upgrade pip
@@ -98,7 +99,7 @@ EXPOSE 80
 
 # Copy MotionCor2 binaries and libraries
 COPY MotionCor2_1.6.4_Cuda121_Mar312023 ./MotionCor2_1.6.4_Cuda121_Mar312023
-
+COPY MotionCor3_1.0.1_Cuda121_10-26-2023 ./MotionCor3_1.0.1_Cuda121_10-26-2023
 # Set executable permissions for MotionCor2
 # RUN chmod +x /MotionCor2/MotionCor2
 

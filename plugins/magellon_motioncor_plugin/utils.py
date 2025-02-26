@@ -587,3 +587,62 @@ def getImageSize(file,filetype):
             return x_size, y_size
     else:
         raise ValueError("Invalid file type. Must be .mrc, .tif, or .eer.")
+    
+
+def convert_eer_to_mrc(input_file, output_file):
+    """Convert EER file to MRC format using tifffile."""
+    try:
+        eer_data = tifffile.imread(input_file)
+        
+        # Save as MRC
+        with mrcfile.new(output_file, overwrite=True) as mrc:
+            mrc.set_data(np.array(eer_data, dtype=np.uint16))
+
+        print(f"Converted {input_file} to {output_file}")
+
+    except Exception as e:
+        print(f"Error converting EER to MRC: {e}")
+
+def convert_tiff_to_mrc(input_file, output_file):
+    """Convert TIFF file to MRC format."""
+    try:
+        img = tifffile.imread(input_file)
+        with mrcfile.new(output_file, overwrite=True) as mrc:
+            mrc.set_data(np.array(img, dtype=np.uint16))
+        print(f"Converted {input_file} to {output_file}")
+    except Exception as e:
+        print(f"Error converting TIFF to MRC: {e}")
+
+def convertToMRC(file, directorypath):
+    ext = file.split('.')[-1].lower()
+    base_name = os.path.splitext(os.path.basename(file))[0]
+    output_file = os.path.join(directorypath, base_name + ".mrc")
+    
+    if ext == "eer":
+        convert_eer_to_mrc(file, output_file)
+    elif ext in ["tif", "tiff"]:
+        convert_tiff_to_mrc(file, output_file)
+    else:
+        raise ValueError("Error: Unsupported file type. Only MRC, EER, and TIFF are allowed.")
+    
+    return output_file
+
+def is_mrc_file(filepath):
+    if not filepath.lower().endswith('.mrc'):
+        return False  # Quick rejection based on file extension
+    
+    try:
+        with mrcfile.open(filepath, permissive=True) as mrc:
+            return mrc.header is not None  # Valid MRC files should have a header
+    except Exception:
+        return False
+
+def save_gain_file(gain_file, directorypath):
+    """Save the new gain file in the specified directory."""
+    try:
+        new_gain_path = os.path.join(directorypath, os.path.basename(gain_file))
+        os.rename(gain_file, new_gain_path)
+        print(f"Saved gain file to {new_gain_path}")
+        return new_gain_path
+    except Exception as e:
+        print(f"Error saving gain file: {e}")
