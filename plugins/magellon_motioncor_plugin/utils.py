@@ -615,8 +615,7 @@ def convert_tiff_to_mrc(input_file, output_file):
 
 def convertToMRC(file, directorypath):
     ext = file.split('.')[-1].lower()
-    base_name = os.path.splitext(os.path.basename(file))[0]
-    output_file = os.path.join(directorypath, base_name + ".mrc")
+    output_file = os.path.join(directorypath, os.path.basename(file).replace(ext, "mrc"))
     
     if ext == "eer":
         convert_eer_to_mrc(file, output_file)
