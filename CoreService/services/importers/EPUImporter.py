@@ -218,11 +218,11 @@ def parse_xml(file_path: str) -> EPUMetadata:
     extracted_data['file_path'] = file_path
     return EPUMetadata(**extracted_data)
 
-class DirectoryStructure(BaseModel):
-    name: str
-    path: str
-    type: str
-    children: list = None
+# class DirectoryStructure(BaseModel):
+#     name: str
+#     path: str
+#     type: str
+#     children: list = None
 
 
 
@@ -589,7 +589,7 @@ class EPUImporter(BaseImporter):
 
             # Create task DTO for file processing
             task_dto = EPUImportTaskDto(
-                task_id=uuid.uuid4(),
+                task_id=job_task.oid,
                 task_alias=f"epu_{filename}_{job_id}",
                 file_name=filename,
                 image_id=db_image.oid,
