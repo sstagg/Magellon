@@ -110,7 +110,6 @@ class BaseImporter(ABC):
             project = Project(
                 oid=uuid.uuid4(),
                 name=project_name,
-                created_date=datetime.now(),
                 last_accessed_date=datetime.now()
             )
             db_session.add(project)
@@ -142,7 +141,6 @@ class BaseImporter(ABC):
                 oid=uuid.uuid4(),
                 name=session_name,
                 project_id=project_id,
-                created_date=datetime.now(),
                 last_accessed_date=datetime.now()
             )
             db_session.add(session)
