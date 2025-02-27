@@ -262,14 +262,14 @@ def lowpass_filter(image, resolution, pixel_size):
     return filtered_image
 
 
-def process_individual_images(file_path: str, output_path: str, p_resolution:float) -> Dict:
+def do_low_pass_filter(file_path: str, output_path: str, p_resolution:float) -> Dict:
     """
     Process MRC file with Gaussian low-pass filtering.
 
     Args:
         file_path: Path to the input MRC file
         output_path: Path where the processed MRC file will be saved
-        resolution: Target resolution in angstroms
+        p_resolution: Target resolution in angstroms
 
     Returns:
         Dict with processing results including status and file paths
@@ -322,7 +322,7 @@ def process_individual_images(file_path: str, output_path: str, p_resolution:flo
 
 
 @image_processing_router.post("/low-pass-from-path/", summary="Process an MRC file using file paths")
-async def process_from_path(input_path: str, output_path: str,p_resolution :float) -> Dict:
+async def do_low_pass_from_path(input_path: str, output_path: str, p_resolution :float) -> Dict:
     """
     Process an MRC file with Gaussian low-pass filtering.
 
@@ -334,7 +334,7 @@ async def process_from_path(input_path: str, output_path: str,p_resolution :floa
         Dict: Processing results including status and file paths
     """
     try:
-        result = process_individual_images(
+        result = do_low_pass_filter(
             input_path,
             output_path,
             p_resolution
@@ -350,7 +350,7 @@ async def process_from_path(input_path: str, output_path: str,p_resolution :floa
 
 
 @image_processing_router.post("/low-pass-from-upload/", summary="Process an uploaded MRC file")
-async def process_from_upload(file: UploadFile = File(...)):
+async def do_low_pass_from_upload(p_resolution:float, file: UploadFile = File(...)):
     """
     Process an uploaded MRC file and return the processed file for download.
 
@@ -374,7 +374,7 @@ async def process_from_upload(file: UploadFile = File(...)):
         temp_output.close()
 
         # Process the file
-        result = process_individual_images(temp_input_path, temp_output_path, params)
+        result = do_low_pass_filter(temp_input_path, temp_output_path, p_resolution)
         logger.info(f"Processed uploaded file: {result}")
 
         # Clean up the input temp file
