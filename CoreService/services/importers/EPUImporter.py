@@ -33,36 +33,7 @@ from services.mrc_image_service import MrcImageService
 
 logger = logging.getLogger(__name__)
 
-
-
-# Update EPUMetadata model to match main(3).py keys
-class EPUMetadata(BaseModel):
-    oid: Optional[str] = None
-    name: Optional[str] = None
-    file_path: Optional[str] = None  # We'll keep this from original
-    magnification: Optional[float] = None
-    defocus: Optional[float] = None
-    dose: Optional[float] = None
-    pixel_size: Optional[float] = None
-    binning_x: Optional[int] = None
-    binning_y: Optional[int] = None
-    stage_alpha_tilt: Optional[float] = None
-    stage_x: Optional[float] = None
-    stage_y: Optional[float] = None
-    acceleration_voltage: Optional[float] = None
-    atlas_dimxy: Optional[float] = None
-    atlas_delta_row: Optional[float] = None
-    atlas_delta_column: Optional[float] = None
-    level: Optional[str] = None
-    previous_id: Optional[str] = None
-    spherical_aberration: Optional[float] = None
-    session_id: Optional[str] = None
-
-    class Config:
-        allow_population_by_field_name = True
-
-# Keep the same namespaces
-namespaces = {
+NAMESPACES = {
     'ns0': 'http://schemas.datacontract.org/2004/07/Fei.SharedObjects',
     'ns1': 'http://schemas.microsoft.com/2003/10/Serialization/Arrays',
     'ns2': 'http://schemas.datacontract.org/2004/07/Fei.Types',
@@ -70,6 +41,74 @@ namespaces = {
     'ns4': 'http://schemas.datacontract.org/2004/07/Fei.Common.Types',
     'ns5': 'http://schemas.datacontract.org/2004/07/System.Drawing'
 }
+
+class EPUMetadata:
+    """Class to hold EPU metadata extracted from XML files"""
+
+    def __init__(self, **kwargs):
+        self.oid = kwargs.get('oid')
+        self.name = kwargs.get('name')
+        self.file_path = kwargs.get('file_path')
+        self.magnification = kwargs.get('magnification')
+        self.defocus = kwargs.get('defocus')
+        self.dose = kwargs.get('dose')
+        self.pixel_size = kwargs.get('pixel_size')
+        self.binning_x = kwargs.get('binning_x')
+        self.binning_y = kwargs.get('binning_y')
+        self.stage_alpha_tilt = kwargs.get('stage_alpha_tilt')
+        self.stage_x = kwargs.get('stage_x')
+        self.stage_y = kwargs.get('stage_y')
+        self.acceleration_voltage = kwargs.get('acceleration_voltage')
+        self.atlas_dimxy = kwargs.get('atlas_dimxy')
+        self.atlas_delta_row = kwargs.get('atlas_delta_row')
+        self.atlas_delta_column = kwargs.get('atlas_delta_column')
+        self.level = kwargs.get('level')
+        self.previous_id = kwargs.get('previous_id')
+        self.spherical_aberration = kwargs.get('spherical_aberration')
+        self.session_id = kwargs.get('session_id')
+        self.frame_name = kwargs.get('frame_name')
+
+        # Optional convenience properties
+        self.pixelSize_x = self.pixel_size
+
+
+class DirectoryStructure:
+    """Helper class for directory scanning"""
+
+    def __init__(self, name, path, type, children=None):
+        self.name = name
+        self.path = path
+        self.type = type
+        self.children = children or []
+
+# Update EPUMetadata model to match main(3).py keys
+# class EPUMetadata(BaseModel):
+#     oid: Optional[str] = None
+#     name: Optional[str] = None
+#     file_path: Optional[str] = None  # We'll keep this from original
+#     magnification: Optional[float] = None
+#     defocus: Optional[float] = None
+#     dose: Optional[float] = None
+#     pixel_size: Optional[float] = None
+#     binning_x: Optional[int] = None
+#     binning_y: Optional[int] = None
+#     stage_alpha_tilt: Optional[float] = None
+#     stage_x: Optional[float] = None
+#     stage_y: Optional[float] = None
+#     acceleration_voltage: Optional[float] = None
+#     atlas_dimxy: Optional[float] = None
+#     atlas_delta_row: Optional[float] = None
+#     atlas_delta_column: Optional[float] = None
+#     level: Optional[str] = None
+#     previous_id: Optional[str] = None
+#     spherical_aberration: Optional[float] = None
+#     session_id: Optional[str] = None
+#
+#     class Config:
+#         allow_population_by_field_name = True
+
+# Keep the same namespaces
+
 def create_image_record(xml_metadata: EPUMetadata, file_path: str, parent_id: Optional[str] = None) -> str:
     """Create and save an Image record from XML metadata"""
     image = Image(
@@ -186,340 +225,484 @@ class DirectoryStructure(BaseModel):
     children: list = None
 
 
-def scan_directory(path):
-    try:
+
+class EPUImporter(BaseImporter):
+    """
+    Importer class for EPU data from Thermo Fisher Scientific microscopes.
+
+    This class handles importing of EPU session metadata, image records, and processing
+    associated files.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.task_dto_list = []
+
+    def process(self, db_session: Session = Depends(get_db)) -> Dict[str, str]:
+        """
+        Main entry point for the EPU import process
+
+        Args:
+            db_session: SQLAlchemy database session
+
+        Returns:
+            Dict with status information
+        """
+        try:
+            start_time = time.time()
+
+            # Initialize project, session, and job records
+            project, session, job = self.initialize_db_records(
+                db_session,
+                self.params.magellon_project_name,
+                self.params.magellon_session_name or self.params.session_name,
+                "EPU"
+            )
+
+            # Load and process the XML metadata
+            epu_metadata_list = self.load_epu_metadata()
+
+            if not epu_metadata_list:
+                return {
+                    'status': 'failure',
+                    'message': 'No EPU metadata found in specified directory'
+                }
+
+            # Process the metadata into image and task records
+            db_image_list, db_job_task_list, task_dto_list = self.create_image_and_task_records(
+                db_session,
+                epu_metadata_list,
+                job.oid,
+                session.oid
+            )
+
+            # Save records to database
+            db_session.bulk_save_objects(db_image_list)
+            db_session.bulk_save_objects(db_job_task_list)
+            db_session.commit()
+
+            # Set up target directory for file processing
+            target_dir = self.get_target_directory()
+            self.create_directories(target_dir)
+
+            # Process file tasks
+            if getattr(self.params, 'if_do_subtasks', True):
+                self.run_tasks(task_dto_list)
+
+                # Create atlas images if needed
+                self.create_atlas_images(db_session, session.oid)
+
+            execution_time = time.time() - start_time
+            logger.info(f"EPU import completed in {execution_time:.2f} seconds")
+
+            return {
+                'status': 'success',
+                'message': 'EPU import completed successfully',
+                'job_id': str(job.oid)
+            }
+
+        except Exception as e:
+            logger.error(f"EPU import failed: {str(e)}", exc_info=True)
+            db_session.rollback()
+            return {
+                'status': 'failure',
+                'message': f'EPU import failed: {str(e)}',
+                'job_id': str(getattr(self, 'db_job', {}).get('oid', ''))
+            }
+
+    def load_epu_metadata(self) -> List[EPUMetadata]:
+        """
+        Load EPU metadata from XML files in the specified directory
+
+        Returns:
+            List of EPUMetadata objects
+        """
+        if not hasattr(self.params, 'epu_dir_path') or not self.params.epu_dir_path:
+            raise ValueError("EPU directory path not specified")
+
+        if not os.path.exists(self.params.epu_dir_path):
+            raise FileNotFoundError(f"EPU directory not found: {self.params.epu_dir_path}")
+
+        # Scan directory for XML files
+        directory_structure = self.scan_directory(self.params.epu_dir_path)
+        return self.parse_directory(directory_structure)
+
+    def scan_directory(self, path: str) -> DirectoryStructure:
+        """
+        Recursively scan a directory to find XML files
+
+        Args:
+            path: Directory path to scan
+
+        Returns:
+            DirectoryStructure object representing the directory
+        """
         if not os.path.exists(path):
-            raise HTTPException(status_code=404, detail="Path not found")
+            raise FileNotFoundError(f"Path not found: {path}")
 
         if os.path.isfile(path):
-            return DirectoryStructure(name=os.path.basename(path), path=path, type="file")
+            return DirectoryStructure(
+                name=os.path.basename(path),
+                path=path,
+                type="file"
+            )
 
-        structure = DirectoryStructure(name=os.path.basename(path), path=path, type="directory", children=[])
+        structure = DirectoryStructure(
+            name=os.path.basename(path),
+            path=path,
+            type="directory"
+        )
 
         for item in os.listdir(path):
             item_path = os.path.join(path, item)
             if os.path.isfile(item_path):
-                structure.children.append(DirectoryStructure(name=item, path=item_path, type="file"))
+                structure.children.append(DirectoryStructure(
+                    name=item,
+                    path=item_path,
+                    type="file"
+                ))
             elif os.path.isdir(item_path):
-                structure.children.append(scan_directory(item_path))
+                structure.children.append(self.scan_directory(item_path))
 
         return structure
-    except PermissionError:
-        raise HTTPException(status_code=403, detail="Permission denied")
 
+    def parse_directory(self, directory_structure: DirectoryStructure) -> List[EPUMetadata]:
+        """
+        Find and parse XML files in a directory structure
 
-def parse_directory(directory_structure):
-    try:
-        image_metadata = []
+        Args:
+            directory_structure: DirectoryStructure to process
+
+        Returns:
+            List of EPUMetadata objects
+        """
+        metadata_list = []
 
         def traverse_directory(structure):
             if structure.type == "file" and structure.name.endswith(".xml"):
-                metadata = parse_xml(structure.path)
-                image_metadata.append(metadata)
+                try:
+                    metadata = self.parse_xml(structure.path)
+                    metadata_list.append(metadata)
+                except Exception as e:
+                    logger.warning(f"Failed to parse XML file {structure.path}: {str(e)}")
             elif structure.type == "directory" and structure.children:
                 for child in structure.children:
                     traverse_directory(child)
 
         traverse_directory(directory_structure)
-        return image_metadata
+        return metadata_list
 
-    except PermissionError:
-        raise HTTPException(status_code=403, detail="Permission denied")
+    def parse_xml(self, file_path: str) -> EPUMetadata:
+        """
+        Parse EPU XML file and extract metadata
 
-def get_first_eer_file(source_image_path):
-    # Get the base name of the source image without extension
-    base_name = os.path.splitext(source_image_path)[0]
+        Args:
+            file_path: Path to XML file
 
-    # Use glob to search for any file that starts with the base name and ends with .eer
-    eer_file_pattern = f"{base_name}*.eer"  # Adjust the pattern if needed
-    matching_files = glob.glob(eer_file_pattern)
+        Returns:
+            EPUMetadata object
+        """
+        tree = ET.parse(file_path)
+        root = tree.getroot()
 
-    # Return the first matching .eer file if it exists, otherwise None
-    return matching_files[0] if matching_files else None
+        # Define metadata fields to extract
+        keys = [
+            ('uniqueID', 'oid'),
+            ('name', 'name'),
+            ('NominalMagnification', 'magnification'),
+            ('Defocus', 'defocus'),
+            ('Dose', 'dose'),
+            ('pixelSize/ns0:x/ns0:numericValue', 'pixel_size'),
+            ('Binning/ns5:x', 'binning_x'),
+            ('Binning/ns5:y', 'binning_y'),
+            ('stage/ns0:Position/ns0:A', 'stage_alpha_tilt'),
+            ('stage/ns0:Position/ns0:X', 'stage_x'),
+            ('stage/ns0:Position/ns0:Y', 'stage_y'),
+            ('AccelerationVoltage', 'acceleration_voltage'),
+            ('atlas_dimxy', 'atlas_dimxy'),
+            ('atlas_delta_row', 'atlas_delta_row'),
+            ('atlas_delta_column', 'atlas_delta_column'),
+            ('level', 'level'),
+            ('previous_id', 'previous_id'),
+            ('spherical_aberration', 'spherical_aberration'),
+        ]
 
-class EPUImporter(BaseImporter):
-    def __init__(self):
-        super().__init__()
-        self.image_tasks = []
-        self.mrc_service = MrcImageService()
-        self.task_dto_list = []
+        # Dictionary to store extracted data
+        extracted_data = {key[1]: None for key in keys}
 
-    def import_data(self):
-        # Implement EPU-specific data import logic
-        # This might involve parsing XML files
-        pass
+        # Extract values from XML
+        for key in keys:
+            # Try direct element lookup
+            for ns_prefix in NAMESPACES:
+                direct_element = root.find(f".//{ns_prefix}:{key[0]}", NAMESPACES)
+                if direct_element is not None:
+                    extracted_data[key[1]] = direct_element.text
+                    break
 
-    def process_imported_data(self):
-        # Implement EPU-specific data processing logic
-        pass
-    def process(self, db_session: Session = Depends(get_db)) -> Dict[str, str]:
-        try:
-            start_time = time.time()  # Start measuring the time
-            result = self.create_db_project_session(db_session)
-            end_time = time.time()  # Stop measuring the time
+            # Try key-value pairs
+            if extracted_data[key[1]] is None:
+                for ns_prefix in NAMESPACES:
+                    key_value_pairs = root.findall(f".//{ns_prefix}:KeyValueOfstringanyType", NAMESPACES)
+                    for pair in key_value_pairs:
+                        key_element = pair.find(f"{ns_prefix}:Key", NAMESPACES)
+                        value_element = pair.find(f"{ns_prefix}:Value", NAMESPACES)
+                        if (key_element is not None and
+                                value_element is not None and
+                                key_element.text == key[0]):
+                            extracted_data[key[1]] = value_element.text
+                            break
 
-            execution_time = end_time - start_time
-            return result
+        # Convert string values to appropriate types
+        self._convert_data_types(extracted_data)
 
-        except Exception as e:
-            return {'status': 'failure', 'message': f'Job failed with error: {str(e)} Job ID: {self.params.job_id}'}
+        # Add the file path
+        extracted_data['file_path'] = file_path
 
+        return EPUMetadata(**extracted_data)
 
+    def _convert_data_types(self, data: Dict[str, Any]) -> None:
+        """
+        Convert string values to appropriate types
 
-    def create_db_project_session(self, db_session: Session):
-        try:
+        Args:
+            data: Dictionary of data to convert
+        """
+        # Numeric fields to convert
+        float_fields = [
+            'magnification', 'defocus', 'dose', 'pixel_size',
+            'stage_alpha_tilt', 'stage_x', 'stage_y',
+            'acceleration_voltage', 'atlas_dimxy',
+            'atlas_delta_row', 'atlas_delta_column',
+            'spherical_aberration'
+        ]
 
-            magellon_project: Project = None
-            magellon_session: Msession = None
-            if self.params.magellon_project_name is not None:
-                magellon_project = db_session.query(Project).filter(
-                    Project.name == self.params.magellon_project_name).first()
-                if not magellon_project:
-                    magellon_project = Project(name=self.params.magellon_project_name)
-                    db_session.add(magellon_project)
-                    db_session.commit()
-                    db_session.refresh(magellon_project)
+        int_fields = ['binning_x', 'binning_y']
 
-            magellon_session_name = self.params.magellon_session_name or self.params.session_name
+        # Convert float fields
+        for field in float_fields:
+            if data.get(field):
+                try:
+                    data[field] = float(data[field])
+                except (ValueError, TypeError):
+                    pass
 
-            if self.params.magellon_session_name is not None:
-                magellon_session = db_session.query(Msession).filter(
-                    Msession.name == magellon_session_name).first()
-                if not magellon_session:
-                    magellon_session = Msession(name=magellon_session_name, project_id=magellon_project.oid)
-                    db_session.add(magellon_session)
-                    db_session.commit()
-                    db_session.refresh(magellon_session)
+        # Convert integer fields
+        for field in int_fields:
+            if data.get(field):
+                try:
+                    data[field] = int(data[field])
+                except (ValueError, TypeError):
+                    pass
 
-            session_name = self.params.session_name
+    def create_image_and_task_records(
+            self,
+            db_session: Session,
+            metadata_list: List[EPUMetadata],
+            job_id: uuid.UUID,
+            session_id: uuid.UUID
+    ) -> tuple[List[Image], List[ImageJobTask], List[EPUImportTaskDto]]:
+        """
+        Create Image and Task records from EPU metadata
 
-            eepu_image_list: List[EPUMetadata] = []
-            # NOW Scan the directory and get all xml files and process them and put in epu_image_list
-            files = scan_directory(self.params.epu_dir_path)
-            meta_datas = parse_directory(files)
-            #Now for each file , if it is xml , use parse xml to get most important information
-            epu_image_list: List[EPUMetadata]=meta_datas
+        Args:
+            db_session: SQLAlchemy database session
+            metadata_list: List of EPUMetadata objects
+            job_id: ID of the current job
+            session_id: ID of the current session
 
+        Returns:
+            Tuple of (db_image_list, db_job_task_list, task_dto_list)
+        """
+        db_image_list = []
+        db_job_task_list = []
+        task_dto_list = []
 
-            if len(epu_image_list) > 0:
-                # Create required directories in home directory
-                self.create_directories()
+        # Dictionary to map filename to image ID for parent-child relationships
+        image_dict = {}
 
-                    # image_dict = {image["filename"]: image for image in epu_image_list}
-                image_dict = {}
-                # Create a new job
-                job = ImageJob(
-                    # Oid=uuid.uuid4(),
-                    name="EPU Import: " + session_name,
-                    description="EPU Import for session: " +
-                                session_name + "in directory: ",
-                    created_date=datetime.now(),  #path=session_result["image path"],
-                    output_directory=self.params.camera_directory,
-                    msession_id=magellon_session.oid
-                    # Set other job properties
+        for metadata in metadata_list:
+            # Get filename without extension
+            filename = os.path.splitext(os.path.basename(metadata.file_path))[0]
+
+            # Create Image record
+            db_image = Image(
+                oid=uuid.uuid4(),
+                name=filename,
+                magnification=metadata.magnification,
+                defocus=metadata.defocus,
+                dose=metadata.dose,
+                pixel_size=metadata.pixel_size,
+                binning_x=metadata.binning_x,
+                binning_y=metadata.binning_y,
+                stage_x=metadata.stage_x,
+                stage_y=metadata.stage_y,
+                stage_alpha_tilt=metadata.stage_alpha_tilt,
+                atlas_delta_row=metadata.atlas_delta_row,
+                atlas_delta_column=metadata.atlas_delta_column,
+                acceleration_voltage=metadata.acceleration_voltage,
+                spherical_aberration=metadata.spherical_aberration,
+                session_id=session_id,
+                last_accessed_date=datetime.now()
+            )
+
+            db_image_list.append(db_image)
+            image_dict[filename] = db_image.oid
+
+            # Find image and frame files
+            source_image_path = os.path.splitext(metadata.file_path)[0] + ".tiff"
+            source_frame_path = self._find_frame_file(source_image_path)
+
+            # Apply path replacements if needed
+            if self.params.replace_type in ("regex", "standard"):
+                if source_frame_path:
+                    source_frame_path = custom_replace(
+                        source_frame_path,
+                        self.params.replace_type,
+                        self.params.replace_pattern,
+                        self.params.replace_with
+                    )
+                source_image_path = custom_replace(
+                    source_image_path,
+                    self.params.replace_type,
+                    self.params.replace_pattern,
+                    self.params.replace_with
                 )
-                db_session.add(job)
-                db_session.flush()  # Flush the session to get the generated Oid
 
-                db_image_list = []
-                db_job_item_list = []
-                separator = "/"
-                for image  in epu_image_list:
-                    filename = os.path.splitext(os.path.basename(image.file_path))[0]
-                    # source_image_path = os.path.join(session_result["image path"], filename)
+            # Extract frame name if it exists
+            frame_name = ""
+            if source_frame_path:
+                frame_name = os.path.splitext(os.path.basename(source_frame_path))[0]
 
-                    db_image = Image(
-                        oid=uuid.uuid4(),
-                        name=filename,
-                        magnification=image.magnification,
-                        defocus=image.defocus,
-                        dose=image.dose,
-                        pixel_size=image.pixel_size,
-                        binning_x=image.binning_x,
-                        binning_y=image.binning_y,
-                        stage_x=image.stage_x,
-                        stage_y=image.stage_y,
-                        stage_alpha_tilt=image.stage_alpha_tilt,
-                        atlas_delta_row=image.atlas_delta_row,
-                        atlas_delta_column=image.atlas_delta_column,
-                        acceleration_voltage=image.acceleration_voltage,
-                        spherical_aberration=image.spherical_aberration,
-                        session_id=magellon_session.oid)
-                    # get_image_levels(filename,presets_result["regex_pattern"])
-                    # db_session.add(db_image)
-                    # db_session.flush()
-                    db_image_list.append(db_image)
-                    image_dict[filename] = db_image.oid
-                    # image_dict = {db_image.name: db_image.Oid for db_image in db_image_list}
+            # Create job task
+            job_task = ImageJobTask(
+                oid=uuid.uuid4(),
+                job_id=job_id,
+                frame_name=frame_name,
+                frame_path=source_frame_path,
+                image_name=os.path.splitext(os.path.basename(source_image_path))[0],
+                image_path=source_image_path,
+                status_id=1,
+                stage=0,
+                image_id=db_image.oid,
+            )
+            db_job_task_list.append(job_task)
 
-                    # source_image_path = (session_result["image path"] + separator + filename + ".mrc")
-                    # change logic to use image's director instead'
+            # Create task DTO for file processing
+            task_dto = EPUImportTaskDto(
+                task_id=uuid.uuid4(),
+                task_alias=f"epu_{filename}_{job_id}",
+                file_name=filename,
+                image_id=db_image.oid,
+                image_name=os.path.splitext(os.path.basename(source_image_path))[0],
+                frame_name=frame_name,
+                image_path=source_image_path,
+                frame_path=source_frame_path,
+                job_dto=self.params,
+                status=1,
+                pixel_size=metadata.pixel_size,
+                acceleration_voltage=metadata.acceleration_voltage,
+                spherical_aberration=metadata.spherical_aberration
+            )
+            task_dto_list.append(task_dto)
 
-                    source_image_path = image.file_path
-                    source_frame_path = get_first_eer_file(source_image_path)
+        # Set parent-child relationships if needed (not implemented yet)
+        # This would identify parent-child relationships based on naming conventions
 
-                    #TODO:
-                    # source_frame_path = source_frame_path.replace("/gpfs/", "Y:/")
-                    # source_image_path = source_image_path.replace("/gpfs/", "Y:/")
+        return db_image_list, db_job_task_list, task_dto_list
 
-                    if self.params.replace_type == "regex" or self.params.replace_type == "standard":
-                        source_frame_path = custom_replace(source_frame_path, self.params.replace_type,
-                                                           self.params.replace_pattern, self.params.replace_with)
-                        source_image_path = custom_replace(source_image_path, self.params.replace_type,
-                                                           self.params.replace_pattern, self.params.replace_with)
+    def _find_frame_file(self, source_image_path: str) -> Optional[str]:
+        """
+        Find a frame file associated with an image
 
-                    frame_name = os.path.splitext(os.path.basename(source_frame_path))[0] if source_frame_path else ""
-                    # Create a new job item and associate it with the job and image
-                    job_item = ImageJobTask(
-                        oid=uuid.uuid4(),
-                        job_id=job.oid,
-                        frame_name=frame_name,
-                        frame_path=source_frame_path,
-                        image_name=os.path.splitext(os.path.basename(source_image_path))[0],
-                        image_path=source_image_path,
-                        status_id=1,
-                        stage=0,
-                        image_id=db_image.oid,
-                        # Set job item properties
-                    )
-                    db_job_item_list.append(job_item)
-                    # db_session.add(job_item)
+        Args:
+            source_image_path: Path to source image
 
-                    # Get the file name and extension from the source path
-                    # source_filename, source_extension = os.path.splitext(source_image_path)
+        Returns:
+            Path to frame file or None if not found
+        """
+        # Get the base name of the source image without extension
+        base_name = os.path.splitext(source_image_path)[0]
 
-                    task = EPUImportTaskDto(
-                        task_id=uuid.uuid4(),
-                        task_alias=f"lftj_{filename}_{self.params.job_id}",
-                        file_name=f"{filename}",
-                        image_id=db_image.oid,
-                        image_name= os.path.splitext(os.path.basename(source_image_path))[0],
-                        frame_name= frame_name,
-                        image_path= source_image_path,
+        # Check for EER file
+        eer_file_pattern = f"{base_name}*.eer"
+        matching_files = glob.glob(eer_file_pattern)
+        if matching_files:
+            return matching_files[0]
 
-                        frame_path=source_frame_path,
-                        # target_path=self.params.target_directory + "/frames/" + f"{image['frame_names']}{source_extension}",
-                        job_dto=self.params,
-                        status=1,
-                        pixel_size=image.pixelSize_x
-                        # acceleration_voltage=image["acceleration_voltage"],
-                        # spherical_aberration=image["spherical_aberration"]
-                    )
-                    self.params.task_list.append(task)
-                    # print(f"Filename: {filename}, Spot Size: {spot_size}")
+        # Check for other frame formats
+        for ext in ['.frames', '.tif', '.tiff', '.mrc']:
+            frame_path = f"{base_name}{ext}"
+            if os.path.exists(frame_path):
+                return frame_path
 
-                # for db_image in db_image_list:
-                #     parent_name = get_parent_name(db_image.name)
-                #     if parent_name in image_dict:
-                #         db_image.parent_id = image_dict[parent_name]
+        return None
 
-                # update_levels(db_image_list)
+    def run_task(self, task_dto: EPUImportTaskDto) -> Dict[str, str]:
+        """
+        Process a single EPU task
 
-                db_session.bulk_save_objects(db_image_list)
-                db_session.bulk_save_objects(db_job_item_list)
+        Args:
+            task_dto: Task data transfer object
 
-                db_session.commit()  # Commit the changes
-
-                if self.params.if_do_subtasks if hasattr(self.params, 'if_do_subtasks') else True:
-                    self.run_tasks(db_session,magellon_session )
-
-
-            return {'status': 'success', 'message': 'Job completed successfully.', "job_id": self.params.job_id}
-        # self.create_test_tasks()
-        except FileNotFoundError as e:
-            error_message = f"Source directory not found: {self.params.source_directory}"
-            logger.error(error_message, exc_info=True)
-            return {"error": error_message, "exception": str(e)}
-        except OSError as e:
-            error_message = f"Error accessing source directory: {self.params.source_directory}"
-            logger.error(error_message, exc_info=True)
-            return {"error": error_message, "exception": str(e)}
-        except Exception as e:
-            error_message = f"An unexpected error occurred: {str(e)}"
-            logger.error(error_message, exc_info=True)
-            return {"error": error_message, "exception": str(e)}
-
-    def run_tasks(self, db_session: Session,magellon_session :Msession):
+        Returns:
+            Dict with status and message
+        """
         try:
-            # Iterate over each task in the task list and run it synchronously
-            for task in self.params.task_list:
-                self.run_task(task,magellon_session)
-        except Exception as e:
-            print("An unexpected error occurred:", str(e))
+            # Ensure the image path exists and has the correct extension
+            source_image_path = task_dto.image_path
+            if not source_image_path.lower().endswith(('.tif', '.tiff')):
+                source_image_path = os.path.splitext(source_image_path)[0] + ".tiff"
 
-    def run_task(self, task_dto: EPUImportTaskDto,magellon_session :Msession) -> Dict[str, str]:
-        try:
-            source_image_path = os.path.splitext(task_dto.image_path)[0] + ".tiff"
-            # 1
-            self.transfer_frame(task_dto)
-            # 2
+            if not os.path.exists(source_image_path):
+                logger.warning(f"Image file not found: {source_image_path}")
+                return {'status': 'failure', 'message': f'Image file not found: {source_image_path}'}
+
+            # 1. Transfer frame if it exists
+            if task_dto.frame_path:
+                self.transfer_frame(task_dto)
+
+            # 2. Copy original image if specified
             if task_dto.job_dto.copy_images:
-                # Construct the source and target paths
-
                 target_image_path = os.path.join(
-                    task_dto.job_dto.target_directory, ORIGINAL_IMAGES_SUB_URL, task_dto.image_name + ".tiff"
+                    self.get_target_directory(),
+                    "original",
+                    task_dto.image_name + ".tiff"
                 )
 
-                # Check if the source file exists before copying
-                if os.path.exists(source_image_path):
-                    copy_file(source_image_path, target_image_path)
-                    task_dto.image_path = target_image_path
+                self.copy_image(task_dto)
+                task_dto.image_path = target_image_path
 
-            # # Generate FFT using the REST API
-            if os.path.exists(source_image_path):
-                self.convert_image_to_png_task(source_image_path, task_dto.job_dto.target_directory)
-            self.compute_fft_png_task(source_image_path, task_dto.job_dto.target_directory)
-            # self.compute_ctf_task(task_dto.image_path, task_dto)
+            # 3. Convert to PNG
+            self.convert_image_to_png(source_image_path)
+
+            # 4. Compute FFT
+            self.compute_fft(source_image_path)
+
+            # 5. Compute CTF if needed
+            self.compute_ctf(source_image_path, task_dto)
 
             return {'status': 'success', 'message': 'Task completed successfully.'}
 
         except Exception as e:
-            raise TaskFailedException(f"Task failed with error: {str(e)}")
+            logger.error(f"Task failed: {str(e)}", exc_info=True)
+            raise TaskFailedException(f"Task failed: {str(e)}")
 
-    def convert_image_to_png_task(self, abs_file_path, out_dir):
-        try:
-            # generates png and thumbnails
-            self.mrc_service.convert_tiff_to_png(abs_file_path=abs_file_path, out_dir=out_dir)
-            return {"message": "Tiff file successfully converted to PNG!"}
-        except Exception as e:
-            return {"error": str(e)}
+    def _extract_grid_label(self, filename: str) -> str:
+        """
+        Extract grid label from a filename for EPU data
 
-    def compute_fft_png_task(self, abs_file_path: str, out_dir: str):
-        try:
-            fft_path = os.path.join(out_dir, FFT_SUB_URL,
-                                    os.path.splitext(os.path.basename(abs_file_path))[0] + FFT_SUFFIX)
-            # self.create_image_directory(fft_path)
-            # self.compute_fft(img=mic, abs_out_file_name=fft_path)
-            self.mrc_service.compute_tiff_fft(tiff_abs_path=abs_file_path, abs_out_file_name=fft_path)
-            return {"message": "MRC file successfully converted to fft PNG!"}
+        Args:
+            filename: Image filename
 
-        except Exception as e:
-            return {"error": str(e)}
+        Returns:
+            Grid label string
+        """
+        # Match pattern like "GridSquare_12345" or extract other relevant identifier
+        import re
+        # Try to match GridSquare pattern
+        match = re.search(r'GridSquare_(\d+)', filename)
+        if match:
+            return f"gs{match.group(1)}"
 
-    def transfer_frame(self, task_dto):
-        try:
-            # copy frame if exists
-            if task_dto.frame_path:
-                    _, file_extension = os.path.splitext(task_dto.frame_path)
-                    target_path = os.path.join(task_dto.job_dto.target_directory, FRAMES_SUB_URL,
-                                               task_dto.file_name + FRAMES_SUFFIX + file_extension)
-                    copy_file(task_dto.frame_path, target_path)
-        except Exception as e:
-            print(f"An error occurred during frame transfer: {e}")
-
-    def compute_ctf_task(self, abs_file_path: str, task_dto: EPUImportTaskDto):
-        try:
-            if (task_dto.pixel_size * 10 ** 10) <= 5:
-                dispatch_ctf_task(task_dto.task_id, abs_file_path, task_dto)
-                return {"message": "Converting to ctf on the way! " + abs_file_path}
-
-        except Exception as e:
-            return {"error": str(e)}
-
-    def get_image_tasks(self):
-        return self.image_tasks
-
-    def parse_epu_xml(self, xml_content: bytes):
-        # Use the existing parse_xml function
-        # return create_epu_metadata(parse_xml(xml_content))
-        return parse_xml(xml_content)
+        # Default to parent method if no specific pattern found
+        return super()._extract_grid_label(filename)

@@ -7,7 +7,7 @@ import logging
 import uuid
 from typing import Optional
 
-from services.importers.EPUImporter import parse_xml, scan_directory, parse_directory, EPUImporter
+from services.importers.EPUImporter import parse_xml,  EPUImporter
 from services.importers.SerialEmImporter import parse_mdoc
 
 # from EPUImporter import parse_xml, EPUMetadata, scan_directory, parse_directory
@@ -77,30 +77,6 @@ async def test_parse_xml_content(xml_content: str = Form(...)):
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
         os.rmdir(temp_dir)
-
-@test_router.post("/scan-directory")
-async def test_scan_directory(directory_path: str = Form(...)):
-    """
-    Test scanning a directory for XML files and parsing them.
-    """
-    try:
-        # Scan the directory
-        directory_structure = scan_directory(directory_path)
-
-        # Parse the XML files found in the directory
-        metadata_list = parse_directory(directory_structure)
-
-        return {
-            "status": "success",
-            "files_found": len(metadata_list),
-            "results": [metadata.dict() for metadata in metadata_list]
-        }
-    except Exception as e:
-        logger.error(f"Error scanning directory: {str(e)}")
-        return JSONResponse(
-            status_code=500,
-            content={"status": "error", "message": f"Error scanning directory: {str(e)}"}
-        )
 
 # @test_router.post("/epu-import-job")
 # async def test_epu_import_job(

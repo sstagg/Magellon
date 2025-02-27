@@ -43,7 +43,7 @@ from services.helper import get_response_image, get_parent_name
 import logging
 
 
-from services.importers.EPUImporter import EPUImporter, scan_directory
+from services.importers.EPUImporter import EPUImporter
 from pathlib import Path
 # from services.image_file_service import get_images, get_image_by_stack, get_image_data
 
@@ -885,24 +885,9 @@ async def get_do_image_ctf_route(full_image_path: str):
     return await dispatch_ctf_task(uuid.uuid4(), full_image_path)
 
 
-@webapp_router.get("/scan_directory")
-async def get_directory_structure_route(path: str):
-    return scan_directory(path)
 
 
-# parse_xml_file(file: UploadFile = File(...)):
-# contents = await file.read()
-# results = parse_xml(contents)
-# return json.dumps(results, indent=2)
-@webapp_router.post("/parse-epu-xml/")
-# async def parse_epu_xml_files(files: List[UploadFile] = File(...)):
-async def parse_epu_xml_files(file: UploadFile = File(...)):
-    epu_importer = EPUImporter()
-    xml_contents = await file.read()
-    # epu_importer.import_data(xml_contents)
-    # epu_importer.process_imported_data()
-    results = epu_importer.parse_epu_xml(xml_contents)
-    return  results
+
 
 class DirectoryNode(BaseModel):
     id: str
@@ -935,10 +920,13 @@ def get_directory_structure(root_path: str) -> List[DirectoryNode]:
 
     return [build_tree(root_path)]
 
-@webapp_router.get("/directory-tree", response_model=List[DirectoryNode])
-def directory_tree(root_path: str):
-    root_path=r"C:\temp\test"
-    return get_directory_structure(root_path)
+
+
+
+# @webapp_router.get("/directory-tree", response_model=List[DirectoryNode])
+# def directory_tree(root_path: str):
+#     root_path=r"C:\temp\test"
+#     return get_directory_structure(root_path)
 
 
 
