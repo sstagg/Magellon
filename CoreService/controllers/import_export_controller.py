@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from config import app_settings
 from database import get_db
-from models.pydantic_models import ImportJobBase, MagellonImportJobDto
+from models.pydantic_models import ImportJobBase, MagellonImportJobDto, EpuImportJobDto
 from models.sqlalchemy_models import Msession, Image, ImageMetaData, Project
 
 
@@ -401,84 +401,98 @@ def import_directory(request: MagellonImportJobDto,  db_session: Session = Depen
         logger.error(f"Error during import: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-# class DecimalInput(BaseModel):
-#     value: str  # Accept as string to ensure accurate input processing
-#
-# # Endpoint to test safe_decimal
-# @export_router.post("/test-decimal/")
-# async def test_decimal(input_data: DecimalInput):
-#     try:
-#         processed_value = safe_decimal(input_data.value)
-#         return {"original_value": input_data.value, "processed_value": str(processed_value)}
-#     except ValueError as e:
-#         raise HTTPException(status_code=400, detail=str(e))
-#
-# @export_router.post("/session-stats/")
-# async def get_session_stats(file: UploadFile = File(...)):
-#     """
-#     Read an uploaded session.json file and return image statistics.
-#
-#     Args:
-#         file: Uploaded JSON file
-#
-#     Returns:
-#         dict: Contains total number of images and other relevant statistics
-#     """
-#     try:
-#         # Verify file has .json extension
-#         if not file.filename.endswith('.json'):
-#             raise HTTPException(
-#                 status_code=400,
-#                 detail="File must be a JSON file"
-#             )
-#
-#         # Read the uploaded file content
-#         content = await file.read()
-#
-#         # Parse the JSON content
-#         try:
-#             data = json.loads(content.decode('utf-8'))
-#         except UnicodeDecodeError:
-#             raise HTTPException(
-#                 status_code=400,
-#                 detail="Invalid file encoding. File must be UTF-8 encoded"
-#             )
-#
-#         # Function to count images recursively
-#         def count_images(images_list):
-#             if not images_list:
-#                 return 0
-#
-#             total = len(images_list)
-#             # Count children recursively
-#             for image in images_list:
-#                 if "children" in image and image["children"]:
-#                     total += count_images(image["children"])
-#             return total
-#
-#         # Get the images list from the JSON
-#         images = data.get("images", [])
-#         total_images = count_images(images)
-#
-#         # Get session name and other metadata
-#         session_name = data.get("msession", {}).get("name", "Unknown")
-#         export_date = data.get("metadata", {}).get("export_date", "Unknown")
-#
-#         return {
-#             "session_name": session_name,
-#             "total_images": total_images,
-#             "export_date": export_date,
-#             "filename": file.filename
-#         }
-#
-#     except json.JSONDecodeError:
-#         raise HTTPException(
-#             status_code=400,
-#             detail="Invalid JSON file content"
-#         )
-#     except Exception as e:
-#         logger.error(f"Error reading session stats: {str(e)}", exc_info=True)
-#         raise HTTPException(
-#             status_code=500,
-#             detail=f"Error processing file: {str(e)}"
-#         )
+
+# Add this to the import_export_controller.py file
+
+@export_router.post("/epu-import")
+def import_epu_directory(request: EpuImportJobDto, db_session: Session = Depends(get_db)):
+    """
+    Import EPU data from a directory containing XML metadata and image files.
+
+    Directory structure should be an EPU session directory containing XML metadata files
+    and associated TIFF/EER image files.
+
+    Parameters:
+    - request: EPU import job parameters including directory path
+
+    Returns:
+    - Dict with import status and session information
+    """
+    try:
+        # Validate source directory exists
+        if not os.path.exists(request.epu_dir_path):
+            raise HTTPException(
+                status_code=404,
+                detail=f"EPU directory not found: {request.epu_dir_path}"
+            )
+
+        # Initialize and run importer
+        from services.importers.EPUImporter import EPUImporter
+        importer = EPUImporter()
+        importer.setup(request, db_session)
+        result = importer.process(db_session)
+
+        if result.get('status') == 'failure':
+            raise HTTPException(
+                status_code=500,
+                detail=result.get('message', 'EPU Import failed')
+            )
+
+        return {
+            "message": "EPU session imported successfully",
+            "session_name": result.get('session_name'),
+            "job_id": result.get('job_id')
+        }
+
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error during EPU import: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Add this validation endpoint for EPU directories
+@export_router.get("/validate-epu-directory")
+def validate_epu_directory(source_dir: str):
+    """
+    Validate that a directory contains valid EPU data structure.
+
+    Parameters:
+    - source_dir: Path to the EPU directory
+
+    Returns:
+    - Dict with validation status and message
+    """
+    try:
+        # Check source directory exists
+        if not os.path.exists(source_dir):
+            raise HTTPException(status_code=404, detail="Source directory not found")
+
+        # Check for XML files
+        xml_files = [f for f in os.listdir(source_dir) if f.endswith('.xml')]
+        if not xml_files:
+            raise HTTPException(status_code=400, detail="No XML metadata files found in directory")
+
+        # Check for image files (TIFF)
+        image_files = [f for f in os.listdir(source_dir) if f.endswith('.tiff') or f.endswith('.tif')]
+        if not image_files:
+            raise HTTPException(status_code=400, detail="No TIFF image files found in directory")
+
+        # Verify matching between XML and image files
+        xml_basenames = [os.path.splitext(f)[0] for f in xml_files]
+        image_basenames = [os.path.splitext(f)[0] for f in image_files]
+
+        matching_files = set(xml_basenames).intersection(set(image_basenames))
+        if not matching_files:
+            raise HTTPException(status_code=400, detail="No matching XML and image files found")
+
+        return {
+            "status": "valid",
+            "message": f"Directory contains valid EPU data with {len(matching_files)} matching files"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

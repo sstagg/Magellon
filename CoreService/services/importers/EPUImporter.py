@@ -242,6 +242,7 @@ class EPUImporter(BaseImporter):
         super().__init__()
         self.image_tasks = []
         self.mrc_service = MrcImageService()
+        self.task_dto_list = []
 
     def import_data(self):
         # Implement EPU-specific data import logic
