@@ -11,6 +11,7 @@ import numpy as np
 import scipy
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from pydantic import BaseModel
+from scipy import fftpack
 from starlette.responses import FileResponse
 
 from config import MAGELLON_HOME_DIR
@@ -224,19 +225,55 @@ def import_epu_job(input_data: EpuImportJobBase, db: Session = Depends(get_db)):
 
 
 
-SIG = 7
-NSIG = 4
-MIN_BLOB_AREA = 400
+def lowpass_filter(image, resolution, pixel_size):
+    """
+    Apply a low-pass Gaussian filter to a cryo-EM image at a specified resolution.
 
-class FilterParams(BaseModel):
-    sigma: float = SIG
-    nsigma: float = NSIG
-    min_blob_area: int = MIN_BLOB_AREA
+    Parameters:
+    - image: 2D numpy array, the input cryo-EM image.
+    - resolution: Target resolution in angstroms.
+    - pixel_size: Pixel size in angstroms per pixel.
 
-def process_individual_images(file_path: str, output_path: str, params: Optional[FilterParams] = None) -> Dict:
-    """Process MRC file with Gaussian filtering and blob replacement."""
-    if params is None:
-        params = FilterParams()
+    Returns:
+    - Filtered image as a numpy array with the same shape as input.
+    """
+    # Compute Fourier Transform of the image
+    fft_image = fftpack.fftshift(fftpack.fft2(image))
+
+    # Define frequency grid
+    ny, nx = image.shape
+    y, x = np.ogrid[-ny // 2:ny // 2, -nx // 2:nx // 2]
+    freq_radius = np.sqrt(x ** 2 + y ** 2) / max(nx, ny)  # Normalized frequency space
+
+    # Compute sigma in Fourier space
+    fc = pixel_size / resolution  # Cutoff frequency in pixels^-1
+    sigma = fc / np.sqrt(2 * np.log(2))  # Convert to Gaussian sigma
+
+    # Create Gaussian low-pass filter
+    gaussian_filter = np.exp(- (freq_radius ** 2) / (2 * sigma ** 2))
+
+    # Apply filter in Fourier space
+    fft_filtered = fft_image * gaussian_filter
+
+    # Inverse FFT to return to real space
+    filtered_image = np.real(fftpack.ifft2(fftpack.ifftshift(fft_filtered)))
+    filtered_image = filtered_image.astype(np.float32)
+
+    return filtered_image
+
+
+def process_individual_images(file_path: str, output_path: str, p_resolution:float) -> Dict:
+    """
+    Process MRC file with Gaussian low-pass filtering.
+
+    Args:
+        file_path: Path to the input MRC file
+        output_path: Path where the processed MRC file will be saved
+        resolution: Target resolution in angstroms
+
+    Returns:
+        Dict with processing results including status and file paths
+    """
 
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"Input file not found: {file_path}")
@@ -251,40 +288,20 @@ def process_individual_images(file_path: str, output_path: str, params: Optional
         with mrcfile.open(file_path, permissive=True) as mrc:
             image = np.array(mrc.data, copy=True)
             voxel_size = mrc.voxel_size  # Preserve header information
-            nx, ny, nz = mrc.header.nx, mrc.header.ny, mrc.header.nz
+            pixel_size = voxel_size['x']  # assuming uniform pixel size
+            logger.debug(f"Pixel size: {pixel_size}Å, Image dtype: {image.dtype}")
 
-        # Apply Gaussian filter to the image
-        filtered = scipy.ndimage.gaussian_filter(image, sigma=params.sigma)
+            # Get header information to preserve
+            nx = mrc.header.nx
+            ny = mrc.header.ny
+            nz = mrc.header.nz
 
-        # Calculate mean and standard deviation for the filtered image
-        mean_value = np.mean(filtered)
-        std_deviation = np.std(filtered)
-        threshold = mean_value - params.nsigma * std_deviation
+        # Apply low-pass filter
+        filtered = lowpass_filter(image, p_resolution, pixel_size)
 
-        # Create a boolean array where True indicates pixels above the threshold
-        boolarray = filtered < threshold
-
-        # Label connected regions (blobs) in the boolean array
-        boolarray_int = boolarray.astype(int)
-        labeled_array, num_features = scipy.ndimage.label(boolarray_int)
-
-        # Calculate the area (in pixels) of each blob
-        blob_areas = np.array([np.sum(labeled_array == j) for j in range(1, num_features + 1)])
-
-        # Replace pixels for blobs with specified areas
-        image_mean = np.mean(image)
-        features = 0
-        for m in range(num_features):
-            if params.min_blob_area < blob_areas[m]:
-                features += 1
-                blob_mask = labeled_array == (m + 1)
-                image[blob_mask] = image_mean
-
-        logger.info(f"{features} features replaced")
-        logger.info(f"Writing to {output_path}")
-
+        # Save processed image
         with mrcfile.new(output_path, overwrite=True) as mrc_processed:
-            mrc_processed.set_data(image)
+            mrc_processed.set_data(filtered)
             mrc_processed.voxel_size = voxel_size
             mrc_processed.header.nx = nx
             mrc_processed.header.ny = ny
@@ -294,12 +311,8 @@ def process_individual_images(file_path: str, output_path: str, params: Optional
             "status": "success",
             "input_file": file_path,
             "output_file": output_path,
-            "features_replaced": features,
-            "parameters": {
-                "sigma": params.sigma,
-                "nsigma": params.nsigma,
-                "min_blob_area": params.min_blob_area
-            }
+            "resolution": p_resolution,
+            "pixel_size": float(pixel_size)
         }
 
     except Exception as e:
@@ -309,20 +322,23 @@ def process_individual_images(file_path: str, output_path: str, params: Optional
 
 
 @image_processing_router.post("/low-pass-from-path/", summary="Process an MRC file using file paths")
-async def process_from_path(input_path: str, output_path: str, params: Optional[FilterParams] = None) -> Dict:
+async def process_from_path(input_path: str, output_path: str,p_resolution :float) -> Dict:
     """
-    Process an MRC file with Gaussian filtering and blob replacement.
+    Process an MRC file with Gaussian low-pass filtering.
 
     Args:
         input_path: Path to the input MRC file
         output_path: Path where the processed MRC file will be saved
-        params: Optional processing parameters
 
     Returns:
-        Dict: Processing results including status and number of features replaced
+        Dict: Processing results including status and file paths
     """
     try:
-        result = process_individual_images(input_path, output_path, params)
+        result = process_individual_images(
+            input_path,
+            output_path,
+            p_resolution
+        )
         return result
     except FileNotFoundError as e:
         logger.error(f"File not found: {str(e)}")
@@ -334,7 +350,7 @@ async def process_from_path(input_path: str, output_path: str, params: Optional[
 
 
 @image_processing_router.post("/low-pass-from-upload/", summary="Process an uploaded MRC file")
-async def process_from_upload(file: UploadFile = File(...), params: Optional[FilterParams] = None):
+async def process_from_upload(file: UploadFile = File(...)):
     """
     Process an uploaded MRC file and return the processed file for download.
 
