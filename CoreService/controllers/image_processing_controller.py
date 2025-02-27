@@ -308,7 +308,7 @@ def process_individual_images(file_path: str, output_path: str, params: Optional
 
 
 
-@@image_processing_router.post("/low-pass-from-path/", summary="Process an MRC file using file paths")
+@image_processing_router.post("/low-pass-from-path/", summary="Process an MRC file using file paths")
 async def process_from_path(input_path: str, output_path: str, params: Optional[FilterParams] = None) -> Dict:
     """
     Process an MRC file with Gaussian filtering and blob replacement.
