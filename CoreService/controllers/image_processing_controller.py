@@ -223,6 +223,7 @@ def import_epu_job(input_data: EpuImportJobBase, db: Session = Depends(get_db)):
     return result
 
 
+
 SIG = 7
 NSIG = 4
 MIN_BLOB_AREA = 400
@@ -240,6 +241,7 @@ def process_individual_images(file_path: str, output_path: str, params: Optional
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"Input file not found: {file_path}")
 
+    logger.info(f"Processing {file_path}")
     # Ensure output directory exists
     output_dir = os.path.dirname(output_path)
     if output_dir and not os.path.exists(output_dir):
@@ -278,6 +280,9 @@ def process_individual_images(file_path: str, output_path: str, params: Optional
                 blob_mask = labeled_array == (m + 1)
                 image[blob_mask] = image_mean
 
+        logger.info(f"{features} features replaced")
+        logger.info(f"Writing to {output_path}")
+
         with mrcfile.new(output_path, overwrite=True) as mrc_processed:
             mrc_processed.set_data(image)
             mrc_processed.voxel_size = voxel_size
@@ -298,6 +303,7 @@ def process_individual_images(file_path: str, output_path: str, params: Optional
         }
 
     except Exception as e:
+        logger.error(f"Error processing file: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
 
 
@@ -319,14 +325,16 @@ async def process_from_path(input_path: str, output_path: str, params: Optional[
         result = process_individual_images(input_path, output_path, params)
         return result
     except FileNotFoundError as e:
+        logger.error(f"File not found: {str(e)}")
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
+        logger.error(f"Error in process_from_path: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 
 @image_processing_router.post("/low-pass-from-upload/", summary="Process an uploaded MRC file")
-async def process_upload(file: UploadFile = File(...), params: Optional[FilterParams] = None):
+async def process_from_upload(file: UploadFile = File(...), params: Optional[FilterParams] = None):
     """
     Process an uploaded MRC file and return the processed file for download.
 
@@ -351,6 +359,7 @@ async def process_upload(file: UploadFile = File(...), params: Optional[FilterPa
 
         # Process the file
         result = process_individual_images(temp_input_path, temp_output_path, params)
+        logger.info(f"Processed uploaded file: {result}")
 
         # Clean up the input temp file
         os.unlink(temp_input_path)
