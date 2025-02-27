@@ -325,7 +325,7 @@ async def process_from_path(input_path: str, output_path: str, params: Optional[
 
 
 
-@image_processing_router.post("/process-upload/", summary="Process an uploaded MRC file")
+@image_processing_router.post("/low-pass-from-upload/", summary="Process an uploaded MRC file")
 async def process_upload(file: UploadFile = File(...), params: Optional[FilterParams] = None):
     """
     Process an uploaded MRC file and return the processed file for download.
