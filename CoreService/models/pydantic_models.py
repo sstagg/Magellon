@@ -229,6 +229,38 @@ class EpuImportJobBase(ImportJobBase):
 class EpuImportJobDto(EpuImportJobBase):
     target_directory: Optional[str] = None  # should be removed, it is base directory + magellon_session_name name
 
+class EPUImportTaskDto(ImportTaskDto):
+    job_dto: EpuImportJobDto
+
+
+
+class SerialEMImportJobBase(ImportJobBase):
+    serial_em_dir_path: Optional[str] = None
+
+    replace_type: str = "none"
+    replace_pattern: Optional[str] = None
+    replace_with: Optional[str] = None
+
+    @field_validator("replace_type")
+    def validate_replace_type(cls, v: str, info: ValidationInfo) -> str:
+        """
+        Validates the replace_type value.
+        """
+        valid_types = ["standard", "none", "regex"]
+        if v not in valid_types:
+            raise ValueError(f"Invalid replace_type: {v}. Valid options are: {', '.join(valid_types)}")
+        return v
+
+class SerialEMImportJobDto(SerialEMImportJobBase):
+    target_directory: Optional[str] = None  # should be removed, it is base directory + magellon_session_name name
+
+class SerialEMImportTaskDto(ImportTaskDto):
+    job_dto: SerialEMImportJobDto
+
+
+
+
+
 class LeginonFrameTransferJobDto(LeginonFrameTransferJobBase):
     target_directory: Optional[str] = None  # should be removed, it is base directory + magellon_session_name name
 
@@ -261,8 +293,6 @@ class ImportTaskDto(BaseModel):
 class LeginonFrameTransferTaskDto(ImportTaskDto):
     job_dto: LeginonFrameTransferJobDto
 
-class EPUImportTaskDto(ImportTaskDto):
-    job_dto: EpuImportJobDto
 
 
 class LeginonImageDto(BaseModel):

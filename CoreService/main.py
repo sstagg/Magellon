@@ -31,6 +31,7 @@ from controllers.image_processing_controller import image_processing_router
 from controllers.import_export_controller import export_router
 # from controllers.particle_picking_jobitem_controller import ppji_router
 from controllers.slack_controller import slack_router
+from controllers.test_controller import test_router
 
 from controllers.webapp_controller import webapp_router
 
@@ -127,6 +128,7 @@ async def convert_tiff_to_jpeg_route(file: UploadFile = File(...)):
 app.include_router(home_router, tags=["Home"])
 app.include_router(db_router, tags=["Database"], prefix="/db")
 app.include_router(export_router, tags=["Export"], prefix="/export")
+app.include_router(test_router, tags=["Test"], prefix="/test")
 app.include_router(camera_router, tags=["Cameras"], prefix="/db/cameras")
 app.include_router(image_meta_data_category_router, tags=["MetaData Category"], prefix="/db/meta-data-category")
 app.include_router(image_meta_data_router, tags=["MetaData"], prefix="/db/meta-data")

@@ -1,0 +1,356 @@
+<?xml version="1.0" ?>
+<MicroscopeImage xmlns="http://schemas.datacontract.org/2004/07/Fei.SharedObjects" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+    <name>Empty</name>
+    <uniqueID>241d54ae-18a5-487e-aedd-724b91c96c05</uniqueID>
+    <CustomData xmlns:a="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+        <a:KeyValueOfstringanyType>
+            <a:Key>DoseOnCamera</a:Key>
+            <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:double">23.581045918902184</a:Value>
+        </a:KeyValueOfstringanyType>
+        <a:KeyValueOfstringanyType>
+            <a:Key>StemMagnification</a:Key>
+            <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:boolean">false</a:Value>
+        </a:KeyValueOfstringanyType>
+        <a:KeyValueOfstringanyType>
+            <a:Key>Aperture[C2].Name</a:Key>
+            <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:string">20</a:Value>
+        </a:KeyValueOfstringanyType>
+        <a:KeyValueOfstringanyType>
+            <a:Key>Aperture[OBJ].Name</a:Key>
+            <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:string">None</a:Value>
+        </a:KeyValueOfstringanyType>
+        <a:KeyValueOfstringanyType>
+            <a:Key>Aperture[SA].Name</a:Key>
+            <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:string">None</a:Value>
+        </a:KeyValueOfstringanyType>
+        <a:KeyValueOfstringanyType>
+            <a:Key>Detectors[BM-Falcon].EerGainReference</a:Key>
+            <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:string">ImagesForProcessing/BM-Falcon/200kV/20231018_120449_EER_GainReference.gain</a:Value>
+        </a:KeyValueOfstringanyType>
+        <a:KeyValueOfstringanyType>
+            <a:Key>Detectors[BM-Falcon].TimeStamp</a:Key>
+            <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:long">1697657225796762</a:Value>
+        </a:KeyValueOfstringanyType>
+        <a:KeyValueOfstringanyType>
+            <a:Key>Detectors[BM-Falcon].PixelValueToCameraCounts</a:Key>
+            <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:string">1</a:Value>
+        </a:KeyValueOfstringanyType>
+        <a:KeyValueOfstringanyType>
+            <a:Key>Detectors[BM-Falcon].ExposureTime</a:Key>
+            <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:double">3.518346</a:Value>
+        </a:KeyValueOfstringanyType>
+        <a:KeyValueOfstringanyType>
+            <a:Key>Detectors[BM-Falcon].CountsToElectrons</a:Key>
+            <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:double">0.00325931961702995</a:Value>
+        </a:KeyValueOfstringanyType>
+        <a:KeyValueOfstringanyType>
+            <a:Key>Detectors[BM-Falcon].ElectronCounted</a:Key>
+            <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:boolean">true</a:Value>
+        </a:KeyValueOfstringanyType>
+        <a:KeyValueOfstringanyType>
+            <a:Key>Detectors[BM-Falcon].CommercialName</a:Key>
+            <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:string">Falcon 4i</a:Value>
+        </a:KeyValueOfstringanyType>
+        <a:KeyValueOfstringanyType>
+            <a:Key>Detectors[BM-Falcon].CameraSerialNumber</a:Key>
+            <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:string">22-51-A38-KL6</a:Value>
+        </a:KeyValueOfstringanyType>
+        <a:KeyValueOfstringanyType>
+            <a:Key>Detectors[BM-Falcon].AlignIntegratedImage</a:Key>
+            <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:boolean">true</a:Value>
+        </a:KeyValueOfstringanyType>
+        <a:KeyValueOfstringanyType>
+            <a:Key>Detectors[BM-Falcon].DriftCorrected</a:Key>
+            <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:boolean">true</a:Value>
+        </a:KeyValueOfstringanyType>
+        <a:KeyValueOfstringanyType>
+            <a:Key>Detectors[BM-Falcon].FrameRate</a:Key>
+            <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:double">317.762948840165</a:Value>
+        </a:KeyValueOfstringanyType>
+        <a:KeyValueOfstringanyType>
+            <a:Key>Detectors[BM-Falcon].TotalDose</a:Key>
+            <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:double">23.5810459189022</a:Value>
+        </a:KeyValueOfstringanyType>
+        <a:KeyValueOfstringanyType>
+            <a:Key>Detectors[BM-Falcon].DoseRate</a:Key>
+            <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:double">6.72034321787058</a:Value>
+        </a:KeyValueOfstringanyType>
+        <a:KeyValueOfstringanyType>
+            <a:Key>Detectors[BM-Falcon].DriftCorrectionConfidence</a:Key>
+            <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:double">0.831681</a:Value>
+        </a:KeyValueOfstringanyType>
+        <a:KeyValueOfstringanyType>
+            <a:Key>Detectors[BM-Falcon].DriftCorrectionClipping</a:Key>
+            <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:boolean">false</a:Value>
+        </a:KeyValueOfstringanyType>
+        <a:KeyValueOfstringanyType>
+            <a:Key>Detectors[BM-Falcon].DriftCorrectionVectorX</a:Key>
+            <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:double">6.080539</a:Value>
+        </a:KeyValueOfstringanyType>
+        <a:KeyValueOfstringanyType>
+            <a:Key>Detectors[BM-Falcon].DriftCorrectionVectorY</a:Key>
+            <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:double">-2.268055</a:Value>
+        </a:KeyValueOfstringanyType>
+        <a:KeyValueOfstringanyType>
+            <a:Key>IlluminationIntensity</a:Key>
+            <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:double">0.441199997615814</a:Value>
+        </a:KeyValueOfstringanyType>
+        <a:KeyValueOfstringanyType>
+            <a:Key>Dose</a:Key>
+            <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:double">4.20197786802792E+21</a:Value>
+        </a:KeyValueOfstringanyType>
+        <a:KeyValueOfstringanyType>
+            <a:Key>PhasePlateUsed</a:Key>
+            <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:boolean">false</a:Value>
+        </a:KeyValueOfstringanyType>
+        <a:KeyValueOfstringanyType>
+            <a:Key>BinaryResult.Detector</a:Key>
+            <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:string">BM-Falcon</a:Value>
+        </a:KeyValueOfstringanyType>
+        <a:KeyValueOfstringanyType>
+            <a:Key>DetectorCommercialName</a:Key>
+            <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:string">Falcon 4i</a:Value>
+        </a:KeyValueOfstringanyType>
+        <a:KeyValueOfstringanyType>
+            <a:Key>AppliedDefocus</a:Key>
+            <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:double">-1.1E-06</a:Value>
+        </a:KeyValueOfstringanyType>
+    </CustomData>
+    <IntensityScale i:nil="true"/>
+    <ReferenceTransformation>
+        <matrix xmlns:a="http://schemas.datacontract.org/2004/07/System.Windows.Media">
+            <a:_m11>-1.3933385287741922E-12</a:_m11>
+            <a:_m12>-7.4899605108736477E-11</a:_m12>
+            <a:_m21>-7.4899605108736477E-11</a:_m21>
+            <a:_m22>1.3933385287741951E-12</a:_m22>
+            <a:_offsetX>0</a:_offsetX>
+            <a:_offsetY>-7.4899605108736477E-11</a:_offsetY>
+            <a:_padding>0</a:_padding>
+            <a:_type>TRANSFORM_IS_UNKNOWN</a:_type>
+        </matrix>
+        <unit xmlns:a="http://schemas.datacontract.org/2004/07/Fei.Common.Types">
+            <a:_x003C_PrefixExponent_x003E_k__BackingField>1</a:_x003C_PrefixExponent_x003E_k__BackingField>
+            <a:_x003C_Symbol_x003E_k__BackingField>m</a:_x003C_Symbol_x003E_k__BackingField>
+        </unit>
+    </ReferenceTransformation>
+    <SpatialScale>
+        <offset>
+            <x>
+                <numericValue>0</numericValue>
+                <unit xmlns:a="http://schemas.datacontract.org/2004/07/Fei.Common.Types">
+                    <a:_x003C_PrefixExponent_x003E_k__BackingField>1</a:_x003C_PrefixExponent_x003E_k__BackingField>
+                    <a:_x003C_Symbol_x003E_k__BackingField>m</a:_x003C_Symbol_x003E_k__BackingField>
+                </unit>
+            </x>
+            <y>
+                <numericValue>0</numericValue>
+                <unit xmlns:a="http://schemas.datacontract.org/2004/07/Fei.Common.Types">
+                    <a:_x003C_PrefixExponent_x003E_k__BackingField>1</a:_x003C_PrefixExponent_x003E_k__BackingField>
+                    <a:_x003C_Symbol_x003E_k__BackingField>m</a:_x003C_Symbol_x003E_k__BackingField>
+                </unit>
+            </y>
+        </offset>
+        <pixelSize>
+            <x>
+                <numericValue>7.4912562264550786E-11</numericValue>
+                <unit xmlns:a="http://schemas.datacontract.org/2004/07/Fei.Common.Types">
+                    <a:_x003C_PrefixExponent_x003E_k__BackingField>1</a:_x003C_PrefixExponent_x003E_k__BackingField>
+                    <a:_x003C_Symbol_x003E_k__BackingField>m</a:_x003C_Symbol_x003E_k__BackingField>
+                </unit>
+            </x>
+            <y>
+                <numericValue>7.4912562264550786E-11</numericValue>
+                <unit xmlns:a="http://schemas.datacontract.org/2004/07/Fei.Common.Types">
+                    <a:_x003C_PrefixExponent_x003E_k__BackingField>1</a:_x003C_PrefixExponent_x003E_k__BackingField>
+                    <a:_x003C_Symbol_x003E_k__BackingField>m</a:_x003C_Symbol_x003E_k__BackingField>
+                </unit>
+            </y>
+        </pixelSize>
+    </SpatialScale>
+    <microscopeData>
+        <acquisition>
+            <acquisitionDateTime>2023-10-18T12:27:06.3342256-07:00</acquisitionDateTime>
+            <analyticalDetectors/>
+            <camera>
+                <Binning xmlns:a="http://schemas.datacontract.org/2004/07/System.Drawing">
+                    <a:x>1</a:x>
+                    <a:y>1</a:y>
+                </Binning>
+                <CameraLocation>BottomMounted</CameraLocation>
+                <CameraSpecificInput xmlns:a="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+                    <a:KeyValueOfstringanyType>
+                        <a:Key>FixedReadoutArea</a:Key>
+                        <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:string">Full</a:Value>
+                    </a:KeyValueOfstringanyType>
+                    <a:KeyValueOfstringanyType>
+                        <a:Key>AlignIntegratedImageEnabled</a:Key>
+                        <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:boolean">true</a:Value>
+                    </a:KeyValueOfstringanyType>
+                    <a:KeyValueOfstringanyType>
+                        <a:Key>SuperResolutionFactor</a:Key>
+                        <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:int">1</a:Value>
+                    </a:KeyValueOfstringanyType>
+                    <a:KeyValueOfstringanyType>
+                        <a:Key>FractionationSettings</a:Key>
+                        <a:Value xmlns:b="http://schemas.datacontract.org/2004/07/Fei.Applications.Common.Omp.Interface" i:type="b:EerFractionation"/>
+                    </a:KeyValueOfstringanyType>
+                    <a:KeyValueOfstringanyType>
+                        <a:Key>ElectronCountingEnabled</a:Key>
+                        <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:boolean">true</a:Value>
+                    </a:KeyValueOfstringanyType>
+                    <a:KeyValueOfstringanyType>
+                        <a:Key>ApplyDefinedShutter</a:Key>
+                        <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:boolean">true</a:Value>
+                    </a:KeyValueOfstringanyType>
+                    <a:KeyValueOfstringanyType>
+                        <a:Key>CetaFramesSummed</a:Key>
+                        <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:int">1</a:Value>
+                    </a:KeyValueOfstringanyType>
+                    <a:KeyValueOfstringanyType>
+                        <a:Key>CetaNoiseReductionEnabled</a:Key>
+                        <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:boolean">false</a:Value>
+                    </a:KeyValueOfstringanyType>
+                    <a:KeyValueOfstringanyType>
+                        <a:Key>EnableCompression</a:Key>
+                        <a:Value xmlns:b="http://www.w3.org/2001/XMLSchema" i:type="b:boolean">false</a:Value>
+                    </a:KeyValueOfstringanyType>
+                </CameraSpecificInput>
+                <DarkGainCorrection>None</DarkGainCorrection>
+                <ExposureTime>3.52</ExposureTime>
+                <Inserted>true</Inserted>
+                <Name>BM-Falcon</Name>
+                <PreExposurePauseTime>0</PreExposurePauseTime>
+                <PreExposureSupported>false</PreExposureSupported>
+                <PreExposureTime>0</PreExposureTime>
+                <ReadoutArea xmlns:a="http://schemas.datacontract.org/2004/07/System.Drawing">
+                    <a:height>4096</a:height>
+                    <a:width>4096</a:width>
+                    <a:x>0</a:x>
+                    <a:y>0</a:y>
+                </ReadoutArea>
+                <Shutter>PreSpecimen</Shutter>
+            </camera>
+            <plateCamera>
+                <ExposureTime>0</ExposureTime>
+                <Use>false</Use>
+            </plateCamera>
+            <scanSettings>
+                <DwellTime>0</DwellTime>
+                <ReducedArea xmlns:a="http://schemas.datacontract.org/2004/07/System.Drawing" i:nil="true"/>
+                <Resolution xmlns:a="http://schemas.datacontract.org/2004/07/System.Drawing">
+                    <a:height>0</a:height>
+                    <a:width>0</a:width>
+                </Resolution>
+                <ScanArea xmlns:a="http://schemas.datacontract.org/2004/07/System.Drawing">
+                    <a:height>0</a:height>
+                    <a:width>0</a:width>
+                    <a:x>0</a:x>
+                    <a:y>0</a:y>
+                </ScanArea>
+                <ScanRotation>0</ScanRotation>
+            </scanSettings>
+            <scanningDetector>
+                <DetectorType>SecondaryElectrons</DetectorType>
+                <Gain i:nil="true"/>
+                <Inserted>false</Inserted>
+                <Name i:nil="true"/>
+                <Offset i:nil="true"/>
+            </scanningDetector>
+        </acquisition>
+        <core>
+            <ApplicationSoftware>EPU</ApplicationSoftware>
+            <ApplicationSoftwareVersion>3.5.1.6034</ApplicationSoftwareVersion>
+            <Guid>d51e3f93-8b26-4230-bb00-0cbb1642b2d5</Guid>
+        </core>
+        <gun>
+            <AccelerationVoltage>200000</AccelerationVoltage>
+            <ExtractorVoltage>3900</ExtractorVoltage>
+            <Filament i:nil="true"/>
+            <GunLens>4</GunLens>
+            <Sourcetype>FieldEmission</Sourcetype>
+            <WehneltBias i:nil="true"/>
+        </gun>
+        <instrument>
+            <AcquisitionSoftware i:nil="true"/>
+            <AcquisitionSoftwareVersion i:nil="true"/>
+            <ComputerName>GLACIOS-9960164</ComputerName>
+            <InstrumentID>9960164</InstrumentID>
+            <InstrumentModel>GLACIOS-9960164</InstrumentModel>
+        </instrument>
+        <optics>
+            <Apertures i:nil="true"/>
+            <BeamConvergence i:nil="true"/>
+            <BeamDiameter>0</BeamDiameter>
+            <BeamShift xmlns:a="http://schemas.datacontract.org/2004/07/Fei.Types">
+                <a:_x>-0.090216286480426788</a:_x>
+                <a:_y>0.054784409701824188</a:_y>
+            </BeamShift>
+            <BeamTilt xmlns:a="http://schemas.datacontract.org/2004/07/Fei.Types">
+                <a:_x>-0.13603854179382324</a:_x>
+                <a:_y>-0.00027077275444753468</a:_y>
+            </BeamTilt>
+            <Cameralength>0</Cameralength>
+            <ColumnOperatingMode>TEM</ColumnOperatingMode>
+            <ColumnOperatingTemSubMode>BrightField</ColumnOperatingTemSubMode>
+            <CondenserStigmator xmlns:a="http://schemas.datacontract.org/2004/07/Fei.Types">
+                <a:_x>0</a:_x>
+                <a:_y>0</a:_y>
+            </CondenserStigmator>
+            <Defocus>-2.2522334141630118E-07</Defocus>
+            <DiffractionFocus>0</DiffractionFocus>
+            <DiffractionShift xmlns:a="http://schemas.datacontract.org/2004/07/Fei.Types">
+                <a:_x>0</a:_x>
+                <a:_y>0</a:_y>
+            </DiffractionShift>
+            <DiffractionStigmator xmlns:a="http://schemas.datacontract.org/2004/07/Fei.Types">
+                <a:_x>0</a:_x>
+                <a:_y>0</a:_y>
+            </DiffractionStigmator>
+            <EFTEMOn>false</EFTEMOn>
+            <EnergyFilter i:nil="true"/>
+            <Focus>-7.149947346549244E-05</Focus>
+            <GunStigmator xmlns:a="http://schemas.datacontract.org/2004/07/Fei.Types" i:nil="true"/>
+            <IlluminationMode i:nil="true"/>
+            <IlluminationProbeSubMode i:nil="true"/>
+            <ImageShift xmlns:a="http://schemas.datacontract.org/2004/07/Fei.Types">
+                <a:_x>0</a:_x>
+                <a:_y>0</a:_y>
+            </ImageShift>
+            <Intensity>0.441199997615814</Intensity>
+            <ObjectiveLensMode>HM</ObjectiveLensMode>
+            <ObjectiveStigmator xmlns:a="http://schemas.datacontract.org/2004/07/Fei.Types">
+                <a:_x>0</a:_x>
+                <a:_y>0</a:_y>
+            </ObjectiveStigmator>
+            <ProbeMode>NanoProbe</ProbeMode>
+            <ProjectorMode>Imaging</ProjectorMode>
+            <SpotIndex>3</SpotIndex>
+            <StemDefocus>0</StemDefocus>
+            <StemFieldOfView i:nil="true"/>
+            <StemMagnification i:nil="true"/>
+            <TemMagnification>
+                <NominalMagnification>190000</NominalMagnification>
+            </TemMagnification>
+        </optics>
+        <sample>
+            <Description i:nil="true"/>
+            <ID i:nil="true"/>
+        </sample>
+        <stage>
+            <Holder>Unspecified</Holder>
+            <Position>
+                <A>3.5129290499368113E-06</A>
+                <B>0</B>
+                <X>0.00068626854000000009</X>
+                <Y>-0.00032601447999999994</Y>
+                <Z>-6.3764550000000047E-05</Z>
+            </Position>
+            <SampleLoader>None</SampleLoader>
+        </stage>
+        <vacuum>
+            <ProjectionChamberPressure>0</ProjectionChamberPressure>
+            <SamplePressure>0</SamplePressure>
+            <VacuumMode>Ready</VacuumMode>
+        </vacuum>
+    </microscopeData>
+</MicroscopeImage>

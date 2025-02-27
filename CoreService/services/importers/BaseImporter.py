@@ -28,11 +28,20 @@ class DatabaseError(ImportError):
     """Exception for database operation errors"""
     pass
 
+class FileError(ImportError):
+    """Exception for file operation errors"""
+    pass
+
 class TaskFailedException(Exception):
     pass
 
 class BaseImporter(ABC):
-    """Abstract base class for all importers"""
+    """
+  Abstract base class for all data importers.
+
+  This class provides a common structure and utility methods for importing data
+  from various microscopy data sources into the system.
+  """
 
     def __init__(self):
         self.params: Optional[BaseModel] = None
