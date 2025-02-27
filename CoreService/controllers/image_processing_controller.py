@@ -1,9 +1,17 @@
+import logging
 import os
+import shutil
 import subprocess
+import tempfile
 import uuid
+from typing import Dict, Optional
 
-from fastapi import APIRouter, HTTPException, Depends
+import mrcfile
+import numpy as np
+import scipy
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from pydantic import BaseModel
+from starlette.responses import FileResponse
 
 from config import MAGELLON_HOME_DIR
 from models.pydantic_models import LeginonFrameTransferJobBase, EPUFrameTransferJobBase, LeginonFrameTransferJobDto, \
@@ -14,6 +22,9 @@ from sqlalchemy.orm import Session
 from database import get_db
 # from services.image_fft_service import ImageFFTService
 from services.mrc_image_service import MrcImageService
+
+
+logger = logging.getLogger(__name__)
 
 image_processing_router = APIRouter()
 
@@ -213,27 +224,158 @@ def import_epu_job(input_data: EpuImportJobBase, db: Session = Depends(get_db)):
 
 
 
-# async def process_image_job(job_request: JobRequest):
-#     # Generate a unique job_id
-#     job_id = str(uuid.uuid4())
-#
-#     # Call the Airflow DAG through a web service
-#     response = requests.post(
-#         "http://localhost:8080/api/experimental/dags/image_process_job/dag_runs",
-#         json={
-#             "conf": {
-#                 "source_dir": job_request.source_dir,
-#                 "target_dir": job_request.target_dir,
-#                 "job_id": job_id
-#             }
-#         }
-#     )
-#
-#     # Check the response status
-#     if response.status_code != 200:
-#         raise HTTPException(
-#             status_code=response.status_code,
-#             detail="Failed to trigger the image_process_job DAG"
-#         )
-#
-#     return {"job_id": job_id}
+SIG = 7
+NSIG = 4
+MIN_BLOB_AREA = 400
+
+class FilterParams(BaseModel):
+    sigma: float = SIG
+    nsigma: float = NSIG
+    min_blob_area: int = MIN_BLOB_AREA
+
+def process_individual_images(file_path: str, output_path: str, params: Optional[FilterParams] = None) -> Dict:
+    """Process MRC file with Gaussian filtering and blob replacement."""
+    if params is None:
+        params = FilterParams()
+
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"Input file not found: {file_path}")
+
+    logger.info(f"Processing {file_path}")
+    # Ensure output directory exists
+    output_dir = os.path.dirname(output_path)
+    if output_dir and not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    try:
+        with mrcfile.open(file_path, permissive=True) as mrc:
+            image = np.array(mrc.data, copy=True)
+            voxel_size = mrc.voxel_size  # Preserve header information
+            nx, ny, nz = mrc.header.nx, mrc.header.ny, mrc.header.nz
+
+        # Apply Gaussian filter to the image
+        filtered = scipy.ndimage.gaussian_filter(image, sigma=params.sigma)
+
+        # Calculate mean and standard deviation for the filtered image
+        mean_value = np.mean(filtered)
+        std_deviation = np.std(filtered)
+        threshold = mean_value - params.nsigma * std_deviation
+
+        # Create a boolean array where True indicates pixels above the threshold
+        boolarray = filtered < threshold
+
+        # Label connected regions (blobs) in the boolean array
+        boolarray_int = boolarray.astype(int)
+        labeled_array, num_features = scipy.ndimage.label(boolarray_int)
+
+        # Calculate the area (in pixels) of each blob
+        blob_areas = np.array([np.sum(labeled_array == j) for j in range(1, num_features + 1)])
+
+        # Replace pixels for blobs with specified areas
+        image_mean = np.mean(image)
+        features = 0
+        for m in range(num_features):
+            if params.min_blob_area < blob_areas[m]:
+                features += 1
+                blob_mask = labeled_array == (m + 1)
+                image[blob_mask] = image_mean
+
+        logger.info(f"{features} features replaced")
+        logger.info(f"Writing to {output_path}")
+
+        with mrcfile.new(output_path, overwrite=True) as mrc_processed:
+            mrc_processed.set_data(image)
+            mrc_processed.voxel_size = voxel_size
+            mrc_processed.header.nx = nx
+            mrc_processed.header.ny = ny
+            mrc_processed.header.nz = nz
+
+        return {
+            "status": "success",
+            "input_file": file_path,
+            "output_file": output_path,
+            "features_replaced": features,
+            "parameters": {
+                "sigma": params.sigma,
+                "nsigma": params.nsigma,
+                "min_blob_area": params.min_blob_area
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"Error processing file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
+
+
+
+@image_processing_router.post("/low-pass-from-path/", summary="Process an MRC file using file paths")
+async def process_from_path(input_path: str, output_path: str, params: Optional[FilterParams] = None) -> Dict:
+    """
+    Process an MRC file with Gaussian filtering and blob replacement.
+
+    Args:
+        input_path: Path to the input MRC file
+        output_path: Path where the processed MRC file will be saved
+        params: Optional processing parameters
+
+    Returns:
+        Dict: Processing results including status and number of features replaced
+    """
+    try:
+        result = process_individual_images(input_path, output_path, params)
+        return result
+    except FileNotFoundError as e:
+        logger.error(f"File not found: {str(e)}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error in process_from_path: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+@image_processing_router.post("/low-pass-from-upload/", summary="Process an uploaded MRC file")
+async def process_from_upload(file: UploadFile = File(...), params: Optional[FilterParams] = None):
+    """
+    Process an uploaded MRC file and return the processed file for download.
+
+    Args:
+        file: Uploaded MRC file
+        params: Optional processing parameters
+
+    Returns:
+        FileResponse: The processed MRC file
+    """
+    try:
+        # Create temporary files
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mrc") as temp_input:
+            # Copy uploaded file to temp file
+            shutil.copyfileobj(file.file, temp_input)
+            temp_input_path = temp_input.name
+
+        # Create output temp file
+        temp_output = tempfile.NamedTemporaryFile(delete=False, suffix=".mrc")
+        temp_output_path = temp_output.name
+        temp_output.close()
+
+        # Process the file
+        result = process_individual_images(temp_input_path, temp_output_path, params)
+        logger.info(f"Processed uploaded file: {result}")
+
+        # Clean up the input temp file
+        os.unlink(temp_input_path)
+
+        # Return the processed file
+        return FileResponse(
+            temp_output_path,
+            media_type="application/octet-stream",
+            filename=f"processed_{os.path.basename(file.filename)}",
+            background=lambda: os.unlink(temp_output_path)  # Clean up after sending file
+        )
+
+    except Exception as e:
+        # Clean up temp files in case of error
+        if 'temp_input_path' in locals() and os.path.exists(temp_input_path):
+            os.unlink(temp_input_path)
+        if 'temp_output_path' in locals() and os.path.exists(temp_output_path):
+            os.unlink(temp_output_path)
+        raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
