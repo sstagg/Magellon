@@ -15,6 +15,7 @@ import logging
 
 from services.importers.import_database_service import ImportDatabaseService
 from services.importers.import_file_service import ImportFileService, TaskError, FileError
+from services.mrc_image_service import MrcImageService
 
 logger = logging.getLogger(__name__)
 
@@ -37,25 +38,33 @@ class TaskFailedException(Exception):
 
 class BaseImporter(ABC):
     """
-  Abstract base class for all data importers.
+       Abstract base class for all importers
 
-  This class provides a common structure and utility methods for importing data
-  from various microscopy data sources into the system.
-  """
+       This class provides common functionality for all import processes, including:
+       - Database operations (project, session, job management)
+       - Directory structure creation
+       - File processing (convert to PNG, compute FFT, dispatch CTF and motion correction)
+       - Task management
+
+       Concrete importers should override the abstract methods to implement their specific logic.
+       """
 
     def __init__(self):
         self.params: Optional[BaseModel] = None
-        self.db_service: Optional[ImportDatabaseService] = None
-        self.file_service: Optional[ImportFileService] = None
-
         self.db_project: Optional[Project] = None
         self.db_msession: Optional[Msession] = None
         self.db_job: Optional[ImageJob] = None
+
+        self.db_service: Optional[ImportDatabaseService] = None
+
+        self.file_service: Optional[ImportFileService] = None
 
         self.image_dict: Dict[str, uuid.UUID] = {}
         self.db_image_list: List[Image] = []
         self.db_job_task_list: List[ImageJobTask] = []
         self.task_dto_list: Optional[List] = []
+
+        self.mrc_service = MrcImageService()
 
     def setup(self,input_data: BaseModel,  db_session: Session = Depends(get_db)) -> None:
         """Initialize the importer with basic parameters"""
@@ -63,34 +72,20 @@ class BaseImporter(ABC):
         self.file_service = ImportFileService(target_directory= None, camera_directory= None  )
         self.db_service = ImportDatabaseService(db_session)
 
+    @abstractmethod
+    def process(self, db_session: Session = Depends(get_db)) -> Dict[str, str]:
+        """
+        Main entry point for the import process
 
-    # def process(self, db_session: Session = Depends(get_db)) -> Dict[str, str]:
-    #     """Main processing pipeline"""
-    #     try:
-    #
-    #         self.db_service = ImportDatabaseService(db_session)
-    #         # self.file_service = ImportFileService()
-    #         # Initialize data and database records
-    #         # self.setup_data()
-    #         # self._init_database_records()
-    #
-    #         result = self.run_job(db_session)
-    #         return result
-    #
-    #         # Process files if required
-    #         # if getattr(self.params, 'if_do_subtasks', True):
-    #         #     self._process_files()
-    #
-    #     except ImportError as e:
-    #         logger.error(f"Import failed: {str(e)}")
-    #         return {'status': 'failure', 'message': str(e)}
-    #     except Exception as e:
-    #         logger.error(f"Unexpected error: {str(e)}")
-    #         return {'status': 'failure', 'message': f'Unexpected error: {str(e)}'}
+        Args:
+            db_session: SQLAlchemy database session
 
-    # @abstractmethod
-    # def run_job(self, db_session: Session = Depends(get_db)) -> Dict[str, str]:
-    #     pass
+        Returns:
+            Dict with status and result information
+        """
+        pass
+
+
 
     def _init_database_records(self) -> None:
         """Initialize all necessary database records"""
