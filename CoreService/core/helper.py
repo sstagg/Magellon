@@ -225,8 +225,8 @@ def dispatch_ctf_task(task_id, full_image_path, task_dto: ImportTaskDto):
         inputFile=full_image_path,
         outputFile=out_file_name,
         pixelSize= task_dto.pixel_size * 10**10,  #1
-        accelerationVoltage=task_dto.acceleration_voltage,
-        sphericalAberration=task_dto.spherical_aberration * 1000,  #    2.7,
+        accelerationVoltage=task_dto.acceleration_voltage/1000,
+        sphericalAberration = (task_dto.spherical_aberration*1000 if task_dto.spherical_aberration is not None else 2.7) , #    2.7,
         amplitudeContrast=task_dto.amplitude_contrast,
         sizeOfAmplitudeSpectrum=task_dto.size_of_amplitude_spectrum,
         minimumResolution=task_dto.minimum_resolution,
@@ -294,7 +294,7 @@ def create_motioncor_task_data(image_path, gain_path, session_name=None,task_dto
             image_name=os.path.basename(task_dto.image_path),
             image_path=task_dto.image_path,
 
-            inputFile=task_dto.frame_path+".tif",
+            inputFile=task_dto.frame_path,
 
             outputFile=os.path.basename(task_dto.image_path),
             # OutMrc="output.files.mrc",

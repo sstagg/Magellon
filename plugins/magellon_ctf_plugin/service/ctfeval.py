@@ -2,12 +2,21 @@ import os
 from pyami import mrc
 from appionlib import apDisplay
 from appionlib.apCtf import ctfdisplay
+from PIL import Image
+import numpy as np
 
 async def run_ctf_evaluation(imagefile,ouputimageFile, apix, cs, kv,binning, reslimit=5.0, defocus1=None, defocus2=None,
                        ampcontrast=None, extraphaseshift=None, astigangle=None, debug=False):
+    if imagefile.endswith(".tif") or imagefile.endswith(".tiff"):
+        img = Image.open(imagefile)
+        img_array = np.array(img)  
+    elif imagefile.endswith(".mrc"):
+        img_array = mrc.read(imagefile) 
+    else:
+        raise("input file for evaluation accepts only tiff and eer")
     imgdata = {
         'filename': os.path.abspath(ouputimageFile),
-        'image': mrc.read(imagefile),
+        'image': img_array,
     }
     if not os.path.isfile(imagefile):
         apDisplay.printError("Could not read micrograph for processing")
@@ -35,7 +44,6 @@ async def run_ctf_evaluation(imagefile,ouputimageFile, apix, cs, kv,binning, res
     
     if not extraphaseshift:
         apDisplay.printError("could not read extra phase shift value")
-   
     ctfdata = {
         'volts': float(kv)* 1e3,
         'cs': float(cs),

@@ -59,8 +59,14 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
         os.makedirs(directory_path, exist_ok=True)
         host_file_path = os.path.join(AppSettingsSingleton.get_instance().HOST_JOBS_DIR, str(the_task_data.image_id), the_task_data.outputFile)
         the_task_data.outputFile = os.path.join(directory_path, the_task_data.outputFile)
+        if not the_task_data.outputFile.endswith(".mrc"):
+            the_task_data.outputFile += ".mrc"
         params.data["OutMrc"] = os.path.join(directory_path, the_task_data.OutMrc)
+        if not params.data["OutMrc"].endswith(".mrc"):
+            params.data["OutMrc"]+=".mrc"
         the_task_data.OutMrc =  params.data["OutMrc"] 
+        if not the_task_data.OutMrc.endswith(".mrc"):
+            the_task_data.OutMrc+=".mrc"
         the_task_data.LogDir= directory_path
         if not is_mrc_file(the_task_data.Gain):
             the_task_data.Gain=convertToMRC(the_task_data.Gain,directory_path)

@@ -329,14 +329,14 @@ def validateInput(params):
     if params.OutMrc is not None:
         if not isinstance(params.OutMrc, str):
             raise ValueError("OutMrc must be a string or None.")
-        if not params.OutMrc.strip().endswith(".mrc"):
-            raise ValueError("OutMrc must end with .mrc.")
+        # if not params.OutMrc.strip().endswith(".mrc"):
+        #     raise ValueError("OutMrc must end with .mrc.")
     
     if params.outputFile is not None:
         if not isinstance(params.outputFile, str):
             raise ValueError("outputFile must be a string or None.")
-        if not params.outputFile.strip().endswith(".mrc"):
-            raise ValueError("outputFile must end with .mrc.")
+        # if not params.outputFile.strip().endswith(".mrc"):
+        #     raise ValueError("outputFile must end with .mrc.")
     
     if not params.Gain or not isinstance(params.Gain, str) or not params.Gain.strip():
         raise ValueError("Gain must be a non-empty string.")

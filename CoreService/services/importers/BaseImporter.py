@@ -502,9 +502,9 @@ class BaseImporter(ABC):
             if not gain_path:
                 gain_path = self._find_gain_reference()
 
-            if not gain_path:
-                logger.warning("No gain reference found for motion correction")
-                return {"message": "Skipping motion correction (no gain reference)"}
+            # if not gain_path:
+            #     logger.warning("No gain reference found for motion correction")
+            #     return {"message": "Skipping motion correction (no gain reference)"}
 
             # Ensure file extension for full_image_path
             if not abs_file_path.endswith('.tif'):
