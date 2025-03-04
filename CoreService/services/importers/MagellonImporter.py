@@ -261,7 +261,7 @@ class MagellonImporter(BaseImporter):
                 dispatch_motioncor_task(
                     task_id = task_dto.task_id,
                     gain_path=source_gains_file,
-                    full_image_path= abs_file_path+".tif",
+                    full_image_path= abs_file_path,
                     task_dto= task_dto,
                     motioncor_settings= settings
                 )

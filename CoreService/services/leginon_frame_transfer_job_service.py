@@ -276,7 +276,7 @@ class LeginonFrameTransferJobService:
                         oid=uuid.uuid4(),
                         job_id=job.oid,
                         frame_name=image["frame_names"] if image.get("frame_names") else None,
-                        frame_path=source_frame_path +".tif" if image.get("frame_names") else None,
+                        frame_path=source_frame_path if image.get("frame_names") else None,
                         image_path=source_image_path,
                         status_id=1,
                         stage=0,
@@ -453,7 +453,7 @@ class LeginonFrameTransferJobService:
                 }
                 dispatch_motioncor_task(
                     task_id = task_dto.task_id,
-                    full_image_path= abs_file_path+".tif",
+                    full_image_path= abs_file_path,
                     task_dto= task_dto,
                     motioncor_settings= settings
                 )

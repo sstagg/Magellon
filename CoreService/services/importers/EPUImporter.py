@@ -600,7 +600,7 @@ class EPUImporter(BaseImporter):
                 job_dto=self.params,
                 status=1,
                 pixel_size=metadata.pixel_size,
-                acceleration_voltage=metadata.acceleration_voltage,
+                acceleration_voltage=metadata.acceleration_voltage/1000,
                 spherical_aberration=metadata.spherical_aberration
             )
             task_dto_list.append(task_dto)

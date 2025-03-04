@@ -4,7 +4,7 @@ import os
 # import pdb
 import re
 import uuid
-
+import glob
 from pydantic import BaseModel
 
 from config import app_settings
@@ -225,7 +225,7 @@ def dispatch_ctf_task(task_id, full_image_path, task_dto: ImportTaskDto):
         inputFile=full_image_path,
         outputFile=out_file_name,
         pixelSize= task_dto.pixel_size * 10**10,  #1
-        accelerationVoltage=task_dto.acceleration_voltage/1000,
+        accelerationVoltage=task_dto.acceleration_voltage,
         sphericalAberration = (task_dto.spherical_aberration*1000 if task_dto.spherical_aberration is not None else 2.7) , #    2.7,
         amplitudeContrast=task_dto.amplitude_contrast,
         sizeOfAmplitudeSpectrum=task_dto.size_of_amplitude_spectrum,
@@ -292,9 +292,9 @@ def create_motioncor_task_data(image_path, gain_path, session_name=None,task_dto
     return CryoEmMotionCorTaskData(
             image_id=task_dto.image_id,
             image_name=os.path.basename(task_dto.image_path),
-            image_path=task_dto.image_path,
+            image_path=image_path,
 
-            inputFile=task_dto.frame_path,
+            inputFile=image_path,
 
             outputFile=os.path.basename(task_dto.image_path),
             # OutMrc="output.files.mrc",
@@ -336,8 +336,12 @@ def create_motioncor_task(image_path=None,
         #     image_path = os.path.join(os.getcwd(), "gpfs", "20241203_54449_integrated_movie.mrc.tif")
 
             # Create task data
+        base_path = os.path.dirname(task_dto.frame_path)
+        matching_files = glob.glob(os.path.join(base_path, task_dto.frame_name + "*"))
+        if not matching_files:
+            raise ("motioncor input File not found",task_dto.frame_path)
         motioncor_task_data = create_motioncor_task_data(
-            image_path=task_dto.frame_name+".tif",
+            image_path=matching_files[0],
             gain_path=gain_path,
             session_name=session_name,
             task_dto=task_dto,
