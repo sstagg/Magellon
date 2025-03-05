@@ -292,7 +292,7 @@ def create_motioncor_task_data(image_path, gain_path, session_name=None,task_dto
     return CryoEmMotionCorTaskData(
             image_id=task_dto.image_id,
             image_name=os.path.basename(task_dto.image_path),
-            image_path=image_path,
+            image_path=task_dto.image_path,
 
             inputFile=image_path,
 
