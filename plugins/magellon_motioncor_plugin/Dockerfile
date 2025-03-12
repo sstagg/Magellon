@@ -1,5 +1,5 @@
 # Use a base image with CUDA 12.1
-FROM --platform=linux/amd64 nvidia/cuda:12.6.0-devel-ubuntu22.04
+FROM --platform=linux/amd64 nvidia/cuda:12.1.0-devel-ubuntu22.04
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
