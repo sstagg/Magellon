@@ -9,7 +9,7 @@ REPLACE_PATTERN: /gpfs/
 REPLACE_WITH: /gpfs/
 
 consul_settings:
-  CONSUL_HOST: host.docker.internal
+  CONSUL_HOST: consul
   CONSUL_PASSWORD: '8500'
   CONSUL_PORT: 8500
   CONSUL_SERVICE_ID: magellon-service-11f0bd1e-8c57-412d-8211-0c940da261c6
@@ -25,7 +25,7 @@ database_settings:
   DB_USER: root
 
 rabbitmq_settings:
-  HOST_NAME: host.docker.internal
+  HOST_NAME: rabbitmq
   PORT: 5672
   USER_NAME: rabbit
   PASSWORD: behd1d2
