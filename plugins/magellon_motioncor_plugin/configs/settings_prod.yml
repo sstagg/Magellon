@@ -32,7 +32,7 @@ database_settings:
   DB_USER: behdad
 
 rabbitmq_settings:
-  HOST_NAME: host.docker.internal
+  HOST_NAME: rabbitmq
   PORT: 5672
   USER_NAME: rabbit
   PASSWORD: behd1d2

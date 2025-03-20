@@ -27,3 +27,4 @@ matplotlib
 tifffile
 prometheus-fastapi-instrumentator
 opencv-python
+pika

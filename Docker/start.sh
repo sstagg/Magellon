@@ -1,6 +1,34 @@
 #!/bin/bash
+VOLUMES=(
+  "mysql_data"
+  "mysql_conf"
+  "mysql_init"
+  "rabbitmq_data"
+  "consul_data"
+  "consul_config"
+  "prometheus_config"
+  "grafana_storage"
+  "grafana_temp"
+  "magellon_home"
+  "magellon_jobs"
+  "postgres_data"
+  "postgres_conf"
+  "rabbitmq-data"
+  "app_data"
+)
 
-# Step 1: Start Docker Compose
+# Step 1: Create Docker volumes
+echo "Creating required Docker volumes..."
+for volume in "${VOLUMES[@]}"; do
+  if ! docker volume inspect "$volume" &>/dev/null; then
+    docker volume create "$volume"
+    echo "Created volume: $volume"
+  else
+    echo "Volume already exists: $volume"
+  fi
+done
+
+# Step 2: Start Docker Compose
 if command -v docker-compose &> /dev/null; then
     DOCKER_CMD="docker-compose"
 elif docker compose version &> /dev/null; then
@@ -14,7 +42,7 @@ echo "Using command: $DOCKER_CMD"
 
 $DOCKER_CMD --profile default up -d
 
-# Step 2: Wait for services to be ready (optional)
+# Step 3: Wait for services to be ready (optional)
 # You can add a sleep here to give the services some time to start, or use a more sophisticated health check
 sleep 15
 
@@ -32,7 +60,7 @@ sleep 15
 
 
 
-# Step 3: Open browser with links
+# Step 4: Open browser with links
 # Replace the URL with the desired URL for your service
 if which xdg-open > /dev/null
 then

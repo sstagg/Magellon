@@ -19,7 +19,9 @@ class RabbitmqClient:
         )
         parameters = pika.ConnectionParameters(
             host=self.settings.HOST_NAME,
-            credentials=credentials
+            credentials=credentials,
+            heartbeat=600,
+            blocked_connection_timeout=300
         )
         try:
             self.connection = pika.BlockingConnection(parameters)
