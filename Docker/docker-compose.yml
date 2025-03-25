@@ -25,11 +25,12 @@ services:
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
-      - mysql_data:/var/lib/mysql
-      - mysql_conf:/etc/mysql/conf
-      - mysql_init:/docker-entrypoint-initdb.d
+      - ./mysql/data:/var/lib/mysql:rw
+      - ./mysql/conf:/etc/mysql/conf
+      - ./mysql/init/magellon01db.sql:/docker-entrypoint-initdb.d/magellon01db.sql
     command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci  --lower-case-table-names=1
     restart: always
+    user: "999:999"
     ports:
       - "${MYSQL_PORT}:3306"
     networks:
@@ -45,7 +46,7 @@ services:
     restart: unless-stopped
     container_name: magellon-rabbitmq-container
     volumes:
-      - rabbitmq_data:/var/lib/rabbitmq  # Persist data
+      - rabbitmq-data:/var/lib/rabbitmq  # Persist data
     ports:
       - "${RABBITMQ_PORT}:5672"
       - "${RABBITMQ_MANAGEMENT_PORT}:15672"
@@ -63,8 +64,8 @@ services:
     ports:
       - "${CONSUL_PORT}:8500"
     volumes:
-      - consul_data:/consul/data
-      - consul_config:/consul/config
+      - ./consul/data:/consul/data
+      - ./consul/config:/consul/config
     networks:
       magellon-network:
         ipv4_address: 172.16.238.9
@@ -77,7 +78,7 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - prometheus_config:/etc/prometheus
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
     networks:
@@ -93,8 +94,8 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - grafana_storage:/var/lib/grafana
-      - grafana_temp:/tmp
+       - 'grafana_storage:/var/lib/grafana'
+       - './grafana.db:/tmp/grafana.db'
     command: |
       sh -c "cp /tmp/grafana.db /var/lib/grafana/grafana.db && /run.sh"
     environment:
@@ -114,8 +115,8 @@ services:
     ports:
       - "${MAGELLON_BACKEND_PORT}:80"
     volumes:
-      - magellon_home:/magellon
-      - magellon_gpfs:/gpfs
+      - ${MAGELLON_HOME_PATH}:/magellon
+      - ${MAGELLON_GPFS_PATH}:/gpfs
     environment:
       - APP_ENV=production
       - RUN_ENV =docker
@@ -159,9 +160,9 @@ services:
       - GPFS_ROOT=${MAGELLON_GPFS_PATH}
       - HOME_PATH=${MAGELLON_HOME_PATH}
     volumes:
-      - magellon_gpfs:/gpfs
-      - magellon_jobs:/jobs
-      - magellon_home:/magellon
+      - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_JOBS_PATH}:/jobs
+      - ${MAGELLON_HOME_PATH}:/magellon
     ports:
       - "${MAGELLON_RESULT_PLUGIN_PORT}:80"
     networks:
@@ -180,8 +181,8 @@ services:
       - GPFS_ROOT=${MAGELLON_GPFS_PATH}
       - JOBS_PATH=${MAGELLON_JOBS_PATH}
     volumes:
-      - magellon_gpfs:/gpfs
-      - magellon_jobs:/jobs
+      - ${MAGELLON_HOME_PATH}:/magellon
+      - ${MAGELLON_GPFS_PATH}:/gpfs
     ports:
       - "${MAGELLON_CTF_PLUGIN_PORT}:80"
     networks:
@@ -200,8 +201,8 @@ services:
       - GPFS_ROOT=${MAGELLON_GPFS_PATH}
       - JOBS_PATH=${MAGELLON_JOBS_PATH}
     volumes:
-      - magellon_gpfs:/gpfs
-      - magellon_jobs:/jobs
+      - ${MAGELLON_HOME_PATH}:/magellon
+      - ${MAGELLON_GPFS_PATH}:/gpfs
     ports:
       - "${MAGELLON_MOTIONCOR_PLUGIN_PORT}:80"
     networks:
@@ -217,23 +218,10 @@ services:
 
 volumes:
   # New named volumes for all services
-  mysql_data: {}
-  mysql_conf: {}
-  mysql_init: {}
-  rabbitmq_data: {}
-  consul_data: {}
-  consul_config: {}
-  prometheus_config: {}
-  grafana_storage: {}
-  grafana_temp: {}
-  magellon_home: {}
-  magellon_gpfs: {}
-  magellon_jobs: {}
-  # Legacy volumes
-  postgres_data: {}
-  postgres_conf: {}
-  rabbitmq-data: {}
-  app_data: {}
+  rabbitmq-data: { }
+  postgres_data: { }
+  grafana_storage: { }
+  app_data:  # Define a named volume for application data
   cache:
     driver: local
 
