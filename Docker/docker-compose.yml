@@ -25,9 +25,9 @@ services:
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
-      - ./mysql/data:/var/lib/mysql:rw
-      - ./mysql/conf:/etc/mysql/conf
-      - ./mysql/init/magellon01db.sql:/docker-entrypoint-initdb.d/magellon01db.sql
+      - ./opt/magellon/mysql/data:/var/lib/mysql:rw
+      - ./opt/magellon/mysql/conf:/etc/mysql/conf
+      - ./opt/magellon/mysql/init/magellon01db.sql:/docker-entrypoint-initdb.d/magellon01db.sql
     command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci  --lower-case-table-names=1
     restart: always
     user: "999:999"
@@ -64,8 +64,8 @@ services:
     ports:
       - "${CONSUL_PORT}:8500"
     volumes:
-      - ./consul/data:/consul/data
-      - ./consul/config:/consul/config
+      - ./opt/magellon/consul/data:/consul/data
+      - ./opt/magellon/consul/config:/consul/config
     networks:
       magellon-network:
         ipv4_address: 172.16.238.9
@@ -78,7 +78,7 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./opt/magellon/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
     networks:
