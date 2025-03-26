@@ -1,0 +1,29 @@
+# Paths
+MAGELLON_HOME_PATH={{ home_path }}
+MAGELLON_GPFS_PATH={{ gpfs_path }}
+MAGELLON_JOBS_PATH={{ jobs_path }}
+
+# MySQL Database Configuration
+MYSQL_DATABASE={{ mysql_database }}
+MYSQL_ROOT_PASSWORD={{ mysql_root_password }}
+MYSQL_USER={{ mysql_user }}
+MYSQL_PASSWORD={{ mysql_password }}
+MYSQL_PORT={{ mysql_port }}
+
+# RabbitMQ Configuration
+RABBITMQ_DEFAULT_USER={{ rabbitmq_user }}
+RABBITMQ_DEFAULT_PASS={{ rabbitmq_pass }}
+RABBITMQ_PORT={{ rabbitmq_port }}
+RABBITMQ_MANAGEMENT_PORT={{ rabbitmq_management_port }}
+
+GRAFANA_USER_NAME={{ grafana_user }}
+GRAFANA_USER_PASS={{ grafana_pass }}
+
+CONSUL_PORT={{ consul_port }}
+
+MAGELLON_FRONTEND_PORT={{ frontend_port }}
+MAGELLON_BACKEND_PORT={{ backend_port }}
+
+MAGELLON_RESULT_PLUGIN_PORT={{ result_plugin_port }}
+MAGELLON_CTF_PLUGIN_PORT={{ ctf_plugin_port }}
+MAGELLON_MOTIONCOR_PLUGIN_PORT={{ motioncor_plugin_port }}

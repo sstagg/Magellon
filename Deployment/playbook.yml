@@ -1,0 +1,143 @@
+---
+- name: Installing Magellon with all dependencies
+  hosts: target
+  become: yes
+  vars:
+
+    mysql_new_root_password: ""
+    mysql_database: ""
+
+    mysql_magellon_user: ""
+    mysql_magellon_password: ""
+    sql_source_file_path: ../assets/sql/magellon01db.sql
+    sql_target_file_path: /projects/sql/magellon01db.sql
+
+    git_repository: https://github.com/sstagg/Magellon.git
+    network_name: magellon
+
+    project_path: /projects/CoreService
+    core_service_project_directory: /projects/CoreService
+    core_service_dockerfile_path: /projects/infrastructure/docker/Dockerfile
+    core_service_image_name: khoshbin/magellon-core-service
+    core_service_container_name: magellon-core-service01
+    core_service_port_number: 8000
+    core_service_base_dir: ""
+    core_service_api_url: http://127.0.0.1:8000/web/
+
+    webapp_project_directory: /projects/WebApp
+    webapp_dockerfile_path: /projects/infrastructure/docker/angular/Dockerfile
+    webapp_image_name: khoshbin/magellon-angular-app
+    webapp_container_name: magellon-angular-webapp01
+    webapp_port_number: 8080
+
+  tasks:
+
+
+    - name: Scan host key
+      command: ssh-keyscan -H "127.0.0.1"
+      register: host_key
+
+    - name: Add host key to known_hosts
+      lineinfile:
+        dest: /home/behdad/.ssh/known_hosts
+        line: "{{ host_key.stdout }}"
+        create: yes
+        mode: "0600"
+
+    - name: Run apt update
+      become: true
+      apt:
+        update_cache: yes
+
+    - name: Install Python3 and pip and pymysql
+      apt:
+        name:
+          - python3
+          - python3-pip
+          - python3-pymysql
+        state: present
+
+
+    - name: Install MariaDB Server
+      apt:
+        name:
+          - mariadb-server
+          - mariadb-client
+          - python3-pip
+          - curl
+        state: present
+
+    - name: Set lower table names in MariaDB configuration
+      lineinfile:
+        path: /etc/mysql/mariadb.conf.d/50-server.cnf
+        regexp: '^lower_case_table_names'
+        line: 'lower_case_table_names = 1'
+        state: present
+      become: true
+
+    - name: Set MariaDB to listen on 0.0.0.0
+      lineinfile:
+        path: /etc/mysql/mariadb.conf.d/50-server.cnf
+        regexp: '^bind-address'
+        line: 'bind-address = 0.0.0.0'
+        state: present
+      become: true
+
+    - name: Restart MariaDB service
+      service:
+        name: mariadb
+        state: restarted
+      become: true
+
+    - name: Enable MySQL service on boot
+      systemd:
+        name: mysql
+        enabled: yes
+
+    - name: Change MySql root password
+      mysql_user:
+        name: root
+        password: "{{ mysql_new_root_password }}"
+        update_password: always
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+      become: true
+      ignore_errors: yes
+
+
+    - name: Create Magellon User
+      mysql_user:
+        name: "{{ mysql_magellon_user }}"
+        host: '%'
+        password: "{{ mysql_magellon_password }}"
+        priv: '*.*:ALL'
+        state: present
+        login_user: "root"
+        login_password: "{{ mysql_new_root_password }}"
+      become: true
+
+    - name: Create MariaDB database
+      mysql_db:
+        name: "{{ mysql_database }}"
+        state: present
+        login_user: "root"
+        login_password: "{{ mysql_new_root_password }}"
+      become: true
+
+    - name: Make sure destination dir exists
+      file:
+        path: "{{ sql_target_file_path | dirname }}"
+        recurse: true
+        state: directory
+
+    - name: Copy File to Remote Server
+      copy:
+        src: "{{ sql_source_file_path }}"
+        dest: "{{ sql_target_file_path }}"
+
+    - name: Import SQL file
+      mysql_db:
+        name: "{{ mysql_database }}"
+        state: import
+        target: "{{ sql_target_file_path }}"
+        login_user: "{{ mysql_magellon_user }}"
+        login_password: "{{ mysql_magellon_password }}"
