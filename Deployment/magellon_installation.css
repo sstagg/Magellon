@@ -1,262 +1,384 @@
-/* Define variables */
-$bg-primary: #161b22;
-$bg-secondary: #0d1117;
-$border-color: #30363d;
-$accent-color: #58a6ff;
-$text-color: #f0f6fc;
-$secondary-text: #8b949e;
-$button-primary: #1f6feb;
-$button-success: #238636;
-$button-error: #da3633;
+/* Enhanced CSS for Magellon Installation Wizard */
 
-/* Main application styling */
-Screen {
-    background: $bg-primary;
-    color: $text-color;
+/* Color Variables */
+$bg-primary: #0a1929;
+$bg-secondary: #1a2b3c;
+$bg-hover: #233b54;
+$bg-active: #305070;
+$text-primary: #e6edf3;
+$text-secondary: #a3b1c2;
+$accent-color: #58a6ff;
+$accent-secondary: #79c0ff;
+$success-color: #3fb950;
+$error-color: #f85149;
+$warning-color: #d29922;
+$border-color: #30363d;
+$input-bg: #0d1117;
+$highlight-color: #1a4b91;
+
+/* Global Styles */
+* {
+    box-sizing: border-box;
+    /*transition: background 0.1s ease-in-out;*/
 }
 
-Header {
-    dock: top;
-    height: 3;
+Screen {
+    background: $bg-primary;
+    color: $text-primary;
+}
+
+/* Header and Footer */
+MagellonHeader {
     background: $bg-secondary;
     color: $accent-color;
+    height: 3;
+    content-align: center middle;
     text-style: bold;
-    text-align: center;
-    padding: 0 1;
+    border-bottom: solid $border-color;
 }
 
 Footer {
-    dock: bottom;
+    background: $bg-secondary;
+    color: $text-secondary;
     height: 1;
-    background: $bg-secondary;
-    color: $secondary-text;
+    border-top: solid $border-color;
 }
 
-TabbedContent {
+/* Container Styles */
+#welcome-container,
+#config-container,
+#confirmation-container,
+#installation-container,
+#help-container {
+    width: 100%;
+    height: 1fr;
+    padding: 1 2;
+}
+
+/* Logo styling */
+#logo {
+    margin: 1 0 2 0;
+    color: $accent-color;
+    text-align: center;
+    width: 100%;
+}
+
+/* Screen Titles */
+#welcome-title,
+#screen-title {
+    text-align: center;
+    text-style: bold;
+    color: $accent-color;
+    height: 3;
+    margin-bottom: 1;
+    width: 100%;
+}
+
+#welcome-description {
+    text-align: center;
+    width: 100%;
+    margin-bottom: 2;
+}
+
+/* Progress Steps */
+#progress-steps {
+    width: 100%;
+    height: 3;
+    align: center middle;
+    margin-bottom: 2;
+}
+
+.step {
+    width: 3;
+    height: 3;
+    content-align: center middle;
     background: $bg-secondary;
+    color: $text-secondary;
     border: solid $border-color;
+    text-style: bold;
+}
+
+.step.active {
+    background: $accent-color;
+    color: $text-primary;
+    border: solid $accent-secondary;
+}
+
+.step.completed {
+    background: $success-color;
+    color: $text-primary;
+    border: solid $success-color;
+}
+
+.step-arrow {
+    width: 3;
+    height: 3;
+    content-align: center middle;
+    color: $text-secondary;
+}
+
+/* Selection Prompt */
+#selection-prompt {
+    text-align: center;
+    width: 100%;
+    margin-bottom: 1;
+}
+
+/* Installation Options Grid */
+#installation-options {
+    grid-size: 3;
+    grid-gutter: 2 1;
+    grid-rows: 1fr;
+    width: 100%;
     height: auto;
-    width: auto;
-    margin: 1 2;
+    margin-bottom: 2;
 }
 
-TabPane {
-    padding: 2 2;
-    color: $text-color;
+.installation-option {
+    width: 100%;
+    height: 100%;
+    border: solid $border-color;
     background: $bg-secondary;
+    padding: 1;
+    /*border-radius: 1;*/
 }
 
-Grid {
-    grid-size: 2;
-    grid-gutter: 1 2;
-    margin: 1 0;
+.installation-option:hover {
+    border: solid $accent-color;
+    background: $bg-hover;
+}
+
+.option-icon {
+    text-align: center;
+    width: 100%;
+    height: 3;
+    text-style: bold;
+    /*font-size: 2;*/
+}
+
+.option-title {
+    text-align: center;
+    width: 100%;
+    height: 3;
+    text-style: bold;
+    color: $accent-color;
+}
+
+.option-description {
+    text-align: center;
+    width: 100%;
+    height: auto;
+    margin-bottom: 1;
+}
+
+.option-button {
+    width: 100%;
+    margin-top: 1;
+    background: $bg-hover;
+    color: $accent-color;
+}
+
+.option-button:hover {
+    background: $accent-color;
+    color: $bg-primary;
+}
+
+/* Action Buttons */
+#action-buttons {
+    width: 100%;
+    align: center middle;
+    height: auto;
+    margin-top: 2;
+}
+
+#action-buttons Button {
+    min-width: 16;
+    margin: 0 1;
 }
 
 Button {
-    width: auto;
-    min-width: 16;
-    margin: 1 1;
+    background: $bg-secondary;
+    color: $text-primary;
+    border: solid $border-color;
+    min-width: 10;
     height: 3;
 }
 
 Button:hover {
-    background: $button-primary;
+    background: $bg-hover;
+    border: solid $accent-color;
 }
 
-Button.primary {
-    background: $button-primary;
-    color: $text-color;
+Button.-error {
+    background: $error-color;
+    color: $text-primary;
 }
 
-Button.success {
-    background: $button-success;
-    color: $text-color;
+Button.-success {
+    background: $success-color;
+    color: $text-primary;
 }
 
-Button.error {
-    background: $button-error;
-    color: $text-color;
+Button.-primary {
+    background: $accent-color;
+    color: $bg-primary;
 }
 
-Label {
-    width: 100%;
-    height: 3;
-    content-align: left middle;
-    padding: 0 1;
-}
-
-Input {
-    width: 100%;
-    height: 3;
-    background: $bg-secondary;
-    color: $text-color;
-    border: tall $border-color;
-}
-
-Input:focus {
-    border: tall $button-primary;
-}
-
-Select {
-    width: 100%;
-    height: 3;
-    background: $bg-secondary;
-    color: $text-color;
-    border: tall $border-color;
-}
-
-Select:focus {
-    border: tall $button-primary;
-}
-
-Switch {
-    background: $bg-secondary;
-    height: 3;
-}
-
-#progress_bar {
-    width: 100%;
-    margin: 1 0;
-}
-
-TextLog {
-    height: 15;
-    background: $bg-secondary;
-    color: $text-color;
-    border: solid $border-color;
-    margin: 1 0;
-}
-
-Horizontal {
-    height: auto;
-    align: center middle;
-    margin: 1 0;
-}
-
-Vertical {
-    width: 100%;
-    height: auto;
-    padding: 1 0;
-}
-
-/* Welcome Tab Styling */
-#welcome-title {
-    text-align: center;
-    width: 100%;
-    padding: 1;
-    background: $bg-secondary;
+/* Form Elements */
+.section-title,
+.subsection-title {
     color: $accent-color;
     text-style: bold;
-    height: 3;
-
+    margin-bottom: 1;
+    border-bottom: solid $border-color;
+    padding-bottom: 1;
 }
 
-#welcome-text {
-    text-align: center;
-    width: 100%;
-    padding: 2;
-    margin-bottom: 2;
+.subsection-title {
+    color: $accent-secondary;
 }
 
-#installation-type-container {
-    width: 100%;
-    align-horizontal: center;
-    margin-top: 2;
-}
-
-.installation-card {
-    width: 30%;
-    height: 16;
-    background: $bg-secondary;
-    border: solid $border-color;
-    margin: 0 2;
-    padding: 1;
-}
-
-.card-title {
-    text-align: center;
-    width: 100%;
-    padding: 1;
-    color: $accent-color;
-    text-style: bold;
-    height: 3;
-}
-
-.card-description {
-    text-align: center;
-    width: 100%;
-    padding: 1;
-    height: 6;
-}
-
-/* Section Title Styling */
-#single-title, #network-title, #cloud-title, #components-title,
-#master-title, #workers-title, #worker-list-title {
-    text-align: left;
-    width: 100%;
-    padding: 1;
-    color: $accent-color;
-    text-style: bold;
-    height: 3;
+.input-label {
     margin-top: 1;
     margin-bottom: 1;
 }
 
-/* Results Section Styling */
-#results-title {
-    text-align: center;
-    width: 100%;
-    padding: 1;
-    color: $accent-color;
-    text-style: bold;
+Input {
+    background: $input-bg;
+    border: solid $border-color;
+    color: $text-primary;
     height: 3;
-    margin-bottom: 2;
-}
-
-#docker_result, #compose_result, #git_result,
-#disk_result, #ports_result, #summary_result {
-    padding: 1;
     margin-bottom: 1;
 }
 
-/* Components Grid Styling */
-#components-grid {
-    grid-size: 2;
-    grid-gutter: 1 2;
-    margin: 1 0;
-    border: solid $border-color;
+Input:focus {
+    border: solid $accent-color;
+}
+
+.validation-error {
+    color: $error-color;
+    margin-bottom: 1;
+    text-style: italic;
+}
+
+/* Tabbed Content */
+TabbedContent {
+    height: 1fr;
+    margin-bottom: 2;
+}
+
+TabPane {
     padding: 1;
 }
 
-/* Worker List Styling */
-#worker-list {
+TabPane > .tab-content {
+    overflow-y: auto;
+}
+
+Tabs {
+    background: $bg-secondary;
+    border-bottom: solid $border-color;
+}
+
+Tabs Tab {
+    padding: 1 2;
+    color: $text-secondary;
+}
+
+Tabs Tab:hover {
+    color: $text-primary;
+}
+
+Tabs Tab.-active {
+    color: $accent-color;
+    border-bottom: solid $accent-color;
+}
+
+/* Component Grid */
+#components-grid,
+#network-components-grid,
+#cloud-components-grid {
     width: 100%;
-    padding: 1;
+    margin-top: 1;
+}
+
+.component-row {
+    height: 3;
+    margin-bottom: 1;
+    align: left middle;
+}
+
+.component-name {
+    width: 70%;
+}
+
+Switch {
+    margin-left: 2;
+}
+
+/* Provider Buttons */
+#provider-buttons Button,
+#install-type-options Button {
+    margin: 1 1;
+}
+
+/* Select Widget */
+Select {
+    background: $input-bg;
+    border: solid $border-color;
+    color: $text-primary;
+    height: 3;
+    margin-bottom: 1;
+}
+
+Select:focus {
+    border: solid $accent-color;
+}
+
+/* Configuration Summary */
+#configuration-summary {
+    width: 100%;
     background: $bg-secondary;
     border: solid $border-color;
-    min-height: 6;
-    margin-bottom: 2;
-}
-
-/* Quit Screen Styling */
-#quit-question {
-    text-align: center;
-    width: 100%;
-    padding: 2;
-    margin-top: 2;
-    text-style: bold;
-}
-
-#quit-warning {
-    text-align: center;
-    width: 100%;
     padding: 1;
     margin-bottom: 2;
-    color: #ffaa00;
 }
 
-#quit-buttons {
-    width: 100%;
-    align-horizontal: center;
-    margin-top: 2;
+.config-item {
+    margin-bottom: 1;
+    padding-left: 1;
 }
+
+/* Installation Progress */
+#installation-progress {
+    width: 100%;
+    height: 1;
+    margin: 2 0;
+}
+
+ProgressBar .bar {
+    color: $accent-color;
+}
+
+#installation-log {
+    width: 100%;
+    height: 20;
+    background: $input-bg;
+    border: solid $border-color;
+    margin-bottom: 2;
+}
+
+/* Help Screen */
+.help-text {
+    margin-bottom: 2;
+}
+
+/*!* Animations *!*/
+/*@keyframes fadeIn {*/
+/*    0% { opacity: 0; }*/
+/*    100% { opacity: 1; }*/
+/*}*/
+
+/*.fadeIn {*/
+/*    animation: fadeIn 0.5s ease-in-out;*/
+/*}*/
