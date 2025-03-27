@@ -25,9 +25,9 @@ services:
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
-      - ./opt/magellon/services/mysql/data:/var/lib/mysql:rw
-      - ./opt/magellon/services/mysql/conf:/etc/mysql/conf
-      - ./opt/magellon/services/mysql/init/magellon01db.sql:/docker-entrypoint-initdb.d/magellon01db.sql
+      - ${MAGELLON_ROOT_DIR}/opt/magellon/services/mysql/data:/var/lib/mysql:rw
+      - ${MAGELLON_ROOT_DIR}/opt/magellon/services/mysql/conf:/etc/mysql/conf
+      - ${MAGELLON_ROOT_DIR}/opt/magellon/services/mysql/init/magellon01db.sql:/docker-entrypoint-initdb.d/magellon01db.sql
     command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci  --lower-case-table-names=1
     restart: always
     user: "999:999"
@@ -64,8 +64,8 @@ services:
     ports:
       - "${CONSUL_PORT}:8500"
     volumes:
-      - ./opt/magellon/services/consul/data:/consul/data
-      - ./opt/magellon/services/consul/config:/consul/config
+      - ${MAGELLON_ROOT_DIR}/opt/magellon/services/consul/data:/consul/data
+      - ${MAGELLON_ROOT_DIR}/opt/magellon/services/consul/config:/consul/config
     networks:
       magellon-network:
         ipv4_address: 172.16.238.9
@@ -78,7 +78,7 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./opt/magellon/services/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ${MAGELLON_ROOT_DIR}/opt/magellon/services/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
     networks:
@@ -95,7 +95,7 @@ services:
       - "3000:3000"
     volumes:
        - 'grafana_storage:/var/lib/grafana'
-       - './grafana.db:/tmp/grafana.db'
+       - '${MAGELLON_ROOT_DIR}/opt/magellon/services/grafana/grafana.db:/tmp/grafana.db'
     command: |
       sh -c "cp /tmp/grafana.db /var/lib/grafana/grafana.db && /run.sh"
     environment:

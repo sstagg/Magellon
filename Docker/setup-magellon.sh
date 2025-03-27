@@ -16,7 +16,8 @@ if [ $# -ne 1 ]; then
     exit 1
 fi
 
-ROOT_DIR=$1
+ROOT_DIR="$1/$DEFAULT_ROOT"
+# ROOT_DIR=$1
 echo "=== Magellon Setup ==="
 echo "Setting up Magellon in: $ROOT_DIR"
 
@@ -66,7 +67,7 @@ mkdir -p "$ROOT_DIR/jobs"
 # Copy services directory if it exists in current directory
 if [ -d "services" ]; then
     log "Copying services directory and its contents..."
-    cp -r services "$ROOT_DIR/services/"
+    cp -r services/* "$ROOT_DIR/services/"
     if [ $? -ne 0 ]; then
         log "WARNING: Failed to copy all services. Check permissions and try again."
     else
