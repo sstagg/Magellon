@@ -8,15 +8,22 @@ set -e  # Exit immediately if a command exits with non-zero status
 
 # Default paths
 DEFAULT_ROOT="opt/magellon"
-
-# Check if root directory is provided
-if [ $# -ne 1 ]; then
-    echo "Usage: $0 <root_directory>"
-    echo "  Example: $0 /home/user/magellon"
+if [ -f .env ]; then
+    source .env
+else
+    echo ".env file not found!"
     exit 1
 fi
 
-ROOT_DIR="$1/$DEFAULT_ROOT"
+# Check if root directory is provided
+if [ -z "$MAGELLON_ROOT_DIR" ]; then
+    echo "ERROR: MAGELLON_ROOT environment variable is not set."
+    echo "Please set the MAGELLON_ROOT environment variable and try again."
+    exit 1
+else
+    ROOT_DIR="$MAGELLON_ROOT_DIR/$DEFAULT_ROOT"
+fi
+
 # ROOT_DIR=$1
 echo "=== Magellon Setup ==="
 echo "Setting up Magellon in: $ROOT_DIR"
