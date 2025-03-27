@@ -23,7 +23,7 @@ log() {
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"
 }
 
-# Function to check command existence
+#Function to check command existence
 check_command() {
     if ! command -v $1 &> /dev/null; then
         log "ERROR: '$1' command not found. Please install it first."
@@ -111,15 +111,22 @@ else
     cp .env .env.backup
 
     # Update paths in .env file
-    sed -i "s|MAGELLON_HOME_PATH=.*|MAGELLON_HOME_PATH=$ROOT_DIR/home|g" .env
-    sed -i "s|MAGELLON_GPFS_PATH=.*|MAGELLON_GPFS_PATH=$ROOT_DIR/gpfs|g" .env
-    sed -i "s|MAGELLON_JOBS_PATH=.*|MAGELLON_JOBS_PATH=$ROOT_DIR/jobs|g" .env
-    sed -i "s|MAGELLON_ROOT_DIR=.*|MAGELLON_ROOT_DIR=$ROOT_DIR|g" .env
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        SED_CMD="sed -i ''"
+    else
+        SED_CMD="sed -i"
+    fi
+
+    # Use the correct sed command
+    $SED_CMD "s|MAGELLON_HOME_PATH=.*|MAGELLON_HOME_PATH=$ROOT_DIR/home|g" .env
+    $SED_CMD "s|MAGELLON_GPFS_PATH=.*|MAGELLON_GPFS_PATH=$ROOT_DIR/gpfs|g" .env
+    $SED_CMD "s|MAGELLON_JOBS_PATH=.*|MAGELLON_JOBS_PATH=$ROOT_DIR/jobs|g" .env
+    $SED_CMD "s|MAGELLON_ROOT_DIR=.*|MAGELLON_ROOT_DIR=$ROOT_DIR|g" .env
 
     log ".env file updated successfully (backup created as .env.backup)"
 fi
 
-# Start Docker Compose with proper error handling
+Start Docker Compose with proper error handling
 log "Starting Docker containers..."
 if $DOCKER_COMPOSE_CMD up -d; then
     log "Docker containers started successfully"
