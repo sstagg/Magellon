@@ -183,6 +183,7 @@ services:
     volumes:
       - ${MAGELLON_HOME_PATH}:/magellon
       - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_JOBS_PATH}:/jobs
     ports:
       - "${MAGELLON_CTF_PLUGIN_PORT}:80"
     networks:
@@ -203,6 +204,7 @@ services:
     volumes:
       - ${MAGELLON_HOME_PATH}:/magellon
       - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_JOBS_PATH}:/jobs
     ports:
       - "${MAGELLON_MOTIONCOR_PLUGIN_PORT}:80"
     networks:
