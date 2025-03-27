@@ -8,22 +8,15 @@ set -e  # Exit immediately if a command exits with non-zero status
 
 # Default paths
 DEFAULT_ROOT="opt/magellon"
-if [ -f .env ]; then
-    source .env
-else
-    echo ".env file not found!"
-    exit 1
-fi
 
 # Check if root directory is provided
-if [ -z "$MAGELLON_ROOT_DIR" ]; then
-    echo "ERROR: MAGELLON_ROOT environment variable is not set."
-    echo "Please set the MAGELLON_ROOT environment variable and try again."
+if [ $# -ne 1 ]; then
+    echo "Usage: $0 <root_directory>"
+    echo "  Example: $0 /home/user/magellon"
     exit 1
-else
-    ROOT_DIR="$MAGELLON_ROOT_DIR/$DEFAULT_ROOT"
 fi
-
+MAIN_ROOT_DIR=$1
+ROOT_DIR="$1/$DEFAULT_ROOT"
 # ROOT_DIR=$1
 echo "=== Magellon Setup ==="
 echo "Setting up Magellon in: $ROOT_DIR"
@@ -124,6 +117,7 @@ else
     sed -i "s|MAGELLON_HOME_PATH=.*|MAGELLON_HOME_PATH=$ROOT_DIR/home|g" .env
     sed -i "s|MAGELLON_GPFS_PATH=.*|MAGELLON_GPFS_PATH=$ROOT_DIR/gpfs|g" .env
     sed -i "s|MAGELLON_JOBS_PATH=.*|MAGELLON_JOBS_PATH=$ROOT_DIR/jobs|g" .env
+    sed -i "s|MAGELLON_ROOT_DIR=.*|MAGELLON_ROOT_DIR=$MAIN_ROOT_DIR|g" .env
 
     log ".env file updated successfully (backup created as .env.backup)"
 fi
