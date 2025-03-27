@@ -81,13 +81,18 @@ fi
 # Set permissions with better security practices
 log "Setting directory permissions..."
 # Only set 755 on directories that need execution, 644 on files
-find "$ROOT_DIR/services" -type d -exec chmod 755 {} \; 2>/dev/null || log "WARNING: Some permission changes failed"
-find "$ROOT_DIR/services" -type f -exec chmod 644 {} \; 2>/dev/null || log "WARNING: Some permission changes failed"
+# find "$ROOT_DIR/services" -type d -exec chmod 755 {} \; 2>/dev/null || log "WARNING: Some permission changes failed"
+# find "$ROOT_DIR/services" -type f -exec chmod 644 {} \; 2>/dev/null || log "WARNING: Some permission changes failed"
 # Set 777 only where absolutely necessary (for shared directories)
 chmod -R 777 "$ROOT_DIR/gpfs" 2>/dev/null || log "WARNING: Failed to set permissions on gpfs directory"
 chmod -R 777 "$ROOT_DIR/home" 2>/dev/null || log "WARNING: Failed to set permissions on home directory"
 chmod -R 777 "$ROOT_DIR/jobs" 2>/dev/null || log "WARNING: Failed to set permissions on jobs directory"
-
+chmod -R 777 "$ROOT_DIR/services/mysql/data"
+chmod -R 777 "$ROOT_DIR/services/mysql/conf"
+chmod -R 777 "$ROOT_DIR/services/mysql/init"
+chmod -R 777 "$ROOT_DIR/services/consul/data"
+chmod -R 777 "$ROOT_DIR/services/consul/config"
+chmod -R 777 "$ROOT_DIR/services/prometheus"
 log "Directory structure created with appropriate permissions"
 
 # Check if we're in the right directory (where docker-compose.yml is)
