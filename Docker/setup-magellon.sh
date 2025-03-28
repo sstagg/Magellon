@@ -126,7 +126,7 @@ else
     log ".env file updated successfully (backup created as .env.backup)"
 fi
 
-Start Docker Compose with proper error handling
+#Start Docker Compose with proper error handling
 log "Starting Docker containers..."
 if $DOCKER_COMPOSE_CMD up -d; then
     log "Docker containers started successfully"
