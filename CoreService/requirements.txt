@@ -1,6 +1,6 @@
 fastapi
 uvicorn
-pydantic>=2.6.1
+pydantic==2.6.1
 sqlalchemy>=2.0.25
 sqlalchemy_utils==0.41.1
 # psycopg2
