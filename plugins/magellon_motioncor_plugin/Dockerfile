@@ -1,5 +1,7 @@
 # Use a base image with CUDA 12.1
-FROM --platform=linux/amd64 nvidia/cuda:12.1.0-devel-ubuntu22.04
+ARG CUDA_IMAGE
+ARG MOTIONCOR_BINARY
+FROM --platform=linux/amd64 ${CUDA_IMAGE}
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
@@ -98,7 +100,7 @@ ENV APP_ENV=production
 EXPOSE 80
 
 # Copy MotionCor2 binaries and libraries
-COPY MotionCor2_1.6.4_Cuda121_Mar312023 ./MotionCor2_1.6.4_Cuda121_Mar312023
+COPY /motioncor2_binaryfiles/${MOTIONCOR_BINARY} ./${MOTIONCOR_BINARY}
 COPY MotionCor3_1.0.1_Cuda121_10-26-2023 ./MotionCor3_1.0.1_Cuda121_10-26-2023
 # Set executable permissions for MotionCor2
 # RUN chmod +x /MotionCor2/MotionCor2
