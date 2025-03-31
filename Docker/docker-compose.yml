@@ -201,6 +201,8 @@ services:
       - RUN_ENV =docker
       - GPFS_ROOT=${MAGELLON_GPFS_PATH}
       - JOBS_PATH=${MAGELLON_JOBS_PATH}
+      - CUDA_IMAGE=${CUDA_IMAGE}
+      - MOTIONCOR_BINARY=${MOTIONCOR_BINARY}
     volumes:
       - ${MAGELLON_HOME_PATH}:/magellon
       - ${MAGELLON_GPFS_PATH}:/gpfs

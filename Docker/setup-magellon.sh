@@ -6,15 +6,75 @@
 
 set -e  # Exit immediately if a command exits with non-zero status
 
+get_cuda_image() {
+    local version="$1"
+    IFS='.' read -r -a parts <<< "$version"
+
+    # Ensure at least three parts (major.minor.patch)
+    while [ ${#parts[@]} -lt 3 ]; do
+        parts+=("0")
+    done
+
+    local major="${parts[0]}"
+    local minor="${parts[1]}"
+    local patch="${parts[2]}"
+
+    local cuda_image=""
+    local motioncor_binary=""
+
+    # Determine CUDA image and base OS version
+    if (( major == 11 && minor == 1 && patch >= 1 )); then
+        cuda_image="nvidia/cuda:11.1.1-devel-ubuntu20.04"
+        motioncor_binary="MotionCor2_1.6.4_Cuda111_Mar312023"
+    elif (( major == 11 && minor == 2 )) || (( major == 11 && minor < 3 )); then
+        cuda_image="nvidia/cuda:11.2.2-devel-ubuntu20.04"
+        motioncor_binary="MotionCor2_1.6.4_Cuda112_Mar312023"
+    elif (( major == 11 && minor == 3 )) || (( major == 11 && minor < 4 )); then
+        cuda_image="nvidia/cuda:11.3.1-devel-ubuntu20.04"
+        motioncor_binary="MotionCor2_1.6.4_Cuda113_Mar312023"
+    elif (( major == 11 && minor == 4 )) || (( major == 11 && minor < 5 )); then
+        cuda_image="nvidia/cuda:11.4.3-devel-ubuntu20.04"
+        motioncor_binary="MotionCor2_1.6.4_Cuda114_Mar312023"
+    elif (( major == 11 && minor == 5 )) || (( major == 11 && minor < 6 )); then
+        cuda_image="nvidia/cuda:11.5.2-devel-ubuntu20.04"
+        motioncor_binary="MotionCor2_1.6.4_Cuda115_Mar312023"
+    elif (( major == 11 && minor == 6 )) || (( major == 11 && minor < 7 )); then
+        cuda_image="nvidia/cuda:11.6.1-devel-ubuntu20.04"
+        motioncor_binary="MotionCor2_1.6.4_Cuda116_Mar312023"
+    elif (( major == 11 && minor == 7 )) || (( major == 11 && minor < 8 )); then
+        cuda_image="nvidia/cuda:11.7.1-devel-ubuntu20.04"
+        motioncor_binary="MotionCor2_1.6.4_Cuda117_Mar312023"
+    elif (( major == 11 && minor >= 8 && minor < 12 )); then
+        cuda_image="nvidia/cuda:11.8.0-devel-ubuntu22.04"
+        motioncor_binary="MotionCor2_1.6.4_Cuda118_Mar312023"
+    elif (( major >= 12 && minor >= 1 )); then
+        cuda_image="nvidia/cuda:12.1.0-devel-ubuntu22.04"
+        motioncor_binary="MotionCor2_1.6.4_Cuda121_Mar312023"
+    else
+        cuda_image="Invalid version"
+        motioncor_binary="Invalid"
+    fi
+
+    # Return values as space-separated output
+    echo "$cuda_image $motioncor_binary"
+}
+
 
 # Check if root directory is provided
-if [ $# -ne 1 ]; then
-    echo "Usage: $0 <root_directory>"
-    echo "  Example: $0 /home/user/magellon"
+if [ $# -ne 2 ]; then
+    echo "Usage: $0 <root_directory> <cuda_version>"
+    echo "  Example: $0 /home/user/magellon 11.8"
     exit 1
 fi
+
 ROOT_DIR=$1
-# ROOT_DIR=$1
+CUDA_VERSION=$2
+cuda_output=$(get_cuda_image "$CUDA_VERSION")
+cuda_image=$(echo "$cuda_output" | awk '{print $1}')
+motiocor_binary=$(echo "$cuda_output" | awk '{print $2}')
+
+echo "CUDA Image: $cuda_image"
+echo "MotionCor Binary: $motiocor_binary"
 echo "=== Magellon Setup ==="
 echo "Setting up Magellon in: $ROOT_DIR"
 
@@ -122,47 +182,49 @@ else
     $SED_CMD "s|MAGELLON_GPFS_PATH=.*|MAGELLON_GPFS_PATH=$ROOT_DIR/gpfs|g" .env
     $SED_CMD "s|MAGELLON_JOBS_PATH=.*|MAGELLON_JOBS_PATH=$ROOT_DIR/jobs|g" .env
     $SED_CMD "s|MAGELLON_ROOT_DIR=.*|MAGELLON_ROOT_DIR=$ROOT_DIR|g" .env
+    $SED_CMD "s|CUDA_IMAGE=.*|CUDA_IMAGE=$cuda_image|g" .env
+    $SED_CMD "s|MOTIONCOR_BINARY=.*|MOTIONCOR_BINARY=$motiocor_binary|g" .env
 
     log ".env file updated successfully (backup created as .env.backup)"
 fi
 
-#Start Docker Compose with proper error handling
-log "Starting Docker containers..."
-if $DOCKER_COMPOSE_CMD up -d; then
-    log "Docker containers started successfully"
-else
-    log "ERROR: Failed to start Docker containers. Check logs with '$DOCKER_COMPOSE_CMD logs'"
-    exit 1
-fi
+# # Start Docker Compose with proper error handling
+# log "Starting Docker containers..."
+# if $DOCKER_COMPOSE_CMD up -d; then
+#     log "Docker containers started successfully"
+# else
+#     log "ERROR: Failed to start Docker containers. Check logs with '$DOCKER_COMPOSE_CMD logs'"
+#     exit 1
+# fi
 
-log "Setup complete! Magellon services should now be running."
-log "You can check container status with '$DOCKER_COMPOSE_CMD ps'"
+# log "Setup complete! Magellon services should now be running."
+# log "You can check container status with '$DOCKER_COMPOSE_CMD ps'"
 
-# Wait for services to start (but don't try to open browser in headless environments)
-log "Waiting for services to start up (15 seconds)..."
-sleep 15
+# # Wait for services to start (but don't try to open browser in headless environments)
+# log "Waiting for services to start up (15 seconds)..."
+# sleep 15
 
-log "Magellon is now available at:"
-log "  - http://localhost:8080/en/panel/images"
-log "  - http://localhost:8000"
+# log "Magellon is now available at:"
+# log "  - http://localhost:8080/en/panel/images"
+# log "  - http://localhost:8000"
 
-# Check if this is an interactive environment with a desktop
-if [ -n "$DISPLAY" ]; then
-    log "Attempting to open browser links..."
-    if which xdg-open > /dev/null; then
-        xdg-open "http://localhost:8080/en/panel/images" 2>/dev/null || log "Could not open browser automatically"
-        xdg-open "http://localhost:8000" 2>/dev/null || log "Could not open browser automatically"
-    elif which gnome-open > /dev/null; then
-        gnome-open "http://localhost:8080/en/panel/images" 2>/dev/null || log "Could not open browser automatically"
-        gnome-open "http://localhost:8000" 2>/dev/null || log "Could not open browser automatically"
-    elif which open > /dev/null; then    # For macOS
-        open "http://localhost:8080/en/panel/images" 2>/dev/null || log "Could not open browser automatically"
-        open "http://localhost:8000" 2>/dev/null || log "Could not open browser automatically"
-    else
-        log "No compatible browser opener found. Please open the URLs manually."
-    fi
-else
-    log "Running in non-graphical environment. Please access URLs from a browser manually."
-fi
+# # Check if this is an interactive environment with a desktop
+# if [ -n "$DISPLAY" ]; then
+#     log "Attempting to open browser links..."
+#     if which xdg-open > /dev/null; then
+#         xdg-open "http://localhost:8080/en/panel/images" 2>/dev/null || log "Could not open browser automatically"
+#         xdg-open "http://localhost:8000" 2>/dev/null || log "Could not open browser automatically"
+#     elif which gnome-open > /dev/null; then
+#         gnome-open "http://localhost:8080/en/panel/images" 2>/dev/null || log "Could not open browser automatically"
+#         gnome-open "http://localhost:8000" 2>/dev/null || log "Could not open browser automatically"
+#     elif which open > /dev/null; then    # For macOS
+#         open "http://localhost:8080/en/panel/images" 2>/dev/null || log "Could not open browser automatically"
+#         open "http://localhost:8000" 2>/dev/null || log "Could not open browser automatically"
+#     else
+#         log "No compatible browser opener found. Please open the URLs manually."
+#     fi
+# else
+#     log "Running in non-graphical environment. Please access URLs from a browser manually."
+# fi
 
-log "=== Setup process completed! ==="
+# log "=== Setup process completed! ==="
