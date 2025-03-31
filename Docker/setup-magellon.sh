@@ -188,43 +188,43 @@ else
     log ".env file updated successfully (backup created as .env.backup)"
 fi
 
-# # Start Docker Compose with proper error handling
-# log "Starting Docker containers..."
-# if $DOCKER_COMPOSE_CMD up -d; then
-#     log "Docker containers started successfully"
-# else
-#     log "ERROR: Failed to start Docker containers. Check logs with '$DOCKER_COMPOSE_CMD logs'"
-#     exit 1
-# fi
+# Start Docker Compose with proper error handling
+log "Starting Docker containers..."
+if $DOCKER_COMPOSE_CMD up -d; then
+    log "Docker containers started successfully"
+else
+    log "ERROR: Failed to start Docker containers. Check logs with '$DOCKER_COMPOSE_CMD logs'"
+    exit 1
+fi
 
-# log "Setup complete! Magellon services should now be running."
-# log "You can check container status with '$DOCKER_COMPOSE_CMD ps'"
+log "Setup complete! Magellon services should now be running."
+log "You can check container status with '$DOCKER_COMPOSE_CMD ps'"
 
-# # Wait for services to start (but don't try to open browser in headless environments)
-# log "Waiting for services to start up (15 seconds)..."
-# sleep 15
+# Wait for services to start (but don't try to open browser in headless environments)
+log "Waiting for services to start up (15 seconds)..."
+sleep 15
 
-# log "Magellon is now available at:"
-# log "  - http://localhost:8080/en/panel/images"
-# log "  - http://localhost:8000"
+log "Magellon is now available at:"
+log "  - http://localhost:8080/en/panel/images"
+log "  - http://localhost:8000"
 
-# # Check if this is an interactive environment with a desktop
-# if [ -n "$DISPLAY" ]; then
-#     log "Attempting to open browser links..."
-#     if which xdg-open > /dev/null; then
-#         xdg-open "http://localhost:8080/en/panel/images" 2>/dev/null || log "Could not open browser automatically"
-#         xdg-open "http://localhost:8000" 2>/dev/null || log "Could not open browser automatically"
-#     elif which gnome-open > /dev/null; then
-#         gnome-open "http://localhost:8080/en/panel/images" 2>/dev/null || log "Could not open browser automatically"
-#         gnome-open "http://localhost:8000" 2>/dev/null || log "Could not open browser automatically"
-#     elif which open > /dev/null; then    # For macOS
-#         open "http://localhost:8080/en/panel/images" 2>/dev/null || log "Could not open browser automatically"
-#         open "http://localhost:8000" 2>/dev/null || log "Could not open browser automatically"
-#     else
-#         log "No compatible browser opener found. Please open the URLs manually."
-#     fi
-# else
-#     log "Running in non-graphical environment. Please access URLs from a browser manually."
-# fi
+# Check if this is an interactive environment with a desktop
+if [ -n "$DISPLAY" ]; then
+    log "Attempting to open browser links..."
+    if which xdg-open > /dev/null; then
+        xdg-open "http://localhost:8080/en/panel/images" 2>/dev/null || log "Could not open browser automatically"
+        xdg-open "http://localhost:8000" 2>/dev/null || log "Could not open browser automatically"
+    elif which gnome-open > /dev/null; then
+        gnome-open "http://localhost:8080/en/panel/images" 2>/dev/null || log "Could not open browser automatically"
+        gnome-open "http://localhost:8000" 2>/dev/null || log "Could not open browser automatically"
+    elif which open > /dev/null; then    # For macOS
+        open "http://localhost:8080/en/panel/images" 2>/dev/null || log "Could not open browser automatically"
+        open "http://localhost:8000" 2>/dev/null || log "Could not open browser automatically"
+    else
+        log "No compatible browser opener found. Please open the URLs manually."
+    fi
+else
+    log "Running in non-graphical environment. Please access URLs from a browser manually."
+fi
 
-# log "=== Setup process completed! ==="
+log "=== Setup process completed! ==="
