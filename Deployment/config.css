@@ -355,6 +355,32 @@ ProgressBar .bar {
     margin-bottom: 2;
 }
 
+/* Form Grids and Labels */
+.form-grid {
+    grid-size: 2;
+    grid-gutter: 1 1;
+    margin-bottom: 1;
+}
+
+.grid-label {
+    padding-top: 1;
+    width: 100%;
+}
+
+#cuda-detection {
+    margin-bottom: 1;
+}
+
+.cuda-label {
+    color: $accent-secondary;
+    margin-right: 1;
+}
+
+.cuda-value {
+    color: $success-color;
+    text-style: bold;
+}
+
 /* Help Screen */
 .help-text {
     margin-bottom: 2;

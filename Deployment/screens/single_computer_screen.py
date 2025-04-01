@@ -2,17 +2,20 @@
 Configuration screen for single computer installation.
 """
 
+import os
+import subprocess
+import re
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Grid
 from textual.screen import Screen
 from textual.validation import Number
-from textual.widgets import Static, TabbedContent, TabPane, Input, Button, Switch, Footer
+from textual.widgets import Static, TabbedContent, TabPane, Input, Button, Switch, Footer, Label
 
 from header import MagellonHeader
 from screens.confirmation_screen import ConfirmationScreen
 from screens.requirements_screen import RequirementsScreen
-from libs.utils import generate_secure_password
+from libs.utils import detect_cuda_version
 
 class SingleComputerScreen(Screen):
     """Configuration screen for single computer installation."""
@@ -21,6 +24,11 @@ class SingleComputerScreen(Screen):
         Binding(key="escape", action="go_back", description="Back"),
         Binding(key="q", action="quit_app", description="Quit"),
     ]
+
+    def __init__(self):
+        super().__init__()
+        # Detect CUDA version on initialization
+        self.detected_cuda_version = detect_cuda_version()
 
     def compose(self) -> ComposeResult:
         yield MagellonHeader()
@@ -43,19 +51,42 @@ class SingleComputerScreen(Screen):
                 with TabPane("General", id="general-tab"):
                     yield Static("Installation Settings", classes="section-title")
 
+                    # Installation directory input with full width
                     yield Static("Installation Directory:", classes="input-label")
                     yield Input(
                         placeholder="Enter installation directory",
                         id="install_dir",
-                        value=self.app.installation_data.install_dir
+                        value=str(self.app.installation_data.install_dir)
                     )
 
-                    yield Static("CUDA Version:", classes="input-label")
-                    yield Input(
-                        placeholder="Enter CUDA version",
-                        id="cuda_version",
-                        value=self.app.installation_data.cuda_version
-                    )
+                    # CUDA version with auto-detection and confirmation
+                    yield Static("CUDA Configuration:", classes="section-title")
+
+                    with Horizontal(id="cuda-detection"):
+                        yield Label("Detected CUDA Version:", classes="cuda-label")
+                        yield Label(self.detected_cuda_version, id="detected-cuda-version", classes="cuda-value")
+
+                    with Grid(id="cuda-info-grid", classes="form-grid"):
+                        yield Label("CUDA Version:", classes="grid-label")
+                        yield Input(
+                            placeholder="CUDA version",
+                            id="cuda_version",
+                            value=self.detected_cuda_version,
+                        )
+
+                        yield Label("CUDA Image:", classes="grid-label")
+                        yield Input(
+                            placeholder="CUDA image",
+                            id="cuda_image",
+                            value=self.app.installation_data.cuda_image,
+                        )
+
+                        yield Label("MotionCor Binary:", classes="grid-label")
+                        yield Input(
+                            placeholder="MotionCor binary",
+                            id="motioncor_binary",
+                            value=self.app.installation_data.motioncor_binary,
+                        )
 
                     yield Static("Installation Type:", classes="input-label")
                     with Horizontal(id="install-type-options"):
@@ -172,8 +203,6 @@ class SingleComputerScreen(Screen):
                         password=True
                     )
 
-                    yield Button("Generate Secure Passwords", id="generate-passwords", variant="primary")
-
             with Horizontal(id="action-buttons"):
                 yield Button("Back", id="back-button", variant="default")
                 yield Button("Check Requirements", id="check-button", variant="primary")
@@ -199,28 +228,14 @@ class SingleComputerScreen(Screen):
         elif button_id == "production-option":
             self.query_one("#demo-option").variant = "default"
             self.query_one("#production-option").variant = "primary"
-        elif button_id == "generate-passwords":
-            self.generate_secure_passwords()
-
-    def generate_secure_passwords(self) -> None:
-        """Generate and set secure passwords."""
-        mysql_root_password = generate_secure_password(16)
-        mysql_password = generate_secure_password(16)
-        rabbitmq_password = generate_secure_password(16)
-        grafana_password = generate_secure_password(16)
-
-        self.query_one("#mysql_root_password", Input).value = mysql_root_password
-        self.query_one("#mysql_password", Input).value = mysql_password
-        self.query_one("#rabbitmq_password", Input).value = rabbitmq_password
-        self.query_one("#grafana_password", Input).value = grafana_password
-
-        self.app.notify("Secure passwords generated successfully")
 
     def save_config(self) -> None:
         """Save configuration values to the installation data."""
         # Save general settings
-        self.app.installation_data.install_dir = self.query_one("#install_dir").value
+        self.app.installation_data.install_dir = Path(self.query_one("#install_dir").value)
         self.app.installation_data.cuda_version = self.query_one("#cuda_version").value
+        self.app.installation_data.cuda_image = self.query_one("#cuda_image").value
+        self.app.installation_data.motioncor_binary = self.query_one("#motioncor_binary").value
         self.app.installation_data.is_demo = self.query_one("#demo-option").variant == "primary"
 
         # Save component selections
@@ -241,6 +256,80 @@ class SingleComputerScreen(Screen):
         self.app.installation_data.rabbitmq_password = self.query_one("#rabbitmq_password").value
         self.app.installation_data.grafana_password = self.query_one("#grafana_password").value
 
-    def action_go_back(self) -> None:
-        """Go back to the previous screen."""
-        self.app.pop_screen()
+        # Save the configuration to disk
+        self.app.save_configuration(prompt_on_success=False)
+
+    def on_mount(self) -> None:
+        """Called when the screen is mounted."""
+        # Set cuda version field to detected CUDA version
+        cuda_version_input = self.query_one("#cuda_version", Input)
+        cuda_version_input.value = self.detected_cuda_version
+
+        # Set the CUDA image and MotionCor binary based on detected version
+        self.update_cuda_info(self.detected_cuda_version)
+
+    def update_cuda_info(self, cuda_version: str) -> None:
+        """Update CUDA image and MotionCor binary based on CUDA version."""
+        # Define mappings from CUDA versions to image and binary
+        cuda_mapping = {
+            "11.1.1": {
+                "image": "nvidia/cuda:11.1.1-devel-ubuntu20.04",
+                "motioncor": "MotionCor2_1.6.4_Cuda111_Mar312023"
+            },
+            "11.2": {
+                "image": "nvidia/cuda:11.2.2-devel-ubuntu20.04",
+                "motioncor": "MotionCor2_1.6.4_Cuda112_Mar312023"
+            },
+            "11.3": {
+                "image": "nvidia/cuda:11.3.1-devel-ubuntu20.04",
+                "motioncor": "MotionCor2_1.6.4_Cuda113_Mar312023"
+            },
+            "11.4": {
+                "image": "nvidia/cuda:11.4.3-devel-ubuntu20.04",
+                "motioncor": "MotionCor2_1.6.4_Cuda114_Mar312023"
+            },
+            "11.5": {
+                "image": "nvidia/cuda:11.5.2-devel-ubuntu20.04",
+                "motioncor": "MotionCor2_1.6.4_Cuda115_Mar312023"
+            },
+            "11.6": {
+                "image": "nvidia/cuda:11.6.1-devel-ubuntu20.04",
+                "motioncor": "MotionCor2_1.6.4_Cuda116_Mar312023"
+            },
+            "11.7": {
+                "image": "nvidia/cuda:11.7.1-devel-ubuntu20.04",
+                "motioncor": "MotionCor2_1.6.4_Cuda117_Mar312023"
+            },
+            "11.8": {
+                "image": "nvidia/cuda:11.8.0-devel-ubuntu22.04",
+                "motioncor": "MotionCor2_1.6.4_Cuda118_Mar312023"
+            },
+            "12.1": {
+                "image": "nvidia/cuda:12.1.0-devel-ubuntu22.04",
+                "motioncor": "MotionCor2_1.6.4_Cuda121_Mar312023"
+            }
+        }
+
+        # Normalize CUDA version
+        version_parts = cuda_version.split('.')
+        if len(version_parts) > 2:
+            # Handle special case for 11.1.1
+            if version_parts[0] == "11" and version_parts[1] == "1" and version_parts[2] != "0":
+                norm_version = "11.1.1"
+            else:
+                # Otherwise just take major.minor
+                norm_version = f"{version_parts[0]}.{version_parts[1]}"
+        else:
+            norm_version = cuda_version
+
+        # Update the fields
+        cuda_image_input = self.query_one("#cuda_image", Input)
+        motioncor_binary_input = self.query_one("#motioncor_binary", Input)
+
+        if norm_version in cuda_mapping:
+            cuda_image_input.value = cuda_mapping[norm_version]["image"]
+            motioncor_binary_input.value = cuda_mapping[norm_version]["motioncor"]
+        else:
+            # Fallback to default values
+            cuda_image_input.value = self.app.installation_data.cuda_image
+            motioncor_binary_input.value = self.app.installation_data.motioncor_binary

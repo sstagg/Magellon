@@ -36,7 +36,8 @@ class MagellonInstallationApp(App):
     def __init__(self):
         super().__init__()
         self.installation_data = InstallationData()
-        self.config_file = Path.home() / ".magellon_config.json"
+        # Save config in the same directory as the application
+        self.config_file = Path(os.path.dirname(os.path.abspath(__file__))) / "magellon_config.json"
         self.load_configuration()
 
     def on_mount(self) -> None:

@@ -25,6 +25,16 @@ class InstallationScreen(Screen):
         Binding(key="q", action="quit_app", description="Quit"),
     ]
 
+    def __init__(self, phase: int = 1):
+        """
+        Initialize the installation screen.
+
+        Args:
+            phase: Installation phase (1 = prepare, 2 = run containers)
+        """
+        super().__init__()
+        self.phase = phase
+
     def compose(self) -> ComposeResult:
         yield MagellonHeader()
 
@@ -61,11 +71,12 @@ class InstallationScreen(Screen):
 
         # Create MagellonConfig from our installation data
         data = self.app.installation_data
-        log.write("[bold blue]Preparing installation...[/bold blue]")
-        progress_bar.update(progress=5)
 
         try:
             # Create configuration
+            log.write("[bold blue]Preparing installation...[/bold blue]")
+            progress_bar.update(progress=5)
+
             log.write("Creating configuration...")
             cuda_config = CudaConfig(cuda_version=data.cuda_version)
             config = MagellonConfig(
@@ -98,69 +109,85 @@ class InstallationScreen(Screen):
             log.write("[green]✓ Configuration created successfully[/green]")
             progress_bar.update(progress=10)
 
-            # Create directory structure
-            log.write("[bold blue]Creating directory structure...[/bold blue]")
-            progress_bar.update(progress=15)
+            # Phase 1: Preparation
+            if self.phase == 1:
+                # Create directory structure
+                log.write("[bold blue]Creating directory structure...[/bold blue]")
+                progress_bar.update(progress=20)
 
-            root_dir = Path(data.install_dir)
-            self.create_directories(root_dir, config.required_directories, log)
-            progress_bar.update(progress=25)
+                root_dir = Path(data.install_dir)
+                self.create_directories(root_dir, config.required_directories, log)
+                progress_bar.update(progress=40)
 
-            # Prepare .env file
-            log.write("[bold blue]Preparing environment variables...[/bold blue]")
-            progress_bar.update(progress=30)
+                # Prepare .env file
+                log.write("[bold blue]Preparing environment variables...[/bold blue]")
+                progress_bar.update(progress=60)
 
-            env_vars = config.get_env_variables()
-            env_file = self.create_env_file(env_vars, log)
-            progress_bar.update(progress=40)
+                env_vars = config.get_env_variables()
+                env_file = self.create_env_file(env_vars, log)
+                progress_bar.update(progress=80)
 
-            # Copy service files if available
-            log.write("[bold blue]Checking for service files...[/bold blue]")
-            progress_bar.update(progress=45)
-
-            services_dir = Path.cwd() / "services"
-            self.copy_services(services_dir, root_dir, log)
-            progress_bar.update(progress=55)
-
-            # Determine Docker Compose command
-            log.write("[bold blue]Determining Docker Compose command...[/bold blue]")
-            progress_bar.update(progress=60)
-
-            docker_compose_cmd = self.get_docker_compose_command(log)
-            progress_bar.update(progress=65)
-
-            # Start containers
-            log.write("[bold blue]Starting Docker containers...[/bold blue]")
-            progress_bar.update(progress=70)
-
-            success = self.start_containers(docker_compose_cmd, log)
-
-            if success:
+                # Copy service files if available
+                log.write("[bold blue]Checking for service files...[/bold blue]")
                 progress_bar.update(progress=90)
-                log.write("[green]✓ Docker containers started successfully[/green]")
 
-                # Wait for services to start
-                log.write("[bold blue]Waiting for services to start (this may take a minute)...[/bold blue]")
-                time.sleep(15)  # Give services some time to start
+                services_dir = Path.cwd() / "services"
+                self.copy_services(services_dir, root_dir, log)
 
-                # Complete installation
+                # Phase 1 complete
                 progress_bar.update(progress=100)
-                frontend_url = f"http://localhost:{data.frontend_port}/en/panel/images"
-                backend_url = f"http://localhost:{data.backend_port}"
+                log.write("[bold green]✓ Phase 1 completed successfully![/bold green]")
+                log.write("[green]Directories created and .env file generated[/green]")
+                log.write("[blue]You can now proceed to Phase 2 to start the containers[/blue]")
 
-                log.write("[bold green]✓ Installation completed successfully![/bold green]")
-                log.write("[blue]Magellon is now available at:[/blue]")
-                log.write(f"[blue]  - Frontend: {frontend_url}[/blue]")
-                log.write(f"[blue]  - Backend: {backend_url}[/blue]")
-
-                # Change cancel button to finish
+                # Change cancel button to next phase
                 cancel_button = self.query_one("#cancel-button", Button)
-                cancel_button.label = "Finish"
+                cancel_button.label = "Start Phase 2"
                 cancel_button.variant = "success"
-            else:
-                progress_bar.update(progress=100)
-                log.write("[bold red]✗ Installation failed![/bold red]")
-                log.write("[yellow]Please check the logs for more information.[/yellow]")
+                cancel_button.id = "next-phase-button"
+
+            # Phase 2: Start containers
+            elif self.phase == 2:
+                # Determine Docker Compose command
+                log.write("[bold blue]Determining Docker Compose command...[/bold blue]")
+                progress_bar.update(progress=20)
+
+                docker_compose_cmd = self.get_docker_compose_command(log)
+                progress_bar.update(progress=40)
+
+                # Start containers
+                log.write("[bold blue]Starting Docker containers...[/bold blue]")
+                progress_bar.update(progress=60)
+
+                success = self.start_containers(docker_compose_cmd, log)
+
+                if success:
+                    progress_bar.update(progress=80)
+                    log.write("[green]✓ Docker containers started successfully[/green]")
+
+                    # Wait for services to start
+                    log.write("[bold blue]Waiting for services to start (this may take a minute)...[/bold blue]")
+                    time.sleep(15)  # Give services some time to start
+
+                    # Complete installation
+                    progress_bar.update(progress=100)
+                    frontend_url = f"http://localhost:{data.frontend_port}/en/panel/images"
+                    backend_url = f"http://localhost:{data.backend_port}"
+
+                    log.write("[bold green]✓ Phase 2 completed successfully![/bold green]")
+                    log.write("[blue]Magellon is now available at:[/blue]")
+                    log.write(f"[blue]  - Frontend: {frontend_url}[/blue]")
+                    log.write(f"[blue]  - Backend: {backend_url}[/blue]")
+
+                    # Change cancel button to finish
+                    cancel_button = self.query_one("#cancel-button", Button)
+                    cancel_button.label = "Finish"
+                    cancel_button.variant = "success"
+                else:
+                    progress_bar.update(progress=100)
+                    log.write("[bold red]✗ Container startup failed![/bold red]")
+                    log.write("[yellow]Please check the logs for more information.[/yellow]")
+
         except Exception as e:
             progress_bar.update(progress=100)
             log.write(f"[bold red]✗ Installation failed with error: {str(e)}[/bold red]")
@@ -316,3 +343,8 @@ class InstallationScreen(Screen):
             else:
                 # Ask for confirmation to cancel installation
                 self.app.push_screen("quit_screen", self.app.check_quit)
+
+        elif button_id == "next-phase-button":
+            # Start phase 2 of the installation
+            self.app.pop_screen()
+            self.app.push_screen(InstallationScreen(phase=2))

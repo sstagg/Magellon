@@ -39,8 +39,12 @@ class ConfirmationScreen(Screen):
 
             with Container(id="configuration-summary"):
                 yield Static(f"Installation Type: Single Computer", classes="config-item")
-                yield Static(f"Installation Directory: {self.app.installation_data.install_dir}", classes="config-item")
+                yield Static(f"Installation Directory: {str(self.app.installation_data.install_dir)}", classes="config-item")
+
+                yield Static("CUDA Configuration:", classes="subsection-title")
                 yield Static(f"CUDA Version: {self.app.installation_data.cuda_version}", classes="config-item")
+                yield Static(f"CUDA Image: {self.app.installation_data.cuda_image}", classes="config-item")
+                yield Static(f"MotionCor Binary: {self.app.installation_data.motioncor_binary}", classes="config-item")
                 yield Static(f"Installation Mode: {'Demo' if self.app.installation_data.is_demo else 'Production'}", classes="config-item")
 
                 yield Static("Components:", classes="subsection-title")
@@ -57,7 +61,8 @@ class ConfirmationScreen(Screen):
 
             with Horizontal(id="action-buttons"):
                 yield Button("Back", id="back-button", variant="default")
-                yield Button("Install", id="install-button", variant="success")
+                yield Button("Phase 1: Prepare", id="phase1-button", variant="primary")
+                yield Button("Phase 2: Start", id="phase2-button", variant="success")
 
         yield Footer()
 
@@ -67,8 +72,10 @@ class ConfirmationScreen(Screen):
 
         if button_id == "back-button":
             self.app.pop_screen()
-        elif button_id == "install-button":
-            self.app.push_screen(InstallationScreen())
+        elif button_id == "phase1-button":
+            self.app.push_screen(InstallationScreen(phase=1))
+        elif button_id == "phase2-button":
+            self.app.push_screen(InstallationScreen(phase=2))
 
     def action_go_back(self) -> None:
         """Go back to the previous screen."""
