@@ -5,6 +5,7 @@ Configuration screen for single computer installation.
 import os
 import subprocess
 import re
+from pathlib import Path  # Add the missing Path import
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Grid
@@ -62,11 +63,12 @@ class SingleComputerScreen(Screen):
                     # CUDA version with auto-detection and confirmation
                     yield Static("CUDA Configuration:", classes="section-title")
 
-                    with Horizontal(id="cuda-detection"):
+                    with Container(id="cuda-detection"):
                         yield Label("Detected CUDA Version:", classes="cuda-label")
                         yield Label(self.detected_cuda_version, id="detected-cuda-version", classes="cuda-value")
+                        yield Button("Use Detected", id="use-detected-button", variant="primary", classes="option-button")
 
-                    with Grid(id="cuda-info-grid", classes="form-grid"):
+                    with Container(id="cuda-info-grid", classes="form-grid"):
                         yield Label("CUDA Version:", classes="grid-label")
                         yield Input(
                             placeholder="CUDA version",
@@ -79,6 +81,7 @@ class SingleComputerScreen(Screen):
                             placeholder="CUDA image",
                             id="cuda_image",
                             value=self.app.installation_data.cuda_image,
+                            disabled=True
                         )
 
                         yield Label("MotionCor Binary:", classes="grid-label")
@@ -86,20 +89,10 @@ class SingleComputerScreen(Screen):
                             placeholder="MotionCor binary",
                             id="motioncor_binary",
                             value=self.app.installation_data.motioncor_binary,
+                            disabled=True
                         )
 
-                    yield Static("Installation Type:", classes="input-label")
-                    with Horizontal(id="install-type-options"):
-                        yield Button(
-                            "Demo",
-                            id="demo-option",
-                            variant="primary" if self.app.installation_data.is_demo else "default"
-                        )
-                        yield Button(
-                            "Production",
-                            id="production-option",
-                            variant="default" if self.app.installation_data.is_demo else "primary"
-                        )
+                    # Removed the Installation Type section as requested
 
                 with TabPane("Services", id="services-tab"):
                     yield Static("Service Configuration", classes="section-title")
@@ -222,12 +215,12 @@ class SingleComputerScreen(Screen):
         elif button_id == "next-button":
             self.save_config()
             self.app.push_screen(ConfirmationScreen())
-        elif button_id == "demo-option":
-            self.query_one("#demo-option").variant = "primary"
-            self.query_one("#production-option").variant = "default"
-        elif button_id == "production-option":
-            self.query_one("#demo-option").variant = "default"
-            self.query_one("#production-option").variant = "primary"
+        elif button_id == "use-detected-button":
+            # Set the CUDA version input to the detected version
+            cuda_version_input = self.query_one("#cuda_version", Input)
+            cuda_version_input.value = self.detected_cuda_version
+            self.update_cuda_info(self.detected_cuda_version)
+        # Removed the Installation Type button handlers as we removed that section
 
     def save_config(self) -> None:
         """Save configuration values to the installation data."""
@@ -236,7 +229,8 @@ class SingleComputerScreen(Screen):
         self.app.installation_data.cuda_version = self.query_one("#cuda_version").value
         self.app.installation_data.cuda_image = self.query_one("#cuda_image").value
         self.app.installation_data.motioncor_binary = self.query_one("#motioncor_binary").value
-        self.app.installation_data.is_demo = self.query_one("#demo-option").variant == "primary"
+        # Default installation type to demo if not present in UI
+        self.app.installation_data.is_demo = True
 
         # Save component selections
         self.app.installation_data.install_frontend = self.query_one("#frontend_switch").value
@@ -267,6 +261,14 @@ class SingleComputerScreen(Screen):
 
         # Set the CUDA image and MotionCor binary based on detected version
         self.update_cuda_info(self.detected_cuda_version)
+
+        # We'll use on_input_changed event instead of trying to set up a watch
+
+    def on_input_changed(self, event) -> None:
+        """Handle input changes, particularly for CUDA version."""
+        # Check if the event is from the CUDA version input
+        if event.input.id == "cuda_version":
+            self.update_cuda_info(event.value)
 
     def update_cuda_info(self, cuda_version: str) -> None:
         """Update CUDA image and MotionCor binary based on CUDA version."""
@@ -310,26 +312,30 @@ class SingleComputerScreen(Screen):
             }
         }
 
-        # Normalize CUDA version
+        # Normalize CUDA version based on the bash script's logic
         version_parts = cuda_version.split('.')
-        if len(version_parts) > 2:
-            # Handle special case for 11.1.1
-            if version_parts[0] == "11" and version_parts[1] == "1" and version_parts[2] != "0":
-                norm_version = "11.1.1"
-            else:
-                # Otherwise just take major.minor
-                norm_version = f"{version_parts[0]}.{version_parts[1]}"
-        else:
-            norm_version = cuda_version
+        major = int(version_parts[0]) if version_parts and version_parts[0].isdigit() else 0
+        minor = int(version_parts[1]) if len(version_parts) > 1 and version_parts[1].isdigit() else 0
+        patch = int(version_parts[2]) if len(version_parts) > 2 and version_parts[2].isdigit() else 0
+
+        # Apply the logic from the bash script to determine the version key
+        norm_version = None
+        if major == 11 and minor == 1 and patch >= 1:
+            norm_version = "11.1.1"
+        elif major == 11 and 2 <= minor < 12:
+            norm_version = f"11.{minor}"
+        elif major >= 12:
+            # For CUDA 12.x, use 12.1 mapping
+            norm_version = "12.1"
 
         # Update the fields
         cuda_image_input = self.query_one("#cuda_image", Input)
         motioncor_binary_input = self.query_one("#motioncor_binary", Input)
 
-        if norm_version in cuda_mapping:
+        if norm_version and norm_version in cuda_mapping:
             cuda_image_input.value = cuda_mapping[norm_version]["image"]
             motioncor_binary_input.value = cuda_mapping[norm_version]["motioncor"]
         else:
-            # Fallback to default values
-            cuda_image_input.value = self.app.installation_data.cuda_image
-            motioncor_binary_input.value = self.app.installation_data.motioncor_binary
+            # Fallback to 11.8 as a safe default
+            cuda_image_input.value = cuda_mapping["11.8"]["image"]
+            motioncor_binary_input.value = cuda_mapping["11.8"]["motioncor"]

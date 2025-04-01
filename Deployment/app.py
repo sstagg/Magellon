@@ -22,6 +22,7 @@ class MagellonInstallationApp(App):
     TITLE = "Magellon Installation Wizard"
     SUB_TITLE = "Next-gen CryoEm Software"
 
+
     BINDINGS = [
         Binding(key="q", action="quit_app", description="Quit"),
         Binding(key="?", action="show_help", description="Help"),
@@ -42,6 +43,7 @@ class MagellonInstallationApp(App):
 
     def on_mount(self) -> None:
         """Initial actions when the app is mounted."""
+        self.theme = "nord"
         # Display the welcome screen
         self.push_screen(WelcomeScreen())
 

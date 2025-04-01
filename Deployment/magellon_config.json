@@ -4,7 +4,7 @@
   "server_port": 8000,
   "username": "",
   "password": "",
-  "install_dir": "/opt/magellon",
+  "install_dir": "\\opt\\magellon",
   "is_demo": true,
   "install_frontend": true,
   "install_backend": true,
@@ -29,6 +29,6 @@
   "ctf_plugin_port": 8035,
   "motioncor_plugin_port": 8036,
   "cuda_version": "12.6",
-  "cuda_image": "nvidia/cuda:11.8.0-devel-ubuntu22.04",
-  "motioncor_binary": "MotionCor2_1.6.4_Cuda118_Mar312023"
+  "cuda_image": "nvidia/cuda:12.1.0-devel-ubuntu22.04",
+  "motioncor_binary": "MotionCor2_1.6.4_Cuda121_Mar312023"
 }
