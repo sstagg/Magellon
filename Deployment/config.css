@@ -263,38 +263,7 @@ Input:focus {
     text-style: italic;
 }
 
-/* Tabbed Content */
-TabbedContent {
-    height: 1fr;
-    margin-bottom: 2;
-}
 
-TabPane {
-    padding: 1;
-}
-
-TabPane > .tab-content {
-    overflow-y: auto;
-}
-
-Tabs {
-    background: $bg-secondary;
-    border-bottom: solid $border-color;
-}
-
-Tabs Tab {
-    padding: 1 2;
-    color: $text-secondary;
-}
-
-Tabs Tab:hover {
-    color: $text-primary;
-}
-
-Tabs Tab.-active {
-    color: $accent-color;
-    border-bottom: solid $accent-color;
-}
 
 /* Component Grid */
 #components-grid {
@@ -355,30 +324,30 @@ ProgressBar .bar {
 }
 
 /* Form Grids and Labels */
-.form-grid {
-    grid-size: 2;
-    grid-gutter: 1 1;
-    margin-bottom: 1;
-}
+/*.form-grid {*/
+/*    grid-size: 2;*/
+/*    grid-gutter: 1 1;*/
+/*    margin-bottom: 1;*/
+/*}*/
 
-.grid-label {
-    padding-top: 1;
-    width: 100%;
-}
+/*.grid-label {*/
+/*    padding-top: 1;*/
+/*    width: 100%;*/
+/*}*/
 
-#cuda-detection {
-    margin-bottom: 1;
-}
+/*#cuda-detection {*/
+/*    margin-bottom: 1;*/
+/*}*/
 
-.cuda-label {
-    color: $accent-secondary;
-    margin-right: 1;
-}
+/*.cuda-label {*/
+/*    color: $accent-secondary;*/
+/*    margin-right: 1;*/
+/*}*/
 
-.cuda-value {
-    color: $success-color;
-    text-style: bold;
-}
+/*.cuda-value {*/
+/*    color: $success-color;*/
+/*    text-style: bold;*/
+/*}*/
 
 /* Help Screen */
 .help-text {

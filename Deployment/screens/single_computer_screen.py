@@ -8,7 +8,7 @@ import re
 from pathlib import Path  # Add the missing Path import
 from textual.app import ComposeResult
 from textual.binding import Binding
-from textual.containers import Container, Horizontal, Grid
+from textual.containers import Container, Horizontal, Grid, Vertical
 from textual.screen import Screen
 from textual.validation import Number
 from textual.widgets import Static, TabbedContent, TabPane, Input, Button, Switch, Footer, Label
@@ -63,36 +63,19 @@ class SingleComputerScreen(Screen):
                     # CUDA version with auto-detection and confirmation
                     yield Static("CUDA Configuration:", classes="section-title")
 
-                    with Container(id="cuda-detection"):
-                        yield Label("Detected CUDA Version:", classes="cuda-label")
-                        yield Label(self.detected_cuda_version, id="detected-cuda-version", classes="cuda-value")
-                        yield Button("Use Detected", id="use-detected-button", variant="primary", classes="option-button")
+                    with Horizontal(id="cuda-detection"):
+                        yield Label("Detected CUDA Version:")
+                        yield Label(self.detected_cuda_version, id="detected-cuda-version")
 
-                    with Container(id="cuda-info-grid", classes="form-grid"):
-                        yield Label("CUDA Version:", classes="grid-label")
-                        yield Input(
-                            placeholder="CUDA version",
-                            id="cuda_version",
-                            value=self.detected_cuda_version,
-                        )
+                    yield Button("Use Detected", id="use-detected-button", variant="primary")
+                    yield Label("CUDA Version:", classes="grid-label")
+                    yield Input(    placeholder="CUDA version", id="cuda_version",  value=self.detected_cuda_version )
+                    yield Label("CUDA Image:", classes="grid-label")
+                    yield Input(  placeholder="CUDA image", id="cuda_image", value=self.app.installation_data.cuda_image,disabled=True      )
 
-                        yield Label("CUDA Image:", classes="grid-label")
-                        yield Input(
-                            placeholder="CUDA image",
-                            id="cuda_image",
-                            value=self.app.installation_data.cuda_image,
-                            disabled=True
-                        )
+                    yield Label("MotionCor Binary:", classes="grid-label")
+                    yield Input( placeholder="MotionCor binary",id="motioncor_binary", value=self.app.installation_data.motioncor_binary,   disabled=True                             )
 
-                        yield Label("MotionCor Binary:", classes="grid-label")
-                        yield Input(
-                            placeholder="MotionCor binary",
-                            id="motioncor_binary",
-                            value=self.app.installation_data.motioncor_binary,
-                            disabled=True
-                        )
-
-                    # Removed the Installation Type section as requested
 
                 with TabPane("Services", id="services-tab"):
                     yield Static("Service Configuration", classes="section-title")
