@@ -1,92 +1,255 @@
-import pyfiglet
-from textual.app import App
-from textual.binding import Binding
-from textual.widgets import (
-    ProgressBar, TextLog
-)
+import os
+import sys
 
+import pyfiglet
+
+from MagellonInstallationApp import MagellonInstallationApp
 # Assume these modules exist in the project
 from libs.models import InstallationData
-from screens.HelpScreen import HelpScreen
-from screens.WelcomeScreen import WelcomeScreen
-from screens.quit_screen import QuitScreen
+
+import argparse
+import logging
+
+# Add the current directory to the path so we can import the libs package
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from libs.config import MagellonConfig, CudaConfig
+from libs.installer import MagellonInstaller
+from libs.utils import setup_logging, detect_cuda_version, generate_secure_password
+from libs.validator import GPUValidator
+
+
+from pathlib import Path
+from typing import Dict
 
 # Global variables
 installation_data = InstallationData()
 
-
-class MagellonInstallationApp(App):
-    """Enhanced Magellon Installation Wizard."""
-
-    CSS_PATH = "magellon_installation.css"
-    TITLE = "Magellon Installation Wizard"
-    SUB_TITLE = "Next-gen CryoEm Software"
-
-    BINDINGS = [
-        Binding(key="q", action="quit_app", description="Quit"),
-        Binding(key="r", action="check_requirements", description="Check Requirements"),
-        Binding(key="?", action="show_help", description="Help"),
-    ]
+class InstallationData:
+    """Class to store installation configuration."""
 
     def __init__(self):
-        super().__init__()
-        self.installation_data = InstallationData()
+        # Base settings
+        self.installation_type = "single"
+        self.server_ip = "127.0.0.1"
+        self.server_port = 8000
+        self.username = ""
+        self.password = ""
+        self.install_dir = "/opt/magellon"
 
-    def on_mount(self) -> None:
-        """Initial actions when the app is mounted."""
-        # Display the welcome screen
-        self.push_screen(WelcomeScreen())
+        # Installation type
+        self.is_demo = True
 
-    def action_quit_app(self) -> None:
-        """Action to quit the app."""
-        self.push_screen(QuitScreen(), self.check_quit)
+        # Components to install
+        self.install_frontend = True
+        self.install_backend = True
+        self.install_database = True
+        self.install_queue = True
 
-    def check_quit(self, do_quit: bool) -> None:
-        """Called when QuitScreen is dismissed."""
-        if do_quit:
-            self.exit()
+        # Database settings
+        self.mysql_dbname = "magellon01"
+        self.mysql_root_password = "behd1d2"
+        self.mysql_user = "magellon_user"
+        self.mysql_password = "behd1d2"
+        self.mysql_port = 3306
 
-    def action_check_requirements(self) -> None:
-        """Check system requirements."""
-        try:
-            text_log = self.query_one(TextLog)
-            progress_bar = self.query_one(ProgressBar)
+        # RabbitMQ settings
+        self.rabbitmq_user = "rabbit"
+        self.rabbitmq_password = "behd1d2"
+        self.rabbitmq_port = 5672
+        self.rabbitmq_management_port = 15672
 
-            text_log.write("[bold blue]Checking system requirements...[/bold blue]")
-            progress_bar.update(progress=10)
+        # Grafana settings
+        self.grafana_user = "admin"
+        self.grafana_password = "behd1d2"
+        self.grafana_port = 3000
 
-            # Simulate Docker check
-            text_log.write("Checking for Docker...")
-            progress_bar.update(progress=20)
-            text_log.write("[green]✓ Docker is installed: Docker 20.10.12[/green]")
+        # Service ports
+        self.consul_port = 8500
+        self.frontend_port = 8080
+        self.backend_port = 8000
+        self.result_plugin_port = 8030
+        self.ctf_plugin_port = 8035
+        self.motioncor_plugin_port = 8036
 
-            # Simulate Docker Compose check
-            text_log.write("Checking for Docker Compose...")
-            progress_bar.update(progress=40)
-            text_log.write("[green]✓ Docker Compose is installed: Docker Compose 2.6.0[/green]")
+        # CUDA settings
+        self.cuda_version = "11.8"
+        self.cuda_image = "nvidia/cuda:11.8.0-devel-ubuntu22.04"
+        self.motioncor_binary = "MotionCor2_1.6.4_Cuda118_Mar312023"
 
-            # Simulate disk space check
-            text_log.write("Checking available disk space...")
-            progress_bar.update(progress=60)
-            text_log.write("[green]✓ Sufficient disk space: 25.4 GB available (minimum required: 5 GB)[/green]")
 
-            # Simulate port check
-            text_log.write("Checking port availability...")
-            progress_bar.update(progress=80)
-            text_log.write("[yellow]⚠ Port 8080 is already in use by nginx[/yellow]")
-            text_log.write("[green]✓ All other ports are available[/green]")
 
-            # Summary
-            progress_bar.update(progress=100)
-            text_log.write("[bold yellow]⚠ Most requirements are met, but port 8080 needs to be changed or freed up.[/bold yellow]")
-            text_log.write("You can proceed with installation after resolving these issues.")
-        except Exception:
-            # If TextLog or ProgressBar not found, show notification
-            self.notify("System requirements check completed. Some issues were found.", severity="warning")
+def parse_arguments():
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Magellon Setup Script",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
 
-    def action_show_help(self) -> None:
-        """Show help screen."""
-        self.push_screen(HelpScreen())
+    parser.add_argument(
+        "root_dir",
+        help="Root directory for Magellon installation"
+    )
+
+    parser.add_argument(
+        "--cuda-version",
+        help="CUDA version to use (default: auto-detect)"
+    )
+
+    parser.add_argument(
+        "--skip-validation",
+        action="store_true",
+        help="Skip GPU environment validation"
+    )
+
+    parser.add_argument(
+        "--secure",
+        action="store_true",
+        help="Generate secure random passwords for services"
+    )
+
+    parser.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="Enable verbose logging"
+    )
+
+    parser.add_argument(
+        "--log-dir",
+        help="Directory to store log files",
+        default=None
+    )
+
+    parser.add_argument(
+        "--only-validate",
+        action="store_true",
+        help="Only run validation, don't install"
+    )
+
+    return parser.parse_args()
+
+
+def validate_gpu_environment(cuda_version: str, ignore_warnings: bool = False) -> bool:
+    """
+    Validate the GPU environment.
+
+    Args:
+        cuda_version: Required CUDA version
+        ignore_warnings: Whether to ignore warnings
+
+    Returns:
+        bool: True if validation passed, False otherwise
+    """
+    logger.info("Validating GPU environment...")
+    validator = GPUValidator(
+        required_cuda_version=cuda_version,
+        quiet=False,
+        ignore_warnings=ignore_warnings
+    )
+
+    if validator.validate():
+        logger.info("GPU environment validation passed")
+        return True
+    else:
+        logger.error(f"GPU environment validation failed with code: {validator.status}")
+        return False
+
+
+def generate_secure_configuration(config: MagellonConfig) -> Dict[str, str]:
+    """
+    Generate secure passwords for services.
+
+    Args:
+        config: Current Magellon configuration
+
+    Returns:
+        Dict[str, str]: Dictionary of new passwords
+    """
+    passwords = {}
+
+    # Generate new passwords
+    passwords["mysql_root"] = generate_secure_password(16)
+    passwords["mysql_user"] = generate_secure_password(16)
+    passwords["rabbitmq"] = generate_secure_password(16)
+    passwords["grafana"] = generate_secure_password(16)
+
+    # Update configuration
+    config.database.root_password = passwords["mysql_root"]
+    config.database.password = passwords["mysql_user"]
+    config.rabbitmq.password = passwords["rabbitmq"]
+    config.grafana.password = passwords["grafana"]
+
+    return passwords
+
+
+def install():
+    """Main function."""
+    args = parse_arguments()
+
+    # Setup logging
+    global logger
+    log_level = logging.DEBUG if args.verbose else logging.INFO
+    log_dir = Path(args.log_dir) if args.log_dir else None
+    logger = setup_logging(log_dir, log_level)
+
+    # Display header
+    logger.info("=== Magellon Setup ===")
+
+    # Use detected CUDA version if not specified
+    cuda_version = args.cuda_version or detect_cuda_version()
+    logger.info(f"Using CUDA version: {cuda_version}")
+
+    # Validate GPU environment if requested
+    if not args.skip_validation:
+        if not validate_gpu_environment(cuda_version):
+            if not args.only_validate:
+                logger.warning("GPU validation failed but continuing with installation")
+
+    # Exit if only validation was requested
+    if args.only_validate:
+        logger.info("Validation completed. Exiting as requested.")
+        return
+
+    # Create configuration
+    try:
+        cuda_config = CudaConfig(cuda_version=cuda_version)
+        config = MagellonConfig(
+            root_dir=args.root_dir,
+            cuda_config=cuda_config
+        )
+
+        # Generate secure passwords if requested
+        if args.secure:
+            passwords = generate_secure_configuration(config)
+            logger.info("Generated secure passwords:")
+            for service, password in passwords.items():
+                logger.info(f"  - {service}: {password}")
+
+        # Create installer
+        installer = MagellonInstaller(config)
+
+        # Run installation
+        if installer.install():
+            logger.info("=== Magellon installation completed successfully! ===")
+
+            # Print access information
+            frontend_url = f"http://localhost:{config.service_ports.frontend_port}/en/panel/images"
+            backend_url = f"http://localhost:{config.service_ports.backend_port}"
+            logger.info(f"Magellon is available at:")
+            logger.info(f"  - Frontend: {frontend_url}")
+            logger.info(f"  - Backend: {backend_url}")
+
+            sys.exit(0)
+        else:
+            logger.error("Installation failed")
+            sys.exit(1)
+    except ValueError as e:
+        logger.error(f"Configuration error: {e}")
+        sys.exit(1)
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        sys.exit(1)
+
 
 
 if __name__ == "__main__":
