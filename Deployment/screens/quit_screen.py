@@ -26,5 +26,5 @@ class QuitScreen(Screen[bool]):
             self.dismiss(True)
         elif event.button.id == "save-exit-btn":
             # Return True with a side effect of saving settings in the calling function
-            self.app.save_gui_to_model()
+            self.app.save_configuration()
             self.dismiss(True)

@@ -1,0 +1,402 @@
+/* CSS for Magellon Installation Wizard */
+
+/* Color Variables */
+$bg-primary: #0a1929;
+$bg-secondary: #1a2b3c;
+$bg-hover: #233b54;
+$bg-active: #305070;
+$text-primary: #e6edf3;
+$text-secondary: #a3b1c2;
+$accent-color: #58a6ff;
+$accent-secondary: #79c0ff;
+$success-color: #3fb950;
+$error-color: #f85149;
+$warning-color: #d29922;
+$border-color: #30363d;
+$input-bg: #0d1117;
+$highlight-color: #1a4b91;
+
+/* Global Styles */
+* {
+    box-sizing: border-box;
+}
+
+Screen {
+    background: $bg-primary;
+    color: $text-primary;
+}
+
+/* Header and Footer */
+MagellonHeader {
+    background: $bg-secondary;
+    color: $accent-color;
+    height: 3;
+    content-align: center middle;
+    text-style: bold;
+    border-bottom: solid $border-color;
+}
+
+Footer {
+    background: $bg-secondary;
+    color: $text-secondary;
+    height: 1;
+    border-top: solid $border-color;
+}
+
+/* Container Styles */
+#welcome-container,
+#config-container,
+#confirmation-container,
+#installation-container,
+#help-container,
+#requirements-container {
+    width: 100%;
+    height: 1fr;
+    padding: 1 2;
+}
+
+/* Logo styling */
+#logo {
+    margin: 1 0 2 0;
+    color: $accent-color;
+    text-align: center;
+    width: 100%;
+}
+
+/* Screen Titles */
+#welcome-title,
+#screen-title {
+    text-align: center;
+    text-style: bold;
+    color: $accent-color;
+    height: 3;
+    margin-bottom: 1;
+    width: 100%;
+}
+
+#welcome-description {
+    text-align: center;
+    width: 100%;
+    margin-bottom: 2;
+}
+
+/* Progress Steps */
+#progress-steps {
+    width: 100%;
+    height: 3;
+    align: center middle;
+    margin-bottom: 2;
+}
+
+.step {
+    width: 3;
+    height: 3;
+    content-align: center middle;
+    background: $bg-secondary;
+    color: $text-secondary;
+    border: solid $border-color;
+    text-style: bold;
+}
+
+.step.active {
+    background: $accent-color;
+    color: $text-primary;
+    border: solid $accent-secondary;
+}
+
+.step.completed {
+    background: $success-color;
+    color: $text-primary;
+    border: solid $success-color;
+}
+
+.step-arrow {
+    width: 3;
+    height: 3;
+    content-align: center middle;
+    color: $text-secondary;
+}
+
+/* Selection Prompt */
+#selection-prompt {
+    text-align: center;
+    width: 100%;
+    margin-bottom: 1;
+}
+
+/* Installation Options Grid */
+#installation-options {
+    grid-size: 3;
+    grid-gutter: 2 1;
+    grid-rows: 1fr;
+    width: 100%;
+    height: auto;
+    margin-bottom: 2;
+}
+
+.installation-option {
+    width: 100%;
+    height: 100%;
+    border: solid $border-color;
+    background: $bg-secondary;
+    padding: 1;
+}
+
+.installation-option:hover {
+    border: solid $accent-color;
+    background: $bg-hover;
+}
+
+.option-icon {
+    text-align: center;
+    width: 100%;
+    height: 3;
+    text-style: bold;
+}
+
+.option-title {
+    text-align: center;
+    width: 100%;
+    height: 3;
+    text-style: bold;
+    color: $accent-color;
+}
+
+.option-description {
+    text-align: center;
+    width: 100%;
+    height: auto;
+    margin-bottom: 1;
+}
+
+.option-button {
+    width: 100%;
+    margin-top: 1;
+    background: $bg-hover;
+    color: $accent-color;
+}
+
+.option-button:hover {
+    background: $accent-color;
+    color: $bg-primary;
+}
+
+/* Action Buttons */
+#action-buttons {
+    width: 100%;
+    align: center middle;
+    height: auto;
+    margin-top: 2;
+}
+
+#action-buttons Button {
+    min-width: 16;
+    margin: 0 1;
+}
+
+Button {
+    background: $bg-secondary;
+    color: $text-primary;
+    border: solid $border-color;
+    min-width: 10;
+    height: 3;
+}
+
+Button:hover {
+    background: $bg-hover;
+    border: solid $accent-color;
+}
+
+Button.-error {
+    background: $error-color;
+    color: $text-primary;
+}
+
+Button.-success {
+    background: $success-color;
+    color: $text-primary;
+}
+
+Button.-primary {
+    background: $accent-color;
+    color: $bg-primary;
+}
+
+Button.-warning {
+    background: $warning-color;
+    color: $bg-primary;
+}
+
+/* Form Elements */
+.section-title,
+.subsection-title {
+    color: $accent-color;
+    text-style: bold;
+    margin-bottom: 1;
+    border-bottom: solid $border-color;
+    padding-bottom: 1;
+}
+
+.subsection-title {
+    color: $accent-secondary;
+}
+
+.input-label {
+    margin-top: 1;
+    margin-bottom: 1;
+}
+
+Input {
+    background: $input-bg;
+    border: solid $border-color;
+    color: $text-primary;
+    height: 3;
+    margin-bottom: 1;
+}
+
+Input:focus {
+    border: solid $accent-color;
+}
+
+.validation-error {
+    color: $error-color;
+    margin-bottom: 1;
+    text-style: italic;
+}
+
+/* Tabbed Content */
+TabbedContent {
+    height: 1fr;
+    margin-bottom: 2;
+}
+
+TabPane {
+    padding: 1;
+}
+
+TabPane > .tab-content {
+    overflow-y: auto;
+}
+
+Tabs {
+    background: $bg-secondary;
+    border-bottom: solid $border-color;
+}
+
+Tabs Tab {
+    padding: 1 2;
+    color: $text-secondary;
+}
+
+Tabs Tab:hover {
+    color: $text-primary;
+}
+
+Tabs Tab.-active {
+    color: $accent-color;
+    border-bottom: solid $accent-color;
+}
+
+/* Component Grid */
+#components-grid {
+    width: 100%;
+    margin-top: 1;
+}
+
+.component-row {
+    height: 3;
+    margin-bottom: 1;
+    align: left middle;
+}
+
+.component-name {
+    width: 70%;
+}
+
+Switch {
+    margin-left: 2;
+}
+
+/* Provider Buttons */
+#install-type-options Button {
+    margin: 1 1;
+}
+
+/* Configuration Summary */
+#configuration-summary {
+    width: 100%;
+    background: $bg-secondary;
+    border: solid $border-color;
+    padding: 1;
+    margin-bottom: 2;
+}
+
+.config-item {
+    margin-bottom: 1;
+    padding-left: 1;
+}
+
+/* Installation Progress */
+#installation-progress {
+    width: 100%;
+    height: 1;
+    margin: 2 0;
+}
+
+ProgressBar .bar {
+    color: $accent-color;
+}
+
+#installation-log {
+    width: 100%;
+    height: 20;
+    background: $input-bg;
+    border: solid $border-color;
+    margin-bottom: 2;
+}
+
+/* Help Screen */
+.help-text {
+    margin-bottom: 2;
+}
+
+/* Quit Screen */
+#quit-question {
+    text-align: center;
+    width: 100%;
+    margin-top: 5;
+    margin-bottom: 1;
+    text-style: bold;
+}
+
+#quit-warning {
+    text-align: center;
+    width: 100%;
+    margin-bottom: 4;
+    color: $warning-color;
+}
+
+#quit-buttons {
+    width: 100%;
+    align: center middle;
+}
+
+#quit-buttons Button {
+    min-width: 24;
+    margin: 0 1;
+}
+
+/* Check Log */
+#check-log {
+    width: 100%;
+    height: 20;
+    background: $input-bg;
+    border: solid $border-color;
+    margin-bottom: 2;
+}
+
+#check-progress {
+    width: 100%;
+    height: 1;
+    margin: 2 0;
+}

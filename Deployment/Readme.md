@@ -1,5 +1,9 @@
 # Magellon Installer
 
+
+.\venv\scripts\activate.bat
+
+
 A Python-based installer for Magellon, a Docker-containerized system for image processing and analysis. This installer replaces the bash-based setup script with a more modular, maintainable Python implementation.
 
 ## Features
