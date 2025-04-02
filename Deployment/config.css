@@ -16,10 +16,7 @@ $border-color: #30363d;
 $input-bg: #0d1117;
 $highlight-color: #1a4b91;
 
-/* Global Styles */
-* {
-    box-sizing: border-box;
-}
+
 
 Screen {
     background: $bg-primary;
@@ -36,12 +33,12 @@ MagellonHeader {
     border-bottom: solid $border-color;
 }
 
-Footer {
-    background: $bg-secondary;
-    color: $text-secondary;
-    height: 1;
-    border-top: solid $border-color;
-}
+/*Footer {*/
+/*    background: $bg-secondary;*/
+/*    color: $text-secondary;*/
+/*    height: 1;*/
+/*    border-top: solid $border-color;*/
+/*}*/
 
 /* Container Styles */
 #welcome-container,
@@ -393,4 +390,19 @@ ProgressBar .bar {
     width: 100%;
     height: 1;
     margin: 2 0;
+}
+
+#gen-tab{
+    width: 100%;
+    height: 35fr;
+}
+#base-info2{
+    width: 50%;
+    margin: 20 20;
+}
+
+#server-info2 {
+    width: 50%;
+    margin: 20 20;
+
 }

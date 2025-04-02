@@ -8,7 +8,7 @@ import re
 from pathlib import Path  # Add the missing Path import
 from textual.app import ComposeResult
 from textual.binding import Binding
-from textual.containers import Container, Horizontal, Grid, Vertical
+from textual.containers import Container, Horizontal, Grid, Vertical, HorizontalScroll, VerticalScroll
 from textual.screen import Screen
 from textual.validation import Number
 from textual.widgets import Static, TabbedContent, TabPane, Input, Button, Switch, Footer, Label
@@ -50,31 +50,69 @@ class SingleComputerScreen(Screen):
             # Configuration form
             with TabbedContent(id="config-tabs"):
                 with TabPane("General", id="general-tab"):
-                    yield Static("Installation Settings", classes="section-title")
+                    with Horizontal(id="gen-tab",classes="gen-tab"):
+                        with Vertical(id="base-info",classes="base-info2"):
+                            yield Static("Server Configuration", classes="section-title")
 
-                    # Installation directory input with full width
-                    yield Static("Installation Directory:", classes="input-label")
-                    yield Input(
-                        placeholder="Enter installation directory",
-                        id="install_dir",
-                        value=str(self.app.installation_data.install_dir)
-                    )
+                            yield Static("Server IP Address:", classes="input-label")
+                            yield Input(
+                                placeholder="Enter server IP address",
+                                id="server_ip",
+                                value=""  # Will be set in on_mount
+                            )
 
-                    # CUDA version with auto-detection and confirmation
-                    yield Static("CUDA Configuration:", classes="section-title")
+                            yield Static("Server Port:", classes="input-label")
+                            yield Input(
+                                placeholder="Enter server port",
+                                id="server_port",
+                                value="",  # Will be set in on_mount
+                                validators=[Number(minimum=1024, maximum=65535)]
+                            )
 
-                    with Horizontal(id="cuda-detection"):
-                        yield Label("Detected CUDA Version:")
-                        yield Label(self.detected_cuda_version, id="detected-cuda-version")
+                            yield Static("Admin Username:", classes="input-label")
+                            yield Input(
+                                placeholder="Enter admin username",
+                                id="username",
+                                value=""  # Will be set in on_mount
+                            )
 
-                    yield Button("Use Detected", id="use-detected-button", variant="primary")
-                    yield Label("CUDA Version:", classes="grid-label")
-                    yield Input(    placeholder="CUDA version", id="cuda_version",  value=self.detected_cuda_version )
-                    yield Label("CUDA Image:", classes="grid-label")
-                    yield Input(  placeholder="CUDA image", id="cuda_image", value=self.app.installation_data.cuda_image,disabled=True      )
+                            yield Static("Admin Password:", classes="input-label")
+                            yield Input(
+                                placeholder="Enter admin password",
+                                id="password",
+                                value="",  # Will be set in on_mount
+                                password=True
+                            )
 
-                    yield Label("MotionCor Binary:", classes="grid-label")
-                    yield Input( placeholder="MotionCor binary",id="motioncor_binary", value=self.app.installation_data.motioncor_binary,   disabled=True                             )
+
+
+
+                        with Vertical(id="server-info", classes="server-info2"):
+                            yield Static("Base Settings:", classes="section-title")
+
+                            # Installation directory input with full width
+                            yield Static("Installation Directory:", classes="input-label")
+                            yield Input(
+                                placeholder="Enter installation directory",
+                                id="install_dir",
+                                value=str(self.app.installation_data.install_dir)
+                            )
+
+                            # CUDA version with auto-detection and confirmation
+                            yield Static("CUDA Configuration:", classes="section-title")
+
+                            with Horizontal(id="cuda-detection"):
+                                yield Label("Detected CUDA Version:")
+                                yield Label(self.detected_cuda_version, id="detected-cuda-version")
+
+                            yield Button("Use Detected", id="use-detected-button", variant="primary")
+                            yield Label("CUDA Version:", classes="grid-label")
+                            yield Input(    placeholder="CUDA version", id="cuda_version",  value=self.detected_cuda_version )
+                            yield Label("CUDA Image:", classes="grid-label")
+                            yield Input(  placeholder="CUDA image", id="cuda_image", value=self.app.installation_data.cuda_image,disabled=True      )
+
+                            yield Label("MotionCor Binary:", classes="grid-label")
+                            yield Input( placeholder="MotionCor binary",id="motioncor_binary", value=self.app.installation_data.motioncor_binary,   disabled=True                             )
 
 
                 with TabPane("Services", id="services-tab"):
