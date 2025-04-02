@@ -75,8 +75,8 @@ def build_motioncor3_command(params: CryoEmMotionCorTaskData) -> str:
         cmd+=getSubCommand('-LogDir',params.LogDir)
     else:
         cmd+=getSubCommand('-LogDir',".")
-    if params.Gpu is not None:
-        cmd+=getSubCommand('-Gpu','0')
+    # if params.Gpu is not None:
+    #     cmd+=getSubCommand('-Gpu','0')
     #stackz not available 
     # if params.StackZ is not None:
         # cmd+=getSubCommand('-StackZ',params.StackZ)
@@ -91,23 +91,23 @@ def build_motioncor3_command(params: CryoEmMotionCorTaskData) -> str:
     if params.FmDose:
         cmd+=getSubCommand('-FmDose',str(params.FmDose))
     if params.PixSize:
-        cmd+=getSubCommand('-PixSize',str(params.PixSize))
+        cmd+=getSubCommand('-PixSize',str(params.PixSize/2))
     if params.kV is not None:
         cmd+=getSubCommand('-kV',str(params.kV))
     else:
         cmd+=getSubCommand('-kV','300')
-    if params.Cs is not None:
-        cmd+=getSubCommand('-Cs',str(params.Cs))
-    else:
-        cmd+=getSubCommand('-Cs','0')
+    # if params.Cs is not None:
+    #     cmd+=getSubCommand('-Cs',str(params.Cs))
+    # else:
+    #     cmd+=getSubCommand('-Cs','0')
     if params.AmpCont is not None:
         cmd+=getSubCommand('-AmpCont',str(params.AmpCont))
     else:
         cmd+=getSubCommand('-AmpCont','0.07')
-    if params.ExtPhase is not None:
-        cmd+=getSubCommand('-ExtPhase',str(params.ExtPhase))
-    else:
-        cmd+=getSubCommand('-ExtPhase','0')
+    # if params.ExtPhase is not None:
+    #     cmd+=getSubCommand('-ExtPhase',str(params.ExtPhase))
+    # else:
+    #     cmd+=getSubCommand('-ExtPhase','0')
     #Align need to check how to pass the variables
     # if params.Align is not None:
     #     cmd.append('-Align')
@@ -125,9 +125,9 @@ def build_motioncor3_command(params: CryoEmMotionCorTaskData) -> str:
     #     cmd.append('-Trunc')
     #     cmd.append('0')
     #sumRange how the values need to be passed
-    if params.SumRangeMinDose is not None and params.SumRangeMaxDose is not None:
-        cmd.append('-SumRange')
-        cmd.append(f'{params.SumRangeMinDose} {params.SumRangeMaxDose}')
+    # if params.SumRangeMinDose is not None and params.SumRangeMaxDose is not None:
+    #     cmd.append('-SumRange')
+    #     cmd.append(f'{params.SumRangeMinDose} {params.SumRangeMaxDose}')
 
     if params.Group is not None:
         cmd.append('-Group')
@@ -155,10 +155,10 @@ def build_motioncor3_command(params: CryoEmMotionCorTaskData) -> str:
         cmd+=getSubCommand('-RotGain',str(params.RotGain))
     else:
         cmd+=getSubCommand('-RotGain',"0")
-    if params.FlipGain is not None:
-        cmd+=getSubCommand('-FlipGain',str(params.FlipGain))
-    else:
-        cmd+=getSubCommand('-FlipGain','0')
+    # if params.FlipGain is not None:
+    #     cmd+=getSubCommand('-FlipGain',str(params.FlipGain))
+    # else:
+    #     cmd+=getSubCommand('-FlipGain','0')
     if params.InvGain is not None:
         cmd+=getSubCommand('-InvGain',str(params.InvGain))
     # if params.MagMajoraxes is not None and params.MagMinoraxes is not None and params.MagAngle is not None:
@@ -182,10 +182,10 @@ def build_motioncor3_command(params: CryoEmMotionCorTaskData) -> str:
         # cmd.append(params.SplitSum)
     if params.FmIntFile is not None:
         cmd+=getSubCommand("-FmIntFile",params.FmIntFile)
-    if params.EerSampling is not None:
-        cmd+=getSubCommand('-EerSampling',str(params.EerSampling))
-    else:
-        cmd+=getSubCommand('-EerSampling',"1")
+    # if params.EerSampling is not None:
+    #     cmd+=getSubCommand('-EerSampling',str(params.EerSampling))
+    # else:
+    #     cmd+=getSubCommand('-EerSampling',"1")
     # if params.OutStar:
     #     cmd.append('-OutStar')
     #     cmd.append('1')
