@@ -6,7 +6,7 @@ from textual.validation import Number
 from textual.widgets import Static, TabbedContent, TabPane, Button, Select, Input, Switch, Footer
 
 from screens.MagellonHeader import MagellonHeader
-from screens.ConfirmationScreen import ConfirmationScreen
+from screens.confirmation_screen import ConfirmationScreen
 
 
 class CloudScreen(Screen):

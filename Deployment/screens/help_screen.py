@@ -1,10 +1,14 @@
+"""
+Help screen with information about the wizard.
+"""
+
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal
 from textual.screen import Screen
 from textual.widgets import Static, TabbedContent, TabPane, Button, Footer
 
-from screens.MagellonHeader import MagellonHeader
+from header import MagellonHeader
 
 
 class HelpScreen(Screen):

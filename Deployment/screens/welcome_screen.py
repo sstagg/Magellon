@@ -1,17 +1,20 @@
-import pyfiglet
+"""
+Welcome screen for the Magellon installation wizard.
+"""
+
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Grid
 from textual.screen import Screen
 from textual.widgets import Static, Button, Footer
 
-from screens.MagellonHeader import MagellonHeader
 from screens.CloudScreen import CloudScreen
-from screens.HelpScreen import HelpScreen
 from screens.NetworkScreen import NetworkScreen
-from screens.SingleComputerScreen import SingleComputerScreen
-from screens.quit_screen import QuitScreen
+from screens.single_computer_screen import SingleComputerScreen
+from screens.help_screen import HelpScreen
 
+from header import MagellonHeader
+from screens.quit_screen import QuitScreen
 
 class WelcomeScreen(Screen):
     """Welcome screen for the Magellon installation wizard."""
@@ -20,15 +23,13 @@ class WelcomeScreen(Screen):
         Binding(key="q", action="quit_app", description="Quit"),
         Binding(key="?", action="show_help", description="Help"),
     ]
-
     def compose(self) -> ComposeResult:
         yield MagellonHeader()
 
         with Container(id="welcome-container"):
-            logo_text = pyfiglet.figlet_format('Magellon', font='speed')
-            yield Static(f"[bold blue]{logo_text}[/bold blue]", id="logo")
-
+            yield Static("MAGELLON INSTALLER", id="logo")
             yield Static("Welcome to the Magellon Installation Wizard", id="welcome-title")
+
             yield Static(
                 "This wizard will guide you through the installation of Magellon, "
                 "a next-generation CryoEM software suite designed for high-performance "
@@ -69,7 +70,8 @@ class WelcomeScreen(Screen):
                         "Best for labs with multiple workstations.",
                         classes="option-description"
                     )
-                    yield Button("Select", id="select-network", classes="option-button")
+                    yield Static("To Be added in next version", classes="option-title")
+                    yield Button("Select", id="select-network", classes="option-button",disabled=True)
 
                 # Cloud Deployment Option
                 with Container(classes="installation-option", id="cloud-option"):
@@ -80,7 +82,8 @@ class WelcomeScreen(Screen):
                         "Optimal for scalable, on-demand processing.",
                         classes="option-description"
                     )
-                    yield Button("Select", id="select-cloud", classes="option-button")
+                    yield Static("To Be added in next version", classes="option-title")
+                    yield Button("Select", id="select-cloud", classes="option-button",disabled=True)
 
             with Horizontal(id="action-buttons"):
                 yield Button("Exit", id="exit-button", variant="error")
@@ -94,15 +97,10 @@ class WelcomeScreen(Screen):
         if button_id == "select-single":
             self.app.installation_data.installation_type = "single"
             self.app.push_screen(SingleComputerScreen())
-
         elif button_id == "select-network":
-            self.app.installation_data.installation_type = "network"
             self.app.push_screen(NetworkScreen())
-
         elif button_id == "select-cloud":
-            self.app.installation_data.installation_type = "cloud"
             self.app.push_screen(CloudScreen())
-
         elif button_id == "exit-button":
             self.app.push_screen(QuitScreen(), self.app.check_quit)
 

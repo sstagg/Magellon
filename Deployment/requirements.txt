@@ -4,14 +4,20 @@ textual-dev
 ansible
 ansible_runner
 
-pydantic==2.0.3
+pydantic==2.4.0
 python-terraform
 
 pyfiglet
-nuitka
-pyinstaller
+#nuitka
+#pyinstaller
 Jinja2
 
 PyMySQL
+
+paramiko
+requests
+
+
+docker-compose
 
 # graphviz
