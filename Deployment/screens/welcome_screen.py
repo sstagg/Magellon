@@ -8,7 +8,8 @@ from textual.containers import Container, Horizontal, Grid
 from textual.screen import Screen
 from textual.widgets import Static, Button, Footer
 
-
+from screens.CloudScreen import CloudScreen
+from screens.NetworkScreen import NetworkScreen
 from screens.single_computer_screen import SingleComputerScreen
 from screens.help_screen import HelpScreen
 
@@ -22,7 +23,6 @@ class WelcomeScreen(Screen):
         Binding(key="q", action="quit_app", description="Quit"),
         Binding(key="?", action="show_help", description="Help"),
     ]
-
     def compose(self) -> ComposeResult:
         yield MagellonHeader()
 
@@ -70,7 +70,8 @@ class WelcomeScreen(Screen):
                         "Best for labs with multiple workstations.",
                         classes="option-description"
                     )
-                    yield Button("Select", id="select-network", classes="option-button")
+                    yield Static("To Be added in next version", classes="option-title")
+                    yield Button("Select", id="select-network", classes="option-button",disabled=True)
 
                 # Cloud Deployment Option
                 with Container(classes="installation-option", id="cloud-option"):
@@ -81,7 +82,8 @@ class WelcomeScreen(Screen):
                         "Optimal for scalable, on-demand processing.",
                         classes="option-description"
                     )
-                    yield Button("Select", id="select-cloud", classes="option-button")
+                    yield Static("To Be added in next version", classes="option-title")
+                    yield Button("Select", id="select-cloud", classes="option-button",disabled=True)
 
             with Horizontal(id="action-buttons"):
                 yield Button("Exit", id="exit-button", variant="error")
@@ -96,9 +98,9 @@ class WelcomeScreen(Screen):
             self.app.installation_data.installation_type = "single"
             self.app.push_screen(SingleComputerScreen())
         elif button_id == "select-network":
-            self.app.notify("Network deployment is not implemented in this version")
+            self.app.push_screen(NetworkScreen())
         elif button_id == "select-cloud":
-            self.app.notify("Cloud deployment is not implemented in this version")
+            self.app.push_screen(CloudScreen())
         elif button_id == "exit-button":
             self.app.push_screen(QuitScreen(), self.app.check_quit)
 

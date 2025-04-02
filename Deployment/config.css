@@ -350,9 +350,9 @@ ProgressBar .bar {
 /*}*/
 
 /* Help Screen */
-.help-text {
-    margin-bottom: 2;
-}
+/*.help-text {*/
+/*    margin-bottom: 2;*/
+/*}*/
 
 /* Quit Screen */
 #quit-question {

@@ -6,10 +6,11 @@ import os
 import json
 from pathlib import Path
 
-from textual.app import App
+from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.widgets import Footer
 
+from header import MagellonHeader
 from libs.models import InstallationData
 from screens.welcome_screen import WelcomeScreen
 from screens.help_screen import HelpScreen
@@ -25,14 +26,16 @@ class MagellonInstallationApp(App):
 
     BINDINGS = [
         Binding(key="q", action="quit_app", description="Quit"),
+        Binding(key="r", action="check_requirements", description="Check Requirements"),
         Binding(key="?", action="show_help", description="Help"),
     ]
 
+
     SCREENS = {
-        "welcome_screen": WelcomeScreen,
-        "quit_screen": QuitScreen,
-        "help_screen": HelpScreen,
-    }
+            "welcome_screen": WelcomeScreen,
+            "quit_screen": QuitScreen,
+            "help_screen": HelpScreen,
+        }
 
     def __init__(self):
         super().__init__()
@@ -41,9 +44,13 @@ class MagellonInstallationApp(App):
         self.config_file = Path(os.path.dirname(os.path.abspath(__file__))) / "magellon_config.json"
         self.load_configuration()
 
+    def compose(self) -> ComposeResult:
+        yield MagellonHeader()
+        yield Footer()
+
     def on_mount(self) -> None:
         """Initial actions when the app is mounted."""
-        self.theme = "nord"
+        # self.theme = "nord"
         # Display the welcome screen
         self.push_screen(WelcomeScreen())
 

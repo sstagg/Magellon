@@ -6,7 +6,7 @@ from textual.validation import Regex
 from textual.widgets import Static, TabbedContent, TabPane, Input, Button, Switch, Footer
 
 from screens.MagellonHeader import MagellonHeader
-from screens.ConfirmationScreen import ConfirmationScreen
+from screens.confirmation_screen import ConfirmationScreen
 
 
 class NetworkScreen(Screen):
