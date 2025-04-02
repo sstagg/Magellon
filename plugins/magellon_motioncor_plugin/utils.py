@@ -606,9 +606,11 @@ def convert_eer_to_mrc(input_file, output_file):
 def convert_tiff_to_mrc(input_file, output_file):
     """Convert TIFF file to MRC format."""
     try:
-        img = tifffile.imread(input_file)
+        img = tifffile.imread(input_file).astype(np.float32)
         with mrcfile.new(output_file, overwrite=True) as mrc:
-            mrc.set_data(np.array(img, dtype=np.uint16))
+            mrc.set_data(img)
+            mrc.header.mode = 2
+            mrc.update_header_from_data()
         print(f"Converted {input_file} to {output_file}")
     except Exception as e:
         print(f"Error converting TIFF to MRC: {e}")
