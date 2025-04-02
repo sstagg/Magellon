@@ -589,19 +589,76 @@ def getImageSize(file,filetype):
         raise ValueError("Invalid file type. Must be .mrc, .tif, or .eer.")
     
 
-def convert_eer_to_mrc(input_file, output_file):
-    """Convert EER file to MRC format using tifffile."""
-    try:
-        eer_data = tifffile.imread(input_file)
+# def convert_eer_to_mrc(input_file, output_file):
+#     """Convert EER file to MRC format using tifffile."""
+#     try:
+#         eer_data = tifffile.imread(input_file)
         
-        # Save as MRC
-        with mrcfile.new(output_file, overwrite=True) as mrc:
-            mrc.set_data(np.array(eer_data, dtype=np.uint16))
+#         # Save as MRC
+#         with mrcfile.new(output_file, overwrite=True) as mrc:
+#             mrc.set_data(np.array(eer_data, dtype=np.uint16))
 
-        print(f"Converted {input_file} to {output_file}")
+#         print(f"Converted {input_file} to {output_file}")
+
+#     except Exception as e:
+#         print(f"Error converting EER to MRC: {e}")
+def convert_eer_to_mrc(input_path, output_path, 
+                             rotate_gain=0, flip_gain=0,
+                             pixel_size=None):
+    """
+    Create MotionCor2-compatible MRC gain reference with orientation options
+    
+    Parameters:
+    input_path (str): Path to TIFF/EER gain reference
+    output_path (str): Output .mrc path
+    rotate_gain (int): Counter-clockwise rotation (0-3 for 0°,90°,180°,270°)
+    flip_gain (int): Flip mode (0=none, 1=vertical, 2=horizontal)
+    pixel_size (float): Optional pixel size in Ångströms
+    """
+    try:
+        # Read input data
+        with Image.open(input_path) as img:
+            gain_data = np.array(img).astype(np.float32)
+
+        # Apply orientation transformations
+        gain_data = np.rot90(gain_data, k=rotate_gain)
+        if flip_gain == 1:
+            gain_data = np.flipud(gain_data)
+        elif flip_gain == 2:
+            gain_data = np.fliplr(gain_data)
+
+        # Create MRC file with proper header
+        with mrcfile.new(output_path, overwrite=True) as mrc:
+            mrc.set_data(gain_data)
+            mrc.header.mode = 2 
+            mrc.header.mx = gain_data.shape[1]
+            mrc.header.my = gain_data.shape[0]
+            
+            if pixel_size:
+                mrc.voxel_size = (pixel_size, pixel_size, 1)
+
+        print(f"Successfully created gain reference: {output_path}")
+        return output_path
 
     except Exception as e:
-        print(f"Error converting EER to MRC: {e}")
+        print(f"Error creating gain reference: {str(e)}")
+        raise
+def convert_gain_to_mrc(input_file, output_file):
+    """Convert gain reference file to MRC format, checking if it's TIFF or already MRC."""
+    try:
+        if is_mrc(input_file):
+            print(f"{input_file} is already in MRC format. No conversion needed.")
+            return input_file
+        
+        elif is_tiff_file(input_file):
+            print(f"{input_file} is in TIFF format. Converting to MRC...")
+            convert_tiff_to_mrc(input_file, output_file)
+        
+        else:
+            raise ValueError(f"Unsupported gain file format: {input_file}")
+
+    except Exception as e:
+        print(f"Error converting gain file to MRC: {e}")
 
 def convert_tiff_to_mrc(input_file, output_file):
     """Convert TIFF file to MRC format."""
@@ -623,6 +680,8 @@ def convertToMRC(file, directorypath):
         convert_eer_to_mrc(file, output_file)
     elif ext in ["tif", "tiff"]:
         convert_tiff_to_mrc(file, output_file)
+    # elif ext =="gain":
+    #     convert_gain_to_mrc(file, output_file)
     else:
         raise ValueError("Error: Unsupported file type. Only MRC, EER, and TIFF are allowed.")
     
@@ -637,7 +696,23 @@ def is_mrc_file(filepath):
             return mrc.header is not None  # Valid MRC files should have a header
     except Exception:
         return False
+def is_mrc(file_path):
+    """Check if a file is in MRC format."""
+    logger.info("Checking the .gain is in MRC format")
+    try:
+        with mrcfile.open(file_path, permissive=True) as mrc:
+            return True
+    except:
+        return False
 
+def is_tiff_file(file_path):
+    """Check if a file is in TIFF format."""
+    logger.info("Checking the .gain is in Tif format")
+    try:
+        with tifffile.TiffFile(file_path) as tif:
+            return True
+    except:
+        return False
 def save_gain_file(gain_file, directorypath):
     """Save the new gain file in the specified directory."""
     try:
