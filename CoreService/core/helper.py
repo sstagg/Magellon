@@ -300,7 +300,7 @@ def create_motioncor_task_data(image_path, gain_path, session_name=None,task_dto
             # OutMrc="output.files.mrc",
             OutMrc=os.path.basename(task_dto.image_path),
             Gain=gain_path,
-            PixSize=task_dto.pixel_size,
+            PixSize=task_dto.pixel_size* 10**10,
             **settings
         )
 
