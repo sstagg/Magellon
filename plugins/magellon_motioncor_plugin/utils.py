@@ -91,7 +91,7 @@ def build_motioncor3_command(params: CryoEmMotionCorTaskData) -> str:
     if params.FmDose:
         cmd+=getSubCommand('-FmDose',str(params.FmDose))
     if params.PixSize:
-        cmd+=getSubCommand('-PixSize',str(params.PixSize/2))
+        cmd+=getSubCommand('-PixSize',str(params.PixSize))
     if params.kV is not None:
         cmd+=getSubCommand('-kV',str(params.kV))
     else:
