@@ -7,7 +7,7 @@ if [ $# -ne 1 ]; then
     exit 1
 fi
 PARENT_DIR=$1
-TARGET_DIRS=("services" "jobs" "gpfs" "home")
+TARGET_DIRS=("services" "jobs" "home")
 # 1. Stop and remove Docker containers/networks
 docker compose down
 # 2. Delete target directories using Docker
