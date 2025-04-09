@@ -119,7 +119,7 @@ services:
       - ${MAGELLON_GPFS_PATH}:/gpfs
     environment:
       - APP_ENV=production
-      - RUN_ENV =docker
+      - RUN_ENV=docker
       - GPFS_PATH=${MAGELLON_GPFS_PATH}
       - HOME_PATH=${MAGELLON_HOME_PATH}
       - CONSUL_HOST=consul
@@ -156,7 +156,7 @@ services:
     container_name: magellon_result_container
     environment:
       - APP_ENV=production
-      - RUN_ENV =docker
+      - RUN_ENV=docker
       - GPFS_ROOT=${MAGELLON_GPFS_PATH}
       - HOME_PATH=${MAGELLON_HOME_PATH}
     volumes:
@@ -177,7 +177,7 @@ services:
     container_name: magellon_ctf_plugin_container
     environment:
       - APP_ENV=production
-      - RUN_ENV =docker
+      - RUN_ENV=docker
       - GPFS_ROOT=${MAGELLON_GPFS_PATH}
       - JOBS_PATH=${MAGELLON_JOBS_PATH}
     volumes:
@@ -201,7 +201,7 @@ services:
     container_name: magellon_motioncor_plugin_container
     environment:
       - APP_ENV=production
-      - RUN_ENV =docker
+      - RUN_ENV=docker
       - GPFS_ROOT=${MAGELLON_GPFS_PATH}
       - JOBS_PATH=${MAGELLON_JOBS_PATH}
       - CUDA_IMAGE=${CUDA_IMAGE}
