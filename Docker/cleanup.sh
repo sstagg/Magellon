@@ -17,3 +17,5 @@ for dir in "${TARGET_DIRS[@]}"; do
 done
 # 3. Optional: Remove all Docker artifacts
 docker system prune -af
+docker volume ls -q | xargs -r docker volume rm
+

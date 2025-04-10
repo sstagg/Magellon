@@ -11,17 +11,16 @@ get_cuda_image() {
     IFS='.' read -r -a parts <<< "$version"
 
     # Ensure at least three parts (major.minor.patch)
-    while [ ${#parts[@]} -lt 3 ]; do
+    while [ ${#parts[@]} -lt 2 ]; do
         parts+=("0")
     done
 
     local major="${parts[0]}"
     local minor="${parts[1]}"
-    local patch="${parts[2]}"
 
     # Define mappings in associative arrays (dictionaries)
     declare -A cuda_images=(
-        ["11.1.1"]="nvidia/cuda:11.1.1-devel-ubuntu20.04"
+        ["11.1"]="nvidia/cuda:11.1.1-devel-ubuntu20.04"
         ["11.2"]="nvidia/cuda:11.2.2-devel-ubuntu20.04"
         ["11.3"]="nvidia/cuda:11.3.1-devel-ubuntu20.04"
         ["11.4"]="nvidia/cuda:11.4.3-devel-ubuntu20.04"
@@ -33,7 +32,7 @@ get_cuda_image() {
     )
 
     declare -A motioncor_binaries=(
-        ["11.1.1"]="MotionCor2_1.6.4_Cuda111_Mar312023"
+        ["11.1"]="MotionCor2_1.6.4_Cuda111_Mar312023"
         ["11.2"]="MotionCor2_1.6.4_Cuda112_Mar312023"
         ["11.3"]="MotionCor2_1.6.4_Cuda113_Mar312023"
         ["11.4"]="MotionCor2_1.6.4_Cuda114_Mar312023"
@@ -49,11 +48,13 @@ get_cuda_image() {
     local version_key=""
 
     # Determine the version key to use for lookup
-    if (( major == 11 && minor == 1 && patch >= 1 )); then
-        version_key="11.1.1"
-    elif (( major == 11 && minor >= 2 && minor < 12 )); then
+    if (( major == 11 && minor < 9 )); then
         version_key="11.$minor"
-    elif (( major >= 12 )); then
+    elif ((major==11 && minor>=9)); then
+        version_key="11.8"
+    elif ((major==12 && minor<1)); then
+        version_key="11.8"
+    elif (( major >= 12 && minor>=1)); then
         version_key="12.1"
     else
         cuda_image="Invalid version"
@@ -61,7 +62,7 @@ get_cuda_image() {
         echo "$cuda_image $motioncor_binary"
         return
     fi
-
+    echo "${version_key}"
     # Look up values in the dictionaries
     cuda_image="${cuda_images[$version_key]}"
     motioncor_binary="${motioncor_binaries[$version_key]}"
