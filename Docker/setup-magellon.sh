@@ -6,6 +6,28 @@
 
 set -e  # Exit immediately if a command exits with non-zero status
 
+check_gpu() {
+    # Run the nvidia-smi command inside the Docker container to check for GPU availability
+    echo "Checking GPU availability using nvidia-smi..."
+    
+    # Ensure Docker is running the CUDA container correctly with nvidia-smi
+    output=$(docker run --rm --gpus all nvidia/cuda:12.1.0-base-ubuntu22.04 nvidia-smi 2>&1) || true
+
+    # Debug output: Show the raw output from the command
+    echo "nvidia-smi command output:"
+    echo "$output"
+
+    # Check if NVIDIA GPU information is in the output
+    if echo "$output" | grep -q "NVIDIA-SMI"; then
+        echo "GPU detected and accessible."
+    else
+        echo "ERROR: Docker cannot detect GPU or there was an issue with the nvidia-smi command."
+        echo "Output from nvidia-smi command:"
+        echo "$output"
+        exit 1
+    fi
+}
+
 get_cuda_image() {
     local version="$1"
     IFS='.' read -r -a parts <<< "$version"
@@ -59,7 +81,8 @@ get_cuda_image() {
     else
         cuda_image="Invalid version"
         motioncor_binary="Invalid"
-        echo "$cuda_image $motioncor_binary"
+        echo "Suggestion: The Minimum value for version is 11.1"
+        echo "Run CMD: 'nvidia-smi' on your machine and provide the cuda version shown"
         return
     fi
     echo "${version_key}"
@@ -119,6 +142,8 @@ else
     log "Please install either Docker Compose v1 (docker-compose) or Docker Compose v2 (docker compose plugin)"
     exit 1
 fi
+
+check_gpu
 
 # Create main directories
 log "Creating directory structure..."
@@ -215,7 +240,7 @@ else
     # Update each environment variable
     for var_name in "${!env_vars[@]}"; do
         value="${env_vars[$var_name]}"
-        $SED_CMD "s|$var_name=.*|$var_name=$value|g" .env
+        $SED_CMD 's|$var_name=.*|$var_name=$value|g' .env
     done
 
     log ".env file updated successfully (backup created as .env.backup)"
