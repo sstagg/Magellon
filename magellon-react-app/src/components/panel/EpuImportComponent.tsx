@@ -61,9 +61,9 @@ export const EpuImportComponent = () => {
 
     const handleItemClick = async (item: FileItem) => {
         if (item.is_directory) {
-            if (await validateDirectory(item.path)) {
+            // if (await validateDirectory(item.path)) {
                 setSelectedDirectory(item.path);
-            }
+            // }
         }
     };
 
@@ -80,7 +80,7 @@ export const EpuImportComponent = () => {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    source_dir: selectedDirectory
+                    target_directory: selectedDirectory
                 })
             });
 
