@@ -54,3 +54,5 @@ TiffFile
 
 py7zr
 
+sse-starlette
+redis[hiredis]
