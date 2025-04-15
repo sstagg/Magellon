@@ -1,20 +1,20 @@
 services:
-#  postgres:
-#    image: postgis/postgis:latest
-#    container_name: magellon-postgres_container
-#    restart: always
-#    environment:
-#      POSTGRES_USER: postgres
-#      POSTGRES_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-#      POSTGRES_DB: ${MYSQL_DATABASE}
-#    volumes:
-#      - postgres_data:/var/lib/postgresql/data
-#      - postgres_conf:/etc/postgresql
-#    ports:
-#      - "5432:5432"
-#    networks:
-#      magellon-network:
-#        ipv4_address: 172.16.238.6
+  #  postgres:
+  #    image: postgis/postgis:latest
+  #    container_name: magellon-postgres_container
+  #    restart: always
+  #    environment:
+  #      POSTGRES_USER: postgres
+  #      POSTGRES_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+  #      POSTGRES_DB: ${MYSQL_DATABASE}
+  #    volumes:
+  #      - postgres_data:/var/lib/postgresql/data
+  #      - postgres_conf:/etc/postgresql
+  #    ports:
+  #      - "5432:5432"
+  #    networks:
+  #      magellon-network:
+  #        ipv4_address: 172.16.238.6
 
   mysql:
     image: mysql:8.2.0
@@ -37,11 +37,34 @@ services:
       magellon-network:
         ipv4_address: 172.16.238.7
 
+  dragonfly:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly
+    container_name: magellon-dragonfly-container
+    restart: unless-stopped
+    volumes:
+      - dragonfly-data:/data
+    ports:
+      - "${DRAGONFLY_PORT:-6379}:6379"
+    environment:
+      - DRAGONFLY_REQUIREPASS=${DRAGONFLY_PASSWORD:-password}
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.10
+    ulimits:
+      memlock: -1
+    command: --logtostdout=true
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 4G
+          cpus: '1'
 
   rabbitmq:
     image: rabbitmq:management-alpine
-#    image: rabbitmq:latest
-#    image: rabbitmq:3-management
+    #    image: rabbitmq:latest
+    #    image: rabbitmq:3-management
     hostname: my-rabbit
     restart: unless-stopped
     container_name: magellon-rabbitmq-container
@@ -94,8 +117,8 @@ services:
     ports:
       - "3000:3000"
     volumes:
-       - 'grafana_storage:/var/lib/grafana'
-       - '${MAGELLON_ROOT_DIR}/services/grafana/grafana.db:/tmp/grafana.db'
+      - 'grafana_storage:/var/lib/grafana'
+      - '${MAGELLON_ROOT_DIR}/services/grafana/grafana.db:/tmp/grafana.db'
     command: |
       sh -c "cp /tmp/grafana.db /var/lib/grafana/grafana.db && /run.sh"
     environment:
@@ -124,10 +147,13 @@ services:
       - HOME_PATH=${MAGELLON_HOME_PATH}
       - CONSUL_HOST=consul
       - RABBITMQ_HOST=rabbitmq
+      - DRAGONFLY_HOST=dragonfly
+      - DRAGONFLY_PORT=6379
+      - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
     networks:
       magellon-network:
         ipv4_address: 172.16.238.15
-        
+
   web:
     build:
       context: ../magellon-react-app
@@ -159,6 +185,9 @@ services:
       - RUN_ENV=docker
       - GPFS_ROOT=${MAGELLON_GPFS_PATH}
       - HOME_PATH=${MAGELLON_HOME_PATH}
+      - DRAGONFLY_HOST=dragonfly
+      - DRAGONFLY_PORT=6379
+      - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
     volumes:
       - ${MAGELLON_GPFS_PATH}:/gpfs
       - ${MAGELLON_JOBS_PATH}:/jobs
@@ -167,8 +196,8 @@ services:
       - "${MAGELLON_RESULT_PLUGIN_PORT}:80"
     networks:
       magellon-network:
-        ipv4_address: 172.16.238.20        
-        
+        ipv4_address: 172.16.238.20
+
   magellon_ctf_plugin:
     build:
       context: ../plugins/magellon_ctf_plugin
@@ -180,6 +209,9 @@ services:
       - RUN_ENV=docker
       - GPFS_ROOT=${MAGELLON_GPFS_PATH}
       - JOBS_PATH=${MAGELLON_JOBS_PATH}
+      - DRAGONFLY_HOST=dragonfly
+      - DRAGONFLY_PORT=6379
+      - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
     volumes:
       - ${MAGELLON_HOME_PATH}:/magellon
       - ${MAGELLON_GPFS_PATH}:/gpfs
@@ -189,13 +221,13 @@ services:
     networks:
       magellon-network:
         ipv4_address: 172.16.238.21
-  
+
   magellon_motioncor_plugin:
     build:
       context: ../plugins/magellon_motioncor_plugin
       dockerfile: Dockerfile
-      args: 
-        CUDA_IMAGE: ${CUDA_IMAGE} 
+      args:
+        CUDA_IMAGE: ${CUDA_IMAGE}
         MOTIONCOR_BINARY: ${MOTIONCOR_BINARY}
     image: magellon_motioncor_plugin_image
     container_name: magellon_motioncor_plugin_container
@@ -206,6 +238,9 @@ services:
       - JOBS_PATH=${MAGELLON_JOBS_PATH}
       - CUDA_IMAGE=${CUDA_IMAGE}
       - MOTIONCOR_BINARY=${MOTIONCOR_BINARY}
+      - DRAGONFLY_HOST=dragonfly
+      - DRAGONFLY_PORT=6379
+      - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
     volumes:
       - ${MAGELLON_HOME_PATH}:/magellon
       - ${MAGELLON_GPFS_PATH}:/gpfs
@@ -224,10 +259,11 @@ services:
               capabilities: [gpu]
 
 volumes:
-  # New named volumes for all services
+  # Named volumes for all services
   rabbitmq-data: { }
   postgres_data: { }
   grafana_storage: { }
+  dragonfly-data: { }  # Added volume for Dragonfly
   app_data:  # Define a named volume for application data
   cache:
     driver: local
