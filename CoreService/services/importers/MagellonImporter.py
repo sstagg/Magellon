@@ -18,7 +18,13 @@ from sqlalchemy.orm import Session
 from database import get_db
 from config import ( FFT_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, ATLAS_SUB_URL, CTF_SUB_URL, MAGELLON_HOME_DIR, FFT_SUFFIX, GAINS_SUB_URL)
 
+
+
+
 logger = logging.getLogger(__name__)
+
+# Add a global variable to track import progress
+import_progress = {}
 
 
 def extract_grid_label(filename: str) -> str:
@@ -52,10 +58,16 @@ class MagellonImporter(BaseImporter):
             # self.file_service.extract_archive(self.params.source_file, temp_dir)
 
             # Read and validate session.json
+            # Create a unique job ID for tracking progress
+            job_id = str(uuid.uuid4())
+            import_progress[job_id] = {"status": "initializing", "progress": 0, "message": "Starting import..."}
 
             json_path = os.path.join(self.params.source_dir, 'session.json')
             if not os.path.exists(json_path):
+                import_progress[job_id] = {"status": "error", "message": "Invalid archive structure: session.json not found"}
                 raise HTTPException( status_code=400, detail="Invalid archive structure: session.json not found"   )
+
+            import_progress[job_id] = {"status": "processing", "progress": 2, "message": "Reading session data..."}
 
             with open(json_path, 'r') as f:
                 session_data = json.load(f)
@@ -78,7 +90,7 @@ class MagellonImporter(BaseImporter):
 
             # Create job record
             job = ImageJob(
-                oid=uuid.uuid4(),
+                oid=job_id,
                 name=f"Import: {self.db_msession.name}",
                 description=f"Import job for session: {self.db_msession.name}",
                 created_date=datetime.now(),

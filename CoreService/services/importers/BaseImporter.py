@@ -22,8 +22,15 @@ from services.importers.import_database_service import ImportDatabaseService
 from services.importers.import_file_service import ImportFileService, TaskError, FileError
 from services.mrc_image_service import MrcImageService
 from services.file_service import copy_file, check_file_exists
+
+from services.job_manager import JobManager, JobStatus
+
 logger = logging.getLogger(__name__)
 
+# Exception for cancellation
+class CancellationRequested(Exception):
+    """Raised when job cancellation is detected"""
+    pass
 
 class ImportError(Exception):
     """Base exception for all import-related errors"""
@@ -71,11 +78,21 @@ class BaseImporter(ABC):
 
         self.mrc_service = MrcImageService()
 
+        # Add job manager
+        self.job_manager = JobManager()
+        self.job_id = None
+
+
     def setup(self,input_data: BaseModel,  db_session: Session = Depends(get_db)) -> None:
         """Initialize the importer with basic parameters"""
         self.params = input_data
         self.file_service = ImportFileService(target_directory= None, camera_directory= None  )
         self.db_service = ImportDatabaseService(db_session)
+
+        # Set job ID if provided
+        if hasattr(self.params, 'job_id') and self.params.job_id:
+            self.job_id = str(self.params.job_id)
+            
 
     @abstractmethod
     def process(self, db_session: Session = Depends(get_db)) -> Dict[str, str]:
