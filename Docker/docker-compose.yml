@@ -1,20 +1,5 @@
 services:
-  #  postgres:
-  #    image: postgis/postgis:latest
-  #    container_name: magellon-postgres_container
-  #    restart: always
-  #    environment:
-  #      POSTGRES_USER: postgres
-  #      POSTGRES_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-  #      POSTGRES_DB: ${MYSQL_DATABASE}
-  #    volumes:
-  #      - postgres_data:/var/lib/postgresql/data
-  #      - postgres_conf:/etc/postgresql
-  #    ports:
-  #      - "5432:5432"
-  #    networks:
-  #      magellon-network:
-  #        ipv4_address: 172.16.238.6
+
 
   mysql:
     image: mysql:8.2.0
@@ -230,7 +215,7 @@ services:
         CUDA_IMAGE: ${CUDA_IMAGE}
         MOTIONCOR_BINARY: ${MOTIONCOR_BINARY}
     image: magellon_motioncor_plugin_image
-    container_name: magellon_motioncor_plugin_container
+    container_name: magellon_motioncor_plugin_containerf
     environment:
       - APP_ENV=production
       - RUN_ENV=docker

@@ -244,6 +244,8 @@ class JobManager:
             if close_client:
                 await redis_client.close()
 
+
+
     async def update_progress_async(
             self,
             job_id: str,
@@ -273,6 +275,8 @@ class JobManager:
 
         # Update job with progress and current task
         return await self.update_job_async(job_id, updates, redis_client)
+
+
 
     async def request_cancellation_async(
             self,
@@ -352,6 +356,8 @@ class JobManager:
 
         return job_data.get("cancel_requested", False)
 
+
+
     async def increment_task_counter_async(
             self,
             job_id: str,
@@ -425,6 +431,8 @@ class JobManager:
         finally:
             if close_client:
                 await redis_client.close()
+
+
 
     async def list_jobs_async(
             self,

@@ -437,6 +437,11 @@ class BaseImporter(ABC):
         )
         db_session.add(job)
         db_session.flush()
+        # Set job ID if not already set
+        if not self.job_id:
+            self.job_id = str(job.oid)
+            self._register_job(db_session)
+
         return job
 
 

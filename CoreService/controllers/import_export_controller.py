@@ -1,3 +1,4 @@
+import asyncio
 import shutil
 import uuid
 from datetime import datetime
@@ -356,6 +357,9 @@ def validate_directory(source_dir: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+
+
 @export_router.post("/magellon-import")
 def import_directory(request: MagellonImportJobDto,  db_session: Session = Depends(get_db)):
     """
@@ -374,32 +378,163 @@ def import_directory(request: MagellonImportJobDto,  db_session: Session = Depen
             ...
     """
     try:
+        # Generate a job ID if not provided
+        job_id = request.job_id if hasattr(request, 'job_id') and request.job_id else str(uuid.uuid4())
+
+        # Create a job manager instance
+        job_manager = JobManager()
+
+        # Create or update job in job manager
+        if not job_manager.get_job(job_id):
+            job_manager.create_job(
+                job_type="magellon_import",
+                name=f"Magellon Import: {request.source_dir}",
+                description=f"Import Magellon session from {request.source_dir}",
+                metadata={
+                    "source_dir": request.source_dir,
+                    "created_at": datetime.now().isoformat()
+                }
+            )
+
         # Validate source directory exists
         if not os.path.exists(request.source_dir):
-            raise HTTPException( status_code=404, detail=f"Source directory not found: {request.source_dir}"  )
+            job_manager.update_job(
+                job_id,
+                {
+                    "status": JobStatus.FAILED,
+                    "current_task": f"Source directory not found: {request.source_dir}",
+                    "error": "Source directory not found"
+                }
+            )
+            raise HTTPException(
+                status_code=404,
+                detail=f"Source directory not found: {request.source_dir}"
+            )
+
+        # Update job status to running
+        job_manager.update_job(
+            job_id,
+            {
+                "status": JobStatus.RUNNING,
+                "current_task": "Initializing import process",
+                "progress": 5
+            }
+        )
+
+        # Set job_id in request if needed
+        if not hasattr(request, 'job_id') or not request.job_id:
+            request.job_id = job_id
 
         # Initialize and run importer
         importer = MagellonImporter()
         importer.setup(request, db_session)
         result = importer.process(db_session)
 
+        # Handle import result
         if result.get('status') == 'failure':
-            raise HTTPException(status_code=500, detail=result.get('message', 'Import failed')  )
+            job_manager.update_job(
+                job_id,
+                {
+                    "status": JobStatus.FAILED,
+                    "current_task": result.get('message', 'Import failed'),
+                    "error": result.get('error', 'Unknown error')
+                }
+            )
+            raise HTTPException(
+                status_code=500,
+                detail=result.get('message', 'Import failed')
+            )
+        elif result.get('status') == 'cancelled':
+            return {
+                "message": "Import cancelled by user",
+                "session_name": result.get('session_name'),
+                "job_id": job_id,
+                "status": "cancelled"
+            }
 
+        # Import succeeded
         return {
-            "message": "Session imported successfully",
+            "message": "Session import started successfully",
             "session_name": result.get('session_name'),
-            # "target_directory": request.target_directory,
-            "job_id": result.get('job_id')
+            "job_id": job_id,
+            "status": "success"
         }
 
     except FileNotFoundError as e:
+        # Update job status if ID exists
+        if job_id:
+            job_manager.update_job(
+                job_id,
+                {
+                    "status": JobStatus.FAILED,
+                    "current_task": str(e),
+                    "error": str(e)
+                }
+            )
         raise HTTPException(status_code=404, detail=str(e))
+
     except ValueError as e:
+        # Update job status if ID exists
+        if job_id:
+            job_manager.update_job(
+                job_id,
+                {
+                    "status": JobStatus.FAILED,
+                    "current_task": str(e),
+                    "error": str(e)
+                }
+            )
         raise HTTPException(status_code=400, detail=str(e))
+
     except Exception as e:
+        # Log the full exception
         logger.error(f"Error during import: {str(e)}", exc_info=True)
+
+        # Update job status if ID exists
+        if job_id:
+            job_manager.update_job(
+                job_id,
+                {
+                    "status": JobStatus.FAILED,
+                    "current_task": f"Import error: {str(e)}",
+                    "error": str(e)
+                }
+            )
         raise HTTPException(status_code=500, detail=str(e))
+
+
+
+# Add a new endpoint to stream progress updates
+@export_router.get("/magellon-import-progress/{job_id}")
+async def get_import_progress(job_id: str):
+    """
+    Stream progress updates for an import job using Server-Sent Events.
+    """
+    async def event_generator():
+        while True:
+            if job_id not in import_progress:
+                yield {"data": json.dumps({"status": "not_found", "message": "Job not found"})}
+                break
+
+            progress_data = import_progress[job_id]
+            yield {"data": json.dumps(progress_data)}
+
+            # If the job has completed or errored, we can stop streaming
+            if progress_data["status"] in ["completed", "error"]:
+                # Keep the progress data for a while, then clean up
+                asyncio.create_task(cleanup_progress(job_id))
+                break
+
+            await asyncio.sleep(1)  # Update frequency
+
+    return EventSourceResponse(event_generator())
+
+async def cleanup_progress(job_id: str, delay: int = 3600):
+    """Remove progress data after a delay (default: 1 hour)"""
+    await asyncio.sleep(delay)
+    if job_id in import_progress:
+        del import_progress[job_id]
+
 
 
 # Add this to the import_export_controller.py file
