@@ -1,0 +1,116 @@
+# magellon_import_workflow.yaml
+name: Magellon Import Workflow
+description: Import data from Magellon format and process it
+version: 1.0
+
+inputs:
+  source_dir:
+    type: string
+    description: Source directory containing session.json
+    required: true
+  target_directory:
+    type: string
+    description: Target directory for processing output
+    required: true
+
+tasks:
+  create_directories:
+    type: create_directory
+    config:
+      name: Create directory structure
+      target_dir: "{{ inputs.target_directory }}"
+      subdirectories:
+        - original
+        - frames
+        - fft
+        - images
+        - thumbnails
+        - atlas
+        - ctf
+        - gains
+        - fao
+
+  extract_metadata:
+    type: python
+    config:
+      name: Extract metadata
+      description: Parse session.json to extract metadata
+      input_parameters:
+        json_path: "{{ inputs.source_dir }}/session.json"
+      function_name: extract_metadata_from_json
+      module_name: services.metadata_service
+
+  create_db_records:
+    type: importer
+    config:
+      name: Create database records
+      importer_type: magellon
+      importer_method: initialize_db_records
+      source_dir: "{{ inputs.source_dir }}"
+      target_dir: "{{ inputs.target_directory }}"
+      parameters:
+        project_name: "{{ tasks.extract_metadata.outputs.project_name }}"
+        session_name: "{{ tasks.extract_metadata.outputs.session_name }}"
+    depends_on:
+      - extract_metadata
+
+  process_images:
+    type: importer
+    config:
+      name: Process images
+      importer_type: magellon
+      importer_method: process_images
+      source_dir: "{{ inputs.source_dir }}"
+      target_dir: "{{ inputs.target_directory }}"
+      parameters:
+        images_data: "{{ tasks.extract_metadata.outputs.images }}"
+        job_id: "{{ tasks.create_db_records.outputs.job_id }}"
+        session_id: "{{ tasks.create_db_records.outputs.session_id }}"
+    depends_on:
+      - create_db_records
+      - extract_metadata
+
+  copy_directories:
+    type: python
+    config:
+      name: Copy directories
+      description: Copy original files from source to target
+      function_name: copy_directories
+      module_name: services.file_service
+      input_parameters:
+        source_dir: "{{ inputs.source_dir }}"
+        target_dir: "{{ inputs.target_directory }}"
+    depends_on:
+      - create_directories
+
+  process_tasks:
+    type: importer
+    config:
+      name: Process tasks
+      importer_type: magellon
+      importer_method: run_tasks
+      source_dir: "{{ inputs.source_dir }}"
+      target_dir: "{{ inputs.target_directory }}"
+      parameters:
+        task_list: "{{ tasks.process_images.outputs.task_list }}"
+    depends_on:
+      - process_images
+      - copy_directories
+
+  create_atlas:
+    type: importer
+    config:
+      name: Create atlas images
+      importer_type: magellon
+      importer_method: create_magellon_atlas
+      source_dir: "{{ inputs.source_dir }}"
+      target_dir: "{{ inputs.target_directory }}"
+      parameters:
+        session_id: "{{ tasks.create_db_records.outputs.session_id }}"
+    depends_on:
+      - process_tasks
+
+error_handling:
+  on_task_failure: continue  # Options: abort, continue, retry
+  max_retries: 3
+  retry_delay_seconds: 60
