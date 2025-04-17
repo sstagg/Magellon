@@ -503,6 +503,69 @@ def import_directory(request: MagellonImportJobDto,  db_session: Session = Depen
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@export_router.get("/job/{job_id}")
+def get_job_status(job_id: str, db_session: Session = Depends(get_db)):
+    """
+    Get the current status of a job by job_id using the JobManager.
+
+    Returns:
+        dict: Current job status including progress, current task, and completion status
+    """
+    try:
+        # Get job manager instance
+        job_manager = JobManager()
+
+        # Get job data
+        job_data = job_manager.get_job(job_id)
+
+        if not job_data:
+            # Try to get job from database
+            job = db_session.query(ImageJob).filter(ImageJob.oid == job_id).first()
+
+            if not job:
+                raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
+
+            # Job exists in database but not in job manager
+            status_map = {
+                1: "pending",
+                2: "running",
+                3: "running",  # Processing
+                4: "completed",
+                5: "failed",
+                6: "cancelled"
+            }
+
+            # Return limited job info from database
+            return {
+                "job_id": job_id,
+                "name": job.name,
+                "description": job.description,
+                "status": status_map.get(job.status_id, "unknown"),
+                "created_at": job.created_date.isoformat() if job.created_date else None,
+                "message": "Job exists in database but detailed status is not available"
+            }
+
+        # Return job status from job manager
+        return job_data
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error retrieving job status: {str(e)}"
+        )
+
+# Enhanced progress streaming endpoint
+class EventSourceResponse(StreamingResponse):
+    def __init__(self, content, **kwargs):
+        media_type = "text/event-stream"
+        headers = kwargs.pop("headers", {})
+        headers.update({
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Content-Type": media_type
+        })
+        super().__init__(content=content, media_type=media_type, headers=headers, **kwargs)
+
 
 # Add a new endpoint to stream progress updates
 @export_router.get("/magellon-import-progress/{job_id}")
