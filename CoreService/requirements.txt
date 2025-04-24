@@ -56,3 +56,6 @@ py7zr
 
 sse-starlette
 redis[hiredis]
+
+#cloudevents
+nats-py
