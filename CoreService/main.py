@@ -7,7 +7,7 @@ import socket
 # import fastapi
 import uvicorn
 from PIL.Image import Image
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException ,WebSocket
 # from rich.logging import RichHandler
 from rich.traceback import Traceback
 from starlette.middleware.cors import CORSMiddleware

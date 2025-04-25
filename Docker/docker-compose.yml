@@ -46,6 +46,22 @@ services:
           memory: 4G
           cpus: '1'
 
+
+  nats:
+    image: nats:latest
+    command: -js  # Enable JetStream
+    container_name: magellon-nats-container
+    ports:
+      - "4222:4222"  # Client connections
+      - "8222:8222"  # HTTP monitoring
+    volumes:
+      - nats-data:/data  # For JetStream storage
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.13
+    restart: unless-stopped
+
+
   rabbitmq:
     image: rabbitmq:management-alpine
     #    image: rabbitmq:latest
@@ -246,6 +262,7 @@ services:
 volumes:
   # Named volumes for all services
   rabbitmq-data: { }
+  nats-data: { }
   postgres_data: { }
   grafana_storage: { }
   dragonfly-data: { }  # Added volume for Dragonfly

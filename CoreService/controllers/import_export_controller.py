@@ -17,7 +17,7 @@ from config import app_settings
 from database import get_db
 from models.pydantic_models import ImportJobBase, MagellonImportJobDto, EpuImportJobDto
 from models.sqlalchemy_models import Msession, Image, ImageMetaData, Project
-
+from sse_starlette.sse import EventSourceResponse
 
 from services.importers.MagellonImporter import MagellonImporter
 from services.importers.import_file_service import ImportFileService
@@ -555,48 +555,48 @@ def get_job_status(job_id: str, db_session: Session = Depends(get_db)):
         )
 
 # Enhanced progress streaming endpoint
-class EventSourceResponse(StreamingResponse):
-    def __init__(self, content, **kwargs):
-        media_type = "text/event-stream"
-        headers = kwargs.pop("headers", {})
-        headers.update({
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "Content-Type": media_type
-        })
-        super().__init__(content=content, media_type=media_type, headers=headers, **kwargs)
-
-
-# Add a new endpoint to stream progress updates
-@export_router.get("/magellon-import-progress/{job_id}")
-async def get_import_progress(job_id: str):
-    """
-    Stream progress updates for an import job using Server-Sent Events.
-    """
-    async def event_generator():
-        while True:
-            if job_id not in import_progress:
-                yield {"data": json.dumps({"status": "not_found", "message": "Job not found"})}
-                break
-
-            progress_data = import_progress[job_id]
-            yield {"data": json.dumps(progress_data)}
-
-            # If the job has completed or errored, we can stop streaming
-            if progress_data["status"] in ["completed", "error"]:
-                # Keep the progress data for a while, then clean up
-                asyncio.create_task(cleanup_progress(job_id))
-                break
-
-            await asyncio.sleep(1)  # Update frequency
-
-    return EventSourceResponse(event_generator())
-
-async def cleanup_progress(job_id: str, delay: int = 3600):
-    """Remove progress data after a delay (default: 1 hour)"""
-    await asyncio.sleep(delay)
-    if job_id in import_progress:
-        del import_progress[job_id]
+# class EventSourceResponse(StreamingResponse):
+#     def __init__(self, content, **kwargs):
+#         media_type = "text/event-stream"
+#         headers = kwargs.pop("headers", {})
+#         headers.update({
+#             "Cache-Control": "no-cache",
+#             "Connection": "keep-alive",
+#             "Content-Type": media_type
+#         })
+#         super().__init__(content=content, media_type=media_type, headers=headers, **kwargs)
+#
+#
+# # Add a new endpoint to stream progress updates
+# @export_router.get("/magellon-import-progress/{job_id}")
+# async def get_import_progress(job_id: str):
+#     """
+#     Stream progress updates for an import job using Server-Sent Events.
+#     """
+#     async def event_generator():
+#         while True:
+#             if job_id not in import_progress:
+#                 yield {"data": json.dumps({"status": "not_found", "message": "Job not found"})}
+#                 break
+#
+#             progress_data = import_progress[job_id]
+#             yield {"data": json.dumps(progress_data)}
+#
+#             # If the job has completed or errored, we can stop streaming
+#             if progress_data["status"] in ["completed", "error"]:
+#                 # Keep the progress data for a while, then clean up
+#                 asyncio.create_task(cleanup_progress(job_id))
+#                 break
+#
+#             await asyncio.sleep(1)  # Update frequency
+#
+#     return EventSourceResponse(event_generator())
+#
+# async def cleanup_progress(job_id: str, delay: int = 3600):
+#     """Remove progress data after a delay (default: 1 hour)"""
+#     await asyncio.sleep(delay)
+#     if job_id in import_progress:
+#         del import_progress[job_id]
 
 
 
