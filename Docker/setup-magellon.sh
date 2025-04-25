@@ -21,10 +21,10 @@ check_gpu() {
     if echo "$output" | grep -q "NVIDIA-SMI"; then
         echo "GPU detected and accessible."
     else
-        echo "ERROR: Docker cannot detect GPU or there was an issue with the nvidia-smi command."
+        echo "⚠️ WARNING: Docker cannot detect GPU or there was an issue with the nvidia-smi command."
+        echo "Proceeding without GPU support..."
         echo "Output from nvidia-smi command:"
         echo "$output"
-        exit 1
     fi
 }
 
@@ -32,65 +32,80 @@ get_cuda_image() {
     local version="$1"
     IFS='.' read -r -a parts <<< "$version"
 
-    # Ensure at least three parts (major.minor.patch)
+    # Ensure at least two parts (major.minor)
     while [ ${#parts[@]} -lt 2 ]; do
         parts+=("0")
     done
 
     local major="${parts[0]}"
     local minor="${parts[1]}"
-
-    # Define mappings in associative arrays (dictionaries)
-    declare -A cuda_images=(
-        ["11.1"]="nvidia/cuda:11.1.1-devel-ubuntu20.04"
-        ["11.2"]="nvidia/cuda:11.2.2-devel-ubuntu20.04"
-        ["11.3"]="nvidia/cuda:11.3.1-devel-ubuntu20.04"
-        ["11.4"]="nvidia/cuda:11.4.3-devel-ubuntu20.04"
-        ["11.5"]="nvidia/cuda:11.5.2-devel-ubuntu20.04"
-        ["11.6"]="nvidia/cuda:11.6.1-devel-ubuntu20.04"
-        ["11.7"]="nvidia/cuda:11.7.1-devel-ubuntu20.04"
-        ["11.8"]="nvidia/cuda:11.8.0-devel-ubuntu22.04"
-        ["12.1"]="nvidia/cuda:12.1.0-devel-ubuntu22.04"
-    )
-
-    declare -A motioncor_binaries=(
-        ["11.1"]="MotionCor2_1.6.4_Cuda111_Mar312023"
-        ["11.2"]="MotionCor2_1.6.4_Cuda112_Mar312023"
-        ["11.3"]="MotionCor2_1.6.4_Cuda113_Mar312023"
-        ["11.4"]="MotionCor2_1.6.4_Cuda114_Mar312023"
-        ["11.5"]="MotionCor2_1.6.4_Cuda115_Mar312023"
-        ["11.6"]="MotionCor2_1.6.4_Cuda116_Mar312023"
-        ["11.7"]="MotionCor2_1.6.4_Cuda117_Mar312023"
-        ["11.8"]="MotionCor2_1.6.4_Cuda118_Mar312023"
-        ["12.1"]="MotionCor2_1.6.4_Cuda121_Mar312023"
-    )
-
-    local cuda_image=""
-    local motioncor_binary=""
     local version_key=""
 
-    # Determine the version key to use for lookup
-    if (( major == 11 && minor < 9 )); then
+    # Determine the version key
+    if [ "$major" -eq 11 ] && [ "$minor" -lt 9 ]; then
         version_key="11.$minor"
-    elif ((major==11 && minor>=9)); then
+    elif [ "$major" -eq 11 ] && [ "$minor" -ge 9 ]; then
         version_key="11.8"
-    elif ((major==12 && minor<1)); then
+    elif [ "$major" -eq 12 ] && [ "$minor" -lt 1 ]; then
         version_key="11.8"
-    elif (( major >= 12 && minor>=1)); then
+    elif [ "$major" -ge 12 ] && [ "$minor" -ge 1 ]; then
         version_key="12.1"
     else
-        cuda_image="Invalid version"
-        motioncor_binary="Invalid"
+        echo "Invalid version"
         echo "Suggestion: The Minimum value for version is 11.1"
         echo "Run CMD: 'nvidia-smi' on your machine and provide the cuda version shown"
         return
     fi
-    echo "${version_key}"
-    # Look up values in the dictionaries
-    cuda_image="${cuda_images[$version_key]}"
-    motioncor_binary="${motioncor_binaries[$version_key]}"
 
-    # Return values as space-separated output
+    echo "$version_key"
+
+    # Set values using case statements
+    local cuda_image=""
+    local motioncor_binary=""
+
+    case "$version_key" in
+        "11.1")
+            cuda_image="nvidia/cuda:11.1.1-devel-ubuntu20.04"
+            motioncor_binary="MotionCor2_1.6.4_Cuda111_Mar312023"
+            ;;
+        "11.2")
+            cuda_image="nvidia/cuda:11.2.2-devel-ubuntu20.04"
+            motioncor_binary="MotionCor2_1.6.4_Cuda112_Mar312023"
+            ;;
+        "11.3")
+            cuda_image="nvidia/cuda:11.3.1-devel-ubuntu20.04"
+            motioncor_binary="MotionCor2_1.6.4_Cuda113_Mar312023"
+            ;;
+        "11.4")
+            cuda_image="nvidia/cuda:11.4.3-devel-ubuntu20.04"
+            motioncor_binary="MotionCor2_1.6.4_Cuda114_Mar312023"
+            ;;
+        "11.5")
+            cuda_image="nvidia/cuda:11.5.2-devel-ubuntu20.04"
+            motioncor_binary="MotionCor2_1.6.4_Cuda115_Mar312023"
+            ;;
+        "11.6")
+            cuda_image="nvidia/cuda:11.6.1-devel-ubuntu20.04"
+            motioncor_binary="MotionCor2_1.6.4_Cuda116_Mar312023"
+            ;;
+        "11.7")
+            cuda_image="nvidia/cuda:11.7.1-devel-ubuntu20.04"
+            motioncor_binary="MotionCor2_1.6.4_Cuda117_Mar312023"
+            ;;
+        "11.8")
+            cuda_image="nvidia/cuda:11.8.0-devel-ubuntu22.04"
+            motioncor_binary="MotionCor2_1.6.4_Cuda118_Mar312023"
+            ;;
+        "12.1")
+            cuda_image="nvidia/cuda:12.1.0-devel-ubuntu22.04"
+            motioncor_binary="MotionCor2_1.6.4_Cuda121_Mar312023"
+            ;;
+        *)
+            echo "Unsupported version key: $version_key"
+            return
+            ;;
+    esac
+
     echo "$cuda_image $motioncor_binary"
 }
 
@@ -220,28 +235,21 @@ else
     # Create a backup of the original .env file
     cp .env .env.backup
 
-    # Update paths in .env file
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        SED_CMD="sed -i ''"
-    else
-        SED_CMD="sed -i"
-    fi
-
     # Define environment variable mappings
-    declare -A env_vars=(
-        ["MAGELLON_HOME_PATH"]="$ROOT_DIR/home"
-        ["MAGELLON_GPFS_PATH"]="$ROOT_DIR/gpfs"
-        ["MAGELLON_JOBS_PATH"]="$ROOT_DIR/jobs"
-        ["MAGELLON_ROOT_DIR"]="$ROOT_DIR"
-        ["CUDA_IMAGE"]="$cuda_image"
-        ["MOTIONCOR_BINARY"]="$motiocor_binary"
-    )
+    env_keys=("MAGELLON_HOME_PATH" "MAGELLON_GPFS_PATH" "MAGELLON_JOBS_PATH" "MAGELLON_ROOT_DIR" "CUDA_IMAGE" "MOTIONCOR_BINARY")
+    env_values=("$ROOT_DIR/home" "$ROOT_DIR/gpfs" "$ROOT_DIR/jobs" "$ROOT_DIR" "$cuda_image" "$motiocor_binary")
 
-    # Update each environment variable
-    for var_name in "${!env_vars[@]}"; do
-        value="${env_vars[$var_name]}"
-        $SED_CMD 's|$var_name=.*|$var_name=$value|g' .env
+    # Loop through and update .env
+    for i in "${!env_keys[@]}"; do
+        var_name="${env_keys[$i]}"
+        value="${env_values[$i]}"
+
+        # Use awk to modify the .env file
+        awk -v var="$var_name" -v val="$value" \
+        '{if ($1 == var) $0 = var "=" val; print}' .env > .env.tmp && mv .env.tmp .env
     done
+
+
 
     log ".env file updated successfully (backup created as .env.backup)"
 fi
