@@ -150,9 +150,9 @@ class MagellonImporter(BaseImporter):
                     # target_path=self.params.target_directory + "/frames/" + f"{image['frame_names']}{source_extension}",
                     # job_dto=db_job.,
                     status=1,
-                    pixel_size=image.pixel_size,
+                    pixel_size=image.pixel_size *  10**10,
                     acceleration_voltage=image.acceleration_voltage,
-                    spherical_aberration=image.spherical_aberration,
+                    spherical_aberration=image.spherical_aberration*1000,
                     binning_x=image.binning_x
                 )
                 self.task_dto_list.append(task_dto)

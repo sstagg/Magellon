@@ -112,8 +112,8 @@ export const EpuImportComponent = () => {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    target_directory: selectedDirectory,
-                    epu_dir_path: epuDirPath,
+                    target_directory: epuDirPath,
+                    epu_dir_path: selectedDirectory,
                     magellon_project_name: magellonProjectName,
                     magellon_session_name: magellonSessionName,
                     default_data: {
