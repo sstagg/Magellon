@@ -12,10 +12,10 @@ from fastapi import Depends
 logger = logging.getLogger(__name__)
 
 # Redis configuration
-REDIS_HOST = "localhost"  # Use environment variable in production
+REDIS_HOST = "dragonfly"  # Use environment variable in production
 REDIS_PORT = 6379
 REDIS_DB = 0
-REDIS_PASSWORD = None  # Use environment variable in production
+REDIS_PASSWORD =os.getenv("DRAGONFLY_PASSWORD", "password")   # Use environment variable in production
 REDIS_PREFIX = "magellon:job:"
 
 # Redis connection pool
