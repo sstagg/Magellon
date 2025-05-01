@@ -18,7 +18,7 @@ from database import get_db
 from models.pydantic_models import ImportJobBase, MagellonImportJobDto, EpuImportJobDto
 from models.sqlalchemy_models import Msession, Image, ImageMetaData, Project
 from sse_starlette.sse import EventSourceResponse
-
+from services.job_manager import JobManager,JobStatus
 from services.importers.MagellonImporter import MagellonImporter
 from services.importers.import_file_service import ImportFileService
 

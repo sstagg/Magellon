@@ -1,7 +1,7 @@
 from enum import Enum
 
 from pydantic import BaseModel, Field, Json, ValidationInfo, field_validator
-from typing import Optional, List
+from typing import Any,Optional, List
 import uuid
 
 
@@ -225,9 +225,14 @@ class EpuImportJobBase(ImportJobBase):
         if v not in valid_types:
             raise ValueError(f"Invalid replace_type: {v}. Valid options are: {', '.join(valid_types)}")
         return v
+class DefaultParams(BaseModel):
+    pixel_size : float = 0.739
+    acceleration_voltage: float = 300
+    spherical_aberration: float =2.7
 
 class EpuImportJobDto(EpuImportJobBase):
     target_directory: Optional[str] = None  # should be removed, it is base directory + magellon_session_name name
+    default_data: Optional[DefaultParams] = None
 
 class EPUImportTaskDto(ImportTaskDto):
     job_dto: EpuImportJobDto

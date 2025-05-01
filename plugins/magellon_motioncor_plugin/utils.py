@@ -683,7 +683,7 @@ def convertToMRC(file, directorypath):
     # elif ext =="gain":
     #     convert_gain_to_mrc(file, output_file)
     else:
-        raise ValueError("Error: Unsupported file type. Only MRC, EER, and TIFF are allowed.")
+        raise ValueError("Error:Gain convertToMRC Unsupported file type. Only MRC, EER, and TIFF are allowed. OR Gain File can be Corrupted")
     
     return output_file
 

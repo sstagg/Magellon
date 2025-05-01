@@ -803,9 +803,9 @@ class BaseImporter(ABC):
         gains_dir = os.path.join(target_dir, GAINS_SUB_URL)
 
         if os.path.exists(gains_dir):
-            gain_files = [f for f in os.listdir(gains_dir) if f.endswith('_gain_multi_ref.tif')]
-            if gain_files:
-                return os.path.join(gains_dir, sorted(gain_files)[-1])
+            files = [f for f in os.listdir(gains_dir) if os.path.isfile(os.path.join(gains_dir, f))]
+            if files:
+                return os.path.join(gains_dir, files[0])
 
         return None
 
