@@ -48,8 +48,6 @@ rm -rf Magellon                                # Delete the full Magellon repo
 cd particle_processor                          # Re-enter the pipeline folder
 ```
 
----
-
 ### 2. Create and Activate a Virtual Environment
 
 This pipeline requires Python **3.12**. You may already have it installed, check with:
@@ -59,12 +57,11 @@ which python
 python --version
 ```
 
-If not, follow these steps (example shown for **Scripps-hosted servers**, which may restrict direct downloads):
+If not, follow these steps (example shown for **Scripps-hosted servers**):
 
 #### a. Install Python 3.12 with Miniconda
 
 First, download Miniconda locally: [Miniconda 3.12 Download](https://repo.anaconda.com/miniconda/Miniconda3-py312_24.7.1-0-Linux-x86_64.sh)
-You **cannot** download this directly from within Scripps networks or VPN.
 
 Transfer the script to your server:
 
@@ -102,22 +99,18 @@ source venv/bin/activate      # Activates the virtual environment
 
 Use `python3.12 -m venv .venv ` if you'd prefer a hidden environment folder.
 
----
-
 ### 3. Install Dependencies
 
 There are two options for installing required Python modules:
 
 - `requirements_exact.txt`: Fully frozen, safest to reproduce exact setup
-- `requirements.txt`: May use newer versions and could lead to issues
+- `requirements.txt`: May use newer versions, but is useful for continued development
 
 ```bash
 pip install -r requirements_exact.txt  # OR pip install -r requirements.txt
 ```
 
 Installation may take some time, exiting during this could lead to some installation issues. 
-
----
 
 ### 4. Confirm CryoSPARC Access
 
