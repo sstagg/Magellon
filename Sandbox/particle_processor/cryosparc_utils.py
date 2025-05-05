@@ -160,7 +160,7 @@ def auto_select(prev_job, cutoff, conn_type, class_labels, WORKSPACE):
     if conn_type == "A":
         recycle_classes = WORKSPACE.create_job(
             "select_2D",
-            title=f"Selecting values under cutoff {cutoff}",
+            title=f"Removing Particle Stacks under Cutoff {cutoff}",
             connections={
                 "particles": (prev_job.uid, "particles_selected"),
                 "templates": (prev_job.uid, "templates_selected"),
@@ -169,7 +169,7 @@ def auto_select(prev_job, cutoff, conn_type, class_labels, WORKSPACE):
     else:
         recycle_classes = WORKSPACE.create_job(
             "select_2D",
-            title=f"Selecting values under cutoff {cutoff}",
+            title=f"Removing Particle Stacks under Cutoff {cutoff}",
             connections={
                 "particles": (prev_job.uid, "particles"),
                 "templates": (prev_job.uid, "class_averages"),
@@ -217,7 +217,7 @@ def auto_classify(prev_job, WORKSPACE, LANE, CLASSIFICATION_TYPE, CLASSIFY_PARAM
     """
     classify_job = WORKSPACE.create_job(
         CLASSIFICATION_TYPE,
-        title="Main loop 2D Classify",
+        title="Main Loop 2D Classify",
         connections={
             "particles": (prev_job.uid, "particles_selected")
         },

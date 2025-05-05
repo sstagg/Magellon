@@ -11,6 +11,13 @@ def check_required_file(path, description):
         return False
     return True
 
+# Map install names to their corresponding import names if they differ
+PACKAGE_IMPORT_MAP = {
+    "cryosparc-tools": "cryosparc.tools",
+    "scikit-learn": "sklearn",
+    "opencv-python": "cv2",
+}
+
 def check_required_modules(requirements_file="requirements.txt"):
     print("\nChecking required Python modules...")
 
@@ -22,13 +29,20 @@ def check_required_modules(requirements_file="requirements.txt"):
     with open(requirements_file, 'r') as f:
         for line in f:
             pkg = line.strip()
-            # Skip version constraints like "torch>=2.0"
-            modname = pkg.split("==")[0].split(">=")[0].split("<=")[0].strip()
-            if not modname or modname.startswith("#"):
+            if not pkg or pkg.startswith("#"):
                 continue
-            if importlib.util.find_spec(modname) is None:
-                print(f"Missing required module: {modname}")
+
+            # Extract base package name (strip version specifiers)
+            modname = pkg.split("==")[0].split(">=")[0].split("<=")[0].strip()
+
+            # Map to correct import name
+            import_name = PACKAGE_IMPORT_MAP.get(modname, modname)
+
+            # Attempt to import
+            if importlib.util.find_spec(import_name) is None:
+                print(f"Missing required module: {modname} (import name: {import_name})")
                 all_good = False
+
     if all_good:
         print("All required modules appear installed.")
     return all_good
@@ -73,7 +87,7 @@ def perform_sanity_checks(output_path):
         all_good = False
 
     if all_good:
-        print("\nAll sanity checks passed.")
+        print("\nAll file checks passed.")
     else:
         print("\nSome checks failed. Please resolve them before continuing.")
         proceed = input("Continue anyway? (y/n): ").strip().lower()
@@ -85,12 +99,13 @@ def perform_sanity_checks(output_path):
     reqs_ok = check_required_modules(requirements_file=os.path.join(os.path.dirname(__file__), "requirements.txt"))
 
     if all_good and reqs_ok:
-        print("\nAll sanity checks passed.")
+        print("\nAll sanity checks passed.\n\n\n")
     else:
         print("\nSome checks failed. Please resolve them before continuing.")
+        print("Import check may contain errors due to installed name mismatches with requirements.")
         proceed = input("Continue anyway? (y/n): ").strip().lower()
         if proceed != "y":
-            print("Exiting setup.")
+            print("Exiting setup.\n")
             exit(1)
 
 def prompt_input(prompt_text, default=None):
@@ -114,7 +129,7 @@ def setup_connection(settings, settings_path):
         print("\nWarning! If you store your password, it will be save in an insecure place.")
         print("Only store if you do not care about your cryoSPARC password being compromised.\n")
 
-        password_mode = prompt_input("Password mode ('prompt' or 'store')", default="prompt")
+        password_mode = prompt_input("Password mode ('prompt' or 'store')", default="prompt\n")
         password = getpass("Enter your CryoSPARC password: ").strip()
 
         try:
@@ -126,7 +141,7 @@ def setup_connection(settings, settings_path):
                 password=password
             )
             if cs.test_connection():
-                print("CryoSPARC connection successful!")
+                print("CryoSPARC connection successful!\n")
                 break
             else:
                 print("Connection failed. Please re-enter your CryoSPARC info.")
@@ -159,7 +174,7 @@ def default_setup(file_path="settings.ini"):
     print("\nRunning initial setup for settings.ini...\n")
 
     # CryoSPARC connection setup and test
-    setup_connection(settings)
+    setup_connection(settings, file_path)
 
     # Classification settings
     settings['default_particle'] = {
@@ -197,13 +212,11 @@ def default_setup(file_path="settings.ini"):
     }
 
     # Other directories
-    output_path = prompt_input("Enter path to output directory", default="./output")
+    output_path = prompt_input("What would you like your output path to be?", default="./output")
 
     settings['directories'] = {
         'output_directory': output_path
     }
-
-    perform_sanity_checks(output_path=output_path)
 
     # Prompt Primary Workspace (dir_1)
     while True:
@@ -244,4 +257,9 @@ def default_setup(file_path="settings.ini"):
         settings.write(f)
 
     print(f"\n'settings.ini' created successfully at: {file_path}")
+
+    perform_sanity_checks(output_path=output_path)
+
+    print("*** SETUP COMPLETE ***")
+
     return 0
