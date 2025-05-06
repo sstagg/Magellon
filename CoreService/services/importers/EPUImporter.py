@@ -258,9 +258,6 @@ class EPUImporter(BaseImporter):
                 self.params.magellon_session_name or self.params.session_name,
                 "EPU"
             )
-            print("------------------------------")
-            print(self.params)
-            print("------------------------------")
             # Load and process the XML metadata
             epu_metadata_list = self.load_epu_metadata()
 
@@ -526,7 +523,6 @@ class EPUImporter(BaseImporter):
 
         # Dictionary to map filename to image ID for parent-child relationships
         image_dict = {}
-        print("inside",self.params)
         for metadata in metadata_list:
             # Get filename without extension
             filename = os.path.splitext(os.path.basename(metadata.file_path))[0]

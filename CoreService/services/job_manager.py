@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 import logging
 from datetime import datetime
 from fastapi import Depends
-
+import os
 logger = logging.getLogger(__name__)
 
 # Redis configuration
