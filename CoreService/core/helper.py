@@ -397,7 +397,7 @@ def dispatch_motioncor_task(task_id,
             app_settings.DEBUG_CTF_PATH,
             app_settings.DEBUG_CTF_REPLACE
         )
-
+    session_name = task_dto.job_dto.session_name
     motioncor_task = create_motioncor_task(
         image_path=full_image_path,
         task_id=task_id,

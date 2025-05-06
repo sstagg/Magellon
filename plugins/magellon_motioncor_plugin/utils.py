@@ -577,7 +577,7 @@ def createframealignCenterImage(outputmrcpath, data, directory_path,originalsize
 
 
 def getImageSize(file,filetype):
-    if filetype== ".tif" or filetype==".eer":
+    if filetype== ".tif" or filetype==".eer" or filetype==".tiff":
         with tifffile.TiffFile(file) as tif:
             width, height = tif.pages[0].shape
             return width,height
@@ -586,7 +586,7 @@ def getImageSize(file,filetype):
             x_size, y_size, z_size = mrc.header.nx, mrc.header.ny, mrc.header.nz
             return x_size, y_size
     else:
-        raise ValueError("Invalid file type. Must be .mrc, .tif, or .eer.")
+        raise ValueError("Invalid file type. Must be .mrc, .tif, or .eer. during getting Image size or file is not MRC,TIFF,EER")
     
 
 # def convert_eer_to_mrc(input_file, output_file):
@@ -641,7 +641,7 @@ def convert_eer_to_mrc(input_path, output_path,
         return output_path
 
     except Exception as e:
-        print(f"Error creating gain reference: {str(e)}")
+        print(f"Error creating gain reference during conversion of Gain from EER to MRC: {str(e)}")
         raise
 def convert_gain_to_mrc(input_file, output_file):
     """Convert gain reference file to MRC format, checking if it's TIFF or already MRC."""
@@ -655,7 +655,7 @@ def convert_gain_to_mrc(input_file, output_file):
             convert_tiff_to_mrc(input_file, output_file)
         
         else:
-            raise ValueError(f"Unsupported gain file format: {input_file}")
+            raise ValueError(f"Unsupported gain file format during conversion of gain file to MRC: {input_file}")
 
     except Exception as e:
         print(f"Error converting gain file to MRC: {e}")
@@ -703,6 +703,7 @@ def is_mrc(file_path):
         with mrcfile.open(file_path, permissive=True) as mrc:
             return True
     except:
+        logger.error("MRC file doesnt have right headers. might be corrupted")
         return False
 
 def is_tiff_file(file_path):
@@ -712,6 +713,7 @@ def is_tiff_file(file_path):
         with tifffile.TiffFile(file_path) as tif:
             return True
     except:
+        logger.error("TIFF file doesnt have right headers. might be corrupted")
         return False
 def save_gain_file(gain_file, directorypath):
     """Save the new gain file in the specified directory."""
