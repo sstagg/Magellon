@@ -155,16 +155,16 @@ def get_images_route(
         images_as_dict = []
         for row in rows:
             image = ImageDto(
-                oid=row.oid,
-                name=row.name,
-                defocus=round(float(row.defocus) * 1.e6, 2),
-                dose=row.dose,
-                mag=row.mag,
-                pixelSize=round(float(row.pixelSize) * row.binning_x * 1.e10, 3),
-                parent_id=row.parent_id,
-                session_id=row.session_id,
-                children_count=row.children_count
-            )
+    oid=row.oid,
+    name=row.name,
+    defocus=round(float(row.defocus) * 1.e6, 2) if row.defocus is not None else row.defocus,
+    dose=row.dose,
+    mag=row.mag,
+    pixelSize=round(float(row.pixelSize) * row.binning_x * 1.e10, 3)
+        if row.pixelSize is not None and row.binning_x is not None else None,    parent_id=row.parent_id,
+    session_id=row.session_id,
+    children_count=row.children_count
+)
             images_as_dict.append(image.dict())
 
         # total_count = images_as_dict[0]["total_count"] if images_as_dict else 0
