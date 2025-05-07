@@ -13,6 +13,8 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from datetime import datetime
+import shutil
+
 
 from core.helper import custom_replace, dispatch_ctf_task
 from database import get_db
@@ -23,7 +25,7 @@ from fastapi import Depends
 from services.file_service import copy_file
 from services.importers.BaseImporter import BaseImporter, TaskFailedException
 from config import FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, \
-    FFT_SUFFIX, FRAMES_SUFFIX, app_settings, ATLAS_SUB_URL, CTF_SUB_URL
+    FFT_SUFFIX, FRAMES_SUFFIX, app_settings, ATLAS_SUB_URL, CTF_SUB_URL,MAGELLON_HOME_DIR,GAINS_SUB_URL
 
 
 
@@ -282,9 +284,14 @@ class EPUImporter(BaseImporter):
             db_session.commit()
 
             # Set up target directory for file processing
-            target_dir = self.get_target_directory()
+            target_dir = os.path.join(MAGELLON_HOME_DIR,self.params.magellon_session_name)
+            self.params.target_directory=target_dir
             self.create_directories(target_dir)
-
+            source_gains = os.path.join(self.params.epu_dir_path, GAINS_SUB_URL)
+            if os.path.exists(source_gains):
+                shutil.copytree(source_gains, os.path.join(target_dir, GAINS_SUB_URL), dirs_exist_ok=True)
+            else:
+                raise Exception("gains folder not found in the root of the input folder")
             # Process file tasks
             if getattr(self.params, 'if_do_subtasks', True):
                 self.run_tasks(task_dto_list)
@@ -551,7 +558,7 @@ class EPUImporter(BaseImporter):
             # Find image and frame files
             source_image_path = os.path.splitext(metadata.file_path)[0] + ".tiff"
             source_frame_path = self._find_frame_file(source_image_path)
-
+            self.params.session_name=self.params.magellon_session_name
             # Apply path replacements if needed
             if self.params.replace_type in ("regex", "standard"):
                 if source_frame_path:
@@ -599,9 +606,9 @@ class EPUImporter(BaseImporter):
                 frame_path=source_frame_path,
                 job_dto=self.params,
                 status=1,
-                pixel_size=metadata.pixel_size,
-                acceleration_voltage=metadata.acceleration_voltage/1000,
-                spherical_aberration=metadata.spherical_aberration
+                pixel_size=( metadata.pixel_size if metadata.pixel_size is not None else self.params.default_data.pixel_size*10**-10),
+                acceleration_voltage = ( metadata.acceleration_voltage / 1000 if metadata.acceleration_voltage is not None else self.params.default_data.acceleration_voltage),
+                spherical_aberration=( metadata.spherical_aberration/ 1000 if metadata.spherical_aberration is not None else self.params.default_data.spherical_aberration)
             )
             task_dto_list.append(task_dto)
 

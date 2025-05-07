@@ -140,7 +140,7 @@ class MagellonImporter(BaseImporter):
                     status=1,
                     pixel_size=image.pixel_size,
                     acceleration_voltage=image.acceleration_voltage,
-                    spherical_aberration=image.spherical_aberration,
+                    spherical_aberration=image.spherical_aberration*1000,
                     binning_x=image.binning_x
                 )
                 self.task_dto_list.append(task_dto)

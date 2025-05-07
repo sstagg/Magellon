@@ -216,7 +216,11 @@ def dispatch_ctf_task(task_id, full_image_path, task_dto: ImportTaskDto):
     file_name = os.path.splitext(os.path.basename(full_image_path))[0]
 
     #converting LeginonFrameTransferTaskDto to ctf task
-    session_name = file_name.split("_")[0]
+    if hasattr(task_dto, 'job_dto') and task_dto.job_dto and hasattr(task_dto.job_dto, 'session_name') and task_dto.job_dto.session_name:
+        session_name = task_dto.job_dto.session_name
+    else:
+        session_name = file_name.split("_")[0]
+
     out_file_name = f"{file_name}_ctf_output.mrc"
     ctf_task_data = CtfTaskData(
         image_id=task_dto.image_id,
@@ -226,7 +230,7 @@ def dispatch_ctf_task(task_id, full_image_path, task_dto: ImportTaskDto):
         outputFile=out_file_name,
         pixelSize= task_dto.pixel_size * 10**10,  #1
         accelerationVoltage=task_dto.acceleration_voltage,
-        sphericalAberration = (task_dto.spherical_aberration*1000 if task_dto.spherical_aberration is not None else 2.7) , #    2.7,
+        sphericalAberration = (task_dto.spherical_aberration if task_dto.spherical_aberration is not None else 2.7) , #    2.7,
         amplitudeContrast=task_dto.amplitude_contrast,
         sizeOfAmplitudeSpectrum=task_dto.size_of_amplitude_spectrum,
         minimumResolution=task_dto.minimum_resolution,
@@ -397,7 +401,8 @@ def dispatch_motioncor_task(task_id,
             app_settings.DEBUG_CTF_PATH,
             app_settings.DEBUG_CTF_REPLACE
         )
-
+    if hasattr(task_dto, 'job_dto') and task_dto.job_dto and hasattr(task_dto.job_dto, 'session_name') and task_dto.job_dto.session_name:
+        session_name = task_dto.job_dto.session_name
     motioncor_task = create_motioncor_task(
         image_path=full_image_path,
         task_id=task_id,

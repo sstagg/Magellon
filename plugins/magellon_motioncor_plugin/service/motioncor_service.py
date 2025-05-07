@@ -83,7 +83,11 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
+        output = process.stdout.strip()
+        error_output = process.stderr.strip()
         return_code = process.returncode
+        print(output)
+        print(error_output)
         if return_code != 0:
             logger.error(f"MotionCor3 error: {process.stderr.strip()}")
             return TaskResultDto(

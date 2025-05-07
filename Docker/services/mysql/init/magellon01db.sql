@@ -66,7 +66,7 @@ CREATE TABLE `image` (
   `parent_id` BINARY(16) DEFAULT NULL,
   `session_id` BINARY(16) DEFAULT NULL,
   `magnification` bigint(20) DEFAULT NULL,
-  `dose` decimal(28,8) DEFAULT NULL,
+  `dose` double DEFAULT NULL,
   `focus` decimal(28,8) DEFAULT NULL,
   `defocus` decimal(28,8) DEFAULT NULL,
   `spot_size` bigint(20) DEFAULT NULL,
