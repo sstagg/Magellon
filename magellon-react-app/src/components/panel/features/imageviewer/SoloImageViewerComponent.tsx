@@ -36,12 +36,16 @@ export const SoloImageViewerComponent: React.FC<SoloImageViewerProps> = ({ selec
         brightness,
         contrast,
         scale,
+        currentSession,
         setActiveTab,
         setSelectedParticlePicking,
         updateParticlePicking,
         openParticlePickingDialog,
         closeParticlePickingDialog
     } = useImageViewerStore();
+
+    // Get the current session name
+    const sessionName = currentSession?.name || '';
 
     // Fetch CTF info
     const {
@@ -163,7 +167,7 @@ export const SoloImageViewerComponent: React.FC<SoloImageViewerProps> = ({ selec
                 </Box>
                 <TabPanel value="1">
                     <ImageViewer
-                        imageUrl={`${BASE_URL}/image_thumbnail?name=${selectedImage?.name}`}
+                        imageUrl={`${BASE_URL}/image_thumbnail?name=${selectedImage?.name}&sessionName=${sessionName}`}
                         width={1024}
                         height={1024}
                         style={ImageStyle}
@@ -171,7 +175,7 @@ export const SoloImageViewerComponent: React.FC<SoloImageViewerProps> = ({ selec
                 </TabPanel>
                 <TabPanel value="2">
                     <img
-                        src={`${BASE_URL}/fft_image?name=${selectedImage?.name}`}
+                        src={`${BASE_URL}/fft_image?name=${selectedImage?.name}&sessionName=${sessionName}`}
                         alt="image"
                         style={ImageStyle}
                     />
@@ -208,7 +212,7 @@ export const SoloImageViewerComponent: React.FC<SoloImageViewerProps> = ({ selec
                     <ImageParticlePicking
                         image={selectedImage}
                         ipp={selectedParticlePicking}
-                        imageUrl={`${BASE_URL}/image_thumbnail?name=${selectedImage?.name}`}
+                        imageUrl={`${BASE_URL}/image_thumbnail?name=${selectedImage?.name}&sessionName=${sessionName}`}
                         width={1024}
                         height={1024}
                         onCirclesSelected={(circles) => console.log("Circles selected:", circles)}
@@ -234,12 +238,34 @@ export const SoloImageViewerComponent: React.FC<SoloImageViewerProps> = ({ selec
                         )}
                     </div>
 
-                    <img width={900} src={`${BASE_URL}/ctf_image?image_type=powerspec&name=${selectedImage?.name}`} alt="ctf power spec image" style={ImageStyle}/>
-                    <img width={900} src={`${BASE_URL}/ctf_image?image_type=plots&name=${selectedImage?.name}`} alt="ctf plots image" style={ImageStyle}/>
+                    {/* Updated URLs with sessionName parameter */}
+                    <img
+                        width={900}
+                        src={`${BASE_URL}/ctf_image?image_type=powerspec&name=${selectedImage?.name}&sessionName=${sessionName}`}
+                        alt="ctf power spec image"
+                        style={ImageStyle}
+                    />
+                    <img
+                        width={900}
+                        src={`${BASE_URL}/ctf_image?image_type=plots&name=${selectedImage?.name}&sessionName=${sessionName}`}
+                        alt="ctf plots image"
+                        style={ImageStyle}
+                    />
                 </TabPanel>
                 <TabPanel value="6">
-                    <img width={900} src={`${BASE_URL}/fao_image?image_type=one&name=${selectedImage?.name}`} alt="motioncor image one" style={ImageStyle}/>
-                    <img width={900} src={`${BASE_URL}/fao_image?image_type=two&name=${selectedImage?.name}`} alt="motioncor image two" style={ImageStyle}/>
+                    {/* Updated URLs with sessionName parameter for frame alignment images too */}
+                    <img
+                        width={900}
+                        src={`${BASE_URL}/fao_image?image_type=one&name=${selectedImage?.name}&sessionName=${sessionName}`}
+                        alt="motioncor image one"
+                        style={ImageStyle}
+                    />
+                    <img
+                        width={900}
+                        src={`${BASE_URL}/fao_image?image_type=two&name=${selectedImage?.name}&sessionName=${sessionName}`}
+                        alt="motioncor image two"
+                        style={ImageStyle}
+                    />
                 </TabPanel>
                 <TabPanel value="7">
                     <ImageMetadataDisplay selectedImage={selectedImage} />

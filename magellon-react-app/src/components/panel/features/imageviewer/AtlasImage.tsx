@@ -1,8 +1,9 @@
-import React, {useEffect, useState} from 'react'
+import React, { useEffect, useState } from 'react'
 import ImageInfoDto from "./ImageInfoDto.ts";
-import {settings} from "../../../../core/settings.ts";
+import { settings } from "../../../../core/settings.ts";
+import { useImageViewerStore } from './store/imageViewerStore';
 
-const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL ;
+const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
 
 export interface ImageMapArea {
     shape: string;
@@ -16,11 +17,11 @@ export interface ImageMap {
     name: string;
     areas: ImageMapArea[];
 }
+
 interface AtlasPictureProps {
     name: string | undefined;
     imageMapJson: string | undefined;
-    onImageClick: (imageInfo: ImageInfoDto, column : number) => void;
-    // imageMap: ImageMap | null;
+    onImageClick: (imageInfo: ImageInfoDto, column: number) => void;
     finalWidth: number;
     finalHeight: number;
     backgroundColor: string;
@@ -43,13 +44,15 @@ function getImageNumber(input: string): number | null {
 interface ApiResponse {
     result: ImageInfoDto;
 }
-export default function AtlasImage({ name, finalWidth , finalHeight ,backgroundColor, imageMapJson , onImageClick} :AtlasPictureProps) {
 
-    // const { areas } = imageMap;
+export default function AtlasImage({ name, finalWidth, finalHeight, backgroundColor, imageMapJson, onImageClick }: AtlasPictureProps) {
+    // Get the current session from the store
+    const { currentSession } = useImageViewerStore();
+    const sessionName = currentSession?.name || '';
+
     const [imageMap, setImageMap] = useState<ImageMap | null>(null);
     const [hoveredArea, setHoveredArea] = useState<string | null>(null);
     const [selectedArea, setSelectedArea] = useState<string | null>(null);
-
 
     useEffect(() => {
         if (imageMapJson) {
@@ -74,21 +77,17 @@ export default function AtlasImage({ name, finalWidth , finalHeight ,backgroundC
         const areaName = area['data-name'];
         setSelectedArea((prevSelectedArea) => (prevSelectedArea === areaName ? null : areaName));
         try {
-            const response = await fetch(`${BASE_URL}/images/${areaName}`);
+            // Add sessionName parameter to the API call
+            const response = await fetch(`${BASE_URL}/images/${areaName}?sessionName=${sessionName}`);
             if (!response.ok) {
                 throw new Error('Image not found');
             }
             const data: ApiResponse = await response.json();
-            onImageClick(data.result,0);
-            // console.log(data.result);
-
+            onImageClick(data.result, 0);
         } catch (error) {
             console.error('Error fetching image details:', error);
         }
-
-        console.log(areaName);
     };
-
 
     const renderRectangles = () => {
         return imageMap?.areas.map((area, index) => {
@@ -115,19 +114,17 @@ export default function AtlasImage({ name, finalWidth , finalHeight ,backgroundC
                     <image
                         x={x1}
                         y={y1}
-                        width={width }
-                        height={height }
-                        href={`${BASE_URL}/image_thumbnail?name=${area['data-name']}`} // Assuming 'data-name' contains the image source
+                        width={width}
+                        height={height}
+                        // Add sessionName parameter to the image thumbnail URL
+                        href={`${BASE_URL}/image_thumbnail?name=${area['data-name']}&sessionName=${sessionName}`}
                         data-name={area['data-name']}
-                        // data-id={area['data-id']}
                         onMouseOver={() => handleMouseOver(area['data-name'])}
                         onMouseOut={handleMouseOut}
-                        // onClick={() => handleImageClick(area['data-name'])}
                         onClick={() => handleImageClick(area)}
                         style={{
-                            // filter: 'drop-shadow(0px 0px 1px white)',
                             outline:
-                                (hoveredArea === area['data-name'] || selectedArea === area['data-name']) ? '3px solid white':'',
+                                (hoveredArea === area['data-name'] || selectedArea === area['data-name']) ? '3px solid white' : '',
                             opacity: hoveredArea === area['data-name'] ? 0.7 : 1,
                             cursor: 'pointer',
                             borderRadius: '5px',
@@ -147,22 +144,21 @@ export default function AtlasImage({ name, finalWidth , finalHeight ,backgroundC
                                 y={y1 + height / 2 + textFontSize / 3}
                                 textAnchor="middle"
                                 fill="white"
-                                fontSize={`${textFontSize}px`} // Adjust the font size
-                                 >
+                                fontSize={`${textFontSize}px`}
+                            >
                                 {getImageNumber(area['data-name'])}
                             </text>
                         </g>
-                        )}
+                    )}
                 </g>
             );
         });
     };
+
     return (
         <svg width={finalWidth} height={finalHeight} xmlns="http://www.w3.org/2000/svg">
-            <rect width="100%" height="100%" fill={backgroundColor}  />
-            {/*<image width="100%" height="100%"  href={`http://127.0.0.1:8000/web/atlas-image?name=${name}`} />*/}
+            <rect width="100%" height="100%" fill={backgroundColor} />
             {renderRectangles()}
         </svg>
     );
-
 }

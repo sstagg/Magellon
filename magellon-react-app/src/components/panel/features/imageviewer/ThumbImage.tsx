@@ -1,20 +1,27 @@
 import IconButton from "@mui/material/IconButton";
 import ImageInfoDto from "./ImageInfoDto.ts";
 import ImageListItemBar from "@mui/material/ImageListItemBar";
-import {ImageListItem} from "@mui/material";
-import {useState} from "react";
-import {settings} from "../../../../core/settings.ts";
-const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL ;
+import { ImageListItem } from "@mui/material";
+import { useState } from "react";
+import { settings } from "../../../../core/settings.ts";
+import { useImageViewerStore } from './store/imageViewerStore';
+
+const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
+
 interface IThumbImagesProps{
-    image:ImageInfoDto;
-    onImageClick: (imageInfo: ImageInfoDto, column : number) => void;
+    image: ImageInfoDto;
+    onImageClick: (imageInfo: ImageInfoDto, column: number) => void;
     level: number;
     isSelected: boolean;
 }
 
-export const ThumbImage = ({image,onImageClick,level,isSelected} : IThumbImagesProps) => {
+export const ThumbImage = ({ image, onImageClick, level, isSelected }: IThumbImagesProps) => {
     const [isHovered, setIsHovered] = useState(false);
     const childrenCount = image.children_count || 0;
+
+    // Get the current session from the store
+    const { currentSession } = useImageViewerStore();
+    const sessionName = currentSession?.name || '';
 
     const hasChildrenClass = childrenCount > 0 ? 'thumb-image-has-children' : '';
     const hasSelectedClass = isSelected ? 'thumb-image-selected' : '';
@@ -30,11 +37,8 @@ export const ThumbImage = ({image,onImageClick,level,isSelected} : IThumbImagesP
     };
 
     const handleClick = () => {
-         // debugger;
-        image.level=level;
-        // console.log("image is " + JSON.stringify(image));
-        onImageClick(image,level);
-        // setIsSelected(!isSelected); // Toggle the selected state
+        image.level = level;
+        onImageClick(image, level);
     };
 
     const barStyle = {
@@ -47,9 +51,9 @@ export const ThumbImage = ({image,onImageClick,level,isSelected} : IThumbImagesP
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
         >
-            <IconButton   sx={{padding:'0px'}} onClick={handleClick} >
+            <IconButton sx={{ padding: '0px' }} onClick={handleClick}>
                 <img
-                    src={`${BASE_URL}/image_thumbnail?name=${image.name}`}
+                    src={`${BASE_URL}/image_thumbnail?name=${image.name}&sessionName=${sessionName}`}
                     alt="image"
                     loading="lazy"
                     className={combinedClassName}
@@ -60,9 +64,6 @@ export const ThumbImage = ({image,onImageClick,level,isSelected} : IThumbImagesP
                 subtitle={image.name}
                 sx={barStyle} // Apply the border-radius and margin styles
             />
-            {/*{isHovered && (*/}
-
-            {/*)}*/}
         </ImageListItem>
     );
 };

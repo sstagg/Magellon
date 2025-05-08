@@ -50,10 +50,14 @@ export const ImageNavigatorComponent: React.FC<ImageNavigatorProps> = ({
         isAtlasVisible,
         viewMode,
         currentAtlas,
+        currentSession,
         toggleAtlasVisibility,
         setViewMode,
         setCurrentAtlas
     } = useImageViewerStore();
+
+    // Get session name from store or props
+    const sessionName = currentSession?.name || selectedSession?.name || '';
 
     // Initialize atlas on component mount
     useEffect(() => {
@@ -135,7 +139,13 @@ export const ImageNavigatorComponent: React.FC<ImageNavigatorProps> = ({
                                 <ImageList cols={1} rowHeight={170} sx={{ width: 170, height: 400, display: 'block' }}>
                                     {Atlases?.map((atlas, index) => (
                                         <ImageListItem key={index} onClick={() => handleAtlasClick(atlas)}>
-                                            <img src={`${BASE_URL}/atlas-image?name=${atlas?.name}`} alt="atlas" className={"thumb-image"} style={{ cursor: 'pointer' }} />
+                                            {/* Add sessionName parameter to the atlas image URL */}
+                                            <img
+                                                src={`${BASE_URL}/atlas-image?name=${atlas?.name}&sessionName=${sessionName}`}
+                                                alt="atlas"
+                                                className={"thumb-image"}
+                                                style={{ cursor: 'pointer' }}
+                                            />
                                         </ImageListItem>
                                     ))}
                                 </ImageList>
