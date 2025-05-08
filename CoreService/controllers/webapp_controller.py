@@ -397,11 +397,13 @@ def get_image_ctf_data_route(image_name_or_oid: str, db: Session = Depends(get_d
 
 
 @webapp_router.get('/ctf_image')
-def get_ctf_image_route(name: str, image_type: str):
+def get_ctf_image_route(name: str, image_type: str,sessionName:str):
     try:
-        session_name = name.split('_', 1)[0]  # Use split instead of find
+        if not sessionName:
+            session_name = name.split('_', 1)[0]
+        else:
+            session_name=sessionName
         base_path = os.path.join(app_settings.directory_settings.MAGELLON_HOME_DIR, session_name, CTF_SUB_URL, name)
-
 
         # Define a mapping for file paths based on the image type
         file_paths = {
@@ -422,9 +424,12 @@ def get_ctf_image_route(name: str, image_type: str):
         print(f"Error fetching CTF image: {e}")
         return get_image_not_found()
 @webapp_router.get('/fao_image')
-def get_ctf_image_route(name: str, image_type: str):
+def get_ctf_image_route(name: str, image_type: str,sessionName:str):
     try:
-        session_name = name.split('_', 1)[0]  # Use split instead of find
+        if not sessionName:
+            session_name = name.split('_', 1)[0]  # Use split instead of find
+        else:
+            session_name=sessionName
         base_path = os.path.join(app_settings.directory_settings.MAGELLON_HOME_DIR, session_name, FAO_SUB_URL, name)
 
 
@@ -584,9 +589,12 @@ async def update_particle_picking(body_req: ParticlePickingDto, db_session: Sess
 
 
 @webapp_router.get("/image_thumbnail")
-async def get_image_thumbnail(name: str):
-    underscore_index = name.find('_')
-    session_name = name[:underscore_index]
+async def get_image_thumbnail(name: str,sessionName:str):
+    if not sessionName:
+        underscore_index = name.find('_')
+        session_name = name[:underscore_index]
+    else:
+        session_name=sessionName
     file_path = f"{app_settings.directory_settings.MAGELLON_HOME_DIR}/{session_name}/{IMAGE_SUB_URL}{name}.png"
     # Check if the file exists
     if not os.path.exists(file_path):
@@ -610,9 +618,12 @@ async def get_session_atlases(session_name: str, db_session: Session = Depends(g
 
 
 @webapp_router.get("/atlas-image")
-async def get_atlas_image(name: str):
-    underscore_index = name.find('_')
-    session_name = name[:underscore_index]
+async def get_atlas_image(name: str,sessionName: str):
+    if not sessionName:
+        underscore_index = name.find('_')
+        session_name = name[:underscore_index]
+    else:
+        session_name=sessionName
     file_path = f"{app_settings.directory_settings.MAGELLON_HOME_DIR}/{session_name}/{ATLAS_SUB_URL}/{name}.png"
     # Check if the file exists
     if not os.path.exists(file_path):
