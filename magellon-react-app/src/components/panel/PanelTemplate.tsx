@@ -6,6 +6,8 @@ import MuiAppBar, { AppBarProps as MuiAppBarProps } from '@mui/material/AppBar';
 import {PanelDrawer} from "./PanelDrawer.tsx";
 import {PanelHeader} from "./PanelHeader.tsx";
 import {PanelRoutes} from "./PanelRoutes.tsx";
+import PanelFooter from './PanelFooter.tsx';
+
 
 const drawerWidth = 240;
 
@@ -79,7 +81,7 @@ export const PanelTemplate = () => {
             <Main open={open}>
                 <PanelRoutes/>
             </Main>
-
+            <PanelFooter />
         </Box>
     );
 };
