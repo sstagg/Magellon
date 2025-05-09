@@ -216,7 +216,10 @@ def dispatch_ctf_task(task_id, full_image_path, task_dto: ImportTaskDto):
     file_name = os.path.splitext(os.path.basename(full_image_path))[0]
 
     #converting LeginonFrameTransferTaskDto to ctf task
-    session_name = task_dto.job_dto.session_name
+    if hasattr(task_dto, 'job_dto') and task_dto.job_dto and hasattr(task_dto.job_dto, 'session_name') and task_dto.job_dto.session_name:
+        session_name = task_dto.job_dto.session_name
+    else:
+        session_name = file_name.split("_")[0]
     out_file_name = f"{file_name}_ctf_output.mrc"
     ctf_task_data = CtfTaskData(
         image_id=task_dto.image_id,
@@ -397,7 +400,8 @@ def dispatch_motioncor_task(task_id,
             app_settings.DEBUG_CTF_PATH,
             app_settings.DEBUG_CTF_REPLACE
         )
-    session_name = task_dto.job_dto.session_name
+    if hasattr(task_dto, 'job_dto') and task_dto.job_dto and hasattr(task_dto.job_dto, 'session_name') and task_dto.job_dto.session_name:
+        session_name = task_dto.job_dto.session_name
     motioncor_task = create_motioncor_task(
         image_path=full_image_path,
         task_id=task_id,

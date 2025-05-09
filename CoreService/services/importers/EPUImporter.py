@@ -23,7 +23,7 @@ from fastapi import Depends
 from services.file_service import copy_file
 from services.importers.BaseImporter import BaseImporter, TaskFailedException
 from config import FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, \
-    FFT_SUFFIX,MAGELLON_HOME_DIR, FRAMES_SUFFIX, app_settings, ATLAS_SUB_URL, CTF_SUB_URL,GAINS_SUB_URL
+    FFT_SUFFIX, FRAMES_SUFFIX, app_settings, ATLAS_SUB_URL, CTF_SUB_URL,MAGELLON_HOME_DIR,GAINS_SUB_URL
 
 
 
@@ -552,62 +552,70 @@ class EPUImporter(BaseImporter):
             image_dict[filename] = db_image.oid
 
             # Find image and frame files
-            source_image_path = os.path.splitext(metadata.file_path)[0] + ".tiff"
-            source_frame_path = self._find_frame_file(source_image_path)
-            self.params.session_name=self.params.magellon_session_name
-
-            # Apply path replacements if needed
-            if self.params.replace_type in ("regex", "standard"):
-                if source_frame_path:
-                    source_frame_path = custom_replace(
-                        source_frame_path,
+            source_image_path = os.path.splitext(metadata.file_path)[0] 
+            allowed_exts = ['.tif', '.tiff', '.mrc', '.eer']
+            matching_files = [
+                f for f in glob.glob(source_image_path + '.*')
+                if os.path.splitext(f)[1].lower() in allowed_exts
+            ]
+            if not matching_files:
+                logger.warning(f"No valid image file found for base: {source_image_path}")
+            else:
+                source_image_path = matching_files[0]
+                source_frame_path = self._find_frame_file(source_image_path)
+                self.params.session_name=self.params.magellon_session_name
+                # Apply path replacements if needed
+                if self.params.replace_type in ("regex", "standard"):
+                    if source_frame_path:
+                        source_frame_path = custom_replace(
+                            source_frame_path,
+                            self.params.replace_type,
+                            self.params.replace_pattern,
+                            self.params.replace_with
+                        )
+                    source_image_path = custom_replace(
+                        source_image_path,
                         self.params.replace_type,
                         self.params.replace_pattern,
                         self.params.replace_with
                     )
-                source_image_path = custom_replace(
-                    source_image_path,
-                    self.params.replace_type,
-                    self.params.replace_pattern,
-                    self.params.replace_with
+
+                # Extract frame name if it exists
+                frame_name = ""
+                if source_frame_path:
+                    frame_name = os.path.splitext(os.path.basename(source_frame_path))[0]
+
+                # Create job task
+                job_task = ImageJobTask(
+                    oid=uuid.uuid4(),
+                    job_id=job_id,
+                    frame_name=frame_name,
+                    frame_path=source_frame_path,
+                    image_name=os.path.splitext(os.path.basename(source_image_path))[0],
+                    image_path=source_image_path,
+                    status_id=1,
+                    stage=0,
+                    image_id=db_image.oid,
                 )
+                db_job_task_list.append(job_task)
 
-            # Extract frame name if it exists
-            frame_name = ""
-            if source_frame_path:
-                frame_name = os.path.splitext(os.path.basename(source_frame_path))[0]
-
-            # Create job task
-            job_task = ImageJobTask(
-                oid=uuid.uuid4(),
-                job_id=job_id,
-                frame_name=frame_name,
-                frame_path=source_frame_path,
-                image_name=os.path.splitext(os.path.basename(source_image_path))[0],
-                image_path=source_image_path,
-                status_id=1,
-                stage=0,
-                image_id=db_image.oid,
-            )
-            db_job_task_list.append(job_task)
-
-            # Create task DTO for file processing
-            task_dto = EPUImportTaskDto(
-                task_id=job_task.oid,
-                task_alias=f"epu_{filename}_{job_id}",
-                file_name=filename,
-                image_id=db_image.oid,
-                image_name=os.path.splitext(os.path.basename(source_image_path))[0],
-                frame_name=frame_name,
-                image_path=source_image_path,
-                frame_path=source_frame_path,
-                job_dto=self.params,
-                status=1,
-                pixel_size=( metadata.pixel_size if metadata.pixel_size is not None else self.params.default_data.pixel_size*10**-10),
-                acceleration_voltage = ( metadata.acceleration_voltage / 1000 if metadata.acceleration_voltage is not None else self.params.default_data.acceleration_voltage),
-                spherical_aberration=( metadata.spherical_aberration/ 1000 if metadata.spherical_aberration is not None else self.params.default_data.spherical_aberration)
-            )
-            task_dto_list.append(task_dto)
+                # Create task DTO for file processing
+                task_dto = EPUImportTaskDto(
+                    task_id=job_task.oid,
+                    task_alias=f"epu_{filename}_{job_id}",
+                    file_name=filename,
+                    image_id=db_image.oid,
+                    image_name=os.path.splitext(os.path.basename(source_image_path))[0],
+                    frame_name=frame_name,
+                    image_path=source_image_path,
+                    frame_path=source_frame_path,
+                    job_dto=self.params,
+                    status=1,
+                    pixel_size=( metadata.pixel_size if metadata.pixel_size is not None else self.params.default_data.pixel_size*10**-10),
+                    acceleration_voltage = ( metadata.acceleration_voltage / 1000 if metadata.acceleration_voltage is not None else self.params.default_data.acceleration_voltage),
+                    spherical_aberration=( metadata.spherical_aberration/ 1000 if metadata.spherical_aberration is not None else self.params.default_data.spherical_aberration)
+                )
+                task_dto_list.append(task_dto)
 
         # Set parent-child relationships if needed (not implemented yet)
         # This would identify parent-child relationships based on naming conventions
@@ -653,13 +661,19 @@ class EPUImporter(BaseImporter):
         """
         try:
             # Ensure the image path exists and has the correct extension
-            source_image_path = task_dto.image_path
-            if not source_image_path.lower().endswith(('.tif', '.tiff')):
-                source_image_path = os.path.splitext(source_image_path)[0] + ".tiff"
+            base_path = os.path.splitext(task_dto.image_path)[0]
+            allowed_exts = ['.tif', '.tiff', '.mrc', '.eer']
+            matching_files = [
+                f for f in glob.glob(base_path + '.*')
+                if os.path.splitext(f)[1].lower() in allowed_exts
+            ]
 
-            if not os.path.exists(source_image_path):
-                logger.warning(f"Image file not found: {source_image_path}")
-                return {'status': 'failure', 'message': f'Image file not found: {source_image_path}'}
+            if not matching_files:
+                logger.warning(f"No valid image file found matching: {base_path}.*")
+                return {'status': 'failure', 'message': f'Image file not found for base: {base_path}'}
+
+            source_image_path = matching_files[0]
+            task_dto.image_path = source_image_path  # Update task DTO
 
             # 1. Transfer frame if it exists
             if task_dto.frame_path:
@@ -670,11 +684,10 @@ class EPUImporter(BaseImporter):
                 target_image_path = os.path.join(
                     self.get_target_directory(),
                     "original",
-                    task_dto.image_name + ".tiff"
+                    os.path.basename(source_image_path)
                 )
-
                 self.copy_image(task_dto)
-                task_dto.image_path = target_image_path
+                task_dto.image_path = target_image_path  # Update path after copy
 
             # 3. Convert to PNG
             self.convert_image_to_png(source_image_path)

@@ -378,129 +378,36 @@ def import_directory(request: MagellonImportJobDto,  db_session: Session = Depen
             ...
     """
     try:
-        # Generate a job ID if not provided
-        job_id = request.job_id if hasattr(request, 'job_id') and request.job_id else str(uuid.uuid4())
-
-        # Create a job manager instance
-        job_manager = JobManager()
-
-        # Create or update job in job manager
-        if not job_manager.get_job(job_id):
-            job_manager.create_job(
-                job_type="magellon_import",
-                name=f"Magellon Import: {request.source_dir}",
-                description=f"Import Magellon session from {request.source_dir}",
-                metadata={
-                    "source_dir": request.source_dir,
-                    "created_at": datetime.now().isoformat()
-                }
-            )
-
         # Validate source directory exists
         if not os.path.exists(request.source_dir):
-            job_manager.update_job(
-                job_id,
-                {
-                    "status": JobStatus.FAILED,
-                    "current_task": f"Source directory not found: {request.source_dir}",
-                    "error": "Source directory not found"
-                }
-            )
-            raise HTTPException(
-                status_code=404,
-                detail=f"Source directory not found: {request.source_dir}"
-            )
-
-        # Update job status to running
-        job_manager.update_job(
-            job_id,
-            {
-                "status": JobStatus.RUNNING,
-                "current_task": "Initializing import process",
-                "progress": 5
-            }
-        )
-
-        # Set job_id in request if needed
-        if not hasattr(request, 'job_id') or not request.job_id:
-            request.job_id = job_id
+            raise HTTPException( status_code=404, detail=f"Source directory not found: {request.source_dir}"  )
 
         # Initialize and run importer
         importer = MagellonImporter()
         importer.setup(request, db_session)
         result = importer.process(db_session)
 
-        # Handle import result
         if result.get('status') == 'failure':
-            job_manager.update_job(
-                job_id,
-                {
-                    "status": JobStatus.FAILED,
-                    "current_task": result.get('message', 'Import failed'),
-                    "error": result.get('error', 'Unknown error')
-                }
-            )
-            raise HTTPException(
-                status_code=500,
-                detail=result.get('message', 'Import failed')
-            )
-        elif result.get('status') == 'cancelled':
-            return {
-                "message": "Import cancelled by user",
-                "session_name": result.get('session_name'),
-                "job_id": job_id,
-                "status": "cancelled"
-            }
+            raise HTTPException(status_code=500, detail=result.get('message', 'Import failed')  )
 
-        # Import succeeded
         return {
-            "message": "Session import started successfully",
+            "message": "Session imported successfully",
             "session_name": result.get('session_name'),
-            "job_id": job_id,
-            "status": "success"
+            # "target_directory": request.target_directory,
+            "job_id": result.get('job_id')
         }
 
     except FileNotFoundError as e:
-        # Update job status if ID exists
-        if job_id:
-            job_manager.update_job(
-                job_id,
-                {
-                    "status": JobStatus.FAILED,
-                    "current_task": str(e),
-                    "error": str(e)
-                }
-            )
         raise HTTPException(status_code=404, detail=str(e))
-
     except ValueError as e:
-        # Update job status if ID exists
-        if job_id:
-            job_manager.update_job(
-                job_id,
-                {
-                    "status": JobStatus.FAILED,
-                    "current_task": str(e),
-                    "error": str(e)
-                }
-            )
         raise HTTPException(status_code=400, detail=str(e))
-
     except Exception as e:
-        # Log the full exception
         logger.error(f"Error during import: {str(e)}", exc_info=True)
-
-        # Update job status if ID exists
-        if job_id:
-            job_manager.update_job(
-                job_id,
-                {
-                    "status": JobStatus.FAILED,
-                    "current_task": f"Import error: {str(e)}",
-                    "error": str(e)
-                }
-            )
         raise HTTPException(status_code=500, detail=str(e))
+
+    
+
+    
 
 
 @export_router.get("/job/{job_id}")

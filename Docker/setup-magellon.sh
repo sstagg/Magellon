@@ -183,7 +183,7 @@ done
 # Copy services directory if it exists in current directory
 if [ -d "services" ]; then
     log "Copying services directory and its contents..."
-    cp -r services/* "$ROOT_DIR/services/"
+    cp -r services/. "$ROOT_DIR/services/"
     if [ $? -ne 0 ]; then
         log "WARNING: Failed to copy all services. Check permissions and try again."
     else

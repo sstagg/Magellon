@@ -22,15 +22,8 @@ from services.importers.import_database_service import ImportDatabaseService
 from services.importers.import_file_service import ImportFileService, TaskError, FileError
 from services.mrc_image_service import MrcImageService
 from services.file_service import copy_file, check_file_exists
-
-from services.job_manager import JobManager, JobStatus
-
 logger = logging.getLogger(__name__)
 
-# Exception for cancellation
-class CancellationRequested(Exception):
-    """Raised when job cancellation is detected"""
-    pass
 
 class ImportError(Exception):
     """Base exception for all import-related errors"""
@@ -50,17 +43,16 @@ class TaskFailedException(Exception):
 
 class BaseImporter(ABC):
     """
-    Abstract base class for all importers
+       Abstract base class for all importers
 
-    This class provides common functionality for all import processes, including:
-    - Database operations (project, session, job management)
-    - Directory structure creation
-    - File processing (convert to PNG, compute FFT, dispatch CTF and motion correction)
-    - Task management
-    - Job status tracking and cancellation support
+       This class provides common functionality for all import processes, including:
+       - Database operations (project, session, job management)
+       - Directory structure creation
+       - File processing (convert to PNG, compute FFT, dispatch CTF and motion correction)
+       - Task management
 
-    Concrete importers should override the abstract methods to implement their specific logic.
-    """
+       Concrete importers should override the abstract methods to implement their specific logic.
+       """
 
     def __init__(self):
         self.params: Optional[BaseModel] = None
@@ -79,78 +71,11 @@ class BaseImporter(ABC):
 
         self.mrc_service = MrcImageService()
 
-        # Initialize job manager
-        self.job_manager = JobManager()
-        self.job_id = None
-
-
     def setup(self,input_data: BaseModel,  db_session: Session = Depends(get_db)) -> None:
         """Initialize the importer with basic parameters"""
         self.params = input_data
         self.file_service = ImportFileService(target_directory= None, camera_directory= None  )
         self.db_service = ImportDatabaseService(db_session)
-
-        # Set job ID if provided
-        if hasattr(self.params, 'job_id') and self.params.job_id:
-            self.job_id = str(self.params.job_id)
-            self._register_job(db_session)
-
-    def _register_job(self, db_session: Session) -> None:
-        """Register job with the job manager"""
-        if not self.job_id:
-            return
-
-        try:
-            # Get job type and name based on importer class
-            job_type = self.__class__.__name__.lower().replace('importer', '_import')
-            session_name = self.get_session_name() or "Unknown"
-
-            # Create or update job in job manager
-            job_data = self.job_manager.get_job(self.job_id)
-
-            if not job_data:
-                # Create new job entry if it doesn't exist
-                self.job_manager.create_job(
-                    job_type=job_type,
-                    name=f"{job_type.replace('_', ' ').title()}: {session_name}",
-                    description=f"Import job for session: {session_name}",
-                    metadata={
-                        "importer_class": self.__class__.__name__,
-                        "session_name": session_name
-                    }
-                )
-            else:
-                # Update existing job with import-specific info
-                self.job_manager.update_job(
-                    self.job_id,
-                    {
-                        "job_type": job_type,
-                        "name": f"{job_type.replace('_', ' ').title()}: {session_name}",
-                        "current_task": "Initializing import",
-                        "progress": 0
-                    }
-                )
-
-            # Sync with database status if available
-            job_record = db_session.query(ImageJob).filter(ImageJob.oid == self.job_id).first()
-            if job_record:
-                # Map database status to JobStatus
-                status_map = {
-                    1: JobStatus.PENDING,
-                    2: JobStatus.RUNNING,
-                    3: JobStatus.RUNNING,  # Processing
-                    4: JobStatus.COMPLETED,
-                    5: JobStatus.FAILED,
-                    6: JobStatus.CANCELLED
-                }
-
-                # Update job manager status to match database
-                self.job_manager.update_job(
-                    self.job_id,
-                    {"status": status_map.get(job_record.status_id, JobStatus.PENDING)}
-                )
-        except Exception as e:
-            logger.warning(f"Failed to register job {self.job_id}: {str(e)}")
 
     @abstractmethod
     def process(self, db_session: Session = Depends(get_db)) -> Dict[str, str]:
@@ -162,190 +87,6 @@ class BaseImporter(ABC):
 
         Returns:
             Dict with status and result information
-        """
-        pass
-
-    def check_cancellation(self) -> None:
-        """
-        Check if job cancellation has been requested and raise exception if so
-
-        Raises:
-            CancellationRequested: If cancellation was requested
-        """
-        if self.job_id and self.job_manager.is_cancellation_requested(self.job_id):
-            logger.info(f"Cancellation requested for job {self.job_id}")
-            raise CancellationRequested(f"Job {self.job_id} cancellation requested")
-
-    def update_progress(self, progress: int, current_task: str) -> None:
-        """
-        Update job progress in JobManager
-
-        Args:
-            progress: Progress percentage (0-100)
-            current_task: Description of current task
-        """
-        if self.job_id:
-            try:
-                # Update job progress in JobManager
-                self.job_manager.update_progress(self.job_id, progress, current_task)
-
-                # Also update database status if job record exists
-                if hasattr(self, 'db_job') and self.db_job:
-                    self.db_job.status_id = 2  # Running
-
-                    # Add job info to database if available
-                    if hasattr(self.db_job, 'data_json') and self.db_job.data_json is not None:
-                        job_data = self.db_job.data_json or {}
-                        job_data['progress'] = progress
-                        job_data['current_task'] = current_task
-                        self.db_job.data_json = job_data
-            except Exception as e:
-                logger.warning(f"Failed to update progress for job {self.job_id}: {str(e)}")
-
-    def cleanup_after_cancellation(self, db_session: Session) -> None:
-        """
-        Clean up resources after job cancellation
-
-        Args:
-            db_session: SQLAlchemy database session
-        """
-        if self.job_id:
-            try:
-                # Update job status in JobManager
-                self.job_manager.update_job(
-                    self.job_id,
-                    {
-                        "status": JobStatus.CANCELLED,
-                        "current_task": "Job cancelled by user"
-                    }
-                )
-
-                # Update database status if job record exists
-                if hasattr(self, 'db_job') and self.db_job:
-                    self.db_job.status_id = 6  # Cancelled
-                    db_session.commit()
-
-            except Exception as e:
-                logger.error(f"Error updating job status after cancellation: {str(e)}")
-
-    def finalize_job(self, db_session: Session, status: str, message: str) -> None:
-        """
-        Finalize job with status and message
-
-        Args:
-            db_session: SQLAlchemy database session
-            status: Final status (success, failure, cancelled)
-            message: Final status message
-        """
-        if not self.job_id:
-            return
-
-        try:
-            # Map status string to JobStatus and database status
-            status_map = {
-                "success": (JobStatus.COMPLETED, 4),
-                "failure": (JobStatus.FAILED, 5),
-                "cancelled": (JobStatus.CANCELLED, 6)
-            }
-
-            job_status, db_status = status_map.get(status, (JobStatus.FAILED, 5))
-
-            # Update job status in JobManager
-            self.job_manager.update_job(
-                self.job_id,
-                {
-                    "status": job_status,
-                    "current_task": message,
-                    "progress": 100 if status == "success" else None
-                }
-            )
-
-            # Update database status if job record exists
-            if hasattr(self, 'db_job') and self.db_job:
-                self.db_job.status_id = db_status
-                db_session.commit()
-
-        except Exception as e:
-            logger.warning(f"Failed to finalize job {self.job_id}: {str(e)}")
-
-    def execute_with_status_tracking(self, db_session: Session) -> Dict[str, str]:
-        """
-        Template method that adds job status tracking and cancellation handling
-        to the import process
-
-        Args:
-            db_session: SQLAlchemy database session
-
-        Returns:
-            Dict with status information
-        """
-        # Initialize job ID if not set
-        if not self.job_id and hasattr(self, 'db_job') and self.db_job and hasattr(self.db_job, 'oid'):
-            self.job_id = str(self.db_job.oid)
-            self._register_job(db_session)
-
-        try:
-            # Update status to running
-            if self.job_id:
-                self.job_manager.update_job(
-                    self.job_id,
-                    {
-                        "status": JobStatus.RUNNING,
-                        "current_task": "Starting import process",
-                        "progress": 5
-                    }
-                )
-
-                if hasattr(self, 'db_job') and self.db_job:
-                    self.db_job.status_id = 2  # Running
-                    db_session.commit()
-
-            # Execute import process with progress tracking
-            self._execute_import_process(db_session)
-
-            # Finalize job as completed
-            self.finalize_job(db_session, "success", "Import completed successfully")
-
-            return {
-                'status': 'success',
-                'message': 'Import completed successfully',
-                'job_id': self.job_id
-            }
-
-        except CancellationRequested:
-            logger.info(f"Job {self.job_id} cancelled by user")
-
-            # Clean up resources after cancellation
-            self.cleanup_after_cancellation(db_session)
-
-            return {
-                'status': 'cancelled',
-                'message': 'Import was cancelled by user',
-                'job_id': self.job_id
-            }
-
-        except Exception as e:
-            logger.exception(f"Import process failed: {str(e)}")
-
-            # Finalize job as failed
-            self.finalize_job(db_session, "failure", f"Import failed: {str(e)}")
-
-            return {
-                'status': 'failure',
-                'message': f'Import failed: {str(e)}',
-                'job_id': self.job_id
-            }
-
-    def _execute_import_process(self, db_session: Session) -> None:
-        """
-        Execute the import process with progress tracking and cancellation checks.
-        Must be implemented by concrete importers.
-
-        Args:
-            db_session: SQLAlchemy database session
-
-        Raises:
-            CancellationRequested: If cancellation was requested
         """
         pass
 
@@ -437,11 +178,6 @@ class BaseImporter(ABC):
         )
         db_session.add(job)
         db_session.flush()
-        # Set job ID if not already set
-        if not self.job_id:
-            self.job_id = str(job.oid)
-            self._register_job(db_session)
-
         return job
 
 
