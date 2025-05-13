@@ -5,7 +5,7 @@ import DomainRoutes from "../../domains/DomainRoutes.tsx";
 import { ImagesPageView } from "./pages/ImagesPageView.tsx";
 import { RunJobPageView } from "./pages/RunJobPageView.tsx";
 import MrcViewerPageView from "./pages/MrcViewerPageView.tsx";
-import { ImportPageView } from "./pages/ImportPageView.tsx";
+import ImportPageView from "./pages/ImportPageView.tsx";
 
 import DashboardView from "./pages/DashboardView.tsx";
 import { Box, Container, Typography } from "@mui/material";

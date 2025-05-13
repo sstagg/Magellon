@@ -1,82 +1,144 @@
 import React from 'react';
-import { Box, Container, Typography, Grid, Paper, Button, Stack } from "@mui/material";
-import { BarChart2, Brain, Cpu, Database, FileText, Image as ImageIcon, LayersIcon, Settings, Upload } from 'lucide-react';
+import { Box, Container, Typography, Grid, Paper, Button, Stack, useMediaQuery, useTheme, Divider } from "@mui/material";
+import { BarChart2, Brain, Cpu, Database, FileText, Image as ImageIcon, Layers, Settings, Upload } from 'lucide-react';
 
-// Dashboard stat card component
-const StatCard = ({ title, value, icon, color }) => (
-    <Paper sx={{ p: 3, height: '100%', background: `linear-gradient(135deg, ${color}15, ${color}05)`, border: `1px solid ${color}20` }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center">
-            <Box>
-                <Typography variant="h6" component="div" gutterBottom>
+// Dashboard stat card component with responsive design
+const StatCard = ({ title, value, icon, color }) => {
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+    return (
+        <Paper sx={{
+            p: isMobile ? 2 : 3,
+            height: '100%',
+            background: `linear-gradient(135deg, ${color}15, ${color}05)`,
+            border: `1px solid ${color}20`,
+            transition: 'all 0.3s ease'
+        }}>
+            <Box display="flex" justifyContent="space-between" alignItems="center">
+                <Box>
+                    <Typography variant={isMobile ? "subtitle1" : "h6"} component="div" gutterBottom>
+                        {title}
+                    </Typography>
+                    <Typography variant={isMobile ? "h5" : "h4"} component="div" sx={{ fontWeight: 'bold', color: color }}>
+                        {value}
+                    </Typography>
+                </Box>
+                <Box sx={{
+                    backgroundColor: `${color}15`,
+                    p: isMobile ? 0.75 : 1,
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                }}>
+                    {React.cloneElement(icon, { size: isMobile ? 18 : 24, color: color })}
+                </Box>
+            </Box>
+        </Paper>
+    );
+};
+
+// Action card component with responsive design
+const ActionCard = ({ title, description, icon, color, buttonText, onClick }) => {
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+    const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+
+    return (
+        <Paper sx={{
+            p: isMobile ? 2 : 3,
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            background: `linear-gradient(135deg, ${color}15, ${color}05)`,
+            border: `1px solid ${color}20`,
+            transition: 'all 0.3s ease'
+        }}>
+            <Box display="flex" gap={1.5} alignItems="center" mb={isMobile ? 1 : 2}>
+                <Box sx={{
+                    backgroundColor: `${color}15`,
+                    p: isMobile ? 0.75 : 1,
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                }}>
+                    {React.cloneElement(icon, { size: isMobile ? 18 : 24, color: color })}
+                </Box>
+                <Typography variant={isMobile ? "subtitle1" : "h6"} component="div">
                     {title}
                 </Typography>
-                <Typography variant="h4" component="div" sx={{ fontWeight: 'bold', color: color }}>
-                    {value}
+            </Box>
+            <Typography
+                variant="body2"
+                sx={{
+                    mb: isMobile ? 1.5 : 2,
+                    flex: 1,
+                    // Make description shorter on mobile but still visible
+                    display: '-webkit-box',
+                    overflow: 'hidden',
+                    WebkitBoxOrient: 'vertical',
+                    WebkitLineClamp: isMobile ? 2 : 3
+                }}
+            >
+                {description}
+            </Typography>
+            <Button
+                variant="outlined"
+                size={isMobile ? "small" : "medium"}
+                startIcon={React.cloneElement(icon, { size: isMobile ? 14 : 16 })}
+                fullWidth={isTablet}
+                sx={{
+                    alignSelf: isTablet ? 'stretch' : 'flex-start',
+                    borderColor: color,
+                    color: color,
+                    '&:hover': {
+                        borderColor: color,
+                        backgroundColor: `${color}15`,
+                    }
+                }}
+                onClick={onClick}
+            >
+                {buttonText}
+            </Button>
+        </Paper>
+    );
+};
+
+// Activity item for recent activity section
+const ActivityItem = ({ icon, text, time }) => {
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+    return (
+        <Box sx={{
+            display: 'flex',
+            flexDirection: isMobile ? 'column' : 'row',
+            justifyContent: isMobile ? 'flex-start' : 'space-between',
+            alignItems: isMobile ? 'flex-start' : 'center',
+            py: 1.5,
+            borderBottom: '1px solid rgba(255, 255, 255, 0.05)'
+        }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: isMobile ? 0.5 : 0 }}>
+                {React.cloneElement(icon, { size: 16 })}
+                <Typography variant="body2" sx={{ color: 'text.primary' }}>
+                    {text}
                 </Typography>
             </Box>
-            <Box sx={{
-                backgroundColor: `${color}15`,
-                p: 1,
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-            }}>
-                {React.cloneElement(icon, { size: 24, color: color })}
-            </Box>
-        </Box>
-    </Paper>
-);
-
-// Action card component
-const ActionCard = ({ title, description, icon, color, buttonText, onClick }) => (
-    <Paper sx={{
-        p: 3,
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        background: `linear-gradient(135deg, ${color}15, ${color}05)`,
-        border: `1px solid ${color}20`
-    }}>
-        <Box display="flex" gap={2} alignItems="center" mb={2}>
-            <Box sx={{
-                backgroundColor: `${color}15`,
-                p: 1,
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-            }}>
-                {React.cloneElement(icon, { size: 24, color: color })}
-            </Box>
-            <Typography variant="h6" component="div">
-                {title}
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                {time}
             </Typography>
         </Box>
-        <Typography variant="body2" sx={{ mb: 2, flex: 1 }}>
-            {description}
-        </Typography>
-        <Button
-            variant="outlined"
-            startIcon={React.cloneElement(icon, { size: 16 })}
-            sx={{
-                alignSelf: 'flex-start',
-                borderColor: color,
-                color: color,
-                '&:hover': {
-                    borderColor: color,
-                    backgroundColor: `${color}15`,
-                }
-            }}
-            onClick={onClick}
-        >
-            {buttonText}
-        </Button>
-    </Paper>
-);
+    );
+};
 
-// Dashboard component
+// Dashboard component with improved responsiveness
 const DashboardView = () => {
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+    const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+
     // Statistics data
     const stats = [
         { title: "Total Projects", value: "14", icon: <FileText />, color: "#67e8f9" },
@@ -98,7 +160,7 @@ const DashboardView = () => {
         {
             title: "Process Images",
             description: "Start processing pipeline for image analysis",
-            icon: <LayersIcon />,
+            icon: <Layers />,
             color: "#818cf8",
             buttonText: "Start Processing",
             onClick: () => console.log("Process clicked")
@@ -121,33 +183,75 @@ const DashboardView = () => {
         }
     ];
 
+    // Recent activity data
+    const activities = [
+        {
+            icon: <Layers />,
+            text: "Job #421 (2D Classification) completed",
+            time: "Today, 9:45 AM"
+        },
+        {
+            icon: <Upload />,
+            text: "Imported 156 new images from Session #3",
+            time: "Today, 8:12 AM"
+        },
+        {
+            icon: <Settings />,
+            text: "System maintenance completed",
+            time: "Yesterday, 11:30 PM"
+        },
+        {
+            icon: <Brain />,
+            text: "Particle picking completed for Dataset A",
+            time: "Yesterday, 4:15 PM"
+        }
+    ];
+
     return (
-        <Container maxWidth="xl">
-            <Box sx={{ mt: 4, mb: 5 }}>
-                <Typography variant="h4" component="h1" gutterBottom>
+        <Container maxWidth="xl" sx={{ px: isMobile ? 2 : 3 }}>
+            <Box sx={{ mt: isMobile ? 2 : 4, mb: isMobile ? 3 : 5 }}>
+                {/* Responsive header with welcome message */}
+                <Typography variant={isMobile ? "h5" : "h4"} component="h1" gutterBottom>
                     Dashboard
                 </Typography>
-                <Typography variant="body1" sx={{ mb: 4, color: 'text.secondary' }}>
+                <Typography
+                    variant="body1"
+                    sx={{
+                        mb: isMobile ? 2 : 4,
+                        color: 'text.secondary',
+                        fontSize: isMobile ? '0.875rem' : '1rem'
+                    }}
+                >
                     Welcome to Magellon. Here's an overview of your data and activities.
                 </Typography>
 
                 {/* Stats Section */}
-                <Typography variant="h5" component="h2" gutterBottom sx={{ mt: 4 }}>
+                <Typography
+                    variant={isMobile ? "h6" : "h5"}
+                    component="h2"
+                    gutterBottom
+                    sx={{ mt: isMobile ? 2 : 4 }}
+                >
                     Overview
                 </Typography>
-                <Grid container spacing={3} sx={{ mb: 5 }}>
+                <Grid container spacing={isMobile ? 2 : 3} sx={{ mb: isMobile ? 3 : 5 }}>
                     {stats.map((stat, index) => (
-                        <Grid item xs={12} sm={6} md={3} key={index}>
+                        <Grid item xs={6} sm={6} md={3} key={index}>
                             <StatCard {...stat} />
                         </Grid>
                     ))}
                 </Grid>
 
                 {/* Quick Actions Section */}
-                <Typography variant="h5" component="h2" gutterBottom sx={{ mt: 4 }}>
+                <Typography
+                    variant={isMobile ? "h6" : "h5"}
+                    component="h2"
+                    gutterBottom
+                    sx={{ mt: isMobile ? 2 : 4 }}
+                >
                     Quick Actions
                 </Typography>
-                <Grid container spacing={3}>
+                <Grid container spacing={isMobile ? 2 : 3}>
                     {actions.map((action, index) => (
                         <Grid item xs={12} sm={6} md={3} key={index}>
                             <ActionCard {...action} />
@@ -156,31 +260,38 @@ const DashboardView = () => {
                 </Grid>
 
                 {/* Recent Activity Section */}
-                <Typography variant="h5" component="h2" gutterBottom sx={{ mt: 5 }}>
+                <Typography
+                    variant={isMobile ? "h6" : "h5"}
+                    component="h2"
+                    gutterBottom
+                    sx={{ mt: isMobile ? 3 : 5 }}
+                >
                     Recent Activity
                 </Typography>
-                <Paper sx={{ p: 3, mb: 4 }}>
-                    <Stack spacing={2}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                <LayersIcon size={16} />
-                                <Typography>Job #421 (2D Classification) completed</Typography>
-                            </Box>
-                            <Typography variant="caption">Today, 9:45 AM</Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                <Upload size={16} />
-                                <Typography>Imported 156 new images from Session #3</Typography>
-                            </Box>
-                            <Typography variant="caption">Today, 8:12 AM</Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                <Settings size={16} />
-                                <Typography>System maintenance completed</Typography>
-                            </Box>
-                            <Typography variant="caption">Yesterday, 11:30 PM</Typography>
+                <Paper sx={{ p: isMobile ? 2 : 3, mb: 4 }}>
+                    <Stack spacing={isMobile ? 0 : 1.5}>
+                        {activities.map((activity, index) => (
+                            <ActivityItem
+                                key={index}
+                                icon={activity.icon}
+                                text={activity.text}
+                                time={activity.time}
+                            />
+                        ))}
+
+                        {/* View all button at the bottom for mobile */}
+                        <Box sx={{
+                            pt: isMobile ? 2 : 1,
+                            display: 'flex',
+                            justifyContent: 'center'
+                        }}>
+                            <Button
+                                variant="text"
+                                size={isMobile ? "small" : "medium"}
+                                sx={{ color: '#67e8f9' }}
+                            >
+                                View All Activity
+                            </Button>
                         </Box>
                     </Stack>
                 </Paper>
@@ -190,3 +301,4 @@ const DashboardView = () => {
 };
 
 export default DashboardView;
+

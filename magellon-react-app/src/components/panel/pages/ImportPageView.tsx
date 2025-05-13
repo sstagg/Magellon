@@ -77,3 +77,6 @@ export const ImportPageView = () => {
         </Container>
     );
 };
+
+
+export default ImportPageView;
