@@ -6,22 +6,9 @@ import { ImagesPageView } from "./pages/ImagesPageView.tsx";
 import { RunJobPageView } from "./pages/RunJobPageView.tsx";
 import MrcViewerPageView from "./pages/MrcViewerPageView.tsx";
 import { ImportPageView } from "./pages/ImportPageView.tsx";
-import TwoDAssessorPageView from "./pages/TwoDAssessorPageView.tsx";
-import { Box, Container, Typography } from "@mui/material";
 
-// Dashboard placeholder component
-const DashboardView = () => (
-    <Container maxWidth="lg">
-        <Box sx={{ mt: 4, mb: 4 }}>
-            <Typography variant="h4" component="h1" gutterBottom>
-                Welcome to Magellon Dashboard
-            </Typography>
-            <Typography variant="body1" paragraph>
-                Select an option from the navigation menu to get started.
-            </Typography>
-        </Box>
-    </Container>
-);
+import DashboardView from "./pages/DashboardView.tsx";
+import { Box, Container, Typography } from "@mui/material";
 
 // Settings placeholder component
 const SettingsView = () => (
@@ -65,7 +52,7 @@ export const PanelRoutes = () => {
             {/* Processing routes */}
             <Route path="/run-job" element={<RunJobPageView />} />
             <Route path="/mrc-viewer" element={<MrcViewerPageView />} />
-            <Route path="/2d-assess" element={<TwoDAssessorPageView />} />
+
 
             {/* Other routes */}
             <Route path="/domains/*" element={<DomainRoutes />} />

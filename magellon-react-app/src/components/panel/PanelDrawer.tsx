@@ -15,12 +15,13 @@ import {
     Settings,
     FileUp,
     Layers,
+
     PanelLeft,
     Home,
-    Beaker, BrainCircuit
+    Beaker, BrainCircuit, ArrowRightFromLine
 } from "lucide-react";
 import { Box, Collapse, Typography, useMediaQuery } from '@mui/material';
-import { ExpandLess, ExpandMore, ImportExport } from '@mui/icons-material';
+import { ExpandLess, ExpandMore } from '@mui/icons-material';
 
 const DRAWER_WIDTH = 240;
 
@@ -31,7 +32,7 @@ const DrawerHeader = styled('div')(({ theme }) => ({
     padding: theme.spacing(0, 1),
     ...theme.mixins.toolbar,
     justifyContent: 'center',
-    backgroundColor: blueGrey[700],
+    backgroundColor: '#0a1929', // Dark navy color
     color: 'white',
 }));
 
@@ -58,7 +59,7 @@ const navLinks: NavLink[] = [
     {
         title: "Import",
         url: "import-job",
-        icon: <ImportExport size={20} />
+        icon: <ArrowRightFromLine size={20} />
     },
     {
         title: "Processing",
@@ -160,16 +161,18 @@ export const PanelDrawer: React.FC<PanelDrawerProps> = ({ open, handleDrawerClos
                             sx={{
                                 minHeight: 48,
                                 px: 2.5,
-                                backgroundColor: (isActive || isChildActive) ? 'rgba(0, 0, 0, 0.08)' : 'transparent',
+                                backgroundColor: (isActive || isChildActive) ? 'rgba(103, 232, 249, 0.1)' : 'transparent',
+                                borderRadius: 1,
+                                my: 0.5,
                                 '&:hover': {
-                                    backgroundColor: 'rgba(0, 0, 0, 0.12)'
+                                    backgroundColor: 'rgba(255, 255, 255, 0.08)'
                                 }
                             }}
                         >
                             <ListItemIcon sx={{
                                 minWidth: 0,
                                 mr: 3,
-                                color: (isActive || isChildActive) ? theme.palette.primary.main : 'inherit'
+                                color: (isActive || isChildActive) ? '#67e8f9' : 'rgba(255, 255, 255, 0.7)'
                             }}>
                                 {item.icon}
                             </ListItemIcon>
@@ -179,7 +182,7 @@ export const PanelDrawer: React.FC<PanelDrawerProps> = ({ open, handleDrawerClos
                                         variant="body1"
                                         sx={{
                                             fontWeight: (isActive || isChildActive) ? 600 : 400,
-                                            color: (isActive || isChildActive) ? theme.palette.primary.main : 'inherit'
+                                            color: (isActive || isChildActive) ? '#67e8f9' : 'rgba(255, 255, 255, 0.85)'
                                         }}
                                     >
                                         {item.title}
@@ -187,7 +190,7 @@ export const PanelDrawer: React.FC<PanelDrawerProps> = ({ open, handleDrawerClos
                                 }
                             />
                             {hasChildren && (
-                                isExpanded ? <ExpandLess /> : <ExpandMore />
+                                isExpanded ? <ExpandLess sx={{ color: 'rgba(255, 255, 255, 0.7)' }} /> : <ExpandMore sx={{ color: 'rgba(255, 255, 255, 0.7)' }} />
                             )}
                         </ListItemButton>
                     </ListItem>
@@ -214,7 +217,9 @@ export const PanelDrawer: React.FC<PanelDrawerProps> = ({ open, handleDrawerClos
                     width: DRAWER_WIDTH,
                     boxSizing: 'border-box',
                     border: 'none',
-                    boxShadow: 3
+                    boxShadow: 3,
+                    backgroundColor: '#0a1929', // Dark navy background
+                    color: 'rgba(255, 255, 255, 0.8)', // Slightly softer white text
                 },
             }}
             variant={isMobile ? "temporary" : "persistent"}
@@ -224,8 +229,18 @@ export const PanelDrawer: React.FC<PanelDrawerProps> = ({ open, handleDrawerClos
         >
             <DrawerHeader>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <FileUp size={24} />
-                    <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 4.5C10.6193 4.5 9.5 5.61929 9.5 7C9.5 8.38071 10.6193 9.5 12 9.5C13.3807 9.5 14.5 8.38071 14.5 7C14.5 5.61929 13.3807 4.5 12 4.5Z"
+                              stroke="#67e8f9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M4.5 15C4.5 16.3807 5.61929 17.5 7 17.5C8.38071 17.5 9.5 16.3807 9.5 15C9.5 13.6193 8.38071 12.5 7 12.5C5.61929 12.5 4.5 13.6193 4.5 15Z"
+                              stroke="#67e8f9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M14.5 15C14.5 16.3807 15.6193 17.5 17 17.5C18.3807 17.5 19.5 16.3807 19.5 15C19.5 13.6193 18.3807 12.5 17 12.5C15.6193 12.5 14.5 13.6193 14.5 15Z"
+                              stroke="#67e8f9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M9.5 7.5V12.5" stroke="#67e8f9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M14.5 7.5V12.5" stroke="#67e8f9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M9.5 15H14.5" stroke="#67e8f9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#fff' }}>
                         Magellon
                     </Typography>
                 </Box>
