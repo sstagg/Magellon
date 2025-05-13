@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Box } from '@mui/material';
-import Grid from '@mui/material/Grid2'; // Updated import for Grid v2
+import Grid from '@mui/material/Grid'; // Updated import for Grid v2
 import { SelectChangeEvent } from '@mui/material';
 import { SessionNavigatorComponent } from '../../features/session_viewer/SessionNavigatorComponent.tsx';
 import { SoloImageViewerComponent } from '../../features/session_viewer/SoloImageViewerComponent.tsx';
