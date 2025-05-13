@@ -1,9 +1,14 @@
 import React from 'react';
-import { Box, Typography, Paper, Chip, Stack, Divider } from '@mui/material';
+import { Box, Typography, Paper, Chip, Stack, Divider, Tooltip, useMediaQuery, useTheme } from '@mui/material';
 import { useImageViewerStore } from '../features/session_viewer/store/imageViewerStore';
 import { Database, Image, Server, Settings } from 'lucide-react';
 
-const PanelFooter = () => {
+interface PanelFooterProps {
+    drawerOpen: boolean;
+    drawerWidth: number;
+}
+
+const PanelFooter: React.FC<PanelFooterProps> = ({ drawerOpen, drawerWidth }) => {
     // Get store state
     const {
         currentSession,
@@ -13,8 +18,12 @@ const PanelFooter = () => {
     } = useImageViewerStore();
 
     // Get app info
-    const appVersion = "0.1.0"; // This should come from your app configuration
-    const serverStatus = "Connected"; // This could be determined dynamically
+    const appVersion = "0.1.0";
+    const serverStatus = "Connected";
+
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+    const isTablet = useMediaQuery(theme.breakpoints.down('md'));
 
     return (
         <Paper
@@ -22,60 +31,94 @@ const PanelFooter = () => {
             sx={{
                 position: 'fixed',
                 bottom: 0,
-                left: 0,
+                left: drawerOpen ? drawerWidth : 0,
                 right: 0,
+                height: 56,
                 padding: '8px 16px',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                zIndex: 1100, // Ensure it's above other content
-                borderTop: '1px solid rgba(0, 0, 0, 0.12)'
+                zIndex: theme.zIndex.drawer - 1,
+                borderTop: '1px solid rgba(0, 0, 0, 0.12)',
+                transition: theme.transitions.create(['left', 'width'], {
+                    easing: theme.transitions.easing.sharp,
+                    duration: theme.transitions.duration.leavingScreen,
+                }),
             }}
         >
             {/* Left side - Session & Image Info */}
-            <Stack direction="row" spacing={2} alignItems="center" divider={<Divider orientation="vertical" flexItem />}>
-                <Box display="flex" alignItems="center">
-                    <Database size={18} style={{ marginRight: 8 }} />
-                    <Typography variant="body2">
-                        Session: {currentSession?.name || 'None'}
-                    </Typography>
-                </Box>
-
-                {currentImage && (
+            <Stack
+                direction="row"
+                spacing={1}
+                alignItems="center"
+                divider={<Divider orientation="vertical" flexItem />}
+            >
+                <Tooltip title={`Session: ${currentSession?.name || 'None'}`}>
                     <Box display="flex" alignItems="center">
-                        <Image size={18} style={{ marginRight: 8 }} />
-                        <Typography variant="body2" sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            Image: {currentImage.name}
+                        <Database size={16} style={{ marginRight: 4 }} />
+                        <Typography
+                            variant="body2"
+                            sx={{
+                                maxWidth: isMobile ? 60 : 150,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                            }}
+                        >
+                            {isMobile ? '' : 'Session: '}{currentSession?.name || 'None'}
                         </Typography>
                     </Box>
+                </Tooltip>
+
+                {currentImage && (
+                    <Tooltip title={`Image: ${currentImage.name}`}>
+                        <Box display="flex" alignItems="center">
+                            <Image size={16} style={{ marginRight: 4 }} />
+                            <Typography
+                                variant="body2"
+                                sx={{
+                                    maxWidth: isMobile ? 60 : 150,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap'
+                                }}
+                            >
+                                {isMobile ? '' : 'Image: '}{currentImage.name}
+                            </Typography>
+                        </Box>
+                    </Tooltip>
                 )}
             </Stack>
 
-            {/* Center - View Information */}
-            <Stack direction="row" spacing={1}>
-                <Chip
-                    label={`View: ${viewMode}`}
-                    size="small"
-                    variant="outlined"
-                    icon={<Settings size={16} />}
-                />
-                {activeTab && (
+            {/* Center - View Information (only show on tablet and above) */}
+            {!isMobile && (
+                <Stack direction="row" spacing={1}>
                     <Chip
-                        label={`Tab: ${getTabName(activeTab)}`}
+                        label={`View: ${viewMode}`}
                         size="small"
                         variant="outlined"
+                        icon={<Settings size={14} />}
                     />
-                )}
-            </Stack>
+                    {activeTab && !isTablet && (
+                        <Chip
+                            label={`Tab: ${getTabName(activeTab)}`}
+                            size="small"
+                            variant="outlined"
+                        />
+                    )}
+                </Stack>
+            )}
 
             {/* Right side - App Status */}
             <Stack direction="row" spacing={2} alignItems="center">
-                <Box display="flex" alignItems="center">
-                    <Server size={18} style={{ marginRight: 8 }} />
-                    <Typography variant="body2">
-                        Status: {serverStatus}
-                    </Typography>
-                </Box>
+                {!isMobile && (
+                    <Box display="flex" alignItems="center">
+                        <Server size={16} style={{ marginRight: 4 }} />
+                        <Typography variant="body2">
+                            Status: {serverStatus}
+                        </Typography>
+                    </Box>
+                )}
                 <Typography variant="body2" color="textSecondary">
                     v{appVersion}
                 </Typography>

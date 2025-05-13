@@ -1,25 +1,77 @@
-import {Route, Routes} from "react-router-dom";
-import {Home} from "../web/Home.tsx";
-import {ApiView} from "./pages/ApiView.tsx";
+import { Route, Routes } from "react-router-dom";
+import { Home } from "../web/Home.tsx";
+import { ApiView } from "./pages/ApiView.tsx";
 import DomainRoutes from "../../domains/DomainRoutes.tsx";
-import {ImagesPageView} from "./pages/ImagesPageView.tsx";
-import {LeginonImportComponent} from "./components/LeginonImportComponent.tsx";
-import {RunJobPageView} from "./pages/RunJobPageView.tsx";
+import { ImagesPageView } from "./pages/ImagesPageView.tsx";
+import { RunJobPageView } from "./pages/RunJobPageView.tsx";
 import MrcViewerPageView from "./pages/MrcViewerPageView.tsx";
-import {ImportPageView} from "./pages/ImportPageView.tsx";
+import { ImportPageView } from "./pages/ImportPageView.tsx";
+import TwoDAssessorPageView from "./pages/TwoDAssessorPageView.tsx";
+import { Box, Container, Typography } from "@mui/material";
 
+// Dashboard placeholder component
+const DashboardView = () => (
+    <Container maxWidth="lg">
+        <Box sx={{ mt: 4, mb: 4 }}>
+            <Typography variant="h4" component="h1" gutterBottom>
+                Welcome to Magellon Dashboard
+            </Typography>
+            <Typography variant="body1" paragraph>
+                Select an option from the navigation menu to get started.
+            </Typography>
+        </Box>
+    </Container>
+);
+
+// Settings placeholder component
+const SettingsView = () => (
+    <Container maxWidth="lg">
+        <Box sx={{ mt: 4, mb: 4 }}>
+            <Typography variant="h4" component="h1" gutterBottom>
+                Application Settings
+            </Typography>
+            <Typography variant="body1" paragraph>
+                Configure your application settings here.
+            </Typography>
+        </Box>
+    </Container>
+);
+
+// Test placeholder component
+const TestView = () => (
+    <Container maxWidth="lg">
+        <Box sx={{ mt: 4, mb: 4 }}>
+            <Typography variant="h4" component="h1" gutterBottom>
+                Test Environment
+            </Typography>
+            <Typography variant="body1" paragraph>
+                This area is for testing and development purposes.
+            </Typography>
+        </Box>
+    </Container>
+);
 
 export const PanelRoutes = () => {
     return (
         <Routes>
+            {/* Main routes */}
+            <Route path="/dashboard" element={<DashboardView />} />
             <Route path="/home" element={<Home />} />
             <Route path="/images" element={<ImagesPageView />} />
-            <Route path="/run-job" element={<RunJobPageView />} />
             <Route path="/import-job" element={<ImportPageView />} />
-            <Route path="/domains/*" element={<DomainRoutes />} />
+            <Route path="/test" element={<TestView />} />
+            <Route path="/settings" element={<SettingsView />} />
+
+            {/* Processing routes */}
+            <Route path="/run-job" element={<RunJobPageView />} />
             <Route path="/mrc-viewer" element={<MrcViewerPageView />} />
-            <Route path="/2d-ass" element={<MrcViewerPageView />} />
+            <Route path="/2d-assess" element={<TwoDAssessorPageView />} />
+
+            {/* Other routes */}
+            <Route path="/domains/*" element={<DomainRoutes />} />
             <Route path="/api" element={<ApiView />} />
         </Routes>
     );
 };
+
+export default PanelRoutes;
