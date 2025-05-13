@@ -8,8 +8,6 @@ import {BrowserRouter} from "react-router-dom";
 import AppRoutes from "./AppRoutes.tsx";
 import './core/i18n';
 import {QueryClient, QueryClientProvider} from "react-query";
-import {DevSupport} from "@react-buddy/ide-toolbox";
-import {ComponentPreviews, useInitial} from "./dev";
 
 const queryClient = new QueryClient()
 
@@ -18,11 +16,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <ReduxProvider store={store}>
             <QueryClientProvider client={queryClient}>
                 <BrowserRouter>
-                    <DevSupport ComponentPreviews={ComponentPreviews}
-                                useInitialHook={useInitial}
-                    >
                         <AppRoutes/>
-                    </DevSupport>
                 </BrowserRouter>
             </QueryClientProvider>
         </ReduxProvider>

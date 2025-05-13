@@ -36,7 +36,7 @@ interface ImageNavigatorProps {
     OnSessionSelected: (event: SelectChangeEvent) => void
 }
 
-export const ImageNavigatorComponent: React.FC<ImageNavigatorProps> = ({
+export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
                                                                            onImageClick,
                                                                            selectedImage,
                                                                            selectedSession,
