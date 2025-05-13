@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Typography, Paper, Chip, Stack, Divider } from '@mui/material';
-import { useImageViewerStore } from './features/imageviewer/store/imageViewerStore';
+import { useImageViewerStore } from '../features/session_viewer/store/imageViewerStore';
 import { Database, Image, Server, Settings } from 'lucide-react';
 
 const PanelFooter = () => {

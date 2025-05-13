@@ -2,14 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { Box } from '@mui/material';
 import Grid from '@mui/material/Grid2'; // Updated import for Grid v2
 import { SelectChangeEvent } from '@mui/material';
-import { SessionNavigatorComponent } from '../features/imageviewer/SessionNavigatorComponent.tsx';
-import { SoloImageViewerComponent } from '../features/imageviewer/SoloImageViewerComponent.tsx';
-import ImageInfoDto, { PagedImageResponse, SessionDto } from '../features/imageviewer/ImageInfoDto.ts';
+import { SessionNavigatorComponent } from '../../features/session_viewer/SessionNavigatorComponent.tsx';
+import { SoloImageViewerComponent } from '../../features/session_viewer/SoloImageViewerComponent.tsx';
+import ImageInfoDto, { PagedImageResponse, SessionDto } from '../../features/session_viewer/ImageInfoDto.ts';
 import { InfiniteData } from 'react-query';
 import { usePagedImages } from '../../../services/api/usePagedImagesHook.ts';
 import { useAtlasImages } from '../../../services/api/FetchSessionAtlasImages.ts';
 import { useSessionNames } from '../../../services/api/FetchUseSessionNames.ts';
-import { useImageViewerStore } from '../features/imageviewer/store/imageViewerStore';
+import { useImageViewerStore } from '../../features/session_viewer/store/imageViewerStore';
 
 export interface ImageColumnState {
     selectedImage: ImageInfoDto | null;

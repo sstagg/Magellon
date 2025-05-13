@@ -1,6 +1,6 @@
 import ImageInfoDto from "./ImageInfoDto.ts";
 import {ImagesStackComponent} from "./ImagesStackComponent.tsx";
-import {usePagedImages} from "../../../../services/api/usePagedImagesHook.ts";
+import {usePagedImages} from "../../../services/api/usePagedImagesHook.ts";
 import {useEffect, useState} from "react";
 
 

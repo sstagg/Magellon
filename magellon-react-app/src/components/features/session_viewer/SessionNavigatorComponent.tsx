@@ -18,11 +18,11 @@ import ImageInfoDto, { AtlasImageDto, SessionDto } from "./ImageInfoDto.ts";
 import IconButton from "@mui/material/IconButton";
 import { EyeOutlined } from "@ant-design/icons";
 import { useEffect } from "react";
-import { ImageColumnState } from "../../pages/ImagesPageView.tsx";
+import { ImageColumnState } from "../../panel/pages/ImagesPageView.tsx";
 import AtlasImage from "./AtlasImage.tsx";
-import { settings } from "../../../../core/settings.ts";
+import { settings } from "../../../core/settings.ts";
 import { AccountTreeRounded, GridViewRounded } from "@mui/icons-material";
-import { useImageViewerStore } from './store/imageViewerStore';
+import { useImageViewerStore } from './store/imageViewerStore.ts';
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
 

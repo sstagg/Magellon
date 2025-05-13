@@ -1,6 +1,6 @@
 import {useInfiniteQuery} from "react-query";
 import {fetchImagesPage} from "./imagesApiReactQuery.tsx";
-import {PagedImageResponse} from "../../components/panel/features/imageviewer/ImageInfoDto.ts";
+import {PagedImageResponse} from "../../components/features/session_viewer/ImageInfoDto.ts";
 
 
 interface PagedImagesOptions {

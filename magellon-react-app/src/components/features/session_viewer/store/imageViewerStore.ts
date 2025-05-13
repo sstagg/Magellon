@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import ImageInfoDto, { SessionDto, AtlasImageDto, PagedImageResponse } from '../ImageInfoDto';
-import { ParticlePickingDto } from '../../../../../domains/ParticlePickingDto';
+import ImageInfoDto, { SessionDto, AtlasImageDto, PagedImageResponse } from '../ImageInfoDto.ts';
+import { ParticlePickingDto } from '../../../../domains/ParticlePickingDto.ts';
 import { InfiniteData } from 'react-query';// The ImageColumn interface that matches your current state structure
 export interface ImageColumn {
     selectedImage: ImageInfoDto | null;
