@@ -1,12 +1,14 @@
-import { Grid, SelectChangeEvent } from "@mui/material";
-import { ImageNavigatorComponent } from "../features/imageviewer/ImageNavigatorComponent.tsx";
+import React, { useEffect, useState } from 'react';
+import { Box } from '@mui/material';
+import Grid from '@mui/material/Grid2'; // Updated import for Grid v2
+import { SelectChangeEvent } from '@mui/material';
+import { ImageNavigatorComponent } from '../features/imageviewer/ImageNavigatorComponent.tsx';
 import { SoloImageViewerComponent } from '../features/imageviewer/SoloImageViewerComponent.tsx';
 import ImageInfoDto, { PagedImageResponse, SessionDto } from '../features/imageviewer/ImageInfoDto.ts';
-import { useEffect, useState } from "react";
-import { InfiniteData } from "react-query";
-import { usePagedImages } from "../../../services/api/usePagedImagesHook.ts";
-import { useAtlasImages } from "../../../services/api/FetchSessionAtlasImages.ts";
-import { useSessionNames } from "../../../services/api/FetchUseSessionNames.ts";
+import { InfiniteData } from 'react-query';
+import { usePagedImages } from '../../../services/api/usePagedImagesHook.ts';
+import { useAtlasImages } from '../../../services/api/FetchSessionAtlasImages.ts';
+import { useSessionNames } from '../../../services/api/FetchUseSessionNames.ts';
 import { useImageViewerStore } from '../features/imageviewer/store/imageViewerStore';
 
 export interface ImageColumnState {
@@ -217,21 +219,25 @@ export const ImagesPageView = () => {
     }, []);
 
     return (
-        <Grid container>
-            <Grid item xs={5}>
-                <ImageNavigatorComponent
-                    onImageClick={OnCurrentImageChanged}
-                    selectedSession={currentSession}
-                    OnSessionSelected={OnSessionSelected}
-                    selectedImage={currentImage}
-                    ImageColumns={imageColumns}
-                    Sessions={sessionData}
-                    Atlases={atlasImages}
-                />
+        <Box sx={{ width: '100%' }}>
+            <Grid container spacing={2}>
+                <Grid size={5}>
+                    <ImageNavigatorComponent
+                        onImageClick={OnCurrentImageChanged}
+                        selectedSession={currentSession}
+                        OnSessionSelected={OnSessionSelected}
+                        selectedImage={currentImage}
+                        ImageColumns={imageColumns}
+                        Sessions={sessionData}
+                        Atlases={atlasImages}
+                    />
+                </Grid>
+                <Grid size={7}>
+                    <SoloImageViewerComponent selectedImage={currentImage} />
+                </Grid>
             </Grid>
-            <Grid item xs={7}>
-                <SoloImageViewerComponent selectedImage={currentImage} />
-            </Grid>
-        </Grid>
+        </Box>
     );
 };
+
+export default ImagesPageView;
