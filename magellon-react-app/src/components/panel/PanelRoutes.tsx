@@ -6,23 +6,13 @@ import { ImagesPageView } from "./pages/ImagesPageView.tsx";
 import { RunJobPageView } from "./pages/RunJobPageView.tsx";
 import MrcViewerPageView from "./pages/MrcViewerPageView.tsx";
 import ImportPageView from "./pages/ImportPageView.tsx";
+import SettingsView from "./pages/SettingsView.tsx";
 
 import DashboardView from "./pages/DashboardView.tsx";
 import { Box, Container, Typography } from "@mui/material";
 
 // Settings placeholder component
-const SettingsView = () => (
-    <Container maxWidth="lg">
-        <Box sx={{ mt: 4, mb: 4 }}>
-            <Typography variant="h4" component="h1" gutterBottom>
-                Application Settings
-            </Typography>
-            <Typography variant="body1" paragraph>
-                Configure your application settings here.
-            </Typography>
-        </Box>
-    </Container>
-);
+// Test placeholder component
 
 // Test placeholder component
 const TestView = () => (

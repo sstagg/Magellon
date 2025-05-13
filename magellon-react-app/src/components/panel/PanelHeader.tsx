@@ -8,6 +8,7 @@ import AppBar from "@mui/material/AppBar";
 import { styled } from '@mui/material/styles';
 import { Avatar, Box, Tooltip, useMediaQuery, useTheme } from '@mui/material';
 import { HelpCircle, Settings } from 'lucide-react';
+import ThemeSwitcher from '../ThemeSwitcher'; // Import ThemeSwitcher
 
 const DRAWER_WIDTH = 240;
 
@@ -19,7 +20,7 @@ const StyledAppBar = styled(AppBar, {
     shouldForwardProp: (prop) => prop !== 'open',
 })<AppBarProps>(({ theme, open }) => ({
     zIndex: theme.zIndex.drawer + 1,
-    backgroundColor: '#0a1929', // Match drawer color
+    backgroundColor: '#0a1929', // Match drawer color - always dark
     transition: theme.transitions.create(['width', 'margin'], {
         easing: theme.transitions.easing.sharp,
         duration: theme.transitions.duration.leavingScreen,
@@ -81,6 +82,8 @@ export const PanelHeader: React.FC<PanelHeaderProps> = ({
                                 <HelpCircle size={20} />
                             </IconButton>
                         </Tooltip>
+                        {/* Add Theme Switcher */}
+                        <ThemeSwitcher />
                         <Tooltip title="Settings">
                             <IconButton color="inherit">
                                 <Settings size={20} />

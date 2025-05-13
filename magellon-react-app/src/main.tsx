@@ -5,18 +5,19 @@ import {BrowserRouter} from "react-router-dom";
 import AppRoutes from "./AppRoutes.tsx";
 import './core/i18n';
 import {QueryClient, QueryClientProvider} from "react-query";
-import AppThemeProvider from './themes/AppThemeProvider'; // Import our custom theme provider
+
+import { ThemeProvider } from './themes'; // Import our new theme provider
 
 const queryClient = new QueryClient()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
-        <AppThemeProvider>
+        <ThemeProvider>
             <QueryClientProvider client={queryClient}>
                 <BrowserRouter>
                     <AppRoutes/>
                 </BrowserRouter>
             </QueryClientProvider>
-        </AppThemeProvider>
+        </ThemeProvider>
     </React.StrictMode>,
 )

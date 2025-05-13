@@ -25,6 +25,9 @@ const PanelFooter: React.FC<PanelFooterProps> = ({ drawerOpen, drawerWidth }) =>
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const isTablet = useMediaQuery(theme.breakpoints.down('md'));
 
+    // Determine if the current theme is dark or light
+    const isDarkMode = theme.palette.mode === 'dark';
+
     return (
         <Paper
             elevation={3}
@@ -39,7 +42,13 @@ const PanelFooter: React.FC<PanelFooterProps> = ({ drawerOpen, drawerWidth }) =>
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 zIndex: theme.zIndex.drawer - 1,
-                borderTop: '1px solid rgba(0, 0, 0, 0.12)',
+                borderTop: '1px solid',
+                borderTopColor: isDarkMode
+                    ? 'rgba(255, 255, 255, 0.12)'
+                    : 'rgba(0, 0, 0, 0.12)',
+                backgroundColor: isDarkMode
+                    ? theme.palette.background.paper
+                    : '#ffffff',
                 transition: theme.transitions.create(['left', 'width'], {
                     easing: theme.transitions.easing.sharp,
                     duration: theme.transitions.duration.leavingScreen,
