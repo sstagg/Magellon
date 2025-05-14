@@ -61,43 +61,43 @@ const navLinks: NavLink[] = [
         url: "import-job",
         icon: <ArrowRightFromLine size={20} />
     },
-    {
-        title: "Processing",
-        url: "processing",
-        icon: <Layers size={20} />,
-        children: [
-            {
-                title: "Run Job",
-                url: "run-job",
-                icon: <Beaker size={20} />
-            },
-            {
-                title: "2D Classification",
-                url: "2d-assess",
-                icon: <PanelLeft size={20} />
-            },
-            {
-                title: "MRC Viewer",
-                url: "mrc-viewer",
-                icon: <BarChart2 size={20} />
-            }
-        ]
-    },
-    {
-        title: "Test",
-        url: "test",
-        icon: <Beaker size={20} />
-    },
-    {
-        title: "API",
-        url: "api",
-        icon: <BrainCircuit size={20} />
-    },
-    {
-        title: "Settings",
-        url: "settings",
-        icon: <Settings size={20} />
-    },
+    // {
+    //     title: "Processing",
+    //     url: "processing",
+    //     icon: <Layers size={20} />,
+    //     children: [
+    //         {
+    //             title: "Run Job",
+    //             url: "run-job",
+    //             icon: <Beaker size={20} />
+    //         },
+    //         {
+    //             title: "2D Classification",
+    //             url: "2d-assess",
+    //             icon: <PanelLeft size={20} />
+    //         },
+    //         {
+    //             title: "MRC Viewer",
+    //             url: "mrc-viewer",
+    //             icon: <BarChart2 size={20} />
+    //         }
+    //     ]
+    // },
+    // {
+    //     title: "Test",
+    //     url: "test",
+    //     icon: <Beaker size={20} />
+    // },
+    // {
+    //     title: "API",
+    //     url: "api",
+    //     icon: <BrainCircuit size={20} />
+    // },
+    // {
+    //     title: "Settings",
+    //     url: "settings",
+    //     icon: <Settings size={20} />
+    // },
 ];
 
 // Types
