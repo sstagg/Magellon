@@ -1,8 +1,8 @@
 import React, {useEffect, useState} from 'react';
 import {Box, MenuItem, Pagination, Select, Slider, Typography} from '@mui/material';
-import Grid from '@mui/material/Grid2';
+import Grid from '@mui/material/Grid';
 import {settings} from "../../../core/settings.ts";
-import DirectoryTreeView from "../DirectoryTreeView.tsx";
+import DirectoryTreeView from "../components/DirectoryTreeView.tsx";
 
 
 interface MRCViewerProps {

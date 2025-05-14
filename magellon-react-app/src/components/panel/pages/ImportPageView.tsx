@@ -7,11 +7,11 @@ import Box from "@mui/material/Box";
 import Tab from "@mui/material/Tab";
 import TabPanel from "@mui/lab/TabPanel";
 
-import {MagellonImportComponent} from "../MagellonImportComponent.tsx";
-import {EpuImportComponent} from "../EpuImportComponent.tsx";
+import {MagellonImportComponent} from "../components/MagellonImportComponent.tsx";
+import {EpuImportComponent} from "../components/EpuImportComponent.tsx";
 import TabContext from "@mui/lab/TabContext";
 import TabList from "@mui/lab/TabList";
-import {LeginonImportComponent} from "../LeginonImportComponent.tsx";
+import {LeginonImportComponent} from "../components/LeginonImportComponent.tsx";
 import {ImportIcon} from "lucide-react";
 
 const BASE_URL = settings.ConfigData.SERVER_API_URL ;
@@ -77,3 +77,5 @@ export const ImportPageView = () => {
         </Container>
     );
 };
+
+export default ImportPageView;

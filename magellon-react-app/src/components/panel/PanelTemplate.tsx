@@ -1,15 +1,14 @@
 import * as React from 'react';
-import { styled, useTheme } from '@mui/material/styles';
+import { styled } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import CssBaseline from '@mui/material/CssBaseline';
-import MuiAppBar, { AppBarProps as MuiAppBarProps } from '@mui/material/AppBar';
-import {PanelDrawer} from "./PanelDrawer.tsx";
-import {PanelHeader} from "./PanelHeader.tsx";
-import {PanelRoutes} from "./PanelRoutes.tsx";
+import { PanelDrawer } from "./PanelDrawer.tsx";
+import { PanelHeader } from "./PanelHeader.tsx";
+import { PanelRoutes } from "./PanelRoutes.tsx";
 import PanelFooter from './PanelFooter.tsx';
 
-
-const drawerWidth = 240;
+const DRAWER_WIDTH = 240;
+const FOOTER_HEIGHT = 56; // Height of the footer in pixels
 
 const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })<{
     open?: boolean;
@@ -20,7 +19,9 @@ const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })<{
         easing: theme.transitions.easing.sharp,
         duration: theme.transitions.duration.leavingScreen,
     }),
-    marginLeft: `-${drawerWidth}px`,marginTop: '64px',
+    marginLeft: `-${DRAWER_WIDTH}px`,
+    marginTop: '64px', // AppBar height
+    paddingBottom: `${FOOTER_HEIGHT + theme.spacing(3)}px`, // Add padding for footer
     ...(open && {
         transition: theme.transitions.create('margin', {
             easing: theme.transitions.easing.easeOut,
@@ -30,58 +31,48 @@ const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })<{
     }),
 }));
 
-interface AppBarProps extends MuiAppBarProps {
-    open?: boolean;
-}
-
-const AppBar = styled(MuiAppBar, {
-    shouldForwardProp: (prop) => prop !== 'open',
-})<AppBarProps>(({ theme, open }) => ({
-    transition: theme.transitions.create(['margin', 'width'], {
-        easing: theme.transitions.easing.sharp,
-        duration: theme.transitions.duration.leavingScreen,
-    }),
-    ...(open && {
-        width: `calc(100% - ${drawerWidth}px)`,
-        marginLeft: `${drawerWidth}px`,
-        transition: theme.transitions.create(['margin', 'width'], {
-            easing: theme.transitions.easing.easeOut,
-            duration: theme.transitions.duration.enteringScreen,
-        }),
-    }),
-}));
-
-const DrawerHeader = styled('div')(({ theme }) => ({
-    display: 'flex',
-    alignItems: 'center',
-    padding: theme.spacing(0, 1),
-    // necessary for content to be below app bar
-    ...theme.mixins.toolbar,
-    justifyContent: 'flex-end',
-}));
-
-// ==============================|| MAIN LAYOUT ||============================== //
-
 export const PanelTemplate = () => {
-    const theme = useTheme();
+    // Store drawer state in localStorage to persist between page refreshes
+    const [open, setOpen] = React.useState(() => {
+        const savedState = localStorage.getItem('drawerOpen');
+        return savedState ? JSON.parse(savedState) : false;
+    });
 
-    const [open, setOpen] = React.useState(false);
+    // Save drawer state to localStorage when it changes
+    React.useEffect(() => {
+        localStorage.setItem('drawerOpen', JSON.stringify(open));
+    }, [open]);
+
     const handleDrawerClose = () => {
         setOpen(false);
     };
+
     const handleDrawerOpen = () => {
         setOpen(true);
     };
+
+    const toggleDrawer = () => {
+        setOpen(prev => !prev);
+    };
+
     return (
-        <Box sx={{ display: 'flex' }}>
+        <Box sx={{ display: 'flex', minHeight: '100vh', position: 'relative' }}>
             <CssBaseline />
-            <PanelHeader open={open} handleDrawerOpen={handleDrawerOpen}/>
-            <PanelDrawer  open={open} handleDrawerClose={handleDrawerClose} />
+            <PanelHeader
+                open={open}
+                handleDrawerOpen={handleDrawerOpen}
+                toggleDrawer={toggleDrawer}
+            />
+            <PanelDrawer
+                open={open}
+                handleDrawerClose={handleDrawerClose}
+            />
 
             <Main open={open}>
-                <PanelRoutes/>
+                <PanelRoutes />
             </Main>
-            <PanelFooter />
+
+            <PanelFooter drawerOpen={open} drawerWidth={DRAWER_WIDTH} />
         </Box>
     );
 };
