@@ -37,10 +37,12 @@ const StatCard = ({ title, value, icon, color }) => {
             sx={{
                 p: { xs: 1.5, sm: 2, md: 3 },
                 height: '100%',
+                width: '100%',
                 background: `linear-gradient(135deg, ${alpha(color, 0.12)}, ${alpha(color, 0.05)})`,
                 border: `1px solid ${alpha(color, 0.15)}`,
                 borderRadius: 2,
                 transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                overflow: 'hidden', // Prevent content overflow
                 '&:hover': {
                     transform: 'translateY(-2px)',
                     boxShadow: 3,
@@ -55,7 +57,10 @@ const StatCard = ({ title, value, icon, color }) => {
                         gutterBottom
                         sx={{
                             fontWeight: 500,
-                            fontSize: { xs: '0.875rem', sm: '1rem' }
+                            fontSize: { xs: '0.75rem', sm: '0.875rem', md: '1rem' },
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
                         }}
                     >
                         {title}
@@ -66,7 +71,8 @@ const StatCard = ({ title, value, icon, color }) => {
                         sx={{
                             fontWeight: 'bold',
                             color: color,
-                            lineHeight: 1.2
+                            lineHeight: 1.2,
+                            fontSize: { xs: '1.25rem', sm: '1.5rem', md: '2rem' }
                         }}
                     >
                         {value}
@@ -74,14 +80,15 @@ const StatCard = ({ title, value, icon, color }) => {
                 </Box>
                 <Box sx={{
                     backgroundColor: alpha(color, 0.15),
-                    p: { xs: 1, sm: 1.25, md: 1.5 },
+                    p: { xs: 0.75, sm: 1, md: 1.25 },
                     borderRadius: '50%',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    flexShrink: 0 // Prevent icon from shrinking
                 }}>
                     {React.cloneElement(icon, {
-                        size: isMobile ? 18 : isTablet ? 22 : 24,
+                        size: isMobile ? 16 : isTablet ? 20 : 24,
                         color: color
                     })}
                 </Box>
@@ -346,121 +353,252 @@ const DashboardView = () => {
                     Welcome to Magellon. Here's an overview of your data and activities.
                 </Typography>
 
-                {/* Stats Section */}
-                <Box sx={{ mb: { xs: 3, sm: 4, md: 5 } }}>
-                    <Typography
-                        variant={isMobile ? "h6" : "h5"}
-                        component="h2"
-                        gutterBottom
-                        sx={{
-                            mt: { xs: 2, sm: 3, md: 4 },
-                            fontSize: { xs: '1.15rem', sm: '1.3rem', md: '1.5rem' },
-                            fontWeight: 600
-                        }}
-                    >
-                        Overview
-                    </Typography>
-
-                    {/* Updated Grid using v2 pattern with explicit size props */}
-                    <Grid
-                        container
-                        spacing={{ xs: 1.5, sm: 2, md: 3 }}
-                        sx={{ mb: { xs: 2, sm: 3, md: 4 } }}
-                    >
-                        {stats.map((stat, index) => (
-                            <Grid
-                                key={index}
-                                size={{ xs: 6, md: 3 }}
+                {/* Main Layout Grid */}
+                <Grid container spacing={{ xs: 2, sm: 3, md: 4 }}>
+                    {/* Stats Section - Full width */}
+                    <Grid size={12}>
+                        <Box sx={{ mb: { xs: 3, sm: 4, md: 5 } }}>
+                            <Typography
+                                variant={isMobile ? "h6" : "h5"}
+                                component="h2"
+                                gutterBottom
+                                sx={{
+                                    mt: { xs: 2, sm: 3, md: 4 },
+                                    fontSize: { xs: '1.15rem', sm: '1.3rem', md: '1.5rem' },
+                                    fontWeight: 600
+                                }}
                             >
-                                <StatCard {...stat} />
-                            </Grid>
-                        ))}
-                    </Grid>
-                </Box>
+                                Overview
+                            </Typography>
 
-                {/* Quick Actions Section */}
-                <Box sx={{ mb: { xs: 3, sm: 4, md: 5 } }}>
-                    <Typography
-                        variant={isMobile ? "h6" : "h5"}
-                        component="h2"
-                        gutterBottom
-                        sx={{
-                            fontSize: { xs: '1.15rem', sm: '1.3rem', md: '1.5rem' },
-                            fontWeight: 600
-                        }}
-                    >
-                        Quick Actions
-                    </Typography>
-
-                    <Grid
-                        container
-                        spacing={{ xs: 1.5, sm: 2, md: 3 }}
-                    >
-                        {actions.map((action, index) => (
+                            {/* Stats Cards Grid */}
                             <Grid
-                                key={index}
-                                size={{ xs: 12, sm: 6, md: 3 }}
+                                container
+                                spacing={{ xs: 1.5, sm: 2, md: 3 }}
+                                sx={{ mb: { xs: 2, sm: 3, md: 4 } }}
                             >
-                                <ActionCard {...action} />
+                                {stats.map((stat, index) => (
+                                    <Grid
+                                        key={index}
+                                        size={{ xs: 6, md: 3 }}
+                                    >
+                                        <StatCard {...stat} />
+                                    </Grid>
+                                ))}
                             </Grid>
-                        ))}
+                        </Box>
                     </Grid>
-                </Box>
 
-                {/* Recent Activity Section */}
-                <Box sx={{ mb: { xs: 4, sm: 5 } }}>
-                    <Typography
-                        variant={isMobile ? "h6" : "h5"}
-                        component="h2"
-                        gutterBottom
-                        sx={{
-                            mt: { xs: 2, sm: 3, md: 4 },
-                            fontSize: { xs: '1.15rem', sm: '1.3rem', md: '1.5rem' },
-                            fontWeight: 600
-                        }}
-                    >
-                        Recent Activity
-                    </Typography>
+                    {/* Quick Actions Section - Full width */}
+                    <Grid size={12}>
+                        <Box sx={{ mb: { xs: 3, sm: 4, md: 5 } }}>
+                            <Typography
+                                variant={isMobile ? "h6" : "h5"}
+                                component="h2"
+                                gutterBottom
+                                sx={{
+                                    fontSize: { xs: '1.15rem', sm: '1.3rem', md: '1.5rem' },
+                                    fontWeight: 600
+                                }}
+                            >
+                                Quick Actions
+                            </Typography>
 
-                    <Paper
-                        elevation={1}
-                        sx={{
-                            p: { xs: 1.5, sm: 2, md: 3 },
-                            mb: 4,
-                            borderRadius: 2
-                        }}
-                    >
-                        <Stack spacing={{ xs: 0, sm: 0.5, md: 1 }}>
-                            {activities.map((activity, index) => (
-                                <ActivityItem
-                                    key={index}
-                                    icon={activity.icon}
-                                    text={activity.text}
-                                    time={activity.time}
-                                />
-                            ))}
+                            {/* Action Cards Grid */}
+                            <Grid
+                                container
+                                spacing={{ xs: 1.5, sm: 2, md: 3 }}
+                            >
+                                {actions.map((action, index) => (
+                                    <Grid
+                                        key={index}
+                                        size={{ xs: 12, sm: 6, md: 3 }}
+                                    >
+                                        <ActionCard {...action} />
+                                    </Grid>
+                                ))}
+                            </Grid>
+                        </Box>
+                    </Grid>
 
-                            {/* View all button at the bottom */}
-                            <Box sx={{
-                                pt: { xs: 1.5, sm: 2 },
-                                display: 'flex',
-                                justifyContent: 'center'
-                            }}>
-                                <Button
-                                    variant="text"
-                                    size={isMobile ? "small" : "medium"}
-                                    endIcon={<ChevronRight size={16} />}
-                                    sx={{
-                                        color: '#67e8f9',
-                                        fontWeight: 500
-                                    }}
-                                >
-                                    View All Activity
-                                </Button>
-                            </Box>
-                        </Stack>
-                    </Paper>
-                </Box>
+                    {/* Recent Activity Section - Full width on mobile, 8/12 on desktop */}
+                    <Grid size={{ xs: 12, lg: 8 }}>
+                        <Box sx={{ mb: { xs: 4, sm: 5 } }}>
+                            <Typography
+                                variant={isMobile ? "h6" : "h5"}
+                                component="h2"
+                                gutterBottom
+                                sx={{
+                                    fontSize: { xs: '1.15rem', sm: '1.3rem', md: '1.5rem' },
+                                    fontWeight: 600
+                                }}
+                            >
+                                Recent Activity
+                            </Typography>
+
+                            <Paper
+                                elevation={1}
+                                sx={{
+                                    p: { xs: 1.5, sm: 2, md: 3 },
+                                    borderRadius: 2,
+                                    height: '100%'
+                                }}
+                            >
+                                <Stack spacing={{ xs: 0, sm: 0.5, md: 1 }}>
+                                    {activities.map((activity, index) => (
+                                        <ActivityItem
+                                            key={index}
+                                            icon={activity.icon}
+                                            text={activity.text}
+                                            time={activity.time}
+                                        />
+                                    ))}
+
+                                    {/* View all button at the bottom */}
+                                    <Box sx={{
+                                        pt: { xs: 1.5, sm: 2 },
+                                        display: 'flex',
+                                        justifyContent: 'center'
+                                    }}>
+                                        <Button
+                                            variant="text"
+                                            size={isMobile ? "small" : "medium"}
+                                            endIcon={<ChevronRight size={16} />}
+                                            sx={{
+                                                color: '#67e8f9',
+                                                fontWeight: 500
+                                            }}
+                                        >
+                                            View All Activity
+                                        </Button>
+                                    </Box>
+                                </Stack>
+                            </Paper>
+                        </Box>
+                    </Grid>
+
+                    {/* Status Section - Only visible on desktop (right side panel) */}
+                    <Grid size={{ xs: 12, lg: 4 }}>
+                        <Box sx={{ mb: { xs: 4, sm: 5 }, display: { xs: 'none', lg: 'block' } }}>
+                            <Typography
+                                variant={isMobile ? "h6" : "h5"}
+                                component="h2"
+                                gutterBottom
+                                sx={{
+                                    fontSize: { xs: '1.15rem', sm: '1.3rem', md: '1.5rem' },
+                                    fontWeight: 600
+                                }}
+                            >
+                                System Status
+                            </Typography>
+
+                            <Paper
+                                elevation={1}
+                                sx={{
+                                    p: { xs: 1.5, sm: 2, md: 3 },
+                                    borderRadius: 2,
+                                    height: '100%',
+                                    minHeight: '230px',
+                                    display: 'flex',
+                                    flexDirection: 'column'
+                                }}
+                            >
+                                <Box sx={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    mb: 2,
+                                    flexWrap: 'wrap', // Allow wrapping on very small screens
+                                    gap: 1
+                                }}>
+                                    <Box
+                                        sx={{
+                                            width: 10,
+                                            height: 10,
+                                            borderRadius: '50%',
+                                            bgcolor: '#4ade80',
+                                            mr: 1.5
+                                        }}
+                                    />
+                                    <Typography variant="body2">All Systems Operational</Typography>
+                                </Box>
+
+                                <Divider sx={{ my: 1.5 }} />
+
+                                <Box sx={{ flex: 1 }}>
+                                    <Typography variant="body2" sx={{ mb: 1, color: 'text.secondary' }}>
+                                        Server Load: 24%
+                                    </Typography>
+                                    <Box sx={{
+                                        height: 6,
+                                        bgcolor: alpha('#67e8f9', 0.2),
+                                        borderRadius: 3,
+                                        mb: 2
+                                    }}>
+                                        <Box
+                                            sx={{
+                                                height: '100%',
+                                                width: '24%',
+                                                bgcolor: '#67e8f9',
+                                                borderRadius: 3
+                                            }}
+                                        />
+                                    </Box>
+
+                                    <Typography variant="body2" sx={{ mb: 1, color: 'text.secondary' }}>
+                                        Storage: 68%
+                                    </Typography>
+                                    <Box sx={{
+                                        height: 6,
+                                        bgcolor: alpha('#818cf8', 0.2),
+                                        borderRadius: 3,
+                                        mb: 2
+                                    }}>
+                                        <Box
+                                            sx={{
+                                                height: '100%',
+                                                width: '68%',
+                                                bgcolor: '#818cf8',
+                                                borderRadius: 3
+                                            }}
+                                        />
+                                    </Box>
+
+                                    <Typography variant="body2" sx={{ mb: 1, color: 'text.secondary' }}>
+                                        Memory: 42%
+                                    </Typography>
+                                    <Box sx={{
+                                        height: 6,
+                                        bgcolor: alpha('#8b5cf6', 0.2),
+                                        borderRadius: 3
+                                    }}>
+                                        <Box
+                                            sx={{
+                                                height: '100%',
+                                                width: '42%',
+                                                bgcolor: '#8b5cf6',
+                                                borderRadius: 3
+                                            }}
+                                        />
+                                    </Box>
+                                </Box>
+
+                                <Box sx={{ mt: 'auto', pt: 2 }}>
+                                    <Button
+                                        variant="text"
+                                        size="small"
+                                        endIcon={<ChevronRight size={16} />}
+                                        sx={{
+                                            color: '#67e8f9',
+                                            fontWeight: 500
+                                        }}
+                                    >
+                                        View System Details
+                                    </Button>
+                                </Box>
+                            </Paper>
+                        </Box>
+                    </Grid>
+                </Grid>
             </Box>
         </Container>
     );
