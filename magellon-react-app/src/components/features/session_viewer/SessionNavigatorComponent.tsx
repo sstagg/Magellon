@@ -21,8 +21,9 @@ import { useEffect } from "react";
 import { ImageColumnState } from "../../panel/pages/ImagesPageView.tsx";
 import AtlasImage from "./AtlasImage.tsx";
 import { settings } from "../../../core/settings.ts";
-import { AccountTreeRounded, GridViewRounded } from "@mui/icons-material";
+import { AccountTreeRounded, GridViewRounded, GridOnRounded, TableRowsRounded } from "@mui/icons-material";
 import { useImageViewerStore } from './store/imageViewerStore.ts';
+import FlatImageViewerComponent from "./FlatImageViewerComponent.tsx";
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
 
@@ -37,14 +38,14 @@ interface ImageNavigatorProps {
 }
 
 export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
-                                                                           onImageClick,
-                                                                           selectedImage,
-                                                                           selectedSession,
-                                                                           ImageColumns,
-                                                                           Atlases,
-                                                                           Sessions,
-                                                                           OnSessionSelected
-                                                                       }) => {
+                                                                             onImageClick,
+                                                                             selectedImage,
+                                                                             selectedSession,
+                                                                             ImageColumns,
+                                                                             Atlases,
+                                                                             Sessions,
+                                                                             OnSessionSelected
+                                                                         }) => {
     // Get store state and actions
     const {
         isAtlasVisible,
@@ -76,6 +77,8 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
                 return renderGridView();
             case 'tree':
                 return renderTreeView();
+            case 'flat':
+                return renderFlatView();
             default:
                 return null;
         }
@@ -87,13 +90,27 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
     };
 
     const renderGridView = () => {
-        // Render grid view
+        // Render grid view (hierarchical view)
         return (
             <Grid item container sx={{ marginTop: 3 }}>
                 <ImagesStackComponent caption={ImageColumns[0].caption} images={ImageColumns[0].images} level={0} onImageClick={(image) => onImageClick(image, 0)} />
                 <ImagesStackComponent caption={ImageColumns[1].caption} images={ImageColumns[1].images} level={1} onImageClick={(image) => onImageClick(image, 1)} />
                 <ImagesStackComponent caption={ImageColumns[2].caption} images={ImageColumns[2].images} level={2} onImageClick={(image) => onImageClick(image, 2)} />
                 <ImagesStackComponent caption={ImageColumns[3].caption} images={ImageColumns[3].images} level={3} onImageClick={(image) => onImageClick(image, 3)} />
+            </Grid>
+        );
+    };
+
+    const renderFlatView = () => {
+        // Render flat view (non-hierarchical view)
+        // Use the root level images (level 0)
+        return (
+            <Grid item container sx={{ marginTop: 3 }}>
+                <FlatImageViewerComponent
+                    images={ImageColumns[0].images}
+                    onImageClick={onImageClick}
+                    title="All Images"
+                />
             </Grid>
         );
     };
@@ -126,11 +143,26 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
                         <IconButton key="one" onClick={toggleAtlasVisibility}>
                             <EyeOutlined />
                         </IconButton>
-                        <IconButton key="two" onClick={() => setViewMode('grid')}>
+                        <IconButton
+                            key="two"
+                            onClick={() => setViewMode('grid')}
+                            color={viewMode === 'grid' ? 'primary' : 'default'}
+                        >
                             <GridViewRounded />
                         </IconButton>
-                        <IconButton key="three" onClick={() => setViewMode('tree')}>
+                        <IconButton
+                            key="three"
+                            onClick={() => setViewMode('tree')}
+                            color={viewMode === 'tree' ? 'primary' : 'default'}
+                        >
                             <AccountTreeRounded />
+                        </IconButton>
+                        <IconButton
+                            key="four"
+                            onClick={() => setViewMode('flat')}
+                            color={viewMode === 'flat' ? 'primary' : 'default'}
+                        >
+                            <GridOnRounded />
                         </IconButton>
                     </ButtonGroup>
                     {isAtlasVisible ? (

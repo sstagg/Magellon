@@ -12,11 +12,14 @@ $thumbImageHasChildrenBorderColor: rgb(89, 9, 236); // Adjust the alpha value as
   height: $thumbImageHeight;
   object-fit: cover;
   border: 3px solid $thumbImageBorderColor;
-  transition: border-color 0.3s ease;
+  transition: border-color 0.3s ease, transform 0.2s ease-in-out;
+  aspect-ratio: 1/1; /* Force 1:1 aspect ratio */
+  max-width: 100%;
 }
 
 .thumb-image:hover {
   border: 2px solid $thumbImageHoveredBorderColor;
+  transform: scale(1.02);
   //box-shadow: 0 4px 5px $thumbImageHoveredBorderColor;
   //z-index: 1;
 }
@@ -40,3 +43,31 @@ $thumbImageHasChildrenBorderColor: rgb(89, 9, 236); // Adjust the alpha value as
   background-color: rgba(252, 245, 245, 0.1); /* Add a background color on hover */
 }
 
+/* Flat viewer specific styles */
+.flat-viewer-container {
+  .MuiImageListItem-root {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: auto !important;
+    overflow: hidden;
+  }
+
+  .thumb-image-container {
+    position: relative;
+    width: 100%;
+    padding-bottom: 100%; /* Creates a 1:1 aspect ratio */
+    overflow: hidden;
+  }
+
+  .thumb-image-wrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+}

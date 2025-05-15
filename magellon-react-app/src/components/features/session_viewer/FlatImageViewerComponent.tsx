@@ -128,6 +128,13 @@ export const FlatImageViewerComponent: React.FC<FlatImageViewerProps> = ({
     setFilter({});
   };
 
+  // Map zoom level to thumbnail size
+  const getThumbnailSize = (zoom: number): 'small' | 'medium' | 'large' => {
+    if (zoom < 30) return 'small';
+    if (zoom < 70) return 'medium';
+    return 'large';
+  };
+
   // Calculate grid size based on zoom level
   const getGridSize = (zoom: number) => {
     // Map zoom level (10-100) to grid sizes
@@ -138,6 +145,7 @@ export const FlatImageViewerComponent: React.FC<FlatImageViewerProps> = ({
   };
 
   const gridSize = getGridSize(zoom);
+  const thumbnailSize = getThumbnailSize(zoom);
 
   // Count active filters for badge
   const activeFilterCount = Object.values(filter).filter(val => val !== undefined).length;
@@ -268,22 +276,21 @@ export const FlatImageViewerComponent: React.FC<FlatImageViewerProps> = ({
                       md={gridSize.md}
                       lg={gridSize.lg}
                       key={image.oid || index}
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        aspectRatio: '1/1'
+                      }}
                   >
-                    <Box
-                        onClick={() => handleImageClick(image)}
-                        sx={{
-                          height: '100%',
-                          display: 'flex',
-                          justifyContent: 'center'
-                        }}
-                    >
-                      <ThumbImage
-                          image={image}
-                          onImageClick={handleImageClick}
-                          level={0}
-                          isSelected={selectedImage?.oid === image.oid}
-                      />
-                    </Box>
+                    <ThumbImage
+                        image={image}
+                        onImageClick={handleImageClick}
+                        level={0}
+                        isSelected={selectedImage?.oid === image.oid}
+                        fixedHeight={true}
+                        size={thumbnailSize}
+                    />
                   </Grid>
               ))}
             </Grid>
@@ -297,6 +304,8 @@ export const FlatImageViewerComponent: React.FC<FlatImageViewerProps> = ({
                   onChange={handlePageChange}
                   color="primary"
                   size="medium"
+                  siblingCount={1}
+                  boundaryCount={1}
               />
             </Box>
         )}
