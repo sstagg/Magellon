@@ -10,7 +10,8 @@ import {
     MenuItem,
     Select,
     SelectChangeEvent,
-    Stack
+    Stack,
+    Tooltip
 } from "@mui/material";
 import Typography from "@mui/material/Typography";
 import { ImagesStackComponent } from "./ImagesStackComponent.tsx";
@@ -24,6 +25,7 @@ import { settings } from "../../../core/settings.ts";
 import { AccountTreeRounded, GridViewRounded, GridOnRounded, TableRowsRounded } from "@mui/icons-material";
 import { useImageViewerStore } from './store/imageViewerStore.ts';
 import FlatImageViewerComponent from "./FlatImageViewerComponent.tsx";
+import TreeViewer from "./TreeViewer.tsx";
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
 
@@ -71,6 +73,7 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
         setCurrentAtlas(atlas);
     };
 
+    // Render the appropriate view based on viewMode
     const renderNavView = () => {
         switch (viewMode) {
             case 'grid':
@@ -84,13 +87,21 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
         }
     };
 
+    // Render the tree view (hierarchical)
     const renderTreeView = () => {
-        // Render tree view
-        return <div>🌳🌲 Get ready for a Tree View coming soon! Stay tuned! 🌳🌲</div>;
+        return (
+            <Grid item container sx={{ marginTop: 3 }}>
+                <TreeViewer
+                    images={ImageColumns[0].images}
+                    onImageClick={onImageClick}
+                    title="Image Hierarchy"
+                />
+            </Grid>
+        );
     };
 
+    // Render the column view (original)
     const renderGridView = () => {
-        // Render grid view (hierarchical view)
         return (
             <Grid item container sx={{ marginTop: 3 }}>
                 <ImagesStackComponent caption={ImageColumns[0].caption} images={ImageColumns[0].images} level={0} onImageClick={(image) => onImageClick(image, 0)} />
@@ -101,9 +112,8 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
         );
     };
 
+    // Render the flat view (non-hierarchical)
     const renderFlatView = () => {
-        // Render flat view (non-hierarchical view)
-        // Use the root level images (level 0)
         return (
             <Grid item container sx={{ marginTop: 3 }}>
                 <FlatImageViewerComponent
@@ -143,27 +153,33 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
                         <IconButton key="one" onClick={toggleAtlasVisibility}>
                             <EyeOutlined />
                         </IconButton>
-                        <IconButton
-                            key="two"
-                            onClick={() => setViewMode('grid')}
-                            color={viewMode === 'grid' ? 'primary' : 'default'}
-                        >
-                            <GridViewRounded />
-                        </IconButton>
-                        <IconButton
-                            key="three"
-                            onClick={() => setViewMode('tree')}
-                            color={viewMode === 'tree' ? 'primary' : 'default'}
-                        >
-                            <AccountTreeRounded />
-                        </IconButton>
-                        <IconButton
-                            key="four"
-                            onClick={() => setViewMode('flat')}
-                            color={viewMode === 'flat' ? 'primary' : 'default'}
-                        >
-                            <GridOnRounded />
-                        </IconButton>
+                        <Tooltip title="Column View">
+                            <IconButton
+                                key="two"
+                                onClick={() => setViewMode('grid')}
+                                color={viewMode === 'grid' ? 'primary' : 'default'}
+                            >
+                                <GridViewRounded />
+                            </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Tree View">
+                            <IconButton
+                                key="three"
+                                onClick={() => setViewMode('tree')}
+                                color={viewMode === 'tree' ? 'primary' : 'default'}
+                            >
+                                <AccountTreeRounded />
+                            </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Flat View">
+                            <IconButton
+                                key="four"
+                                onClick={() => setViewMode('flat')}
+                                color={viewMode === 'flat' ? 'primary' : 'default'}
+                            >
+                                <GridOnRounded />
+                            </IconButton>
+                        </Tooltip>
                     </ButtonGroup>
                     {isAtlasVisible ? (
                         <Grid container>
