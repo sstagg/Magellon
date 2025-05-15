@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { Box, Collapse, Typography, useMediaQuery } from '@mui/material';
 import { ExpandLess, ExpandMore } from '@mui/icons-material';
+import magellonLogo from "../../assets/images/magellon-logo.svg";
 
 const DRAWER_WIDTH = 240;
 
@@ -229,17 +230,8 @@ export const PanelDrawer: React.FC<PanelDrawerProps> = ({ open, handleDrawerClos
         >
             <DrawerHeader>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 4.5C10.6193 4.5 9.5 5.61929 9.5 7C9.5 8.38071 10.6193 9.5 12 9.5C13.3807 9.5 14.5 8.38071 14.5 7C14.5 5.61929 13.3807 4.5 12 4.5Z"
-                              stroke="#67e8f9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M4.5 15C4.5 16.3807 5.61929 17.5 7 17.5C8.38071 17.5 9.5 16.3807 9.5 15C9.5 13.6193 8.38071 12.5 7 12.5C5.61929 12.5 4.5 13.6193 4.5 15Z"
-                              stroke="#67e8f9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M14.5 15C14.5 16.3807 15.6193 17.5 17 17.5C18.3807 17.5 19.5 16.3807 19.5 15C19.5 13.6193 18.3807 12.5 17 12.5C15.6193 12.5 14.5 13.6193 14.5 15Z"
-                              stroke="#67e8f9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M9.5 7.5V12.5" stroke="#67e8f9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M14.5 7.5V12.5" stroke="#67e8f9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M9.5 15H14.5" stroke="#67e8f9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
+
+                    <img src={magellonLogo} alt="No data found" style={{ maxWidth: "28px" }} />
                     <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#fff' }}>
                         Magellon
                     </Typography>
