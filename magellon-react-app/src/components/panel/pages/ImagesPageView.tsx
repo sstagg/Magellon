@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Box } from '@mui/material';
-import Grid from '@mui/material/Grid'; // Updated import for Grid v2
+import { Box, Paper, Divider, useTheme, useMediaQuery } from '@mui/material';
+import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { SelectChangeEvent } from '@mui/material';
 import { SessionNavigatorComponent } from '../../features/session_viewer/SessionNavigatorComponent.tsx';
 import { SoloImageViewerComponent } from '../../features/session_viewer/SoloImageViewerComponent.tsx';
@@ -45,7 +45,54 @@ const initialImageColumns: ImageColumnState[] = [
     },
 ];
 
+// Custom resize handle component
+const ResizeHandle = () => {
+    const theme = useTheme();
+
+    return (
+        <PanelResizeHandle>
+            <Box
+                sx={{
+                    height: '100%',
+                    width: '12px',
+                    cursor: 'col-resize',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    '&:hover': {
+                        '& .resize-handle-bar': {
+                            backgroundColor: theme.palette.primary.main,
+                            opacity: 1,
+                        }
+                    },
+                    '&:active': {
+                        '& .resize-handle-bar': {
+                            backgroundColor: theme.palette.primary.dark,
+                            opacity: 1,
+                        }
+                    }
+                }}
+            >
+                <Box
+                    className="resize-handle-bar"
+                    sx={{
+                        height: '40px',
+                        width: '4px',
+                        borderRadius: '2px',
+                        backgroundColor: theme.palette.divider,
+                        opacity: 0.7,
+                        transition: 'background-color 0.2s, opacity 0.2s',
+                    }}
+                />
+            </Box>
+        </PanelResizeHandle>
+    );
+};
+
 export const ImagesPageView = () => {
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
     // Local state (will gradually be replaced with store state)
     const [level, setLevel] = useState<number>(0);
     const [parentId, setParentId] = useState<string | null>(null);
@@ -218,10 +265,20 @@ export const ImagesPageView = () => {
         }
     }, []);
 
-    return (
-        <Box sx={{ width: '100%' }}>
-            <Grid container spacing={2}>
-                <Grid size={5}>
+    // For mobile devices, stack panels vertically
+    if (isMobile) {
+        return (
+            <Box sx={{ width: '100%', height: 'calc(100vh - 120px)' }}>
+                {/* Navigator Panel */}
+                <Box
+                    sx={{
+                        mb: 2,
+                        height: '40vh',
+                        overflow: 'auto',
+                        borderRadius: 2,
+                        border: `1px solid ${theme.palette.divider}`,
+                    }}
+                >
                     <SessionNavigatorComponent
                         onImageClick={OnCurrentImageChanged}
                         selectedSession={currentSession}
@@ -231,11 +288,76 @@ export const ImagesPageView = () => {
                         Sessions={sessionData}
                         Atlases={atlasImages}
                     />
-                </Grid>
-                <Grid size={7}>
+                </Box>
+
+                {/* Viewer Panel */}
+                <Box
+                    sx={{
+                        height: 'calc(60vh - 24px)', // Account for margin
+                        overflow: 'hidden',
+                        borderRadius: 2,
+                        border: `1px solid ${theme.palette.divider}`,
+                    }}
+                >
                     <SoloImageViewerComponent selectedImage={currentImage} />
-                </Grid>
-            </Grid>
+                </Box>
+            </Box>
+        );
+    }
+
+    // Desktop layout with resizable panels
+    return (
+        <Box
+            sx={{
+                width: '100%',
+                height: 'calc(100vh - 120px)', // Account for header and footer
+                position: 'relative',
+                overflow: 'hidden',
+                borderRadius: 2,
+                border: `1px solid ${theme.palette.divider}`,
+            }}
+        >
+            <PanelGroup direction="horizontal">
+                {/* Navigator Panel */}
+                <Panel
+                    defaultSize={30}
+                    minSize={20}
+                    maxSize={50}
+                >
+                    <Box
+                        sx={{
+                            height: '100%',
+                            overflow: 'auto',
+                            borderRight: `1px solid ${theme.palette.divider}`,
+                        }}
+                    >
+                        <SessionNavigatorComponent
+                            onImageClick={OnCurrentImageChanged}
+                            selectedSession={currentSession}
+                            OnSessionSelected={OnSessionSelected}
+                            selectedImage={currentImage}
+                            ImageColumns={imageColumns}
+                            Sessions={sessionData}
+                            Atlases={atlasImages}
+                        />
+                    </Box>
+                </Panel>
+
+                <ResizeHandle />
+
+                {/* Image Viewer Panel */}
+                <Panel>
+                    <Box
+                        sx={{
+                            height: '100%',
+                            width: '100%',
+                            overflow: 'auto'
+                        }}
+                    >
+                        <SoloImageViewerComponent selectedImage={currentImage} />
+                    </Box>
+                </Panel>
+            </PanelGroup>
         </Box>
     );
 };

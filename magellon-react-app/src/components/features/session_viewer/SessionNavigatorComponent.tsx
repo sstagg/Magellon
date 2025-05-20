@@ -1,4 +1,5 @@
 import {
+    Box,
     ButtonGroup,
     Card,
     CardContent,
@@ -8,12 +9,14 @@ import {
     ImageListItem,
     InputLabel,
     MenuItem,
+    Paper,
     Select,
     SelectChangeEvent,
     Stack,
-    Tooltip
+    Tooltip,
+    Typography,
+    useTheme
 } from "@mui/material";
-import Typography from "@mui/material/Typography";
 import { ImagesStackComponent } from "./ImagesStackComponent.tsx";
 import ImageInfoDto, { AtlasImageDto, SessionDto } from "./ImageInfoDto.ts";
 import IconButton from "@mui/material/IconButton";
@@ -48,6 +51,8 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
                                                                              Sessions,
                                                                              OnSessionSelected
                                                                          }) => {
+    const theme = useTheme();
+
     // Get store state and actions
     const {
         isAtlasVisible,
@@ -73,6 +78,67 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
         setCurrentAtlas(atlas);
     };
 
+    // Session selector component
+    const renderSessionSelector = () => {
+        return (
+            <Paper elevation={0} variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
+                <FormControl fullWidth size="small" variant="outlined">
+                    <InputLabel id="session-select-label">Session</InputLabel>
+                    <Select
+                        labelId="session-select-label"
+                        id="session-select"
+                        value={selectedSession?.name || ""}
+                        label="Session"
+                        onChange={OnSessionSelected}
+                    >
+                        <MenuItem value="">
+                            <em>None</em>
+                        </MenuItem>
+                        {Sessions?.map((session) => (
+                            <MenuItem key={session.Oid} value={session.name}>
+                                {session.name}
+                            </MenuItem>
+                        ))}
+                    </Select>
+                </FormControl>
+            </Paper>
+        );
+    };
+
+    // View mode selector component
+    const renderViewModeSelector = () => {
+        return (
+            <Paper elevation={0} variant="outlined" sx={{ p: 1, borderRadius: 1 }}>
+                <ButtonGroup size="small" fullWidth>
+                    <Tooltip title="Column View">
+                        <IconButton
+                            onClick={() => setViewMode('grid')}
+                            color={viewMode === 'grid' ? 'primary' : 'default'}
+                        >
+                            <GridViewRounded />
+                        </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Tree View">
+                        <IconButton
+                            onClick={() => setViewMode('tree')}
+                            color={viewMode === 'tree' ? 'primary' : 'default'}
+                        >
+                            <AccountTreeRounded />
+                        </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Flat View">
+                        <IconButton
+                            onClick={() => setViewMode('flat')}
+                            color={viewMode === 'flat' ? 'primary' : 'default'}
+                        >
+                            <GridOnRounded />
+                        </IconButton>
+                    </Tooltip>
+                </ButtonGroup>
+            </Paper>
+        );
+    };
+
     // Render the appropriate view based on viewMode
     const renderNavView = () => {
         switch (viewMode) {
@@ -90,138 +156,168 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
     // Render the tree view (hierarchical)
     const renderTreeView = () => {
         return (
-            <Grid item container sx={{ marginTop: 3 }}>
+            <Box sx={{ mt: 2, height: 'calc(100% - 130px)', overflow: 'auto' }}>
                 <TreeViewer
                     images={ImageColumns[0].images}
                     onImageClick={onImageClick}
                     title="Image Hierarchy"
                 />
-            </Grid>
+            </Box>
         );
     };
 
     // Render the column view (original)
     const renderGridView = () => {
         return (
-            <Grid item container sx={{ marginTop: 3 }}>
+            <Box sx={{
+                mt: 2,
+                display: 'flex',
+                flexWrap: 'nowrap',
+                overflowX: 'auto',
+                height: 'calc(100% - 130px)'
+            }}>
                 <ImagesStackComponent caption={ImageColumns[0].caption} images={ImageColumns[0].images} level={0} onImageClick={(image) => onImageClick(image, 0)} />
                 <ImagesStackComponent caption={ImageColumns[1].caption} images={ImageColumns[1].images} level={1} onImageClick={(image) => onImageClick(image, 1)} />
                 <ImagesStackComponent caption={ImageColumns[2].caption} images={ImageColumns[2].images} level={2} onImageClick={(image) => onImageClick(image, 2)} />
                 <ImagesStackComponent caption={ImageColumns[3].caption} images={ImageColumns[3].images} level={3} onImageClick={(image) => onImageClick(image, 3)} />
-            </Grid>
+            </Box>
         );
     };
 
     // Render the flat view (non-hierarchical)
     const renderFlatView = () => {
         return (
-            <Grid item container sx={{ marginTop: 3 }}>
+            <Box sx={{ mt: 2, height: 'calc(100% - 130px)', overflow: 'auto' }}>
                 <FlatImageViewerComponent
                     images={ImageColumns[0].images}
                     onImageClick={onImageClick}
                     title="All Images"
                 />
-            </Grid>
+            </Box>
+        );
+    };
+
+    // Atlas thumbnail list
+    const renderAtlasList = () => {
+        if (!Atlases || Atlases.length === 0) {
+            return (
+                <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
+                    No atlas images available
+                </Typography>
+            );
+        }
+
+        return (
+            <ImageList cols={1} rowHeight={80} sx={{ width: '100%', maxHeight: 120, m: 0 }}>
+                {Atlases?.map((atlas, index) => (
+                    <ImageListItem
+                        key={index}
+                        onClick={() => handleAtlasClick(atlas)}
+                        sx={{
+                            cursor: 'pointer',
+                            border: atlas.oid === currentAtlas?.oid ? `2px solid ${theme.palette.primary.main}` : 'none',
+                            borderRadius: 1,
+                            overflow: 'hidden'
+                        }}
+                    >
+                        <img
+                            src={`${BASE_URL}/atlas-image?name=${atlas?.name}&sessionName=${sessionName}`}
+                            alt="atlas"
+                            style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover'
+                            }}
+                        />
+                    </ImageListItem>
+                ))}
+            </ImageList>
         );
     };
 
     return (
-        <Grid container direction="column">
-            <Grid item container>
-                <Stack>
-                    <FormControl sx={{ m: 1, minWidth: 120 }} size="small" variant="standard">
-                        <InputLabel id="demo-select-small-label">Session</InputLabel>
-                        <Select
-                            labelId="demo-select-small-label"
-                            id="demo-select-small"
-                            value={selectedSession?.name || ""}
-                            label="Session"
-                            onChange={OnSessionSelected}
-                        >
-                            <MenuItem value="">
-                                <em>None</em>
-                            </MenuItem>
-                            {Sessions?.map((session) => (
-                                <MenuItem key={session.Oid} value={session.name}>
-                                    {session.name}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
+        <Box sx={{
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden'
+        }}>
+            {/* Header with session selector and atlas toggle */}
+            <Box sx={{ p: 1 }}>
+                <Box sx={{
+                    display: 'flex',
+                    gap: 2,
+                    alignItems: 'center', // Changed from 'flex-start' to 'center'
+                    mb: 1
+                }}>
+                    {/* Session selector - takes more space */}
+                    <Box sx={{ flex: 2 }}>
+                        {renderSessionSelector()}
+                    </Box>
 
-                    <ButtonGroup size="small">
-                        <IconButton key="one" onClick={toggleAtlasVisibility}>
-                            <EyeOutlined />
-                        </IconButton>
-                        <Tooltip title="Column View">
-                            <IconButton
-                                key="two"
-                                onClick={() => setViewMode('grid')}
-                                color={viewMode === 'grid' ? 'primary' : 'default'}
-                            >
-                                <GridViewRounded />
+                    {/* Atlas visibility toggle - same height as session selector */}
+                    <Paper
+                        elevation={0}
+                        variant="outlined"
+                        sx={{
+                            height: 56, // Match height of session selector
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            p: 2,
+                            borderRadius: 1,
+                            flex: '0 0 auto'
+                        }}
+                    >
+                        <Tooltip title={isAtlasVisible ? "Hide Atlas" : "Show Atlas"}>
+                            <IconButton onClick={toggleAtlasVisibility} size="small">
+                                <EyeOutlined />
                             </IconButton>
                         </Tooltip>
-                        <Tooltip title="Tree View">
-                            <IconButton
-                                key="three"
-                                onClick={() => setViewMode('tree')}
-                                color={viewMode === 'tree' ? 'primary' : 'default'}
-                            >
-                                <AccountTreeRounded />
-                            </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Flat View">
-                            <IconButton
-                                key="four"
-                                onClick={() => setViewMode('flat')}
-                                color={viewMode === 'flat' ? 'primary' : 'default'}
-                            >
-                                <GridOnRounded />
-                            </IconButton>
-                        </Tooltip>
-                    </ButtonGroup>
-                    {isAtlasVisible ? (
-                        <Grid container>
-                            <Grid item>
-                                <ImageList cols={1} rowHeight={170} sx={{ width: 170, height: 400, display: 'block' }}>
-                                    {Atlases?.map((atlas, index) => (
-                                        <ImageListItem key={index} onClick={() => handleAtlasClick(atlas)}>
-                                            {/* Add sessionName parameter to the atlas image URL */}
-                                            <img
-                                                src={`${BASE_URL}/atlas-image?name=${atlas?.name}&sessionName=${sessionName}`}
-                                                alt="atlas"
-                                                className={"thumb-image"}
-                                                style={{ cursor: 'pointer' }}
-                                            />
-                                        </ImageListItem>
-                                    ))}
-                                </ImageList>
-                            </Grid>
-                            <Grid item>
-                                {currentAtlas && (
-                                    <Card sx={{ maxWidth: 345, marginLeft: 2 }}>
-                                        <AtlasImage
-                                            imageMapJson={currentAtlas?.meta}
-                                            finalWidth={300}
-                                            finalHeight={300}
-                                            name={currentAtlas?.name}
-                                            backgroundColor={"black"}
-                                            onImageClick={onImageClick}
-                                        />
-                                        <CardContent>
-                                            <Typography gutterBottom variant="h5" component="div">
-                                                Name: {currentAtlas?.name}
-                                            </Typography>
-                                        </CardContent>
-                                    </Card>
-                                )}
-                            </Grid>
-                        </Grid>
-                    ) : null}
-                </Stack>
-            </Grid>
-            {renderNavView()}
-        </Grid>
+                    </Paper>
+                </Box>
+
+                {/* Atlas section */}
+                {isAtlasVisible && (
+                    <Box sx={{
+                        display: 'flex',
+                        gap: 2,
+                        mb: 1,
+                        borderRadius: 1,
+                        border: `1px solid ${theme.palette.divider}`,
+                        p: 1
+                    }}>
+                        {/* Atlas thumbnails list */}
+                        <Box sx={{ flex: 1 }}>
+                            {renderAtlasList()}
+                        </Box>
+
+                        {/* Current atlas view */}
+                        {currentAtlas && (
+                            <Box sx={{ flex: 2 }}>
+                                <AtlasImage
+                                    imageMapJson={currentAtlas?.meta}
+                                    finalWidth={180}
+                                    finalHeight={120}
+                                    name={currentAtlas?.name}
+                                    backgroundColor="black"
+                                    onImageClick={onImageClick}
+                                />
+                            </Box>
+                        )}
+                    </Box>
+                )}
+
+                {/* View mode selector moved below atlas section */}
+                <Box sx={{ mb: 1 }}>
+                    {renderViewModeSelector()}
+                </Box>
+            </Box>
+
+            {/* Main image navigation view - fills remaining space */}
+            <Box sx={{ flex: 1, overflow: 'hidden' }}>
+                {renderNavView()}
+            </Box>
+        </Box>
     );
 };
