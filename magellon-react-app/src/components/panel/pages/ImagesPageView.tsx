@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Paper, Divider, useTheme, useMediaQuery } from '@mui/material';
-import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
+import { Box, useTheme, useMediaQuery } from '@mui/material';
 import { SelectChangeEvent } from '@mui/material';
 import { SessionNavigatorComponent } from '../../features/session_viewer/SessionNavigatorComponent.tsx';
 import { SoloImageViewerComponent } from '../../features/session_viewer/SoloImageViewerComponent.tsx';
@@ -45,53 +44,11 @@ const initialImageColumns: ImageColumnState[] = [
     },
 ];
 
-// Custom resize handle component
-const ResizeHandle = () => {
-    const theme = useTheme();
-
-    return (
-        <PanelResizeHandle>
-            <Box
-                sx={{
-                    height: '100%',
-                    width: '12px',
-                    cursor: 'col-resize',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    '&:hover': {
-                        '& .resize-handle-bar': {
-                            backgroundColor: theme.palette.primary.main,
-                            opacity: 1,
-                        }
-                    },
-                    '&:active': {
-                        '& .resize-handle-bar': {
-                            backgroundColor: theme.palette.primary.dark,
-                            opacity: 1,
-                        }
-                    }
-                }}
-            >
-                <Box
-                    className="resize-handle-bar"
-                    sx={{
-                        height: '40px',
-                        width: '4px',
-                        borderRadius: '2px',
-                        backgroundColor: theme.palette.divider,
-                        opacity: 0.7,
-                        transition: 'background-color 0.2s, opacity 0.2s',
-                    }}
-                />
-            </Box>
-        </PanelResizeHandle>
-    );
-};
-
 export const ImagesPageView = () => {
+    // Theme and responsive breakpoints
     const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+    const isTablet = useMediaQuery(theme.breakpoints.down('md'));
 
     // Local state (will gradually be replaced with store state)
     const [level, setLevel] = useState<number>(0);
@@ -105,6 +62,7 @@ export const ImagesPageView = () => {
         currentSession: storeCurrentSession,
         currentImage: storeCurrentImage,
         imageColumns: storeImageColumns,
+        viewMode,
         setCurrentSession: storeSetCurrentSession,
         setCurrentImage: storeSetCurrentImage,
         selectImageInColumn,
@@ -124,6 +82,41 @@ export const ImagesPageView = () => {
         isLoading: isAtlasLoading,
         isError: isAtlasError
     } = useAtlasImages(sessionName, currentSession !== null);
+
+    // Calculate number of active columns for layout
+    const activeColumnsCount = React.useMemo(() => {
+        if (viewMode !== 'grid') return 1;
+
+        // Count columns with data
+        return imageColumns.filter(col =>
+            col.images && col.images.pages && col.images.pages.length > 0
+        ).length;
+    }, [imageColumns, viewMode]);
+
+    // Calculate the width ratio for the navigation panel
+    const getLayoutRatio = React.useMemo(() => {
+        // For mobile, use full width
+        if (isMobile) return { nav: 12, viewer: 12 };
+
+        // For tablet with multiple columns, adjust ratio
+        if (isTablet) {
+            if (activeColumnsCount > 1) {
+                return { nav: 8, viewer: 12 }; // Stack them vertically
+            }
+            return { nav: 5, viewer: 7 };
+        }
+
+        // For desktop, adjust based on number of columns
+        if (activeColumnsCount > 2) {
+            return { nav: 8, viewer: 4 }; // Give more space to navigation
+        }
+        if (activeColumnsCount > 1) {
+            return { nav: 6, viewer: 6 }; // Equal space
+        }
+
+        // Default ratio
+        return { nav: 5, viewer: 7 };
+    }, [activeColumnsCount, isMobile, isTablet]);
 
     // Sync atlas images with store when they change
     useEffect(() => {
@@ -265,20 +258,11 @@ export const ImagesPageView = () => {
         }
     }, []);
 
-    // For mobile devices, stack panels vertically
+    // For mobile, stack the components vertically
     if (isMobile) {
         return (
-            <Box sx={{ width: '100%', height: 'calc(100vh - 120px)' }}>
-                {/* Navigator Panel */}
-                <Box
-                    sx={{
-                        mb: 2,
-                        height: '40vh',
-                        overflow: 'auto',
-                        borderRadius: 2,
-                        border: `1px solid ${theme.palette.divider}`,
-                    }}
-                >
+            <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <Box sx={{ width: '100%' }}>
                     <SessionNavigatorComponent
                         onImageClick={OnCurrentImageChanged}
                         selectedSession={currentSession}
@@ -289,77 +273,48 @@ export const ImagesPageView = () => {
                         Atlases={atlasImages}
                     />
                 </Box>
-
-                {/* Viewer Panel */}
-                <Box
-                    sx={{
-                        height: 'calc(60vh - 24px)', // Account for margin
-                        overflow: 'hidden',
-                        borderRadius: 2,
-                        border: `1px solid ${theme.palette.divider}`,
-                    }}
-                >
-                    <SoloImageViewerComponent selectedImage={currentImage} />
-                </Box>
+                {currentImage && (
+                    <Box sx={{ width: '100%', mt: 2 }}>
+                        <SoloImageViewerComponent selectedImage={currentImage} />
+                    </Box>
+                )}
             </Box>
         );
     }
 
-    // Desktop layout with resizable panels
+    // For tablet and desktop, use a responsive layout
     return (
-        <Box
-            sx={{
-                width: '100%',
-                height: 'calc(100vh - 120px)', // Account for header and footer
-                position: 'relative',
-                overflow: 'hidden',
-                borderRadius: 2,
-                border: `1px solid ${theme.palette.divider}`,
-            }}
-        >
-            <PanelGroup direction="horizontal">
-                {/* Navigator Panel */}
-                <Panel
-                    defaultSize={30}
-                    minSize={20}
-                    maxSize={50}
-                >
-                    <Box
-                        sx={{
-                            height: '100%',
-                            overflow: 'auto',
-                            borderRight: `1px solid ${theme.palette.divider}`,
-                        }}
-                    >
-                        <SessionNavigatorComponent
-                            onImageClick={OnCurrentImageChanged}
-                            selectedSession={currentSession}
-                            OnSessionSelected={OnSessionSelected}
-                            selectedImage={currentImage}
-                            ImageColumns={imageColumns}
-                            Sessions={sessionData}
-                            Atlases={atlasImages}
-                        />
-                    </Box>
-                </Panel>
-
-                <ResizeHandle />
-
-                {/* Image Viewer Panel */}
-                <Panel>
-                    <Box
-                        sx={{
-                            height: '100%',
-                            width: '100%',
-                            overflow: 'auto'
-                        }}
-                    >
-                        <SoloImageViewerComponent selectedImage={currentImage} />
-                    </Box>
-                </Panel>
-            </PanelGroup>
+        <Box sx={{
+            width: '100%',
+            display: 'flex',
+            flexDirection: isTablet && activeColumnsCount > 1 ? 'column' : 'row',
+            gap: 2,
+            overflow: 'hidden',
+            height: 'calc(100vh - 120px)'
+        }}>
+            <Box sx={{
+                width: isTablet && activeColumnsCount > 1 ? '100%' : `${(getLayoutRatio.nav / 12) * 100}%`,
+                flexShrink: 0,
+                overflow: 'auto'
+            }}>
+                <SessionNavigatorComponent
+                    onImageClick={OnCurrentImageChanged}
+                    selectedSession={currentSession}
+                    OnSessionSelected={OnSessionSelected}
+                    selectedImage={currentImage}
+                    ImageColumns={imageColumns}
+                    Sessions={sessionData}
+                    Atlases={atlasImages}
+                />
+            </Box>
+            <Box sx={{
+                width: isTablet && activeColumnsCount > 1 ? '100%' : `${(getLayoutRatio.viewer / 12) * 100}%`,
+                flexGrow: 1,
+                overflow: 'auto',
+                mt: isTablet && activeColumnsCount > 1 ? 2 : 0
+            }}>
+                <SoloImageViewerComponent selectedImage={currentImage} />
+            </Box>
         </Box>
     );
 };
-
-export default ImagesPageView;

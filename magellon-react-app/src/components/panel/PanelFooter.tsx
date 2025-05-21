@@ -1,7 +1,26 @@
 import React from 'react';
-import { Box, Typography, Paper, Chip, Stack, Divider, Tooltip, useMediaQuery, useTheme } from '@mui/material';
+import {
+    Box,
+    Typography,
+    Paper,
+    Chip,
+    Stack,
+    Divider,
+    Tooltip,
+    useMediaQuery,
+    useTheme,
+    alpha
+} from '@mui/material';
+import {
+    Database,
+    Image as ImageIcon,
+    Server,
+    Settings,
+    Info,
+    ExternalLink
+} from 'lucide-react';
 import { useImageViewerStore } from '../features/session_viewer/store/imageViewerStore';
-import { Database, Image, Server, Settings } from 'lucide-react';
+import { ImagesBreadcrumbs } from '../features/session_viewer/ImagesBreadcrumbs';
 
 interface PanelFooterProps {
     drawerOpen: boolean;
@@ -17,7 +36,7 @@ const PanelFooter: React.FC<PanelFooterProps> = ({ drawerOpen, drawerWidth }) =>
         activeTab
     } = useImageViewerStore();
 
-    // Get app info
+    // App info
     const appVersion = "0.1.0";
     const serverStatus = "Connected";
 
@@ -27,6 +46,20 @@ const PanelFooter: React.FC<PanelFooterProps> = ({ drawerOpen, drawerWidth }) =>
 
     // Determine if the current theme is dark or light
     const isDarkMode = theme.palette.mode === 'dark';
+
+    // Get session name or display "None" if not available
+    const sessionName = currentSession?.name || 'None';
+
+    // Get image name or display "None" if not available
+    const imageName = currentImage?.name || 'None';
+
+    // Get detailed image info for tooltip
+    const imageTooltipContent = currentImage
+        ? `Name: ${currentImage.name}
+       Defocus: ${currentImage.defocus || 'N/A'} μm
+       Mag: ${currentImage.mag || 'N/A'}
+       Pixel Size: ${currentImage.pixelSize || 'N/A'} Å/pix`
+        : 'No image selected';
 
     return (
         <Paper
@@ -53,6 +86,10 @@ const PanelFooter: React.FC<PanelFooterProps> = ({ drawerOpen, drawerWidth }) =>
                     easing: theme.transitions.easing.sharp,
                     duration: theme.transitions.duration.leavingScreen,
                 }),
+                backdropFilter: 'blur(8px)',
+                boxShadow: isDarkMode
+                    ? '0px -2px 10px rgba(0, 0, 0, 0.2)'
+                    : '0px -2px 10px rgba(0, 0, 0, 0.05)',
             }}
         >
             {/* Left side - Session & Image Info */}
@@ -62,7 +99,7 @@ const PanelFooter: React.FC<PanelFooterProps> = ({ drawerOpen, drawerWidth }) =>
                 alignItems="center"
                 divider={<Divider orientation="vertical" flexItem />}
             >
-                <Tooltip title={`Session: ${currentSession?.name || 'None'}`}>
+                <Tooltip title={`Session: ${sessionName}`}>
                     <Box display="flex" alignItems="center">
                         <Database size={16} style={{ marginRight: 4 }} />
                         <Typography
@@ -74,15 +111,21 @@ const PanelFooter: React.FC<PanelFooterProps> = ({ drawerOpen, drawerWidth }) =>
                                 whiteSpace: 'nowrap'
                             }}
                         >
-                            {isMobile ? '' : 'Session: '}{currentSession?.name || 'None'}
+                            {isMobile ? '' : 'Session: '}{sessionName}
                         </Typography>
                     </Box>
                 </Tooltip>
 
                 {currentImage && (
-                    <Tooltip title={`Image: ${currentImage.name}`}>
+                    <Tooltip
+                        title={
+                            <Box component="div" sx={{ whiteSpace: 'pre-line' }}>
+                                {imageTooltipContent}
+                            </Box>
+                        }
+                    >
                         <Box display="flex" alignItems="center">
-                            <Image size={16} style={{ marginRight: 4 }} />
+                            <ImageIcon size={16} style={{ marginRight: 4 }} />
                             <Typography
                                 variant="body2"
                                 sx={{
@@ -97,6 +140,13 @@ const PanelFooter: React.FC<PanelFooterProps> = ({ drawerOpen, drawerWidth }) =>
                         </Box>
                     </Tooltip>
                 )}
+
+                {/* Show breadcrumbs on tablet and larger screens if image is available */}
+                {!isMobile && currentImage && currentImage.name && (
+                    <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+                        <ImagesBreadcrumbs name={currentImage.name} />
+                    </Box>
+                )}
             </Stack>
 
             {/* Center - View Information (only show on tablet and above) */}
@@ -107,12 +157,27 @@ const PanelFooter: React.FC<PanelFooterProps> = ({ drawerOpen, drawerWidth }) =>
                         size="small"
                         variant="outlined"
                         icon={<Settings size={14} />}
+                        sx={{
+                            backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                            borderColor: alpha(theme.palette.primary.main, 0.2),
+                            '& .MuiChip-label': {
+                                fontWeight: 500,
+                            }
+                        }}
                     />
                     {activeTab && !isTablet && (
                         <Chip
                             label={`Tab: ${getTabName(activeTab)}`}
                             size="small"
                             variant="outlined"
+                            icon={<Info size={14} />}
+                            sx={{
+                                backgroundColor: alpha(theme.palette.secondary.main, 0.1),
+                                borderColor: alpha(theme.palette.secondary.main, 0.2),
+                                '& .MuiChip-label': {
+                                    fontWeight: 500,
+                                }
+                            }}
                         />
                     )}
                 </Stack>
@@ -124,11 +189,20 @@ const PanelFooter: React.FC<PanelFooterProps> = ({ drawerOpen, drawerWidth }) =>
                     <Box display="flex" alignItems="center">
                         <Server size={16} style={{ marginRight: 4 }} />
                         <Typography variant="body2">
-                            Status: {serverStatus}
+                            Status: <span style={{ color: '#4ade80' }}>{serverStatus}</span>
                         </Typography>
                     </Box>
                 )}
-                <Typography variant="body2" color="textSecondary">
+                <Typography
+                    variant="body2"
+                    color="textSecondary"
+                    sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5
+                    }}
+                >
+                    <ExternalLink size={14} />
                     v{appVersion}
                 </Typography>
             </Stack>
