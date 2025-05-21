@@ -1,46 +1,180 @@
-import ImageInfoDto, {PagedImageResponse} from "./ImageInfoDto.ts";
-import {ImageList} from "@mui/material";
-import './ImageViewerStyles.scss'
-import {ThumbImage} from "./ThumbImage.tsx";
-import {InfiniteData} from "react-query";
-import {useState} from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import {
+    ImageList,
+    Box,
+    Typography,
+    Paper,
+    CircularProgress,
+    Button,
+    useTheme,
+    alpha
+} from "@mui/material";
+import { InfiniteData } from "react-query";
+import { ChevronDown } from "lucide-react";
+import ImageInfoDto, { PagedImageResponse } from "./ImageInfoDto.ts";
+import { ThumbImage } from "./ThumbImage.tsx";
+import './ImageViewerStyles.scss';
+import { useImageViewerStore } from './store/imageViewerStore';
 
-interface IImagesStackProps{
-    images:InfiniteData<PagedImageResponse> | null;
-    caption?:string;
+interface ImagesStackProps {
+    /**
+     * Collection of images to display
+     */
+    images: InfiniteData<PagedImageResponse> | null;
+    /**
+     * Optional caption for the stack
+     */
+    caption?: string;
+    /**
+     * Callback when an image is clicked
+     */
     onImageClick: (imageInfo: ImageInfoDto, column: number) => void;
+    /**
+     * Hierarchical level of images in this stack
+     */
     level: number;
 }
-export const ImagesStackComponent = ({caption,images,onImageClick,level} : IImagesStackProps) => {
+
+/**
+ * Component that displays a vertical stack of image thumbnails
+ */
+export const ImagesStackComponent: React.FC<ImagesStackProps> = ({
+                                                                     caption,
+                                                                     images,
+                                                                     onImageClick,
+                                                                     level
+                                                                 }) => {
+    // Local state
     const [selectedImage, setSelectedImage] = useState<ImageInfoDto | null>(null);
+    const [loadingMore, setLoadingMore] = useState(false);
 
+    // Access store to check if any image matches current column selection
+    const { currentImage } = useImageViewerStore();
+    const theme = useTheme();
 
-    const handleImageClick = (image: ImageInfoDto, column : number) => {
-        if(image!==null && image!==selectedImage) {
-            setSelectedImage(image);
-            onImageClick(image,column);
-            console.log("image is selected", image.name);
+    // Get all image results from all pages
+    const allImages = images?.pages?.flatMap(page => page.result) || [];
+
+    // Check if there are more pages to load
+    const hasNextPage = images?.pages?.[images.pages.length - 1]?.next_page != null;
+
+    // Update selected image if store's current image is in this column level
+    useEffect(() => {
+        if (currentImage && currentImage.level === level) {
+            setSelectedImage(currentImage);
         }
-    };
+    }, [currentImage, level]);
 
+    // Handle image click - only update if different image selected
+    const handleImageClick = useCallback((image: ImageInfoDto) => {
+        if (image !== null && image.oid !== selectedImage?.oid) {
+            setSelectedImage(image);
+            onImageClick(image, level);
+        }
+    }, [selectedImage, onImageClick, level]);
+
+    // Calculate if images are available to show
+    const hasImages = allImages.length > 0;
+
+    // Return early if no images to show
+    if (!hasImages) {
+        return null;
+    }
 
     return (
-        <>
-            {/*<h3>{caption}</h3>*/}
-            <ImageList cols={1} rowHeight={170} sx={{ width: 170, height: 700,display:'block'  }}>
-                {images?.pages?.map((_thePagedImageResponse, index) => (
-                    _thePagedImageResponse.result.map((img,index)=>
+        <Paper
+            elevation={0}
+            sx={{
+                width: 180,
+                height: '100%',
+                maxHeight: 700,
+                display: 'flex',
+                flexDirection: 'column',
+                backgroundColor: 'transparent',
+                position: 'relative',
+                overflow: 'hidden'
+            }}
+        >
+            <Box
+                sx={{
+                    overflow: 'auto',
+                    scrollbarWidth: 'thin',
+                    '&::-webkit-scrollbar': {
+                        width: '6px',
+                    },
+                    '&::-webkit-scrollbar-track': {
+                        backgroundColor: alpha(theme.palette.primary.main, 0.05),
+                    },
+                    '&::-webkit-scrollbar-thumb': {
+                        backgroundColor: alpha(theme.palette.primary.main, 0.2),
+                        borderRadius: '3px',
+                        '&:hover': {
+                            backgroundColor: alpha(theme.palette.primary.main, 0.3),
+                        },
+                    },
+                    flex: 1
+                }}
+            >
+                <ImageList
+                    cols={1}
+                    gap={8}
+                    sx={{
+                        width: 170,
+                        margin: 0,
+                        padding: '4px',
+                        paddingBottom: hasNextPage ? '40px' : '8px'
+                    }}
+                >
+                    {allImages.map((img, index) => (
                         <ThumbImage
+                            key={`${level}-${img.oid || index}`}
                             image={img}
-                            key={index}
-                            isSelected={selectedImage?.oid == img?.oid}
-                            onImageClick={() => handleImageClick(img)}
+                            isSelected={selectedImage?.oid === img.oid}
+                            onImageClick={handleImageClick}
                             level={level}
+                            fixedHeight={true}
+                            size="medium"
                         />
-                    )
-                ))}
-            </ImageList >
-        </>
+                    ))}
+                </ImageList>
 
+                {/* "Load more" button for pagination */}
+                {hasNextPage && (
+                    <Box
+                        sx={{
+                            position: 'sticky',
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            display: 'flex',
+                            justifyContent: 'center',
+                            padding: '8px',
+                            backgroundColor: alpha(theme.palette.background.paper, 0.8),
+                            backdropFilter: 'blur(4px)',
+                            borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`
+                        }}
+                    >
+                        <Button
+                            variant="text"
+                            size="small"
+                            onClick={() => {
+                                if (images && !loadingMore) {
+                                    setLoadingMore(true);
+                                    // This is a placeholder for the fetchNextPage function
+                                    // In a real implementation, you would call images.fetchNextPage()
+                                    // and then set loadingMore to false when complete
+                                    setTimeout(() => setLoadingMore(false), 1000);
+                                }
+                            }}
+                            disabled={loadingMore}
+                            startIcon={loadingMore ? <CircularProgress size={14} /> : <ChevronDown size={14} />}
+                            sx={{ fontSize: '0.75rem' }}
+                        >
+                            {loadingMore ? 'Loading...' : 'Load more'}
+                        </Button>
+                    </Box>
+                )}
+            </Box>
+        </Paper>
     );
 };
