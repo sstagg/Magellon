@@ -12,11 +12,12 @@ import {
     Tooltip,
     Typography,
     useTheme,
-    Chip
+    Chip,
+    Fab
 } from "@mui/material";
 import ImageInfoDto, { AtlasImageDto, SessionDto } from "./ImageInfoDto.ts";
 import IconButton from "@mui/material/IconButton";
-import { EyeOutlined } from "@ant-design/icons";
+import { EyeOutlined, EyeInvisibleOutlined } from "@ant-design/icons";
 import { useEffect, useState } from "react";
 import { ImageColumnState } from "../../panel/pages/ImagesPageView.tsx";
 import AtlasViewer from "./AtlasViewer.tsx";
@@ -24,7 +25,9 @@ import { settings } from "../../../core/settings.ts";
 import {
     AccountTreeRounded,
     GridOnRounded,
-    ViewColumn
+    ViewColumn,
+    Visibility,
+    VisibilityOff
 } from "@mui/icons-material";
 import { useImageViewerStore } from './store/imageViewerStore.ts';
 import GridGallery from "./GridGallery.tsx";
@@ -44,14 +47,14 @@ interface ImageNavigatorProps {
 }
 
 export const ImageWorkspace: React.FC<ImageNavigatorProps> = ({
-                                                                             onImageClick,
-                                                                             selectedImage,
-                                                                             selectedSession,
-                                                                             ImageColumns,
-                                                                             Atlases,
-                                                                             Sessions,
-                                                                             OnSessionSelected
-                                                                         }) => {
+                                                                  onImageClick,
+                                                                  selectedImage,
+                                                                  selectedSession,
+                                                                  ImageColumns,
+                                                                  Atlases,
+                                                                  Sessions,
+                                                                  OnSessionSelected
+                                                              }) => {
     const theme = useTheme();
 
     // Get store state and actions
@@ -242,7 +245,8 @@ export const ImageWorkspace: React.FC<ImageNavigatorProps> = ({
             height: '100%',
             display: 'flex',
             flexDirection: 'column',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            position: 'relative' // Add position relative for FAB positioning
         }}>
             {/* Header with session selector and atlas toggle - Fixed height */}
             <Box sx={{
@@ -256,31 +260,10 @@ export const ImageWorkspace: React.FC<ImageNavigatorProps> = ({
                     alignItems: 'center',
                     mb: 1
                 }}>
-                    {/* Session selector - takes more space */}
-                    <Box sx={{ flex: 2 }}>
+                    {/* Session selector - takes full width */}
+                    <Box sx={{ flex: 1 }}>
                         {renderSessionSelector()}
                     </Box>
-
-                    {/* Atlas visibility toggle */}
-                    <Paper
-                        elevation={0}
-                        variant="outlined"
-                        sx={{
-                            height: 56,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            p: 2,
-                            borderRadius: 1,
-                            flex: '0 0 auto'
-                        }}
-                    >
-                        <Tooltip title={isAtlasVisible ? "Hide Atlas" : "Show Atlas"}>
-                            <IconButton onClick={toggleAtlasVisibility} size="small">
-                                <EyeOutlined />
-                            </IconButton>
-                        </Tooltip>
-                    </Paper>
                 </Box>
 
                 {/* Atlas section */}
@@ -329,6 +312,28 @@ export const ImageWorkspace: React.FC<ImageNavigatorProps> = ({
             }}>
                 {renderNavView()}
             </Box>
+
+            {/* Circular Floating Action Button for Atlas Toggle */}
+            <Fab
+                color="primary"
+                size="small"
+                onClick={toggleAtlasVisibility}
+                sx={{
+                    position: 'absolute',
+                    bottom: 16,
+                    right: 16,
+                    zIndex: 1000,
+                    boxShadow: 3,
+                    '&:hover': {
+                        boxShadow: 6,
+                        transform: 'scale(1.05)'
+                    },
+                    transition: 'all 0.2s ease-in-out'
+                }}
+                aria-label={isAtlasVisible ? "Hide Atlas" : "Show Atlas"}
+            >
+                {isAtlasVisible ? <VisibilityOff /> : <Visibility />}
+            </Fab>
         </Box>
     );
 };

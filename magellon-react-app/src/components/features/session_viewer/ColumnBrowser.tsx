@@ -12,7 +12,7 @@ import { ExpandLess, ExpandMore, Settings } from '@mui/icons-material';
 import ImageInfoDto from './ImageInfoDto.ts';
 import { ImageColumnState } from '../../panel/pages/ImagesPageView.tsx';
 import InteractiveColumn from './InteractiveColumn.tsx';
-// import SlickImageColumnComponent from './SlickImageColumnComponent.tsx';
+import { ImageColumn } from './ImageColumn.tsx';
 
 import ColumnPreferences, {
     ColumnSettings,
@@ -183,11 +183,14 @@ export const ColumnBrowser: React.FC<StackedViewProps> = ({
 
     // Render enhanced columns view
     const renderEnhancedView = () => {
+        const isHorizontal = columnSettings.columnDirection === 'horizontal';
+
         return (
             <Box sx={{
                 display: 'flex',
+                flexDirection: isHorizontal ? 'column' : 'row',
                 gap: 1,
-                overflowX: 'auto',
+                overflow: isHorizontal ? 'auto' : 'auto',
                 height: '100%',
                 pb: 1,
                 flex: 1
@@ -203,14 +206,20 @@ export const ColumnBrowser: React.FC<StackedViewProps> = ({
                             level={originalIndex}
                             parentImage={originalIndex === 0 ? null : imageColumns[originalIndex - 1]?.selectedImage || null}
                             sessionName={sessionName}
-                            width={columnSettings.columnWidth}
-                            height={undefined} // Let it fill available height
+                            width={isHorizontal ? undefined : columnSettings.columnWidth}
+                            height={isHorizontal ? columnSettings.columnWidth : undefined} // Use columnWidth as height for horizontal
                             onImageClick={onImageClick}
                             showControls={columnSettings.showColumnControls}
                             collapsible={originalIndex > 0}
                             sx={{
                                 flexShrink: 0,
-                                height: '100%'
+                                ...(isHorizontal ? {
+                                    width: '100%',
+                                    height: columnSettings.columnWidth
+                                } : {
+                                    height: '100%',
+                                    width: columnSettings.columnWidth
+                                })
                             }}
                         />
                     );
@@ -241,16 +250,28 @@ export const ColumnBrowser: React.FC<StackedViewProps> = ({
 
     // Render legacy stack view
     const renderLegacyView = () => {
+        const isHorizontal = columnSettings.columnDirection === 'horizontal';
+
         return (
             <Box sx={{
                 display: 'flex',
+                flexDirection: isHorizontal ? 'column' : 'row',
                 flexWrap: 'nowrap',
-                overflowX: 'auto',
+                overflow: 'auto',
                 height: '100%',
                 flex: 1
             }}>
                 {imageColumns.map((column, index) => (
-                    <Box key={`stack-column-${index}`} sx={{ flexShrink: 0 }}>
+                    <Box
+                        key={`stack-column-${index}`}
+                        sx={{
+                            flexShrink: 0,
+                            ...(isHorizontal && {
+                                width: '100%',
+                                height: columnSettings.columnWidth
+                            })
+                        }}
+                    >
                         <ImageColumn
                             caption={column.caption}
                             images={column.images}

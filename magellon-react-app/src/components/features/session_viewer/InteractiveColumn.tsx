@@ -91,11 +91,11 @@ interface SlickImageColumnProps {
      */
     level: number;
     /**
-     * Width of the column
+     * Width of the column (for vertical layout)
      */
     width?: number;
     /**
-     * Height of the column
+     * Height of the column (for horizontal layout)
      */
     height?: number;
     /**
@@ -122,23 +122,32 @@ interface SlickImageColumnProps {
 
 /**
  * Slick ImageColumnComponent with minimal header and streamlined design
+ * Now supports both horizontal and vertical layouts
  */
 export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
-                                                                               onImageClick,
-                                                                               parentImage,
-                                                                               sessionName,
-                                                                               level,
-                                                                               caption,
-                                                                               width = 200,
-                                                                               height = 700,
-                                                                               showControls = true,
-                                                                               initialDisplayMode = 'stack',
-                                                                               collapsible = false,
-                                                                               initialCollapsed = false,
-                                                                               sx = {}
-                                                                           }) => {
+                                                                       onImageClick,
+                                                                       parentImage,
+                                                                       sessionName,
+                                                                       level,
+                                                                       caption,
+                                                                       width = 200,
+                                                                       height = 700,
+                                                                       showControls = true,
+                                                                       initialDisplayMode = 'stack',
+                                                                       collapsible = false,
+                                                                       initialCollapsed = false,
+                                                                       sx = {}
+                                                                   }) => {
     const theme = useTheme();
     const scrollRef = useRef<HTMLDivElement>(null);
+
+    // Determine if we're in horizontal mode based on whether height is less than width
+    // or if height is explicitly set and width is not (indicating horizontal layout)
+    const isHorizontalMode = useMemo(() => {
+        if (height !== undefined && width === undefined) return true;
+        if (height !== undefined && width !== undefined) return height < width;
+        return false;
+    }, [height, width]);
 
     // Local state
     const [parentId, setParentId] = useState<string | null>(null);
@@ -441,7 +450,7 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
         </Box>
     );
 
-    // Render images based on display mode
+    // Render images based on display mode and layout direction
     const renderImages = () => {
         if (isCollapsed) return null;
 
@@ -456,16 +465,26 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
             );
         }
 
-        // Grid or list mode
-        const gridCols = displayMode === 'grid' ? 2 : 1;
+        // Grid or list mode - adapt for horizontal layout
+        const gridCols = isHorizontalMode
+            ? (displayMode === 'grid' ? Math.floor((width || 800) / 120) : Math.floor((width || 800) / 200))
+            : (displayMode === 'grid' ? 2 : 1);
         const imageSize = displayMode === 'grid' ? 'small' : 'medium';
 
         return (
             <Box sx={{
                 display: 'grid',
-                gridTemplateColumns: `repeat(${gridCols}, 1fr)`,
+                gridTemplateColumns: isHorizontalMode
+                    ? `repeat(${gridCols}, 1fr)`
+                    : `repeat(${displayMode === 'grid' ? 2 : 1}, 1fr)`,
+                gridAutoFlow: isHorizontalMode ? 'column' : 'row',
                 gap: 1,
-                p: 1
+                p: 1,
+                ...(isHorizontalMode && {
+                    overflowX: 'auto',
+                    overflowY: 'hidden',
+                    gridTemplateRows: 'repeat(auto-fit, minmax(120px, 1fr))'
+                })
             }}>
                 {filteredImages.map((image, index) => (
                     <ImageThumbnail
@@ -481,7 +500,17 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
 
                 {/* Load more button */}
                 {hasNextPage && (
-                    <Box sx={{ gridColumn: '1 / -1', textAlign: 'center', mt: 1 }}>
+                    <Box sx={{
+                        ...(isHorizontalMode
+                                ? { gridRow: '1 / -1' }
+                                : { gridColumn: '1 / -1' }
+                        ),
+                        textAlign: 'center',
+                        mt: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }}>
                         <Button
                             variant="outlined"
                             size="small"
@@ -498,6 +527,27 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
         );
     };
 
+    // Calculate dimensions based on layout mode
+    const containerStyle = useMemo(() => {
+        if (isHorizontalMode) {
+            return {
+                width: width || '100%',
+                height: height || 200,
+                display: 'flex',
+                flexDirection: 'column' as const,
+                overflow: 'hidden'
+            };
+        } else {
+            return {
+                width: width || 200,
+                height: height || 700,
+                display: 'flex',
+                flexDirection: 'column' as const,
+                overflow: 'hidden'
+            };
+        }
+    }, [isHorizontalMode, width, height]);
+
     // Render loading state
     if (isLoading) {
         return (
@@ -505,22 +555,22 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                 elevation={0}
                 variant="outlined"
                 sx={{
-                    width,
-                    height,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    overflow: 'hidden',
+                    ...containerStyle,
                     ...sx
                 }}
             >
                 {renderSlickHeader()}
-                <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1, p: 1 }}>
+                <Box sx={{ flex: 1, display: 'flex', flexDirection: isHorizontalMode ? 'row' : 'column', gap: 1, p: 1 }}>
                     {Array.from({ length: 5 }).map((_, index) => (
                         <Skeleton
                             key={index}
                             variant="rectangular"
-                            height={48}
-                            sx={{ borderRadius: 1 }}
+                            width={isHorizontalMode ? 120 : undefined}
+                            height={isHorizontalMode ? undefined : 48}
+                            sx={{
+                                borderRadius: 1,
+                                ...(isHorizontalMode ? { flexShrink: 0 } : {})
+                            }}
                         />
                     ))}
                 </Box>
@@ -535,7 +585,7 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                 elevation={0}
                 variant="outlined"
                 sx={{
-                    width,
+                    ...containerStyle,
                     height: 'auto',
                     ...sx
                 }}
@@ -564,7 +614,7 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                 elevation={0}
                 variant="outlined"
                 sx={{
-                    width,
+                    ...containerStyle,
                     height: 'auto',
                     ...sx
                 }}
@@ -594,11 +644,7 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
             elevation={0}
             variant="outlined"
             sx={{
-                width,
-                height,
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden',
+                ...containerStyle,
                 border: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
                 borderRadius: 2,
                 backgroundColor: 'background.paper',
@@ -611,9 +657,10 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                 ref={scrollRef}
                 sx={{
                     flex: 1,
-                    overflow: 'auto',
+                    overflow: isHorizontalMode ? 'hidden' : 'auto',
                     '&::-webkit-scrollbar': {
-                        width: '4px',
+                        width: isHorizontalMode ? '4px' : '4px',
+                        height: isHorizontalMode ? '4px' : '4px',
                     },
                     '&::-webkit-scrollbar-track': {
                         backgroundColor: 'transparent',

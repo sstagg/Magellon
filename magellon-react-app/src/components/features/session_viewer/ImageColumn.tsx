@@ -39,11 +39,11 @@ interface ImagesStackProps {
  * Component that displays a vertical stack of image thumbnails
  */
 export const ImageColumn: React.FC<ImagesStackProps> = ({
-                                                                     caption,
-                                                                     images,
-                                                                     onImageClick,
-                                                                     level
-                                                                 }) => {
+                                                            caption,
+                                                            images,
+                                                            onImageClick,
+                                                            level
+                                                        }) => {
     // Local state
     const [selectedImage, setSelectedImage] = useState<ImageInfoDto | null>(null);
     const [loadingMore, setLoadingMore] = useState(false);
@@ -178,3 +178,6 @@ export const ImageColumn: React.FC<ImagesStackProps> = ({
         </Paper>
     );
 };
+
+// Also provide as default export for backward compatibility
+export default ImageColumn;
