@@ -228,6 +228,10 @@ export const ImagesPageView = () => {
     // Calculate left margin based on drawer state
     const leftMargin = isDrawerOpen ? DRAWER_WIDTH : 0;
 
+    // Calculate 5% padding values
+    const paddingValue = isMobile ? '3%' : '5%';
+    const topBottomPadding = isMobile ? '1.5%' : '3%';
+
     // Sync atlas images with store when they change
     useEffect(() => {
         if (atlasImages) {
@@ -368,7 +372,7 @@ export const ImagesPageView = () => {
         }
     }, []);
 
-    // Mobile layout - stack components vertically with full screen
+    // Mobile layout - stack components vertically with full screen and beautiful padding
     const renderMobileLayout = () => {
         return (
             <Box sx={{
@@ -387,36 +391,53 @@ export const ImagesPageView = () => {
                     duration: theme.transitions.duration.enteringScreen,
                 }),
             }}>
+                {/* Container with padding for beautiful layout */}
                 <Box sx={{
-                    height: '50%',
-                    overflow: 'auto',
-                    borderBottom: `1px solid ${theme.palette.divider}`,
-                    maxWidth: '100%'
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    p: paddingValue,
+                    pt: topBottomPadding,
+                    pb: topBottomPadding,
+                    overflow: 'hidden'
                 }}>
-                    <ImageWorkspace
-                        onImageClick={OnCurrentImageChanged}
-                        selectedSession={currentSession}
-                        OnSessionSelected={OnSessionSelected}
-                        selectedImage={currentImage}
-                        ImageColumns={imageColumns}
-                        Sessions={sessionData}
-                        Atlases={atlasImages}
-                    />
-                </Box>
-                {currentImage && (
                     <Box sx={{
                         height: '50%',
                         overflow: 'auto',
-                        minHeight: '300px'
+                        borderBottom: `1px solid ${theme.palette.divider}`,
+                        borderRadius: 2,
+                        backgroundColor: 'background.paper',
+                        boxShadow: 1,
+                        mb: 2
                     }}>
-                        <ImageInspector selectedImage={currentImage} />
+                        <ImageWorkspace
+                            onImageClick={OnCurrentImageChanged}
+                            selectedSession={currentSession}
+                            OnSessionSelected={OnSessionSelected}
+                            selectedImage={currentImage}
+                            ImageColumns={imageColumns}
+                            Sessions={sessionData}
+                            Atlases={atlasImages}
+                        />
                     </Box>
-                )}
+                    {currentImage && (
+                        <Box sx={{
+                            height: '50%',
+                            overflow: 'auto',
+                            minHeight: '300px',
+                            borderRadius: 2,
+                            backgroundColor: 'background.paper',
+                            boxShadow: 1
+                        }}>
+                            <ImageInspector selectedImage={currentImage} />
+                        </Box>
+                    )}
+                </Box>
             </Box>
         );
     };
 
-    // Desktop layout - resizable panels with full screen and optimized constraints
+    // Desktop layout - resizable panels with full screen, beautiful padding and rounded corners
     const renderDesktopLayout = () => {
         return (
             <Box sx={{
@@ -434,68 +455,93 @@ export const ImagesPageView = () => {
                     duration: theme.transitions.duration.enteringScreen,
                 }),
             }}>
-                <PanelGroup
-                    direction="horizontal"
-                    onLayout={handlePanelResize}
-                    style={{
+                {/* Container with padding for beautiful layout */}
+                <Box sx={{
+                    flex: 1,
+                    display: 'flex',
+                    p: paddingValue,
+                    pt: topBottomPadding,
+                    pb: topBottomPadding,
+                    overflow: 'hidden'
+                }}>
+                    {/* Main content area with rounded corners and shadow */}
+                    <Box sx={{
                         width: '100%',
                         height: '100%',
-                        minWidth: 0
-                    }}
-                >
-                    {/* Left Panel - Session Navigator (ImageWorkspace) */}
-                    <Panel
-                        id="session-navigator"
-                        defaultSize={leftPanelSize}
-                        minSize={25}        // Minimum 25% of total width (more space for images)
-                        maxSize={50}        // Maximum 50% of total width
-                        style={{
-                            minWidth: 0,
-                            overflow: 'hidden'
-                        }}
-                    >
-                        <Box sx={{
-                            height: '100%',
-                            overflow: 'hidden',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            backgroundColor: 'background.paper',
-                        }}>
-                            <ImageWorkspace
-                                onImageClick={OnCurrentImageChanged}
-                                selectedSession={currentSession}
-                                OnSessionSelected={OnSessionSelected}
-                                selectedImage={currentImage}
-                                ImageColumns={imageColumns}
-                                Sessions={sessionData}
-                                Atlases={atlasImages}
-                            />
-                        </Box>
-                    </Panel>
+                        borderRadius: 3,
+                        backgroundColor: 'background.paper',
+                        boxShadow: 3,
+                        overflow: 'hidden',
+                        border: `1px solid ${theme.palette.divider}`
+                    }}>
+                        <PanelGroup
+                            direction="horizontal"
+                            onLayout={handlePanelResize}
+                            style={{
+                                width: '100%',
+                                height: '100%',
+                                minWidth: 0
+                            }}
+                        >
+                            {/* Left Panel - Session Navigator (ImageWorkspace) */}
+                            <Panel
+                                id="session-navigator"
+                                defaultSize={leftPanelSize}
+                                minSize={25}        // Minimum 25% of total width (more space for images)
+                                maxSize={50}        // Maximum 50% of total width
+                                style={{
+                                    minWidth: 0,
+                                    overflow: 'hidden'
+                                }}
+                            >
+                                <Box sx={{
+                                    height: '100%',
+                                    overflow: 'hidden',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    backgroundColor: 'background.paper',
+                                    borderTopLeftRadius: 3,
+                                    borderBottomLeftRadius: 3
+                                }}>
+                                    <ImageWorkspace
+                                        onImageClick={OnCurrentImageChanged}
+                                        selectedSession={currentSession}
+                                        OnSessionSelected={OnSessionSelected}
+                                        selectedImage={currentImage}
+                                        ImageColumns={imageColumns}
+                                        Sessions={sessionData}
+                                        Atlases={atlasImages}
+                                    />
+                                </Box>
+                            </Panel>
 
-                    {/* Resize Handle */}
-                    <CustomResizeHandle />
+                            {/* Resize Handle */}
+                            <CustomResizeHandle />
 
-                    {/* Right Panel - Solo Image Viewer (ImageInspector) - Gets more space */}
-                    <Panel
-                        id="image-viewer"
-                        minSize={50}        // Minimum 50% of total width - more space for detailed viewing
-                        style={{
-                            minWidth: '500px', // Reduced minimum - let it be more flexible
-                            overflow: 'hidden'
-                        }}
-                    >
-                        <Box sx={{
-                            height: '100%',
-                            overflow: 'hidden',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            backgroundColor: 'background.paper',
-                        }}>
-                            <ImageInspector selectedImage={currentImage} />
-                        </Box>
-                    </Panel>
-                </PanelGroup>
+                            {/* Right Panel - Solo Image Viewer (ImageInspector) - Gets more space */}
+                            <Panel
+                                id="image-viewer"
+                                minSize={50}        // Minimum 50% of total width - more space for detailed viewing
+                                style={{
+                                    minWidth: '500px', // Reduced minimum - let it be more flexible
+                                    overflow: 'hidden'
+                                }}
+                            >
+                                <Box sx={{
+                                    height: '100%',
+                                    overflow: 'hidden',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    backgroundColor: 'background.paper',
+                                    borderTopRightRadius: 3,
+                                    borderBottomRightRadius: 3
+                                }}>
+                                    <ImageInspector selectedImage={currentImage} />
+                                </Box>
+                            </Panel>
+                        </PanelGroup>
+                    </Box>
+                </Box>
             </Box>
         );
     };
