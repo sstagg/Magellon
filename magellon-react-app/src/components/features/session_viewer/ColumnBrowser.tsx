@@ -11,9 +11,9 @@ import {
 import { ExpandLess, ExpandMore, Settings } from '@mui/icons-material';
 import ImageInfoDto from './ImageInfoDto.ts';
 import { ImageColumnState } from '../../panel/pages/ImagesPageView.tsx';
-import ImageColumnComponent from './ImageColumnComponent.tsx';
+import InteractiveColumn from './InteractiveColumn.tsx';
 // import SlickImageColumnComponent from './SlickImageColumnComponent.tsx';
-import { ImageColumn } from './ImageColumn.tsx';
+
 import ColumnPreferences, {
     ColumnSettings,
     defaultColumnSettings
@@ -58,15 +58,15 @@ interface StackedViewProps {
  * StackedView component that manages the column view display with settings
  */
 export const ColumnBrowser: React.FC<StackedViewProps> = ({
-                                                            imageColumns,
-                                                            onImageClick,
-                                                            sessionName,
-                                                            showSettings = true,
-                                                            initialSettings = {},
-                                                            initialSettingsCollapsed = false,
-                                                            height = '100%',
-                                                            sx = {}
-                                                        }) => {
+                                                              imageColumns = [], // Add default value
+                                                              onImageClick,
+                                                              sessionName,
+                                                              showSettings = true,
+                                                              initialSettings = {},
+                                                              initialSettingsCollapsed = false,
+                                                              height = '100%',
+                                                              sx = {}
+                                                          }) => {
     // Column settings state
     const [columnSettings, setColumnSettings] = useState<ColumnSettings>({
         ...defaultColumnSettings,
@@ -78,6 +78,11 @@ export const ColumnBrowser: React.FC<StackedViewProps> = ({
 
     // Calculate which columns should be visible based on settings
     const visibleColumns = useMemo(() => {
+        // Guard against undefined imageColumns
+        if (!imageColumns || !Array.isArray(imageColumns)) {
+            return [];
+        }
+
         return imageColumns.filter((col, index) => {
             if (!columnSettings.autoHideEmptyColumns) return true;
 
@@ -91,6 +96,15 @@ export const ColumnBrowser: React.FC<StackedViewProps> = ({
 
     // Get statistics for display
     const statistics = useMemo(() => {
+        // Guard against undefined imageColumns
+        if (!imageColumns || !Array.isArray(imageColumns)) {
+            return {
+                totalColumns: 0,
+                visibleCount: 0,
+                totalImages: 0
+            };
+        }
+
         const totalColumns = imageColumns.length;
         const visibleCount = visibleColumns.length;
         const totalImages = imageColumns.reduce((sum, col) => {
@@ -183,7 +197,7 @@ export const ColumnBrowser: React.FC<StackedViewProps> = ({
                     const originalIndex = imageColumns.findIndex(col => col === column);
 
                     return (
-                        <ImageColumnComponent
+                        <InteractiveColumn
                             key={`enhanced-column-${originalIndex}`}
                             caption={column.caption}
                             level={originalIndex}

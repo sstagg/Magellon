@@ -123,7 +123,7 @@ interface SlickImageColumnProps {
 /**
  * Slick ImageColumnComponent with minimal header and streamlined design
  */
-export const ImageColumnComponent: React.FC<SlickImageColumnProps> = ({
+export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                                                                                onImageClick,
                                                                                parentImage,
                                                                                sessionName,
@@ -688,4 +688,4 @@ export const ImageColumnComponent: React.FC<SlickImageColumnProps> = ({
     );
 };
 
-export default ImageColumnComponent;
+export default InteractiveColumn;

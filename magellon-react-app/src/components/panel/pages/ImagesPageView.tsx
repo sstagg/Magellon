@@ -2,14 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { Box, useTheme, useMediaQuery } from '@mui/material';
 import { SelectChangeEvent } from '@mui/material';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import { SessionNavigatorComponent } from '../../features/session_viewer/SessionNavigatorComponent.tsx';
-import { SoloImageViewerComponent } from '../../features/session_viewer/SoloImageViewerComponent.tsx';
+import { ImageWorkspace } from '../../features/session_viewer/ImageWorkspace.tsx';
 import ImageInfoDto, { PagedImageResponse, SessionDto } from '../../features/session_viewer/ImageInfoDto.ts';
 import { InfiniteData } from 'react-query';
 import { useImageListQuery } from '../../../services/api/usePagedImagesHook.ts';
 import { useAtlasImages } from '../../../services/api/FetchSessionAtlasImages.ts';
 import { useSessionNames } from '../../../services/api/FetchUseSessionNames.ts';
 import { useImageViewerStore } from '../../features/session_viewer/store/imageViewerStore';
+import {ImageInspector} from "../../features/session_viewer/ImageInspector.tsx";
 
 export interface ImageColumnState {
     selectedImage: ImageInfoDto | null;
@@ -347,7 +347,7 @@ export const ImagesPageView = () => {
                     overflow: 'auto',
                     borderBottom: `1px solid ${theme.palette.divider}`
                 }}>
-                    <SessionNavigatorComponent
+                    <ImageWorkspace
                         onImageClick={OnCurrentImageChanged}
                         selectedSession={currentSession}
                         OnSessionSelected={OnSessionSelected}
@@ -362,7 +362,7 @@ export const ImagesPageView = () => {
                         height: '50%',
                         overflow: 'auto'
                     }}>
-                        <SoloImageViewerComponent selectedImage={currentImage} />
+                        <ImageInspector selectedImage={currentImage} />
                     </Box>
                 )}
             </Box>
@@ -396,7 +396,7 @@ export const ImagesPageView = () => {
                         flexDirection: 'column',
                         backgroundColor: 'background.paper'
                     }}>
-                        <SessionNavigatorComponent
+                        <ImageWorkspace
                             onImageClick={OnCurrentImageChanged}
                             selectedSession={currentSession}
                             OnSessionSelected={OnSessionSelected}
@@ -423,7 +423,7 @@ export const ImagesPageView = () => {
                         flexDirection: 'column',
                         backgroundColor: 'background.paper'
                     }}>
-                        <SoloImageViewerComponent selectedImage={currentImage} />
+                        <ImageInspector selectedImage={currentImage} />
                     </Box>
                 </Panel>
             </PanelGroup>
