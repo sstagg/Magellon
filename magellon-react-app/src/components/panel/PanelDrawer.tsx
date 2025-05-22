@@ -68,7 +68,7 @@ const navLinks: NavLink[] = [
         icon: <BarChart2 size={20}/>
     },
     {
-        title: "About Magellon",
+        title: "About",
         url: "about",
         icon: <BarChart2 size={20}/>
     }
