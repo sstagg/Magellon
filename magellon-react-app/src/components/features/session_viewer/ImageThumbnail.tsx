@@ -30,7 +30,7 @@ interface ThumbImageProps {
  * ThumbImage component displays a thumbnail of an image with relevant metadata
  * and handles selection and hover states.
  */
-export const ThumbImage = ({
+export const ImageThumbnail = ({
                                image,
                                onImageClick,
                                level,

@@ -45,7 +45,7 @@ interface ApiResponse {
     result: ImageInfoDto;
 }
 
-export default function AtlasImage({ name, finalWidth, finalHeight, backgroundColor, imageMapJson, onImageClick }: AtlasPictureProps) {
+export default function AtlasViewer({ name, finalWidth, finalHeight, backgroundColor, imageMapJson, onImageClick }: AtlasPictureProps) {
     // Get the current session from the store
     const { currentSession } = useImageViewerStore();
     const sessionName = currentSession?.name || '';

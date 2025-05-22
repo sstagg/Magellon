@@ -42,7 +42,7 @@ interface TreeNode {
 /**
  * TreeViewer displays images in a hierarchical tree structure using Material UI TreeView.
  */
-export const TreeViewer: React.FC<TreeViewerProps> = ({
+export const HierarchyBrowser: React.FC<TreeViewerProps> = ({
                                                           images,
                                                           onImageClick,
                                                           title = 'Image Tree'
@@ -451,4 +451,4 @@ export const TreeViewer: React.FC<TreeViewerProps> = ({
     );
 };
 
-export default TreeViewer;
+export default HierarchyBrowser;

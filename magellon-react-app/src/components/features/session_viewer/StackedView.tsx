@@ -13,11 +13,11 @@ import ImageInfoDto from './ImageInfoDto.ts';
 import { ImageColumnState } from '../../panel/pages/ImagesPageView.tsx';
 import ImageColumnComponent from './ImageColumnComponent.tsx';
 // import SlickImageColumnComponent from './SlickImageColumnComponent.tsx';
-import { ImagesStackComponent } from './ImagesStackComponent.tsx';
-import ColumnSettingsComponent, {
+import { ImageColumn } from './ImageColumn.tsx';
+import ColumnPreferences, {
     ColumnSettings,
     defaultColumnSettings
-} from './ColumnSettingsComponent.tsx';
+} from './ColumnPreferences.tsx';
 
 interface StackedViewProps {
     /**
@@ -154,7 +154,7 @@ export const StackedView: React.FC<StackedViewProps> = ({
                 {/* Settings content */}
                 <Collapse in={!settingsCollapsed}>
                     <Box sx={{ p: 1 }}>
-                        <ColumnSettingsComponent
+                        <ColumnPreferences
                             settings={columnSettings}
                             onSettingsChange={setColumnSettings}
                             visible={true}
@@ -237,7 +237,7 @@ export const StackedView: React.FC<StackedViewProps> = ({
             }}>
                 {imageColumns.map((column, index) => (
                     <Box key={`stack-column-${index}`} sx={{ flexShrink: 0 }}>
-                        <ImagesStackComponent
+                        <ImageColumn
                             caption={column.caption}
                             images={column.images}
                             level={index}

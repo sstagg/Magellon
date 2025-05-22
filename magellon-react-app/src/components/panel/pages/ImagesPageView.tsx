@@ -6,7 +6,7 @@ import { SessionNavigatorComponent } from '../../features/session_viewer/Session
 import { SoloImageViewerComponent } from '../../features/session_viewer/SoloImageViewerComponent.tsx';
 import ImageInfoDto, { PagedImageResponse, SessionDto } from '../../features/session_viewer/ImageInfoDto.ts';
 import { InfiniteData } from 'react-query';
-import { usePagedImages } from '../../../services/api/usePagedImagesHook.ts';
+import { useImageListQuery } from '../../../services/api/usePagedImagesHook.ts';
 import { useAtlasImages } from '../../../services/api/FetchSessionAtlasImages.ts';
 import { useSessionNames } from '../../../services/api/FetchUseSessionNames.ts';
 import { useImageViewerStore } from '../../features/session_viewer/store/imageViewerStore';
@@ -268,7 +268,7 @@ export const ImagesPageView = () => {
         data, error, isLoading, isSuccess, isError, refetch,
         fetchNextPage, hasNextPage, isFetching, isFetchingNextPage,
         status,
-    } = usePagedImages({ sessionName, parentId: parentId, pageSize, level });
+    } = useImageListQuery({ sessionName, parentId: parentId, pageSize, level });
 
     // Update image columns when data changes
     useEffect(() => {

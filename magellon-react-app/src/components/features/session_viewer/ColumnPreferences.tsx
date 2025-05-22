@@ -58,7 +58,7 @@ interface ColumnSettingsProps {
 /**
  * Reusable component for configuring column view settings
  */
-export const ColumnSettingsComponent: React.FC<ColumnSettingsProps> = ({
+export const ColumnPreferences: React.FC<ColumnSettingsProps> = ({
                                                                            settings,
                                                                            onSettingsChange,
                                                                            visible = true,
@@ -197,4 +197,4 @@ export const defaultColumnSettings: ColumnSettings = {
     useEnhancedColumns: true
 };
 
-export default ColumnSettingsComponent;
+export default ColumnPreferences;

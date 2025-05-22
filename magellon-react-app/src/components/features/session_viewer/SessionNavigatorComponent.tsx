@@ -19,7 +19,7 @@ import IconButton from "@mui/material/IconButton";
 import { EyeOutlined } from "@ant-design/icons";
 import { useEffect, useState } from "react";
 import { ImageColumnState } from "../../panel/pages/ImagesPageView.tsx";
-import AtlasImage from "./AtlasImage.tsx";
+import AtlasViewer from "./AtlasViewer.tsx";
 import { settings } from "../../../core/settings.ts";
 import {
     AccountTreeRounded,
@@ -27,8 +27,8 @@ import {
     ViewColumn
 } from "@mui/icons-material";
 import { useImageViewerStore } from './store/imageViewerStore.ts';
-import FlatImageViewerComponent from "./FlatImageViewerComponent.tsx";
-import TreeViewer from "./TreeViewer.tsx";
+import GridGallery from "./GridGallery.tsx";
+import HierarchyBrowser from "./HierarchyBrowser.tsx";
 import StackedView from "./StackedView.tsx";
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
@@ -166,7 +166,7 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
     // Render the tree view (hierarchical)
     const renderTreeView = () => {
         return (
-            <TreeViewer
+            <HierarchyBrowser
                 images={ImageColumns[0].images}
                 onImageClick={onImageClick}
                 title="Image Hierarchy"
@@ -191,7 +191,7 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
     // Render the flat view (non-hierarchical)
     const renderFlatView = () => {
         return (
-            <FlatImageViewerComponent
+            <GridGallery
                 images={ImageColumns[0].images}
                 onImageClick={onImageClick}
                 title="All Images"
@@ -301,7 +301,7 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
                         {/* Current atlas view */}
                         {currentAtlas && (
                             <Box sx={{ flex: 2 }}>
-                                <AtlasImage
+                                <AtlasViewer
                                     imageMapJson={currentAtlas?.meta}
                                     finalWidth={180}
                                     finalHeight={120}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Grid, Box, Typography, CircularProgress, Pagination, Badge, Chip, Stack, Button } from '@mui/material';
 import ImageInfoDto, { PagedImageResponse } from './ImageInfoDto';
-import { ThumbImage } from './ThumbImage';
+import { ImageThumbnail } from './ImageThumbnail.tsx';
 import { InfiniteData } from 'react-query';
 import { useImageViewerStore } from './store/imageViewerStore';
 import ImageGridControls from './ImageGridControls';
@@ -19,7 +19,7 @@ interface FlatImageViewerProps {
  * FlatImageViewerComponent displays images in a responsive grid layout
  * without a hierarchical structure.
  */
-export const FlatImageViewerComponent: React.FC<FlatImageViewerProps> = ({
+export const GridGallery: React.FC<FlatImageViewerProps> = ({
                                                                            images,
                                                                            onImageClick,
                                                                            title = 'Images',
@@ -283,7 +283,7 @@ export const FlatImageViewerComponent: React.FC<FlatImageViewerProps> = ({
                         aspectRatio: '1/1'
                       }}
                   >
-                    <ThumbImage
+                    <ImageThumbnail
                         image={image}
                         onImageClick={handleImageClick}
                         level={0}
@@ -322,4 +322,4 @@ export const FlatImageViewerComponent: React.FC<FlatImageViewerProps> = ({
   );
 };
 
-export default FlatImageViewerComponent;
+export default GridGallery;

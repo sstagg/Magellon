@@ -42,11 +42,11 @@ import {
     ChevronDown
 } from "lucide-react";
 import ImageInfoDto, { PagedImageResponse } from "./ImageInfoDto.ts";
-import { ImagesStackComponent } from "./ImagesStackComponent.tsx";
-import { ThumbImage } from "./ThumbImage.tsx";
+import { ImageColumn } from "./ImageColumn.tsx";
+import { ImageThumbnail } from "./ImageThumbnail.tsx";
 import { InfiniteData } from "react-query";
 import { useImageViewerStore } from './store/imageViewerStore.ts';
-import { usePagedImages } from "../../../services/api/usePagedImagesHook.ts";
+import { useImageListQuery } from "../../../services/api/usePagedImagesHook.ts";
 
 // Enhanced filter options for the column
 interface ColumnFilter {
@@ -187,7 +187,7 @@ export const ImageColumnComponent: React.FC<SlickImageColumnProps> = ({
         hasNextPage,
         isFetching,
         isFetchingNextPage,
-    } = usePagedImages({
+    } = useImageListQuery({
         sessionName,
         parentId,
         pageSize,
@@ -447,7 +447,7 @@ export const ImageColumnComponent: React.FC<SlickImageColumnProps> = ({
 
         if (displayMode === 'stack') {
             return (
-                <ImagesStackComponent
+                <ImageColumn
                     caption=""
                     images={data} // Use original data for stack component
                     level={level}
@@ -468,7 +468,7 @@ export const ImageColumnComponent: React.FC<SlickImageColumnProps> = ({
                 p: 1
             }}>
                 {filteredImages.map((image, index) => (
-                    <ThumbImage
+                    <ImageThumbnail
                         key={image.oid || index}
                         image={image}
                         onImageClick={handleImageClick}

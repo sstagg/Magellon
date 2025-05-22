@@ -12,7 +12,7 @@ import {
 import { InfiniteData } from "react-query";
 import { ChevronDown } from "lucide-react";
 import ImageInfoDto, { PagedImageResponse } from "./ImageInfoDto.ts";
-import { ThumbImage } from "./ThumbImage.tsx";
+import { ImageThumbnail } from "./ImageThumbnail.tsx";
 import './ImageViewerStyles.scss';
 import { useImageViewerStore } from './store/imageViewerStore';
 
@@ -38,7 +38,7 @@ interface ImagesStackProps {
 /**
  * Component that displays a vertical stack of image thumbnails
  */
-export const ImagesStackComponent: React.FC<ImagesStackProps> = ({
+export const ImageColumn: React.FC<ImagesStackProps> = ({
                                                                      caption,
                                                                      images,
                                                                      onImageClick,
@@ -126,7 +126,7 @@ export const ImagesStackComponent: React.FC<ImagesStackProps> = ({
                     }}
                 >
                     {allImages.map((img, index) => (
-                        <ThumbImage
+                        <ImageThumbnail
                             key={`${level}-${img.oid || index}`}
                             image={img}
                             isSelected={selectedImage?.oid === img.oid}

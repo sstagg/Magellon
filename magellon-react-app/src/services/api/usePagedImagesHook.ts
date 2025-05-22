@@ -11,7 +11,7 @@ interface PagedImagesOptions {
     enabled?: boolean; // Made optional with default value
 }
 
-export function usePagedImages({ sessionName, parentId, pageSize, level, enabled = true }: PagedImagesOptions) {
+export function useImageListQuery({ sessionName, parentId, pageSize, level, enabled = true }: PagedImagesOptions) {
     // Auto-enable when we have the required data
     const shouldEnable = enabled && (
         (level === 0 && sessionName !== '') || // First level needs session

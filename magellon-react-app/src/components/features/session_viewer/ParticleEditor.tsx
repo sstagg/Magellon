@@ -23,7 +23,7 @@ interface Point {
 //     Remove = 'Remove'
 // }
 
-const ImageParticlePicking: React.FC<ImageParticlePickingProps> = ({ imageUrl,image,ipp, width, height, onCirclesSelected ,onIppUpdate}) => {
+const ParticleEditor: React.FC<ImageParticlePickingProps> = ({ imageUrl,image,ipp, width, height, onCirclesSelected ,onIppUpdate}) => {
     // const [tool, setTool] = useState<State>(State.Add);
     const [circles, setCircles] = useState<Point[]>([]);
     const [selectedCircleIndex, setSelectedCircleIndex] = useState<number | null>(null);
@@ -120,4 +120,4 @@ const ImageParticlePicking: React.FC<ImageParticlePickingProps> = ({ imageUrl,im
     );
 };
 
-export default ImageParticlePicking;
+export default ParticleEditor;

@@ -44,13 +44,13 @@ import { FileImage, Zap, Settings, Database } from "lucide-react";
 import ImageInfoDto from "./ImageInfoDto.ts";
 import { settings } from "../../../core/settings.ts";
 import ImageViewer from "./ImageViewer.tsx";
-import ImageParticlePicking from "./ImageParticlePicking.tsx";
-import { CreateParticlePickingDialog } from "./CreateParticlePickingDialog.tsx";
+import ParticleEditor from "./ParticleEditor.tsx";
+import { ParticleSessionDialog } from "./ParticleSessionDialog.tsx";
 import { useImageParticlePickings, useUpdateParticlePicking } from "../../../services/api/ParticlePickingRestService.ts";
 import { ParticlePickingDto } from "../../../domains/ParticlePickingDto.ts";
 import CtfInfoCards from "./CtfInfoCards.tsx";
 import { useFetchImageCtfInfo } from "../../../services/api/CtfRestService.ts";
-import ImageMetadataDisplay from "./ImageMetadataDisplay.tsx";
+import MetadataExplorer from "./MetadataExplorer.tsx";
 import { useImageViewerStore } from './store/imageViewerStore.ts';
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
@@ -453,7 +453,7 @@ export const SoloImageViewerComponent: React.FC<SoloImageViewerProps> = ({ selec
 
                                 {/* Particle Picking Image */}
                                 <Box sx={{ textAlign: 'center' }}>
-                                    <ImageParticlePicking
+                                    <ParticleEditor
                                         image={selectedImage}
                                         ipp={selectedParticlePicking}
                                         imageUrl={`${BASE_URL}/image_thumbnail?name=${selectedImage?.name}&sessionName=${sessionName}`}
@@ -464,7 +464,7 @@ export const SoloImageViewerComponent: React.FC<SoloImageViewerProps> = ({ selec
                                     />
                                 </Box>
 
-                                <CreateParticlePickingDialog
+                                <ParticleSessionDialog
                                     open={isParticlePickingDialogOpen}
                                     onClose={handleClose}
                                     ImageDto={selectedImage}
@@ -541,7 +541,7 @@ export const SoloImageViewerComponent: React.FC<SoloImageViewerProps> = ({ selec
                         </TabPanel>
 
                         <TabPanel value="7" sx={{ p: 3 }}>
-                            <ImageMetadataDisplay selectedImage={selectedImage} />
+                            <MetadataExplorer selectedImage={selectedImage} />
                         </TabPanel>
                     </Box>
                 </TabContext>

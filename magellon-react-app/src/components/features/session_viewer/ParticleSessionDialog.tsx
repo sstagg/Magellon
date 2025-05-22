@@ -23,7 +23,7 @@ const SuccessBox: React.FC = () => {
         />
     );
 };
-export const CreateParticlePickingDialog: React.FC<{ open: boolean; onClose: () => void ;ImageDto:ImageInfoDto}> = ({ open, onClose,ImageDto }) => {
+export const ParticleSessionDialog: React.FC<{ open: boolean; onClose: () => void ;ImageDto:ImageInfoDto}> = ({ open, onClose,ImageDto }) => {
     const [name, setName] = useState('');
     const [loading, setLoading] = useState(false);
     const [showError, setShowError] = useState(false);

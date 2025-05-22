@@ -37,7 +37,7 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
 
 
 
-const ImageMetadataDisplay: React.FC<SoloImageViewerProps> = ({ selectedImage }) => {
+const MetadataExplorer: React.FC<SoloImageViewerProps> = ({ selectedImage }) => {
     const { data: imageMetadata, error, isLoading, refetch } = useFetchImageMetaData(selectedImage?.name, false);
 
     useEffect(() => {
@@ -146,4 +146,4 @@ const ImageMetadataDisplay: React.FC<SoloImageViewerProps> = ({ selectedImage })
     );
 };
 
-export default ImageMetadataDisplay;
+export default MetadataExplorer;
