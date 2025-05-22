@@ -172,7 +172,7 @@ export const TreeViewer: React.FC<TreeViewerProps> = ({
         setExpandedItems(itemIds);
     };
 
-    // Handle item selection
+    // Handle item selection - This is the key change to match ThumbImage behavior
     const handleSelectedItemsChange = (event: React.SyntheticEvent, itemIds: string[]) => {
         setSelectedItems(itemIds);
 
@@ -189,8 +189,32 @@ export const TreeViewer: React.FC<TreeViewerProps> = ({
         if (itemIds.length > 0) {
             const selectedNode = findNode(filteredTreeData, itemIds[0]);
             if (selectedNode && selectedNode.isImage && selectedNode.imageData) {
-                onImageClick(selectedNode.imageData, 0);
+                // Only trigger image click if this is a different image than currently selected
+                // This matches the logic in ThumbImage component
+                if (!currentImage || currentImage.oid !== selectedNode.imageData.oid) {
+                    // Create a copy of the image with level set, exactly like ThumbImage does
+                    const imageWithLevel = { ...selectedNode.imageData, level: selectedNode.level };
+
+                    // Call onImageClick with the same parameters as ThumbImage
+                    // ThumbImage calls: onImageClick(imageWithLevel, level);
+                    // We'll use level 0 for tree view since it's not hierarchical columns
+                    onImageClick(imageWithLevel, 0);
+                }
             }
+        }
+    };
+
+    // Handle direct image click (when user clicks on tree item content)
+    const handleImageClick = (node: TreeNode) => {
+        if (node.isImage && node.imageData) {
+            // Create a copy of the image with level set, exactly like ThumbImage does
+            const imageWithLevel = { ...node.imageData, level: node.level };
+
+            // Update local selection state
+            setSelectedItems([node.id]);
+
+            // Call the parent callback with level 0 (tree view doesn't use column hierarchy)
+            onImageClick(imageWithLevel, 0);
         }
     };
 
@@ -201,12 +225,23 @@ export const TreeViewer: React.FC<TreeViewerProps> = ({
                 key={node.id}
                 itemId={node.id}
                 label={
-                    <Box sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        py: 0.5,
-                        gap: 1
-                    }}>
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            py: 0.5,
+                            gap: 1,
+                            cursor: node.isImage ? 'pointer' : 'default'
+                        }}
+                        onClick={(e) => {
+                            // Handle image click when clicking on the label content
+                            if (node.isImage) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleImageClick(node);
+                            }
+                        }}
+                    >
                         {node.isImage ? (
                             <ImageIcon sx={{ fontSize: 16, color: 'primary.main' }} />
                         ) : (
@@ -223,6 +258,18 @@ export const TreeViewer: React.FC<TreeViewerProps> = ({
                                 sx={{ height: 20, fontSize: '0.6rem' }}
                             />
                         )}
+                        {/* Add visual indicator for selected image */}
+                        {node.isImage && currentImage && currentImage.oid === node.imageData?.oid && (
+                            <Box
+                                sx={{
+                                    width: 8,
+                                    height: 8,
+                                    borderRadius: '50%',
+                                    backgroundColor: 'primary.main',
+                                    ml: 1
+                                }}
+                            />
+                        )}
                     </Box>
                 }
                 sx={{
@@ -232,9 +279,13 @@ export const TreeViewer: React.FC<TreeViewerProps> = ({
                             backgroundColor: 'action.hover',
                         },
                         '&.Mui-selected': {
-                            backgroundColor: 'primary.light',
+                            backgroundColor: node.isImage && currentImage && currentImage.oid === node.imageData?.oid
+                                ? 'primary.light'
+                                : 'action.selected',
                             '&:hover': {
-                                backgroundColor: 'primary.light',
+                                backgroundColor: node.isImage && currentImage && currentImage.oid === node.imageData?.oid
+                                    ? 'primary.light'
+                                    : 'action.selected',
                             }
                         }
                     },
@@ -255,15 +306,47 @@ export const TreeViewer: React.FC<TreeViewerProps> = ({
             const firstLevelIds = filteredTreeData.map(node => node.id);
             setExpandedItems(firstLevelIds);
         }
-    }, [filteredTreeData]);
+    }, [filteredTreeData, expandedItems.length]);
 
-    // Update selection when current image changes
+    // Update selection when current image changes (from store)
     useEffect(() => {
         if (currentImage) {
             const imageId = currentImage.oid || `image-${currentImage.name}`;
-            setSelectedItems([imageId]);
+
+            // Only update if the current selection is different
+            if (!selectedItems.includes(imageId)) {
+                setSelectedItems([imageId]);
+
+                // Auto-expand parent nodes to make the selected image visible
+                const findParentPath = (nodes: TreeNode[], targetId: string, path: string[] = []): string[] | null => {
+                    for (const node of nodes) {
+                        const currentPath = [...path, node.id];
+
+                        if (node.id === targetId) {
+                            return currentPath.slice(0, -1); // Return parent path, not including the target
+                        }
+
+                        if (node.children.length > 0) {
+                            const found = findParentPath(node.children, targetId, currentPath);
+                            if (found) return found;
+                        }
+                    }
+                    return null;
+                };
+
+                const parentPath = findParentPath(filteredTreeData, imageId);
+                if (parentPath && parentPath.length > 0) {
+                    setExpandedItems(prev => {
+                        const newExpanded = new Set([...prev, ...parentPath]);
+                        return Array.from(newExpanded);
+                    });
+                }
+            }
+        } else {
+            // Clear selection if no image is selected
+            setSelectedItems([]);
         }
-    }, [currentImage]);
+    }, [currentImage, filteredTreeData]); // Removed selectedItems from dependencies to prevent infinite loops
 
     if (!images) {
         return (
