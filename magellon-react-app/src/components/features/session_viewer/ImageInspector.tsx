@@ -437,8 +437,14 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
     // Clear error when image changes
     useEffect(() => {
         setImageError(null);
-        setLoadingProgress(0);
     }, [selectedImage]);
+
+    // Refresh CTF info when selected image changes
+    useEffect(() => {
+        if (selectedImage?.name) {
+            refetchCtfInfo();
+        }
+    }, [selectedImage?.name, refetchCtfInfo]);
 
     // Enhanced tab configuration with dynamic badges
     const tabConfig = useMemo(() => [
@@ -542,14 +548,32 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
         console.log('Compare functionality would be implemented here');
     }, []);
 
-    // Reload data handlers with progress simulation
-    const handleParticlePickingLoad = useCallback(() => {
+    // Reload data handlers
+    const handleParticlePickingLoad = () => {
         refetchImageParticlePickings();
-    }, [refetchImageParticlePickings]);
+    };
 
-    const handleCtfInfoLoad = useCallback(() => {
+    const handleCtfInfoLoad = () => {
         refetchCtfInfo();
-    }, [refetchCtfInfo]);
+    };
+
+    // Dialog handlers
+    const handleOpen = () => {
+        openParticlePickingDialog();
+    };
+
+    const handleClose = () => {
+        closeParticlePickingDialog();
+    };
+
+    const imageStyle: React.CSSProperties = {
+        borderRadius: '12px',
+        objectFit: 'contain',
+        border: `2px solid ${theme.palette.divider}`,
+        maxWidth: '100%',
+        height: 'auto',
+        boxShadow: theme.shadows[2]
+    };
 
     // Enhanced image style with transforms
     const getImageStyle = useCallback((): React.CSSProperties => {
@@ -751,6 +775,8 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
             <Card sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                 <TabContext value={activeTab}>
                     <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+
+
                         <Tabs
                             value={activeTab}
                             onChange={handleTabChange}
@@ -790,7 +816,7 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                         </Tabs>
                     </Box>
 
-                    {/* Enhanced Tab Panels */}
+
                     <Box sx={{ flex: 1, overflow: 'auto' }} ref={imageViewerRef}>
                         <TabPanel value="1" sx={{ p: 3, height: '100%' }}>
                             <Box sx={{
@@ -873,7 +899,152 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                             </Box>
                         </TabPanel>
 
-                        {/* Continue with other enhanced tab panels... */}
+                        <TabPanel value="3" sx={{ p: 3 }}>
+                            <Stack spacing={3}>
+                                {/* Particle Picking Controls */}
+                                <Paper elevation={1} sx={{ p: 2 }}>
+                                    <Typography variant="subtitle1" gutterBottom>
+                                        Particle Picking: {selectedParticlePicking?.name || "None Selected"}
+                                    </Typography>
+
+                                    <Stack direction={isMobile ? "column" : "row"} spacing={2} alignItems="flex-start">
+                                        <FormControl size="small" sx={{ minWidth: 200 }}>
+                                            <InputLabel>Particle Picking</InputLabel>
+                                            <Select
+                                                value={selectedParticlePicking?.oid || ""}
+                                                label="Particle Picking"
+                                                onChange={OnIppSelected}
+                                            >
+                                                <MenuItem value="">
+                                                    <em>None</em>
+                                                </MenuItem>
+                                                {Array.isArray(ImageParticlePickings) && ImageParticlePickings?.map((ipp) => (
+                                                    <MenuItem key={ipp.oid} value={ipp.oid}>
+                                                        {ipp.name}
+                                                    </MenuItem>
+                                                ))}
+                                            </Select>
+                                        </FormControl>
+
+                                        <ButtonGroup size="small" variant="outlined">
+                                            <Tooltip title="Refresh">
+                                                <IconButton onClick={handleParticlePickingLoad}>
+                                                    <SyncOutlined />
+                                                </IconButton>
+                                            </Tooltip>
+                                            <Tooltip title="Create New">
+                                                <IconButton onClick={handleOpen}>
+                                                    <AddOutlined />
+                                                </IconButton>
+                                            </Tooltip>
+                                            <Tooltip title="Save">
+                                                <IconButton onClick={handleSave} disabled={!selectedParticlePicking}>
+                                                    <Save />
+                                                </IconButton>
+                                            </Tooltip>
+                                            <Tooltip title="Delete">
+                                                <IconButton>
+                                                    <HighlightOff />
+                                                </IconButton>
+                                            </Tooltip>
+                                        </ButtonGroup>
+                                    </Stack>
+                                </Paper>
+
+                                {/* Particle Picking Image */}
+                                <Box sx={{ textAlign: 'center' }}>
+                                    <ParticleEditor
+                                        image={selectedImage}
+                                        ipp={selectedParticlePicking}
+                                        imageUrl={`${BASE_URL}/image_thumbnail?name=${selectedImage?.name}&sessionName=${sessionName}`}
+                                        width={isMobile ? 300 : 1024}
+                                        height={isMobile ? 300 : 1024}
+                                        onCirclesSelected={(circles) => console.log("Circles selected:", circles)}
+                                        onIppUpdate={handleIppUpdate}
+                                    />
+                                </Box>
+
+                                <ParticleSessionDialog
+                                    open={isParticlePickingDialogOpen}
+                                    onClose={handleClose}
+                                    ImageDto={selectedImage}
+                                />
+                            </Stack>
+                        </TabPanel>
+
+                        <TabPanel value="5" sx={{ p: 3 }}>
+                            <Stack spacing={3}>
+                                {isCtfInfoLoading ? (
+                                    <Stack spacing={2}>
+                                        <Skeleton variant="rectangular" height={120} />
+                                        <Skeleton variant="rectangular" height={400} />
+                                    </Stack>
+                                ) : isCtfInfoError ? (
+                                    <Alert severity="error">
+                                        Error loading CTF data: {isCtfInfoError.message}
+                                    </Alert>
+                                ) : ImageCtfData && ImageCtfData.defocus1 !== null ? (
+                                    <>
+                                        <CtfInfoCards
+                                            defocus1Micrometers={ImageCtfData.defocus1}
+                                            defocus2Micrometers={ImageCtfData.defocus2}
+                                            angleAstigmatismDegrees={ImageCtfData.angleAstigmatism}
+                                            resolutionAngstroms={ImageCtfData.resolution}
+                                        />
+
+                                        <Stack spacing={2}>
+                                            <img
+                                                src={`${BASE_URL}/ctf_image?image_type=powerspec&name=${selectedImage?.name}&sessionName=${sessionName}`}
+                                                alt="CTF power spectrum"
+                                                style={{
+                                                    ...imageStyle,
+                                                    maxWidth: isMobile ? '100%' : '900px'
+                                                }}
+                                            />
+                                            <img
+                                                src={`${BASE_URL}/ctf_image?image_type=plots&name=${selectedImage?.name}&sessionName=${sessionName}`}
+                                                alt="CTF plots"
+                                                style={{
+                                                    ...imageStyle,
+                                                    maxWidth: isMobile ? '100%' : '900px'
+                                                }}
+                                            />
+                                        </Stack>
+                                    </>
+                                ) : (
+                                    <Alert severity="info">
+                                        No CTF data available for this image.
+                                    </Alert>
+                                )}
+                            </Stack>
+                        </TabPanel>
+
+                        <TabPanel value="6" sx={{ p: 3 }}>
+                            <Stack spacing={2} alignItems="center">
+                                <img
+                                    src={`${BASE_URL}/fao_image?image_type=one&name=${selectedImage?.name}&sessionName=${sessionName}`}
+                                    alt="Frame alignment - image one"
+                                    style={{
+                                        ...imageStyle,
+                                        maxWidth: isMobile ? '100%' : '900px'
+                                    }}
+                                />
+                                <img
+                                    src={`${BASE_URL}/fao_image?image_type=two&name=${selectedImage?.name}&sessionName=${sessionName}`}
+                                    alt="Frame alignment - image two"
+                                    style={{
+                                        ...imageStyle,
+                                        maxWidth: isMobile ? '100%' : '900px'
+                                    }}
+                                />
+                            </Stack>
+                        </TabPanel>
+
+                        <TabPanel value="7" sx={{ p: 3 }}>
+                            <MetadataExplorer selectedImage={selectedImage} />
+                        </TabPanel>
+
+
                     </Box>
                 </TabContext>
             </Card>
