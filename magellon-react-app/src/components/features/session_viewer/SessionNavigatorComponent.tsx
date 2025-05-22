@@ -54,9 +54,6 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
                                                                          }) => {
     const theme = useTheme();
 
-    // Local state for view mode (no longer need columnSettings here)
-    // Column settings are now managed inside StackedView
-
     // Get store state and actions
     const {
         isAtlasVisible,
@@ -81,9 +78,6 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
     const handleAtlasClick = (atlas: AtlasImageDto) => {
         setCurrentAtlas(atlas);
     };
-
-    // Calculate which columns should be visible (moved to StackedView)
-    // const visibleColumns = ...
 
     // Session selector component
     const renderSessionSelector = () => {
@@ -172,42 +166,36 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
     // Render the tree view (hierarchical)
     const renderTreeView = () => {
         return (
-            <Box sx={{ mt: 2, height: 'calc(100% - 160px)', overflow: 'auto' }}>
-                <TreeViewer
-                    images={ImageColumns[0].images}
-                    onImageClick={onImageClick}
-                    title="Image Hierarchy"
-                />
-            </Box>
+            <TreeViewer
+                images={ImageColumns[0].images}
+                onImageClick={onImageClick}
+                title="Image Hierarchy"
+            />
         );
     };
 
     // Render the grid/stacked view using the new StackedView component
     const renderGridView = () => {
         return (
-            <Box sx={{ mt: 2, height: 'calc(100% - 160px)', overflow: 'hidden' }}>
-                <StackedView
-                    imageColumns={ImageColumns}
-                    onImageClick={onImageClick}
-                    sessionName={sessionName}
-                    showSettings={true}
-                    initialSettingsCollapsed={false}
-                    height="100%"
-                />
-            </Box>
+            <StackedView
+                imageColumns={ImageColumns}
+                onImageClick={onImageClick}
+                sessionName={sessionName}
+                showSettings={true}
+                initialSettingsCollapsed={false}
+                height="100%"
+            />
         );
     };
 
     // Render the flat view (non-hierarchical)
     const renderFlatView = () => {
         return (
-            <Box sx={{ mt: 2, height: 'calc(100% - 160px)', overflow: 'auto' }}>
-                <FlatImageViewerComponent
-                    images={ImageColumns[0].images}
-                    onImageClick={onImageClick}
-                    title="All Images"
-                />
-            </Box>
+            <FlatImageViewerComponent
+                images={ImageColumns[0].images}
+                onImageClick={onImageClick}
+                title="All Images"
+            />
         );
     };
 
@@ -256,8 +244,12 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
             flexDirection: 'column',
             overflow: 'hidden'
         }}>
-            {/* Header with session selector and atlas toggle */}
-            <Box sx={{ p: 1 }}>
+            {/* Header with session selector and atlas toggle - Fixed height */}
+            <Box sx={{
+                flexShrink: 0,
+                p: 1,
+                borderBottom: `1px solid ${theme.palette.divider}`
+            }}>
                 <Box sx={{
                     display: 'flex',
                     gap: 2,
@@ -323,13 +315,18 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
                 )}
 
                 {/* View mode selector */}
-                <Box sx={{ mb: 1 }}>
+                <Box>
                     {renderViewModeSelector()}
                 </Box>
             </Box>
 
-            {/* Main image navigation view - fills remaining space */}
-            <Box sx={{ flex: 1, overflow: 'hidden' }}>
+            {/* Main image navigation view - Fills remaining space */}
+            <Box sx={{
+                flex: 1,
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column'
+            }}>
                 {renderNavView()}
             </Box>
         </Box>

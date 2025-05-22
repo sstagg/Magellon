@@ -63,7 +63,7 @@ export const StackedView: React.FC<StackedViewProps> = ({
                                                             showSettings = true,
                                                             initialSettings = {},
                                                             initialSettingsCollapsed = false,
-                                                            height = 'calc(100% - 160px)',
+                                                            height = '100%',
                                                             sx = {}
                                                         }) => {
     // Column settings state
@@ -115,7 +115,8 @@ export const StackedView: React.FC<StackedViewProps> = ({
                 sx={{
                     mb: 1,
                     borderRadius: 1,
-                    overflow: 'hidden'
+                    overflow: 'hidden',
+                    flexShrink: 0
                 }}
             >
                 {/* Settings header */}
@@ -173,7 +174,8 @@ export const StackedView: React.FC<StackedViewProps> = ({
                 gap: 1,
                 overflowX: 'auto',
                 height: '100%',
-                pb: 1
+                pb: 1,
+                flex: 1
             }}>
                 {visibleColumns.map((column, index) => {
                     // Find the original index in the full imageColumns array
@@ -229,7 +231,8 @@ export const StackedView: React.FC<StackedViewProps> = ({
                 display: 'flex',
                 flexWrap: 'nowrap',
                 overflowX: 'auto',
-                height: '100%'
+                height: '100%',
+                flex: 1
             }}>
                 {imageColumns.map((column, index) => (
                     <Box key={`stack-column-${index}`} sx={{ flexShrink: 0 }}>
@@ -282,7 +285,9 @@ export const StackedView: React.FC<StackedViewProps> = ({
                 overflow: 'hidden',
                 border: theme => `1px solid ${theme.palette.divider}`,
                 borderRadius: 1,
-                backgroundColor: 'background.paper'
+                backgroundColor: 'background.paper',
+                display: 'flex',
+                flexDirection: 'column'
             }}>
                 {columnSettings.useEnhancedColumns
                     ? renderEnhancedView()
