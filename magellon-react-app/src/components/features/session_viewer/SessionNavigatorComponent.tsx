@@ -16,9 +16,6 @@ import {
     Tooltip,
     Typography,
     useTheme,
-    Switch,
-    FormControlLabel,
-    Slider,
     Chip
 } from "@mui/material";
 import ImageInfoDto, { AtlasImageDto, SessionDto } from "./ImageInfoDto.ts";
@@ -32,15 +29,17 @@ import {
     AccountTreeRounded,
     GridViewRounded,
     GridOnRounded,
-    Settings,
-    ViewColumn,
-    AutoAwesome
+    ViewColumn
 } from "@mui/icons-material";
 import { useImageViewerStore } from './store/imageViewerStore.ts';
 import FlatImageViewerComponent from "./FlatImageViewerComponent.tsx";
 import TreeViewer from "./TreeViewer.tsx";
 import ImageColumnComponent from "./ImageColumnComponent.tsx";
 import { ImagesStackComponent } from "./ImagesStackComponent.tsx";
+import ColumnSettingsComponent, {
+    ColumnSettings,
+    defaultColumnSettings
+} from "./ColumnSettingsComponent.tsx";
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
 
@@ -65,13 +64,8 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
                                                                          }) => {
     const theme = useTheme();
 
-    // Local state for enhanced column view
-    const [columnSettings, setColumnSettings] = useState({
-        columnWidth: 200,
-        showColumnControls: true,
-        autoHideEmptyColumns: true,
-        useEnhancedColumns: true
-    });
+    // Local state for enhanced column view using the new component
+    const [columnSettings, setColumnSettings] = useState<ColumnSettings>(defaultColumnSettings);
 
     // Get store state and actions
     const {
@@ -139,100 +133,57 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
     // Enhanced view mode selector component
     const renderViewModeSelector = () => {
         return (
-            <Paper elevation={0} variant="outlined" sx={{ p: 1, borderRadius: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                    <ButtonGroup size="small">
-                        <Tooltip title="Enhanced Column View">
-                            <IconButton
-                                onClick={() => setViewMode('grid')}
-                                color={viewMode === 'grid' ? 'primary' : 'default'}
-                            >
-                                <ViewColumn />
-                            </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Tree View">
-                            <IconButton
-                                onClick={() => setViewMode('tree')}
-                                color={viewMode === 'tree' ? 'primary' : 'default'}
-                            >
-                                <AccountTreeRounded />
-                            </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Flat View">
-                            <IconButton
-                                onClick={() => setViewMode('flat')}
-                                color={viewMode === 'flat' ? 'primary' : 'default'}
-                            >
-                                <GridOnRounded />
-                            </IconButton>
-                        </Tooltip>
-                    </ButtonGroup>
+            <>
+                <Paper elevation={0} variant="outlined" sx={{ p: 1, borderRadius: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <ButtonGroup size="small">
+                            <Tooltip title="Enhanced Column View">
+                                <IconButton
+                                    onClick={() => setViewMode('grid')}
+                                    color={viewMode === 'grid' ? 'primary' : 'default'}
+                                >
+                                    <ViewColumn />
+                                </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Tree View">
+                                <IconButton
+                                    onClick={() => setViewMode('tree')}
+                                    color={viewMode === 'tree' ? 'primary' : 'default'}
+                                >
+                                    <AccountTreeRounded />
+                                </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Flat View">
+                                <IconButton
+                                    onClick={() => setViewMode('flat')}
+                                    color={viewMode === 'flat' ? 'primary' : 'default'}
+                                >
+                                    <GridOnRounded />
+                                </IconButton>
+                            </Tooltip>
+                        </ButtonGroup>
 
-                    <Chip
-                        label={viewMode === 'grid' ? 'Columns' : viewMode === 'tree' ? 'Tree' : 'Flat'}
-                        size="small"
-                        color="primary"
-                        variant="outlined"
-                    />
-                </Box>
-
-                {/* Column-specific settings */}
-                {viewMode === 'grid' && (
-                    <Box sx={{ px: 1 }}>
-                        <FormControlLabel
-                            control={
-                                <Switch
-                                    size="small"
-                                    checked={columnSettings.useEnhancedColumns}
-                                    onChange={(e) => setColumnSettings(prev => ({
-                                        ...prev,
-                                        useEnhancedColumns: e.target.checked
-                                    }))}
-                                />
-                            }
-                            label={
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                    <AutoAwesome sx={{ fontSize: 16 }} />
-                                    <Typography variant="caption">Enhanced</Typography>
-                                </Box>
-                            }
+                        <Chip
+                            label={viewMode === 'grid' ? 'Columns' : viewMode === 'tree' ? 'Tree' : 'Flat'}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
                         />
-
-                        {columnSettings.useEnhancedColumns && (
-                            <Box sx={{ mt: 1 }}>
-                                <Typography variant="caption" gutterBottom>
-                                    Column Width: {columnSettings.columnWidth}px
-                                </Typography>
-                                <Slider
-                                    value={columnSettings.columnWidth}
-                                    onChange={(_, value) => setColumnSettings(prev => ({
-                                        ...prev,
-                                        columnWidth: value as number
-                                    }))}
-                                    min={150}
-                                    max={300}
-                                    size="small"
-                                    valueLabelDisplay="auto"
-                                />
-
-                                <FormControlLabel
-                                    control={
-                                        <Switch
-                                            size="small"
-                                            checked={columnSettings.autoHideEmptyColumns}
-                                            onChange={(e) => setColumnSettings(prev => ({
-                                                ...prev,
-                                                autoHideEmptyColumns: e.target.checked
-                                            }))}
-                                        />
-                                    }
-                                    label={<Typography variant="caption">Auto-hide empty</Typography>}
-                                />
-                            </Box>
-                        )}
                     </Box>
+                </Paper>
+
+                {/* Column-specific settings using the new reusable component */}
+                {viewMode === 'grid' && (
+                    <ColumnSettingsComponent
+                        settings={columnSettings}
+                        onSettingsChange={setColumnSettings}
+                        visible={true}
+                        showEnhancedToggle={true}
+                        minWidth={150}
+                        maxWidth={300}
+                    />
                 )}
-            </Paper>
+            </>
         );
     };
 
