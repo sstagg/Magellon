@@ -138,45 +138,55 @@ const AboutPage: React.FC = () => {
     // Team data
     const teamMembers: TeamMember[] = [
         {
-            name: "Dr. Sarah Chen",
-            role: "Lead Developer & Structural Biologist",
-            bio: "Expert in cryo-EM data processing with 10+ years in structural biology research.",
-            expertise: ["Cryo-EM", "Image Processing", "React", "Python"],
+            name: "Scott Stagg",
+            role: "Principal Investigator & Director",
+            bio: "Professor of Biological Sciences at Florida State University and director of the SECM4 facility. Expert in cryo-EM methodology development and high-throughput structural biology with focus on membrane trafficking mechanisms.",
+            expertise: ["Cryo-EM", "Membrane Biology", "COPII Vesicles", "Method Development", "High-throughput Analysis"],
             social: {
-                github: "sarahchen",
-                linkedin: "dr-sarah-chen",
-                email: "sarah.chen@magellon.org"
+                github: "https://github.com/sstagg/Magellon",
+                linkedin: "",
+                email: "sstagg@fsu.edu"
             }
         },
         {
-            name: "Prof. Michael Rodriguez",
+            name: "Gabe Lander",
             role: "Principal Investigator",
-            bio: "Professor of Molecular Biology, pioneer in automated image analysis workflows.",
-            expertise: ["Molecular Biology", "Machine Learning", "Data Analysis"],
+            bio: "Professor in the Department of Integrative Structural and Computational Biology at Scripps Research Institute. Pioneer in advancing cryo-EM accessibility and expert in protein quality control mechanisms.",
+            expertise: ["Structural Biology", "AAA+ Proteases", "Cryo-EM Methodology", "Protein Degradation", "Small Molecule Interactions"],
             social: {
-                linkedin: "prof-m-rodriguez",
-                email: "m.rodriguez@university.edu"
+                linkedin: "https://www.linkedin.com/in/gabriel-lander-910b699/",
+                email: "glander@scripps.edu"
             }
         },
         {
-            name: "Alex Kim",
-            role: "Software Engineer",
-            bio: "Full-stack developer specializing in scientific computing and data visualization.",
-            expertise: ["TypeScript", "Node.js", "Data Visualization", "Performance Optimization"],
+            name: "Michael Cianfrocco",
+            role: "Principal Investigator",
+            bio: "Assistant Professor at University of Michigan Life Sciences Institute. Expert in microtubule-based transport, cryo-EM automation, and cloud computing solutions for structural biology.",
+            expertise: ["Cryo-EM Automation", "Cloud Computing", "Microtubule Biology", "AI/ML in Structural Biology", "High-throughput Processing"],
             social: {
-                github: "alexkim-dev",
-                twitter: "alexkim_codes",
-                email: "alex.kim@magellon.org"
+                github: "https://github.com/cianfrocco-lab",
+                twitter: "",
+                email: "mcianfro@umich.edu"
             }
         },
         {
-            name: "Dr. Elena Petrov",
-            role: "UX/UI Designer & Researcher",
-            bio: "Human-computer interaction specialist focused on scientific workflow optimization.",
-            expertise: ["UX Design", "Scientific Workflows", "User Research", "Accessibility"],
+            name: "Behdad Khoshbin",
+            role: "Lead Developer",
+            bio: "Software engineer and project manager specializing in software development. Expert in system design, user interface design, and system architecture for research applications.",
+            expertise: ["System Design", "System Architecture", "Project Management", "Scientific Software", "UI/UX Design"],
             social: {
-                linkedin: "elena-petrov-ux",
-                email: "elena.petrov@magellon.org"
+                linkedin: "https://www.linkedin.com/in/behdad-khoshbin-b40161128/",
+                email: "b.khoshbin@gmail.com"
+            }
+        },
+        {
+            name: "Puneeth Reddy",
+            role: "Developer",
+            bio: "Graduate student and software developer at Florida State University. Focuses on implementing advanced image processing algorithms and user interface components for scientific workflows.",
+            expertise: ["Image Processing", "Frontend Development", "Algorithm Implementation", "Scientific Computing", "React Development"],
+            social: {
+                linkedin: "",
+                email: "pm22p@fsu.edu"
             }
         }
     ];
@@ -286,8 +296,8 @@ const AboutPage: React.FC = () => {
             icon: <Speed />
         },
         {
-            name: "PostgreSQL",
-            version: "15+",
+            name: "MySql",
+            version: "8+",
             description: "Advanced relational database system",
             category: 'database',
             icon: <HardDrive />
@@ -389,7 +399,7 @@ const AboutPage: React.FC = () => {
                                 variant="contained"
                                 size="large"
                                 startIcon={<Download />}
-                                href="#download"
+                                href="https://www.magellon.org/"
                             >
                                 Get Started
                             </Button>
@@ -397,7 +407,7 @@ const AboutPage: React.FC = () => {
                                 variant="outlined"
                                 size="large"
                                 startIcon={<GitHub />}
-                                href="https://github.com/magellon-project"
+                                href="https://github.com/sstagg/Magellon"
                                 target="_blank"
                             >
                                 View Source
