@@ -7,46 +7,67 @@ import { PanelHeader } from "./PanelHeader.tsx";
 import { PanelRoutes } from "./PanelRoutes.tsx";
 import PanelFooter from './PanelFooter.tsx';
 import { useMediaQuery } from '@mui/material';
+import { useLocation } from 'react-router-dom';
 
 const DRAWER_WIDTH = 240;
-const FOOTER_HEIGHT = 56; // Height of the footer in pixels
+const FOOTER_HEIGHT = 56;
 
-// Improved Main component with adjusted styling to prevent the boxed appearance
-const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })<{
+// Routes that should have full-width layout (no padding)
+const FULL_WIDTH_ROUTES = [
+    'mrc-viewer',
+    'images', // Add other routes that need full width
+    // Add more routes as needed
+];
+
+// Improved Main component with conditional styling based on route
+const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' && prop !== 'isFullWidth' })<{
     open?: boolean;
-}>(({ theme, open }) => ({
+    isFullWidth?: boolean;
+}>(({ theme, open, isFullWidth }) => ({
     flexGrow: 1,
-    width: '100%', // Ensure main content takes full width available
-    padding: theme.spacing(3),
-    paddingLeft: theme.spacing(3),
-    paddingRight: theme.spacing(3),
+    width: '100%',
+    // Conditional padding - none for full-width pages
+    padding: isFullWidth ? 0 : theme.spacing(3),
+    paddingLeft: isFullWidth ? 0 : theme.spacing(3),
+    paddingRight: isFullWidth ? 0 : theme.spacing(3),
     transition: theme.transitions.create(['margin', 'width'], {
         easing: theme.transitions.easing.sharp,
         duration: theme.transitions.duration.leavingScreen,
     }),
     marginLeft: `-${DRAWER_WIDTH}px`,
     marginTop: '64px', // AppBar height
-    paddingBottom: `${FOOTER_HEIGHT + theme.spacing(3)}px`, // Add padding for footer
-    overflowX: 'hidden', // Prevent horizontal scroll
+    paddingBottom: isFullWidth ? 0 : `${FOOTER_HEIGHT + theme.spacing(3)}px`,
+    overflowX: 'hidden',
+    // Full height for full-width pages
+    height: isFullWidth ? 'calc(100vh - 64px)' : 'auto',
     ...(open && {
-        width: `calc(100% - ${DRAWER_WIDTH}px)`, // Adjust width when drawer is open
+        width: `calc(100% - ${DRAWER_WIDTH}px)`,
         transition: theme.transitions.create(['margin', 'width'], {
             easing: theme.transitions.easing.easeOut,
             duration: theme.transitions.duration.enteringScreen,
         }),
         marginLeft: 0,
     }),
-    // Remove any border or box styling
     border: 'none',
     boxShadow: 'none',
     borderRadius: 0,
-    // Allow content to expand as needed
     maxWidth: '100%',
 }));
 
 export const PanelTemplate = () => {
     const theme = useTheme();
+    const location = useLocation();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+    // Check if current route should have full-width layout
+    const isFullWidthRoute = FULL_WIDTH_ROUTES.some(route => {
+        // Remove leading slash and check if pathname includes the route
+        const cleanPath = location.pathname.replace(/^\/+/, '');
+        return cleanPath.includes(route);
+    });
+
+    console.log('Current path:', location.pathname);
+    console.log('Is full width route:', isFullWidthRoute);
 
     // Store drawer state in localStorage to persist between page refreshes
     const [open, setOpen] = React.useState(() => {
@@ -62,7 +83,7 @@ export const PanelTemplate = () => {
         localStorage.setItem('drawerOpen', JSON.stringify(open));
     }, [open]);
 
-    // Close drawer when screen size becomes mobile
+    // Close drawer when screen size becomes mobile but NOT for full-width routes
     React.useEffect(() => {
         if (isMobile && open) {
             setOpen(false);
@@ -88,7 +109,7 @@ export const PanelTemplate = () => {
                 minHeight: '100vh',
                 position: 'relative',
                 width: '100%',
-                overflow: 'hidden' // Prevent any overflow at the container level
+                overflow: 'hidden'
             }}
         >
             <CssBaseline />
@@ -102,24 +123,26 @@ export const PanelTemplate = () => {
                 handleDrawerClose={handleDrawerClose}
             />
 
-            <Main open={open}>
+            <Main open={open} isFullWidth={isFullWidthRoute}>
                 <Box
                     sx={{
                         width: '100%',
-                        height: '100%',
-                        // Remove any styling that could make it appear boxed
+                        height: isFullWidthRoute ? '100%' : 'auto',
                         border: 'none',
                         borderRadius: 0,
                         boxShadow: 'none',
-                        // Allow content to take all available space
-                        maxWidth: '100%'
+                        maxWidth: '100%',
+                        overflow: isFullWidthRoute ? 'hidden' : 'visible'
                     }}
                 >
                     <PanelRoutes />
                 </Box>
             </Main>
 
-            <PanelFooter drawerOpen={open} drawerWidth={DRAWER_WIDTH} />
+            {/* Hide footer for full-width routes */}
+            {!isFullWidthRoute && (
+                <PanelFooter drawerOpen={open} drawerWidth={DRAWER_WIDTH} />
+            )}
         </Box>
     );
 };
