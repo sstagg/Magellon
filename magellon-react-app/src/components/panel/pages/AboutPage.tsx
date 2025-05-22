@@ -191,6 +191,8 @@ const AboutPage: React.FC = () => {
         }
     ];
 
+
+
     // Features data
     const features: Feature[] = [
         {
@@ -416,7 +418,19 @@ const AboutPage: React.FC = () => {
                     </Box>
                 </Zoom>
             </Box>
-
+            {/* Vision Statement */}
+            <Paper elevation={2} sx={{ p: 4, mb: 6, background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)}, ${alpha(theme.palette.secondary.main, 0.1)})` }}>
+                <Typography variant="h4" gutterBottom textAlign="center">
+                    Our Vision
+                </Typography>
+                <Typography variant="body1" sx={{ fontSize: '1.1rem', lineHeight: 1.8, textAlign: 'center', maxWidth: 800, mx: 'auto' }}>
+                    We envision a seamless workflow where cryo-EM data collection and analysis become
+                    <strong> decoupled geographically while remaining integrated operationally</strong>.
+                    Magellon enables researchers to access world-class microscopes and computational resources
+                    without capital investment in hardware, while maintaining a unified interface that handles
+                    the complexity of distributed computing behind the scenes.
+                </Typography>
+            </Paper>
             {/* Key Features Overview */}
             <Paper elevation={2} sx={{ p: 4, mb: 6 }}>
                 <Typography variant="h4" gutterBottom textAlign="center">

@@ -119,6 +119,9 @@ export const ColumnBrowser: React.FC<StackedViewProps> = ({
         };
     }, [imageColumns, visibleColumns]);
 
+    // Determine layout properties
+    const isHorizontal = columnSettings.columnDirection === 'horizontal';
+
     // Render the settings panel
     const renderSettingsPanel = () => {
         if (!showSettings) return null;
@@ -156,7 +159,7 @@ export const ColumnBrowser: React.FC<StackedViewProps> = ({
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         {/* Statistics */}
                         <Typography variant="caption" color="text.secondary">
-                            {statistics.visibleCount}/{statistics.totalColumns} columns • {statistics.totalImages} images
+                            {statistics.visibleCount}/{statistics.totalColumns} columns • {statistics.totalImages} images • {isHorizontal ? 'Horizontal' : 'Vertical'}
                         </Typography>
 
                         <IconButton size="small">
@@ -183,21 +186,37 @@ export const ColumnBrowser: React.FC<StackedViewProps> = ({
 
     // Render enhanced columns view
     const renderEnhancedView = () => {
-        const isHorizontal = columnSettings.columnDirection === 'horizontal';
+        console.log('ColumnBrowser renderEnhancedView Debug:', {
+            columnDirection: columnSettings.columnDirection,
+            isHorizontal,
+            useEnhancedColumns: columnSettings.useEnhancedColumns,
+            columnWidth: columnSettings.columnWidth
+        });
 
         return (
             <Box sx={{
                 display: 'flex',
                 flexDirection: isHorizontal ? 'column' : 'row',
                 gap: 1,
-                overflow: isHorizontal ? 'auto' : 'auto',
+                overflow: 'auto',
                 height: '100%',
                 pb: 1,
-                flex: 1
+                flex: 1,
+                // Add debug styling
+                border: '2px solid orange',
+                backgroundColor: 'rgba(255, 165, 0, 0.1)'
             }}>
                 {visibleColumns.map((column, index) => {
                     // Find the original index in the full imageColumns array
                     const originalIndex = imageColumns.findIndex(col => col === column);
+
+                    console.log(`Enhanced - Rendering InteractiveColumn ${originalIndex}:`, {
+                        parentImage: originalIndex === 0 ? null : imageColumns[originalIndex - 1]?.selectedImage?.name || 'none',
+                        isHorizontal,
+                        width: isHorizontal ? '100%' : columnSettings.columnWidth,
+                        height: isHorizontal ? columnSettings.columnWidth : '100%',
+                        columnDirection: columnSettings.columnDirection
+                    });
 
                     return (
                         <InteractiveColumn
@@ -207,18 +226,23 @@ export const ColumnBrowser: React.FC<StackedViewProps> = ({
                             parentImage={originalIndex === 0 ? null : imageColumns[originalIndex - 1]?.selectedImage || null}
                             sessionName={sessionName}
                             width={isHorizontal ? undefined : columnSettings.columnWidth}
-                            height={isHorizontal ? columnSettings.columnWidth : undefined} // Use columnWidth as height for horizontal
+                            height={isHorizontal ? columnSettings.columnWidth : undefined}
                             onImageClick={onImageClick}
                             showControls={columnSettings.showColumnControls}
                             collapsible={originalIndex > 0}
                             sx={{
                                 flexShrink: 0,
+                                // Apply proper sizing based on direction
                                 ...(isHorizontal ? {
                                     width: '100%',
-                                    height: columnSettings.columnWidth
+                                    height: columnSettings.columnWidth,
+                                    minHeight: columnSettings.columnWidth,
+                                    maxHeight: columnSettings.columnWidth
                                 } : {
                                     height: '100%',
-                                    width: columnSettings.columnWidth
+                                    width: columnSettings.columnWidth,
+                                    minWidth: columnSettings.columnWidth,
+                                    maxWidth: columnSettings.columnWidth
                                 })
                             }}
                         />
@@ -250,7 +274,12 @@ export const ColumnBrowser: React.FC<StackedViewProps> = ({
 
     // Render legacy stack view
     const renderLegacyView = () => {
-        const isHorizontal = columnSettings.columnDirection === 'horizontal';
+        console.log('ColumnBrowser renderLegacyView Debug:', {
+            columnDirection: columnSettings.columnDirection,
+            isHorizontal,
+            columnWidth: columnSettings.columnWidth,
+            useEnhancedColumns: columnSettings.useEnhancedColumns
+        });
 
         return (
             <Box sx={{
@@ -259,27 +288,47 @@ export const ColumnBrowser: React.FC<StackedViewProps> = ({
                 flexWrap: 'nowrap',
                 overflow: 'auto',
                 height: '100%',
-                flex: 1
+                flex: 1,
+                // Add debug styling
+                border: '2px solid green',
+                backgroundColor: 'rgba(0, 255, 0, 0.1)'
             }}>
-                {imageColumns.map((column, index) => (
-                    <Box
-                        key={`stack-column-${index}`}
-                        sx={{
-                            flexShrink: 0,
-                            ...(isHorizontal && {
-                                width: '100%',
-                                height: columnSettings.columnWidth
-                            })
-                        }}
-                    >
-                        <ImageColumn
-                            caption={column.caption}
-                            images={column.images}
-                            level={index}
-                            onImageClick={(image) => onImageClick(image, index)}
-                        />
-                    </Box>
-                ))}
+                {imageColumns.map((column, index) => {
+                    console.log(`Legacy - Rendering ImageColumn ${index}:`, {
+                        direction: columnSettings.columnDirection,
+                        width: isHorizontal ? undefined : columnSettings.columnWidth,
+                        height: isHorizontal ? columnSettings.columnWidth : undefined
+                    });
+
+                    return (
+                        <Box
+                            key={`stack-column-${index}`}
+                            sx={{
+                                flexShrink: 0,
+                                ...(isHorizontal ? {
+                                    width: '100%',
+                                    height: columnSettings.columnWidth,
+                                    minHeight: columnSettings.columnWidth,
+                                    maxHeight: columnSettings.columnWidth
+                                } : {
+                                    width: columnSettings.columnWidth,
+                                    minWidth: columnSettings.columnWidth,
+                                    maxWidth: columnSettings.columnWidth
+                                })
+                            }}
+                        >
+                            <ImageColumn
+                                caption={column.caption}
+                                images={column.images}
+                                level={index}
+                                direction={columnSettings.columnDirection}
+                                width={isHorizontal ? undefined : columnSettings.columnWidth}
+                                height={isHorizontal ? columnSettings.columnWidth : undefined}
+                                onImageClick={(image) => onImageClick(image, index)}
+                            />
+                        </Box>
+                    );
+                })}
 
                 {/* Placeholder when no columns have data */}
                 {imageColumns.every(col => !col.images || !col.images.pages || col.images.pages.length === 0) && (

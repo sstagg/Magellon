@@ -11,7 +11,7 @@ import {
     ToggleButton,
     ToggleButtonGroup
 } from '@mui/material';
-import { AutoAwesome, Settings, ViewColumn, ViewStream } from '@mui/icons-material';
+import { AutoAwesome, Settings, ViewColumn, ViewAgenda } from '@mui/icons-material';
 
 // Configuration interface for column settings
 export interface ColumnSettings {
@@ -19,7 +19,7 @@ export interface ColumnSettings {
     showColumnControls: boolean;
     autoHideEmptyColumns: boolean;
     useEnhancedColumns: boolean;
-    columnDirection: 'vertical' | 'horizontal'; // New setting for column direction
+    columnDirection: 'vertical' | 'horizontal'; // Add direction property
 }
 
 // Props for the ColumnSettingsComponent
@@ -67,7 +67,7 @@ export const ColumnPreferences: React.FC<ColumnSettingsProps> = ({
                                                                      visible = true,
                                                                      showEnhancedToggle = true,
                                                                      minWidth = 150,
-                                                                     maxWidth = 300,
+                                                                     maxWidth = 600,
                                                                      paper = true,
                                                                      sx = {}
                                                                  }) => {
@@ -82,7 +82,7 @@ export const ColumnPreferences: React.FC<ColumnSettingsProps> = ({
         });
     };
 
-    // Handle column direction change
+    // Handle direction change
     const handleDirectionChange = (
         event: React.MouseEvent<HTMLElement>,
         newDirection: 'vertical' | 'horizontal' | null,
@@ -122,36 +122,30 @@ export const ColumnPreferences: React.FC<ColumnSettingsProps> = ({
                     {/* Column Direction Toggle */}
                     <Box sx={{ mb: 2 }}>
                         <Typography variant="caption" gutterBottom sx={{ display: 'block' }}>
-                            Column Layout:
+                            Layout Direction
                         </Typography>
                         <ToggleButtonGroup
                             value={settings.columnDirection}
                             exclusive
                             onChange={handleDirectionChange}
                             size="small"
-                            sx={{
-                                '& .MuiToggleButton-root': {
-                                    px: 1.5,
-                                    py: 0.5,
-                                    fontSize: '0.75rem'
-                                }
-                            }}
+                            fullWidth
                         >
-                            <ToggleButton value="vertical" aria-label="vertical columns">
-                                <ViewColumn sx={{ fontSize: 16, mr: 0.5 }} />
-                                Vertical
+                            <ToggleButton value="vertical">
+                                <ViewColumn sx={{ mr: 0.5, fontSize: 16 }} />
+                                <Typography variant="caption">Vertical</Typography>
                             </ToggleButton>
-                            <ToggleButton value="horizontal" aria-label="horizontal columns">
-                                <ViewStream sx={{ fontSize: 16, mr: 0.5 }} />
-                                Horizontal
+                            <ToggleButton value="horizontal">
+                                <ViewAgenda sx={{ mr: 0.5, fontSize: 16 }} />
+                                <Typography variant="caption">Horizontal</Typography>
                             </ToggleButton>
                         </ToggleButtonGroup>
                     </Box>
 
-                    {/* Column Width Slider */}
+                    {/* Column Width/Height Slider */}
                     <Box sx={{ mb: 2 }}>
                         <Typography variant="caption" gutterBottom sx={{ display: 'block' }}>
-                            {settings.columnDirection === 'vertical' ? 'Column Width' : 'Column Height'}: {settings.columnWidth}px
+                            {settings.columnDirection === 'horizontal' ? 'Column Height' : 'Column Width'}: {settings.columnWidth}px
                         </Typography>
                         <Slider
                             value={settings.columnWidth}
@@ -231,7 +225,7 @@ export const ColumnPreferences: React.FC<ColumnSettingsProps> = ({
     );
 };
 
-// Default settings - updated to include columnDirection
+// Default settings - updated to include direction
 export const defaultColumnSettings: ColumnSettings = {
     columnWidth: 200,
     showColumnControls: true,
