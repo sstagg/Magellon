@@ -245,7 +245,6 @@ def find_all_sessions(root_dir):
 def build_data_structure(session_images_path):
     result_list = []
 
-    # get full-paths of first-level GridSquare* dirs
     gs_paths = sorted([
         os.path.join(session_images_path, d)
         for d in os.listdir(session_images_path)
@@ -253,13 +252,12 @@ def build_data_structure(session_images_path):
     ])
 
     for gs_path in gs_paths:
-        # Identify the main GridSquare image (GridSquare_*.jpg)
         grid_square_image = None
         grid_images = []
 
         for f in os.listdir(gs_path):
-            if f.lower().endswith((".jpg", ".png")) and os.path.isfile(os.path.join(gs_path, f)):
-                if re.match(r"GridSquare_\d+.*\.jpg", f):  # Match the main grid square image
+            if f.lower().endswith(".xml") and os.path.isfile(os.path.join(gs_path, f)):
+                if re.match(r"GridSquare_\d+.*\.xml", f):
                     grid_square_image = os.path.join(gs_path, f)
                 else:
                     grid_images.append(os.path.join(gs_path, f))
@@ -268,14 +266,15 @@ def build_data_structure(session_images_path):
         data_dir = os.path.join(gs_path, "Data")
         foil_map = {}
 
-        # Build detailed structure: FoilHole → Data[]
         if os.path.isdir(foilholes_dir) and os.path.isdir(data_dir):
-            data_files = os.listdir(data_dir)
+            data_files = [
+                df for df in os.listdir(data_dir)
+                if df.endswith(".xml") and "_fractions" not in os.path.splitext(df)[0]
+            ]
 
-            # Group FoilHole images by ID
             fh_groups = defaultdict(list)
             for fh in os.listdir(foilholes_dir):
-                if fh.endswith(".jpg"):
+                if fh.endswith(".xml"):
                     fh_id = extract_id(fh)
                     if fh_id:
                         fh_groups[fh_id].append(fh)
@@ -284,19 +283,16 @@ def build_data_structure(session_images_path):
                 best_file = max(files, key=get_last_number)
                 fh_full = os.path.join(foilholes_dir, best_file)
 
-                # Match data files to this foilhole
                 matches = [
                     os.path.join(data_dir, df)
                     for df in data_files
                     if re.search(f"FoilHole_{fh_id}_", df)
                 ]
 
-                # Map with parent-child relationship
                 foil_map[fh_full] = {
                     "data_files": matches
                 }
 
-        # Add entire GridSquare block
         result_list.append({
             "grid_square": gs_path,
             "grid_square_image": grid_square_image,
