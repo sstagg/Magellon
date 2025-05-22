@@ -52,7 +52,7 @@ export const ImageThumbnail = ({
     const childrenCount = image.children_count || 0;
     const hasChildren = childrenCount > 0;
     const imageName = image.name || 'Unnamed Image';
-    const imageDefocus = image.defocus !== undefined ? `${image.defocus.toFixed(2)}μm` : 'N/A';
+    const imageDefocus = image.defocus !== undefined ? `${image.defocus?.toFixed(2)}μm` : 'N/A';
 
     // CSS classes for styling the image
     const imageClasses = useMemo(() => {
