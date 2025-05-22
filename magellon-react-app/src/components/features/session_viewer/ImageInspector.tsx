@@ -118,12 +118,36 @@ export interface SoloImageViewerProps {
 // Enhanced info component with animation and better styling
 const InfoItem: React.FC<{
     label: string;
-    value: string | number | undefined;
+    value: string | number | undefined | null;
     icon?: React.ReactNode;
     color?: string;
     loading?: boolean;
-}> = ({ label, value, icon, color, loading = false }) => {
+    formatter?: (value: any) => string;
+}> = ({
+          label,
+          value,
+          icon,
+          color,
+          loading = false,
+          formatter = (val) => val
+      }) => {
     const theme = useTheme();
+
+    // Determine the display value
+    const displayValue = (() => {
+        // Handle null, undefined, or empty values
+        if (value === null || value === undefined || value === '') {
+            return 'N/A';
+        }
+
+        // Apply custom formatter if provided
+        try {
+            return formatter(value);
+        } catch (error) {
+            console.warn(`Formatting error for ${label}:`, error);
+            return String(value);
+        }
+    })();
 
     return (
         <Box sx={{
@@ -172,11 +196,11 @@ const InfoItem: React.FC<{
                         variant="body2"
                         sx={{
                             fontWeight: 500,
-                            color: 'text.primary',
+                            color: displayValue === 'N/A' ? 'text.disabled' : 'text.primary',
                             fontSize: '0.875rem'
                         }}
                     >
-                        {value || 'N/A'}
+                        {displayValue}
                     </Typography>
                 )}
             </Box>
