@@ -9,7 +9,7 @@ import { useImageListQuery } from '../../../services/api/usePagedImagesHook.ts';
 import { useAtlasImages } from '../../../services/api/FetchSessionAtlasImages.ts';
 import { useSessionNames } from '../../../services/api/FetchUseSessionNames.ts';
 import { useImageViewerStore } from '../../features/session_viewer/store/imageViewerStore';
-import {ImageInspector} from "../../features/session_viewer/ImageInspector.tsx";
+import { ImageInspector } from "../../features/session_viewer/ImageInspector.tsx";
 
 export interface ImageColumnState {
     selectedImage: ImageInfoDto | null;
@@ -152,10 +152,14 @@ export const ImagesPageView = () => {
     const [imageColumns, setImageColumns] = useState<(ImageColumnState)[]>(initialImageColumns);
     const [currentImage, setCurrentImage] = useState<ImageInfoDto | null>(null);
 
-    // Panel size persistence
+    // Panel size persistence with width constraints
     const [leftPanelSize, setLeftPanelSize] = useState(() => {
         const saved = localStorage.getItem('images-page-left-panel-size');
-        return saved ? parseInt(saved, 10) : (isMobile ? 100 : 40);
+        const defaultSize = isMobile ? 100 : 30; // 30% default
+        const parsedSize = saved ? parseInt(saved, 10) : defaultSize;
+
+        // Ensure the loaded size respects the new constraints (20-40%)
+        return Math.max(20, Math.min(40, parsedSize));
     });
 
     // Get store state and actions
@@ -184,11 +188,13 @@ export const ImagesPageView = () => {
         isError: isAtlasError
     } = useAtlasImages(sessionName, currentSession !== null);
 
-    // Save panel size to localStorage
+    // Save panel size to localStorage with constraints
     const handlePanelResize = (sizes: number[]) => {
         if (sizes[0] !== undefined) {
-            setLeftPanelSize(sizes[0]);
-            localStorage.setItem('images-page-left-panel-size', sizes[0].toString());
+            // Ensure the saved size respects the 20-40% range
+            const constrainedSize = Math.max(20, Math.min(40, sizes[0]));
+            setLeftPanelSize(constrainedSize);
+            localStorage.setItem('images-page-left-panel-size', constrainedSize.toString());
         }
     };
 
@@ -332,8 +338,8 @@ export const ImagesPageView = () => {
         }
     }, []);
 
-    // For mobile, stack the components vertically
-    if (isMobile) {
+    // Mobile layout - stack components vertically
+    const renderMobileLayout = () => {
         return (
             <Box sx={{
                 width: '100%',
@@ -345,7 +351,8 @@ export const ImagesPageView = () => {
                 <Box sx={{
                     height: '50%',
                     overflow: 'auto',
-                    borderBottom: `1px solid ${theme.palette.divider}`
+                    borderBottom: `1px solid ${theme.palette.divider}`,
+                    maxWidth: '100%' // Ensure no horizontal overflow on mobile
                 }}>
                     <ImageWorkspace
                         onImageClick={OnCurrentImageChanged}
@@ -360,73 +367,98 @@ export const ImagesPageView = () => {
                 {currentImage && (
                     <Box sx={{
                         height: '50%',
-                        overflow: 'auto'
+                        overflow: 'auto',
+                        minHeight: '300px' // Ensure ImageInspector has minimum usable height on mobile
                     }}>
                         <ImageInspector selectedImage={currentImage} />
                     </Box>
                 )}
             </Box>
         );
+    };
+
+    // Tablet and desktop layout - resizable panels with width constraints
+    const renderTabletAndDesktopLayout = () => {
+        return (
+            <Box sx={{
+                width: '100%',
+                height: 'calc(100vh - 120px)',
+                overflow: 'hidden',
+                display: 'flex'
+            }}>
+                <PanelGroup
+                    direction="horizontal"
+                    onLayout={handlePanelResize}
+                    style={{
+                        width: '100%',
+                        height: '100%',
+                        minWidth: 0
+                    }}
+                >
+                    {/* Left Panel - Session Navigator (ImageWorkspace) - Maximum 500px */}
+                    <Panel
+                        id="session-navigator"
+                        defaultSize={leftPanelSize}
+                        minSize={20}        // Minimum 20% of total width
+                        maxSize={40}        // Maximum 40% of total width
+                        style={{
+                            minWidth: 0,
+                            maxWidth: '650px', // Hard maximum width limit
+                            overflow: 'hidden'
+                        }}
+                    >
+                        <Box sx={{
+                            height: '100%',
+                            overflow: 'hidden',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            backgroundColor: 'background.paper',
+                            maxWidth: '650px' // Ensure ImageWorkspace doesn't exceed 500px
+                        }}>
+                            <ImageWorkspace
+                                onImageClick={OnCurrentImageChanged}
+                                selectedSession={currentSession}
+                                OnSessionSelected={OnSessionSelected}
+                                selectedImage={currentImage}
+                                ImageColumns={imageColumns}
+                                Sessions={sessionData}
+                                Atlases={atlasImages}
+                            />
+                        </Box>
+                    </Panel>
+
+                    {/* Resize Handle */}
+                    <CustomResizeHandle />
+
+                    {/* Right Panel - Solo Image Viewer (ImageInspector) - Minimum 600px */}
+                    <Panel
+                        id="image-viewer"
+                        minSize={50}        // Minimum 50% of total width
+                        style={{
+                            minWidth: '700px', // Hard minimum width limit
+                            overflow: 'hidden'
+                        }}
+                    >
+                        <Box sx={{
+                            height: '100%',
+                            overflow: 'hidden',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            backgroundColor: 'background.paper',
+                            minWidth: '700px' // Ensure ImageInspector has at least 600px
+                        }}>
+                            <ImageInspector selectedImage={currentImage} />
+                        </Box>
+                    </Panel>
+                </PanelGroup>
+            </Box>
+        );
+    };
+
+    // Main component return - responsive layout selection
+    if (isMobile) {
+        return renderMobileLayout();
+    } else {
+        return renderTabletAndDesktopLayout();
     }
-
-    // For tablet and desktop, use resizable panels
-    return (
-        <Box sx={{
-            width: '100%',
-            height: 'calc(100vh - 120px)',
-            overflow: 'hidden',
-            display: 'flex'
-        }}>
-            <PanelGroup
-                direction="horizontal"
-                onLayout={handlePanelResize}
-                style={{ width: '100%', height: '100%' }}
-            >
-                {/* Left Panel - Session Navigator */}
-                <Panel
-                    id="session-navigator"
-                    defaultSize={leftPanelSize}
-                    minSize={25}
-                    maxSize={75}
-                >
-                    <Box sx={{
-                        height: '100%',
-                        overflow: 'hidden',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        backgroundColor: 'background.paper'
-                    }}>
-                        <ImageWorkspace
-                            onImageClick={OnCurrentImageChanged}
-                            selectedSession={currentSession}
-                            OnSessionSelected={OnSessionSelected}
-                            selectedImage={currentImage}
-                            ImageColumns={imageColumns}
-                            Sessions={sessionData}
-                            Atlases={atlasImages}
-                        />
-                    </Box>
-                </Panel>
-
-                {/* Resize Handle */}
-                <CustomResizeHandle />
-
-                {/* Right Panel - Solo Image Viewer */}
-                <Panel
-                    id="image-viewer"
-                    minSize={25}
-                >
-                    <Box sx={{
-                        height: '100%',
-                        overflow: 'hidden',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        backgroundColor: 'background.paper'
-                    }}>
-                        <ImageInspector selectedImage={currentImage} />
-                    </Box>
-                </Panel>
-            </PanelGroup>
-        </Box>
-    );
 };

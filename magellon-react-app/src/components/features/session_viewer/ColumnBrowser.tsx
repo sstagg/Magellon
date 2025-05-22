@@ -122,6 +122,20 @@ export const ColumnBrowser: React.FC<StackedViewProps> = ({
     // Determine layout properties
     const isHorizontal = columnSettings.columnDirection === 'horizontal';
 
+    // Calculate responsive column height for horizontal mode
+    const getResponsiveColumnHeight = () => {
+        if (!isHorizontal) return columnSettings.columnWidth;
+
+        // In horizontal mode, calculate available height and divide by number of visible columns
+        const availableHeight = typeof window !== 'undefined' ? window.innerHeight - 200 : 600; // Subtract header/footer space
+        const maxHeightPerColumn = Math.floor(availableHeight / Math.max(visibleColumns.length, 1));
+
+        // Use the smaller of the configured height or the calculated responsive height
+        return Math.min(columnSettings.columnWidth, Math.max(120, maxHeightPerColumn)); // Min 120px per column
+    };
+
+    const responsiveColumnHeight = getResponsiveColumnHeight();
+
     // Render the settings panel
     const renderSettingsPanel = () => {
         if (!showSettings) return null;
@@ -190,7 +204,10 @@ export const ColumnBrowser: React.FC<StackedViewProps> = ({
             columnDirection: columnSettings.columnDirection,
             isHorizontal,
             useEnhancedColumns: columnSettings.useEnhancedColumns,
-            columnWidth: columnSettings.columnWidth
+            columnWidth: columnSettings.columnWidth,
+            responsiveColumnHeight,
+            visibleColumnsCount: visibleColumns.length,
+            windowHeight: typeof window !== 'undefined' ? window.innerHeight : 'unknown'
         });
 
         return (

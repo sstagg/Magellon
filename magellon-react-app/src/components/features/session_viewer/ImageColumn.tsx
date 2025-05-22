@@ -124,6 +124,7 @@ export const ImageColumn: React.FC<ImagesStackProps> = ({
                 width: containerWidth,
                 height: containerHeight,
                 maxHeight: maxHeight,
+                maxWidth: '100%', // Prevent exceeding container width
                 display: 'flex',
                 flexDirection: 'column',
                 backgroundColor: 'transparent',

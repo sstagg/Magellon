@@ -569,6 +569,8 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
             return {
                 ...baseStyle,
                 width: '100%', // Always full width in horizontal mode
+                minWidth: 0, // Allow shrinking
+                maxWidth: '100%', // Don't exceed container
                 height: height || 200,
             };
         } else {

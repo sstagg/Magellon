@@ -155,11 +155,19 @@ export const ColumnPreferences: React.FC<ColumnSettingsProps> = ({
                             size="small"
                             valueLabelDisplay="auto"
                             step={10}
-                            marks={[
-                                { value: minWidth, label: `${minWidth}px` },
-                                { value: Math.round((minWidth + maxWidth) / 2), label: 'Medium' },
-                                { value: maxWidth, label: `${maxWidth}px` }
-                            ]}
+                            marks={
+                                settings.columnDirection === 'horizontal'
+                                    ? [
+                                        { value: 120, label: '120px' },
+                                        { value: 200, label: '200px' },
+                                        { value: 300, label: '300px' }
+                                    ]
+                                    : [
+                                        { value: minWidth, label: `${minWidth}px` },
+                                        { value: Math.round((minWidth + maxWidth) / 2), label: 'Medium' },
+                                        { value: maxWidth, label: `${maxWidth}px` }
+                                    ]
+                            }
                         />
                     </Box>
 
@@ -227,7 +235,7 @@ export const ColumnPreferences: React.FC<ColumnSettingsProps> = ({
 
 // Default settings - updated to include direction
 export const defaultColumnSettings: ColumnSettings = {
-    columnWidth: 200,
+    columnWidth: 150, // Smaller default for horizontal mode
     showColumnControls: true,
     autoHideEmptyColumns: true,
     useEnhancedColumns: true,
