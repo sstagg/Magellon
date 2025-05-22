@@ -15,20 +15,32 @@ import {
     Stack,
     Tooltip,
     Typography,
-    useTheme
+    useTheme,
+    Switch,
+    FormControlLabel,
+    Slider,
+    Chip
 } from "@mui/material";
-import { ImagesStackComponent } from "./ImagesStackComponent.tsx";
 import ImageInfoDto, { AtlasImageDto, SessionDto } from "./ImageInfoDto.ts";
 import IconButton from "@mui/material/IconButton";
 import { EyeOutlined } from "@ant-design/icons";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ImageColumnState } from "../../panel/pages/ImagesPageView.tsx";
 import AtlasImage from "./AtlasImage.tsx";
 import { settings } from "../../../core/settings.ts";
-import { AccountTreeRounded, GridViewRounded, GridOnRounded, TableRowsRounded } from "@mui/icons-material";
+import {
+    AccountTreeRounded,
+    GridViewRounded,
+    GridOnRounded,
+    Settings,
+    ViewColumn,
+    AutoAwesome
+} from "@mui/icons-material";
 import { useImageViewerStore } from './store/imageViewerStore.ts';
 import FlatImageViewerComponent from "./FlatImageViewerComponent.tsx";
 import TreeViewer from "./TreeViewer.tsx";
+import ImageColumnComponent from "./ImageColumnComponent.tsx";
+import { ImagesStackComponent } from "./ImagesStackComponent.tsx";
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
 
@@ -52,6 +64,14 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
                                                                              OnSessionSelected
                                                                          }) => {
     const theme = useTheme();
+
+    // Local state for enhanced column view
+    const [columnSettings, setColumnSettings] = useState({
+        columnWidth: 200,
+        showColumnControls: true,
+        autoHideEmptyColumns: true,
+        useEnhancedColumns: true
+    });
 
     // Get store state and actions
     const {
@@ -77,6 +97,17 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
     const handleAtlasClick = (atlas: AtlasImageDto) => {
         setCurrentAtlas(atlas);
     };
+
+    // Calculate which columns should be visible
+    const visibleColumns = ImageColumns.filter((col, index) => {
+        if (!columnSettings.autoHideEmptyColumns) return true;
+
+        // Always show the first column
+        if (index === 0) return true;
+
+        // Show column if it has data or if the previous column has a selected image
+        return col.images && col.images.pages && col.images.pages.length > 0;
+    });
 
     // Session selector component
     const renderSessionSelector = () => {
@@ -105,36 +136,102 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
         );
     };
 
-    // View mode selector component
+    // Enhanced view mode selector component
     const renderViewModeSelector = () => {
         return (
             <Paper elevation={0} variant="outlined" sx={{ p: 1, borderRadius: 1 }}>
-                <ButtonGroup size="small" fullWidth>
-                    <Tooltip title="Column View">
-                        <IconButton
-                            onClick={() => setViewMode('grid')}
-                            color={viewMode === 'grid' ? 'primary' : 'default'}
-                        >
-                            <GridViewRounded />
-                        </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Tree View">
-                        <IconButton
-                            onClick={() => setViewMode('tree')}
-                            color={viewMode === 'tree' ? 'primary' : 'default'}
-                        >
-                            <AccountTreeRounded />
-                        </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Flat View">
-                        <IconButton
-                            onClick={() => setViewMode('flat')}
-                            color={viewMode === 'flat' ? 'primary' : 'default'}
-                        >
-                            <GridOnRounded />
-                        </IconButton>
-                    </Tooltip>
-                </ButtonGroup>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                    <ButtonGroup size="small">
+                        <Tooltip title="Enhanced Column View">
+                            <IconButton
+                                onClick={() => setViewMode('grid')}
+                                color={viewMode === 'grid' ? 'primary' : 'default'}
+                            >
+                                <ViewColumn />
+                            </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Tree View">
+                            <IconButton
+                                onClick={() => setViewMode('tree')}
+                                color={viewMode === 'tree' ? 'primary' : 'default'}
+                            >
+                                <AccountTreeRounded />
+                            </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Flat View">
+                            <IconButton
+                                onClick={() => setViewMode('flat')}
+                                color={viewMode === 'flat' ? 'primary' : 'default'}
+                            >
+                                <GridOnRounded />
+                            </IconButton>
+                        </Tooltip>
+                    </ButtonGroup>
+
+                    <Chip
+                        label={viewMode === 'grid' ? 'Columns' : viewMode === 'tree' ? 'Tree' : 'Flat'}
+                        size="small"
+                        color="primary"
+                        variant="outlined"
+                    />
+                </Box>
+
+                {/* Column-specific settings */}
+                {viewMode === 'grid' && (
+                    <Box sx={{ px: 1 }}>
+                        <FormControlLabel
+                            control={
+                                <Switch
+                                    size="small"
+                                    checked={columnSettings.useEnhancedColumns}
+                                    onChange={(e) => setColumnSettings(prev => ({
+                                        ...prev,
+                                        useEnhancedColumns: e.target.checked
+                                    }))}
+                                />
+                            }
+                            label={
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    <AutoAwesome sx={{ fontSize: 16 }} />
+                                    <Typography variant="caption">Enhanced</Typography>
+                                </Box>
+                            }
+                        />
+
+                        {columnSettings.useEnhancedColumns && (
+                            <Box sx={{ mt: 1 }}>
+                                <Typography variant="caption" gutterBottom>
+                                    Column Width: {columnSettings.columnWidth}px
+                                </Typography>
+                                <Slider
+                                    value={columnSettings.columnWidth}
+                                    onChange={(_, value) => setColumnSettings(prev => ({
+                                        ...prev,
+                                        columnWidth: value as number
+                                    }))}
+                                    min={150}
+                                    max={300}
+                                    size="small"
+                                    valueLabelDisplay="auto"
+                                />
+
+                                <FormControlLabel
+                                    control={
+                                        <Switch
+                                            size="small"
+                                            checked={columnSettings.autoHideEmptyColumns}
+                                            onChange={(e) => setColumnSettings(prev => ({
+                                                ...prev,
+                                                autoHideEmptyColumns: e.target.checked
+                                            }))}
+                                        />
+                                    }
+                                    label={<Typography variant="caption">Auto-hide empty</Typography>}
+                                />
+                            </Box>
+                        )}
+                    </Box>
+                )}
             </Paper>
         );
     };
@@ -156,7 +253,7 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
     // Render the tree view (hierarchical)
     const renderTreeView = () => {
         return (
-            <Box sx={{ mt: 2, height: 'calc(100% - 130px)', overflow: 'auto' }}>
+            <Box sx={{ mt: 2, height: 'calc(100% - 160px)', overflow: 'auto' }}>
                 <TreeViewer
                     images={ImageColumns[0].images}
                     onImageClick={onImageClick}
@@ -166,20 +263,59 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
         );
     };
 
-    // Render the column view (original)
+    // Enhanced grid view with new ImageColumnComponent
     const renderGridView = () => {
+        if (columnSettings.useEnhancedColumns) {
+            return (
+                <Box sx={{
+                    mt: 2,
+                    display: 'flex',
+                    gap: 1,
+                    overflowX: 'auto',
+                    height: 'calc(100% - 160px)',
+                    pb: 1
+                }}>
+                    {visibleColumns.map((column, index) => (
+                        <ImageColumnComponent
+                            key={`enhanced-column-${index}`}
+                            caption={column.caption}
+                            level={index}
+                            parentImage={index === 0 ? null : ImageColumns[index - 1]?.selectedImage || null}
+                            sessionName={sessionName}
+                            width={columnSettings.columnWidth}
+                            height={undefined} // Let it fill available height
+                            onImageClick={onImageClick}
+                            showControls={columnSettings.showColumnControls}
+                            collapsible={index > 0}
+                            sx={{
+                                flexShrink: 0,
+                                height: '100%'
+                            }}
+                        />
+                    ))}
+                </Box>
+            );
+        }
+
+        // Fallback to original stack components
         return (
             <Box sx={{
                 mt: 2,
                 display: 'flex',
                 flexWrap: 'nowrap',
                 overflowX: 'auto',
-                height: 'calc(100% - 130px)'
+                height: 'calc(100% - 160px)'
             }}>
-                <ImagesStackComponent caption={ImageColumns[0].caption} images={ImageColumns[0].images} level={0} onImageClick={(image) => onImageClick(image, 0)} />
-                <ImagesStackComponent caption={ImageColumns[1].caption} images={ImageColumns[1].images} level={1} onImageClick={(image) => onImageClick(image, 1)} />
-                <ImagesStackComponent caption={ImageColumns[2].caption} images={ImageColumns[2].images} level={2} onImageClick={(image) => onImageClick(image, 2)} />
-                <ImagesStackComponent caption={ImageColumns[3].caption} images={ImageColumns[3].images} level={3} onImageClick={(image) => onImageClick(image, 3)} />
+                {ImageColumns.map((column, index) => (
+                    <Box key={`stack-column-${index}`} sx={{ flexShrink: 0 }}>
+                        <ImagesStackComponent
+                            caption={column.caption}
+                            images={column.images}
+                            level={index}
+                            onImageClick={(image) => onImageClick(image, index)}
+                        />
+                    </Box>
+                ))}
             </Box>
         );
     };
@@ -187,7 +323,7 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
     // Render the flat view (non-hierarchical)
     const renderFlatView = () => {
         return (
-            <Box sx={{ mt: 2, height: 'calc(100% - 130px)', overflow: 'auto' }}>
+            <Box sx={{ mt: 2, height: 'calc(100% - 160px)', overflow: 'auto' }}>
                 <FlatImageViewerComponent
                     images={ImageColumns[0].images}
                     onImageClick={onImageClick}
@@ -247,7 +383,7 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
                 <Box sx={{
                     display: 'flex',
                     gap: 2,
-                    alignItems: 'center', // Changed from 'flex-start' to 'center'
+                    alignItems: 'center',
                     mb: 1
                 }}>
                     {/* Session selector - takes more space */}
@@ -255,12 +391,12 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
                         {renderSessionSelector()}
                     </Box>
 
-                    {/* Atlas visibility toggle - same height as session selector */}
+                    {/* Atlas visibility toggle */}
                     <Paper
                         elevation={0}
                         variant="outlined"
                         sx={{
-                            height: 56, // Match height of session selector
+                            height: 56,
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -308,7 +444,7 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
                     </Box>
                 )}
 
-                {/* View mode selector moved below atlas section */}
+                {/* Enhanced view mode selector */}
                 <Box sx={{ mb: 1 }}>
                     {renderViewModeSelector()}
                 </Box>
