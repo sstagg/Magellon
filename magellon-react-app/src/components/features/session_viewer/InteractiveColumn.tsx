@@ -334,6 +334,28 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
         val !== undefined && val !== '' && val !== null
     ).length;
 
+    // Calculate the height available for content after header
+    const getContentHeight = useCallback(() => {
+        if (!isHorizontalMode) return '100%';
+
+        // In horizontal mode, subtract header height from total height
+        const headerHeight = 36; // Compact header height
+        const searchBarHeight = filter.search || isHeaderHovered ? 28 + 12 : 0; // Search bar + padding
+        const totalHeaderHeight = headerHeight + searchBarHeight ;
+
+        const availableHeight = (height || 200) - totalHeaderHeight;
+
+        console.log(`InteractiveColumn ${level} content height calculation:`, {
+            totalHeight: height,
+            headerHeight,
+            searchBarHeight,
+            totalHeaderHeight,
+            availableHeight
+        });
+
+        return Math.max(100, availableHeight); // Minimum 100px for content
+    }, [isHorizontalMode, height, filter.search, isHeaderHovered, level]);
+
     // Render minimal header
     const renderSlickHeader = () => (
         <Box
@@ -475,6 +497,8 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
         });
 
         if (displayMode === 'stack') {
+            const contentHeight = getContentHeight();
+
             return (
                 <ImageColumn
                     caption=""
@@ -482,7 +506,7 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                     level={level}
                     direction={isHorizontalMode ? 'horizontal' : 'vertical'}
                     width={isHorizontalMode ? '100%' : width}
-                    height={isHorizontalMode ? height : undefined}
+                    height={isHorizontalMode ? contentHeight : undefined}
                     onImageClick={handleImageClick}
                 />
             );
@@ -691,6 +715,7 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                 ref={scrollRef}
                 sx={{
                     flex: 1,
+                    height: isHorizontalMode ? getContentHeight() : '100%',
                     overflow: 'auto',
                     '&::-webkit-scrollbar': {
                         width: '4px',

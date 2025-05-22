@@ -1,9 +1,22 @@
 import React, {useEffect, useState} from 'react';
-import {Box, MenuItem, Pagination, Select, Slider, Typography} from '@mui/material';
+import {
+    Box,
+    MenuItem,
+    Pagination,
+    Select,
+    Slider,
+    Typography,
+    Paper,
+    FormControl,
+    InputLabel,
+    Divider,
+    Stack,
+    Card,
+    CardContent
+} from '@mui/material';
 import Grid from '@mui/material/Grid';
 import {settings} from "../../../core/settings.ts";
 import DirectoryTreeView from "../components/DirectoryTreeView.tsx";
-
 
 interface MRCViewerProps {
     mrcFilePath: string;
@@ -21,27 +34,20 @@ interface MetadataType {
     [key: string]: number[];
 }
 
-
-// const gridRef = useRef<HTMLDivElement>(null);
-
 const BASE_URL = settings.ConfigData.SERVER_API_URL;
 
 const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath, metadataFiles = []}) => {
-
     const [selectedDirectory, setSelectedDirectory] = useState('');
-    const [selectedImage, setSelectedImage] = useState(null);
-
+    const [selectedImage, setSelectedImage] = useState<number | null>(null);
     const [imageData, setImageData] = useState<ImageData | null>(null);
     const [metadata, setMetadata] = useState<MetadataType>({});
     const [selectedMetadata, setSelectedMetadata] = useState<string>('');
-
     const [page, setPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [scale, setScale] = useState(1);
     const [brightness, setBrightness] = useState(50);
     const [contrast, setContrast] = useState(50);
     const [columns, setColumns] = useState(3);
-
 
     useEffect(() => {
         const fetchImages = async () => {
@@ -135,229 +141,243 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath, metadataFiles
                 canvasImageData.data[pixelIndex] = value;
                 canvasImageData.data[pixelIndex + 1] = value;
                 canvasImageData.data[pixelIndex + 2] = value;
-                canvasImageData.data[pixelIndex + 3] = 255; // Alpha channel
+                canvasImageData.data[pixelIndex + 3] = 255;
             }
         }
 
         ctx.putImageData(canvasImageData, 0, 0);
 
         return (
-            <Box
+            <Card
                 key={index}
                 sx={{
-                    position: 'relative',
-                    backgroundColor: 'background.paper',
-                    borderRadius: 1,
-                    boxShadow: 1,
-                    padding: 2,
-                    width: scaledWidth + 20,
-                    height: scaledHeight + 20,
-                    transition: 'all 0.3s ease',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease-in-out',
+                    border: selectedImage === index ? 2 : 1,
+                    borderColor: selectedImage === index ? 'primary.main' : 'divider',
                     '&:hover': {
-                        boxShadow: '0 0 10px rgba(0, 0, 255, 0.5)', // Hover effect
-                        transform: 'scale(1.05)', // Slight zoom effect
+                        boxShadow: 4,
+                        transform: 'translateY(-2px)',
+                        borderColor: 'primary.light',
                     },
-                    border: selectedImage === index ? '3px solid blue' : 'none', // Border for selected image
                 }}
                 onClick={() => setSelectedImage(index)}
             >
-                <img
-                    src={canvas.toDataURL()}
-                    alt={`MRC Image ${index + 1}`}
-                    style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'contain',
-                    }}
-                />
-                <Box
-                    sx={{
-                        position: 'absolute',
-                        top: 2,
-                        left: 2,
-                        backgroundColor: 'background.default',
-                        color: selectedImage === index ? 'blue' : 'text.primary', // Change color for selected image
-                        borderRadius: 1,
-                        padding: '2px 4px',
-                        transition: 'color 0.3s ease',
-                    }}
-                >
-                    {index + 1}
+                <Box sx={{ position: 'relative', p: 1 }}>
+                    <img
+                        src={canvas.toDataURL()}
+                        alt={`MRC Image ${index + 1}`}
+                        style={{
+                            width: '100%',
+                            height: 'auto',
+                            display: 'block',
+                            borderRadius: 4,
+                        }}
+                    />
+                    <Box
+                        sx={{
+                            position: 'absolute',
+                            top: 8,
+                            left: 8,
+                            backgroundColor: selectedImage === index ? 'primary.main' : 'background.paper',
+                            color: selectedImage === index ? 'primary.contrastText' : 'text.primary',
+                            borderRadius: 1,
+                            px: 1,
+                            py: 0.5,
+                            typography: 'caption',
+                            fontWeight: 'bold',
+                            boxShadow: 1,
+                        }}
+                    >
+                        {index + 1}
+                    </Box>
                 </Box>
-            </Box>
+            </Card>
         );
     };
+
     const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
         setPage(value);
     };
+
     return (
-        <Grid container spacing={2}>
-            {/* Left Panel - 3 columns */}
-            <Grid size={2}>
-
-                <Typography variant="h6" gutterBottom>
-                    Directory Tree
+        <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', p: 2 }}>
+            {/* Header */}
+            <Paper sx={{ p: 2, mb: 2 }}>
+                <Typography variant="h4" component="h1" gutterBottom>
+                    MRC Viewer
                 </Typography>
+                <Typography variant="body2" color="text.secondary">
+                    {mrcFilePath}
+                </Typography>
+            </Paper>
 
-                <DirectoryTreeView></DirectoryTreeView>
-
-            </Grid>
-
-            {/* Main Panel - 8 columns */}
-            <Grid container size={10} spacing={2}>
-
-
-                <Grid size={9} container direction="row">
-                    {imageData?.images?.length ? (
-                        imageData.images.map((image, index) =>
-                            renderImage(image, index, scale)
-                        )
-                    ) : (
-                        <Box
-                            display="flex"
-                            justifyContent="center"
-                            alignItems="center"
-                            height="200px"
-                        >
-                            <Typography variant="h2" color="error">
-                                Error: Failed to load images
-                            </Typography>
-                        </Box>
-                    )}
-                </Grid>
-
-                <Grid size={3}>
-
-                    <Typography variant="h6" display="inline" style={{marginRight: 8}}>
-                        Metadata:
+            {/* Main Content */}
+            <Box sx={{ flex: 1, display: 'flex', gap: 2, minHeight: 0 }}>
+                {/* Left Sidebar - Directory Tree */}
+                <Paper sx={{ width: 280, p: 2, overflow: 'auto' }}>
+                    <Typography variant="h6" gutterBottom>
+                        Directory Tree
                     </Typography>
-                    <table>
-                        <thead>
-                        <tr>
-                            <th>Key</th>
-                            <th>Value</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr>
-                            <td>Dose</td>
-                            <td>5</td>
-                        </tr>
-                        <tr>
-                            <td>magnification</td>
-                            <td>2</td>
-                        </tr>
-                        <tr>
-                            <td>defocus</td>
-                            <td>30</td>
-                        </tr>
-                        <tr>
-                            <td>intensity</td>
-                            <td>11</td>
-                        </tr>
-                        <tr>
-                            <td>shift_x</td>
-                            <td>12</td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </Grid>
+                    <Divider sx={{ mb: 2 }} />
+                    <DirectoryTreeView />
+                </Paper>
 
-                <Grid container size={6}>
+                {/* Center - Image Grid */}
+                <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                    {/* Controls Bar */}
+                    <Paper sx={{ p: 2, mb: 2 }}>
+                        <Stack direction="row" spacing={3} alignItems="center" flexWrap="wrap">
+                            <FormControl size="small" sx={{ minWidth: 120 }}>
+                                <InputLabel>Items per page</InputLabel>
+                                <Select
+                                    value={itemsPerPage}
+                                    label="Items per page"
+                                    onChange={(event) => setItemsPerPage(Number(event.target.value))}
+                                >
+                                    {[1, 5, 10, 25, 50, 100].map((value) => (
+                                        <MenuItem key={value} value={value}>
+                                            {value}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
 
-                    <Grid>
-                        <Typography variant="h6" display="inline" style={{marginRight: 8}}>
-                            Items per page:
+                            <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+                                <Pagination
+                                    count={Math.ceil((imageData?.total_images || 0) / itemsPerPage)}
+                                    page={page}
+                                    onChange={handlePageChange}
+                                    color="primary"
+                                    size="large"
+                                />
+                            </Box>
+                        </Stack>
+                    </Paper>
+
+                    {/* Image Grid */}
+                    <Paper sx={{ flex: 1, p: 2, overflow: 'auto' }}>
+                        {imageData?.images?.length ? (
+                            <Grid container spacing={2}>
+                                {imageData.images.map((image, index) => (
+                                    <Grid key={index} xs={12} sm={6} md={4} lg={3}>
+                                        {renderImage(image, index, scale)}
+                                    </Grid>
+                                ))}
+                            </Grid>
+                        ) : (
+                            <Box
+                                display="flex"
+                                justifyContent="center"
+                                alignItems="center"
+                                height="100%"
+                            >
+                                <Typography variant="h6" color="error">
+                                    Failed to load images
+                                </Typography>
+                            </Box>
+                        )}
+                    </Paper>
+                </Box>
+
+                {/* Right Sidebar - Controls & Metadata */}
+                <Box sx={{ width: 300, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {/* Image Controls */}
+                    <Paper sx={{ p: 2 }}>
+                        <Typography variant="h6" gutterBottom>
+                            Image Controls
                         </Typography>
-                    </Grid>
+                        <Divider sx={{ mb: 2 }} />
 
-                    <Grid>
-                        <Select
-                            value={String(itemsPerPage)}
-                            onChange={(event) => setItemsPerPage(Number(event.target.value))}
-                        >
-                            {[1, 5, 10, 25, 50, 100].map((value) => (
-                                <MenuItem key={value} value={value}>
-                                    {value}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </Grid>
+                        <Stack spacing={3}>
+                            <Box>
+                                <Typography variant="body2" gutterBottom>
+                                    Brightness: {brightness}
+                                </Typography>
+                                <Slider
+                                    value={brightness}
+                                    onChange={(_, value) => setBrightness(value as number)}
+                                    min={0}
+                                    max={100}
+                                    step={1}
+                                    size="small"
+                                />
+                            </Box>
 
-                    <Grid>
-                        <Pagination
-                            count={Math.ceil(imageData?.total_images / itemsPerPage) || 0}
-                            page={page}
-                            onChange={handlePageChange}
-                            color="primary"
-                            size="large"
-                        />
-                    </Grid>
-                </Grid>
+                            <Box>
+                                <Typography variant="body2" gutterBottom>
+                                    Contrast: {contrast}
+                                </Typography>
+                                <Slider
+                                    value={contrast}
+                                    onChange={(_, value) => setContrast(value as number)}
+                                    min={0}
+                                    max={100}
+                                    step={1}
+                                    size="small"
+                                />
+                            </Box>
 
-                <Grid size={2}>
-                    <Grid size={12}>
-                        <Typography variant="h6" display="inline" style={{marginRight: 8}}>
-                            Brightness:
+                            <Box>
+                                <Typography variant="body2" gutterBottom>
+                                    Scale: {scale.toFixed(1)}x
+                                </Typography>
+                                <Slider
+                                    value={scale}
+                                    onChange={(_, value) => setScale(value as number)}
+                                    min={0.1}
+                                    max={5}
+                                    step={0.1}
+                                    size="small"
+                                />
+                            </Box>
+                        </Stack>
+                    </Paper>
+
+                    {/* Metadata */}
+                    <Paper sx={{ p: 2, flex: 1 }}>
+                        <Typography variant="h6" gutterBottom>
+                            Metadata
                         </Typography>
-                        <Typography variant="h6" display="inline" color="primary">
-                            {brightness}
-                        </Typography>
-                    </Grid>
+                        <Divider sx={{ mb: 2 }} />
 
-                    <Slider
-                        value={brightness}
-                        onChange={(_, value) => setBrightness(value as number)}
-                        min={0}
-                        max={100}
-                        step={1}
-                    />
-                </Grid>
-                <Grid size={2}>
-                    <Grid size={12}>
-                        <Typography variant="h6" display="inline" style={{marginRight: 8}}>
-                            Contrast:
-                        </Typography>
-                        <Typography variant="h6" display="inline" color="primary">
-                            {contrast}
-                        </Typography>
-                    </Grid>
-                    <Slider
-                        value={contrast}
-                        onChange={(_, value) => setContrast(value as number)}
-                        min={0}
-                        max={100}
-                        step={1}
-                    />
-                </Grid>
-
-
-                <Grid size={2}>
-                    <Grid size={12}>
-                        <Typography variant="h6" display="inline" style={{marginRight: 8}}>
-                            Scale:
-                        </Typography>
-                        <Typography variant="h6" display="inline" color="primary">
-                            {scale}
-                        </Typography>
-                    </Grid>
-                    <Slider
-                        value={scale}
-                        onChange={(_, value) => setScale(value as number)}
-                        min={0.1}
-                        max={5}
-                        step={0.1}
-                        aria-labelledby="scale-slider"
-                    />
-                </Grid>
-
-
-            </Grid>
-
-
-        </Grid>
+                        <Box sx={{ overflow: 'auto' }}>
+                            <Box component="table" sx={{ width: '100%', '& td, & th': { p: 1, border: 1, borderColor: 'divider' } }}>
+                                <Box component="thead">
+                                    <Box component="tr">
+                                        <Box component="th" sx={{ backgroundColor: 'grey.100' }}>Key</Box>
+                                        <Box component="th" sx={{ backgroundColor: 'grey.100' }}>Value</Box>
+                                    </Box>
+                                </Box>
+                                <Box component="tbody">
+                                    <Box component="tr">
+                                        <Box component="td">Dose</Box>
+                                        <Box component="td">5</Box>
+                                    </Box>
+                                    <Box component="tr">
+                                        <Box component="td">Magnification</Box>
+                                        <Box component="td">2</Box>
+                                    </Box>
+                                    <Box component="tr">
+                                        <Box component="td">Defocus</Box>
+                                        <Box component="td">30</Box>
+                                    </Box>
+                                    <Box component="tr">
+                                        <Box component="td">Intensity</Box>
+                                        <Box component="td">11</Box>
+                                    </Box>
+                                    <Box component="tr">
+                                        <Box component="td">Shift X</Box>
+                                        <Box component="td">12</Box>
+                                    </Box>
+                                </Box>
+                            </Box>
+                        </Box>
+                    </Paper>
+                </Box>
+            </Box>
+        </Box>
     );
-
 };
 
 export default MrcViewerPageView;
