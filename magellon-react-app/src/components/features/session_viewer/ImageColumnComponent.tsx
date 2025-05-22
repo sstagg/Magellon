@@ -17,29 +17,27 @@ import {
     ListItemText,
     TextField,
     InputAdornment,
-    Divider,
     Button,
     useTheme,
-    alpha
+    alpha,
+    Fade
 } from "@mui/material";
 import {
     Clear,
-    ExpandMore,
-    GridView,
     MoreVert,
     Refresh,
     ViewList,
-    ViewModule
+    ViewModule,
+    GridView,
+    Search,
+    SortAsc,
+    SortDesc,
+    FilterList
 } from "@mui/icons-material";
 import {
     Folder,
     AlertTriangle,
-    Search,
-    SortAsc,
-    SortDesc,
     List as ListIcon,
-    Download,
-    Info,
     ChevronRight,
     ChevronDown
 } from "lucide-react";
@@ -71,7 +69,7 @@ interface SortConfig {
 // Display modes for the column
 type DisplayMode = 'stack' | 'grid' | 'list';
 
-interface ImageColumnProps {
+interface SlickImageColumnProps {
     /**
      * Callback when an image is clicked
      */
@@ -123,22 +121,22 @@ interface ImageColumnProps {
 }
 
 /**
- * Enhanced ImageColumnComponent with filtering, sorting, search, and multiple display modes
+ * Slick ImageColumnComponent with minimal header and streamlined design
  */
-export const ImageColumnComponent: React.FC<ImageColumnProps> = ({
-                                                                     onImageClick,
-                                                                     parentImage,
-                                                                     sessionName,
-                                                                     level,
-                                                                     caption,
-                                                                     width = 200,
-                                                                     height = 700,
-                                                                     showControls = true,
-                                                                     initialDisplayMode = 'stack',
-                                                                     collapsible = false,
-                                                                     initialCollapsed = false,
-                                                                     sx = {}
-                                                                 }) => {
+export const ImageColumnComponent: React.FC<SlickImageColumnProps> = ({
+                                                                               onImageClick,
+                                                                               parentImage,
+                                                                               sessionName,
+                                                                               level,
+                                                                               caption,
+                                                                               width = 200,
+                                                                               height = 700,
+                                                                               showControls = true,
+                                                                               initialDisplayMode = 'stack',
+                                                                               collapsible = false,
+                                                                               initialCollapsed = false,
+                                                                               sx = {}
+                                                                           }) => {
     const theme = useTheme();
     const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -149,10 +147,10 @@ export const ImageColumnComponent: React.FC<ImageColumnProps> = ({
     const [sortConfig, setSortConfig] = useState<SortConfig>({ field: 'name', direction: 'asc' });
     const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
     const [isCollapsed, setIsCollapsed] = useState(initialCollapsed);
+    const [isHeaderHovered, setIsHeaderHovered] = useState(false);
 
     // Menu states
     const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
-    const [sortMenuAnchor, setSortMenuAnchor] = useState<null | HTMLElement>(null);
 
     // Store integration
     const { currentImage } = useImageViewerStore();
@@ -302,12 +300,6 @@ export const ImageColumnComponent: React.FC<ImageColumnProps> = ({
 
     const handleMenuClose = useCallback(() => {
         setMenuAnchor(null);
-        setSortMenuAnchor(null);
-    }, []);
-
-    const handleSortMenuOpen = useCallback((event: React.MouseEvent<HTMLElement>) => {
-        setSortMenuAnchor(event.currentTarget);
-        setMenuAnchor(null);
     }, []);
 
     // Scroll to top when filters change
@@ -322,107 +314,131 @@ export const ImageColumnComponent: React.FC<ImageColumnProps> = ({
         val !== undefined && val !== '' && val !== null
     ).length;
 
-    // Render header with controls
-    const renderHeader = () => (
-        <Paper
-            elevation={0}
-            variant="outlined"
+    // Render minimal header
+    const renderSlickHeader = () => (
+        <Box
+            onMouseEnter={() => setIsHeaderHovered(true)}
+            onMouseLeave={() => setIsHeaderHovered(false)}
             sx={{
-                p: 1.5,
-                borderRadius: 1,
                 position: 'sticky',
                 top: 0,
                 zIndex: 2,
-                backgroundColor: theme.palette.background.paper
+                backgroundColor: alpha(theme.palette.background.paper, 0.95),
+                backdropFilter: 'blur(8px)',
+                borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                transition: 'all 0.2s ease'
             }}
         >
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: '0.9rem' }}>
-                    {caption}
-                </Typography>
+            {/* Compact header */}
+            <Box sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                px: 1.5,
+                py: 0.75,
+                minHeight: 36
+            }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, minWidth: 0 }}>
+                    {collapsible && (
+                        <IconButton
+                            size="small"
+                            onClick={() => setIsCollapsed(!isCollapsed)}
+                            sx={{ p: 0.25 }}
+                        >
+                            {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                        </IconButton>
+                    )}
 
-                {showControls && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        {collapsible && (
-                            <IconButton
-                                size="small"
-                                onClick={() => setIsCollapsed(!isCollapsed)}
-                            >
-                                {isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
-                            </IconButton>
-                        )}
+                    <Typography
+                        variant="subtitle2"
+                        sx={{
+                            fontWeight: 600,
+                            fontSize: '0.8rem',
+                            color: 'primary.main',
+                            minWidth: 0,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                        }}
+                    >
+                        {caption}
+                    </Typography>
 
-                        <Tooltip title="Refresh">
-                            <IconButton size="small" onClick={handleRefresh} disabled={isFetching}>
-                                <Refresh fontSize="small" />
-                            </IconButton>
-                        </Tooltip>
-
-                        <Badge badgeContent={activeFilterCount} color="primary">
-                            <IconButton size="small" onClick={handleMenuOpen}>
-                                <MoreVert fontSize="small" />
-                            </IconButton>
-                        </Badge>
-                    </Box>
-                )}
-            </Box>
-
-            {/* Statistics */}
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                <Chip
-                    label={`${filteredImages.length} shown`}
-                    size="small"
-                    variant="outlined"
-                    color="primary"
-                />
-                {totalCount !== filteredImages.length && (
                     <Chip
-                        label={`of ${totalCount} total`}
+                        label={filteredImages.length}
                         size="small"
                         variant="outlined"
-                        color="secondary"
+                        sx={{
+                            height: 20,
+                            fontSize: '0.65rem',
+                            minWidth: 28,
+                            '& .MuiChip-label': { px: 0.5 }
+                        }}
                     />
-                )}
-                {sortConfig && (
-                    <Chip
-                        label={`Sort: ${sortConfig.field} ${sortConfig.direction}`}
-                        size="small"
-                        variant="filled"
-                        color="info"
-                        onDelete={() => setSortConfig({ field: 'name', direction: 'asc' })}
-                    />
-                )}
+                </Box>
+
+                <Fade in={isHeaderHovered || !!activeFilterCount}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        {activeFilterCount > 0 && (
+                            <Badge badgeContent={activeFilterCount} color="primary">
+                                <IconButton size="small" sx={{ p: 0.25 }}>
+                                    <FilterList fontSize="small" />
+                                </IconButton>
+                            </Badge>
+                        )}
+
+                        <IconButton
+                            size="small"
+                            onClick={handleRefresh}
+                            disabled={isFetching}
+                            sx={{ p: 0.25 }}
+                        >
+                            <Refresh fontSize="small" />
+                        </IconButton>
+
+                        <IconButton size="small" onClick={handleMenuOpen} sx={{ p: 0.25 }}>
+                            <MoreVert fontSize="small" />
+                        </IconButton>
+                    </Box>
+                </Fade>
             </Box>
 
-            {/* Search bar */}
-            {showControls && !isCollapsed && (
-                <TextField
-                    fullWidth
-                    size="small"
-                    placeholder="Search images..."
-                    value={filter.search || ''}
-                    onChange={(e) => handleFilterChange({ search: e.target.value })}
-                    sx={{ mt: 1 }}
-                    InputProps={{
-                        startAdornment: (
-                            <InputAdornment position="start">
-                                <Search size={16} />
-                            </InputAdornment>
-                        ),
-                        endAdornment: filter.search && (
-                            <InputAdornment position="end">
-                                <IconButton
-                                    size="small"
-                                    onClick={() => handleFilterChange({ search: '' })}
-                                >
-                                    <Clear fontSize="small" />
-                                </IconButton>
-                            </InputAdornment>
-                        )
-                    }}
-                />
-            )}
-        </Paper>
+            {/* Search bar - only show when expanded */}
+            <Fade in={!isCollapsed && (isHeaderHovered || !!filter.search)}>
+                <Box sx={{ px: 1.5, pb: 0.75 }}>
+                    <TextField
+                        fullWidth
+                        size="small"
+                        placeholder="Search..."
+                        value={filter.search || ''}
+                        onChange={(e) => handleFilterChange({ search: e.target.value })}
+                        sx={{
+                            '& .MuiOutlinedInput-root': {
+                                height: 28,
+                                fontSize: '0.75rem'
+                            }
+                        }}
+                        InputProps={{
+                            startAdornment: (
+                                <InputAdornment position="start">
+                                    <Search size={14} />
+                                </InputAdornment>
+                            ),
+                            endAdornment: filter.search && (
+                                <InputAdornment position="end">
+                                    <IconButton
+                                        size="small"
+                                        onClick={() => handleFilterChange({ search: '' })}
+                                        sx={{ p: 0.25 }}
+                                    >
+                                        <Clear fontSize="small" />
+                                    </IconButton>
+                                </InputAdornment>
+                            )
+                        }}
+                    />
+                </Box>
+            </Fade>
+        </Box>
     );
 
     // Render images based on display mode
@@ -472,6 +488,7 @@ export const ImageColumnComponent: React.FC<ImageColumnProps> = ({
                             onClick={() => fetchNextPage()}
                             disabled={isFetchingNextPage}
                             startIcon={isFetchingNextPage ? <CircularProgress size={16} /> : null}
+                            sx={{ height: 28, fontSize: '0.75rem' }}
                         >
                             {isFetchingNextPage ? 'Loading...' : 'Load More'}
                         </Button>
@@ -490,19 +507,19 @@ export const ImageColumnComponent: React.FC<ImageColumnProps> = ({
                 sx={{
                     width,
                     height,
-                    p: 1,
                     display: 'flex',
                     flexDirection: 'column',
+                    overflow: 'hidden',
                     ...sx
                 }}
             >
-                {renderHeader()}
-                <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
-                    {Array.from({ length: 3 }).map((_, index) => (
+                {renderSlickHeader()}
+                <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1, p: 1 }}>
+                    {Array.from({ length: 5 }).map((_, index) => (
                         <Skeleton
                             key={index}
                             variant="rectangular"
-                            height={60}
+                            height={48}
                             sx={{ borderRadius: 1 }}
                         />
                     ))}
@@ -520,21 +537,21 @@ export const ImageColumnComponent: React.FC<ImageColumnProps> = ({
                 sx={{
                     width,
                     height: 'auto',
-                    p: 1,
                     ...sx
                 }}
             >
-                {renderHeader()}
+                {renderSlickHeader()}
                 <Alert
                     severity="error"
-                    icon={<AlertTriangle size={24} />}
+                    icon={<AlertTriangle size={20} />}
                     action={
                         <IconButton size="small" onClick={handleRefresh}>
                             <Refresh fontSize="small" />
                         </IconButton>
                     }
+                    sx={{ m: 1 }}
                 >
-                    Error loading images: {error.message}
+                    Error loading images
                 </Alert>
             </Paper>
         );
@@ -549,25 +566,23 @@ export const ImageColumnComponent: React.FC<ImageColumnProps> = ({
                 sx={{
                     width,
                     height: 'auto',
-                    p: 1,
                     ...sx
                 }}
             >
-                {renderHeader()}
+                {renderSlickHeader()}
                 <Box sx={{
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    height: 200,
-                    backgroundColor: alpha(theme.palette.primary.main, 0.05),
-                    borderRadius: 1,
-                    mt: 1
+                    height: 120,
+                    backgroundColor: alpha(theme.palette.primary.main, 0.02),
+                    m: 1,
+                    borderRadius: 1
                 }}>
-                    <Folder size={32} color={theme.palette.text.secondary} />
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1, textAlign: 'center' }}>
-                        {level === 0 ? "No images available" :
-                            parentImage ? "No child images" : "Select an image"}
+                    <Folder size={24} color={theme.palette.text.secondary} />
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1, textAlign: 'center' }}>
+                        {level === 0 ? "No images" : "Select parent"}
                     </Typography>
                 </Box>
             </Paper>
@@ -584,10 +599,13 @@ export const ImageColumnComponent: React.FC<ImageColumnProps> = ({
                 display: 'flex',
                 flexDirection: 'column',
                 overflow: 'hidden',
+                border: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
+                borderRadius: 2,
+                backgroundColor: 'background.paper',
                 ...sx
             }}
         >
-            {renderHeader()}
+            {renderSlickHeader()}
 
             <Box
                 ref={scrollRef}
@@ -595,14 +613,17 @@ export const ImageColumnComponent: React.FC<ImageColumnProps> = ({
                     flex: 1,
                     overflow: 'auto',
                     '&::-webkit-scrollbar': {
-                        width: '6px',
+                        width: '4px',
                     },
                     '&::-webkit-scrollbar-track': {
-                        backgroundColor: alpha(theme.palette.primary.main, 0.05),
+                        backgroundColor: 'transparent',
                     },
                     '&::-webkit-scrollbar-thumb': {
                         backgroundColor: alpha(theme.palette.primary.main, 0.2),
-                        borderRadius: '3px',
+                        borderRadius: '2px',
+                        '&:hover': {
+                            backgroundColor: alpha(theme.palette.primary.main, 0.3),
+                        },
                     },
                 }}
             >
@@ -615,6 +636,9 @@ export const ImageColumnComponent: React.FC<ImageColumnProps> = ({
                 open={Boolean(menuAnchor)}
                 onClose={handleMenuClose}
                 dense
+                PaperProps={{
+                    sx: { minWidth: 160 }
+                }}
             >
                 <MenuItem onClick={() => {
                     setDisplayMode('stack');
@@ -646,59 +670,19 @@ export const ImageColumnComponent: React.FC<ImageColumnProps> = ({
                     <ListItemText>List View</ListItemText>
                 </MenuItem>
 
-                <Divider />
-
-                <MenuItem onClick={handleSortMenuOpen}>
-                    <ListItemIcon>
-                        <SortAsc size={16} />
-                    </ListItemIcon>
-                    <ListItemText>Sort Options</ListItemText>
-                </MenuItem>
-
-                <MenuItem onClick={() => {
-                    handleClearFilters();
-                    handleMenuClose();
-                }} disabled={activeFilterCount === 0}>
-                    <ListItemIcon>
-                        <Clear fontSize="small" />
-                    </ListItemIcon>
-                    <ListItemText>Clear Filters</ListItemText>
-                </MenuItem>
-            </Menu>
-
-            {/* Sort menu */}
-            <Menu
-                anchorEl={sortMenuAnchor}
-                open={Boolean(sortMenuAnchor)}
-                onClose={handleMenuClose}
-                dense
-            >
-                {[
-                    { field: 'name' as SortField, label: 'Name' },
-                    { field: 'defocus' as SortField, label: 'Defocus' },
-                    { field: 'children_count' as SortField, label: 'Children Count' },
-                    { field: 'mag' as SortField, label: 'Magnification' },
-                    { field: 'pixelSize' as SortField, label: 'Pixel Size' }
-                ].map(({ field, label }) => (
-                    <MenuItem
-                        key={field}
-                        onClick={() => {
-                            handleSortChange(field);
+                {activeFilterCount > 0 && (
+                    <>
+                        <MenuItem onClick={() => {
+                            handleClearFilters();
                             handleMenuClose();
-                        }}
-                    >
-                        <ListItemIcon>
-                            {sortConfig.field === field ? (
-                                sortConfig.direction === 'asc' ?
-                                    <SortAsc size={16} /> :
-                                    <SortDesc size={16} />
-                            ) : (
-                                <Box sx={{ width: 16 }} />
-                            )}
-                        </ListItemIcon>
-                        <ListItemText>{label}</ListItemText>
-                    </MenuItem>
-                ))}
+                        }}>
+                            <ListItemIcon>
+                                <Clear fontSize="small" />
+                            </ListItemIcon>
+                            <ListItemText>Clear Filters</ListItemText>
+                        </MenuItem>
+                    </>
+                )}
             </Menu>
         </Paper>
     );

@@ -12,6 +12,7 @@ import { ExpandLess, ExpandMore, Settings } from '@mui/icons-material';
 import ImageInfoDto from './ImageInfoDto.ts';
 import { ImageColumnState } from '../../panel/pages/ImagesPageView.tsx';
 import ImageColumnComponent from './ImageColumnComponent.tsx';
+// import SlickImageColumnComponent from './SlickImageColumnComponent.tsx';
 import { ImagesStackComponent } from './ImagesStackComponent.tsx';
 import ColumnSettingsComponent, {
     ColumnSettings,
