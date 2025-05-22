@@ -66,6 +66,11 @@ const navLinks: NavLink[] = [
         title: "MRC Viewer",
         url: "mrc-viewer",
         icon: <BarChart2 size={20}/>
+    },
+    {
+        title: "About Magellon",
+        url: "about",
+        icon: <BarChart2 size={20}/>
     }
 
     // {

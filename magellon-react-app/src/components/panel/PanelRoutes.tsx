@@ -10,6 +10,7 @@ import SettingsView from "./pages/SettingsView.tsx";
 
 import DashboardView from "./pages/DashboardView.tsx";
 import { Box, Container, Typography } from "@mui/material";
+import AboutPage from "./pages/AboutPage.tsx";
 
 // Settings placeholder component
 // Test placeholder component
@@ -42,6 +43,7 @@ export const PanelRoutes = () => {
             {/* Processing routes */}
             <Route path="/run-job" element={<RunJobPageView />} />
             <Route path="/mrc-viewer" element={<MrcViewerPageView />} />
+            <Route path="/about" element={<AboutPage />} />
 
 
             {/* Other routes */}
