@@ -47,11 +47,11 @@ interface NavLink {
 
 // Main navigation links
 const navLinks: NavLink[] = [
-    {
-        title: "Dashboard",
-        url: "dashboard",
-        icon: <Home size={20} />
-    },
+    // {
+    //     title: "Dashboard",
+    //     url: "dashboard",
+    //     icon: <Home size={20} />
+    // },
     {
         title: "Images",
         url: "images",
@@ -62,11 +62,11 @@ const navLinks: NavLink[] = [
         url: "import-job",
         icon: <ArrowRightFromLine size={20} />
     },
-    {
-        title: "MRC Viewer",
-        url: "mrc-viewer",
-        icon: <BarChart2 size={20}/>
-    },
+    // {
+    //     title: "MRC Viewer",
+    //     url: "mrc-viewer",
+    //     icon: <BarChart2 size={20}/>
+    // },
     {
         title: "About",
         url: "about",
