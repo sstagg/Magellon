@@ -403,8 +403,8 @@ export const ImagesPageView = () => {
                 }}>
                     {/* ImageWorkspace - Fixed height to ensure adequate space */}
                     <Box sx={{
-                        height: currentImage ? '60%' : '100%', // Give more space when no image selected
-                        minHeight: '250px', // Ensure minimum usable height
+                        height: currentImage ? '65%' : '100%', // Give more space when image selected
+                        minHeight: '500px', // Ensure substantial minimum height
                         overflow: 'auto',
                         borderRadius: 2,
                         backgroundColor: 'background.paper',
@@ -425,8 +425,8 @@ export const ImagesPageView = () => {
                     {/* ImageInspector - Only show when image is selected */}
                     {currentImage && (
                         <Box sx={{
-                            height: '40%',
-                            minHeight: '200px', // Ensure minimum usable height
+                            height: '35%',
+                            minHeight: '250px', // Adequate minimum for image details
                             overflow: 'auto',
                             borderRadius: 2,
                             backgroundColor: 'background.paper',
