@@ -372,7 +372,7 @@ export const ImagesPageView = () => {
         }
     }, []);
 
-    // Mobile layout - stack components vertically with full screen and beautiful padding
+    // Mobile layout - stack components vertically with proper height allocation
     const renderMobileLayout = () => {
         return (
             <Box sx={{
@@ -401,14 +401,15 @@ export const ImagesPageView = () => {
                     pb: topBottomPadding,
                     overflow: 'hidden'
                 }}>
+                    {/* ImageWorkspace - Fixed height to ensure adequate space */}
                     <Box sx={{
-                        height: '50%',
+                        height: currentImage ? '60%' : '100%', // Give more space when no image selected
+                        minHeight: '250px', // Ensure minimum usable height
                         overflow: 'auto',
-                        borderBottom: `1px solid ${theme.palette.divider}`,
                         borderRadius: 2,
                         backgroundColor: 'background.paper',
                         boxShadow: 1,
-                        mb: 2
+                        mb: currentImage ? 2 : 0
                     }}>
                         <ImageWorkspace
                             onImageClick={OnCurrentImageChanged}
@@ -420,11 +421,13 @@ export const ImagesPageView = () => {
                             Atlases={atlasImages}
                         />
                     </Box>
+
+                    {/* ImageInspector - Only show when image is selected */}
                     {currentImage && (
                         <Box sx={{
-                            height: '50%',
+                            height: '40%',
+                            minHeight: '200px', // Ensure minimum usable height
                             overflow: 'auto',
-                            minHeight: '300px',
                             borderRadius: 2,
                             backgroundColor: 'background.paper',
                             boxShadow: 1

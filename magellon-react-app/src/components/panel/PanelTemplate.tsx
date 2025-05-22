@@ -71,7 +71,7 @@ export const PanelTemplate = () => {
 
     // Store drawer state in localStorage to persist between page refreshes
     const [open, setOpen] = React.useState(() => {
-        // For mobile devices, default to closed drawer
+        // For mobile devices, default to closed drawer unless explicitly opened
         if (isMobile) return false;
 
         const savedState = localStorage.getItem('drawerOpen');
@@ -83,10 +83,19 @@ export const PanelTemplate = () => {
         localStorage.setItem('drawerOpen', JSON.stringify(open));
     }, [open]);
 
-    // Close drawer when screen size becomes mobile but NOT for full-width routes
+    // Auto-close drawer when screen becomes mobile, but allow manual opening
     React.useEffect(() => {
+        // Only auto-close if the drawer was opened on desktop and screen becomes mobile
+        // Don't prevent manual opening on mobile
         if (isMobile && open) {
-            setOpen(false);
+            const wasOpenedOnDesktop = localStorage.getItem('drawerOpenedOnDesktop');
+            if (wasOpenedOnDesktop === 'true') {
+                setOpen(false);
+                localStorage.setItem('drawerOpenedOnDesktop', 'false');
+            }
+        } else if (!isMobile && open) {
+            // Mark that drawer was opened on desktop
+            localStorage.setItem('drawerOpenedOnDesktop', 'true');
         }
     }, [isMobile, open]);
 
