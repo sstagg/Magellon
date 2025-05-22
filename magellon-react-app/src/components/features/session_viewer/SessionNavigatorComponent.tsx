@@ -1,10 +1,7 @@
 import {
     Box,
     ButtonGroup,
-    Card,
-    CardContent,
     FormControl,
-    Grid,
     ImageList,
     ImageListItem,
     InputLabel,
@@ -12,7 +9,6 @@ import {
     Paper,
     Select,
     SelectChangeEvent,
-    Stack,
     Tooltip,
     Typography,
     useTheme,
@@ -27,19 +23,13 @@ import AtlasImage from "./AtlasImage.tsx";
 import { settings } from "../../../core/settings.ts";
 import {
     AccountTreeRounded,
-    GridViewRounded,
     GridOnRounded,
     ViewColumn
 } from "@mui/icons-material";
 import { useImageViewerStore } from './store/imageViewerStore.ts';
 import FlatImageViewerComponent from "./FlatImageViewerComponent.tsx";
 import TreeViewer from "./TreeViewer.tsx";
-import ImageColumnComponent from "./ImageColumnComponent.tsx";
-import { ImagesStackComponent } from "./ImagesStackComponent.tsx";
-import ColumnSettingsComponent, {
-    ColumnSettings,
-    defaultColumnSettings
-} from "./ColumnSettingsComponent.tsx";
+import StackedView from "./StackedView.tsx";
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
 
@@ -64,8 +54,8 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
                                                                          }) => {
     const theme = useTheme();
 
-    // Local state for enhanced column view using the new component
-    const [columnSettings, setColumnSettings] = useState<ColumnSettings>(defaultColumnSettings);
+    // Local state for view mode (no longer need columnSettings here)
+    // Column settings are now managed inside StackedView
 
     // Get store state and actions
     const {
@@ -92,16 +82,8 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
         setCurrentAtlas(atlas);
     };
 
-    // Calculate which columns should be visible
-    const visibleColumns = ImageColumns.filter((col, index) => {
-        if (!columnSettings.autoHideEmptyColumns) return true;
-
-        // Always show the first column
-        if (index === 0) return true;
-
-        // Show column if it has data or if the previous column has a selected image
-        return col.images && col.images.pages && col.images.pages.length > 0;
-    });
+    // Calculate which columns should be visible (moved to StackedView)
+    // const visibleColumns = ...
 
     // Session selector component
     const renderSessionSelector = () => {
@@ -130,60 +112,46 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
         );
     };
 
-    // Enhanced view mode selector component
+    // Enhanced view mode selector component (simplified)
     const renderViewModeSelector = () => {
         return (
-            <>
-                <Paper elevation={0} variant="outlined" sx={{ p: 1, borderRadius: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <ButtonGroup size="small">
-                            <Tooltip title="Enhanced Column View">
-                                <IconButton
-                                    onClick={() => setViewMode('grid')}
-                                    color={viewMode === 'grid' ? 'primary' : 'default'}
-                                >
-                                    <ViewColumn />
-                                </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Tree View">
-                                <IconButton
-                                    onClick={() => setViewMode('tree')}
-                                    color={viewMode === 'tree' ? 'primary' : 'default'}
-                                >
-                                    <AccountTreeRounded />
-                                </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Flat View">
-                                <IconButton
-                                    onClick={() => setViewMode('flat')}
-                                    color={viewMode === 'flat' ? 'primary' : 'default'}
-                                >
-                                    <GridOnRounded />
-                                </IconButton>
-                            </Tooltip>
-                        </ButtonGroup>
+            <Paper elevation={0} variant="outlined" sx={{ p: 1, borderRadius: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                    <ButtonGroup size="small">
+                        <Tooltip title="Column View">
+                            <IconButton
+                                onClick={() => setViewMode('grid')}
+                                color={viewMode === 'grid' ? 'primary' : 'default'}
+                            >
+                                <ViewColumn />
+                            </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Tree View">
+                            <IconButton
+                                onClick={() => setViewMode('tree')}
+                                color={viewMode === 'tree' ? 'primary' : 'default'}
+                            >
+                                <AccountTreeRounded />
+                            </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Flat View">
+                            <IconButton
+                                onClick={() => setViewMode('flat')}
+                                color={viewMode === 'flat' ? 'primary' : 'default'}
+                            >
+                                <GridOnRounded />
+                            </IconButton>
+                        </Tooltip>
+                    </ButtonGroup>
 
-                        <Chip
-                            label={viewMode === 'grid' ? 'Columns' : viewMode === 'tree' ? 'Tree' : 'Flat'}
-                            size="small"
-                            color="primary"
-                            variant="outlined"
-                        />
-                    </Box>
-                </Paper>
-
-                {/* Column-specific settings using the new reusable component */}
-                {viewMode === 'grid' && (
-                    <ColumnSettingsComponent
-                        settings={columnSettings}
-                        onSettingsChange={setColumnSettings}
-                        visible={true}
-                        showEnhancedToggle={true}
-                        minWidth={150}
-                        maxWidth={300}
+                    <Chip
+                        label={viewMode === 'grid' ? 'Columns' : viewMode === 'tree' ? 'Tree' : 'Flat'}
+                        size="small"
+                        color="primary"
+                        variant="outlined"
                     />
-                )}
-            </>
+                </Box>
+            </Paper>
         );
     };
 
@@ -214,59 +182,18 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
         );
     };
 
-    // Enhanced grid view with new ImageColumnComponent
+    // Render the grid/stacked view using the new StackedView component
     const renderGridView = () => {
-        if (columnSettings.useEnhancedColumns) {
-            return (
-                <Box sx={{
-                    mt: 2,
-                    display: 'flex',
-                    gap: 1,
-                    overflowX: 'auto',
-                    height: 'calc(100% - 160px)',
-                    pb: 1
-                }}>
-                    {visibleColumns.map((column, index) => (
-                        <ImageColumnComponent
-                            key={`enhanced-column-${index}`}
-                            caption={column.caption}
-                            level={index}
-                            parentImage={index === 0 ? null : ImageColumns[index - 1]?.selectedImage || null}
-                            sessionName={sessionName}
-                            width={columnSettings.columnWidth}
-                            height={undefined} // Let it fill available height
-                            onImageClick={onImageClick}
-                            showControls={columnSettings.showColumnControls}
-                            collapsible={index > 0}
-                            sx={{
-                                flexShrink: 0,
-                                height: '100%'
-                            }}
-                        />
-                    ))}
-                </Box>
-            );
-        }
-
-        // Fallback to original stack components
         return (
-            <Box sx={{
-                mt: 2,
-                display: 'flex',
-                flexWrap: 'nowrap',
-                overflowX: 'auto',
-                height: 'calc(100% - 160px)'
-            }}>
-                {ImageColumns.map((column, index) => (
-                    <Box key={`stack-column-${index}`} sx={{ flexShrink: 0 }}>
-                        <ImagesStackComponent
-                            caption={column.caption}
-                            images={column.images}
-                            level={index}
-                            onImageClick={(image) => onImageClick(image, index)}
-                        />
-                    </Box>
-                ))}
+            <Box sx={{ mt: 2, height: 'calc(100% - 160px)', overflow: 'hidden' }}>
+                <StackedView
+                    imageColumns={ImageColumns}
+                    onImageClick={onImageClick}
+                    sessionName={sessionName}
+                    showSettings={true}
+                    initialSettingsCollapsed={false}
+                    height="100%"
+                />
             </Box>
         );
     };
@@ -395,7 +322,7 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
                     </Box>
                 )}
 
-                {/* Enhanced view mode selector */}
+                {/* View mode selector */}
                 <Box sx={{ mb: 1 }}>
                     {renderViewModeSelector()}
                 </Box>
