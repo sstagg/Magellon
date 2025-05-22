@@ -4,7 +4,9 @@ import os
 import time
 from typing import Dict, Any
 import uuid
-
+import re
+import json
+from collections import defaultdict
 import xml.etree.ElementTree as ET
 from fastapi import HTTPException
 from lxml import etree
@@ -225,7 +227,99 @@ def parse_xml(file_path: str) -> EPUMetadata:
 #     children: list = None
 
 
+def extract_id(filename):
+    m = re.match(r"FoilHole_(\d+)_", filename)
+    return m.group(1) if m else None
 
+def get_last_number(s):
+    nums = re.findall(r"(\d+)", s)
+    return int(nums[-1]) if nums else -1
+
+def find_all_sessions(root_dir):
+    sessions = []
+    for dirpath, dirnames, _ in os.walk(root_dir):
+        if "Images-Disc1" in dirnames:
+            sessions.append(os.path.join(dirpath, "Images-Disc1"))
+    return sessions
+
+def build_data_structure(session_images_path):
+    result_list = []
+
+    # get full-paths of first-level GridSquare* dirs
+    gs_paths = sorted([
+        os.path.join(session_images_path, d)
+        for d in os.listdir(session_images_path)
+        if d.startswith("GridSquare") and os.path.isdir(os.path.join(session_images_path, d))
+    ])
+
+    for gs_path in gs_paths:
+        # Identify the main GridSquare image (GridSquare_*.jpg)
+        grid_square_image = None
+        grid_images = []
+
+        for f in os.listdir(gs_path):
+            if f.lower().endswith((".jpg", ".png")) and os.path.isfile(os.path.join(gs_path, f)):
+                if re.match(r"GridSquare_\d+.*\.jpg", f):  # Match the main grid square image
+                    grid_square_image = os.path.join(gs_path, f)
+                else:
+                    grid_images.append(os.path.join(gs_path, f))
+
+        foilholes_dir = os.path.join(gs_path, "FoilHoles")
+        data_dir = os.path.join(gs_path, "Data")
+        foil_map = {}
+
+        # Build detailed structure: FoilHole → Data[]
+        if os.path.isdir(foilholes_dir) and os.path.isdir(data_dir):
+            data_files = os.listdir(data_dir)
+
+            # Group FoilHole images by ID
+            fh_groups = defaultdict(list)
+            for fh in os.listdir(foilholes_dir):
+                if fh.endswith(".jpg"):
+                    fh_id = extract_id(fh)
+                    if fh_id:
+                        fh_groups[fh_id].append(fh)
+
+            for fh_id, files in fh_groups.items():
+                best_file = max(files, key=get_last_number)
+                fh_full = os.path.join(foilholes_dir, best_file)
+
+                # Match data files to this foilhole
+                matches = [
+                    os.path.join(data_dir, df)
+                    for df in data_files
+                    if re.search(f"FoilHole_{fh_id}_", df)
+                ]
+
+                # Map with parent-child relationship
+                foil_map[fh_full] = {
+                    "data_files": matches
+                }
+
+        # Add entire GridSquare block
+        result_list.append({
+            "grid_square": gs_path,
+            "grid_square_image": grid_square_image,
+            "grid_images": grid_images,
+            "foilholes": foil_map
+        })
+
+    return result_list
+
+def get_parent_child_json(root_dir):
+    all_sessions = find_all_sessions(root_dir)
+    final_output = {"sessions": []}
+
+    for session_path in all_sessions:
+        session_name = os.path.basename(os.path.dirname(session_path))  # e.g., '24jun28a'
+        session_data = build_data_structure(session_path)
+        final_output["sessions"].append({
+            "session_name": session_name,
+            "session_path": session_path,
+            "gridsquares": session_data
+        })
+
+    return final_output
 class EPUImporter(BaseImporter):
     """
     Importer class for EPU data from Thermo Fisher Scientific microscopes.
@@ -260,7 +354,7 @@ class EPUImporter(BaseImporter):
             )
             # Load and process the XML metadata
             epu_metadata_list = self.load_epu_metadata()
-
+            parent_child_json=get_parent_child_json(self.params.epu_dir_path)
             if not epu_metadata_list:
                 return {
                     'status': 'failure',
@@ -268,11 +362,12 @@ class EPUImporter(BaseImporter):
                 }
 
             # Process the metadata into image and task records
-            db_image_list, db_job_task_list, task_dto_list = self.create_image_and_task_records(
+            db_image_list, db_job_task_list, task_dto_list,parent_child = self.create_image_and_task_records(
                 db_session,
                 epu_metadata_list,
                 job.oid,
-                session.oid
+                session.oid,
+                parent_child_json
             )
 
             # Save records to database
@@ -280,6 +375,13 @@ class EPUImporter(BaseImporter):
             db_session.bulk_save_objects(db_job_task_list)
             db_session.commit()
 
+            if parent_child:
+                logger.info(f"Setting parent-child relationships for {len(parent_child)} images")
+                for child_id, parent_id in parent_child.items():
+                    db_session.query(Image).filter(Image.oid == child_id).update({"parent_id": parent_id})
+                db_session.commit()
+            else:
+                logger.warning("No parent-child relationships identified")
             # Set up target directory for file processing
             target_dir = os.path.join(MAGELLON_HOME_DIR,self.params.magellon_session_name)
             self.params.target_directory=target_dir
@@ -503,7 +605,8 @@ class EPUImporter(BaseImporter):
             db_session: Session,
             metadata_list: List[EPUMetadata],
             job_id: uuid.UUID,
-            session_id: uuid.UUID
+            session_id: uuid.UUID,
+            json_data,
     ) -> tuple[List[Image], List[ImageJobTask], List[EPUImportTaskDto]]:
         """
         Create Image and Task records from EPU metadata
@@ -523,6 +626,7 @@ class EPUImporter(BaseImporter):
 
         # Dictionary to map filename to image ID for parent-child relationships
         image_dict = {}
+        parent_child={}
         for metadata in metadata_list:
             # Get filename without extension
             filename = os.path.splitext(os.path.basename(metadata.file_path))[0]
@@ -620,7 +724,39 @@ class EPUImporter(BaseImporter):
         # Set parent-child relationships if needed (not implemented yet)
         # This would identify parent-child relationships based on naming conventions
 
-        return db_image_list, db_job_task_list, task_dto_list
+        def find_parent_with_partial_child(child_pattern, json_data):
+            for session in json_data.get("sessions", []):
+                for gs in session.get("gridsquares", []):
+                    grid_square_path = gs.get("grid_square")
+                    grid_square_image_path = gs.get("grid_square_image")
+                    grid_square_image_base = os.path.basename(grid_square_image_path) if grid_square_image_path else None
+
+
+                    if grid_square_path and re.search(child_pattern, grid_square_path):
+                        return None  # Match found in grid_square, return None
+
+                    for foilhole_path, foilhole_info in gs.get("foilholes", {}).items():
+                        foilhole_base = os.path.splitext(os.path.basename(foilhole_path))[0]
+
+                        if re.search(child_pattern, foilhole_path):
+                            grid_square_base=os.path.splitext(os.path.basename(grid_square_image_base))[0]
+
+                            return grid_square_base  # Match in foilhole, return grid_square base
+
+                        for data_file in foilhole_info.get("data_files", []):
+                            if re.search(child_pattern, data_file):
+                                return foilhole_base  # Match in data file, return foilhole base
+
+            return None
+
+
+
+        for db_image in db_image_list:
+            parent_name = find_parent_with_partial_child(db_image.name, json_data)
+            if parent_name and parent_name in image_dict:
+                parent_child[db_image.oid] = image_dict[parent_name]
+
+        return db_image_list, db_job_task_list, task_dto_list,parent_child
 
     def _find_frame_file(self, source_image_path: str) -> Optional[str]:
         """
