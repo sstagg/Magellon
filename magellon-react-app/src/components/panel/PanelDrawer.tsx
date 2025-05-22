@@ -62,6 +62,12 @@ const navLinks: NavLink[] = [
         url: "import-job",
         icon: <ArrowRightFromLine size={20} />
     },
+    {
+        title: "MRC Viewer",
+        url: "mrc-viewer",
+        icon: <BarChart2 size={20}/>
+    }
+
     // {
     //     title: "Processing",
     //     url: "processing",
