@@ -6,7 +6,7 @@ import {useFetchImageMetaData} from "../../../services/api/ImageMetaDataRestServ
 import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
 import {TreeItem} from "@mui/x-tree-view/TreeItem";
 import {CategoryDto, MetadataDto} from "./ImageInfoDto.ts";
-import {SoloImageViewerProps} from "./SoloImageViewerComponent.tsx";
+import {SoloImageViewerProps} from "./ImageInspector.tsx";
 import Box from "@mui/material/Box";
 
 import { JsonEditor as Editor } from 'jsoneditor-react'

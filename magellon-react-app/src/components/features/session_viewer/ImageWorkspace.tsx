@@ -29,7 +29,7 @@ import {
 import { useImageViewerStore } from './store/imageViewerStore.ts';
 import GridGallery from "./GridGallery.tsx";
 import HierarchyBrowser from "./HierarchyBrowser.tsx";
-import StackedView from "./StackedView.tsx";
+import ColumnBrowser from "./ColumnBrowser.tsx";
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
 
@@ -43,7 +43,7 @@ interface ImageNavigatorProps {
     OnSessionSelected: (event: SelectChangeEvent) => void
 }
 
-export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
+export const ImageWorkspace: React.FC<ImageNavigatorProps> = ({
                                                                              onImageClick,
                                                                              selectedImage,
                                                                              selectedSession,
@@ -177,7 +177,7 @@ export const SessionNavigatorComponent: React.FC<ImageNavigatorProps> = ({
     // Render the grid/stacked view using the new StackedView component
     const renderGridView = () => {
         return (
-            <StackedView
+            <ColumnBrowser
                 imageColumns={ImageColumns}
                 onImageClick={onImageClick}
                 sessionName={sessionName}

@@ -105,7 +105,7 @@ const InfoItem: React.FC<{
     );
 };
 
-export const SoloImageViewerComponent: React.FC<SoloImageViewerProps> = ({ selectedImage }) => {
+export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }) => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const isTablet = useMediaQuery(theme.breakpoints.down('md'));

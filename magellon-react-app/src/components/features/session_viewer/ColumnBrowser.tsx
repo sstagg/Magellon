@@ -57,7 +57,7 @@ interface StackedViewProps {
 /**
  * StackedView component that manages the column view display with settings
  */
-export const StackedView: React.FC<StackedViewProps> = ({
+export const ColumnBrowser: React.FC<StackedViewProps> = ({
                                                             imageColumns,
                                                             onImageClick,
                                                             sessionName,
@@ -299,4 +299,4 @@ export const StackedView: React.FC<StackedViewProps> = ({
     );
 };
 
-export default StackedView;
+export default ColumnBrowser;
