@@ -45,6 +45,8 @@ const initialImageColumns: ImageColumnState[] = [
     },
 ];
 
+const DRAWER_WIDTH = 240;
+
 // Inline CSS styles for resizable panels
 const resizablePanelsStyles = `
 /* Styling for react-resizable-panels */
@@ -145,6 +147,31 @@ export const ImagesPageView = () => {
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const isTablet = useMediaQuery(theme.breakpoints.down('md'));
 
+    // Track drawer state from localStorage to adjust layout
+    const [isDrawerOpen, setIsDrawerOpen] = useState(() => {
+        const savedState = localStorage.getItem('drawerOpen');
+        return savedState ? JSON.parse(savedState) : false;
+    });
+
+    // Listen for drawer state changes
+    useEffect(() => {
+        const handleStorageChange = () => {
+            const savedState = localStorage.getItem('drawerOpen');
+            setIsDrawerOpen(savedState ? JSON.parse(savedState) : false);
+        };
+
+        // Listen for storage changes (when drawer state changes)
+        window.addEventListener('storage', handleStorageChange);
+
+        // Also check periodically in case of same-tab changes
+        const interval = setInterval(handleStorageChange, 100);
+
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+            clearInterval(interval);
+        };
+    }, []);
+
     // Local state (will gradually be replaced with store state)
     const [level, setLevel] = useState<number>(0);
     const [parentId, setParentId] = useState<string | null>(null);
@@ -155,11 +182,11 @@ export const ImagesPageView = () => {
     // Panel size persistence with width constraints
     const [leftPanelSize, setLeftPanelSize] = useState(() => {
         const saved = localStorage.getItem('images-page-left-panel-size');
-        const defaultSize = isMobile ? 100 : 30; // 30% default
+        const defaultSize = isMobile ? 100 : 35; // 35% default for better space utilization
         const parsedSize = saved ? parseInt(saved, 10) : defaultSize;
 
-        // Ensure the loaded size respects the new constraints (20-40%)
-        return Math.max(20, Math.min(40, parsedSize));
+        // Ensure the loaded size respects the constraints (25-50%)
+        return Math.max(25, Math.min(50, parsedSize));
     });
 
     // Get store state and actions
@@ -191,12 +218,15 @@ export const ImagesPageView = () => {
     // Save panel size to localStorage with constraints
     const handlePanelResize = (sizes: number[]) => {
         if (sizes[0] !== undefined) {
-            // Ensure the saved size respects the 20-40% range
-            const constrainedSize = Math.max(20, Math.min(40, sizes[0]));
+            // Ensure the saved size respects the 25-50% range for better space usage
+            const constrainedSize = Math.max(25, Math.min(50, sizes[0]));
             setLeftPanelSize(constrainedSize);
             localStorage.setItem('images-page-left-panel-size', constrainedSize.toString());
         }
     };
+
+    // Calculate left margin based on drawer state
+    const leftMargin = isDrawerOpen ? DRAWER_WIDTH : 0;
 
     // Sync atlas images with store when they change
     useEffect(() => {
@@ -338,21 +368,30 @@ export const ImagesPageView = () => {
         }
     }, []);
 
-    // Mobile layout - stack components vertically
+    // Mobile layout - stack components vertically with full screen
     const renderMobileLayout = () => {
         return (
             <Box sx={{
-                width: '100%',
-                height: 'calc(100vh - 120px)',
+                position: 'fixed',
+                top: 64, // Account for header
+                left: leftMargin,
+                right: 0,
+                bottom: 0,
+                zIndex: 1050, // Below drawer but above content
+                backgroundColor: 'background.default',
                 display: 'flex',
                 flexDirection: 'column',
-                overflow: 'hidden'
+                overflow: 'hidden',
+                transition: theme.transitions.create(['left'], {
+                    easing: theme.transitions.easing.sharp,
+                    duration: theme.transitions.duration.enteringScreen,
+                }),
             }}>
                 <Box sx={{
                     height: '50%',
                     overflow: 'auto',
                     borderBottom: `1px solid ${theme.palette.divider}`,
-                    maxWidth: '100%' // Ensure no horizontal overflow on mobile
+                    maxWidth: '100%'
                 }}>
                     <ImageWorkspace
                         onImageClick={OnCurrentImageChanged}
@@ -368,7 +407,7 @@ export const ImagesPageView = () => {
                     <Box sx={{
                         height: '50%',
                         overflow: 'auto',
-                        minHeight: '300px' // Ensure ImageInspector has minimum usable height on mobile
+                        minHeight: '300px'
                     }}>
                         <ImageInspector selectedImage={currentImage} />
                     </Box>
@@ -377,14 +416,23 @@ export const ImagesPageView = () => {
         );
     };
 
-    // Tablet and desktop layout - resizable panels with width constraints
-    const renderTabletAndDesktopLayout = () => {
+    // Desktop layout - resizable panels with full screen and optimized constraints
+    const renderDesktopLayout = () => {
         return (
             <Box sx={{
-                width: '100%',
-                height: 'calc(100vh - 120px)',
+                position: 'fixed',
+                top: 64, // Account for header
+                left: leftMargin,
+                right: 0,
+                bottom: 0,
+                zIndex: 1050, // Below drawer but above content
+                backgroundColor: 'background.default',
                 overflow: 'hidden',
-                display: 'flex'
+                display: 'flex',
+                transition: theme.transitions.create(['left'], {
+                    easing: theme.transitions.easing.sharp,
+                    duration: theme.transitions.duration.enteringScreen,
+                }),
             }}>
                 <PanelGroup
                     direction="horizontal"
@@ -395,15 +443,14 @@ export const ImagesPageView = () => {
                         minWidth: 0
                     }}
                 >
-                    {/* Left Panel - Session Navigator (ImageWorkspace) - Maximum 500px */}
+                    {/* Left Panel - Session Navigator (ImageWorkspace) */}
                     <Panel
                         id="session-navigator"
                         defaultSize={leftPanelSize}
-                        minSize={20}        // Minimum 20% of total width
-                        maxSize={40}        // Maximum 40% of total width
+                        minSize={25}        // Minimum 25% of total width (more space for images)
+                        maxSize={50}        // Maximum 50% of total width
                         style={{
                             minWidth: 0,
-                            maxWidth: '650px', // Hard maximum width limit
                             overflow: 'hidden'
                         }}
                     >
@@ -413,7 +460,6 @@ export const ImagesPageView = () => {
                             display: 'flex',
                             flexDirection: 'column',
                             backgroundColor: 'background.paper',
-                            maxWidth: '650px' // Ensure ImageWorkspace doesn't exceed 500px
                         }}>
                             <ImageWorkspace
                                 onImageClick={OnCurrentImageChanged}
@@ -430,12 +476,12 @@ export const ImagesPageView = () => {
                     {/* Resize Handle */}
                     <CustomResizeHandle />
 
-                    {/* Right Panel - Solo Image Viewer (ImageInspector) - Minimum 600px */}
+                    {/* Right Panel - Solo Image Viewer (ImageInspector) - Gets more space */}
                     <Panel
                         id="image-viewer"
-                        minSize={50}        // Minimum 50% of total width
+                        minSize={50}        // Minimum 50% of total width - more space for detailed viewing
                         style={{
-                            minWidth: '700px', // Hard minimum width limit
+                            minWidth: '500px', // Reduced minimum - let it be more flexible
                             overflow: 'hidden'
                         }}
                     >
@@ -445,7 +491,6 @@ export const ImagesPageView = () => {
                             display: 'flex',
                             flexDirection: 'column',
                             backgroundColor: 'background.paper',
-                            minWidth: '700px' // Ensure ImageInspector has at least 600px
                         }}>
                             <ImageInspector selectedImage={currentImage} />
                         </Box>
@@ -459,6 +504,6 @@ export const ImagesPageView = () => {
     if (isMobile) {
         return renderMobileLayout();
     } else {
-        return renderTabletAndDesktopLayout();
+        return renderDesktopLayout();
     }
 };
