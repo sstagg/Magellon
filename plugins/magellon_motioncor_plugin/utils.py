@@ -448,47 +448,55 @@ def validateInput(params):
     
     return True
 
-def createframealignImage(outputmrcpath, data, directory_path,originalsize,inputFileName):
-    
-    with mrcfile.open(outputmrcpath) as mrc:
-        new_data = mrc.data.copy()
-        original_header = mrc.header.copy()
-    
-    # Calculate scaling factors
-    scale_y = new_data.shape[0] / originalsize[0]
-    scale_x = new_data.shape[1] / originalsize[1]
-    
-    dot_size = max(1, int(5 * min(scale_x, scale_y)))  # Scale dot size, minimum 1 pixel
-    
-    # Mark the image with white dots at the scaled coordinates
-    for _, x, y, deltax, deltay, _ in data:
-        px = int((x + deltax * 10) * scale_x)
-        py = int((y + deltay * 10) * scale_y)
-        
-        # Create a dot using numpy operations
-        y_indices, x_indices = np.ogrid[-dot_size:dot_size+1, -dot_size:dot_size+1]
-        mask = x_indices*x_indices + y_indices*y_indices <= dot_size*dot_size
-        
-        # Calculate boundaries for the dot
-        y_start, y_end = max(0, py-dot_size), min(new_data.shape[0], py+dot_size+1)
-        x_start, x_end = max(0, px-dot_size), min(new_data.shape[1], px+dot_size+1)
-        
-        # Apply the dot to the image
-        mask_slice = mask[y_start-py+dot_size:y_end-py+dot_size, x_start-px+dot_size:x_end-px+dot_size]
-        new_data[y_start:y_end, x_start:x_end][mask_slice] = np.max(new_data)
-    
+def createframealignImage(outputmrcpath, data, directory_path, originalsize, inputFileName):
+    try:
+        # Load the MRC file
+        with mrcfile.open(outputmrcpath) as mrc:
+            new_data = mrc.data.copy()
+            original_header = mrc.header.copy()
+
+        # Defensive checks for original size
+        if originalsize[0] == 0 or originalsize[1] == 0:
+            raise ValueError("Original size contains zero dimension.")
+
+        # Calculate scaling factors
+        scale_y = new_data.shape[0] / originalsize[0]
+        scale_x = new_data.shape[1] / originalsize[1]
+
+        dot_size = max(1, int(5 * min(scale_x, scale_y)))  # Scale dot size, minimum 1 pixel
+
+        # Mark the image with white dots at the scaled coordinates
+        for _, x, y, deltax, deltay, _ in data:
+            px = int((x + deltax * 10) * scale_x)
+            py = int((y + deltay * 10) * scale_y)
+
+            y_indices, x_indices = np.ogrid[-dot_size:dot_size+1, -dot_size:dot_size+1]
+            mask = x_indices*x_indices + y_indices*y_indices <= dot_size*dot_size
+
+            y_start, y_end = max(0, py-dot_size), min(new_data.shape[0], py+dot_size+1)
+            x_start, x_end = max(0, px-dot_size), min(new_data.shape[1], px+dot_size+1)
+
+            target_slice = new_data[y_start:y_end, x_start:x_end]
+            mask_slice = mask[y_start - py + dot_size : y_end - py + dot_size,
+                              x_start - px + dot_size : x_end - px + dot_size]
+
+            if target_slice.shape == mask_slice.shape and target_slice.size > 0:
+                target_slice[mask_slice] = np.max(new_data)
+
+    except Exception as e:
+        print(f"Marking skipped due to error: {e}")
+
+    # Normalize and enhance the image
     min_val, max_val = np.percentile(new_data, (1, 99))
     new_data = np.clip(new_data, min_val, max_val)
     normalized_data = ((new_data - min_val) / (max_val - min_val) * 255).astype(np.uint8)
-    
-    alpha = 1.5  # Contrast control (1.0-3.0)
-    beta = 20    # Brightness control (0-100)
+
+    alpha = 1.5  # Contrast control
+    beta = 20    # Brightness control
     enhanced_data = cv2.convertScaleAbs(normalized_data, alpha=alpha, beta=beta)
 
-    # Convert to PIL Image
+    # Convert to PIL Image and resize
     img = Image.fromarray(enhanced_data)
-
-    # Resize image
     resize_factor = 0.3
     new_width = int(img.width * resize_factor)
     new_height = int(img.height * resize_factor)
@@ -498,62 +506,60 @@ def createframealignImage(outputmrcpath, data, directory_path,originalsize,input
     new_filename = f"{inputFileName}_mco_two.jpg"
     new_filepath = os.path.join(directory_path, new_filename)
     img.save(new_filepath, "JPEG", quality=80)
-    
-    # with mrcfile.new(new_filepath, overwrite=True) as new_mrc:
-    #     new_mrc.set_data(new_data)
-        
-    #     for field in original_header.dtype.names:
-    #         if field != 'map' and field != 'machst':
-    #             setattr(new_mrc.header, field, original_header[field])
-        
-    #     new_mrc.update_header_from_data()
-    #     new_mrc.update_header_stats()
 
     return new_filepath
 
 
 
-def createframealignCenterImage(outputmrcpath, data, directory_path,originalsize,inputFileName):
-    
-    with mrcfile.open(outputmrcpath) as mrc:
-        new_data = mrc.data.copy()
-        original_header = mrc.header.copy()
-    
-    # Calculate scaling factors
-    scale_y = new_data.shape[0] / originalsize[0]
-    scale_x = new_data.shape[1] / originalsize[1]
-    
-    dot_size = max(1, int(5 * min(scale_x, scale_y)))  # Scale dot size, minimum 1 pixel
-    center_x,center_y = originalsize[0] // 2, originalsize[1] // 2
-    
-    # Mark the image with white dots at the scaled coordinates
-    for _, deltax, deltay in data:
-        px = int((center_x + deltax * 10) * scale_x)
-        py = int((center_y + deltay * 10) * scale_y)
-        
-        # Create a dot using numpy operations
-        y_indices, x_indices = np.ogrid[-dot_size:dot_size+1, -dot_size:dot_size+1]
-        mask = x_indices*x_indices + y_indices*y_indices <= dot_size*dot_size
-        
-        # Calculate boundaries for the dot
-        y_start, y_end = max(0, py-dot_size), min(new_data.shape[0], py+dot_size+1)
-        x_start, x_end = max(0, px-dot_size), min(new_data.shape[1], px+dot_size+1)
-        
-        # Apply the dot to the image
-        mask_slice = mask[y_start-py+dot_size:y_end-py+dot_size, x_start-px+dot_size:x_end-px+dot_size]
-        new_data[y_start:y_end, x_start:x_end][mask_slice] = np.max(new_data)
+def createframealignCenterImage(outputmrcpath, data, directory_path, originalsize, inputFileName):
+    try:
+        with mrcfile.open(outputmrcpath) as mrc:
+            new_data = mrc.data.copy()
+            original_header = mrc.header.copy()
+
+        # Defensive check
+        if originalsize[0] == 0 or originalsize[1] == 0:
+            raise ValueError("Original size contains zero dimension.")
+
+        # Calculate scaling factors
+        scale_y = new_data.shape[0] / originalsize[0]
+        scale_x = new_data.shape[1] / originalsize[1]
+
+        dot_size = max(1, int(5 * min(scale_x, scale_y)))  # Scale dot size, minimum 1 pixel
+        center_x, center_y = originalsize[0] // 2, originalsize[1] // 2
+
+        # Mark the image with white dots at the scaled coordinates
+        for _, deltax, deltay in data:
+            px = int((center_x + deltax * 10) * scale_x)
+            py = int((center_y + deltay * 10) * scale_y)
+
+            y_indices, x_indices = np.ogrid[-dot_size:dot_size+1, -dot_size:dot_size+1]
+            mask = x_indices*x_indices + y_indices*y_indices <= dot_size*dot_size
+
+            y_start, y_end = max(0, py-dot_size), min(new_data.shape[0], py+dot_size+1)
+            x_start, x_end = max(0, px-dot_size), min(new_data.shape[1], px+dot_size+1)
+
+            target_slice = new_data[y_start:y_end, x_start:x_end]
+            mask_slice = mask[y_start - py + dot_size : y_end - py + dot_size,
+                              x_start - px + dot_size : x_end - px + dot_size]
+
+            if target_slice.shape == mask_slice.shape and target_slice.size > 0:
+                target_slice[mask_slice] = np.max(new_data)
+
+    except Exception as e:
+        print(f"Marking skipped due to error: {e}")
+
+    # Normalize and enhance image
     min_val, max_val = np.percentile(new_data, (1, 99))
     new_data = np.clip(new_data, min_val, max_val)
     normalized_data = ((new_data - min_val) / (max_val - min_val) * 255).astype(np.uint8)
-    
-    alpha = 1.5  # Contrast control (1.0-3.0)
-    beta = 20    # Brightness control (0-100)
+
+    alpha = 1.5  # Contrast control
+    beta = 20    # Brightness control
     enhanced_data = cv2.convertScaleAbs(normalized_data, alpha=alpha, beta=beta)
 
-    # Convert to PIL Image
+    # Convert to PIL Image and resize
     img = Image.fromarray(enhanced_data)
-
-    # Resize image
     resize_factor = 0.3
     new_width = int(img.width * resize_factor)
     new_height = int(img.height * resize_factor)
@@ -563,17 +569,9 @@ def createframealignCenterImage(outputmrcpath, data, directory_path,originalsize
     new_filename = f"{inputFileName}_mco_one.jpg"
     new_filepath = os.path.join(directory_path, new_filename)
     img.save(new_filepath, "JPEG", quality=80)
-    # with mrcfile.new(new_filepath, overwrite=True) as new_mrc:
-    #     new_mrc.set_data(new_data)
-        
-    #     for field in original_header.dtype.names:
-    #         if field != 'map' and field != 'machst':
-    #             setattr(new_mrc.header, field, original_header[field])
-        
-    #     new_mrc.update_header_from_data()
-    #     new_mrc.update_header_stats()
 
     return new_filepath
+
 
 
 def getImageSize(file,filetype):
