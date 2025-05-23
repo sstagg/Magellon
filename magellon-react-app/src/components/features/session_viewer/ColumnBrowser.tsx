@@ -18,7 +18,7 @@ import ColumnPreferences, {
     ColumnSettings,
     defaultColumnSettings
 } from './ColumnPreferences.tsx';
-import { useImageListQuery } from '../../../services/api/usePagedImagesHook.ts';
+
 
 interface StackedViewProps {
     /**
@@ -137,29 +137,29 @@ export const ColumnBrowser: React.FC<StackedViewProps> = ({
 
     const responsiveColumnHeight = getResponsiveColumnHeight();
 
-    // Helper function to get pagination props for a specific column
-    const getPaginationProps = (columnIndex: number) => {
-        const column = imageColumns[columnIndex];
-        const parentId = columnIndex === 0 ? null : column.selectedImage?.oid;
 
-        const {
-            fetchNextPage,
-            hasNextPage,
-            isFetchingNextPage
-        } = useImageListQuery({
-            sessionName,
-            parentId,
-            pageSize: 50,
-            level: columnIndex,
-            enabled: columnIndex === 0 || column.selectedImage !== null
-        });
 
-        return {
-            fetchNextPage,
-            hasNextPage,
-            isFetchingNextPage
-        };
-    };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     // Render the settings panel
     const renderSettingsPanel = () => {
@@ -223,8 +223,18 @@ export const ColumnBrowser: React.FC<StackedViewProps> = ({
         );
     };
 
-    // Render column view
-    const renderColumnView = () => {
+    // Render enhanced columns view
+    const renderEnhancedView = () => {
+        console.log('ColumnBrowser renderEnhancedView Debug:', {
+            columnDirection: columnSettings.columnDirection,
+            isHorizontal,
+            useEnhancedColumns: columnSettings.useEnhancedColumns,
+            columnWidth: columnSettings.columnWidth,
+            responsiveColumnHeight,
+            visibleColumnsCount: visibleColumns.length,
+            windowHeight: typeof window !== 'undefined' ? window.innerHeight : 'unknown'
+        });
+
         return (
             <Box sx={{
                 display: 'flex',
@@ -234,15 +244,23 @@ export const ColumnBrowser: React.FC<StackedViewProps> = ({
                 height: '100%',
                 pb: 1,
                 flex: 1,
+                // Add debug styling
+                border: '2px solid orange',
+                backgroundColor: 'rgba(255, 165, 0, 0.1)'
             }}>
                 {visibleColumns.map((column, index) => {
                     // Find the original index in the full imageColumns array
                     const originalIndex = imageColumns.findIndex(col => col === column);
 
-                    // Get pagination props for this column
-                    const paginationProps = getPaginationProps(originalIndex);
+                    console.log(`Enhanced - Rendering InteractiveColumn ${originalIndex}:`, {
+                        parentImage: originalIndex === 0 ? null : imageColumns[originalIndex - 1]?.selectedImage?.name || 'none',
+                        isHorizontal,
+                        width: isHorizontal ? '100%' : columnSettings.columnWidth,
+                        height: isHorizontal ? columnSettings.columnWidth : '100%',
+                        columnDirection: columnSettings.columnDirection
+                    });
 
-                    return columnSettings.useEnhancedColumns ? (
+                    return (
                         <InteractiveColumn
                             key={`enhanced-column-${originalIndex}`}
                             caption={column.caption}
@@ -256,6 +274,7 @@ export const ColumnBrowser: React.FC<StackedViewProps> = ({
                             collapsible={originalIndex > 0}
                             sx={{
                                 flexShrink: 0,
+                                // Apply proper sizing based on direction
                                 ...(isHorizontal ? {
                                     width: '100%',
                                     height: columnSettings.columnWidth,
@@ -269,18 +288,18 @@ export const ColumnBrowser: React.FC<StackedViewProps> = ({
                                 })
                             }}
                         />
-                    ) : (
-                        <ImageColumn
-                            key={`legacy-column-${originalIndex}`}
-                            caption={column.caption}
-                            images={column.images}
-                            level={originalIndex}
-                            direction={columnSettings.columnDirection}
-                            width={isHorizontal ? undefined : columnSettings.columnWidth}
-                            height={isHorizontal ? columnSettings.columnWidth : undefined}
-                            onImageClick={onImageClick}
-                            {...paginationProps}
-                        />
+
+
+
+
+
+
+
+
+
+
+
+
                     );
                 })}
 
@@ -300,6 +319,87 @@ export const ColumnBrowser: React.FC<StackedViewProps> = ({
                         </Typography>
                         <Typography variant="body2">
                             Adjust your settings or select a session to view images
+                        </Typography>
+                    </Box>
+                )}
+            </Box>
+        );
+    };
+
+    // Render legacy stack view
+    const renderLegacyView = () => {
+        console.log('ColumnBrowser renderLegacyView Debug:', {
+            columnDirection: columnSettings.columnDirection,
+            isHorizontal,
+            columnWidth: columnSettings.columnWidth,
+            useEnhancedColumns: columnSettings.useEnhancedColumns
+        });
+
+        return (
+            <Box sx={{
+                display: 'flex',
+                flexDirection: isHorizontal ? 'column' : 'row',
+                flexWrap: 'nowrap',
+                overflow: 'auto',
+                height: '100%',
+                flex: 1,
+                // Add debug styling
+                border: '2px solid green',
+                backgroundColor: 'rgba(0, 255, 0, 0.1)'
+            }}>
+                {imageColumns.map((column, index) => {
+                    console.log(`Legacy - Rendering ImageColumn ${index}:`, {
+                        direction: columnSettings.columnDirection,
+                        width: isHorizontal ? undefined : columnSettings.columnWidth,
+                        height: isHorizontal ? columnSettings.columnWidth : undefined
+                    });
+
+                    return (
+                        <Box
+                            key={`stack-column-${index}`}
+                            sx={{
+                                flexShrink: 0,
+                                ...(isHorizontal ? {
+                                    width: '100%',
+                                    height: columnSettings.columnWidth,
+                                    minHeight: columnSettings.columnWidth,
+                                    maxHeight: columnSettings.columnWidth
+                                } : {
+                                    width: columnSettings.columnWidth,
+                                    minWidth: columnSettings.columnWidth,
+                                    maxWidth: columnSettings.columnWidth
+                                })
+                            }}
+                        >
+                            <ImageColumn
+                                caption={column.caption}
+                                images={column.images}
+                                level={index}
+                                direction={columnSettings.columnDirection}
+                                width={isHorizontal ? undefined : columnSettings.columnWidth}
+                                height={isHorizontal ? columnSettings.columnWidth : undefined}
+                                onImageClick={(image) => onImageClick(image, index)}
+                            />
+                        </Box>
+                    );
+                })}
+
+                {/* Placeholder when no columns have data */}
+                {imageColumns.every(col => !col.images || !col.images.pages || col.images.pages.length === 0) && (
+                    <Box sx={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '100%',
+                        height: '100%',
+                        color: 'text.secondary'
+                    }}>
+                        <Typography variant="body1" gutterBottom>
+                            No images to display
+                        </Typography>
+                        <Typography variant="body2">
+                            Select a session to view images
                         </Typography>
                     </Box>
                 )}
@@ -328,10 +428,12 @@ export const ColumnBrowser: React.FC<StackedViewProps> = ({
                 display: 'flex',
                 flexDirection: 'column'
             }}>
-                {renderColumnView()}
+                {columnSettings.useEnhancedColumns
+                    ? renderEnhancedView()
+                    : renderLegacyView()
+                }
             </Box>
         </Box>
     );
 };
-
 export default ColumnBrowser;
