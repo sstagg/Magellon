@@ -110,6 +110,7 @@ import CtfInfoCards from "./CtfInfoCards.tsx";
 import { useFetchImageCtfInfo } from "../../../services/api/CtfRestService.ts";
 import MetadataExplorer from "./MetadataExplorer.tsx";
 import { useImageViewerStore } from './store/imageViewerStore.ts';
+import {EnhancedParticlePickingTab} from "./EnhancedParticlePickingTab.tsx";
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
 
@@ -901,77 +902,19 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                             </Box>
                         </TabPanel>
 
-                        <TabPanel value="3" sx={{ p: 3 }}>
-                            <Stack spacing={3}>
-                                {/* Particle Picking Controls */}
-                                <Paper elevation={1} sx={{ p: 2 }}>
-                                    <Typography variant="subtitle1" gutterBottom>
-                                        Particle Picking: {selectedParticlePicking?.name || "None Selected"}
-                                    </Typography>
-
-                                    <Stack direction={isMobile ? "column" : "row"} spacing={2} alignItems="flex-start">
-                                        <FormControl size="small" sx={{ minWidth: 200 }}>
-                                            <InputLabel>Particle Picking</InputLabel>
-                                            <Select
-                                                value={selectedParticlePicking?.oid || ""}
-                                                label="Particle Picking"
-                                                onChange={OnIppSelected}
-                                            >
-                                                <MenuItem value="">
-                                                    <em>None</em>
-                                                </MenuItem>
-                                                {Array.isArray(ImageParticlePickings) && ImageParticlePickings?.map((ipp) => (
-                                                    <MenuItem key={ipp.oid} value={ipp.oid}>
-                                                        {ipp.name}
-                                                    </MenuItem>
-                                                ))}
-                                            </Select>
-                                        </FormControl>
-
-                                        <ButtonGroup size="small" variant="outlined">
-                                            <Tooltip title="Refresh">
-                                                <IconButton onClick={handleParticlePickingLoad}>
-                                                    <SyncOutlined />
-                                                </IconButton>
-                                            </Tooltip>
-                                            <Tooltip title="Create New">
-                                                <IconButton onClick={handleOpen}>
-                                                    <AddOutlined />
-                                                </IconButton>
-                                            </Tooltip>
-                                            <Tooltip title="Save">
-                                                <IconButton onClick={handleSave} disabled={!selectedParticlePicking}>
-                                                    <Save />
-                                                </IconButton>
-                                            </Tooltip>
-                                            <Tooltip title="Delete">
-                                                <IconButton>
-                                                    <HighlightOff />
-                                                </IconButton>
-                                            </Tooltip>
-                                        </ButtonGroup>
-                                    </Stack>
-                                </Paper>
-
-                                {/* Particle Picking Image */}
-                                <Box sx={{ textAlign: 'center' }}>
-                                    <ParticleEditor
-                                        image={selectedImage}
-                                        ipp={selectedParticlePicking}
-                                        imageUrl={`${BASE_URL}/image_thumbnail?name=${selectedImage?.name}&sessionName=${sessionName}`}
-                                        width={isMobile ? 300 : 1024}
-                                        height={isMobile ? 300 : 1024}
-                                        onCirclesSelected={(circles) => console.log("Circles selected:", circles)}
-                                        onIppUpdate={handleIppUpdate}
-                                    />
-                                </Box>
-
-                                <ParticleSessionDialog
-                                    open={isParticlePickingDialogOpen}
-                                    onClose={handleClose}
-                                    ImageDto={selectedImage}
-                                />
-                            </Stack>
+                        <TabPanel value="3" sx={{ p: 0, height: '100%' }}>
+                            <EnhancedParticlePickingTab
+                                selectedImage={selectedImage}
+                                ImageParticlePickings={ImageParticlePickings}
+                                isIPPLoading={isIPPLoading}
+                                isIPPError={isIPPError}
+                                onParticlePickingLoad={handleParticlePickingLoad}
+                                OnIppSelected={OnIppSelected}
+                                handleSave={handleSave}
+                                handleOpen={handleOpen}
+                                handleClose={handleClose}
+                                handleIppUpdate={handleIppUpdate}
+                            />
                         </TabPanel>
 
 
