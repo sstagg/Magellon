@@ -869,13 +869,13 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                                         </IconButton>
                                     </Tooltip>
                                 </Box>
-
                                 <ImageViewer
                                     imageUrl={`${BASE_URL}/image_thumbnail?name=${selectedImage?.name}&sessionName=${sessionName}`}
                                     width={isMobile ? 300 : 1024}
                                     height={isMobile ? 300 : 1024}
                                     imageStyle={getImageStyle()}
                                 />
+
                             </Box>
                         </TabPanel>
 
