@@ -1,4 +1,3 @@
-// EnhancedParticlePickingTab.tsx
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
     Box,
@@ -86,50 +85,22 @@ import {
     Layers as LayersIcon,
     FilterList as FilterListIcon,
     Assessment as AssessmentIcon,
-    Circle as CircleIcon,
-    Square as SquareIcon,
-    Timeline as TimelineIcon,
+
     Brush as BrushIcon,
-    ColorLens as ColorLensIcon,
-    SyncOutlined,
-    AddOutlined,
-    HighlightOff,
+
     Fullscreen as FullscreenIcon,
     FullscreenExit as FullscreenExitIcon,
-    PhotoSizeSelectSmall as PhotoSizeSelectSmallIcon,
+
     CropFree as CropFreeIcon,
     PanTool as PanToolIcon,
     TouchApp as TouchAppIcon,
-    Gesture as GestureIcon
+
 } from '@mui/icons-material';
 import {
-    Target,
-    MousePointer,
+
     Move,
-    Maximize2,
     Circle,
-    Square,
-    Hexagon,
-    Sparkles,
-    Wand2,
-    Eye,
-    EyeOff,
-    Activity,
-    BarChart3,
-    Crosshair,
-    AlertCircle,
-    Check,
-    X,
-    Copy,
-    Clipboard,
-    Sliders,
     HelpCircle,
-    Zap,
-    FileDown,
-    FileUp,
-    RefreshCw,
-    Layers,
-    Filter
 } from 'lucide-react';
 import { ParticleSessionDialog } from './ParticleSessionDialog.tsx';
 import ImageInfoDto from './ImageInfoDto.ts';
