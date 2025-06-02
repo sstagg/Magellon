@@ -10,8 +10,9 @@ COPY requirements.txt ./
 
 RUN apt-get update && apt-get install -y libpq-dev
 RUN apt-get install -y graphviz nano wget
+RUN pip3 install --upgrade pip
 RUN pip install psycopg2-binary --no-cache-dir
-RUN pip3 install --no-cache-dir  --upgrade -r ./requirements.txt
+RUN pip3 install --no-cache-dir --upgrade -r ./requirements.txt
 #RUN pip3 install /en_core_web_sm-2.0.0.tar.gz
 
 #COPY . .
