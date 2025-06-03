@@ -163,13 +163,8 @@ check_gpu
 # Create main directories
 log "Creating directory structure..."
 # Define directory structure as an array
+# Only create non-services directories since services will be copied entirely
 directories=(
-    "$ROOT_DIR/services/mysql/data"
-    "$ROOT_DIR/services/mysql/conf"
-    "$ROOT_DIR/services/mysql/init"
-    "$ROOT_DIR/services/consul/data"
-    "$ROOT_DIR/services/consul/config"
-    "$ROOT_DIR/services/prometheus"
     "$ROOT_DIR/gpfs"
     "$ROOT_DIR/home"
     "$ROOT_DIR/jobs"
@@ -183,7 +178,10 @@ done
 # Copy services directory if it exists in current directory
 if [ -d "services" ]; then
     log "Copying services directory and its contents..."
-    cp -r services/. "$ROOT_DIR/services/"
+
+    # Copy entire services directory structure
+    cp -r services "$ROOT_DIR/"
+
     if [ $? -ne 0 ]; then
         log "WARNING: Failed to copy all services. Check permissions and try again."
     else
@@ -202,18 +200,32 @@ writable_dirs=(
     "$ROOT_DIR/gpfs"
     "$ROOT_DIR/home"
     "$ROOT_DIR/jobs"
-    "$ROOT_DIR/services/mysql/data"
-    "$ROOT_DIR/services/mysql/conf"
-    "$ROOT_DIR/services/mysql/init"
-    "$ROOT_DIR/services/consul/data"
-    "$ROOT_DIR/services/consul/config"
-    "$ROOT_DIR/services/prometheus"
 )
 
-# Set 777 permissions on writable directories
+# Set 777 permissions on main directories
 for dir in "${writable_dirs[@]}"; do
-    chmod -R 777 "$dir" 2>/dev/null || log "WARNING: Failed to set permissions on $dir"
+    if [ -d "$dir" ]; then
+        chmod -R 777 "$dir" 2>/dev/null || log "WARNING: Failed to set permissions on $dir"
+    fi
 done
+
+# Set permissions for services directories if they exist
+if [ -d "$ROOT_DIR/services" ]; then
+    # Set 777 for data directories that need write access
+    service_data_dirs=(
+        "$ROOT_DIR/services/mysql/data"
+        "$ROOT_DIR/services/consul/data"
+    )
+
+    for dir in "${service_data_dirs[@]}"; do
+        if [ -d "$dir" ]; then
+            chmod -R 777 "$dir" 2>/dev/null || log "WARNING: Failed to set permissions on $dir"
+        fi
+    done
+
+    # Set appropriate permissions for config files
+    chmod -R 755 "$ROOT_DIR/services" 2>/dev/null || log "WARNING: Failed to set base permissions on services"
+fi
 
 log "Directory structure created with appropriate permissions"
 
@@ -248,8 +260,6 @@ else
         awk -v var="$var_name" -v val="$value" \
         '{if ($1 == var) $0 = var "=" val; print}' .env > .env.tmp && mv .env.tmp .env
     done
-
-
 
     log ".env file updated successfully (backup created as .env.backup)"
 fi
