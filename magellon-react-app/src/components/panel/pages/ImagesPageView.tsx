@@ -229,8 +229,8 @@ export const ImagesPageView = () => {
     const leftMargin = isDrawerOpen ? DRAWER_WIDTH : 0;
 
     // Calculate 5% padding values
-    const paddingValue = isMobile ? '3%' : '5%';
-    const topBottomPadding = isMobile ? '1.5%' : '3%';
+    const paddingValue = isMobile ? '0.5%' : '0.5%';
+    const topBottomPadding = isMobile ? '0.5%' : '0.5%';
 
     // Sync atlas images with store when they change
     useEffect(() => {
@@ -377,7 +377,7 @@ export const ImagesPageView = () => {
         return (
             <Box sx={{
                 position: 'fixed',
-                top: 64, // Account for header
+                top: 40, // Account for header
                 left: leftMargin,
                 right: 0,
                 bottom: 0,
