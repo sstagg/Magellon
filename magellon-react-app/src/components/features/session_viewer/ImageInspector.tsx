@@ -762,17 +762,17 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
             </Card>
 
             {/* Image Processing Controls */}
-            {activeTab === "1" && (
-                <ImageProcessingControls
-                    brightness={brightness}
-                    contrast={contrast}
-                    scale={scale}
-                    onBrightnessChange={setBrightness}
-                    onContrastChange={setContrast}
-                    onScaleChange={setScale}
-                    onReset={resetImageProcessing}
-                />
-            )}
+            {/*{activeTab === "1" && (*/}
+            {/*    <ImageProcessingControls*/}
+            {/*        brightness={brightness}*/}
+            {/*        contrast={contrast}*/}
+            {/*        scale={scale}*/}
+            {/*        onBrightnessChange={setBrightness}*/}
+            {/*        onContrastChange={setContrast}*/}
+            {/*        onScaleChange={setScale}*/}
+            {/*        onReset={resetImageProcessing}*/}
+            {/*    />*/}
+            {/*)}*/}
 
             {/* Main Content with Enhanced Tabs */}
             <Card sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
