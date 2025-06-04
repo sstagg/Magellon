@@ -237,7 +237,7 @@ export const ColumnPreferences: React.FC<ColumnSettingsProps> = ({
 
 // Default settings - updated to include direction
 export const defaultColumnSettings: ColumnSettings = {
-    columnWidth: 150, // Smaller default for horizontal mode
+    columnWidth: 175, // Smaller default for horizontal mode
     showColumnControls: true,
     autoHideEmptyColumns: true,
     useEnhancedColumns: true,

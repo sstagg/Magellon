@@ -71,6 +71,7 @@ export const ColumnBrowser: React.FC<StackedViewProps> = ({
     // Column settings state
     const [columnSettings, setColumnSettings] = useState<ColumnSettings>({
         ...defaultColumnSettings,
+        columnWidth: Math.max(175, defaultColumnSettings.columnWidth), // Ensure minimum 175px
         ...initialSettings
     });
 
