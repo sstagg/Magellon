@@ -47,17 +47,6 @@ interface ImagesStackProps {
      */
     height?: number;
 
-
-
-
-
-
-
-
-
-
-
-
 }
 
 /**

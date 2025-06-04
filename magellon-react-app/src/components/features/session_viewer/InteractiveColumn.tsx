@@ -168,6 +168,7 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
     const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
     const [isCollapsed, setIsCollapsed] = useState(initialCollapsed);
     const [isHeaderHovered, setIsHeaderHovered] = useState(false);
+    const [showSearch, setShowSearch] = useState(false);
 
     // Menu states
     const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
@@ -338,23 +339,18 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
     const getContentHeight = useCallback(() => {
         if (!isHorizontalMode) return '100%';
 
-        // In horizontal mode, subtract header height from total height
+        // In horizontal mode, use fixed header height
         const headerHeight = 36; // Compact header height
-        const searchBarHeight = filter.search || isHeaderHovered ? 28 + 12 : 0; // Search bar + padding
-        const totalHeaderHeight = headerHeight + searchBarHeight ;
-
-        const availableHeight = (height || 200) - totalHeaderHeight;
+        const availableHeight = (height || 200) - headerHeight - 8; // 8px for padding
 
         console.log(`InteractiveColumn ${level} content height calculation:`, {
             totalHeight: height,
             headerHeight,
-            searchBarHeight,
-            totalHeaderHeight,
             availableHeight
         });
 
-        return Math.max(100, availableHeight); // Minimum 100px for content
-    }, [isHorizontalMode, height, filter.search, isHeaderHovered, level]);
+        return Math.max(100, availableHeight);
+    }, [isHorizontalMode, height, level]);
 
     // Render minimal header
     const renderSlickHeader = () => (
@@ -378,7 +374,8 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                 justifyContent: 'space-between',
                 px: 1.5,
                 py: 0.75,
-                minHeight: 36
+                minHeight: 36,
+                gap: 1
             }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, minWidth: 0 }}>
                     {collapsible && (
@@ -399,10 +396,11 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                             color: 'primary.main',
                             minWidth: 0,
                             overflow: 'hidden',
-                            textOverflow: 'ellipsis'
+                            textOverflow: 'ellipsis',
+                            flexShrink: 0
                         }}
                     >
-                        {caption} {isHorizontalMode ? '(H)' : '(V)'}
+                        {caption}
                     </Typography>
 
                     <Chip
@@ -416,10 +414,64 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                             '& .MuiChip-label': { px: 0.5 }
                         }}
                     />
+
+                    {/* Inline search for horizontal mode */}
+                    {isHorizontalMode && !isCollapsed && (
+                        <Fade in={showSearch || !!filter.search}>
+                            <TextField
+                                size="small"
+                                placeholder="Search..."
+                                value={filter.search || ''}
+                                onChange={(e) => handleFilterChange({ search: e.target.value })}
+                                sx={{
+                                    ml: 1,
+                                    flex: 1,
+                                    maxWidth: 200,
+                                    '& .MuiOutlinedInput-root': {
+                                        height: 24,
+                                        fontSize: '0.75rem',
+                                        '& input': {
+                                            py: 0.25,
+                                            px: 1
+                                        }
+                                    }
+                                }}
+                                InputProps={{
+                                    startAdornment: (
+                                        <InputAdornment position="start" sx={{ ml: -0.5, mr: 0 }}>
+                                            <Search size={12} />
+                                        </InputAdornment>
+                                    ),
+                                    endAdornment: filter.search && (
+                                        <InputAdornment position="end" sx={{ mr: -0.5 }}>
+                                            <IconButton
+                                                size="small"
+                                                onClick={() => handleFilterChange({ search: '' })}
+                                                sx={{ p: 0.15 }}
+                                            >
+                                                <Clear sx={{ fontSize: 14 }} />
+                                            </IconButton>
+                                        </InputAdornment>
+                                    )
+                                }}
+                            />
+                        </Fade>
+                    )}
                 </Box>
 
                 <Fade in={isHeaderHovered || !!activeFilterCount}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        {/* Search toggle for horizontal mode */}
+                        {isHorizontalMode && (
+                            <IconButton
+                                size="small"
+                                onClick={() => setShowSearch(!showSearch)}
+                                sx={{ p: 0.25 }}
+                            >
+                                <Search fontSize="small" />
+                            </IconButton>
+                        )}
+
                         {activeFilterCount > 0 && (
                             <Badge badgeContent={activeFilterCount} color="primary">
                                 <IconButton size="small" sx={{ p: 0.25 }}>
@@ -444,42 +496,44 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                 </Fade>
             </Box>
 
-            {/* Search bar - only show when expanded */}
-            <Fade in={!isCollapsed && (isHeaderHovered || !!filter.search)}>
-                <Box sx={{ px: 1.5, pb: 0.75 }}>
-                    <TextField
-                        fullWidth
-                        size="small"
-                        placeholder="Search..."
-                        value={filter.search || ''}
-                        onChange={(e) => handleFilterChange({ search: e.target.value })}
-                        sx={{
-                            '& .MuiOutlinedInput-root': {
-                                height: 28,
-                                fontSize: '0.75rem'
-                            }
-                        }}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <Search size={14} />
-                                </InputAdornment>
-                            ),
-                            endAdornment: filter.search && (
-                                <InputAdornment position="end">
-                                    <IconButton
-                                        size="small"
-                                        onClick={() => handleFilterChange({ search: '' })}
-                                        sx={{ p: 0.25 }}
-                                    >
-                                        <Clear fontSize="small" />
-                                    </IconButton>
-                                </InputAdornment>
-                            )
-                        }}
-                    />
-                </Box>
-            </Fade>
+            {/* Search bar for vertical mode - below header */}
+            {!isHorizontalMode && (
+                <Fade in={!isCollapsed && (isHeaderHovered || !!filter.search)}>
+                    <Box sx={{ px: 1.5, pb: 0.75 }}>
+                        <TextField
+                            fullWidth
+                            size="small"
+                            placeholder="Search..."
+                            value={filter.search || ''}
+                            onChange={(e) => handleFilterChange({ search: e.target.value })}
+                            sx={{
+                                '& .MuiOutlinedInput-root': {
+                                    height: 28,
+                                    fontSize: '0.75rem'
+                                }
+                            }}
+                            InputProps={{
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <Search size={14} />
+                                    </InputAdornment>
+                                ),
+                                endAdornment: filter.search && (
+                                    <InputAdornment position="end">
+                                        <IconButton
+                                            size="small"
+                                            onClick={() => handleFilterChange({ search: '' })}
+                                            sx={{ p: 0.25 }}
+                                        >
+                                            <Clear fontSize="small" />
+                                        </IconButton>
+                                    </InputAdornment>
+                                )
+                            }}
+                        />
+                    </Box>
+                </Fade>
+            )}
         </Box>
     );
 
@@ -717,20 +771,29 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                     flex: 1,
                     height: isHorizontalMode ? getContentHeight() : '100%',
                     overflow: 'auto',
+                    position: 'relative',
                     '&::-webkit-scrollbar': {
-                        width: '4px',
-                        height: '4px',
+                        width: isHorizontalMode ? '8px' : '4px',
+                        height: isHorizontalMode ? '8px' : '4px',
                     },
                     '&::-webkit-scrollbar-track': {
-                        backgroundColor: 'transparent',
+                        backgroundColor: alpha(theme.palette.divider, 0.1),
+                        borderRadius: '4px',
                     },
                     '&::-webkit-scrollbar-thumb': {
-                        backgroundColor: alpha(theme.palette.primary.main, 0.2),
-                        borderRadius: '2px',
+                        backgroundColor: alpha(theme.palette.primary.main, 0.3),
+                        borderRadius: '4px',
                         '&:hover': {
-                            backgroundColor: alpha(theme.palette.primary.main, 0.3),
+                            backgroundColor: alpha(theme.palette.primary.main, 0.5),
                         },
                     },
+                    // Ensure scrollbar is always visible in horizontal mode
+                    ...(isHorizontalMode && {
+                        scrollbarGutter: 'stable',
+                        '&::-webkit-scrollbar': {
+                            display: 'block !important',
+                        }
+                    })
                 }}
             >
                 {renderImages()}

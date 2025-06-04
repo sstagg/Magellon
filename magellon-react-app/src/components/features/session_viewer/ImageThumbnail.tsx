@@ -9,7 +9,7 @@ import {
     Skeleton,
     useTheme
 } from "@mui/material";
-import { FileImage, Folder } from "lucide-react";
+import { FileImage, Folder, FolderOpen } from "lucide-react";
 import ImageInfoDto from "./ImageInfoDto.ts";
 import { settings } from "../../../core/settings.ts";
 import { useImageViewerStore } from './store/imageViewerStore.ts';
@@ -23,38 +23,31 @@ interface ThumbImageProps {
     isSelected: boolean;
     fixedHeight?: boolean;
     size?: 'small' | 'medium' | 'large';
-    showMetadata?: boolean; // Option to show/hide metadata in the image bar
+    showMetadata?: boolean;
 }
 
-/**
- * ThumbImage component displays a thumbnail of an image with relevant metadata
- * and handles selection and hover states.
- */
 export const ImageThumbnail = ({
-                               image,
-                               onImageClick,
-                               level,
-                               isSelected,
-                               fixedHeight = false,
-                               size = 'medium',
-                               showMetadata = true
-                           }: ThumbImageProps) => {
+                                   image,
+                                   onImageClick,
+                                   level,
+                                   isSelected,
+                                   fixedHeight = false,
+                                   size = 'medium',
+                                   showMetadata = true
+                               }: ThumbImageProps) => {
     const [isHovered, setIsHovered] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [hasError, setHasError] = useState(false);
     const theme = useTheme();
 
-    // Get the current session from the store
     const { currentSession } = useImageViewerStore();
     const sessionName = currentSession?.name || '';
 
-    // Derived values
     const childrenCount = image.children_count || 0;
     const hasChildren = childrenCount > 0;
     const imageName = image.name || 'Unnamed Image';
     const imageDefocus = image.defocus !== undefined ? `${image.defocus?.toFixed(2)}μm` : 'N/A';
 
-    // CSS classes for styling the image
     const imageClasses = useMemo(() => {
         const classes = ['thumb-image'];
         if (hasChildren) classes.push('thumb-image-has-children');
@@ -62,7 +55,6 @@ export const ImageThumbnail = ({
         return classes.join(' ');
     }, [hasChildren, isSelected]);
 
-    // Calculate image dimensions based on size prop
     const dimensions = useMemo(() => {
         const sizeMapping = {
             small: { width: 120, height: 120 },
@@ -72,18 +64,15 @@ export const ImageThumbnail = ({
         return sizeMapping[size];
     }, [size]);
 
-    // Image URL with session param
     const imageUrl = useMemo(() =>
             `${BASE_URL}/image_thumbnail?name=${image.name}&sessionName=${sessionName}`,
         [image.name, sessionName]
     );
 
-    // Event handlers
     const handleMouseEnter = () => setIsHovered(true);
     const handleMouseLeave = () => setIsHovered(false);
 
     const handleClick = () => {
-        // Create a copy of the image with level set
         const imageWithLevel = { ...image, level };
         onImageClick(imageWithLevel, level);
     };
@@ -94,7 +83,6 @@ export const ImageThumbnail = ({
         setHasError(true);
     };
 
-    // Tooltip content with detailed image information
     const tooltipContent = (
         <Box sx={{ p: 1, maxWidth: 220 }}>
             <strong>Name:</strong> {imageName}<br />
@@ -105,7 +93,6 @@ export const ImageThumbnail = ({
         </Box>
     );
 
-    // Styles for the image list item bar
     const barStyle = {
         borderRadius: isHovered ? '0 0 8px 8px' : '0',
         margin: isHovered ? '1px' : '0',
@@ -213,39 +200,41 @@ export const ImageThumbnail = ({
                         )}
                     </IconButton>
 
-                    {/* Folder badge for images with children */}
+                    {/* Enhanced Folder badge for images with children */}
                     {hasChildren && (
                         <Box
                             sx={{
                                 position: 'absolute',
-                                top: 8,
-                                right: 8,
+                                top: 6,
+                                right: 6,
                                 backgroundColor: theme.palette.mode === 'dark'
-                                    ? 'rgba(0, 0, 0, 0.6)'
-                                    : 'rgba(255, 255, 255, 0.8)',
-                                borderRadius: '50%',
-                                width: 24,
-                                height: 24,
+                                    ? 'rgba(0, 0, 0, 0.7)'
+                                    : 'rgba(255, 255, 255, 0.9)',
+                                borderRadius: '6px',
+                                width: 32,
+                                height: 32,
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
                                 zIndex: 2,
-                                padding: 0
+                                padding: 0,
+                                border: `2px solid ${theme.palette.primary.main}`,
                             }}
                         >
-                            <Folder
-                                size={14}
+                            <FolderOpen
+                                size={20}
                                 color={theme.palette.primary.main}
+                                fill={theme.palette.primary.main}
                                 style={{
-                                    display: 'block', // Ensures the SVG is treated as a block element
-                                    margin: 'auto' // Centers the icon
+                                    display: 'block',
+                                    margin: 'auto',
+                                    strokeWidth: 2.5
                                 }}
                             />
                         </Box>
                     )}
 
-                    {/* Image info bar */}
                     {showMetadata && (
                         <ImageListItemBar
                             title={`${hasChildren ? `${childrenCount} Imgs` : ''} ${imageDefocus !== 'N/A' ? `Def: ${imageDefocus}` : ''}`}
