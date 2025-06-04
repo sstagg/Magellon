@@ -653,6 +653,9 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
 
     return (
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+
+
+
             {/* Enhanced Image Information Header */}
             <Card sx={{ mb: 2, overflow: 'hidden' }}>
                 <CardHeader
@@ -667,33 +670,33 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                             <Typography variant="h6" component="div" noWrap sx={{ flex: 1 }}>
                                 {selectedImage.name}
                             </Typography>
-                            <Chip
-                                label={`Level ${selectedImage.level || 0}`}
-                                size="small"
-                                color="primary"
-                                variant="outlined"
-                            />
+                            {/*<Chip*/}
+                            {/*    label={`Level ${selectedImage.level || 0}`}*/}
+                            {/*    size="small"*/}
+                            {/*    color="primary"*/}
+                            {/*    variant="outlined"*/}
+                            {/*/>*/}
                         </Box>
                     }
                     action={
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Tooltip title="Toggle bookmark">
-                                <IconButton onClick={() => setBookmarked(!bookmarked)}>
-                                    {bookmarked ? <Bookmark /> : <BookmarkBorder />}
-                                </IconButton>
-                            </Tooltip>
-                            <Tooltip title="View history">
-                                <IconButton onClick={() => setShowHistory(true)}>
-                                    <Badge badgeContent={imageHistory.length} color="primary">
-                                        <History />
-                                    </Badge>
-                                </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Toggle info">
-                                <IconButton onClick={() => setIsInfoExpanded(!isInfoExpanded)}>
-                                    {isInfoExpanded ? <ExpandLess /> : <ExpandMore />}
-                                </IconButton>
-                            </Tooltip>
+                            {/*<Tooltip title="Toggle bookmark">*/}
+                            {/*    <IconButton onClick={() => setBookmarked(!bookmarked)}>*/}
+                            {/*        {bookmarked ? <Bookmark /> : <BookmarkBorder />}*/}
+                            {/*    </IconButton>*/}
+                            {/*</Tooltip>*/}
+                            {/*<Tooltip title="View history">*/}
+                            {/*    <IconButton onClick={() => setShowHistory(true)}>*/}
+                            {/*        <Badge badgeContent={imageHistory.length} color="primary">*/}
+                            {/*            <History />*/}
+                            {/*        </Badge>*/}
+                            {/*    </IconButton>*/}
+                            {/*</Tooltip>*/}
+                            {/*<Tooltip title="Toggle info">*/}
+                            {/*    <IconButton onClick={() => setIsInfoExpanded(!isInfoExpanded)}>*/}
+                            {/*        {isInfoExpanded ? <ExpandLess /> : <ExpandMore />}*/}
+                            {/*    </IconButton>*/}
+                            {/*</Tooltip>*/}
                         </Box>
                     }
                     sx={{ pb: 1 }}
@@ -830,48 +833,50 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                                 alignItems: 'center',
                                 justifyContent: 'center'
                             }}>
-                                <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'center' }}>
-                                    <Tooltip title="Rotate 90°">
-                                        <IconButton
-                                            onClick={() => setImageTransforms(prev => ({
-                                                ...prev,
-                                                rotation: (prev.rotation + 90) % 360
-                                            }))}
-                                            size="small"
-                                        >
-                                            <RotateCw size={18} />
-                                        </IconButton>
-                                    </Tooltip>
-                                    <Tooltip title="Flip Horizontal">
-                                        <IconButton
-                                            onClick={() => setImageTransforms(prev => ({
-                                                ...prev,
-                                                flipHorizontal: !prev.flipHorizontal
-                                            }))}
-                                            size="small"
-                                            color={imageTransforms.flipHorizontal ? "primary" : "default"}
-                                        >
-                                            <FlipHorizontal size={18} />
-                                        </IconButton>
-                                    </Tooltip>
-                                    <Tooltip title="Flip Vertical">
-                                        <IconButton
-                                            onClick={() => setImageTransforms(prev => ({
-                                                ...prev,
-                                                flipVertical: !prev.flipVertical
-                                            }))}
-                                            size="small"
-                                            color={imageTransforms.flipVertical ? "primary" : "default"}
-                                        >
-                                            <FlipVertical size={18} />
-                                        </IconButton>
-                                    </Tooltip>
-                                    <Tooltip title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}>
-                                        <IconButton onClick={toggleFullscreen} size="small">
-                                            {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
-                                        </IconButton>
-                                    </Tooltip>
-                                </Box>
+                                {/*<Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'center' }}>*/}
+                                {/*    <Tooltip title="Rotate 90°">*/}
+                                {/*        <IconButton*/}
+                                {/*            onClick={() => setImageTransforms(prev => ({*/}
+                                {/*                ...prev,*/}
+                                {/*                rotation: (prev.rotation + 90) % 360*/}
+                                {/*            }))}*/}
+                                {/*            size="small"*/}
+                                {/*        >*/}
+                                {/*            <RotateCw size={18} />*/}
+                                {/*        </IconButton>*/}
+                                {/*    </Tooltip>*/}
+                                {/*    <Tooltip title="Flip Horizontal">*/}
+                                {/*        <IconButton*/}
+                                {/*            onClick={() => setImageTransforms(prev => ({*/}
+                                {/*                ...prev,*/}
+                                {/*                flipHorizontal: !prev.flipHorizontal*/}
+                                {/*            }))}*/}
+                                {/*            size="small"*/}
+                                {/*            color={imageTransforms.flipHorizontal ? "primary" : "default"}*/}
+                                {/*        >*/}
+                                {/*            <FlipHorizontal size={18} />*/}
+                                {/*        </IconButton>*/}
+                                {/*    </Tooltip>*/}
+                                {/*    <Tooltip title="Flip Vertical">*/}
+                                {/*        <IconButton*/}
+                                {/*            onClick={() => setImageTransforms(prev => ({*/}
+                                {/*                ...prev,*/}
+                                {/*                flipVertical: !prev.flipVertical*/}
+                                {/*            }))}*/}
+                                {/*            size="small"*/}
+                                {/*            color={imageTransforms.flipVertical ? "primary" : "default"}*/}
+                                {/*        >*/}
+                                {/*            <FlipVertical size={18} />*/}
+                                {/*        </IconButton>*/}
+                                {/*    </Tooltip>*/}
+                                {/*    <Tooltip title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}>*/}
+                                {/*        <IconButton onClick={toggleFullscreen} size="small">*/}
+                                {/*            {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}*/}
+                                {/*        </IconButton>*/}
+                                {/*    </Tooltip>*/}
+                                {/*</Box>*/}
+
+
                                 <ImageViewer
                                     imageUrl={`${BASE_URL}/image_thumbnail?name=${selectedImage?.name}&sessionName=${sessionName}`}
                                     width={isMobile ? 300 : 1024}
