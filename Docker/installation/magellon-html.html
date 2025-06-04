@@ -273,6 +273,7 @@
                 <div class="step">
                     <div class="step-title">Create Magellon Directories</div>
                     <p>Set up the required directory structure for Magellon operation.</p>
+
                     <div class="callout">
                         <div class="callout-title">
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -282,22 +283,37 @@
                             </svg>
                             Directory Structure
                         </div>
-                        <p>Magellon requires three main directories for proper operation:</p>
+                        <p>Magellon requires three main directories for proper operation and services directories to contain services </p>
+
+                    </div>
+                    <div class="callout">
+                        <div class="callout-title">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="16" x2="12" y2="12"></line>
+                                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                            </svg>
+                            Best Approach for testing
+                        </div>
+
+                        <p>The best way to setup directories is coping magellon directory in docker directory to where you want.it already contains everything </p>
                     </div>
                     
                     <ul class="substeps">
                         <li class="substep">
                             <strong>Home Directory</strong>: Where Magellon stores generated files
-                            <p>Example: <span class="file-path">/Users/username/magellon/home</span></p>
+                            <p>Example: <span class="file-path">/magellon/home</span></p>
                         </li>
                         <li class="substep">
                             <strong>GPFS Directory</strong>: For data imports (mapped to "/gpfs" internally)
-                            <p>Example: <span class="file-path">/Users/username/magellon/gpfs</span></p>
+                            <p>Example: <span class="file-path">/magellon/gpfs</span></p>
                         </li>
                         <li class="substep">
                             <strong>Jobs Directory</strong>: For temporary file storage
-                            <p>Example: <span class="file-path">/Users/username/magellon/jobs</span></p>
+                            <p>Example: <span class="file-path">/magellon/jobs</span></p>
                         </li>
+
+
                     </ul>
                     
                     <div class="dir-structure">
@@ -305,6 +321,7 @@
                         <div class="dir-item">  ├── 📁 <span class="dir-folder">home/</span></div>
                         <div class="dir-item">  ├── 📁 <span class="dir-folder">gpfs/</span></div>
                         <div class="dir-item">  └── 📁 <span class="dir-folder">jobs/</span></div>
+                        <div class="dir-item">  └── 📁 <span class="dir-folder">services/</span></div>
                     </div>
                 </div>
 
@@ -322,9 +339,9 @@
                         </li>
                         <li class="substep">
                             Edit the .env file to configure your Magellon directories
-                            <pre><code>MAGELLON_HOME_PATH=/Users/username/magellon/home
-MAGELLON_GPFS_PATH=/Users/username/magellon/gpfs
-MAGELLON_JOBS_PATH=/Users/username/magellon/jobs</code></pre>
+                            <pre><code>MAGELLON_HOME_PATH=/magellon/home
+MAGELLON_GPFS_PATH=/magellon/gpfs
+MAGELLON_JOBS_PATH=/magellon/jobs</code></pre>
                         </li>
                     </ul>
                 </div>

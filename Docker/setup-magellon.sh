@@ -248,18 +248,45 @@ else
     cp .env .env.backup
 
     # Define environment variable mappings
-    env_keys=("MAGELLON_HOME_PATH" "MAGELLON_GPFS_PATH" "MAGELLON_JOBS_PATH" "MAGELLON_ROOT_DIR" "CUDA_IMAGE" "MOTIONCOR_BINARY")
-    env_values=("$ROOT_DIR/home" "$ROOT_DIR/gpfs" "$ROOT_DIR/jobs" "$ROOT_DIR" "$cuda_image" "$motiocor_binary")
+    declare -A env_updates=(
+        ["MAGELLON_HOME_PATH"]="$ROOT_DIR/home"
+        ["MAGELLON_GPFS_PATH"]="$ROOT_DIR/gpfs"
+        ["MAGELLON_JOBS_PATH"]="$ROOT_DIR/jobs"
+        ["MAGELLON_ROOT_DIR"]="$ROOT_DIR"
+        ["CUDA_IMAGE"]="$cuda_image"
+        ["MOTIONCOR_BINARY"]="$motiocor_binary"
+    )
 
-    # Loop through and update .env
-    for i in "${!env_keys[@]}"; do
-        var_name="${env_keys[$i]}"
-        value="${env_values[$i]}"
+    # Create a temporary file
+    temp_file=$(mktemp)
 
-        # Use awk to modify the .env file
-        awk -v var="$var_name" -v val="$value" \
-        '{if ($1 == var) $0 = var "=" val; print}' .env > .env.tmp && mv .env.tmp .env
-    done
+    # Process each line of the .env file
+    while IFS= read -r line || [ -n "$line" ]; do
+        # Skip empty lines and comments
+        if [[ -z "$line" ]] || [[ "$line" =~ ^[[:space:]]*# ]]; then
+            echo "$line" >> "$temp_file"
+            continue
+        fi
+
+        # Extract variable name (everything before the first =)
+        if [[ "$line" =~ ^([^=]+)=(.*)$ ]]; then
+            var_name="${BASH_REMATCH[1]}"
+            var_name=$(echo "$var_name" | xargs)  # Trim whitespace
+
+            # Check if this variable needs to be updated
+            if [[ -n "${env_updates[$var_name]}" ]]; then
+                echo "${var_name}=${env_updates[$var_name]}" >> "$temp_file"
+                log "Updated: ${var_name}=${env_updates[$var_name]}"
+            else
+                echo "$line" >> "$temp_file"
+            fi
+        else
+            echo "$line" >> "$temp_file"
+        fi
+    done < .env
+
+    # Replace the original .env file with the updated one
+    mv "$temp_file" .env
 
     log ".env file updated successfully (backup created as .env.backup)"
 fi

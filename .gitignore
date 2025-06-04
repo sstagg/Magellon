@@ -59,13 +59,7 @@ Sandbox/massest/calibration.png
 
 /Docker/postgres/data
 /plugins/magellon_ctf_plugin/support/consul/data
-CoreService/app.log
 /CoreService/dist
-CoreService/app.log
-CoreService/app.log
 plugins/magellon_result_processor/app.log
 CoreService/app.log
 
-jobs/
-gpfs/
-home/
