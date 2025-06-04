@@ -244,49 +244,26 @@ if [ ! -f ".env" ]; then
 else
     # Update .env file with the new paths
     log "Updating .env file with correct paths..."
+
     # Create a backup of the original .env file
     cp .env .env.backup
+    log "Created backup: .env.backup"
 
-    # Define environment variable mappings
-    declare -A env_updates=(
-        ["MAGELLON_HOME_PATH"]="$ROOT_DIR/home"
-        ["MAGELLON_GPFS_PATH"]="$ROOT_DIR/gpfs"
-        ["MAGELLON_JOBS_PATH"]="$ROOT_DIR/jobs"
-        ["MAGELLON_ROOT_DIR"]="$ROOT_DIR"
-        ["CUDA_IMAGE"]="$cuda_image"
-        ["MOTIONCOR_BINARY"]="$motiocor_binary"
-    )
+    # Show original values
+    log "Original path values in .env:"
+    grep -E "^(MAGELLON_HOME_PATH|MAGELLON_GPFS_PATH|MAGELLON_JOBS_PATH|MAGELLON_ROOT_DIR|CUDA_IMAGE|MOTIONCOR_BINARY)=" .env || true
 
-    # Create a temporary file
-    temp_file=$(mktemp)
+    # Update each variable using sed with | as delimiter to avoid conflicts with paths
+    sed -i "s|^MAGELLON_HOME_PATH=.*|MAGELLON_HOME_PATH=${ROOT_DIR}/home|" .env
+    sed -i "s|^MAGELLON_GPFS_PATH=.*|MAGELLON_GPFS_PATH=${ROOT_DIR}/gpfs|" .env
+    sed -i "s|^MAGELLON_JOBS_PATH=.*|MAGELLON_JOBS_PATH=${ROOT_DIR}/jobs|" .env
+    sed -i "s|^MAGELLON_ROOT_DIR=.*|MAGELLON_ROOT_DIR=${ROOT_DIR}|" .env
+    sed -i "s|^CUDA_IMAGE=.*|CUDA_IMAGE=${cuda_image}|" .env
+    sed -i "s|^MOTIONCOR_BINARY=.*|MOTIONCOR_BINARY=${motiocor_binary}|" .env
 
-    # Process each line of the .env file
-    while IFS= read -r line || [ -n "$line" ]; do
-        # Skip empty lines and comments
-        if [[ -z "$line" ]] || [[ "$line" =~ ^[[:space:]]*# ]]; then
-            echo "$line" >> "$temp_file"
-            continue
-        fi
-
-        # Extract variable name (everything before the first =)
-        if [[ "$line" =~ ^([^=]+)=(.*)$ ]]; then
-            var_name="${BASH_REMATCH[1]}"
-            var_name=$(echo "$var_name" | xargs)  # Trim whitespace
-
-            # Check if this variable needs to be updated
-            if [[ -n "${env_updates[$var_name]}" ]]; then
-                echo "${var_name}=${env_updates[$var_name]}" >> "$temp_file"
-                log "Updated: ${var_name}=${env_updates[$var_name]}"
-            else
-                echo "$line" >> "$temp_file"
-            fi
-        else
-            echo "$line" >> "$temp_file"
-        fi
-    done < .env
-
-    # Replace the original .env file with the updated one
-    mv "$temp_file" .env
+    # Show updated values
+    log "Updated path values in .env:"
+    grep -E "^(MAGELLON_HOME_PATH|MAGELLON_GPFS_PATH|MAGELLON_JOBS_PATH|MAGELLON_ROOT_DIR|CUDA_IMAGE|MOTIONCOR_BINARY)=" .env
 
     log ".env file updated successfully (backup created as .env.backup)"
 fi
