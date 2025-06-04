@@ -92,11 +92,18 @@ export const ColumnPreferences: React.FC<ColumnSettingsProps> = ({
         }
     };
 
-    // Main content
+    // Main content - more compact layout
     const content = (
-        <Box sx={{ px: 1, ...(!paper ? sx : {}) }}>
-            {showEnhancedToggle && (
-                <>
+        <Box sx={{ ...(!paper ? sx : {}) }}>
+            {/* Row 1: All toggle switches in one line */}
+            <Box sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 2,
+                flexWrap: 'wrap',
+                mb: 1.5
+            }}>
+                {showEnhancedToggle && (
                     <FormControlLabel
                         control={
                             <Switch
@@ -107,104 +114,109 @@ export const ColumnPreferences: React.FC<ColumnSettingsProps> = ({
                         }
                         label={
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                <AutoAwesome sx={{ fontSize: 16 }} />
-                                <Typography variant="caption">Enhanced Columns</Typography>
+                                <AutoAwesome sx={{ fontSize: 14 }} />
+                                <Typography variant="caption">Enhanced</Typography>
                             </Box>
                         }
+                        sx={{ m: 0 }}
                     />
+                )}
 
-                    {settings.useEnhancedColumns && <Divider sx={{ my: 1 }} />}
-                </>
-            )}
-
-            <Collapse in={!showEnhancedToggle || settings.useEnhancedColumns}>
-                <Box sx={{ mt: showEnhancedToggle ? 1 : 0 }}>
-                    {/* Column Direction Toggle */}
-                    <Box sx={{ mb: 2 }}>
-                        <Typography variant="caption" gutterBottom sx={{ display: 'block' }}>
-                            Layout Direction
-                        </Typography>
-                        <ToggleButtonGroup
-                            value={settings.columnDirection}
-                            exclusive
-                            onChange={handleDirectionChange}
+                <FormControlLabel
+                    control={
+                        <Switch
                             size="small"
-                            fullWidth
-                        >
-                            <ToggleButton value="vertical">
-                                <ViewColumn sx={{ mr: 0.5, fontSize: 16 }} />
-                                <Typography variant="caption">Vertical</Typography>
-                            </ToggleButton>
-                            <ToggleButton value="horizontal">
-                                <ViewAgenda sx={{ mr: 0.5, fontSize: 16 }} />
-                                <Typography variant="caption">Horizontal</Typography>
-                            </ToggleButton>
-                        </ToggleButtonGroup>
-                    </Box>
-
-                    {/* Column Width/Height Slider */}
-                    <Box sx={{ mb: 2 }}>
-                        <Typography variant="caption" gutterBottom sx={{ display: 'block' }}>
-                            {settings.columnDirection === 'horizontal' ? 'Column Height' : 'Column Width'}: {settings.columnWidth}px
-                        </Typography>
-                        <Slider
-                            value={settings.columnWidth}
-                            onChange={(_, value) => updateSetting('columnWidth', value as number)}
-                            min={minWidth}
-                            max={maxWidth}
-                            size="small"
-                            valueLabelDisplay="auto"
-                            step={10}
-                            marks={
-                                settings.columnDirection === 'horizontal'
-                                    ? [
-                                        { value: 120, label: '120px' },
-                                        { value: 200, label: '200px' },
-                                        { value: 300, label: '300px' }
-                                    ]
-                                    : [
-                                        { value: minWidth, label: `${minWidth}px` },
-                                        { value: Math.round((minWidth + maxWidth) / 2), label: 'Medium' },
-                                        { value: maxWidth, label: `${maxWidth}px` }
-                                    ]
-                            }
+                            checked={settings.autoHideEmptyColumns}
+                            onChange={(e) => updateSetting('autoHideEmptyColumns', e.target.checked)}
                         />
+                    }
+                    label={
+                        <Typography variant="caption">
+                            Auto-hide empty
+                        </Typography>
+                    }
+                    sx={{ m: 0 }}
+                />
+
+                <FormControlLabel
+                    control={
+                        <Switch
+                            size="small"
+                            checked={settings.showColumnControls}
+                            onChange={(e) => updateSetting('showColumnControls', e.target.checked)}
+                        />
+                    }
+                    label={
+                        <Typography variant="caption">
+                            Show controls
+                        </Typography>
+                    }
+                    sx={{ m: 0 }}
+                />
+            </Box>
+
+            <Divider sx={{ my: 1 }} />
+
+            {/* Row 2: Slider and Direction Toggle in one line */}
+            <Box sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 2,
+                flexWrap: 'wrap'
+            }}>
+                {/* Column Width/Height Slider */}
+                <Box sx={{ flex: 1, minWidth: 200 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 500 }}>
+                            {settings.columnDirection === 'horizontal' ? 'Height' : 'Width'}: {settings.columnWidth}px
+                        </Typography>
                     </Box>
-
-                    {/* Auto-hide Empty Columns */}
-                    <FormControlLabel
-                        control={
-                            <Switch
-                                size="small"
-                                checked={settings.autoHideEmptyColumns}
-                                onChange={(e) => updateSetting('autoHideEmptyColumns', e.target.checked)}
-                            />
-                        }
-                        label={
-                            <Typography variant="caption">
-                                Auto-hide empty columns
-                            </Typography>
-                        }
-                        sx={{ mb: 1 }}
-                    />
-
-                    {/* Show Column Controls */}
-                    <FormControlLabel
-                        control={
-                            <Switch
-                                size="small"
-                                checked={settings.showColumnControls}
-                                onChange={(e) => updateSetting('showColumnControls', e.target.checked)}
-                            />
-                        }
-                        label={
-                            <Typography variant="caption">
-                                Show column controls
-                            </Typography>
-                        }
+                    <Slider
+                        value={settings.columnWidth}
+                        onChange={(_, value) => updateSetting('columnWidth', value as number)}
+                        min={minWidth}
+                        max={maxWidth}
+                        size="small"
+                        valueLabelDisplay="auto"
+                        step={10}
+                        sx={{
+                            '& .MuiSlider-thumb': {
+                                width: 14,
+                                height: 14,
+                            }
+                        }}
                     />
                 </Box>
-            </Collapse>
+
+                {/* Column Direction Toggle */}
+                <Box>
+                    <Typography variant="caption" sx={{ display: 'block', mb: 0.5, fontWeight: 500 }}>
+                        Layout
+                    </Typography>
+                    <ToggleButtonGroup
+                        value={settings.columnDirection}
+                        exclusive
+                        onChange={handleDirectionChange}
+                        size="small"
+                        sx={{
+                            '& .MuiToggleButton-root': {
+                                py: 0.25,
+                                px: 1,
+                                fontSize: '0.75rem'
+                            }
+                        }}
+                    >
+                        <ToggleButton value="vertical">
+                            <ViewColumn sx={{ mr: 0.5, fontSize: 16 }} />
+                            <Typography variant="caption">V</Typography>
+                        </ToggleButton>
+                        <ToggleButton value="horizontal">
+                            <ViewAgenda sx={{ mr: 0.5, fontSize: 16 }} />
+                            <Typography variant="caption">H</Typography>
+                        </ToggleButton>
+                    </ToggleButtonGroup>
+                </Box>
+            </Box>
         </Box>
     );
 
@@ -214,23 +226,13 @@ export const ColumnPreferences: React.FC<ColumnSettingsProps> = ({
 
     if (paper) {
         return (
-            <Paper elevation={0} variant="outlined" sx={{ p: 1, borderRadius: 1, ...sx }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
-                    <Settings sx={{ fontSize: 16 }} />
-                    <Typography variant="caption" sx={{ fontWeight: 500 }}>
-                        Column Settings
-                    </Typography>
-                </Box>
+            <Paper elevation={0} variant="outlined" sx={{ p: 1.5, borderRadius: 1, ...sx }}>
                 {content}
             </Paper>
         );
     }
 
-    return (
-        <Box sx={sx}>
-            {content}
-        </Box>
-    );
+    return content;
 };
 
 // Default settings - updated to include direction
