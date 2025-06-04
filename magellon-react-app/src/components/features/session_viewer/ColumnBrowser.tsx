@@ -64,7 +64,7 @@ export const ColumnBrowser: React.FC<StackedViewProps> = ({
                                                               sessionName,
                                                               showSettings = true,
                                                               initialSettings = {},
-                                                              initialSettingsCollapsed = false,
+                                                              initialSettingsCollapsed = true, // Changed to true for default collapsed
                                                               height = '100%',
                                                               sx = {}
                                                           }) => {
@@ -74,7 +74,7 @@ export const ColumnBrowser: React.FC<StackedViewProps> = ({
         ...initialSettings
     });
 
-    // Settings panel state
+    // Settings panel state - now defaults to collapsed
     const [settingsCollapsed, setSettingsCollapsed] = useState(initialSettingsCollapsed);
 
     // Calculate which columns should be visible based on settings
@@ -137,31 +137,7 @@ export const ColumnBrowser: React.FC<StackedViewProps> = ({
 
     const responsiveColumnHeight = getResponsiveColumnHeight();
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    // Render the settings panel
+    // Render the settings panel - more compact version
     const renderSettingsPanel = () => {
         if (!showSettings) return null;
 
@@ -176,21 +152,23 @@ export const ColumnBrowser: React.FC<StackedViewProps> = ({
                     flexShrink: 0
                 }}
             >
-                {/* Settings header */}
+                {/* Settings header - even more compact */}
                 <Box
                     sx={{
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        p: 1,
+                        px: 1.5,
+                        py: 0.75,
                         backgroundColor: 'grey.50',
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        minHeight: 36
                     }}
                     onClick={() => setSettingsCollapsed(!settingsCollapsed)}
                 >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Settings sx={{ fontSize: 16 }} />
-                        <Typography variant="subtitle2" sx={{ fontWeight: 500 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 500, fontSize: '0.875rem' }}>
                             Column View Settings
                         </Typography>
                     </Box>
@@ -198,18 +176,18 @@ export const ColumnBrowser: React.FC<StackedViewProps> = ({
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         {/* Statistics */}
                         <Typography variant="caption" color="text.secondary">
-                            {statistics.visibleCount}/{statistics.totalColumns} columns • {statistics.totalImages} images • {isHorizontal ? 'Horizontal' : 'Vertical'}
+                            {statistics.visibleCount}/{statistics.totalColumns} columns • {statistics.totalImages} images • {isHorizontal ? 'H' : 'V'}
                         </Typography>
 
-                        <IconButton size="small">
-                            {settingsCollapsed ? <ExpandMore /> : <ExpandLess />}
+                        <IconButton size="small" sx={{ p: 0.25 }}>
+                            {settingsCollapsed ? <ExpandMore fontSize="small" /> : <ExpandLess fontSize="small" />}
                         </IconButton>
                     </Box>
                 </Box>
 
                 {/* Settings content */}
                 <Collapse in={!settingsCollapsed}>
-                    <Box sx={{ p: 1 }}>
+                    <Box sx={{ p: 1.5 }}>
                         <ColumnPreferences
                             settings={columnSettings}
                             onSettingsChange={setColumnSettings}
@@ -288,18 +266,6 @@ export const ColumnBrowser: React.FC<StackedViewProps> = ({
                                 })
                             }}
                         />
-
-
-
-
-
-
-
-
-
-
-
-
                     );
                 })}
 
@@ -436,4 +402,5 @@ export const ColumnBrowser: React.FC<StackedViewProps> = ({
         </Box>
     );
 };
+
 export default ColumnBrowser;

@@ -194,6 +194,17 @@ const AboutPage: React.FC = () => {
             }
         },
         {
+            name: "Jan-Hannes Schaefer",
+            role: "Postdoctoral Fellow",
+            bio: "Postdoctoral Fellow at Scripps Research. Cryo-EM expert in single-particle and helical reconstruction.",
+            expertise: ["Cryo-EM", "Proteinopathies","Method Development", "High-throughput Analysis"],
+            social: {
+                github: "https://github.com/schaefer-jh/",
+                linkedin: "",
+                email: "jschaefer@scripps.edu"
+            }
+        },
+        {
             name: "Behdad Khoshbin",
             role: "Lead Developer",
             bio: "Software engineer and project manager specializing in software development. Expert in system design, user interface design, and system architecture for research applications.",
