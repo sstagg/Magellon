@@ -6,61 +6,31 @@ import {
     Switch,
     Typography,
     Slider,
-    Collapse,
     Divider,
     ToggleButton,
     ToggleButtonGroup
 } from '@mui/material';
-import { AutoAwesome, Settings, ViewColumn, ViewAgenda } from '@mui/icons-material';
+import { AutoAwesome, ViewColumn, ViewAgenda } from '@mui/icons-material';
 
-// Configuration interface for column settings
 export interface ColumnSettings {
     columnWidth: number;
     showColumnControls: boolean;
     autoHideEmptyColumns: boolean;
     useEnhancedColumns: boolean;
-    columnDirection: 'vertical' | 'horizontal'; // Add direction property
+    columnDirection: 'vertical' | 'horizontal';
 }
 
-// Props for the ColumnSettingsComponent
 interface ColumnSettingsProps {
-    /**
-     * Current column settings
-     */
     settings: ColumnSettings;
-    /**
-     * Callback when settings change
-     */
     onSettingsChange: (newSettings: ColumnSettings) => void;
-    /**
-     * Whether the settings panel is visible
-     */
     visible?: boolean;
-    /**
-     * Whether to show the enhanced columns toggle
-     */
     showEnhancedToggle?: boolean;
-    /**
-     * Minimum column width
-     */
     minWidth?: number;
-    /**
-     * Maximum column width
-     */
     maxWidth?: number;
-    /**
-     * Whether to show in a paper container
-     */
     paper?: boolean;
-    /**
-     * Custom styling
-     */
     sx?: object;
 }
 
-/**
- * Reusable component for configuring column view settings
- */
 export const ColumnPreferences: React.FC<ColumnSettingsProps> = ({
                                                                      settings,
                                                                      onSettingsChange,
@@ -71,7 +41,6 @@ export const ColumnPreferences: React.FC<ColumnSettingsProps> = ({
                                                                      paper = true,
                                                                      sx = {}
                                                                  }) => {
-    // Helper function to update settings
     const updateSetting = <K extends keyof ColumnSettings>(
         key: K,
         value: ColumnSettings[K]
@@ -82,7 +51,6 @@ export const ColumnPreferences: React.FC<ColumnSettingsProps> = ({
         });
     };
 
-    // Handle direction change
     const handleDirectionChange = (
         event: React.MouseEvent<HTMLElement>,
         newDirection: 'vertical' | 'horizontal' | null,
@@ -92,7 +60,6 @@ export const ColumnPreferences: React.FC<ColumnSettingsProps> = ({
         }
     };
 
-    // Main content - more compact layout
     const content = (
         <Box sx={{ ...(!paper ? sx : {}) }}>
             {/* Row 1: All toggle switches in one line */}
@@ -235,13 +202,12 @@ export const ColumnPreferences: React.FC<ColumnSettingsProps> = ({
     return content;
 };
 
-// Default settings - updated to include direction
 export const defaultColumnSettings: ColumnSettings = {
-    columnWidth: 175, // Smaller default for horizontal mode
+    columnWidth: 150,
     showColumnControls: true,
     autoHideEmptyColumns: true,
     useEnhancedColumns: true,
-    columnDirection: 'vertical' // Default to vertical layout
+    columnDirection: 'vertical'
 };
 
 export default ColumnPreferences;

@@ -48,7 +48,6 @@ import { InfiniteData } from "react-query";
 import { useImageViewerStore } from './store/imageViewerStore.ts';
 import { useImageListQuery } from "../../../services/api/usePagedImagesHook.ts";
 
-// Enhanced filter options for the column
 interface ColumnFilter {
     search?: string;
     defocusMin?: number;
@@ -57,7 +56,6 @@ interface ColumnFilter {
     magnification?: number;
 }
 
-// Sort options
 type SortField = 'name' | 'defocus' | 'children_count' | 'mag' | 'pixelSize';
 type SortDirection = 'asc' | 'desc';
 
@@ -66,64 +64,23 @@ interface SortConfig {
     direction: SortDirection;
 }
 
-// Display modes for the column
 type DisplayMode = 'stack' | 'grid' | 'list';
 
 interface SlickImageColumnProps {
-    /**
-     * Callback when an image is clicked
-     */
     onImageClick: (imageInfo: ImageInfoDto, column: number) => void;
-    /**
-     * Parent image that serves as filter for this column's images
-     */
     parentImage: ImageInfoDto | null;
-    /**
-     * Current session name
-     */
     sessionName: string;
-    /**
-     * Column caption/title
-     */
     caption: string;
-    /**
-     * Hierarchical level of images in this column
-     */
     level: number;
-    /**
-     * Width of the column (for vertical layout)
-     */
     width?: number;
-    /**
-     * Height of the column (for horizontal layout)
-     */
     height?: number;
-    /**
-     * Whether to show column controls
-     */
     showControls?: boolean;
-    /**
-     * Initial display mode
-     */
     initialDisplayMode?: DisplayMode;
-    /**
-     * Whether the column can be collapsed
-     */
     collapsible?: boolean;
-    /**
-     * Initial collapsed state
-     */
     initialCollapsed?: boolean;
-    /**
-     * Custom styling
-     */
     sx?: object;
 }
 
-/**
- * Slick ImageColumnComponent with minimal header and streamlined design
- * Now supports both horizontal and vertical layouts
- */
 export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                                                                        onImageClick,
                                                                        parentImage,
@@ -141,24 +98,9 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
     const theme = useTheme();
     const scrollRef = useRef<HTMLDivElement>(null);
 
-    // Determine if we're in horizontal mode
-    // If height is explicitly set and is smaller than the default, we're in horizontal mode
     const isHorizontalMode = useMemo(() => {
-        // Check if height is explicitly provided and is not the default height (700)
-        if (height !== undefined && height !== 700) {
-            console.log(`InteractiveColumn ${level}: Horizontal mode detected - height: ${height}, width: ${width}`);
-            return true;
-        }
-
-        // Check if width is "100%" and height is a number (clear horizontal intent from parent)
-        if (width === "100%" && typeof height === 'number' && height !== 700) {
-            console.log(`InteractiveColumn ${level}: Horizontal mode detected - width: 100%, height: ${height}`);
-            return true;
-        }
-
-        console.log(`InteractiveColumn ${level}: Vertical mode - height: ${height}, width: ${width}`);
-        return false;
-    }, [height, width, level]);
+        return height !== undefined && height !== 700;
+    }, [height]);
 
     // Local state
     const [parentId, setParentId] = useState<string | null>(null);
@@ -170,33 +112,27 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
     const [isHeaderHovered, setIsHeaderHovered] = useState(false);
     const [showSearch, setShowSearch] = useState(false);
 
-    // Menu states
     const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
 
-    // Store integration
     const { currentImage } = useImageViewerStore();
 
-    // Configuration
     const pageSize = 50;
 
-    // Determine if loading should occur
     const shouldLoad = useMemo(() => {
         if (level === 0) return sessionName !== '';
         return parentImage !== null && (parentImage.children_count || 0) > 0;
     }, [level, parentImage, sessionName]);
 
-    // Update parent ID when parent image changes
     useEffect(() => {
         const newParentId = level === 0 ? null : parentImage?.oid || null;
 
         if (newParentId !== parentId) {
             setParentId(newParentId);
-            setFilter({}); // Reset filters when parent changes
+            setFilter({});
             setSelectedImageId(null);
         }
     }, [parentImage, level, parentId]);
 
-    // Fetch paged images from API
     const {
         data,
         error,
@@ -216,19 +152,15 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
         enabled: shouldLoad
     });
 
-    // Get all images and apply filtering and sorting
     const { filteredImages, totalCount } = useMemo(() => {
         const allImages = data?.pages?.flatMap(page => page.result) || [];
 
-        // Apply filters
         let filtered = allImages.filter(image => {
-            // Search filter
             if (filter.search && image.name &&
                 !image.name.toLowerCase().includes(filter.search.toLowerCase())) {
                 return false;
             }
 
-            // Defocus filter
             if (filter.defocusMin !== undefined &&
                 (image.defocus === undefined || image.defocus < filter.defocusMin)) {
                 return false;
@@ -239,13 +171,11 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                 return false;
             }
 
-            // Has children filter
             if (filter.hasChildren !== undefined &&
                 ((image.children_count || 0) > 0) !== filter.hasChildren) {
                 return false;
             }
 
-            // Magnification filter
             if (filter.magnification !== undefined &&
                 image.mag !== filter.magnification) {
                 return false;
@@ -254,17 +184,14 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
             return true;
         });
 
-        // Apply sorting
         filtered.sort((a, b) => {
             let aValue: any = a[sortConfig.field];
             let bValue: any = b[sortConfig.field];
 
-            // Handle undefined values
             if (aValue === undefined && bValue === undefined) return 0;
             if (aValue === undefined) return 1;
             if (bValue === undefined) return -1;
 
-            // Convert to strings for name comparison
             if (sortConfig.field === 'name') {
                 aValue = aValue?.toString().toLowerCase() || '';
                 bValue = bValue?.toString().toLowerCase() || '';
@@ -283,14 +210,12 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
         };
     }, [data, filter, sortConfig]);
 
-    // Update selected image based on store
     useEffect(() => {
         if (currentImage && currentImage.level === level) {
             setSelectedImageId(currentImage.oid || null);
         }
     }, [currentImage, level]);
 
-    // Event handlers
     const handleImageClick = useCallback((image: ImageInfoDto) => {
         setSelectedImageId(image.oid || null);
         onImageClick(image, level);
@@ -323,36 +248,23 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
         setMenuAnchor(null);
     }, []);
 
-    // Scroll to top when filters change
     useEffect(() => {
         if (scrollRef.current) {
             scrollRef.current.scrollTop = 0;
         }
     }, [filter, sortConfig]);
 
-    // Active filter count
     const activeFilterCount = Object.values(filter).filter(val =>
         val !== undefined && val !== '' && val !== null
     ).length;
 
-    // Calculate the height available for content after header
     const getContentHeight = useCallback(() => {
         if (!isHorizontalMode) return '100%';
-
-        // In horizontal mode, use fixed header height
-        const headerHeight = 36; // Compact header height
-        const availableHeight = (height || 200) - headerHeight - 8; // 8px for padding
-
-        console.log(`InteractiveColumn ${level} content height calculation:`, {
-            totalHeight: height,
-            headerHeight,
-            availableHeight
-        });
-
+        const headerHeight = 36;
+        const availableHeight = (height || 200) - headerHeight - 8;
         return Math.max(100, availableHeight);
-    }, [isHorizontalMode, height, level]);
+    }, [isHorizontalMode, height]);
 
-    // Render minimal header
     const renderSlickHeader = () => (
         <Box
             onMouseEnter={() => setIsHeaderHovered(true)}
@@ -367,7 +279,6 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                 transition: 'all 0.2s ease'
             }}
         >
-            {/* Compact header */}
             <Box sx={{
                 display: 'flex',
                 alignItems: 'center',
@@ -415,7 +326,6 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                         }}
                     />
 
-                    {/* Inline search for horizontal mode */}
                     {isHorizontalMode && !isCollapsed && (
                         <Fade in={showSearch || !!filter.search}>
                             <TextField
@@ -461,7 +371,6 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
 
                 <Fade in={isHeaderHovered || !!activeFilterCount}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        {/* Search toggle for horizontal mode */}
                         {isHorizontalMode && (
                             <IconButton
                                 size="small"
@@ -496,7 +405,6 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                 </Fade>
             </Box>
 
-            {/* Search bar for vertical mode - below header */}
             {!isHorizontalMode && (
                 <Fade in={!isCollapsed && (isHeaderHovered || !!filter.search)}>
                     <Box sx={{ px: 1.5, pb: 0.75 }}>
@@ -537,18 +445,8 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
         </Box>
     );
 
-    // Render images based on display mode and layout direction
     const renderImages = () => {
         if (isCollapsed) return null;
-
-        console.log('InteractiveColumn renderImages:', {
-            level,
-            displayMode,
-            isHorizontalMode,
-            width,
-            height,
-            imageCount: filteredImages.length
-        });
 
         if (displayMode === 'stack') {
             const contentHeight = getContentHeight();
@@ -556,7 +454,7 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
             return (
                 <ImageColumn
                     caption=""
-                    images={data} // Use original data for stack component
+                    images={data}
                     level={level}
                     direction={isHorizontalMode ? 'horizontal' : 'vertical'}
                     width={isHorizontalMode ? '100%' : width}
@@ -566,10 +464,9 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
             );
         }
 
-        // Grid or list mode - adapt for horizontal layout
         const gridCols = isHorizontalMode
-            ? Math.max(1, Math.floor((width || 800) / 120)) // Horizontal: fit as many as possible
-            : (displayMode === 'grid' ? 2 : 1); // Vertical: 2 for grid, 1 for list
+            ? Math.max(1, Math.floor((width || 800) / 120))
+            : (displayMode === 'grid' ? 2 : 1);
 
         const imageSize = displayMode === 'grid' ? 'small' : 'medium';
 
@@ -598,7 +495,6 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                     />
                 ))}
 
-                {/* Load more button */}
                 {hasNextPage && (
                     <Box sx={{
                         ...(isHorizontalMode
@@ -630,25 +526,19 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
         );
     };
 
-    // Calculate dimensions based on layout mode
     const containerStyle = useMemo(() => {
         const baseStyle = {
             display: 'flex',
             flexDirection: 'column' as const,
             overflow: 'hidden',
-            // Add debug border to see the container
-            border: `2px solid ${isHorizontalMode ? 'red' : 'blue'}`,
-            backgroundColor: isHorizontalMode
-                ? alpha(theme.palette.error.main, 0.1)
-                : alpha(theme.palette.info.main, 0.1)
         };
 
         if (isHorizontalMode) {
             return {
                 ...baseStyle,
-                width: '100%', // Always full width in horizontal mode
-                minWidth: 0, // Allow shrinking
-                maxWidth: '100%', // Don't exceed container
+                width: '100%',
+                minWidth: 0,
+                maxWidth: '100%',
                 height: height || 200,
             };
         } else {
@@ -658,9 +548,8 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                 height: height || 700,
             };
         }
-    }, [isHorizontalMode, width, height, theme]);
+    }, [isHorizontalMode, width, height]);
 
-    // Render loading state
     if (isLoading) {
         return (
             <Paper
@@ -690,7 +579,6 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
         );
     }
 
-    // Render error state
     if (isError && error) {
         return (
             <Paper
@@ -719,7 +607,6 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
         );
     }
 
-    // Render empty state
     if (level > 0 && (!parentImage || (parentImage.children_count || 0) === 0)) {
         return (
             <Paper
@@ -787,7 +674,6 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                             backgroundColor: alpha(theme.palette.primary.main, 0.5),
                         },
                     },
-                    // Ensure scrollbar is always visible in horizontal mode
                     ...(isHorizontalMode && {
                         scrollbarGutter: 'stable',
                         '&::-webkit-scrollbar': {
@@ -799,7 +685,6 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                 {renderImages()}
             </Box>
 
-            {/* Context menu */}
             <Menu
                 anchorEl={menuAnchor}
                 open={Boolean(menuAnchor)}
