@@ -1,7 +1,6 @@
 #!/bin/bash
 
-# Magellon setup script - Cross-platform version
-# Works on both Linux and macOS
+# Magellon setup script - Fixed CUDA parsing
 # This script creates the directory structure for Magellon,
 # copies services data, updates .env file, and starts Docker containers
 
@@ -73,62 +72,55 @@ get_cuda_image() {
     elif [ "$major" -ge 12 ] && [ "$minor" -ge 1 ]; then
         version_key="12.1"
     else
-        echo "Invalid version"
+        echo "ERROR: Invalid version"
         echo "Suggestion: The Minimum value for version is 11.1"
         echo "Run CMD: 'nvidia-smi' on your machine and provide the cuda version shown"
-        return
+        exit 1
     fi
 
-    echo "$version_key"
-
-    # Set values using case statements
-    local cuda_image=""
-    local motioncor_binary=""
-
+    # Return values directly without echo to avoid parsing issues
     case "$version_key" in
         "11.1")
-            cuda_image="nvidia/cuda:11.1.1-devel-ubuntu20.04"
-            motioncor_binary="MotionCor2_1.6.4_Cuda111_Mar312023"
+            CUDA_IMAGE_RESULT="nvidia/cuda:11.1.1-devel-ubuntu20.04"
+            MOTIONCOR_BINARY_RESULT="MotionCor2_1.6.4_Cuda111_Mar312023"
             ;;
         "11.2")
-            cuda_image="nvidia/cuda:11.2.2-devel-ubuntu20.04"
-            motioncor_binary="MotionCor2_1.6.4_Cuda112_Mar312023"
+            CUDA_IMAGE_RESULT="nvidia/cuda:11.2.2-devel-ubuntu20.04"
+            MOTIONCOR_BINARY_RESULT="MotionCor2_1.6.4_Cuda112_Mar312023"
             ;;
         "11.3")
-            cuda_image="nvidia/cuda:11.3.1-devel-ubuntu20.04"
-            motioncor_binary="MotionCor2_1.6.4_Cuda113_Mar312023"
+            CUDA_IMAGE_RESULT="nvidia/cuda:11.3.1-devel-ubuntu20.04"
+            MOTIONCOR_BINARY_RESULT="MotionCor2_1.6.4_Cuda113_Mar312023"
             ;;
         "11.4")
-            cuda_image="nvidia/cuda:11.4.3-devel-ubuntu20.04"
-            motioncor_binary="MotionCor2_1.6.4_Cuda114_Mar312023"
+            CUDA_IMAGE_RESULT="nvidia/cuda:11.4.3-devel-ubuntu20.04"
+            MOTIONCOR_BINARY_RESULT="MotionCor2_1.6.4_Cuda114_Mar312023"
             ;;
         "11.5")
-            cuda_image="nvidia/cuda:11.5.2-devel-ubuntu20.04"
-            motioncor_binary="MotionCor2_1.6.4_Cuda115_Mar312023"
+            CUDA_IMAGE_RESULT="nvidia/cuda:11.5.2-devel-ubuntu20.04"
+            MOTIONCOR_BINARY_RESULT="MotionCor2_1.6.4_Cuda115_Mar312023"
             ;;
         "11.6")
-            cuda_image="nvidia/cuda:11.6.1-devel-ubuntu20.04"
-            motioncor_binary="MotionCor2_1.6.4_Cuda116_Mar312023"
+            CUDA_IMAGE_RESULT="nvidia/cuda:11.6.1-devel-ubuntu20.04"
+            MOTIONCOR_BINARY_RESULT="MotionCor2_1.6.4_Cuda116_Mar312023"
             ;;
         "11.7")
-            cuda_image="nvidia/cuda:11.7.1-devel-ubuntu20.04"
-            motioncor_binary="MotionCor2_1.6.4_Cuda117_Mar312023"
+            CUDA_IMAGE_RESULT="nvidia/cuda:11.7.1-devel-ubuntu20.04"
+            MOTIONCOR_BINARY_RESULT="MotionCor2_1.6.4_Cuda117_Mar312023"
             ;;
         "11.8")
-            cuda_image="nvidia/cuda:11.8.0-devel-ubuntu22.04"
-            motioncor_binary="MotionCor2_1.6.4_Cuda118_Mar312023"
+            CUDA_IMAGE_RESULT="nvidia/cuda:11.8.0-devel-ubuntu22.04"
+            MOTIONCOR_BINARY_RESULT="MotionCor2_1.6.4_Cuda118_Mar312023"
             ;;
         "12.1")
-            cuda_image="nvidia/cuda:12.1.0-devel-ubuntu22.04"
-            motioncor_binary="MotionCor2_1.6.4_Cuda121_Mar312023"
+            CUDA_IMAGE_RESULT="nvidia/cuda:12.1.0-devel-ubuntu22.04"
+            MOTIONCOR_BINARY_RESULT="MotionCor2_1.6.4_Cuda121_Mar312023"
             ;;
         *)
-            echo "Unsupported version key: $version_key"
-            return
+            echo "ERROR: Unsupported version key: $version_key"
+            exit 1
             ;;
     esac
-
-    echo "$cuda_image $motioncor_binary"
 }
 
 # Check if root directory is provided
@@ -140,9 +132,11 @@ fi
 
 ROOT_DIR=$1
 CUDA_VERSION=$2
-cuda_output=$(get_cuda_image "$CUDA_VERSION")
-cuda_image=$(echo "$cuda_output" | awk '{print $1}')
-motiocor_binary=$(echo "$cuda_output" | awk '{print $2}')
+
+# Call the function and get results through global variables
+get_cuda_image "$CUDA_VERSION"
+cuda_image="$CUDA_IMAGE_RESULT"
+motiocor_binary="$MOTIONCOR_BINARY_RESULT"
 
 echo "CUDA Image: $cuda_image"
 echo "MotionCor Binary: $motiocor_binary"
@@ -279,6 +273,15 @@ else
     # Show original values
     log "Original path values in .env:"
     grep -E "^(MAGELLON_HOME_PATH|MAGELLON_GPFS_PATH|MAGELLON_JOBS_PATH|MAGELLON_ROOT_DIR|CUDA_IMAGE|MOTIONCOR_BINARY)=" .env || true
+
+    # Debug: Show what we're about to update
+    log "Will update with:"
+    log "  MAGELLON_HOME_PATH=${ROOT_DIR}/home"
+    log "  MAGELLON_GPFS_PATH=${ROOT_DIR}/gpfs"
+    log "  MAGELLON_JOBS_PATH=${ROOT_DIR}/jobs"
+    log "  MAGELLON_ROOT_DIR=${ROOT_DIR}"
+    log "  CUDA_IMAGE=${cuda_image}"
+    log "  MOTIONCOR_BINARY=${motiocor_binary}"
 
     # Update each variable using cross-platform sed
     sed_inplace "s|^MAGELLON_HOME_PATH=.*|MAGELLON_HOME_PATH=${ROOT_DIR}/home|" .env
