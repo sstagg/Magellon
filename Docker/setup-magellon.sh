@@ -1,15 +1,37 @@
 #!/bin/bash
 
-# Magellon setup script
+# Magellon setup script - Cross-platform version
+# Works on both Linux and macOS
 # This script creates the directory structure for Magellon,
 # copies services data, updates .env file, and starts Docker containers
 
 set -e  # Exit immediately if a command exits with non-zero status
 
+# Detect operating system
+detect_os() {
+    case "$(uname -s)" in
+        Linux*)     echo "linux";;
+        Darwin*)    echo "macos";;
+        *)          echo "unknown";;
+    esac
+}
+
+# Cross-platform sed in-place edit
+sed_inplace() {
+    local sed_cmd="$1"
+    local file="$2"
+
+    if [[ "$(detect_os)" == "macos" ]]; then
+        sed -i '' "$sed_cmd" "$file"
+    else
+        sed -i "$sed_cmd" "$file"
+    fi
+}
+
 check_gpu() {
     # Run the nvidia-smi command inside the Docker container to check for GPU availability
     echo "Checking GPU availability using nvidia-smi..."
-    
+
     # Ensure Docker is running the CUDA container correctly with nvidia-smi
     output=$(docker run --rm --gpus all nvidia/cuda:12.1.0-base-ubuntu22.04 nvidia-smi 2>&1) || true
 
@@ -126,6 +148,7 @@ echo "CUDA Image: $cuda_image"
 echo "MotionCor Binary: $motiocor_binary"
 echo "=== Magellon Setup ==="
 echo "Setting up Magellon in: $ROOT_DIR"
+echo "Detected OS: $(detect_os)"
 
 # Function to log messages
 log() {
@@ -136,7 +159,11 @@ log() {
 check_command() {
     if ! command -v $1 &> /dev/null; then
         log "ERROR: '$1' command not found. Please install it first."
-        echo "  Suggestion: sudo apt-get update && sudo apt-get install -y $1"
+        if [[ "$(detect_os)" == "macos" ]]; then
+            echo "  Suggestion: brew install $1"
+        else
+            echo "  Suggestion: sudo apt-get update && sudo apt-get install -y $1"
+        fi
         exit 1
     fi
 }
@@ -253,13 +280,13 @@ else
     log "Original path values in .env:"
     grep -E "^(MAGELLON_HOME_PATH|MAGELLON_GPFS_PATH|MAGELLON_JOBS_PATH|MAGELLON_ROOT_DIR|CUDA_IMAGE|MOTIONCOR_BINARY)=" .env || true
 
-    # Update each variable using sed with | as delimiter to avoid conflicts with paths
-    sed -i "s|^MAGELLON_HOME_PATH=.*|MAGELLON_HOME_PATH=${ROOT_DIR}/home|" .env
-    sed -i "s|^MAGELLON_GPFS_PATH=.*|MAGELLON_GPFS_PATH=${ROOT_DIR}/gpfs|" .env
-    sed -i "s|^MAGELLON_JOBS_PATH=.*|MAGELLON_JOBS_PATH=${ROOT_DIR}/jobs|" .env
-    sed -i "s|^MAGELLON_ROOT_DIR=.*|MAGELLON_ROOT_DIR=${ROOT_DIR}|" .env
-    sed -i "s|^CUDA_IMAGE=.*|CUDA_IMAGE=${cuda_image}|" .env
-    sed -i "s|^MOTIONCOR_BINARY=.*|MOTIONCOR_BINARY=${motiocor_binary}|" .env
+    # Update each variable using cross-platform sed
+    sed_inplace "s|^MAGELLON_HOME_PATH=.*|MAGELLON_HOME_PATH=${ROOT_DIR}/home|" .env
+    sed_inplace "s|^MAGELLON_GPFS_PATH=.*|MAGELLON_GPFS_PATH=${ROOT_DIR}/gpfs|" .env
+    sed_inplace "s|^MAGELLON_JOBS_PATH=.*|MAGELLON_JOBS_PATH=${ROOT_DIR}/jobs|" .env
+    sed_inplace "s|^MAGELLON_ROOT_DIR=.*|MAGELLON_ROOT_DIR=${ROOT_DIR}|" .env
+    sed_inplace "s|^CUDA_IMAGE=.*|CUDA_IMAGE=${cuda_image}|" .env
+    sed_inplace "s|^MOTIONCOR_BINARY=.*|MOTIONCOR_BINARY=${motiocor_binary}|" .env
 
     # Show updated values
     log "Updated path values in .env:"
@@ -288,33 +315,31 @@ log "Magellon is now available at:"
 log "  - http://localhost:8080/en/panel/images"
 log "  - http://localhost:8000"
 
-# Dictionary for browser openers
-declare -A browser_openers=(
-    ["xdg-open"]="xdg-open"
-    ["gnome-open"]="gnome-open"
-    ["open"]="open"  # For macOS
-)
+# Cross-platform browser opening
+open_browser() {
+    local url="$1"
 
-# Check if this is an interactive environment with a desktop
-if [ -n "$DISPLAY" ]; then
-    log "Attempting to open browser links..."
-    browser_found=false
-
-    # Try each browser opener
-    for cmd in "${!browser_openers[@]}"; do
-        if which "$cmd" > /dev/null; then
-            browser_found=true
-            "$cmd" "http://localhost:8080/en/panel/images" 2>/dev/null || log "Could not open browser automatically"
-            "$cmd" "http://localhost:8000" 2>/dev/null || log "Could not open browser automatically"
-            break
+    if [[ "$(detect_os)" == "macos" ]]; then
+        open "$url" 2>/dev/null || log "Could not open browser automatically"
+    elif [[ "$(detect_os)" == "linux" ]]; then
+        if [ -n "$DISPLAY" ]; then
+            # Try different Linux browser openers
+            if command -v xdg-open &> /dev/null; then
+                xdg-open "$url" 2>/dev/null || true
+            elif command -v gnome-open &> /dev/null; then
+                gnome-open "$url" 2>/dev/null || true
+            fi
+        else
+            log "Running in non-graphical environment. Please access URLs from a browser manually."
         fi
-    done
-
-    if [ "$browser_found" = false ]; then
-        log "No compatible browser opener found. Please open the URLs manually."
     fi
-else
-    log "Running in non-graphical environment. Please access URLs from a browser manually."
+}
+
+# Try to open browser
+if [[ "$(detect_os)" == "macos" ]] || [ -n "$DISPLAY" ]; then
+    log "Attempting to open browser links..."
+    open_browser "http://localhost:8080/en/panel/images"
+    open_browser "http://localhost:8000"
 fi
 
 log "=== Setup process completed! ==="
