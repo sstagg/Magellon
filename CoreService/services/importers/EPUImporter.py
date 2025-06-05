@@ -725,23 +725,33 @@ class EPUImporter(BaseImporter):
                 for gs in session.get("gridsquares", []):
                     grid_square_path = gs.get("grid_square")
                     grid_square_image_path = gs.get("grid_square_image")
-                    grid_square_image_base = os.path.basename(grid_square_image_path) if grid_square_image_path else None
+                    grid_square_image_base = (
+                        os.path.basename(grid_square_image_path)
+                        if grid_square_image_path else None
+                    )
 
-
+                    
                     if grid_square_path and re.search(child_pattern, grid_square_path):
-                        return None  # Match found in grid_square, return None
+                        return None  
 
+                    # Loop through foilholes
                     for foilhole_path, foilhole_info in gs.get("foilholes", {}).items():
-                        foilhole_base = os.path.splitext(os.path.basename(foilhole_path))[0]
-
-                        if re.search(child_pattern, foilhole_path):
-                            grid_square_base=os.path.splitext(os.path.basename(grid_square_image_base))[0]
-
-                            return grid_square_base  # Match in foilhole, return grid_square base
-
+                        if foilhole_path and re.search(child_pattern, foilhole_path):
+                            if grid_square_image_base:
+                                grid_square_base = os.path.splitext(grid_square_image_base)[0]
+                                return grid_square_base
+                            else:
+                                return None  
+                        # Loop through data_files inside foilhole
                         for data_file in foilhole_info.get("data_files", []):
-                            if re.search(child_pattern, data_file):
-                                return foilhole_base  # Match in data file, return foilhole base
+                            if data_file and re.search(child_pattern, data_file):
+                                if foilhole_path:
+                                    foilhole_base = os.path.splitext(
+                                        os.path.basename(foilhole_path)
+                                    )[0]
+                                    return foilhole_base
+                                else:
+                                    return None 
 
             return None
 
