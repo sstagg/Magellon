@@ -212,7 +212,12 @@ else
     log "WARNING: 'services' directory not found in current location"
     log "Make sure to manually copy any required data files"
 fi
-
+mkdir -p "$ROOT_DIR/services/mysql/data"
+mkdir -p "$ROOT_DIR/services/mysql/conf"
+mkdir -p "$ROOT_DIR/services/mysql/init"
+mkdir -p "$ROOT_DIR/services/consul/data"
+mkdir -p "$ROOT_DIR/services/consul/config"
+mkdir -p "$ROOT_DIR/services/prometheus"
 # Set permissions with better security practices
 log "Setting directory permissions..."
 
@@ -221,6 +226,12 @@ writable_dirs=(
     "$ROOT_DIR/gpfs"
     "$ROOT_DIR/home"
     "$ROOT_DIR/jobs"
+    "$ROOT_DIR/services/mysql/data"
+    "$ROOT_DIR/services/mysql/conf"
+    "$ROOT_DIR/services/mysql/init"
+    "$ROOT_DIR/services/consul/data"
+    "$ROOT_DIR/services/consul/config"
+    "$ROOT_DIR/services/prometheus"
 )
 
 # Set 777 permissions on main directories
@@ -233,19 +244,19 @@ done
 # Set permissions for services directories if they exist
 if [ -d "$ROOT_DIR/services" ]; then
     # Set 777 for data directories that need write access
-    service_data_dirs=(
-        "$ROOT_DIR/services/mysql/data"
-        "$ROOT_DIR/services/consul/data"
-    )
+    # service_data_dirs=(
+    #     "$ROOT_DIR/services/mysql/data"
+    #     "$ROOT_DIR/services/consul/data"
+    # )
 
-    for dir in "${service_data_dirs[@]}"; do
-        if [ -d "$dir" ]; then
-            chmod -R 777 "$dir" 2>/dev/null || log "WARNING: Failed to set permissions on $dir"
-        fi
-    done
+    # for dir in "${service_data_dirs[@]}"; do
+    #     if [ -d "$dir" ]; then
+    #         chmod -R 777 "$dir" 2>/dev/null || log "WARNING: Failed to set permissions on $dir"
+    #     fi
+    # done
 
     # Set appropriate permissions for config files
-    chmod -R 755 "$ROOT_DIR/services" 2>/dev/null || log "WARNING: Failed to set base permissions on services"
+    chmod -R 777 "$ROOT_DIR/services" 2>/dev/null || log "WARNING: Failed to set base permissions on services"
 fi
 
 log "Directory structure created with appropriate permissions"
