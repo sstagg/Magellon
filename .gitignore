@@ -63,3 +63,9 @@ Sandbox/massest/calibration.png
 plugins/magellon_result_processor/app.log
 CoreService/app.log
 
+CoreService/imgtest.py
+Docker/.env
+Docker/.env
+Docker/.env.backup
+Docker/.env.tmp
+Docker/.env

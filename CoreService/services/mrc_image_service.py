@@ -8,6 +8,8 @@ from scipy import fftpack
 from scipy.fft import fft2
 import scipy.fftpack
 from tifffile import TiffFile
+import controllers.image_processing_tools as ipt
+
 
 from config import IMAGE_SUB_URL, THUMBNAILS_SUB_URL, FFT_SUB_URL , THUMBNAILS_SUFFIX
 
@@ -120,9 +122,12 @@ class MrcImageService:
         f = np.fft.irfft2(F, s=(height, width))
         return f
 
-    def scale_image(self, img, height):
+    def scale_image(self, img, height, lowpercent=1, highpercent=99):
+
         new_image = self.down_sample(img, height)
-        new_image = ((new_image - new_image.min()) / ((new_image.max() - new_image.min()) + 1e-7) * 255)
+        vmin, vmax = np.percentile(new_image, (lowpercent, highpercent)) #find statistical edges
+        new_image = np.clip(new_image, vmin, vmax) #eliminate extreme pixels
+        new_image = ((new_image - new_image.min()) / ((new_image.max() - new_image.min()) + 1e-7) * 255) #normalize 0 to 1 and scale by *255
         new_image = Image.fromarray(new_image).convert('L')
         new_image.rotate(180)
         return new_image
@@ -153,6 +158,8 @@ class MrcImageService:
             print(f"filename {abs_file_path}")
             with mrcfile.open(abs_file_path, permissive=True) as mrc:
                 mic = mrc.data.reshape(mrc.data.shape[-2], mrc.data.shape[-1])
+            #mic = ipt.lowpass_filter(mic,2, 1)
+            #mic = ipt.box_filter(mic, filter_size=5)
 
             png_path = os.path.join(out_dir, IMAGE_SUB_URL,
                                     os.path.splitext(os.path.basename(abs_file_path))[0] + ".png")
