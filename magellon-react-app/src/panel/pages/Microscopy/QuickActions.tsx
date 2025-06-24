@@ -115,13 +115,13 @@ export const QuickActions: React.FC = () => {
     ];
 
     return (
-        <Paper elevation={1} sx={{ p: 2, mb: 3, borderRadius: 2 }}>
+        <Paper elevation={1} sx={{ p: 2, borderRadius: 2, height: '100%' }}>
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
                 Quick Actions
             </Typography>
             <Grid container spacing={1}>
                 {quickActions.map((action, index) => (
-                    <Grid item xs={6} sm={4} md={2} key={index}>
+                    <Grid item xs={6} key={index}>
                         <QuickActionCard
                             title={action.title}
                             icon={action.icon}

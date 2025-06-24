@@ -231,25 +231,40 @@ export default function MicroscopyPageView() {
                     </Box>
                 </Box>
 
-                {/* Status Cards */}
-                <StatusCards />
+                {/* Top Row - Status Cards and Quick Actions */}
+                <Grid container spacing={3} sx={{ mb: 3 }}>
+                    {/* Status Cards - Left Side */}
+                    <Grid item xs={12} lg={8}>
+                        <StatusCards />
+                    </Grid>
 
-                {/* Quick Actions */}
-                <QuickActions />
-
-                {/* Main Content */}
-                <Grid container spacing={3}>
-                    {/* Left Column - Atlas and Image */}
+                    {/* Quick Actions - Right Side */}
                     <Grid item xs={12} lg={4}>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, height: '100%' }}>
+                        <QuickActions />
+                    </Grid>
+                </Grid>
+
+                {/* Main Content - Three Column Layout */}
+                <Grid container spacing={3} sx={{ height: 'calc(100vh - 280px)', minHeight: '600px' }}>
+                    {/* Grid Atlas */}
+                    <Grid item xs={12} lg={4}>
+                        <Box sx={{ height: '100%' }}>
                             <GridAtlas />
+                        </Box>
+                    </Grid>
+
+                    {/* Live View */}
+                    <Grid item xs={12} lg={4}>
+                        <Box sx={{ height: '100%' }}>
                             <LiveView />
                         </Box>
                     </Grid>
 
-                    {/* Right Column - Controls */}
-                    <Grid item xs={12} lg={8}>
-                        <ControlPanel />
+                    {/* Control Panel */}
+                    <Grid item xs={12} lg={4}>
+                        <Box sx={{ height: '100%' }}>
+                            <ControlPanel />
+                        </Box>
                     </Grid>
                 </Grid>
             </Box>

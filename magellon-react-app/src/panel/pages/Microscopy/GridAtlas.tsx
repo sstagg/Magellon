@@ -110,7 +110,7 @@ export const GridAtlas: React.FC = () => {
     };
 
     return (
-        <Card>
+        <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <CardHeader
                 title={
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -126,16 +126,19 @@ export const GridAtlas: React.FC = () => {
                         variant="outlined"
                     />
                 }
+                sx={{ pb: 1 }}
             />
-            <CardContent>
+            <CardContent sx={{ flex: 1, pt: 0 }}>
                 {atlasData ? (
-                    <Box sx={{ position: 'relative' }}>
+                    <Box sx={{ position: 'relative', height: '100%' }}>
                         <canvas
                             ref={canvasRef}
                             width={400}
                             height={400}
                             style={{
                                 width: '100%',
+                                height: '100%',
+                                maxHeight: '400px',
                                 backgroundColor: theme.palette.background.paper,
                                 borderRadius: theme.shape.borderRadius,
                                 cursor: 'crosshair',
@@ -197,12 +200,13 @@ export const GridAtlas: React.FC = () => {
                     </Box>
                 ) : (
                     <Box sx={{
-                        height: 300,
+                        height: '100%',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         backgroundColor: 'action.hover',
-                        borderRadius: 1
+                        borderRadius: 1,
+                        minHeight: '300px'
                     }}>
                         <Typography color="text.secondary">
                             {isConnected ? 'Loading atlas...' : 'Connect to view atlas'}
