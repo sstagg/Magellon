@@ -1,7 +1,7 @@
 import { Route, Routes } from "react-router-dom";
 import { Home } from "../web/Home.tsx";
 import { ApiView } from "./pages/ApiView.tsx";
-import DomainRoutes from "../../domains/DomainRoutes.tsx";
+import DomainRoutes from "../domains/DomainRoutes.tsx";
 import { ImagesPageView } from "./pages/ImagesPageView.tsx";
 import { RunJobPageView } from "./pages/RunJobPageView.tsx";
 import MrcViewerPageView from "./pages/MrcViewerPageView.tsx";

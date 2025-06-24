@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { Box, Collapse, Typography, useMediaQuery } from '@mui/material';
 import { ExpandLess, ExpandMore } from '@mui/icons-material';
-import magellonLogo from "../../assets/images/magellon-logo.svg";
+import magellonLogo from "../assets/images/magellon-logo.svg";
 
 const DRAWER_WIDTH = 240;
 

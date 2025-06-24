@@ -7,18 +7,21 @@ import {
     Box,
     Dialog,
     DialogContent,
-    CircularProgress
+    CircularProgress,
+    TextField,
+    Grid,
+    Paper
 } from "@mui/material";
 import FolderIcon from '@mui/icons-material/Folder';
 import ErrorIcon from '@mui/icons-material/Error';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import { useState, useEffect } from "react";
-import { settings } from "../../../core/settings.ts";
+import { settings } from "../../core/settings.ts";
 import Button from "@mui/material/Button";
 import {CheckCircleIcon} from "lucide-react";
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
-
+const exportUrl: string = BASE_URL.replace(/\/web$/, '/export');
 
 type FileItem = {
     id: number;
@@ -30,25 +33,38 @@ type FileItem = {
     updated_at: string;
 };
 
+type DefaultData = {
+    pixel_size: number;
+    acceleration_voltage: number;
+    spherical_aberration: number;
+}
+
 type ImportStatus = 'idle' | 'processing' | 'success' | 'error';
 
-export const MagellonImportComponent = () => {
+export const EpuImportComponent = () => {
     const [files, setFiles] = useState<FileItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [currentPath, setCurrentPath] = useState("/gpfs");
-    const [selectedFile, setSelectedFile] = useState<string | null>(null);
+    const [selectedDirectory, setSelectedDirectory] = useState<string | null>(null);
     const [importStatus, setImportStatus] = useState<ImportStatus>('idle');
     const [importError, setImportError] = useState<string | null>(null);
     const [validationStatus, setValidationStatus] = useState<'none' | 'validating' | 'valid' | 'invalid'>('none');
 
-    const exportUrl: string = BASE_URL.replace(/\/web$/, '/export');
-
+    // New state variables for the additional fields
+    const [epuDirPath, setEpuDirPath] = useState<string>("");
+    const [magellonProjectName, setMagellonProjectName] = useState<string>("");
+    const [magellonSessionName, setMagellonSessionName] = useState<string>("");
+    const [defaultData, setDefaultData] = useState<DefaultData>({
+        pixel_size: 0,
+        acceleration_voltage: 300,
+        spherical_aberration: 2.7
+    });
 
     const validateDirectory = async (dirPath: string) => {
         setValidationStatus('validating');
         try {
-            const response = await fetch(`${exportUrl}/validate-magellon-directory?source_dir=${encodeURIComponent(dirPath)}`);
+            const response = await fetch(`${exportUrl}/validate-epu-directory?source_dir=${encodeURIComponent(dirPath)}`);
             if (!response.ok) {
                 const error = await response.json();
                 throw new Error(error.detail);
@@ -61,33 +77,50 @@ export const MagellonImportComponent = () => {
             return false;
         }
     };
+
     const handleItemClick = async (item: FileItem) => {
-        if (!item.is_directory && item.name.endsWith('.json')) {
-            const dirPath = item.path.split(/[\/\\]/).slice(0, -1).join('/');
-            if (await validateDirectory(dirPath)) {
-                setSelectedFile(item.path);
-            }
+        if (item.is_directory) {
+            // if (await validateDirectory(item.path)) {
+            setSelectedDirectory(item.path);
+            setEpuDirPath(item.path); // Auto-fill EPU directory path when selecting a directory
+            // }
         }
     };
 
     const handleImport = async () => {
-        if (!selectedFile) return;
-        const selectedDir = selectedFile.split(/[\/\\]/).slice(0, -1).join('/');
-        // Get the directory path of the selected file
-        // const selectedDir = selectedFile.substring(0, selectedFile.lastIndexOf('/'));
+        if (!selectedDirectory) return;
+
+        // Validate required fields
+        if (!epuDirPath || !magellonProjectName || !magellonSessionName) {
+            setError("Please fill in all required fields");
+            return;
+        }
+
+        // Validate numeric fields
+        if (defaultData.pixel_size <= 0) {
+            setError("Pixel size must be greater than 0");
+            return;
+        }
 
         setImportStatus('processing');
         setImportError(null);
 
         try {
-
-            const response = await fetch(`${exportUrl}/magellon-import`, {
+            const response = await fetch(`${exportUrl}/epu-import`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    source_dir: selectedDir
+                    target_directory: epuDirPath,
+                    epu_dir_path: selectedDirectory,
+                    magellon_project_name: magellonProjectName,
+                    magellon_session_name: magellonSessionName,
+                    default_data: {
+                        pixel_size: defaultData.pixel_size,
+                        acceleration_voltage: defaultData.acceleration_voltage,
+                        spherical_aberration: defaultData.spherical_aberration
+                    }
                 })
             });
 
@@ -102,7 +135,6 @@ export const MagellonImportComponent = () => {
             setImportError(err instanceof Error ? err.message : 'Import failed');
         }
     };
-
 
     const fetchDirectory = async (path: string) => {
         setLoading(true);
@@ -134,21 +166,38 @@ export const MagellonImportComponent = () => {
         }
     };
 
-
     const handleCloseDialog = () => {
         setImportStatus('idle');
         setImportError(null);
     };
+
+    // Handle changes to default data fields
+    const handleDefaultDataChange = (field: keyof DefaultData, value: string) => {
+        const numValue = parseFloat(value);
+        if (!isNaN(numValue)) {
+            setDefaultData({
+                ...defaultData,
+                [field]: numValue
+            });
+        } else if (value === '') {
+            setDefaultData({
+                ...defaultData,
+                [field]: 0
+            });
+        }
+    };
+
     return (
         <div>
             <Typography variant="h6" gutterBottom>
-                Import Data from Magellon Microscope Sessions
+                Import Data from EPU Sessions
             </Typography>
 
             <Typography variant="body2" color="textSecondary" gutterBottom>
                 If you are using Docker, please select a directory from the MAGELLON_GPFS_PATH that was configured during installation in the .env file.
-                Select a session file (session.json) and click the import button
+                Select an EPU directory and fill in the required information.
             </Typography>
+
             <Typography variant="body2" color="textSecondary" gutterBottom>
                 Current path: {currentPath}
             </Typography>
@@ -199,7 +248,7 @@ export const MagellonImportComponent = () => {
                                     '&:hover': {
                                         backgroundColor: 'action.hover',
                                     },
-                                    bgcolor: selectedFile === item.path ? 'action.selected' : 'inherit'
+                                    bgcolor: selectedDirectory === item.path ? 'action.selected' : 'inherit'
                                 }}
                             >
                                 <ListItemIcon>
@@ -217,24 +266,124 @@ export const MagellonImportComponent = () => {
                 )}
             </Box>
 
-            {selectedFile && (
-                <>
-                    <Typography sx={{ mt: 2 }} color="primary">
-                        Selected file: {selectedFile}
+            {selectedDirectory && (
+                <Paper sx={{ p: 3, mt: 3 }}>
+                    <Typography variant="h6" gutterBottom>
+                        Import Configuration
                     </Typography>
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        onClick={handleImport}
-                        disabled={importStatus === 'processing'}
-                    >
-                        Import Data
-                    </Button>
-                </>
 
+                    <Grid container spacing={3}>
+                        <Grid item xs={12}>
+                            <TextField
+                                fullWidth
+                                label="Selected Directory (Target)"
+                                value={selectedDirectory}
+                                disabled
+                                variant="outlined"
+                                margin="normal"
+                            />
+                        </Grid>
 
+                        <Grid item xs={12}>
+                            <TextField
+                                fullWidth
+                                required
+                                label="EPU Directory Path"
+                                value={epuDirPath}
+                                onChange={(e) => setEpuDirPath(e.target.value)}
+                                variant="outlined"
+                                margin="normal"
+                                helperText="Full path to the EPU directory"
+                            />
+                        </Grid>
+
+                        <Grid item xs={12} md={6}>
+                            <TextField
+                                fullWidth
+                                required
+                                label="Magellon Project Name"
+                                value={magellonProjectName}
+                                onChange={(e) => setMagellonProjectName(e.target.value)}
+                                variant="outlined"
+                                margin="normal"
+                            />
+                        </Grid>
+
+                        <Grid item xs={12} md={6}>
+                            <TextField
+                                fullWidth
+                                required
+                                label="Magellon Session Name"
+                                value={magellonSessionName}
+                                onChange={(e) => setMagellonSessionName(e.target.value)}
+                                variant="outlined"
+                                margin="normal"
+                            />
+                        </Grid>
+
+                        <Grid item xs={12}>
+                            <Typography variant="subtitle1" sx={{ mt: 2 }}>
+                                Default Data
+                            </Typography>
+                        </Grid>
+
+                        <Grid item xs={12} md={4}>
+                            <TextField
+                                fullWidth
+                                required
+                                type="number"
+                                label="Pixel Size (Å)"
+                                value={defaultData.pixel_size}
+                                onChange={(e) => handleDefaultDataChange('pixel_size', e.target.value)}
+                                variant="outlined"
+                                margin="normal"
+                                inputProps={{ step: 0.01, min: 0.01 }}
+                            />
+                        </Grid>
+
+                        <Grid item xs={12} md={4}>
+                            <TextField
+                                fullWidth
+                                required
+                                type="number"
+                                label="Acceleration Voltage (kV)"
+                                value={defaultData.acceleration_voltage}
+                                onChange={(e) => handleDefaultDataChange('acceleration_voltage', e.target.value)}
+                                variant="outlined"
+                                margin="normal"
+                                inputProps={{ step: 10, min: 100 }}
+                            />
+                        </Grid>
+
+                        <Grid item xs={12} md={4}>
+                            <TextField
+                                fullWidth
+                                required
+                                type="number"
+                                label="Spherical Aberration (mm)"
+                                value={defaultData.spherical_aberration}
+                                onChange={(e) => handleDefaultDataChange('spherical_aberration', e.target.value)}
+                                variant="outlined"
+                                margin="normal"
+                                inputProps={{ step: 0.1, min: 0 }}
+                            />
+                        </Grid>
+
+                        <Grid item xs={12} sx={{ mt: 2 }}>
+                            <Button
+                                variant="contained"
+                                color="primary"
+                                onClick={handleImport}
+                                disabled={importStatus === 'processing'}
+                                size="large"
+                            >
+                                Import EPU Data
+                            </Button>
+                        </Grid>
+                    </Grid>
+                </Paper>
             )}
-            {/* Status Dialog */}
+
             <Dialog
                 open={importStatus !== 'idle'}
                 onClose={importStatus !== 'processing' ? handleCloseDialog : undefined}

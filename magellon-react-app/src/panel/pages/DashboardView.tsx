@@ -48,7 +48,7 @@ import {
     FolderPlus
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useImageViewerStore } from '../../features/session_viewer/store/imageViewerStore';
+import { useImageViewerStore } from '../../components/features/session_viewer/store/imageViewerStore.ts';
 
 const DRAWER_WIDTH = 240;
 

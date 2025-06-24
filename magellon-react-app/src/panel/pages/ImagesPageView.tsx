@@ -2,14 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { Box, useTheme, useMediaQuery } from '@mui/material';
 import { SelectChangeEvent } from '@mui/material';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import { ImageWorkspace } from '../../features/session_viewer/ImageWorkspace.tsx';
-import ImageInfoDto, { PagedImageResponse, SessionDto } from '../../features/session_viewer/ImageInfoDto.ts';
+import { ImageWorkspace } from '../../components/features/session_viewer/ImageWorkspace.tsx';
+import ImageInfoDto, { PagedImageResponse, SessionDto } from '../../components/features/session_viewer/ImageInfoDto.ts';
 import { InfiniteData } from 'react-query';
-import { useImageListQuery } from '../../../services/api/usePagedImagesHook.ts';
-import { useAtlasImages } from '../../../services/api/FetchSessionAtlasImages.ts';
-import { useSessionNames } from '../../../services/api/FetchUseSessionNames.ts';
-import { useImageViewerStore } from '../../features/session_viewer/store/imageViewerStore';
-import { ImageInspector } from "../../features/session_viewer/ImageInspector.tsx";
+import { useImageListQuery } from '../../services/api/usePagedImagesHook.ts';
+import { useAtlasImages } from '../../services/api/FetchSessionAtlasImages.ts';
+import { useSessionNames } from '../../services/api/FetchUseSessionNames.ts';
+import { useImageViewerStore } from '../../components/features/session_viewer/store/imageViewerStore.ts';
+import { ImageInspector } from "../../components/features/session_viewer/ImageInspector.tsx";
 
 export interface ImageColumnState {
     selectedImage: ImageInfoDto | null;

@@ -1,5 +1,5 @@
 import "swagger-ui-react/swagger-ui.css"
-import {settings} from "../../../core/settings.ts";
+import {settings} from "../../core/settings.ts";
 import {Card, CardContent, Tabs, Typography, useTheme, useMediaQuery} from "@mui/material";
 import {useState, useEffect} from "react";
 import Box from "@mui/material/Box";

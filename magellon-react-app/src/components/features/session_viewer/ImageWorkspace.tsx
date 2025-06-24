@@ -53,7 +53,7 @@ import AtlasViewer from "./AtlasViewer.tsx";
 import GridGallery from "./GridGallery.tsx";
 import HierarchyBrowser from "./HierarchyBrowser.tsx";
 import ColumnBrowser from "./ColumnBrowser.tsx";
-import { ImageColumnState } from "../../panel/pages/ImagesPageView.tsx";
+import { ImageColumnState } from "../../../panel/pages/ImagesPageView.tsx";
 import { settings } from "../../../core/settings.ts";
 import {useState, useEffect, useCallback, useRef} from "react";
 

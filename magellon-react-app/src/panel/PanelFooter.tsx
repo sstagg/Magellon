@@ -19,8 +19,8 @@ import {
     Info,
     ExternalLink
 } from 'lucide-react';
-import { useImageViewerStore } from '../features/session_viewer/store/imageViewerStore';
-import { ImagesBreadcrumbs } from '../features/session_viewer/ImagesBreadcrumbs';
+import { useImageViewerStore } from '../components/features/session_viewer/store/imageViewerStore.ts';
+import { ImagesBreadcrumbs } from '../components/features/session_viewer/ImagesBreadcrumbs.tsx';
 
 interface PanelFooterProps {
     drawerOpen: boolean;

@@ -1,6 +1,6 @@
 import SwaggerUI from "swagger-ui-react"
 import "swagger-ui-react/swagger-ui.css"
-import {settings} from "../../../core/settings.ts";
+import {settings} from "../../core/settings.ts";
 
 const BASE_URL = settings.ConfigData.SERVER_API_URL ;
 

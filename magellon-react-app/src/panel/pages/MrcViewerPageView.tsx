@@ -20,7 +20,7 @@ import {
 import Grid from '@mui/material/Grid';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { Menu, X, Maximize2, Minimize2 } from 'lucide-react';
-import {settings} from "../../../core/settings.ts";
+import {settings} from "../../core/settings.ts";
 import DirectoryTreeView from "../components/DirectoryTreeView.tsx";
 
 interface MRCViewerProps {

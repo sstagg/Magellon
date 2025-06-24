@@ -14,8 +14,8 @@ import {
     useTheme
 } from '@mui/material';
 import { Moon, Sun } from 'lucide-react';
-import { useThemeContext } from '../../../themes';
-import ThemeDemo from '../components/ThemeDemo';
+import { useThemeContext } from '../../themes';
+import ThemeDemo from '../components/ThemeDemo.tsx';
 
 const SettingsView = () => {
     const { themeName, setTheme } = useThemeContext();

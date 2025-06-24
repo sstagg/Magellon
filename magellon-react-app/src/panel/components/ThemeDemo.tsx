@@ -17,7 +17,7 @@ import {
     Alert,
     useTheme
 } from '@mui/material';
-import { useThemeContext } from '../../../themes';
+import { useThemeContext } from '../../themes';
 
 
 const ThemeDemo = () => {

@@ -89,7 +89,7 @@ import {
     Target,
     Settings
 } from 'lucide-react';
-import magellonLogo from "../../../assets/images/magellon-logo.svg";
+import magellonLogo from "../../assets/images/magellon-logo.svg";
 
 const DRAWER_WIDTH = 240;
 

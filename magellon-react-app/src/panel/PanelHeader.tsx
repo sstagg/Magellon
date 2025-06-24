@@ -8,7 +8,7 @@ import AppBar from "@mui/material/AppBar";
 import { styled } from '@mui/material/styles';
 import { Avatar, Box, Tooltip, useMediaQuery, useTheme } from '@mui/material';
 import { HelpCircle, Settings } from 'lucide-react';
-import ThemeSwitcher from '../ThemeSwitcher'; // Import ThemeSwitcher
+import ThemeSwitcher from './ThemeSwitcher.tsx'; // Import ThemeSwitcher
 
 const DRAWER_WIDTH = 240;
 

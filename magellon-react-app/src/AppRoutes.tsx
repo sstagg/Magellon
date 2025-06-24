@@ -1,7 +1,7 @@
 import {Routes, Route, Navigate,} from "react-router-dom";
-import {MainWebTemplate} from "./components/web/MainWebTemplate.tsx";
-import {PanelTemplate} from "./components/panel/PanelTemplate.tsx";
-import {PageNotFoundView} from "./components/PageNotFoundView.tsx";
+import {MainWebTemplate} from "./web/MainWebTemplate.tsx";
+import {PanelTemplate} from "./panel/PanelTemplate.tsx";
+import {PageNotFoundView} from "./panel/PageNotFoundView.tsx";
 
 
 
