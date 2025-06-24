@@ -56,12 +56,45 @@ This documentation provides guidance on setting up the **2D Classifier Applicati
    ```
 
 2. **Start the Application**:
+
+  You can start the application in two ways:
+
+  ---
+
+  ### Option 1: Run with Docker Compose directly
+
    ```bash
    UPLOADS_DIR=/Users/puneethreddymotukurudamodar/uploads BACKEND_URL=http://localhost:8000 docker-compose up --build
    ```
 
    - **Backend**: Runs on port **8000**.
    - **Frontend**: Runs on port **3000**.
+
+   ### Option 2: Use the provided startup script
+   
+   Make the script executable:
+
+   ```
+   chmod +x .start.sh
+   ```
+
+  - Run the script with two arguments:
+
+    The path to your uploads directory (where results will be stored)
+
+    The path to the 2dclass_evaluator directory
+
+   ```
+   ./start.sh /Users/puneethreddymotukurudamodar/uploads /Users/puneethreddymotukurudamodar/Magellon/Sandbox/2dclass_evaluator
+
+   ```
+
+  
+  - This will:
+
+    Create a .env file with your input paths
+
+    Launch both frontend and backend containers with the correct volume mounts
 
 3. **Stop the Application**:
    ```bash

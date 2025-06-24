@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ${UPLOADS_DIR}:/app/uploads # Ensure UPLOADS_DIR exists on the host server
-      - ../2dclass_evaluator:/app/2dclass_evaluator
+      - ${EVALUATOR_DIR}:/app/2dclass_evaluator
     ports:
       - "8000:8000"
     environment:
