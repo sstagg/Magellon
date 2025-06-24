@@ -23,40 +23,17 @@ import {
     CircularProgress,
     alpha,
     useTheme,
-    Accordion,
-    AccordionSummary,
-    AccordionDetails,
-    Chip,
     Alert,
-    AlertTitle,
-    ButtonGroup,
-    ToggleButton,
-    ToggleButtonGroup,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
     Stack,
     Tooltip
 } from '@mui/material';
 import {
     Settings as SettingsIcon,
     Camera as CameraIcon,
-    ExpandMore as ExpandMoreIcon,
     Science as ScienceIcon,
-    PhotoCamera as PhotoCameraIcon,
-    Tune as TuneIcon,
     Save as SaveIcon,
-    Refresh as RefreshIcon,
     CheckCircle as CheckCircleIcon,
-    Info as InfoIcon,
-    Warning as WarningIcon,
-    Brightness4 as Brightness4Icon,
-    Layers as LayersIcon,
-    Speed as SpeedIcon,
-    Visibility as VisibilityIcon,
-    ZoomIn as ZoomInIcon,
-    Memory as MemoryIcon
+    Target as TargetIcon
 } from '@mui/icons-material';
 import {
     Move,
@@ -65,96 +42,16 @@ import {
     ChevronRight,
     Target,
     Activity,
-    ScanLine,
     Zap,
-    Thermometer,
-    Gauge, Microscope
+    Microscope
 } from 'lucide-react';
 
-// Mock microscope store (simplified for demo)
-const useMicroscopeStore = () => {
-    const [activeTab, setActiveTab] = useState(0);
-    const [stagePosition, setStagePosition] = useState({ x: 12.345, y: -23.456, z: 0.234, alpha: 0.0, beta: 0.0 });
-    const [opticalSettings, setOpticalSettings] = useState({
-        magnification: 81000,
-        defocus: -2.0,
-        spotSize: 3,
-        intensity: 0.00045,
-        beamBlank: false
-    });
-    const [acquisitionSettings, setAcquisitionSettings] = useState({
-        exposure: 1000,
-        binning: 1,
-        electronCounting: true,
-        saveFrames: false,
-        frameTime: 50,
-        mode: 'Counting',
-        frameRate: 40
-    });
-    const [cameraSettings, setCameraSettings] = useState({
-        gainReference: 'auto',
-        readoutMode: 'correlated',
-        driftCorrection: true,
-        doseProtection: true,
-        pixelSize: 1.2,
-        temperature: -35.2
-    });
-    const [microscopeSettings, setMicroscopeSettings] = useState({
-        lensConfiguration: 'standard',
-        c2Aperture: 50,
-        objectiveAperture: 100,
-        phaseplate: false,
-        phasePlateAdvance: 30,
-        holderType: 'cryo',
-        stageSpeed: 75
-    });
-    const [advancedSettings, setAdvancedSettings] = useState({
-        autoFocus: true,
-        driftCorrection: true,
-        autoStigmation: false,
-        doseProtection: true,
-        beamTiltCompensation: true,
-        targetDefocus: -2.0,
-        defocusRange: 0.5
-    });
-    const [isConnected] = useState(true);
-    const [isAcquiring, setIsAcquiring] = useState(false);
-    const [lastImage, setLastImage] = useState(null);
-    const [lastFFT, setLastFFT] = useState(null);
-    const [showCameraSettings, setShowCameraSettings] = useState(false);
-    const [showMicroscopeSettings, setShowMicroscopeSettings] = useState(false);
+// Import the separated dialog components
+import { CameraSettingsDialog } from './CameraSettingsDialog';
+import { MicroscopeSettingsDialog } from './MicroscopeSettingsDialog';
 
-    const presets = [
-        { id: 1, name: 'Atlas', mag: 200, defocus: -100, spot: 5 },
-        { id: 2, name: 'Square', mag: 2000, defocus: -50, spot: 4 },
-        { id: 3, name: 'Hole', mag: 10000, defocus: -10, spot: 3 },
-        { id: 4, name: 'Focus', mag: 50000, defocus: -2, spot: 3 },
-        { id: 5, name: 'Record', mag: 81000, defocus: -2, spot: 3 },
-    ];
-
-    return {
-        activeTab, setActiveTab,
-        stagePosition, updateStagePosition: (updates) => setStagePosition(prev => ({ ...prev, ...updates })),
-        opticalSettings, updateOpticalSettings: (updates) => setOpticalSettings(prev => ({ ...prev, ...updates })),
-        acquisitionSettings, updateAcquisitionSettings: (updates) => setAcquisitionSettings(prev => ({ ...prev, ...updates })),
-        cameraSettings, updateCameraSettings: (updates) => setCameraSettings(prev => ({ ...prev, ...updates })),
-        microscopeSettings, updateMicroscopeSettings: (updates) => setMicroscopeSettings(prev => ({ ...prev, ...updates })),
-        advancedSettings, updateAdvancedSettings: (updates) => setAdvancedSettings(prev => ({ ...prev, ...updates })),
-        isConnected, isAcquiring, setIsAcquiring,
-        lastImage, setLastImage, lastFFT, setLastFFT,
-        showCameraSettings, setShowCameraSettings,
-        showMicroscopeSettings, setShowMicroscopeSettings,
-        presets,
-        applyPreset: (preset) => {
-            setOpticalSettings(prev => ({
-                ...prev,
-                magnification: preset.mag,
-                defocus: preset.defocus,
-                spotSize: preset.spot
-            }));
-        }
-    };
-};
+// Import store hook (this should be from your actual store file)
+import { useMicroscopeStore } from './MicroscopeStore';
 
 // Mock API for image acquisition
 const microscopeAPI = {
@@ -212,595 +109,10 @@ const microscopeAPI = {
     }
 };
 
-// Camera Settings Dialog Component
-const CameraSettingsDialog = ({ open, onClose, cameraSettings, updateCameraSettings, acquisitionSettings, updateAcquisitionSettings }) => {
-    const [advancedOpen, setAdvancedOpen] = useState(false);
-
-    return (
-        <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-            <DialogTitle>
-                <Box display="flex" alignItems="center" gap={2}>
-                    <PhotoCameraIcon color="primary" />
-                    <Typography variant="h5" fontWeight="600">
-                        Camera Settings
-                    </Typography>
-                    <Chip
-                        icon={<CheckCircleIcon />}
-                        label="Connected"
-                        color="success"
-                        size="small"
-                        variant="outlined"
-                    />
-                </Box>
-            </DialogTitle>
-            <DialogContent>
-                <Stack spacing={3} sx={{ mt: 1 }}>
-                    {/* Status Alert */}
-                    <Alert severity="info" icon={<InfoIcon />}>
-                        <AlertTitle>DE-64 Counting Camera</AlertTitle>
-                        Temperature: {cameraSettings.temperature}°C • Status: Ready • Last Calibration: 2024-06-20
-                    </Alert>
-
-                    {/* Basic Settings */}
-                    <Paper elevation={1} sx={{ p: 3 }}>
-                        <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <MemoryIcon />
-                            Basic Settings
-                        </Typography>
-
-                        <Grid container spacing={3}>
-                            <Grid item xs={6}>
-                                <FormControl fullWidth size="small">
-                                    <InputLabel>Camera Mode</InputLabel>
-                                    <Select
-                                        value={acquisitionSettings.mode}
-                                        label="Camera Mode"
-                                        onChange={(e) => updateAcquisitionSettings({ mode: e.target.value })}
-                                    >
-                                        <MenuItem value="Integrating">Integrating</MenuItem>
-                                        <MenuItem value="Counting">Counting</MenuItem>
-                                        <MenuItem value="Super Resolution">Super Resolution</MenuItem>
-                                    </Select>
-                                </FormControl>
-                            </Grid>
-
-                            <Grid item xs={6}>
-                                <FormControl fullWidth size="small">
-                                    <InputLabel>Frame Rate</InputLabel>
-                                    <Select
-                                        value={acquisitionSettings.frameRate}
-                                        label="Frame Rate"
-                                        onChange={(e) => updateAcquisitionSettings({ frameRate: e.target.value })}
-                                    >
-                                        <MenuItem value={40}>40 fps</MenuItem>
-                                        <MenuItem value={75}>75 fps</MenuItem>
-                                        <MenuItem value={100}>100 fps</MenuItem>
-                                        <MenuItem value={200}>200 fps</MenuItem>
-                                        <MenuItem value={400}>400 fps</MenuItem>
-                                    </Select>
-                                </FormControl>
-                            </Grid>
-
-                            <Grid item xs={6}>
-                                <TextField
-                                    fullWidth
-                                    size="small"
-                                    label="Exposure (ms)"
-                                    type="number"
-                                    value={acquisitionSettings.exposure}
-                                    onChange={(e) => updateAcquisitionSettings({ exposure: parseInt(e.target.value) })}
-                                    inputProps={{ min: 10, max: 10000 }}
-                                />
-                            </Grid>
-
-                            <Grid item xs={6}>
-                                <FormControl fullWidth size="small">
-                                    <InputLabel>Binning</InputLabel>
-                                    <Select
-                                        value={acquisitionSettings.binning}
-                                        label="Binning"
-                                        onChange={(e) => updateAcquisitionSettings({ binning: e.target.value })}
-                                    >
-                                        <MenuItem value={1}>1x1</MenuItem>
-                                        <MenuItem value={2}>2x2</MenuItem>
-                                        <MenuItem value={4}>4x4</MenuItem>
-                                        <MenuItem value={8}>8x8</MenuItem>
-                                    </Select>
-                                </FormControl>
-                            </Grid>
-                        </Grid>
-
-                        {/* Hardware Binning Buttons */}
-                        <Box mt={3}>
-                            <Typography variant="subtitle2" gutterBottom>Hardware Binning Quick Select</Typography>
-                            <ToggleButtonGroup
-                                value={acquisitionSettings.binning}
-                                exclusive
-                                onChange={(e, value) => value && updateAcquisitionSettings({ binning: value })}
-                                size="small"
-                            >
-                                <ToggleButton value={1}>1x1</ToggleButton>
-                                <ToggleButton value={2}>2x2</ToggleButton>
-                                <ToggleButton value={4}>4x4</ToggleButton>
-                                <ToggleButton value={8}>8x8</ToggleButton>
-                            </ToggleButtonGroup>
-                        </Box>
-
-                        {/* Switches */}
-                        <Stack spacing={2} sx={{ mt: 3 }}>
-                            <FormControlLabel
-                                control={
-                                    <Switch
-                                        checked={acquisitionSettings.electronCounting}
-                                        onChange={(e) => updateAcquisitionSettings({ electronCounting: e.target.checked })}
-                                        color="primary"
-                                    />
-                                }
-                                label="Electron Counting Mode"
-                            />
-
-                            <FormControlLabel
-                                control={
-                                    <Switch
-                                        checked={acquisitionSettings.saveFrames}
-                                        onChange={(e) => updateAcquisitionSettings({ saveFrames: e.target.checked })}
-                                        color="primary"
-                                    />
-                                }
-                                label="Save Individual Frames"
-                            />
-
-                            <FormControlLabel
-                                control={
-                                    <Switch
-                                        checked={cameraSettings.driftCorrection}
-                                        onChange={(e) => updateCameraSettings({ driftCorrection: e.target.checked })}
-                                        color="primary"
-                                    />
-                                }
-                                label="Real-time Drift Correction"
-                            />
-
-                            <FormControlLabel
-                                control={
-                                    <Switch
-                                        checked={cameraSettings.doseProtection}
-                                        onChange={(e) => updateCameraSettings({ doseProtection: e.target.checked })}
-                                        color="primary"
-                                    />
-                                }
-                                label="Dose Protection"
-                            />
-                        </Stack>
-
-                        {/* Frame Time (conditional) */}
-                        {acquisitionSettings.saveFrames && (
-                            <Box mt={3}>
-                                <TextField
-                                    fullWidth
-                                    size="small"
-                                    label="Frame Time (ms)"
-                                    type="number"
-                                    value={acquisitionSettings.frameTime}
-                                    onChange={(e) => updateAcquisitionSettings({ frameTime: parseInt(e.target.value) })}
-                                    helperText={`${Math.floor(acquisitionSettings.exposure / acquisitionSettings.frameTime)} frames will be saved`}
-                                />
-                            </Box>
-                        )}
-                    </Paper>
-
-                    {/* Advanced Settings Accordion */}
-                    <Accordion expanded={advancedOpen} onChange={(e, isExpanded) => setAdvancedOpen(isExpanded)}>
-                        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                            <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <TuneIcon />
-                                Advanced Settings
-                            </Typography>
-                        </AccordionSummary>
-                        <AccordionDetails>
-                            <Stack spacing={3}>
-                                <Grid container spacing={2}>
-                                    <Grid item xs={6}>
-                                        <FormControl fullWidth size="small">
-                                            <InputLabel>Readout Mode</InputLabel>
-                                            <Select
-                                                value={cameraSettings.readoutMode}
-                                                label="Readout Mode"
-                                                onChange={(e) => updateCameraSettings({ readoutMode: e.target.value })}
-                                            >
-                                                <MenuItem value="correlated">Correlated Double Sampling</MenuItem>
-                                                <MenuItem value="standard">Standard</MenuItem>
-                                                <MenuItem value="fast">Fast Readout</MenuItem>
-                                            </Select>
-                                        </FormControl>
-                                    </Grid>
-
-                                    <Grid item xs={6}>
-                                        <FormControl fullWidth size="small">
-                                            <InputLabel>Gain Reference</InputLabel>
-                                            <Select
-                                                value={cameraSettings.gainReference}
-                                                label="Gain Reference"
-                                                onChange={(e) => updateCameraSettings({ gainReference: e.target.value })}
-                                            >
-                                                <MenuItem value="auto">Auto</MenuItem>
-                                                <MenuItem value="manual">Manual</MenuItem>
-                                                <MenuItem value="factory">Factory Default</MenuItem>
-                                            </Select>
-                                        </FormControl>
-                                    </Grid>
-                                </Grid>
-
-                                <Box>
-                                    <Typography variant="subtitle2" gutterBottom>
-                                        Pixel Size Calibration
-                                    </Typography>
-                                    <Grid container spacing={2}>
-                                        <Grid item xs={8}>
-                                            <TextField
-                                                fullWidth
-                                                size="small"
-                                                value={cameraSettings.pixelSize}
-                                                onChange={(e) => updateCameraSettings({ pixelSize: parseFloat(e.target.value) })}
-                                                type="number"
-                                                step="0.1"
-                                            />
-                                        </Grid>
-                                        <Grid item xs={4}>
-                                            <TextField
-                                                fullWidth
-                                                size="small"
-                                                value="Å/pixel"
-                                                disabled
-                                            />
-                                        </Grid>
-                                    </Grid>
-                                </Box>
-
-                                <Stack direction="row" spacing={2}>
-                                    <Button variant="outlined" startIcon={<RefreshIcon />} fullWidth>
-                                        Acquire Dark Reference
-                                    </Button>
-                                    <Button variant="outlined" startIcon={<RefreshIcon />} fullWidth>
-                                        Update Gain Reference
-                                    </Button>
-                                </Stack>
-
-                                <Button variant="outlined" startIcon={<SettingsIcon />} fullWidth>
-                                    Update Defect Map
-                                </Button>
-                            </Stack>
-                        </AccordionDetails>
-                    </Accordion>
-                </Stack>
-            </DialogContent>
-            <DialogActions>
-                <Button onClick={onClose}>Cancel</Button>
-                <Button variant="contained" startIcon={<SaveIcon />}>
-                    Apply Settings
-                </Button>
-            </DialogActions>
-        </Dialog>
-    );
-};
-
-// Microscope Settings Dialog Component
-const MicroscopeSettingsDialog = ({ open, onClose, microscopeSettings, updateMicroscopeSettings, opticalSettings, updateOpticalSettings, advancedSettings, updateAdvancedSettings }) => {
-    const [advancedOpen, setAdvancedOpen] = useState(false);
-
-    const magnificationOptions = [2000, 5000, 10000, 25000, 50000, 81000, 105000, 130000];
-
-    return (
-        <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-            <DialogTitle>
-                <Box display="flex" alignItems="center" gap={2}>
-                    <Microscope color="primary" />
-                    <Typography variant="h5" fontWeight="600">
-                        Microscope Settings
-                    </Typography>
-                    <Chip
-                        icon={<CheckCircleIcon />}
-                        label="Ready"
-                        color="success"
-                        size="small"
-                        variant="outlined"
-                    />
-                </Box>
-            </DialogTitle>
-            <DialogContent>
-                <Stack spacing={3} sx={{ mt: 1 }}>
-                    {/* Status Alert */}
-                    <Alert severity="success" icon={<CheckCircleIcon />}>
-                        <AlertTitle>Titan Krios G4</AlertTitle>
-                        HT: 300kV • Vacuum: 5.2e-8 Pa • Column: Open • Temperature: -192.3°C
-                    </Alert>
-
-                    {/* Optical Settings */}
-                    <Paper elevation={1} sx={{ p: 3 }}>
-                        <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <ZoomInIcon />
-                            Optical Settings
-                        </Typography>
-
-                        <Grid container spacing={3}>
-                            <Grid item xs={12}>
-                                <FormControl fullWidth size="small">
-                                    <InputLabel>Magnification</InputLabel>
-                                    <Select
-                                        value={opticalSettings.magnification}
-                                        label="Magnification"
-                                        onChange={(e) => updateOpticalSettings({ magnification: e.target.value })}
-                                    >
-                                        {magnificationOptions.map(mag => (
-                                            <MenuItem key={mag} value={mag}>
-                                                {mag.toLocaleString()}x
-                                            </MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
-                            </Grid>
-
-                            <Grid item xs={6}>
-                                <TextField
-                                    fullWidth
-                                    size="small"
-                                    label="Defocus (μm)"
-                                    type="number"
-                                    step="0.1"
-                                    value={opticalSettings.defocus}
-                                    onChange={(e) => updateOpticalSettings({ defocus: parseFloat(e.target.value) })}
-                                />
-                            </Grid>
-
-                            <Grid item xs={6}>
-                                <TextField
-                                    fullWidth
-                                    size="small"
-                                    label="Spot Size"
-                                    type="number"
-                                    inputProps={{ min: 1, max: 11 }}
-                                    value={opticalSettings.spotSize}
-                                    onChange={(e) => updateOpticalSettings({ spotSize: parseInt(e.target.value) })}
-                                />
-                            </Grid>
-
-                            <Grid item xs={12}>
-                                <Typography variant="subtitle2" gutterBottom>
-                                    Intensity: {opticalSettings.intensity.toExponential(2)}
-                                </Typography>
-                                <Slider
-                                    value={Math.log10(opticalSettings.intensity)}
-                                    onChange={(e, value) => updateOpticalSettings({ intensity: Math.pow(10, value) })}
-                                    min={-6}
-                                    max={-3}
-                                    step={0.1}
-                                    marks={[
-                                        { value: -6, label: '10⁻⁶' },
-                                        { value: -4.5, label: '10⁻⁴·⁵' },
-                                        { value: -3, label: '10⁻³' }
-                                    ]}
-                                />
-                            </Grid>
-                        </Grid>
-
-                        {/* Beam Control */}
-                        <Box mt={3}>
-                            <FormControlLabel
-                                control={
-                                    <Switch
-                                        checked={!opticalSettings.beamBlank}
-                                        onChange={(e) => updateOpticalSettings({ beamBlank: !e.target.checked })}
-                                        color={opticalSettings.beamBlank ? "error" : "success"}
-                                    />
-                                }
-                                label={
-                                    <Box display="flex" alignItems="center" gap={1}>
-                                        <Brightness4Icon />
-                                        {opticalSettings.beamBlank ? 'Beam Blanked' : 'Beam On'}
-                                    </Box>
-                                }
-                            />
-                        </Box>
-                    </Paper>
-
-                    {/* Advanced Settings Accordion */}
-                    <Accordion expanded={advancedOpen} onChange={(e, isExpanded) => setAdvancedOpen(isExpanded)}>
-                        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                            <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <TuneIcon />
-                                Advanced Configuration
-                            </Typography>
-                        </AccordionSummary>
-                        <AccordionDetails>
-                            <Stack spacing={3}>
-                                {/* Lens Configuration */}
-                                <FormControl fullWidth size="small">
-                                    <InputLabel>Lens Configuration</InputLabel>
-                                    <Select
-                                        value={microscopeSettings.lensConfiguration}
-                                        label="Lens Configuration"
-                                        onChange={(e) => updateMicroscopeSettings({ lensConfiguration: e.target.value })}
-                                    >
-                                        <MenuItem value="standard">Standard</MenuItem>
-                                        <MenuItem value="lowmag">Low Magnification</MenuItem>
-                                        <MenuItem value="diffraction">Diffraction</MenuItem>
-                                        <MenuItem value="stem">STEM</MenuItem>
-                                    </Select>
-                                </FormControl>
-
-                                {/* Apertures */}
-                                <Box>
-                                    <Typography variant="subtitle2" gutterBottom>Apertures</Typography>
-                                    <Grid container spacing={2}>
-                                        <Grid item xs={6}>
-                                            <FormControl fullWidth size="small">
-                                                <InputLabel>C2 Aperture</InputLabel>
-                                                <Select
-                                                    value={microscopeSettings.c2Aperture}
-                                                    label="C2 Aperture"
-                                                    onChange={(e) => updateMicroscopeSettings({ c2Aperture: e.target.value })}
-                                                >
-                                                    <MenuItem value={30}>30 μm</MenuItem>
-                                                    <MenuItem value={50}>50 μm</MenuItem>
-                                                    <MenuItem value={70}>70 μm</MenuItem>
-                                                    <MenuItem value={100}>100 μm</MenuItem>
-                                                    <MenuItem value={150}>150 μm</MenuItem>
-                                                </Select>
-                                            </FormControl>
-                                        </Grid>
-                                        <Grid item xs={6}>
-                                            <FormControl fullWidth size="small">
-                                                <InputLabel>Objective Aperture</InputLabel>
-                                                <Select
-                                                    value={microscopeSettings.objectiveAperture}
-                                                    label="Objective Aperture"
-                                                    onChange={(e) => updateMicroscopeSettings({ objectiveAperture: e.target.value })}
-                                                >
-                                                    <MenuItem value={10}>10 μm</MenuItem>
-                                                    <MenuItem value={30}>30 μm</MenuItem>
-                                                    <MenuItem value={70}>70 μm</MenuItem>
-                                                    <MenuItem value={100}>100 μm</MenuItem>
-                                                    <MenuItem value="open">Open</MenuItem>
-                                                </Select>
-                                            </FormControl>
-                                        </Grid>
-                                    </Grid>
-                                </Box>
-
-                                {/* Phase Plate */}
-                                <Box>
-                                    <FormControlLabel
-                                        control={
-                                            <Switch
-                                                checked={microscopeSettings.phaseplate}
-                                                onChange={(e) => updateMicroscopeSettings({ phaseplate: e.target.checked })}
-                                            />
-                                        }
-                                        label="Volta Phase Plate"
-                                    />
-                                    {microscopeSettings.phaseplate && (
-                                        <TextField
-                                            fullWidth
-                                            size="small"
-                                            label="Advance Interval (min)"
-                                            type="number"
-                                            value={microscopeSettings.phasePlateAdvance}
-                                            onChange={(e) => updateMicroscopeSettings({ phasePlateAdvance: parseInt(e.target.value) })}
-                                            sx={{ mt: 2 }}
-                                        />
-                                    )}
-                                </Box>
-
-                                {/* Auto Functions */}
-                                <Box>
-                                    <Typography variant="subtitle2" gutterBottom>Auto Functions</Typography>
-                                    <Stack spacing={1}>
-                                        <FormControlLabel
-                                            control={
-                                                <Switch
-                                                    checked={advancedSettings.autoFocus}
-                                                    onChange={(e) => updateAdvancedSettings({ autoFocus: e.target.checked })}
-                                                />
-                                            }
-                                            label="Auto Eucentric Focus"
-                                        />
-                                        <FormControlLabel
-                                            control={
-                                                <Switch
-                                                    checked={advancedSettings.autoStigmation}
-                                                    onChange={(e) => updateAdvancedSettings({ autoStigmation: e.target.checked })}
-                                                />
-                                            }
-                                            label="Auto Stigmation"
-                                        />
-                                        <FormControlLabel
-                                            control={
-                                                <Switch
-                                                    checked={advancedSettings.beamTiltCompensation}
-                                                    onChange={(e) => updateAdvancedSettings({ beamTiltCompensation: e.target.checked })}
-                                                />
-                                            }
-                                            label="Beam Tilt Compensation"
-                                        />
-                                    </Stack>
-                                </Box>
-
-                                {/* Stage Settings */}
-                                <Box>
-                                    <Typography variant="subtitle2" gutterBottom>Stage Configuration</Typography>
-                                    <Grid container spacing={2}>
-                                        <Grid item xs={6}>
-                                            <FormControl fullWidth size="small">
-                                                <InputLabel>Holder Type</InputLabel>
-                                                <Select
-                                                    value={microscopeSettings.holderType}
-                                                    label="Holder Type"
-                                                    onChange={(e) => updateMicroscopeSettings({ holderType: e.target.value })}
-                                                >
-                                                    <MenuItem value="cryo">Cryo Holder</MenuItem>
-                                                    <MenuItem value="single">Single Tilt</MenuItem>
-                                                    <MenuItem value="double">Double Tilt</MenuItem>
-                                                    <MenuItem value="tomography">Tomography Holder</MenuItem>
-                                                </Select>
-                                            </FormControl>
-                                        </Grid>
-                                        <Grid item xs={6}>
-                                            <Typography variant="body2" gutterBottom>
-                                                Stage Speed: {microscopeSettings.stageSpeed}%
-                                            </Typography>
-                                            <Slider
-                                                value={microscopeSettings.stageSpeed}
-                                                onChange={(e, value) => updateMicroscopeSettings({ stageSpeed: value })}
-                                                min={10}
-                                                max={100}
-                                                step={5}
-                                                marks={[
-                                                    { value: 25, label: '25%' },
-                                                    { value: 50, label: '50%' },
-                                                    { value: 75, label: '75%' },
-                                                    { value: 100, label: '100%' }
-                                                ]}
-                                            />
-                                        </Grid>
-                                    </Grid>
-                                </Box>
-
-                                {/* Quick Alignment Buttons */}
-                                <Box>
-                                    <Typography variant="subtitle2" gutterBottom>Direct Alignments</Typography>
-                                    <Grid container spacing={1}>
-                                        {['Gun Tilt', 'Gun Shift', 'Beam Tilt', 'Beam Shift', 'Coma Free', 'Rotation Center'].map(alignment => (
-                                            <Grid item xs={6} key={alignment}>
-                                                <Button
-                                                    variant="outlined"
-                                                    size="small"
-                                                    fullWidth
-                                                    startIcon={<TuneIcon />}
-                                                >
-                                                    {alignment}
-                                                </Button>
-                                            </Grid>
-                                        ))}
-                                    </Grid>
-                                </Box>
-                            </Stack>
-                        </AccordionDetails>
-                    </Accordion>
-                </Stack>
-            </DialogContent>
-            <DialogActions>
-                <Button onClick={onClose}>Cancel</Button>
-                <Button variant="contained" startIcon={<SaveIcon />}>
-                    Apply Settings
-                </Button>
-            </DialogActions>
-        </Dialog>
-    );
-};
-
-// Main Control Panel Component
 export const ControlPanel = () => {
     const theme = useTheme();
+
+    // Get state and actions from store
     const {
         activeTab,
         setActiveTab,
@@ -810,34 +122,84 @@ export const ControlPanel = () => {
         updateOpticalSettings,
         acquisitionSettings,
         updateAcquisitionSettings,
-        cameraSettings,
-        updateCameraSettings,
-        microscopeSettings,
-        updateMicroscopeSettings,
         isConnected,
         isAcquiring,
         setIsAcquiring,
         setLastImage,
         setLastFFT,
+        lastImage,
+        lastFFT,
         advancedSettings,
         updateAdvancedSettings,
         presets,
         applyPreset,
-        showCameraSettings,
-        setShowCameraSettings,
-        showMicroscopeSettings,
-        setShowMicroscopeSettings
+        addToHistory
     } = useMicroscopeStore();
+
+    // Local state for settings dialogs
+    const [showCameraSettings, setShowCameraSettings] = useState(false);
+    const [showMicroscopeSettings, setShowMicroscopeSettings] = useState(false);
+
+    // Mock camera and microscope settings (these would normally come from store)
+    const [cameraSettings, setCameraSettings] = useState({
+        gainReference: 'auto',
+        readoutMode: 'correlated',
+        driftCorrection: true,
+        doseProtection: true,
+        pixelSize: 1.2,
+        temperature: -35.2
+    });
+
+    const [microscopeSettings, setMicroscopeSettings] = useState({
+        lensConfiguration: 'standard',
+        c2Aperture: 50,
+        objectiveAperture: 100,
+        phaseplate: false,
+        phasePlateAdvance: 30,
+        holderType: 'cryo',
+        stageSpeed: 75
+    });
+
+    const updateCameraSettings = (updates: any) => {
+        setCameraSettings(prev => ({ ...prev, ...updates }));
+    };
+
+    const updateMicroscopeSettings = (updates: any) => {
+        setMicroscopeSettings(prev => ({ ...prev, ...updates }));
+    };
 
     const handleAcquireImage = async () => {
         if (!isConnected || isAcquiring) return;
 
         try {
             setIsAcquiring(true);
+            console.log('Starting image acquisition with settings:', acquisitionSettings);
+
             const result = await microscopeAPI.acquireImage(acquisitionSettings);
+            console.log('Acquisition completed:', result);
 
             setLastImage(result.image);
             setLastFFT(result.fft);
+
+            // Add to history
+            addToHistory({
+                id: Date.now(),
+                timestamp: new Date().toISOString(),
+                settings: acquisitionSettings,
+                thumbnail: result.image,
+                fft: result.fft,
+                metadata: {
+                    pixelSize: cameraSettings.pixelSize,
+                    dose: acquisitionSettings.exposure * 0.01,
+                    defocus: opticalSettings.defocus,
+                    astigmatism: 0.05,
+                    magnification: opticalSettings.magnification,
+                    binning: acquisitionSettings.binning,
+                    mode: acquisitionSettings.mode
+                }
+            });
+
+            console.log('Image acquired successfully and added to history');
         } catch (error) {
             console.error('Failed to acquire image:', error);
         } finally {
@@ -878,12 +240,13 @@ export const ControlPanel = () => {
                         sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}
                         variant="fullWidth"
                     >
-                        <Tab label="Control" icon={<Focus size={20} />} />
+                        <Tab label="Stage & Optics" icon={<Focus size={20} />} />
+                        <Tab label="Acquisition" icon={<CameraIcon />} />
                         <Tab label="Presets" icon={<SaveIcon />} />
                         <Tab label="Automation" icon={<Target size={20} />} />
                     </Tabs>
 
-                    {/* Control Tab */}
+                    {/* Stage & Optics Tab */}
                     {activeTab === 0 && (
                         <Grid container spacing={3}>
                             {/* Stage Control */}
@@ -1116,8 +479,12 @@ export const ControlPanel = () => {
                                     </Box>
                                 </Paper>
                             </Grid>
+                        </Grid>
+                    )}
 
-                            {/* Acquisition Settings */}
+                    {/* Acquisition Tab */}
+                    {activeTab === 1 && (
+                        <Grid container spacing={3}>
                             <Grid item xs={12}>
                                 <Paper
                                     elevation={2}
@@ -1243,13 +610,88 @@ export const ControlPanel = () => {
                                     >
                                         {isAcquiring ? 'Acquiring...' : 'Acquire Image'}
                                     </Button>
+
+                                    {/* Image Preview */}
+                                    {lastImage && (
+                                        <Box sx={{ mt: 3 }}>
+                                            <Typography variant="subtitle2" gutterBottom>
+                                                Last Acquired Image
+                                            </Typography>
+                                            <Paper
+                                                elevation={1}
+                                                sx={{
+                                                    p: 1,
+                                                    borderRadius: 1,
+                                                    display: 'flex',
+                                                    gap: 2,
+                                                    alignItems: 'center'
+                                                }}
+                                            >
+                                                <Box sx={{
+                                                    width: 80,
+                                                    height: 80,
+                                                    borderRadius: 1,
+                                                    overflow: 'hidden',
+                                                    border: '1px solid',
+                                                    borderColor: 'divider'
+                                                }}>
+                                                    <img
+                                                        src={lastImage}
+                                                        alt="Last acquired"
+                                                        style={{
+                                                            width: '100%',
+                                                            height: '100%',
+                                                            objectFit: 'cover'
+                                                        }}
+                                                    />
+                                                </Box>
+                                                <Box sx={{ flex: 1 }}>
+                                                    <Typography variant="body2" fontWeight="medium">
+                                                        Acquisition Details
+                                                    </Typography>
+                                                    <Typography variant="caption" color="text.secondary" component="div">
+                                                        • Mode: {acquisitionSettings.mode}
+                                                    </Typography>
+                                                    <Typography variant="caption" color="text.secondary" component="div">
+                                                        • Exposure: {acquisitionSettings.exposure}ms
+                                                    </Typography>
+                                                    <Typography variant="caption" color="text.secondary" component="div">
+                                                        • Binning: {acquisitionSettings.binning}x{acquisitionSettings.binning}
+                                                    </Typography>
+                                                    <Typography variant="caption" color="text.secondary" component="div">
+                                                        • Magnification: {opticalSettings.magnification.toLocaleString()}x
+                                                    </Typography>
+                                                </Box>
+                                                {lastFFT && (
+                                                    <Box sx={{
+                                                        width: 60,
+                                                        height: 60,
+                                                        borderRadius: 1,
+                                                        overflow: 'hidden',
+                                                        border: '1px solid',
+                                                        borderColor: 'divider'
+                                                    }}>
+                                                        <img
+                                                            src={lastFFT}
+                                                            alt="FFT"
+                                                            style={{
+                                                                width: '100%',
+                                                                height: '100%',
+                                                                objectFit: 'cover'
+                                                            }}
+                                                        />
+                                                    </Box>
+                                                )}
+                                            </Paper>
+                                        </Box>
+                                    )}
                                 </Paper>
                             </Grid>
                         </Grid>
                     )}
 
                     {/* Presets Tab */}
-                    {activeTab === 1 && (
+                    {activeTab === 2 && (
                         <Grid container spacing={2}>
                             {presets.map(preset => (
                                 <Grid item xs={12} sm={6} md={4} key={preset.id}>
@@ -1291,7 +733,7 @@ export const ControlPanel = () => {
                     )}
 
                     {/* Automation Tab */}
-                    {activeTab === 2 && (
+                    {activeTab === 3 && (
                         <Grid container spacing={3}>
                             <Grid item xs={12} md={6}>
                                 <Paper

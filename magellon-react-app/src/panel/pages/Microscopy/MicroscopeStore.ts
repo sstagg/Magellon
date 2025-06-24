@@ -23,6 +23,8 @@ interface AcquisitionSettings {
     saveFrames: boolean;
     electronCounting: boolean;
     mode: string;
+    frameTime: number;
+    frameRate: number;
 }
 
 interface MicroscopeStatus {
@@ -61,6 +63,9 @@ interface AcquisitionHistoryItem {
         dose: number;
         defocus: number;
         astigmatism: number;
+        magnification: number;
+        binning: number;
+        mode: string;
     };
 }
 
@@ -70,6 +75,8 @@ interface AdvancedSettings {
     autoStigmation: boolean;
     doseProtection: boolean;
     targetDefocus: number;
+    defocusRange: number;
+    beamTiltCompensation: boolean;
 }
 
 interface Preset {
@@ -139,8 +146,8 @@ interface MicroscopeStore {
 
 export const useMicroscopeStore = create<MicroscopeStore>((set, get) => ({
     // Initial states
-    isConnected: false,
-    connectionStatus: 'disconnected',
+    isConnected: true,
+    connectionStatus: 'connected',
     microscopeStatus: null,
     stagePosition: { x: 12.345, y: -23.456, z: 0.234, alpha: 0.0, beta: 0.0 },
     opticalSettings: {
@@ -155,7 +162,9 @@ export const useMicroscopeStore = create<MicroscopeStore>((set, get) => ({
         binning: 1,
         saveFrames: false,
         electronCounting: true,
-        mode: 'Counting'
+        mode: 'Counting',
+        frameTime: 50,
+        frameRate: 40
     },
     isAcquiring: false,
     lastImage: null,
@@ -173,7 +182,9 @@ export const useMicroscopeStore = create<MicroscopeStore>((set, get) => ({
         autoFocus: true,
         autoStigmation: false,
         doseProtection: true,
-        targetDefocus: -2.0
+        targetDefocus: -2.0,
+        defocusRange: 0.5,
+        beamTiltCompensation: true
     },
     presets: [
         { id: 1, name: 'Atlas', mag: 200, defocus: -100, spot: 5 },

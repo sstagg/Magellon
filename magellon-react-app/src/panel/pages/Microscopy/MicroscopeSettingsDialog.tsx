@@ -1,9 +1,63 @@
-// Microscope Settings Dialog Component
-import {useState} from "react";
-import {Box, Dialog, DialogTitle, Typography} from "@mui/material";
-import {Microscope} from "lucide-react";
+import React, { useState } from 'react';
+import {
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    Typography,
+    Box,
+    Paper,
+    Grid,
+    TextField,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
+    FormControlLabel,
+    Switch,
+    Button,
+    Accordion,
+    AccordionSummary,
+    AccordionDetails,
+    Chip,
+    Alert,
+    AlertTitle,
+    Slider,
+    Stack,
+    useTheme
+} from '@mui/material';
+import {
+    ExpandMore as ExpandMoreIcon,
+    CheckCircle as CheckCircleIcon,
+    ZoomIn as ZoomInIcon,
+    Tune as TuneIcon,
+    Save as SaveIcon,
+    Brightness4 as Brightness4Icon
+} from '@mui/icons-material';
+import { Microscope, Zap } from 'lucide-react';
 
-export const MicroscopeSettingsDialog = ({ open, onClose, microscopeSettings, updateMicroscopeSettings, opticalSettings, updateOpticalSettings, advancedSettings, updateAdvancedSettings }) => {
+interface MicroscopeSettingsDialogProps {
+    open: boolean;
+    onClose: () => void;
+    microscopeSettings: any;
+    updateMicroscopeSettings: (updates: any) => void;
+    opticalSettings: any;
+    updateOpticalSettings: (updates: any) => void;
+    advancedSettings: any;
+    updateAdvancedSettings: (updates: any) => void;
+}
+
+export const MicroscopeSettingsDialog: React.FC<MicroscopeSettingsDialogProps> = ({
+                                                                                      open,
+                                                                                      onClose,
+                                                                                      microscopeSettings,
+                                                                                      updateMicroscopeSettings,
+                                                                                      opticalSettings,
+                                                                                      updateOpticalSettings,
+                                                                                      advancedSettings,
+                                                                                      updateAdvancedSettings
+                                                                                  }) => {
+    const theme = useTheme();
     const [advancedOpen, setAdvancedOpen] = useState(false);
 
     const magnificationOptions = [2000, 5000, 10000, 25000, 50000, 81000, 105000, 130000];
