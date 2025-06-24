@@ -11,6 +11,7 @@ import SettingsView from "./pages/SettingsView.tsx";
 import DashboardView from "./pages/DashboardView.tsx";
 import { Box, Container, Typography } from "@mui/material";
 import AboutPage from "./pages/AboutPage.tsx";
+import MicroscopyPageView from "./pages/MicroscopyPageView.tsx";
 
 // Settings placeholder component
 // Test placeholder component
@@ -33,6 +34,7 @@ export const PanelRoutes = () => {
     return (
         <Routes>
             {/* Main routes */}
+            <Route path="/microscopy" element={<MicroscopyPageView />} />
             <Route path="/dashboard" element={<DashboardView />} />
             <Route path="/home" element={<Home />} />
             <Route path="/images" element={<ImagesPageView />} />

@@ -18,7 +18,7 @@ import {
 
     PanelLeft,
     Home,
-    Beaker, BrainCircuit, ArrowRightFromLine
+    Beaker, BrainCircuit, ArrowRightFromLine, Microscope
 } from "lucide-react";
 import { Box, Collapse, Typography, useMediaQuery } from '@mui/material';
 import { ExpandLess, ExpandMore } from '@mui/icons-material';
@@ -56,6 +56,11 @@ const navLinks: NavLink[] = [
         title: "Images",
         url: "images",
         icon: <ImageIcon size={20} />
+    },
+    {
+        title: "Microscopy",
+        url: "microscopy",
+        icon: <Microscope size={20} />
     },
     {
         title: "Import",
