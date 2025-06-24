@@ -14,7 +14,7 @@ import {
     ThermostatOutlined as ThermostatIcon,
     Speed as SpeedIcon,
 } from '@mui/icons-material';
-import { Zap } from 'lucide-react';
+import {Microscope, Zap} from 'lucide-react';
 import { useMicroscopeStore } from './microscopeStore';
 
 interface StatusCardProps {
@@ -102,7 +102,7 @@ export const StatusCards: React.FC = () => {
             title: 'Microscope',
             value: microscopeStatus?.model || 'Disconnected',
             subtitle: isConnected ? 'Ready' : 'Not Connected',
-            icon: <ScienceIcon />,
+            icon: <Microscope />,
             color: isConnected ? '#4caf50' : '#f44336'
         },
         {
@@ -129,12 +129,17 @@ export const StatusCards: React.FC = () => {
     ];
 
     return (
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-            {statusCards.map((card, index) => (
-                <Grid item xs={6} md={3} key={index}>
-                    <StatusCard {...card} />
-                </Grid>
-            ))}
-        </Grid>
+        <Paper elevation={1} sx={{ p: 2, borderRadius: 2, height: '100%' }}>
+            <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                System Status
+            </Typography>
+            <Grid container spacing={2}>
+                {statusCards.map((card, index) => (
+                    <Grid item xs={6} xl={3} key={index}>
+                        <StatusCard {...card} />
+                    </Grid>
+                ))}
+            </Grid>
+        </Paper>
     );
 };
