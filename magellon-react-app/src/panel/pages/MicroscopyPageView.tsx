@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     Box,
     Typography,
@@ -18,23 +18,28 @@ import {
     Snackbar,
     Chip,
     useTheme,
-    useMediaQuery
+    useMediaQuery,
+    Alert,
+    AlertTitle
 } from '@mui/material';
 import {
     History as HistoryIcon,
-    Close as CloseIcon
+    Close as CloseIcon,
+    Camera as CameraIcon
 } from '@mui/icons-material';
 import { Zap, Monitor } from 'lucide-react';
 
-// Import our new components
+// Import components
 import { StatusCards } from './Microscopy/StatusCard';
 import { QuickActions } from './Microscopy/QuickActions';
 import { GridAtlas } from './Microscopy/GridAtlas';
 import { LiveView } from './Microscopy/LiveView';
 import { ControlPanel } from './Microscopy/ControlPanel';
 import { useMicroscopeStore } from './Microscopy/MicroscopeStore';
+import { CameraSettingsDialog } from './Microscopy/CameraSettingsDialog';
+import { useDeCamera, DE_PROPERTIES } from './Microscopy/useDeCamera.ts';
 
-// Mock API (same as before, but simplified)
+// Enhanced Mock API with camera integration
 class MicroscopeAPI {
     constructor() {
         this.connected = false;
@@ -75,7 +80,11 @@ class MicroscopeAPI {
             vacuumStatus: 'ready',
             temperature: -192.3,
             autoloader: 'ready',
-            refrigerantLevel: 85
+            refrigerantLevel: 85,
+            // Add camera status
+            cameraConnected: true,
+            cameraModel: 'DE-64',
+            cameraTemperature: -15.2
         };
     }
 
@@ -97,6 +106,85 @@ class MicroscopeAPI {
     }
 }
 
+// Mock DE-SDK Client
+class MockDE_SDKClient {
+    private properties: { [key: string]: any } = {
+        [DE_PROPERTIES.HARDWARE_BINNING_X]: 1,
+        [DE_PROPERTIES.HARDWARE_BINNING_Y]: 1,
+        [DE_PROPERTIES.HARDWARE_ROI_OFFSET_X]: 0,
+        [DE_PROPERTIES.HARDWARE_ROI_OFFSET_Y]: 0,
+        [DE_PROPERTIES.HARDWARE_ROI_SIZE_X]: 4096,
+        [DE_PROPERTIES.HARDWARE_ROI_SIZE_Y]: 4096,
+        [DE_PROPERTIES.READOUT_SHUTTER]: 'Rolling',
+        [DE_PROPERTIES.READOUT_HARDWARE_HDR]: 'Off',
+        [DE_PROPERTIES.FRAMES_PER_SECOND]: 40,
+        [DE_PROPERTIES.FRAME_TIME_NANOSECONDS]: 25000000,
+        [DE_PROPERTIES.EXPOSURE_TIME_SECONDS]: 1.0,
+        [DE_PROPERTIES.FRAME_COUNT]: 40,
+        [DE_PROPERTIES.IMAGE_PROCESSING_MODE]: 'Integrating',
+        [DE_PROPERTIES.IMAGE_PROCESSING_FLATFIELD]: 'Dark and Gain',
+        [DE_PROPERTIES.IMAGE_PROCESSING_GAIN_MOVIE]: 'Off',
+        [DE_PROPERTIES.IMAGE_PROCESSING_GAIN_FINAL]: 'On',
+        [DE_PROPERTIES.BINNING_X]: 1,
+        [DE_PROPERTIES.BINNING_Y]: 1,
+        [DE_PROPERTIES.BINNING_METHOD]: 'Average',
+        [DE_PROPERTIES.CROP_OFFSET_X]: 0,
+        [DE_PROPERTIES.CROP_OFFSET_Y]: 0,
+        [DE_PROPERTIES.CROP_SIZE_X]: 4096,
+        [DE_PROPERTIES.CROP_SIZE_Y]: 4096,
+        [DE_PROPERTIES.AUTOSAVE_DIRECTORY]: '/data/acquisitions',
+        [DE_PROPERTIES.AUTOSAVE_FILENAME_SUFFIX]: '',
+        [DE_PROPERTIES.AUTOSAVE_FILE_FORMAT]: 'Auto',
+        [DE_PROPERTIES.AUTOSAVE_MOVIE_FORMAT]: 'Auto',
+        [DE_PROPERTIES.AUTOSAVE_FINAL_IMAGE]: 'On',
+        [DE_PROPERTIES.AUTOSAVE_MOVIE]: 'Off',
+        [DE_PROPERTIES.AUTOSAVE_MOVIE_SUM_COUNT]: 1,
+        [DE_PROPERTIES.PRESET_LIST]: 'Default,High Speed,High Quality,Counting Mode,Cryo-EM Standard',
+        [DE_PROPERTIES.PRESET_CURRENT]: 'Default',
+        [DE_PROPERTIES.SYSTEM_STATUS]: 'Ready',
+        [DE_PROPERTIES.CAMERA_POSITION_STATUS]: 'Inserted',
+        [DE_PROPERTIES.TEMPERATURE_DETECTOR_STATUS]: '-15.2',
+    };
+
+    async ListProperties(): Promise<string[]> {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        return Object.keys(this.properties);
+    }
+
+    async GetProperty(propertyName: string): Promise<any> {
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        if (!(propertyName in this.properties)) {
+            throw new Error(`Property ${propertyName} not found`);
+        }
+
+        return this.properties[propertyName];
+    }
+
+    async SetProperty(propertyName: string, value: any): Promise<boolean> {
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        if (!(propertyName in this.properties)) {
+            return false;
+        }
+
+        // Simulate hardware adjustments for linked properties
+        if (propertyName === DE_PROPERTIES.FRAMES_PER_SECOND) {
+            this.properties[DE_PROPERTIES.FRAME_TIME_NANOSECONDS] = Math.round(1000000000 / value);
+        } else if (propertyName === DE_PROPERTIES.EXPOSURE_TIME_SECONDS) {
+            const fps = this.properties[DE_PROPERTIES.FRAMES_PER_SECOND];
+            this.properties[DE_PROPERTIES.FRAME_COUNT] = Math.round(value * fps);
+        }
+
+        this.properties[propertyName] = value;
+        return true;
+    }
+
+    async GetErrorDescription(): Promise<string> {
+        return 'No error';
+    }
+}
+
 const microscopeAPI = new MicroscopeAPI();
 const DRAWER_WIDTH = 240;
 
@@ -104,7 +192,27 @@ export default function MicroscopyPageView() {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-    // Get state and actions from store
+    // Camera-related state
+    const [showCameraSettings, setShowCameraSettings] = useState(false);
+    const [cameraClient] = useState(() => new MockDE_SDKClient());
+    const [cameraError, setCameraError] = useState<string | null>(null);
+
+    // Initialize DE Camera hook
+    const {
+        isConnected: cameraConnected,
+        isLoading: cameraLoading,
+        error: cameraHookError,
+        availableProperties,
+        settings: cameraSettings,
+        systemStatus: cameraSystemStatus,
+        setProperty: setCameraProperty,
+        refreshProperties: refreshCameraProperties,
+        loadPresets,
+        setPreset: setCameraPreset,
+        debug: debugCamera,
+    } = useDeCamera(cameraClient);
+
+    // Get state and actions from microscope store
     const {
         isConnected,
         connectionStatus,
@@ -119,7 +227,7 @@ export default function MicroscopyPageView() {
         setShowSettings
     } = useMicroscopeStore();
 
-    // Track drawer state (you can move this to store if needed)
+    // Track drawer state
     const [isDrawerOpen, setIsDrawerOpen] = React.useState(() => {
         if (typeof window !== 'undefined') {
             const savedState = localStorage.getItem('drawerOpen');
@@ -160,6 +268,13 @@ export default function MicroscopyPageView() {
         };
     }, [setIsConnected, setConnectionStatus]);
 
+    // Handle camera errors
+    useEffect(() => {
+        if (cameraHookError) {
+            setCameraError(cameraHookError);
+        }
+    }, [cameraHookError]);
+
     const updateAllStatus = async () => {
         try {
             const [microscope, atlas] = await Promise.all([
@@ -179,6 +294,32 @@ export default function MicroscopyPageView() {
             microscopeAPI.connect();
         } else {
             microscopeAPI.disconnect();
+        }
+    };
+
+    // Handle camera property changes
+    const handleCameraPropertyChange = async (propertyName: string, value: any) => {
+        try {
+            await setCameraProperty(propertyName, value);
+            console.log(`Successfully set ${propertyName} to ${value}`);
+            setCameraError(null);
+        } catch (err) {
+            const errorMsg = `Failed to set ${propertyName}: ${err}`;
+            console.error(errorMsg);
+            setCameraError(errorMsg);
+        }
+    };
+
+    // Quick camera presets
+    const handleQuickPreset = async (presetName: string) => {
+        try {
+            await setCameraPreset(presetName);
+            console.log(`Applied preset: ${presetName}`);
+            setCameraError(null);
+        } catch (err) {
+            const errorMsg = `Failed to apply preset ${presetName}: ${err}`;
+            console.error(errorMsg);
+            setCameraError(errorMsg);
         }
     };
 
@@ -223,6 +364,15 @@ export default function MicroscopyPageView() {
                             {connectionStatus === 'connecting' ? 'Connecting...' : isConnected ? 'Disconnect' : 'Connect'}
                         </Button>
 
+                        <Button
+                            variant="outlined"
+                            onClick={() => setShowCameraSettings(true)}
+                            disabled={!cameraConnected || cameraLoading}
+                            startIcon={cameraLoading ? <CircularProgress size={16} /> : <CameraIcon />}
+                        >
+                            Camera
+                        </Button>
+
                         <IconButton onClick={() => setShowHistory(true)}>
                             <Badge badgeContent={acquisitionHistory.length} color="primary">
                                 <HistoryIcon />
@@ -231,6 +381,24 @@ export default function MicroscopyPageView() {
                     </Box>
                 </Box>
 
+                {/* Camera Status Alert */}
+                {cameraError && (
+                    <Alert severity="error" sx={{ mb: 2 }} onClose={() => setCameraError(null)}>
+                        <AlertTitle>Camera Error</AlertTitle>
+                        {cameraError}
+                    </Alert>
+                )}
+
+                {/* Camera Status Info */}
+                {cameraConnected && (
+                    <Alert severity="success" sx={{ mb: 2 }}>
+                        <AlertTitle>DE Camera Connected</AlertTitle>
+                        Mode: {cameraSettings[DE_PROPERTIES.IMAGE_PROCESSING_MODE] || 'Unknown'} •
+                        FPS: {cameraSettings[DE_PROPERTIES.FRAMES_PER_SECOND] || 'Unknown'} •
+                        Temperature: {cameraSystemStatus.temperature || 'Unknown'}°C
+                    </Alert>
+                )}
+
                 {/* Top Row - Status Cards and Quick Actions */}
                 <Grid container spacing={3} sx={{ mb: 3 }}>
                     {/* Status Cards - Left Side */}
@@ -238,14 +406,70 @@ export default function MicroscopyPageView() {
                         <StatusCards />
                     </Grid>
 
-                    {/* Quick Actions - Right Side */}
+                    {/* Quick Actions - Right Side with Camera Presets */}
                     <Grid item xs={12} lg={4}>
                         <QuickActions />
+
+                        {/* Camera Quick Controls */}
+                        {cameraConnected && (
+                            <Box sx={{ mt: 2, p: 2, border: 1, borderColor: 'divider', borderRadius: 1 }}>
+                                <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <CameraIcon size={16} />
+                                    Camera Quick Controls
+                                </Typography>
+
+                                <Grid container spacing={1} sx={{ mt: 1 }}>
+                                    <Grid item xs={6}>
+                                        <Button
+                                            size="small"
+                                            variant="outlined"
+                                            fullWidth
+                                            onClick={() => handleQuickPreset('High Speed')}
+                                            disabled={cameraLoading}
+                                        >
+                                            High Speed
+                                        </Button>
+                                    </Grid>
+                                    <Grid item xs={6}>
+                                        <Button
+                                            size="small"
+                                            variant="outlined"
+                                            fullWidth
+                                            onClick={() => handleQuickPreset('Counting Mode')}
+                                            disabled={cameraLoading}
+                                        >
+                                            Counting
+                                        </Button>
+                                    </Grid>
+                                    <Grid item xs={6}>
+                                        <Button
+                                            size="small"
+                                            variant="outlined"
+                                            fullWidth
+                                            onClick={() => handleCameraPropertyChange(DE_PROPERTIES.FRAMES_PER_SECOND, 100)}
+                                            disabled={cameraLoading}
+                                        >
+                                            100 FPS
+                                        </Button>
+                                    </Grid>
+                                    <Grid item xs={6}>
+                                        <Button
+                                            size="small"
+                                            variant="outlined"
+                                            fullWidth
+                                            onClick={() => debugCamera()}
+                                        >
+                                            Debug
+                                        </Button>
+                                    </Grid>
+                                </Grid>
+                            </Box>
+                        )}
                     </Grid>
                 </Grid>
 
                 {/* Main Content - Three Column Layout */}
-                <Grid container spacing={3} sx={{ height: 'calc(100vh - 280px)', minHeight: '600px' }}>
+                <Grid container spacing={3} sx={{ height: 'calc(100vh - 350px)', minHeight: '600px' }}>
                     {/* Grid Atlas */}
                     <Grid item xs={12} lg={4}>
                         <Box sx={{ height: '100%' }}>
@@ -268,6 +492,19 @@ export default function MicroscopyPageView() {
                     </Grid>
                 </Grid>
             </Box>
+
+            {/* Camera Settings Dialog */}
+            <CameraSettingsDialog
+                open={showCameraSettings}
+                onClose={() => setShowCameraSettings(false)}
+                cameraSettings={cameraSettings}
+                updateCameraSettings={() => {}} // Legacy - not used with DE-SDK
+                acquisitionSettings={cameraSettings}
+                updateAcquisitionSettings={() => {}} // Legacy - not used with DE-SDK
+                availableProperties={availableProperties}
+                systemStatus={cameraSystemStatus}
+                onPropertyChange={handleCameraPropertyChange}
+            />
 
             {/* History Drawer */}
             <Drawer
@@ -345,7 +582,7 @@ export default function MicroscopyPageView() {
                 </Box>
             </Drawer>
 
-            {/* Settings Dialog */}
+            {/* General Settings Dialog */}
             <Dialog
                 open={showSettings}
                 onClose={() => setShowSettings(false)}
@@ -354,9 +591,41 @@ export default function MicroscopyPageView() {
             >
                 <DialogTitle>Advanced Settings</DialogTitle>
                 <DialogContent>
-                    <Typography variant="body2" color="text.secondary">
-                        Advanced microscope and camera configuration options would go here.
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                        Advanced microscope and camera configuration options.
                     </Typography>
+
+                    {/* Camera Integration Section */}
+                    <Box sx={{ mt: 2 }}>
+                        <Typography variant="h6" gutterBottom>Camera Integration</Typography>
+                        <Grid container spacing={2}>
+                            <Grid item xs={6}>
+                                <Button
+                                    variant="outlined"
+                                    fullWidth
+                                    onClick={refreshCameraProperties}
+                                    disabled={cameraLoading}
+                                >
+                                    Refresh Camera Properties
+                                </Button>
+                            </Grid>
+                            <Grid item xs={6}>
+                                <Button
+                                    variant="outlined"
+                                    fullWidth
+                                    onClick={() => setShowCameraSettings(true)}
+                                    disabled={!cameraConnected}
+                                >
+                                    Open Camera Settings
+                                </Button>
+                            </Grid>
+                        </Grid>
+
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                            Camera Status: {cameraConnected ? 'Connected' : 'Disconnected'} •
+                            Properties: {availableProperties.length} available
+                        </Typography>
+                    </Box>
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setShowSettings(false)}>Cancel</Button>
@@ -369,6 +638,15 @@ export default function MicroscopyPageView() {
                 open={connectionStatus === 'connecting'}
                 message="Connecting to microscope..."
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+            />
+
+            {/* Camera Error Snackbar */}
+            <Snackbar
+                open={!!cameraError}
+                message={`Camera Error: ${cameraError}`}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+                autoHideDuration={6000}
+                onClose={() => setCameraError(null)}
             />
         </Box>
     );
