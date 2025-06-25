@@ -25,15 +25,14 @@ import {
     useTheme,
     Alert,
     Stack,
-    Tooltip
+    Tooltip, Chip
 } from '@mui/material';
 import {
     Settings as SettingsIcon,
     Camera as CameraIcon,
     Science as ScienceIcon,
     Save as SaveIcon,
-    CheckCircle as CheckCircleIcon,
-    Target as TargetIcon
+    Add,
 } from '@mui/icons-material';
 import {
     Move,
@@ -43,7 +42,7 @@ import {
     Target,
     Activity,
     Zap,
-    Microscope
+    Microscope, CheckCircleIcon, Grid3X3, Square, Circle, Eye
 } from 'lucide-react';
 
 // Import the separated dialog components
@@ -53,7 +52,6 @@ import { MicroscopeSettingsDialog } from './MicroscopeSettingsDialog';
 // Import store hook (this should be from your actual store file)
 import { useMicroscopeStore } from './MicroscopeStore';
 
-// Mock API for image acquisition
 const microscopeAPI = {
     async acquireImage(settings: any) {
         return new Promise((resolve) => {
@@ -139,6 +137,7 @@ export const ControlPanel = () => {
     // Local state for settings dialogs
     const [showCameraSettings, setShowCameraSettings] = useState(false);
     const [showMicroscopeSettings, setShowMicroscopeSettings] = useState(false);
+    const [showPresetEditor, setShowPresetEditor] = useState(false);
 
     // Mock camera and microscope settings (these would normally come from store)
     const [cameraSettings, setCameraSettings] = useState({
@@ -160,6 +159,166 @@ export const ControlPanel = () => {
         stageSpeed: 75
     });
 
+    const [allPresets, setAllPresets] = useState([
+        // Grid presets
+        {
+            id: 1,
+            name: 'Grid Overview',
+            category: 'Grid',
+            type: 'Grid',
+            description: 'Low magnification grid screening',
+            mag: 2000,
+            defocus: -10.0,
+            spot: 8,
+            exposure: 500,
+            binning: 4,
+            settings: {
+                optical: { magnification: 2000, defocus: -10.0, spotSize: 8, intensity: 1e-6 },
+                acquisition: { exposure: 500, binning: 4, mode: 'Integrating', electronCounting: false, saveFrames: false },
+                camera: { frameTime: 15000000, processingMode: 'Integrating', flatfieldCorrection: 'Dark', binningMethod: 'Average' }
+            }
+        },
+        {
+            id: 2,
+            name: 'Grid Atlas',
+            category: 'Grid',
+            type: 'Grid',
+            description: 'Medium magnification grid mapping',
+            mag: 5000,
+            defocus: -8.0,
+            spot: 7,
+            exposure: 800,
+            binning: 2,
+            settings: {
+                optical: { magnification: 5000, defocus: -8.0, spotSize: 7, intensity: 8e-7 },
+                acquisition: { exposure: 800, binning: 2, mode: 'Integrating', electronCounting: false, saveFrames: false },
+                camera: { frameTime: 20000000, processingMode: 'Integrating', flatfieldCorrection: 'Dark and Gain', binningMethod: 'Average' }
+            }
+        },
+        // Square presets
+        {
+            id: 3,
+            name: 'Square Screening',
+            category: 'Square',
+            type: 'Square',
+            description: 'Square navigation and screening',
+            mag: 10000,
+            defocus: -5.0,
+            spot: 6,
+            exposure: 1000,
+            binning: 2,
+            settings: {
+                optical: { magnification: 10000, defocus: -5.0, spotSize: 6, intensity: 6e-7 },
+                acquisition: { exposure: 1000, binning: 2, mode: 'Integrating', electronCounting: false, saveFrames: false },
+                camera: { frameTime: 25000000, processingMode: 'Integrating', flatfieldCorrection: 'Dark and Gain', binningMethod: 'Average' }
+            }
+        },
+        {
+            id: 4,
+            name: 'Square Atlas',
+            category: 'Square',
+            type: 'Square',
+            description: 'High-resolution square mapping',
+            mag: 25000,
+            defocus: -3.0,
+            spot: 5,
+            exposure: 1200,
+            binning: 1,
+            settings: {
+                optical: { magnification: 25000, defocus: -3.0, spotSize: 5, intensity: 4e-7 },
+                acquisition: { exposure: 1200, binning: 1, mode: 'Integrating', electronCounting: false, saveFrames: true },
+                camera: { frameTime: 30000000, processingMode: 'Integrating', flatfieldCorrection: 'Dark and Gain', binningMethod: 'Average' }
+            }
+        },
+        // Hole presets
+        {
+            id: 5,
+            name: 'Hole Targeting',
+            category: 'Hole',
+            type: 'Hole',
+            description: 'Target selection in holes',
+            mag: 50000,
+            defocus: -2.5,
+            spot: 5,
+            exposure: 1500,
+            binning: 1,
+            settings: {
+                optical: { magnification: 50000, defocus: -2.5, spotSize: 5, intensity: 3e-7 },
+                acquisition: { exposure: 1500, binning: 1, mode: 'Integrating', electronCounting: false, saveFrames: true },
+                camera: { frameTime: 35000000, processingMode: 'Integrating', flatfieldCorrection: 'Dark and Gain', binningMethod: 'Average' }
+            }
+        },
+        // Focus presets
+        {
+            id: 6,
+            name: 'Focus Check',
+            category: 'Focus',
+            type: 'Focus',
+            description: 'Quick focus verification',
+            mag: 81000,
+            defocus: -1.5,
+            spot: 4,
+            exposure: 800,
+            binning: 1,
+            settings: {
+                optical: { magnification: 81000, defocus: -1.5, spotSize: 4, intensity: 2e-7 },
+                acquisition: { exposure: 800, binning: 1, mode: 'Integrating', electronCounting: false, saveFrames: false },
+                camera: { frameTime: 25000000, processingMode: 'Integrating', flatfieldCorrection: 'Dark and Gain', binningMethod: 'Average' }
+            }
+        },
+        {
+            id: 7,
+            name: 'Focus Fine',
+            category: 'Focus',
+            type: 'Focus',
+            description: 'High-precision focus adjustment',
+            mag: 105000,
+            defocus: -1.0,
+            spot: 3,
+            exposure: 500,
+            binning: 1,
+            settings: {
+                optical: { magnification: 105000, defocus: -1.0, spotSize: 3, intensity: 1e-7 },
+                acquisition: { exposure: 500, binning: 1, mode: 'Integrating', electronCounting: false, saveFrames: false },
+                camera: { frameTime: 20000000, processingMode: 'Integrating', flatfieldCorrection: 'Dark and Gain', binningMethod: 'Average' }
+            }
+        },
+        // Exposure presets
+        {
+            id: 8,
+            name: 'Test Exposure',
+            category: 'Exposure',
+            type: 'Exposure',
+            description: 'Quick exposure test',
+            mag: 81000,
+            defocus: -2.0,
+            spot: 5,
+            exposure: 200,
+            binning: 2,
+            settings: {
+                optical: { magnification: 81000, defocus: -2.0, spotSize: 5, intensity: 5e-7 },
+                acquisition: { exposure: 200, binning: 2, mode: 'Integrating', electronCounting: false, saveFrames: false },
+                camera: { frameTime: 15000000, processingMode: 'Integrating', flatfieldCorrection: 'Dark', binningMethod: 'Average' }
+            }
+        },
+        {
+            id: 9,
+            name: 'Data Collection',
+            category: 'Exposure',
+            type: 'Exposure',
+            description: 'High-quality data acquisition',
+            mag: 81000,
+            defocus: -2.0,
+            spot: 5,
+            exposure: 2000,
+            binning: 1,
+            settings: {
+                optical: { magnification: 81000, defocus: -2.0, spotSize: 5, intensity: 2e-7 },
+                acquisition: { exposure: 2000, binning: 1, mode: 'Counting', electronCounting: true, saveFrames: true },
+                camera: { frameTime: 40000000, processingMode: 'Counting', flatfieldCorrection: 'Dark and Gain', binningMethod: 'Average' }
+            }
+        }
+    ]);
     const updateCameraSettings = (updates: any) => {
         setCameraSettings(prev => ({ ...prev, ...updates }));
     };
@@ -206,7 +365,60 @@ export const ControlPanel = () => {
             setIsAcquiring(false);
         }
     };
+    const handleApplyPreset = (preset: any) => {
+        // Apply optical settings
+        updateOpticalSettings({
+            magnification: preset.settings.optical.magnification,
+            defocus: preset.settings.optical.defocus,
+            spotSize: preset.settings.optical.spotSize,
+            intensity: preset.settings.optical.intensity
+        });
 
+        // Apply acquisition settings
+        updateAcquisitionSettings({
+            exposure: preset.settings.acquisition.exposure,
+            binning: preset.settings.acquisition.binning,
+            mode: preset.settings.acquisition.mode,
+            electronCounting: preset.settings.acquisition.electronCounting,
+            saveFrames: preset.settings.acquisition.saveFrames
+        });
+
+        // Apply camera settings
+        updateCameraSettings({
+            frameTime: preset.settings.camera.frameTime,
+            processingMode: preset.settings.camera.processingMode,
+            flatfieldCorrection: preset.settings.camera.flatfieldCorrection,
+            binningMethod: preset.settings.camera.binningMethod
+        });
+
+        console.log(`Applied preset: ${preset.name}`);
+    };
+
+    const handleSavePreset = (newPreset: any) => {
+        setAllPresets(prev => [...prev, newPreset]);
+    };
+
+    const getPresetIcon = (type: string) => {
+        switch (type) {
+            case 'Grid': return <Grid3X3 size={18} />;
+            case 'Square': return <Square size={18} />;
+            case 'Hole': return <Circle size={18} />;
+            case 'Focus': return <Focus size={18} />;
+            case 'Exposure': return <Eye size={18} />;
+            default: return <SaveIcon />;
+        }
+    };
+
+    const getPresetColor = (type: string) => {
+        switch (type) {
+            case 'Grid': return 'primary';
+            case 'Square': return 'secondary';
+            case 'Hole': return 'success';
+            case 'Focus': return 'warning';
+            case 'Exposure': return 'info';
+            default: return 'default';
+        }
+    };
     return (
         <>
             <Card sx={{ height: '100%' }}>
@@ -358,20 +570,6 @@ export const ControlPanel = () => {
                                         ))}
                                     </Box>
 
-                                    {/* Quick Actions */}
-                                    <Box mt={3}>
-                                        <Typography variant="subtitle2" gutterBottom color="text.secondary">
-                                            Quick Actions
-                                        </Typography>
-                                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                                            <Button size="small" variant="outlined" startIcon={<Target size={16} />}>
-                                                Eucentric
-                                            </Button>
-                                            <Button size="small" variant="outlined" startIcon={<Activity size={16} />}>
-                                                Reset
-                                            </Button>
-                                        </Stack>
-                                    </Box>
                                 </Paper>
                             </Grid>
 
@@ -692,44 +890,122 @@ export const ControlPanel = () => {
 
                     {/* Presets Tab */}
                     {activeTab === 2 && (
-                        <Grid container spacing={2}>
-                            {presets.map(preset => (
-                                <Grid item xs={12} sm={6} md={4} key={preset.id}>
-                                    <Paper
-                                        elevation={2}
-                                        sx={{
-                                            p: 2.5,
-                                            cursor: 'pointer',
-                                            borderRadius: 2,
-                                            transition: 'all 0.3s ease',
-                                            background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)} 0%, ${alpha(theme.palette.primary.main, 0.1)} 100%)`,
-                                            border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
-                                            '&:hover': {
-                                                transform: 'translateY(-4px)',
-                                                boxShadow: 6,
-                                                backgroundColor: alpha(theme.palette.primary.main, 0.15)
-                                            }
-                                        }}
-                                        onClick={() => applyPreset(preset)}
-                                    >
-                                        <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 600, color: 'primary.main' }}>
-                                            {preset.name}
+                        <Box>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                                <Typography variant="h6" fontWeight="600">
+                                    Preset Library
+                                </Typography>
+                                <Button
+                                    variant="contained"
+                                    startIcon={<Add />}
+                                    onClick={() => setShowPresetEditor(true)}
+                                    sx={{ borderRadius: 2 }}
+                                >
+                                    Create Preset
+                                </Button>
+                            </Box>
+
+                            {/* Preset Categories */}
+                            {['Grid', 'Square', 'Hole', 'Focus', 'Exposure'].map(category => {
+                                const categoryPresets = allPresets.filter(preset => preset.type === category);
+                                if (categoryPresets.length === 0) return null;
+
+                                return (
+                                    <Box key={category} sx={{ mb: 4 }}>
+                                        <Typography
+                                            variant="subtitle1"
+                                            fontWeight="600"
+                                            sx={{
+                                                mb: 2,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 1,
+                                                color: `${getPresetColor(category)}.main`
+                                            }}
+                                        >
+                                            {getPresetIcon(category)}
+                                            {category} Presets
                                         </Typography>
-                                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                                            <Typography variant="body2" color="text.secondary">
-                                                📏 Magnification: {preset.mag.toLocaleString()}x
-                                            </Typography>
-                                            <Typography variant="body2" color="text.secondary">
-                                                🎯 Defocus: {preset.defocus} μm
-                                            </Typography>
-                                            <Typography variant="body2" color="text.secondary">
-                                                ⚡ Spot Size: {preset.spot}
-                                            </Typography>
-                                        </Box>
-                                    </Paper>
-                                </Grid>
-                            ))}
-                        </Grid>
+
+                                        <Grid container spacing={2}>
+                                            {categoryPresets.map(preset => (
+                                                <Grid item xs={12} sm={6} md={4} key={preset.id}>
+                                                    <Paper
+                                                        elevation={2}
+                                                        sx={{
+                                                            p: 2.5,
+                                                            borderRadius: 2,
+                                                            transition: 'all 0.3s ease',
+                                                            background: `linear-gradient(135deg, ${alpha(theme.palette[getPresetColor(category)].main, 0.05)} 0%, ${alpha(theme.palette[getPresetColor(category)].main, 0.1)} 100%)`,
+                                                            border: `1px solid ${alpha(theme.palette[getPresetColor(category)].main, 0.2)}`,
+                                                            '&:hover': {
+                                                                transform: 'translateY(-2px)',
+                                                                boxShadow: 6,
+                                                                backgroundColor: alpha(theme.palette[getPresetColor(category)].main, 0.15)
+                                                            }
+                                                        }}
+                                                    >
+                                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
+                                                            <Typography variant="h6" sx={{ fontWeight: 600, color: `${getPresetColor(category)}.main` }}>
+                                                                {preset.name}
+                                                            </Typography>
+                                                            <Chip
+                                                                label={preset.type}
+                                                                size="small"
+                                                                color={getPresetColor(category)}
+                                                                variant="outlined"
+                                                                icon={getPresetIcon(category)}
+                                                            />
+                                                        </Box>
+
+                                                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2, minHeight: 40 }}>
+                                                            {preset.description}
+                                                        </Typography>
+
+                                                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 2 }}>
+                                                            <Typography variant="body2" color="text.secondary">
+                                                                📏 Magnification: {preset.mag.toLocaleString()}x
+                                                            </Typography>
+                                                            <Typography variant="body2" color="text.secondary">
+                                                                🎯 Defocus: {preset.defocus} μm
+                                                            </Typography>
+                                                            <Typography variant="body2" color="text.secondary">
+                                                                ⚡ Spot Size: {preset.spot}
+                                                            </Typography>
+                                                            <Typography variant="body2" color="text.secondary">
+                                                                📸 Exposure: {preset.exposure}ms
+                                                            </Typography>
+                                                            <Typography variant="body2" color="text.secondary">
+                                                                🔢 Binning: {preset.binning}x{preset.binning}
+                                                            </Typography>
+                                                        </Box>
+
+                                                        <Button
+                                                            variant="contained"
+                                                            color={getPresetColor(category)}
+                                                            fullWidth
+                                                            onClick={() => handleApplyPreset(preset)}
+                                                            disabled={!isConnected}
+                                                            startIcon={<CheckCircleIcon />}
+                                                            sx={{
+                                                                fontWeight: 600,
+                                                                py: 1,
+                                                                borderRadius: 1.5,
+                                                                '&:hover': {
+                                                                    transform: 'translateY(-1px)'
+                                                                }
+                                                            }}
+                                                        >
+                                                            Apply
+                                                        </Button>
+                                                    </Paper>
+                                                </Grid>
+                                            ))}
+                                        </Grid>
+                                    </Box>
+                                );
+                            })}
+                        </Box>
                     )}
 
                     {/* Automation Tab */}

@@ -410,61 +410,7 @@ export default function MicroscopyPageView() {
                     <Grid item xs={12} lg={4}>
                         <QuickActions />
 
-                        {/* Camera Quick Controls */}
-                        {cameraConnected && (
-                            <Box sx={{ mt: 2, p: 2, border: 1, borderColor: 'divider', borderRadius: 1 }}>
-                                <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <CameraIcon size={16} />
-                                    Camera Quick Controls
-                                </Typography>
 
-                                <Grid container spacing={1} sx={{ mt: 1 }}>
-                                    <Grid item xs={6}>
-                                        <Button
-                                            size="small"
-                                            variant="outlined"
-                                            fullWidth
-                                            onClick={() => handleQuickPreset('High Speed')}
-                                            disabled={cameraLoading}
-                                        >
-                                            High Speed
-                                        </Button>
-                                    </Grid>
-                                    <Grid item xs={6}>
-                                        <Button
-                                            size="small"
-                                            variant="outlined"
-                                            fullWidth
-                                            onClick={() => handleQuickPreset('Counting Mode')}
-                                            disabled={cameraLoading}
-                                        >
-                                            Counting
-                                        </Button>
-                                    </Grid>
-                                    <Grid item xs={6}>
-                                        <Button
-                                            size="small"
-                                            variant="outlined"
-                                            fullWidth
-                                            onClick={() => handleCameraPropertyChange(DE_PROPERTIES.FRAMES_PER_SECOND, 100)}
-                                            disabled={cameraLoading}
-                                        >
-                                            100 FPS
-                                        </Button>
-                                    </Grid>
-                                    <Grid item xs={6}>
-                                        <Button
-                                            size="small"
-                                            variant="outlined"
-                                            fullWidth
-                                            onClick={() => debugCamera()}
-                                        >
-                                            Debug
-                                        </Button>
-                                    </Grid>
-                                </Grid>
-                            </Box>
-                        )}
                     </Grid>
                 </Grid>
 
