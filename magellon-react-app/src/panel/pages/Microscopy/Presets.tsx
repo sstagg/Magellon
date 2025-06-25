@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { useMicroscopeStore } from './microscopeStore';
 
-interface QuickActionCardProps {
+interface PresetCardProps {
     title: string;
     icon: React.ReactNode;
     color: string;
@@ -26,7 +26,7 @@ interface QuickActionCardProps {
     disabled?: boolean;
 }
 
-const QuickActionCard: React.FC<QuickActionCardProps> = ({
+const PresetCard: React.FC<PresetCardProps> = ({
                                                              title,
                                                              icon,
                                                              color,
@@ -72,57 +72,51 @@ const QuickActionCard: React.FC<QuickActionCardProps> = ({
     );
 };
 
-export const QuickActions: React.FC = () => {
+export const Presets: React.FC = () => {
     const { isConnected } = useMicroscopeStore();
 
     const quickActions = [
         {
-            title: 'Eucentric Height',
+            title: 'Grid',
             icon: <TargetIcon />,
             color: '#2196f3',
             action: () => console.log('Eucentric height')
         },
         {
-            title: 'Auto Focus',
+            title: 'Square',
             icon: <Focus size={20} />,
             color: '#4caf50',
             action: () => console.log('Auto focus')
         },
         {
-            title: 'Auto Stigmate',
+            title: 'Hole',
             icon: <ScanLine size={20} />,
             color: '#ff9800',
             action: () => console.log('Auto stigmate')
         },
         {
-            title: 'Drift Measure',
+            title: 'Focus',
             icon: <Activity size={20} />,
             color: '#9c27b0',
             action: () => console.log('Drift measure')
         },
         {
-            title: 'Acquire Atlas',
+            title: 'Exposure',
             icon: <GridIcon />,
             color: '#f44336',
             action: () => console.log('Acquire atlas')
-        },
-        {
-            title: 'Reset Stage',
-            icon: <MapPin size={20} />,
-            color: '#607d8b',
-            action: () => console.log('Reset stage')
         }
     ];
 
     return (
         <Paper elevation={1} sx={{ p: 2, borderRadius: 2, height: '100%' }}>
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-                Quick Actions
+                Presets
             </Typography>
             <Grid container spacing={1}>
                 {quickActions.map((action, index) => (
                     <Grid item xs={6} key={index}>
-                        <QuickActionCard
+                        <PresetCard
                             title={action.title}
                             icon={action.icon}
                             color={action.color}

@@ -31,7 +31,7 @@ import { Zap, Monitor } from 'lucide-react';
 
 // Import components
 import { StatusCards } from './Microscopy/StatusCard';
-import { QuickActions } from './Microscopy/QuickActions';
+import { Presets } from './Microscopy/Presets.tsx';
 import { GridAtlas } from './Microscopy/GridAtlas';
 import { LiveView } from './Microscopy/LiveView';
 import { ControlPanel } from './Microscopy/ControlPanel';
@@ -408,7 +408,7 @@ export default function MicroscopyPageView() {
 
                     {/* Quick Actions - Right Side with Camera Presets */}
                     <Grid item xs={12} lg={4}>
-                        <QuickActions />
+                        <Presets />
 
 
                     </Grid>
