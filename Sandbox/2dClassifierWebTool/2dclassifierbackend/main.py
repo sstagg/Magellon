@@ -21,12 +21,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-UPLOAD_DIRECTORY = os.path.join(os.getcwd(), os.getenv('UPLOAD_DIR', 'uploads'))
+UPLOAD_DIRECTORY = os.getenv('UPLOAD_DIR', '/app/uploads')
 os.makedirs(UPLOAD_DIRECTORY, exist_ok=True)
 app.mount("/images", StaticFiles(directory=UPLOAD_DIRECTORY), name="images")
 
 # Make evaluator scripts executable
-evaluator_directory = os.path.join(os.getcwd(), "2dclass_evaluator", "CNNTraining")
+evaluator_directory = os.path.join(os.getenv( "EVALUATOR_DIR","/app/2dclass_evaluator"), "CNNTraining")
 script_paths = [
     os.path.join(evaluator_directory, "relion_2DavgAssess.py"),
     os.path.join(evaluator_directory, "cryosparc_2DavgAssess.py")
@@ -38,7 +38,7 @@ for script_path in script_paths:
     except Exception as e:
         raise RuntimeError(f"Failed to set executable permissions for {script_path}: {str(e)}")
 
-@app.post("/upload")
+@app.post("/api/upload")
 async def upload_files(
     uuid: str = Form(...),
     selectedValue: SelectedValue = Form(...),
@@ -80,11 +80,11 @@ async def upload_files(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
-
+        print("Subprocess stdout:", process.stdout)  # Print standard output
+        print("Subprocess stderr:", process.stderr)  # Print error output
         if process.returncode != 0:
             print("Subprocess error:", process.stderr.strip())
-            raise HTTPException(status_code=500, detail="Processing script execution failed.")
-
+            raise HTTPException(status_code=500, detail="Processing script execution failed.") 
         outputImageDir = os.path.join(output_path, "images")
         os.makedirs(outputImageDir, exist_ok=True)
 
@@ -93,7 +93,6 @@ async def upload_files(
             classifiedOutputValues = await getClassifiedOutputValues(folder_name, selectedValue)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error during output classification: {str(e)}")
-
         if len(imageFilepaths) != len(classifiedOutputValues):
             raise HTTPException(status_code=500, detail="Classification value extraction mismatch.")
 
@@ -112,7 +111,7 @@ async def upload_files(
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
 
 
-@app.post("/update")
+@app.post("/api/update")
 async def receive_payload(payload: Payload):
     try:
         uuid_lib.UUID(payload.uuid)
@@ -143,6 +142,9 @@ async def receive_payload(payload: Payload):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to process payload: {str(e)}")
 
+@app.get("/api/health")
+def health_check():
+    return {"status": "ok"}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

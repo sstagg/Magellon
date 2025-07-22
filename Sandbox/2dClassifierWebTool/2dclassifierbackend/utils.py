@@ -9,8 +9,8 @@ from typing import List, Optional
 
 # Set up directories
 current_directory = os.getcwd()
-Project2DDirectory = os.path.join(current_directory, '2dclass_evaluator')
-UploadsDirectory = os.path.join(current_directory, os.getenv('UPLOAD_DIR', 'uploads'))
+Project2DDirectory = os.getenv( "EVALUATOR_DIR","/app/2dclass_evaluator")
+UploadsDirectory = os.getenv('UPLOADS_DIR', '/app/uploads')
 
 
 class SelectedValue(str, Enum):

@@ -13,12 +13,12 @@ from utils import SelectedValue, getrelionfiles
 from scriptUtils import categories, extractCommand, log_error, ensure_directory_exists
 
 project_path = os.path.dirname(__file__)
-cnntraining_path = os.path.join(project_path, '2dclass_evaluator', 'CNNTraining')
+cnntraining_path = os.path.join(os.getenv( "EVALUATOR_DIR","/app/2dclass_evaluator"), "CNNTraining")
 sys.path.append(cnntraining_path)
 
 from dataset import JPGPreprocessor, MRCPreprocessor
 
-UPLOAD_DIRECTORY = os.path.join(os.getcwd(), os.getenv('UPLOAD_DIR', 'uploads'))
+UPLOAD_DIRECTORY =  os.getenv('UPLOAD_DIR', '/app/uploads')
 HDF5_FOLDER_PATH = os.path.join(UPLOAD_DIRECTORY, 'hdf5files')
 
 

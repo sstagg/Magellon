@@ -56,7 +56,7 @@ const ImageGallery = ({ items, uuid,updateSelectedValue }) => {
       }))
     };
     try {
-      const response = await axios.post(`${BackendURL}/update`, payload, {
+      const response = await axios.post(`${BackendURL}/api/update`, payload, {
         headers: { 'Content-Type': 'application/json' },
       });
       setNotification({
