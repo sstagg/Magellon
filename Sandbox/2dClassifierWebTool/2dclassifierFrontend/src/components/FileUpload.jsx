@@ -76,8 +76,8 @@ const FileUpload = () => {
         image: path,
         value: response.data.extractedValues[index],
       }));
-      const sortedData = [...combinedData].sort((a, b) => a.value - b.value); 
-      setData(sortedData);
+      // const sortedData = [...combinedData].sort((a, b) => a.value - b.value); 
+      setData(combinedData);
       setNotification({
         open: true,
         message: 'Files uploaded and processed successfully!',

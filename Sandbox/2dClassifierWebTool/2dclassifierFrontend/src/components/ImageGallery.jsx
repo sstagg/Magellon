@@ -7,11 +7,14 @@ import Notification from './Notification';
 import axios from 'axios';
 import { LabelAssign } from './LabelAssign';
 
-const ImageGallery = ({ items, uuid,updateSelectedValue }) => {
+const ImageGallery = ({ items, uuid, updateSelectedValue }) => {
   const BackendURL = process.env.REACT_APP_BACKEND_URL;
   const [isEditing, setIsEditing] = useState(false);
   const [selectedValues, setSelectedValues] = useState(Array(items.length).fill(null));
   const [tempValues, setTempValues] = useState(Array(items.length).fill(null));
+  const [updatedValues, setUpdatedValues] = useState([...items]);
+  const [displayedItems, setDisplayedItems] = useState([...items]);
+  const [isSorted, setIsSorted] = useState(false);
   const [notification, setNotification] = useState({
     open: false,
     message: '',
@@ -26,8 +29,21 @@ const ImageGallery = ({ items, uuid,updateSelectedValue }) => {
 
   const handleValueSelect = (index, value) => {
     const newValues = [...tempValues];
+    const newItems = [...updatedValues];
+
     newValues[index] = newValues[index] === value ? null : value;
+
+    const updatedItem = { ...newItems[index] };
+    if (newValues[index] === null) {
+      delete updatedItem.updatedvalue;
+    } else {
+      updatedItem.updatedvalue = newValues[index];
+    }
+
+    newItems[index] = updatedItem;
+
     setTempValues(newValues);
+    setUpdatedValues(newItems);
   };
 
   const handleSave = () => {
@@ -43,20 +59,22 @@ const ImageGallery = ({ items, uuid,updateSelectedValue }) => {
   const handleRestoreClick = () => {
     setSelectedValues(Array(items.length).fill(null));
     setTempValues(Array(items.length).fill(null));
+    setUpdatedValues([...items]);
   };
 
   const handleSendUpdate = async () => {
     const payload = {
       uuid,
-      selectedValue:updateSelectedValue,
+      selectedValue: updateSelectedValue,
       items: items.map((item, index) => ({
         updated: tempValues[index] !== null,
         oldValue: item.value,
         newValue: tempValues[index],
-      }))
+      })),
     };
+
     try {
-      const response = await axios.post(`${BackendURL}/api/update`, payload, {
+      await axios.post(`${BackendURL}/api/update`, payload, {
         headers: { 'Content-Type': 'application/json' },
       });
       setNotification({
@@ -74,12 +92,40 @@ const ImageGallery = ({ items, uuid,updateSelectedValue }) => {
     }
   };
 
+  const handleSortToggle = () => {
+    if (!isSorted) {
+      const sorted = [...displayedItems].sort((a, b) => {
+        const valA = a.value || '';
+        const valB = b.value || '';
+        return valA.localeCompare(valB);
+      });
+      setDisplayedItems(sorted);
+    } else {
+      setDisplayedItems([...items]);
+    }
+    setIsSorted(!isSorted);
+  };
+
   const handleCloseNotification = () => {
     setNotification({ ...notification, open: false });
   };
 
+  const getDownloadData = () => {
+    return items.map((originalItem) => {
+      const match = updatedValues.find((u) => u.image === originalItem.image); // adjust key as needed
+      return {
+        ...originalItem,
+        ...(match?.updatedvalue !== undefined && { updatedvalue: match.updatedvalue }),
+      };
+    });
+  };
+
   useEffect(() => {
-    setHasChanges(selectedValues.some(val => val !== null));
+    setDisplayedItems([...items]);
+  }, [items]);
+
+  useEffect(() => {
+    setHasChanges(selectedValues.some((val) => val !== null));
   }, [tempValues, selectedValues]);
 
   return (
@@ -96,19 +142,22 @@ const ImageGallery = ({ items, uuid,updateSelectedValue }) => {
         backgroundColor: '#f9f9f9',
       }}
     >
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-
-      <LabelAssign />
-      <EditControls 
-        isEditing={isEditing}
-        onEdit={handleEditClick}
-        onRestore={handleRestoreClick}
-        onSend={handleSendUpdate}
-        hasChanges={hasChanges}
-        onSave={handleSave}
-        onCancel={handleCancel}
-      />
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <LabelAssign />
+        <EditControls
+          isEditing={isEditing}
+          onEdit={handleEditClick}
+          onRestore={handleRestoreClick}
+          onSend={handleSendUpdate}
+          hasChanges={hasChanges}
+          onSave={handleSave}
+          onCancel={handleCancel}
+          data={getDownloadData()}
+          onSortToggle={handleSortToggle}
+          isSorted={isSorted}
+        />
       </Box>
+
       <Box
         sx={{
           display: 'grid',
@@ -116,8 +165,8 @@ const ImageGallery = ({ items, uuid,updateSelectedValue }) => {
           gap: 2,
         }}
       >
-        {items.map((item, index) => (
-          <ImageItem 
+        {displayedItems.map((item, index) => (
+          <ImageItem
             key={index}
             item={item}
             index={index}
@@ -128,10 +177,8 @@ const ImageGallery = ({ items, uuid,updateSelectedValue }) => {
           />
         ))}
       </Box>
-      <Notification 
-        notification={notification} 
-        onClose={handleCloseNotification} 
-      />
+
+      <Notification notification={notification} onClose={handleCloseNotification} />
     </Box>
   );
 };
