@@ -1,4 +1,3 @@
-// ImageGallery.jsx
 import React, { useState, useEffect } from 'react';
 import { Box } from '@mui/material';
 import ImageItem from './ImageItem';
@@ -9,95 +8,67 @@ import { LabelAssign } from './LabelAssign';
 
 const ImageGallery = ({ items, uuid, updateSelectedValue }) => {
   const BackendURL = process.env.REACT_APP_BACKEND_URL;
+  const [savedUpdates, setSavedUpdates] = useState(items.map(() => null));
+  const [tempUpdates, setTempUpdates] = useState(items.map(() => null));
+
   const [isEditing, setIsEditing] = useState(false);
-  const [selectedValues, setSelectedValues] = useState(Array(items.length).fill(null));
-  const [tempValues, setTempValues] = useState(Array(items.length).fill(null));
-  const [updatedValues, setUpdatedValues] = useState([...items]);
   const [displayedItems, setDisplayedItems] = useState([...items]);
   const [isSorted, setIsSorted] = useState(false);
-  const [notification, setNotification] = useState({
-    open: false,
-    message: '',
-    severity: 'success',
-  });
-  const [hasChanges, setHasChanges] = useState(false);
+
+  const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
+  useEffect(() => {
+    setSavedUpdates(items.map(() => null));
+    setTempUpdates(items.map(() => null));
+    setDisplayedItems([...items]);
+    setIsSorted(false);
+    setIsEditing(false);
+  }, [items]);
 
   const handleEditClick = () => {
-    setTempValues([...selectedValues]);
+    setTempUpdates([...savedUpdates]);
     setIsEditing(true);
   };
-
-  const handleValueSelect = (index, value) => {
-    const newValues = [...tempValues];
-    const newItems = [...updatedValues];
-
-    newValues[index] = newValues[index] === value ? null : value;
-
-    const updatedItem = { ...newItems[index] };
-    if (newValues[index] === null) {
-      delete updatedItem.updatedvalue;
-    } else {
-      updatedItem.updatedvalue = newValues[index];
-    }
-
-    newItems[index] = updatedItem;
-
-    setTempValues(newValues);
-    setUpdatedValues(newItems);
+  const handleValueEdit = (index, newValue) => {
+    setTempUpdates((prev) => {
+      const originalValue = items[index].value;
+      const toStore = newValue === null || newValue === '' || newValue === originalValue ? null : newValue;
+      return prev.map((val, i) => (i === index ? toStore : val));
+    });
   };
 
   const handleSave = () => {
-    setSelectedValues([...tempValues]);
+    setSavedUpdates([...tempUpdates]);
     setIsEditing(false);
   };
 
   const handleCancel = () => {
-    setTempValues([...selectedValues]);
+    setTempUpdates([...savedUpdates]);
     setIsEditing(false);
   };
 
   const handleRestoreClick = () => {
-    setSelectedValues(Array(items.length).fill(null));
-    setTempValues(Array(items.length).fill(null));
-    setUpdatedValues([...items]);
-  };
-
-  const handleSendUpdate = async () => {
-    const payload = {
-      uuid,
-      selectedValue: updateSelectedValue,
-      items: items.map((item, index) => ({
-        updated: tempValues[index] !== null,
-        oldValue: item.value,
-        newValue: tempValues[index],
-      })),
-    };
-
-    try {
-      await axios.post(`${BackendURL}/api/update`, payload, {
-        headers: { 'Content-Type': 'application/json' },
-      });
-      setNotification({
-        open: true,
-        message: 'Values updated successfully!',
-        severity: 'success',
-      });
-    } catch (error) {
-      console.error('Error updating values:', error);
-      setNotification({
-        open: true,
-        message: 'Failed to update values',
-        severity: 'error',
-      });
-    }
+    const reset = items.map(() => null);
+    setSavedUpdates(reset);
+    setTempUpdates(reset);
+    setIsEditing(false);
   };
 
   const handleSortToggle = () => {
     if (!isSorted) {
       const sorted = [...displayedItems].sort((a, b) => {
-        const valA = a.value || '';
-        const valB = b.value || '';
-        return valA.localeCompare(valB);
+        const idxA = items.indexOf(a);
+        const idxB = items.indexOf(b);
+
+        const valA = savedUpdates[idxA] ?? a.value ?? '';
+        const valB = savedUpdates[idxB] ?? b.value ?? '';
+
+        const numA = parseFloat(valA);
+        const numB = parseFloat(valB);
+
+        if (!isNaN(numA) && !isNaN(numB)) {
+          return numA - numB;
+        }
+        return String(valA).localeCompare(String(valB), undefined, { numeric: true });
       });
       setDisplayedItems(sorted);
     } else {
@@ -106,27 +77,45 @@ const ImageGallery = ({ items, uuid, updateSelectedValue }) => {
     setIsSorted(!isSorted);
   };
 
+  const handleSendUpdate = async () => {
+    const payload = {
+      uuid,
+      selectedValue: updateSelectedValue,
+      items: items.map((item, idx) => ({
+        updated: savedUpdates[idx] !== null && savedUpdates[idx] !== '',
+        oldValue: item.value,
+        newValue: savedUpdates[idx],
+      })),
+    };
+
+    try {
+      await axios.post(`${BackendURL}/api/update`, payload, {
+        headers: { 'Content-Type': 'application/json' },
+      });
+      setNotification({ open: true, message: 'Values updated successfully!', severity: 'success' });
+    } catch (error) {
+      console.error('Error updating values:', error);
+      setNotification({ open: true, message: 'Failed to update values', severity: 'error' });
+    }
+  };
+
+  const hasChanges = savedUpdates.some((val) => val !== null && val !== '');
+
+  const getDownloadData = () =>
+    items.map((item, idx) => {
+      const upd = savedUpdates[idx];
+      return {
+        name: item.name || item.image || `item_${idx}`,
+        value: item.value,
+        ...(upd !== null && upd !== '' ? { updatedvalue: upd } : { updatedvalue: null }),
+      };
+    });
+
   const handleCloseNotification = () => {
     setNotification({ ...notification, open: false });
   };
 
-  const getDownloadData = () => {
-    return items.map((originalItem) => {
-      const match = updatedValues.find((u) => u.image === originalItem.image); // adjust key as needed
-      return {
-        ...originalItem,
-        ...(match?.updatedvalue !== undefined && { updatedvalue: match.updatedvalue }),
-      };
-    });
-  };
-
-  useEffect(() => {
-    setDisplayedItems([...items]);
-  }, [items]);
-
-  useEffect(() => {
-    setHasChanges(selectedValues.some((val) => val !== null));
-  }, [tempValues, selectedValues]);
+  const currentValues = isEditing ? tempUpdates : savedUpdates;
 
   return (
     <Box
@@ -165,17 +154,25 @@ const ImageGallery = ({ items, uuid, updateSelectedValue }) => {
           gap: 2,
         }}
       >
-        {displayedItems.map((item, index) => (
-          <ImageItem
-            key={index}
-            item={item}
-            index={index}
-            isEditing={isEditing}
-            tempValue={tempValues[index]}
-            onValueSelect={handleValueSelect}
-            selectedValue={selectedValues[index]}
-          />
-        ))}
+        {displayedItems.map((item, displayIdx) => {
+          const originalIndex = items.indexOf(item);
+          if (originalIndex === -1) return null;
+          const selectedValue =
+            currentValues[originalIndex] === null || currentValues[originalIndex] === ''
+              ? null
+              : currentValues[originalIndex];
+          return (
+            <ImageItem
+              key={item.image || originalIndex}
+              item={item}
+              index={originalIndex}
+              isEditing={isEditing}
+              tempValue={currentValues[originalIndex]}
+              onValueSelect={handleValueEdit}
+              selectedValue={selectedValue}
+            />
+          );
+        })}
       </Box>
 
       <Notification notification={notification} onClose={handleCloseNotification} />

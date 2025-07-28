@@ -14,7 +14,7 @@ const EditControls = ({
   isSorted,
 }) => {
   const downloadFile = () => {
-    const fileData = JSON.stringify(data, null, 2); // pretty print
+    const fileData = JSON.stringify(data, null, 2);
     const blob = new Blob([fileData], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
 
@@ -40,9 +40,9 @@ const EditControls = ({
         </Box>
       ) : (
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          {/* <Button variant="contained" color="secondary" onClick={onSortToggle}>
+          <Button variant="contained" color="secondary" onClick={onSortToggle}>
             {isSorted ? 'Unsort' : 'Sort'}
-          </Button> */}
+          </Button>
           <Button variant="contained" color="secondary" onClick={downloadFile} sx={{ ml: 1 }}>
             Download
           </Button>

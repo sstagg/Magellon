@@ -1,8 +1,15 @@
-// ImageItem.jsx
 import React from 'react';
-import { Box, Button,ButtonGroup, Typography } from '@mui/material';
+import { Box, Button, ButtonGroup, Typography } from '@mui/material';
 
 const ImageItem = ({ item, index, isEditing, tempValue, onValueSelect, selectedValue }) => {
+  const handleButtonClick = (num) => {
+    if (tempValue === num) {
+      onValueSelect(index, null);
+    } else {
+      onValueSelect(index, num);
+    }
+  };
+
   return (
     <Box
       sx={{
@@ -46,7 +53,7 @@ const ImageItem = ({ item, index, isEditing, tempValue, onValueSelect, selectedV
               <Button
                 key={num}
                 variant={tempValue === num ? 'contained' : 'outlined'}
-                onClick={() => onValueSelect(index, num)}
+                onClick={() => handleButtonClick(num)}
                 sx={{ flex: 1 }}
                 style={{ maxWidth: '25px', maxHeight: '25px', minWidth: '25px', minHeight: '25px' }}
               >
@@ -57,7 +64,7 @@ const ImageItem = ({ item, index, isEditing, tempValue, onValueSelect, selectedV
         </Box>
       )}
 
-      {!isEditing && selectedValue && (
+      {!isEditing && selectedValue != null && selectedValue !== '' && (
         <Typography variant="subtitle1" sx={{ mt: 2 }}>
           Selected: {selectedValue}
         </Typography>

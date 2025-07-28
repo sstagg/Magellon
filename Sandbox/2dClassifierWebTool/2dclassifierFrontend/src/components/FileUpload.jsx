@@ -1,7 +1,5 @@
-// FileUpload.js
 import React, { useState } from 'react';
-import { Checkbox, FormControlLabel,  Button, Box,Typography, Link } from '@mui/material';
-
+import { Checkbox, FormControlLabel, Button, Box, Typography, Link } from '@mui/material';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import Notification from './Notification';
@@ -15,24 +13,20 @@ const FileUpload = () => {
 
   const [files, setFiles] = useState([]);
   const [selectedValue, setSelectedValue] = useState('');
-  const [updateSelectedValue,setUpdateSelectedValue]=useState('')
+  const [updateSelectedValue, setUpdateSelectedValue] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [consentChecked, setConsentChecked] = useState(false);
 
-  const [notification, setNotification] = useState({
-    open: false,
-    message: '',
-    severity: 'success',
-  });
-  const [data, setData] = useState([]); 
+  const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
+  const [data, setData] = useState([]);
   const [uuid, setUuid] = useState();
 
   const handleFileChange = (e) => {
     setFiles(e.target.files);
     setUploadProgress(0);
     setUuid(null);
-    setUpdateSelectedValue('')
+    setUpdateSelectedValue('');
   };
 
   const handleValueChange = (e) => {
@@ -40,13 +34,9 @@ const FileUpload = () => {
   };
 
   const handleUpload = async () => {
-    setData([])
+    setData([]);
     if (files.length === 0 || !selectedValue) {
-      setNotification({
-        open: true,
-        message: 'Please select files and choose a value.',
-        severity: 'warning',
-      });
+      setNotification({ open: true, message: 'Please select files and choose a value.', severity: 'warning' });
       return;
     }
 
@@ -62,39 +52,29 @@ const FileUpload = () => {
     setLoading(true);
     try {
       const response = await axios.post(`${BackendURL}/api/upload`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+        headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (progressEvent) => {
-          const percentCompleted = Math.round(
-            (progressEvent.loaded * 100) / progressEvent.total
-          );
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
           setUploadProgress(percentCompleted);
         },
       });
+
       setUuid(uniqueId);
-      setUpdateSelectedValue(response.data.selectedValue)
+      setUpdateSelectedValue(response.data.selectedValue);
 
       const combinedData = response.data.imageFilepaths.map((path, index) => ({
         image: path,
         value: response.data.extractedValues[index],
+        name: response.data.names ? response.data.names[index] : `Image_${index + 1}`,
       }));
-      // const sortedData = [...combinedData].sort((a, b) => a.value - b.value); 
+
       setData(combinedData);
-      setNotification({
-        open: true,
-        message: 'Files uploaded and processed successfully!',
-        severity: 'success',
-      });
+      setNotification({ open: true, message: 'Files uploaded and processed successfully!', severity: 'success' });
       setFiles([]);
       setSelectedValue('');
     } catch (error) {
       console.error('Error uploading files:', error);
-      setNotification({
-        open: true,
-        message: 'Failed to upload files',
-        severity: 'error',
-      });
+      setNotification({ open: true, message: 'Failed to upload files', severity: 'error' });
     } finally {
       setLoading(false);
       setUploadProgress(0);
@@ -126,25 +106,33 @@ const FileUpload = () => {
         <Typography variant="subtitle1" color="textSecondary">
           <strong>Required Files:</strong>
           <ul style={{ marginTop: 5, paddingLeft: 20 }}>
-            <li><strong>CryoSPARC:</strong> class_avg.cs, class_avg.mrc, particles.cs, job.json</li>
-            <li><strong>Relion:</strong> classes.mrcs, model.star</li>
+            <li>
+              <strong>CryoSPARC:</strong> class_avg.cs, class_avg.mrc, particles.cs, job.json
+            </li>
+            <li>
+              <strong>Relion:</strong> classes.mrcs, model.star
+            </li>
           </ul>
         </Typography>
         <FormControlLabel
-        control={
-        <Checkbox
-        checked={consentChecked}
-        onChange={(e) => setConsentChecked(e.target.checked)}
-        name="consent"
-        color="primary"
-        disabled={loading}
-        />
-        }
-        label={
-        <Typography variant="body2">
-        I consent to internal reuse of my uploaded data. (<Link href="/terms#data-reuse" target="_blank" rel="noopener">Read more</Link>)
-        </Typography>
-        }
+          control={
+            <Checkbox
+              checked={consentChecked}
+              onChange={(e) => setConsentChecked(e.target.checked)}
+              name="consent"
+              color="primary"
+              disabled={loading}
+            />
+          }
+          label={
+            <Typography variant="body2">
+              I consent to internal reuse of my uploaded data. (
+              <Link href="/terms#data-reuse" target="_blank" rel="noopener">
+                Read more
+              </Link>
+              )
+            </Typography>
+          }
         />
 
         <FileSelector files={files} onFileChange={handleFileChange} loading={loading} consentChecked={consentChecked} />
@@ -160,9 +148,9 @@ const FileUpload = () => {
         <UploadProgress loading={loading} uploadProgress={uploadProgress} />
       </Box>
 
-      {data.length > 0 && <ImageGallery items={data} uuid={uuid} updateSelectedValue={updateSelectedValue}/>}
+      {data.length > 0 && <ImageGallery items={data} uuid={uuid} updateSelectedValue={updateSelectedValue} />}
     </>
   );
 };
 
-export {FileUpload};
+export { FileUpload };
