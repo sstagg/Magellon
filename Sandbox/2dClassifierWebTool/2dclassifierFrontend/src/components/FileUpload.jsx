@@ -7,7 +7,7 @@ import FileSelector from './FileSelector';
 import ValueSelector from './ValueSelector';
 import UploadProgress from './UploadProgress';
 import ImageGallery from './ImageGallery';
-
+import { Link as RouterLink } from 'react-router-dom';
 const FileUpload = () => {
   const BackendURL = process.env.REACT_APP_BACKEND_URL;
 
@@ -65,7 +65,7 @@ const FileUpload = () => {
       const combinedData = response.data.imageFilepaths.map((path, index) => ({
         image: path,
         value: response.data.extractedValues[index],
-        name: response.data.names ? response.data.names[index] : `Image_${index + 1}`,
+        image_number: response.data.names ? response.data.names[index] : index + 1,
       }));
 
       setData(combinedData);
@@ -127,9 +127,9 @@ const FileUpload = () => {
           label={
             <Typography variant="body2">
               I consent to internal reuse of my uploaded data. (
-              <Link href="/terms#data-reuse" target="_blank" rel="noopener">
-                Read more
-              </Link>
+       
+              <Link component={RouterLink} to="/terms" underline="hover">Read more</Link>
+              
               )
             </Typography>
           }
