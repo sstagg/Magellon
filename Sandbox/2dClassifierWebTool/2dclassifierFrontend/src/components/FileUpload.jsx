@@ -1,6 +1,7 @@
 // FileUpload.js
 import React, { useState } from 'react';
-import { Button, Box,Typography } from '@mui/material';
+import { Checkbox, FormControlLabel,  Button, Box,Typography, Link } from '@mui/material';
+
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import Notification from './Notification';
@@ -17,6 +18,8 @@ const FileUpload = () => {
   const [updateSelectedValue,setUpdateSelectedValue]=useState('')
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [consentChecked, setConsentChecked] = useState(false);
+
   const [notification, setNotification] = useState({
     open: false,
     message: '',
@@ -127,7 +130,24 @@ const FileUpload = () => {
             <li><strong>Relion:</strong> classes.mrcs, model.star</li>
           </ul>
         </Typography>
-        <FileSelector files={files} onFileChange={handleFileChange} loading={loading} />
+        <FormControlLabel
+        control={
+        <Checkbox
+        checked={consentChecked}
+        onChange={(e) => setConsentChecked(e.target.checked)}
+        name="consent"
+        color="primary"
+        disabled={loading}
+        />
+        }
+        label={
+        <Typography variant="body2">
+        I consent to internal reuse of my uploaded data. (<Link href="/terms#data-reuse" target="_blank" rel="noopener">Read more</Link>)
+        </Typography>
+        }
+        />
+
+        <FileSelector files={files} onFileChange={handleFileChange} loading={loading} consentChecked={consentChecked} />
         <Button
           onClick={handleUpload}
           variant="contained"

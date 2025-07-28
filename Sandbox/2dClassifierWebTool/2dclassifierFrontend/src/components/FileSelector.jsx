@@ -3,7 +3,7 @@ import React, { useRef } from 'react';
 import { Button, Typography } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 
-const FileSelector = ({ files, onFileChange, loading }) => {
+const FileSelector = ({ files, onFileChange, loading,consentChecked }) => {
   const fileInputRef = useRef(null);
 
   return (
@@ -13,7 +13,7 @@ const FileSelector = ({ files, onFileChange, loading }) => {
         component="label"
         fullWidth
         startIcon={<CloudUploadIcon />}
-        disabled={loading}
+        disabled={loading || !consentChecked}
       >
         Select Files
         <input
