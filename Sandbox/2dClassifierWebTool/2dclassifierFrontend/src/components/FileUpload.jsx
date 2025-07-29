@@ -65,7 +65,7 @@ const FileUpload = () => {
       const combinedData = response.data.imageFilepaths.map((path, index) => ({
         image: path,
         value: response.data.extractedValues[index],
-        image_number: response.data.names ? response.data.names[index] : index + 1,
+        image_number: index + 1,
       }));
 
       setData(combinedData);

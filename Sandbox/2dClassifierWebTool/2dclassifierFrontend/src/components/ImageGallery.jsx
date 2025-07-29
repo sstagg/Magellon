@@ -107,6 +107,7 @@ const ImageGallery = ({ items, uuid, updateSelectedValue }) => {
       return {
         name: item.name || item.image || `item_${idx}`,
         value: item.value,
+        image_number:item.image_number,
         ...(upd !== null && upd !== '' ? { updatedvalue: upd } : { updatedvalue: null }),
       };
     });
