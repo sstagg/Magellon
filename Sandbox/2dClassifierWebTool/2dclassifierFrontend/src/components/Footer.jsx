@@ -12,8 +12,8 @@ const Footer = () => {
         Funded by NIH
       </Typography>
       <Typography variant="body2" sx={{ mt: 1 }}>
-        <Link component={RouterLink} to="/terms" underline="hover" >Terms of Use</Link> | 
-        <Link component={RouterLink} to="/terms" underline="hover" sx={{ ml: 1 }}>Data Reuse</Link> |
+        <Link component={RouterLink} to="/terms" target="_blank" rel="noopener" underline="hover" >Terms of Use</Link> | 
+        <Link component={RouterLink} to="/terms" target="_blank" rel="noopener" underline="hover" sx={{ ml: 1 }}>Data Reuse</Link> |
         <Link href="https://www.magellon.org/groups" target="_blank" rel="noopener" underline="hover" sx={{ ml: 1 }}>Contact Us</Link>
       </Typography>
     </Box>

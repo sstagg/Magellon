@@ -128,7 +128,7 @@ const FileUpload = () => {
             <Typography variant="body2">
               I consent to internal reuse of my uploaded data. (
        
-              <Link component={RouterLink} to="/terms" underline="hover">Read more</Link>
+              <Link component={RouterLink} to="/terms" underline="hover" target="_blank" rel="noopener">Read more</Link>
               
               )
             </Typography>
