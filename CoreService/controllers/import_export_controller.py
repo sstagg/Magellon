@@ -23,6 +23,8 @@ from sse_starlette.sse import EventSourceResponse
 from services.job_manager import JobManager,JobStatus
 from services.importers.MagellonImporter import MagellonImporter
 from services.importers.import_file_service import ImportFileService
+from services.relion_starfile_service import RelionStarFileService
+
 
 export_router = APIRouter()
 
@@ -606,9 +608,8 @@ def validate_epu_directory(source_dir: str):
 
 
 
-from services.relion_starfile_service import RelionStarFileService
 
-# Add these endpoints to your import_export_controller.py file
+
 
 @export_router.post("/generate-relion-starfile", response_model=RelionStarFileGenerationResponse)
 def generate_relion_starfile(
