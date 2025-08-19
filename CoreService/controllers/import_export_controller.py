@@ -16,6 +16,8 @@ from sqlalchemy.orm import Session
 from config import app_settings
 from database import get_db
 from models.pydantic_models import ImportJobBase, MagellonImportJobDto, EpuImportJobDto
+from models.relion_pydantic_models import RelionStarFileGenerationResponse, RelionSessionValidationResponse, \
+    RelionStarFileGenerationRequest
 from models.sqlalchemy_models import Msession, Image, ImageMetaData, Project
 from sse_starlette.sse import EventSourceResponse
 from services.job_manager import JobManager,JobStatus
@@ -601,3 +603,174 @@ def validate_epu_directory(source_dir: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+
+from services.relion_starfile_service import RelionStarFileService
+
+# Add these endpoints to your import_export_controller.py file
+
+@export_router.post("/generate-relion-starfile", response_model=RelionStarFileGenerationResponse)
+def generate_relion_starfile(
+        request: RelionStarFileGenerationRequest,
+        db: Session = Depends(get_db)
+):
+    """
+    Generate a RELION star file from database session data.
+
+    This endpoint:
+    1. Queries the database for session and image data
+    2. Extracts CTF parameters from metadata
+    3. Creates optics and micrographs data blocks
+    4. Generates a RELION-compatible star file
+    5. Optionally copies or symlinks MRC files
+
+    Parameters:
+    - request: RELION star file generation parameters
+
+    Returns:
+    - Dict with generation results and file paths
+    """
+    try:
+        service = RelionStarFileService()
+
+        result = service.generate_starfile_from_session(
+            session_name=request.session_name,
+            output_directory=request.output_directory,
+            file_copy_mode=request.file_copy_mode,
+            source_mrc_directory=request.source_mrc_directory,
+            db=db
+        )
+
+        return RelionStarFileGenerationResponse(**result)
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error generating RELION star file: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@export_router.get("/validate-session-for-starfile/{session_name}", response_model=RelionSessionValidationResponse)
+def validate_session_for_starfile(session_name: str, db: Session = Depends(get_db)):
+    """
+    Validate that a session can be used for RELION star file generation.
+
+    Checks:
+    - Session exists in database
+    - Session contains MRC images
+    - Required parameters are available (pixel size, voltage, etc.)
+
+    Parameters:
+    - session_name: Name of the session to validate
+
+    Returns:
+    - Dict with validation status and details
+    """
+    try:
+        service = RelionStarFileService()
+        result = service.validate_session_for_starfile(session_name, db)
+
+        return RelionSessionValidationResponse(**result)
+
+    except Exception as e:
+        logger.error(f"Error validating session for star file: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@export_router.get("/session/{session_name}/ctf-summary")
+def get_session_ctf_summary(session_name: str, db: Session = Depends(get_db)):
+    """
+    Get a summary of CTF parameters for a session.
+
+    Useful for checking what CTF data is available before generating star files.
+
+    Parameters:
+    - session_name: Name of the session
+
+    Returns:
+    - Dict with CTF parameter statistics and availability
+    """
+    try:
+        # Get session
+        msession = db.query(Msession).filter(
+            Msession.name == session_name,
+            Msession.GCRecord.is_(None)
+        ).first()
+
+        if not msession:
+            raise HTTPException(status_code=404, detail=f"Session '{session_name}' not found")
+
+        # Get images
+        images = db.query(Image).filter(
+            Image.session_id == msession.oid,
+            Image.GCRecord.is_(None),
+            Image.path.like('%.mrc')
+        ).all()
+
+        if not images:
+            return {
+                "session_name": session_name,
+                "total_images": 0,
+                "message": "No MRC images found"
+            }
+
+        # Analyze CTF data availability
+        ctf_stats = {
+            "total_images": len(images),
+            "has_defocus": 0,
+            "has_pixel_size": 0,
+            "has_voltage": 0,
+            "has_spherical_aberration": 0,
+            "ctf_metadata_count": 0
+        }
+
+        for image in images:
+            if image.defocus:
+                ctf_stats["has_defocus"] += 1
+            if image.pixel_size:
+                ctf_stats["has_pixel_size"] += 1
+            if image.acceleration_voltage:
+                ctf_stats["has_voltage"] += 1
+            if image.spherical_aberration:
+                ctf_stats["has_spherical_aberration"] += 1
+
+            # Count CTF-related metadata
+            metadata_count = db.query(ImageMetaData).filter(
+                ImageMetaData.image_id == image.oid,
+                ImageMetaData.GCRecord.is_(None),
+                ImageMetaData.name.ilike('%ctf%')
+            ).count()
+
+            if metadata_count > 0:
+                ctf_stats["ctf_metadata_count"] += 1
+
+        # Calculate completeness percentages
+        total = ctf_stats["total_images"]
+        ctf_stats["defocus_completeness"] = (ctf_stats["has_defocus"] / total * 100) if total > 0 else 0
+        ctf_stats["pixel_size_completeness"] = (ctf_stats["has_pixel_size"] / total * 100) if total > 0 else 0
+        ctf_stats["voltage_completeness"] = (ctf_stats["has_voltage"] / total * 100) if total > 0 else 0
+        ctf_stats["spherical_aberration_completeness"] = (ctf_stats["has_spherical_aberration"] / total * 100) if total > 0 else 0
+        ctf_stats["ctf_metadata_completeness"] = (ctf_stats["ctf_metadata_count"] / total * 100) if total > 0 else 0
+
+        return {
+            "session_name": session_name,
+            "session_id": str(msession.oid),
+            "ctf_statistics": ctf_stats,
+            "ready_for_starfile": (
+                    ctf_stats["pixel_size_completeness"] > 80 and
+                    ctf_stats["voltage_completeness"] > 80
+            )
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting CTF summary: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+
