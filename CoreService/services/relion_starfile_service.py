@@ -11,7 +11,7 @@ import starfile
 from sqlalchemy.orm import Session
 
 from models.sqlalchemy_models import Msession, Image, ImageMetaData
-from models.pydantic_models import RelionStarFileGenerationRequest, FileCopyMode
+from models.relion_pydantic_models import RelionStarFileGenerationRequest, FileCopyMode
 
 logger = logging.getLogger(__name__)
 
