@@ -23,6 +23,8 @@
 /Docker/consul/data/
 
 /magellon-react-app/node_modules/
+/magellon-react-app/.pnpm-store/
+/magellon-react-app/build/
 /magellon-react-app/dist/
 /magellon-react-app/test-results/
 /magellon-react-app/playwright-report/

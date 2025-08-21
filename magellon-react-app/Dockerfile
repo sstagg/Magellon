@@ -14,8 +14,18 @@ ARG API_URL
 COPY package.json pnpm-lock.yaml ./
 
 # Copy the rest of the application
-COPY ./ /app/
-COPY ./nginx.conf /app/nginx/
+COPY src ./src
+COPY public ./public
+COPY index.html ./
+COPY vite.config.ts ./
+COPY tsconfig.json ./
+COPY tsconfig.node.json ./
+COPY postcss.config.js ./
+COPY tailwind.config.js ./
+COPY playwright.config.ts ./
+COPY .env ./
+
+COPY nginx.conf ./nginx.conf
 
 # If API_URL is provided, perform the replacement
 RUN if [ -n "${API_URL}" ]; then \

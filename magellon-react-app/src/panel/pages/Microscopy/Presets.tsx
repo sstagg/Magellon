@@ -16,7 +16,7 @@ import {
     MapPin,
     TargetIcon
 } from 'lucide-react';
-import { useMicroscopeStore } from './microscopeStore';
+import { useMicroscopeStore } from './MicroscopeStore';
 
 interface PresetCardProps {
     title: string;

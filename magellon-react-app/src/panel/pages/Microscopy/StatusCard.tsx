@@ -15,7 +15,7 @@ import {
     Speed as SpeedIcon,
 } from '@mui/icons-material';
 import {Microscope, Zap} from 'lucide-react';
-import { useMicroscopeStore } from './microscopeStore';
+import { useMicroscopeStore } from './MicroscopeStore';
 
 interface StatusCardProps {
     title: string;

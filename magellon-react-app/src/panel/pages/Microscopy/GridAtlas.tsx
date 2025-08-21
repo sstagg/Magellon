@@ -22,7 +22,7 @@ import {
     ZoomOut as ZoomOutIcon,
     PhotoCamera as PhotoCameraIcon
 } from '@mui/icons-material';
-import { useMicroscopeStore } from './microscopeStore';
+import { useMicroscopeStore } from './MicroscopeStore';
 
 export const GridAtlas: React.FC = () => {
     const theme = useTheme();

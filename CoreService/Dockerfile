@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 #https://www.freecodecamp.org/news/how-to-dockerize-a-flask-app/
 #https://github.com/Dev-Elie/Flask-Docker-App
-FROM python:3.10-slim-buster
+FROM python:3.11-slim-bookworm
 
 WORKDIR /app
 
