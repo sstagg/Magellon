@@ -773,5 +773,3 @@ def get_session_ctf_summary(session_name: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-
-
