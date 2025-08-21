@@ -15,10 +15,11 @@ logger = logging.getLogger(__name__)
 async def do_motioncor(params: TaskDto)->TaskResultDto:
     
     try:
-
+        
         d = DebugInfo()
         logger.info(f"Starting task {params.id} ")
         the_task_data = CryoEmMotionCorTaskData.model_validate(params.data)
+        print(the_task_data)
         if not validateInput(the_task_data):
             raise Exception("Validation failed.")
         #check the type of inputfile and assign 
@@ -33,7 +34,7 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
         
         setattr(the_task_data, file_map[file_extension], input_file)
         params.data[file_map[file_extension]] = input_file
-        fileName,_=os.path.splitext(input_file)
+        fileName=input_file
         
         d.line1 = the_task_data.inputFile
         d.line2 = the_task_data.image_path
@@ -56,6 +57,7 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
         d.line6 = the_task_data.image_path
         push_info_to_debug_queue(d)
         directory_path = os.path.join(AppSettingsSingleton.get_instance().JOBS_DIR, str(the_task_data.image_id))
+        print("directory path",directory_path)
         os.makedirs(directory_path, exist_ok=True)
         host_file_path = os.path.join(AppSettingsSingleton.get_instance().HOST_JOBS_DIR, str(the_task_data.image_id), the_task_data.outputFile)
         the_task_data.outputFile = os.path.join(directory_path, the_task_data.outputFile)
@@ -99,69 +101,62 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
                 started_on=params.start_on, ended_on=datetime.now(), meta_data=[], output_files=[]
             )
         output_files=[]
-        values=params.data["OutMrc"].split("/")
-        outputFileName=f'{".".join(values[-1].split(".")[:-1])}_DW.mrc'
-        values[-1]=outputFileName
-        fileNameDW="/".join(values)
-        if not isFilePresent( fileNameDW):
-                raise Exception("output_DW output file not found")
-        output_files.append(OutputFile(name="outputDWMrc",path=fileNameDW,required=True))
-        inputFileName=fileName.split("/")[-1].split(".")[0]
         meta_data=[]
         output_data={}
+        print(directory_path)
+        dw_file= isFilePresent( directory_path,"_DW.mrc")
+        if dw_file:
+            output_files.append(OutputFile(name="outputDWMrc",path=dw_file,required=True))
+        else:
+            raise Exception("output_DW output file not found")
+        
         with concurrent.futures.ThreadPoolExecutor() as executor:
-    
 
             if params.data["PatchesX"] > 1 or params.data["PatchesY"] > 1:
-                
-                if isFilePresent(f'{os.path.join(directory_path, inputFileName)}-Patch-Patch.log'):
-                    old_file_path = f'{os.path.join(directory_path, inputFileName)}-Patch-Patch.log'
-                    new_file_path = f'{os.path.join(directory_path, the_task_data.image_name.split(".")[0])}-patch-Patch.log'
-                    os.rename(old_file_path, new_file_path)
-
-                    data = getFilecontentsfromThread(getPatchFrameAlignment, new_file_path, executor)
-                    output_data["patchAlignment"] = data  
+                print(directory_path)
+                file= isFilePresent(directory_path, "-Patch-Patch.log")
+                if file:
+                    data = getFilecontentsfromThread(getPatchFrameAlignment, file, executor)
+                    output_data["patchAlignment"] = data
+                    new_file_path = f'{os.path.join(directory_path, os.path.splitext(the_task_data.image_name)[0])}-patch-Patch.log'
+                    os.rename(file, new_file_path)
                     meta_data.append(ImageMetaData(key="patchAlignment_Image_data", value=json.dumps(data)))
                     output_files.append(OutputFile(name="patchAlignment_Image",
-                                                path=createframealignImage(fileNameDW, data["values"], directory_path, data["movie_size"], the_task_data.image_name.split(".")[0]),
+                                                path=createframealignImage(dw_file, data["values"], directory_path, data["movie_size"], os.path.splitext(the_task_data.image_name)[0]),
                                                 required=True))
                     output_files.append(OutputFile(name="patchAlignment", path=new_file_path, required=True))
                 else:
                     raise Exception("Patch-Patch.log file not found")
-                
-                if isFilePresent(f'{os.path.join(directory_path, inputFileName)}-Patch-Full.log'):
-                    old_file_path = f'{os.path.join(directory_path, inputFileName)}-Patch-Full.log'
-                    new_file_path = f'{os.path.join(directory_path, the_task_data.image_name.split(".")[0])}-patch-Full.log'
-                    os.rename(old_file_path, new_file_path)
-
-                    output_data["patchFullAlignment"] = getFilecontentsfromThread(getFrameAlignment, new_file_path, executor)
+                file= isFilePresent(directory_path, "-Patch-Full.log")
+                if file:
+                    output_data["patchFullAlignment"] = getFilecontentsfromThread(getFrameAlignment, file, executor)
+                    
+                    new_file_path = f'{os.path.join(directory_path,  os.path.splitext(the_task_data.image_name)[0])}-patch-Full.log'
+                    os.rename(file, new_file_path)
                     output_files.append(OutputFile(name="patchFullAlignment", path=new_file_path, required=True))
                     meta_data.append(ImageMetaData(key="patchFullAlignment_Image_data", value=json.dumps(output_data["patchFullAlignment"])))
                     output_files.append(OutputFile(name="patchFullAlignment_Image",
-                                                path=createframealignCenterImage(fileNameDW, output_data["patchFullAlignment"], directory_path, [x_size, y_size], the_task_data.image_name.split(".")[0]),
+                                                path=createframealignCenterImage(dw_file, output_data["patchFullAlignment"], directory_path, [x_size, y_size], the_task_data.image_name.split(".")[0]),
                                                 required=True))
                 else:
                     raise Exception("Patch-Full.log file not found")
 
-    
-                if isFilePresent(f'{os.path.join(directory_path, inputFileName)}-Patch-Frame.log'):
-                    old_file_path = f'{os.path.join(directory_path, inputFileName)}-Patch-Frame.log'
-                    new_file_path = f'{os.path.join(directory_path, the_task_data.image_name.split(".")[0])}-patch-Frame.log'
-                    os.rename(old_file_path, new_file_path)
-
+                file= isFilePresent(directory_path, "-Patch-Frame.log")
+                if file:
+                    new_file_path = f'{os.path.join(directory_path, os.path.splitext(the_task_data.image_name)[0])}-patch-Frame.log'
+                    os.rename(file, new_file_path)
                     output_files.append(OutputFile(name="patchFrameAlignment", path=new_file_path, required=True))
 
             else:
-                if isFilePresent(f'{os.path.join(directory_path, inputFileName)}-Full.log'):
-                    old_file_path = f'{os.path.join(directory_path, inputFileName)}-Full.log'
+                file= isFilePresent(directory_path, "-Full.log")
+                if file:
+                    output_data["fullAlignment"] = getFilecontentsfromThread(getFrameAlignment, file, executor)
                     new_file_path = f'{os.path.join(directory_path, the_task_data.image_name.split(".")[0])}-full.log'
-                    os.rename(old_file_path, new_file_path)
-
-                    output_data["fullAlignment"] = getFilecontentsfromThread(getFrameAlignment, new_file_path, executor)
+                    os.rename(file, new_file_path)
                     output_files.append(OutputFile(name="frameAlignment", path=new_file_path, required=True))
                     meta_data.append(ImageMetaData(key="frameAlignment_Image_data", value=json.dumps(output_data["fullAlignment"])))
                     output_files.append(OutputFile(name="frameAlignment_Image",
-                                                path=createframealignCenterImage(fileNameDW, output_data["fullAlignment"], directory_path, [x_size, y_size], the_task_data.image_name.split(".")[0]),
+                                                path=createframealignCenterImage(dw_file, output_data["fullAlignment"], directory_path, [x_size, y_size], the_task_data.image_name.split(".")[0]),
                                                 required=True))
         return TaskResultDto(
                 worker_instance_id=params.worker_instance_id,

@@ -12,6 +12,7 @@ from core.model_dto import CryoEmMotionCorTaskData
 from PIL import Image
 import tifffile
 import cv2
+import glob
 # logger=setupLogger()
 logger = logging.getLogger(__name__)
 def getSubCommand(attribute: str, value: Optional[str] = None) -> List[str]:
@@ -244,8 +245,9 @@ def getPatchFrameAlignment(fileName):
 
 
 
-def isFilePresent(fileName):
-    return os.path.isfile(fileName)
+def isFilePresent(directory,suffix):
+    files = glob.glob(os.path.join(directory, f"*{suffix}"))
+    return os.path.abspath(files[0]) if files else None
 
 def getRequirements(filePath):
     try:

@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from config import app_settings
 from database import get_db
-from models.pydantic_models import ImportJobBase, MagellonImportJobDto, EpuImportJobDto
+from models.pydantic_models import ImportJobBase, MagellonImportJobDto, EpuImportJobDto, SerialEMImportJobDto
 from models.sqlalchemy_models import Msession, Image, ImageMetaData, Project
 from sse_starlette.sse import EventSourceResponse
 from services.job_manager import JobManager,JobStatus
@@ -600,4 +600,52 @@ def validate_epu_directory(source_dir: str):
     except HTTPException:
         raise
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@export_router.post("/serialem-import")
+def import_serialem_directory(request: SerialEMImportJobDto, db_session: Session = Depends(get_db)):
+    """
+    Import SerialEM data from a directory containing metadata and image files.
+
+    Directory structure should be a SerialEM session directory containing .mdoc files
+    and associated TIFF/EER image files.
+
+    Parameters:
+    - request: SerialEM import job parameters including directory path
+
+    Returns:
+    - Dict with import status and session information
+    """
+    try:
+        # Validate source directory exists
+        if not os.path.exists(request.serial_em_dir_path):
+            raise HTTPException(
+                status_code=404,
+                detail=f"SerialEM directory not found: {request.serial_em_dir_path}"
+            )
+
+        # Initialize and run importer
+        from services.importers.SerialEmImporter import SerialEmImporter
+        importer = SerialEmImporter()
+        importer.setup(request, db_session)
+        result = importer.process(db_session)
+
+        if result.get('status') == 'failure':
+            raise HTTPException(
+                status_code=500,
+                detail=result.get('message', 'SerialEM Import failed')
+            )
+
+        return {
+            "message": "SerialEM session imported successfully",
+            "session_name": result.get('session_name'),
+            "job_id": result.get('job_id')
+        }
+
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error during SerialEM import: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
