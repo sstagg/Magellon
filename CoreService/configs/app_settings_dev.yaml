@@ -22,21 +22,15 @@ consul_settings:
   CONSUL_SERVICE_NAME: magellon-core-service
   CONSUL_USERNAME: '8500'
 
-#database_settings:
-#  DB_Driver: mysql+pymysql
-#  DB_HOST: localhost
-#  DB_NAME: magellon01
-#  DB_PASSWORD: behd1d2
-#  DB_Port: 3306
-#  DB_USER: root
-
 database_settings:
   DB_Driver: mysql+pymysql
-  DB_HOST: 5.161.212.237
-  DB_NAME: magellon05
-  DB_PASSWORD: behd1d#3454!2
+  DB_HOST: mysql
+  DB_NAME: magellon01
+  DB_PASSWORD: behd1d2
   DB_Port: 3306
-  DB_USER: behdad
+  DB_USER: root
+
+
 
 rabbitmq_settings:
   HOST_NAME: localhost
