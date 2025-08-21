@@ -1,8 +1,5 @@
 steps to create a virtual environment inside a directory using the command[ReadMe.md](..%2Finfrastructure%2Fdocker%2FReadMe.md) line:
 
-/gpfs/23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc
-/gpfs/research/stagg/leginondata/23oct13x/rawdata/23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc
-
 Open your terminal or command prompt.
     Navigate to the directory where you want to create the virtual environment. You can use the cd command to change directories. For example: cd /path/to/directory
     Once you are in the directory, run the following command to create a new virtual environment:
@@ -32,10 +29,6 @@ python.exe -m uvicorn main:app --reload
 
 `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy Unrestricted
 `
-
-https://dassum.medium.com/building-rest-apis-using-fastapi-sqlalchemy-uvicorn-8a163ccf3aa1
-ORMs:
-https://ponyorm.org/
 
 
 # Deployment
@@ -103,42 +96,6 @@ Test your application by accessing it through a web browser or using curl:
 Congratulations! 
 
 
-## Dependency Injection
-https://python-dependency-injector.ets-labs.org/examples/application-single-container.html
-https://python-dependency-injector.ets-labs.org/examples/fastapi.html
-https://python-dependency-injector.ets-labs.org/examples/fastapi-sqlalchemy.html
-https://kimlehtinen.com/python-flask-dependency-injection/
-
-
-## Prometus and Grafana
-prometheus_client
-https://github.com/Kludex/fastapi-prometheus-grafana
-https://github.com/Blueswen/fastapi-observability
-
-
-
-Components:
-https://github.com/Lattice-Automation/seqviz
-https://npm.io/package/alignment.js
-https://github.com/veg/phylotree.js
-https://npm.io/package/igv
-https://npm.io/package/pileup
-https://www.canvasxpress.org
-https://npm.io/package/lexicon-mono-seq
-
-https://npm.io/package/vue-svg-msa
-
-https://npm.io/package/ntseq
-https://npm.io/package/static-interval-tree
-https://npm.io/package/dna
-https://npm.io/package/bionode-seq
-https://www.bionode.io/
-
-
-ssh -N -L 3310:kriosdb.rcc.fsu.edu:3306 bk2n@hpc-login.rcc.fsu.edu
-hpc-login.rcc.fsu.edu
-maia.cryoem.fsu.edu
-sshfs bk22n@hpc-login.rcc.fsu.edu:/gpfs /rcc_gpfs
 
 
 ```WITH RECURSIVE image_hierarchy AS (
