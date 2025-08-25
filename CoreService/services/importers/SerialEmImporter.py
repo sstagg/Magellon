@@ -250,7 +250,9 @@ class SerialEmImporter(BaseImporter):
             return result
 
         except Exception as e:
-            return {'status': 'failure', 'message': f'Job failed with error: {str(e)} Job ID: {self.params.job_id}'}
+            return {'status': 'failure', 'message': f'Job failed with error: {str(e)}',
+                    #  "job_id": str(getattr(self, 'db_job', {}).get('oid', ''))
+                     }
     def create_db_project_session(self, db_session: Session):
         try:
             start_time = time.time()
@@ -283,29 +285,45 @@ class SerialEmImporter(BaseImporter):
                     db_session.refresh(magellon_session)
 
             session_name = self.params.session_name
-
+            settings_dir = os.path.join(self.params.serial_em_dir_path, "settings")
+            gains_dir = os.path.join(self.params.serial_em_dir_path, "gains")
             # Scan directory and get all mdoc files
             try:
                 files = scan_directory(self.params.serial_em_dir_path)
             except FileNotFoundError as e:
                 raise FileNotFoundError(f"SerialEM directory not found: {self.params.serial_em_dir_path}") from e
-
-            metadata_list = parse_directory(files, self.params.settings_file_path)
+            if not os.path.isdir(settings_dir):
+                raise FileNotFoundError(f"'settings' folder not found in {self.params.serial_em_dir_path}")
+            if not os.path.isdir(gains_dir):
+                raise FileNotFoundError(f"'gains' folder not found in {self.params.serial_em_dir_path}")
+            settings_txt_path = None
+            for fname in os.listdir(settings_dir):
+                if fname.endswith('.txt'):
+                    settings_txt_path = os.path.abspath(os.path.join(settings_dir, fname))
+                    break
+            if not settings_txt_path:
+                raise FileNotFoundError(f"No settings .txt file found in settings directory: {settings_dir}")
+            # Find the first file in 'gains' and get its absolute path
+            gains_files = [f for f in os.listdir(gains_dir) if os.path.isfile(os.path.join(gains_dir, f))]
+            if not gains_files:
+                raise FileNotFoundError(f"No files found in gains directory: {gains_dir}")
+            gains_file_path = os.path.abspath(os.path.join(gains_dir, gains_files[0]))
+            metadata_list = parse_directory(files, settings_txt_path)
             if len(metadata_list) > 0:
                 target_dir = os.path.join(MAGELLON_HOME_DIR, self.params.magellon_session_name)
                 self.params.target_directory = target_dir
                 self.create_directories(self.params.target_directory)
 
                 dest_path = os.path.join(self.params.target_directory, GAINS_SUB_URL)
-                gain_file_name = os.path.basename(self.params.gains_file_path)
+                gain_file_name = os.path.basename(gains_file_path)
 
-                if not os.path.exists(self.params.gains_file_path):
-                    raise FileNotFoundError(f"Gains file not found: {self.params.gains_file_path}")
-                if os.path.isdir(self.params.gains_file_path):
-                    shutil.copytree(self.params.gains_file_path, dest_path, dirs_exist_ok=True)
+                if not os.path.exists(gains_file_path):
+                    raise FileNotFoundError(f"Gains file not found: {gains_file_path}")
+                if os.path.isdir(gains_file_path):
+                    shutil.copytree(gains_file_path, dest_path, dirs_exist_ok=True)
                 else:
                     os.makedirs(dest_path, exist_ok=True)
-                    shutil.copy(self.params.gains_file_path, dest_path)
+                    shutil.copy(gains_file_path, dest_path)
 
                 # Create a new job
                 job = ImageJob(
@@ -322,10 +340,9 @@ class SerialEmImporter(BaseImporter):
                 db_job_item_list = []
                 task_todo_list = []
                 image_dict = {}
-
                 for metadata in metadata_list:
                     metadata.pixel_size *= 1e-10
-                    filename = os.path.splitext(os.path.basename(metadata.file_path))
+                    filename = os.path.splitext(os.path.basename(metadata.file_path))[0]
                     db_image = Image(
                         oid=uuid.uuid4(),
                         name=filename,
@@ -377,14 +394,14 @@ class SerialEmImporter(BaseImporter):
                             source_image_path = custom_replace(source_image_path, self.params.replace_type,
                                                             self.params.replace_pattern, self.params.replace_with)
 
-                    frame_name = os.path.splitext(os.path.basename(source_frame_path)) if source_frame_path else ""
+                    frame_name = os.path.splitext(os.path.basename(source_frame_path))[0] if source_frame_path else ""
 
                     job_item = ImageJobTask(
                         oid=uuid.uuid4(),
                         job_id=job.oid,
                         frame_name=frame_name,
                         frame_path=source_frame_path,
-                        image_name=os.path.splitext(os.path.basename(source_image_path)),
+                        image_name=os.path.splitext(os.path.basename(source_image_path))[0],
                         image_path=source_image_path,
                         status_id=1,
                         stage=0,
@@ -397,7 +414,7 @@ class SerialEmImporter(BaseImporter):
                         task_alias=f"lftj_{filename}_{job.oid}",
                         file_name=f"{filename}",
                         image_id=db_image.oid,
-                        image_name=os.path.splitext(os.path.basename(source_image_path)),
+                        image_name=os.path.splitext(os.path.basename(source_image_path))[0],
                         frame_name=frame_name,
                         image_path=source_image_path,
                         frame_path=source_frame_path,
@@ -426,17 +443,37 @@ class SerialEmImporter(BaseImporter):
         except FileNotFoundError as e:
             error_message = f"File not found error: {str(e)}"
             logger.error(error_message, exc_info=True)
-            return {"error": error_message, "exception": str(e)}
+            db_session.rollback()
+            return {
+                'status': 'failure',
+                'message': f'EPU import failed: {str(e)}',
+                # 'job_id': str(getattr(self, 'db_job', {}).get('oid', ''))
+            }
         except OSError as e:
             error_message = f"OS error while accessing files or directories: {str(e)}"
             logger.error(error_message, exc_info=True)
-            return {"error": error_message, "exception": str(e)}
+            db_session.rollback()
+            return {
+                'status': 'failure',
+                'message': f'EPU import failed: {str(e)}',
+                # 'job_id': str(getattr(self, 'db_job', {}).get('oid', ''))
+            }
         except ValueError as e:
             error_message = f"Data value error: {str(e)}"
             logger.error(error_message, exc_info=True)
-            return {"error": error_message, "exception": str(e)}
+            db_session.rollback()
+            return {
+                'status': 'failure',
+                'message': f'EPU import failed: {str(e)}',
+                # 'job_id': str(getattr(self, 'db_job', {}).get('oid', ''))
+            }
         except Exception as e:
             error_message = f"An unexpected error occurred: {str(e)}"
             logger.error(error_message, exc_info=True)
-            return {"error": error_message, "exception": str(e)}
+            db_session.rollback()
+            return {
+                'status': 'failure',
+                'message': error_message,
+                # 'job_id': str(getattr(self, 'db_job', {}).get('oid', ''))
+            }
 
