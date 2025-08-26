@@ -57,8 +57,8 @@ class RelionStarFileService:
             # Get images for this session (filter for micrographs)
             images = db.query(Image).filter(
                 Image.session_id == msession.oid,
-                Image.GCRecord.is_(None),
-                Image.path.like('%.mrc')  # Only MRC files
+                Image.GCRecord.is_(None)
+            # ,Image.path.like('%.mrc')  # Only MRC files
             ).all()
 
             if not images:
@@ -99,10 +99,8 @@ class RelionStarFileService:
 
             # Handle MRC files if source directory provided
             processed_files_count = 0
-            if source_mrc_directory:
-                processed_files_count = self._handle_mrc_files(
-                    images, source_mrc_directory, str(micrographs_dir), file_copy_mode
-                )
+            # if source_mrc_directory:
+            #     processed_files_count = self._handle_mrc_files( images, source_mrc_directory, str(micrographs_dir), file_copy_mode   )
 
             return {
                 "success": True,
@@ -213,9 +211,9 @@ class RelionStarFileService:
 
             # Build micrograph entry
             micrograph_entry = {
-                'rlnMicrographName': f"Micrographs/{Path(image.path).name}",
+                'rlnMicrographName': f"Micrographs/{(image.name)}",
                 'rlnOpticsGroup': optics_group,
-                'rlnCtfImage': f"CtfFind/job005/Micrographs/{Path(image.path).stem}.ctf:mrc",
+                'rlnCtfImage': f"Micrographs/{(image.name)}.ctf:mrc",
                 'rlnDefocusU': float(defocus_u),
                 'rlnDefocusV': float(defocus_v),
                 'rlnCtfAstigmatism': float(astigmatism),
