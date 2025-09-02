@@ -24,12 +24,14 @@ class RelionStarFileService:
         self.logger = logger
 
     def generate_starfile_from_session(
-        self,
-        session_name: str,
-        output_directory: str,
-        file_copy_mode: FileCopyMode,
-        source_mrc_directory: Optional[str],
-        db: Session
+            self,
+            session_name: str,
+            output_directory: str,
+            file_copy_mode: FileCopyMode,
+            source_mrc_directory: Optional[str],
+            magnification: Optional[int],
+            has_movie: Optional[bool],
+            db: Session
     ) -> Dict[str, Any]:
         """
         Generate RELION star file from database session data
@@ -39,6 +41,8 @@ class RelionStarFileService:
             output_directory: Directory where to create the star file
             file_copy_mode: Whether to copy or symlink MRC files
             source_mrc_directory: Source directory containing MRC files
+            magnification: Filter images by magnification (optional)
+            has_movie: Filter images by presence of movie frames (optional)
             db: Database session
 
         Returns:
@@ -54,20 +58,51 @@ class RelionStarFileService:
             if not msession:
                 raise ValueError(f"Session '{session_name}' not found")
 
-            # Get images for this session (filter for micrographs)
-            images = db.query(Image).filter(
+            # Build query for images with filters
+            query = db.query(Image).filter(
                 Image.session_id == msession.oid,
                 Image.GCRecord.is_(None)
-            # ,Image.path.like('%.mrc')  # Only MRC files
-            ).all()
+            )
+
+            # Apply magnification filter if provided
+            if magnification is not None:
+                query = query.filter(Image.magnification == magnification)
+
+            # Apply movie filter if provided
+            if has_movie is not None:
+                if has_movie:
+                    # Filter for images that have movies (frame_count > 1 or frame_name is not null)
+                    query = query.filter(
+                        (Image.frame_count > 1) | (Image.frame_name.isnot(None))
+                    )
+                else:
+                    # Filter for images that don't have movies
+                    query = query.filter(
+                        (Image.frame_count <= 1) | (Image.frame_count.is_(None)),
+                        Image.frame_name.is_(None)
+                    )
+
+            images = query.all()
 
             if not images:
-                raise ValueError(f"No MRC images found for session '{session_name}'")
+                filter_msg = []
+                if magnification is not None:
+                    filter_msg.append(f"magnification={magnification}")
+                if has_movie is not None:
+                    filter_msg.append(f"has_movie={has_movie}")
 
-            # Validate output directory
+                filter_str = f" with filters: {', '.join(filter_msg)}" if filter_msg else ""
+                raise ValueError(f"No images found for session '{session_name}'{filter_str}")
+
+            # Validate and create output directory
             output_path = Path(output_directory)
-            if not output_path.exists():
-                raise ValueError(f"Output directory does not exist: {output_directory}")
+            try:
+                output_path.mkdir(parents=True, exist_ok=True)
+                self.logger.info(f"Output directory ready: {output_directory}")
+            except PermissionError:
+                raise ValueError(f"Permission denied creating output directory: {output_directory}")
+            except OSError as e:
+                raise ValueError(f"Error creating output directory {output_directory}: {e}")
 
             # Create session directory structure
             session_dir = output_path / session_name
@@ -93,23 +128,39 @@ class RelionStarFileService:
                 'micrographs': micrographs_df
             }
 
-            # Generate star file
-            star_file_path = session_dir / f"{session_name}_micrographs_ctf.star"
+            # Generate star file with filter info in filename
+            filter_suffix = ""
+            if magnification is not None:
+                filter_suffix += f"_mag{magnification}"
+            if has_movie is not None:
+                filter_suffix += f"_movie{str(has_movie).lower()}"
+
+            star_file_path = session_dir / f"{session_name}_micrographs_ctf{filter_suffix}.star"
             starfile.write(star_data, star_file_path, float_format='%.6f')
 
             # Handle MRC files if source directory provided
             processed_files_count = 0
             # if source_mrc_directory:
-            #     processed_files_count = self._handle_mrc_files( images, source_mrc_directory, str(micrographs_dir), file_copy_mode   )
+            #     processed_files_count = self._handle_mrc_files(
+            #         images, source_mrc_directory, str(micrographs_dir), file_copy_mode
+            #     )
+
+            # Create summary of applied filters
+            filter_info = {}
+            if magnification is not None:
+                filter_info['magnification'] = magnification
+            if has_movie is not None:
+                filter_info['has_movie'] = has_movie
 
             return {
                 "success": True,
-                "message": f"Star file generated successfully with {len(images)} micrographs",
+                "message": f"Star file generated successfully with {len(images)} micrographs (filters applied: {filter_info})",
                 "star_file_path": str(star_file_path),
                 "micrographs_directory": str(micrographs_dir),
                 "total_micrographs": len(images),
                 "total_optics_groups": len(optics_data),
-                "processed_files": processed_files_count
+                "processed_files": processed_files_count,
+                "applied_filters": filter_info
             }
 
         except Exception as e:
@@ -300,11 +351,11 @@ class RelionStarFileService:
         return ctf_data
 
     def _handle_mrc_files(
-        self,
-        images: List[Image],
-        source_directory: str,
-        target_directory: str,
-        copy_mode: FileCopyMode
+            self,
+            images: List[Image],
+            source_directory: str,
+            target_directory: str,
+            copy_mode: FileCopyMode
     ) -> int:
         """Handle copying or symlinking of MRC files"""
         processed_count = 0
@@ -334,7 +385,7 @@ class RelionStarFileService:
 
         return processed_count
 
-    def validate_session_for_starfile(self, session_name: str, db: Session) -> Dict[str, Any]:
+    def validate_session_for_starfile(self, session_name: str, magnification: Optional[int], has_movie: Optional[bool], db: Session) -> Dict[str, Any]:
         """Validate that a session can be used for RELION star file generation"""
         try:
             # Get session from database
@@ -351,17 +402,44 @@ class RelionStarFileService:
                     "session_id": None
                 }
 
-            # Get images for this session
-            images = db.query(Image).filter(
+            # Build query for images with filters
+            query = db.query(Image).filter(
                 Image.session_id == msession.oid,
                 Image.GCRecord.is_(None),
                 Image.path.like('%.mrc')
-            ).all()
+            )
+
+            # Apply magnification filter if provided
+            if magnification is not None:
+                query = query.filter(Image.magnification == magnification)
+
+            # Apply movie filter if provided
+            if has_movie is not None:
+                if has_movie:
+                    # Filter for images that have movies
+                    query = query.filter(
+                        (Image.frame_count > 1) | (Image.frame_name.isnot(None))
+                    )
+                else:
+                    # Filter for images that don't have movies
+                    query = query.filter(
+                        (Image.frame_count <= 1) | (Image.frame_count.is_(None)),
+                        Image.frame_name.is_(None)
+                    )
+
+            images = query.all()
 
             if not images:
+                filter_msg = []
+                if magnification is not None:
+                    filter_msg.append(f"magnification={magnification}")
+                if has_movie is not None:
+                    filter_msg.append(f"has_movie={has_movie}")
+
+                filter_str = f" with filters: {', '.join(filter_msg)}" if filter_msg else ""
                 return {
                     "valid": False,
-                    "message": f"No MRC images found for session '{session_name}'",
+                    "message": f"No MRC images found for session '{session_name}'{filter_str}",
                     "total_images": 0,
                     "session_id": str(msession.oid)
                 }
@@ -381,9 +459,17 @@ class RelionStarFileService:
                     "session_id": str(msession.oid)
                 }
 
+            filter_info = {}
+            if magnification is not None:
+                filter_info['magnification'] = magnification
+            if has_movie is not None:
+                filter_info['has_movie'] = has_movie
+
+            filter_str = f" (filters: {filter_info})" if filter_info else ""
+
             return {
                 "valid": True,
-                "message": f"Session '{session_name}' is valid for star file generation. Found {len(images)} images with {ctf_count} having CTF data.",
+                "message": f"Session '{session_name}' is valid for star file generation{filter_str}. Found {len(images)} images with {ctf_count} having CTF data.",
                 "total_images": len(images),
                 "session_id": str(msession.oid)
             }

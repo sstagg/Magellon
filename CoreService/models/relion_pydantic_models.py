@@ -15,14 +15,10 @@ class RelionStarFileGenerationRequest(BaseModel):
     """Request model for RELION star file generation from database session"""
     session_name: str = Field(..., description="Name of the session to export")
     output_directory: str = Field(..., description="Output directory path")
-    file_copy_mode: FileCopyMode = Field(
-        default=FileCopyMode.SYMLINK, 
-        description="How to handle MRC files (copy or symlink)"
-    )
-    source_mrc_directory: Optional[str] = Field(
-        None, 
-        description="Source directory containing MRC files (optional)"
-    )
+    magnification: Optional[int] = Field(..., description="filtering with magnification")
+    has_movie: Optional[bool] = Field(..., description="filtering those who have movies")
+    file_copy_mode: FileCopyMode = Field(  default=FileCopyMode.SYMLINK,     description="How to handle MRC files (copy or symlink)"    )
+    source_mrc_directory: Optional[str] = Field("images",         description="Source directory containing MRC files (optional)"    )
 
 
 class RelionStarFileGenerationResponse(BaseModel):
