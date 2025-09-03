@@ -65,22 +65,15 @@ class RelionStarFileService:
             )
 
             # Apply magnification filter if provided
-            if magnification is not None:
+            if magnification is not None and magnification > 0:
                 query = query.filter(Image.magnification == magnification)
 
             # Apply movie filter if provided
-            if has_movie is not None:
-                if has_movie:
-                    # Filter for images that have movies (frame_count > 1 or frame_name is not null)
-                    query = query.filter(
-                        (Image.frame_count > 1) | (Image.frame_name.isnot(None))
-                    )
-                else:
-                    # Filter for images that don't have movies
-                    query = query.filter(
-                        (Image.frame_count <= 1) | (Image.frame_count.is_(None)),
-                        Image.frame_name.is_(None)
-                    )
+            if has_movie is not None and has_movie is True:
+                # Filter for images that have movies (frame_count > 1 or frame_name is not null)
+                query = query.filter(
+                    (Image.frame_count > 1) | (Image.frame_name.isnot(None))
+                )
 
             images = query.all()
 
