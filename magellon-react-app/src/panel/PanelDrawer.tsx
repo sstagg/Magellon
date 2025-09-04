@@ -18,7 +18,7 @@ import {
 
     PanelLeft,
     Home,
-    Beaker, BrainCircuit, ArrowRightFromLine, Microscope
+    Beaker, BrainCircuit, ArrowRightFromLine, Microscope, ArrowLeftFromLineIcon
 } from "lucide-react";
 import { Box, Collapse, Typography, useMediaQuery } from '@mui/material';
 import { ExpandLess, ExpandMore } from '@mui/icons-material';
@@ -66,6 +66,11 @@ const navLinks: NavLink[] = [
         title: "Import",
         url: "import-job",
         icon: <ArrowRightFromLine size={20} />
+    },
+    {
+        title: "Export",
+        url: "export",
+        icon: <ArrowLeftFromLineIcon size={20} />
     },
     // {
     //     title: "MRC Viewer",

@@ -12,6 +12,7 @@ import DashboardView from "./pages/DashboardView.tsx";
 import { Box, Container, Typography } from "@mui/material";
 import AboutPage from "./pages/AboutPage.tsx";
 import MicroscopyPageView from "./pages/MicroscopyPageView.tsx";
+import {ExportPageView} from "./pages/ExportPageView.tsx";
 
 // Settings placeholder component
 // Test placeholder component
@@ -39,6 +40,7 @@ export const PanelRoutes = () => {
             <Route path="/home" element={<Home />} />
             <Route path="/images" element={<ImagesPageView />} />
             <Route path="/import-job" element={<ImportPageView />} />
+            <Route path="/export" element={<ExportPageView />} />
             <Route path="/test" element={<TestView />} />
             <Route path="/settings" element={<SettingsView />} />
 
