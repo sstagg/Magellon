@@ -8,10 +8,12 @@ import TabPanel from "@mui/lab/TabPanel";
 
 import {MagellonImportComponent} from "../components/MagellonImportComponent.tsx";
 import {EpuImportComponent} from "../components/EpuImportComponent.tsx";
+import {LeginonImportComponent} from "../components/LeginonImportComponent.tsx";
+
 import TabContext from "@mui/lab/TabContext";
 import TabList from "@mui/lab/TabList";
-import {LeginonImportComponent} from "../components/LeginonImportComponent.tsx";
 import {ImportIcon} from "lucide-react";
+import {SerialEMImportComponent} from "../components/SerialEmImportComponent.tsx";
 
 const BASE_URL = settings.ConfigData.SERVER_API_URL;
 const DRAWER_WIDTH = 240;
@@ -128,7 +130,8 @@ export const ImportPageView = () => {
                             <TabList
                                 onChange={handleChange}
                                 aria-label="import options"
-                                variant={isMobile ? "fullWidth" : "standard"}
+                                variant={isMobile ? "scrollable" : "standard"}
+                                scrollButtons={isMobile ? "auto" : false}
                                 sx={{
                                     '& .MuiTab-root': {
                                         fontSize: { xs: '0.875rem', sm: '1rem' },
@@ -141,6 +144,7 @@ export const ImportPageView = () => {
                                 <Tab label="Leginon" value="1"/>
                                 <Tab label="Magellon" value="2"/>
                                 <Tab label="EPU" value="3"/>
+                                <Tab label="SerialEM" value="4"/>
                             </TabList>
                         </Box>
 
@@ -201,6 +205,24 @@ export const ImportPageView = () => {
                                         '&:last-child': { pb: { xs: 2, sm: 3, md: 4 } }
                                     }}>
                                         <EpuImportComponent/>
+                                    </CardContent>
+                                </Card>
+                            </TabPanel>
+
+                            <TabPanel value="4">
+                                <Card
+                                    elevation={1}
+                                    sx={{
+                                        borderRadius: 2,
+                                        border: `1px solid ${theme.palette.divider}`,
+                                        overflow: 'hidden'
+                                    }}
+                                >
+                                    <CardContent sx={{
+                                        p: { xs: 2, sm: 3, md: 4 },
+                                        '&:last-child': { pb: { xs: 2, sm: 3, md: 4 } }
+                                    }}>
+                                        <SerialEMImportComponent/>
                                     </CardContent>
                                 </Card>
                             </TabPanel>
