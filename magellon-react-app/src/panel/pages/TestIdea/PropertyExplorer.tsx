@@ -605,20 +605,26 @@ const PropertyExplorer: React.FC = () => {
     };
 
     return (
-        <Paper
-            elevation={2}
+        <Box
             sx={{
-                width: 320,
+                height: '100%',
+                width: '100%',
+                display: 'flex',
+                flexDirection: 'column',
                 borderRadius: 2,
-                overflow: 'hidden'
+                overflow: 'hidden',
+                backgroundColor: 'background.paper',
+                boxShadow: theme.shadows[2]
             }}
         >
+            {/* Header */}
             <Box
                 sx={{
                     backgroundColor: alpha(theme.palette.grey[100], 0.8),
                     borderBottom: `1px solid ${theme.palette.divider}`,
                     px: 1.5,
-                    py: 1
+                    py: 1,
+                    flexShrink: 0
                 }}
             >
                 <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.primary' }}>
@@ -626,7 +632,8 @@ const PropertyExplorer: React.FC = () => {
                 </Typography>
             </Box>
 
-            <Box sx={{ height: 384, overflowY: 'auto' }}>
+            {/* Scrollable content area - takes remaining height */}
+            <Box sx={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
                 {/* Microscope and Camera Properties */}
                 {Object.entries(groupedMicroscopeCameraProperties).map(([category, subcategories]) => (
                     <Box key={category} sx={{ borderBottom: `1px solid ${theme.palette.divider}` }}>
@@ -971,19 +978,21 @@ const PropertyExplorer: React.FC = () => {
                 </Box>
             </Box>
 
+            {/* Footer */}
             <Box
                 sx={{
                     backgroundColor: alpha(theme.palette.grey[100], 0.8),
                     borderTop: `1px solid ${theme.palette.divider}`,
                     px: 1.5,
-                    py: 1
+                    py: 1,
+                    flexShrink: 0
                 }}
             >
                 <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
                     {microscopeCameraProperties.length} system properties • {presets.length} presets
                 </Typography>
             </Box>
-        </Paper>
+        </Box>
     );
 };
 
