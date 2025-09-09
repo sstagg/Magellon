@@ -12,7 +12,9 @@ import {
     Select,
     TextField,
     Typography,
-    useTheme
+    useTheme,
+    Chip,
+    alpha
 } from '@mui/material';
 import {MICROSCOPE_CONFIGS, MicroscopeComponent, MicroscopeConfig} from "./MicroscopeComponentConfig.ts";
 
@@ -227,10 +229,17 @@ const PropertyEditor: React.FC<{
 // Particle component for electron beam
 const ElectronParticle: React.FC<{ delay: number }> = ({ delay }) => (
     <motion.div
-        className="absolute w-0.5 h-0.5 bg-yellow-300 rounded-full opacity-60"
+        style={{
+            position: 'absolute',
+            width: 2,
+            height: 2,
+            backgroundColor: '#FDE047',
+            borderRadius: '50%',
+            opacity: 0.6
+        }}
         initial={{ y: -10, opacity: 0 }}
         animate={{
-            y: 15,
+            y: 20,
             opacity: [0, 0.8, 0.8, 0],
             scale: [0.5, 1, 1, 0.5]
         }}
@@ -243,7 +252,7 @@ const ElectronParticle: React.FC<{ delay: number }> = ({ delay }) => (
     />
 );
 
-// Compact component renderer with centered labels
+// Enhanced component renderer with MUI styling
 const MicroscopeComponentRenderer: React.FC<{
     component: MicroscopeComponent;
     isHovered: boolean;
@@ -253,199 +262,304 @@ const MicroscopeComponentRenderer: React.FC<{
     onSelect: () => void;
     index: number;
 }> = ({ component, isHovered, isSelected, onHover, onLeave, onSelect, index }) => {
+    const theme = useTheme();
 
-    const renderShape = () => {
-        const baseStyle = {
-            background: `linear-gradient(135deg, ${component.baseColor}, ${component.baseColor}dd)`,
+    const getShapeStyles = () => {
+        const baseWidth = 140; // Consistent base width
+        const minHeight = 48;
+        const maxHeight = 72;
+
+        // Calculate height based on component type for visual hierarchy
+        const heightMap: Record<string, number> = {
+            'source': maxHeight,
+            'lens': 60,
+            'aperture': minHeight,
+            'detector': 64,
+            'camera': maxHeight,
+            'sample': minHeight + 8,
+            'electrode': 56,
+            'coils': 56
         };
 
-        const labelStyle = "absolute inset-0 flex items-center justify-center text-white text-xs font-medium text-center px-1 pointer-events-none select-none";
+        return {
+            width: baseWidth,
+            height: heightMap[component.type] || 60,
+            borderRadius: component.shape === 'lens' || component.shape === 'source' ? '50%' : theme.shape.borderRadius
+        };
+    };
+
+    const renderComponentIcon = () => {
+        const iconStyle = {
+            width: 24,
+            height: 24,
+            opacity: 0.7
+        };
 
         switch (component.shape) {
             case 'source':
                 return (
-                    <div
-                        className="relative rounded-t-full border border-white/30 backdrop-blur-sm shadow-lg overflow-hidden"
-                        style={{
-                            ...baseStyle,
-                            width: component.width,
-                            height: component.height,
-                            boxShadow: isHovered ? `0 0 15px ${component.baseColor}60` : `0 0 8px ${component.baseColor}40`
-                        }}
-                    >
-                        <div className="absolute inset-1 bg-gradient-to-br from-white/20 to-transparent rounded-t-full" />
-                        <div className={labelStyle}>
-                            {component.name}
-                        </div>
-                        <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-4 h-1 bg-gradient-to-b from-yellow-300 to-yellow-500" />
-                    </div>
+                    <Box sx={{ ...iconStyle, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Box
+                            sx={{
+                                width: 8,
+                                height: 8,
+                                borderRadius: '50%',
+                                bgcolor: '#FDE047',
+                                boxShadow: `0 0 8px ${alpha('#FDE047', 0.6)}`
+                            }}
+                        />
+                    </Box>
                 );
-
             case 'lens':
                 return (
-                    <div className="flex flex-col items-center">
-                        <div
-                            className="relative rounded-full border border-white/30 backdrop-blur-sm shadow-lg overflow-hidden"
-                            style={{
-                                ...baseStyle,
-                                width: component.width,
-                                height: component.height,
-                                boxShadow: isHovered ? `0 0 12px ${component.baseColor}50` : `0 0 6px ${component.baseColor}30`
-                            }}
-                        >
-                            <div className="absolute inset-1 border border-white/10 rounded-full" />
-                            <div className="absolute inset-0 bg-gradient-radial from-white/20 via-transparent to-transparent rounded-full" />
-                            <div className={labelStyle}>
-                                {component.name}
-                            </div>
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="w-2 h-2 border border-white/40 rounded-full" />
-                            </div>
-                        </div>
-                        <div
-                            className="w-2 h-2 border-x border-white/20"
-                            style={{ background: `linear-gradient(to bottom, ${component.baseColor}, ${component.baseColor}aa)` }}
-                        />
-                    </div>
+                    <Box sx={{ ...iconStyle, border: `2px solid ${alpha(theme.palette.common.white, 0.6)}`, borderRadius: '50%' }} />
                 );
-
             case 'aperture':
                 return (
-                    <div
-                        className="relative rounded border border-white/30 backdrop-blur-sm shadow-lg overflow-hidden"
-                        style={{
-                            ...baseStyle,
-                            width: component.width,
-                            height: component.height,
-                            boxShadow: isHovered ? `0 0 10px ${component.baseColor}40` : `0 0 5px ${component.baseColor}20`
-                        }}
-                    >
-                        <div className="absolute inset-2 bg-black/50 rounded border border-white/10" />
-                        <div className={labelStyle}>
-                            {component.name}
-                        </div>
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="w-1.5 h-1.5 border border-white/60 rounded-full bg-black/20" />
-                        </div>
-                    </div>
+                    <Box sx={{
+                        ...iconStyle,
+                        border: `2px solid ${alpha(theme.palette.common.white, 0.6)}`,
+                        borderRadius: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }}>
+                        <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: alpha(theme.palette.common.black, 0.4) }} />
+                    </Box>
                 );
-
             case 'detector':
                 return (
-                    <div className="flex items-center">
-                        <div
-                            className="relative rounded-r-full border border-white/30 backdrop-blur-sm shadow-lg overflow-hidden"
-                            style={{
-                                ...baseStyle,
-                                width: component.width,
-                                height: component.height,
-                                boxShadow: isHovered ? `0 0 12px ${component.baseColor}50` : `0 0 6px ${component.baseColor}30`
-                            }}
-                        >
-                            <div className="absolute inset-1 bg-gradient-to-l from-white/20 to-transparent rounded-r-full" />
-                            <div className={labelStyle}>
-                                {component.name}
-                            </div>
-                            <div className="absolute right-1 top-1/2 transform -translate-y-1/2 w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-                            <div className="absolute left-2 top-1/2 transform -translate-y-1/2 w-0.5 h-0.5 bg-red-400 rounded-full" />
-                        </div>
-                    </div>
+                    <Box sx={{
+                        ...iconStyle,
+                        bgcolor: alpha('#10B981', 0.2),
+                        borderRadius: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }}>
+                        <Box sx={{ width: 8, height: 8, bgcolor: '#10B981', borderRadius: '50%' }} />
+                    </Box>
                 );
-
             case 'camera':
                 return (
-                    <div
-                        className="relative rounded border border-white/30 backdrop-blur-sm shadow-lg overflow-hidden"
-                        style={{
-                            ...baseStyle,
-                            width: component.width,
-                            height: component.height,
-                            boxShadow: isHovered ? `0 0 15px ${component.baseColor}60` : `0 0 8px ${component.baseColor}40`
-                        }}
-                    >
-                        <div className="absolute inset-1 bg-gradient-to-br from-white/20 to-transparent rounded" />
-                        <div className={labelStyle}>
-                            {component.name}
-                        </div>
-                        {/* Camera sensor grid */}
-                        <div className="absolute inset-2 grid grid-cols-4 grid-rows-4 gap-0.5 opacity-30">
-                            {[...Array(16)].map((_, i) => (
-                                <div
-                                    key={i}
-                                    className="bg-blue-400/30 rounded-sm"
-                                    style={{
-                                        animationDelay: `${i * 0.1}s`,
-                                        animation: isHovered ? 'pulse 2s infinite' : 'none'
-                                    }}
-                                />
-                            ))}
-                        </div>
-                        {/* Status indicator */}
-                        <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-                    </div>
+                    <Box sx={{
+                        ...iconStyle,
+                        bgcolor: alpha('#3B82F6', 0.2),
+                        borderRadius: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }}>
+                        <Box sx={{
+                            width: 12,
+                            height: 8,
+                            border: `1px solid ${alpha('#3B82F6', 0.8)}`,
+                            borderRadius: 0.5
+                        }} />
+                    </Box>
                 );
-
             default:
                 return (
-                    <div
-                        className="relative rounded border border-white/30 backdrop-blur-sm shadow-lg overflow-hidden"
-                        style={{
-                            ...baseStyle,
-                            width: component.width,
-                            height: component.height,
-                            boxShadow: isHovered ? `0 0 10px ${component.baseColor}40` : `0 0 5px ${component.baseColor}20`
-                        }}
-                    >
-                        <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded" />
-                        <div className={labelStyle}>
-                            {component.name}
-                        </div>
-                    </div>
+                    <Box sx={{
+                        ...iconStyle,
+                        bgcolor: alpha(component.baseColor, 0.3),
+                        borderRadius: 1
+                    }} />
                 );
         }
     };
 
+    const shapeStyles = getShapeStyles();
+
     return (
         <motion.div
-            className="relative flex flex-col items-center mb-2 cursor-pointer"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.3, delay: index * 0.05 }}
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: index * 0.08 }}
             whileHover={{ scale: 1.02 }}
+            style={{ marginBottom: theme.spacing(2) }}
             onMouseEnter={onHover}
             onMouseLeave={onLeave}
             onClick={onSelect}
         >
-            <div className="relative">
-                {renderShape()}
+            <Paper
+                elevation={isHovered ? 8 : isSelected ? 6 : 2}
+                sx={{
+                    ...shapeStyles,
+                    position: 'relative',
+                    cursor: 'pointer',
+                    overflow: 'hidden',
+                    background: `linear-gradient(135deg, ${component.baseColor}, ${alpha(component.baseColor, 0.8)})`,
+                    border: isSelected ? `2px solid ${theme.palette.primary.main}` : `1px solid ${alpha(theme.palette.common.white, 0.2)}`,
+                    transition: theme.transitions.create(['transform', 'box-shadow', 'border-color'], {
+                        duration: theme.transitions.duration.short,
+                    }),
+                    '&::before': {
+                        content: '""',
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: '30%',
+                        background: `linear-gradient(to bottom, ${alpha(theme.palette.common.white, 0.3)}, transparent)`,
+                        pointerEvents: 'none'
+                    }
+                }}
+            >
+                {/* Content Container */}
+                <Box
+                    sx={{
+                        position: 'relative',
+                        height: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        p: 2,
+                        zIndex: 1
+                    }}
+                >
+                    {/* Icon */}
+                    <Box sx={{ mb: 1 }}>
+                        {renderComponentIcon()}
+                    </Box>
 
-                {/* Selection indicator */}
-                <AnimatePresence>
-                    {isSelected && (
-                        <motion.div
-                            className="absolute inset-0 border-2 border-blue-400 rounded-full opacity-80"
-                            style={{
-                                width: component.width + 8,
-                                height: component.height + 8,
-                                left: -4,
-                                top: -4
+                    {/* Component Name */}
+                    <Typography
+                        variant="body2"
+                        sx={{
+                            color: theme.palette.common.white,
+                            fontWeight: 600,
+                            textAlign: 'center',
+                            textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+                            mb: 0.5,
+                            lineHeight: 1.2
+                        }}
+                    >
+                        {component.name}
+                    </Typography>
+
+                    {/* Type Chip */}
+                    <Chip
+                        label={component.type}
+                        size="small"
+                        sx={{
+                            bgcolor: alpha(theme.palette.common.white, 0.2),
+                            color: theme.palette.common.white,
+                            fontSize: '0.7rem',
+                            height: 20,
+                            '& .MuiChip-label': {
+                                px: 1
+                            }
+                        }}
+                    />
+
+                    {/* Status indicators for specific types */}
+                    {(component.type === 'camera' || component.type === 'detector') && (
+                        <Box
+                            sx={{
+                                position: 'absolute',
+                                top: 8,
+                                right: 8,
+                                width: 8,
+                                height: 8,
+                                borderRadius: '50%',
+                                bgcolor: '#10B981',
+                                boxShadow: `0 0 8px ${alpha('#10B981', 0.6)}`,
+                                '@keyframes pulse': {
+                                    '0%': {
+                                        opacity: 0.4,
+                                        transform: 'scale(0.8)'
+                                    },
+                                    '50%': {
+                                        opacity: 1,
+                                        transform: 'scale(1.2)'
+                                    },
+                                    '100%': {
+                                        opacity: 0.4,
+                                        transform: 'scale(0.8)'
+                                    }
+                                },
+                                animation: 'pulse 2s infinite'
                             }}
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 0.8 }}
-                            exit={{ opacity: 0 }}
-                            transition={{ duration: 0.2 }}
                         />
                     )}
-                </AnimatePresence>
-            </div>
 
-            {/* Electron beam */}
-            <div className="relative w-1 h-6 overflow-hidden">
-                <div className="absolute left-1/2 transform -translate-x-1/2 w-px h-full bg-gradient-to-b from-yellow-300 via-yellow-400 to-yellow-500 opacity-50" />
-                {[...Array(2)].map((_, i) => (
-                    <ElectronParticle key={i} delay={i * 0.6} />
+                    {/* Voltage indicator for source */}
+                    {component.type === 'source' && component.specifications?.voltage && (
+                        <Typography
+                            variant="caption"
+                            sx={{
+                                position: 'absolute',
+                                bottom: 4,
+                                right: 8,
+                                color: alpha(theme.palette.common.white, 0.8),
+                                fontSize: '0.6rem',
+                                fontWeight: 500
+                            }}
+                        >
+                            {component.specifications.voltage}
+                        </Typography>
+                    )}
+                </Box>
+
+                {/* Hover overlay */}
+                <Box
+                    sx={{
+                        position: 'absolute',
+                        inset: 0,
+                        bgcolor: alpha(theme.palette.primary.main, 0.1),
+                        opacity: isHovered ? 1 : 0,
+                        transition: theme.transitions.create('opacity', {
+                            duration: theme.transitions.duration.shorter,
+                        })
+                    }}
+                />
+
+                {/* Selection indicator */}
+                {isSelected && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        style={{
+                            position: 'absolute',
+                            inset: -2,
+                            border: `2px solid ${theme.palette.primary.main}`,
+                            borderRadius: shapeStyles.borderRadius,
+                            boxShadow: `0 0 12px ${alpha(theme.palette.primary.main, 0.4)}`
+                        }}
+                    />
+                )}
+            </Paper>
+
+            {/* Electron beam visualization */}
+            <Box
+                sx={{
+                    position: 'relative',
+                    width: 2,
+                    height: 24,
+                    mx: 'auto',
+                    overflow: 'hidden',
+                    mt: 1
+                }}
+            >
+                {/* Beam path */}
+                <Box
+                    sx={{
+                        position: 'absolute',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        width: 1,
+                        height: '100%',
+                        background: `linear-gradient(to bottom, ${alpha('#FDE047', 0.8)}, ${alpha('#F59E0B', 0.6)}, ${alpha('#FDE047', 0.4)})`,
+                    }}
+                />
+
+                {/* Animated particles */}
+                {[...Array(3)].map((_, i) => (
+                    <ElectronParticle key={i} delay={i * 0.4} />
                 ))}
-            </div>
+            </Box>
         </motion.div>
     );
 };
@@ -700,15 +814,6 @@ const MicroscopeColumn: React.FC = () => {
                     </Paper>
                 </Grid>
             </Grid>
-
-            {/* Custom CSS for gradient effects */}
-            <style>
-                {`
-          .bg-gradient-radial {
-            background: radial-gradient(circle, var(--tw-gradient-stops));
-          }
-        `}
-            </style>
         </Container>
     );
 };
