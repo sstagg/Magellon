@@ -64,7 +64,7 @@ const PropertyEditor: React.FC<{
     };
 
     return (
-        <Paper elevation={1} sx={{ p: 3, mt: 2 }}>
+        <Paper elevation={1} sx={{ p: 3, height: 'fit-content' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
                     Properties
@@ -284,7 +284,7 @@ const MicroscopeColumn: React.FC = () => {
 
             <Grid container spacing={3} sx={{ height: 'calc(100vh - 200px)' }}>
                 {/* Left Panel - Configuration */}
-                <Grid item xs={12} md={4} sx={{ height: '100%' }}>
+                <Grid item xs={12} lg={3} sx={{ height: '100%' }}>
                     <Box sx={{
                         display: 'flex',
                         flexDirection: 'column',
@@ -361,11 +361,11 @@ const MicroscopeColumn: React.FC = () => {
                         </Paper>
 
                         {/* Component List */}
-                        <Paper elevation={1} sx={{ p: 2, mb: 2 }}>
+                        <Paper elevation={1} sx={{ p: 2, mb: 2, flexGrow: 1 }}>
                             <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
                                 Components
                             </Typography>
-                            <Box sx={{ maxHeight: 240, overflowY: 'auto' }}>
+                            <Box sx={{ height: 'calc(100% - 40px)', overflowY: 'auto' }}>
                                 {currentConfig.components.map((component) => (
                                     <Paper
                                         key={component.id}
@@ -407,26 +407,11 @@ const MicroscopeColumn: React.FC = () => {
                                 ))}
                             </Box>
                         </Paper>
-
-                        {/* Property Editor */}
-                        {selectedComponent && (
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.95 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0.95 }}
-                                transition={{ duration: 0.2 }}
-                            >
-                                <PropertyEditor
-                                    component={selectedComponent}
-                                    onUpdate={handleComponentUpdate}
-                                />
-                            </motion.div>
-                        )}
                     </Box>
                 </Grid>
 
-                {/* Right Panel - Microscope Column Visualization */}
-                <Grid item xs={12} md={8} sx={{ height: '100%' }}>
+                {/* Middle Panel - Microscope Column Visualization */}
+                <Grid item xs={12} lg={6} sx={{ height: '100%' }}>
                     <Paper
                         elevation={1}
                         sx={{
@@ -475,6 +460,36 @@ const MicroscopeColumn: React.FC = () => {
                             </AnimatePresence>
                         </Box>
                     </Paper>
+                </Grid>
+
+                {/* Right Panel - Properties */}
+                <Grid item xs={12} lg={3} sx={{ height: '100%', minHeight: 0 }}>
+                    <Box sx={{
+                        height: '100%',
+                        overflowY: 'auto',
+                        minHeight: 0
+                    }}>
+                        {/* Property Editor */}
+                        {selectedComponent ? (
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                transition={{ duration: 0.2 }}
+                            >
+                                <PropertyEditor
+                                    component={selectedComponent}
+                                    onUpdate={handleComponentUpdate}
+                                />
+                            </motion.div>
+                        ) : (
+                            <Paper elevation={1} sx={{ p: 3, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Typography variant="body1" color="text.secondary" textAlign="center">
+                                    Select a component from the list to view and edit its properties
+                                </Typography>
+                            </Paper>
+                        )}
+                    </Box>
                 </Grid>
             </Grid>
         </Container>
