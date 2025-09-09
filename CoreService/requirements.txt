@@ -27,10 +27,10 @@ apache-airflow-client==2.7.2
 # graphene-sqlalchemy==2.3.0
 # bcrypt
 # starlette-graphene3
-
+imagecodecs
 #sqlacodegen
 #mysqlclient
-
+python-dotenv
 strawberry-graphql[fastapi]==0.243.0
 # bump-pydantic
 rich==13.7.0

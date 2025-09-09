@@ -241,7 +241,6 @@ class EPUImportTaskDto(ImportTaskDto):
 
 class SerialEMImportJobBase(ImportJobBase):
     serial_em_dir_path: Optional[str] = None
-
     replace_type: str = "none"
     replace_pattern: Optional[str] = None
     replace_with: Optional[str] = None

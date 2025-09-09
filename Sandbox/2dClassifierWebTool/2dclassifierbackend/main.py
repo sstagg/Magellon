@@ -47,7 +47,7 @@ async def upload_files(
     try:
         if selectedValue not in SelectedValue:
             raise HTTPException(status_code=400, detail="Invalid selected value.")
-
+        os.makedirs(UPLOAD_DIRECTORY, exist_ok=True)
         folder_name = f"{selectedValue.value}_{uuid}"
         upload_path = os.path.join(UPLOAD_DIRECTORY, folder_name)
         os.makedirs(upload_path, exist_ok=True)

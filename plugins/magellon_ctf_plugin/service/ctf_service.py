@@ -111,8 +111,7 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
 
         if return_code != 0:
             raise Exception(f"Command failed with return code {process.returncode}: {output} {error_output}")
-
-        outputFileName = "".join(the_task_data.outputFile.split(".")[:-1])
+        outputFileName = the_task_data.outputFile.rsplit(".", 1)[0]
         CTFestimationValues = await readLastLine(f'{outputFileName}.txt')
 
         # Initialize metadata list
