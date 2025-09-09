@@ -22,12 +22,13 @@ import {
     Thermometer,
     Film,
     Sliders,
-    Box,
     Plus,
     Trash2,
     Copy,
     BookmarkPlus
 } from 'lucide-react';
+import { Box, Typography, Paper, IconButton } from '@mui/material';
+import { alpha, useTheme } from '@mui/material/styles';
 
 interface Property {
     id: number;
@@ -388,6 +389,7 @@ const getSubcategoryIcon = (subcategory: string) => {
 };
 
 const PropertyExplorer: React.FC = () => {
+    const theme = useTheme();
     const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['microscope']));
     const [expandedSubcategories, setExpandedSubcategories] = useState<Set<string>>(new Set());
     const [expandedPresets, setExpandedPresets] = useState<Set<string>>(new Set(['preset-1']));
@@ -527,55 +529,129 @@ const PropertyExplorer: React.FC = () => {
 
         if (!prop.editable) {
             return (
-                <span className="text-gray-600 text-sm font-mono">
-          {String(value ?? '')}
-        </span>
+                <Typography
+                    variant="body2"
+                    sx={{
+                        fontFamily: 'monospace',
+                        fontSize: '0.75rem',
+                        color: 'text.secondary'
+                    }}
+                >
+                    {String(value ?? '')}
+                </Typography>
             );
         }
 
         if (isEditing) {
             return (
-                <input
+                <Box
+                    component="input"
                     type="text"
                     value={String(value ?? '')}
-                    onChange={(e) => onChange(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
                     onBlur={() => setEditingProperty(null)}
-                    onKeyDown={(e) => {
+                    onKeyDown={(e: React.KeyboardEvent) => {
                         if (e.key === 'Enter') {
                             setEditingProperty(null);
                         } else if (e.key === 'Escape') {
                             setEditingProperty(null);
                         }
                     }}
-                    className="w-full px-1 py-0.5 text-sm font-mono border border-blue-400 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    sx={{
+                        width: '100%',
+                        px: 0.5,
+                        py: 0.25,
+                        fontSize: '0.75rem',
+                        fontFamily: 'monospace',
+                        border: `1px solid ${theme.palette.primary.main}`,
+                        borderRadius: 1,
+                        outline: 'none',
+                        backgroundColor: 'background.paper',
+                        '&:focus': {
+                            borderColor: theme.palette.primary.main,
+                            boxShadow: `0 0 0 1px ${alpha(theme.palette.primary.main, 0.25)}`
+                        }
+                    }}
                     autoFocus
                 />
             );
         }
 
         return (
-            <button
+            <Box
+                component="button"
                 onClick={() => setEditingProperty(editKey)}
-                className="text-left w-full text-sm font-mono text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-1 py-0.5 rounded"
+                sx={{
+                    textAlign: 'left',
+                    width: '100%',
+                    fontSize: '0.75rem',
+                    fontFamily: 'monospace',
+                    color: 'primary.main',
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    borderRadius: 1,
+                    px: 0.5,
+                    py: 0.25,
+                    cursor: 'pointer',
+                    '&:hover': {
+                        backgroundColor: alpha(theme.palette.primary.main, 0.08),
+                        color: 'primary.dark'
+                    }
+                }}
             >
                 {String(value ?? '')}
-            </button>
+            </Box>
         );
     };
 
     return (
-        <div className="w-80 bg-white border border-gray-300 rounded-lg shadow-lg overflow-hidden">
-            <div className="bg-gray-100 border-b border-gray-300 px-3 py-2">
-                <h3 className="text-sm font-semibold text-gray-700">Properties</h3>
-            </div>
+        <Paper
+            elevation={2}
+            sx={{
+                width: 320,
+                borderRadius: 2,
+                overflow: 'hidden'
+            }}
+        >
+            <Box
+                sx={{
+                    backgroundColor: alpha(theme.palette.grey[100], 0.8),
+                    borderBottom: `1px solid ${theme.palette.divider}`,
+                    px: 1.5,
+                    py: 1
+                }}
+            >
+                <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                    Properties
+                </Typography>
+            </Box>
 
-            <div className="h-96 overflow-y-auto">
+            <Box sx={{ height: 384, overflowY: 'auto' }}>
                 {/* Microscope and Camera Properties */}
                 {Object.entries(groupedMicroscopeCameraProperties).map(([category, subcategories]) => (
-                    <div key={category} className="border-b border-gray-200">
-                        <button
+                    <Box key={category} sx={{ borderBottom: `1px solid ${theme.palette.divider}` }}>
+                        <Box
+                            component="button"
                             onClick={() => toggleCategory(category)}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-50 focus:outline-none focus:bg-gray-100"
+                            sx={{
+                                width: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1,
+                                px: 1.5,
+                                py: 1,
+                                textAlign: 'left',
+                                backgroundColor: 'transparent',
+                                border: 'none',
+                                cursor: 'pointer',
+                                '&:hover': {
+                                    backgroundColor: alpha(theme.palette.grey[100], 0.5)
+                                },
+                                '&:focus': {
+                                    outline: 'none',
+                                    backgroundColor: alpha(theme.palette.grey[200], 0.5)
+                                }
+                            }}
                         >
                             {expandedCategories.has(category) ? (
                                 <ChevronDown className="w-4 h-4 text-gray-500" />
@@ -583,20 +659,46 @@ const PropertyExplorer: React.FC = () => {
                                 <ChevronRight className="w-4 h-4 text-gray-500" />
                             )}
                             {getCategoryIcon(category)}
-                            <span className="text-sm font-medium text-gray-700 capitalize">
-                {category}
-              </span>
-                        </button>
+                            <Typography
+                                variant="body2"
+                                sx={{
+                                    fontWeight: 500,
+                                    color: 'text.primary',
+                                    textTransform: 'capitalize'
+                                }}
+                            >
+                                {category}
+                            </Typography>
+                        </Box>
 
                         {expandedCategories.has(category) && (
-                            <div className="bg-gray-50">
+                            <Box sx={{ backgroundColor: alpha(theme.palette.grey[50], 0.5) }}>
                                 {Object.entries(subcategories).map(([subcategory, props]) => {
                                     const subcategoryKey = `${category}-${subcategory}`;
                                     return (
-                                        <div key={subcategoryKey}>
-                                            <button
+                                        <Box key={subcategoryKey}>
+                                            <Box
+                                                component="button"
                                                 onClick={() => toggleSubcategory(subcategoryKey)}
-                                                className="w-full flex items-center gap-2 px-6 py-1.5 text-left hover:bg-gray-100 focus:outline-none focus:bg-gray-150"
+                                                sx={{
+                                                    width: '100%',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: 1,
+                                                    px: 3,
+                                                    py: 0.75,
+                                                    textAlign: 'left',
+                                                    backgroundColor: 'transparent',
+                                                    border: 'none',
+                                                    cursor: 'pointer',
+                                                    '&:hover': {
+                                                        backgroundColor: alpha(theme.palette.grey[100], 0.8)
+                                                    },
+                                                    '&:focus': {
+                                                        outline: 'none',
+                                                        backgroundColor: alpha(theme.palette.grey[200], 0.5)
+                                                    }
+                                                }}
                                             >
                                                 {expandedSubcategories.has(subcategoryKey) ? (
                                                     <ChevronDown className="w-3 h-3 text-gray-400" />
@@ -604,71 +706,133 @@ const PropertyExplorer: React.FC = () => {
                                                     <ChevronRight className="w-3 h-3 text-gray-400" />
                                                 )}
                                                 {getSubcategoryIcon(subcategory)}
-                                                <span className="text-xs font-medium text-gray-600 capitalize">
-                          {subcategory.replace(/_/g, ' ')}
-                        </span>
-                                            </button>
+                                                <Typography
+                                                    variant="caption"
+                                                    sx={{
+                                                        fontWeight: 500,
+                                                        color: 'text.secondary',
+                                                        textTransform: 'capitalize'
+                                                    }}
+                                                >
+                                                    {subcategory.replace(/_/g, ' ')}
+                                                </Typography>
+                                            </Box>
 
                                             {expandedSubcategories.has(subcategoryKey) && (
-                                                <div className="bg-white">
+                                                <Box sx={{ backgroundColor: 'background.paper' }}>
                                                     {props.map((prop) => (
-                                                        <div
+                                                        <Box
                                                             key={prop.id}
-                                                            className="flex items-center justify-between px-8 py-1.5 hover:bg-blue-50 border-l-2 border-transparent hover:border-blue-300"
+                                                            sx={{
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'space-between',
+                                                                px: 4,
+                                                                py: 0.75,
+                                                                borderLeft: `2px solid transparent`,
+                                                                '&:hover': {
+                                                                    backgroundColor: alpha(theme.palette.primary.main, 0.08),
+                                                                    borderLeftColor: alpha(theme.palette.primary.main, 0.3)
+                                                                }
+                                                            }}
                                                         >
-                                                            <div className="flex items-center gap-2 min-w-0 flex-1">
-                                <span
-                                    className={`text-xs ${prop.editable ? 'text-gray-700' : 'text-gray-500'}`}
-                                    title={prop.property_name}
-                                >
-                                  {formatPropertyName(prop.property_name)}
-                                </span>
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: 1 }}>
+                                                                <Typography
+                                                                    variant="caption"
+                                                                    sx={{
+                                                                        color: prop.editable ? 'text.primary' : 'text.disabled',
+                                                                        fontSize: '0.7rem'
+                                                                    }}
+                                                                    title={prop.property_name}
+                                                                >
+                                                                    {formatPropertyName(prop.property_name)}
+                                                                </Typography>
                                                                 {!prop.editable && (
-                                                                    <span className="text-xs text-gray-400">🔒</span>
+                                                                    <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: '0.7rem' }}>
+                                                                        🔒
+                                                                    </Typography>
                                                                 )}
-                                                            </div>
-                                                            <div className="min-w-0 flex-1 text-right">
+                                                            </Box>
+                                                            <Box sx={{ minWidth: 0, flex: 1, textAlign: 'right' }}>
                                                                 {renderPropertyValue(
                                                                     prop,
                                                                     microscopeCameraValues[prop.property_name],
                                                                     (newValue) => handleMicroscopeCameraPropertyChange(prop.property_name, newValue),
                                                                     prop.property_name
                                                                 )}
-                                                            </div>
-                                                        </div>
+                                                            </Box>
+                                                        </Box>
                                                     ))}
-                                                </div>
+                                                </Box>
                                             )}
-                                        </div>
+                                        </Box>
                                     );
                                 })}
-                            </div>
+                            </Box>
                         )}
-                    </div>
+                    </Box>
                 ))}
 
                 {/* Presets */}
-                <div className="border-b border-gray-200">
-                    <div className="flex items-center justify-between px-3 py-2 bg-gray-50">
-                        <div className="flex items-center gap-2">
+                <Box sx={{ borderBottom: `1px solid ${theme.palette.divider}` }}>
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            px: 1.5,
+                            py: 1,
+                            backgroundColor: alpha(theme.palette.grey[50], 0.5)
+                        }}
+                    >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <BookmarkPlus className="w-4 h-4 text-gray-600" />
-                            <span className="text-sm font-medium text-gray-700">Presets</span>
-                        </div>
-                        <button
+                            <Typography variant="body2" sx={{ fontWeight: 500, color: 'text.primary' }}>
+                                Presets
+                            </Typography>
+                        </Box>
+                        <IconButton
+                            size="small"
                             onClick={addNewPreset}
-                            className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded"
+                            sx={{
+                                color: 'text.secondary',
+                                '&:hover': {
+                                    color: 'text.primary',
+                                    backgroundColor: alpha(theme.palette.grey[200], 0.5)
+                                }
+                            }}
                             title="Add New Preset"
                         >
                             <Plus className="w-3 h-3" />
-                        </button>
-                    </div>
+                        </IconButton>
+                    </Box>
 
                     {presets.map((preset) => (
-                        <div key={preset.id} className="bg-gray-50">
-                            <div className="flex items-center justify-between px-6 py-2">
-                                <button
+                        <Box key={preset.id} sx={{ backgroundColor: alpha(theme.palette.grey[50], 0.5) }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 3, py: 1 }}>
+                                <Box
+                                    component="button"
                                     onClick={() => togglePreset(preset.id)}
-                                    className="flex items-center gap-2 flex-1 text-left hover:bg-gray-100 focus:outline-none focus:bg-gray-150 px-2 py-1 rounded"
+                                    sx={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 1,
+                                        flex: 1,
+                                        textAlign: 'left',
+                                        backgroundColor: 'transparent',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        px: 1,
+                                        py: 0.5,
+                                        borderRadius: 1,
+                                        '&:hover': {
+                                            backgroundColor: alpha(theme.palette.grey[100], 0.8)
+                                        },
+                                        '&:focus': {
+                                            outline: 'none',
+                                            backgroundColor: alpha(theme.palette.grey[200], 0.5)
+                                        }
+                                    }}
                                 >
                                     {expandedPresets.has(preset.id) ? (
                                         <ChevronDown className="w-3 h-3 text-gray-400" />
@@ -676,80 +840,150 @@ const PropertyExplorer: React.FC = () => {
                                         <ChevronRight className="w-3 h-3 text-gray-400" />
                                     )}
                                     <Settings className="w-3 h-3 text-gray-500" />
-                                    <span className="text-xs font-medium text-gray-600">
-                    {preset.name}
-                  </span>
-                                </button>
-                                <div className="flex items-center gap-1">
-                                    <button
-                                        onClick={() => duplicatePreset(preset)}
-                                        className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded"
+                                    <Typography
+                                        variant="caption"
+                                        sx={{
+                                            fontWeight: 500,
+                                            color: 'text.secondary',
+                                            fontSize: '0.7rem'
+                                        }}
+                                    >
+                                        {preset.name}
+                                    </Typography>
+                                </Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    <IconButton
+                                        size="small"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            duplicatePreset(preset);
+                                        }}
+                                        sx={{
+                                            color: 'text.disabled',
+                                            '&:hover': {
+                                                color: 'text.secondary',
+                                                backgroundColor: alpha(theme.palette.grey[200], 0.5)
+                                            }
+                                        }}
                                         title="Duplicate Preset"
                                     >
                                         <Copy className="w-3 h-3" />
-                                    </button>
-                                    <button
-                                        onClick={() => deletePreset(preset.id)}
-                                        className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-100 rounded"
+                                    </IconButton>
+                                    <IconButton
+                                        size="small"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            deletePreset(preset.id);
+                                        }}
+                                        sx={{
+                                            color: 'text.disabled',
+                                            '&:hover': {
+                                                color: 'error.main',
+                                                backgroundColor: alpha(theme.palette.error.main, 0.1)
+                                            }
+                                        }}
                                         title="Delete Preset"
                                     >
                                         <Trash2 className="w-3 h-3" />
-                                    </button>
-                                </div>
-                            </div>
+                                    </IconButton>
+                                </Box>
+                            </Box>
 
                             {expandedPresets.has(preset.id) && (
-                                <div className="bg-white ml-4">
+                                <Box sx={{ backgroundColor: 'background.paper', ml: 2 }}>
                                     {Object.entries(groupedPresetProperties).map(([subcategory, props]) => (
-                                        <div key={`${preset.id}-${subcategory}`}>
-                                            <div className="flex items-center gap-2 px-6 py-1.5 bg-gray-50">
+                                        <Box key={`${preset.id}-${subcategory}`}>
+                                            <Box
+                                                sx={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: 1,
+                                                    px: 3,
+                                                    py: 0.75,
+                                                    backgroundColor: alpha(theme.palette.grey[50], 0.5)
+                                                }}
+                                            >
                                                 {getSubcategoryIcon(subcategory)}
-                                                <span className="text-xs font-medium text-gray-600 capitalize">
-                          {subcategory.replace(/_/g, ' ')}
-                        </span>
-                                            </div>
+                                                <Typography
+                                                    variant="caption"
+                                                    sx={{
+                                                        fontWeight: 500,
+                                                        color: 'text.secondary',
+                                                        textTransform: 'capitalize',
+                                                        fontSize: '0.7rem'
+                                                    }}
+                                                >
+                                                    {subcategory.replace(/_/g, ' ')}
+                                                </Typography>
+                                            </Box>
 
-                                            <div className="bg-white">
+                                            <Box sx={{ backgroundColor: 'background.paper' }}>
                                                 {props.map((prop) => (
-                                                    <div
+                                                    <Box
                                                         key={`${preset.id}-${prop.id}`}
-                                                        className="flex items-center justify-between px-8 py-1.5 hover:bg-blue-50 border-l-2 border-transparent hover:border-blue-300"
+                                                        sx={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            px: 4,
+                                                            py: 0.75,
+                                                            borderLeft: `2px solid transparent`,
+                                                            '&:hover': {
+                                                                backgroundColor: alpha(theme.palette.primary.main, 0.08),
+                                                                borderLeftColor: alpha(theme.palette.primary.main, 0.3)
+                                                            }
+                                                        }}
                                                     >
-                                                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                              <span
-                                  className={`text-xs ${prop.editable ? 'text-gray-700' : 'text-gray-500'}`}
-                                  title={prop.property_name}
-                              >
-                                {formatPropertyName(prop.property_name)}
-                              </span>
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: 1 }}>
+                                                            <Typography
+                                                                variant="caption"
+                                                                sx={{
+                                                                    color: prop.editable ? 'text.primary' : 'text.disabled',
+                                                                    fontSize: '0.7rem'
+                                                                }}
+                                                                title={prop.property_name}
+                                                            >
+                                                                {formatPropertyName(prop.property_name)}
+                                                            </Typography>
                                                             {!prop.editable && (
-                                                                <span className="text-xs text-gray-400">🔒</span>
+                                                                <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: '0.7rem' }}>
+                                                                    🔒
+                                                                </Typography>
                                                             )}
-                                                        </div>
-                                                        <div className="min-w-0 flex-1 text-right">
+                                                        </Box>
+                                                        <Box sx={{ minWidth: 0, flex: 1, textAlign: 'right' }}>
                                                             {renderPropertyValue(
                                                                 prop,
                                                                 preset.values[prop.property_name],
                                                                 (newValue) => handlePresetPropertyChange(preset.id, prop.property_name, newValue),
                                                                 `${preset.id}-${prop.property_name}`
                                                             )}
-                                                        </div>
-                                                    </div>
+                                                        </Box>
+                                                    </Box>
                                                 ))}
-                                            </div>
-                                        </div>
+                                            </Box>
+                                        </Box>
                                     ))}
-                                </div>
+                                </Box>
                             )}
-                        </div>
+                        </Box>
                     ))}
-                </div>
-            </div>
+                </Box>
+            </Box>
 
-            <div className="bg-gray-100 border-t border-gray-300 px-3 py-2 text-xs text-gray-500">
-                {microscopeCameraProperties.length} system properties • {presets.length} presets
-            </div>
-        </div>
+            <Box
+                sx={{
+                    backgroundColor: alpha(theme.palette.grey[100], 0.8),
+                    borderTop: `1px solid ${theme.palette.divider}`,
+                    px: 1.5,
+                    py: 1
+                }}
+            >
+                <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
+                    {microscopeCameraProperties.length} system properties • {presets.length} presets
+                </Typography>
+            </Box>
+        </Paper>
     );
 };
 

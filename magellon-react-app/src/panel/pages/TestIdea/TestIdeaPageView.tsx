@@ -1,36 +1,37 @@
 import React, { useState } from 'react';
+import { Box, Typography, IconButton, useTheme } from '@mui/material';
+import { alpha } from '@mui/material/styles';
+import { ChevronRight } from 'lucide-react';
 
-// Import your existing components (you'll need to adjust these import paths)
+// Import your existing components (adjust these import paths)
 import MicroscopeColumn from './MicroscopeColumn';
 import PropertyExplorer from './PropertyExplorer';
 
-import {
-    ChevronRight
-} from 'lucide-react';
-
-
 export const TestIdeaPageView: React.FC = () => {
+    const theme = useTheme();
     const [isPropertyPanelOpen, setIsPropertyPanelOpen] = useState(true);
 
     return (
-        <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6' }}>
+        <Box sx={{ minHeight: '100vh', backgroundColor: 'grey.100' }}>
             {/* Header */}
-            <div style={{ padding: '16px', paddingBottom: '0px' }}>
-                <h1 style={{
-                    fontSize: '1.875rem',
-                    fontWeight: 'bold',
-                    color: '#111827',
-                    marginBottom: '8px'
-                }}>
+            <Box sx={{ p: 2, pb: 0 }}>
+                <Typography
+                    variant="h4"
+                    sx={{
+                        fontWeight: 'bold',
+                        color: 'text.primary',
+                        mb: 1
+                    }}
+                >
                     Microscope Control Interface
-                </h1>
-                <p style={{ color: '#6b7280' }}>
+                </Typography>
+                <Typography variant="body1" sx={{ color: 'text.secondary' }}>
                     Interactive microscope configuration and property management
-                </p>
-            </div>
+                </Typography>
+            </Box>
 
             {/* Main layout container */}
-            <div style={{
+            <Box sx={{
                 display: 'flex',
                 flexDirection: 'row',
                 width: '100%',
@@ -38,73 +39,75 @@ export const TestIdeaPageView: React.FC = () => {
                 position: 'relative'
             }}>
                 {/* Microscope Column - Left 70% */}
-                <div style={{
+                <Box sx={{
                     width: '70%',
                     height: '100%',
                     flexShrink: 0
                 }}>
                     <MicroscopeColumn />
-                </div>
+                </Box>
 
                 {/* Property Panel - Right 30% */}
-                <div style={{
+                <Box sx={{
                     width: isPropertyPanelOpen ? '30%' : '0%',
                     height: '100%',
                     flexShrink: 0,
-                    borderLeft: isPropertyPanelOpen ? '1px solid #d1d5db' : 'none',
+                    borderLeft: isPropertyPanelOpen ? `1px solid ${theme.palette.divider}` : 'none',
                     overflow: 'hidden',
-                    backgroundColor: '#ffffff',
-                    transition: 'width 0.3s ease-in-out'
+                    backgroundColor: 'background.paper',
+                    transition: theme.transitions.create(['width'], {
+                        easing: theme.transitions.easing.easeInOut,
+                        duration: theme.transitions.duration.standard,
+                    })
                 }}>
                     {isPropertyPanelOpen && (
-                        <div style={{
+                        <Box sx={{
                             width: '100%',
                             height: '100%',
-                            padding: '16px',
+                            p: 2,
                             overflowY: 'auto'
                         }}>
                             <PropertyExplorer />
-                        </div>
+                        </Box>
                     )}
-                </div>
+                </Box>
 
                 {/* Toggle Button */}
-                <button
+                <IconButton
                     onClick={() => setIsPropertyPanelOpen(!isPropertyPanelOpen)}
-                    style={{
+                    sx={{
                         position: 'absolute',
-                        top: '16px',
+                        top: 2,
                         right: isPropertyPanelOpen ? 'calc(30% + 8px)' : '8px',
                         zIndex: 1000,
-                        backgroundColor: '#3b82f6',
-                        color: '#ffffff',
-                        padding: '8px',
-                        border: 'none',
-                        borderTopLeftRadius: '8px',
-                        borderBottomLeftRadius: '8px',
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                        cursor: 'pointer',
-                        transition: 'right 0.3s ease-in-out, background-color 0.2s ease',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
+                        backgroundColor: 'primary.main',
+                        color: 'primary.contrastText',
+                        borderRadius: '8px 0 0 8px',
+                        boxShadow: theme.shadows[4],
+                        transition: theme.transitions.create(['right', 'background-color'], {
+                            easing: theme.transitions.easing.easeInOut,
+                            duration: theme.transitions.duration.standard,
+                        }),
+                        '&:hover': {
+                            backgroundColor: 'primary.dark',
+                        },
+                        '& .chevron-icon': {
+                            transform: isPropertyPanelOpen ? 'rotate(0deg)' : 'rotate(180deg)',
+                            transition: theme.transitions.create(['transform'], {
+                                easing: theme.transitions.easing.easeInOut,
+                                duration: theme.transitions.duration.standard,
+                            })
+                        }
                     }}
                     title={isPropertyPanelOpen ? "Hide Properties" : "Show Properties"}
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = '#2563eb';
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = '#3b82f6';
-                    }}
+                    size="small"
                 >
-                    <div style={{
-                        transform: isPropertyPanelOpen ? 'rotate(0deg)' : 'rotate(180deg)',
-                        transition: 'transform 0.3s ease-in-out'
-                    }}>
-                        <ChevronRight size={20} />
-                    </div>
-                </button>
-            </div>
-        </div>
+                    <ChevronRight
+                        size={20}
+                        className="chevron-icon"
+                    />
+                </IconButton>
+            </Box>
+        </Box>
     );
 };
