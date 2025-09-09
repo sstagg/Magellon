@@ -136,11 +136,13 @@ services:
     volumes:
       - ${MAGELLON_HOME_PATH}:/magellon
       - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_JOBS_PATH}:/jobs
     environment:
       - APP_ENV=production
       - RUN_ENV=docker
       - GPFS_PATH=${MAGELLON_GPFS_PATH}
       - HOME_PATH=${MAGELLON_HOME_PATH}
+      - JOBS_PATH=${MAGELLON_JOBS_PATH}
       - CONSUL_HOST=consul
       - RABBITMQ_HOST=rabbitmq
       - DRAGONFLY_HOST=dragonfly

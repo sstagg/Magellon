@@ -307,7 +307,16 @@ def create_motioncor_task_data(image_path, gain_path, session_name=None,task_dto
             **settings
         )
 
+def find_matching_file(base_path, frame_name):
+    # Priority order
+    extensions_priority = [".eer", ".tiff", ".tif", ".mrc"]
 
+    for ext in extensions_priority:
+        pattern = os.path.join(base_path, frame_name + "*" + ext)
+        files = glob.glob(pattern)
+        if files:
+            return files[0]  # return first file matching in priority
+    return None
 
 def create_motioncor_task(image_path=None,
                           gain_path=None,
@@ -340,11 +349,11 @@ def create_motioncor_task(image_path=None,
 
             # Create task data
         base_path = os.path.dirname(task_dto.frame_path)
-        matching_files = glob.glob(os.path.join(base_path, task_dto.frame_name + "*"))
-        if not matching_files:
+        matching_file = find_matching_file(base_path, task_dto.frame_name)
+        if not matching_file:
             raise ("motioncor input File not found",task_dto.frame_path)
         motioncor_task_data = create_motioncor_task_data(
-            image_path=matching_files[0],
+            image_path=matching_file,
             gain_path=gain_path,
             session_name=session_name,
             task_dto=task_dto,
