@@ -1,0 +1,848 @@
+[
+  {
+    "id": 1,
+    "type": "microscope_property",
+    "property_name": "system_time",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "microscope",
+    "subcategory": "system"
+  },
+  {
+    "id": 2,
+    "type": "microscope_property",
+    "property_name": "magnification",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "microscope",
+    "subcategory": "optics"
+  },
+  {
+    "id": 3,
+    "type": "microscope_property",
+    "property_name": "spot_size",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "microscope",
+    "subcategory": "beam"
+  },
+  {
+    "id": 4,
+    "type": "microscope_property",
+    "property_name": "intensity",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "microscope",
+    "subcategory": "beam"
+  },
+  {
+    "id": 5,
+    "type": "microscope_property",
+    "property_name": "image_shift_x",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "microscope",
+    "subcategory": "alignment"
+  },
+  {
+    "id": 6,
+    "type": "microscope_property",
+    "property_name": "image_shift_y",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "microscope",
+    "subcategory": "alignment"
+  },
+  {
+    "id": 7,
+    "type": "microscope_property",
+    "property_name": "beam_shift_x",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "microscope",
+    "subcategory": "alignment"
+  },
+  {
+    "id": 8,
+    "type": "microscope_property",
+    "property_name": "beam_shift_y",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "microscope",
+    "subcategory": "alignment"
+  },
+  {
+    "id": 9,
+    "type": "microscope_property",
+    "property_name": "defocus",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "microscope",
+    "subcategory": "focus"
+  },
+  {
+    "id": 10,
+    "type": "microscope_property",
+    "property_name": "reset_defocus",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "microscope",
+    "subcategory": "focus"
+  },
+  {
+    "id": 11,
+    "type": "microscope_property",
+    "property_name": "beam_blank",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "microscope",
+    "subcategory": "beam"
+  },
+  {
+    "id": 12,
+    "type": "microscope_property",
+    "property_name": "stigmator_condenser_x",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "microscope",
+    "subcategory": "stigmator"
+  },
+  {
+    "id": 13,
+    "type": "microscope_property",
+    "property_name": "stigmator_condenser_y",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "microscope",
+    "subcategory": "stigmator"
+  },
+  {
+    "id": 14,
+    "type": "microscope_property",
+    "property_name": "stigmator_diffraction_x",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "microscope",
+    "subcategory": "stigmator"
+  },
+  {
+    "id": 15,
+    "type": "microscope_property",
+    "property_name": "stigmator_diffraction_y",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "microscope",
+    "subcategory": "stigmator"
+  },
+  {
+    "id": 16,
+    "type": "microscope_property",
+    "property_name": "stigmator_objective_x",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "microscope",
+    "subcategory": "stigmator"
+  },
+  {
+    "id": 17,
+    "type": "microscope_property",
+    "property_name": "stigmator_objective_y",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "microscope",
+    "subcategory": "stigmator"
+  },
+  {
+    "id": 18,
+    "type": "microscope_property",
+    "property_name": "beam_tilt_x",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "microscope",
+    "subcategory": "beam"
+  },
+  {
+    "id": 19,
+    "type": "microscope_property",
+    "property_name": "beam_tilt_y",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "microscope",
+    "subcategory": "beam"
+  },
+  {
+    "id": 20,
+    "type": "microscope_property",
+    "property_name": "stage_position_a",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "microscope",
+    "subcategory": "stage"
+  },
+  {
+    "id": 21,
+    "type": "microscope_property",
+    "property_name": "stage_position_x",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "microscope",
+    "subcategory": "stage"
+  },
+  {
+    "id": 22,
+    "type": "microscope_property",
+    "property_name": "stage_position_y",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "microscope",
+    "subcategory": "stage"
+  },
+  {
+    "id": 23,
+    "type": "microscope_property",
+    "property_name": "stage_position_z",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "microscope",
+    "subcategory": "stage"
+  },
+  {
+    "id": 24,
+    "type": "microscope_property",
+    "property_name": "stage_position_b",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "microscope",
+    "subcategory": "stage"
+  },
+  {
+    "id": 25,
+    "type": "microscope_property",
+    "property_name": "stage_position_phi",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "microscope",
+    "subcategory": "stage"
+  },
+  {
+    "id": 26,
+    "type": "microscope_property",
+    "property_name": "holder_type",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "microscope",
+    "subcategory": "holder"
+  },
+  {
+    "id": 27,
+    "type": "microscope_property",
+    "property_name": "holder_status",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "microscope",
+    "subcategory": "holder"
+  },
+  {
+    "id": 28,
+    "type": "microscope_property",
+    "property_name": "stage_status",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "microscope",
+    "subcategory": "stage"
+  },
+  {
+    "id": 29,
+    "type": "microscope_property",
+    "property_name": "vacuum_status",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "microscope",
+    "subcategory": "system"
+  },
+  {
+    "id": 30,
+    "type": "microscope_property",
+    "property_name": "column_valves",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "microscope",
+    "subcategory": "vacuum"
+  },
+  {
+    "id": 31,
+    "type": "microscope_property",
+    "property_name": "column_pressure",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "microscope",
+    "subcategory": "vacuum"
+  },
+  {
+    "id": 32,
+    "type": "microscope_property",
+    "property_name": "turbo_pump",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "microscope",
+    "subcategory": "vacuum"
+  },
+  {
+    "id": 33,
+    "type": "microscope_property",
+    "property_name": "high_tension",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "microscope",
+    "subcategory": "beam"
+  },
+  {
+    "id": 34,
+    "type": "microscope_property",
+    "property_name": "main_screen_position",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "microscope",
+    "subcategory": "screen"
+  },
+  {
+    "id": 35,
+    "type": "microscope_property",
+    "property_name": "low_dose",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "microscope",
+    "subcategory": "dose"
+  },
+  {
+    "id": 36,
+    "type": "microscope_property",
+    "property_name": "low_dose_mode",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "microscope",
+    "subcategory": "dose"
+  },
+  {
+    "id": 37,
+    "type": "microscope_property",
+    "property_name": "objective_current",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "microscope",
+    "subcategory": "lens"
+  },
+  {
+    "id": 38,
+    "type": "microscope_property",
+    "property_name": "exp_wait_time",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "microscope",
+    "subcategory": "timing"
+  },
+  {
+    "id": 39,
+    "type": "microscope_property",
+    "property_name": "tem_energy_filtered",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "microscope",
+    "subcategory": "filter"
+  },
+  {
+    "id": 40,
+    "type": "microscope_property",
+    "property_name": "tem_energy_filter",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "microscope",
+    "subcategory": "filter"
+  },
+  {
+    "id": 41,
+    "type": "microscope_property",
+    "property_name": "tem_energy_filter_width",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "microscope",
+    "subcategory": "filter"
+  },
+  {
+    "id": 42,
+    "type": "microscope_property",
+    "property_name": "probe_mode",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "microscope",
+    "subcategory": "mode"
+  },
+  {
+    "id": 43,
+    "type": "microscope_property",
+    "property_name": "projection_mode",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "microscope",
+    "subcategory": "mode"
+  },
+  {
+    "id": 44,
+    "type": "microscope_property",
+    "property_name": "diffraction_shift_x",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "microscope",
+    "subcategory": "diffraction"
+  },
+  {
+    "id": 45,
+    "type": "microscope_property",
+    "property_name": "diffraction_shift_y",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "microscope",
+    "subcategory": "diffraction"
+  },
+  {
+    "id": 46,
+    "type": "camera_property",
+    "property_name": "subd_dimension_x",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "camera",
+    "subcategory": "geometry"
+  },
+  {
+    "id": 47,
+    "type": "camera_property",
+    "property_name": "subd_dimension_y",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "camera",
+    "subcategory": "geometry"
+  },
+  {
+    "id": 48,
+    "type": "camera_property",
+    "property_name": "subd_binning_x",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "camera",
+    "subcategory": "sampling"
+  },
+  {
+    "id": 49,
+    "type": "camera_property",
+    "property_name": "subd_binning_y",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "camera",
+    "subcategory": "sampling"
+  },
+  {
+    "id": 50,
+    "type": "camera_property",
+    "property_name": "subd_offset_x",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "camera",
+    "subcategory": "geometry"
+  },
+  {
+    "id": 51,
+    "type": "camera_property",
+    "property_name": "subd_offset_y",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "camera",
+    "subcategory": "geometry"
+  },
+  {
+    "id": 52,
+    "type": "camera_property",
+    "property_name": "exposure_time",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "camera",
+    "subcategory": "exposure"
+  },
+  {
+    "id": 53,
+    "type": "camera_property",
+    "property_name": "inserted",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "camera",
+    "subcategory": "status"
+  },
+  {
+    "id": 54,
+    "type": "camera_property",
+    "property_name": "energy_filtered",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "camera",
+    "subcategory": "filter"
+  },
+  {
+    "id": 55,
+    "type": "camera_property",
+    "property_name": "energy_filter",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "camera",
+    "subcategory": "filter"
+  },
+  {
+    "id": 56,
+    "type": "camera_property",
+    "property_name": "energy_filter_width",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "camera",
+    "subcategory": "filter"
+  },
+  {
+    "id": 57,
+    "type": "camera_property",
+    "property_name": "nframes",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "camera",
+    "subcategory": "frames"
+  },
+  {
+    "id": 58,
+    "type": "camera_property",
+    "property_name": "save_frames",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "camera",
+    "subcategory": "frames"
+  },
+  {
+    "id": 59,
+    "type": "camera_property",
+    "property_name": "frames_name",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "camera",
+    "subcategory": "frames"
+  },
+  {
+    "id": 60,
+    "type": "camera_property",
+    "property_name": "frame_rate",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "camera",
+    "subcategory": "frames"
+  },
+  {
+    "id": 61,
+    "type": "camera_property",
+    "property_name": "temperature",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "camera",
+    "subcategory": "sensor"
+  },
+  {
+    "id": 62,
+    "type": "camera_property",
+    "property_name": "eer_frames",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "camera",
+    "subcategory": "frames"
+  },
+  {
+    "id": 63,
+    "type": "camera_property",
+    "property_name": "frame_gain_corrected",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "camera",
+    "subcategory": "correction"
+  },
+  {
+    "id": 64,
+    "type": "preset_property",
+    "property_name": "preset_name",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "preset",
+    "subcategory": "identification"
+  },
+  {
+    "id": 65,
+    "type": "preset_property",
+    "property_name": "preset_magnification",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "preset",
+    "subcategory": "optics"
+  },
+  {
+    "id": 66,
+    "type": "preset_property",
+    "property_name": "preset_spot_size",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "preset",
+    "subcategory": "beam"
+  },
+  {
+    "id": 67,
+    "type": "preset_property",
+    "property_name": "preset_intensity",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "preset",
+    "subcategory": "beam"
+  },
+  {
+    "id": 68,
+    "type": "preset_property",
+    "property_name": "preset_image_shift_x",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "preset",
+    "subcategory": "alignment"
+  },
+  {
+    "id": 69,
+    "type": "preset_property",
+    "property_name": "preset_image_shift_y",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "preset",
+    "subcategory": "alignment"
+  },
+  {
+    "id": 70,
+    "type": "preset_property",
+    "property_name": "preset_beam_shift_x",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "preset",
+    "subcategory": "alignment"
+  },
+  {
+    "id": 71,
+    "type": "preset_property",
+    "property_name": "preset_beam_shift_y",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "preset",
+    "subcategory": "alignment"
+  },
+  {
+    "id": 72,
+    "type": "preset_property",
+    "property_name": "preset_defocus",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "preset",
+    "subcategory": "focus"
+  },
+  {
+    "id": 73,
+    "type": "preset_property",
+    "property_name": "preset_dimension_x",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "preset",
+    "subcategory": "geometry"
+  },
+  {
+    "id": 74,
+    "type": "preset_property",
+    "property_name": "preset_dimension_y",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "preset",
+    "subcategory": "geometry"
+  },
+  {
+    "id": 75,
+    "type": "preset_property",
+    "property_name": "preset_binning_x",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "preset",
+    "subcategory": "sampling"
+  },
+  {
+    "id": 76,
+    "type": "preset_property",
+    "property_name": "preset_binning_y",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "preset",
+    "subcategory": "sampling"
+  },
+  {
+    "id": 77,
+    "type": "preset_property",
+    "property_name": "preset_offset_x",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "preset",
+    "subcategory": "geometry"
+  },
+  {
+    "id": 78,
+    "type": "preset_property",
+    "property_name": "preset_offset_y",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "preset",
+    "subcategory": "geometry"
+  },
+  {
+    "id": 79,
+    "type": "preset_property",
+    "property_name": "preset_exposure_time",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "preset",
+    "subcategory": "exposure"
+  },
+  {
+    "id": 80,
+    "type": "preset_property",
+    "property_name": "preset_dose",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "preset",
+    "subcategory": "dose"
+  },
+  {
+    "id": 81,
+    "type": "preset_property",
+    "property_name": "preset_skip",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "preset",
+    "subcategory": "control"
+  },
+  {
+    "id": 82,
+    "type": "preset_property",
+    "property_name": "preset_defocus_range_min",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "preset",
+    "subcategory": "focus"
+  },
+  {
+    "id": 83,
+    "type": "preset_property",
+    "property_name": "preset_defocus_range_max",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "preset",
+    "subcategory": "focus"
+  },
+  {
+    "id": 84,
+    "type": "preset_property",
+    "property_name": "preset_tilt",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "preset",
+    "subcategory": "geometry"
+  },
+  {
+    "id": 85,
+    "type": "preset_property",
+    "property_name": "preset_save_frames",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "preset",
+    "subcategory": "frames"
+  },
+  {
+    "id": 86,
+    "type": "preset_property",
+    "property_name": "preset_readout_delay",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "preset",
+    "subcategory": "timing"
+  },
+  {
+    "id": 87,
+    "type": "preset_property",
+    "property_name": "preset_energy_filter",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "preset",
+    "subcategory": "filter"
+  },
+  {
+    "id": 88,
+    "type": "preset_property",
+    "property_name": "preset_energy_filter_width",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "preset",
+    "subcategory": "filter"
+  },
+  {
+    "id": 89,
+    "type": "preset_property",
+    "property_name": "preset_frame_time",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "preset",
+    "subcategory": "frames"
+  },
+  {
+    "id": 90,
+    "type": "preset_property",
+    "property_name": "preset_probe_mode",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "preset",
+    "subcategory": "mode"
+  },
+  {
+    "id": 91,
+    "type": "preset_property",
+    "property_name": "preset_projection_mode",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "preset",
+    "subcategory": "mode"
+  },
+  {
+    "id": 92,
+    "type": "preset_property",
+    "property_name": "preset_use_cds",
+    "keep_in_magellon": true,
+    "editable": true,
+    "category": "preset",
+    "subcategory": "sensor"
+  },
+  {
+    "id": 93,
+    "type": "preset_property",
+    "property_name": "preset_diffraction_shift_x",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "preset",
+    "subcategory": "diffraction"
+  },
+  {
+    "id": 94,
+    "type": "preset_property",
+    "property_name": "preset_diffraction_shift_y",
+    "keep_in_magellon": true,
+    "editable": false,
+    "category": "preset",
+    "subcategory": "diffraction"
+  }
+]
