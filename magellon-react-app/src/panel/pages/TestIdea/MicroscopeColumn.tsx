@@ -266,24 +266,24 @@ const MicroscopeComponentRenderer: React.FC<{
 
     const getShapeStyles = () => {
         const baseWidth = 140; // Consistent base width
-        const minHeight = 48;
-        const maxHeight = 72;
+        const minHeight = 70;  // Increased minimum height for better text readability
+        const maxHeight = 90;  // Increased maximum height
 
         // Calculate height based on component type for visual hierarchy
         const heightMap: Record<string, number> = {
             'source': maxHeight,
-            'lens': 60,
+            'lens': 78,
             'aperture': minHeight,
-            'detector': 64,
+            'detector': 80,
             'camera': maxHeight,
-            'sample': minHeight + 8,
-            'electrode': 56,
-            'coils': 56
+            'sample': minHeight + 4,
+            'electrode': 76,
+            'coils': 76
         };
 
         return {
             width: baseWidth,
-            height: heightMap[component.type] || 60,
+            height: heightMap[component.type] || 78,
             borderRadius: component.shape === 'lens' || component.shape === 'source' ? '50%' : theme.shape.borderRadius
         };
     };
@@ -812,6 +812,249 @@ const MicroscopeColumn: React.FC = () => {
                             </AnimatePresence>
                         </Box>
                     </Paper>
+                </Grid>
+
+                {/* Right Panel - Properties */}
+                <Grid item xs={12} md={3} sx={{ height: '100%' }}>
+                    <Box sx={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        height: '100%',
+                        overflowY: 'auto'
+                    }}>
+                        {/* Property Editor */}
+                        {selectedComponent ? (
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                transition={{ duration: 0.2 }}
+                                style={{ height: '100%' }}
+                            >
+                                <Paper elevation={1} sx={{ p: 2, height: '100%' }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                                        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                                            Properties
+                                        </Typography>
+                                        <Typography variant="caption" color="text.secondary">
+                                            {selectedComponent.id}
+                                        </Typography>
+                                    </Box>
+
+                                    <Box sx={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: 2,
+                                        height: 'calc(100% - 50px)',
+                                        overflowY: 'auto'
+                                    }}>
+                                        {/* Basic Properties */}
+                                        <Grid container spacing={2}>
+                                            <Grid item xs={12}>
+                                                <TextField
+                                                    label="Name"
+                                                    size="small"
+                                                    fullWidth
+                                                    value={selectedComponent.name}
+                                                    onChange={(e) => handleComponentUpdate({
+                                                        ...selectedComponent,
+                                                        name: e.target.value
+                                                    })}
+                                                />
+                                            </Grid>
+                                            <Grid item xs={12}>
+                                                <FormControl size="small" fullWidth>
+                                                    <InputLabel>Type</InputLabel>
+                                                    <Select
+                                                        value={selectedComponent.type}
+                                                        label="Type"
+                                                        onChange={(e) => handleComponentUpdate({
+                                                            ...selectedComponent,
+                                                            type: e.target.value
+                                                        })}
+                                                    >
+                                                        <MenuItem value="source">Source</MenuItem>
+                                                        <MenuItem value="lens">Lens</MenuItem>
+                                                        <MenuItem value="aperture">Aperture</MenuItem>
+                                                        <MenuItem value="detector">Detector</MenuItem>
+                                                        <MenuItem value="camera">Camera</MenuItem>
+                                                        <MenuItem value="sample">Sample</MenuItem>
+                                                        <MenuItem value="electrode">Electrode</MenuItem>
+                                                        <MenuItem value="coils">Coils</MenuItem>
+                                                    </Select>
+                                                </FormControl>
+                                            </Grid>
+                                            <Grid item xs={6}>
+                                                <TextField
+                                                    label="Width"
+                                                    type="number"
+                                                    size="small"
+                                                    fullWidth
+                                                    value={selectedComponent.width}
+                                                    onChange={(e) => handleComponentUpdate({
+                                                        ...selectedComponent,
+                                                        width: parseInt(e.target.value)
+                                                    })}
+                                                />
+                                            </Grid>
+                                            <Grid item xs={6}>
+                                                <TextField
+                                                    label="Height"
+                                                    type="number"
+                                                    size="small"
+                                                    fullWidth
+                                                    value={selectedComponent.height}
+                                                    onChange={(e) => handleComponentUpdate({
+                                                        ...selectedComponent,
+                                                        height: parseInt(e.target.value)
+                                                    })}
+                                                />
+                                            </Grid>
+                                            <Grid item xs={6}>
+                                                <Box>
+                                                    <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                                                        Color
+                                                    </Typography>
+                                                    <input
+                                                        type="color"
+                                                        value={selectedComponent.baseColor}
+                                                        onChange={(e) => handleComponentUpdate({
+                                                            ...selectedComponent,
+                                                            baseColor: e.target.value
+                                                        })}
+                                                        style={{
+                                                            width: '100%',
+                                                            height: 32,
+                                                            border: `1px solid ${theme.palette.divider}`,
+                                                            borderRadius: theme.shape.borderRadius,
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    />
+                                                </Box>
+                                            </Grid>
+                                            <Grid item xs={6}>
+                                                <FormControl size="small" fullWidth>
+                                                    <InputLabel>Shape</InputLabel>
+                                                    <Select
+                                                        value={selectedComponent.shape}
+                                                        label="Shape"
+                                                        onChange={(e) => handleComponentUpdate({
+                                                            ...selectedComponent,
+                                                            shape: e.target.value as any
+                                                        })}
+                                                    >
+                                                        <MenuItem value="cylinder">Cylinder</MenuItem>
+                                                        <MenuItem value="lens">Lens</MenuItem>
+                                                        <MenuItem value="aperture">Aperture</MenuItem>
+                                                        <MenuItem value="detector">Detector</MenuItem>
+                                                        <MenuItem value="source">Source</MenuItem>
+                                                        <MenuItem value="camera">Camera</MenuItem>
+                                                    </Select>
+                                                </FormControl>
+                                            </Grid>
+                                        </Grid>
+
+                                        <TextField
+                                            label="Description"
+                                            multiline
+                                            rows={2}
+                                            size="small"
+                                            fullWidth
+                                            value={selectedComponent.description || ''}
+                                            onChange={(e) => handleComponentUpdate({
+                                                ...selectedComponent,
+                                                description: e.target.value
+                                            })}
+                                        />
+
+                                        {/* Specifications */}
+                                        <Box>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    Specifications
+                                                </Typography>
+                                                <Button
+                                                    size="small"
+                                                    variant="outlined"
+                                                    onClick={() => {
+                                                        const key = prompt('Enter specification key:');
+                                                        const value = prompt('Enter specification value:');
+                                                        if (key && value) {
+                                                            handleComponentUpdate({
+                                                                ...selectedComponent,
+                                                                specifications: {
+                                                                    ...selectedComponent.specifications,
+                                                                    [key]: value
+                                                                }
+                                                            });
+                                                        }
+                                                    }}
+                                                    sx={{ minWidth: 'auto', px: 1 }}
+                                                >
+                                                    + Add
+                                                </Button>
+                                            </Box>
+                                            <Box sx={{ maxHeight: 200, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                                {selectedComponent.specifications && Object.entries(selectedComponent.specifications).map(([key, value]) => (
+                                                    <Box key={key} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                                                        <TextField
+                                                            size="small"
+                                                            value={key}
+                                                            placeholder="Key"
+                                                            onChange={(e) => {
+                                                                const newSpecs = { ...selectedComponent.specifications };
+                                                                delete newSpecs[key];
+                                                                newSpecs[e.target.value] = value;
+                                                                handleComponentUpdate({
+                                                                    ...selectedComponent,
+                                                                    specifications: newSpecs
+                                                                });
+                                                            }}
+                                                            sx={{ flex: 1 }}
+                                                        />
+                                                        <TextField
+                                                            size="small"
+                                                            value={String(value)}
+                                                            placeholder="Value"
+                                                            onChange={(e) => handleComponentUpdate({
+                                                                ...selectedComponent,
+                                                                specifications: {
+                                                                    ...selectedComponent.specifications,
+                                                                    [key]: e.target.value
+                                                                }
+                                                            })}
+                                                            sx={{ flex: 1 }}
+                                                        />
+                                                        <Button
+                                                            size="small"
+                                                            color="error"
+                                                            onClick={() => {
+                                                                const newSpecs = { ...selectedComponent.specifications };
+                                                                delete newSpecs[key];
+                                                                handleComponentUpdate({
+                                                                    ...selectedComponent,
+                                                                    specifications: newSpecs
+                                                                });
+                                                            }}
+                                                            sx={{ minWidth: 'auto', px: 1 }}
+                                                        >
+                                                            ×
+                                                        </Button>
+                                                    </Box>
+                                                ))}
+                                            </Box>
+                                        </Box>
+                                    </Box>
+                                </Paper>
+                            </motion.div>
+                        ) : (
+                            <Paper elevation={1} sx={{ p: 3, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Typography variant="body1" color="text.secondary" textAlign="center">
+                                    Select a component from the list to view and edit its properties
+                                </Typography>
+                            </Paper>
+                        )}
+                    </Box>
                 </Grid>
             </Grid>
         </Container>
