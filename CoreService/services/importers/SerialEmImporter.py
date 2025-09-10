@@ -309,6 +309,7 @@ class SerialEmImporter(BaseImporter):
                 raise FileNotFoundError(f"No files found in gains directory: {gains_dir}")
             gains_file_path = os.path.abspath(os.path.join(gains_dir, gains_files[0]))
             metadata_list = parse_directory(files, settings_txt_path)
+            job = None
             if len(metadata_list) > 0:
                 target_dir = os.path.join(MAGELLON_HOME_DIR, self.params.magellon_session_name)
                 self.params.target_directory = target_dir
@@ -372,59 +373,63 @@ class SerialEmImporter(BaseImporter):
                     )
 
                     try:
-                        result_file = convert_tiff_to_mrc(
-                            metadata.file_path.replace(".mdoc", ""),
-                            os.path.join(self.params.target_directory, GAINS_SUB_URL, gain_file_name),
-                            os.path.join(directory_path, f"{'.'.join(os.path.basename(metadata.file_path).split('.')[:-2])}.mrc")
+                        moviename = metadata.file_path.replace(".mdoc", "")
+                        gainname = os.path.join(self.params.target_directory, GAINS_SUB_URL, gain_file_name)
+                        outname = os.path.join(
+                            directory_path,
+                            f"{'.'.join(os.path.basename(metadata.file_path).split('.')[:-2])}.mrc"
                         )
+                        if os.path.exists(moviename):
+                            result_file = convert_tiff_to_mrc(moviename, gainname, outname)
+                   
+
+                            # Find source image and frame paths
+                            source_image_path = result_file
+                            source_frame_path = metadata.file_path.replace(".mdoc", "")
+
+                            # Handle path replacements if needed
+                            if hasattr(self.params, 'replace_type') and hasattr(self.params, 'replace_pattern') and hasattr(self.params, 'replace_with'):
+                                if self.params.replace_type in ["regex", "standard"]:
+                                    if source_frame_path:
+                                        source_frame_path = custom_replace(source_frame_path, self.params.replace_type,
+                                                                        self.params.replace_pattern, self.params.replace_with)
+                                    source_image_path = custom_replace(source_image_path, self.params.replace_type,
+                                                                    self.params.replace_pattern, self.params.replace_with)
+
+                            frame_name = os.path.splitext(os.path.basename(source_frame_path))[0] if source_frame_path else ""
+
+                            job_item = ImageJobTask(
+                                oid=uuid.uuid4(),
+                                job_id=job.oid,
+                                frame_name=frame_name,
+                                frame_path=source_frame_path,
+                                image_name=os.path.splitext(os.path.basename(source_image_path))[0],
+                                image_path=source_image_path,
+                                status_id=1,
+                                stage=0,
+                                image_id=db_image.oid,
+                            )
+                            db_job_item_list.append(job_item)
+
+                            task = SerialEMImportTaskDto(
+                                task_id=task_id,
+                                task_alias=f"lftj_{filename}_{job.oid}",
+                                file_name=f"{filename}",
+                                image_id=db_image.oid,
+                                image_name=os.path.splitext(os.path.basename(source_image_path))[0],
+                                frame_name=frame_name,
+                                image_path=source_image_path,
+                                frame_path=source_frame_path,
+                                job_dto=self.params,
+                                status=1,
+                                pixel_size=metadata.pixel_size,
+                                acceleration_voltage=metadata.acceleration_voltage,
+                                spherical_aberration=metadata.spherical_aberration,
+                            )
+                            task_todo_list.append(task)
                     except ValueError as err:
                         logger.error(f"Convertion of TIFF to MRC preview image failed for file {metadata.file_path}: {err}", exc_info=True)
                         raise ValueError(f"Preview image conversion failed for: {metadata.file_path}") from err
-
-                    # Find source image and frame paths
-                    source_image_path = result_file
-                    source_frame_path = metadata.file_path.replace(".mdoc", "")
-
-                    # Handle path replacements if needed
-                    if hasattr(self.params, 'replace_type') and hasattr(self.params, 'replace_pattern') and hasattr(self.params, 'replace_with'):
-                        if self.params.replace_type in ["regex", "standard"]:
-                            if source_frame_path:
-                                source_frame_path = custom_replace(source_frame_path, self.params.replace_type,
-                                                                self.params.replace_pattern, self.params.replace_with)
-                            source_image_path = custom_replace(source_image_path, self.params.replace_type,
-                                                            self.params.replace_pattern, self.params.replace_with)
-
-                    frame_name = os.path.splitext(os.path.basename(source_frame_path))[0] if source_frame_path else ""
-
-                    job_item = ImageJobTask(
-                        oid=uuid.uuid4(),
-                        job_id=job.oid,
-                        frame_name=frame_name,
-                        frame_path=source_frame_path,
-                        image_name=os.path.splitext(os.path.basename(source_image_path))[0],
-                        image_path=source_image_path,
-                        status_id=1,
-                        stage=0,
-                        image_id=db_image.oid,
-                    )
-                    db_job_item_list.append(job_item)
-
-                    task = SerialEMImportTaskDto(
-                        task_id=task_id,
-                        task_alias=f"lftj_{filename}_{job.oid}",
-                        file_name=f"{filename}",
-                        image_id=db_image.oid,
-                        image_name=os.path.splitext(os.path.basename(source_image_path))[0],
-                        frame_name=frame_name,
-                        image_path=source_image_path,
-                        frame_path=source_frame_path,
-                        job_dto=self.params,
-                        status=1,
-                        pixel_size=metadata.pixel_size,
-                        acceleration_voltage=metadata.acceleration_voltage,
-                        spherical_aberration=metadata.spherical_aberration,
-                    )
-                    task_todo_list.append(task)
 
                 # Save all records
                 db_session.bulk_save_objects(db_image_list)
@@ -438,7 +443,17 @@ class SerialEmImporter(BaseImporter):
             execution_time = time.time() - start_time
             logger.info(f"serialEM import completed in {execution_time:.2f} seconds")
 
-            return {'status': 'success', 'message': 'Job completed successfully.', "job_id": job.oid}
+            if job: 
+                return {
+                    'status': 'success',
+                    'message': 'Job completed successfully.',
+                    "job_id": job.oid
+                }
+            else:
+                return {
+                    'status': 'success',
+                    'message': 'No valid .mdoc/movie files found, no job created.'
+                }
 
         except FileNotFoundError as e:
             error_message = f"File not found error: {str(e)}"
