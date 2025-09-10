@@ -12,9 +12,12 @@ import {
     Select,
     TextField,
     Typography,
-    useTheme
+    useTheme,
+    Chip,
+    alpha
 } from '@mui/material';
 import {MICROSCOPE_CONFIGS, MicroscopeComponent, MicroscopeConfig} from "./MicroscopeComponentConfig.ts";
+import MicroscopeComponentRenderer from './MicroscopeComponentRenderer';
 
 // Property Editor Component
 const PropertyEditor: React.FC<{
@@ -61,7 +64,7 @@ const PropertyEditor: React.FC<{
     };
 
     return (
-        <Paper elevation={1} sx={{ p: 3, mt: 2 }}>
+        <Paper elevation={1} sx={{ p: 3, height: 'fit-content' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
                     Properties
@@ -224,232 +227,6 @@ const PropertyEditor: React.FC<{
     );
 };
 
-// Particle component for electron beam
-const ElectronParticle: React.FC<{ delay: number }> = ({ delay }) => (
-    <motion.div
-        className="absolute w-0.5 h-0.5 bg-yellow-300 rounded-full opacity-60"
-        initial={{ y: -10, opacity: 0 }}
-        animate={{
-            y: 15,
-            opacity: [0, 0.8, 0.8, 0],
-            scale: [0.5, 1, 1, 0.5]
-        }}
-        transition={{
-            duration: 1.2,
-            delay,
-            repeat: Infinity,
-            ease: "linear"
-        }}
-    />
-);
-
-// Compact component renderer with centered labels
-const MicroscopeComponentRenderer: React.FC<{
-    component: MicroscopeComponent;
-    isHovered: boolean;
-    isSelected: boolean;
-    onHover: () => void;
-    onLeave: () => void;
-    onSelect: () => void;
-    index: number;
-}> = ({ component, isHovered, isSelected, onHover, onLeave, onSelect, index }) => {
-
-    const renderShape = () => {
-        const baseStyle = {
-            background: `linear-gradient(135deg, ${component.baseColor}, ${component.baseColor}dd)`,
-        };
-
-        const labelStyle = "absolute inset-0 flex items-center justify-center text-white text-xs font-medium text-center px-1 pointer-events-none select-none";
-
-        switch (component.shape) {
-            case 'source':
-                return (
-                    <div
-                        className="relative rounded-t-full border border-white/30 backdrop-blur-sm shadow-lg overflow-hidden"
-                        style={{
-                            ...baseStyle,
-                            width: component.width,
-                            height: component.height,
-                            boxShadow: isHovered ? `0 0 15px ${component.baseColor}60` : `0 0 8px ${component.baseColor}40`
-                        }}
-                    >
-                        <div className="absolute inset-1 bg-gradient-to-br from-white/20 to-transparent rounded-t-full" />
-                        <div className={labelStyle}>
-                            {component.name}
-                        </div>
-                        <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-4 h-1 bg-gradient-to-b from-yellow-300 to-yellow-500" />
-                    </div>
-                );
-
-            case 'lens':
-                return (
-                    <div className="flex flex-col items-center">
-                        <div
-                            className="relative rounded-full border border-white/30 backdrop-blur-sm shadow-lg overflow-hidden"
-                            style={{
-                                ...baseStyle,
-                                width: component.width,
-                                height: component.height,
-                                boxShadow: isHovered ? `0 0 12px ${component.baseColor}50` : `0 0 6px ${component.baseColor}30`
-                            }}
-                        >
-                            <div className="absolute inset-1 border border-white/10 rounded-full" />
-                            <div className="absolute inset-0 bg-gradient-radial from-white/20 via-transparent to-transparent rounded-full" />
-                            <div className={labelStyle}>
-                                {component.name}
-                            </div>
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="w-2 h-2 border border-white/40 rounded-full" />
-                            </div>
-                        </div>
-                        <div
-                            className="w-2 h-2 border-x border-white/20"
-                            style={{ background: `linear-gradient(to bottom, ${component.baseColor}, ${component.baseColor}aa)` }}
-                        />
-                    </div>
-                );
-
-            case 'aperture':
-                return (
-                    <div
-                        className="relative rounded border border-white/30 backdrop-blur-sm shadow-lg overflow-hidden"
-                        style={{
-                            ...baseStyle,
-                            width: component.width,
-                            height: component.height,
-                            boxShadow: isHovered ? `0 0 10px ${component.baseColor}40` : `0 0 5px ${component.baseColor}20`
-                        }}
-                    >
-                        <div className="absolute inset-2 bg-black/50 rounded border border-white/10" />
-                        <div className={labelStyle}>
-                            {component.name}
-                        </div>
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="w-1.5 h-1.5 border border-white/60 rounded-full bg-black/20" />
-                        </div>
-                    </div>
-                );
-
-            case 'detector':
-                return (
-                    <div className="flex items-center">
-                        <div
-                            className="relative rounded-r-full border border-white/30 backdrop-blur-sm shadow-lg overflow-hidden"
-                            style={{
-                                ...baseStyle,
-                                width: component.width,
-                                height: component.height,
-                                boxShadow: isHovered ? `0 0 12px ${component.baseColor}50` : `0 0 6px ${component.baseColor}30`
-                            }}
-                        >
-                            <div className="absolute inset-1 bg-gradient-to-l from-white/20 to-transparent rounded-r-full" />
-                            <div className={labelStyle}>
-                                {component.name}
-                            </div>
-                            <div className="absolute right-1 top-1/2 transform -translate-y-1/2 w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-                            <div className="absolute left-2 top-1/2 transform -translate-y-1/2 w-0.5 h-0.5 bg-red-400 rounded-full" />
-                        </div>
-                    </div>
-                );
-
-            case 'camera':
-                return (
-                    <div
-                        className="relative rounded border border-white/30 backdrop-blur-sm shadow-lg overflow-hidden"
-                        style={{
-                            ...baseStyle,
-                            width: component.width,
-                            height: component.height,
-                            boxShadow: isHovered ? `0 0 15px ${component.baseColor}60` : `0 0 8px ${component.baseColor}40`
-                        }}
-                    >
-                        <div className="absolute inset-1 bg-gradient-to-br from-white/20 to-transparent rounded" />
-                        <div className={labelStyle}>
-                            {component.name}
-                        </div>
-                        {/* Camera sensor grid */}
-                        <div className="absolute inset-2 grid grid-cols-4 grid-rows-4 gap-0.5 opacity-30">
-                            {[...Array(16)].map((_, i) => (
-                                <div
-                                    key={i}
-                                    className="bg-blue-400/30 rounded-sm"
-                                    style={{
-                                        animationDelay: `${i * 0.1}s`,
-                                        animation: isHovered ? 'pulse 2s infinite' : 'none'
-                                    }}
-                                />
-                            ))}
-                        </div>
-                        {/* Status indicator */}
-                        <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-                    </div>
-                );
-
-            default:
-                return (
-                    <div
-                        className="relative rounded border border-white/30 backdrop-blur-sm shadow-lg overflow-hidden"
-                        style={{
-                            ...baseStyle,
-                            width: component.width,
-                            height: component.height,
-                            boxShadow: isHovered ? `0 0 10px ${component.baseColor}40` : `0 0 5px ${component.baseColor}20`
-                        }}
-                    >
-                        <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded" />
-                        <div className={labelStyle}>
-                            {component.name}
-                        </div>
-                    </div>
-                );
-        }
-    };
-
-    return (
-        <motion.div
-            className="relative flex flex-col items-center mb-2 cursor-pointer"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.3, delay: index * 0.05 }}
-            whileHover={{ scale: 1.02 }}
-            onMouseEnter={onHover}
-            onMouseLeave={onLeave}
-            onClick={onSelect}
-        >
-            <div className="relative">
-                {renderShape()}
-
-                {/* Selection indicator */}
-                <AnimatePresence>
-                    {isSelected && (
-                        <motion.div
-                            className="absolute inset-0 border-2 border-blue-400 rounded-full opacity-80"
-                            style={{
-                                width: component.width + 8,
-                                height: component.height + 8,
-                                left: -4,
-                                top: -4
-                            }}
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 0.8 }}
-                            exit={{ opacity: 0 }}
-                            transition={{ duration: 0.2 }}
-                        />
-                    )}
-                </AnimatePresence>
-            </div>
-
-            {/* Electron beam */}
-            <div className="relative w-1 h-6 overflow-hidden">
-                <div className="absolute left-1/2 transform -translate-x-1/2 w-px h-full bg-gradient-to-b from-yellow-300 via-yellow-400 to-yellow-500 opacity-50" />
-                {[...Array(2)].map((_, i) => (
-                    <ElectronParticle key={i} delay={i * 0.6} />
-                ))}
-            </div>
-        </motion.div>
-    );
-};
-
 // Main microscope column component
 const MicroscopeColumn: React.FC = () => {
     const theme = useTheme();
@@ -507,7 +284,7 @@ const MicroscopeColumn: React.FC = () => {
 
             <Grid container spacing={3} sx={{ height: 'calc(100vh - 200px)' }}>
                 {/* Left Panel - Configuration */}
-                <Grid item xs={12} md={4} sx={{ height: '100%' }}>
+                <Grid item xs={12} lg={3} sx={{ height: '100%' }}>
                     <Box sx={{
                         display: 'flex',
                         flexDirection: 'column',
@@ -584,11 +361,11 @@ const MicroscopeColumn: React.FC = () => {
                         </Paper>
 
                         {/* Component List */}
-                        <Paper elevation={1} sx={{ p: 2, mb: 2 }}>
+                        <Paper elevation={1} sx={{ p: 2, mb: 2, flexGrow: 1 }}>
                             <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
                                 Components
                             </Typography>
-                            <Box sx={{ maxHeight: 240, overflowY: 'auto' }}>
+                            <Box sx={{ height: 'calc(100% - 40px)', overflowY: 'auto' }}>
                                 {currentConfig.components.map((component) => (
                                     <Paper
                                         key={component.id}
@@ -630,26 +407,11 @@ const MicroscopeColumn: React.FC = () => {
                                 ))}
                             </Box>
                         </Paper>
-
-                        {/* Property Editor */}
-                        {selectedComponent && (
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.95 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0.95 }}
-                                transition={{ duration: 0.2 }}
-                            >
-                                <PropertyEditor
-                                    component={selectedComponent}
-                                    onUpdate={handleComponentUpdate}
-                                />
-                            </motion.div>
-                        )}
                     </Box>
                 </Grid>
 
-                {/* Right Panel - Microscope Column Visualization */}
-                <Grid item xs={12} md={8} sx={{ height: '100%' }}>
+                {/* Middle Panel - Microscope Column Visualization */}
+                <Grid item xs={12} lg={6} sx={{ height: '100%' }}>
                     <Paper
                         elevation={1}
                         sx={{
@@ -699,16 +461,37 @@ const MicroscopeColumn: React.FC = () => {
                         </Box>
                     </Paper>
                 </Grid>
-            </Grid>
 
-            {/* Custom CSS for gradient effects */}
-            <style>
-                {`
-          .bg-gradient-radial {
-            background: radial-gradient(circle, var(--tw-gradient-stops));
-          }
-        `}
-            </style>
+                {/* Right Panel - Properties */}
+                <Grid item xs={12} lg={3} sx={{ height: '100%', minHeight: 0 }}>
+                    <Box sx={{
+                        height: '100%',
+                        overflowY: 'auto',
+                        minHeight: 0
+                    }}>
+                        {/* Property Editor */}
+                        {selectedComponent ? (
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                transition={{ duration: 0.2 }}
+                            >
+                                <PropertyEditor
+                                    component={selectedComponent}
+                                    onUpdate={handleComponentUpdate}
+                                />
+                            </motion.div>
+                        ) : (
+                            <Paper elevation={1} sx={{ p: 3, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Typography variant="body1" color="text.secondary" textAlign="center">
+                                    Select a component from the list to view and edit its properties
+                                </Typography>
+                            </Paper>
+                        )}
+                    </Box>
+                </Grid>
+            </Grid>
         </Container>
     );
 };
