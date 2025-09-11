@@ -318,14 +318,15 @@ export const Home = () => {
             </Container>
 
             {/* Features Section */}
-            <Box sx={{ py: 8, backgroundColor: alpha(theme.palette.primary.main, 0.03) }}>
-                <Container maxWidth="lg">
-                    <Box sx={{ textAlign: 'center', mb: 8 }}>
+            <Box sx={{ py: { xs: 8, md: 12 }, backgroundColor: alpha(theme.palette.primary.main, 0.03) }}>
+                <Container maxWidth="xl">
+                    <Box sx={{ textAlign: 'center', mb: { xs: 6, md: 10 } }}>
                         <Typography
                             variant="h2"
                             sx={{
                                 fontWeight: 700,
-                                mb: 2,
+                                mb: 3,
+                                fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' },
                                 background: theme.palette.mode === 'dark'
                                     ? 'linear-gradient(45deg, #ffffff, #67e8f9)'
                                     : 'linear-gradient(45deg, #0f172a, #0891b2)',
@@ -336,44 +337,118 @@ export const Home = () => {
                         >
                             Cutting-Edge Features
                         </Typography>
-                        <Typography variant="h6" color="text.secondary" sx={{ maxWidth: '600px', mx: 'auto' }}>
+                        <Typography
+                            variant="h6"
+                            color="text.secondary"
+                            sx={{
+                                maxWidth: '700px',
+                                mx: 'auto',
+                                fontSize: { xs: '1.1rem', md: '1.25rem' },
+                                lineHeight: 1.6
+                            }}
+                        >
                             Experience the next generation of CryoEM analysis with our comprehensive suite of tools
                         </Typography>
                     </Box>
 
-                    <Grid container spacing={4}>
+                    <Grid
+                        container
+                        spacing={{ xs: 3, sm: 4, md: 5 }}
+                        sx={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            justifyContent: 'center',
+                            alignItems: 'stretch'
+                        }}
+                    >
                         {features.map((feature, index) => (
-                            <Grid item xs={12} sm={6} md={4} key={index}>
+                            <Grid
+                                item
+                                xs={12}
+                                sm={6}
+                                lg={4}
+                                key={index}
+                                sx={{
+                                    display: 'flex',
+                                    flexDirection: 'column'
+                                }}
+                            >
                                 <Card
                                     sx={{
                                         height: '100%',
-                                        borderRadius: 3,
+                                        minHeight: '320px',
+                                        borderRadius: 4,
                                         border: 'none',
-                                        backgroundColor: alpha(theme.palette.background.paper, 0.7),
+                                        backgroundColor: alpha(theme.palette.background.paper, 0.8),
                                         backdropFilter: 'blur(20px)',
-                                        transition: 'all 0.3s ease-in-out',
+                                        position: 'relative',
+                                        overflow: 'hidden',
+                                        transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                                        '&::before': {
+                                            content: '""',
+                                            position: 'absolute',
+                                            top: 0,
+                                            left: 0,
+                                            right: 0,
+                                            height: '4px',
+                                            background: `linear-gradient(90deg, ${feature.color}, ${alpha(feature.color, 0.7)})`,
+                                            transform: 'scaleX(0)',
+                                            transformOrigin: 'left',
+                                            transition: 'transform 0.4s ease',
+                                        },
                                         '&:hover': {
-                                            transform: 'translateY(-8px)',
-                                            boxShadow: `0 20px 60px ${alpha(feature.color, 0.2)}`,
+                                            transform: 'translateY(-12px) scale(1.02)',
+                                            boxShadow: `0 25px 80px ${alpha(feature.color, 0.25)}`,
+                                            '&::before': {
+                                                transform: 'scaleX(1)',
+                                            }
                                         },
                                     }}
                                 >
-                                    <CardContent sx={{ p: 4 }}>
-                                        <Avatar
+                                    <CardContent sx={{
+                                        p: { xs: 3, sm: 4 },
+                                        height: '100%',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        justifyContent: 'space-between'
+                                    }}>
+                                        <Box>
+                                            <Avatar
+                                                sx={{
+                                                    width: { xs: 60, sm: 70 },
+                                                    height: { xs: 60, sm: 70 },
+                                                    mb: 3,
+                                                    background: `linear-gradient(135deg, ${feature.color}, ${alpha(feature.color, 0.7)})`,
+                                                    boxShadow: `0 12px 40px ${alpha(feature.color, 0.3)}`,
+                                                    transition: 'all 0.3s ease',
+                                                    '&:hover': {
+                                                        transform: 'scale(1.1) rotate(5deg)',
+                                                        boxShadow: `0 15px 50px ${alpha(feature.color, 0.4)}`,
+                                                    }
+                                                }}
+                                            >
+                                                {feature.icon}
+                                            </Avatar>
+                                            <Typography
+                                                variant="h5"
+                                                sx={{
+                                                    fontWeight: 700,
+                                                    mb: 2,
+                                                    fontSize: { xs: '1.3rem', sm: '1.5rem' },
+                                                    color: 'text.primary'
+                                                }}
+                                            >
+                                                {feature.title}
+                                            </Typography>
+                                        </Box>
+                                        <Typography
+                                            variant="body1"
+                                            color="text.secondary"
                                             sx={{
-                                                width: 70,
-                                                height: 70,
-                                                mb: 3,
-                                                background: `linear-gradient(45deg, ${feature.color}, ${alpha(feature.color, 0.7)})`,
-                                                boxShadow: `0 8px 32px ${alpha(feature.color, 0.3)}`,
+                                                lineHeight: 1.8,
+                                                fontSize: { xs: '0.95rem', sm: '1rem' }
                                             }}
                                         >
-                                            {feature.icon}
-                                        </Avatar>
-                                        <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>
-                                            {feature.title}
-                                        </Typography>
-                                        <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.7 }}>
                                             {feature.description}
                                         </Typography>
                                     </CardContent>
@@ -381,6 +456,18 @@ export const Home = () => {
                             </Grid>
                         ))}
                     </Grid>
+
+                    {/* Optional: Add a subtle animation for the grid */}
+                    <style jsx>{`
+                        @media (min-width: 960px) {
+                            .MuiGrid-item:nth-child(1) { animation-delay: 0.1s; }
+                            .MuiGrid-item:nth-child(2) { animation-delay: 0.2s; }
+                            .MuiGrid-item:nth-child(3) { animation-delay: 0.3s; }
+                            .MuiGrid-item:nth-child(4) { animation-delay: 0.4s; }
+                            .MuiGrid-item:nth-child(5) { animation-delay: 0.5s; }
+                            .MuiGrid-item:nth-child(6) { animation-delay: 0.6s; }
+                        }
+                    `}</style>
                 </Container>
             </Box>
 
