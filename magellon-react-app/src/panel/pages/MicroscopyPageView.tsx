@@ -4,7 +4,6 @@ import {
     Typography,
     Button,
     IconButton,
-    Grid,
     Badge,
     CircularProgress,
     Dialog,
@@ -22,6 +21,7 @@ import {
     Alert,
     AlertTitle
 } from '@mui/material';
+import Grid from '@mui/material/Grid'; // Using Grid v2
 import {
     History as HistoryIcon,
     Close as CloseIcon,
@@ -30,7 +30,7 @@ import {
 import { Zap, Monitor } from 'lucide-react';
 
 // Import components
-import { StatusCards } from './Microscopy/StatusCard';
+import { SystemStatusComponent } from './SystemStatusComponent'; // Our new unified component
 import { GridAtlas } from './Microscopy/GridAtlas';
 import { LiveView } from './Microscopy/LiveView';
 import { ControlPanel } from './Microscopy/ControlPanel';
@@ -353,8 +353,6 @@ export default function MicroscopyPageView() {
                     </Box>
 
                     <Box sx={{ display: 'flex', gap: 1 }}>
-
-
                         <IconButton onClick={() => setShowHistory(true)}>
                             <Badge badgeContent={acquisitionHistory.length} color="primary">
                                 <HistoryIcon />
@@ -363,67 +361,48 @@ export default function MicroscopyPageView() {
                     </Box>
                 </Box>
 
+                {/* Unified System Status - Replaces the three separate status cards */}
+                <Box sx={{ mb: 3 }}>
+                    <SystemStatusComponent />
+                </Box>
 
-
-                <Grid container spacing={3} sx={{ mb: 3 }}>
-
-                    <Grid item xs={12}>
-                        <StatusCards />
-                    </Grid>
-                    {/* Unified System Status Alert */}
-                    {(cameraError || (isConnected && cameraConnected)) && (
-                        <Box sx={{ mb: 2 }}>
-                            <Alert
-                                severity={cameraError ? "error" : "success"}
-                                {...(cameraError && { onClose: () => setCameraError(null) })}
-                            >
-                                <AlertTitle>
-                                    {cameraError ? "Camera Error" : "System Status"}
-                                </AlertTitle>
-
-                                {cameraError ? (
-                                    <Typography variant="body2">{cameraError}</Typography>
-                                ) : (
-                                    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: { xs: 1, md: 3 } }}>
-                                        <Box component="span">
-                                            <strong>Microscope:</strong> Titan Krios G4 Connected • Column: Open • Vacuum: Ready
-                                        </Box>
-                                        <Box component="span">
-                                            <strong>DE Camera:</strong> {cameraSettings[DE_PROPERTIES.IMAGE_PROCESSING_MODE] || 'Unknown'} Mode •
-                                            {' '}{cameraSettings[DE_PROPERTIES.FRAMES_PER_SECOND] || 'Unknown'} FPS •
-                                            {' '}{cameraSystemStatus.temperature || 'Unknown'}°C
-                                        </Box>
-                                    </Box>
-                                )}
-                            </Alert>
-                        </Box>
-                    )}
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                        <Button
-                            variant={isConnected ? "outlined" : "contained"}
-                            color={isConnected ? "error" : "primary"}
-                            onClick={handleConnect}
-                            disabled={connectionStatus === 'connecting'}
-                            startIcon={connectionStatus === 'connecting' ? <CircularProgress size={16} /> : <Monitor size={16} />}
+                {/* Error Handling */}
+                {cameraError && (
+                    <Box sx={{ mb: 2 }}>
+                        <Alert
+                            severity="error"
+                            onClose={() => setCameraError(null)}
                         >
-                            {connectionStatus === 'connecting' ? 'Connecting...' : isConnected ? 'Disconnect' : 'Connect'}
-                        </Button>
-
-                        <Button
-                            variant="outlined"
-                            onClick={() => setShowCameraSettings(true)}
-                            disabled={!cameraConnected || cameraLoading}
-                            startIcon={cameraLoading ? <CircularProgress size={16} /> : <CameraIcon />}
-                        >
-                            Camera Settings
-                        </Button>
-
-
+                            <AlertTitle>Camera Error</AlertTitle>
+                            <Typography variant="body2">{cameraError}</Typography>
+                        </Alert>
                     </Box>
-                </Grid>
+                )}
 
-                {/* Main Content - Three Column Layout */}
-                <Grid container spacing={3} sx={{ height: 'calc(100vh - 350px)', minHeight: '600px' }}>
+                {/* Connection Controls */}
+                <Box sx={{ display: 'flex', gap: 1, mb: 3 }}>
+                    <Button
+                        variant={isConnected ? "outlined" : "contained"}
+                        color={isConnected ? "error" : "primary"}
+                        onClick={handleConnect}
+                        disabled={connectionStatus === 'connecting'}
+                        startIcon={connectionStatus === 'connecting' ? <CircularProgress size={16} /> : <Monitor size={16} />}
+                    >
+                        {connectionStatus === 'connecting' ? 'Connecting...' : isConnected ? 'Disconnect' : 'Connect'}
+                    </Button>
+
+                    <Button
+                        variant="outlined"
+                        onClick={() => setShowCameraSettings(true)}
+                        disabled={!cameraConnected || cameraLoading}
+                        startIcon={cameraLoading ? <CircularProgress size={16} /> : <CameraIcon />}
+                    >
+                        Camera Settings
+                    </Button>
+                </Box>
+
+                {/* Main Content - Three Column Layout using Grid v2 */}
+                <Grid container spacing={3} sx={{ height: 'calc(100vh - 400px)', minHeight: '600px' }}>
                     {/* Grid Atlas */}
                     <Grid size={{ xs: 12, lg: 4 }}>
                         <Box sx={{ height: '100%' }}>
@@ -553,7 +532,7 @@ export default function MicroscopyPageView() {
                     <Box sx={{ mt: 2 }}>
                         <Typography variant="h6" gutterBottom>Camera Integration</Typography>
                         <Grid container spacing={2}>
-                            <Grid item xs={6}>
+                            <Grid size={6}>
                                 <Button
                                     variant="outlined"
                                     fullWidth
@@ -563,7 +542,7 @@ export default function MicroscopyPageView() {
                                     Refresh Camera Properties
                                 </Button>
                             </Grid>
-                            <Grid item xs={6}>
+                            <Grid size={6}>
                                 <Button
                                     variant="outlined"
                                     fullWidth
