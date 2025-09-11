@@ -353,6 +353,52 @@ export default function MicroscopyPageView() {
                     </Box>
 
                     <Box sx={{ display: 'flex', gap: 1 }}>
+
+
+                        <IconButton onClick={() => setShowHistory(true)}>
+                            <Badge badgeContent={acquisitionHistory.length} color="primary">
+                                <HistoryIcon />
+                            </Badge>
+                        </IconButton>
+                    </Box>
+                </Box>
+
+
+
+                <Grid container spacing={3} sx={{ mb: 3 }}>
+
+                    <Grid item xs={12}>
+                        <StatusCards />
+                    </Grid>
+                    {/* Unified System Status Alert */}
+                    {(cameraError || (isConnected && cameraConnected)) && (
+                        <Box sx={{ mb: 2 }}>
+                            <Alert
+                                severity={cameraError ? "error" : "success"}
+                                {...(cameraError && { onClose: () => setCameraError(null) })}
+                            >
+                                <AlertTitle>
+                                    {cameraError ? "Camera Error" : "System Status"}
+                                </AlertTitle>
+
+                                {cameraError ? (
+                                    <Typography variant="body2">{cameraError}</Typography>
+                                ) : (
+                                    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: { xs: 1, md: 3 } }}>
+                                        <Box component="span">
+                                            <strong>Microscope:</strong> Titan Krios G4 Connected • Column: Open • Vacuum: Ready
+                                        </Box>
+                                        <Box component="span">
+                                            <strong>DE Camera:</strong> {cameraSettings[DE_PROPERTIES.IMAGE_PROCESSING_MODE] || 'Unknown'} Mode •
+                                            {' '}{cameraSettings[DE_PROPERTIES.FRAMES_PER_SECOND] || 'Unknown'} FPS •
+                                            {' '}{cameraSystemStatus.temperature || 'Unknown'}°C
+                                        </Box>
+                                    </Box>
+                                )}
+                            </Alert>
+                        </Box>
+                    )}
+                    <Box sx={{ display: 'flex', gap: 1 }}>
                         <Button
                             variant={isConnected ? "outlined" : "contained"}
                             color={isConnected ? "error" : "primary"}
@@ -372,65 +418,28 @@ export default function MicroscopyPageView() {
                             Camera Settings
                         </Button>
 
-                        <IconButton onClick={() => setShowHistory(true)}>
-                            <Badge badgeContent={acquisitionHistory.length} color="primary">
-                                <HistoryIcon />
-                            </Badge>
-                        </IconButton>
+
                     </Box>
-                </Box>
-
-                {/* Combined System Status Alert */}
-                {(cameraError || (isConnected && cameraConnected)) && (
-                    <Box sx={{ mb: 2 }}>
-                        {cameraError && (
-                            <Alert severity="error" sx={{ mb: 1 }} onClose={() => setCameraError(null)}>
-                                <AlertTitle>Camera Error</AlertTitle>
-                                {cameraError}
-                            </Alert>
-                        )}
-
-                        {isConnected && cameraConnected && (
-                            <Alert severity="success">
-                                <AlertTitle>System Status</AlertTitle>
-                                <Box component="span" sx={{ display: 'block', mb: 1 }}>
-                                    <strong>Microscope:</strong> Titan Krios G4 Connected • Column: Open • Vacuum: Ready
-                                </Box>
-                                <Box component="span" sx={{ display: 'block' }}>
-                                    <strong>DE Camera:</strong> {cameraSettings[DE_PROPERTIES.IMAGE_PROCESSING_MODE] || 'Unknown'} Mode •
-                                    {' '}{cameraSettings[DE_PROPERTIES.FRAMES_PER_SECOND] || 'Unknown'} FPS •
-                                    {' '}{cameraSystemStatus.temperature || 'Unknown'}°C
-                                </Box>
-                            </Alert>
-                        )}
-                    </Box>
-                )}
-
-                {/* Status Cards - Full Width */}
-                <Grid container spacing={3} sx={{ mb: 3 }}>
-                    <Grid item xs={12}>
-                        <StatusCards />
-                    </Grid>
                 </Grid>
 
                 {/* Main Content - Three Column Layout */}
                 <Grid container spacing={3} sx={{ height: 'calc(100vh - 350px)', minHeight: '600px' }}>
                     {/* Grid Atlas */}
-                    <Grid item xs={12} lg={4}>
+                    <Grid size={{ xs: 12, lg: 4 }}>
                         <Box sx={{ height: '100%' }}>
                             <GridAtlas />
                         </Box>
                     </Grid>
 
                     {/* Live View */}
-                    <Grid item xs={12} lg={4}>
+                    <Grid size={{ xs: 12, lg: 4 }}>
                         <Box sx={{ height: '100%' }}>
                             <LiveView />
                         </Box>
                     </Grid>
 
                     {/* Control Panel */}
-                    <Grid item xs={12} lg={4}>
+                    <Grid size={{ xs: 12, lg: 4 }}>
                         <Box sx={{ height: '100%' }}>
                             <ControlPanel />
                         </Box>
@@ -516,7 +525,7 @@ export default function MicroscopyPageView() {
                                             </Typography>
                                             <Typography variant="caption" color="text.secondary" display="block">
                                                 Defocus: {item.metadata.defocus.toFixed(1)}μm •
-                                                Dose: {item.metadata.dose.toFixed(1)} e⁻/Ų
+                                                Dose: {item.metadata.dose.toFixed(1)} e⁻/Å²
                                             </Typography>
                                         </Box>
                                     </Box>
