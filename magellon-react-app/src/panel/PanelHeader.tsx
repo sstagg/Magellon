@@ -49,6 +49,11 @@ export const PanelHeader: React.FC<PanelHeaderProps> = ({
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
+    // Handler for opening help documentation
+    const handleHelpClick = () => {
+        window.open('https://magellon.org/docs', '_blank', 'noopener,noreferrer');
+    };
+
     return (
         <StyledAppBar position="fixed" open={open}>
             <Toolbar>
@@ -77,8 +82,12 @@ export const PanelHeader: React.FC<PanelHeaderProps> = ({
 
                 {!isMobile && (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Tooltip title="Help">
-                            <IconButton color="inherit">
+                        <Tooltip title="Help Documentation">
+                            <IconButton
+                                color="inherit"
+                                onClick={handleHelpClick}
+                                aria-label="Open help documentation"
+                            >
                                 <HelpCircle size={20} />
                             </IconButton>
                         </Tooltip>
