@@ -228,7 +228,7 @@ export const SystemStatusComponent: React.FC = () => {
                 {/* Main Content Grid */}
                 <Grid container spacing={2} >
                     {/* Microscope Section */}
-                    <Grid  xs={12} md={4}>
+                    <Grid  xs={12} size={4}>
                         <Box sx={{
                             p: 2,
                             borderRadius: 2,
@@ -244,7 +244,7 @@ export const SystemStatusComponent: React.FC = () => {
                             </Box>
 
                             <Grid container spacing={1.5}>
-                                <Grid item xs={6}>
+                                <Grid  size={3}>
                                     <MetricItem
                                         icon={<Zap size={14} />}
                                         label="High Tension"
@@ -253,7 +253,7 @@ export const SystemStatusComponent: React.FC = () => {
                                         color="primary.main"
                                     />
                                 </Grid>
-                                <Grid item xs={6}>
+                                <Grid  size={3}>
                                     <MetricItem
                                         icon={<Gauge size={14} />}
                                         label="Beam Current"
@@ -262,7 +262,7 @@ export const SystemStatusComponent: React.FC = () => {
                                         color="primary.main"
                                     />
                                 </Grid>
-                                <Grid item xs={6}>
+                                <Grid  size={3}>
                                     <MetricItem
                                         icon={<Thermometer size={14} />}
                                         label="Cryo Temp"
@@ -271,7 +271,7 @@ export const SystemStatusComponent: React.FC = () => {
                                         color="info.main"
                                     />
                                 </Grid>
-                                <Grid item xs={6}>
+                                <Grid  size={3}>
                                     <MetricItem
                                         icon={<Droplets size={14} />}
                                         label="Refrigerant Level"
@@ -286,7 +286,7 @@ export const SystemStatusComponent: React.FC = () => {
                     </Grid>
 
                     {/* Camera Section */}
-                    <Grid  xs={12} md={4}>
+                    <Grid  xs={12} size={4}>
                         <Box sx={{
                             p: 2,
                             borderRadius: 2,
@@ -302,7 +302,7 @@ export const SystemStatusComponent: React.FC = () => {
                             </Box>
 
                             <Grid container spacing={1.5}>
-                                <Grid item xs={6}>
+                                <Grid  size={3}>
                                     <MetricItem
                                         icon={<Settings size={14} />}
                                         label="Mode"
@@ -310,7 +310,7 @@ export const SystemStatusComponent: React.FC = () => {
                                         color="secondary.main"
                                     />
                                 </Grid>
-                                <Grid item xs={6}>
+                                <Grid size={3}>
                                     <MetricItem
                                         icon={<Activity size={14} />}
                                         label="Frame Rate"
@@ -319,7 +319,7 @@ export const SystemStatusComponent: React.FC = () => {
                                         color="secondary.main"
                                     />
                                 </Grid>
-                                <Grid item xs={6}>
+                                <Grid size={3}>
                                     <MetricItem
                                         icon={<Thermometer size={14} />}
                                         label="Detector Temp"
@@ -328,7 +328,7 @@ export const SystemStatusComponent: React.FC = () => {
                                         color="info.main"
                                     />
                                 </Grid>
-                                <Grid item xs={6}>
+                                <Grid size={3}>
                                     <MetricItem
                                         icon={<Gauge size={14} />}
                                         label="Exposure"
@@ -342,7 +342,7 @@ export const SystemStatusComponent: React.FC = () => {
                     </Grid>
 
                     {/* System Resources Section */}
-                    <Grid  xs={12} md={4}>
+                    <Grid  xs={12} size={4}>
                         <Box sx={{
                             p: 2,
                             borderRadius: 2,
@@ -358,7 +358,7 @@ export const SystemStatusComponent: React.FC = () => {
                             </Box>
 
                             <Grid container spacing={1.5}>
-                                <Grid  xs={6}>
+                                <Grid  size={3}>
                                     <MetricItem
                                         icon={status.system.networkStatus === 'connected' ? <Wifi size={14} /> : <WifiOff size={14} />}
                                         label="Network"
@@ -366,7 +366,7 @@ export const SystemStatusComponent: React.FC = () => {
                                         color={status.system.networkStatus === 'connected' ? "success.main" : "error.main"}
                                     />
                                 </Grid>
-                                <Grid  xs={6}>
+                                <Grid  size={3}>
                                     <MetricItem
                                         icon={<Database size={14} />}
                                         label="Storage"
@@ -376,7 +376,7 @@ export const SystemStatusComponent: React.FC = () => {
                                         progress={status.system.diskSpace}
                                     />
                                 </Grid>
-                                <Grid  xs={6}>
+                                <Grid  size={3}>
                                     <Box sx={{ pt: 1 }}>
                                         <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
                                             CPU
@@ -413,7 +413,7 @@ export const SystemStatusComponent: React.FC = () => {
                                         />
                                     </Box>
                                 </Grid>
-                                <Grid  xs={6}>
+                                <Grid  size={3}>
                                     <Box sx={{ pt: 1 }}>
                                         <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
                                             Memory
