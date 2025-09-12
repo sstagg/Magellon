@@ -157,15 +157,34 @@ def parse_mdoc(file_path: str, settings_file_path: str) -> SerialEMMetadata:
     # TOdo convert required strings to float
 
     return SerialEMMetadata(**result)
-
-def parse_directory(directory_structure,settings_file_path):
+def parse_directory(directory_structure, settings_file_path, default_params):
     try:
         metadata_list = []
+        valid_extensions = (".tif", ".tiff", ".eer", ".mrc")
 
         def traverse_directory(structure):
-            if structure.type == "file" and structure.name.endswith(".mdoc"):
-                metadata = parse_mdoc(structure.path,settings_file_path)
-                metadata_list.append(metadata)
+            if structure.type == "file" and structure.name.lower().endswith(valid_extensions):
+                # Construct expected .mdoc path
+                base, _ = os.path.splitext(structure.path)
+                mdoc_path = base + ".mdoc"
+
+                if os.path.exists(mdoc_path):
+                    # Parse the mdoc if present -> convert to dict
+                    metadata = parse_mdoc(mdoc_path, settings_file_path).__dict__.copy()
+                else:
+                    # If no mdoc, use defaults
+                    metadata = default_params.copy()
+                    metadata["pixel_size"] = metadata["pixel_size"] * 10**-10
+                    # metadata["acceleration_voltage"] = metadata["acceleration_voltage"] / 1000
+                    # metadata["spherical_aberration"] = metadata["spherical_aberration"] / 1000
+
+                # Always ensure file_path and name are present
+                metadata["file_path"] = structure.path
+                metadata["name"] = os.path.splitext(structure.name)[0]
+
+                # Convert back to SerialEMMetadata object
+                metadata_list.append(SerialEMMetadata(**metadata))
+
             elif structure.type == "directory" and structure.children:
                 for child in structure.children:
                     traverse_directory(child)
@@ -175,6 +194,11 @@ def parse_directory(directory_structure,settings_file_path):
 
     except PermissionError:
         raise HTTPException(status_code=403, detail="Permission denied")
+    except Exception as e:
+        logger.error(f"Unexpected error while parsing directory: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
 
 # def get_frame_file(source_image_path):
 #     # Get the base name of the source image without extension
@@ -308,7 +332,7 @@ class SerialEmImporter(BaseImporter):
             if not gains_files:
                 raise FileNotFoundError(f"No files found in gains directory: {gains_dir}")
             gains_file_path = os.path.abspath(os.path.join(gains_dir, gains_files[0]))
-            metadata_list = parse_directory(files, settings_txt_path)
+            metadata_list = parse_directory(files, settings_txt_path,self.params.default_data.dict())
             job = None
             if len(metadata_list) > 0:
                 target_dir = os.path.join(MAGELLON_HOME_DIR, self.params.magellon_session_name)
@@ -342,50 +366,53 @@ class SerialEmImporter(BaseImporter):
                 task_todo_list = []
                 image_dict = {}
                 for metadata in metadata_list:
-                    metadata.pixel_size *= 1e-10
-                    filename = os.path.splitext(os.path.basename(metadata.file_path))[0]
-                    db_image = Image(
-                        oid=uuid.uuid4(),
-                        name=filename,
-                        magnification=metadata.magnification,
-                        defocus=metadata.defocus,
-                        dose=metadata.dose,
-                        pixel_size=metadata.pixel_size,
-                        binning_x=metadata.binning_x,
-                        binning_y=metadata.binning_y,
-                        stage_x=metadata.stage_x,
-                        stage_y=metadata.stage_y,
-                        stage_alpha_tilt=metadata.stage_alpha_tilt,
-                        atlas_delta_row=metadata.atlas_delta_row,
-                        atlas_delta_column=metadata.atlas_delta_column,
-                        acceleration_voltage=metadata.acceleration_voltage,
-                        spherical_aberration=metadata.spherical_aberration,
-                        session_id=magellon_session.oid
-                    )
-
-                    db_image_list.append(db_image)
-                    image_dict[filename] = db_image.oid
-                    task_id = uuid.uuid4()
-
-                    directory_path = os.path.join(
-                        os.environ.get("MAGELLON_JOBS_PATH", "/jobs"),
-                        str(task_id)
-                    )
-
+                    
+                    
                     try:
-                        moviename = metadata.file_path.replace(".mdoc", "")
+                        filename = os.path.splitext(os.path.basename(metadata.file_path))[0]
+                        task_id = uuid.uuid4()
+                        directory_path = os.path.join(
+                            os.environ.get("MAGELLON_JOBS_PATH", "/jobs"),
+                            str(task_id)
+                        )
+                        
+                        
+
+                        
+
+                        moviename = metadata.file_path
                         gainname = os.path.join(self.params.target_directory, GAINS_SUB_URL, gain_file_name)
                         outname = os.path.join(
                             directory_path,
-                            f"{'.'.join(os.path.basename(metadata.file_path).split('.')[:-2])}.mrc"
+                            f"{os.path.splitext(os.path.basename(metadata.file_path))[0]}.mrc"
                         )
-                        if os.path.exists(moviename):
+                        if os.path.exists(moviename) and moviename.lower().endswith((".tif", ".tiff")):
                             result_file = convert_tiff_to_mrc(moviename, gainname, outname)
-                   
+                            db_image = Image(
+                            oid=uuid.uuid4(),
+                            name=filename,
+                            magnification=metadata.magnification,
+                            defocus=metadata.defocus,
+                            dose=metadata.dose,
+                            pixel_size=metadata.pixel_size,
+                            binning_x=metadata.binning_x,
+                            binning_y=metadata.binning_y,
+                            stage_x=metadata.stage_x,
+                            stage_y=metadata.stage_y,
+                            stage_alpha_tilt=metadata.stage_alpha_tilt,
+                            atlas_delta_row=metadata.atlas_delta_row,
+                            atlas_delta_column=metadata.atlas_delta_column,
+                            acceleration_voltage=metadata.acceleration_voltage,
+                            spherical_aberration=metadata.spherical_aberration,
+                            session_id=magellon_session.oid
+                        )
+
+                            db_image_list.append(db_image)
+                            image_dict[filename] = db_image.oid
 
                             # Find source image and frame paths
                             source_image_path = result_file
-                            source_frame_path = metadata.file_path.replace(".mdoc", "")
+                            source_frame_path = metadata.file_path
 
                             # Handle path replacements if needed
                             if hasattr(self.params, 'replace_type') and hasattr(self.params, 'replace_pattern') and hasattr(self.params, 'replace_with'):
@@ -397,7 +424,6 @@ class SerialEmImporter(BaseImporter):
                                                                     self.params.replace_pattern, self.params.replace_with)
 
                             frame_name = os.path.splitext(os.path.basename(source_frame_path))[0] if source_frame_path else ""
-
                             job_item = ImageJobTask(
                                 oid=uuid.uuid4(),
                                 job_id=job.oid,
@@ -424,13 +450,12 @@ class SerialEmImporter(BaseImporter):
                                 status=1,
                                 pixel_size=metadata.pixel_size,
                                 acceleration_voltage=metadata.acceleration_voltage,
-                                spherical_aberration=metadata.spherical_aberration,
+                                spherical_aberration=metadata.spherical_aberration
                             )
                             task_todo_list.append(task)
                     except ValueError as err:
                         logger.error(f"Convertion of TIFF to MRC preview image failed for file {metadata.file_path}: {err}", exc_info=True)
                         raise ValueError(f"Preview image conversion failed for: {metadata.file_path}") from err
-
                 # Save all records
                 db_session.bulk_save_objects(db_image_list)
                 db_session.bulk_save_objects(db_job_item_list)

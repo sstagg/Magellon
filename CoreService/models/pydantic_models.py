@@ -257,7 +257,7 @@ class SerialEMImportJobBase(ImportJobBase):
 
 class SerialEMImportJobDto(SerialEMImportJobBase):
     target_directory: Optional[str] = None  # should be removed, it is base directory + magellon_session_name name
-
+    default_data: Optional[DefaultParams] = None
 class SerialEMImportTaskDto(ImportTaskDto):
     job_dto: SerialEMImportJobDto
 
