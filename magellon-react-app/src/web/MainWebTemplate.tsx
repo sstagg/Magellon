@@ -1,35 +1,41 @@
-import {MainWebRoutes} from "./MainWebRoutes.tsx";
-import {Outlet, useParams} from 'react-router-dom';
-import { useEffect, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-
-// material-ui
+import React from 'react';
+import { MainWebRoutes } from "./MainWebRoutes.tsx";
 import { useTheme } from '@mui/material/styles';
-import {Box, Grid, Paper, Toolbar, useMediaQuery} from '@mui/material';
-
+import { Box } from '@mui/material';
 import WebHeader from "./WebHeader.tsx";
 import WebFooter from "./WebFooter.tsx";
-import Container from "@mui/material/Container";
-import Typography from "@mui/material/Typography";
 
 export const MainWebTemplate = () => {
     const theme = useTheme();
-    return (
-         <Container>
-                <WebHeader/>
-                {/*<Drawer open={open} handleDrawerToggle={handleDrawerToggle} />*/}
-                {/*    /!*<Outlet />*!/*/}
-             <h1 className="mb3 text-amber-500">Magellon</h1>
-                <Container>
-                    <Paper style={{ padding: '20px', marginTop: '20px' }}>
-                        {/* Add your main content here */}
-                        <Typography variant="h4">Welcome to Magellon</Typography>
-                        <p>CryoEm application.</p>
-                    </Paper>
-                    <MainWebRoutes/>
-                </Container>
 
-                <WebFooter/>
-            </Container>
+    return (
+        <Box
+            sx={{
+                minHeight: '100vh',
+                width: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                background: theme.palette.mode === 'dark'
+                    ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'
+                    : 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+            }}
+        >
+            <WebHeader />
+
+            {/* Main content area that grows to fill space */}
+            <Box
+                component="main"
+                sx={{
+                    flex: '1 0 auto', // This will grow to fill space but footer will always show
+                    width: '100%',
+                    pt: { xs: 8, sm: 9 }, // Account for AppBar height
+                }}
+            >
+                <MainWebRoutes />
+            </Box>
+
+            {/* Footer will always appear at bottom */}
+            <WebFooter />
+        </Box>
     );
 };

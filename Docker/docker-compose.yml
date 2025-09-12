@@ -17,7 +17,7 @@ services:
     restart: always
     user: "999:999"
     ports:
-      - "${MYSQL_PORT}:3306"
+      - "127.0.0.1:${MYSQL_PORT}:3306"
     networks:
       magellon-network:
         ipv4_address: 172.16.238.7
@@ -29,9 +29,9 @@ services:
     volumes:
       - dragonfly-data:/data
     ports:
-      - "${DRAGONFLY_PORT:-6379}:6379"
+      - "127.0.0.1:${DRAGONFLY_PORT:-6379}:6379"
     environment:
-      - DRAGONFLY_REQUIREPASS=${DRAGONFLY_PASSWORD:-password}
+      - DRAGONFLY_REQUIREPASS=${DRAGONFLY_PASSWORD}
     networks:
       magellon-network:
         ipv4_address: 172.16.238.10
@@ -47,8 +47,8 @@ services:
     command: -js  # Enable JetStream
     container_name: magellon-nats-container
     ports:
-      - "4222:4222"  # Client connections
-      - "8222:8222"  # HTTP monitoring
+      - "127.0.0.1:4222:4222"  # Client connections
+      - "127.0.0.1:8222:8222"  # HTTP monitoring
     volumes:
       - nats-data:/data  # For JetStream storage
     networks:
@@ -67,8 +67,8 @@ services:
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq  # Persist data
     ports:
-      - "${RABBITMQ_PORT}:5672"
-      - "${RABBITMQ_MANAGEMENT_PORT}:15672"
+      - "127.0.0.1:${RABBITMQ_PORT}:5672"
+      - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT}:15672"
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
@@ -81,7 +81,7 @@ services:
     restart: unless-stopped
     container_name: magellon-consul-container
     ports:
-      - "${CONSUL_PORT}:8500"
+      - "127.0.0.1:${CONSUL_PORT}:8500"
     volumes:
       - ${MAGELLON_ROOT_DIR}/services/consul/data:/consul/data
       - ${MAGELLON_ROOT_DIR}/services/consul/config:/consul/config
@@ -95,7 +95,7 @@ services:
     restart: unless-stopped
     container_name: magellon-prometheus-container
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     volumes:
       - ${MAGELLON_ROOT_DIR}/services/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
     command:
@@ -111,7 +111,7 @@ services:
     depends_on:
       - prometheus
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     volumes:
       - 'grafana_storage:/var/lib/grafana'
       - '${MAGELLON_ROOT_DIR}/services/grafana/grafana.db:/tmp/grafana.db'
@@ -132,7 +132,7 @@ services:
     container_name: magellon-core-container
     restart: unless-stopped
     ports:
-      - "${MAGELLON_BACKEND_PORT}:80"
+      - "127.0.0.1:${MAGELLON_BACKEND_PORT}:80"
     volumes:
       - ${MAGELLON_HOME_PATH}:/magellon
       - ${MAGELLON_GPFS_PATH}:/gpfs
@@ -162,7 +162,7 @@ services:
     container_name: magellon-react-app-container
     restart: unless-stopped
     ports:
-      - "${MAGELLON_FRONTEND_PORT}:80"
+      - "127.0.0.1:${MAGELLON_FRONTEND_PORT}:80"
     environment:
       - BACKEND_HOST=backend
       - CONSUL_HOST=consul
@@ -191,7 +191,7 @@ services:
       - ${MAGELLON_JOBS_PATH}:/jobs
       - ${MAGELLON_HOME_PATH}:/magellon
     ports:
-      - "${MAGELLON_RESULT_PLUGIN_PORT}:80"
+      - "127.0.0.1:${MAGELLON_RESULT_PLUGIN_PORT}:80"
     networks:
       magellon-network:
         ipv4_address: 172.16.238.20
@@ -215,7 +215,7 @@ services:
       - ${MAGELLON_GPFS_PATH}:/gpfs
       - ${MAGELLON_JOBS_PATH}:/jobs
     ports:
-      - "${MAGELLON_CTF_PLUGIN_PORT}:80"
+      - "127.0.0.1:${MAGELLON_CTF_PLUGIN_PORT}:80"
     networks:
       magellon-network:
         ipv4_address: 172.16.238.21
@@ -244,7 +244,7 @@ services:
       - ${MAGELLON_GPFS_PATH}:/gpfs
       - ${MAGELLON_JOBS_PATH}:/jobs
     ports:
-      - "${MAGELLON_MOTIONCOR_PLUGIN_PORT}:80"
+      - "127.0.0.1:${MAGELLON_MOTIONCOR_PLUGIN_PORT}:80"
     networks:
       magellon-network:
         ipv4_address: 172.16.238.22

@@ -4,7 +4,6 @@ import {
     Typography,
     Button,
     IconButton,
-    Grid,
     Badge,
     CircularProgress,
     Dialog,
@@ -22,6 +21,7 @@ import {
     Alert,
     AlertTitle
 } from '@mui/material';
+import Grid from '@mui/material/Grid'; // Using Grid v2
 import {
     History as HistoryIcon,
     Close as CloseIcon,
@@ -30,8 +30,7 @@ import {
 import { Zap, Monitor } from 'lucide-react';
 
 // Import components
-import { StatusCards } from './Microscopy/StatusCard';
-import { Presets } from './Microscopy/Presets.tsx';
+import { SystemStatusComponent } from './SystemStatusComponent'; // Our new unified component
 import { GridAtlas } from './Microscopy/GridAtlas';
 import { LiveView } from './Microscopy/LiveView';
 import { ControlPanel } from './Microscopy/ControlPanel';
@@ -354,25 +353,6 @@ export default function MicroscopyPageView() {
                     </Box>
 
                     <Box sx={{ display: 'flex', gap: 1 }}>
-                        <Button
-                            variant={isConnected ? "outlined" : "contained"}
-                            color={isConnected ? "error" : "primary"}
-                            onClick={handleConnect}
-                            disabled={connectionStatus === 'connecting'}
-                            startIcon={connectionStatus === 'connecting' ? <CircularProgress size={16} /> : <Monitor size={16} />}
-                        >
-                            {connectionStatus === 'connecting' ? 'Connecting...' : isConnected ? 'Disconnect' : 'Connect'}
-                        </Button>
-
-                        <Button
-                            variant="outlined"
-                            onClick={() => setShowCameraSettings(true)}
-                            disabled={!cameraConnected || cameraLoading}
-                            startIcon={cameraLoading ? <CircularProgress size={16} /> : <CameraIcon />}
-                        >
-                            Camera
-                        </Button>
-
                         <IconButton onClick={() => setShowHistory(true)}>
                             <Badge badgeContent={acquisitionHistory.length} color="primary">
                                 <HistoryIcon />
@@ -381,57 +361,64 @@ export default function MicroscopyPageView() {
                     </Box>
                 </Box>
 
-                {/* Camera Status Alert */}
+                {/* Unified System Status - Replaces the three separate status cards */}
+                <Box sx={{ mb: 3 }}>
+                    <SystemStatusComponent />
+                </Box>
+
+                {/* Error Handling */}
                 {cameraError && (
-                    <Alert severity="error" sx={{ mb: 2 }} onClose={() => setCameraError(null)}>
-                        <AlertTitle>Camera Error</AlertTitle>
-                        {cameraError}
-                    </Alert>
+                    <Box sx={{ mb: 2 }}>
+                        <Alert
+                            severity="error"
+                            onClose={() => setCameraError(null)}
+                        >
+                            <AlertTitle>Camera Error</AlertTitle>
+                            <Typography variant="body2">{cameraError}</Typography>
+                        </Alert>
+                    </Box>
                 )}
 
-                {/* Camera Status Info */}
-                {cameraConnected && (
-                    <Alert severity="success" sx={{ mb: 2 }}>
-                        <AlertTitle>DE Camera Connected</AlertTitle>
-                        Mode: {cameraSettings[DE_PROPERTIES.IMAGE_PROCESSING_MODE] || 'Unknown'} •
-                        FPS: {cameraSettings[DE_PROPERTIES.FRAMES_PER_SECOND] || 'Unknown'} •
-                        Temperature: {cameraSystemStatus.temperature || 'Unknown'}°C
-                    </Alert>
-                )}
+                {/* Connection Controls */}
+                <Box sx={{ display: 'flex', gap: 1, mb: 3 }}>
+                    <Button
+                        variant={isConnected ? "outlined" : "contained"}
+                        color={isConnected ? "error" : "primary"}
+                        onClick={handleConnect}
+                        disabled={connectionStatus === 'connecting'}
+                        startIcon={connectionStatus === 'connecting' ? <CircularProgress size={16} /> : <Monitor size={16} />}
+                    >
+                        {connectionStatus === 'connecting' ? 'Connecting...' : isConnected ? 'Disconnect' : 'Connect'}
+                    </Button>
 
-                {/* Top Row - Status Cards and Quick Actions */}
-                <Grid container spacing={3} sx={{ mb: 3 }}>
-                    {/* Status Cards - Left Side */}
-                    <Grid item xs={12} lg={8}>
-                        <StatusCards />
-                    </Grid>
+                    <Button
+                        variant="outlined"
+                        onClick={() => setShowCameraSettings(true)}
+                        disabled={!cameraConnected || cameraLoading}
+                        startIcon={cameraLoading ? <CircularProgress size={16} /> : <CameraIcon />}
+                    >
+                        Camera Settings
+                    </Button>
+                </Box>
 
-                    {/* Quick Actions - Right Side with Camera Presets */}
-                    <Grid item xs={12} lg={4}>
-                        <Presets />
-
-
-                    </Grid>
-                </Grid>
-
-                {/* Main Content - Three Column Layout */}
-                <Grid container spacing={3} sx={{ height: 'calc(100vh - 350px)', minHeight: '600px' }}>
+                {/* Main Content - Three Column Layout using Grid v2 */}
+                <Grid container spacing={3} sx={{ height: 'calc(100vh - 400px)', minHeight: '600px' }}>
                     {/* Grid Atlas */}
-                    <Grid item xs={12} lg={4}>
+                    <Grid size={{ xs: 12, lg: 4 }}>
                         <Box sx={{ height: '100%' }}>
                             <GridAtlas />
                         </Box>
                     </Grid>
 
                     {/* Live View */}
-                    <Grid item xs={12} lg={4}>
+                    <Grid size={{ xs: 12, lg: 4 }}>
                         <Box sx={{ height: '100%' }}>
                             <LiveView />
                         </Box>
                     </Grid>
 
                     {/* Control Panel */}
-                    <Grid item xs={12} lg={4}>
+                    <Grid size={{ xs: 12, lg: 4 }}>
                         <Box sx={{ height: '100%' }}>
                             <ControlPanel />
                         </Box>
@@ -545,7 +532,7 @@ export default function MicroscopyPageView() {
                     <Box sx={{ mt: 2 }}>
                         <Typography variant="h6" gutterBottom>Camera Integration</Typography>
                         <Grid container spacing={2}>
-                            <Grid item xs={6}>
+                            <Grid size={6}>
                                 <Button
                                     variant="outlined"
                                     fullWidth
@@ -555,7 +542,7 @@ export default function MicroscopyPageView() {
                                     Refresh Camera Properties
                                 </Button>
                             </Grid>
-                            <Grid item xs={6}>
+                            <Grid size={6}>
                                 <Button
                                     variant="outlined"
                                     fullWidth
