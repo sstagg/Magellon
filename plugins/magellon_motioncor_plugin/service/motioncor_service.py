@@ -136,7 +136,7 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
                     output_files.append(OutputFile(name="patchFullAlignment", path=new_file_path, required=True))
                     meta_data.append(ImageMetaData(key="patchFullAlignment_Image_data", value=json.dumps(output_data["patchFullAlignment"])))
                     output_files.append(OutputFile(name="patchFullAlignment_Image",
-                                                path=createframealignCenterImage(dw_file, output_data["patchFullAlignment"], directory_path, [x_size, y_size], the_task_data.image_name.split(".")[0]),
+                                                path=createframealignCenterImage(dw_file, output_data["patchFullAlignment"], directory_path, [x_size, y_size], os.path.splitext(the_task_data.image_name)[0]),
                                                 required=True))
                 else:
                     raise Exception("Patch-Full.log file not found")
@@ -156,7 +156,7 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
                     output_files.append(OutputFile(name="frameAlignment", path=new_file_path, required=True))
                     meta_data.append(ImageMetaData(key="frameAlignment_Image_data", value=json.dumps(output_data["fullAlignment"])))
                     output_files.append(OutputFile(name="frameAlignment_Image",
-                                                path=createframealignCenterImage(dw_file, output_data["fullAlignment"], directory_path, [x_size, y_size], the_task_data.image_name.split(".")[0]),
+                                                path=createframealignCenterImage(dw_file, output_data["fullAlignment"], directory_path, [x_size, y_size], os.path.splitext(the_task_data.image_name)[0]),
                                                 required=True))
         return TaskResultDto(
                 worker_instance_id=params.worker_instance_id,
