@@ -293,173 +293,14 @@ export const SystemStatusComponent: React.FC<SystemStatusComponentProps> = ({
                                     </Typography>
                                 </Box>
 
-                            <Grid container spacing={1.5}>
-                                <Grid  size={3}>
-                                    <MetricItem
-                                        icon={<Zap size={14} />}
-                                        label="High Tension"
-                                        value={(status.microscope.highTension / 1000)?.toFixed(0)}
-                                        unit="kV"
-                                        color="primary.main"
-                                    />
-                                </Grid>
-                                <Grid  size={3}>
-                                    <MetricItem
-                                        icon={<Gauge size={14} />}
-                                        label="Beam Current"
-                                        value={status.microscope.beamCurrent}
-                                        unit="pA"
-                                        color="primary.main"
-                                    />
-                                </Grid>
-                                <Grid  size={3}>
-                                    <MetricItem
-                                        icon={<Thermometer size={14} />}
-                                        label="Cryo Temp"
-                                        value={status.microscope.temperature}
-                                        unit="°C"
-                                        color="info.main"
-                                    />
-                                </Grid>
-                                <Grid  size={3}>
-                                    <MetricItem
-                                        icon={<Droplets size={14} />}
-                                        label="Refrigerant Level"
-                                        value={status.microscope.refrigerantLevel}
-                                        unit="%"
-                                        color={status.microscope.refrigerantLevel < 20 ? "warning.main" : "success.main"}
-                                        progress={status.microscope.refrigerantLevel}
-                                    />
-                                </Grid>
-                            </Grid>
-                        </Box>
-                    </Grid>
-
-                    {/* Camera Section */}
-                    <Grid  xs={12} size={4}>
-                        <Box sx={{
-                            p: 2,
-                            borderRadius: 2,
-                            backgroundColor: alpha(theme.palette.secondary.main, 0.04),
-                            border: `1px solid ${alpha(theme.palette.secondary.main, 0.12)}`,
-                            height: '100%'
-                        }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                                <Camera size={18} color={theme.palette.secondary.main} />
-                                <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'secondary.main' }}>
-                                    {status.camera.model}
-                                </Typography>
-                            </Box>
-
-                            <Grid container spacing={1.5}>
-                                <Grid  size={3}>
-                                    <MetricItem
-                                        icon={<Settings size={14} />}
-                                        label="Mode"
-                                        value={status.camera.mode}
-                                        color="secondary.main"
-                                    />
-                                </Grid>
-                                <Grid size={3}>
-                                    <MetricItem
-                                        icon={<Activity size={14} />}
-                                        label="Frame Rate"
-                                        value={status.camera.fps}
-                                        unit="FPS"
-                                        color="secondary.main"
-                                    />
-                                </Grid>
-                                <Grid size={3}>
-                                    <MetricItem
-                                        icon={<Thermometer size={14} />}
-                                        label="Detector Temp"
-                                        value={status.camera.temperature}
-                                        unit="°C"
-                                        color="info.main"
-                                    />
-                                </Grid>
-                                <Grid size={3}>
-                                    <MetricItem
-                                        icon={<Gauge size={14} />}
-                                        label="Exposure"
-                                        value={status.camera.exposure}
-                                        unit="s"
-                                        color="secondary.main"
-                                    />
-                                </Grid>
-                            </Grid>
-                        </Box>
-                    </Grid>
-
-                    {/* System Resources Section */}
-                    <Grid  xs={12} size={4}>
-                        <Box sx={{
-                            p: 2,
-                            borderRadius: 2,
-                            backgroundColor: alpha(theme.palette.success.main, 0.04),
-                            border: `1px solid ${alpha(theme.palette.success.main, 0.12)}`,
-                            height: '100%'
-                        }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                                <Database size={18} color={theme.palette.success.main} />
-                                <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'success.main' }}>
-                                    System Resources
-                                </Typography>
-                            </Box>
-
-                            <Grid container spacing={1.5}>
-                                <Grid  size={3}>
-                                    <MetricItem
-                                        icon={status.system.networkStatus === 'connected' ? <Wifi size={14} /> : <WifiOff size={14} />}
-                                        label="Network"
-                                        value={status.system.networkStatus === 'connected' ? 'Connected' : 'Offline'}
-                                        color={status.system.networkStatus === 'connected' ? "success.main" : "error.main"}
-                                    />
-                                </Grid>
-                                <Grid  size={3}>
-                                    <MetricItem
-                                        icon={<Database size={14} />}
-                                        label="Storage"
-                                        value={status.system.diskSpace}
-                                        unit="%"
-                                        color={status.system.diskSpace > 90 ? "error.main" : status.system.diskSpace > 75 ? "warning.main" : "success.main"}
-                                        progress={status.system.diskSpace}
-                                    />
-                                </Grid>
-                                <Grid  size={3}>
-                                    <Box sx={{ pt: 1 }}>
-                                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                                            CPU
-                                        </Typography>
-                                        <Typography
-                                            variant="body2"
-                                            sx={{
-                                                fontWeight: 600,
-                                                fontSize: '0.875rem',
-                                                color: 'text.primary',
-                                                display: 'flex',
-                                                alignItems: 'baseline',
-                                                gap: 0.5
-                                            }}
-                                        >
-                                            {/* Mock CPU/Memory values since they aren't in the original mock data */}
-                                            75%
-                                            <Typography component="span" variant="caption" color="text.secondary">
-                                                Used
-                                            </Typography>
-                                        </Typography>
-                                        <LinearProgress
-                                            variant="determinate"
-                                            value={75}
-                                            sx={{
-                                                height: 3,
-                                                borderRadius: 1.5,
-                                                mt: 0.5,
-                                                backgroundColor: alpha(theme.palette.grey[300], 0.3),
-                                                '& .MuiLinearProgress-bar': {
-                                                    backgroundColor: 75 > 80 ? theme.palette.warning.main : theme.palette.primary.main,
-                                                }
-                                            }}
+                                <Grid container spacing={1.5}>
+                                    <Grid size={3}>
+                                        <MetricItem
+                                            icon={<Zap size={14} />}
+                                            label="High Tension"
+                                            value={(status.microscope.highTension / 1000).toFixed(0)}
+                                            unit="kV"
+                                            color="primary.main"
                                         />
                                     </Grid>
                                     <Grid size={3}>
@@ -663,7 +504,7 @@ export const SystemStatusComponent: React.FC<SystemStatusComponentProps> = ({
                     </Grid>
                 </Collapse>
 
-                {/* Quick Actions - Always Visible */}
+                {/* Quick Actions - Now includes the main control buttons */}
                 <Box sx={{
                     pt: expanded ? 2 : 0,
                     borderTop: expanded ? `1px solid ${alpha(theme.palette.divider, 0.1)}` : 'none',
@@ -676,7 +517,7 @@ export const SystemStatusComponent: React.FC<SystemStatusComponentProps> = ({
                     </Typography>
 
                     <Stack direction="row" spacing={1}>
-                        {/* Connection Button */}
+                        {/* Connection Button - Moved from MicroscopyPageView */}
                         <Button
                             variant={isConnected ? "outlined" : "contained"}
                             color={isConnected ? "error" : "primary"}
@@ -688,7 +529,7 @@ export const SystemStatusComponent: React.FC<SystemStatusComponentProps> = ({
                             {connectionStatus === 'connecting' ? 'Connecting...' : isConnected ? 'Disconnect' : 'Connect'}
                         </Button>
 
-                        {/* Camera Settings Button */}
+                        {/* Camera Settings Button - Moved from MicroscopyPageView */}
                         <Button
                             variant="outlined"
                             onClick={handleCameraSettings}
