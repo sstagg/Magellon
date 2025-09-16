@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
     Box,
     Card,
@@ -13,6 +13,9 @@ import {
     IconButton,
     Tooltip,
     Badge,
+    Button,
+    Collapse,
+    CircularProgress,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import {
@@ -30,6 +33,8 @@ import {
     Database,
     Wifi,
     WifiOff,
+    ChevronDown,
+    ChevronUp,
 } from 'lucide-react';
 
 // Mock data - replace with real data from your store/API
@@ -176,10 +181,46 @@ const MetricItem: React.FC<MetricItemProps> = ({
     );
 };
 
-export const SystemStatusComponent: React.FC = () => {
+interface SystemStatusComponentProps {
+    // Connection-related props
+    isConnected?: boolean;
+    connectionStatus?: 'connected' | 'connecting' | 'disconnected';
+    onConnect?: () => void;
+
+    // Camera-related props
+    cameraConnected?: boolean;
+    cameraLoading?: boolean;
+    onCameraSettings?: () => void;
+
+    // Collapsible state
+    defaultExpanded?: boolean;
+}
+
+export const SystemStatusComponent: React.FC<SystemStatusComponentProps> = ({
+                                                                                isConnected = false,
+                                                                                connectionStatus = 'disconnected',
+                                                                                onConnect,
+                                                                                cameraConnected = false,
+                                                                                cameraLoading = false,
+                                                                                onCameraSettings,
+                                                                                defaultExpanded = true
+                                                                            }) => {
     const theme = useTheme();
     const isDark = theme.palette.mode === 'dark';
     const status = mockSystemStatus; // Replace with actual data from props or store
+    const [expanded, setExpanded] = useState(defaultExpanded);
+
+    const handleConnect = () => {
+        if (onConnect) {
+            onConnect();
+        }
+    };
+
+    const handleCameraSettings = () => {
+        if (onCameraSettings) {
+            onCameraSettings();
+        }
+    };
 
     return (
         <Card
@@ -206,6 +247,13 @@ export const SystemStatusComponent: React.FC = () => {
                         <Typography variant="h6" sx={{ fontWeight: 700, color: 'text.primary' }}>
                             System Status
                         </Typography>
+                        <IconButton
+                            size="small"
+                            onClick={() => setExpanded(!expanded)}
+                            sx={{ ml: 1 }}
+                        >
+                            {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                        </IconButton>
                     </Box>
 
                     <Stack direction="row" spacing={1} alignItems="center">
@@ -225,23 +273,25 @@ export const SystemStatusComponent: React.FC = () => {
                     </Stack>
                 </Box>
 
-                {/* Main Content Grid */}
-                <Grid container spacing={2} >
-                    {/* Microscope Section */}
-                    <Grid  xs={12} size={4}>
-                        <Box sx={{
-                            p: 2,
-                            borderRadius: 2,
-                            backgroundColor: alpha(theme.palette.primary.main, 0.04),
-                            border: `1px solid ${alpha(theme.palette.primary.main, 0.12)}`,
-                            height: '100%'
-                        }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                                <Monitor size={18} color={theme.palette.primary.main} />
-                                <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'primary.main' }}>
-                                    {status.microscope.model}
-                                </Typography>
-                            </Box>
+                {/* Collapsible Content */}
+                <Collapse in={expanded} timeout="auto">
+                    {/* Main Content Grid */}
+                    <Grid container spacing={2} sx={{ mb: 2 }}>
+                        {/* Microscope Section */}
+                        <Grid xs={12} size={4}>
+                            <Box sx={{
+                                p: 2,
+                                borderRadius: 2,
+                                backgroundColor: alpha(theme.palette.primary.main, 0.04),
+                                border: `1px solid ${alpha(theme.palette.primary.main, 0.12)}`,
+                                height: '100%'
+                            }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                                    <Monitor size={18} color={theme.palette.primary.main} />
+                                    <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                                        {status.microscope.model}
+                                    </Typography>
+                                </Box>
 
                             <Grid container spacing={1.5}>
                                 <Grid  size={3}>
@@ -411,55 +461,212 @@ export const SystemStatusComponent: React.FC = () => {
                                                 }
                                             }}
                                         />
-                                    </Box>
-                                </Grid>
-                                <Grid  size={3}>
-                                    <Box sx={{ pt: 1 }}>
-                                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                                            Memory
-                                        </Typography>
-                                        <Typography
-                                            variant="body2"
-                                            sx={{
-                                                fontWeight: 600,
-                                                fontSize: '0.875rem',
-                                                color: 'text.primary',
-                                                display: 'flex',
-                                                alignItems: 'baseline',
-                                                gap: 0.5
-                                            }}
-                                        >
-                                            60%
-                                            <Typography component="span" variant="caption" color="text.secondary">
-                                                Used
-                                            </Typography>
-                                        </Typography>
-                                        <LinearProgress
-                                            variant="determinate"
-                                            value={60}
-                                            sx={{
-                                                height: 3,
-                                                borderRadius: 1.5,
-                                                mt: 0.5,
-                                                backgroundColor: alpha(theme.palette.grey[300], 0.3),
-                                                '& .MuiLinearProgress-bar': {
-                                                    backgroundColor: 60 > 80 ? theme.palette.warning.main : theme.palette.primary.main,
-                                                }
-                                            }}
+                                    </Grid>
+                                    <Grid size={3}>
+                                        <MetricItem
+                                            icon={<Gauge size={14} />}
+                                            label="Beam Current"
+                                            value={status.microscope.beamCurrent}
+                                            unit="pA"
+                                            color="primary.main"
                                         />
-                                    </Box>
+                                    </Grid>
+                                    <Grid size={3}>
+                                        <MetricItem
+                                            icon={<Thermometer size={14} />}
+                                            label="Cryo Temp"
+                                            value={status.microscope.temperature}
+                                            unit="°C"
+                                            color="info.main"
+                                        />
+                                    </Grid>
+                                    <Grid size={3}>
+                                        <MetricItem
+                                            icon={<Droplets size={14} />}
+                                            label="Refrigerant Level"
+                                            value={status.microscope.refrigerantLevel}
+                                            unit="%"
+                                            color={status.microscope.refrigerantLevel < 20 ? "warning.main" : "success.main"}
+                                            progress={status.microscope.refrigerantLevel}
+                                        />
+                                    </Grid>
                                 </Grid>
+                            </Box>
+                        </Grid>
 
-                            </Grid>
-                        </Box>
+                        {/* Camera Section */}
+                        <Grid xs={12} size={4}>
+                            <Box sx={{
+                                p: 2,
+                                borderRadius: 2,
+                                backgroundColor: alpha(theme.palette.secondary.main, 0.04),
+                                border: `1px solid ${alpha(theme.palette.secondary.main, 0.12)}`,
+                                height: '100%'
+                            }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                                    <Camera size={18} color={theme.palette.secondary.main} />
+                                    <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'secondary.main' }}>
+                                        {status.camera.model}
+                                    </Typography>
+                                </Box>
+
+                                <Grid container spacing={1.5}>
+                                    <Grid size={3}>
+                                        <MetricItem
+                                            icon={<Settings size={14} />}
+                                            label="Mode"
+                                            value={status.camera.mode}
+                                            color="secondary.main"
+                                        />
+                                    </Grid>
+                                    <Grid size={3}>
+                                        <MetricItem
+                                            icon={<Activity size={14} />}
+                                            label="Frame Rate"
+                                            value={status.camera.fps}
+                                            unit="FPS"
+                                            color="secondary.main"
+                                        />
+                                    </Grid>
+                                    <Grid size={3}>
+                                        <MetricItem
+                                            icon={<Thermometer size={14} />}
+                                            label="Detector Temp"
+                                            value={status.camera.temperature}
+                                            unit="°C"
+                                            color="info.main"
+                                        />
+                                    </Grid>
+                                    <Grid size={3}>
+                                        <MetricItem
+                                            icon={<Gauge size={14} />}
+                                            label="Exposure"
+                                            value={status.camera.exposure}
+                                            unit="s"
+                                            color="secondary.main"
+                                        />
+                                    </Grid>
+                                </Grid>
+                            </Box>
+                        </Grid>
+
+                        {/* System Resources Section */}
+                        <Grid xs={12} size={4}>
+                            <Box sx={{
+                                p: 2,
+                                borderRadius: 2,
+                                backgroundColor: alpha(theme.palette.success.main, 0.04),
+                                border: `1px solid ${alpha(theme.palette.success.main, 0.12)}`,
+                                height: '100%'
+                            }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                                    <Database size={18} color={theme.palette.success.main} />
+                                    <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'success.main' }}>
+                                        System Resources
+                                    </Typography>
+                                </Box>
+
+                                <Grid container spacing={1.5}>
+                                    <Grid size={3}>
+                                        <MetricItem
+                                            icon={status.system.networkStatus === 'connected' ? <Wifi size={14} /> : <WifiOff size={14} />}
+                                            label="Network"
+                                            value={status.system.networkStatus === 'connected' ? 'Connected' : 'Offline'}
+                                            color={status.system.networkStatus === 'connected' ? "success.main" : "error.main"}
+                                        />
+                                    </Grid>
+                                    <Grid size={3}>
+                                        <MetricItem
+                                            icon={<Database size={14} />}
+                                            label="Storage"
+                                            value={status.system.diskSpace}
+                                            unit="%"
+                                            color={status.system.diskSpace > 90 ? "error.main" : status.system.diskSpace > 75 ? "warning.main" : "success.main"}
+                                            progress={status.system.diskSpace}
+                                        />
+                                    </Grid>
+                                    <Grid size={3}>
+                                        <Box sx={{ pt: 1 }}>
+                                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                                                CPU
+                                            </Typography>
+                                            <Typography
+                                                variant="body2"
+                                                sx={{
+                                                    fontWeight: 600,
+                                                    fontSize: '0.875rem',
+                                                    color: 'text.primary',
+                                                    display: 'flex',
+                                                    alignItems: 'baseline',
+                                                    gap: 0.5
+                                                }}
+                                            >
+                                                75%
+                                                <Typography component="span" variant="caption" color="text.secondary">
+                                                    Used
+                                                </Typography>
+                                            </Typography>
+                                            <LinearProgress
+                                                variant="determinate"
+                                                value={75}
+                                                sx={{
+                                                    height: 3,
+                                                    borderRadius: 1.5,
+                                                    mt: 0.5,
+                                                    backgroundColor: alpha(theme.palette.grey[300], 0.3),
+                                                    '& .MuiLinearProgress-bar': {
+                                                        backgroundColor: 75 > 80 ? theme.palette.warning.main : theme.palette.primary.main,
+                                                    }
+                                                }}
+                                            />
+                                        </Box>
+                                    </Grid>
+                                    <Grid size={3}>
+                                        <Box sx={{ pt: 1 }}>
+                                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                                                Memory
+                                            </Typography>
+                                            <Typography
+                                                variant="body2"
+                                                sx={{
+                                                    fontWeight: 600,
+                                                    fontSize: '0.875rem',
+                                                    color: 'text.primary',
+                                                    display: 'flex',
+                                                    alignItems: 'baseline',
+                                                    gap: 0.5
+                                                }}
+                                            >
+                                                60%
+                                                <Typography component="span" variant="caption" color="text.secondary">
+                                                    Used
+                                                </Typography>
+                                            </Typography>
+                                            <LinearProgress
+                                                variant="determinate"
+                                                value={60}
+                                                sx={{
+                                                    height: 3,
+                                                    borderRadius: 1.5,
+                                                    mt: 0.5,
+                                                    backgroundColor: alpha(theme.palette.grey[300], 0.3),
+                                                    '& .MuiLinearProgress-bar': {
+                                                        backgroundColor: 60 > 80 ? theme.palette.warning.main : theme.palette.primary.main,
+                                                    }
+                                                }}
+                                            />
+                                        </Box>
+                                    </Grid>
+                                </Grid>
+                            </Box>
+                        </Grid>
                     </Grid>
-                </Grid>
+                </Collapse>
 
-                {/* Quick Actions */}
+                {/* Quick Actions - Always Visible */}
                 <Box sx={{
-                    mt: 2,
-                    pt: 2,
-                    borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                    pt: expanded ? 2 : 0,
+                    borderTop: expanded ? `1px solid ${alpha(theme.palette.divider, 0.1)}` : 'none',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center'
@@ -469,6 +676,30 @@ export const SystemStatusComponent: React.FC = () => {
                     </Typography>
 
                     <Stack direction="row" spacing={1}>
+                        {/* Connection Button */}
+                        <Button
+                            variant={isConnected ? "outlined" : "contained"}
+                            color={isConnected ? "error" : "primary"}
+                            onClick={handleConnect}
+                            disabled={connectionStatus === 'connecting'}
+                            startIcon={connectionStatus === 'connecting' ? <CircularProgress size={16} /> : <Monitor size={16} />}
+                            size="small"
+                        >
+                            {connectionStatus === 'connecting' ? 'Connecting...' : isConnected ? 'Disconnect' : 'Connect'}
+                        </Button>
+
+                        {/* Camera Settings Button */}
+                        <Button
+                            variant="outlined"
+                            onClick={handleCameraSettings}
+                            disabled={!cameraConnected || cameraLoading}
+                            startIcon={cameraLoading ? <CircularProgress size={16} /> : <Camera size={16} />}
+                            size="small"
+                        >
+                            Camera Settings
+                        </Button>
+
+                        {/* Live Status Chip */}
                         <Chip
                             label="Live"
                             size="small"
