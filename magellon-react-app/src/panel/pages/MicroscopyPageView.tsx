@@ -503,8 +503,8 @@ export default function MicroscopyPageView() {
                                                 {item.settings.electronCounting && ' • Counting'}
                                             </Typography>
                                             <Typography variant="caption" color="text.secondary" display="block">
-                                                Defocus: {item.metadata.defocus.toFixed(1)}μm •
-                                                Dose: {item.metadata.dose.toFixed(1)} e⁻/Å²
+                                                Defocus: {item.metadata.defocus?.toFixed(1)}μm •
+                                                Dose: {item.metadata.dose?.toFixed(1)} e⁻/Å²
                                             </Typography>
                                         </Box>
                                     </Box>

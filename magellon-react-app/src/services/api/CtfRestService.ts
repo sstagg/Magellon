@@ -11,7 +11,7 @@ const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL ;
 // }
 
 export function fetchImageCtfInfo(img_name: string) {
-    return fetch(`${BASE_URL}/ctf-info?image_name_or_oid=${img_name}`).then((response) =>
+    return fetch(`${BASE_URL}/ctf-info?image_name_or_oid=${encodeURIComponent(img_name)}`).then((response) =>
         response.json()
     );
 }

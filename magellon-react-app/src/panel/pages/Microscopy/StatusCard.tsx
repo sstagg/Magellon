@@ -114,7 +114,7 @@ export const StatusCards: React.FC = () => {
         },
         {
             title: 'Temperature',
-            value: microscopeStatus ? `${microscopeStatus.temperature.toFixed(1)}°C` : '--',
+            value: microscopeStatus ? `${microscopeStatus.temperature?.toFixed(1)}°C` : '--',
             subtitle: 'Optimal',
             icon: <ThermostatIcon />,
             color: '#2196f3'

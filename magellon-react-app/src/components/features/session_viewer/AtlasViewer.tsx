@@ -117,7 +117,7 @@ export default function AtlasViewer({ name, finalWidth, finalHeight, backgroundC
                         width={width}
                         height={height}
                         // Add sessionName parameter to the image thumbnail URL
-                        href={`${BASE_URL}/image_thumbnail?name=${area['data-name']}&sessionName=${sessionName}`}
+                        href={`${BASE_URL}/image_thumbnail?name=${encodeURIComponent(area['data-name'])}&sessionName=${sessionName}`}
                         data-name={area['data-name']}
                         onMouseOver={() => handleMouseOver(area['data-name'])}
                         onMouseOut={handleMouseOut}

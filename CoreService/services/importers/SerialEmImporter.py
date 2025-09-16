@@ -157,46 +157,60 @@ def parse_mdoc(file_path: str, settings_file_path: str) -> SerialEMMetadata:
     # TOdo convert required strings to float
 
     return SerialEMMetadata(**result)
+def extract_navigator_label(mdoc_path: str) -> str | None:
+    """
+    Reads an .mdoc file and returns the NavigatorLabel if present.
+    If multiple NavigatorLabels exist, returns the first one.
+    """
+    if not os.path.exists(mdoc_path):
+        return None
+
+    with open(mdoc_path, "r") as f:
+        for line in f:
+            if line.strip().startswith("NavigatorLabel"):
+                # line looks like: NavigatorLabel = MyLabel
+                parts = line.split("=", 1)
+                if len(parts) == 2:
+                    return parts[1].strip()
+    return None
 def parse_directory(directory_structure, settings_file_path, default_params):
     try:
         metadata_list = []
+        navigator_dict = {}
         valid_extensions = (".tif", ".tiff", ".eer", ".mrc")
 
         def traverse_directory(structure):
-            if structure.type == "file" and structure.name.lower().endswith(valid_extensions):
-                # Construct expected .mdoc path
-                base, _ = os.path.splitext(structure.path)
-                mdoc_path = base + ".mdoc"
+            if structure.type == "file" and structure.name.endswith(".mdoc"):
+                # Clean filename: remove trailing spaces, then drop ".mdoc"
+                clean_path = structure.path.strip()
+                image_path = os.path.splitext(clean_path)[0]  # removes ".mdoc"
 
-                if os.path.exists(mdoc_path):
-                    # Parse the mdoc if present -> convert to dict
-                    metadata = parse_mdoc(mdoc_path, settings_file_path).__dict__.copy()
+                # Check if image exists and is valid type
+                if os.path.exists(image_path) and image_path.lower().endswith(valid_extensions):
+                    metadata = parse_mdoc(clean_path, settings_file_path)
+
+                    # Convert to dict and enrich
+                    metadata_dict = metadata.__dict__.copy()
+                    metadata_dict["file_path"] = image_path
+                    metadata_dict["name"] = os.path.splitext(os.path.basename(image_path))[0]
+
+                    metadata_list.append(SerialEMMetadata(**metadata_dict))
                 else:
-                    # If no mdoc, use defaults
-                    metadata = default_params.copy()
-                    metadata["pixel_size"] = metadata["pixel_size"] * 10**-10
-                    # metadata["acceleration_voltage"] = metadata["acceleration_voltage"] / 1000
-                    # metadata["spherical_aberration"] = metadata["spherical_aberration"] / 1000
-
-                # Always ensure file_path and name are present
-                metadata["file_path"] = structure.path
-                metadata["name"] = os.path.splitext(structure.name)[0]
-
-                # Convert back to SerialEMMetadata object
-                metadata_list.append(SerialEMMetadata(**metadata))
+                    logger.warning(f"Skipping {structure.path}, no matching image: {image_path}")
 
             elif structure.type == "directory" and structure.children:
                 for child in structure.children:
                     traverse_directory(child)
 
         traverse_directory(directory_structure)
-        return metadata_list
+        return metadata_list, navigator_dict
 
     except PermissionError:
         raise HTTPException(status_code=403, detail="Permission denied")
     except Exception as e:
         logger.error(f"Unexpected error while parsing directory: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
 
 
 
@@ -332,7 +346,7 @@ class SerialEmImporter(BaseImporter):
             if not gains_files:
                 raise FileNotFoundError(f"No files found in gains directory: {gains_dir}")
             gains_file_path = os.path.abspath(os.path.join(gains_dir, gains_files[0]))
-            metadata_list = parse_directory(files, settings_txt_path,self.params.default_data.dict())
+            metadata_list, navigator_dict = parse_directory(files, settings_txt_path,self.params.default_data.dict())
             job = None
             if len(metadata_list) > 0:
                 target_dir = os.path.join(MAGELLON_HOME_DIR, self.params.magellon_session_name)
@@ -391,10 +405,10 @@ class SerialEmImporter(BaseImporter):
                             db_image = Image(
                             oid=uuid.uuid4(),
                             name=filename,
-                            magnification=metadata.magnification,
+                            magnification=( metadata.magnification if metadata.magnification is not None else self.params.default_data.magnification),
                             defocus=metadata.defocus,
                             dose=metadata.dose,
-                            pixel_size=metadata.pixel_size,
+                            pixel_size=( metadata.pixel_size*10**-10 if metadata.pixel_size is not None else self.params.default_data.pixel_size*10**-10),
                             binning_x=metadata.binning_x,
                             binning_y=metadata.binning_y,
                             stage_x=metadata.stage_x,
@@ -402,8 +416,8 @@ class SerialEmImporter(BaseImporter):
                             stage_alpha_tilt=metadata.stage_alpha_tilt,
                             atlas_delta_row=metadata.atlas_delta_row,
                             atlas_delta_column=metadata.atlas_delta_column,
-                            acceleration_voltage=metadata.acceleration_voltage,
-                            spherical_aberration=metadata.spherical_aberration,
+                            acceleration_voltage=metadata.acceleration_voltage if metadata.acceleration_voltage is not None else self.params.default_data.acceleration_voltage,
+                            spherical_aberration=metadata.spherical_aberration if metadata.spherical_aberration is not None else self.params.default_data.spherical_aberration,
                             session_id=magellon_session.oid
                         )
 
@@ -448,9 +462,9 @@ class SerialEmImporter(BaseImporter):
                                 frame_path=source_frame_path,
                                 job_dto=self.params,
                                 status=1,
-                                pixel_size=metadata.pixel_size,
-                                acceleration_voltage=metadata.acceleration_voltage,
-                                spherical_aberration=metadata.spherical_aberration
+                                pixel_size=( metadata.pixel_size*10**-10 if metadata.pixel_size is not None else self.params.default_data.pixel_size*10**-10),
+                                acceleration_voltage=(metadata.acceleration_voltage if metadata.acceleration_voltage is not None else self.params.default_data.acceleration_voltage),
+                                spherical_aberration=(metadata.spherical_aberration if metadata.spherical_aberration is not None else self.params.default_data.spherical_aberration)
                             )
                             task_todo_list.append(task)
                     except ValueError as err:

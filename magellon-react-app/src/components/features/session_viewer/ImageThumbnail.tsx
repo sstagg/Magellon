@@ -65,7 +65,7 @@ export const ImageThumbnail = ({
     }, [size]);
 
     const imageUrl = useMemo(() =>
-            `${BASE_URL}/image_thumbnail?name=${image.name}&sessionName=${sessionName}`,
+            `${BASE_URL}/image_thumbnail?name=${encodeURIComponent(image.name)}&sessionName=${sessionName}`,
         [image.name, sessionName]
     );
 
@@ -88,7 +88,7 @@ export const ImageThumbnail = ({
             <strong>Name:</strong> {imageName}<br />
             {image.defocus !== undefined && <><strong>Defocus:</strong> {imageDefocus}<br /></>}
             {image.mag && <><strong>Magnification:</strong> {image.mag}×<br /></>}
-            {image.pixelSize && <><strong>Pixel Size:</strong> {image.pixelSize.toFixed(2)} Å/pix<br /></>}
+            {image.pixelSize && <><strong>Pixel Size:</strong> {image.pixelSize?.toFixed(2)} Å/pix<br /></>}
             {hasChildren && <><strong>Child Images:</strong> {childrenCount}</>}
         </Box>
     );

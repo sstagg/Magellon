@@ -154,8 +154,8 @@ export const ImageFilterDialog: React.FC<ImageFilterDialogProps> = ({
                                 step={(ranges.defocusMax - ranges.defocusMin) / 100}
                             />
                             <Box display="flex" justifyContent="space-between">
-                                <Typography variant="caption">{ranges.defocusMin.toFixed(2)}</Typography>
-                                <Typography variant="caption">{ranges.defocusMax.toFixed(2)}</Typography>
+                                <Typography variant="caption">{ranges.defocusMin?.toFixed(2)}</Typography>
+                                <Typography variant="caption">{ranges.defocusMax?.toFixed(2)}</Typography>
                             </Box>
                         </Box>
                     )}
@@ -197,8 +197,8 @@ export const ImageFilterDialog: React.FC<ImageFilterDialogProps> = ({
                                 step={(ranges.pixelSizeMax - ranges.pixelSizeMin) / 100}
                             />
                             <Box display="flex" justifyContent="space-between">
-                                <Typography variant="caption">{ranges.pixelSizeMin.toFixed(2)}</Typography>
-                                <Typography variant="caption">{ranges.pixelSizeMax.toFixed(2)}</Typography>
+                                <Typography variant="caption">{ranges.pixelSizeMin?.toFixed(2)}</Typography>
+                                <Typography variant="caption">{ranges.pixelSizeMax?.toFixed(2)}</Typography>
                             </Box>
                         </Box>
                     )}

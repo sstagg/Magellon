@@ -288,7 +288,7 @@ export const LiveView: React.FC<LiveViewProps> = () => {
                                     <>
                                         Mag: {opticalSettings.magnification.toLocaleString()}x
                                         <br />
-                                        Defocus: {opticalSettings.defocus.toFixed(1)}μm
+                                        Defocus: {opticalSettings.defocus?.toFixed(1)}μm
                                         {isLiveMode ? (
                                             <>
                                                 <br />

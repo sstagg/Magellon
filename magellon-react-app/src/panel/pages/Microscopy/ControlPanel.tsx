@@ -499,7 +499,7 @@ export const ControlPanel = () => {
                                                 </IconButton>
                                                 <TextField
                                                     size="small"
-                                                    value={stagePosition[axis].toFixed(axis === 'z' ? 3 : 1)}
+                                                    value={stagePosition[axis]?.toFixed(axis === 'z' ? 3 : 1)}
                                                     disabled={!isConnected}
                                                     onChange={(e) => {
                                                         const value = parseFloat(e.target.value) || 0;
@@ -545,7 +545,7 @@ export const ControlPanel = () => {
                                                 </Typography>
                                                 <TextField
                                                     size="small"
-                                                    value={(stagePosition[axis] * 180 / Math.PI).toFixed(1)}
+                                                    value={(stagePosition[axis] * 180 / Math.PI)?.toFixed(1)}
                                                     disabled={!isConnected}
                                                     onChange={(e) => {
                                                         const value = (parseFloat(e.target.value) || 0) * Math.PI / 180;

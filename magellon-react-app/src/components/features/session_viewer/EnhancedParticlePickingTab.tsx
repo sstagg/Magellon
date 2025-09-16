@@ -1089,7 +1089,7 @@ export const EnhancedParticlePickingTab: React.FC<EnhancedParticlePickingTabProp
             >
                 <Box sx={{ width: '100%', height: '100%' }}>
                     <EnhancedParticleEditor
-                        imageUrl={`${BASE_URL}/image_thumbnail?name=${selectedImage?.name}&sessionName=${sessionName}`}
+                        imageUrl={`${BASE_URL}/image_thumbnail?name=${encodeURIComponent(selectedImage?.name)}&sessionName=${sessionName}`}
                         width={isMobile ? 300 : 1024}
                         height={isMobile ? 300 : 1024}
                         image={selectedImage}

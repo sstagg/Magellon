@@ -753,7 +753,7 @@ const ParticleEditor: React.FC<ParticleEditorProps> = ({
                     </ButtonGroup>
 
                     <Chip
-                        label={`Zoom: ${(zoom * 100).toFixed(0)}%`}
+                        label={`Zoom: ${(zoom * 100)?.toFixed(0)}%`}
                         size="small"
                         variant="outlined"
                     />

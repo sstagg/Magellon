@@ -113,7 +113,7 @@ export const SerialEMImportComponent = () => {
             setSelectedDirectory(item.path);
             setSerialemDirPath(item.path);
             // Validate and detect SerialEM files
-            await validateSerialEMDirectory(item.path);
+            // await validateSerialEMDirectory(item.path);
         }
     };
 
@@ -148,9 +148,10 @@ export const SerialEMImportComponent = () => {
                 },
                 body: JSON.stringify({
                     target_directory: serialemDirPath,
-                    serialem_dir_path: selectedDirectory,
+                    serial_em_dir_path: selectedDirectory,
                     magellon_project_name: magellonProjectName,
                     magellon_session_name: magellonSessionName,
+                    session_name: magellonSessionName,
                     data_type: dataType,
                     frame_type: frameType,
                     default_data: {
@@ -308,7 +309,7 @@ export const SerialEMImportComponent = () => {
                                 </ListItemIcon>
                                 <ListItemText
                                     primary={item.name}
-                                    secondary={item.is_directory ? 'Directory' : `File - ${item.size ? `${(item.size / 1024).toFixed(2)} KB` : 'Size unknown'}`}
+                                    secondary={item.is_directory ? 'Directory' : `File - ${item.size ? `${(item.size / 1024)?.toFixed(2)} KB` : 'Size unknown'}`}
                                 />
                             </ListItem>
                         ))}
@@ -322,7 +323,7 @@ export const SerialEMImportComponent = () => {
                         SerialEM Import Configuration
                     </Typography>
 
-                    {validationStatus === 'valid' && (
+                    {/* {validationStatus === 'valid' && ( */}
                         <Box sx={{ mb: 2 }}>
                             <Typography variant="subtitle2" gutterBottom>
                                 Detected SerialEM Files:
@@ -342,7 +343,7 @@ export const SerialEMImportComponent = () => {
                                 )}
                             </Box>
                         </Box>
-                    )}
+                    {/* )} */}
 
                     <Grid container spacing={3}>
                         <Grid item xs={12}>
@@ -520,16 +521,16 @@ export const SerialEMImportComponent = () => {
                                 variant="contained"
                                 color="primary"
                                 onClick={handleImport}
-                                disabled={importStatus === 'processing' || validationStatus === 'invalid'}
+                                // disabled={importStatus === 'processing' || validationStatus === 'invalid'}
                                 size="large"
                             >
                                 Import SerialEM Data
                             </Button>
-                            {validationStatus === 'invalid' && (
+                            {/* {validationStatus === 'invalid' && (
                                 <Typography variant="caption" color="error" sx={{ ml: 2 }}>
                                     No valid SerialEM files found in selected directory
                                 </Typography>
-                            )}
+                            )} */}
                         </Grid>
                     </Grid>
                 </Paper>

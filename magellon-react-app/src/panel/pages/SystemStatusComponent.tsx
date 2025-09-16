@@ -248,7 +248,7 @@ export const SystemStatusComponent: React.FC = () => {
                                     <MetricItem
                                         icon={<Zap size={14} />}
                                         label="High Tension"
-                                        value={(status.microscope.highTension / 1000).toFixed(0)}
+                                        value={(status.microscope.highTension / 1000)?.toFixed(0)}
                                         unit="kV"
                                         color="primary.main"
                                     />

@@ -270,7 +270,7 @@ const ImageProcessingControls: React.FC<{
                         <Box>
                             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                                 <ZoomIn sx={{ mr: 1, fontSize: 16 }} />
-                                <Typography variant="body2">Scale: {scale.toFixed(1)}x</Typography>
+                                <Typography variant="body2">Scale: {scale?.toFixed(1)}x</Typography>
                             </Box>
                             <Slider
                                 value={scale}
@@ -724,7 +724,7 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                                 />
                                 <InfoItem
                                     label="Defocus"
-                                    value={selectedImage.defocus ? `${selectedImage.defocus.toFixed(2)} μm` : undefined}
+                                    value={selectedImage.defocus ? `${selectedImage.defocus?.toFixed(2)} μm` : undefined}
                                     icon={<Target size={16} />}
                                     color={theme.palette.warning.main}
                                 />
@@ -733,7 +733,7 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                             <Stack spacing={1} sx={{ flex: 1 }}>
                                 <InfoItem
                                     label="Pixel Size"
-                                    value={selectedImage.pixelSize ? `${selectedImage.pixelSize.toFixed(2)} Å/pix` : undefined}
+                                    value={selectedImage.pixelSize ? `${selectedImage.pixelSize?.toFixed(2)} Å/pix` : undefined}
                                     icon={<Layers size={16} />}
                                     color={theme.palette.info.main}
                                 />
@@ -878,7 +878,7 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
 
 
                                 <ImageViewer
-                                    imageUrl={`${BASE_URL}/image_thumbnail?name=${selectedImage?.name}&sessionName=${sessionName}`}
+                                    imageUrl={`${BASE_URL}/image_thumbnail?name=${encodeURIComponent(selectedImage?.name)}&sessionName=${sessionName}`}
                                     width={isMobile ? 300 : 1024}
                                     height={isMobile ? 300 : 1024}
                                     imageStyle={getImageStyle()}
@@ -1077,7 +1077,7 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                                                                 fontFamily: 'monospace',
                                                             }}
                                                         >
-                                                            {ImageCtfData.defocus1.toFixed(2)}
+                                                            {ImageCtfData.defocus1?.toFixed(2)}
                                                             <Typography
                                                                 component="span"
                                                                 variant="body1"
@@ -1164,7 +1164,7 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                                                                 fontFamily: 'monospace',
                                                             }}
                                                         >
-                                                            {ImageCtfData.defocus2.toFixed(2)}
+                                                            {ImageCtfData.defocus2?.toFixed(2)}
                                                             <Typography
                                                                 component="span"
                                                                 variant="body1"
@@ -1247,7 +1247,7 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                                                                 fontFamily: 'monospace',
                                                             }}
                                                         >
-                                                            {ImageCtfData.angleAstigmatism.toFixed(1)}
+                                                            {ImageCtfData.angleAstigmatism?.toFixed(1)}
                                                             <Typography
                                                                 component="span"
                                                                 variant="body1"
@@ -1333,7 +1333,7 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                                                                 fontFamily: 'monospace',
                                                             }}
                                                         >
-                                                            {ImageCtfData.resolution.toFixed(2)}
+                                                            {ImageCtfData.resolution?.toFixed(2)}
                                                             <Typography
                                                                 component="span"
                                                                 variant="body1"
@@ -1422,7 +1422,7 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                                                         }}
                                                     >
                                                         <img
-                                                            src={`${BASE_URL}/ctf_image?image_type=powerspec&name=${selectedImage?.name}&sessionName=${sessionName}`}
+                                                            src={`${BASE_URL}/ctf_image?image_type=powerspec&name=${encodeURIComponent(selectedImage?.name)}&sessionName=${sessionName}`}
                                                             alt="CTF power spectrum"
                                                             style={{
                                                                 maxWidth: '100%',
@@ -1483,7 +1483,7 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                                                         }}
                                                     >
                                                         <img
-                                                            src={`${BASE_URL}/ctf_image?image_type=plots&name=${selectedImage?.name}&sessionName=${sessionName}`}
+                                                            src={`${BASE_URL}/ctf_image?image_type=plots&name=${encodeURIComponent(selectedImage?.name)}&sessionName=${sessionName}`}
                                                             alt="CTF plots"
                                                             style={{
                                                                 maxWidth: '100%',
@@ -1534,7 +1534,7 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                                                                 Defocus Difference
                                                             </Typography>
                                                             <Typography variant="body1" sx={{ fontWeight: 600, mt: 0.5 }}>
-                                                                {Math.abs(ImageCtfData.defocus1 - ImageCtfData.defocus2).toFixed(3)} μm
+                                                                {Math.abs(ImageCtfData.defocus1 - ImageCtfData.defocus2)?.toFixed(3)} μm
                                                             </Typography>
                                                         </Box>
                                                     </Grid>
@@ -1544,7 +1544,7 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                                                                 Average Defocus
                                                             </Typography>
                                                             <Typography variant="body1" sx={{ fontWeight: 600, mt: 0.5 }}>
-                                                                {((ImageCtfData.defocus1 + ImageCtfData.defocus2) / 2).toFixed(3)} μm
+                                                                {((ImageCtfData.defocus1 + ImageCtfData.defocus2) / 2)?.toFixed(3)} μm
                                                             </Typography>
                                                         </Box>
                                                     </Grid>
@@ -1555,7 +1555,7 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                                                             </Typography>
                                                             <Typography variant="body1" sx={{ fontWeight: 600, mt: 0.5 }}>
                                                                 {(Math.abs(ImageCtfData.defocus1 - ImageCtfData.defocus2) /
-                                                                    ((ImageCtfData.defocus1 + ImageCtfData.defocus2) / 2) * 100).toFixed(1)}%
+                                                                    ((ImageCtfData.defocus1 + ImageCtfData.defocus2) / 2) * 100)?.toFixed(1)}%
                                                             </Typography>
                                                         </Box>
                                                     </Grid>
@@ -1609,7 +1609,7 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                         <TabPanel value="6" sx={{ p: 3 }}>
                             <Stack spacing={2} alignItems="center">
                                 <img
-                                    src={`${BASE_URL}/fao_image?image_type=one&name=${selectedImage?.name}&sessionName=${sessionName}`}
+                                    src={`${BASE_URL}/fao_image?image_type=one&name=${encodeURIComponent(selectedImage?.name)}&sessionName=${sessionName}`}
                                     alt="Frame alignment - image one"
                                     style={{
                                         ...imageStyle,
@@ -1617,7 +1617,7 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                                     }}
                                 />
                                 <img
-                                    src={`${BASE_URL}/fao_image?image_type=two&name=${selectedImage?.name}&sessionName=${sessionName}`}
+                                    src={`${BASE_URL}/fao_image?image_type=two&name=${encodeURIComponent(selectedImage?.name)}&sessionName=${sessionName}`}
                                     alt="Frame alignment - image two"
                                     style={{
                                         ...imageStyle,

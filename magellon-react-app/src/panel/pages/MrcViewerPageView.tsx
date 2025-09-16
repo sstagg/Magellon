@@ -416,7 +416,7 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath = "C:\\Users\\
 
                                             <Stack direction="row" spacing={1} alignItems="center">
                                                 <Typography variant="caption" sx={{ fontSize: '0.7rem', minWidth: 60 }}>
-                                                    Scale: {scale.toFixed(1)}x
+                                                    Scale: {scale?.toFixed(1)}x
                                                 </Typography>
                                                 <Slider
                                                     value={scale}
@@ -635,7 +635,7 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath = "C:\\Users\\
                                         sx={{ width: 100 }}
                                     />
                                     <Typography variant="caption" sx={{ fontSize: '0.7rem', minWidth: 35 }}>
-                                        {scale.toFixed(1)}x
+                                        {scale?.toFixed(1)}x
                                     </Typography>
                                 </Stack>
 

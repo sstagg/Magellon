@@ -927,7 +927,7 @@ export const MicroscopeSettingsDialog: React.FC<MicroscopeSettingsDialogProps> =
                                                     label="X (μm)"
                                                     type="number"
                                                     step="0.1"
-                                                    value={(safeStageSettings.position.x * 1e6).toFixed(1)}
+                                                    value={(safeStageSettings.position.x * 1e6)?.toFixed(1)}
                                                     onChange={(e) => safeUpdateStageSettings({
                                                         position: {
                                                             ...safeStageSettings.position,
@@ -942,7 +942,7 @@ export const MicroscopeSettingsDialog: React.FC<MicroscopeSettingsDialogProps> =
                                                     label="Y (μm)"
                                                     type="number"
                                                     step="0.1"
-                                                    value={(safeStageSettings.position.y * 1e6).toFixed(1)}
+                                                    value={(safeStageSettings.position.y * 1e6)?.toFixed(1)}
                                                     onChange={(e) => safeUpdateStageSettings({
                                                         position: {
                                                             ...safeStageSettings.position,
@@ -957,7 +957,7 @@ export const MicroscopeSettingsDialog: React.FC<MicroscopeSettingsDialogProps> =
                                                     label="Z (μm)"
                                                     type="number"
                                                     step="0.1"
-                                                    value={(safeStageSettings.position.z * 1e6).toFixed(1)}
+                                                    value={(safeStageSettings.position.z * 1e6)?.toFixed(1)}
                                                     onChange={(e) => safeUpdateStageSettings({
                                                         position: {
                                                             ...safeStageSettings.position,
@@ -978,7 +978,7 @@ export const MicroscopeSettingsDialog: React.FC<MicroscopeSettingsDialogProps> =
                                                     label="Alpha (°)"
                                                     type="number"
                                                     step="0.1"
-                                                    value={(safeStageSettings.position.a * 180 / Math.PI).toFixed(1)}
+                                                    value={(safeStageSettings.position.a * 180 / Math.PI)?.toFixed(1)}
                                                     onChange={(e) => safeUpdateStageSettings({
                                                         position: {
                                                             ...safeStageSettings.position,
@@ -996,7 +996,7 @@ export const MicroscopeSettingsDialog: React.FC<MicroscopeSettingsDialogProps> =
                                                     label="Beta (°)"
                                                     type="number"
                                                     step="0.1"
-                                                    value={(safeStageSettings.position.b * 180 / Math.PI).toFixed(1)}
+                                                    value={(safeStageSettings.position.b * 180 / Math.PI)?.toFixed(1)}
                                                     onChange={(e) => safeUpdateStageSettings({
                                                         position: {
                                                             ...safeStageSettings.position,
@@ -1096,7 +1096,7 @@ export const MicroscopeSettingsDialog: React.FC<MicroscopeSettingsDialogProps> =
                                                 </Typography>
                                             </Box>
                                             <Typography variant="body2">
-                                                Screen Current: {safeSystemStatus.screenCurrent.toFixed(2)} pA
+                                                Screen Current: {safeSystemStatus.screenCurrent?.toFixed(2)} pA
                                             </Typography>
                                         </Paper>
                                     </Grid>

@@ -209,7 +209,7 @@ export const MagellonImportComponent = () => {
                                 </ListItemIcon>
                                 <ListItemText
                                     primary={item.name}
-                                    secondary={item.is_directory ? 'Directory' : `File - ${item.size ? `${(item.size / 1024).toFixed(2)} KB` : 'Size unknown'}`}
+                                    secondary={item.is_directory ? 'Directory' : `File - ${item.size ? `${(item.size / 1024)?.toFixed(2)} KB` : 'Size unknown'}`}
                                 />
                             </ListItem>
                         ))}

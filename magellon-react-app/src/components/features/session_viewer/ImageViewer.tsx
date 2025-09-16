@@ -213,7 +213,7 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
                             fontWeight="bold"
                             fontFamily="monospace"
                         >
-                            {calculateDistance(circles[0], circles[1]).toFixed(1)} px
+                            {calculateDistance(circles[0], circles[1])?.toFixed(1)} px
                         </text>
                     </g>
                 )}
