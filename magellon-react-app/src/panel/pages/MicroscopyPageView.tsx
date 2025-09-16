@@ -405,9 +405,6 @@ export default function MicroscopyPageView() {
         return action;
     };
 
-    // Calculate header height dynamically
-    const headerHeight = isMobile ? '200px' : '240px'; // Adjust based on your actual header content
-
     return (
         <>
             {/* Add global styles to ensure parent elements have proper height */}
@@ -440,12 +437,10 @@ export default function MicroscopyPageView() {
                 {/* Fixed Header Section */}
                 <Box sx={{
                     flexShrink: 0,
-                    height: headerHeight,
                     p: { xs: 1, sm: 2, md: 3 },
                     pb: { xs: 1, sm: 1, md: 2 },
                     borderBottom: `1px solid ${theme.palette.divider}`,
                     backgroundColor: 'background.paper',
-                    overflow: 'auto', // Allow scrolling if content is too tall
                 }}>
                     {/* Header */}
                     <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -503,15 +498,11 @@ export default function MicroscopyPageView() {
                 {/* FlexLayout Container - Uses remaining space */}
                 <Box sx={{
                     flex: 1,
-                    height: `calc(100vh - 64px - ${headerHeight})`, // Explicit height for FlexLayout
                     minHeight: 0,
                     position: 'relative',
                     '& .flexlayout__layout': {
-                        position: 'absolute !important',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
+                        width: '100%',
+                        height: '100%',
                         backgroundColor: 'transparent',
                     },
                     '& .flexlayout__tabset_header': {
