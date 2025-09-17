@@ -6,7 +6,7 @@ const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL ;
 
 
 export function FetchImageParticlePicking(img_name: string) {
-    return fetch(`${BASE_URL}/particle-pickings?img_name=${img_name}`).then((response) =>
+    return fetch(`${BASE_URL}/particle-pickings?img_name=${encodeURIComponent(img_name)}`).then((response) =>
         response.json()
     );
 }

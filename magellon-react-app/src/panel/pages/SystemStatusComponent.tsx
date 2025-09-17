@@ -461,6 +461,7 @@ export const SystemStatusComponent: React.FC<SystemStatusComponentProps> = ({
                                                 }
                                             }}
                                         />
+                                        </Box>
                                     </Grid>
                                     <Grid size={3}>
                                         <MetricItem

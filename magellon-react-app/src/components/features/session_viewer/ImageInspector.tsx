@@ -891,7 +891,7 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                         <TabPanel value="2" sx={{ p: 3 }}>
                             <Box sx={{ textAlign: 'center' }}>
                                 <img
-                                    src={`${BASE_URL}/fft_image?name=${selectedImage?.name}&sessionName=${sessionName}`}
+                                    src={`${BASE_URL}/fft_image?name=${encodeURIComponent(selectedImage?.name)}&sessionName=${sessionName}`}
                                     alt="FFT image"
                                     style={{
                                         ...getImageStyle(),
