@@ -229,6 +229,11 @@ class DefaultParams(BaseModel):
     pixel_size : float = 0.739
     acceleration_voltage: float = 300
     spherical_aberration: float =2.7
+    magnification: int = 5000
+    dose: float = 1.0
+    defocus: float = 15000
+    amplitude_contrast: float = 0.07
+    detector_pixel_size: int = 5
 
 class EpuImportJobDto(EpuImportJobBase):
     target_directory: Optional[str] = None  # should be removed, it is base directory + magellon_session_name name
