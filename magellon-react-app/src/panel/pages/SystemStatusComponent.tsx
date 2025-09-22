@@ -302,7 +302,7 @@ export const SystemStatusComponent: React.FC<SystemStatusComponentProps> = ({
                                             unit="kV"
                                             color="primary.main"
                                         />
-                                        </Box>
+                                        
                                     </Grid>
                                     <Grid size={3}>
                                         <MetricItem

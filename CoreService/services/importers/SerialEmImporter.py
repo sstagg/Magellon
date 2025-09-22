@@ -179,6 +179,19 @@ def parse_directory(directory_structure, settings_file_path, default_params):
         navigator_dict = {}
         valid_extensions = (".tif", ".tiff", ".eer", ".mrc")
 
+        def extract_navigator_label(mdoc_path: str):
+            """Read .mdoc file again and extract NavigatorLabel if present."""
+            try:
+                with open(mdoc_path, "r", encoding="utf-8", errors="ignore") as f:
+                    for line in f:
+                        if line.strip().startswith("NavigatorLabel"):
+                            # line format looks like: NavigatorLabel = SomeValue
+                            parts = line.split("=", 1)
+                            if len(parts) == 2:
+                                return parts[1].strip()
+            except Exception as e:
+                logger.error(f"Failed to read NavigatorLabel from {mdoc_path}: {e}")
+            return None
         def traverse_directory(structure):
             if structure.type == "file" and structure.name.endswith(".mdoc"):
                 # Clean filename: remove trailing spaces, then drop ".mdoc"
@@ -188,13 +201,15 @@ def parse_directory(directory_structure, settings_file_path, default_params):
                 # Check if image exists and is valid type
                 if os.path.exists(image_path) and image_path.lower().endswith(valid_extensions):
                     metadata = parse_mdoc(clean_path, settings_file_path)
-
                     # Convert to dict and enrich
                     metadata_dict = metadata.__dict__.copy()
                     metadata_dict["file_path"] = image_path
                     metadata_dict["name"] = os.path.splitext(os.path.basename(image_path))[0]
 
                     metadata_list.append(SerialEMMetadata(**metadata_dict))
+                    navigator_label = extract_navigator_label(clean_path)
+                    if navigator_label:
+                        navigator_dict.setdefault(navigator_label, []).append(image_path)
                 else:
                     logger.warning(f"Skipping {structure.path}, no matching image: {image_path}")
 
