@@ -14,7 +14,7 @@ import AboutPage from "./pages/AboutPage.tsx";
 import MicroscopyPageView from "./pages/MicroscopyPageView.tsx";
 import {ExportPageView} from "./pages/ExportPageView.tsx";
 import {TestIdeaPageView} from "./pages/TestIdea/TestIdeaPageView.tsx";
-import UserManagementPage from "./pages/UserManagementPage.tsx";
+import UserManagementPage from "./pages/UserManagement/UserManagementPage.tsx";
 import LoginPageView from "../account/LoginPageView.tsx";
 
 // Settings placeholder component
