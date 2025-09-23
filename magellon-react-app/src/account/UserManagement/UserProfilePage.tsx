@@ -48,7 +48,7 @@ import {
     Computer,
     Warning
 } from '@mui/icons-material';
-import { userApiService, ApiUser } from './userApi';
+import { userApiService, ApiUser } from './userApi.ts';
 
 interface ProfileData {
     id: string;

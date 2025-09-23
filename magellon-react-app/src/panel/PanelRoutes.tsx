@@ -14,8 +14,9 @@ import AboutPage from "./pages/AboutPage.tsx";
 import MicroscopyPageView from "./pages/MicroscopyPageView.tsx";
 import {ExportPageView} from "./pages/ExportPageView.tsx";
 import {TestIdeaPageView} from "./pages/TestIdea/TestIdeaPageView.tsx";
-import UserManagementPage from "./pages/UserManagement/UserManagementPage.tsx";
+import UserManagementPage from "../account/UserManagement/UserManagementPage.tsx";
 import LoginPageView from "../account/LoginPageView.tsx";
+import UserProfilePage from "../account/UserManagement/UserProfilePage.tsx";
 
 // Settings placeholder component
 // Test placeholder component
@@ -50,6 +51,7 @@ export const PanelRoutes = () => {
 
             <Route path="/login" element={<LoginPageView />} />
             <Route path="/users" element={<UserManagementPage />} />
+            <Route path="/profile" element={<UserProfilePage />} />
 
             {/* Processing routes */}
             <Route path="/run-job" element={<RunJobPageView />} />

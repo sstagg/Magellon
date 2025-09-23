@@ -56,7 +56,7 @@ import {
     Refresh
 } from '@mui/icons-material';
 import { CheckCircle, XCircle } from 'lucide-react';
-import { userApiService, ApiUser, CreateUserRequest, UpdateUserRequest } from './userApi';
+import { userApiService, ApiUser, CreateUserRequest, UpdateUserRequest } from './userApi.ts';
 
 // Updated interface to match API response
 interface UserData {
