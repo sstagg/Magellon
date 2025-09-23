@@ -31,11 +31,13 @@ import {
     ArrowForward,
     Science,
     Security,
-    CloudUpload
+    CloudUpload,
+    Home
 } from '@mui/icons-material';
 import { Eye, EyeOff, User, Microscope, Shield, Database } from 'lucide-react';
 import { useForm } from 'react-hook-form';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from './UserManagement/AuthContext';
 import magellonLogo from '../assets/images/magellon-logo.svg';
 
 interface LoginFormData {
@@ -44,17 +46,19 @@ interface LoginFormData {
     rememberMe: boolean;
 }
 
-interface LoginPageViewProps {
-    onLogin?: (credentials: LoginFormData) => Promise<boolean>;
-}
-
-const LoginPageView: React.FC<LoginPageViewProps> = ({ onLogin }) => {
+const LoginPageView: React.FC = () => {
     const theme = useTheme();
     const navigate = useNavigate();
+    const location = useLocation();
+    const { login, loading: authLoading } = useAuth();
+
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [loginMode, setLoginMode] = useState<'login' | 'forgot'>('login');
+
+    // Get the intended destination from location state, fallback to panel
+    const from = location.state?.from?.pathname || '/en/panel/images';
 
     const {
         register,
@@ -75,29 +79,19 @@ const LoginPageView: React.FC<LoginPageViewProps> = ({ onLogin }) => {
         setError(null);
 
         try {
-            // Simulate API call - replace with actual authentication
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // Use the AuthContext login method
+            await login(data.username, data.password);
 
-            if (onLogin) {
-                const success = await onLogin(data);
-                if (!success) {
-                    throw new Error('Invalid credentials');
-                }
-            }
-
-            // Store token/credentials (replace with actual implementation)
+            // Store remember me preference
             if (data.rememberMe) {
                 localStorage.setItem('magellon_remember', 'true');
             }
-            localStorage.setItem('magellon_user', JSON.stringify({
-                username: data.username,
-                token: 'mock-jwt-token'
-            }));
 
-            // Navigate to dashboard/main app
-            navigate('/images');
+            // Navigate to intended destination
+            navigate(from, { replace: true });
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Login failed');
+            const errorMessage = (err as Error).message;
+            setError(errorMessage || 'Login failed. Please check your credentials.');
         } finally {
             setLoading(false);
         }
@@ -106,10 +100,9 @@ const LoginPageView: React.FC<LoginPageViewProps> = ({ onLogin }) => {
     const handleForgotPassword = async (email: string) => {
         setLoading(true);
         try {
-            // Simulate forgot password API call
+            // Simulate forgot password API call - replace with actual implementation
             await new Promise(resolve => setTimeout(resolve, 1000));
             setError(null);
-            // Show success message or redirect
             alert('Password reset instructions sent to your email');
             setLoginMode('login');
         } catch (err) {
@@ -136,6 +129,8 @@ const LoginPageView: React.FC<LoginPageViewProps> = ({ onLogin }) => {
             description: 'Role-based access control and team collaboration features'
         }
     ];
+
+    const isLoadingState = loading || authLoading;
 
     return (
         <Box
@@ -169,6 +164,23 @@ const LoginPageView: React.FC<LoginPageViewProps> = ({ onLogin }) => {
                     zIndex: 0
                 }}
             />
+
+            {/* Home Button */}
+            <Box sx={{ position: 'absolute', top: 24, left: 24, zIndex: 10 }}>
+                <Button
+                    startIcon={<Home />}
+                    onClick={() => navigate('/en/web/home')}
+                    sx={{
+                        color: 'text.secondary',
+                        '&:hover': {
+                            color: 'primary.main',
+                            backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                        }
+                    }}
+                >
+                    Back to Home
+                </Button>
+            </Box>
 
             <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -316,7 +328,7 @@ const LoginPageView: React.FC<LoginPageViewProps> = ({ onLogin }) => {
                                             Welcome back
                                         </Typography>
                                         <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-                                            Sign in to your account to continue
+                                            Sign in to your CryoEM analysis platform
                                         </Typography>
 
                                         {error && (
@@ -340,12 +352,30 @@ const LoginPageView: React.FC<LoginPageViewProps> = ({ onLogin }) => {
                                                     })}
                                                     error={!!errors.username}
                                                     helperText={errors.username?.message}
+                                                    disabled={isLoadingState}
                                                     InputProps={{
                                                         startAdornment: (
                                                             <InputAdornment position="start">
                                                                 <User size={20} />
                                                             </InputAdornment>
                                                         )
+                                                    }}
+                                                    sx={{
+                                                        '& .MuiOutlinedInput-root': {
+                                                            borderRadius: 2,
+                                                            transition: 'all 0.3s ease',
+                                                            '&:hover': {
+                                                                '& .MuiOutlinedInput-notchedOutline': {
+                                                                    borderColor: 'primary.main',
+                                                                }
+                                                            },
+                                                            '&.Mui-focused': {
+                                                                '& .MuiOutlinedInput-notchedOutline': {
+                                                                    borderColor: 'primary.main',
+                                                                    borderWidth: 2,
+                                                                }
+                                                            }
+                                                        }
                                                     }}
                                                 />
 
@@ -363,6 +393,7 @@ const LoginPageView: React.FC<LoginPageViewProps> = ({ onLogin }) => {
                                                     })}
                                                     error={!!errors.password}
                                                     helperText={errors.password?.message}
+                                                    disabled={isLoadingState}
                                                     InputProps={{
                                                         startAdornment: (
                                                             <InputAdornment position="start">
@@ -374,17 +405,40 @@ const LoginPageView: React.FC<LoginPageViewProps> = ({ onLogin }) => {
                                                                 <IconButton
                                                                     onClick={() => setShowPassword(!showPassword)}
                                                                     edge="end"
+                                                                    disabled={isLoadingState}
                                                                 >
                                                                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                                                                 </IconButton>
                                                             </InputAdornment>
                                                         )
                                                     }}
+                                                    sx={{
+                                                        '& .MuiOutlinedInput-root': {
+                                                            borderRadius: 2,
+                                                            transition: 'all 0.3s ease',
+                                                            '&:hover': {
+                                                                '& .MuiOutlinedInput-notchedOutline': {
+                                                                    borderColor: 'primary.main',
+                                                                }
+                                                            },
+                                                            '&.Mui-focused': {
+                                                                '& .MuiOutlinedInput-notchedOutline': {
+                                                                    borderColor: 'primary.main',
+                                                                    borderWidth: 2,
+                                                                }
+                                                            }
+                                                        }
+                                                    }}
                                                 />
 
                                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                     <FormControlLabel
-                                                        control={<Checkbox {...register('rememberMe')} />}
+                                                        control={
+                                                            <Checkbox
+                                                                {...register('rememberMe')}
+                                                                disabled={isLoadingState}
+                                                            />
+                                                        }
                                                         label="Remember me"
                                                     />
                                                     <Link
@@ -392,7 +446,13 @@ const LoginPageView: React.FC<LoginPageViewProps> = ({ onLogin }) => {
                                                         type="button"
                                                         variant="body2"
                                                         onClick={() => setLoginMode('forgot')}
-                                                        sx={{ textDecoration: 'none' }}
+                                                        disabled={isLoadingState}
+                                                        sx={{
+                                                            textDecoration: 'none',
+                                                            '&:hover': {
+                                                                textDecoration: 'underline'
+                                                            }
+                                                        }}
                                                     >
                                                         Forgot password?
                                                     </Link>
@@ -403,16 +463,31 @@ const LoginPageView: React.FC<LoginPageViewProps> = ({ onLogin }) => {
                                                     variant="contained"
                                                     size="large"
                                                     fullWidth
-                                                    disabled={loading || !isValid}
-                                                    endIcon={loading ? <CircularProgress size={20} /> : <ArrowForward />}
+                                                    disabled={isLoadingState || !isValid}
+                                                    endIcon={isLoadingState ? <CircularProgress size={20} /> : <ArrowForward />}
                                                     sx={{
                                                         py: 1.5,
                                                         fontSize: '1rem',
                                                         fontWeight: 600,
-                                                        textTransform: 'none'
+                                                        textTransform: 'none',
+                                                        borderRadius: 3,
+                                                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                                        boxShadow: '0 8px 32px rgba(102, 126, 234, 0.3)',
+                                                        transition: 'all 0.3s ease',
+                                                        '&:hover': {
+                                                            background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                                                            transform: 'translateY(-2px)',
+                                                            boxShadow: '0 12px 40px rgba(102, 126, 234, 0.4)',
+                                                        },
+                                                        '&:disabled': {
+                                                            background: alpha(theme.palette.action.disabled, 0.3),
+                                                            color: alpha(theme.palette.action.disabled, 0.7),
+                                                            transform: 'none',
+                                                            boxShadow: 'none',
+                                                        }
                                                     }}
                                                 >
-                                                    {loading ? 'Signing in...' : 'Sign In'}
+                                                    {isLoadingState ? 'Signing in...' : 'Sign In'}
                                                 </Button>
                                             </Stack>
                                         </form>
@@ -423,12 +498,44 @@ const LoginPageView: React.FC<LoginPageViewProps> = ({ onLogin }) => {
                                             </Typography>
                                         </Divider>
 
-                                        <Typography variant="body2" color="text.secondary" align="center">
-                                            Contact your administrator to request an account or{' '}
-                                            <Link href="mailto:admin@magellon.org" sx={{ textDecoration: 'none' }}>
-                                                email support
-                                            </Link>
-                                        </Typography>
+                                        <Box sx={{ textAlign: 'center' }}>
+                                            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                                                Don't have an account? Contact your administrator.
+                                            </Typography>
+
+                                            <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2 }}>
+                                                <Link
+                                                    component="button"
+                                                    type="button"
+                                                    variant="body2"
+                                                    onClick={() => navigate('/en/web/contact')}
+                                                    sx={{
+                                                        textDecoration: 'none',
+                                                        color: 'text.secondary',
+                                                        '&:hover': {
+                                                            color: 'primary.main',
+                                                            textDecoration: 'underline',
+                                                        }
+                                                    }}
+                                                >
+                                                    Contact Support
+                                                </Link>
+                                                <Typography variant="body2" color="text.disabled">•</Typography>
+                                                <Link
+                                                    href="mailto:admin@magellon.org"
+                                                    sx={{
+                                                        textDecoration: 'none',
+                                                        color: 'text.secondary',
+                                                        '&:hover': {
+                                                            color: 'primary.main',
+                                                            textDecoration: 'underline',
+                                                        }
+                                                    }}
+                                                >
+                                                    Email Support
+                                                </Link>
+                                            </Box>
+                                        </Box>
                                     </>
                                 ) : (
                                     <>
@@ -459,12 +566,18 @@ const LoginPageView: React.FC<LoginPageViewProps> = ({ onLogin }) => {
                                                     type="email"
                                                     variant="outlined"
                                                     required
+                                                    disabled={isLoadingState}
                                                     InputProps={{
                                                         startAdornment: (
                                                             <InputAdornment position="start">
                                                                 <Email />
                                                             </InputAdornment>
                                                         )
+                                                    }}
+                                                    sx={{
+                                                        '& .MuiOutlinedInput-root': {
+                                                            borderRadius: 2,
+                                                        }
                                                     }}
                                                 />
 
@@ -473,22 +586,24 @@ const LoginPageView: React.FC<LoginPageViewProps> = ({ onLogin }) => {
                                                     variant="contained"
                                                     size="large"
                                                     fullWidth
-                                                    disabled={loading}
-                                                    endIcon={loading ? <CircularProgress size={20} /> : <ArrowForward />}
+                                                    disabled={isLoadingState}
+                                                    endIcon={isLoadingState ? <CircularProgress size={20} /> : <ArrowForward />}
                                                     sx={{
                                                         py: 1.5,
                                                         fontSize: '1rem',
                                                         fontWeight: 600,
-                                                        textTransform: 'none'
+                                                        textTransform: 'none',
+                                                        borderRadius: 3
                                                     }}
                                                 >
-                                                    {loading ? 'Sending...' : 'Send Reset Instructions'}
+                                                    {isLoadingState ? 'Sending...' : 'Send Reset Instructions'}
                                                 </Button>
 
                                                 <Button
                                                     variant="text"
                                                     fullWidth
                                                     onClick={() => setLoginMode('login')}
+                                                    disabled={isLoadingState}
                                                     sx={{ textTransform: 'none' }}
                                                 >
                                                     Back to Sign In
