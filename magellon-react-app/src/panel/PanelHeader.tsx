@@ -19,7 +19,8 @@ import {
 import { HelpCircle, Settings } from 'lucide-react';
 import { AccountCircle, LogoutOutlined } from '@mui/icons-material';
 import ThemeSwitcher from './ThemeSwitcher.tsx'; // Import ThemeSwitcher
-import { useAuth } from '../account/UserManagement/AuthContext.tsx'; // Import useAuth
+import { useAuth } from '../account/UserManagement/AuthContext.tsx';
+import {useNavigate} from "react-router-dom"; // Import useAuth
 
 const DRAWER_WIDTH = 240;
 
@@ -61,6 +62,8 @@ export const PanelHeader: React.FC<PanelHeaderProps> = ({
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const { user, logout } = useAuth();
     const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+    const navigate = useNavigate();
+
 
     // Handler for opening help documentation
     const handleHelpClick = () => {
@@ -85,7 +88,14 @@ export const PanelHeader: React.FC<PanelHeaderProps> = ({
         // For example: navigate('/profile');
         handleClose();
     };
-
+    const navigateUrl = (url) => {
+        navigate(`/en/panel/${url}`);
+    };
+    const handleSettings = () => {
+        // Navigate to profile - you can implement navigation logic here
+        // For example: navigate('/profile');
+        navigateUrl('settings');
+    };
     return (
         <StyledAppBar position="fixed" open={open}>
             <Toolbar>
@@ -128,7 +138,7 @@ export const PanelHeader: React.FC<PanelHeaderProps> = ({
                         <ThemeSwitcher />
 
                         <Tooltip title="Settings">
-                            <IconButton color="inherit">
+                            <IconButton color="inherit"  onClick={handleSettings}>
                                 <Settings size={20} />
                             </IconButton>
                         </Tooltip>
