@@ -31,6 +31,7 @@ from controllers.image_processing_controller import image_processing_router
 from controllers.import_export_controller import export_router
 # from controllers.particle_picking_jobitem_controller import ppji_router
 from controllers.slack_controller import slack_router
+from controllers.sys_sec_user_controller import sys_sec_user_router
 from controllers.test_controller import test_router
 
 from controllers.webapp_controller import webapp_router
@@ -137,6 +138,9 @@ app.include_router(image_processing_router, tags=['Image Processing'], prefix="/
 app.include_router(webapp_router, tags=['Image Viewer - WebApp'], prefix="/web")
 app.include_router(graph_router, tags=['Graphs'], prefix="/graphs")
 app.include_router(slack_router, tags=['Communication'], prefix='/io')
+app.include_router(sys_sec_user_router, tags=["Users"], prefix="/db/users")
+
+
 Instrumentator().instrument(app).expose(app)
 
 app.include_router(strawberry_graphql_router, prefix="/graphql")

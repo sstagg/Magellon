@@ -378,3 +378,91 @@ class EPUFrameTransferJobBase(BaseModel):
         if v not in valid_types:
             raise ValueError(f"Invalid replace_type: {v}. Valid options are: {', '.join(valid_types)}")
         return v
+
+
+# Add these classes to your existing models/pydantic_models.py file
+
+from typing import Optional
+from datetime import datetime
+from pydantic import BaseModel, Field
+from uuid import UUID
+
+
+class SysSecUserDto(BaseModel):
+    oid: Optional[UUID] = None
+    omid: Optional[int] = None
+    ouid: Optional[str] = Field(None, max_length=20)
+    created_date: Optional[datetime] = None
+    created_by: Optional[UUID] = None
+    last_modified_date: Optional[datetime] = None
+    last_modified_by: Optional[UUID] = None
+    deleted_date: Optional[datetime] = None
+    deleted_by: Optional[UUID] = None
+    sync_status: Optional[int] = None
+    version: Optional[str] = Field(None, max_length=10)
+    password: Optional[str] = Field(None, alias="PASSWORD")
+    change_password_on_first_logon: Optional[bool] = Field(None, alias="ChangePasswordOnFirstLogon")
+    username: Optional[str] = Field(None, max_length=100, alias="USERNAME")
+    active: Optional[bool] = Field(None, alias="ACTIVE")
+    optimistic_lock_field: Optional[int] = Field(None, alias="OptimisticLockField")
+    gc_record: Optional[int] = Field(None, alias="GCRecord")
+    object_type: Optional[int] = Field(None, alias="ObjectType")
+    access_failed_count: Optional[int] = Field(None, alias="AccessFailedCount")
+    lockout_end: Optional[datetime] = Field(None, alias="LockoutEnd")
+
+    class Config:
+        allow_population_by_field_name = True
+        from_attributes = True
+
+
+class SysSecUserCreateDto(BaseModel):
+    username: str = Field(..., max_length=100)
+    password: str
+    active: Optional[bool] = True
+    change_password_on_first_logon: Optional[bool] = False
+    omid: Optional[int] = None
+    ouid: Optional[str] = Field(None, max_length=20)
+    sync_status: Optional[int] = None
+    version: Optional[str] = Field(None, max_length=10)
+    object_type: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
+class SysSecUserUpdateDto(BaseModel):
+    oid: UUID
+    username: Optional[str] = Field(None, max_length=100)
+    password: Optional[str] = None
+    active: Optional[bool] = None
+    change_password_on_first_logon: Optional[bool] = None
+    omid: Optional[int] = None
+    ouid: Optional[str] = Field(None, max_length=20)
+    sync_status: Optional[int] = None
+    version: Optional[str] = Field(None, max_length=10)
+    object_type: Optional[int] = None
+    access_failed_count: Optional[int] = None
+    lockout_end: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class SysSecUserResponseDto(BaseModel):
+    oid: UUID
+    username: Optional[str] = None
+    active: Optional[bool] = None
+    created_date: Optional[datetime] = None
+    last_modified_date: Optional[datetime] = None
+    omid: Optional[int] = None
+    ouid: Optional[str] = None
+    sync_status: Optional[int] = None
+    version: Optional[str] = None
+    change_password_on_first_logon: Optional[bool] = None
+    object_type: Optional[int] = None
+    access_failed_count: Optional[int] = None
+    lockout_end: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+

@@ -1,0 +1,405 @@
+from typing import List, Optional
+from datetime import datetime, timedelta
+from uuid import UUID
+import hashlib
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+from starlette import status
+
+from database import get_db
+from models.pydantic_models import (
+    SysSecUserCreateDto,
+    SysSecUserUpdateDto,
+    SysSecUserResponseDto
+)
+from repositories.sys_sec_user_repository import SysSecUserRepository
+
+import logging
+
+logger = logging.getLogger(__name__)
+
+sys_sec_user_router = APIRouter()
+
+
+def hash_password(password: str) -> str:
+    """
+    Simple password hashing - In production, use proper password hashing like bcrypt, scrypt, or Argon2
+    """
+    return hashlib.sha256(password.encode()).hexdigest()
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """
+    Verify password against hash
+    """
+    return hash_password(plain_password) == hashed_password
+
+
+@sys_sec_user_router.post('/', response_model=SysSecUserResponseDto, status_code=201)
+async def create_user(
+        user_request: SysSecUserCreateDto,
+        db: Session = Depends(get_db),
+        current_user_id: Optional[UUID] = None  # In real implementation, get from JWT/session
+):
+    """
+    Create a new user
+    """
+    logger.info(f"Creating user: {user_request.username}")
+
+    # Validate input data
+    if not user_request.username or not user_request.username.strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail='Username cannot be empty'
+        )
+
+    if not user_request.password or len(user_request.password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail='Password must be at least 6 characters long'
+        )
+
+    # Check if user already exists
+    existing_user = SysSecUserRepository.fetch_by_username(db, user_request.username)
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User already exists with this username"
+        )
+
+    try:
+        # Hash password
+        user_request.password = hash_password(user_request.password)
+
+        # Create user in the database
+        created_user = await SysSecUserRepository.create(
+            db=db,
+            user_dto=user_request,
+            created_by=current_user_id
+        )
+
+        # Convert to response DTO (excluding password)
+        return SysSecUserResponseDto.from_orm(created_user)
+
+    except Exception as e:
+        logger.exception('Error creating user in database')
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail='Error creating user'
+        )
+
+
+@sys_sec_user_router.put('/', response_model=SysSecUserResponseDto, status_code=200)
+async def update_user(
+        user_request: SysSecUserUpdateDto,
+        db: Session = Depends(get_db),
+        current_user_id: Optional[UUID] = None
+):
+    """
+    Update an existing user
+    """
+    logger.info(f"Updating user: {user_request.oid}")
+
+    # Hash password if provided
+    if user_request.password:
+        if len(user_request.password) < 6:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail='Password must be at least 6 characters long'
+            )
+        user_request.password = hash_password(user_request.password)
+
+    try:
+        updated_user = await SysSecUserRepository.update(
+            db=db,
+            user_dto=user_request,
+            updated_by=current_user_id
+        )
+
+        if not updated_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+
+        return SysSecUserResponseDto.from_orm(updated_user)
+
+    except Exception as e:
+        logger.exception('Error updating user in database')
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail='Error updating user'
+        )
+
+
+@sys_sec_user_router.get('/', response_model=List[SysSecUserResponseDto])
+def get_all_users(
+        skip: int = Query(0, ge=0),
+        limit: int = Query(100, le=1000),
+        username: Optional[str] = None,
+        include_inactive: bool = Query(False),
+        db: Session = Depends(get_db)
+):
+    """
+    Get all users with optional filtering and pagination
+    """
+    try:
+        if username:
+            users = SysSecUserRepository.search_by_username(db, username, skip, limit)
+        else:
+            users = SysSecUserRepository.fetch_all(db, skip, limit, include_inactive)
+
+        return [SysSecUserResponseDto.from_orm(user) for user in users]
+
+    except Exception as e:
+        logger.exception('Error fetching users from database')
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail='Error fetching users'
+        )
+
+
+@sys_sec_user_router.get('/{user_id}', response_model=SysSecUserResponseDto)
+def get_user(user_id: UUID, db: Session = Depends(get_db)):
+    """
+    Get user by ID
+    """
+    db_user = SysSecUserRepository.fetch_by_id(db, user_id)
+    if db_user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    return SysSecUserResponseDto.from_orm(db_user)
+
+
+@sys_sec_user_router.get('/username/{username}', response_model=SysSecUserResponseDto)
+def get_user_by_username(username: str, db: Session = Depends(get_db)):
+    """
+    Get user by username
+    """
+    db_user = SysSecUserRepository.fetch_by_username(db, username)
+    if db_user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    return SysSecUserResponseDto.from_orm(db_user)
+
+
+@sys_sec_user_router.delete('/{user_id}')
+async def delete_user(
+        user_id: UUID,
+        hard_delete: bool = Query(False),
+        db: Session = Depends(get_db),
+        current_user_id: Optional[UUID] = None
+):
+    """
+    Delete user (soft delete by default, hard delete if specified)
+    """
+    user = SysSecUserRepository.fetch_by_id(db, user_id)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    try:
+        if hard_delete:
+            success = await SysSecUserRepository.hard_delete(db, user_id)
+        else:
+            success = await SysSecUserRepository.soft_delete(db, user_id, current_user_id)
+
+        if success:
+            return {"message": "User deleted successfully"}
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error deleting user"
+            )
+
+    except Exception as e:
+        logger.exception('Error deleting user')
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail='Error deleting user'
+        )
+
+
+@sys_sec_user_router.post('/authenticate')
+async def authenticate_user(
+        username: str,
+        password: str,
+        db: Session = Depends(get_db)
+):
+    """
+    Authenticate user with username and password
+    """
+    # Check if user exists and is active
+    user = SysSecUserRepository.fetch_active_by_username(db, username)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid username or password"
+        )
+
+    # Check if user is locked out
+    if SysSecUserRepository.is_locked_out(db, user.oid):
+        raise HTTPException(
+            status_code=status.HTTP_423_LOCKED,
+            detail="Account is locked due to too many failed attempts"
+        )
+
+    # Verify password
+    if not verify_password(password, user.PASSWORD):
+        # Increment failed access count
+        await SysSecUserRepository.increment_failed_access(db, user.oid)
+
+        # Lock account after 5 failed attempts
+        if (user.AccessFailedCount or 0) >= 4:  # Will be 5 after increment
+            lockout_end = datetime.now() + timedelta(minutes=30)
+            await SysSecUserRepository.set_lockout(db, user.oid, lockout_end)
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid username or password"
+        )
+
+    # Reset failed access count on successful login
+    await SysSecUserRepository.reset_failed_access(db, user.oid)
+
+    return {
+        "message": "Authentication successful",
+        "user_id": str(user.oid),
+        "username": user.USERNAME,
+        "change_password_required": user.ChangePasswordOnFirstLogon
+    }
+
+
+@sys_sec_user_router.post('/{user_id}/activate')
+async def activate_user(
+        user_id: UUID,
+        db: Session = Depends(get_db),
+        current_user_id: Optional[UUID] = None
+):
+    """
+    Activate a user account
+    """
+    update_dto = SysSecUserUpdateDto(oid=user_id, active=True)
+    updated_user = await SysSecUserRepository.update(db, update_dto, current_user_id)
+
+    if not updated_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    return {"message": "User activated successfully"}
+
+
+@sys_sec_user_router.post('/{user_id}/deactivate')
+async def deactivate_user(
+        user_id: UUID,
+        db: Session = Depends(get_db),
+        current_user_id: Optional[UUID] = None
+):
+    """
+    Deactivate a user account
+    """
+    update_dto = SysSecUserUpdateDto(oid=user_id, active=False)
+    updated_user = await SysSecUserRepository.update(db, update_dto, current_user_id)
+
+    if not updated_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    return {"message": "User deactivated successfully"}
+
+
+@sys_sec_user_router.post('/{user_id}/unlock')
+async def unlock_user(
+        user_id: UUID,
+        db: Session = Depends(get_db),
+        current_user_id: Optional[UUID] = None
+):
+    """
+    Unlock a user account
+    """
+    user = await SysSecUserRepository.reset_failed_access(db, user_id)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    return {"message": "User unlocked successfully"}
+
+
+@sys_sec_user_router.post('/{user_id}/change-password')
+async def change_password(
+        user_id: UUID,
+        current_password: str,
+        new_password: str,
+        db: Session = Depends(get_db)
+):
+    """
+    Change user password (requires current password)
+    """
+    user = SysSecUserRepository.fetch_by_id(db, user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    # Verify current password
+    if not verify_password(current_password, user.PASSWORD):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect"
+        )
+
+    # Validate new password
+    if len(new_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail='New password must be at least 6 characters long'
+        )
+
+    # Update password
+    update_dto = SysSecUserUpdateDto(
+        oid=user_id,
+        password=hash_password(new_password),
+        change_password_on_first_logon=False
+    )
+
+    updated_user = await SysSecUserRepository.update(db, update_dto, user_id)
+
+    if not updated_user:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error updating password"
+        )
+
+    return {"message": "Password changed successfully"}
+
+
+@sys_sec_user_router.get('/stats/count')
+def get_user_count(
+        include_inactive: bool = Query(False),
+        db: Session = Depends(get_db)
+):
+    """
+    Get total user count
+    """
+    count = SysSecUserRepository.count_users(db, include_inactive)
+    return {
+        "total_users": count,
+        "include_inactive": include_inactive
+    }
