@@ -18,7 +18,7 @@ import {
 
     PanelLeft,
     Home,
-    Beaker, BrainCircuit, ArrowRightFromLine, Microscope, ArrowLeftFromLineIcon, CircleUserIcon
+    Beaker, BrainCircuit, ArrowRightFromLine, Microscope, ArrowLeftFromLineIcon, CircleUserIcon, User
 } from "lucide-react";
 import { Box, Collapse, Typography, useMediaQuery } from '@mui/material';
 import {ExpandLess, ExpandMore, Security} from '@mui/icons-material';
@@ -75,7 +75,7 @@ const navLinks: NavLink[] = [
     {
         title: "Security",
         url: "users",
-        icon: <Security size={20} />
+        icon: <User size={20} />
     },
     // {
     //     title: "MRC Viewer",
@@ -147,7 +147,8 @@ export const PanelDrawer: React.FC<PanelDrawerProps> = ({ open, handleDrawerClos
         if (isMobile) {
             handleDrawerClose();
         }
-        navigate(url);
+        // Use absolute path by prefixing with /panel/
+        navigate(`/en/panel/${url}`);
     };
 
     // Toggle expanded state for menu items with children
