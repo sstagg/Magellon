@@ -1,9 +1,10 @@
 from enum import Enum
 
-from pydantic import BaseModel, Field, Json, ValidationInfo, field_validator
+from pydantic import BaseModel, Field, Json, ValidationInfo, field_validator, ConfigDict
 from typing import Any,Optional, List
 import uuid
-
+from uuid import UUID
+from datetime import datetime
 
 class SlackMessage(BaseModel):
     text: str
@@ -380,15 +381,10 @@ class EPUFrameTransferJobBase(BaseModel):
         return v
 
 
-# Add these classes to your existing models/pydantic_models.py file
-
-from typing import Optional
-from datetime import datetime
-from pydantic import BaseModel, Field
-from uuid import UUID
-
 
 class SysSecUserDto(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
     oid: Optional[UUID] = None
     omid: Optional[int] = None
     ouid: Optional[str] = Field(None, max_length=20)
@@ -410,14 +406,12 @@ class SysSecUserDto(BaseModel):
     access_failed_count: Optional[int] = Field(None, alias="AccessFailedCount")
     lockout_end: Optional[datetime] = Field(None, alias="LockoutEnd")
 
-    class Config:
-        allow_population_by_field_name = True
-        from_attributes = True
-
 
 class SysSecUserCreateDto(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     username: str = Field(..., max_length=100)
-    password: str
+    password: str = Field(..., min_length=6)
     active: Optional[bool] = True
     change_password_on_first_logon: Optional[bool] = False
     omid: Optional[int] = None
@@ -426,14 +420,13 @@ class SysSecUserCreateDto(BaseModel):
     version: Optional[str] = Field(None, max_length=10)
     object_type: Optional[int] = None
 
-    class Config:
-        from_attributes = True
-
 
 class SysSecUserUpdateDto(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     oid: UUID
     username: Optional[str] = Field(None, max_length=100)
-    password: Optional[str] = None
+    password: Optional[str] = Field(None, min_length=6)
     active: Optional[bool] = None
     change_password_on_first_logon: Optional[bool] = None
     omid: Optional[int] = None
@@ -444,25 +437,20 @@ class SysSecUserUpdateDto(BaseModel):
     access_failed_count: Optional[int] = None
     lockout_end: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
-
 
 class SysSecUserResponseDto(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
     oid: UUID
-    username: Optional[str] = None
-    active: Optional[bool] = None
+    username: Optional[str] = Field(None, alias="USERNAME")
+    active: Optional[bool] = Field(None, alias="ACTIVE")
     created_date: Optional[datetime] = None
     last_modified_date: Optional[datetime] = None
     omid: Optional[int] = None
     ouid: Optional[str] = None
     sync_status: Optional[int] = None
     version: Optional[str] = None
-    change_password_on_first_logon: Optional[bool] = None
-    object_type: Optional[int] = None
-    access_failed_count: Optional[int] = None
-    lockout_end: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
-
+    change_password_on_first_logon: Optional[bool] = Field(None, alias="ChangePasswordOnFirstLogon")
+    object_type: Optional[int] = Field(None, alias="ObjectType")
+    access_failed_count: Optional[int] = Field(None, alias="AccessFailedCount")
+    lockout_end: Optional[datetime] = Field(None, alias="LockoutEnd")

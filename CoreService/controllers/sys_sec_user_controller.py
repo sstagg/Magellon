@@ -1,7 +1,7 @@
 from typing import List, Optional
 from datetime import datetime, timedelta
 from uuid import UUID
-import hashlib
+import bcrypt
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -24,16 +24,19 @@ sys_sec_user_router = APIRouter()
 
 def hash_password(password: str) -> str:
     """
-    Simple password hashing - In production, use proper password hashing like bcrypt, scrypt, or Argon2
+    Hash password using bcrypt
     """
-    return hashlib.sha256(password.encode()).hexdigest()
+    # Generate salt and hash the password
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+    return hashed.decode('utf-8')
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
-    Verify password against hash
+    Verify password against bcrypt hash
     """
-    return hash_password(plain_password) == hashed_password
+    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
 
 
 @sys_sec_user_router.post('/', response_model=SysSecUserResponseDto, status_code=201)
@@ -52,12 +55,6 @@ async def create_user(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail='Username cannot be empty'
-        )
-
-    if not user_request.password or len(user_request.password) < 6:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail='Password must be at least 6 characters long'
         )
 
     # Check if user already exists
@@ -79,8 +76,24 @@ async def create_user(
             created_by=current_user_id
         )
 
-        # Convert to response DTO (excluding password)
-        return SysSecUserResponseDto.from_orm(created_user)
+        # Convert to response DTO with proper field mapping
+        response_data = {
+            "oid": created_user.oid,
+            "USERNAME": created_user.USERNAME,
+            "ACTIVE": created_user.ACTIVE,
+            "created_date": created_user.created_date,
+            "last_modified_date": created_user.last_modified_date,
+            "omid": created_user.omid,
+            "ouid": created_user.ouid,
+            "sync_status": created_user.sync_status,
+            "version": created_user.version,
+            "ChangePasswordOnFirstLogon": created_user.ChangePasswordOnFirstLogon,
+            "ObjectType": created_user.ObjectType,
+            "AccessFailedCount": created_user.AccessFailedCount,
+            "LockoutEnd": created_user.LockoutEnd
+        }
+
+        return SysSecUserResponseDto(**response_data)
 
     except Exception as e:
         logger.exception('Error creating user in database')
@@ -103,11 +116,6 @@ async def update_user(
 
     # Hash password if provided
     if user_request.password:
-        if len(user_request.password) < 6:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail='Password must be at least 6 characters long'
-            )
         user_request.password = hash_password(user_request.password)
 
     try:
@@ -123,7 +131,24 @@ async def update_user(
                 detail="User not found"
             )
 
-        return SysSecUserResponseDto.from_orm(updated_user)
+        # Convert to response DTO with proper field mapping
+        response_data = {
+            "oid": updated_user.oid,
+            "USERNAME": updated_user.USERNAME,
+            "ACTIVE": updated_user.ACTIVE,
+            "created_date": updated_user.created_date,
+            "last_modified_date": updated_user.last_modified_date,
+            "omid": updated_user.omid,
+            "ouid": updated_user.ouid,
+            "sync_status": updated_user.sync_status,
+            "version": updated_user.version,
+            "ChangePasswordOnFirstLogon": updated_user.ChangePasswordOnFirstLogon,
+            "ObjectType": updated_user.ObjectType,
+            "AccessFailedCount": updated_user.AccessFailedCount,
+            "LockoutEnd": updated_user.LockoutEnd
+        }
+
+        return SysSecUserResponseDto(**response_data)
 
     except Exception as e:
         logger.exception('Error updating user in database')
@@ -131,6 +156,27 @@ async def update_user(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail='Error updating user'
         )
+
+
+def _convert_user_to_response_dto(user) -> SysSecUserResponseDto:
+    """
+    Helper function to convert SQLAlchemy user model to response DTO
+    """
+    return SysSecUserResponseDto(
+        oid=user.oid,
+        USERNAME=user.USERNAME,
+        ACTIVE=user.ACTIVE,
+        created_date=user.created_date,
+        last_modified_date=user.last_modified_date,
+        omid=user.omid,
+        ouid=user.ouid,
+        sync_status=user.sync_status,
+        version=user.version,
+        ChangePasswordOnFirstLogon=user.ChangePasswordOnFirstLogon,
+        ObjectType=user.ObjectType,
+        AccessFailedCount=user.AccessFailedCount,
+        LockoutEnd=user.LockoutEnd
+    )
 
 
 @sys_sec_user_router.get('/', response_model=List[SysSecUserResponseDto])
@@ -150,7 +196,7 @@ def get_all_users(
         else:
             users = SysSecUserRepository.fetch_all(db, skip, limit, include_inactive)
 
-        return [SysSecUserResponseDto.from_orm(user) for user in users]
+        return [_convert_user_to_response_dto(user) for user in users]
 
     except Exception as e:
         logger.exception('Error fetching users from database')
@@ -172,7 +218,7 @@ def get_user(user_id: UUID, db: Session = Depends(get_db)):
             detail="User not found"
         )
 
-    return SysSecUserResponseDto.from_orm(db_user)
+    return _convert_user_to_response_dto(db_user)
 
 
 @sys_sec_user_router.get('/username/{username}', response_model=SysSecUserResponseDto)
@@ -187,7 +233,7 @@ def get_user_by_username(username: str, db: Session = Depends(get_db)):
             detail="User not found"
         )
 
-    return SysSecUserResponseDto.from_orm(db_user)
+    return _convert_user_to_response_dto(db_user)
 
 
 @sys_sec_user_router.delete('/{user_id}')
@@ -224,7 +270,7 @@ async def delete_user(
     except Exception as e:
         logger.exception('Error deleting user')
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=status.HTTP_500_INTERNAL_SERVER_SERVER_ERROR,
             detail='Error deleting user'
         )
 
@@ -351,6 +397,12 @@ async def change_password(
     """
     Change user password (requires current password)
     """
+    if len(new_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail='New password must be at least 6 characters long'
+        )
+
     user = SysSecUserRepository.fetch_by_id(db, user_id)
     if not user:
         raise HTTPException(
@@ -363,13 +415,6 @@ async def change_password(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Current password is incorrect"
-        )
-
-    # Validate new password
-    if len(new_password) < 6:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail='New password must be at least 6 characters long'
         )
 
     # Update password
