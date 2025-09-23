@@ -1,6 +1,6 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../UserManagement/AuthContext';
+import { useAuth } from './UserManagement/AuthContext';
 import { Box, CircularProgress, Container, Typography } from '@mui/material';
 
 interface ProtectedRouteProps {
