@@ -18,10 +18,10 @@ import {
 
     PanelLeft,
     Home,
-    Beaker, BrainCircuit, ArrowRightFromLine, Microscope, ArrowLeftFromLineIcon
+    Beaker, BrainCircuit, ArrowRightFromLine, Microscope, ArrowLeftFromLineIcon, CircleUserIcon
 } from "lucide-react";
 import { Box, Collapse, Typography, useMediaQuery } from '@mui/material';
-import { ExpandLess, ExpandMore } from '@mui/icons-material';
+import {ExpandLess, ExpandMore, Security} from '@mui/icons-material';
 import magellonLogo from "../assets/images/magellon-logo.svg";
 
 const DRAWER_WIDTH = 240;
@@ -33,7 +33,7 @@ const DrawerHeader = styled('div')(({ theme }) => ({
     padding: theme.spacing(0, 1),
     ...theme.mixins.toolbar,
     justifyContent: 'center',
-    backgroundColor: '#0a1929', // Dark navy color
+    backgroundColor: '#0a1929',
     color: 'white',
 }));
 
@@ -72,6 +72,11 @@ const navLinks: NavLink[] = [
         url: "export",
         icon: <ArrowLeftFromLineIcon size={20} />
     },
+    {
+        title: "Security",
+        url: "users",
+        icon: <Security size={20} />
+    },
     // {
     //     title: "MRC Viewer",
     //     url: "mrc-viewer",
@@ -80,7 +85,7 @@ const navLinks: NavLink[] = [
     {
         title: "About",
         url: "about",
-        icon: <BarChart2 size={20}/>
+        icon: <CircleUserIcon size={20}/>
     }
 
     // {
