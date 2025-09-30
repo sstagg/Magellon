@@ -34,7 +34,6 @@ class SysSecRoleRepository:
                 "IsAdministrative": role_dto.is_administrative,
                 "CanEditModel": role_dto.can_edit_model,
                 "PermissionPolicy": role_dto.permission_policy,
-                "tenant_id": role_dto.tenant_id,
                 "OptimisticLockField": 0,
                 "GCRecord": None
             }
@@ -44,12 +43,12 @@ class SysSecRoleRepository:
             insert_query = text("""
                 INSERT INTO sys_sec_role 
                 ("Oid", "Name", "IsAdministrative", "CanEditModel", "PermissionPolicy", 
-                 "tenant_id", "OptimisticLockField", "GCRecord")
+                  "OptimisticLockField", "GCRecord")
                 VALUES 
                 (:oid, :name, :is_administrative, :can_edit_model, :permission_policy,
                  :tenant_id, :optimistic_lock_field, :gc_record)
                 RETURNING "Oid", "Name", "IsAdministrative", "CanEditModel", "PermissionPolicy",
-                          "tenant_id", "OptimisticLockField", "GCRecord", "ObjectType"
+                           "OptimisticLockField", "GCRecord", "ObjectType"
             """)
 
             result = db.execute(insert_query, {
@@ -58,7 +57,6 @@ class SysSecRoleRepository:
                 "is_administrative": role_data["IsAdministrative"],
                 "can_edit_model": role_data["CanEditModel"],
                 "permission_policy": role_data["PermissionPolicy"],
-                "tenant_id": role_data["tenant_id"],
                 "optimistic_lock_field": role_data["OptimisticLockField"],
                 "gc_record": role_data["GCRecord"]
             })
@@ -73,7 +71,6 @@ class SysSecRoleRepository:
                 "is_administrative": row[2],
                 "can_edit_model": row[3],
                 "permission_policy": row[4],
-                "tenant_id": row[5],
                 "OptimisticLockField": row[6],
                 "GCRecord": row[7],
                 "ObjectType": row[8]

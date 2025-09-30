@@ -146,10 +146,10 @@ app.include_router(webapp_router, tags=['Image Viewer - WebApp'], prefix="/web")
 app.include_router(graph_router, tags=['Graphs'], prefix="/graphs")
 app.include_router(slack_router, tags=['Communication'], prefix='/io')
 
-app.include_router(sys_sec_user_router, prefix="/api/security/users", tags=["Security - Users"])
-app.include_router(sys_sec_role_router, prefix="/api/security/roles", tags=["Security - Roles"])
-app.include_router(sys_sec_user_role_router, prefix="/api/security/user-roles", tags=["Security - User Roles"])
-app.include_router(sys_sec_permission_router, prefix="/api/security/permissions", tags=["Security - Permissions"])
+app.include_router(sys_sec_user_router, prefix="/db/security/users", tags=["Security - Users"])
+app.include_router(sys_sec_role_router, prefix="/db/security/roles", tags=["Security - Roles"])
+app.include_router(sys_sec_user_role_router, prefix="/db/security/user-roles", tags=["Security - User Roles"])
+app.include_router(sys_sec_permission_router, prefix="/db/security/permissions", tags=["Security - Permissions"])
 
 
 Instrumentator().instrument(app).expose(app)

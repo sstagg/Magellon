@@ -84,7 +84,7 @@ async def get_user_permissions_summary(
         summary = AuthorizationService.get_user_permissions_summary(db, user_id)
         
         # Convert to response DTO
-        from models.security_models import RoleResponseDto, ActionPermissionResponseDto, NavigationPermissionResponseDto
+        from models.security.security_models import RoleResponseDto, ActionPermissionResponseDto, NavigationPermissionResponseDto
         
         return {
             "user_id": user_id,

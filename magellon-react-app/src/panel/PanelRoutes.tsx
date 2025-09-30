@@ -17,6 +17,7 @@ import {TestIdeaPageView} from "./pages/TestIdea/TestIdeaPageView.tsx";
 import UserManagementPage from "../account/UserManagement/UserManagementPage.tsx";
 import LoginPageView from "../account/LoginPageView.tsx";
 import UserProfilePage from "../account/UserManagement/UserProfilePage.tsx";
+import AccountPage from "../account/UserManagement/page.tsx";
 
 // Settings placeholder component
 // Test placeholder component
@@ -51,6 +52,7 @@ export const PanelRoutes = () => {
 
             <Route path="/login" element={<LoginPageView />} />
             <Route path="/users" element={<UserManagementPage />} />
+            <Route path="/users2" element={<AccountPage />} />
             <Route path="/profile" element={<UserProfilePage />} />
 
             {/* Processing routes */}

@@ -61,7 +61,7 @@ export interface UserStats {
 }
 
 class UserApiService {
-    private baseUrl = 'http://localhost:8000/db/users';
+    private baseUrl = 'http://localhost:8000/db/security/users';
 
     private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
         const url = `${this.baseUrl}${endpoint}`;
