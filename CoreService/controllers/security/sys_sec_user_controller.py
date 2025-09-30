@@ -13,7 +13,7 @@ from models.pydantic_models import (
     SysSecUserUpdateDto,
     SysSecUserResponseDto
 )
-from repositories.sys_sec_user_repository import SysSecUserRepository
+from repositories.security.sys_sec_user_repository import SysSecUserRepository
 
 import logging
 
