@@ -23,9 +23,19 @@ import mrcfile
 import tifffile
 import numpy as np
 from dotenv import load_dotenv
+from pathlib import Path
 load_dotenv()
 logger = logging.getLogger(__name__)
-
+mont_block_re = re.compile(r'\[MontSection\s*=\s*(\d+)\](.*?)(?=\[MontSection|\Z)', re.DOTALL)
+zval_re = re.compile(
+    r'\[ZValue\s*=\s*(\d+)\].*?'
+    r'PieceCoordinates\s*=\s*([-0-9.eE]+)\s+([-0-9.eE]+).*?'
+    r'NavigatorLabel\s*=\s*(\S+).*?'
+    r'(?:AlignedPieceCoords\s*=\s*([-0-9.eE]+)\s+([-0-9.eE]+).*?)?'
+    r'(?:XedgeDxyVS\s*=\s*([-0-9.eE]+)\s+([-0-9.eE]+).*?)?'
+    r'(?:YedgeDxyVS\s*=\s*([-0-9.eE]+)\s+([-0-9.eE]+))?',
+    re.DOTALL
+)
 # Model for SerialEM metadata
 class SerialEMMetadata(BaseModel):
     oid: Optional[str] = None
@@ -78,6 +88,51 @@ def scan_directory(path):
         return structure
     except PermissionError:
         raise HTTPException(status_code=403, detail="Permission denied")
+def find_two_files(directory, file1, file2):
+    """
+    Search for two specific files in a directory recursively.
+    Returns full paths if both files are found, else returns False.
+    Handles errors gracefully.
+    
+    Args:
+        directory (str): Directory to search.
+        file1 (str): Name of the first file.
+        file2 (str): Name of the second file.
+    
+    Returns:
+        tuple(Path, Path) or False
+    """
+    try:
+        dir_path = Path(directory)
+        if not dir_path.exists() or not dir_path.is_dir():
+            return False
+        
+        found = {}
+        
+        # Check root first
+        for f in [file1, file2]:
+            file_path = dir_path / f
+            if file_path.exists():
+                found[f] = file_path
+        
+        # If any file is still missing, search recursively
+        missing_files = [f for f in [file1, file2] if f not in found]
+        if missing_files:
+            for path in dir_path.rglob('*'):
+                if path.name in missing_files:
+                    found[path.name] = path
+                    missing_files.remove(path.name)
+                if not missing_files:
+                    break
+        
+        # Return False if any file is missing
+        if len(found) != 2:
+            return False
+        
+        return (found[file1], found[file2])
+    
+    except Exception:
+        return False
 
 def parse_mdoc(file_path: str, settings_file_path: str) -> SerialEMMetadata:
     """Parse a SerialEM .mdoc file and extract metadata"""
@@ -173,7 +228,7 @@ def extract_navigator_label(mdoc_path: str) -> str | None:
                 if len(parts) == 2:
                     return parts[1].strip()
     return None
-def parse_directory(directory_structure, settings_file_path, default_params):
+def parse_directory(directory_structure, settings_file_path, default_params, unique_navigator_labels):
     try:
         metadata_list = []
         navigator_dict = {}
@@ -194,22 +249,32 @@ def parse_directory(directory_structure, settings_file_path, default_params):
             return None
         def traverse_directory(structure):
             if structure.type == "file" and structure.name.endswith(".mdoc"):
-                # Clean filename: remove trailing spaces, then drop ".mdoc"
                 clean_path = structure.path.strip()
                 image_path = os.path.splitext(clean_path)[0]  # removes ".mdoc"
 
-                # Check if image exists and is valid type
                 if os.path.exists(image_path) and image_path.lower().endswith(valid_extensions):
-                    metadata = parse_mdoc(clean_path, settings_file_path)
-                    # Convert to dict and enrich
-                    metadata_dict = metadata.__dict__.copy()
-                    metadata_dict["file_path"] = image_path
-                    metadata_dict["name"] = os.path.splitext(os.path.basename(image_path))[0]
-
-                    metadata_list.append(SerialEMMetadata(**metadata_dict))
                     navigator_label = extract_navigator_label(clean_path)
+
+                    # Decide whether to add metadata
+                    add_metadata = False
+                    if unique_navigator_labels is None:
+                        add_metadata = True  # No filtering, add all
+                    elif navigator_label in unique_navigator_labels:
+                        add_metadata = True  # Filter present, label is in allowed set
+
+                    if add_metadata:
+                        metadata = parse_mdoc(clean_path, settings_file_path)
+                        metadata_dict = metadata.__dict__.copy()
+                        metadata_dict["file_path"] = image_path
+                        metadata_dict["name"] = os.path.splitext(os.path.basename(image_path))[0]
+
+                        metadata_list.append(SerialEMMetadata(**metadata_dict))
+
+                    # Always update navigator_dict if label exists
                     if navigator_label:
-                        navigator_dict.setdefault(navigator_label, []).append(image_path)
+                        navigator_dict.setdefault(navigator_label, set()).add(os.path.splitext(os.path.basename(image_path))[0]
+)
+
                 else:
                     logger.warning(f"Skipping {structure.path}, no matching image: {image_path}")
 
@@ -243,6 +308,108 @@ def parse_directory(directory_structure, settings_file_path, default_params):
 #             return frame_path
 
 #     return None
+def stitch_mmm(pieces, mrc_path, option="AlignedPieceCoordsVS"):
+        if option not in ("PieceCoordinates", "AlignedPieceCoords", "AlignedPieceCoordsVS"):
+            raise ValueError(f"Unknown option: {option}")
+        with mrcfile.mmap(mrc_path, permissive=True) as mrc:
+            slices = [mrc.data[piece['sequence']] for piece in pieces]
+
+        coords = []
+        for piece in pieces:
+            if option not in piece:
+                x, y = piece["PieceCoordinates"][1], piece["PieceCoordinates"][0]
+            else:
+                x, y = piece[option][1], piece[option][0]
+                if x < -1_000_000_000 or y < -1_000_000_000:
+                    x, y = piece["PieceCoordinates"][1], piece["PieceCoordinates"][0]
+            coords.append((x, y))
+
+        piece_stageXYs = [piece['StagePosition'] if 'StagePosition' in piece else (0,0) for piece in pieces]
+
+        shapes = [slice.shape for slice in slices]
+
+        min_y = min(y for (y, x) in coords)
+        min_x = min(x for (y, x) in coords)
+
+        offset_y = -min_y if min_y < 0 else 0
+        offset_x = -min_x if min_x < 0 else 0
+
+        max_y = max(y + shape[0] for (y, x), shape in zip(coords, shapes))
+        max_x = max(x + shape[1] for (y, x), shape in zip(coords, shapes))
+
+        montage_shape = (int(offset_y + max_y), int(offset_x + max_x))
+
+        montage = np.zeros(montage_shape, dtype=np.int16)
+
+        piece_CenterCoords = []
+        for slice, (y, x) in zip(slices, coords):
+            h, w = slice.shape
+            y_off, x_off = y + offset_y, x + offset_x
+            montage[int(y_off):int(y_off) + int(h), int(x_off):int(x_off) + int(w)] = slice
+
+            piece_CenterCoords.append([x_off + w / 2, y_off + h / 2])
+
+        return montage, piece_stageXYs, piece_CenterCoords
+def parse_mmm_mdoc(mdoc_text):
+    montages = []
+    navigator_labels = set()  # to store unique labels
+
+    for mont_match in mont_block_re.finditer(mdoc_text):
+        block = mont_match.group(2)
+        coords_list = []
+
+        for z_match in zval_re.finditer(block):
+            z_idx = int(z_match.group(1))
+            piece_x, piece_y = float(z_match.group(2)), float(z_match.group(3))
+            navigator_label = z_match.group(4)
+            navigator_labels.add(navigator_label)  # add to set
+
+            if z_match.group(5) and z_match.group(6):
+                aligned_x, aligned_y = float(z_match.group(5)), float(z_match.group(6))
+            else:
+                aligned_x, aligned_y = piece_x, piece_y
+
+            x_edge_offset = float(z_match.group(7)) if z_match.group(7) else 0
+            y_edge_offset = float(z_match.group(9)) if z_match.group(9) else 0
+
+            coords_list.append({
+                'ZValue': z_idx,
+                'NavigatorLabel': navigator_label,
+                'PieceCoordinates': (piece_x, piece_y),
+                'AlignedPieceCoords': (aligned_x, aligned_y),
+                'XedgeDxyVS': x_edge_offset,
+                'YedgeDxyVS': y_edge_offset,
+                'sequence': z_idx
+            })
+
+        coords_list.sort(key=lambda d: d['ZValue'])
+        for i in range(0, len(coords_list), 24):
+            group = coords_list[i:i+24]
+            if group:
+                montages.append(group)
+
+    return montages, navigator_labels
+
+def find_parent_with_partial_child(child_pattern, image_dict, unique_labels, session_name):
+    
+    child_pattern = child_pattern.strip()
+    # If child_pattern starts with session_name, strip the prefix
+    if child_pattern.startswith(f"{session_name}_"):
+        normalized_pattern = child_pattern[len(session_name) + 1:]
+    else:
+        normalized_pattern = child_pattern
+    # If normalized pattern is in unique_labels, it's itself a parent
+    if normalized_pattern in unique_labels:
+        return None
+
+    # Otherwise, search inside dictionary values
+    for key, values in image_dict.items():
+        for val in values:
+            if re.search(re.escape(normalized_pattern), val):
+                return key  # return the parent key
+
+    return None# not found
+
 def convert_tiff_to_mrc(moviename: str, gainname: str, outname: str) -> str:
     """
     Process a movie (TIFF) and gain reference (MRC), then output a summed MRC file.
@@ -306,6 +473,7 @@ class SerialEmImporter(BaseImporter):
             return {'status': 'failure', 'message': f'Job failed with error: {str(e)}',
                     #  "job_id": str(getattr(self, 'db_job', {}).get('oid', ''))
                      }
+  
     def create_db_project_session(self, db_session: Session):
         try:
             start_time = time.time()
@@ -361,7 +529,51 @@ class SerialEmImporter(BaseImporter):
             if not gains_files:
                 raise FileNotFoundError(f"No files found in gains directory: {gains_dir}")
             gains_file_path = os.path.abspath(os.path.join(gains_dir, gains_files[0]))
-            metadata_list, navigator_dict = parse_directory(files, settings_txt_path,self.params.default_data.dict())
+            result = find_two_files(self.params.serial_em_dir_path, "MMM.mrc", "MMM.mrc.mdoc")
+            montage_paths=[]
+            if result:
+                mrc_path, mdoc_path = result
+                with open(mdoc_path, 'r') as f:
+                    mdoc_text = f.read()
+                montages, unique_navigator_labels = parse_mmm_mdoc(mdoc_text)
+                # print(unique_navigator_labels)
+                # print("montages", montages)
+
+                montage_paths = []
+
+                for idx, montage_pieces in enumerate(montages):
+                    stitched_img, stage_positions, centers = stitch_mmm(
+                        montage_pieces, mrc_path, option="AlignedPieceCoords"
+                    )
+                    # Do something with stitched_img, stage_positions, centers
+                    # print(montage_pieces)
+                    # print(montage_pieces[0])
+                    filename = os.path.join(
+                        os.environ.get("MAGELLON_HOME_PATH", "/magellon"),
+                        magellon_session_name,
+                        "montages",
+                        f"{magellon_session_name}_{montage_pieces[0]['NavigatorLabel']}.mrc"   # save as MRC
+                    )
+
+                    # Ensure directory exists
+                    os.makedirs(os.path.dirname(filename), exist_ok=True)
+
+                    # Save montage as MRC (float32 is common, but depends on your pipeline)
+                    with mrcfile.new(filename, overwrite=True) as mrc:
+                        mrc.set_data(stitched_img.astype(np.float32))
+
+                    montage_paths.append(filename)
+                    print(f"✅ Saved stitched montage: {filename}")
+
+                print("📂 All montage paths:", montage_paths)
+
+            else:
+                logger.warning(
+                    f"Required files 'MMM.mrc', 'MMM.mrc.mdoc' not found in directory: "
+                    f"{self.params.serial_em_dir_path}, so skipping montage creation and parent-child relationship."
+                )
+            metadata_list, navigator_dict = parse_directory(files, settings_txt_path,self.params.default_data.dict(),unique_navigator_labels)
+            
             job = None
             if len(metadata_list) > 0:
                 target_dir = os.path.join(MAGELLON_HOME_DIR, self.params.magellon_session_name)
@@ -394,21 +606,63 @@ class SerialEmImporter(BaseImporter):
                 db_job_item_list = []
                 task_todo_list = []
                 image_dict = {}
+                parent_child={}
+                
+                for montage in montage_paths:
+                    filename = os.path.splitext(os.path.basename(montage))[0]
+                    task_id = uuid.uuid4()
+                    db_image = Image(
+                        oid=uuid.uuid4(),
+                        name=filename,
+                        magnification=self.params.default_data.magnification,
+                        defocus=0.0,
+                        dose=0.0,
+                        pixel_size=self.params.default_data.pixel_size*10**-10,
+                        binning_x=1,
+                        binning_y=1,
+                        stage_x=0.0,
+                        stage_y=0.0,
+                        stage_alpha_tilt=0.0,
+                        atlas_delta_row=0.0,
+                        atlas_delta_column=0.0,
+                        acceleration_voltage=self.params.default_data.acceleration_voltage,
+                        spherical_aberration=self.params.default_data.spherical_aberration,
+                        session_id=magellon_session.oid
+                    )
+                    db_image_list.append(db_image)
+                    image_dict[filename] = db_image.oid
+
+                    job_item = ImageJobTask(
+                        oid=uuid.uuid4(),
+                        job_id=job.oid,
+                        frame_name=filename,
+                        frame_path=montage,
+                        image_name=filename,
+                        image_path=montage,
+                        status_id=1,
+                        stage=0,
+                        image_id=db_image.oid,
+                    )
+                    db_job_item_list.append(job_item)
+             
+                
+                # then I also need to add them to the db_list and db_job_item_list
+                # then I need to create a new task for each montage
+                # then I need to add the task to the task_todo_list
+                # then I need to attach the parent_child relationship.
+                
+
                 for metadata in metadata_list:
                     
                     
                     try:
                         filename = os.path.splitext(os.path.basename(metadata.file_path))[0]
                         task_id = uuid.uuid4()
+                        
                         directory_path = os.path.join(
                             os.environ.get("MAGELLON_JOBS_PATH", "/jobs"),
                             str(task_id)
                         )
-                        
-                        
-
-                        
-
                         moviename = metadata.file_path
                         gainname = os.path.join(self.params.target_directory, GAINS_SUB_URL, gain_file_name)
                         outname = os.path.join(
@@ -485,11 +739,27 @@ class SerialEmImporter(BaseImporter):
                     except ValueError as err:
                         logger.error(f"Convertion of TIFF to MRC preview image failed for file {metadata.file_path}: {err}", exc_info=True)
                         raise ValueError(f"Preview image conversion failed for: {metadata.file_path}") from err
+                
+                for db_image in db_image_list:
+                    parent_name = find_parent_with_partial_child(db_image.name, navigator_dict, unique_navigator_labels,magellon_session_name)
+                    print(db_image.name, "->", parent_name)
+                    if parent_name and f'{magellon_session_name}_{parent_name}' in image_dict:
+                        print("inside image+dict")
+                        parent_child[db_image.oid] = image_dict[f'{magellon_session_name}_{parent_name}']
+                
+                
                 # Save all records
                 db_session.bulk_save_objects(db_image_list)
                 db_session.bulk_save_objects(db_job_item_list)
                 db_session.commit()
-
+                if parent_child:
+                   
+                    logger.info(f"Setting parent-child relationships for {len(parent_child)} images")
+                    for child_id, parent_id in parent_child.items():
+                        db_session.query(Image).filter(Image.oid == child_id).update({"parent_id": parent_id})
+                    db_session.commit()
+                else:
+                    logger.warning("No parent-child relationships identified")
                 # Run tasks if needed
                 if getattr(self.params, 'if_do_subtasks', True):
                     self.run_tasks(task_todo_list)
