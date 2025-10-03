@@ -644,6 +644,22 @@ class SerialEmImporter(BaseImporter):
                         image_id=db_image.oid,
                     )
                     db_job_item_list.append(job_item)
+                    task = SerialEMImportTaskDto(
+                        task_id=task_id,
+                        task_alias=f"montage_{filename}_{job.oid}",
+                        file_name=filename,
+                        image_id=db_image.oid,
+                        image_name=filename,
+                        frame_name=filename,
+                        image_path=montage,
+                        frame_path=montage,
+                        job_dto=self.params,
+                        status=1,
+                        pixel_size=self.params.default_data.pixel_size*10**-10,
+                        acceleration_voltage=self.params.default_data.acceleration_voltage,
+                        spherical_aberration=self.params.default_data.spherical_aberration
+                    )
+                    task_todo_list.append(task)
              
                 
                 # then I also need to add them to the db_list and db_job_item_list
