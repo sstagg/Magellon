@@ -318,14 +318,25 @@ export const Home = () => {
             </Container>
 
             {/* Features Section */}
-            <Box sx={{ py: { xs: 8, md: 12 }, backgroundColor: alpha(theme.palette.primary.main, 0.03) }}>
-                <Container maxWidth="xl">
-                    <Box sx={{ textAlign: 'center', mb: { xs: 6, md: 10 } }}>
+            <Box sx={{ py: { xs: 10, md: 14 }, backgroundColor: alpha(theme.palette.primary.main, 0.02) }}>
+                <Container maxWidth="lg">
+                    <Box sx={{ textAlign: 'center', mb: { xs: 8, md: 10 } }}>
+                        <Chip
+                            label="POWERFUL FEATURES"
+                            sx={{
+                                mb: 3,
+                                backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                                color: 'primary.main',
+                                fontWeight: 600,
+                                fontSize: '0.85rem',
+                                px: 2,
+                            }}
+                        />
                         <Typography
                             variant="h2"
                             sx={{
-                                fontWeight: 700,
-                                mb: 3,
+                                fontWeight: 800,
+                                mb: 2,
                                 fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' },
                                 background: theme.palette.mode === 'dark'
                                     ? 'linear-gradient(45deg, #ffffff, #67e8f9)'
@@ -335,118 +346,85 @@ export const Home = () => {
                                 WebkitTextFillColor: 'transparent',
                             }}
                         >
-                            Cutting-Edge Features
+                            Everything You Need
                         </Typography>
                         <Typography
                             variant="h6"
                             color="text.secondary"
                             sx={{
-                                maxWidth: '700px',
+                                maxWidth: '650px',
                                 mx: 'auto',
-                                fontSize: { xs: '1.1rem', md: '1.25rem' },
-                                lineHeight: 1.6
+                                fontSize: { xs: '1rem', md: '1.15rem' },
+                                lineHeight: 1.7,
+                                fontWeight: 400
                             }}
                         >
-                            Experience the next generation of CryoEM analysis with our comprehensive suite of tools
+                            Comprehensive tools designed to accelerate your research workflow
                         </Typography>
                     </Box>
 
-                    <Grid
-                        container
-                        spacing={{ xs: 3, sm: 4, md: 5 }}
-                        sx={{
-                            display: 'flex',
-                            flexWrap: 'wrap',
-                            justifyContent: 'center',
-                            alignItems: 'stretch'
-                        }}
-                    >
+                    <Grid container spacing={3}>
                         {features.map((feature, index) => (
-                            <Grid
-                                item
-                                xs={12}
-                                sm={6}
-                                lg={4}
-                                key={index}
-                                sx={{
-                                    display: 'flex',
-                                    flexDirection: 'column'
-                                }}
-                            >
+                            <Grid item xs={12} sm={6} md={4} key={index}>
                                 <Card
                                     sx={{
                                         height: '100%',
-                                        minHeight: '320px',
-                                        borderRadius: 4,
-                                        border: 'none',
-                                        backgroundColor: alpha(theme.palette.background.paper, 0.8),
-                                        backdropFilter: 'blur(20px)',
+                                        borderRadius: 3,
+                                        border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                                        backgroundColor: theme.palette.background.paper,
                                         position: 'relative',
                                         overflow: 'hidden',
-                                        transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                        boxShadow: 'none',
                                         '&::before': {
                                             content: '""',
                                             position: 'absolute',
                                             top: 0,
                                             left: 0,
                                             right: 0,
-                                            height: '4px',
-                                            background: `linear-gradient(90deg, ${feature.color}, ${alpha(feature.color, 0.7)})`,
-                                            transform: 'scaleX(0)',
-                                            transformOrigin: 'left',
-                                            transition: 'transform 0.4s ease',
+                                            height: '3px',
+                                            background: `linear-gradient(90deg, ${feature.color}, ${alpha(feature.color, 0.6)})`,
+                                            opacity: 0,
+                                            transition: 'opacity 0.3s ease',
                                         },
                                         '&:hover': {
-                                            transform: 'translateY(-12px) scale(1.02)',
-                                            boxShadow: `0 25px 80px ${alpha(feature.color, 0.25)}`,
+                                            transform: 'translateY(-8px)',
+                                            boxShadow: `0 20px 40px ${alpha(feature.color, 0.15)}`,
+                                            borderColor: alpha(feature.color, 0.3),
                                             '&::before': {
-                                                transform: 'scaleX(1)',
+                                                opacity: 1,
                                             }
                                         },
                                     }}
                                 >
-                                    <CardContent sx={{
-                                        p: { xs: 3, sm: 4 },
-                                        height: '100%',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        justifyContent: 'space-between'
-                                    }}>
-                                        <Box>
-                                            <Avatar
-                                                sx={{
-                                                    width: { xs: 60, sm: 70 },
-                                                    height: { xs: 60, sm: 70 },
-                                                    mb: 3,
-                                                    background: `linear-gradient(135deg, ${feature.color}, ${alpha(feature.color, 0.7)})`,
-                                                    boxShadow: `0 12px 40px ${alpha(feature.color, 0.3)}`,
-                                                    transition: 'all 0.3s ease',
-                                                    '&:hover': {
-                                                        transform: 'scale(1.1) rotate(5deg)',
-                                                        boxShadow: `0 15px 50px ${alpha(feature.color, 0.4)}`,
-                                                    }
-                                                }}
-                                            >
-                                                {feature.icon}
-                                            </Avatar>
-                                            <Typography
-                                                variant="h5"
-                                                sx={{
-                                                    fontWeight: 700,
-                                                    mb: 2,
-                                                    fontSize: { xs: '1.3rem', sm: '1.5rem' },
-                                                    color: 'text.primary'
-                                                }}
-                                            >
-                                                {feature.title}
-                                            </Typography>
-                                        </Box>
+                                    <CardContent sx={{ p: 4 }}>
+                                        <Avatar
+                                            sx={{
+                                                width: 56,
+                                                height: 56,
+                                                mb: 2.5,
+                                                background: alpha(feature.color, 0.1),
+                                                color: feature.color,
+                                            }}
+                                        >
+                                            {feature.icon}
+                                        </Avatar>
                                         <Typography
-                                            variant="body1"
+                                            variant="h6"
+                                            sx={{
+                                                fontWeight: 700,
+                                                mb: 1.5,
+                                                fontSize: '1.25rem',
+                                            }}
+                                        >
+                                            {feature.title}
+                                        </Typography>
+                                        <Typography
+                                            variant="body2"
                                             color="text.secondary"
                                             sx={{
-                                                lineHeight: 1.8,
-                                                fontSize: { xs: '0.95rem', sm: '1rem' }
+                                                lineHeight: 1.7,
+                                                fontSize: '0.95rem'
                                             }}
                                         >
                                             {feature.description}
@@ -456,66 +434,268 @@ export const Home = () => {
                             </Grid>
                         ))}
                     </Grid>
-
-                    {/* Optional: Add a subtle animation for the grid */}
-                    <style jsx>{`
-                        @media (min-width: 960px) {
-                            .MuiGrid-item:nth-child(1) { animation-delay: 0.1s; }
-                            .MuiGrid-item:nth-child(2) { animation-delay: 0.2s; }
-                            .MuiGrid-item:nth-child(3) { animation-delay: 0.3s; }
-                            .MuiGrid-item:nth-child(4) { animation-delay: 0.4s; }
-                            .MuiGrid-item:nth-child(5) { animation-delay: 0.5s; }
-                            .MuiGrid-item:nth-child(6) { animation-delay: 0.6s; }
-                        }
-                    `}</style>
                 </Container>
             </Box>
 
             {/* CTA Section */}
-            <Container maxWidth="lg" sx={{ py: 12 }}>
-                <Box
-                    sx={{
-                        textAlign: 'center',
-                        background: theme.palette.mode === 'dark'
-                            ? 'linear-gradient(135deg, rgba(103, 232, 249, 0.1) 0%, rgba(129, 140, 248, 0.1) 100%)'
-                            : 'linear-gradient(135deg, rgba(8, 145, 178, 0.05) 0%, rgba(99, 102, 241, 0.05) 100%)',
-                        borderRadius: 4,
-                        p: 8,
-                        border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
-                    }}
-                >
-                    <TrendingUp sx={{ fontSize: 60, color: 'primary.main', mb: 3 }} />
-                    <Typography variant="h3" sx={{ fontWeight: 700, mb: 2 }}>
-                        Ready to Transform Your Research?
-                    </Typography>
-                    <Typography variant="h6" color="text.secondary" sx={{ mb: 4, maxWidth: '600px', mx: 'auto' }}>
-                        Join leading research institutions worldwide and accelerate your discoveries with Magellon's
-                        advanced CryoEM platform.
-                    </Typography>
-                    <Button
-                        variant="contained"
-                        size="large"
-                        endIcon={<ArrowForward />}
-                        onClick={() => navigate('/en/panel')}
+            <Box sx={{ py: { xs: 10, md: 14 } }}>
+                <Container maxWidth="md">
+                    <Box
                         sx={{
-                            px: 6,
-                            py: 2,
-                            fontSize: '1.2rem',
-                            fontWeight: 600,
-                            borderRadius: 3,
-                            background: 'linear-gradient(45deg, #67e8f9, #818cf8)',
-                            '&:hover': {
-                                background: 'linear-gradient(45deg, #22d3ee, #a5b4fc)',
-                                transform: 'translateY(-3px)',
-                                boxShadow: '0 15px 50px rgba(103, 232, 249, 0.4)',
-                            },
-                            transition: 'all 0.3s ease-in-out',
+                            textAlign: 'center',
+                            background: theme.palette.mode === 'dark'
+                                ? 'linear-gradient(135deg, rgba(103, 232, 249, 0.08) 0%, rgba(129, 140, 248, 0.08) 100%)'
+                                : 'linear-gradient(135deg, rgba(8, 145, 178, 0.04) 0%, rgba(99, 102, 241, 0.04) 100%)',
+                            borderRadius: 4,
+                            p: { xs: 6, md: 8 },
+                            border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+                            position: 'relative',
+                            overflow: 'hidden',
+                            '&::before': {
+                                content: '""',
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                background: 'radial-gradient(circle at 50% 50%, rgba(103, 232, 249, 0.05) 0%, transparent 70%)',
+                                pointerEvents: 'none',
+                            }
                         }}
                     >
-                        Get Started Today
-                    </Button>
-                </Box>
-            </Container>
+                        <Box sx={{ position: 'relative', zIndex: 1 }}>
+                            <Box
+                                sx={{
+                                    display: 'inline-flex',
+                                    p: 2,
+                                    borderRadius: '50%',
+                                    backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                                    mb: 3,
+                                }}
+                            >
+                                <TrendingUp sx={{ fontSize: 48, color: 'primary.main' }} />
+                            </Box>
+                            <Typography
+                                variant="h3"
+                                sx={{
+                                    fontWeight: 800,
+                                    mb: 2,
+                                    fontSize: { xs: '1.75rem', md: '2.5rem' },
+                                    background: theme.palette.mode === 'dark'
+                                        ? 'linear-gradient(45deg, #ffffff, #67e8f9)'
+                                        : 'linear-gradient(45deg, #0f172a, #0891b2)',
+                                    backgroundClip: 'text',
+                                    WebkitBackgroundClip: 'text',
+                                    WebkitTextFillColor: 'transparent',
+                                }}
+                            >
+                                Ready to Transform Your Research?
+                            </Typography>
+                            <Typography
+                                variant="body1"
+                                color="text.secondary"
+                                sx={{
+                                    mb: 4,
+                                    maxWidth: '550px',
+                                    mx: 'auto',
+                                    fontSize: { xs: '1rem', md: '1.1rem' },
+                                    lineHeight: 1.7,
+                                }}
+                            >
+                                Join leading research institutions worldwide and accelerate your discoveries
+                                with Magellon's advanced CryoEM platform.
+                            </Typography>
+                            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
+                                <Button
+                                    variant="contained"
+                                    size="large"
+                                    endIcon={<ArrowForward />}
+                                    onClick={() => navigate('/en/panel')}
+                                    sx={{
+                                        px: 5,
+                                        py: 1.75,
+                                        fontSize: '1.1rem',
+                                        fontWeight: 600,
+                                        borderRadius: 2.5,
+                                        background: 'linear-gradient(45deg, #67e8f9, #818cf8)',
+                                        boxShadow: '0 8px 32px rgba(103, 232, 249, 0.25)',
+                                        '&:hover': {
+                                            background: 'linear-gradient(45deg, #22d3ee, #a5b4fc)',
+                                            transform: 'translateY(-2px)',
+                                            boxShadow: '0 12px 40px rgba(103, 232, 249, 0.35)',
+                                        },
+                                        transition: 'all 0.3s ease-in-out',
+                                    }}
+                                >
+                                    Get Started Free
+                                </Button>
+                                <Button
+                                    variant="outlined"
+                                    size="large"
+                                    onClick={() => navigate('/en/web/contact')}
+                                    sx={{
+                                        px: 5,
+                                        py: 1.75,
+                                        fontSize: '1.1rem',
+                                        fontWeight: 600,
+                                        borderRadius: 2.5,
+                                        borderWidth: 2,
+                                        '&:hover': {
+                                            borderWidth: 2,
+                                            backgroundColor: alpha(theme.palette.primary.main, 0.05),
+                                            transform: 'translateY(-2px)',
+                                        },
+                                        transition: 'all 0.3s ease-in-out',
+                                    }}
+                                >
+                                    Contact Sales
+                                </Button>
+                            </Box>
+                        </Box>
+                    </Box>
+                </Container>
+            </Box>
+
+            {/* Footer Section */}
+            <Box
+                sx={{
+                    py: 6,
+                    borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                    backgroundColor: alpha(theme.palette.background.default, 0.5),
+                }}
+            >
+                <Container maxWidth="lg">
+                    <Grid container spacing={4} justifyContent="space-between">
+                        <Grid item xs={12} md={4}>
+                            <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
+                                Magellon
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.7 }}>
+                                Next-generation CryoEM analysis platform for structural biology research.
+                            </Typography>
+                        </Grid>
+                        <Grid item xs={6} md={2}>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2 }}>
+                                Product
+                            </Typography>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                <Typography
+                                    variant="body2"
+                                    color="text.secondary"
+                                    sx={{ cursor: 'pointer', '&:hover': { color: 'primary.main' } }}
+                                    onClick={() => navigate('/en/panel/images')}
+                                >
+                                    Images
+                                </Typography>
+                                <Typography
+                                    variant="body2"
+                                    color="text.secondary"
+                                    sx={{ cursor: 'pointer', '&:hover': { color: 'primary.main' } }}
+                                    onClick={() => navigate('/en/panel/microscopy')}
+                                >
+                                    Microscopy
+                                </Typography>
+                                <Typography
+                                    variant="body2"
+                                    color="text.secondary"
+                                    sx={{ cursor: 'pointer', '&:hover': { color: 'primary.main' } }}
+                                    onClick={() => navigate('/en/panel/settings')}
+                                >
+                                    Settings
+                                </Typography>
+                            </Box>
+                        </Grid>
+                        <Grid item xs={6} md={2}>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2 }}>
+                                Company
+                            </Typography>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                <Typography
+                                    variant="body2"
+                                    color="text.secondary"
+                                    sx={{ cursor: 'pointer', '&:hover': { color: 'primary.main' } }}
+                                >
+                                    About
+                                </Typography>
+                                <Typography
+                                    variant="body2"
+                                    color="text.secondary"
+                                    sx={{ cursor: 'pointer', '&:hover': { color: 'primary.main' } }}
+                                >
+                                    Careers
+                                </Typography>
+                                <Typography
+                                    variant="body2"
+                                    color="text.secondary"
+                                    sx={{ cursor: 'pointer', '&:hover': { color: 'primary.main' } }}
+                                >
+                                    Contact
+                                </Typography>
+                            </Box>
+                        </Grid>
+                        <Grid item xs={6} md={2}>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2 }}>
+                                Resources
+                            </Typography>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                <Typography
+                                    variant="body2"
+                                    color="text.secondary"
+                                    sx={{ cursor: 'pointer', '&:hover': { color: 'primary.main' } }}
+                                >
+                                    Documentation
+                                </Typography>
+                                <Typography
+                                    variant="body2"
+                                    color="text.secondary"
+                                    sx={{ cursor: 'pointer', '&:hover': { color: 'primary.main' } }}
+                                >
+                                    API Reference
+                                </Typography>
+                                <Typography
+                                    variant="body2"
+                                    color="text.secondary"
+                                    sx={{ cursor: 'pointer', '&:hover': { color: 'primary.main' } }}
+                                >
+                                    Support
+                                </Typography>
+                            </Box>
+                        </Grid>
+                    </Grid>
+                    <Box
+                        sx={{
+                            mt: 6,
+                            pt: 4,
+                            borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            flexWrap: 'wrap',
+                            gap: 2,
+                        }}
+                    >
+                        <Typography variant="body2" color="text.secondary">
+                            © {new Date().getFullYear()} Magellon. All rights reserved.
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 3 }}>
+                            <Typography
+                                variant="body2"
+                                color="text.secondary"
+                                sx={{ cursor: 'pointer', '&:hover': { color: 'primary.main' } }}
+                            >
+                                Privacy Policy
+                            </Typography>
+                            <Typography
+                                variant="body2"
+                                color="text.secondary"
+                                sx={{ cursor: 'pointer', '&:hover': { color: 'primary.main' } }}
+                            >
+                                Terms of Service
+                            </Typography>
+                        </Box>
+                    </Box>
+                </Container>
+            </Box>
         </Box>
     );
 };
