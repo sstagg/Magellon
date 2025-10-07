@@ -2,7 +2,7 @@ import re
 import os
 import uuid
 import time
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from datetime import datetime
@@ -454,381 +454,763 @@ def convert_tiff_to_mrc(moviename: str, gainname: str, outname: str) -> str:
 
     except Exception as e:
         raise ValueError(f"convertion of tiff to mrc failed- premade image for ctf: {str(e)}") from e
+
+
 class SerialEmImporter(BaseImporter):
+    """Handles SerialEM data import with proper error handling and modular design."""
+    
     def __init__(self):
         super().__init__()
         self.image_tasks = []
         self.mrc_service = MrcImageService()
-
+    
     def process(self, db_session: Session = Depends(get_db)) -> Dict[str, str]:
+        """Main entry point for the import process."""
         try:
             start_time = time.time()
             result = self.create_db_project_session(db_session)
-            end_time = time.time()
-            # todo copy gains file
-            execution_time = end_time - start_time
+            execution_time = time.time() - start_time
+            logger.info(f"Total import process completed in {execution_time:.2f} seconds")
             return result
-
         except Exception as e:
-            return {'status': 'failure', 'message': f'Job failed with error: {str(e)}',
-                    #  "job_id": str(getattr(self, 'db_job', {}).get('oid', ''))
-                     }
-  
-    def create_db_project_session(self, db_session: Session):
+            logger.error(f"Import process failed: {e}", exc_info=True)
+            return {
+                'status': 'failure',
+                'message': f'Job failed with error: {str(e)}'
+            }
+    
+    def _get_or_create_project(self, db_session: Session) -> Optional[Project]:
+        """Get existing project or create new one."""
+        if self.params.magellon_project_name is None:
+            return None
+        
         try:
-            start_time = time.time()
-            magellon_project = None
-            magellon_session = None
-
-            # Create or find project
-            if self.params.magellon_project_name is not None:
-                magellon_project = db_session.query(Project).filter(
-                    Project.name == self.params.magellon_project_name).first()
-                if not magellon_project:
-                    magellon_project = Project(name=self.params.magellon_project_name)
-                    db_session.add(magellon_project)
-                    db_session.commit()
-                    db_session.refresh(magellon_project)
-
-            magellon_session_name = self.params.magellon_session_name or self.params.session_name
-
-            # Create or find session
-            if self.params.magellon_session_name is not None:
-                magellon_session = db_session.query(Msession).filter(
-                    Msession.name == magellon_session_name).first()
-                if not magellon_session:
-                    magellon_session = Msession(
-                        name=magellon_session_name,
-                        project_id=magellon_project.oid
+            project = db_session.query(Project).filter(
+                Project.name == self.params.magellon_project_name
+            ).first()
+            
+            if not project:
+                project = Project(name=self.params.magellon_project_name)
+                db_session.add(project)
+                db_session.commit()
+                db_session.refresh(project)
+                logger.info(f"Created new project: {self.params.magellon_project_name}")
+            else:
+                logger.info(f"Using existing project: {self.params.magellon_project_name}")
+            
+            return project
+        except Exception as e:
+            logger.error(f"Failed to get/create project: {e}", exc_info=True)
+            raise
+    
+    def _get_or_create_session(
+        self, 
+        db_session: Session, 
+        project: Optional[Project]
+    ) -> Optional[Msession]:
+        """Get existing session or create new one."""
+        if self.params.magellon_session_name is None:
+            return None
+        
+        try:
+            session_name = (
+                self.params.magellon_session_name or 
+                self.params.session_name
+            )
+            
+            session = db_session.query(Msession).filter(
+                Msession.name == session_name
+            ).first()
+            
+            if not session:
+                if project is None:
+                    raise ValueError(
+                        "Cannot create session without a valid project"
                     )
-                    db_session.add(magellon_session)
-                    db_session.commit()
-                    db_session.refresh(magellon_session)
-
-            session_name = self.params.session_name
-            settings_dir = os.path.join(self.params.serial_em_dir_path, "settings")
-            gains_dir = os.path.join(self.params.serial_em_dir_path, "gains")
-            # Scan directory and get all mdoc files
-            try:
-                files = scan_directory(self.params.serial_em_dir_path)
-            except FileNotFoundError as e:
-                raise FileNotFoundError(f"SerialEM directory not found: {self.params.serial_em_dir_path}") from e
+                
+                session = Msession(
+                    name=session_name,
+                    project_id=project.oid
+                )
+                db_session.add(session)
+                db_session.commit()
+                db_session.refresh(session)
+                logger.info(f"Created new session: {session_name}")
+            else:
+                logger.info(f"Using existing session: {session_name}")
+            
+            return session
+        except Exception as e:
+            logger.error(f"Failed to get/create session: {e}", exc_info=True)
+            raise
+    
+    def _validate_directory_structure(self) -> Tuple[str, str]:
+        """Validate required directories exist and return paths."""
+        try:
+            settings_dir = os.path.join(
+                self.params.serial_em_dir_path, 
+                "settings"
+            )
+            gains_dir = os.path.join(
+                self.params.serial_em_dir_path, 
+                "gains"
+            )
+            
             if not os.path.isdir(settings_dir):
-                raise FileNotFoundError(f"'settings' folder not found in {self.params.serial_em_dir_path}")
+                raise FileNotFoundError(
+                    f"'settings' folder not found in {self.params.serial_em_dir_path}"
+                )
+            
             if not os.path.isdir(gains_dir):
-                raise FileNotFoundError(f"'gains' folder not found in {self.params.serial_em_dir_path}")
-            settings_txt_path = None
+                raise FileNotFoundError(
+                    f"'gains' folder not found in {self.params.serial_em_dir_path}"
+                )
+            
+            return settings_dir, gains_dir
+        except Exception as e:
+            logger.error(f"Directory validation failed: {e}", exc_info=True)
+            raise
+    
+    def _find_settings_file(self, settings_dir: str) -> str:
+        """Find the settings .txt file in settings directory."""
+        try:
             for fname in os.listdir(settings_dir):
                 if fname.endswith('.txt'):
-                    settings_txt_path = os.path.abspath(os.path.join(settings_dir, fname))
-                    break
-            if not settings_txt_path:
-                raise FileNotFoundError(f"No settings .txt file found in settings directory: {settings_dir}")
-            # Find the first file in 'gains' and get its absolute path
-            gains_files = [f for f in os.listdir(gains_dir) if os.path.isfile(os.path.join(gains_dir, f))]
+                    settings_path = os.path.abspath(os.path.join(settings_dir, fname))
+                    logger.info(f"Found settings file: {settings_path}")
+                    return settings_path
+            
+            raise FileNotFoundError(
+                f"No settings .txt file found in: {settings_dir}"
+            )
+        except OSError as e:
+            raise OSError(
+                f"Failed to access settings directory {settings_dir}: {e}"
+            ) from e
+    
+    def _find_gains_file(self, gains_dir: str) -> str:
+        """Find the first gains file in gains directory."""
+        try:
+            gains_files = [
+                f for f in os.listdir(gains_dir) 
+                if os.path.isfile(os.path.join(gains_dir, f))
+            ]
+            
             if not gains_files:
-                raise FileNotFoundError(f"No files found in gains directory: {gains_dir}")
-            gains_file_path = os.path.abspath(os.path.join(gains_dir, gains_files[0]))
-            result = find_two_files(self.params.serial_em_dir_path, "MMM.mrc", "MMM.mrc.mdoc")
-            montage_paths=[]
-            if result:
-                mrc_path, mdoc_path = result
-                with open(mdoc_path, 'r') as f:
-                    mdoc_text = f.read()
-                montages, unique_navigator_labels = parse_mmm_mdoc(mdoc_text)
-                # print(unique_navigator_labels)
-                # print("montages", montages)
-
-                montage_paths = []
-
-                for idx, montage_pieces in enumerate(montages):
+                raise FileNotFoundError(
+                    f"No files found in gains directory: {gains_dir}"
+                )
+            
+            gains_path = os.path.abspath(os.path.join(gains_dir, gains_files[0]))
+            logger.info(f"Found gains file: {gains_path}")
+            return gains_path
+        except OSError as e:
+            raise OSError(
+                f"Failed to access gains directory {gains_dir}: {e}"
+            ) from e
+    
+    def _process_montages(
+        self, 
+        magellon_session_name: str
+    ) -> Tuple[List[str], Optional[List], Optional[List]]:
+        """Process MMM montage files if they exist."""
+        try:
+            result = find_two_files(
+                self.params.serial_em_dir_path, 
+                "MMM.mrc", 
+                "MMM.mrc.mdoc"
+            )
+            
+            if not result:
+                logger.warning(
+                    f"MMM.mrc and MMM.mrc.mdoc not found in "
+                    f"{self.params.serial_em_dir_path}, skipping montage creation"
+                )
+                return [], None, None
+            
+            mrc_path, mdoc_path = result
+            logger.info(f"Processing montages from {mdoc_path}")
+            
+            with open(mdoc_path, 'r') as f:
+                mdoc_text = f.read()
+            
+            montages, unique_navigator_labels = parse_mmm_mdoc(mdoc_text)
+            montage_paths = []
+            
+            for idx, montage_pieces in enumerate(montages):
+                try:
                     stitched_img, stage_positions, centers = stitch_mmm(
-                        montage_pieces, mrc_path, option="AlignedPieceCoords"
+                        montage_pieces, 
+                        mrc_path, 
+                        option="AlignedPieceCoords"
                     )
-                    # Do something with stitched_img, stage_positions, centers
-                    # print(montage_pieces)
-                    # print(montage_pieces[0])
+                    
                     filename = os.path.join(
                         os.environ.get("MAGELLON_HOME_PATH", "/magellon"),
                         magellon_session_name,
                         "montages",
-                        f"{magellon_session_name}_{montage_pieces[0]['NavigatorLabel']}.mrc"   # save as MRC
+                        f"{magellon_session_name}_{montage_pieces[0]['NavigatorLabel']}.mrc"
                     )
-
-                    # Ensure directory exists
+                    
                     os.makedirs(os.path.dirname(filename), exist_ok=True)
-
-                    # Save montage as MRC (float32 is common, but depends on your pipeline)
+                    
                     with mrcfile.new(filename, overwrite=True) as mrc:
                         mrc.set_data(stitched_img.astype(np.float32))
-
+                    
                     montage_paths.append(filename)
-                    print(f"✅ Saved stitched montage: {filename}")
-
-                print("📂 All montage paths:", montage_paths)
-
+                    logger.info(f"✅ Saved stitched montage {idx + 1}/{len(montages)}: {filename}")
+                    
+                except Exception as e:
+                    logger.error(
+                        f"Failed to process montage {idx}: {e}", 
+                        exc_info=True
+                    )
+                    continue
+            
+            logger.info(f"📂 Successfully processed {len(montage_paths)} out of {len(montages)} montages")
+            return montage_paths, montages, unique_navigator_labels
+            
+        except Exception as e:
+            logger.error(f"Montage processing failed: {e}", exc_info=True)
+            return [], None, None
+    
+    def _copy_gains_file(self, gains_file_path: str, target_directory: str) -> str:
+        """Copy gains file to target directory and return filename."""
+        try:
+            dest_path = os.path.join(target_directory, GAINS_SUB_URL)
+            gain_file_name = os.path.basename(gains_file_path)
+            
+            if not os.path.exists(gains_file_path):
+                raise FileNotFoundError(f"Gains file not found: {gains_file_path}")
+            
+            if os.path.isdir(gains_file_path):
+                shutil.copytree(gains_file_path, dest_path, dirs_exist_ok=True)
             else:
-                logger.warning(
-                    f"Required files 'MMM.mrc', 'MMM.mrc.mdoc' not found in directory: "
-                    f"{self.params.serial_em_dir_path}, so skipping montage creation and parent-child relationship."
+                os.makedirs(dest_path, exist_ok=True)
+                shutil.copy(gains_file_path, dest_path)
+            
+            logger.info(f"Copied gains file to: {dest_path}")
+            return gain_file_name
+        except Exception as e:
+            logger.error(f"Failed to copy gains file: {e}", exc_info=True)
+            raise
+    
+    def _create_montage_image_entry(
+        self,
+        montage_path: str,
+        magellon_session: Msession,
+        job: ImageJob
+    ) -> Tuple[Optional[Image], Optional[ImageJobTask], Optional[object]]:
+        """Create database entries for a single montage."""
+        try:
+            filename = os.path.splitext(os.path.basename(montage_path))[0]
+            task_id = uuid.uuid4()
+            
+            db_image = Image(
+                oid=uuid.uuid4(),
+                name=filename,
+                magnification=self.params.default_data.magnification,
+                defocus=0.0,
+                dose=0.0,
+                pixel_size=self.params.default_data.pixel_size * 10**-10,
+                binning_x=1,
+                binning_y=1,
+                stage_x=0.0,
+                stage_y=0.0,
+                stage_alpha_tilt=0.0,
+                atlas_delta_row=0.0,
+                atlas_delta_column=0.0,
+                acceleration_voltage=self.params.default_data.acceleration_voltage,
+                spherical_aberration=self.params.default_data.spherical_aberration,
+                session_id=magellon_session.oid
+            )
+            
+            job_item = ImageJobTask(
+                oid=uuid.uuid4(),
+                job_id=job.oid,
+                frame_name=filename,
+                frame_path=montage_path,
+                image_name=filename,
+                image_path=montage_path,
+                status_id=1,
+                stage=0,
+                image_id=db_image.oid,
+            )
+            
+            task = SerialEMImportTaskDto(
+                task_id=task_id,
+                task_alias=f"montage_{filename}_{job.oid}",
+                file_name=filename,
+                image_id=db_image.oid,
+                image_name=filename,
+                frame_name=filename,
+                image_path=montage_path,
+                frame_path=montage_path,
+                job_dto=self.params,
+                status=1,
+                pixel_size=self.params.default_data.pixel_size * 10**-10,
+                acceleration_voltage=self.params.default_data.acceleration_voltage,
+                spherical_aberration=self.params.default_data.spherical_aberration
+            )
+            
+            return db_image, job_item, task
+            
+        except Exception as e:
+            logger.error(
+                f"Failed to create montage entry for {montage_path}: {e}",
+                exc_info=True
+            )
+            return None, None, None
+    
+    def _process_metadata_entry(
+        self,
+        metadata,
+        magellon_session: Msession,
+        job: ImageJob,
+        gain_file_name: str
+    ) -> Tuple[Optional[Image], Optional[ImageJobTask], Optional[object]]:
+        """Process a single metadata entry and create database objects."""
+        try:
+            filename = os.path.splitext(os.path.basename(metadata.file_path))[0]
+            task_id = uuid.uuid4()
+            
+            directory_path = os.path.join(
+                os.environ.get("MAGELLON_JOBS_PATH", "/jobs"),
+                str(task_id)
+            )
+            
+            moviename = metadata.file_path
+            gainname = os.path.join(
+                self.params.target_directory, 
+                GAINS_SUB_URL, 
+                gain_file_name
+            )
+            outname = os.path.join(
+                directory_path,
+                f"{os.path.splitext(os.path.basename(metadata.file_path))[0]}.mrc"
+            )
+            
+            # Check if file exists and is TIFF format
+            if not os.path.exists(moviename):
+                logger.warning(f"Movie file not found: {moviename}, skipping")
+                return None, None, None
+            
+            if not moviename.lower().endswith((".tif", ".tiff")):
+                logger.warning(f"Unsupported file format (not TIFF): {moviename}, skipping")
+                return None, None, None
+            
+            # Convert TIFF to MRC
+            try:
+                result_file = convert_tiff_to_mrc(moviename, gainname, outname)
+            except Exception as e:
+                raise ValueError(
+                    f"TIFF to MRC conversion failed for {metadata.file_path}: {e}"
+                ) from e
+            
+            # Create Image database entry
+            db_image = Image(
+                oid=uuid.uuid4(),
+                name=filename,
+                magnification=(
+                    metadata.magnification if metadata.magnification is not None 
+                    else self.params.default_data.magnification
+                ),
+                defocus=metadata.defocus,
+                dose=metadata.dose,
+                pixel_size=(
+                    metadata.pixel_size * 10**-10 if metadata.pixel_size is not None 
+                    else self.params.default_data.pixel_size * 10**-10
+                ),
+                binning_x=metadata.binning_x,
+                binning_y=metadata.binning_y,
+                stage_x=metadata.stage_x,
+                stage_y=metadata.stage_y,
+                stage_alpha_tilt=metadata.stage_alpha_tilt,
+                atlas_delta_row=metadata.atlas_delta_row,
+                atlas_delta_column=metadata.atlas_delta_column,
+                acceleration_voltage=(
+                    metadata.acceleration_voltage if metadata.acceleration_voltage is not None 
+                    else self.params.default_data.acceleration_voltage
+                ),
+                spherical_aberration=(
+                    metadata.spherical_aberration if metadata.spherical_aberration is not None 
+                    else self.params.default_data.spherical_aberration
+                ),
+                session_id=magellon_session.oid
+            )
+            
+            # Prepare paths
+            source_image_path = result_file
+            source_frame_path = metadata.file_path
+            
+            # Handle path replacements if configured
+            if all(hasattr(self.params, attr) for attr in ['replace_type', 'replace_pattern', 'replace_with']):
+                if self.params.replace_type in ["regex", "standard"]:
+                    if source_frame_path:
+                        source_frame_path = custom_replace(
+                            source_frame_path,
+                            self.params.replace_type,
+                            self.params.replace_pattern,
+                            self.params.replace_with
+                        )
+                    source_image_path = custom_replace(
+                        source_image_path,
+                        self.params.replace_type,
+                        self.params.replace_pattern,
+                        self.params.replace_with
+                    )
+            
+            frame_name = (
+                os.path.splitext(os.path.basename(source_frame_path))[0] 
+                if source_frame_path else ""
+            )
+            
+            # Create job item
+            job_item = ImageJobTask(
+                oid=uuid.uuid4(),
+                job_id=job.oid,
+                frame_name=frame_name,
+                frame_path=source_frame_path,
+                image_name=os.path.splitext(os.path.basename(source_image_path))[0],
+                image_path=source_image_path,
+                status_id=1,
+                stage=0,
+                image_id=db_image.oid,
+            )
+            
+            # Create task
+            task = SerialEMImportTaskDto(
+                task_id=task_id,
+                task_alias=f"lftj_{filename}_{job.oid}",
+                file_name=f"{filename}",
+                image_id=db_image.oid,
+                image_name=os.path.splitext(os.path.basename(source_image_path))[0],
+                frame_name=frame_name,
+                image_path=source_image_path,
+                frame_path=source_frame_path,
+                job_dto=self.params,
+                status=1,
+                pixel_size=(
+                    metadata.pixel_size * 10**-10 if metadata.pixel_size is not None 
+                    else self.params.default_data.pixel_size * 10**-10
+                ),
+                acceleration_voltage=(
+                    metadata.acceleration_voltage if metadata.acceleration_voltage is not None 
+                    else self.params.default_data.acceleration_voltage
+                ),
+                spherical_aberration=(
+                    metadata.spherical_aberration if metadata.spherical_aberration is not None 
+                    else self.params.default_data.spherical_aberration
                 )
-            metadata_list, navigator_dict = parse_directory(files, settings_txt_path,self.params.default_data.dict(),unique_navigator_labels)
+            )
+            
+            return db_image, job_item, task
+            
+        except ValueError as e:
+            logger.error(
+                f"Conversion failed for {metadata.file_path}: {e}",
+                exc_info=True
+            )
+            raise
+        except Exception as e:
+            logger.error(
+                f"Failed to process metadata entry for {metadata.file_path}: {e}",
+                exc_info=True
+            )
+            return None, None, None
+    
+    def _establish_parent_child_relationships(
+        self,
+        db_session: Session,
+        db_image_list: List[Image],
+        navigator_dict: Dict,
+        unique_navigator_labels: List,
+        magellon_session_name: str,
+        image_dict: Dict[str, uuid.UUID]
+    ):
+        """Establish parent-child relationships between images (warning only on failure)."""
+        if not unique_navigator_labels or not navigator_dict:
+            logger.warning(
+                "Navigator data not available, skipping parent-child relationship mapping"
+            )
+            return
+        
+        parent_child = {}
+        
+        for db_image in db_image_list:
+            try:
+                parent_name = find_parent_with_partial_child(
+                    db_image.name,
+                    navigator_dict,
+                    unique_navigator_labels,
+                    magellon_session_name
+                )
+                
+                if parent_name:
+                    parent_key = f'{magellon_session_name}_{parent_name}'
+                    if parent_key in image_dict:
+                        parent_child[db_image.oid] = image_dict[parent_key]
+                        logger.debug(
+                            f"Mapped child '{db_image.name}' to parent '{parent_name}'"
+                        )
+                    else:
+                        logger.warning(
+                            f"Parent '{parent_name}' not found in image dict for child '{db_image.name}'"
+                        )
+            except Exception as e:
+                logger.warning(
+                    f"Could not determine parent for '{db_image.name}': {e}"
+                )
+                continue
+        
+        if parent_child:
+            try:
+                logger.info(
+                    f"Setting parent-child relationships for {len(parent_child)} images"
+                )
+                for child_id, parent_id in parent_child.items():
+                    db_session.query(Image).filter(
+                        Image.oid == child_id
+                    ).update({"parent_id": parent_id})
+                db_session.commit()
+                logger.info("Parent-child relationships successfully established")
+            except Exception as e:
+                logger.warning(
+                    f"Failed to set some parent-child relationships: {e}. "
+                    "Continuing with import."
+                )
+                # Don't raise - this is non-critical
+        else:
+            logger.warning(
+                "No parent-child relationships identified for this session"
+            )
+    
+    def create_db_project_session(self, db_session: Session):
+        """Main workflow for creating database project/session and importing data."""
+        try:
+            start_time = time.time()
+            
+            # Step 1: Get or create project and session
+            magellon_project = self._get_or_create_project(db_session)
+            magellon_session = self._get_or_create_session(db_session, magellon_project)
+            
+            if magellon_session is None:
+                raise ValueError("Failed to create or retrieve session")
+            
+            magellon_session_name = (
+                self.params.magellon_session_name or 
+                self.params.session_name
+            )
+            session_name = self.params.session_name
+            
+            # Step 2: Validate directory structure
+            settings_dir, gains_dir = self._validate_directory_structure()
+            
+            # Step 3: Find required files
+            settings_txt_path = self._find_settings_file(settings_dir)
+            gains_file_path = self._find_gains_file(gains_dir)
+            
+            # Step 4: Scan directory
+            
+            try:
+                files = scan_directory(self.params.serial_em_dir_path)
+                logger.info(f"Scanned directory, found files")
+            except FileNotFoundError as e:
+                raise FileNotFoundError(
+                    f"SerialEM directory not found: {self.params.serial_em_dir_path}"
+                ) from e
+            
+            # Step 5: Process montages
+            montage_paths, montages, unique_navigator_labels = self._process_montages(
+                magellon_session_name
+            )
+            
+            # Step 6: Parse metadata
+            try:
+                metadata_list, navigator_dict = parse_directory(
+                    files,
+                    settings_txt_path,
+                    self.params.default_data.dict(),
+                    unique_navigator_labels
+                )
+                logger.info(f"Parsed {len(metadata_list)} metadata entries")
+            except Exception as e:
+                logger.error(f"Failed to parse directory metadata: {e}", exc_info=True)
+                raise
             
             job = None
+            
             if len(metadata_list) > 0:
-                target_dir = os.path.join(MAGELLON_HOME_DIR, self.params.magellon_session_name)
+                # Step 7: Setup target directory
+                target_dir = os.path.join(MAGELLON_HOME_DIR, magellon_session_name)
                 self.params.target_directory = target_dir
-                self.create_directories(self.params.target_directory)
-
-                dest_path = os.path.join(self.params.target_directory, GAINS_SUB_URL)
-                gain_file_name = os.path.basename(gains_file_path)
-
-                if not os.path.exists(gains_file_path):
-                    raise FileNotFoundError(f"Gains file not found: {gains_file_path}")
-                if os.path.isdir(gains_file_path):
-                    shutil.copytree(gains_file_path, dest_path, dirs_exist_ok=True)
-                else:
-                    os.makedirs(dest_path, exist_ok=True)
-                    shutil.copy(gains_file_path, dest_path)
-
-                # Create a new job
-                job = ImageJob(
-                    name=f"SerialEM Import: {session_name}",
-                    description=f"SerialEM Import for session: {session_name}",
-                    created_date=datetime.now(),
-                    output_directory=self.params.camera_directory,
-                    msession_id=magellon_session.oid
-                )
-                db_session.add(job)
-                db_session.flush()
-
+                self.create_directories(target_dir)
+                
+                # Step 8: Copy gains file
+                try:
+                    gain_file_name = self._copy_gains_file(gains_file_path, target_dir)
+                except Exception as e:
+                    logger.error(f"Failed to copy gains file: {e}", exc_info=True)
+                    raise
+                
+                # Step 9: Create job
+                try:
+                    job = ImageJob(
+                        name=f"SerialEM Import: {session_name}",
+                        description=f"SerialEM Import for session: {session_name}",
+                        created_date=datetime.now(),
+                        output_directory=self.params.camera_directory,
+                        msession_id=magellon_session.oid
+                    )
+                    db_session.add(job)
+                    db_session.flush()
+                    logger.info(f"Created job: {job.name}")
+                except Exception as e:
+                    logger.error(f"Failed to create job: {e}", exc_info=True)
+                    raise
+                
+                # Initialize lists for batch operations
                 db_image_list = []
                 db_job_item_list = []
                 task_todo_list = []
                 image_dict = {}
-                parent_child={}
                 
-                for montage in montage_paths:
-                    filename = os.path.splitext(os.path.basename(montage))[0]
-                    task_id = uuid.uuid4()
-                    db_image = Image(
-                        oid=uuid.uuid4(),
-                        name=filename,
-                        magnification=self.params.default_data.magnification,
-                        defocus=0.0,
-                        dose=0.0,
-                        pixel_size=self.params.default_data.pixel_size*10**-10,
-                        binning_x=1,
-                        binning_y=1,
-                        stage_x=0.0,
-                        stage_y=0.0,
-                        stage_alpha_tilt=0.0,
-                        atlas_delta_row=0.0,
-                        atlas_delta_column=0.0,
-                        acceleration_voltage=self.params.default_data.acceleration_voltage,
-                        spherical_aberration=self.params.default_data.spherical_aberration,
-                        session_id=magellon_session.oid
+                # Step 10: Process montages
+                logger.info(f"Processing {len(montage_paths)} montage entries")
+                for montage_path in montage_paths:
+                    db_image, job_item, task = self._create_montage_image_entry(
+                        montage_path,
+                        magellon_session,
+                        job
                     )
-                    db_image_list.append(db_image)
-                    image_dict[filename] = db_image.oid
-
-                    job_item = ImageJobTask(
-                        oid=uuid.uuid4(),
-                        job_id=job.oid,
-                        frame_name=filename,
-                        frame_path=montage,
-                        image_name=filename,
-                        image_path=montage,
-                        status_id=1,
-                        stage=0,
-                        image_id=db_image.oid,
-                    )
-                    db_job_item_list.append(job_item)
-                    task = SerialEMImportTaskDto(
-                        task_id=task_id,
-                        task_alias=f"montage_{filename}_{job.oid}",
-                        file_name=filename,
-                        image_id=db_image.oid,
-                        image_name=filename,
-                        frame_name=filename,
-                        image_path=montage,
-                        frame_path=montage,
-                        job_dto=self.params,
-                        status=1,
-                        pixel_size=self.params.default_data.pixel_size*10**-10,
-                        acceleration_voltage=self.params.default_data.acceleration_voltage,
-                        spherical_aberration=self.params.default_data.spherical_aberration
-                    )
-                    task_todo_list.append(task)
-             
+                    
+                    if db_image and job_item and task:
+                        db_image_list.append(db_image)
+                        db_job_item_list.append(job_item)
+                        task_todo_list.append(task)
+                        image_dict[db_image.name] = db_image.oid
                 
-                # then I also need to add them to the db_list and db_job_item_list
-                # then I need to create a new task for each montage
-                # then I need to add the task to the task_todo_list
-                # then I need to attach the parent_child relationship.
+                # Step 11: Process metadata entries
+                logger.info(f"Processing {len(metadata_list)} metadata entries")
+                processed_count = 0
+                failed_count = 0
                 
-
                 for metadata in metadata_list:
-                    
-                    
                     try:
-                        filename = os.path.splitext(os.path.basename(metadata.file_path))[0]
-                        task_id = uuid.uuid4()
+                        db_image, job_item, task = self._process_metadata_entry(
+                            metadata,
+                            magellon_session,
+                            job,
+                            gain_file_name
+                        )
                         
-                        directory_path = os.path.join(
-                            os.environ.get("MAGELLON_JOBS_PATH", "/jobs"),
-                            str(task_id)
-                        )
-                        moviename = metadata.file_path
-                        gainname = os.path.join(self.params.target_directory, GAINS_SUB_URL, gain_file_name)
-                        outname = os.path.join(
-                            directory_path,
-                            f"{os.path.splitext(os.path.basename(metadata.file_path))[0]}.mrc"
-                        )
-                        if os.path.exists(moviename) and moviename.lower().endswith((".tif", ".tiff")):
-                            result_file = convert_tiff_to_mrc(moviename, gainname, outname)
-                            db_image = Image(
-                            oid=uuid.uuid4(),
-                            name=filename,
-                            magnification=( metadata.magnification if metadata.magnification is not None else self.params.default_data.magnification),
-                            defocus=metadata.defocus,
-                            dose=metadata.dose,
-                            pixel_size=( metadata.pixel_size*10**-10 if metadata.pixel_size is not None else self.params.default_data.pixel_size*10**-10),
-                            binning_x=metadata.binning_x,
-                            binning_y=metadata.binning_y,
-                            stage_x=metadata.stage_x,
-                            stage_y=metadata.stage_y,
-                            stage_alpha_tilt=metadata.stage_alpha_tilt,
-                            atlas_delta_row=metadata.atlas_delta_row,
-                            atlas_delta_column=metadata.atlas_delta_column,
-                            acceleration_voltage=metadata.acceleration_voltage if metadata.acceleration_voltage is not None else self.params.default_data.acceleration_voltage,
-                            spherical_aberration=metadata.spherical_aberration if metadata.spherical_aberration is not None else self.params.default_data.spherical_aberration,
-                            session_id=magellon_session.oid
-                        )
-
+                        if db_image and job_item and task:
                             db_image_list.append(db_image)
-                            image_dict[filename] = db_image.oid
-
-                            # Find source image and frame paths
-                            source_image_path = result_file
-                            source_frame_path = metadata.file_path
-
-                            # Handle path replacements if needed
-                            if hasattr(self.params, 'replace_type') and hasattr(self.params, 'replace_pattern') and hasattr(self.params, 'replace_with'):
-                                if self.params.replace_type in ["regex", "standard"]:
-                                    if source_frame_path:
-                                        source_frame_path = custom_replace(source_frame_path, self.params.replace_type,
-                                                                        self.params.replace_pattern, self.params.replace_with)
-                                    source_image_path = custom_replace(source_image_path, self.params.replace_type,
-                                                                    self.params.replace_pattern, self.params.replace_with)
-
-                            frame_name = os.path.splitext(os.path.basename(source_frame_path))[0] if source_frame_path else ""
-                            job_item = ImageJobTask(
-                                oid=uuid.uuid4(),
-                                job_id=job.oid,
-                                frame_name=frame_name,
-                                frame_path=source_frame_path,
-                                image_name=os.path.splitext(os.path.basename(source_image_path))[0],
-                                image_path=source_image_path,
-                                status_id=1,
-                                stage=0,
-                                image_id=db_image.oid,
-                            )
                             db_job_item_list.append(job_item)
-
-                            task = SerialEMImportTaskDto(
-                                task_id=task_id,
-                                task_alias=f"lftj_{filename}_{job.oid}",
-                                file_name=f"{filename}",
-                                image_id=db_image.oid,
-                                image_name=os.path.splitext(os.path.basename(source_image_path))[0],
-                                frame_name=frame_name,
-                                image_path=source_image_path,
-                                frame_path=source_frame_path,
-                                job_dto=self.params,
-                                status=1,
-                                pixel_size=( metadata.pixel_size*10**-10 if metadata.pixel_size is not None else self.params.default_data.pixel_size*10**-10),
-                                acceleration_voltage=(metadata.acceleration_voltage if metadata.acceleration_voltage is not None else self.params.default_data.acceleration_voltage),
-                                spherical_aberration=(metadata.spherical_aberration if metadata.spherical_aberration is not None else self.params.default_data.spherical_aberration)
-                            )
                             task_todo_list.append(task)
-                    except ValueError as err:
-                        logger.error(f"Convertion of TIFF to MRC preview image failed for file {metadata.file_path}: {err}", exc_info=True)
-                        raise ValueError(f"Preview image conversion failed for: {metadata.file_path}") from err
+                            image_dict[db_image.name] = db_image.oid
+                            processed_count += 1
+                    except ValueError as e:
+                        # TIFF conversion error - log and re-raise
+                        logger.error(
+                            f"Conversion failed for {metadata.file_path}: {e}",
+                            exc_info=True
+                        )
+                        failed_count += 1
+                        raise
+                    except Exception as e:
+                        # Other errors - log and continue
+                        logger.error(
+                            f"Failed to process {metadata.file_path}: {e}",
+                            exc_info=True
+                        )
+                        failed_count += 1
+                        continue
                 
-                for db_image in db_image_list:
-                    parent_name = find_parent_with_partial_child(db_image.name, navigator_dict, unique_navigator_labels,magellon_session_name)
-                    print(db_image.name, "->", parent_name)
-                    if parent_name and f'{magellon_session_name}_{parent_name}' in image_dict:
-                        print("inside image+dict")
-                        parent_child[db_image.oid] = image_dict[f'{magellon_session_name}_{parent_name}']
+                logger.info(
+                    f"Metadata processing complete: {processed_count} successful, "
+                    f"{failed_count} failed"
+                )
                 
-                
-                # Save all records
-                db_session.bulk_save_objects(db_image_list)
-                db_session.bulk_save_objects(db_job_item_list)
-                db_session.commit()
-                if parent_child:
-                   
-                    logger.info(f"Setting parent-child relationships for {len(parent_child)} images")
-                    for child_id, parent_id in parent_child.items():
-                        db_session.query(Image).filter(Image.oid == child_id).update({"parent_id": parent_id})
+                # Step 12: Save all records
+                try:
+                    db_session.bulk_save_objects(db_image_list)
+                    db_session.bulk_save_objects(db_job_item_list)
                     db_session.commit()
-                else:
-                    logger.warning("No parent-child relationships identified")
-                # Run tasks if needed
+                    logger.info(
+                        f"Saved {len(db_image_list)} images and "
+                        f"{len(db_job_item_list)} job items to database"
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to save database records: {e}", exc_info=True)
+                    raise
+                
+                # Step 13: Establish parent-child relationships (warning only)
+                self._establish_parent_child_relationships(
+                    db_session,
+                    db_image_list,
+                    navigator_dict,
+                    unique_navigator_labels,
+                    magellon_session_name,
+                    image_dict
+                )
+                
+                # Step 14: Run tasks if needed
                 if getattr(self.params, 'if_do_subtasks', True):
-                    self.run_tasks(task_todo_list)
-
+                    try:
+                        logger.info(f"Running {len(task_todo_list)} tasks")
+                        self.run_tasks(task_todo_list)
+                    except Exception as e:
+                        logger.error(f"Task execution failed: {e}", exc_info=True)
+                        raise
+            
             execution_time = time.time() - start_time
-            logger.info(f"serialEM import completed in {execution_time:.2f} seconds")
-
-            if job: 
+            logger.info(f"SerialEM import completed in {execution_time:.2f} seconds")
+            
+            if job:
                 return {
                     'status': 'success',
                     'message': 'Job completed successfully.',
-                    "job_id": job.oid
+                    'job_id': job.oid
                 }
             else:
                 return {
                     'status': 'success',
                     'message': 'No valid .mdoc/movie files found, no job created.'
                 }
-
+        
         except FileNotFoundError as e:
             error_message = f"File not found error: {str(e)}"
             logger.error(error_message, exc_info=True)
             db_session.rollback()
             return {
                 'status': 'failure',
-                'message': f'EPU import failed: {str(e)}',
-                # 'job_id': str(getattr(self, 'db_job', {}).get('oid', ''))
+                'message': f'SerialEM import failed: {str(e)}'
             }
+        
         except OSError as e:
             error_message = f"OS error while accessing files or directories: {str(e)}"
             logger.error(error_message, exc_info=True)
             db_session.rollback()
             return {
                 'status': 'failure',
-                'message': f'EPU import failed: {str(e)}',
-                # 'job_id': str(getattr(self, 'db_job', {}).get('oid', ''))
+                'message': f'SerialEM import failed: {str(e)}'
             }
+        
         except ValueError as e:
             error_message = f"Data value error: {str(e)}"
             logger.error(error_message, exc_info=True)
             db_session.rollback()
             return {
                 'status': 'failure',
-                'message': f'EPU import failed: {str(e)}',
-                # 'job_id': str(getattr(self, 'db_job', {}).get('oid', ''))
+                'message': f'SerialEM import failed: {str(e)}'
             }
+        
         except Exception as e:
             error_message = f"An unexpected error occurred: {str(e)}"
             logger.error(error_message, exc_info=True)
             db_session.rollback()
             return {
                 'status': 'failure',
-                'message': error_message,
-                # 'job_id': str(getattr(self, 'db_job', {}).get('oid', ''))
+                'message': error_message
             }
-
