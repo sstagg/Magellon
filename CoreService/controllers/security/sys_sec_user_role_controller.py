@@ -121,8 +121,18 @@ def get_user_roles(user_id: UUID, db: Session = Depends(get_db)):
         )
 
     try:
-        roles = SysSecUserRoleRepository.fetch_roles_by_user(db, user_id)
-        return [UserRoleDetailDto(**role) for role in roles]
+        user_roles = SysSecUserRoleRepository.fetch_roles_by_user(db, user_id)
+        return [
+            UserRoleDetailDto(
+                oid=ur.oid,
+                user_id=ur.People,
+                role_id=ur.Roles,
+                role_name=ur.sys_sec_role.Name,
+                is_administrative=ur.sys_sec_role.IsAdministrative,
+                can_edit_model=ur.sys_sec_role.CanEditModel
+            )
+            for ur in user_roles
+        ]
 
     except Exception as e:
         logger.exception('Error fetching user roles')
@@ -146,12 +156,19 @@ def get_role_users(role_id: UUID, db: Session = Depends(get_db)):
         )
 
     try:
-        users = SysSecUserRoleRepository.fetch_users_by_role(db, role_id)
+        user_roles = SysSecUserRoleRepository.fetch_users_by_role(db, role_id)
         return {
             "role_id": role_id,
-            "role_name": role['name'],
-            "user_count": len(users),
-            "users": users
+            "role_name": role.Name,
+            "user_count": len(user_roles),
+            "users": [
+                {
+                    "user_id": str(ur.People),
+                    "username": ur.sys_sec_user.USERNAME,
+                    "active": ur.sys_sec_user.ACTIVE
+                }
+                for ur in user_roles
+            ]
         }
 
     except Exception as e:
@@ -259,7 +276,7 @@ async def bulk_assign_role(
         return {
             "message": "Bulk role assignment successful",
             "role_id": bulk_request.role_id,
-            "role_name": role['name'],
+            "role_name": role.Name,
             "total_requested": len(bulk_request.user_ids),
             "newly_assigned": len(assigned_users),
             "already_assigned": len(bulk_request.user_ids) - len(assigned_users)

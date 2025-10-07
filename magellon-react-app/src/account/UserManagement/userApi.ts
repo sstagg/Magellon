@@ -81,6 +81,25 @@ class UserApiService {
         return response.json();
     }
 
+    // Transform API response from uppercase to lowercase field names
+    private transformUser(apiUser: any): ApiUser {
+        return {
+            oid: apiUser.oid,
+            username: apiUser.USERNAME || apiUser.username,
+            active: apiUser.ACTIVE !== undefined ? apiUser.ACTIVE : apiUser.active,
+            created_date: apiUser.created_date,
+            last_modified_date: apiUser.last_modified_date,
+            omid: apiUser.omid,
+            ouid: apiUser.ouid,
+            sync_status: apiUser.sync_status,
+            version: apiUser.version,
+            change_password_on_first_logon: apiUser.ChangePasswordOnFirstLogon || apiUser.change_password_on_first_logon,
+            object_type: apiUser.ObjectType || apiUser.object_type,
+            access_failed_count: apiUser.AccessFailedCount || apiUser.access_failed_count,
+            lockout_end: apiUser.LockoutEnd || apiUser.lockout_end,
+        };
+    }
+
     // Get all users with pagination and filters
     async getUsers(params: {
         skip?: number;
@@ -96,33 +115,38 @@ class UserApiService {
         if (params.include_inactive !== undefined) searchParams.set('include_inactive', params.include_inactive.toString());
 
         const endpoint = `/?${searchParams.toString()}`;
-        return this.request<ApiUser[]>(endpoint);
+        const users = await this.request<any[]>(endpoint);
+        return users.map(user => this.transformUser(user));
     }
 
     // Get user by ID
     async getUserById(userId: string): Promise<ApiUser> {
-        return this.request<ApiUser>(`/${userId}`);
+        const user = await this.request<any>(`/${userId}`);
+        return this.transformUser(user);
     }
 
     // Get user by username
     async getUserByUsername(username: string): Promise<ApiUser> {
-        return this.request<ApiUser>(`/username/${username}`);
+        const user = await this.request<any>(`/username/${username}`);
+        return this.transformUser(user);
     }
 
     // Create new user
     async createUser(userData: CreateUserRequest): Promise<ApiUser> {
-        return this.request<ApiUser>('/', {
+        const user = await this.request<any>('/', {
             method: 'POST',
             body: JSON.stringify(userData),
         });
+        return this.transformUser(user);
     }
 
     // Update user
     async updateUser(userData: UpdateUserRequest): Promise<ApiUser> {
-        return this.request<ApiUser>('/', {
+        const user = await this.request<any>('/', {
             method: 'PUT',
             body: JSON.stringify(userData),
         });
+        return this.transformUser(user);
     }
 
     // Delete user

@@ -4,8 +4,10 @@ Repository for sys_sec_type_permission table operations
 from typing import List, Optional, Dict
 from uuid import UUID, uuid4
 
-from sqlalchemy.orm import Session
+from sqlalchemy import and_
+from sqlalchemy.orm import Session, joinedload
 
+from models.sqlalchemy_models import SysSecTypePermission, SysSecRole
 import logging
 
 logger = logging.getLogger(__name__)
@@ -24,7 +26,7 @@ class SysSecTypePermissionRepository:
         create_state: int = 0,
         delete_state: int = 0,
         navigate_state: int = 0
-    ):
+    ) -> SysSecTypePermission:
         """
         Create a type permission for a role
         States: 0 = Deny, 1 = Allow
@@ -37,42 +39,22 @@ class SysSecTypePermissionRepository:
             if existing:
                 return existing
 
-            from sqlalchemy import text
-            insert_query = text("""
-                INSERT INTO sys_sec_type_permission 
-                ("Oid", "TargetType", "Role", "ReadState", "WriteState", "CreateState", 
-                 "DeleteState", "NavigateState", "OptimisticLockField")
-                VALUES (:oid, :target_type, :role_id, :read_state, :write_state, :create_state,
-                        :delete_state, :navigate_state, 0)
-                RETURNING "Oid", "TargetType", "Role", "ReadState", "WriteState", "CreateState",
-                          "DeleteState", "NavigateState", "OptimisticLockField"
-            """)
+            permission = SysSecTypePermission(
+                Oid=uuid4(),
+                TargetType=target_type,
+                Role=role_id,
+                ReadState=read_state,
+                WriteState=write_state,
+                CreateState=create_state,
+                DeleteState=delete_state,
+                NavigateState=navigate_state,
+                OptimisticLockField=0
+            )
 
-            result = db.execute(insert_query, {
-                "oid": uuid4(),
-                "target_type": target_type,
-                "role_id": role_id,
-                "read_state": read_state,
-                "write_state": write_state,
-                "create_state": create_state,
-                "delete_state": delete_state,
-                "navigate_state": navigate_state
-            })
-
+            db.add(permission)
             db.commit()
-            row = result.fetchone()
-
-            return {
-                "oid": row[0],
-                "target_type": row[1],
-                "role_id": row[2],
-                "read_state": row[3],
-                "write_state": row[4],
-                "create_state": row[5],
-                "delete_state": row[6],
-                "navigate_state": row[7],
-                "OptimisticLockField": row[8]
-            }
+            db.refresh(permission)
+            return permission
 
         except Exception as e:
             db.rollback()
@@ -88,67 +70,39 @@ class SysSecTypePermissionRepository:
         create_state: Optional[int] = None,
         delete_state: Optional[int] = None,
         navigate_state: Optional[int] = None
-    ):
+    ) -> Optional[SysSecTypePermission]:
         """
         Update type permission states
         """
         try:
-            # Build update fields dynamically
-            update_fields = []
-            params = {"permission_id": permission_id}
+            permission = db.query(SysSecTypePermission).filter(
+                SysSecTypePermission.Oid == permission_id
+            ).first()
 
-            if read_state is not None:
-                update_fields.append('"ReadState" = :read_state')
-                params["read_state"] = read_state
-
-            if write_state is not None:
-                update_fields.append('"WriteState" = :write_state')
-                params["write_state"] = write_state
-
-            if create_state is not None:
-                update_fields.append('"CreateState" = :create_state')
-                params["create_state"] = create_state
-
-            if delete_state is not None:
-                update_fields.append('"DeleteState" = :delete_state')
-                params["delete_state"] = delete_state
-
-            if navigate_state is not None:
-                update_fields.append('"NavigateState" = :navigate_state')
-                params["navigate_state"] = navigate_state
-
-            if not update_fields:
-                return SysSecTypePermissionRepository.fetch_by_id(db, permission_id)
-
-            update_fields.append('"OptimisticLockField" = "OptimisticLockField" + 1')
-
-            from sqlalchemy import text
-            update_query = text(f"""
-                UPDATE sys_sec_type_permission
-                SET {', '.join(update_fields)}
-                WHERE "Oid" = :permission_id
-                RETURNING "Oid", "TargetType", "Role", "ReadState", "WriteState", "CreateState",
-                          "DeleteState", "NavigateState", "OptimisticLockField"
-            """)
-
-            result = db.execute(update_query, params)
-            db.commit()
-            row = result.fetchone()
-
-            if row is None:
+            if not permission:
                 return None
 
-            return {
-                "oid": row[0],
-                "target_type": row[1],
-                "role_id": row[2],
-                "read_state": row[3],
-                "write_state": row[4],
-                "create_state": row[5],
-                "delete_state": row[6],
-                "navigate_state": row[7],
-                "OptimisticLockField": row[8]
-            }
+            # Update fields if provided
+            if read_state is not None:
+                permission.ReadState = read_state
+            if write_state is not None:
+                permission.WriteState = write_state
+            if create_state is not None:
+                permission.CreateState = create_state
+            if delete_state is not None:
+                permission.DeleteState = delete_state
+            if navigate_state is not None:
+                permission.NavigateState = navigate_state
+
+            # Increment optimistic lock
+            if permission.OptimisticLockField:
+                permission.OptimisticLockField += 1
+            else:
+                permission.OptimisticLockField = 1
+
+            db.commit()
+            db.refresh(permission)
+            return permission
 
         except Exception as e:
             db.rollback()
@@ -156,157 +110,65 @@ class SysSecTypePermissionRepository:
             raise e
 
     @staticmethod
-    def fetch_by_id(db: Session, permission_id: UUID):
+    def fetch_by_id(db: Session, permission_id: UUID) -> Optional[SysSecTypePermission]:
         """
         Fetch type permission by ID
         """
-        from sqlalchemy import text
-        query = text("""
-            SELECT "Oid", "TargetType", "Role", "ReadState", "WriteState", "CreateState",
-                   "DeleteState", "NavigateState", "OptimisticLockField"
-            FROM sys_sec_type_permission
-            WHERE "Oid" = :permission_id
-        """)
-
-        result = db.execute(query, {"permission_id": permission_id})
-        row = result.fetchone()
-
-        if row is None:
-            return None
-
-        return {
-            "oid": row[0],
-            "target_type": row[1],
-            "role_id": row[2],
-            "read_state": row[3],
-            "write_state": row[4],
-            "create_state": row[5],
-            "delete_state": row[6],
-            "navigate_state": row[7],
-            "OptimisticLockField": row[8]
-        }
+        return db.query(SysSecTypePermission).filter(
+            SysSecTypePermission.Oid == permission_id
+        ).first()
 
     @staticmethod
-    def fetch_by_role_and_type(db: Session, role_id: UUID, target_type: str):
+    def fetch_by_role_and_type(db: Session, role_id: UUID, target_type: str) -> Optional[SysSecTypePermission]:
         """
         Fetch type permission by role and target type
         """
-        from sqlalchemy import text
-        query = text("""
-            SELECT "Oid", "TargetType", "Role", "ReadState", "WriteState", "CreateState",
-                   "DeleteState", "NavigateState", "OptimisticLockField"
-            FROM sys_sec_type_permission
-            WHERE "Role" = :role_id AND "TargetType" = :target_type
-        """)
-
-        result = db.execute(query, {
-            "role_id": role_id,
-            "target_type": target_type
-        })
-        row = result.fetchone()
-
-        if row is None:
-            return None
-
-        return {
-            "oid": row[0],
-            "target_type": row[1],
-            "role_id": row[2],
-            "read_state": row[3],
-            "write_state": row[4],
-            "create_state": row[5],
-            "delete_state": row[6],
-            "navigate_state": row[7],
-            "OptimisticLockField": row[8]
-        }
+        return db.query(SysSecTypePermission).filter(
+            and_(
+                SysSecTypePermission.Role == role_id,
+                SysSecTypePermission.TargetType == target_type
+            )
+        ).first()
 
     @staticmethod
-    def fetch_by_role(db: Session, role_id: UUID):
+    def fetch_by_role(db: Session, role_id: UUID) -> List[SysSecTypePermission]:
         """
         Fetch all type permissions for a role
         """
-        from sqlalchemy import text
-        query = text("""
-            SELECT "Oid", "TargetType", "Role", "ReadState", "WriteState", "CreateState",
-                   "DeleteState", "NavigateState", "OptimisticLockField"
-            FROM sys_sec_type_permission
-            WHERE "Role" = :role_id
-            ORDER BY "TargetType"
-        """)
-
-        result = db.execute(query, {"role_id": role_id})
-        rows = result.fetchall()
-
-        return [
-            {
-                "oid": row[0],
-                "target_type": row[1],
-                "role_id": row[2],
-                "read_state": row[3],
-                "write_state": row[4],
-                "create_state": row[5],
-                "delete_state": row[6],
-                "navigate_state": row[7],
-                "OptimisticLockField": row[8]
-            }
-            for row in rows
-        ]
+        return db.query(SysSecTypePermission).filter(
+            SysSecTypePermission.Role == role_id
+        ).order_by(SysSecTypePermission.TargetType).all()
 
     @staticmethod
-    def fetch_by_type(db: Session, target_type: str):
+    def fetch_by_type(db: Session, target_type: str) -> List[SysSecTypePermission]:
         """
         Fetch all roles that have permissions for a specific type
         """
-        from sqlalchemy import text
-        query = text("""
-            SELECT 
-                tp."Oid",
-                tp."TargetType",
-                tp."Role",
-                tp."ReadState",
-                tp."WriteState",
-                tp."CreateState",
-                tp."DeleteState",
-                tp."NavigateState",
-                tp."OptimisticLockField",
-                r."Name" as role_name,
-                r."IsAdministrative"
-            FROM sys_sec_type_permission tp
-            JOIN sys_sec_role r ON tp."Role" = r."Oid"
-            WHERE tp."TargetType" = :target_type AND r."GCRecord" IS NULL
-            ORDER BY r."Name"
-        """)
-
-        result = db.execute(query, {"target_type": target_type})
-        rows = result.fetchall()
-
-        return [
-            {
-                "oid": row[0],
-                "target_type": row[1],
-                "role_id": row[2],
-                "read_state": row[3],
-                "write_state": row[4],
-                "create_state": row[5],
-                "delete_state": row[6],
-                "navigate_state": row[7],
-                "OptimisticLockField": row[8],
-                "role_name": row[9],
-                "is_administrative": row[10]
-            }
-            for row in rows
-        ]
+        return db.query(SysSecTypePermission).options(
+            joinedload(SysSecTypePermission.sys_sec_role)
+        ).join(
+            SysSecRole, SysSecTypePermission.Role == SysSecRole.Oid
+        ).filter(
+            and_(
+                SysSecTypePermission.TargetType == target_type,
+                SysSecRole.GCRecord.is_(None)
+            )
+        ).order_by(SysSecRole.Name).all()
 
     @staticmethod
-    def delete(db: Session, permission_id: UUID):
+    def delete(db: Session, permission_id: UUID) -> bool:
         """
         Delete a type permission
         """
         try:
-            from sqlalchemy import text
-            query = text('DELETE FROM sys_sec_type_permission WHERE "Oid" = :permission_id')
+            permission = db.query(SysSecTypePermission).filter(
+                SysSecTypePermission.Oid == permission_id
+            ).first()
 
-            db.execute(query, {"permission_id": permission_id})
+            if not permission:
+                return False
+
+            db.delete(permission)
             db.commit()
             return True
 
@@ -316,21 +178,22 @@ class SysSecTypePermissionRepository:
             raise e
 
     @staticmethod
-    def delete_by_role_and_type(db: Session, role_id: UUID, target_type: str):
+    def delete_by_role_and_type(db: Session, role_id: UUID, target_type: str) -> bool:
         """
         Delete type permission by role and type
         """
         try:
-            from sqlalchemy import text
-            query = text("""
-                DELETE FROM sys_sec_type_permission
-                WHERE "Role" = :role_id AND "TargetType" = :target_type
-            """)
+            permission = db.query(SysSecTypePermission).filter(
+                and_(
+                    SysSecTypePermission.Role == role_id,
+                    SysSecTypePermission.TargetType == target_type
+                )
+            ).first()
 
-            db.execute(query, {
-                "role_id": role_id,
-                "target_type": target_type
-            })
+            if not permission:
+                return False
+
+            db.delete(permission)
             db.commit()
             return True
 
@@ -340,15 +203,14 @@ class SysSecTypePermissionRepository:
             raise e
 
     @staticmethod
-    def delete_all_for_role(db: Session, role_id: UUID):
+    def delete_all_for_role(db: Session, role_id: UUID) -> bool:
         """
         Delete all type permissions for a role
         """
         try:
-            from sqlalchemy import text
-            query = text('DELETE FROM sys_sec_type_permission WHERE "Role" = :role_id')
-
-            db.execute(query, {"role_id": role_id})
+            db.query(SysSecTypePermission).filter(
+                SysSecTypePermission.Role == role_id
+            ).delete()
             db.commit()
             return True
 
@@ -358,39 +220,26 @@ class SysSecTypePermissionRepository:
             raise e
 
     @staticmethod
-    def fetch_all_types(db: Session):
+    def fetch_all_types(db: Session) -> List[str]:
         """
         Fetch all distinct target types from the system
         """
-        from sqlalchemy import text
-        query = text("""
-            SELECT DISTINCT "TargetType"
-            FROM sys_sec_type_permission
-            ORDER BY "TargetType"
-        """)
-
-        result = db.execute(query)
-        rows = result.fetchall()
-
-        return [row[0] for row in rows]
+        results = db.query(SysSecTypePermission.TargetType).distinct().order_by(
+            SysSecTypePermission.TargetType
+        ).all()
+        return [row[0] for row in results]
 
     @staticmethod
     def count_permissions_for_role(db: Session, role_id: UUID) -> int:
         """
         Count type permissions for a role
         """
-        from sqlalchemy import text
-        query = text("""
-            SELECT COUNT(*)
-            FROM sys_sec_type_permission
-            WHERE "Role" = :role_id
-        """)
-
-        result = db.execute(query, {"role_id": role_id})
-        return result.scalar()
+        return db.query(SysSecTypePermission).filter(
+            SysSecTypePermission.Role == role_id
+        ).count()
 
     @staticmethod
-    def grant_full_access(db: Session, role_id: UUID, target_type: str):
+    def grant_full_access(db: Session, role_id: UUID, target_type: str) -> SysSecTypePermission:
         """
         Grant full access (all operations) for a type to a role
         """
@@ -404,7 +253,7 @@ class SysSecTypePermissionRepository:
         )
 
     @staticmethod
-    def grant_read_only(db: Session, role_id: UUID, target_type: str):
+    def grant_read_only(db: Session, role_id: UUID, target_type: str) -> SysSecTypePermission:
         """
         Grant read-only access for a type to a role
         """

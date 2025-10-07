@@ -13,6 +13,7 @@ from models.security.security_models import (
     RoleUpdateDto,
     RoleResponseDto
 )
+from models.sqlalchemy_models import SysSecRole
 import logging
 
 logger = logging.getLogger(__name__)
@@ -22,61 +23,25 @@ class SysSecRoleRepository:
     """Repository for managing security roles"""
 
     @staticmethod
-    def create(db: Session, role_dto: RoleCreateDto, created_by: Optional[UUID] = None):
+    def create(db: Session, role_dto: RoleCreateDto, created_by: Optional[UUID] = None) -> SysSecRole:
         """
         Create a new role
         """
         try:
-            # Create role dictionary
-            role_data = {
-                "Oid": uuid4(),
-                "Name": role_dto.name,
-                "IsAdministrative": role_dto.is_administrative,
-                "CanEditModel": role_dto.can_edit_model,
-                "PermissionPolicy": role_dto.permission_policy,
-                "OptimisticLockField": 0,
-                "GCRecord": None
-            }
+            role = SysSecRole(
+                Oid=uuid4(),
+                Name=role_dto.name,
+                IsAdministrative=role_dto.is_administrative,
+                CanEditModel=role_dto.can_edit_model,
+                PermissionPolicy=role_dto.permission_policy,
+                OptimisticLockField=0,
+                GCRecord=None
+            )
 
-            # Execute raw SQL insert
-            from sqlalchemy import text
-            insert_query = text("""
-                INSERT INTO sys_sec_role 
-                ("Oid", "Name", "IsAdministrative", "CanEditModel", "PermissionPolicy", 
-                  "OptimisticLockField", "GCRecord")
-                VALUES 
-                (:oid, :name, :is_administrative, :can_edit_model, :permission_policy,
-                 :tenant_id, :optimistic_lock_field, :gc_record)
-                RETURNING "Oid", "Name", "IsAdministrative", "CanEditModel", "PermissionPolicy",
-                           "OptimisticLockField", "GCRecord", "ObjectType"
-            """)
-
-            result = db.execute(insert_query, {
-                "oid": role_data["Oid"],
-                "name": role_data["Name"],
-                "is_administrative": role_data["IsAdministrative"],
-                "can_edit_model": role_data["CanEditModel"],
-                "permission_policy": role_data["PermissionPolicy"],
-                "optimistic_lock_field": role_data["OptimisticLockField"],
-                "gc_record": role_data["GCRecord"]
-            })
-
+            db.add(role)
             db.commit()
-            row = result.fetchone()
-
-            # Convert row to dict
-            role_dict = {
-                "oid": row[0],
-                "name": row[1],
-                "is_administrative": row[2],
-                "can_edit_model": row[3],
-                "permission_policy": row[4],
-                "OptimisticLockField": row[6],
-                "GCRecord": row[7],
-                "ObjectType": row[8]
-            }
-
-            return role_dict
+            db.refresh(role)
+            return role
 
         except Exception as e:
             db.rollback()
@@ -84,67 +49,40 @@ class SysSecRoleRepository:
             raise e
 
     @staticmethod
-    def update(db: Session, role_dto: RoleUpdateDto, updated_by: Optional[UUID] = None):
+    def update(db: Session, role_dto: RoleUpdateDto, updated_by: Optional[UUID] = None) -> Optional[SysSecRole]:
         """
         Update an existing role
         """
         try:
-            # Build update fields dynamically
-            update_fields = []
-            params = {"oid": role_dto.oid}
+            role = db.query(SysSecRole).filter(
+                and_(
+                    SysSecRole.Oid == role_dto.oid,
+                    SysSecRole.GCRecord.is_(None)
+                )
+            ).first()
 
-            if role_dto.name is not None:
-                update_fields.append('"Name" = :name')
-                params["name"] = role_dto.name
-
-            if role_dto.is_administrative is not None:
-                update_fields.append('"IsAdministrative" = :is_administrative')
-                params["is_administrative"] = role_dto.is_administrative
-
-            if role_dto.can_edit_model is not None:
-                update_fields.append('"CanEditModel" = :can_edit_model')
-                params["can_edit_model"] = role_dto.can_edit_model
-
-            if role_dto.permission_policy is not None:
-                update_fields.append('"PermissionPolicy" = :permission_policy')
-                params["permission_policy"] = role_dto.permission_policy
-
-            if not update_fields:
-                # Nothing to update
-                return SysSecRoleRepository.fetch_by_id(db, role_dto.oid)
-
-            # Add optimistic lock increment
-            update_fields.append('"OptimisticLockField" = "OptimisticLockField" + 1')
-
-            from sqlalchemy import text
-            update_query = text(f"""
-                UPDATE sys_sec_role
-                SET {', '.join(update_fields)}
-                WHERE "Oid" = :oid
-                RETURNING "Oid", "Name", "IsAdministrative", "CanEditModel", "PermissionPolicy",
-                          "tenant_id", "OptimisticLockField", "GCRecord", "ObjectType"
-            """)
-
-            result = db.execute(update_query, params)
-            db.commit()
-            row = result.fetchone()
-
-            if row is None:
+            if not role:
                 return None
 
-            role_dict = {
-                "oid": row[0],
-                "name": row[1],
-                "is_administrative": row[2],
-                "can_edit_model": row[3],
-                "permission_policy": row[4],
-                "tenant_id": row[5],
-                "OptimisticLockField": row[6],
-                "GCRecord": row[7],
-                "ObjectType": row[8]
-            }
+            # Update fields if provided
+            if role_dto.name is not None:
+                role.Name = role_dto.name
+            if role_dto.is_administrative is not None:
+                role.IsAdministrative = role_dto.is_administrative
+            if role_dto.can_edit_model is not None:
+                role.CanEditModel = role_dto.can_edit_model
+            if role_dto.permission_policy is not None:
+                role.PermissionPolicy = role_dto.permission_policy
 
-            return role_dict
+            # Increment optimistic lock
+            if role.OptimisticLockField:
+                role.OptimisticLockField += 1
+            else:
+                role.OptimisticLockField = 1
+
+            db.commit()
+            db.refresh(role)
+            return role
 
         except Exception as e:
             db.rollback()
@@ -152,233 +90,114 @@ class SysSecRoleRepository:
             raise e
 
     @staticmethod
-    def fetch_by_id(db: Session, role_id: UUID):
+    def fetch_by_id(db: Session, role_id: UUID) -> Optional[SysSecRole]:
         """
         Fetch role by ID
         """
-        from sqlalchemy import text
-        query = text("""
-            SELECT "Oid", "Name", "IsAdministrative", "CanEditModel", "PermissionPolicy",
-                   "tenant_id", "OptimisticLockField", "GCRecord", "ObjectType"
-            FROM sys_sec_role
-            WHERE "Oid" = :role_id AND "GCRecord" IS NULL
-        """)
-
-        result = db.execute(query, {"role_id": role_id})
-        row = result.fetchone()
-
-        if row is None:
-            return None
-
-        return {
-            "oid": row[0],
-            "name": row[1],
-            "is_administrative": row[2],
-            "can_edit_model": row[3],
-            "permission_policy": row[4],
-            "tenant_id": row[5],
-            "OptimisticLockField": row[6],
-            "GCRecord": row[7],
-            "ObjectType": row[8]
-        }
+        return db.query(SysSecRole).filter(
+            and_(
+                SysSecRole.Oid == role_id,
+                SysSecRole.GCRecord.is_(None)
+            )
+        ).first()
 
     @staticmethod
-    def fetch_by_name(db: Session, name: str):
+    def fetch_by_name(db: Session, name: str) -> Optional[SysSecRole]:
         """
         Fetch role by name
         """
-        from sqlalchemy import text
-        query = text("""
-            SELECT "Oid", "Name", "IsAdministrative", "CanEditModel", "PermissionPolicy",
-                   "tenant_id", "OptimisticLockField", "GCRecord", "ObjectType"
-            FROM sys_sec_role
-            WHERE "Name" = :name AND "GCRecord" IS NULL
-        """)
-
-        result = db.execute(query, {"name": name})
-        row = result.fetchone()
-
-        if row is None:
-            return None
-
-        return {
-            "oid": row[0],
-            "name": row[1],
-            "is_administrative": row[2],
-            "can_edit_model": row[3],
-            "permission_policy": row[4],
-            "tenant_id": row[5],
-            "OptimisticLockField": row[6],
-            "GCRecord": row[7],
-            "ObjectType": row[8]
-        }
+        return db.query(SysSecRole).filter(
+            and_(
+                SysSecRole.Name == name,
+                SysSecRole.GCRecord.is_(None)
+            )
+        ).first()
 
     @staticmethod
-    def fetch_all(db: Session, skip: int = 0, limit: int = 100, tenant_id: Optional[UUID] = None):
+    def fetch_all(db: Session, skip: int = 0, limit: int = 100) -> List[SysSecRole]:
         """
         Fetch all roles with pagination
         """
-        from sqlalchemy import text
-
-        if tenant_id:
-            query = text("""
-                SELECT "Oid", "Name", "IsAdministrative", "CanEditModel", "PermissionPolicy",
-                       "tenant_id", "OptimisticLockField", "GCRecord", "ObjectType"
-                FROM sys_sec_role
-                WHERE "GCRecord" IS NULL AND ("tenant_id" = :tenant_id OR "tenant_id" IS NULL)
-                ORDER BY "Name"
-                LIMIT :limit OFFSET :skip
-            """)
-            params = {"skip": skip, "limit": limit, "tenant_id": tenant_id}
-        else:
-            query = text("""
-                SELECT "Oid", "Name", "IsAdministrative", "CanEditModel", "PermissionPolicy",
-                       "tenant_id", "OptimisticLockField", "GCRecord", "ObjectType"
-                FROM sys_sec_role
-                WHERE "GCRecord" IS NULL
-                ORDER BY "Name"
-                LIMIT :limit OFFSET :skip
-            """)
-            params = {"skip": skip, "limit": limit}
-
-        result = db.execute(query, params)
-        rows = result.fetchall()
-
-        return [
-            {
-                "oid": row[0],
-                "name": row[1],
-                "is_administrative": row[2],
-                "can_edit_model": row[3],
-                "permission_policy": row[4],
-                "tenant_id": row[5],
-                "OptimisticLockField": row[6],
-                "GCRecord": row[7],
-                "ObjectType": row[8]
-            }
-            for row in rows
-        ]
+        return db.query(SysSecRole).filter(
+            SysSecRole.GCRecord.is_(None)
+        ).order_by(SysSecRole.Name).offset(skip).limit(limit).all()
 
     @staticmethod
-    def search_by_name(db: Session, name_pattern: str, skip: int = 0, limit: int = 100):
+    def search_by_name(db: Session, name_pattern: str, skip: int = 0, limit: int = 100) -> List[SysSecRole]:
         """
         Search roles by name pattern
         """
-        from sqlalchemy import text
-        query = text("""
-            SELECT "Oid", "Name", "IsAdministrative", "CanEditModel", "PermissionPolicy",
-                   "tenant_id", "OptimisticLockField", "GCRecord", "ObjectType"
-            FROM sys_sec_role
-            WHERE "Name" ILIKE :pattern AND "GCRecord" IS NULL
-            ORDER BY "Name"
-            LIMIT :limit OFFSET :skip
-        """)
-
-        result = db.execute(query, {
-            "pattern": f"%{name_pattern}%",
-            "skip": skip,
-            "limit": limit
-        })
-        rows = result.fetchall()
-
-        return [
-            {
-                "oid": row[0],
-                "name": row[1],
-                "is_administrative": row[2],
-                "can_edit_model": row[3],
-                "permission_policy": row[4],
-                "tenant_id": row[5],
-                "OptimisticLockField": row[6],
-                "GCRecord": row[7],
-                "ObjectType": row[8]
-            }
-            for row in rows
-        ]
+        return db.query(SysSecRole).filter(
+            and_(
+                SysSecRole.Name.like(f"%{name_pattern}%"),
+                SysSecRole.GCRecord.is_(None)
+            )
+        ).order_by(SysSecRole.Name).offset(skip).limit(limit).all()
 
     @staticmethod
-    def delete(db: Session, role_id: UUID, hard_delete: bool = False):
+    async def soft_delete(db: Session, role_id: UUID, deleted_by: Optional[UUID] = None) -> bool:
         """
-        Delete role (soft delete by default)
+        Soft delete role by setting GCRecord
         """
         try:
-            from sqlalchemy import text
+            role = db.query(SysSecRole).filter(
+                and_(
+                    SysSecRole.Oid == role_id,
+                    SysSecRole.GCRecord.is_(None)
+                )
+            ).first()
 
-            if hard_delete:
-                # Hard delete
-                query = text('DELETE FROM sys_sec_role WHERE "Oid" = :role_id')
-            else:
-                # Soft delete
-                query = text("""
-                    UPDATE sys_sec_role
-                    SET "GCRecord" = :gc_record
-                    WHERE "Oid" = :role_id
-                """)
+            if not role:
+                return False
 
-            db.execute(query, {
-                "role_id": role_id,
-                "gc_record": 1 if not hard_delete else None
-            })
+            # Mark as deleted
+            role.GCRecord = 1
+
             db.commit()
             return True
 
         except Exception as e:
             db.rollback()
-            logger.exception("Error deleting role")
+            logger.exception("Error soft deleting role")
             raise e
 
     @staticmethod
-    def count_roles(db: Session, tenant_id: Optional[UUID] = None):
+    async def hard_delete(db: Session, role_id: UUID) -> bool:
+        """
+        Permanently delete role
+        """
+        try:
+            role = db.query(SysSecRole).filter(SysSecRole.Oid == role_id).first()
+
+            if not role:
+                return False
+
+            db.delete(role)
+            db.commit()
+            return True
+
+        except Exception as e:
+            db.rollback()
+            logger.exception("Error hard deleting role")
+            raise e
+
+    @staticmethod
+    def count_roles(db: Session) -> int:
         """
         Count total roles
         """
-        from sqlalchemy import text
-
-        if tenant_id:
-            query = text("""
-                SELECT COUNT(*)
-                FROM sys_sec_role
-                WHERE "GCRecord" IS NULL AND ("tenant_id" = :tenant_id OR "tenant_id" IS NULL)
-            """)
-            result = db.execute(query, {"tenant_id": tenant_id})
-        else:
-            query = text("""
-                SELECT COUNT(*)
-                FROM sys_sec_role
-                WHERE "GCRecord" IS NULL
-            """)
-            result = db.execute(query)
-
-        return result.scalar()
+        return db.query(SysSecRole).filter(
+            SysSecRole.GCRecord.is_(None)
+        ).count()
 
     @staticmethod
-    def fetch_administrative_roles(db: Session):
+    def fetch_administrative_roles(db: Session) -> List[SysSecRole]:
         """
         Fetch all administrative roles
         """
-        from sqlalchemy import text
-        query = text("""
-            SELECT "Oid", "Name", "IsAdministrative", "CanEditModel", "PermissionPolicy",
-                   "tenant_id", "OptimisticLockField", "GCRecord", "ObjectType"
-            FROM sys_sec_role
-            WHERE "IsAdministrative" = TRUE AND "GCRecord" IS NULL
-            ORDER BY "Name"
-        """)
-
-        result = db.execute(query)
-        rows = result.fetchall()
-
-        return [
-            {
-                "oid": row[0],
-                "name": row[1],
-                "is_administrative": row[2],
-                "can_edit_model": row[3],
-                "permission_policy": row[4],
-                "tenant_id": row[5],
-                "OptimisticLockField": row[6],
-                "GCRecord": row[7],
-                "ObjectType": row[8]
-            }
-            for row in rows
-        ]
+        return db.query(SysSecRole).filter(
+            and_(
+                SysSecRole.IsAdministrative == True,
+                SysSecRole.GCRecord.is_(None)
+            )
+        ).order_by(SysSecRole.Name).all()

@@ -446,7 +446,7 @@ export default function ModernFooter() {
                         </Stack>
                     </Grid>
 
-                    {/* Social & Status */}
+                    {/* Social Links */}
                     <Grid item xs={12} lg={2.5}>
                         <Typography
                             variant="h6"
@@ -467,15 +467,11 @@ export default function ModernFooter() {
                                 }
                             }}
                         >
-                            Stay Connected
+                            Follow Us
                         </Typography>
 
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 3, fontWeight: 500 }}>
-                            Follow our latest research breakthroughs
-                        </Typography>
-
-                        {/* Enhanced Social Links */}
-                        <Box sx={{ display: 'flex', gap: 2, mb: 4 }}>
+                        {/* Social Links */}
+                        <Box sx={{ display: 'flex', gap: 2 }}>
                             {socialLinks.map((social, index) => (
                                 <IconButton
                                     key={index}
@@ -502,53 +498,6 @@ export default function ModernFooter() {
                                     {social.icon}
                                 </IconButton>
                             ))}
-                        </Box>
-
-                        {/* Enhanced Status Badge */}
-                        <Box
-                            sx={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 1.5,
-                                px: 3,
-                                py: 2,
-                                borderRadius: 3,
-                                background: `linear-gradient(135deg, ${alpha('#10b981', 0.1)}, ${alpha('#059669', 0.05)})`,
-                                border: `2px solid ${alpha('#10b981', 0.3)}`,
-                                backdropFilter: 'blur(10px)',
-                            }}
-                        >
-                            <Box
-                                sx={{
-                                    width: 10,
-                                    height: 10,
-                                    borderRadius: '50%',
-                                    background: 'linear-gradient(45deg, #10b981, #059669)',
-                                    boxShadow: '0 0 10px rgba(16, 185, 129, 0.5)',
-                                    animation: 'pulse 2s infinite',
-                                    '@keyframes pulse': {
-                                        '0%': {
-                                            transform: 'scale(1)',
-                                            opacity: 1
-                                        },
-                                        '50%': {
-                                            transform: 'scale(1.2)',
-                                            opacity: 0.7
-                                        },
-                                        '100%': {
-                                            transform: 'scale(1)',
-                                            opacity: 1
-                                        },
-                                    }
-                                }}
-                            />
-                            <Typography variant="body2" sx={{
-                                color: '#10b981',
-                                fontWeight: 700,
-                                fontSize: '0.9rem'
-                            }}>
-                                All Systems Online
-                            </Typography>
                         </Box>
                     </Grid>
                 </Grid>

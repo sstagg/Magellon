@@ -59,7 +59,13 @@ async def create_action_permission(
             permission_request.action_id
         )
 
-        return ActionPermissionResponseDto(**permission)
+        return ActionPermissionResponseDto(
+            oid=permission.Oid,
+            action_id=permission.ActionId,
+            role_id=permission.Role,
+            optimistic_lock_field=permission.OptimisticLockField,
+            gc_record=permission.GCRecord if hasattr(permission, 'GCRecord') else None
+        )
 
     except Exception as e:
         logger.exception('Error creating action permission')
@@ -84,7 +90,16 @@ def get_role_action_permissions(role_id: UUID, db: Session = Depends(get_db)):
 
     try:
         permissions = SysSecActionPermissionRepository.fetch_by_role(db, role_id)
-        return [ActionPermissionResponseDto(**perm) for perm in permissions]
+        return [
+            ActionPermissionResponseDto(
+                oid=perm.Oid,
+                action_id=perm.ActionId,
+                role_id=perm.Role,
+                optimistic_lock_field=perm.OptimisticLockField,
+                gc_record=perm.GCRecord if hasattr(perm, 'GCRecord') else None
+            )
+            for perm in permissions
+        ]
 
     except Exception as e:
         logger.exception('Error fetching action permissions')
@@ -209,7 +224,14 @@ async def create_navigation_permission(
             permission_request.navigate_state
         )
 
-        return NavigationPermissionResponseDto(**permission)
+        return NavigationPermissionResponseDto(
+            oid=permission.Oid,
+            item_path=permission.ItemPath,
+            navigate_state=permission.NavigateState,
+            role_id=permission.Role,
+            optimistic_lock_field=permission.OptimisticLockField,
+            gc_record=permission.GCRecord if hasattr(permission, 'GCRecord') else None
+        )
 
     except Exception as e:
         logger.exception('Error creating navigation permission')
@@ -238,7 +260,14 @@ async def update_navigation_permission(
                 detail="Navigation permission not found"
             )
 
-        return NavigationPermissionResponseDto(**permission)
+        return NavigationPermissionResponseDto(
+            oid=permission.Oid,
+            item_path=permission.ItemPath,
+            navigate_state=permission.NavigateState,
+            role_id=permission.Role,
+            optimistic_lock_field=permission.OptimisticLockField,
+            gc_record=permission.GCRecord if hasattr(permission, 'GCRecord') else None
+        )
 
     except HTTPException:
         raise
@@ -265,7 +294,17 @@ def get_role_navigation_permissions(role_id: UUID, db: Session = Depends(get_db)
 
     try:
         permissions = SysSecNavigationPermissionRepository.fetch_by_role(db, role_id)
-        return [NavigationPermissionResponseDto(**perm) for perm in permissions]
+        return [
+            NavigationPermissionResponseDto(
+                oid=perm.Oid,
+                item_path=perm.ItemPath,
+                navigate_state=perm.NavigateState,
+                role_id=perm.Role,
+                optimistic_lock_field=perm.OptimisticLockField,
+                gc_record=perm.GCRecord if hasattr(perm, 'GCRecord') else None
+            )
+            for perm in permissions
+        ]
 
     except Exception as e:
         logger.exception('Error fetching navigation permissions')
@@ -399,7 +438,18 @@ async def create_type_permission(
             permission_request.navigate_state
         )
 
-        return TypePermissionResponseDto(**permission)
+        return TypePermissionResponseDto(
+            oid=permission.Oid,
+            target_type=permission.TargetType,
+            role=permission.Role,
+            read_state=permission.ReadState,
+            write_state=permission.WriteState,
+            create_state=permission.CreateState,
+            delete_state=permission.DeleteState,
+            navigate_state=permission.NavigateState,
+            optimistic_lock_field=permission.OptimisticLockField,
+            gc_record=permission.GCRecord if hasattr(permission, 'GCRecord') else None
+        )
 
     except Exception as e:
         logger.exception('Error creating type permission')
@@ -435,7 +485,18 @@ async def update_type_permission(
                 detail="Type permission not found"
             )
 
-        return TypePermissionResponseDto(**permission)
+        return TypePermissionResponseDto(
+            oid=permission.Oid,
+            target_type=permission.TargetType,
+            role=permission.Role,
+            read_state=permission.ReadState,
+            write_state=permission.WriteState,
+            create_state=permission.CreateState,
+            delete_state=permission.DeleteState,
+            navigate_state=permission.NavigateState,
+            optimistic_lock_field=permission.OptimisticLockField,
+            gc_record=permission.GCRecord if hasattr(permission, 'GCRecord') else None
+        )
 
     except HTTPException:
         raise
@@ -462,7 +523,21 @@ def get_role_type_permissions(role_id: UUID, db: Session = Depends(get_db)):
 
     try:
         permissions = SysSecTypePermissionRepository.fetch_by_role(db, role_id)
-        return [TypePermissionResponseDto(**perm) for perm in permissions]
+        return [
+            TypePermissionResponseDto(
+                oid=perm.Oid,
+                target_type=perm.TargetType,
+                role=perm.Role,
+                read_state=perm.ReadState,
+                write_state=perm.WriteState,
+                create_state=perm.CreateState,
+                delete_state=perm.DeleteState,
+                navigate_state=perm.NavigateState,
+                optimistic_lock_field=perm.OptimisticLockField,
+                gc_record=perm.GCRecord if hasattr(perm, 'GCRecord') else None
+            )
+            for perm in permissions
+        ]
 
     except Exception as e:
         logger.exception('Error fetching type permissions')
@@ -540,7 +615,18 @@ async def grant_full_access(
 
     try:
         permission = SysSecTypePermissionRepository.grant_full_access(db, role_id, target_type)
-        return TypePermissionResponseDto(**permission)
+        return TypePermissionResponseDto(
+            oid=permission.Oid,
+            target_type=permission.TargetType,
+            role=permission.Role,
+            read_state=permission.ReadState,
+            write_state=permission.WriteState,
+            create_state=permission.CreateState,
+            delete_state=permission.DeleteState,
+            navigate_state=permission.NavigateState,
+            optimistic_lock_field=permission.OptimisticLockField,
+            gc_record=permission.GCRecord if hasattr(permission, 'GCRecord') else None
+        )
 
     except Exception as e:
         logger.exception('Error granting full access')
@@ -570,7 +656,18 @@ async def grant_read_only(
 
     try:
         permission = SysSecTypePermissionRepository.grant_read_only(db, role_id, target_type)
-        return TypePermissionResponseDto(**permission)
+        return TypePermissionResponseDto(
+            oid=permission.Oid,
+            target_type=permission.TargetType,
+            role=permission.Role,
+            read_state=permission.ReadState,
+            write_state=permission.WriteState,
+            create_state=permission.CreateState,
+            delete_state=permission.DeleteState,
+            navigate_state=permission.NavigateState,
+            optimistic_lock_field=permission.OptimisticLockField,
+            gc_record=permission.GCRecord if hasattr(permission, 'GCRecord') else None
+        )
 
     except Exception as e:
         logger.exception('Error granting read-only access')
@@ -653,25 +750,25 @@ def get_role_permissions_summary(role_id: UUID, db: Session = Depends(get_db)):
 
         return {
             "role_id": str(role_id),
-            "role_name": role['name'],
-            "is_administrative": role['is_administrative'],
+            "role_name": role.Name,
+            "is_administrative": role.IsAdministrative,
             "permissions": {
-                "actions": [p['action_id'] for p in action_perms],
+                "actions": [p.ActionId for p in action_perms],
                 "navigation": [
                     {
-                        "path": p['item_path'],
-                        "allowed": p['navigate_state'] == 1
+                        "path": p.ItemPath,
+                        "allowed": p.NavigateState == 1
                     }
                     for p in nav_perms
                 ],
                 "types": [
                     {
-                        "type": p['target_type'],
-                        "read": p['read_state'] == 1,
-                        "write": p['write_state'] == 1,
-                        "create": p['create_state'] == 1,
-                        "delete": p['delete_state'] == 1,
-                        "navigate": p['navigate_state'] == 1
+                        "type": p.TargetType,
+                        "read": p.ReadState == 1,
+                        "write": p.WriteState == 1,
+                        "create": p.CreateState == 1,
+                        "delete": p.DeleteState == 1,
+                        "navigate": p.NavigateState == 1
                     }
                     for p in type_perms
                 ]

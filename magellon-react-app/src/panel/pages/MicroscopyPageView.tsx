@@ -29,7 +29,7 @@ import {
 } from '@mui/icons-material';
 import { Zap, Monitor, Microscope as MicroscopeIcon } from 'lucide-react';
 import { Layout, Model, TabNode, Actions, DockLocation } from 'flexlayout-react';
-import 'flexlayout-react/style/light.css';
+import 'flexlayout-react/style/dark.css';
 
 // Import components
 import { SystemStatusComponent } from './SystemStatusComponent'; // Our updated component
@@ -503,15 +503,16 @@ export default function MicroscopyPageView() {
                     '& .flexlayout__layout': {
                         width: '100%',
                         height: '100%',
-                        backgroundColor: 'transparent',
+                        backgroundColor: theme.palette.background.default,
                     },
                     '& .flexlayout__tabset_header': {
                         backgroundColor: theme.palette.background.paper,
                         borderBottom: `1px solid ${theme.palette.divider}`,
                     },
                     '& .flexlayout__tab_button': {
-                        backgroundColor: theme.palette.background.default,
+                        backgroundColor: theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[200],
                         color: theme.palette.text.primary,
+                        borderColor: theme.palette.divider,
                         '&:hover': {
                             backgroundColor: theme.palette.action.hover,
                         }
@@ -522,6 +523,64 @@ export default function MicroscopyPageView() {
                     },
                     '& .flexlayout__tabset_content': {
                         backgroundColor: theme.palette.background.paper,
+                    },
+                    '& .flexlayout__border': {
+                        backgroundColor: theme.palette.background.paper,
+                        borderColor: theme.palette.divider,
+                    },
+                    '& .flexlayout__splitter': {
+                        backgroundColor: theme.palette.divider,
+                        '&:hover': {
+                            backgroundColor: theme.palette.primary.main,
+                        }
+                    },
+                    '& .flexlayout__outline_rect': {
+                        borderColor: theme.palette.primary.main,
+                    },
+                    '& .flexlayout__edge_rect': {
+                        backgroundColor: theme.palette.primary.main,
+                        opacity: 0.3,
+                    },
+                    '& .flexlayout__drag_rect': {
+                        backgroundColor: theme.palette.primary.main,
+                        opacity: 0.5,
+                        border: `2px solid ${theme.palette.primary.main}`,
+                    },
+                    '& .flexlayout__tabset-selected': {
+                        backgroundColor: theme.palette.action.selected,
+                    },
+                    '& .flexlayout__tabset-maximized': {
+                        backgroundColor: theme.palette.background.paper,
+                    },
+                    '& .flexlayout__tab_button_trailing': {
+                        color: theme.palette.text.secondary,
+                        '&:hover': {
+                            color: theme.palette.text.primary,
+                            backgroundColor: theme.palette.action.hover,
+                        }
+                    },
+                    '& .flexlayout__tab_button_stamp': {
+                        backgroundColor: theme.palette.mode === 'dark' ? theme.palette.grey[700] : theme.palette.grey[300],
+                        color: theme.palette.text.secondary,
+                    },
+                    '& .flexlayout__popup_menu': {
+                        backgroundColor: theme.palette.background.paper,
+                        borderColor: theme.palette.divider,
+                        boxShadow: theme.shadows[8],
+                    },
+                    '& .flexlayout__popup_menu_item': {
+                        color: theme.palette.text.primary,
+                        '&:hover': {
+                            backgroundColor: theme.palette.action.hover,
+                        }
+                    },
+                    '& .flexlayout__floating_window': {
+                        backgroundColor: theme.palette.background.paper,
+                        borderColor: theme.palette.divider,
+                    },
+                    '& .flexlayout__floating_window_tab': {
+                        backgroundColor: theme.palette.background.default,
+                        color: theme.palette.text.primary,
                     }
                 }}>
                     <Layout

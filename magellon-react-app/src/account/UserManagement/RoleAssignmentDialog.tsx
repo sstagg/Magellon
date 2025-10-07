@@ -39,12 +39,17 @@ export default function RoleAssignmentDialog({
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open && user) {
+    if (open && user && user.id) {
       loadData();
     }
   }, [open, user]);
 
   const loadData = async () => {
+    if (!user || !user.id) {
+      console.error('User or user ID is undefined');
+      return;
+    }
+
     setLoading(true);
     try {
       // Load all available roles

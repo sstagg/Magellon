@@ -1,0 +1,56 @@
+/* Styling for react-resizable-panels */
+[data-panel-resize-handle-enabled] {
+  cursor: col-resize;
+  transition: all 0.2s ease;
+}
+
+[data-panel-resize-handle-enabled]:hover {
+  background: rgba(25, 118, 210, 0.1) !important;
+}
+
+[data-panel-resize-handle-active] {
+  background: rgba(25, 118, 210, 0.2) !important;
+}
+
+.resizeHandleHorizontal {
+  width: 8px !important;
+  cursor: col-resize !important;
+  background: transparent !important;
+  border-left: 1px solid rgba(0, 0, 0, 0.12);
+  border-right: 1px solid rgba(0, 0, 0, 0.12);
+  transition: all 0.2s ease;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.resizeHandleHorizontal:hover {
+  background: rgba(25, 118, 210, 0.1) !important;
+  border-left-color: rgba(25, 118, 210, 0.3);
+  border-right-color: rgba(25, 118, 210, 0.3);
+}
+
+.resizeHandleHorizontal[data-resize-handle-active] {
+  background: rgba(25, 118, 210, 0.2) !important;
+  border-left-color: rgba(25, 118, 210, 0.5);
+  border-right-color: rgba(25, 118, 210, 0.5);
+}
+
+/* Dark theme support */
+@media (prefers-color-scheme: dark) {
+  .resizeHandleHorizontal {
+    border-left-color: rgba(255, 255, 255, 0.12);
+    border-right-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .resizeHandleHorizontal:hover {
+    border-left-color: rgba(103, 232, 249, 0.3);
+    border-right-color: rgba(103, 232, 249, 0.3);
+  }
+
+  .resizeHandleHorizontal[data-resize-handle-active] {
+    border-left-color: rgba(103, 232, 249, 0.5);
+    border-right-color: rgba(103, 232, 249, 0.5);
+  }
+}

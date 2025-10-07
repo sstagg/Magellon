@@ -4,8 +4,16 @@ Authorization Service for checking user permissions
 from typing import Optional, List
 from uuid import UUID
 
-from sqlalchemy.orm import Session
+from sqlalchemy import func, and_, or_
+from sqlalchemy.orm import Session, joinedload
 
+from models.sqlalchemy_models import (
+    SysSecUserRole,
+    SysSecRole,
+    SysSecActionPermission,
+    SysSecNavigationPermission,
+    SysSecTypePermission
+)
 from repositories.security.sys_sec_user_role_repository import SysSecUserRoleRepository
 
 import logging
@@ -72,7 +80,16 @@ class AuthorizationService:
         Get all roles for a user
         """
         try:
-            return SysSecUserRoleRepository.fetch_roles_by_user(db, user_id)
+            user_roles = SysSecUserRoleRepository.fetch_roles_by_user(db, user_id)
+            return [
+                {
+                    "role_id": ur.Roles,
+                    "role_name": ur.sys_sec_role.Name,
+                    "is_administrative": ur.sys_sec_role.IsAdministrative,
+                    "can_edit_model": ur.sys_sec_role.CanEditModel
+                }
+                for ur in user_roles
+            ]
         except Exception as e:
             logger.exception(f"Error fetching user roles: {e}")
             return []
@@ -83,24 +100,19 @@ class AuthorizationService:
         Check if a user has permission for a specific action
         """
         try:
-            from sqlalchemy import text
-            
-            # Check if user has any role that grants this action permission
-            query = text("""
-                SELECT COUNT(*)
-                FROM sys_sec_user_role ur
-                JOIN sys_sec_action_permission ap ON ur."Roles" = ap."Role"
-                JOIN sys_sec_role r ON ur."Roles" = r."Oid"
-                WHERE ur."People" = :user_id 
-                    AND ap."ActionId" = :action_id
-                    AND r."GCRecord" IS NULL
-            """)
+            # Check if user has any role that grants this action permission using ORM
+            count = db.query(SysSecActionPermission).join(
+                SysSecUserRole, SysSecUserRole.Roles == SysSecActionPermission.Role
+            ).join(
+                SysSecRole, SysSecUserRole.Roles == SysSecRole.Oid
+            ).filter(
+                and_(
+                    SysSecUserRole.People == user_id,
+                    SysSecActionPermission.ActionId == action_id,
+                    SysSecRole.GCRecord.is_(None)
+                )
+            ).count()
 
-            result = db.execute(query, {
-                "user_id": user_id,
-                "action_id": action_id
-            })
-            count = result.scalar()
             return count > 0
 
         except Exception as e:
@@ -113,31 +125,28 @@ class AuthorizationService:
         Check if a user has permission to navigate to a specific path
         """
         try:
-            from sqlalchemy import text
-            
             # Check if user has any role that grants this navigation permission
             # NavigateState: 1 = Allow, 0 = Deny
-            query = text("""
-                SELECT MAX(np."NavigateState")
-                FROM sys_sec_user_role ur
-                JOIN sys_sec_navigation_permission np ON ur."Roles" = np."Role"
-                JOIN sys_sec_role r ON ur."Roles" = r."Oid"
-                WHERE ur."People" = :user_id 
-                    AND np."ItemPath" = :item_path
-                    AND r."GCRecord" IS NULL
-            """)
+            # Get the maximum navigate state (if any role allows it, allow)
+            max_state = db.query(
+                func.max(SysSecNavigationPermission.NavigateState)
+            ).join(
+                SysSecUserRole, SysSecUserRole.Roles == SysSecNavigationPermission.Role
+            ).join(
+                SysSecRole, SysSecUserRole.Roles == SysSecRole.Oid
+            ).filter(
+                and_(
+                    SysSecUserRole.People == user_id,
+                    SysSecNavigationPermission.ItemPath == item_path,
+                    SysSecRole.GCRecord.is_(None)
+                )
+            ).scalar()
 
-            result = db.execute(query, {
-                "user_id": user_id,
-                "item_path": item_path
-            })
-            state = result.scalar()
-            
             # If no specific permission found, check if user is admin
-            if state is None:
+            if max_state is None:
                 return AuthorizationService.user_is_admin(db, user_id)
-            
-            return state == 1
+
+            return max_state == 1
 
         except Exception as e:
             logger.exception(f"Error checking navigation permission: {e}")
@@ -145,9 +154,9 @@ class AuthorizationService:
 
     @staticmethod
     def user_has_type_permission(
-        db: Session, 
-        user_id: UUID, 
-        target_type: str, 
+        db: Session,
+        user_id: UUID,
+        target_type: str,
         operation: str = 'read'
     ) -> bool:
         """
@@ -155,45 +164,42 @@ class AuthorizationService:
         operation: 'read', 'write', 'create', 'delete', 'navigate'
         """
         try:
-            from sqlalchemy import text
-            
-            # Map operation to column name
+            # Map operation to column attribute
             operation_column_map = {
-                'read': 'ReadState',
-                'write': 'WriteState',
-                'create': 'CreateState',
-                'delete': 'DeleteState',
-                'navigate': 'NavigateState'
+                'read': SysSecTypePermission.ReadState,
+                'write': SysSecTypePermission.WriteState,
+                'create': SysSecTypePermission.CreateState,
+                'delete': SysSecTypePermission.DeleteState,
+                'navigate': SysSecTypePermission.NavigateState
             }
-            
+
             if operation not in operation_column_map:
                 logger.warning(f"Invalid operation: {operation}")
                 return False
-                
-            column_name = operation_column_map[operation]
-            
-            # Check if user has any role that grants this type permission
-            query = text(f"""
-                SELECT MAX(tp."{column_name}")
-                FROM sys_sec_user_role ur
-                JOIN sys_sec_type_permission tp ON ur."Roles" = tp."Role"
-                JOIN sys_sec_role r ON ur."Roles" = r."Oid"
-                WHERE ur."People" = :user_id 
-                    AND tp."TargetType" = :target_type
-                    AND r."GCRecord" IS NULL
-            """)
 
-            result = db.execute(query, {
-                "user_id": user_id,
-                "target_type": target_type
-            })
-            state = result.scalar()
-            
+            column_attr = operation_column_map[operation]
+
+            # Check if user has any role that grants this type permission
+            # Get the maximum state (if any role allows it, allow)
+            max_state = db.query(
+                func.max(column_attr)
+            ).join(
+                SysSecUserRole, SysSecUserRole.Roles == SysSecTypePermission.Role
+            ).join(
+                SysSecRole, SysSecUserRole.Roles == SysSecRole.Oid
+            ).filter(
+                and_(
+                    SysSecUserRole.People == user_id,
+                    SysSecTypePermission.TargetType == target_type,
+                    SysSecRole.GCRecord.is_(None)
+                )
+            ).scalar()
+
             # If no specific permission found, check if user is admin
-            if state is None:
+            if max_state is None:
                 return AuthorizationService.user_is_admin(db, user_id)
-            
-            return state == 1
+
+            return max_state == 1
 
         except Exception as e:
             logger.exception(f"Error checking type permission: {e}")
@@ -205,41 +211,48 @@ class AuthorizationService:
         Get a comprehensive summary of user's permissions
         """
         try:
-            from sqlalchemy import text
-            
             # Get all roles
             roles = AuthorizationService.get_user_roles(db, user_id)
-            
-            # Get all action permissions
-            action_query = text("""
-                SELECT DISTINCT ap."ActionId"
-                FROM sys_sec_user_role ur
-                JOIN sys_sec_action_permission ap ON ur."Roles" = ap."Role"
-                JOIN sys_sec_role r ON ur."Roles" = r."Oid"
-                WHERE ur."People" = :user_id AND r."GCRecord" IS NULL
-                ORDER BY ap."ActionId"
-            """)
-            action_result = db.execute(action_query, {"user_id": user_id})
-            action_permissions = [row[0] for row in action_result.fetchall()]
-            
-            # Get all navigation permissions
-            nav_query = text("""
-                SELECT DISTINCT np."ItemPath", np."NavigateState"
-                FROM sys_sec_user_role ur
-                JOIN sys_sec_navigation_permission np ON ur."Roles" = np."Role"
-                JOIN sys_sec_role r ON ur."Roles" = r."Oid"
-                WHERE ur."People" = :user_id AND r."GCRecord" IS NULL
-                ORDER BY np."ItemPath"
-            """)
-            nav_result = db.execute(nav_query, {"user_id": user_id})
+
+            # Get all action permissions using ORM
+            action_permissions_query = db.query(
+                SysSecActionPermission.ActionId
+            ).join(
+                SysSecUserRole, SysSecUserRole.Roles == SysSecActionPermission.Role
+            ).join(
+                SysSecRole, SysSecUserRole.Roles == SysSecRole.Oid
+            ).filter(
+                and_(
+                    SysSecUserRole.People == user_id,
+                    SysSecRole.GCRecord.is_(None)
+                )
+            ).distinct().order_by(SysSecActionPermission.ActionId)
+
+            action_permissions = [row[0] for row in action_permissions_query.all()]
+
+            # Get all navigation permissions using ORM
+            nav_permissions_query = db.query(
+                SysSecNavigationPermission.ItemPath,
+                SysSecNavigationPermission.NavigateState
+            ).join(
+                SysSecUserRole, SysSecUserRole.Roles == SysSecNavigationPermission.Role
+            ).join(
+                SysSecRole, SysSecUserRole.Roles == SysSecRole.Oid
+            ).filter(
+                and_(
+                    SysSecUserRole.People == user_id,
+                    SysSecRole.GCRecord.is_(None)
+                )
+            ).distinct().order_by(SysSecNavigationPermission.ItemPath)
+
             navigation_permissions = [
-                {"path": row[0], "allowed": row[1] == 1} 
-                for row in nav_result.fetchall()
+                {"path": row[0], "allowed": row[1] == 1}
+                for row in nav_permissions_query.all()
             ]
-            
+
             # Check if admin
             is_admin = AuthorizationService.user_is_admin(db, user_id)
-            
+
             return {
                 "user_id": str(user_id),
                 "is_admin": is_admin,
@@ -254,7 +267,7 @@ class AuthorizationService:
                 "action_permissions": action_permissions,
                 "navigation_permissions": navigation_permissions
             }
-            
+
         except Exception as e:
             logger.exception(f"Error getting user permissions summary: {e}")
             return {
@@ -265,6 +278,100 @@ class AuthorizationService:
                 "navigation_permissions": [],
                 "error": str(e)
             }
+
+    @staticmethod
+    def get_user_action_permissions(db: Session, user_id: UUID) -> List[str]:
+        """
+        Get all action permissions for a user
+        """
+        try:
+            action_permissions = db.query(
+                SysSecActionPermission.ActionId
+            ).join(
+                SysSecUserRole, SysSecUserRole.Roles == SysSecActionPermission.Role
+            ).join(
+                SysSecRole, SysSecUserRole.Roles == SysSecRole.Oid
+            ).filter(
+                and_(
+                    SysSecUserRole.People == user_id,
+                    SysSecRole.GCRecord.is_(None)
+                )
+            ).distinct().order_by(SysSecActionPermission.ActionId).all()
+
+            return [row[0] for row in action_permissions]
+
+        except Exception as e:
+            logger.exception(f"Error getting user action permissions: {e}")
+            return []
+
+    @staticmethod
+    def get_user_navigation_permissions(db: Session, user_id: UUID) -> List[dict]:
+        """
+        Get all navigation permissions for a user
+        """
+        try:
+            nav_permissions = db.query(
+                SysSecNavigationPermission.ItemPath,
+                SysSecNavigationPermission.NavigateState
+            ).join(
+                SysSecUserRole, SysSecUserRole.Roles == SysSecNavigationPermission.Role
+            ).join(
+                SysSecRole, SysSecUserRole.Roles == SysSecRole.Oid
+            ).filter(
+                and_(
+                    SysSecUserRole.People == user_id,
+                    SysSecRole.GCRecord.is_(None)
+                )
+            ).distinct().order_by(SysSecNavigationPermission.ItemPath).all()
+
+            return [
+                {"path": row[0], "allowed": row[1] == 1}
+                for row in nav_permissions
+            ]
+
+        except Exception as e:
+            logger.exception(f"Error getting user navigation permissions: {e}")
+            return []
+
+    @staticmethod
+    def get_user_type_permissions(db: Session, user_id: UUID) -> List[dict]:
+        """
+        Get all type permissions for a user
+        """
+        try:
+            type_permissions = db.query(
+                SysSecTypePermission.TargetType,
+                SysSecTypePermission.ReadState,
+                SysSecTypePermission.WriteState,
+                SysSecTypePermission.CreateState,
+                SysSecTypePermission.DeleteState,
+                SysSecTypePermission.NavigateState
+            ).join(
+                SysSecUserRole, SysSecUserRole.Roles == SysSecTypePermission.Role
+            ).join(
+                SysSecRole, SysSecUserRole.Roles == SysSecRole.Oid
+            ).filter(
+                and_(
+                    SysSecUserRole.People == user_id,
+                    SysSecRole.GCRecord.is_(None)
+                )
+            ).distinct().order_by(SysSecTypePermission.TargetType).all()
+
+            return [
+                {
+                    "type": row[0],
+                    "read": row[1] == 1,
+                    "write": row[2] == 1,
+                    "create": row[3] == 1,
+                    "delete": row[4] == 1,
+                    "navigate": row[5] == 1
+                }
+                for row in type_permissions
+            ]
+
+        except Exception as e:
+            logger.exception(f"Error getting user type permissions: {e}")
+            return []
 
     @staticmethod
     def check_permission(

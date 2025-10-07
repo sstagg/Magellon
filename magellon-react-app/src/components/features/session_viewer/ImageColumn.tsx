@@ -13,7 +13,7 @@ import { InfiniteData } from "react-query";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import ImageInfoDto, { PagedImageResponse } from "./ImageInfoDto.ts";
 import { ImageThumbnail } from "./ImageThumbnail.tsx";
-import './ImageViewerStyles.scss';
+import './ImageViewerStyles.css';
 import { useImageViewerStore } from './store/imageViewerStore';
 
 interface ImagesStackProps {

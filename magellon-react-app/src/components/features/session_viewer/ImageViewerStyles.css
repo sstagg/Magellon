@@ -1,0 +1,72 @@
+:root {
+  --border-radius: 10px;
+  --thumb-image-width: 98%;
+  --thumb-image-height: 98%;
+  --thumb-image-border-color: rgba(215, 215, 225, 1);
+  --thumb-image-hovered-border-color: rgb(137, 243, 8);
+  --thumb-image-selected-border-color: rgb(225, 136, 7);
+  --thumb-image-has-children-border-color: rgb(89, 9, 236);
+}
+
+.thumb-image {
+  border-radius: var(--border-radius);
+  width: var(--thumb-image-width);
+  height: var(--thumb-image-height);
+  object-fit: cover;
+  border: 3px solid var(--thumb-image-border-color);
+  transition: border-color 0.3s ease, transform 0.2s ease-in-out;
+  aspect-ratio: 1/1; /* Force 1:1 aspect ratio */
+  max-width: 100%;
+}
+
+.thumb-image:hover {
+  border: 2px solid var(--thumb-image-hovered-border-color);
+  transform: scale(1.02);
+  /*box-shadow: 0 4px 5px var(--thumb-image-hovered-border-color);*/
+  /*z-index: 1;*/
+}
+
+.thumb-image-selected {
+  border: 4px solid var(--thumb-image-selected-border-color) !important;
+}
+
+.thumb-image-has-children {
+  border: 3px solid var(--thumb-image-has-children-border-color);
+}
+
+.map-area {
+  outline: 2px solid #e8e2e2; /* Set the border color and width */
+  outline-offset: -2px; /* Adjust the spacing between the border and the area */
+  cursor: pointer; /* Change cursor to pointer on hover */
+}
+
+.map-area:hover {
+  background-color: rgba(252, 245, 245, 0.1); /* Add a background color on hover */
+}
+
+/* Flat viewer specific styles */
+.flat-viewer-container .MuiImageListItem-root {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: auto !important;
+  overflow: hidden;
+}
+
+.flat-viewer-container .thumb-image-container {
+  position: relative;
+  width: 100%;
+  padding-bottom: 100%; /* Creates a 1:1 aspect ratio */
+  overflow: hidden;
+}
+
+.flat-viewer-container .thumb-image-wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
