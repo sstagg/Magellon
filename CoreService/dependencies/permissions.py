@@ -45,28 +45,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-
-# TODO: Replace with actual authentication dependency
-# This is a placeholder - replace with your actual auth system
-def get_current_user_id() -> Optional[UUID]:
-    """
-    Get the current authenticated user ID.
-
-    IMPORTANT: This is a placeholder function. Replace this with your actual
-    authentication dependency that extracts the user ID from JWT token or session.
-
-    For now, it returns None, which will cause permission checks to fail.
-    You should replace this with something like:
-
-        from dependencies.auth import get_current_user
-
-        def get_current_user_id(
-            current_user: dict = Depends(get_current_user)
-        ) -> UUID:
-            return current_user['user_id']
-    """
-    logger.warning("Using placeholder get_current_user_id - implement actual authentication!")
-    return None
+# Import authentication dependency
+# This was a placeholder, now using real JWT authentication
+from dependencies.auth import get_current_user_id
 
 
 def require_permission(resource_type: str, action: str) -> Callable:
