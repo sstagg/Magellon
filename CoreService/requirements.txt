@@ -63,3 +63,11 @@ nats-py
 starfile
 
 bcrypt
+
+# Casbin - Authorization library
+casbin==1.36.2
+casbin-sqlalchemy-adapter==1.3.0
+
+# Testing
+pytest==8.0.0
+pytest-cov==4.1.0

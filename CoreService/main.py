@@ -61,6 +61,8 @@ from models.graphql_strawberry_schema import strawberry_graphql_router
 import rich.traceback
 
 from services.importers.TiffHelper import convert_tiff_to_jpeg, parse_tif
+from services.casbin_service import CasbinService
+from services.casbin_policy_sync_service import CasbinPolicySyncService
 
 rich.traceback.install(show_locals=True)
 
@@ -156,6 +158,44 @@ app.include_router(sys_sec_permission_mgmt_router, prefix="/db/security", tags=[
 Instrumentator().instrument(app).expose(app)
 
 app.include_router(strawberry_graphql_router, prefix="/graphql")
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize services on application startup"""
+    logger.info("=" * 60)
+    logger.info("Starting Magellon Core Service...")
+    logger.info("=" * 60)
+
+    # Initialize Casbin Authorization
+    try:
+        logger.info("Initializing Casbin authorization system...")
+        CasbinService.initialize()
+
+        # Sync policies from sys_sec_* tables
+        logger.info("Syncing policies from sys_sec_* tables...")
+        db = session_local()
+        try:
+            stats = CasbinPolicySyncService.sync_all_policies(db, clear_existing=True)
+            logger.info(f"[OK] Synced {stats['total_policies']} policies and {stats['user_roles']} role assignments")
+        finally:
+            db.close()
+
+    except Exception as e:
+        logger.error(f"[ERROR] Failed to initialize Casbin: {e}")
+        logger.warning("[WARNING] Application will start but authorization may not work correctly!")
+
+    logger.info("=" * 60)
+    logger.info("[OK] Magellon Core Service started successfully")
+    logger.info("=" * 60)
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on application shutdown"""
+    logger.info("=" * 60)
+    logger.info("Shutting down Magellon Core Service...")
+    logger.info("=" * 60)
 
 
 @app.exception_handler(Exception)

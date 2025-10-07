@@ -18,6 +18,7 @@ from models.security.security_models import (
 from repositories.security.sys_sec_user_role_repository import SysSecUserRoleRepository
 from repositories.security.sys_sec_role_repository import SysSecRoleRepository
 from repositories.security.sys_sec_user_repository import SysSecUserRepository
+from services.casbin_policy_sync_service import CasbinPolicySyncService
 
 import logging
 
@@ -58,6 +59,15 @@ async def assign_role_to_user(
 
     try:
         assignment = SysSecUserRoleRepository.assign_role_to_user(db, user_id, role_id)
+
+        # Sync user permissions to Casbin
+        try:
+            CasbinPolicySyncService.sync_user_permissions(db, user_id)
+            logger.info(f"[OK] Synced Casbin permissions for user {user_id}")
+        except Exception as sync_error:
+            logger.warning(f"[WARNING] Failed to sync Casbin permissions: {sync_error}")
+            # Don't fail the request if sync fails
+
         return UserRoleResponseDto(
             oid=assignment.oid,
             user_id=assignment.People,

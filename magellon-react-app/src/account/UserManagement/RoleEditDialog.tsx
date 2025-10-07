@@ -401,6 +401,16 @@ export default function RoleEditDialog({
         />
     );
 
+    // Safety check to prevent crashes during hot reload
+    const safeActionPermissions = Array.isArray(actionPermissions) ? actionPermissions : [];
+    const safeNavigationPermissions = Array.isArray(navigationPermissions) ? navigationPermissions : [];
+    const safeTypePermissions = Array.isArray(typePermissions) ? typePermissions : [];
+
+    // Don't render if role is missing
+    if (!role) {
+        return null;
+    }
+
     return (
         <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
             <DialogTitle>
@@ -563,7 +573,7 @@ export default function RoleEditDialog({
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
-                                            {!Array.isArray(actionPermissions) || actionPermissions.length === 0 ? (
+                                            {safeActionPermissions.length === 0 ? (
                                                 <TableRow>
                                                     <TableCell colSpan={2} align="center">
                                                         <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
@@ -572,7 +582,7 @@ export default function RoleEditDialog({
                                                     </TableCell>
                                                 </TableRow>
                                             ) : (
-                                                actionPermissions.map((perm) => (
+                                                safeActionPermissions.map((perm) => (
                                                     <TableRow key={perm.oid}>
                                                         <TableCell>
                                                             <Chip label={perm.action_id} color="primary" size="small" />
@@ -662,7 +672,7 @@ export default function RoleEditDialog({
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
-                                            {!Array.isArray(navigationPermissions) || navigationPermissions.length === 0 ? (
+                                            {safeNavigationPermissions.length === 0 ? (
                                                 <TableRow>
                                                     <TableCell colSpan={3} align="center">
                                                         <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
@@ -671,7 +681,7 @@ export default function RoleEditDialog({
                                                     </TableCell>
                                                 </TableRow>
                                             ) : (
-                                                navigationPermissions.map((perm) => (
+                                                safeNavigationPermissions.map((perm) => (
                                                     <TableRow key={perm.oid}>
                                                         <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
                                                             {perm.item_path}
@@ -831,7 +841,7 @@ export default function RoleEditDialog({
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
-                                            {!Array.isArray(typePermissions) || typePermissions.length === 0 ? (
+                                            {safeTypePermissions.length === 0 ? (
                                                 <TableRow>
                                                     <TableCell colSpan={7} align="center">
                                                         <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
@@ -840,7 +850,7 @@ export default function RoleEditDialog({
                                                     </TableCell>
                                                 </TableRow>
                                             ) : (
-                                                typePermissions.map((perm) => (
+                                                safeTypePermissions.map((perm) => (
                                                     <TableRow key={perm.oid}>
                                                         <TableCell>
                                                             <Chip label={perm.target_type} color="info" size="small" />
