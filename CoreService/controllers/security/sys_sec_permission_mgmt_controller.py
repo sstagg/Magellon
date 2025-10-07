@@ -653,25 +653,25 @@ def get_role_permissions_summary(role_id: UUID, db: Session = Depends(get_db)):
 
         return {
             "role_id": str(role_id),
-            "role_name": role['name'],
-            "is_administrative": role['is_administrative'],
+            "role_name": role.Name,
+            "is_administrative": role.IsAdministrative,
             "permissions": {
-                "actions": [p['action_id'] for p in action_perms],
+                "actions": [p.ActionId for p in action_perms],
                 "navigation": [
                     {
-                        "path": p['item_path'],
-                        "allowed": p['navigate_state'] == 1
+                        "path": p.ItemPath,
+                        "allowed": p.NavigateState == 1
                     }
                     for p in nav_perms
                 ],
                 "types": [
                     {
-                        "type": p['target_type'],
-                        "read": p['read_state'] == 1,
-                        "write": p['write_state'] == 1,
-                        "create": p['create_state'] == 1,
-                        "delete": p['delete_state'] == 1,
-                        "navigate": p['navigate_state'] == 1
+                        "type": p.TargetType,
+                        "read": p.ReadState == 1,
+                        "write": p.WriteState == 1,
+                        "create": p.CreateState == 1,
+                        "delete": p.DeleteState == 1,
+                        "navigate": p.NavigateState == 1
                     }
                     for p in type_perms
                 ]

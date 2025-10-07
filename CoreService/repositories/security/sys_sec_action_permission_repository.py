@@ -4,8 +4,10 @@ Repository for sys_sec_action_permission table operations
 from typing import List, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy.orm import Session
+from sqlalchemy import and_
+from sqlalchemy.orm import Session, joinedload
 
+from models.sqlalchemy_models import SysSecActionPermission, SysSecRole
 import logging
 
 logger = logging.getLogger(__name__)
@@ -15,7 +17,7 @@ class SysSecActionPermissionRepository:
     """Repository for managing action permissions"""
 
     @staticmethod
-    def create(db: Session, role_id: UUID, action_id: str):
+    def create(db: Session, role_id: UUID, action_id: str) -> SysSecActionPermission:
         """
         Create an action permission for a role
         """
@@ -27,28 +29,17 @@ class SysSecActionPermissionRepository:
             if existing:
                 return existing
 
-            from sqlalchemy import text
-            insert_query = text("""
-                INSERT INTO sys_sec_action_permission ("Oid", "ActionId", "Role", "OptimisticLockField")
-                VALUES (:oid, :action_id, :role_id, 0)
-                RETURNING "Oid", "ActionId", "Role", "OptimisticLockField"
-            """)
+            permission = SysSecActionPermission(
+                Oid=uuid4(),
+                ActionId=action_id,
+                Role=role_id,
+                OptimisticLockField=0
+            )
 
-            result = db.execute(insert_query, {
-                "oid": uuid4(),
-                "action_id": action_id,
-                "role_id": role_id
-            })
-
+            db.add(permission)
             db.commit()
-            row = result.fetchone()
-
-            return {
-                "oid": row[0],
-                "action_id": row[1],
-                "role_id": row[2],
-                "OptimisticLockField": row[3]
-            }
+            db.refresh(permission)
+            return permission
 
         except Exception as e:
             db.rollback()
@@ -56,104 +47,56 @@ class SysSecActionPermissionRepository:
             raise e
 
     @staticmethod
-    def fetch_by_role_and_action(db: Session, role_id: UUID, action_id: str):
+    def fetch_by_role_and_action(db: Session, role_id: UUID, action_id: str) -> Optional[SysSecActionPermission]:
         """
         Fetch action permission by role and action ID
         """
-        from sqlalchemy import text
-        query = text("""
-            SELECT "Oid", "ActionId", "Role", "OptimisticLockField"
-            FROM sys_sec_action_permission
-            WHERE "Role" = :role_id AND "ActionId" = :action_id
-        """)
-
-        result = db.execute(query, {
-            "role_id": role_id,
-            "action_id": action_id
-        })
-        row = result.fetchone()
-
-        if row is None:
-            return None
-
-        return {
-            "oid": row[0],
-            "action_id": row[1],
-            "role_id": row[2],
-            "OptimisticLockField": row[3]
-        }
+        return db.query(SysSecActionPermission).filter(
+            and_(
+                SysSecActionPermission.Role == role_id,
+                SysSecActionPermission.ActionId == action_id
+            )
+        ).first()
 
     @staticmethod
-    def fetch_by_role(db: Session, role_id: UUID):
+    def fetch_by_role(db: Session, role_id: UUID) -> List[SysSecActionPermission]:
         """
         Fetch all action permissions for a role
         """
-        from sqlalchemy import text
-        query = text("""
-            SELECT "Oid", "ActionId", "Role", "OptimisticLockField"
-            FROM sys_sec_action_permission
-            WHERE "Role" = :role_id
-            ORDER BY "ActionId"
-        """)
-
-        result = db.execute(query, {"role_id": role_id})
-        rows = result.fetchall()
-
-        return [
-            {
-                "oid": row[0],
-                "action_id": row[1],
-                "role_id": row[2],
-                "OptimisticLockField": row[3]
-            }
-            for row in rows
-        ]
+        return db.query(SysSecActionPermission).filter(
+            SysSecActionPermission.Role == role_id
+        ).order_by(SysSecActionPermission.ActionId).all()
 
     @staticmethod
-    def fetch_by_action(db: Session, action_id: str):
+    def fetch_by_action(db: Session, action_id: str) -> List[SysSecActionPermission]:
         """
         Fetch all roles that have permission for a specific action
         """
-        from sqlalchemy import text
-        query = text("""
-            SELECT 
-                ap."Oid",
-                ap."ActionId",
-                ap."Role",
-                ap."OptimisticLockField",
-                r."Name" as role_name,
-                r."IsAdministrative"
-            FROM sys_sec_action_permission ap
-            JOIN sys_sec_role r ON ap."Role" = r."Oid"
-            WHERE ap."ActionId" = :action_id AND r."GCRecord" IS NULL
-            ORDER BY r."Name"
-        """)
-
-        result = db.execute(query, {"action_id": action_id})
-        rows = result.fetchall()
-
-        return [
-            {
-                "oid": row[0],
-                "action_id": row[1],
-                "role_id": row[2],
-                "OptimisticLockField": row[3],
-                "role_name": row[4],
-                "is_administrative": row[5]
-            }
-            for row in rows
-        ]
+        return db.query(SysSecActionPermission).options(
+            joinedload(SysSecActionPermission.sys_sec_role)
+        ).join(
+            SysSecRole, SysSecActionPermission.Role == SysSecRole.Oid
+        ).filter(
+            and_(
+                SysSecActionPermission.ActionId == action_id,
+                SysSecRole.GCRecord.is_(None)
+            )
+        ).order_by(SysSecRole.Name).all()
 
     @staticmethod
-    def delete(db: Session, permission_id: UUID):
+    def delete(db: Session, permission_id: UUID) -> bool:
         """
         Delete an action permission
         """
         try:
-            from sqlalchemy import text
-            query = text('DELETE FROM sys_sec_action_permission WHERE "Oid" = :permission_id')
+            permission = db.query(SysSecActionPermission).filter(
+                SysSecActionPermission.Oid == permission_id
+            ).first()
 
-            db.execute(query, {"permission_id": permission_id})
+            if not permission:
+                return False
+
+            db.delete(permission)
             db.commit()
             return True
 
@@ -163,21 +106,22 @@ class SysSecActionPermissionRepository:
             raise e
 
     @staticmethod
-    def delete_by_role_and_action(db: Session, role_id: UUID, action_id: str):
+    def delete_by_role_and_action(db: Session, role_id: UUID, action_id: str) -> bool:
         """
         Delete action permission by role and action
         """
         try:
-            from sqlalchemy import text
-            query = text("""
-                DELETE FROM sys_sec_action_permission
-                WHERE "Role" = :role_id AND "ActionId" = :action_id
-            """)
+            permission = db.query(SysSecActionPermission).filter(
+                and_(
+                    SysSecActionPermission.Role == role_id,
+                    SysSecActionPermission.ActionId == action_id
+                )
+            ).first()
 
-            db.execute(query, {
-                "role_id": role_id,
-                "action_id": action_id
-            })
+            if not permission:
+                return False
+
+            db.delete(permission)
             db.commit()
             return True
 
@@ -187,15 +131,14 @@ class SysSecActionPermissionRepository:
             raise e
 
     @staticmethod
-    def delete_all_for_role(db: Session, role_id: UUID):
+    def delete_all_for_role(db: Session, role_id: UUID) -> bool:
         """
         Delete all action permissions for a role
         """
         try:
-            from sqlalchemy import text
-            query = text('DELETE FROM sys_sec_action_permission WHERE "Role" = :role_id')
-
-            db.execute(query, {"role_id": role_id})
+            db.query(SysSecActionPermission).filter(
+                SysSecActionPermission.Role == role_id
+            ).delete()
             db.commit()
             return True
 
@@ -205,23 +148,20 @@ class SysSecActionPermissionRepository:
             raise e
 
     @staticmethod
-    def bulk_create(db: Session, role_id: UUID, action_ids: List[str]):
+    def bulk_create(db: Session, role_id: UUID, action_ids: List[str]) -> List[str]:
         """
         Create multiple action permissions for a role
         """
         try:
-            from sqlalchemy import text
-            
             # Get existing permissions to avoid duplicates
-            existing_query = text("""
-                SELECT "ActionId" FROM sys_sec_action_permission
-                WHERE "Role" = :role_id AND "ActionId" = ANY(:action_ids)
-            """)
-            result = db.execute(existing_query, {
-                "role_id": role_id,
-                "action_ids": action_ids
-            })
-            existing_actions = {row[0] for row in result.fetchall()}
+            existing_actions = {
+                perm.ActionId for perm in db.query(SysSecActionPermission).filter(
+                    and_(
+                        SysSecActionPermission.Role == role_id,
+                        SysSecActionPermission.ActionId.in_(action_ids)
+                    )
+                ).all()
+            }
 
             # Filter out existing permissions
             new_action_ids = [aid for aid in action_ids if aid not in existing_actions]
@@ -229,21 +169,18 @@ class SysSecActionPermissionRepository:
             if not new_action_ids:
                 return []
 
-            # Insert new permissions
-            insert_query = text("""
-                INSERT INTO sys_sec_action_permission ("Oid", "ActionId", "Role", "OptimisticLockField")
-                VALUES (:oid, :action_id, :role_id, 0)
-            """)
+            # Bulk insert
+            new_permissions = [
+                SysSecActionPermission(
+                    Oid=uuid4(),
+                    ActionId=action_id,
+                    Role=role_id,
+                    OptimisticLockField=0
+                )
+                for action_id in new_action_ids
+            ]
 
-            created_count = 0
-            for action_id in new_action_ids:
-                db.execute(insert_query, {
-                    "oid": uuid4(),
-                    "action_id": action_id,
-                    "role_id": role_id
-                })
-                created_count += 1
-
+            db.add_all(new_permissions)
             db.commit()
             return new_action_ids
 
@@ -253,33 +190,20 @@ class SysSecActionPermissionRepository:
             raise e
 
     @staticmethod
-    def fetch_all_actions(db: Session):
+    def fetch_all_actions(db: Session) -> List[str]:
         """
         Fetch all distinct action IDs from the system
         """
-        from sqlalchemy import text
-        query = text("""
-            SELECT DISTINCT "ActionId"
-            FROM sys_sec_action_permission
-            ORDER BY "ActionId"
-        """)
-
-        result = db.execute(query)
-        rows = result.fetchall()
-
-        return [row[0] for row in rows]
+        results = db.query(SysSecActionPermission.ActionId).distinct().order_by(
+            SysSecActionPermission.ActionId
+        ).all()
+        return [row[0] for row in results]
 
     @staticmethod
     def count_permissions_for_role(db: Session, role_id: UUID) -> int:
         """
         Count action permissions for a role
         """
-        from sqlalchemy import text
-        query = text("""
-            SELECT COUNT(*)
-            FROM sys_sec_action_permission
-            WHERE "Role" = :role_id
-        """)
-
-        result = db.execute(query, {"role_id": role_id})
-        return result.scalar()
+        return db.query(SysSecActionPermission).filter(
+            SysSecActionPermission.Role == role_id
+        ).count()

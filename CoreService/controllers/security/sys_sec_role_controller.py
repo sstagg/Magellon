@@ -50,7 +50,13 @@ async def create_role(
             created_by=current_user_id
         )
 
-        return RoleResponseDto(**created_role)
+        return RoleResponseDto(
+            oid=created_role.Oid,
+            name=created_role.Name,
+            is_administrative=created_role.IsAdministrative,
+            can_edit_model=created_role.CanEditModel,
+            permission_policy=created_role.PermissionPolicy
+        )
 
     except Exception as e:
         logger.exception('Error creating role')
@@ -82,7 +88,7 @@ async def update_role(
     # If name is being updated, check for conflicts
     if role_request.name:
         name_conflict = SysSecRoleRepository.fetch_by_name(db, role_request.name)
-        if name_conflict and name_conflict['oid'] != role_request.oid:
+        if name_conflict and name_conflict.Oid != role_request.oid:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Another role with name '{role_request.name}' already exists"
@@ -101,7 +107,13 @@ async def update_role(
                 detail="Role not found"
             )
 
-        return RoleResponseDto(**updated_role)
+        return RoleResponseDto(
+            oid=updated_role.Oid,
+            name=updated_role.Name,
+            is_administrative=updated_role.IsAdministrative,
+            can_edit_model=updated_role.CanEditModel,
+            permission_policy=updated_role.PermissionPolicy
+        )
 
     except Exception as e:
         logger.exception('Error updating role')
@@ -126,9 +138,18 @@ def get_all_roles(
         if name:
             roles = SysSecRoleRepository.search_by_name(db, name, skip, limit)
         else:
-            roles = SysSecRoleRepository.fetch_all(db, skip, limit, tenant_id)
+            roles = SysSecRoleRepository.fetch_all(db, skip, limit)
 
-        return [RoleResponseDto(**role) for role in roles]
+        return [
+            RoleResponseDto(
+                oid=role.Oid,
+                name=role.Name,
+                is_administrative=role.IsAdministrative,
+                can_edit_model=role.CanEditModel,
+                permission_policy=role.PermissionPolicy
+            )
+            for role in roles
+        ]
 
     except Exception as e:
         logger.exception('Error fetching roles')
@@ -145,7 +166,16 @@ def get_administrative_roles(db: Session = Depends(get_db)):
     """
     try:
         roles = SysSecRoleRepository.fetch_administrative_roles(db)
-        return [RoleResponseDto(**role) for role in roles]
+        return [
+            RoleResponseDto(
+                oid=role.Oid,
+                name=role.Name,
+                is_administrative=role.IsAdministrative,
+                can_edit_model=role.CanEditModel,
+                permission_policy=role.PermissionPolicy
+            )
+            for role in roles
+        ]
 
     except Exception as e:
         logger.exception('Error fetching administrative roles')
@@ -167,7 +197,13 @@ def get_role(role_id: UUID, db: Session = Depends(get_db)):
             detail="Role not found"
         )
 
-    return RoleResponseDto(**role)
+    return RoleResponseDto(
+        oid=role.Oid,
+        name=role.Name,
+        is_administrative=role.IsAdministrative,
+        can_edit_model=role.CanEditModel,
+        permission_policy=role.PermissionPolicy
+    )
 
 
 @sys_sec_role_router.get('/name/{role_name}', response_model=RoleResponseDto)
@@ -182,7 +218,13 @@ def get_role_by_name(role_name: str, db: Session = Depends(get_db)):
             detail="Role not found"
         )
 
-    return RoleResponseDto(**role)
+    return RoleResponseDto(
+        oid=role.Oid,
+        name=role.Name,
+        is_administrative=role.IsAdministrative,
+        can_edit_model=role.CanEditModel,
+        permission_policy=role.PermissionPolicy
+    )
 
 
 @sys_sec_role_router.delete('/{role_id}')
@@ -211,13 +253,14 @@ async def delete_role(
         )
 
     try:
-        success = SysSecRoleRepository.delete(db, role_id, hard_delete)
+        # If hard deleting, remove all user-role associations first
+        if hard_delete:
+            SysSecUserRoleRepository.remove_all_role_assignments(db, role_id)
+            success = await SysSecRoleRepository.hard_delete(db, role_id)
+        else:
+            success = await SysSecRoleRepository.soft_delete(db, role_id)
 
         if success:
-            # If hard deleting, also remove all user-role associations
-            if hard_delete:
-                SysSecUserRoleRepository.remove_all_role_assignments(db, role_id)
-
             return {"message": f"Role {'permanently deleted' if hard_delete else 'deactivated'} successfully"}
         else:
             raise HTTPException(
@@ -249,12 +292,20 @@ def get_role_users(
         )
 
     try:
-        users = SysSecUserRoleRepository.fetch_users_by_role(db, role_id)
+        user_roles = SysSecUserRoleRepository.fetch_users_by_role(db, role_id)
         return {
             "role_id": role_id,
-            "role_name": role['name'],
-            "user_count": len(users),
-            "users": users
+            "role_name": role.Name,
+            "user_count": len(user_roles),
+            "users": [
+                {
+                    "user_id": str(ur.People),
+                    "username": ur.sys_sec_user.USERNAME,
+                    "active": ur.sys_sec_user.ACTIVE,
+                    "created_date": ur.sys_sec_user.created_date
+                }
+                for ur in user_roles
+            ]
         }
 
     except Exception as e:
@@ -266,17 +317,13 @@ def get_role_users(
 
 
 @sys_sec_role_router.get('/stats/count')
-def get_role_count(
-        tenant_id: Optional[UUID] = None,
-        db: Session = Depends(get_db)
-):
+def get_role_count(db: Session = Depends(get_db)):
     """
     Get total role count
     """
-    count = SysSecRoleRepository.count_roles(db, tenant_id)
+    count = SysSecRoleRepository.count_roles(db)
     return {
-        "total_roles": count,
-        "tenant_id": tenant_id
+        "total_roles": count
     }
 
 
@@ -286,33 +333,35 @@ def get_role_statistics(db: Session = Depends(get_db)):
     Get comprehensive role statistics
     """
     try:
+        from models.sqlalchemy_models import SysSecRole, SysSecUserRole
+        from sqlalchemy import func
+
         total_roles = SysSecRoleRepository.count_roles(db)
         admin_roles = SysSecRoleRepository.fetch_administrative_roles(db)
-        
-        # Count users per role
-        from sqlalchemy import text
-        query = text("""
-            SELECT 
-                r."Oid",
-                r."Name",
-                COUNT(ur."People") as user_count
-            FROM sys_sec_role r
-            LEFT JOIN sys_sec_user_role ur ON r."Oid" = ur."Roles"
-            WHERE r."GCRecord" IS NULL
-            GROUP BY r."Oid", r."Name"
-            ORDER BY user_count DESC
-        """)
-        result = db.execute(query)
-        roles_with_counts = result.fetchall()
+
+        # Count users per role using ORM
+        roles_with_counts = db.query(
+            SysSecRole.Oid,
+            SysSecRole.Name,
+            func.count(SysSecUserRole.People).label('user_count')
+        ).outerjoin(
+            SysSecUserRole, SysSecRole.Oid == SysSecUserRole.Roles
+        ).filter(
+            SysSecRole.GCRecord.is_(None)
+        ).group_by(
+            SysSecRole.Oid, SysSecRole.Name
+        ).order_by(
+            func.count(SysSecUserRole.People).desc()
+        ).all()
 
         return {
             "total_roles": total_roles,
             "administrative_roles_count": len(admin_roles),
             "roles_with_user_counts": [
                 {
-                    "role_id": str(row[0]),
-                    "role_name": row[1],
-                    "user_count": row[2]
+                    "role_id": str(row.Oid),
+                    "role_name": row.Name,
+                    "user_count": row.user_count
                 }
                 for row in roles_with_counts
             ]

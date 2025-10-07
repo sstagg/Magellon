@@ -4,8 +4,10 @@ Repository for sys_sec_navigation_permission table operations
 from typing import List, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy.orm import Session
+from sqlalchemy import and_
+from sqlalchemy.orm import Session, joinedload
 
+from models.sqlalchemy_models import SysSecNavigationPermission, SysSecRole
 import logging
 
 logger = logging.getLogger(__name__)
@@ -15,7 +17,7 @@ class SysSecNavigationPermissionRepository:
     """Repository for managing navigation permissions"""
 
     @staticmethod
-    def create(db: Session, role_id: UUID, item_path: str, navigate_state: int = 1):
+    def create(db: Session, role_id: UUID, item_path: str, navigate_state: int = 1) -> SysSecNavigationPermission:
         """
         Create a navigation permission for a role
         navigate_state: 0 = Deny, 1 = Allow
@@ -28,31 +30,18 @@ class SysSecNavigationPermissionRepository:
             if existing:
                 return existing
 
-            from sqlalchemy import text
-            insert_query = text("""
-                INSERT INTO sys_sec_navigation_permission 
-                ("Oid", "ItemPath", "NavigateState", "Role", "OptimisticLockField")
-                VALUES (:oid, :item_path, :navigate_state, :role_id, 0)
-                RETURNING "Oid", "ItemPath", "NavigateState", "Role", "OptimisticLockField"
-            """)
+            permission = SysSecNavigationPermission(
+                Oid=uuid4(),
+                ItemPath=item_path,
+                NavigateState=navigate_state,
+                Role=role_id,
+                OptimisticLockField=0
+            )
 
-            result = db.execute(insert_query, {
-                "oid": uuid4(),
-                "item_path": item_path,
-                "navigate_state": navigate_state,
-                "role_id": role_id
-            })
-
+            db.add(permission)
             db.commit()
-            row = result.fetchone()
-
-            return {
-                "oid": row[0],
-                "item_path": row[1],
-                "navigate_state": row[2],
-                "role_id": row[3],
-                "OptimisticLockField": row[4]
-            }
+            db.refresh(permission)
+            return permission
 
         except Exception as e:
             db.rollback()
@@ -60,37 +49,27 @@ class SysSecNavigationPermissionRepository:
             raise e
 
     @staticmethod
-    def update(db: Session, permission_id: UUID, navigate_state: int):
+    def update(db: Session, permission_id: UUID, navigate_state: int) -> Optional[SysSecNavigationPermission]:
         """
         Update navigation state for a permission
         """
         try:
-            from sqlalchemy import text
-            update_query = text("""
-                UPDATE sys_sec_navigation_permission
-                SET "NavigateState" = :navigate_state,
-                    "OptimisticLockField" = "OptimisticLockField" + 1
-                WHERE "Oid" = :permission_id
-                RETURNING "Oid", "ItemPath", "NavigateState", "Role", "OptimisticLockField"
-            """)
+            permission = db.query(SysSecNavigationPermission).filter(
+                SysSecNavigationPermission.Oid == permission_id
+            ).first()
 
-            result = db.execute(update_query, {
-                "navigate_state": navigate_state,
-                "permission_id": permission_id
-            })
-            db.commit()
-            row = result.fetchone()
-
-            if row is None:
+            if not permission:
                 return None
 
-            return {
-                "oid": row[0],
-                "item_path": row[1],
-                "navigate_state": row[2],
-                "role_id": row[3],
-                "OptimisticLockField": row[4]
-            }
+            permission.NavigateState = navigate_state
+            if permission.OptimisticLockField:
+                permission.OptimisticLockField += 1
+            else:
+                permission.OptimisticLockField = 1
+
+            db.commit()
+            db.refresh(permission)
+            return permission
 
         except Exception as e:
             db.rollback()
@@ -98,108 +77,56 @@ class SysSecNavigationPermissionRepository:
             raise e
 
     @staticmethod
-    def fetch_by_role_and_path(db: Session, role_id: UUID, item_path: str):
+    def fetch_by_role_and_path(db: Session, role_id: UUID, item_path: str) -> Optional[SysSecNavigationPermission]:
         """
         Fetch navigation permission by role and path
         """
-        from sqlalchemy import text
-        query = text("""
-            SELECT "Oid", "ItemPath", "NavigateState", "Role", "OptimisticLockField"
-            FROM sys_sec_navigation_permission
-            WHERE "Role" = :role_id AND "ItemPath" = :item_path
-        """)
-
-        result = db.execute(query, {
-            "role_id": role_id,
-            "item_path": item_path
-        })
-        row = result.fetchone()
-
-        if row is None:
-            return None
-
-        return {
-            "oid": row[0],
-            "item_path": row[1],
-            "navigate_state": row[2],
-            "role_id": row[3],
-            "OptimisticLockField": row[4]
-        }
+        return db.query(SysSecNavigationPermission).filter(
+            and_(
+                SysSecNavigationPermission.Role == role_id,
+                SysSecNavigationPermission.ItemPath == item_path
+            )
+        ).first()
 
     @staticmethod
-    def fetch_by_role(db: Session, role_id: UUID):
+    def fetch_by_role(db: Session, role_id: UUID) -> List[SysSecNavigationPermission]:
         """
         Fetch all navigation permissions for a role
         """
-        from sqlalchemy import text
-        query = text("""
-            SELECT "Oid", "ItemPath", "NavigateState", "Role", "OptimisticLockField"
-            FROM sys_sec_navigation_permission
-            WHERE "Role" = :role_id
-            ORDER BY "ItemPath"
-        """)
-
-        result = db.execute(query, {"role_id": role_id})
-        rows = result.fetchall()
-
-        return [
-            {
-                "oid": row[0],
-                "item_path": row[1],
-                "navigate_state": row[2],
-                "role_id": row[3],
-                "OptimisticLockField": row[4]
-            }
-            for row in rows
-        ]
+        return db.query(SysSecNavigationPermission).filter(
+            SysSecNavigationPermission.Role == role_id
+        ).order_by(SysSecNavigationPermission.ItemPath).all()
 
     @staticmethod
-    def fetch_by_path(db: Session, item_path: str):
+    def fetch_by_path(db: Session, item_path: str) -> List[SysSecNavigationPermission]:
         """
         Fetch all roles that have permission for a specific path
         """
-        from sqlalchemy import text
-        query = text("""
-            SELECT 
-                np."Oid",
-                np."ItemPath",
-                np."NavigateState",
-                np."Role",
-                np."OptimisticLockField",
-                r."Name" as role_name,
-                r."IsAdministrative"
-            FROM sys_sec_navigation_permission np
-            JOIN sys_sec_role r ON np."Role" = r."Oid"
-            WHERE np."ItemPath" = :item_path AND r."GCRecord" IS NULL
-            ORDER BY r."Name"
-        """)
-
-        result = db.execute(query, {"item_path": item_path})
-        rows = result.fetchall()
-
-        return [
-            {
-                "oid": row[0],
-                "item_path": row[1],
-                "navigate_state": row[2],
-                "role_id": row[3],
-                "OptimisticLockField": row[4],
-                "role_name": row[5],
-                "is_administrative": row[6]
-            }
-            for row in rows
-        ]
+        return db.query(SysSecNavigationPermission).options(
+            joinedload(SysSecNavigationPermission.sys_sec_role)
+        ).join(
+            SysSecRole, SysSecNavigationPermission.Role == SysSecRole.Oid
+        ).filter(
+            and_(
+                SysSecNavigationPermission.ItemPath == item_path,
+                SysSecRole.GCRecord.is_(None)
+            )
+        ).order_by(SysSecRole.Name).all()
 
     @staticmethod
-    def delete(db: Session, permission_id: UUID):
+    def delete(db: Session, permission_id: UUID) -> bool:
         """
         Delete a navigation permission
         """
         try:
-            from sqlalchemy import text
-            query = text('DELETE FROM sys_sec_navigation_permission WHERE "Oid" = :permission_id')
+            permission = db.query(SysSecNavigationPermission).filter(
+                SysSecNavigationPermission.Oid == permission_id
+            ).first()
 
-            db.execute(query, {"permission_id": permission_id})
+            if not permission:
+                return False
+
+            db.delete(permission)
             db.commit()
             return True
 
@@ -209,21 +136,22 @@ class SysSecNavigationPermissionRepository:
             raise e
 
     @staticmethod
-    def delete_by_role_and_path(db: Session, role_id: UUID, item_path: str):
+    def delete_by_role_and_path(db: Session, role_id: UUID, item_path: str) -> bool:
         """
         Delete navigation permission by role and path
         """
         try:
-            from sqlalchemy import text
-            query = text("""
-                DELETE FROM sys_sec_navigation_permission
-                WHERE "Role" = :role_id AND "ItemPath" = :item_path
-            """)
+            permission = db.query(SysSecNavigationPermission).filter(
+                and_(
+                    SysSecNavigationPermission.Role == role_id,
+                    SysSecNavigationPermission.ItemPath == item_path
+                )
+            ).first()
 
-            db.execute(query, {
-                "role_id": role_id,
-                "item_path": item_path
-            })
+            if not permission:
+                return False
+
+            db.delete(permission)
             db.commit()
             return True
 
@@ -233,15 +161,14 @@ class SysSecNavigationPermissionRepository:
             raise e
 
     @staticmethod
-    def delete_all_for_role(db: Session, role_id: UUID):
+    def delete_all_for_role(db: Session, role_id: UUID) -> bool:
         """
         Delete all navigation permissions for a role
         """
         try:
-            from sqlalchemy import text
-            query = text('DELETE FROM sys_sec_navigation_permission WHERE "Role" = :role_id')
-
-            db.execute(query, {"role_id": role_id})
+            db.query(SysSecNavigationPermission).filter(
+                SysSecNavigationPermission.Role == role_id
+            ).delete()
             db.commit()
             return True
 
@@ -251,23 +178,20 @@ class SysSecNavigationPermissionRepository:
             raise e
 
     @staticmethod
-    def bulk_create(db: Session, role_id: UUID, item_paths: List[str], navigate_state: int = 1):
+    def bulk_create(db: Session, role_id: UUID, item_paths: List[str], navigate_state: int = 1) -> List[str]:
         """
         Create multiple navigation permissions for a role
         """
         try:
-            from sqlalchemy import text
-            
             # Get existing permissions to avoid duplicates
-            existing_query = text("""
-                SELECT "ItemPath" FROM sys_sec_navigation_permission
-                WHERE "Role" = :role_id AND "ItemPath" = ANY(:item_paths)
-            """)
-            result = db.execute(existing_query, {
-                "role_id": role_id,
-                "item_paths": item_paths
-            })
-            existing_paths = {row[0] for row in result.fetchall()}
+            existing_paths = {
+                perm.ItemPath for perm in db.query(SysSecNavigationPermission).filter(
+                    and_(
+                        SysSecNavigationPermission.Role == role_id,
+                        SysSecNavigationPermission.ItemPath.in_(item_paths)
+                    )
+                ).all()
+            }
 
             # Filter out existing permissions
             new_paths = [path for path in item_paths if path not in existing_paths]
@@ -275,21 +199,19 @@ class SysSecNavigationPermissionRepository:
             if not new_paths:
                 return []
 
-            # Insert new permissions
-            insert_query = text("""
-                INSERT INTO sys_sec_navigation_permission 
-                ("Oid", "ItemPath", "NavigateState", "Role", "OptimisticLockField")
-                VALUES (:oid, :item_path, :navigate_state, :role_id, 0)
-            """)
+            # Bulk insert
+            new_permissions = [
+                SysSecNavigationPermission(
+                    Oid=uuid4(),
+                    ItemPath=path,
+                    NavigateState=navigate_state,
+                    Role=role_id,
+                    OptimisticLockField=0
+                )
+                for path in new_paths
+            ]
 
-            for path in new_paths:
-                db.execute(insert_query, {
-                    "oid": uuid4(),
-                    "item_path": path,
-                    "navigate_state": navigate_state,
-                    "role_id": role_id
-                })
-
+            db.add_all(new_permissions)
             db.commit()
             return new_paths
 
@@ -299,69 +221,46 @@ class SysSecNavigationPermissionRepository:
             raise e
 
     @staticmethod
-    def fetch_all_paths(db: Session):
+    def fetch_all_paths(db: Session) -> List[str]:
         """
         Fetch all distinct navigation paths from the system
         """
-        from sqlalchemy import text
-        query = text("""
-            SELECT DISTINCT "ItemPath"
-            FROM sys_sec_navigation_permission
-            ORDER BY "ItemPath"
-        """)
-
-        result = db.execute(query)
-        rows = result.fetchall()
-
-        return [row[0] for row in rows]
+        results = db.query(SysSecNavigationPermission.ItemPath).distinct().order_by(
+            SysSecNavigationPermission.ItemPath
+        ).all()
+        return [row[0] for row in results]
 
     @staticmethod
     def count_permissions_for_role(db: Session, role_id: UUID) -> int:
         """
         Count navigation permissions for a role
         """
-        from sqlalchemy import text
-        query = text("""
-            SELECT COUNT(*)
-            FROM sys_sec_navigation_permission
-            WHERE "Role" = :role_id
-        """)
-
-        result = db.execute(query, {"role_id": role_id})
-        return result.scalar()
+        return db.query(SysSecNavigationPermission).filter(
+            SysSecNavigationPermission.Role == role_id
+        ).count()
 
     @staticmethod
-    def fetch_allowed_paths_for_role(db: Session, role_id: UUID):
+    def fetch_allowed_paths_for_role(db: Session, role_id: UUID) -> List[str]:
         """
         Fetch all allowed navigation paths for a role
         """
-        from sqlalchemy import text
-        query = text("""
-            SELECT "ItemPath"
-            FROM sys_sec_navigation_permission
-            WHERE "Role" = :role_id AND "NavigateState" = 1
-            ORDER BY "ItemPath"
-        """)
-
-        result = db.execute(query, {"role_id": role_id})
-        rows = result.fetchall()
-
-        return [row[0] for row in rows]
+        results = db.query(SysSecNavigationPermission.ItemPath).filter(
+            and_(
+                SysSecNavigationPermission.Role == role_id,
+                SysSecNavigationPermission.NavigateState == 1
+            )
+        ).order_by(SysSecNavigationPermission.ItemPath).all()
+        return [row[0] for row in results]
 
     @staticmethod
-    def fetch_denied_paths_for_role(db: Session, role_id: UUID):
+    def fetch_denied_paths_for_role(db: Session, role_id: UUID) -> List[str]:
         """
         Fetch all denied navigation paths for a role
         """
-        from sqlalchemy import text
-        query = text("""
-            SELECT "ItemPath"
-            FROM sys_sec_navigation_permission
-            WHERE "Role" = :role_id AND "NavigateState" = 0
-            ORDER BY "ItemPath"
-        """)
-
-        result = db.execute(query, {"role_id": role_id})
-        rows = result.fetchall()
-
-        return [row[0] for row in rows]
+        results = db.query(SysSecNavigationPermission.ItemPath).filter(
+            and_(
+                SysSecNavigationPermission.Role == role_id,
+                SysSecNavigationPermission.NavigateState == 0
+            )
+        ).order_by(SysSecNavigationPermission.ItemPath).all()
+        return [row[0] for row in results]
