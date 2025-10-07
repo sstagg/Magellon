@@ -10,22 +10,10 @@ import {
     CardContent,
     Avatar,
     Divider,
-    List,
-    ListItem,
-    ListItemIcon,
-    ListItemText,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
     TextField,
     Alert,
     Snackbar,
     Chip,
-    IconButton,
-    InputAdornment,
-    FormControlLabel,
-    Switch,
     useTheme,
     alpha,
     Stack,
@@ -38,17 +26,14 @@ import {
     VpnKey,
     History,
     Security,
-    Visibility,
-    VisibilityOff,
     Save,
     Cancel,
-    Info,
-    Schedule,
     Badge,
-    Computer,
     Warning
 } from '@mui/icons-material';
 import { userApiService, ApiUser } from './userApi.ts';
+import { UserRoleAPI, PermissionAPI } from './rbacApi';
+import ChangePasswordDialog from './ChangePasswordDialog';
 
 interface ProfileData {
     id: string;
@@ -64,12 +49,6 @@ interface ProfileData {
     object_type?: number;
     access_failed_count?: number;
     lockout_end?: Date | null;
-}
-
-interface PasswordChangeData {
-    currentPassword: string;
-    newPassword: string;
-    confirmNewPassword: string;
 }
 
 const UserProfilePage: React.FC = () => {
@@ -88,16 +67,11 @@ const UserProfilePage: React.FC = () => {
 
     // Password change dialog
     const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
-    const [passwordData, setPasswordData] = useState<PasswordChangeData>({
-        currentPassword: '',
-        newPassword: '',
-        confirmNewPassword: ''
-    });
-    const [showPasswords, setShowPasswords] = useState({
-        current: false,
-        new: false,
-        confirm: false
-    });
+
+    // User permissions and roles
+    const [userRoles, setUserRoles] = useState<any[]>([]);
+    const [userPermissions, setUserPermissions] = useState<any>(null);
+    const [loadingPermissions, setLoadingPermissions] = useState(false);
 
     const [snackbar, setSnackbar] = useState({
         open: false,
@@ -111,6 +85,12 @@ const UserProfilePage: React.FC = () => {
     useEffect(() => {
         loadProfile();
     }, []);
+
+    useEffect(() => {
+        if (profile) {
+            loadUserPermissions();
+        }
+    }, [profile?.id]);
 
     const convertApiUserToProfileData = (apiUser: ApiUser): ProfileData => ({
         id: apiUser.oid,
@@ -183,54 +163,32 @@ const UserProfilePage: React.FC = () => {
         }
     };
 
-    const handleChangePassword = async () => {
-        if (!profile) return;
+    const loadUserPermissions = async () => {
+        if (!profile?.id) return;
 
-        // Validation
-        if (passwordData.newPassword !== passwordData.confirmNewPassword) {
-            setSnackbar({
-                open: true,
-                message: 'New passwords do not match',
-                severity: 'error'
-            });
-            return;
-        }
-
-        if (passwordData.newPassword.length < 6) {
-            setSnackbar({
-                open: true,
-                message: 'Password must be at least 6 characters long',
-                severity: 'error'
-            });
-            return;
-        }
-
+        setLoadingPermissions(true);
         try {
-            await userApiService.changePassword(
-                profile.id,
-                passwordData.currentPassword,
-                passwordData.newPassword
-            );
+            const roles = await UserRoleAPI.getUserRoles(profile.id);
+            setUserRoles(Array.isArray(roles) ? roles : []);
 
-            setIsPasswordDialogOpen(false);
-            setPasswordData({
-                currentPassword: '',
-                newPassword: '',
-                confirmNewPassword: ''
-            });
-            setSnackbar({
-                open: true,
-                message: 'Password changed successfully',
-                severity: 'success'
-            });
+            const permissions = await PermissionAPI.getUserPermissions(profile.id);
+            setUserPermissions(permissions);
         } catch (error) {
-            console.error('Failed to change password:', error);
-            setSnackbar({
-                open: true,
-                message: 'Failed to change password: ' + (error as Error).message,
-                severity: 'error'
-            });
+            console.error('Failed to load permissions:', error);
+            setUserRoles([]);
+            setUserPermissions(null);
+        } finally {
+            setLoadingPermissions(false);
         }
+    };
+
+    const handlePasswordChangeSuccess = () => {
+        setSnackbar({
+            open: true,
+            message: 'Password changed successfully',
+            severity: 'success'
+        });
+        loadProfile();
     };
 
     const formatDate = (date: Date | null) => {
@@ -478,6 +436,89 @@ const UserProfilePage: React.FC = () => {
                         </Card>
                     </Grid>
 
+                    {/* Roles & Permissions */}
+                    <Grid item xs={12}>
+                        <Card>
+                            <CardContent>
+                                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Badge />
+                                    My Roles & Permissions
+                                </Typography>
+                                <Divider sx={{ mb: 2 }} />
+
+                                {loadingPermissions ? (
+                                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+                                        <CircularProgress size={32} />
+                                    </Box>
+                                ) : (
+                                    <Grid container spacing={3}>
+                                        <Grid item xs={12} md={6}>
+                                            <Box>
+                                                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                                                    Assigned Roles
+                                                </Typography>
+                                                <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ gap: 1 }}>
+                                                    {userRoles.length > 0 ? (
+                                                        userRoles.map((role, idx) => (
+                                                            <Chip
+                                                                key={idx}
+                                                                label={role.name || role.role_name}
+                                                                color="primary"
+                                                                variant="outlined"
+                                                                size="small"
+                                                            />
+                                                        ))
+                                                    ) : (
+                                                        <Typography variant="body2" color="text.secondary">
+                                                            No roles assigned
+                                                        </Typography>
+                                                    )}
+                                                </Stack>
+                                            </Box>
+                                        </Grid>
+
+                                        <Grid item xs={12} md={6}>
+                                            <Box>
+                                                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                                                    Permission Summary
+                                                </Typography>
+                                                {userPermissions ? (
+                                                    <Stack spacing={1}>
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                            <Typography variant="body2">
+                                                                Actions: <strong>{userPermissions.actions?.length || 0}</strong>
+                                                            </Typography>
+                                                            <Divider orientation="vertical" flexItem />
+                                                            <Typography variant="body2">
+                                                                Navigation: <strong>{userPermissions.navigation?.length || 0}</strong>
+                                                            </Typography>
+                                                            <Divider orientation="vertical" flexItem />
+                                                            <Typography variant="body2">
+                                                                Types: <strong>{userPermissions.types?.length || 0}</strong>
+                                                            </Typography>
+                                                        </Box>
+                                                        {userPermissions.is_admin && (
+                                                            <Chip
+                                                                label="Administrator"
+                                                                color="error"
+                                                                size="small"
+                                                                sx={{ width: 'fit-content' }}
+                                                            />
+                                                        )}
+                                                    </Stack>
+                                                ) : (
+                                                    <Typography variant="body2" color="text.secondary">
+                                                        No permissions available
+                                                    </Typography>
+                                                )}
+                                            </Box>
+                                        </Grid>
+                                    </Grid>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </Grid>
+
                     {/* Account Activity */}
                     <Grid item xs={12}>
                         <Card>
@@ -512,93 +553,14 @@ const UserProfilePage: React.FC = () => {
                 </Grid>
 
                 {/* Change Password Dialog */}
-                <Dialog
+                <ChangePasswordDialog
                     open={isPasswordDialogOpen}
+                    userId={profile.id}
+                    username={profile.username}
+                    isOwnPassword={true}
                     onClose={() => setIsPasswordDialogOpen(false)}
-                    maxWidth="sm"
-                    fullWidth
-                >
-                    <DialogTitle>Change Password</DialogTitle>
-                    <DialogContent>
-                        <Stack spacing={2} sx={{ mt: 1 }}>
-                            <TextField
-                                fullWidth
-                                label="Current Password"
-                                type={showPasswords.current ? 'text' : 'password'}
-                                value={passwordData.currentPassword}
-                                onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                                InputProps={{
-                                    endAdornment: (
-                                        <InputAdornment position="end">
-                                            <IconButton
-                                                onClick={() => setShowPasswords({ ...showPasswords, current: !showPasswords.current })}
-                                                edge="end"
-                                            >
-                                                {showPasswords.current ? <VisibilityOff /> : <Visibility />}
-                                            </IconButton>
-                                        </InputAdornment>
-                                    )
-                                }}
-                            />
-
-                            <TextField
-                                fullWidth
-                                label="New Password"
-                                type={showPasswords.new ? 'text' : 'password'}
-                                value={passwordData.newPassword}
-                                onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                                InputProps={{
-                                    endAdornment: (
-                                        <InputAdornment position="end">
-                                            <IconButton
-                                                onClick={() => setShowPasswords({ ...showPasswords, new: !showPasswords.new })}
-                                                edge="end"
-                                            >
-                                                {showPasswords.new ? <VisibilityOff /> : <Visibility />}
-                                            </IconButton>
-                                        </InputAdornment>
-                                    )
-                                }}
-                            />
-
-                            <TextField
-                                fullWidth
-                                label="Confirm New Password"
-                                type={showPasswords.confirm ? 'text' : 'password'}
-                                value={passwordData.confirmNewPassword}
-                                onChange={(e) => setPasswordData({ ...passwordData, confirmNewPassword: e.target.value })}
-                                InputProps={{
-                                    endAdornment: (
-                                        <InputAdornment position="end">
-                                            <IconButton
-                                                onClick={() => setShowPasswords({ ...showPasswords, confirm: !showPasswords.confirm })}
-                                                edge="end"
-                                            >
-                                                {showPasswords.confirm ? <VisibilityOff /> : <Visibility />}
-                                            </IconButton>
-                                        </InputAdornment>
-                                    )
-                                }}
-                            />
-
-                            <Alert severity="info">
-                                Password must be at least 6 characters long.
-                            </Alert>
-                        </Stack>
-                    </DialogContent>
-                    <DialogActions>
-                        <Button onClick={() => setIsPasswordDialogOpen(false)}>
-                            Cancel
-                        </Button>
-                        <Button
-                            onClick={handleChangePassword}
-                            variant="contained"
-                            disabled={!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmNewPassword}
-                        >
-                            Change Password
-                        </Button>
-                    </DialogActions>
-                </Dialog>
+                    onSuccess={handlePasswordChangeSuccess}
+                />
 
                 {/* Snackbar for notifications */}
                 <Snackbar
