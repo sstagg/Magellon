@@ -48,6 +48,7 @@ import {
 
 import { RoleAPI, UserRoleAPI, PermissionManagementAPI } from './rbacApi';
 import PermissionAssignmentDialog from './PermissionAssignmentDialog';
+import RoleEditDialog from './RoleEditDialog';
 
 interface RoleManagementTabProps {
   currentUser: any;
@@ -202,6 +203,8 @@ export default function RoleManagementTab({ currentUser, showSnackbar, isSuperUs
   };
 
   const openEditDialog = (role: any) => {
+    console.log('Opening edit dialog for role:', role);
+    console.log('Role oid:', role.oid, 'Role Oid:', role.Oid);
     setSelectedRole(role);
     setFormData({
       name: role.name,
@@ -546,47 +549,22 @@ export default function RoleManagementTab({ currentUser, showSnackbar, isSuperUs
         </DialogActions>
       </Dialog>
 
-      {/* Edit Role Dialog */}
-      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Edit Role</DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TextField
-              fullWidth
-              label="Role Name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              required
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={formData.is_administrative}
-                  onChange={(e) =>
-                    setFormData({ ...formData, is_administrative: e.target.checked })
-                  }
-                />
-              }
-              label="Administrative Role"
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={formData.can_edit_model}
-                  onChange={(e) => setFormData({ ...formData, can_edit_model: e.target.checked })}
-                />
-              }
-              label="Can Edit Model"
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setEditDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleUpdateRole} variant="contained" disabled={loading}>
-            Update
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {/* Edit Role Dialog - Comprehensive */}
+      {selectedRole && (
+        <RoleEditDialog
+          open={editDialogOpen}
+          role={selectedRole}
+          onClose={() => {
+            setEditDialogOpen(false);
+            setSelectedRole(null);
+          }}
+          onSuccess={() => {
+            loadRoles();
+            loadStatistics();
+          }}
+          showSnackbar={showSnackbar}
+        />
+      )}
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} maxWidth="sm">

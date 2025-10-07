@@ -23,6 +23,7 @@ import {
 import UserManagementTab from './UserManagementTab';
 import RoleManagementTab from './RoleManagementTab';
 import PermissionManagementTab from './PermissionManagementTab';
+import PermissionCheckerTab from './PermissionCheckerTab';
 
 // Import services
 import { useAuth } from './AuthContext';
@@ -153,7 +154,8 @@ export default function AccountPage() {
         tabs.push(
             <Tab key="users" icon={<AdminPanelSettings />} label="User Management" iconPosition="start" />,
             <Tab key="roles" icon={<Security />} label="Role Management" iconPosition="start" />,
-            <Tab key="permissions" icon={<Shield />} label="Permission Management" iconPosition="start" />
+            <Tab key="permissions" icon={<Shield />} label="Permissions" iconPosition="start" />,
+            <Tab key="checker" icon={<Security />} label="Permission Checker" iconPosition="start" />
         );
     }
 
@@ -268,6 +270,13 @@ export default function AccountPage() {
                                     currentUser={user}
                                     showSnackbar={showSnackbar}
                                     isSuperUser={isSuperUser}
+                                />
+                            </TabPanel>
+
+                            <TabPanel value={tabValue} index={4}>
+                                <PermissionCheckerTab
+                                    currentUser={user}
+                                    showSnackbar={showSnackbar}
                                 />
                             </TabPanel>
                         </>
