@@ -75,46 +75,49 @@ export interface BulkRoleAssignmentRequest {
 }
 
 export interface ActionPermission {
-  oid: string;
+  Oid: string;
   action_id: string;
-  role_id: string;
+  Role: string;  // Backend uses "Role" not "role_id"
   OptimisticLockField?: number;
+  GCRecord?: number;
 }
 
 export interface CreateActionPermissionRequest {
   action_id: string;
-  role_id: string;
+  role_id: string;  // Will be converted to "Role" when sending to backend
 }
 
 export interface NavigationPermission {
-  oid: string;
+  Oid: string;
   item_path: string;
   navigate_state: number;
-  role_id: string;
+  Role: string;  // Backend uses "Role" not "role_id"
   OptimisticLockField?: number;
+  GCRecord?: number;
 }
 
 export interface CreateNavigationPermissionRequest {
   item_path: string;
   navigate_state: number;
-  role_id: string;
+  role_id: string;  // Will be converted to "Role" when sending to backend
 }
 
 export interface TypePermission {
-  oid: string;
+  Oid: string;
   target_type: string;
-  role_id: string;
+  Role: string;  // Backend uses "Role" not "role_id"
   read_state: number;
   write_state: number;
   create_state: number;
   delete_state: number;
   navigate_state: number;
   OptimisticLockField?: number;
+  GCRecord?: number;
 }
 
 export interface CreateTypePermissionRequest {
   target_type: string;
-  role: string;
+  role: string;  // Will be converted to "Role" when sending to backend
   read_state: number;
   write_state: number;
   create_state: number;
@@ -424,35 +427,31 @@ export class PermissionManagementAPI {
   static async createActionPermission(
     data: CreateActionPermissionRequest
   ): Promise<ActionPermission> {
-    const response = await apiClient.post('/db/security/permission-management/actions', data);
+    const response = await apiClient.post('/db/security/actions', {
+      action_id: data.action_id,
+      Role: data.role_id, // Backend expects "Role" field
+    });
     return response.data;
   }
 
   static async getRoleActionPermissions(roleId: string): Promise<ActionPermission[]> {
-    const response = await apiClient.get(
-      `/db/security/permission-management/actions/role/${roleId}`
-    );
+    const response = await apiClient.get(`/db/security/actions/role/${roleId}`);
     return response.data;
   }
 
   static async getActionRoles(actionId: string): Promise<any> {
-    const response = await apiClient.get(
-      `/db/security/permission-management/actions/action/${actionId}`
-    );
+    const response = await apiClient.get(`/db/security/actions/action/${actionId}`);
     return response.data;
   }
 
   static async deleteActionPermission(permissionId: string): Promise<void> {
-    await apiClient.delete(`/db/security/permission-management/actions/${permissionId}`);
+    await apiClient.delete(`/db/security/actions/${permissionId}`);
   }
 
   static async bulkCreateActionPermissions(
     data: BulkPermissionRequest
   ): Promise<PermissionBatchResponse> {
-    const response = await apiClient.post(
-      '/db/security/permission-management/actions/bulk',
-      data
-    );
+    const response = await apiClient.post('/db/security/actions/bulk', data);
     return response.data;
   }
 
@@ -461,7 +460,11 @@ export class PermissionManagementAPI {
   static async createNavigationPermission(
     data: CreateNavigationPermissionRequest
   ): Promise<NavigationPermission> {
-    const response = await apiClient.post('/db/security/permission-management/navigation', data);
+    const response = await apiClient.post('/db/security/navigation', {
+      item_path: data.item_path,
+      navigate_state: data.navigate_state,
+      Role: data.role_id, // Backend expects "Role" field
+    });
     return response.data;
   }
 
@@ -469,8 +472,9 @@ export class PermissionManagementAPI {
     permissionId: string,
     navigateState: number
   ): Promise<NavigationPermission> {
+    // Backend expects query parameter, not body
     const response = await apiClient.put(
-      `/db/security/permission-management/navigation/${permissionId}`,
+      `/db/security/navigation/${permissionId}`,
       null,
       { params: { navigate_state: navigateState } }
     );
@@ -478,21 +482,19 @@ export class PermissionManagementAPI {
   }
 
   static async getRoleNavigationPermissions(roleId: string): Promise<NavigationPermission[]> {
-    const response = await apiClient.get(
-      `/db/security/permission-management/navigation/role/${roleId}`
-    );
+    const response = await apiClient.get(`/db/security/navigation/role/${roleId}`);
     return response.data;
   }
 
   static async getPathRoles(itemPath: string): Promise<any> {
-    const response = await apiClient.get('/db/security/permission-management/navigation/path', {
+    const response = await apiClient.get('/db/security/navigation/path', {
       params: { item_path: itemPath },
     });
     return response.data;
   }
 
   static async deleteNavigationPermission(permissionId: string): Promise<void> {
-    await apiClient.delete(`/db/security/permission-management/navigation/${permissionId}`);
+    await apiClient.delete(`/db/security/navigation/${permissionId}`);
   }
 
   static async bulkCreateNavigationPermissions(
@@ -500,7 +502,7 @@ export class PermissionManagementAPI {
     navigateState: number = 1
   ): Promise<PermissionBatchResponse> {
     const response = await apiClient.post(
-      '/db/security/permission-management/navigation/bulk',
+      '/db/security/navigation/bulk',
       data,
       { params: { navigate_state: navigateState } }
     );
@@ -510,7 +512,15 @@ export class PermissionManagementAPI {
   // ===== Type Permissions =====
 
   static async createTypePermission(data: CreateTypePermissionRequest): Promise<TypePermission> {
-    const response = await apiClient.post('/db/security/permission-management/types', data);
+    const response = await apiClient.post('/db/security/types', {
+      target_type: data.target_type,
+      Role: data.role, // Backend expects "Role" field
+      read_state: data.read_state,
+      write_state: data.write_state,
+      create_state: data.create_state,
+      delete_state: data.delete_state,
+      navigate_state: data.navigate_state,
+    });
     return response.data;
   }
 
@@ -524,8 +534,9 @@ export class PermissionManagementAPI {
       navigate_state?: number;
     }
   ): Promise<TypePermission> {
+    // Backend expects query parameters, not body
     const response = await apiClient.put(
-      `/db/security/permission-management/types/${permissionId}`,
+      `/db/security/types/${permissionId}`,
       null,
       { params: states }
     );
@@ -533,33 +544,31 @@ export class PermissionManagementAPI {
   }
 
   static async getRoleTypePermissions(roleId: string): Promise<TypePermission[]> {
-    const response = await apiClient.get(
-      `/db/security/permission-management/types/role/${roleId}`
-    );
+    const response = await apiClient.get(`/db/security/types/role/${roleId}`);
     return response.data;
   }
 
   static async getTypeRoles(targetType: string): Promise<any> {
-    const response = await apiClient.get(
-      `/db/security/permission-management/types/type/${targetType}`
-    );
+    const response = await apiClient.get(`/db/security/types/type/${targetType}`);
     return response.data;
   }
 
   static async deleteTypePermission(permissionId: string): Promise<void> {
-    await apiClient.delete(`/db/security/permission-management/types/${permissionId}`);
+    await apiClient.delete(`/db/security/types/${permissionId}`);
   }
 
   static async grantFullAccess(roleId: string, targetType: string): Promise<TypePermission> {
+    // Use the backend's convenience endpoint
     const response = await apiClient.post(
-      `/db/security/permission-management/types/grant-full-access/${roleId}/${targetType}`
+      `/db/security/types/grant-full-access/${roleId}/${targetType}`
     );
     return response.data;
   }
 
   static async grantReadOnly(roleId: string, targetType: string): Promise<TypePermission> {
+    // Use the backend's convenience endpoint
     const response = await apiClient.post(
-      `/db/security/permission-management/types/grant-read-only/${roleId}/${targetType}`
+      `/db/security/types/grant-read-only/${roleId}/${targetType}`
     );
     return response.data;
   }
@@ -567,24 +576,23 @@ export class PermissionManagementAPI {
   // ===== Utility =====
 
   static async getAllActions(): Promise<{ actions: string[] }> {
-    const response = await apiClient.get('/db/security/permission-management/all-actions');
+    const response = await apiClient.get('/db/security/all-actions');
     return response.data;
   }
 
   static async getAllPaths(): Promise<{ paths: string[] }> {
-    const response = await apiClient.get('/db/security/permission-management/all-paths');
+    const response = await apiClient.get('/db/security/all-paths');
     return response.data;
   }
 
   static async getAllTypes(): Promise<{ types: string[] }> {
-    const response = await apiClient.get('/db/security/permission-management/all-types');
+    const response = await apiClient.get('/db/security/all-types');
     return response.data;
   }
 
   static async getRolePermissionsSummary(roleId: string): Promise<RolePermissionsSummary> {
-    const response = await apiClient.get(
-      `/db/security/permission-management/role/${roleId}/summary`
-    );
+    // Use the backend's summary endpoint
+    const response = await apiClient.get(`/db/security/role/${roleId}/summary`);
     return response.data;
   }
 }

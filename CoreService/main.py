@@ -150,6 +150,7 @@ app.include_router(sys_sec_user_router, prefix="/db/security/users", tags=["Secu
 app.include_router(sys_sec_role_router, prefix="/db/security/roles", tags=["Security - Roles"])
 app.include_router(sys_sec_user_role_router, prefix="/db/security/user-roles", tags=["Security - User Roles"])
 app.include_router(sys_sec_permission_router, prefix="/db/security/permissions", tags=["Security - Permissions"])
+app.include_router(sys_sec_permission_mgmt_router, prefix="/db/security", tags=["Security - Permission Management"])
 
 
 Instrumentator().instrument(app).expose(app)

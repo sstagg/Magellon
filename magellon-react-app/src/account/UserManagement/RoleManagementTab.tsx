@@ -187,12 +187,15 @@ export default function RoleManagementTab({ currentUser, showSnackbar, isSuperUs
   const loadRoleUsers = async (role: any) => {
     setLoading(true);
     try {
-      const users = await UserRoleAPI.getRoleUsers(role.oid);
+      const response = await UserRoleAPI.getRoleUsers(role.oid);
+      // Handle both array response and object with users property
+      const users = Array.isArray(response) ? response : (response.users || []);
       setRoleUsers(users);
       setSelectedRole(role);
       setUsersDialogOpen(true);
     } catch (error: any) {
       showSnackbar('Failed to load role users: ' + error.message, 'error');
+      setRoleUsers([]); // Set to empty array on error
     } finally {
       setLoading(false);
     }
@@ -415,14 +418,16 @@ export default function RoleManagementTab({ currentUser, showSnackbar, isSuperUs
                               <Edit />
                             </IconButton>
                           </Tooltip>
-                          <Tooltip title="Delete">
-                            <IconButton
-                              size="small"
-                              onClick={() => openDeleteDialog(role)}
-                              disabled={role.is_administrative}
-                            >
-                              <Delete />
-                            </IconButton>
+                          <Tooltip title={role.is_administrative ? "Cannot delete administrative role" : "Delete"}>
+                            <span>
+                              <IconButton
+                                size="small"
+                                onClick={() => openDeleteDialog(role)}
+                                disabled={role.is_administrative}
+                              >
+                                <Delete />
+                              </IconButton>
+                            </span>
                           </Tooltip>
                           <IconButton size="small" onClick={(e) => handleMenuOpen(e, role)}>
                             <MoreVert />
