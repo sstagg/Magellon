@@ -617,14 +617,115 @@ export default function UserManagementTab({
     return (
         <Box>
             <Grid container spacing={3}>
-                {/* Profile Card */}
-                <Grid item xs={12}>
-                    <Card>
+                {/* Profile Header Card */}
+                <Grid xs={12}>
+                    <Card sx={{
+                        background: 'linear-gradient(135deg, rgba(33, 150, 243, 0.1) 0%, rgba(33, 150, 243, 0.05) 100%)',
+                        border: '1px solid',
+                        borderColor: 'primary.light',
+                    }}>
+                        <CardContent sx={{ p: 4 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 3 }}>
+                                <Avatar
+                                    sx={{
+                                        width: 80,
+                                        height: 80,
+                                        bgcolor: 'primary.main',
+                                        fontSize: '2rem',
+                                        fontWeight: 'bold',
+                                    }}
+                                >
+                                    {currentUser?.username?.charAt(0).toUpperCase()}
+                                </Avatar>
+                                <Box sx={{ flex: 1 }}>
+                                    <Typography variant="h4" gutterBottom>
+                                        {currentUser?.username}
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                        {currentUser?.active ? (
+                                            <Chip
+                                                icon={<CheckCircle />}
+                                                label="Active"
+                                                color="success"
+                                                size="small"
+                                            />
+                                        ) : (
+                                            <Chip
+                                                icon={<Block />}
+                                                label="Inactive"
+                                                color="error"
+                                                size="small"
+                                            />
+                                        )}
+                                        {isAdmin && (
+                                            <Chip
+                                                icon={<AdminPanelSettings />}
+                                                label="Administrator"
+                                                color="error"
+                                                size="small"
+                                            />
+                                        )}
+                                        {userPermissions?.roles?.length > 0 && (
+                                            <Chip
+                                                icon={<Security />}
+                                                label={`${userPermissions.roles.length} Role${userPermissions.roles.length > 1 ? 's' : ''}`}
+                                                color="primary"
+                                                size="small"
+                                                variant="outlined"
+                                            />
+                                        )}
+                                    </Box>
+                                </Box>
+                            </Box>
+                            <Divider sx={{ my: 2 }} />
+                            <Grid container spacing={2}>
+                                <Grid xs={12} sm={4}>
+                                    <Typography variant="caption" color="text.secondary">
+                                        User ID
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                                        {currentUser?.id || currentUser?.oid || 'N/A'}
+                                    </Typography>
+                                </Grid>
+                                <Grid xs={12} sm={4}>
+                                    <Typography variant="caption" color="text.secondary">
+                                        Account Status
+                                    </Typography>
+                                    <Typography variant="body2">
+                                        {currentUser?.active ? '✓ Active' : '✗ Inactive'}
+                                    </Typography>
+                                </Grid>
+                                <Grid xs={12} sm={4}>
+                                    <Typography variant="caption" color="text.secondary">
+                                        Member Since
+                                    </Typography>
+                                    <Typography variant="body2">
+                                        {currentUser?.created_date
+                                            ? new Date(currentUser.created_date).toLocaleDateString()
+                                            : 'Unknown'}
+                                    </Typography>
+                                </Grid>
+                            </Grid>
+                        </CardContent>
+                    </Card>
+                </Grid>
+
+                {/* Profile Information Card */}
+                <Grid xs={12} md={6}>
+                    <Card sx={{ height: '100%' }}>
                         <CardContent>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                                <Typography variant="h6">Profile Information</Typography>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Person color="primary" />
+                                    <Typography variant="h6">Profile Information</Typography>
+                                </Box>
                                 {!editMode ? (
-                                    <Button startIcon={<Edit />} onClick={() => setEditMode(true)} variant="outlined">
+                                    <Button
+                                        startIcon={<Edit />}
+                                        onClick={() => setEditMode(true)}
+                                        variant="outlined"
+                                        size="small"
+                                    >
                                         Edit
                                     </Button>
                                 ) : (
@@ -638,6 +739,7 @@ export default function UserManagementTab({
                                                     email: currentUser?.email || '',
                                                 });
                                             }}
+                                            size="small"
                                         >
                                             Cancel
                                         </Button>
@@ -646,6 +748,7 @@ export default function UserManagementTab({
                                             onClick={handleSaveProfile}
                                             variant="contained"
                                             disabled={loading}
+                                            size="small"
                                         >
                                             Save
                                         </Button>
@@ -653,143 +756,264 @@ export default function UserManagementTab({
                                 )}
                             </Box>
 
-                            <Grid container spacing={2}>
-                                <Grid item xs={12} md={6}>
-                                    <TextField
-                                        fullWidth
-                                        label="Username"
-                                        value={formData.username}
-                                        onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                                        disabled={!editMode}
-                                        InputProps={{
-                                            startAdornment: (
-                                                <InputAdornment position="start">
-                                                    <Person />
-                                                </InputAdornment>
-                                            ),
-                                        }}
-                                    />
-                                </Grid>
-                                <Grid item xs={12} md={6}>
-                                    <TextField
-                                        fullWidth
-                                        label="Email"
-                                        value={formData.email}
-                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                        disabled={!editMode}
-                                        InputProps={{
-                                            startAdornment: (
-                                                <InputAdornment position="start">
-                                                    <Email />
-                                                </InputAdornment>
-                                            ),
-                                        }}
-                                    />
-                                </Grid>
-                            </Grid>
-                        </CardContent>
-                    </Card>
-                </Grid>
-
-                {/* Security Card */}
-                <Grid item xs={12}>
-                    <Card>
-                        <CardContent>
-                            <Typography variant="h6" gutterBottom>
-                                Security
-                            </Typography>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <Box>
-                                    <Typography variant="subtitle2">Password</Typography>
-                                    <Typography variant="body2" color="text.secondary">
-                                        Last changed: Never
-                                    </Typography>
-                                </Box>
-                                <Button
-                                    variant="outlined"
-                                    startIcon={<Lock />}
-                                    onClick={() => setPasswordDialogOpen(true)}
-                                >
-                                    Change Password
-                                </Button>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                                <TextField
+                                    fullWidth
+                                    label="Username"
+                                    value={formData.username}
+                                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                                    disabled={!editMode}
+                                    InputProps={{
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                                <Person />
+                                            </InputAdornment>
+                                        ),
+                                    }}
+                                />
+                                <TextField
+                                    fullWidth
+                                    label="Email"
+                                    value={formData.email}
+                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                    disabled={!editMode}
+                                    InputProps={{
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                                <Email />
+                                            </InputAdornment>
+                                        ),
+                                    }}
+                                />
                             </Box>
                         </CardContent>
                     </Card>
                 </Grid>
 
-                {/* Permissions Card */}
-                <Grid item xs={12}>
+                {/* Security Card */}
+                <Grid xs={12} md={6}>
+                    <Card sx={{ height: '100%' }}>
+                        <CardContent>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                                <Lock color="primary" />
+                                <Typography variant="h6">Security</Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                <Box>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                                        <Typography variant="subtitle2">Password</Typography>
+                                        <Chip
+                                            label="Secure"
+                                            size="small"
+                                            color="success"
+                                            variant="outlined"
+                                        />
+                                    </Box>
+                                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                                        Last changed: {currentUser?.last_password_change
+                                            ? new Date(currentUser.last_password_change).toLocaleDateString()
+                                            : 'Never'}
+                                    </Typography>
+                                    <Button
+                                        variant="contained"
+                                        startIcon={<Lock />}
+                                        onClick={() => setPasswordDialogOpen(true)}
+                                        fullWidth
+                                    >
+                                        Change Password
+                                    </Button>
+                                </Box>
+                                <Divider />
+                                <Box>
+                                    <Typography variant="subtitle2" gutterBottom>
+                                        Account Security
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                            <Typography variant="body2" color="text.secondary">
+                                                Failed Login Attempts
+                                            </Typography>
+                                            <Typography variant="body2">
+                                                {currentUser?.access_failed_count || 0}
+                                            </Typography>
+                                        </Box>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                            <Typography variant="body2" color="text.secondary">
+                                                Account Locked
+                                            </Typography>
+                                            <Typography variant="body2">
+                                                {currentUser?.lockout_end && new Date(currentUser.lockout_end) > new Date()
+                                                    ? '🔒 Yes'
+                                                    : '✓ No'}
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                </Box>
+                            </Box>
+                        </CardContent>
+                    </Card>
+                </Grid>
+
+                {/* Roles & Permissions Card */}
+                <Grid xs={12}>
                     <Card>
                         <CardContent>
-                            <Typography variant="h6" gutterBottom>
-                                My Permissions
-                            </Typography>
-                            <Divider sx={{ my: 2 }} />
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                                <Shield color="primary" />
+                                <Typography variant="h6">Roles & Permissions</Typography>
+                            </Box>
 
                             {loading ? (
-                                <CircularProgress />
+                                <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                                    <CircularProgress />
+                                </Box>
                             ) : (
-                                <>
-                                    {/* Roles */}
-                                    <Box sx={{ mb: 3 }}>
-                                        <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                            <Security /> Roles
-                                        </Typography>
-                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                                            {userPermissions?.roles?.map((role: any) => (
-                                                <Chip
-                                                    key={role.oid}
-                                                    label={role.name}
-                                                    color={role.is_administrative ? 'error' : 'primary'}
-                                                />
-                                            ))}
-                                            {(!userPermissions?.roles || userPermissions.roles.length === 0) && (
-                                                <Typography variant="body2" color="text.secondary">
-                                                    No roles assigned
-                                                </Typography>
-                                            )}
+                                <Grid container spacing={3}>
+                                    {/* Roles Section */}
+                                    <Grid xs={12} md={4}>
+                                        <Box
+                                            sx={{
+                                                p: 2,
+                                                borderRadius: 2,
+                                                bgcolor: 'background.default',
+                                                height: '100%',
+                                            }}
+                                        >
+                                            <Typography
+                                                variant="subtitle2"
+                                                gutterBottom
+                                                sx={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: 1,
+                                                    mb: 2,
+                                                    fontWeight: 600,
+                                                }}
+                                            >
+                                                <Security fontSize="small" /> My Roles
+                                            </Typography>
+                                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                                {userPermissions?.roles?.map((role: any) => (
+                                                    <Chip
+                                                        key={role.oid}
+                                                        label={role.name}
+                                                        color={role.is_administrative ? 'error' : 'primary'}
+                                                        icon={role.is_administrative ? <AdminPanelSettings /> : <Security />}
+                                                        sx={{ justifyContent: 'flex-start' }}
+                                                    />
+                                                ))}
+                                                {(!userPermissions?.roles || userPermissions.roles.length === 0) && (
+                                                    <Typography
+                                                        variant="body2"
+                                                        color="text.secondary"
+                                                        sx={{ textAlign: 'center', py: 2 }}
+                                                    >
+                                                        No roles assigned
+                                                    </Typography>
+                                                )}
+                                            </Box>
                                         </Box>
-                                    </Box>
+                                    </Grid>
 
-                                    {/* Action Permissions */}
-                                    <Box sx={{ mb: 3 }}>
-                                        <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                            <VpnKey /> Action Permissions
-                                        </Typography>
-                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                                            {userPermissions?.action_permissions?.map((perm: any, index: number) => (
-                                                <Chip key={index} label={perm.action_id || perm} size="small" variant="outlined" />
-                                            ))}
-                                            {(!userPermissions?.action_permissions || userPermissions.action_permissions.length === 0) && (
-                                                <Typography variant="body2" color="text.secondary">
-                                                    No action permissions
-                                                </Typography>
-                                            )}
+                                    {/* Action Permissions Section */}
+                                    <Grid xs={12} md={4}>
+                                        <Box
+                                            sx={{
+                                                p: 2,
+                                                borderRadius: 2,
+                                                bgcolor: 'background.default',
+                                                height: '100%',
+                                            }}
+                                        >
+                                            <Typography
+                                                variant="subtitle2"
+                                                gutterBottom
+                                                sx={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: 1,
+                                                    mb: 2,
+                                                    fontWeight: 600,
+                                                }}
+                                            >
+                                                <VpnKey fontSize="small" /> Action Permissions
+                                            </Typography>
+                                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                                {userPermissions?.action_permissions?.map((perm: any, index: number) => (
+                                                    <Chip
+                                                        key={index}
+                                                        label={perm.action_id || perm}
+                                                        size="small"
+                                                        variant="outlined"
+                                                        color="info"
+                                                    />
+                                                ))}
+                                                {(!userPermissions?.action_permissions ||
+                                                    userPermissions.action_permissions.length === 0) && (
+                                                    <Typography
+                                                        variant="body2"
+                                                        color="text.secondary"
+                                                        sx={{ textAlign: 'center', py: 2, width: '100%' }}
+                                                    >
+                                                        No action permissions
+                                                    </Typography>
+                                                )}
+                                            </Box>
                                         </Box>
-                                    </Box>
+                                    </Grid>
 
-                                    {/* Navigation Permissions */}
-                                    <Box>
-                                        <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                            <Shield /> Navigation Access
-                                        </Typography>
-                                        <List dense>
-                                            {userPermissions?.navigation_permissions?.map((perm: any, index: number) => (
-                                                <ListItem key={index}>
-                                                    <ListItemIcon>
-                                                        <CheckCircle color="success" fontSize="small" />
-                                                    </ListItemIcon>
-                                                    <ListItemText primary={perm.path || perm.item_path || perm} />
-                                                </ListItem>
-                                            ))}
-                                            {(!userPermissions?.navigation_permissions || userPermissions.navigation_permissions.length === 0) && (
-                                                <Typography variant="body2" color="text.secondary">
-                                                    No navigation permissions
-                                                </Typography>
-                                            )}
-                                        </List>
-                                    </Box>
-                                </>
+                                    {/* Navigation Permissions Section */}
+                                    <Grid xs={12} md={4}>
+                                        <Box
+                                            sx={{
+                                                p: 2,
+                                                borderRadius: 2,
+                                                bgcolor: 'background.default',
+                                                height: '100%',
+                                            }}
+                                        >
+                                            <Typography
+                                                variant="subtitle2"
+                                                gutterBottom
+                                                sx={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: 1,
+                                                    mb: 2,
+                                                    fontWeight: 600,
+                                                }}
+                                            >
+                                                <Shield fontSize="small" /> Navigation Access
+                                            </Typography>
+                                            <List dense sx={{ p: 0 }}>
+                                                {userPermissions?.navigation_permissions?.map((perm: any, index: number) => (
+                                                    <ListItem key={index} sx={{ px: 0, py: 0.5 }}>
+                                                        <ListItemIcon sx={{ minWidth: 32 }}>
+                                                            <CheckCircle color="success" fontSize="small" />
+                                                        </ListItemIcon>
+                                                        <ListItemText
+                                                            primary={perm.path || perm.item_path || perm}
+                                                            primaryTypographyProps={{
+                                                                variant: 'body2',
+                                                                sx: { fontFamily: 'monospace', fontSize: '0.75rem' },
+                                                            }}
+                                                        />
+                                                    </ListItem>
+                                                ))}
+                                                {(!userPermissions?.navigation_permissions ||
+                                                    userPermissions.navigation_permissions.length === 0) && (
+                                                    <Typography
+                                                        variant="body2"
+                                                        color="text.secondary"
+                                                        sx={{ textAlign: 'center', py: 2 }}
+                                                    >
+                                                        No navigation permissions
+                                                    </Typography>
+                                                )}
+                                            </List>
+                                        </Box>
+                                    </Grid>
+                                </Grid>
                             )}
                         </CardContent>
                     </Card>
