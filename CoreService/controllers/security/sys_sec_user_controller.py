@@ -435,6 +435,73 @@ async def change_password(
     return {"message": "Password changed successfully"}
 
 
+@sys_sec_user_router.post('/{user_id}/admin-reset-password')
+async def admin_reset_password(
+        user_id: UUID,
+        new_password: str,
+        require_change_on_login: bool = True,
+        db: Session = Depends(get_db),
+        current_user_id: Optional[UUID] = None
+):
+    """
+    Admin endpoint to reset user password without requiring current password.
+    This should be used by administrators only.
+
+    Args:
+        user_id: ID of the user whose password will be reset
+        new_password: The new password to set
+        require_change_on_login: Whether user must change password on next login (default: True)
+        current_user_id: ID of the admin performing the reset (from JWT/session)
+    """
+    if len(new_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail='New password must be at least 6 characters long'
+        )
+
+    # Validate target user exists
+    user = SysSecUserRepository.fetch_by_id(db, user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    try:
+        # Hash the new password
+        hashed_password = hash_password(new_password)
+
+        # Update password and optionally set change_password_on_first_logon flag
+        update_dto = SysSecUserUpdateDto(
+            oid=user_id,
+            password=hashed_password,
+            change_password_on_first_logon=require_change_on_login,
+            access_failed_count=0  # Reset failed login attempts
+        )
+
+        updated_user = await SysSecUserRepository.update(db, update_dto, current_user_id)
+
+        if not updated_user:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error resetting password"
+            )
+
+        return {
+            "message": "Password reset successfully",
+            "user_id": str(user_id),
+            "username": updated_user.USERNAME,
+            "require_change_on_login": require_change_on_login
+        }
+
+    except Exception as e:
+        logger.exception('Error resetting user password')
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail='Error resetting password'
+        )
+
+
 @sys_sec_user_router.get('/stats/count')
 def get_user_count(
         include_inactive: bool = Query(False),

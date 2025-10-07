@@ -191,7 +191,7 @@ class UserApiService {
         });
     }
 
-    // Change password
+    // Change password (user changing their own password - requires current password)
     async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<{ message: string }> {
         const searchParams = new URLSearchParams();
         searchParams.set('current_password', currentPassword);
@@ -199,6 +199,21 @@ class UserApiService {
 
         return this.request<{ message: string }>(`/${userId}/change-password?${searchParams.toString()}`, {
             method: 'POST',
+        });
+    }
+
+    // Admin reset password (admin resetting user password - no current password required)
+    async adminResetPassword(
+        userId: string,
+        newPassword: string,
+        requireChangeOnLogin: boolean = false
+    ): Promise<{ message: string }> {
+        return this.request<{ message: string }>(`/${userId}/admin-reset-password`, {
+            method: 'POST',
+            body: JSON.stringify({
+                new_password: newPassword,
+                require_change_on_login: requireChangeOnLogin,
+            }),
         });
     }
 

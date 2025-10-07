@@ -13,6 +13,8 @@ import {
   IconButton,
   InputAdornment,
   Typography,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import {
   Visibility,
@@ -42,6 +44,7 @@ export default function ChangePasswordDialog({
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [requireChangeOnLogin, setRequireChangeOnLogin] = useState(true);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -52,6 +55,7 @@ export default function ChangePasswordDialog({
     setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
+    setRequireChangeOnLogin(true);
     setError('');
     setShowCurrentPassword(false);
     setShowNewPassword(false);
@@ -110,7 +114,13 @@ export default function ChangePasswordDialog({
 
     setLoading(true);
     try {
-      await userApiService.changePassword(userId, currentPassword, newPassword);
+      if (isOwnPassword) {
+        // User changing their own password - requires current password
+        await userApiService.changePassword(userId, currentPassword, newPassword);
+      } else {
+        // Admin resetting user password - no current password required
+        await userApiService.adminResetPassword(userId, newPassword, requireChangeOnLogin);
+      }
       onSuccess();
       handleClose();
     } catch (err: any) {
@@ -125,15 +135,23 @@ export default function ChangePasswordDialog({
       <DialogTitle>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Lock />
-          Change Password
+          {isOwnPassword ? 'Change Password' : 'Reset User Password'}
         </Box>
       </DialogTitle>
       <DialogContent>
         <Box sx={{ mt: 2 }}>
           <Alert severity="info" sx={{ mb: 3 }}>
             <Typography variant="body2">
-              Changing password for: <strong>{username}</strong>
+              {isOwnPassword
+                ? `Changing your password`
+                : `Resetting password for: `}
+              {!isOwnPassword && <strong>{username}</strong>}
             </Typography>
+            {!isOwnPassword && (
+              <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+                As an admin, you can set a new password without knowing the current one.
+              </Typography>
+            )}
           </Alert>
 
           {error && (
@@ -209,6 +227,20 @@ export default function ChangePasswordDialog({
               ),
             }}
           />
+
+          {!isOwnPassword && (
+            <Box sx={{ mt: 2 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={requireChangeOnLogin}
+                    onChange={(e) => setRequireChangeOnLogin(e.target.checked)}
+                  />
+                }
+                label="Require password change on next login"
+              />
+            </Box>
+          )}
         </Box>
       </DialogContent>
       <DialogActions>

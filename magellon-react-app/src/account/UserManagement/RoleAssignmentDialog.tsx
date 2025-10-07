@@ -39,25 +39,30 @@ export default function RoleAssignmentDialog({
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open && user && user.id) {
+    if (open && user && (user.id || user.oid)) {
       loadData();
     }
   }, [open, user]);
 
   const loadData = async () => {
-    if (!user || !user.id) {
-      console.error('User or user ID is undefined');
+    const userId = user?.id || user?.oid;
+    if (!user || !userId) {
+      console.error('User or user ID is undefined', user);
       return;
     }
 
     setLoading(true);
     try {
       // Load all available roles
+      console.log('Loading all roles...');
       const roles = await RoleAPI.getRoles();
+      console.log('Loaded roles:', roles);
       setAllRoles(roles);
 
       // Load user's current roles
-      const currentRoles = await UserRoleAPI.getUserRoles(user.id);
+      console.log('Loading user roles for user ID:', userId);
+      const currentRoles = await UserRoleAPI.getUserRoles(userId);
+      console.log('User current roles:', currentRoles);
       setUserRoles(new Set(currentRoles.map((r: any) => r.role_id)));
     } catch (error) {
       console.error('Failed to load roles:', error);
@@ -67,27 +72,44 @@ export default function RoleAssignmentDialog({
   };
 
   const handleToggleRole = async (roleId: string, isChecked: boolean) => {
+    const userId = user?.id || user?.oid;
+    if (!userId) {
+      console.error('Cannot toggle role: user ID is undefined');
+      return;
+    }
+
+    console.log('Toggling role:', { roleId, isChecked, userId });
+
     setSaving(true);
     try {
       if (isChecked) {
+        console.log('Assigning role...');
         await UserRoleAPI.assignRole({
-          user_id: user.id,
+          user_id: userId,
           role_id: roleId,
         });
+        console.log('Role assigned successfully');
       } else {
-        await UserRoleAPI.removeRole(user.id, roleId);
+        console.log('Removing role...');
+        await UserRoleAPI.removeRole(userId, roleId);
+        console.log('Role removed successfully');
       }
 
-      // Update local state
+      // Update local state immediately
       const newUserRoles = new Set(userRoles);
       if (isChecked) {
         newUserRoles.add(roleId);
       } else {
         newUserRoles.delete(roleId);
       }
+      console.log('Updated user roles set:', newUserRoles);
       setUserRoles(newUserRoles);
+
+      // Notify parent of success
+      onSuccess();
     } catch (error) {
       console.error('Failed to update role:', error);
+      alert('Failed to update role: ' + (error as Error).message);
     } finally {
       setSaving(false);
     }
@@ -110,31 +132,35 @@ export default function RoleAssignmentDialog({
             </Typography>
             <Divider sx={{ my: 2 }} />
             <FormGroup>
-              {allRoles.map((role) => (
-                <FormControlLabel
-                  key={role.oid}
-                  control={
-                    <Checkbox
-                      checked={userRoles.has(role.oid)}
-                      onChange={(e) => handleToggleRole(role.oid, e.target.checked)}
-                      disabled={saving}
-                    />
-                  }
-                  label={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      {role.is_administrative ? (
-                        <AdminPanelSettings fontSize="small" color="error" />
-                      ) : (
-                        <Security fontSize="small" color="primary" />
-                      )}
-                      <Typography variant="body1">{role.name}</Typography>
-                      {role.is_administrative && (
-                        <Chip label="Admin" color="error" size="small" />
-                      )}
-                    </Box>
-                  }
-                />
-              ))}
+              {allRoles.map((role) => {
+                const isChecked = userRoles.has(role.oid);
+                console.log(`Role ${role.name} (${role.oid}): checked=${isChecked}, userRoles has:`, Array.from(userRoles));
+                return (
+                  <FormControlLabel
+                    key={role.oid}
+                    control={
+                      <Checkbox
+                        checked={isChecked}
+                        onChange={(e) => handleToggleRole(role.oid, e.target.checked)}
+                        disabled={saving}
+                      />
+                    }
+                    label={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {role.is_administrative ? (
+                          <AdminPanelSettings fontSize="small" color="error" />
+                        ) : (
+                          <Security fontSize="small" color="primary" />
+                        )}
+                        <Typography variant="body1">{role.name}</Typography>
+                        {role.is_administrative && (
+                          <Chip label="Admin" color="error" size="small" />
+                        )}
+                      </Box>
+                    }
+                  />
+                );
+              })}
             </FormGroup>
             {allRoles.length === 0 && (
               <Typography variant="body2" color="text.secondary" align="center" sx={{ p: 2 }}>

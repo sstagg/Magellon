@@ -58,7 +58,12 @@ async def assign_role_to_user(
 
     try:
         assignment = SysSecUserRoleRepository.assign_role_to_user(db, user_id, role_id)
-        return UserRoleResponseDto(**assignment)
+        return UserRoleResponseDto(
+            oid=assignment.oid,
+            user_id=assignment.People,
+            role_id=assignment.Roles,
+            optimistic_lock_field=assignment.OptimisticLockField
+        )
 
     except Exception as e:
         logger.exception('Error assigning role to user')
