@@ -52,9 +52,10 @@ import PermissionAssignmentDialog from './PermissionAssignmentDialog';
 interface RoleManagementTabProps {
   currentUser: any;
   showSnackbar: (message: string, severity: 'success' | 'error' | 'info' | 'warning') => void;
+  isSuperUser?: boolean;
 }
 
-export default function RoleManagementTab({ currentUser, showSnackbar }: RoleManagementTabProps) {
+export default function RoleManagementTab({ currentUser, showSnackbar, isSuperUser = false }: RoleManagementTabProps) {
   const [loading, setLoading] = useState(false);
   const [roles, setRoles] = useState<any[]>([]);
   const [filteredRoles, setFilteredRoles] = useState<any[]>([]);

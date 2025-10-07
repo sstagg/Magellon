@@ -44,6 +44,7 @@ import { RoleAPI, PermissionManagementAPI } from './rbacApi';
 interface PermissionManagementTabProps {
   currentUser: any;
   showSnackbar: (message: string, severity: 'success' | 'error' | 'info' | 'warning') => void;
+  isSuperUser?: boolean;
 }
 
 interface TabPanelProps {
@@ -69,6 +70,7 @@ function TabPanel(props: TabPanelProps) {
 export default function PermissionManagementTab({
   currentUser,
   showSnackbar,
+  isSuperUser = false,
 }: PermissionManagementTabProps) {
   const [tabValue, setTabValue] = useState(0);
   const [loading, setLoading] = useState(false);

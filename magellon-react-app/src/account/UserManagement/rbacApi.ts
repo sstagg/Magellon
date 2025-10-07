@@ -230,7 +230,7 @@ export class RoleAPI {
    * Delete role
    */
   static async deleteRole(roleId: string, hardDelete: boolean = false): Promise<void> {
-    await apiClient.delete(`/api/security/roles/${roleId}`, {
+    await apiClient.delete(`/db/security/roles/${roleId}`, {
       params: { hard_delete: hardDelete },
     });
   }
