@@ -1,14 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Box, useTheme, useMediaQuery } from '@mui/material';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { ImageWorkspace } from '../../components/features/session_viewer/ImageWorkspace.tsx';
-import { useImageListQuery } from '../../services/api/usePagedImagesHook.ts';
-import { useAtlasImages } from '../../services/api/FetchSessionAtlasImages.ts';
 import { useSessionNames } from '../../services/api/FetchUseSessionNames.ts';
 import { useImageViewerStore } from '../../components/features/session_viewer/store/imageViewerStore.ts';
 import { ImageInspector } from "../../components/features/session_viewer/ImageInspector.tsx";
 import { usePanelLayout } from '../../components/features/session_viewer/hooks/usePanelLayout.ts';
 import { useImageNavigation } from '../../components/features/session_viewer/hooks/useImageNavigation.ts';
+import { useImageDataFetching } from '../../components/features/session_viewer/hooks/useImageDataFetching.ts';
+import { useAtlasData } from '../../components/features/session_viewer/hooks/useAtlasData.ts';
 import '../../panel/pages/styles/resizablePanels.module.css';
 
 const DRAWER_WIDTH = 240;
@@ -77,81 +77,27 @@ export const ImagesPageView = () => {
     const {
         currentSession,
         currentImage,
-        imageColumns,
-        updateImageColumn,
-        setAtlasImages
+        imageColumns
     } = useImageViewerStore();
-
-    // Local state for data fetching
-    const [level, setLevel] = useState<number>(0);
-    const [parentId, setParentId] = useState<string | null>(null);
-
-    const pageSize = 100;
-    const sessionName = currentSession?.name;
 
     // Fetch session data
     const { data: sessionData } = useSessionNames();
 
-    // Fetch atlas images
-    const { data: atlasImages } = useAtlasImages(sessionName, currentSession !== null);
+    // Fetch and manage atlas images
+    const { atlasImages } = useAtlasData({
+        sessionName: currentSession?.name,
+        enabled: currentSession !== null
+    });
+
+    // Fetch and manage image data with hierarchy
+    useImageDataFetching({
+        sessionName: currentSession?.name,
+        pageSize: 100
+    });
 
     // Calculate padding values
     const paddingValue = isMobile ? '0.5%' : '0.5%';
     const topBottomPadding = isMobile ? '0.5%' : '0.5%';
-
-    // Sync atlas images with store when they change
-    useEffect(() => {
-        if (atlasImages) {
-            setAtlasImages(atlasImages);
-        }
-    }, [atlasImages, setAtlasImages]);
-
-    // Fetch paged images
-    const {
-        data,
-        isSuccess,
-        refetch,
-    } = useImageListQuery({ sessionName, parentId, pageSize, level });
-
-    // Update image columns when data changes
-    useEffect(() => {
-        // If there is selected image in current column, it would fetch data for next column using this column's oid as parent
-        const getImageColumnsData = async (columnIndex: number) => {
-            if (columnIndex === -1) {
-                setParentId(null);
-                setLevel(0);
-                const { data, isSuccess } = await refetch();
-
-                if (isSuccess && data && data.pages && data.pages.length > 0) {
-                    // Update store
-                    updateImageColumn(0, { images: data });
-                }
-            } else if (imageColumns[columnIndex].selectedImage && imageColumns[columnIndex].selectedImage?.children_count! > 0) {
-                setParentId(imageColumns[columnIndex].selectedImage!.oid);
-                setLevel(columnIndex + 1);
-
-                // Refetch the data
-                const { data, isSuccess } = await refetch();
-
-                if (isSuccess && data && data.pages && data.pages.length > 0) {
-                    // Update store
-                    updateImageColumn(columnIndex + 1, { images: data });
-                }
-            }
-        };
-
-        // Handle the root column
-        if (currentSession !== null) {
-            getImageColumnsData(-1);
-        }
-
-        // Loop through other columns
-        for (let i = 0; i < imageColumns.length - 1; i++) {
-            if (imageColumns[i].selectedImage !== null && imageColumns[i].selectedImage?.oid !== null) {
-                getImageColumnsData(i);
-            }
-        }
-    }, [currentImage?.oid, level, data, isSuccess, currentSession]);
 
     // Mobile layout - stack components vertically with proper height allocation
     const renderMobileLayout = () => {
