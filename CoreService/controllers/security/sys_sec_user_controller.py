@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 from starlette import status
 
 from database import get_db
+from dependencies.auth import get_current_user_id
+from dependencies.permissions import require_permission, require_role
 from models.pydantic_models import (
     SysSecUserCreateDto,
     SysSecUserUpdateDto,
@@ -42,11 +44,16 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 @sys_sec_user_router.post('/', response_model=SysSecUserResponseDto, status_code=201)
 async def create_user(
         user_request: SysSecUserCreateDto,
-        db: Session = Depends(get_db),
-        current_user_id: Optional[UUID] = None  # In real implementation, get from JWT/session
+        current_user_id: UUID = Depends(get_current_user_id),
+        _: None = Depends(require_role('Administrator')),
+        db: Session = Depends(get_db)
 ):
     """
     Create a new user
+
+    **Requires:**
+    - Authentication: Bearer token
+    - Permission: Administrator role
     """
     logger.info(f"Creating user: {user_request.username}")
 
@@ -106,11 +113,16 @@ async def create_user(
 @sys_sec_user_router.put('/', response_model=SysSecUserResponseDto, status_code=200)
 async def update_user(
         user_request: SysSecUserUpdateDto,
-        db: Session = Depends(get_db),
-        current_user_id: Optional[UUID] = None
+        current_user_id: UUID = Depends(get_current_user_id),
+        _: None = Depends(require_role('Administrator')),
+        db: Session = Depends(get_db)
 ):
     """
     Update an existing user
+
+    **Requires:**
+    - Authentication: Bearer token
+    - Permission: Administrator role
     """
     logger.info(f"Updating user: {user_request.oid}")
 
@@ -185,10 +197,16 @@ def get_all_users(
         limit: int = Query(100, le=1000),
         username: Optional[str] = None,
         include_inactive: bool = Query(False),
+        _: UUID = Depends(get_current_user_id),
+        __: None = Depends(require_role('Administrator')),
         db: Session = Depends(get_db)
 ):
     """
     Get all users with optional filtering and pagination
+
+    **Requires:**
+    - Authentication: Bearer token
+    - Permission: Administrator role
     """
     try:
         if username:
@@ -207,9 +225,18 @@ def get_all_users(
 
 
 @sys_sec_user_router.get('/{user_id}', response_model=SysSecUserResponseDto)
-def get_user(user_id: UUID, db: Session = Depends(get_db)):
+def get_user(
+        user_id: UUID,
+        _: UUID = Depends(get_current_user_id),
+        __: None = Depends(require_role('Administrator')),
+        db: Session = Depends(get_db)
+):
     """
     Get user by ID
+
+    **Requires:**
+    - Authentication: Bearer token
+    - Permission: Administrator role
     """
     db_user = SysSecUserRepository.fetch_by_id(db, user_id)
     if db_user is None:
@@ -222,9 +249,18 @@ def get_user(user_id: UUID, db: Session = Depends(get_db)):
 
 
 @sys_sec_user_router.get('/username/{username}', response_model=SysSecUserResponseDto)
-def get_user_by_username(username: str, db: Session = Depends(get_db)):
+def get_user_by_username(
+        username: str,
+        _: UUID = Depends(get_current_user_id),
+        __: None = Depends(require_role('Administrator')),
+        db: Session = Depends(get_db)
+):
     """
     Get user by username
+
+    **Requires:**
+    - Authentication: Bearer token
+    - Permission: Administrator role
     """
     db_user = SysSecUserRepository.fetch_by_username(db, username)
     if db_user is None:
@@ -240,11 +276,16 @@ def get_user_by_username(username: str, db: Session = Depends(get_db)):
 async def delete_user(
         user_id: UUID,
         hard_delete: bool = Query(False),
-        db: Session = Depends(get_db),
-        current_user_id: Optional[UUID] = None
+        current_user_id: UUID = Depends(get_current_user_id),
+        _: None = Depends(require_role('Administrator')),
+        db: Session = Depends(get_db)
 ):
     """
     Delete user (soft delete by default, hard delete if specified)
+
+    **Requires:**
+    - Authentication: Bearer token
+    - Permission: Administrator role
     """
     user = SysSecUserRepository.fetch_by_id(db, user_id)
     if user is None:
@@ -328,11 +369,16 @@ async def authenticate_user(
 @sys_sec_user_router.post('/{user_id}/activate')
 async def activate_user(
         user_id: UUID,
-        db: Session = Depends(get_db),
-        current_user_id: Optional[UUID] = None
+        current_user_id: UUID = Depends(get_current_user_id),
+        _: None = Depends(require_role('Administrator')),
+        db: Session = Depends(get_db)
 ):
     """
     Activate a user account
+
+    **Requires:**
+    - Authentication: Bearer token
+    - Permission: Administrator role
     """
     update_dto = SysSecUserUpdateDto(oid=user_id, active=True)
     updated_user = await SysSecUserRepository.update(db, update_dto, current_user_id)
@@ -349,11 +395,16 @@ async def activate_user(
 @sys_sec_user_router.post('/{user_id}/deactivate')
 async def deactivate_user(
         user_id: UUID,
-        db: Session = Depends(get_db),
-        current_user_id: Optional[UUID] = None
+        current_user_id: UUID = Depends(get_current_user_id),
+        _: None = Depends(require_role('Administrator')),
+        db: Session = Depends(get_db)
 ):
     """
     Deactivate a user account
+
+    **Requires:**
+    - Authentication: Bearer token
+    - Permission: Administrator role
     """
     update_dto = SysSecUserUpdateDto(oid=user_id, active=False)
     updated_user = await SysSecUserRepository.update(db, update_dto, current_user_id)
@@ -370,11 +421,16 @@ async def deactivate_user(
 @sys_sec_user_router.post('/{user_id}/unlock')
 async def unlock_user(
         user_id: UUID,
-        db: Session = Depends(get_db),
-        current_user_id: Optional[UUID] = None
+        current_user_id: UUID = Depends(get_current_user_id),
+        _: None = Depends(require_role('Administrator')),
+        db: Session = Depends(get_db)
 ):
     """
     Unlock a user account
+
+    **Requires:**
+    - Authentication: Bearer token
+    - Permission: Administrator role
     """
     user = await SysSecUserRepository.reset_failed_access(db, user_id)
 
@@ -392,11 +448,23 @@ async def change_password(
         user_id: UUID,
         current_password: str,
         new_password: str,
+        current_user_id: UUID = Depends(get_current_user_id),
         db: Session = Depends(get_db)
 ):
     """
     Change user password (requires current password)
+
+    **Requires:**
+    - Authentication: Bearer token
+    - Users can only change their own password (or admins can change any)
     """
+    # Check authorization - users can only change their own password
+    if user_id != current_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only change your own password"
+        )
+
     if len(new_password) < 6:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -440,12 +508,17 @@ async def admin_reset_password(
         user_id: UUID,
         new_password: str,
         require_change_on_login: bool = True,
-        db: Session = Depends(get_db),
-        current_user_id: Optional[UUID] = None
+        current_user_id: UUID = Depends(get_current_user_id),
+        _: None = Depends(require_role('Administrator')),
+        db: Session = Depends(get_db)
 ):
     """
     Admin endpoint to reset user password without requiring current password.
     This should be used by administrators only.
+
+    **Requires:**
+    - Authentication: Bearer token
+    - Permission: Administrator role
 
     Args:
         user_id: ID of the user whose password will be reset
@@ -505,10 +578,16 @@ async def admin_reset_password(
 @sys_sec_user_router.get('/stats/count')
 def get_user_count(
         include_inactive: bool = Query(False),
+        _: UUID = Depends(get_current_user_id),
+        __: None = Depends(require_role('Administrator')),
         db: Session = Depends(get_db)
 ):
     """
     Get total user count
+
+    **Requires:**
+    - Authentication: Bearer token
+    - Permission: Administrator role
     """
     count = SysSecUserRepository.count_users(db, include_inactive)
     return {
