@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Box, useTheme, useMediaQuery } from '@mui/material';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { ImageWorkspace } from '../../components/features/session_viewer/ImageWorkspace.tsx';
+import ImageInfoDto from '../../components/features/session_viewer/ImageInfoDto.ts';
 import { useImageListQuery } from '../../services/api/usePagedImagesHook.ts';
 import { useAtlasImages } from '../../services/api/FetchSessionAtlasImages.ts';
 import { useSessionNames } from '../../services/api/FetchUseSessionNames.ts';
@@ -10,8 +11,6 @@ import { ImageInspector } from "../../components/features/session_viewer/ImageIn
 import { usePanelLayout } from '../../components/features/session_viewer/hooks/usePanelLayout.ts';
 import { useImageNavigation } from '../../components/features/session_viewer/hooks/useImageNavigation.ts';
 import '../../panel/pages/styles/resizablePanels.module.css';
-
-const DRAWER_WIDTH = 240;
 
 // Custom styled resize handle
 const CustomResizeHandle = () => {
@@ -61,79 +60,207 @@ export const ImagesPageView = () => {
     // Theme and responsive breakpoints
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+    const isTablet = useMediaQuery(theme.breakpoints.down('md'));
 
-    // Use custom hooks for panel layout management
-    const { leftPanelSize, handleResize, leftMargin } = usePanelLayout({
-        defaultSize: 35,
-        minSize: 25,
-        maxSize: 50,
-        storageKey: 'images-page-left-panel-size'
+    // Track drawer state from localStorage to adjust layout
+    const [isDrawerOpen, setIsDrawerOpen] = useState(() => {
+        const savedState = localStorage.getItem('drawerOpen');
+        return savedState ? JSON.parse(savedState) : false;
     });
 
-    // Use custom hook for image navigation
-    const { handleImageClick, handleSessionSelect } = useImageNavigation();
+    // Listen for drawer state changes
+    useEffect(() => {
+        const handleStorageChange = () => {
+            const savedState = localStorage.getItem('drawerOpen');
+            setIsDrawerOpen(savedState ? JSON.parse(savedState) : false);
+        };
 
-    // Get state from Zustand store (single source of truth)
-    const {
-        currentSession,
-        currentImage,
-        imageColumns,
-        updateImageColumn,
-        setAtlasImages
-    } = useImageViewerStore();
+        // Listen for storage changes (when drawer state changes)
+        window.addEventListener('storage', handleStorageChange);
 
-    // Local state for data fetching
+        // Also check periodically in case of same-tab changes
+        const interval = setInterval(handleStorageChange, 100);
+
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+            clearInterval(interval);
+        };
+    }, []);
+
+    // Local state (will gradually be replaced with store state)
     const [level, setLevel] = useState<number>(0);
     const [parentId, setParentId] = useState<string | null>(null);
+    const [currentSession, setCurrentSession] = useState<SessionDto | null>(null);
+    const [imageColumns, setImageColumns] = useState<(ImageColumnState)[]>(initialImageColumns);
+    const [currentImage, setCurrentImage] = useState<ImageInfoDto | null>(null);
+
+    // Panel size persistence with width constraints
+    const [leftPanelSize, setLeftPanelSize] = useState(() => {
+        const saved = localStorage.getItem('images-page-left-panel-size');
+        const defaultSize = isMobile ? 100 : 35; // 35% default for better space utilization
+        const parsedSize = saved ? parseInt(saved, 10) : defaultSize;
+
+        // Ensure the loaded size respects the constraints (25-50%)
+        return Math.max(25, Math.min(50, parsedSize));
+    });
+
+    // Get store state and actions
+    const {
+        currentSession: storeCurrentSession,
+        currentImage: storeCurrentImage,
+        imageColumns: storeImageColumns,
+        viewMode,
+        setCurrentSession: storeSetCurrentSession,
+        setCurrentImage: storeSetCurrentImage,
+        selectImageInColumn,
+        updateImageColumn,
+        setAtlasImages: storeSetAtlasImages
+    } = useImageViewerStore();
 
     const pageSize = 100;
-    const sessionName = currentSession?.name;
+    let sessionName = currentSession?.name;
 
     // Fetch session data
-    const { data: sessionData } = useSessionNames();
+    const { data: sessionData, isLoading: isSessionDataLoading, isError: isSessionError } = useSessionNames();
 
     // Fetch atlas images
-    const { data: atlasImages } = useAtlasImages(sessionName, currentSession !== null);
+    const {
+        data: atlasImages,
+        isLoading: isAtlasLoading,
+        isError: isAtlasError
+    } = useAtlasImages(sessionName, currentSession !== null);
 
-    // Calculate padding values
+    // Save panel size to localStorage with constraints
+    const handlePanelResize = (sizes: number[]) => {
+        if (sizes[0] !== undefined) {
+            // Ensure the saved size respects the 25-50% range for better space usage
+            const constrainedSize = Math.max(25, Math.min(50, sizes[0]));
+            setLeftPanelSize(constrainedSize);
+            localStorage.setItem('images-page-left-panel-size', constrainedSize.toString());
+        }
+    };
+
+    // Calculate left margin based on drawer state
+    const leftMargin = isDrawerOpen ? DRAWER_WIDTH : 0;
+
+    // Calculate 5% padding values
     const paddingValue = isMobile ? '0.5%' : '0.5%';
     const topBottomPadding = isMobile ? '0.5%' : '0.5%';
 
     // Sync atlas images with store when they change
     useEffect(() => {
         if (atlasImages) {
-            setAtlasImages(atlasImages);
+            storeSetAtlasImages(atlasImages);
         }
-    }, [atlasImages, setAtlasImages]);
+    }, [atlasImages, storeSetAtlasImages]);
+
+    // Keep store and local state in sync for current session
+    useEffect(() => {
+        if (currentSession !== storeCurrentSession) {
+            storeSetCurrentSession(currentSession);
+        }
+    }, [currentSession, storeCurrentSession, storeSetCurrentSession]);
+
+    // Keep store and local state in sync for current image
+    useEffect(() => {
+        if (currentImage !== storeCurrentImage) {
+            storeSetCurrentImage(currentImage);
+        }
+    }, [currentImage, storeCurrentImage, storeSetCurrentImage]);
+
+    // Handle image selection in a column
+    const OnCurrentImageChanged = (image: ImageInfoDto, column: number) => {
+        if (column === imageColumns.length) {
+            return; // This is the last column; when an image is selected, nothing needs to be done
+        }
+
+        // Update local state
+        const updatedImageColumns = imageColumns.map((selectedColumn, index) => {
+            if (index === column) {
+                // Update the selectedImage property for the specified column
+                return {
+                    ...selectedColumn,
+                    selectedImage: image,
+                };
+            } else if (index > column) {
+                // Clear selectedImage for columns to the right
+                return {
+                    ...selectedColumn,
+                    selectedImage: null, images: null
+                };
+            } else {
+                // Keep the rest of the properties unchanged
+                return selectedColumn;
+            }
+        });
+
+        setImageColumns(updatedImageColumns);
+        setCurrentImage(image);
+
+        // Update store state
+        selectImageInColumn(image, column);
+    };
+
+    // Handle session selection
+    const OnSessionSelected = (event: SelectChangeEvent) => {
+        const selectedValue = event.target.value;
+        const sessionDto: SessionDto = {
+            Oid: selectedValue,
+            name: selectedValue,
+        };
+
+        // Update local state
+        setCurrentSession(sessionDto);
+        setImageColumns(initialImageColumns);
+        setCurrentImage(null);
+
+        // Update store state
+        storeSetCurrentSession(sessionDto);
+    };
 
     // Fetch paged images
     const {
-        data,
-        isSuccess,
-        refetch,
-    } = useImageListQuery({ sessionName, parentId, pageSize, level });
+        data, error, isLoading, isSuccess, isError, refetch,
+        fetchNextPage, hasNextPage, isFetching, isFetchingNextPage,
+        status,
+    } = useImageListQuery({ sessionName, parentId: parentId, pageSize, level });
 
     // Update image columns when data changes
     useEffect(() => {
         // If there is selected image in current column, it would fetch data for next column using this column's oid as parent
-        const getImageColumnsData = async (columnIndex: number) => {
-            if (columnIndex === -1) {
+        const getImageColumnsData = async (columnIndex) => {
+            if (columnIndex == -1) {
                 setParentId(null);
                 setLevel(0);
                 const { data, isSuccess } = await refetch();
 
                 if (isSuccess && data && data.pages && data.pages.length > 0) {
+                    const updatedImageColumns = [...imageColumns];
+                    updatedImageColumns[0] = {
+                        ...updatedImageColumns[0], // Copy the existing properties
+                        images: data, // Update the images property
+                    };
+                    setImageColumns(updatedImageColumns);
+
                     // Update store
                     updateImageColumn(0, { images: data });
                 }
-            } else if (imageColumns[columnIndex].selectedImage && imageColumns[columnIndex].selectedImage?.children_count! > 0) {
-                setParentId(imageColumns[columnIndex].selectedImage!.oid);
+
+            } else if (imageColumns[columnIndex].selectedImage && imageColumns[columnIndex].selectedImage?.children_count > 0) {
+                setParentId(imageColumns[columnIndex].selectedImage?.oid);
                 setLevel(columnIndex + 1);
 
                 // Refetch the data
                 const { data, isSuccess } = await refetch();
 
                 if (isSuccess && data && data.pages && data.pages.length > 0) {
+                    const updatedImageColumns = [...imageColumns];
+                    updatedImageColumns[columnIndex + 1] = {
+                        ...updatedImageColumns[columnIndex + 1], // Copy the existing properties
+                        images: data, // Update the images property
+                    };
+                    setImageColumns(updatedImageColumns);
+
                     // Update store
                     updateImageColumn(columnIndex + 1, { images: data });
                 }
@@ -152,6 +279,13 @@ export const ImagesPageView = () => {
             }
         }
     }, [currentImage?.oid, level, data, isSuccess, currentSession]);
+
+    // Restore session from store on initial load if available
+    useEffect(() => {
+        if (!currentSession && storeCurrentSession) {
+            setCurrentSession(storeCurrentSession);
+        }
+    }, []);
 
     // Mobile layout - stack components vertically with proper height allocation
     const renderMobileLayout = () => {
@@ -193,9 +327,9 @@ export const ImagesPageView = () => {
                         mb: currentImage ? 2 : 0
                     }}>
                         <ImageWorkspace
-                            onImageClick={handleImageClick}
+                            onImageClick={OnCurrentImageChanged}
                             selectedSession={currentSession}
-                            OnSessionSelected={handleSessionSelect}
+                            OnSessionSelected={OnSessionSelected}
                             selectedImage={currentImage}
                             ImageColumns={imageColumns}
                             Sessions={sessionData}
@@ -260,7 +394,7 @@ export const ImagesPageView = () => {
                     }}>
                         <PanelGroup
                             direction="horizontal"
-                            onLayout={handleResize}
+                            onLayout={handlePanelResize}
                             style={{
                                 width: '100%',
                                 height: '100%',
@@ -288,9 +422,9 @@ export const ImagesPageView = () => {
                                     borderBottomLeftRadius: 3
                                 }}>
                                     <ImageWorkspace
-                                        onImageClick={handleImageClick}
+                                        onImageClick={OnCurrentImageChanged}
                                         selectedSession={currentSession}
-                                        OnSessionSelected={handleSessionSelect}
+                                        OnSessionSelected={OnSessionSelected}
                                         selectedImage={currentImage}
                                         ImageColumns={imageColumns}
                                         Sessions={sessionData}
