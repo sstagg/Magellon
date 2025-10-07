@@ -303,7 +303,7 @@ export default function PermissionManagementTab({
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={6}>
+            <Grid xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel>Select Role</InputLabel>
                 <Select
@@ -319,7 +319,7 @@ export default function PermissionManagementTab({
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid xs={12} md={6}>
               <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
                 <Button startIcon={<Refresh />} onClick={loadPermissions} disabled={loading}>
                   Refresh
@@ -516,7 +516,7 @@ export default function PermissionManagementTab({
             />
 
             <Grid container spacing={2} sx={{ mb: 2 }}>
-              <Grid item xs={6} sm={4} md={2}>
+              <Grid xs={6} sm={4} md={2}>
                 <FormControlLabel
                   control={
                     <Switch
@@ -527,7 +527,7 @@ export default function PermissionManagementTab({
                   label="Read"
                 />
               </Grid>
-              <Grid item xs={6} sm={4} md={2}>
+              <Grid xs={6} sm={4} md={2}>
                 <FormControlLabel
                   control={
                     <Switch
@@ -538,7 +538,7 @@ export default function PermissionManagementTab({
                   label="Write"
                 />
               </Grid>
-              <Grid item xs={6} sm={4} md={2}>
+              <Grid xs={6} sm={4} md={2}>
                 <FormControlLabel
                   control={
                     <Switch
@@ -549,7 +549,7 @@ export default function PermissionManagementTab({
                   label="Create"
                 />
               </Grid>
-              <Grid item xs={6} sm={4} md={2}>
+              <Grid xs={6} sm={4} md={2}>
                 <FormControlLabel
                   control={
                     <Switch
@@ -560,7 +560,7 @@ export default function PermissionManagementTab({
                   label="Delete"
                 />
               </Grid>
-              <Grid item xs={6} sm={4} md={2}>
+              <Grid xs={6} sm={4} md={2}>
                 <FormControlLabel
                   control={
                     <Switch
@@ -609,11 +609,11 @@ export default function PermissionManagementTab({
                       primary={perm.target_type}
                       secondary={
                         <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
-                          {perm.read_state === 1 && <Chip label="Read" size="small" color="success" />}
-                          {perm.write_state === 1 && <Chip label="Write" size="small" color="info" />}
-                          {perm.create_state === 1 && <Chip label="Create" size="small" color="primary" />}
-                          {perm.delete_state === 1 && <Chip label="Delete" size="small" color="error" />}
-                          {perm.navigate_state === 1 && <Chip label="Navigate" size="small" color="default" />}
+                          {perm.read_state === 1 && <Chip key="read" label="Read" size="small" color="success" />}
+                          {perm.write_state === 1 && <Chip key="write" label="Write" size="small" color="info" />}
+                          {perm.create_state === 1 && <Chip key="create" label="Create" size="small" color="primary" />}
+                          {perm.delete_state === 1 && <Chip key="delete" label="Delete" size="small" color="error" />}
+                          {perm.navigate_state === 1 && <Chip key="navigate" label="Navigate" size="small" color="default" />}
                         </Box>
                       }
                     />

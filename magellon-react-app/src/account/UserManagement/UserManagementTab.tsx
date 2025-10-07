@@ -30,12 +30,17 @@ import {
     TableRow,
     TablePagination,
     CircularProgress,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
 } from '@mui/material';
 import {
     Edit,
     Save,
     Cancel,
     Lock,
+    LockOpen,
     Email,
     Person,
     Visibility,
@@ -48,12 +53,16 @@ import {
     Add,
     Delete,
     AssignmentInd,
+    Refresh,
+    Block,
+    AdminPanelSettings,
 } from '@mui/icons-material';
 
 // FIXED: Use relative paths that match your project structure
 import { userApiService } from './userApi';
 import { RoleAPI, UserRoleAPI, PermissionAPI } from './rbacApi';
 import RoleAssignmentDialog from './RoleAssignmentDialog';
+import ChangePasswordDialog from './ChangePasswordDialog';
 
 interface UserManagementTabProps {
     currentUser: any;
@@ -76,6 +85,8 @@ export default function UserManagementTab({
     const [loading, setLoading] = useState(false);
     const [users, setUsers] = useState<any[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [totalUsers, setTotalUsers] = useState(0);
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
 
@@ -87,16 +98,6 @@ export default function UserManagementTab({
 
     // Password dialog
     const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
-    const [passwordData, setPasswordData] = useState({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: '',
-    });
-    const [showPasswords, setShowPasswords] = useState({
-        current: false,
-        new: false,
-        confirm: false,
-    });
 
     // Permissions
     const [userPermissions, setUserPermissions] = useState<any>(null);
@@ -114,11 +115,15 @@ export default function UserManagementTab({
         active: true,
     });
 
+    // Change password dialog (for admin changing other users' passwords)
+    const [changePasswordDialogOpen, setChangePasswordDialogOpen] = useState(false);
+    const [userToChangePassword, setUserToChangePassword] = useState<any>(null);
+
     useEffect(() => {
         if (currentUser) {  // FIXED: Only load if currentUser exists
             loadData();
         }
-    }, [adminMode, currentUser]);
+    }, [adminMode, currentUser, statusFilter]);
 
     const loadData = async () => {
         if (adminMode) {
@@ -131,8 +136,31 @@ export default function UserManagementTab({
     const loadUsers = async () => {
         setLoading(true);
         try {
-            const usersData = await userApiService.getUsers();
-            setUsers(usersData);
+            const includeInactive = statusFilter === 'all' || statusFilter === 'inactive';
+            const usersData = await userApiService.getUsers({ include_inactive: includeInactive });
+
+            // Load roles for each user
+            const usersWithRoles = await Promise.all(
+                usersData.map(async (user) => {
+                    try {
+                        const roles = await UserRoleAPI.getUserRoles(user.id || user.oid);
+                        return { ...user, roles, rolesLoadError: false };
+                    } catch (error) {
+                        // Silently handle - roles will show as empty with error indicator
+                        return { ...user, roles: [], rolesLoadError: true };
+                    }
+                })
+            );
+
+            setUsers(usersWithRoles);
+
+            // Get total user count
+            try {
+                const stats = await userApiService.getUserStats(includeInactive);
+                setTotalUsers(stats.total_users);
+            } catch (error) {
+                console.error('Failed to load user stats:', error);
+            }
         } catch (error) {
             console.error('Failed to load users:', error);
             showSnackbar('Failed to load users', 'error');
@@ -179,34 +207,6 @@ export default function UserManagementTab({
         }
     };
 
-    const handleChangePassword = async () => {
-        if (passwordData.newPassword !== passwordData.confirmPassword) {
-            showSnackbar('Passwords do not match', 'error');
-            return;
-        }
-
-        if (passwordData.newPassword.length < 6) {
-            showSnackbar('Password must be at least 6 characters', 'error');
-            return;
-        }
-
-        setLoading(true);
-        try {
-            await userApiService.changePassword(
-                currentUser.id,
-                passwordData.currentPassword,
-                passwordData.newPassword
-            );
-            showSnackbar('Password changed successfully', 'success');
-            setPasswordDialogOpen(false);
-            setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-        } catch (error: any) {
-            showSnackbar('Failed to change password: ' + error.message, 'error');
-        } finally {
-            setLoading(false);
-        }
-    };
-
     const handleCreateUser = async () => {
         setLoading(true);
         try {
@@ -242,6 +242,37 @@ export default function UserManagementTab({
         setRoleDialogOpen(true);
     };
 
+    const openChangePasswordDialog = (user: any) => {
+        setUserToChangePassword(user);
+        setChangePasswordDialogOpen(true);
+    };
+
+    const handleActivateUser = async (userId: string) => {
+        setLoading(true);
+        try {
+            await userApiService.activateUser(userId);
+            showSnackbar('User activated successfully', 'success');
+            loadUsers();
+        } catch (error: any) {
+            showSnackbar('Failed to activate user: ' + error.message, 'error');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDeactivateUser = async (userId: string) => {
+        setLoading(true);
+        try {
+            await userApiService.deactivateUser(userId);
+            showSnackbar('User deactivated successfully', 'success');
+            loadUsers();
+        } catch (error: any) {
+            showSnackbar('Failed to deactivate user: ' + error.message, 'error');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const filteredUsers = users.filter(
         (user) =>
             user.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -252,7 +283,71 @@ export default function UserManagementTab({
     if (adminMode) {
         return (
             <Box>
-                {/* Header with Search and Add */}
+                {/* Statistics Cards */}
+                <Grid container spacing={3} sx={{ mb: 3 }}>
+                    <Grid xs={12} sm={6} md={3}>
+                        <Card>
+                            <CardContent>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                    <Avatar sx={{ bgcolor: 'primary.main' }}>
+                                        <Person />
+                                    </Avatar>
+                                    <Box>
+                                        <Typography variant="h4">{totalUsers}</Typography>
+                                        <Typography variant="body2" color="text.secondary">Total Users</Typography>
+                                    </Box>
+                                </Box>
+                            </CardContent>
+                        </Card>
+                    </Grid>
+                    <Grid xs={12} sm={6} md={3}>
+                        <Card>
+                            <CardContent>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                    <Avatar sx={{ bgcolor: 'success.main' }}>
+                                        <CheckCircle />
+                                    </Avatar>
+                                    <Box>
+                                        <Typography variant="h4">{users.filter(u => u.active).length}</Typography>
+                                        <Typography variant="body2" color="text.secondary">Active Users</Typography>
+                                    </Box>
+                                </Box>
+                            </CardContent>
+                        </Card>
+                    </Grid>
+                    <Grid xs={12} sm={6} md={3}>
+                        <Card>
+                            <CardContent>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                    <Avatar sx={{ bgcolor: 'error.main' }}>
+                                        <Block />
+                                    </Avatar>
+                                    <Box>
+                                        <Typography variant="h4">{users.filter(u => !u.active).length}</Typography>
+                                        <Typography variant="body2" color="text.secondary">Inactive Users</Typography>
+                                    </Box>
+                                </Box>
+                            </CardContent>
+                        </Card>
+                    </Grid>
+                    <Grid xs={12} sm={6} md={3}>
+                        <Card>
+                            <CardContent>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                    <Avatar sx={{ bgcolor: 'warning.main' }}>
+                                        <AdminPanelSettings />
+                                    </Avatar>
+                                    <Box>
+                                        <Typography variant="h4">{users.filter(u => u.roles && u.roles.some((r: any) => r.is_administrative)).length}</Typography>
+                                        <Typography variant="body2" color="text.secondary">Admin Users</Typography>
+                                    </Box>
+                                </Box>
+                            </CardContent>
+                        </Card>
+                    </Grid>
+                </Grid>
+
+                {/* Filters, Search and Add */}
                 <Box sx={{ display: 'flex', gap: 2, mb: 3, alignItems: 'center' }}>
                     <TextField
                         fullWidth
@@ -267,6 +362,25 @@ export default function UserManagementTab({
                             ),
                         }}
                     />
+                    <FormControl sx={{ minWidth: 150 }}>
+                        <InputLabel>Status</InputLabel>
+                        <Select
+                            value={statusFilter}
+                            label="Status"
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                        >
+                            <MenuItem value="all">All Users</MenuItem>
+                            <MenuItem value="active">Active</MenuItem>
+                            <MenuItem value="inactive">Inactive</MenuItem>
+                        </Select>
+                    </FormControl>
+                    <Button
+                        variant="outlined"
+                        startIcon={<Refresh />}
+                        onClick={() => loadUsers()}
+                    >
+                        Refresh
+                    </Button>
                     <Button
                         variant="contained"
                         startIcon={<Add />}
@@ -289,6 +403,7 @@ export default function UserManagementTab({
                                     <TableRow>
                                         <TableCell>User</TableCell>
                                         <TableCell>Email</TableCell>
+                                        <TableCell>Roles</TableCell>
                                         <TableCell>Status</TableCell>
                                         <TableCell>Created</TableCell>
                                         <TableCell align="right">Actions</TableCell>
@@ -307,6 +422,52 @@ export default function UserManagementTab({
                                                 </TableCell>
                                                 <TableCell>{user.email || 'N/A'}</TableCell>
                                                 <TableCell>
+                                                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
+                                                        {user.rolesLoadError ? (
+                                                            <Chip
+                                                                label="Error loading roles"
+                                                                size="small"
+                                                                color="warning"
+                                                                variant="outlined"
+                                                                onClick={() => openRoleDialog(user)}
+                                                                sx={{ cursor: 'pointer' }}
+                                                            />
+                                                        ) : user.roles && user.roles.length > 0 ? (
+                                                            <>
+                                                                {user.roles.map((role: any) => (
+                                                                    <Chip
+                                                                        key={role.role_id}
+                                                                        label={role.role_name}
+                                                                        size="small"
+                                                                        color={role.is_administrative ? 'error' : 'primary'}
+                                                                        variant={role.is_administrative ? 'filled' : 'outlined'}
+                                                                        icon={role.is_administrative ? <Security fontSize="small" /> : undefined}
+                                                                        onClick={() => openRoleDialog(user)}
+                                                                        sx={{ cursor: 'pointer' }}
+                                                                    />
+                                                                ))}
+                                                                <IconButton
+                                                                    size="small"
+                                                                    onClick={() => openRoleDialog(user)}
+                                                                    title="Manage Roles"
+                                                                    sx={{ ml: 0.5 }}
+                                                                >
+                                                                    <Edit fontSize="small" />
+                                                                </IconButton>
+                                                            </>
+                                                        ) : (
+                                                            <Chip
+                                                                label="No roles - Click to assign"
+                                                                size="small"
+                                                                variant="outlined"
+                                                                onClick={() => openRoleDialog(user)}
+                                                                sx={{ cursor: 'pointer' }}
+                                                                icon={<Add fontSize="small" />}
+                                                            />
+                                                        )}
+                                                    </Box>
+                                                </TableCell>
+                                                <TableCell>
                                                     <Chip
                                                         label={user.active ? 'Active' : 'Inactive'}
                                                         color={user.active ? 'success' : 'default'}
@@ -317,10 +478,45 @@ export default function UserManagementTab({
                                                     {user.created_date ? new Date(user.created_date).toLocaleDateString() : 'N/A'}
                                                 </TableCell>
                                                 <TableCell align="right">
-                                                    <IconButton size="small" onClick={() => openRoleDialog(user)}>
+                                                    {user.active ? (
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => handleDeactivateUser(user.id || user.oid)}
+                                                            title="Deactivate User"
+                                                            color="warning"
+                                                        >
+                                                            <Block />
+                                                        </IconButton>
+                                                    ) : (
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => handleActivateUser(user.id || user.oid)}
+                                                            title="Activate User"
+                                                            color="success"
+                                                        >
+                                                            <LockOpen />
+                                                        </IconButton>
+                                                    )}
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={() => openChangePasswordDialog(user)}
+                                                        title="Change Password"
+                                                    >
+                                                        <Lock />
+                                                    </IconButton>
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={() => openRoleDialog(user)}
+                                                        title="Assign Roles"
+                                                    >
                                                         <AssignmentInd />
                                                     </IconButton>
-                                                    <IconButton size="small" onClick={() => handleDeleteUser(user.id || user.oid)}>
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={() => handleDeleteUser(user.id || user.oid)}
+                                                        title="Delete User"
+                                                        color="error"
+                                                    >
                                                         <Delete />
                                                     </IconButton>
                                                 </TableCell>
@@ -391,6 +587,25 @@ export default function UserManagementTab({
                         onSuccess={() => {
                             showSnackbar('Roles updated successfully', 'success');
                             loadUsers();
+                        }}
+                    />
+                )}
+
+                {/* Change Password Dialog (Admin changing other users' passwords) */}
+                {userToChangePassword && (
+                    <ChangePasswordDialog
+                        open={changePasswordDialogOpen}
+                        userId={userToChangePassword.id || userToChangePassword.oid}
+                        username={userToChangePassword.username}
+                        isOwnPassword={false}
+                        onClose={() => {
+                            setChangePasswordDialogOpen(false);
+                            setUserToChangePassword(null);
+                        }}
+                        onSuccess={() => {
+                            showSnackbar('Password changed successfully', 'success');
+                            setChangePasswordDialogOpen(false);
+                            setUserToChangePassword(null);
                         }}
                     />
                 )}
@@ -581,74 +796,18 @@ export default function UserManagementTab({
                 </Grid>
             </Grid>
 
-            {/* Change Password Dialog */}
-            <Dialog open={passwordDialogOpen} onClose={() => setPasswordDialogOpen(false)} maxWidth="sm" fullWidth>
-                <DialogTitle>Change Password</DialogTitle>
-                <DialogContent>
-                    <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                        <TextField
-                            fullWidth
-                            label="Current Password"
-                            type={showPasswords.current ? 'text' : 'password'}
-                            value={passwordData.currentPassword}
-                            onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                            InputProps={{
-                                endAdornment: (
-                                    <InputAdornment position="end">
-                                        <IconButton
-                                            onClick={() => setShowPasswords({ ...showPasswords, current: !showPasswords.current })}
-                                        >
-                                            {showPasswords.current ? <VisibilityOff /> : <Visibility />}
-                                        </IconButton>
-                                    </InputAdornment>
-                                ),
-                            }}
-                        />
-                        <TextField
-                            fullWidth
-                            label="New Password"
-                            type={showPasswords.new ? 'text' : 'password'}
-                            value={passwordData.newPassword}
-                            onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                            InputProps={{
-                                endAdornment: (
-                                    <InputAdornment position="end">
-                                        <IconButton
-                                            onClick={() => setShowPasswords({ ...showPasswords, new: !showPasswords.new })}
-                                        >
-                                            {showPasswords.new ? <VisibilityOff /> : <Visibility />}
-                                        </IconButton>
-                                    </InputAdornment>
-                                ),
-                            }}
-                        />
-                        <TextField
-                            fullWidth
-                            label="Confirm Password"
-                            type={showPasswords.confirm ? 'text' : 'password'}
-                            value={passwordData.confirmPassword}
-                            onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                            InputProps={{
-                                endAdornment: (
-                                    <InputAdornment position="end">
-                                        <IconButton
-                                            onClick={() => setShowPasswords({ ...showPasswords, confirm: !showPasswords.confirm })}
-                                        >
-                                            {showPasswords.confirm ? <VisibilityOff /> : <Visibility />}
-                                        </IconButton>
-                                    </InputAdornment>
-                                ),
-                            }}
-                        />
-                    </Box>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setPasswordDialogOpen(false)}>Cancel</Button>
-                    <Button onClick={handleChangePassword} variant="contained" disabled={loading}>
-                        Change Password
-                    </Button>
-                </DialogActions>
-            </Dialog>
+            {/* Change Password Dialog (User changing own password) */}
+            <ChangePasswordDialog
+                open={passwordDialogOpen}
+                userId={currentUser?.id}
+                username={currentUser?.username}
+                isOwnPassword={true}
+                onClose={() => setPasswordDialogOpen(false)}
+                onSuccess={() => {
+                    showSnackbar('Password changed successfully', 'success');
+                    setPasswordDialogOpen(false);
+                }}
+            />
         </Box>
     );
 }

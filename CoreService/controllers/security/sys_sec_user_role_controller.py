@@ -121,8 +121,18 @@ def get_user_roles(user_id: UUID, db: Session = Depends(get_db)):
         )
 
     try:
-        roles = SysSecUserRoleRepository.fetch_roles_by_user(db, user_id)
-        return [UserRoleDetailDto(**role) for role in roles]
+        user_roles = SysSecUserRoleRepository.fetch_roles_by_user(db, user_id)
+        return [
+            UserRoleDetailDto(
+                oid=ur.oid,
+                user_id=ur.People,
+                role_id=ur.Roles,
+                role_name=ur.sys_sec_role.Name,
+                is_administrative=ur.sys_sec_role.IsAdministrative,
+                can_edit_model=ur.sys_sec_role.CanEditModel
+            )
+            for ur in user_roles
+        ]
 
     except Exception as e:
         logger.exception('Error fetching user roles')
