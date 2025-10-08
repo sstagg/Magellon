@@ -142,6 +142,7 @@ def parse_mdoc(file_path: str, settings_file_path: str) -> SerialEMMetadata:
         ('name', 'name'),
         ('Magnification', 'magnification'),
         ('Defocus', 'defocus'),
+        ('TargetDefocus', 'target_defocus'), 
         ('ExposureDose', 'dose'),
         ('PixelSpacing', 'pixel_size'),
         ('Binning', 'binning_x'),
@@ -184,6 +185,10 @@ def parse_mdoc(file_path: str, settings_file_path: str) -> SerialEMMetadata:
                                     result[new_key] = float(value) if '.' in value or value.isdigit() else value
                                 except ValueError:
                                     result[new_key] = value
+        if result.get("target_defocus") is not None:
+            result["defocus"] = result["target_defocus"] * 10 ** -6
+        else:
+            result["defocus"] = result["defocus"] * 10 ** -6
         # Todo get the spherical abbrevation from the settings file
         # it will be like ctffindParams[5]
 
