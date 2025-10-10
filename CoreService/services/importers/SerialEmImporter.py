@@ -17,7 +17,7 @@ from config import FFT_SUB_URL, GAINS_SUB_URL, IMAGE_SUB_URL, MAGELLON_HOME_DIR,
 
 import logging
 from services.file_service import copy_file
-from services.importers.BaseImporter import BaseImporter, TaskFailedException
+from services.importers.BaseImporter import BaseImporter, FileError, TaskFailedException
 from services.mrc_image_service import MrcImageService
 import mrcfile
 import tifffile
@@ -758,7 +758,9 @@ class SerialEmImporter(BaseImporter):
         self,
         montage_path: str,
         magellon_session: Msession,
-        job: ImageJob
+        job: ImageJob,
+        defocus: float = 0.0,
+        dose: float = 0.0
     ) -> Tuple[Optional[Image], Optional[ImageJobTask], Optional[object]]:
         """Create database entries for a single montage."""
         try:
@@ -769,8 +771,8 @@ class SerialEmImporter(BaseImporter):
                 oid=uuid.uuid4(),
                 name=filename,
                 magnification=self.params.default_data.magnification,
-                defocus=0.0,
-                dose=0.0,
+                defocus=defocus,
+                dose=dose,
                 pixel_size=self.params.default_data.pixel_size * 10**-10,
                 binning_x=1,
                 binning_y=1,
@@ -1044,6 +1046,82 @@ class SerialEmImporter(BaseImporter):
                 "No parent-child relationships identified for this session"
             )
     
+    def process_task(self, task_dto: Any) -> Dict[str, str]:
+        print(" process_task inside serialem called")
+        """
+        Process a single import task
+
+        This method handles the standard file processing operations:
+        1. Transfer frame file
+        2. Copy original image (optional)
+        3. Convert to PNG
+        4. Compute FFT
+        5. Dispatch CTF computation
+        6. Dispatch motion correction
+
+        Args:
+            task_dto: Task data transfer object
+
+        Returns:
+            Dict with status and message
+        """
+        try:
+            # 1. Transfer frame if it exists
+            self.transfer_frame(task_dto)
+
+            # 2. Copy original image if specified
+            if hasattr(self.params, 'copy_images') and self.params.copy_images:
+                self.copy_image(task_dto)
+
+            # Get current image path
+            image_path = getattr(task_dto, 'image_path', None)
+            if not image_path or not os.path.exists(image_path):
+                raise FileError(f"Image file not found: {image_path}")
+
+            # 3. Convert to PNG
+            self.convert_image_to_png(image_path)
+
+            # 4. Compute FFT
+            self.compute_fft(image_path)
+            
+            if "/montages/" in image_path.replace("\\", "/").lower():
+                logger.info(f"Skipping CTF and MotionCor for montage image: {image_path}")
+            else:
+                # 5. Compute CTF if needed
+                self.compute_ctf(image_path, task_dto)
+
+                # 6. Compute motion correction if frame exists
+                frame_name = getattr(task_dto, 'frame_name', '')
+                if frame_name:
+                    self.compute_motioncor(image_path, task_dto)
+
+
+            return {'status': 'success', 'message': 'Task completed successfully.'}
+
+        except Exception as e:
+            logger.error(f"Task processing failed: {str(e)}", exc_info=True)
+            raise TaskFailedException(f"Failed to process task: {str(e)}")
+    
+    def run_tasks(self, task_list: List[Any] = None) -> None:
+        """
+        Run all processing tasks
+
+        Args:
+            task_list: List of task DTOs, if None uses self.task_dto_list
+        """
+        try:
+            tasks = task_list or self.task_dto_list
+            if not tasks:
+                logger.warning("No tasks to process")
+                return
+
+            for task in tasks:
+                self.process_task(task)
+
+        except Exception as e:
+            logger.error(f"Error running tasks: {str(e)}", exc_info=True)
+            raise
+    
     def create_db_project_session(self, db_session: Session):
         """Main workflow for creating database project/session and importing data."""
         try:
@@ -1141,7 +1219,9 @@ class SerialEmImporter(BaseImporter):
                     db_image, job_item, task = self._create_montage_image_entry(
                         montage_path,
                         magellon_session,
-                        job
+                        job,
+                        metadata_list[0].defocus,
+                        metadata_list[0].dose
                     )
                     
                     if db_image and job_item and task:
