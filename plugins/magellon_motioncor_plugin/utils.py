@@ -450,7 +450,7 @@ def validateInput(params):
     
     return True
 
-def createframealignImage(outputmrcpath, data, directory_path, originalsize, inputFileName):
+def createframealignImage(outputmrcpath, data, directory_path, originalsize, inputFileName, lowpercent=1, highpercent=99):
     try:
         # Load the MRC file
         with mrcfile.open(outputmrcpath) as mrc:
@@ -491,14 +491,12 @@ def createframealignImage(outputmrcpath, data, directory_path, originalsize, inp
     except Exception as e:
         print(f"Marking skipped due to error: {e}")
 
-    # Simple normalization to 0-255 range without enhancement
-    min_val = np.min(new_data)
-    max_val = np.max(new_data)
+    # Apply percentile-based contrast enhancement
+    vmin, vmax = np.percentile(new_data, (lowpercent, highpercent))  # Find statistical edges
+    new_data = np.clip(new_data, vmin, vmax)  # Eliminate extreme pixels
     
-    if max_val > min_val:
-        normalized_data = ((new_data - min_val) / (max_val - min_val) * 255).astype(np.uint8)
-    else:
-        normalized_data = np.zeros_like(new_data, dtype=np.uint8)
+    # Normalize to 0-255 range
+    normalized_data = ((new_data - new_data.min()) / ((new_data.max() - new_data.min()) + 1e-7) * 255).astype(np.uint8)
 
     # Convert to PIL Image and resize
     img = Image.fromarray(normalized_data)
@@ -515,7 +513,7 @@ def createframealignImage(outputmrcpath, data, directory_path, originalsize, inp
     return new_filepath
 
 
-def createframealignCenterImage(outputmrcpath, data, directory_path, originalsize, inputFileName):
+def createframealignCenterImage(outputmrcpath, data, directory_path, originalsize, inputFileName, lowpercent=1, highpercent=99):
     try:
         with mrcfile.open(outputmrcpath) as mrc:
             new_data = mrc.data.copy()
@@ -556,14 +554,12 @@ def createframealignCenterImage(outputmrcpath, data, directory_path, originalsiz
     except Exception as e:
         print(f"Marking skipped due to error: {e}")
 
-    # Simple normalization to 0-255 range without enhancement
-    min_val = np.min(new_data)
-    max_val = np.max(new_data)
+    # Apply percentile-based contrast enhancement
+    vmin, vmax = np.percentile(new_data, (lowpercent, highpercent))  # Find statistical edges
+    new_data = np.clip(new_data, vmin, vmax)  # Eliminate extreme pixels
     
-    if max_val > min_val:
-        normalized_data = ((new_data - min_val) / (max_val - min_val) * 255).astype(np.uint8)
-    else:
-        normalized_data = np.zeros_like(new_data, dtype=np.uint8)
+    # Normalize to 0-255 range
+    normalized_data = ((new_data - new_data.min()) / ((new_data.max() - new_data.min()) + 1e-7) * 255).astype(np.uint8)
 
     # Convert to PIL Image and resize
     img = Image.fromarray(normalized_data)
