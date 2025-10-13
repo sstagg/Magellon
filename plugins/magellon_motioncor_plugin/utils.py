@@ -467,6 +467,9 @@ def createframealignImage(outputmrcpath, data, directory_path, originalsize, inp
 
         dot_size = max(1, int(5 * min(scale_x, scale_y)))  # Scale dot size, minimum 1 pixel
 
+        # Get the maximum value in the image to use for white dots
+        max_value = np.max(new_data)
+
         # Mark the image with white dots at the scaled coordinates
         for _, x, y, deltax, deltay, _ in data:
             px = int((x + deltax * 10) * scale_x)
@@ -483,22 +486,22 @@ def createframealignImage(outputmrcpath, data, directory_path, originalsize, inp
                               x_start - px + dot_size : x_end - px + dot_size]
 
             if target_slice.shape == mask_slice.shape and target_slice.size > 0:
-                target_slice[mask_slice] = np.max(new_data)
+                target_slice[mask_slice] = max_value
 
     except Exception as e:
         print(f"Marking skipped due to error: {e}")
 
-    # Normalize and enhance the image
-    min_val, max_val = np.percentile(new_data, (1, 99))
-    new_data = np.clip(new_data, min_val, max_val)
-    normalized_data = ((new_data - min_val) / (max_val - min_val) * 255).astype(np.uint8)
-
-    alpha = 1.5  # Contrast control
-    beta = 20    # Brightness control
-    enhanced_data = cv2.convertScaleAbs(normalized_data, alpha=alpha, beta=beta)
+    # Simple normalization to 0-255 range without enhancement
+    min_val = np.min(new_data)
+    max_val = np.max(new_data)
+    
+    if max_val > min_val:
+        normalized_data = ((new_data - min_val) / (max_val - min_val) * 255).astype(np.uint8)
+    else:
+        normalized_data = np.zeros_like(new_data, dtype=np.uint8)
 
     # Convert to PIL Image and resize
-    img = Image.fromarray(enhanced_data)
+    img = Image.fromarray(normalized_data)
     resize_factor = 0.3
     new_width = int(img.width * resize_factor)
     new_height = int(img.height * resize_factor)
@@ -510,7 +513,6 @@ def createframealignImage(outputmrcpath, data, directory_path, originalsize, inp
     img.save(new_filepath, "JPEG", quality=80)
 
     return new_filepath
-
 
 
 def createframealignCenterImage(outputmrcpath, data, directory_path, originalsize, inputFileName):
@@ -530,6 +532,9 @@ def createframealignCenterImage(outputmrcpath, data, directory_path, originalsiz
         dot_size = max(1, int(5 * min(scale_x, scale_y)))  # Scale dot size, minimum 1 pixel
         center_x, center_y = originalsize[0] // 2, originalsize[1] // 2
 
+        # Get the maximum value in the image to use for white dots
+        max_value = np.max(new_data)
+
         # Mark the image with white dots at the scaled coordinates
         for _, deltax, deltay in data:
             px = int((center_x + deltax * 10) * scale_x)
@@ -546,22 +551,22 @@ def createframealignCenterImage(outputmrcpath, data, directory_path, originalsiz
                               x_start - px + dot_size : x_end - px + dot_size]
 
             if target_slice.shape == mask_slice.shape and target_slice.size > 0:
-                target_slice[mask_slice] = np.max(new_data)
+                target_slice[mask_slice] = max_value
 
     except Exception as e:
         print(f"Marking skipped due to error: {e}")
 
-    # Normalize and enhance image
-    min_val, max_val = np.percentile(new_data, (1, 99))
-    new_data = np.clip(new_data, min_val, max_val)
-    normalized_data = ((new_data - min_val) / (max_val - min_val) * 255).astype(np.uint8)
-
-    alpha = 1.5  # Contrast control
-    beta = 20    # Brightness control
-    enhanced_data = cv2.convertScaleAbs(normalized_data, alpha=alpha, beta=beta)
+    # Simple normalization to 0-255 range without enhancement
+    min_val = np.min(new_data)
+    max_val = np.max(new_data)
+    
+    if max_val > min_val:
+        normalized_data = ((new_data - min_val) / (max_val - min_val) * 255).astype(np.uint8)
+    else:
+        normalized_data = np.zeros_like(new_data, dtype=np.uint8)
 
     # Convert to PIL Image and resize
-    img = Image.fromarray(enhanced_data)
+    img = Image.fromarray(normalized_data)
     resize_factor = 0.3
     new_width = int(img.width * resize_factor)
     new_height = int(img.height * resize_factor)
