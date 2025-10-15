@@ -174,21 +174,11 @@ export const SystemStatusComponent: React.FC<SystemStatusComponentProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <StatusIndicator
-                        status={status.microscope.connected ? 'ready' : 'offline'}
-                        label="Microscope"
-                    />
-                    <StatusIndicator
-                        status={status.camera.connected ? 'ready' : 'offline'}
-                        label="Camera"
-                    />
-
                     <Button
                         variant={isConnected ? "outline" : "default"}
                         size="sm"
                         onClick={onConnect}
                         disabled={connectionStatus === 'connecting'}
-                        className="ml-2"
                     >
                         <Monitor className="w-4 h-4 mr-2" />
                         {connectionStatus === 'connecting' ? 'Connecting...' : isConnected ? 'Disconnect' : 'Connect'}
@@ -204,11 +194,16 @@ export const SystemStatusComponent: React.FC<SystemStatusComponentProps> = ({
                         Camera Settings
                     </Button>
 
-                    <Badge className="bg-green-500 animate-pulse">Live</Badge>
+                    <StatusIndicator
+                        status={status.microscope.connected ? 'ready' : 'offline'}
+                        label="Microscope"
+                    />
+                    <StatusIndicator
+                        status={status.camera.connected ? 'ready' : 'offline'}
+                        label="Camera"
+                    />
 
-                    <Button variant="ghost" size="icon" className="ml-2">
-                        <Settings className="w-4 h-4" />
-                    </Button>
+                    <Badge className="bg-green-500 animate-pulse">Live</Badge>
                 </div>
             </div>
 
