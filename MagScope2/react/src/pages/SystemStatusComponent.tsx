@@ -212,116 +212,122 @@ export const SystemStatusComponent: React.FC<SystemStatusComponentProps> = ({
                 <>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                         {/* Microscope Section */}
-                        <div className="p-4 rounded-lg bg-primary/5 border border-primary/10">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <Monitor className="w-4 h-4 text-primary" />
-                                    <h3 className="text-sm font-semibold text-primary">{status.microscope.model}</h3>
+                        <div className="p-5 rounded-xl bg-primary/8 border border-primary/20 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="p-2 rounded-lg bg-primary/10">
+                                    <Monitor className="w-5 h-5 text-primary" />
                                 </div>
-
-                                <div className="grid grid-cols-2 gap-3">
-                                    <MetricItem
-                                        icon={<Zap className="w-3.5 h-3.5 text-primary" />}
-                                        label="High Tension"
-                                        value={(status.microscope.highTension / 1000).toFixed(0)}
-                                        unit="kV"
-                                    />
-                                    <MetricItem
-                                        icon={<Gauge className="w-3.5 h-3.5 text-primary" />}
-                                        label="Beam Current"
-                                        value={status.microscope.beamCurrent}
-                                        unit="pA"
-                                    />
-                                    <MetricItem
-                                        icon={<Thermometer className="w-3.5 h-3.5 text-blue-500" />}
-                                        label="Cryo Temp"
-                                        value={status.microscope.temperature}
-                                        unit="°C"
-                                    />
-                                    <MetricItem
-                                        icon={<Droplets className="w-3.5 h-3.5 text-green-500" />}
-                                        label="Refrigerant"
-                                        value={status.microscope.refrigerantLevel}
-                                        unit="%"
-                                        progress={status.microscope.refrigerantLevel}
-                                    />
-                                </div>
+                                <h3 className="text-sm font-semibold text-primary">{status.microscope.model}</h3>
                             </div>
 
-                            {/* Camera Section */}
-                            <div className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/10">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <Camera className="w-4 h-4 text-blue-600" />
-                                    <h3 className="text-sm font-semibold text-blue-600">{status.camera.model}</h3>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-3">
-                                    <MetricItem
-                                        icon={<Settings className="w-3.5 h-3.5" />}
-                                        label="Mode"
-                                        value={status.camera.mode}
-                                    />
-                                    <MetricItem
-                                        icon={<Activity className="w-3.5 h-3.5" />}
-                                        label="Frame Rate"
-                                        value={status.camera.fps}
-                                        unit="FPS"
-                                    />
-                                    <MetricItem
-                                        icon={<Thermometer className="w-3.5 h-3.5 text-blue-500" />}
-                                        label="Detector Temp"
-                                        value={status.camera.temperature}
-                                        unit="°C"
-                                    />
-                                    <MetricItem
-                                        icon={<Gauge className="w-3.5 h-3.5" />}
-                                        label="Exposure"
-                                        value={status.camera.exposure}
-                                        unit="s"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* System Resources Section */}
-                            <div className="p-4 rounded-lg bg-green-500/5 border border-green-500/10">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <Database className="w-4 h-4 text-green-600" />
-                                    <h3 className="text-sm font-semibold text-green-600">System Resources</h3>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-3">
-                                    <MetricItem
-                                        icon={status.system.networkStatus === 'connected' ?
-                                            <Wifi className="w-3.5 h-3.5 text-green-500" /> :
-                                            <WifiOff className="w-3.5 h-3.5 text-red-500" />}
-                                        label="Network"
-                                        value={status.system.networkStatus === 'connected' ? 'Connected' : 'Offline'}
-                                    />
-                                    <MetricItem
-                                        icon={<Database className="w-3.5 h-3.5" />}
-                                        label="Storage"
-                                        value={status.system.diskSpace}
-                                        unit="%"
-                                        progress={status.system.diskSpace}
-                                    />
-                                    <MetricItem
-                                        icon={<Activity className="w-3.5 h-3.5" />}
-                                        label="CPU"
-                                        value="75"
-                                        unit="%"
-                                        progress={75}
-                                    />
-                                    <MetricItem
-                                        icon={<Database className="w-3.5 h-3.5" />}
-                                        label="Memory"
-                                        value="60"
-                                        unit="%"
-                                        progress={60}
-                                    />
-                                </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <MetricItem
+                                    icon={<Zap className="w-4 h-4 text-primary" />}
+                                    label="High Tension"
+                                    value={(status.microscope.highTension / 1000).toFixed(0)}
+                                    unit="kV"
+                                />
+                                <MetricItem
+                                    icon={<Gauge className="w-4 h-4 text-primary" />}
+                                    label="Beam Current"
+                                    value={status.microscope.beamCurrent}
+                                    unit="pA"
+                                />
+                                <MetricItem
+                                    icon={<Thermometer className="w-4 h-4 text-blue-500" />}
+                                    label="Cryo Temp"
+                                    value={status.microscope.temperature}
+                                    unit="°C"
+                                />
+                                <MetricItem
+                                    icon={<Droplets className="w-4 h-4 text-green-500" />}
+                                    label="Refrigerant"
+                                    value={status.microscope.refrigerantLevel}
+                                    unit="%"
+                                    progress={status.microscope.refrigerantLevel}
+                                />
                             </div>
                         </div>
-                    </>
-                )}
+
+                        {/* Camera Section */}
+                        <div className="p-5 rounded-xl bg-blue-500/8 border border-blue-500/20 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="p-2 rounded-lg bg-blue-500/10">
+                                    <Camera className="w-5 h-5 text-blue-600" />
+                                </div>
+                                <h3 className="text-sm font-semibold text-blue-600">{status.camera.model}</h3>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <MetricItem
+                                    icon={<Settings className="w-4 h-4 text-blue-600" />}
+                                    label="Mode"
+                                    value={status.camera.mode}
+                                />
+                                <MetricItem
+                                    icon={<Activity className="w-4 h-4 text-blue-600" />}
+                                    label="Frame Rate"
+                                    value={status.camera.fps}
+                                    unit="FPS"
+                                />
+                                <MetricItem
+                                    icon={<Thermometer className="w-4 h-4 text-blue-500" />}
+                                    label="Detector Temp"
+                                    value={status.camera.temperature}
+                                    unit="°C"
+                                />
+                                <MetricItem
+                                    icon={<Gauge className="w-4 h-4 text-blue-600" />}
+                                    label="Exposure"
+                                    value={status.camera.exposure}
+                                    unit="s"
+                                />
+                            </div>
+                        </div>
+
+                        {/* System Resources Section */}
+                        <div className="p-5 rounded-xl bg-green-500/8 border border-green-500/20 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="p-2 rounded-lg bg-green-500/10">
+                                    <Database className="w-5 h-5 text-green-600" />
+                                </div>
+                                <h3 className="text-sm font-semibold text-green-600">System Resources</h3>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <MetricItem
+                                    icon={status.system.networkStatus === 'connected' ?
+                                        <Wifi className="w-4 h-4 text-green-500" /> :
+                                        <WifiOff className="w-4 h-4 text-red-500" />}
+                                    label="Network"
+                                    value={status.system.networkStatus === 'connected' ? 'Connected' : 'Offline'}
+                                />
+                                <MetricItem
+                                    icon={<Database className="w-4 h-4 text-green-600" />}
+                                    label="Storage"
+                                    value={status.system.diskSpace}
+                                    unit="%"
+                                    progress={status.system.diskSpace}
+                                />
+                                <MetricItem
+                                    icon={<Activity className="w-4 h-4 text-green-600" />}
+                                    label="CPU"
+                                    value="75"
+                                    unit="%"
+                                    progress={75}
+                                />
+                                <MetricItem
+                                    icon={<Database className="w-4 h-4 text-green-600" />}
+                                    label="Memory"
+                                    value="60"
+                                    unit="%"
+                                    progress={60}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </>
+            )}
         </div>
     );
 };
