@@ -3,7 +3,7 @@ import MicroscopeColumn from './MicroscopeColumn';
 import PropertyExplorer from './PropertyExplorer';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 
-const TestIdeaPageView: React.FC = () => {
+const SettingsPageView: React.FC = () => {
     return (
         <div className="h-full bg-background">
             <ResizablePanelGroup direction="horizontal" className="h-full">
@@ -27,4 +27,4 @@ const TestIdeaPageView: React.FC = () => {
     );
 };
 
-export default TestIdeaPageView;
+export default SettingsPageView;

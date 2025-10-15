@@ -1,7 +1,7 @@
 import { Route, Routes, Navigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import MicroscopyPageView from "@/pages/MicroscopyPageView";
-import TestIdeaPageView from "@/pages/TestIdea/TestIdeaPageView";
+import SettingsPageView from "@/pages/Settings/SettingsPageView.tsx";
 import { MicroscopyHeaderProvider } from "@/contexts/MicroscopyHeaderContext";
 
 export const AppRoutes = () => {
@@ -14,7 +14,7 @@ export const AppRoutes = () => {
 
           {/* Main routes */}
           <Route path="microscopy" element={<MicroscopyPageView />} />
-          <Route path="test-idea" element={<TestIdeaPageView />} />
+          <Route path="test-idea" element={<SettingsPageView />} />
 
           {/* Catch all - redirect to microscopy */}
           <Route path="*" element={<Navigate to="/microscopy" replace />} />
