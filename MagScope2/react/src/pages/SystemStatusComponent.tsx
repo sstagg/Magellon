@@ -108,8 +108,8 @@ const MetricItem: React.FC<MetricItemProps> = ({
     progress
 }) => {
     return (
-        <div className="flex items-start gap-2">
-            <div className="flex-shrink-0 mt-0.5">
+        <div className="flex items-start gap-3">
+            <div className="flex-shrink-0">
                 {icon}
             </div>
             <div className="flex-1 min-w-0">
@@ -222,25 +222,25 @@ export const SystemStatusComponent: React.FC<SystemStatusComponentProps> = ({
 
                             <div className="grid grid-cols-2 gap-4">
                                 <MetricItem
-                                    icon={<Zap className="w-4 h-4 text-primary" />}
+                                    icon={<Zap className="w-6 h-6 text-primary" />}
                                     label="High Tension"
                                     value={(status.microscope.highTension / 1000).toFixed(0)}
                                     unit="kV"
                                 />
                                 <MetricItem
-                                    icon={<Gauge className="w-4 h-4 text-primary" />}
+                                    icon={<Gauge className="w-6 h-6 text-primary" />}
                                     label="Beam Current"
                                     value={status.microscope.beamCurrent}
                                     unit="pA"
                                 />
                                 <MetricItem
-                                    icon={<Thermometer className="w-4 h-4 text-blue-500" />}
+                                    icon={<Thermometer className="w-6 h-6 text-blue-500" />}
                                     label="Cryo Temp"
                                     value={status.microscope.temperature}
                                     unit="°C"
                                 />
                                 <MetricItem
-                                    icon={<Droplets className="w-4 h-4 text-green-500" />}
+                                    icon={<Droplets className="w-6 h-6 text-green-500" />}
                                     label="Refrigerant"
                                     value={status.microscope.refrigerantLevel}
                                     unit="%"
@@ -260,24 +260,24 @@ export const SystemStatusComponent: React.FC<SystemStatusComponentProps> = ({
 
                             <div className="grid grid-cols-2 gap-4">
                                 <MetricItem
-                                    icon={<Settings className="w-4 h-4 text-blue-600" />}
+                                    icon={<Settings className="w-6 h-6 text-blue-600" />}
                                     label="Mode"
                                     value={status.camera.mode}
                                 />
                                 <MetricItem
-                                    icon={<Activity className="w-4 h-4 text-blue-600" />}
+                                    icon={<Activity className="w-6 h-6 text-blue-600" />}
                                     label="Frame Rate"
                                     value={status.camera.fps}
                                     unit="FPS"
                                 />
                                 <MetricItem
-                                    icon={<Thermometer className="w-4 h-4 text-blue-500" />}
+                                    icon={<Thermometer className="w-6 h-6 text-blue-500" />}
                                     label="Detector Temp"
                                     value={status.camera.temperature}
                                     unit="°C"
                                 />
                                 <MetricItem
-                                    icon={<Gauge className="w-4 h-4 text-blue-600" />}
+                                    icon={<Gauge className="w-6 h-6 text-blue-600" />}
                                     label="Exposure"
                                     value={status.camera.exposure}
                                     unit="s"
@@ -297,27 +297,27 @@ export const SystemStatusComponent: React.FC<SystemStatusComponentProps> = ({
                             <div className="grid grid-cols-2 gap-4">
                                 <MetricItem
                                     icon={status.system.networkStatus === 'connected' ?
-                                        <Wifi className="w-4 h-4 text-green-500" /> :
-                                        <WifiOff className="w-4 h-4 text-red-500" />}
+                                        <Wifi className="w-6 h-6 text-green-500" /> :
+                                        <WifiOff className="w-6 h-6 text-red-500" />}
                                     label="Network"
                                     value={status.system.networkStatus === 'connected' ? 'Connected' : 'Offline'}
                                 />
                                 <MetricItem
-                                    icon={<Database className="w-4 h-4 text-green-600" />}
+                                    icon={<Database className="w-6 h-6 text-green-600" />}
                                     label="Storage"
                                     value={status.system.diskSpace}
                                     unit="%"
                                     progress={status.system.diskSpace}
                                 />
                                 <MetricItem
-                                    icon={<Activity className="w-4 h-4 text-green-600" />}
+                                    icon={<Activity className="w-6 h-6 text-green-600" />}
                                     label="CPU"
                                     value="75"
                                     unit="%"
                                     progress={75}
                                 />
                                 <MetricItem
-                                    icon={<Database className="w-4 h-4 text-green-600" />}
+                                    icon={<Database className="w-6 h-6 text-green-600" />}
                                     label="Memory"
                                     value="60"
                                     unit="%"
