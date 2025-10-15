@@ -155,9 +155,14 @@ export const SystemStatusComponent: React.FC<SystemStatusComponentProps> = ({
         <div>
             {/* Header */}
             <div className="flex justify-between items-center mb-4">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                     <Activity className="w-6 h-6 text-primary" />
-                    <h2 className="text-xl font-bold">System Status</h2>
+                    <div className="flex flex-col">
+                        <h2 className="text-xl font-bold">System Status</h2>
+                        <p className="text-xs text-muted-foreground">
+                            System operational • All subsystems nominal
+                        </p>
+                    </div>
                     <Button
                         variant="ghost"
                         size="sm"
@@ -300,34 +305,28 @@ export const SystemStatusComponent: React.FC<SystemStatusComponentProps> = ({
                 )}
 
             {/* Quick Actions */}
-            <div className="flex justify-between items-center mt-4">
-                <p className="text-xs text-muted-foreground">
-                    System operational • All subsystems nominal
-                </p>
+            <div className="flex justify-end items-center gap-2 mt-4">
+                <Button
+                    variant={isConnected ? "outline" : "default"}
+                    size="sm"
+                    onClick={onConnect}
+                    disabled={connectionStatus === 'connecting'}
+                >
+                    <Monitor className="w-4 h-4 mr-2" />
+                    {connectionStatus === 'connecting' ? 'Connecting...' : isConnected ? 'Disconnect' : 'Connect'}
+                </Button>
 
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant={isConnected ? "outline" : "default"}
-                        size="sm"
-                        onClick={onConnect}
-                        disabled={connectionStatus === 'connecting'}
-                    >
-                        <Monitor className="w-4 h-4 mr-2" />
-                        {connectionStatus === 'connecting' ? 'Connecting...' : isConnected ? 'Disconnect' : 'Connect'}
-                    </Button>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onCameraSettings}
+                    disabled={!cameraConnected || cameraLoading}
+                >
+                    <Camera className="w-4 h-4 mr-2" />
+                    Camera Settings
+                </Button>
 
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={onCameraSettings}
-                        disabled={!cameraConnected || cameraLoading}
-                    >
-                        <Camera className="w-4 h-4 mr-2" />
-                        Camera Settings
-                    </Button>
-
-                    <Badge className="bg-green-500 animate-pulse">Live</Badge>
-                </div>
+                <Badge className="bg-green-500 animate-pulse">Live</Badge>
             </div>
         </div>
     );
