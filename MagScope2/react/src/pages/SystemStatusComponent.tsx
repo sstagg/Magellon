@@ -182,6 +182,30 @@ export const SystemStatusComponent: React.FC<SystemStatusComponentProps> = ({
                         status={status.camera.connected ? 'ready' : 'offline'}
                         label="Camera"
                     />
+
+                    <Button
+                        variant={isConnected ? "outline" : "default"}
+                        size="sm"
+                        onClick={onConnect}
+                        disabled={connectionStatus === 'connecting'}
+                        className="ml-2"
+                    >
+                        <Monitor className="w-4 h-4 mr-2" />
+                        {connectionStatus === 'connecting' ? 'Connecting...' : isConnected ? 'Disconnect' : 'Connect'}
+                    </Button>
+
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={onCameraSettings}
+                        disabled={!cameraConnected || cameraLoading}
+                    >
+                        <Camera className="w-4 h-4 mr-2" />
+                        Camera Settings
+                    </Button>
+
+                    <Badge className="bg-green-500 animate-pulse">Live</Badge>
+
                     <Button variant="ghost" size="icon" className="ml-2">
                         <Settings className="w-4 h-4" />
                     </Button>
@@ -303,31 +327,6 @@ export const SystemStatusComponent: React.FC<SystemStatusComponentProps> = ({
                         </div>
                     </>
                 )}
-
-            {/* Quick Actions */}
-            <div className="flex justify-end items-center gap-2 mt-4">
-                <Button
-                    variant={isConnected ? "outline" : "default"}
-                    size="sm"
-                    onClick={onConnect}
-                    disabled={connectionStatus === 'connecting'}
-                >
-                    <Monitor className="w-4 h-4 mr-2" />
-                    {connectionStatus === 'connecting' ? 'Connecting...' : isConnected ? 'Disconnect' : 'Connect'}
-                </Button>
-
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={onCameraSettings}
-                    disabled={!cameraConnected || cameraLoading}
-                >
-                    <Camera className="w-4 h-4 mr-2" />
-                    Camera Settings
-                </Button>
-
-                <Badge className="bg-green-500 animate-pulse">Live</Badge>
-            </div>
         </div>
     );
 };
