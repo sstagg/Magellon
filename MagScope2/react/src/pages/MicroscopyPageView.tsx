@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { History, X, Settings as SettingsIcon, Microscope as MicroscopeIcon } from 'lucide-react';
 import { Layout, Model, TabNode } from 'flexlayout-react';
-import 'flexlayout-react/style/dark.css';
+import 'flexlayout-react/style/light.css';
 
 // Import components
 import { SystemStatusComponent } from './SystemStatusComponent';
@@ -23,7 +23,6 @@ import {
 } from '@/components/ui/sheet';
 import { Alert, AlertTitle } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
-import { Zap } from 'lucide-react';
 
 // Enhanced Mock API with camera integration
 class MicroscopeAPI {
@@ -345,34 +344,22 @@ export default function MicroscopyPageView() {
         <div className="fixed inset-0 top-16 bg-background flex flex-col overflow-hidden">
             {/* Fixed Header Section */}
             <div className="flex-shrink-0 p-3 md:p-6 pb-2 md:pb-4 border-b bg-background">
-                {/* Header */}
-                <div className="mb-4 flex justify-between items-center">
-                    <div>
-                        <h1 className="text-2xl md:text-4xl font-bold flex items-center gap-2">
-                            <Zap className="w-6 h-6 md:w-8 h-8 text-primary" />
-                            Microscope Control System
-                        </h1>
-                        <p className="text-sm text-muted-foreground">
-                            Advanced control interface for Titan Krios & Direct Electron cameras
-                        </p>
-                    </div>
+                {/* Header Controls */}
+                <div className="mb-4 flex justify-end items-center gap-2">
+                    <Button variant="ghost" size="icon" onClick={() => setShowHistory(true)} title="Acquisition History">
+                        <Badge variant="secondary" className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs">
+                            {acquisitionHistory.length}
+                        </Badge>
+                        <History className="w-5 h-5" />
+                    </Button>
 
-                    <div className="flex gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => setShowHistory(true)} title="Acquisition History">
-                            <Badge variant="secondary" className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs">
-                                {acquisitionHistory.length}
-                            </Badge>
-                            <History className="w-5 h-5" />
-                        </Button>
+                    <Button variant="ghost" size="icon" onClick={() => setShowMicroscopePanel(true)} title="Microscope Details">
+                        <MicroscopeIcon className="w-5 h-5" />
+                    </Button>
 
-                        <Button variant="ghost" size="icon" onClick={() => setShowMicroscopePanel(true)} title="Microscope Details">
-                            <MicroscopeIcon className="w-5 h-5" />
-                        </Button>
-
-                        <Button variant="ghost" size="icon" onClick={() => setShowAdvancedSettings(true)} title="Advanced Settings">
-                            <SettingsIcon className="w-5 h-5" />
-                        </Button>
-                    </div>
+                    <Button variant="ghost" size="icon" onClick={() => setShowAdvancedSettings(true)} title="Advanced Settings">
+                        <SettingsIcon className="w-5 h-5" />
+                    </Button>
                 </div>
 
                 {/* Error Handling */}
