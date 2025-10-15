@@ -10,6 +10,8 @@ import { LiveView } from './Microscopy/LiveView';
 import { ControlPanel } from './Microscopy/ControlPanel';
 import { useMicroscopeStore } from './Microscopy/MicroscopeStore';
 import { CameraSettingsDialog } from './Microscopy/CameraSettingsDialog';
+import { MicroscopeDetailsPanel } from './Microscopy/MicroscopeDetailsPanel';
+import { AdvancedSettingsPanel } from './Microscopy/AdvancedSettingsPanel';
 import { useDeCamera, DE_PROPERTIES } from './Microscopy/useDeCamera.ts';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -461,69 +463,32 @@ export default function MicroscopyPageView() {
 
             {/* Microscope Details Sheet */}
             <Sheet open={showMicroscopePanel} onOpenChange={setShowMicroscopePanel}>
-                <SheetContent className="w-full sm:w-[500px]">
+                <SheetContent className="w-full sm:w-[600px] overflow-y-auto">
                     <SheetHeader>
                         <SheetTitle>Microscope Details</SheetTitle>
                     </SheetHeader>
 
                     <div className="mt-4">
-                        <p className="text-sm text-muted-foreground mb-4">
-                            Detailed microscope status, alignments, and operational parameters.
-                        </p>
-
-                        <div className="space-y-4">
-                            <div>
-                                <h3 className="font-semibold mb-2">System Information</h3>
-                                <div className="space-y-1 text-sm">
-                                    <div>Model: Titan Krios G4</div>
-                                    <div>High Tension: 300 kV</div>
-                                    <div>Column Valve: Open</div>
-                                    <div>Vacuum Status: Ready</div>
-                                </div>
-                            </div>
-                        </div>
+                        <MicroscopeDetailsPanel />
                     </div>
                 </SheetContent>
             </Sheet>
 
             {/* Advanced Settings Sheet */}
             <Sheet open={showAdvancedSettings} onOpenChange={setShowAdvancedSettings}>
-                <SheetContent className="w-full sm:w-[600px]">
+                <SheetContent className="w-full sm:w-[700px] overflow-y-auto">
                     <SheetHeader>
                         <SheetTitle>Advanced Settings</SheetTitle>
                     </SheetHeader>
 
                     <div className="mt-4">
-                        <p className="text-sm text-muted-foreground mb-4">
-                            Advanced microscope and camera configuration options.
-                        </p>
-
-                        <div className="space-y-4">
-                            <div>
-                                <h3 className="font-semibold mb-2">Camera Integration</h3>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <Button
-                                        variant="outline"
-                                        onClick={refreshCameraProperties}
-                                        disabled={cameraLoading}
-                                    >
-                                        Refresh Camera Properties
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => setShowCameraSettings(true)}
-                                        disabled={!cameraConnected}
-                                    >
-                                        Open Camera Settings
-                                    </Button>
-                                </div>
-
-                                <p className="text-sm text-muted-foreground mt-2">
-                                    Camera Status: {cameraConnected ? 'Connected' : 'Disconnected'} •
-                                    Properties: {availableProperties.length} available
-                                </p>
-                            </div>
-                        </div>
+                        <AdvancedSettingsPanel
+                            cameraConnected={cameraConnected}
+                            cameraLoading={cameraLoading}
+                            availableProperties={availableProperties}
+                            onRefreshCamera={refreshCameraProperties}
+                            onOpenCameraSettings={() => setShowCameraSettings(true)}
+                        />
                     </div>
                 </SheetContent>
             </Sheet>
