@@ -211,3 +211,35 @@ button:focus-visible {
     @apply bg-background text-foreground;
   }
 }
+
+/* FlexLayout Custom Styling */
+.flexlayout__tab {
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+}
+
+.flexlayout__tabset_tabbar_outer {
+  background-color: hsl(var(--muted)) !important;
+}
+
+.flexlayout__tabset_header {
+  background-color: hsl(var(--muted)) !important;
+  border-bottom: 1px solid hsl(var(--border)) !important;
+}
+
+.flexlayout__tab_button {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.flexlayout__tab_button--selected {
+  color: hsl(var(--foreground)) !important;
+  background-color: hsl(var(--background)) !important;
+}
+
+.flexlayout__splitter {
+  background-color: hsl(var(--border)) !important;
+}
+
+.flexlayout__tabset {
+  background-color: hsl(var(--background)) !important;
+}
