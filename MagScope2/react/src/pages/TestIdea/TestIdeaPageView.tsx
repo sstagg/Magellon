@@ -5,7 +5,7 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/componen
 
 const TestIdeaPageView: React.FC = () => {
     return (
-        <div className="fixed inset-0 bg-background">
+        <div className="h-full bg-background">
             <ResizablePanelGroup direction="horizontal" className="h-full">
                 {/* Main Microscope Column Area */}
                 <ResizablePanel defaultSize={75} minSize={50}>

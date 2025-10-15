@@ -247,12 +247,12 @@ const MicroscopeColumn: React.FC = () => {
     };
 
     return (
-        <div className="container max-w-7xl mx-auto py-6">
-            <h1 className="text-4xl font-bold mb-6 text-center bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+        <div className="w-full h-full p-6">
+            <h1 className="text-2xl font-bold mb-4">
                 {currentConfig.name}
             </h1>
 
-            <div className="grid grid-cols-12 gap-6 h-[calc(100vh-200px)]">
+            <div className="grid grid-cols-12 gap-6 h-[calc(100%-4rem)]">
                 {/* Left Panel - Configuration */}
                 <div className="col-span-3 h-full overflow-y-auto flex flex-col gap-4">
                     {/* Configuration Selector */}

@@ -1,10 +1,13 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
 import './index.css';
-import TestIdeaPageView from './pages/TestIdea/TestIdeaPageView';
+import AppRoutes from './routes/AppRoutes';
 
 ReactDOM.createRoot(document.getElementById('app')!).render(
   <React.StrictMode>
-    <TestIdeaPageView />
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
   </React.StrictMode>
 );
