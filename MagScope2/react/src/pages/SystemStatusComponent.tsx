@@ -17,11 +17,9 @@ import {
     Thermometer,
     Droplets,
 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
 // Mock data
@@ -154,44 +152,43 @@ export const SystemStatusComponent: React.FC<SystemStatusComponentProps> = ({
     const [expanded, setExpanded] = useState(defaultExpanded);
 
     return (
-        <Card className="border-border/50 shadow-lg">
-            <CardContent className="p-4 md:p-6">
-                {/* Header */}
-                <div className="flex justify-between items-center mb-4">
-                    <div className="flex items-center gap-2">
-                        <Activity className="w-6 h-6 text-primary" />
-                        <h2 className="text-xl font-bold">System Status</h2>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setExpanded(!expanded)}
-                            className="ml-2"
-                        >
-                            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                        </Button>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        <StatusIndicator
-                            status={status.microscope.connected ? 'ready' : 'offline'}
-                            label="Microscope"
-                        />
-                        <StatusIndicator
-                            status={status.camera.connected ? 'ready' : 'offline'}
-                            label="Camera"
-                        />
-                        <Button variant="ghost" size="icon" className="ml-2">
-                            <Settings className="w-4 h-4" />
-                        </Button>
-                    </div>
+        <div>
+            {/* Header */}
+            <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center gap-2">
+                    <Activity className="w-6 h-6 text-primary" />
+                    <h2 className="text-xl font-bold">System Status</h2>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setExpanded(!expanded)}
+                        className="ml-2"
+                    >
+                        {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </Button>
                 </div>
 
-                {/* Collapsible Content */}
-                {expanded && (
-                    <>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                            {/* Microscope Section */}
-                            <div className="p-4 rounded-lg bg-primary/5 border border-primary/10">
+                <div className="flex items-center gap-2">
+                    <StatusIndicator
+                        status={status.microscope.connected ? 'ready' : 'offline'}
+                        label="Microscope"
+                    />
+                    <StatusIndicator
+                        status={status.camera.connected ? 'ready' : 'offline'}
+                        label="Camera"
+                    />
+                    <Button variant="ghost" size="icon" className="ml-2">
+                        <Settings className="w-4 h-4" />
+                    </Button>
+                </div>
+            </div>
+
+            {/* Collapsible Content */}
+            {expanded && (
+                <>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        {/* Microscope Section */}
+                        <div className="p-4 rounded-lg bg-primary/5 border border-primary/10">
                                 <div className="flex items-center gap-2 mb-3">
                                     <Monitor className="w-4 h-4 text-primary" />
                                     <h3 className="text-sm font-semibold text-primary">{status.microscope.model}</h3>
@@ -302,38 +299,36 @@ export const SystemStatusComponent: React.FC<SystemStatusComponentProps> = ({
                     </>
                 )}
 
-                {/* Quick Actions */}
-                <Separator className="my-4" />
-                <div className="flex justify-between items-center">
-                    <p className="text-xs text-muted-foreground">
-                        System operational • All subsystems nominal
-                    </p>
+            {/* Quick Actions */}
+            <div className="flex justify-between items-center mt-4">
+                <p className="text-xs text-muted-foreground">
+                    System operational • All subsystems nominal
+                </p>
 
-                    <div className="flex items-center gap-2">
-                        <Button
-                            variant={isConnected ? "outline" : "default"}
-                            size="sm"
-                            onClick={onConnect}
-                            disabled={connectionStatus === 'connecting'}
-                        >
-                            <Monitor className="w-4 h-4 mr-2" />
-                            {connectionStatus === 'connecting' ? 'Connecting...' : isConnected ? 'Disconnect' : 'Connect'}
-                        </Button>
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant={isConnected ? "outline" : "default"}
+                        size="sm"
+                        onClick={onConnect}
+                        disabled={connectionStatus === 'connecting'}
+                    >
+                        <Monitor className="w-4 h-4 mr-2" />
+                        {connectionStatus === 'connecting' ? 'Connecting...' : isConnected ? 'Disconnect' : 'Connect'}
+                    </Button>
 
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={onCameraSettings}
-                            disabled={!cameraConnected || cameraLoading}
-                        >
-                            <Camera className="w-4 h-4 mr-2" />
-                            Camera Settings
-                        </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={onCameraSettings}
+                        disabled={!cameraConnected || cameraLoading}
+                    >
+                        <Camera className="w-4 h-4 mr-2" />
+                        Camera Settings
+                    </Button>
 
-                        <Badge className="bg-green-500 animate-pulse">Live</Badge>
-                    </div>
+                    <Badge className="bg-green-500 animate-pulse">Live</Badge>
                 </div>
-            </CardContent>
-        </Card>
+            </div>
+        </div>
     );
 };

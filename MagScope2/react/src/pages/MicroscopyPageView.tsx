@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { History, X, Settings as SettingsIcon, Microscope as MicroscopeIcon } from 'lucide-react';
+import { X } from 'lucide-react';
 import { Layout, Model, TabNode } from 'flexlayout-react';
 import 'flexlayout-react/style/light.css';
 
@@ -14,7 +14,6 @@ import { MicroscopeDetailsPanel } from './Microscopy/MicroscopeDetailsPanel';
 import { AdvancedSettingsPanel } from './Microscopy/AdvancedSettingsPanel';
 import { useDeCamera, DE_PROPERTIES } from './Microscopy/useDeCamera.ts';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
     Sheet,
     SheetContent,
@@ -23,6 +22,7 @@ import {
 } from '@/components/ui/sheet';
 import { Alert, AlertTitle } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
+import { useMicroscopyHeader } from '@/contexts/MicroscopyHeaderContext';
 
 // Enhanced Mock API with camera integration
 class MicroscopeAPI {
@@ -229,6 +229,17 @@ const flexLayoutJson = {
 const microscopeAPI = new MicroscopeAPI();
 
 export default function MicroscopyPageView() {
+    // Get header controls from context
+    const {
+        showHistory,
+        setShowHistory,
+        showMicroscopePanel,
+        setShowMicroscopePanel,
+        showAdvancedSettings,
+        setShowAdvancedSettings,
+        setAcquisitionHistoryCount,
+    } = useMicroscopyHeader();
+
     // Camera-related state
     const [showCameraSettings, setShowCameraSettings] = useState(false);
     const [cameraClient] = useState(() => new MockDE_SDKClient());
@@ -258,15 +269,9 @@ export default function MicroscopyPageView() {
         setMicroscopeStatus,
         setAtlasData,
         acquisitionHistory,
-        showHistory,
-        setShowHistory,
         showSettings,
         setShowSettings
     } = useMicroscopeStore();
-
-    // Additional drawer states for new panels
-    const [showMicroscopePanel, setShowMicroscopePanel] = useState(false);
-    const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
 
     // Initialize connection and API listeners
     useEffect(() => {
@@ -288,6 +293,11 @@ export default function MicroscopyPageView() {
             setCameraError(cameraHookError);
         }
     }, [cameraHookError]);
+
+    // Update acquisition history count in header context
+    useEffect(() => {
+        setAcquisitionHistoryCount(acquisitionHistory.length);
+    }, [acquisitionHistory.length, setAcquisitionHistoryCount]);
 
     const updateAllStatus = async () => {
         try {
@@ -344,24 +354,6 @@ export default function MicroscopyPageView() {
         <div className="fixed inset-0 top-16 bg-background flex flex-col overflow-hidden">
             {/* Fixed Header Section */}
             <div className="flex-shrink-0 p-3 md:p-6 pb-2 md:pb-4 border-b bg-background">
-                {/* Header Controls */}
-                <div className="mb-4 flex justify-end items-center gap-2">
-                    <Button variant="ghost" size="icon" onClick={() => setShowHistory(true)} title="Acquisition History">
-                        <Badge variant="secondary" className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs">
-                            {acquisitionHistory.length}
-                        </Badge>
-                        <History className="w-5 h-5" />
-                    </Button>
-
-                    <Button variant="ghost" size="icon" onClick={() => setShowMicroscopePanel(true)} title="Microscope Details">
-                        <MicroscopeIcon className="w-5 h-5" />
-                    </Button>
-
-                    <Button variant="ghost" size="icon" onClick={() => setShowAdvancedSettings(true)} title="Advanced Settings">
-                        <SettingsIcon className="w-5 h-5" />
-                    </Button>
-                </div>
-
                 {/* Error Handling */}
                 {cameraError && (
                     <Alert variant="destructive" className="mb-4">
