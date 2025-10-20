@@ -275,6 +275,80 @@ export const SerialEMImportComponent = () => {
                     Error: {error}
                 </Typography>
             )}
+            {/* Folder Structure Validation Guide */}
+            <Box
+  sx={{
+    p: 2,
+    mb: 3,
+    borderRadius: 2,
+    bgcolor: 'background.paper',
+    boxShadow: 1,
+  }}
+>
+  <Typography variant="h6" gutterBottom>
+    Required Folder Structure
+  </Typography>
+<div className="text-sm text-gray-700 ml-2">
+  <div className="flex items-center gap-2">
+    <span className="text-yellow-500">📁</span>
+    <span className="font-medium">Main Folder (Upload this)</span>
+  </div>
+
+  <div className="ml-6 mt-1 border-l border-gray-300 pl-3">
+    {/* gains */}
+    <div className="flex items-center gap-2 mt-1">
+      <span className="text-yellow-500">📁</span>
+      <span>gains</span>
+    </div>
+    <div className="ml-6 mt-1 border-l border-gray-200 pl-3">
+      <div className="flex items-center gap-2">
+        <span className="text-gray-500">📄</span>
+        <span>gain.mrc</span>
+      </div>
+    </div>
+
+    {/* settings */}
+    <div className="flex items-center gap-2 mt-2">
+      <span className="text-yellow-500">📁</span>
+      <span>settings</span>
+    </div>
+    <div className="ml-6 mt-1 border-l border-gray-200 pl-3">
+      <div className="flex items-center gap-2">
+        <span className="text-gray-500">📄</span>
+        <span>settings.txt</span>
+      </div>
+    </div>
+
+    {/* medium_mag (same level as settings) */}
+    <div className="flex items-center gap-2 mt-2">
+      <span className="text-yellow-500">📁</span>
+      <span>medium_mag</span>
+    </div>
+    <div className="ml-6 mt-1 border-l border-gray-200 pl-3">
+      <div className="flex items-center gap-2">
+        <span className="text-gray-500">📄</span>
+        <span>MMM.mrc</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-gray-500">📄</span>
+        <span>MMM.mrc.mdoc</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-gray-500">📄</span>
+        <span>.....</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+  <Typography
+    variant="caption"
+    color="text.secondary"
+    sx={{ mt: 2, display: 'block' }}
+  >
+    ⚠️ Ensure all required subfolders and files exist before uploading.
+  </Typography>
+</Box>
 
             <Box sx={{
                 border: 1,
@@ -526,11 +600,11 @@ export const SerialEMImportComponent = () => {
                             >
                                 Import SerialEM Data
                             </Button>
-                            {/* {validationStatus === 'invalid' && (
-                                <Typography variant="caption" color="error" sx={{ ml: 2 }}>
+                            {/* {validationStatus === 'invalid' && ( */}
+                                {/* <Typography variant="caption" color="error" sx={{ ml: 2 }}>
                                     No valid SerialEM files found in selected directory
-                                </Typography>
-                            )} */}
+                                </Typography> */}
+                            {/* )} */}
                         </Grid>
                     </Grid>
                 </Paper>
