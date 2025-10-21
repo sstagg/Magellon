@@ -17,7 +17,7 @@ from config import FFT_SUB_URL, GAINS_SUB_URL, IMAGE_SUB_URL, MAGELLON_HOME_DIR,
 
 import logging
 from services.file_service import copy_file
-from services.importers.BaseImporter import BaseImporter, TaskFailedException
+from services.importers.BaseImporter import BaseImporter, FileError, TaskFailedException
 from services.mrc_image_service import MrcImageService
 import mrcfile
 import tifffile
@@ -142,6 +142,7 @@ def parse_mdoc(file_path: str, settings_file_path: str) -> SerialEMMetadata:
         ('name', 'name'),
         ('Magnification', 'magnification'),
         ('Defocus', 'defocus'),
+        ('TargetDefocus', 'target_defocus'), 
         ('ExposureDose', 'dose'),
         ('PixelSpacing', 'pixel_size'),
         ('Binning', 'binning_x'),
@@ -184,6 +185,10 @@ def parse_mdoc(file_path: str, settings_file_path: str) -> SerialEMMetadata:
                                     result[new_key] = float(value) if '.' in value or value.isdigit() else value
                                 except ValueError:
                                     result[new_key] = value
+        if result.get("target_defocus") is not None:
+            result["defocus"] = result["target_defocus"] * 10 ** -6
+        else:
+            result["defocus"] = result["defocus"] * 10 ** -6
         # Todo get the spherical abbrevation from the settings file
         # it will be like ctffindParams[5]
 
@@ -543,8 +548,8 @@ class SerialEmImporter(BaseImporter):
         except Exception as e:
             logger.error(f"Failed to get/create session: {e}", exc_info=True)
             raise
-    
-    def _validate_directory_structure(self) -> Tuple[str, str]:
+
+    def _validate_directory_structure(self) -> Tuple[str, str, str]:
         """Validate required directories exist and return paths."""
         try:
             settings_dir = os.path.join(
@@ -554,6 +559,10 @@ class SerialEmImporter(BaseImporter):
             gains_dir = os.path.join(
                 self.params.serial_em_dir_path, 
                 "gains"
+            )
+            medium_mag_dir = os.path.join(
+                self.params.serial_em_dir_path, 
+                "medium_mag"
             )
             
             if not os.path.isdir(settings_dir):
@@ -565,8 +574,12 @@ class SerialEmImporter(BaseImporter):
                 raise FileNotFoundError(
                     f"'gains' folder not found in {self.params.serial_em_dir_path}"
                 )
-            
-            return settings_dir, gains_dir
+            if not os.path.isdir(medium_mag_dir):
+                raise FileNotFoundError(
+                    f"'medium_mag' folder not found in {self.params.serial_em_dir_path}"
+                )
+
+            return settings_dir, gains_dir, medium_mag_dir
         except Exception as e:
             logger.error(f"Directory validation failed: {e}", exc_info=True)
             raise
@@ -608,71 +621,117 @@ class SerialEmImporter(BaseImporter):
             raise OSError(
                 f"Failed to access gains directory {gains_dir}: {e}"
             ) from e
+
+    def get_mrc_mdoc_pairs(self, medium_mag_dir: str):
+        """Return list of dicts containing .mrc and corresponding .mrc.mdoc files."""
+        pairs = []
+        missing_pairs = []
+
+        try:
+            if not os.path.isdir(medium_mag_dir):
+                raise FileNotFoundError(f"Directory not found: {medium_mag_dir}")
+
+            files = os.listdir(medium_mag_dir)
+
+            # Filter for .mrc files (exclude .mrc.mdoc)
+            mrc_files = [f for f in files if f.endswith(".mrc") ]
+
+            if not mrc_files:
+                logger.warning(f"No .mrc files found in directory: {medium_mag_dir}")
+
+            for mrc in mrc_files:
+                mdoc = f"{mrc}.mdoc"
+                mdoc_path = os.path.join(medium_mag_dir, mdoc)
+                mrc_path = os.path.join(medium_mag_dir, mrc)
+
+                if os.path.exists(mdoc_path):
+                    pairs.append({
+                        "mrc": mrc_path,
+                        "mdoc": mdoc_path
+                    })
+                else:
+                    missing_pairs.append(mrc)
+
+            if missing_pairs:
+                logger.warning(
+                    f"Missing corresponding .mdoc files for the following .mrc files: {missing_pairs}"
+                )
+
+            if not pairs:
+                logger.warning("No valid .mrc and .mrc.mdoc pairs found in directory.")
+
+            return pairs
+
+        except Exception as e:
+            logger.exception(f"Error while fetching MRC-MDOC pairs: {e}")
+            raise
     
     def _process_montages(
-        self, 
-        magellon_session_name: str
+        self,
+        magellon_session_name: str,
+        mrc_mdoc_pairs: List[Dict[str, str]]
     ) -> Tuple[List[str], Optional[List], Optional[List]]:
-        """Process MMM montage files if they exist."""
-        try:
-            result = find_two_files(
-                self.params.serial_em_dir_path, 
-                "MMM.mrc", 
-                "MMM.mrc.mdoc"
-            )
-            
-            if not result:
-                logger.warning(
-                    f"MMM.mrc and MMM.mrc.mdoc not found in "
-                    f"{self.params.serial_em_dir_path}, skipping montage creation"
-                )
-                return [], None, None
-            
-            mrc_path, mdoc_path = result
-            logger.info(f"Processing montages from {mdoc_path}")
-            
-            with open(mdoc_path, 'r') as f:
-                mdoc_text = f.read()
-            
-            montages, unique_navigator_labels = parse_mmm_mdoc(mdoc_text)
-            montage_paths = []
-            
-            for idx, montage_pieces in enumerate(montages):
-                try:
-                    stitched_img, stage_positions, centers = stitch_mmm(
-                        montage_pieces, 
-                        mrc_path, 
-                        option="AlignedPieceCoords"
-                    )
-                    
-                    filename = os.path.join(
-                        os.environ.get("MAGELLON_HOME_PATH", "/magellon"),
-                        magellon_session_name,
-                        "montages",
-                        f"{magellon_session_name}_{montage_pieces[0]['NavigatorLabel']}.mrc"
-                    )
-                    
-                    os.makedirs(os.path.dirname(filename), exist_ok=True)
-                    
-                    with mrcfile.new(filename, overwrite=True) as mrc:
-                        mrc.set_data(stitched_img.astype(np.float32))
-                    
-                    montage_paths.append(filename)
-                    logger.info(f"✅ Saved stitched montage {idx + 1}/{len(montages)}: {filename}")
-                    
-                except Exception as e:
-                    logger.error(
-                        f"Failed to process montage {idx}: {e}", 
-                        exc_info=True
-                    )
-                    continue
-            
-            logger.info(f"📂 Successfully processed {len(montage_paths)} out of {len(montages)} montages")
-            return montage_paths, montages, unique_navigator_labels
-            
-        except Exception as e:
-            logger.error(f"Montage processing failed: {e}", exc_info=True)
-            return [], None, None
+        """Process montage files from a list of MRC-MDOC dictionaries."""
+        montage_paths = []
+        all_montages = []
+        all_unique_labels = set()
+
+        for pair_idx, pair in enumerate(mrc_mdoc_pairs):
+            mrc_path = pair.get("mrc")
+            mdoc_path = pair.get("mdoc")
+
+            if not mrc_path or not mdoc_path:
+                logger.warning(f"Skipping pair {pair_idx}: missing MRC or MDOC path")
+                continue
+
+            if not os.path.exists(mrc_path) or not os.path.exists(mdoc_path):
+                logger.warning(f"Skipping pair {pair_idx}: files not found ({mrc_path}, {mdoc_path})")
+                continue
+
+            logger.info(f"Processing montage pair {pair_idx + 1}/{len(mrc_mdoc_pairs)}: {mdoc_path}")
+
+            try:
+                with open(mdoc_path, 'r') as f:
+                    mdoc_text = f.read()
+
+                montages, unique_navigator_labels = parse_mmm_mdoc(mdoc_text)
+                all_montages.extend(montages)
+                all_unique_labels.update(unique_navigator_labels)
+
+                for idx, montage_pieces in enumerate(montages):
+                    try:
+                        stitched_img, stage_positions, centers = stitch_mmm(
+                            montage_pieces,
+                            mrc_path,
+                            option="AlignedPieceCoords"
+                        )
+
+                        filename = os.path.join(
+                            os.environ.get("MAGELLON_HOME_PATH", "/magellon"),
+                            magellon_session_name,
+                            "montages",
+                            f"{magellon_session_name}_{montage_pieces[0]['NavigatorLabel']}.mrc"
+                        )
+
+                        os.makedirs(os.path.dirname(filename), exist_ok=True)
+
+                        with mrcfile.new(filename, overwrite=True) as mrc:
+                            mrc.set_data(stitched_img.astype(np.float32))
+
+                        montage_paths.append(filename)
+                        logger.info(f"✅ Saved stitched montage {idx + 1}/{len(montages)}: {filename}")
+
+                    except Exception as e:
+                        logger.error(f"Failed to process montage {idx} in pair {pair_idx}: {e}", exc_info=True)
+                        continue
+
+            except Exception as e:
+                logger.error(f"Failed to parse or process MDOC {mdoc_path}: {e}", exc_info=True)
+                continue
+
+        logger.info(f"📂 Successfully processed {len(montage_paths)} montages from {len(mrc_mdoc_pairs)} pairs")
+        return montage_paths, all_montages, list(all_unique_labels)
+
     
     def _copy_gains_file(self, gains_file_path: str, target_directory: str) -> str:
         """Copy gains file to target directory and return filename."""
@@ -699,7 +758,9 @@ class SerialEmImporter(BaseImporter):
         self,
         montage_path: str,
         magellon_session: Msession,
-        job: ImageJob
+        job: ImageJob,
+        defocus: float = 0.0,
+        dose: float = 0.0
     ) -> Tuple[Optional[Image], Optional[ImageJobTask], Optional[object]]:
         """Create database entries for a single montage."""
         try:
@@ -710,8 +771,8 @@ class SerialEmImporter(BaseImporter):
                 oid=uuid.uuid4(),
                 name=filename,
                 magnification=self.params.default_data.magnification,
-                defocus=0.0,
-                dose=0.0,
+                defocus=defocus,
+                dose=dose,
                 pixel_size=self.params.default_data.pixel_size * 10**-10,
                 binning_x=1,
                 binning_y=1,
@@ -985,6 +1046,82 @@ class SerialEmImporter(BaseImporter):
                 "No parent-child relationships identified for this session"
             )
     
+    def process_task(self, task_dto: Any) -> Dict[str, str]:
+        print(" process_task inside serialem called")
+        """
+        Process a single import task
+
+        This method handles the standard file processing operations:
+        1. Transfer frame file
+        2. Copy original image (optional)
+        3. Convert to PNG
+        4. Compute FFT
+        5. Dispatch CTF computation
+        6. Dispatch motion correction
+
+        Args:
+            task_dto: Task data transfer object
+
+        Returns:
+            Dict with status and message
+        """
+        try:
+            # 1. Transfer frame if it exists
+            self.transfer_frame(task_dto)
+
+            # 2. Copy original image if specified
+            if hasattr(self.params, 'copy_images') and self.params.copy_images:
+                self.copy_image(task_dto)
+
+            # Get current image path
+            image_path = getattr(task_dto, 'image_path', None)
+            if not image_path or not os.path.exists(image_path):
+                raise FileError(f"Image file not found: {image_path}")
+
+            # 3. Convert to PNG
+            self.convert_image_to_png(image_path)
+
+            # 4. Compute FFT
+            self.compute_fft(image_path)
+            
+            if "/montages/" in image_path.replace("\\", "/").lower():
+                logger.info(f"Skipping CTF and MotionCor for montage image: {image_path}")
+            else:
+                # 5. Compute CTF if needed
+                self.compute_ctf(image_path, task_dto)
+
+                # 6. Compute motion correction if frame exists
+                frame_name = getattr(task_dto, 'frame_name', '')
+                if frame_name:
+                    self.compute_motioncor(image_path, task_dto)
+
+
+            return {'status': 'success', 'message': 'Task completed successfully.'}
+
+        except Exception as e:
+            logger.error(f"Task processing failed: {str(e)}", exc_info=True)
+            raise TaskFailedException(f"Failed to process task: {str(e)}")
+    
+    def run_tasks(self, task_list: List[Any] = None) -> None:
+        """
+        Run all processing tasks
+
+        Args:
+            task_list: List of task DTOs, if None uses self.task_dto_list
+        """
+        try:
+            tasks = task_list or self.task_dto_list
+            if not tasks:
+                logger.warning("No tasks to process")
+                return
+
+            for task in tasks:
+                self.process_task(task)
+
+        except Exception as e:
+            logger.error(f"Error running tasks: {str(e)}", exc_info=True)
+            raise
+    
     def create_db_project_session(self, db_session: Session):
         """Main workflow for creating database project/session and importing data."""
         try:
@@ -1004,12 +1141,13 @@ class SerialEmImporter(BaseImporter):
             session_name = self.params.session_name
             
             # Step 2: Validate directory structure
-            settings_dir, gains_dir = self._validate_directory_structure()
+            settings_dir, gains_dir, medium_mag_dir = self._validate_directory_structure()
             
             # Step 3: Find required files
             settings_txt_path = self._find_settings_file(settings_dir)
             gains_file_path = self._find_gains_file(gains_dir)
-            
+            mrc_mdoc_pairs = self.get_mrc_mdoc_pairs(medium_mag_dir)
+
             # Step 4: Scan directory
             
             try:
@@ -1022,7 +1160,7 @@ class SerialEmImporter(BaseImporter):
             
             # Step 5: Process montages
             montage_paths, montages, unique_navigator_labels = self._process_montages(
-                magellon_session_name
+                magellon_session_name,mrc_mdoc_pairs
             )
             
             # Step 6: Parse metadata
@@ -1081,7 +1219,9 @@ class SerialEmImporter(BaseImporter):
                     db_image, job_item, task = self._create_montage_image_entry(
                         montage_path,
                         magellon_session,
-                        job
+                        job,
+                        metadata_list[0].defocus,
+                        metadata_list[0].dose
                     )
                     
                     if db_image and job_item and task:
