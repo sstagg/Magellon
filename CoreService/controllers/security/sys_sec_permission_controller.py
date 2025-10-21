@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session
 from starlette import status
 
 from database import get_db
+from dependencies.auth import get_current_user_id
+from dependencies.permissions import require_role
 from models.security.security_models import (
     PermissionCheckRequest,
     PermissionCheckResponse,
@@ -27,10 +29,16 @@ sys_sec_permission_router = APIRouter()
 @sys_sec_permission_router.post('/check', response_model=PermissionCheckResponse)
 async def check_permission(
         permission_request: PermissionCheckRequest,
+        _: UUID = Depends(get_current_user_id),
+        __: None = Depends(require_role('Administrator')),
         db: Session = Depends(get_db)
 ):
     """
     Check if a user has a specific permission
+
+    **Requires:**
+    - Authentication: Bearer token
+    - Permission: Administrator role
     """
     try:
         # Validate user exists
@@ -67,10 +75,16 @@ async def check_permission(
 @sys_sec_permission_router.get('/user/{user_id}/summary', response_model=UserPermissionsSummaryDto)
 async def get_user_permissions_summary(
         user_id: UUID,
+        _: UUID = Depends(get_current_user_id),
+        __: None = Depends(require_role('Administrator')),
         db: Session = Depends(get_db)
 ):
     """
     Get comprehensive summary of all user permissions
+
+    **Requires:**
+    - Authentication: Bearer token
+    - Permission: Administrator role
     """
     try:
         # Validate user exists
@@ -134,10 +148,16 @@ async def get_user_permissions_summary(
 async def check_user_has_role(
         user_id: UUID,
         role_name: str,
+        _: UUID = Depends(get_current_user_id),
+        __: None = Depends(require_role('Administrator')),
         db: Session = Depends(get_db)
 ):
     """
     Check if a user has a specific role
+
+    **Requires:**
+    - Authentication: Bearer token
+    - Permission: Administrator role
     """
     try:
         has_role = AuthorizationService.user_has_role(db, user_id, role_name)
@@ -158,10 +178,16 @@ async def check_user_has_role(
 @sys_sec_permission_router.get('/user/{user_id}/is-admin')
 async def check_user_is_admin(
         user_id: UUID,
+        _: UUID = Depends(get_current_user_id),
+        __: None = Depends(require_role('Administrator')),
         db: Session = Depends(get_db)
 ):
     """
     Check if a user has any administrative role
+
+    **Requires:**
+    - Authentication: Bearer token
+    - Permission: Administrator role
     """
     try:
         is_admin = AuthorizationService.user_is_admin(db, user_id)
@@ -182,10 +208,16 @@ async def check_user_is_admin(
 async def check_action_permission(
         user_id: UUID,
         action_id: str,
+        _: UUID = Depends(get_current_user_id),
+        __: None = Depends(require_role('Administrator')),
         db: Session = Depends(get_db)
 ):
     """
     Check if a user has a specific action permission
+
+    **Requires:**
+    - Authentication: Bearer token
+    - Permission: Administrator role
     """
     try:
         has_permission = AuthorizationService.user_has_action_permission(db, user_id, action_id)
@@ -207,10 +239,16 @@ async def check_action_permission(
 async def check_navigation_permission(
         user_id: UUID,
         item_path: str = Query(..., description="Navigation path to check"),
+        _: UUID = Depends(get_current_user_id),
+        __: None = Depends(require_role('Administrator')),
         db: Session = Depends(get_db)
 ):
     """
     Check if a user has permission to navigate to a specific path
+
+    **Requires:**
+    - Authentication: Bearer token
+    - Permission: Administrator role
     """
     try:
         has_permission = AuthorizationService.user_has_navigation_permission(db, user_id, item_path)
@@ -233,10 +271,16 @@ async def check_type_permission(
         user_id: UUID,
         target_type: str,
         operation: str = Query('read', description="Operation: read, write, create, delete, navigate"),
+        _: UUID = Depends(get_current_user_id),
+        __: None = Depends(require_role('Administrator')),
         db: Session = Depends(get_db)
 ):
     """
     Check if a user has permission for a specific type/operation
+
+    **Requires:**
+    - Authentication: Bearer token
+    - Permission: Administrator role
     """
     try:
         if operation not in ['read', 'write', 'create', 'delete', 'navigate']:
@@ -269,10 +313,16 @@ async def check_type_permission(
 @sys_sec_permission_router.get('/user/{user_id}/roles')
 async def get_user_roles(
         user_id: UUID,
+        _: UUID = Depends(get_current_user_id),
+        __: None = Depends(require_role('Administrator')),
         db: Session = Depends(get_db)
 ):
     """
     Get all roles for a user
+
+    **Requires:**
+    - Authentication: Bearer token
+    - Permission: Administrator role
     """
     try:
         roles = AuthorizationService.get_user_roles(db, user_id)

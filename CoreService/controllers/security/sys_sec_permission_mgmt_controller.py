@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session
 from starlette import status
 
 from database import get_db
+from dependencies.auth import get_current_user_id
+from dependencies.permissions import require_role
 from models.security.security_models import (
     ActionPermissionCreateDto,
     ActionPermissionResponseDto,

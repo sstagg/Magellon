@@ -5,9 +5,13 @@ from typing import Optional, List
 
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_
+from passlib.context import CryptContext
 
 from models.pydantic_models import SysSecUserCreateDto, SysSecUserUpdateDto
 from models.sqlalchemy_models import SysSecUser
+
+# Password hashing context
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class SysSecUserRepository:
@@ -82,6 +86,35 @@ class SysSecUserRepository:
                 SysSecUser.GCRecord.is_(None)
             )
         ).first()
+
+    @staticmethod
+    def authenticate_user(db: Session, username: str, password: str) -> Optional[SysSecUser]:
+        """
+        Authenticate user with username and password
+
+        Args:
+            db: Database session
+            username: Username to authenticate
+            password: Plain text password to verify
+
+        Returns:
+            SysSecUser if authentication successful, None otherwise
+        """
+        # Fetch active user by username
+        user = SysSecUserRepository.fetch_active_by_username(db, username)
+
+        if not user:
+            return None
+
+        # Check if user is locked out
+        if user.LockoutEnd and user.LockoutEnd > datetime.now():
+            return None
+
+        # Verify password
+        if not pwd_context.verify(password, user.PASSWORD):
+            return None
+
+        return user
 
     @staticmethod
     def fetch_all(db: Session, skip: int = 0, limit: int = 100, include_inactive: bool = False) -> List[SysSecUser]:

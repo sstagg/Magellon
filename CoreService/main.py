@@ -32,6 +32,7 @@ from controllers.import_export_controller import export_router
 # from controllers.particle_picking_jobitem_controller import ppji_router
 from controllers.slack_controller import slack_router
 
+from controllers.security.auth_controller import router as auth_router
 from controllers.security.sys_sec_user_controller import sys_sec_user_router
 from controllers.security.sys_sec_role_controller import sys_sec_role_router
 from controllers.security.sys_sec_user_role_controller import sys_sec_user_role_router
@@ -147,6 +148,9 @@ app.include_router(image_processing_router, tags=['Image Processing'], prefix="/
 app.include_router(webapp_router, tags=['Image Viewer - WebApp'], prefix="/web")
 app.include_router(graph_router, tags=['Graphs'], prefix="/graphs")
 app.include_router(slack_router, tags=['Communication'], prefix='/io')
+
+# Authentication - must be registered before protected endpoints
+app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
 
 app.include_router(sys_sec_user_router, prefix="/db/security/users", tags=["Security - Users"])
 app.include_router(sys_sec_role_router, prefix="/db/security/roles", tags=["Security - Roles"])

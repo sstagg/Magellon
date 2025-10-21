@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session
 from starlette import status
 
 from database import get_db
+from dependencies.auth import get_current_user_id
+from dependencies.permissions import require_role
 from models.security.security_models import (
     RoleCreateDto,
     RoleUpdateDto,
@@ -27,11 +29,16 @@ sys_sec_role_router = APIRouter()
 @sys_sec_role_router.post('/', response_model=RoleResponseDto, status_code=201)
 async def create_role(
         role_request: RoleCreateDto,
-        db: Session = Depends(get_db),
-        current_user_id: Optional[UUID] = None
+        current_user_id: UUID = Depends(get_current_user_id),
+        _: None = Depends(require_role('Administrator')),
+        db: Session = Depends(get_db)
 ):
     """
     Create a new role
+
+    **Requires:**
+    - Authentication: Bearer token
+    - Permission: Administrator role
     """
     logger.info(f"Creating role: {role_request.name}")
 
@@ -69,11 +76,16 @@ async def create_role(
 @sys_sec_role_router.put('/', response_model=RoleResponseDto)
 async def update_role(
         role_request: RoleUpdateDto,
-        db: Session = Depends(get_db),
-        current_user_id: Optional[UUID] = None
+        current_user_id: UUID = Depends(get_current_user_id),
+        _: None = Depends(require_role('Administrator')),
+        db: Session = Depends(get_db)
 ):
     """
     Update an existing role
+
+    **Requires:**
+    - Authentication: Bearer token
+    - Permission: Administrator role
     """
     logger.info(f"Updating role: {role_request.oid}")
 
@@ -129,10 +141,16 @@ def get_all_roles(
         limit: int = Query(100, le=1000),
         name: Optional[str] = None,
         tenant_id: Optional[UUID] = None,
+        _: UUID = Depends(get_current_user_id),
+        __: None = Depends(require_role('Administrator')),
         db: Session = Depends(get_db)
 ):
     """
     Get all roles with optional filtering and pagination
+
+    **Requires:**
+    - Authentication: Bearer token
+    - Permission: Administrator role
     """
     try:
         if name:
@@ -160,9 +178,17 @@ def get_all_roles(
 
 
 @sys_sec_role_router.get('/administrative', response_model=List[RoleResponseDto])
-def get_administrative_roles(db: Session = Depends(get_db)):
+def get_administrative_roles(
+        _: UUID = Depends(get_current_user_id),
+        __: None = Depends(require_role('Administrator')),
+        db: Session = Depends(get_db)
+):
     """
     Get all administrative roles
+
+    **Requires:**
+    - Authentication: Bearer token
+    - Permission: Administrator role
     """
     try:
         roles = SysSecRoleRepository.fetch_administrative_roles(db)
@@ -186,9 +212,18 @@ def get_administrative_roles(db: Session = Depends(get_db)):
 
 
 @sys_sec_role_router.get('/{role_id}', response_model=RoleResponseDto)
-def get_role(role_id: UUID, db: Session = Depends(get_db)):
+def get_role(
+        role_id: UUID,
+        _: UUID = Depends(get_current_user_id),
+        __: None = Depends(require_role('Administrator')),
+        db: Session = Depends(get_db)
+):
     """
     Get role by ID
+
+    **Requires:**
+    - Authentication: Bearer token
+    - Permission: Administrator role
     """
     role = SysSecRoleRepository.fetch_by_id(db, role_id)
     if role is None:
@@ -207,9 +242,18 @@ def get_role(role_id: UUID, db: Session = Depends(get_db)):
 
 
 @sys_sec_role_router.get('/name/{role_name}', response_model=RoleResponseDto)
-def get_role_by_name(role_name: str, db: Session = Depends(get_db)):
+def get_role_by_name(
+        role_name: str,
+        _: UUID = Depends(get_current_user_id),
+        __: None = Depends(require_role('Administrator')),
+        db: Session = Depends(get_db)
+):
     """
     Get role by name
+
+    **Requires:**
+    - Authentication: Bearer token
+    - Permission: Administrator role
     """
     role = SysSecRoleRepository.fetch_by_name(db, role_name)
     if role is None:
@@ -231,11 +275,16 @@ def get_role_by_name(role_name: str, db: Session = Depends(get_db)):
 async def delete_role(
         role_id: UUID,
         hard_delete: bool = Query(False),
-        db: Session = Depends(get_db),
-        current_user_id: Optional[UUID] = None
+        current_user_id: UUID = Depends(get_current_user_id),
+        _: None = Depends(require_role('Administrator')),
+        db: Session = Depends(get_db)
 ):
     """
     Delete role (soft delete by default, hard delete if specified)
+
+    **Requires:**
+    - Authentication: Bearer token
+    - Permission: Administrator role
     """
     role = SysSecRoleRepository.fetch_by_id(db, role_id)
     if role is None:
@@ -279,10 +328,16 @@ async def delete_role(
 @sys_sec_role_router.get('/{role_id}/users')
 def get_role_users(
         role_id: UUID,
+        _: UUID = Depends(get_current_user_id),
+        __: None = Depends(require_role('Administrator')),
         db: Session = Depends(get_db)
 ):
     """
     Get all users assigned to a role
+
+    **Requires:**
+    - Authentication: Bearer token
+    - Permission: Administrator role
     """
     role = SysSecRoleRepository.fetch_by_id(db, role_id)
     if role is None:
@@ -317,9 +372,17 @@ def get_role_users(
 
 
 @sys_sec_role_router.get('/stats/count')
-def get_role_count(db: Session = Depends(get_db)):
+def get_role_count(
+        _: UUID = Depends(get_current_user_id),
+        __: None = Depends(require_role('Administrator')),
+        db: Session = Depends(get_db)
+):
     """
     Get total role count
+
+    **Requires:**
+    - Authentication: Bearer token
+    - Permission: Administrator role
     """
     count = SysSecRoleRepository.count_roles(db)
     return {
@@ -328,9 +391,17 @@ def get_role_count(db: Session = Depends(get_db)):
 
 
 @sys_sec_role_router.get('/stats/summary')
-def get_role_statistics(db: Session = Depends(get_db)):
+def get_role_statistics(
+        _: UUID = Depends(get_current_user_id),
+        __: None = Depends(require_role('Administrator')),
+        db: Session = Depends(get_db)
+):
     """
     Get comprehensive role statistics
+
+    **Requires:**
+    - Authentication: Bearer token
+    - Permission: Administrator role
     """
     try:
         from models.sqlalchemy_models import SysSecRole, SysSecUserRole
