@@ -52,7 +52,10 @@ export function useSchema(includeSystem: boolean = false) {
       // Check cache first
       const cached = getFromCache();
       if (cached) {
-        console.log('Using cached schema data');
+        console.log('Using cached schema data', {
+          totalEntities: cached.entities ? Object.keys(cached.entities).length : 0,
+          entityNames: cached.entities ? Object.keys(cached.entities) : [],
+        });
         setSchema(cached);
         setLoading(false);
         return;
@@ -65,6 +68,14 @@ export function useSchema(includeSystem: boolean = false) {
       );
 
       const schemaData = response.data;
+
+      // Debug logging
+      console.log('Schema data received:', {
+        totalEntities: schemaData.entities ? Object.keys(schemaData.entities).length : 0,
+        entityNames: schemaData.entities ? Object.keys(schemaData.entities) : [],
+        hasOperators: !!schemaData.operators,
+        hasFunctions: !!schemaData.functions,
+      });
 
       // Cache the response
       saveToCache(schemaData);

@@ -120,6 +120,7 @@ export default function ObjectPermissionsManager({
   };
 
   const handleOpenDialog = (permission?: ObjectPermission) => {
+    console.log('handleOpenDialog called', { permission, typePermissionId, targetTypeName });
     if (permission) {
       // Edit existing
       setEditingPermission(permission);
@@ -138,6 +139,7 @@ export default function ObjectPermissionsManager({
       setNavigateState(true);
     }
     setDialogOpen(true);
+    console.log('Dialog opened, dialogOpen=true');
   };
 
   const handleCloseDialog = () => {
@@ -243,8 +245,13 @@ export default function ObjectPermissionsManager({
 
       {/* Info */}
       <Alert severity="info" icon={<FilterList />} sx={{ mb: 2 }}>
+        <strong>Object Permissions for: {targetTypeName}</strong>
+        <br />
         Object permissions define criteria-based record-level access control.
         Use criteria expressions to filter which records users can access.
+        <br />
+        <br />
+        <strong>Debug Info:</strong> Loaded {objectPermissions.length} object permission(s)
       </Alert>
 
       {/* Permissions List */}
@@ -253,10 +260,42 @@ export default function ObjectPermissionsManager({
           <CircularProgress />
         </Box>
       ) : objectPermissions.length === 0 ? (
-        <Alert severity="warning">
-          No object permissions defined for this type permission.
-          Click "Add Object Permission" to create one.
-        </Alert>
+        <Card sx={{ bgcolor: 'background.default', border: '2px dashed #ccc' }}>
+          <CardContent sx={{ textAlign: 'center', py: 6 }}>
+            <FilterList sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
+            <Typography variant="h6" color="text.secondary" gutterBottom>
+              No Object Permissions Yet
+            </Typography>
+            <Typography variant="body2" color="text.secondary" paragraph>
+              This type permission has no record-level filters defined.
+              <br />
+              Users will have access to ALL records of type <strong>{targetTypeName}</strong>
+              <br />
+              (subject to type-level permissions).
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={<Add />}
+              onClick={() => handleOpenDialog()}
+              size="large"
+              sx={{ mt: 2 }}
+            >
+              Create Your First Object Permission
+            </Button>
+            <Box sx={{ mt: 3, textAlign: 'left', maxWidth: 500, mx: 'auto' }}>
+              <Typography variant="caption" color="text.secondary">
+                <strong>Examples you can create:</strong>
+              </Typography>
+              <Typography variant="caption" component="div" color="text.secondary" sx={{ mt: 1 }}>
+                • Users can only see their own records: <code>[user_id] = CurrentUserId()</code>
+                <br />
+                • Users can see active records: <code>[status] = 'active'</code>
+                <br />
+                • Users can see records they own or are assigned to: <code>[owner_id] = CurrentUserId() OR [assigned_to] = CurrentUserId()</code>
+              </Typography>
+            </Box>
+          </CardContent>
+        </Card>
       ) : (
         <List>
           {objectPermissions.map((perm, index) => (
@@ -354,13 +393,38 @@ export default function ObjectPermissionsManager({
         </DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 2 }}>
+            {/* DEBUG INFO - Remove after testing */}
+            <Alert severity="info" sx={{ mb: 2 }}>
+              <strong>Debug:</strong>
+              <br />
+              Entity Name: {targetTypeName}
+              <br />
+              Schema Loaded: {schema ? 'Yes' : 'No'}
+              <br />
+              Entity Exists: {schema?.entities?.[targetTypeName] ? 'Yes' : 'No'}
+              <br />
+              {schema?.entities?.[targetTypeName] && (
+                <>
+                  Fields Available: {Object.keys(schema.entities[targetTypeName].fields || {}).length}
+                </>
+              )}
+            </Alert>
+
             {/* Criteria Builder */}
-            <CriteriaBuilder
-              schema={schema}
-              entityName={targetTypeName}
-              initialCriteria={criteria}
-              onChange={setCriteria}
-            />
+            {!schema?.entities?.[targetTypeName] ? (
+              <Alert severity="error">
+                Entity "{targetTypeName}" not found in schema!
+                <br />
+                Available entities: {schema?.entities ? Object.keys(schema.entities).join(', ') : 'none'}
+              </Alert>
+            ) : (
+              <CriteriaBuilder
+                schema={schema}
+                entityName={targetTypeName}
+                initialCriteria={criteria}
+                onChange={setCriteria}
+              />
+            )}
 
             <Divider sx={{ my: 3 }} />
 

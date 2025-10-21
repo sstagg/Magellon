@@ -491,6 +491,29 @@ export default function PermissionManagementTab({
               Type permissions control CRUD operations on entity types (like Property, Invoice, etc.)
             </Typography>
 
+            {/* DEBUG INFO - Remove this after testing */}
+            <Alert severity="info" sx={{ mb: 2 }}>
+              <strong>Debug Info:</strong>
+              <br />
+              Schema Loading: {schemaLoading ? 'Yes' : 'No'}
+              <br />
+              Schema Loaded: {schema ? 'Yes' : 'No'}
+              <br />
+              Entities Available: {schema?.entities ? Object.keys(schema.entities).length : 0}
+              <br />
+              {schema?.entities && Object.keys(schema.entities).length > 0 && (
+                <>
+                  Entity Names: {Object.keys(schema.entities).join(', ')}
+                </>
+              )}
+              {!schema && !schemaLoading && (
+                <>
+                  <br />
+                  <strong style={{ color: 'red' }}>⚠️ Schema failed to load! Check browser console (F12)</strong>
+                </>
+              )}
+            </Alert>
+
             {/* Quick Actions */}
             <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
               <Button
@@ -634,9 +657,15 @@ export default function PermissionManagementTab({
                           size="small"
                           startIcon={<FilterList />}
                           onClick={() => {
-                            setSelectedTypePermission(perm.oid);
+                            console.log('🔵 Object Perms button clicked!', {
+                              oid: perm.Oid,
+                              target_type: perm.target_type,
+                              full_perm: perm
+                            });
+                            setSelectedTypePermission(perm.Oid);
                             setSelectedTypeName(perm.target_type);
                             setTabValue(3); // Switch to Object Permissions tab
+                            console.log('✅ State should be set now - switching to tab 3');
                           }}
                         >
                           Object Perms
@@ -669,6 +698,19 @@ export default function PermissionManagementTab({
         {/* Object Permissions Tab */}
         <TabPanel value={tabValue} index={3}>
           <Box sx={{ p: 2 }}>
+            {/* DEBUG - Remove after testing */}
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              <strong>DEBUG Object Permissions Tab:</strong>
+              <br />
+              selectedTypePermission: "{selectedTypePermission}" (length: {selectedTypePermission.length})
+              <br />
+              selectedTypeName: "{selectedTypeName}"
+              <br />
+              Is empty: {selectedTypePermission ? 'No' : 'Yes'}
+              <br />
+              Current tab: {tabValue}
+            </Alert>
+
             {selectedTypePermission ? (
               <ObjectPermissionsManager
                 typePermissionId={selectedTypePermission}
