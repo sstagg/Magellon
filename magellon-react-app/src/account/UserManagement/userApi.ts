@@ -49,10 +49,19 @@ export interface AuthenticationRequest {
 }
 
 export interface AuthenticationResponse {
-    message: string;
+    access_token: string;
+    token_type: string;
     user_id: string;
     username: string;
-    change_password_required: boolean;
+    expires_in: number;
+    change_password_required?: boolean;
+}
+
+export interface UserMeResponse {
+    user_id: string;
+    username: string;
+    email: string | null;
+    active: boolean;
 }
 
 export interface UserStats {
@@ -62,15 +71,51 @@ export interface UserStats {
 
 class UserApiService {
     private baseUrl = 'http://localhost:8000/db/security/users';
+    private authBaseUrl = 'http://localhost:8000/auth';
 
     private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
         const url = `${this.baseUrl}${endpoint}`;
+
+        // Add Authorization header if token exists
+        const token = localStorage.getItem('access_token');
+        const headers: HeadersInit = {
+            'Content-Type': 'application/json',
+            ...options.headers,
+        };
+
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
         const response = await fetch(url, {
-            headers: {
-                'Content-Type': 'application/json',
-                ...options.headers,
-            },
             ...options,
+            headers,
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => null);
+            throw new Error(errorData?.detail || `HTTP error! status: ${response.status}`);
+        }
+
+        return response.json();
+    }
+
+    private async authRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+        const url = `${this.authBaseUrl}${endpoint}`;
+
+        const token = localStorage.getItem('access_token');
+        const headers: HeadersInit = {
+            'Content-Type': 'application/json',
+            ...options.headers,
+        };
+
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(url, {
+            ...options,
+            headers,
         });
 
         if (!response.ok) {
@@ -159,13 +204,31 @@ class UserApiService {
         });
     }
 
-    // Authenticate user
+    // Authenticate user - NEW JWT endpoint
     async authenticate(credentials: AuthenticationRequest): Promise<AuthenticationResponse> {
-        const searchParams = new URLSearchParams();
-        searchParams.set('username', credentials.username);
-        searchParams.set('password', credentials.password);
+        return this.authRequest<AuthenticationResponse>('/login', {
+            method: 'POST',
+            body: JSON.stringify(credentials),
+        });
+    }
 
-        return this.request<AuthenticationResponse>(`/authenticate?${searchParams.toString()}`, {
+    // Get current user info
+    async getCurrentUser(): Promise<UserMeResponse> {
+        return this.authRequest<UserMeResponse>('/me', {
+            method: 'GET',
+        });
+    }
+
+    // Refresh token
+    async refreshToken(): Promise<AuthenticationResponse> {
+        return this.authRequest<AuthenticationResponse>('/refresh', {
+            method: 'POST',
+        });
+    }
+
+    // Logout
+    async logout(): Promise<{ message: string }> {
+        return this.authRequest<{ message: string }>('/logout', {
             method: 'POST',
         });
     }
