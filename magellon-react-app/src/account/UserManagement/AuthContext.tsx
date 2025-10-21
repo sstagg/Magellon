@@ -13,7 +13,7 @@ interface AuthContextType {
     user: User | null;
     loading: boolean;
     login: (username: string, password: string) => Promise<void>;
-    logout: () => void;
+    logout: () => Promise<void>;
     isAuthenticated: boolean;
     checkAuth: () => void;
 }
@@ -58,16 +58,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 password
             });
 
+            // Store JWT token
+            localStorage.setItem('access_token', authResponse.access_token);
+
             const userData: User = {
                 id: authResponse.user_id,
                 username: authResponse.username,
                 active: true,
-                change_password_required: authResponse.change_password_required
+                change_password_required: authResponse.change_password_required || false
             };
 
             setUser(userData);
 
-            // Save to localStorage for persistence
+            // Save user info to localStorage for persistence
             localStorage.setItem('currentUser', JSON.stringify(userData));
             localStorage.setItem('currentUserId', authResponse.user_id);
 
@@ -78,10 +81,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
     };
 
-    const logout = () => {
-        setUser(null);
-        localStorage.removeItem('currentUser');
-        localStorage.removeItem('currentUserId');
+    const logout = async () => {
+        try {
+            // Call logout endpoint to invalidate token on server
+            await userApiService.logout();
+        } catch (error) {
+            console.error('Logout error:', error);
+        } finally {
+            // Clear local state and storage regardless of API call result
+            setUser(null);
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('currentUser');
+            localStorage.removeItem('currentUserId');
+        }
     };
 
     const value: AuthContextType = {

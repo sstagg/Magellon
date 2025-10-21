@@ -29,6 +29,7 @@ import {
   DialogActions,
   Switch,
   FormControlLabel,
+  Autocomplete,
 } from '@mui/material';
 import {
   Add,
@@ -37,9 +38,12 @@ import {
   Navigation,
   DataObject,
   Refresh,
+  FilterList,
 } from '@mui/icons-material';
 
 import { RoleAPI, PermissionManagementAPI } from './rbacApi';
+import ObjectPermissionsManager from './components/ObjectPermissionsManager';
+import { useSchema } from './hooks/useSchema';
 
 interface PermissionManagementTabProps {
   currentUser: any;
@@ -72,6 +76,7 @@ export default function PermissionManagementTab({
   showSnackbar,
   isSuperUser = false,
 }: PermissionManagementTabProps) {
+  const { schema, loading: schemaLoading } = useSchema(false);
   const [tabValue, setTabValue] = useState(0);
   const [loading, setLoading] = useState(false);
   const [roles, setRoles] = useState<any[]>([]);
@@ -96,6 +101,10 @@ export default function PermissionManagementTab({
     delete: false,
     navigate: false,
   });
+
+  // Object Permissions
+  const [selectedTypePermission, setSelectedTypePermission] = useState<string>('');
+  const [selectedTypeName, setSelectedTypeName] = useState<string>('');
 
   // Quick Actions Dialog
   const [quickActionDialogOpen, setQuickActionDialogOpen] = useState(false);
@@ -346,6 +355,7 @@ export default function PermissionManagementTab({
           <Tab icon={<VpnKey />} label="Action Permissions" iconPosition="start" />
           <Tab icon={<Navigation />} label="Navigation Permissions" iconPosition="start" />
           <Tab icon={<DataObject />} label="Type Permissions" iconPosition="start" />
+          <Tab icon={<FilterList />} label="Object Permissions" iconPosition="start" />
         </Tabs>
 
         {/* Action Permissions Tab */}
@@ -481,6 +491,29 @@ export default function PermissionManagementTab({
               Type permissions control CRUD operations on entity types (like Property, Invoice, etc.)
             </Typography>
 
+            {/* DEBUG INFO - Remove this after testing */}
+            <Alert severity="info" sx={{ mb: 2 }}>
+              <strong>Debug Info:</strong>
+              <br />
+              Schema Loading: {schemaLoading ? 'Yes' : 'No'}
+              <br />
+              Schema Loaded: {schema ? 'Yes' : 'No'}
+              <br />
+              Entities Available: {schema?.entities ? Object.keys(schema.entities).length : 0}
+              <br />
+              {schema?.entities && Object.keys(schema.entities).length > 0 && (
+                <>
+                  Entity Names: {Object.keys(schema.entities).join(', ')}
+                </>
+              )}
+              {!schema && !schemaLoading && (
+                <>
+                  <br />
+                  <strong style={{ color: 'red' }}>⚠️ Schema failed to load! Check browser console (F12)</strong>
+                </>
+              )}
+            </Alert>
+
             {/* Quick Actions */}
             <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
               <Button
@@ -506,12 +539,31 @@ export default function PermissionManagementTab({
             <Divider sx={{ my: 2 }} />
 
             {/* Add Type Permission */}
-            <TextField
+            <Autocomplete
               fullWidth
               size="small"
-              placeholder="Enter type name (e.g., Property)"
-              value={newType}
-              onChange={(e) => setNewType(e.target.value)}
+              options={schema?.entities ? Object.values(schema.entities) : []}
+              getOptionLabel={(option: any) => option.caption || option.name}
+              value={schema?.entities ? Object.values(schema.entities).find((e: any) => e.name === newType) || null : null}
+              onChange={(_, newValue: any) => setNewType(newValue?.name || '')}
+              loading={schemaLoading}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  placeholder="Select entity type (e.g., msession, image)"
+                  helperText="Choose an entity to grant permissions for"
+                />
+              )}
+              renderOption={(props, option: any) => (
+                <li {...props} key={option.name}>
+                  <Box>
+                    <Typography variant="body2">{option.caption}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {option.name} - {option.description}
+                    </Typography>
+                  </Box>
+                </li>
+              )}
               sx={{ mb: 2 }}
             />
 
@@ -600,9 +652,28 @@ export default function PermissionManagementTab({
                   <ListItem
                     key={perm.oid}
                     secondaryAction={
-                      <IconButton edge="end" onClick={() => handleDeleteType(perm.oid)}>
-                        <Delete />
-                      </IconButton>
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Button
+                          size="small"
+                          startIcon={<FilterList />}
+                          onClick={() => {
+                            console.log('🔵 Object Perms button clicked!', {
+                              oid: perm.Oid,
+                              target_type: perm.target_type,
+                              full_perm: perm
+                            });
+                            setSelectedTypePermission(perm.Oid);
+                            setSelectedTypeName(perm.target_type);
+                            setTabValue(3); // Switch to Object Permissions tab
+                            console.log('✅ State should be set now - switching to tab 3');
+                          }}
+                        >
+                          Object Perms
+                        </Button>
+                        <IconButton edge="end" onClick={() => handleDeleteType(perm.oid)}>
+                          <Delete />
+                        </IconButton>
+                      </Box>
                     }
                   >
                     <ListItemText
@@ -623,6 +694,39 @@ export default function PermissionManagementTab({
             )}
           </Box>
         </TabPanel>
+
+        {/* Object Permissions Tab */}
+        <TabPanel value={tabValue} index={3}>
+          <Box sx={{ p: 2 }}>
+            {/* DEBUG - Remove after testing */}
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              <strong>DEBUG Object Permissions Tab:</strong>
+              <br />
+              selectedTypePermission: "{selectedTypePermission}" (length: {selectedTypePermission.length})
+              <br />
+              selectedTypeName: "{selectedTypeName}"
+              <br />
+              Is empty: {selectedTypePermission ? 'No' : 'Yes'}
+              <br />
+              Current tab: {tabValue}
+            </Alert>
+
+            {selectedTypePermission ? (
+              <ObjectPermissionsManager
+                typePermissionId={selectedTypePermission}
+                targetTypeName={selectedTypeName}
+                showSnackbar={showSnackbar}
+              />
+            ) : (
+              <Alert severity="info">
+                Please select a Type Permission from the "Type Permissions" tab to manage its object-level permissions.
+                <br />
+                <br />
+                Object permissions allow you to define record-level access control using criteria expressions.
+              </Alert>
+            )}
+          </Box>
+        </TabPanel>
       </Card>
 
       {/* Quick Action Dialog */}
@@ -631,12 +735,30 @@ export default function PermissionManagementTab({
           {quickActionType === 'full' ? 'Grant Full Access' : 'Grant Read-Only Access'}
         </DialogTitle>
         <DialogContent>
-          <TextField
+          <Autocomplete
             fullWidth
-            label="Type Name"
-            placeholder="e.g., Property, Invoice, User"
-            value={newType}
-            onChange={(e) => setNewType(e.target.value)}
+            options={schema?.entities ? Object.values(schema.entities) : []}
+            getOptionLabel={(option: any) => option.caption || option.name}
+            value={schema?.entities ? Object.values(schema.entities).find((e: any) => e.name === newType) || null : null}
+            onChange={(_, newValue: any) => setNewType(newValue?.name || '')}
+            loading={schemaLoading}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Entity Type"
+                placeholder="Select entity (e.g., msession, image)"
+              />
+            )}
+            renderOption={(props, option: any) => (
+              <li {...props} key={option.name}>
+                <Box>
+                  <Typography variant="body2">{option.caption}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {option.name}
+                  </Typography>
+                </Box>
+              </li>
+            )}
             sx={{ mt: 2 }}
           />
           <Alert severity="info" sx={{ mt: 2 }}>

@@ -38,6 +38,7 @@ from controllers.security.sys_sec_role_controller import sys_sec_role_router
 from controllers.security.sys_sec_user_role_controller import sys_sec_user_role_router
 from controllers.security.sys_sec_permission_controller import sys_sec_permission_router
 from controllers.security.sys_sec_permission_mgmt_controller import sys_sec_permission_mgmt_router
+from controllers.schema_controller import schema_router
 
 
 from controllers.test_controller import test_router
@@ -157,6 +158,7 @@ app.include_router(sys_sec_role_router, prefix="/db/security/roles", tags=["Secu
 app.include_router(sys_sec_user_role_router, prefix="/db/security/user-roles", tags=["Security - User Roles"])
 app.include_router(sys_sec_permission_router, prefix="/db/security/permissions", tags=["Security - Permissions"])
 app.include_router(sys_sec_permission_mgmt_router, prefix="/db/security", tags=["Security - Permission Management"])
+app.include_router(schema_router, tags=["Database Schema"])
 
 
 Instrumentator().instrument(app).expose(app)
