@@ -29,6 +29,7 @@ import {
   DialogActions,
   Switch,
   FormControlLabel,
+  Autocomplete,
 } from '@mui/material';
 import {
   Add,
@@ -42,6 +43,7 @@ import {
 
 import { RoleAPI, PermissionManagementAPI } from './rbacApi';
 import ObjectPermissionsManager from './components/ObjectPermissionsManager';
+import { useSchema } from './hooks/useSchema';
 
 interface PermissionManagementTabProps {
   currentUser: any;
@@ -74,6 +76,7 @@ export default function PermissionManagementTab({
   showSnackbar,
   isSuperUser = false,
 }: PermissionManagementTabProps) {
+  const { schema, loading: schemaLoading } = useSchema(false);
   const [tabValue, setTabValue] = useState(0);
   const [loading, setLoading] = useState(false);
   const [roles, setRoles] = useState<any[]>([]);
@@ -513,12 +516,31 @@ export default function PermissionManagementTab({
             <Divider sx={{ my: 2 }} />
 
             {/* Add Type Permission */}
-            <TextField
+            <Autocomplete
               fullWidth
               size="small"
-              placeholder="Enter type name (e.g., Property)"
-              value={newType}
-              onChange={(e) => setNewType(e.target.value)}
+              options={schema?.entities ? Object.values(schema.entities) : []}
+              getOptionLabel={(option: any) => option.caption || option.name}
+              value={schema?.entities ? Object.values(schema.entities).find((e: any) => e.name === newType) || null : null}
+              onChange={(_, newValue: any) => setNewType(newValue?.name || '')}
+              loading={schemaLoading}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  placeholder="Select entity type (e.g., msession, image)"
+                  helperText="Choose an entity to grant permissions for"
+                />
+              )}
+              renderOption={(props, option: any) => (
+                <li {...props} key={option.name}>
+                  <Box>
+                    <Typography variant="body2">{option.caption}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {option.name} - {option.description}
+                    </Typography>
+                  </Box>
+                </li>
+              )}
               sx={{ mb: 2 }}
             />
 
@@ -671,12 +693,30 @@ export default function PermissionManagementTab({
           {quickActionType === 'full' ? 'Grant Full Access' : 'Grant Read-Only Access'}
         </DialogTitle>
         <DialogContent>
-          <TextField
+          <Autocomplete
             fullWidth
-            label="Type Name"
-            placeholder="e.g., Property, Invoice, User"
-            value={newType}
-            onChange={(e) => setNewType(e.target.value)}
+            options={schema?.entities ? Object.values(schema.entities) : []}
+            getOptionLabel={(option: any) => option.caption || option.name}
+            value={schema?.entities ? Object.values(schema.entities).find((e: any) => e.name === newType) || null : null}
+            onChange={(_, newValue: any) => setNewType(newValue?.name || '')}
+            loading={schemaLoading}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Entity Type"
+                placeholder="Select entity (e.g., msession, image)"
+              />
+            )}
+            renderOption={(props, option: any) => (
+              <li {...props} key={option.name}>
+                <Box>
+                  <Typography variant="body2">{option.caption}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {option.name}
+                  </Typography>
+                </Box>
+              </li>
+            )}
             sx={{ mt: 2 }}
           />
           <Alert severity="info" sx={{ mt: 2 }}>
