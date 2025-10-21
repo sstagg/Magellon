@@ -37,9 +37,11 @@ import {
   Navigation,
   DataObject,
   Refresh,
+  FilterList,
 } from '@mui/icons-material';
 
 import { RoleAPI, PermissionManagementAPI } from './rbacApi';
+import ObjectPermissionsManager from './components/ObjectPermissionsManager';
 
 interface PermissionManagementTabProps {
   currentUser: any;
@@ -96,6 +98,10 @@ export default function PermissionManagementTab({
     delete: false,
     navigate: false,
   });
+
+  // Object Permissions
+  const [selectedTypePermission, setSelectedTypePermission] = useState<string>('');
+  const [selectedTypeName, setSelectedTypeName] = useState<string>('');
 
   // Quick Actions Dialog
   const [quickActionDialogOpen, setQuickActionDialogOpen] = useState(false);
@@ -346,6 +352,7 @@ export default function PermissionManagementTab({
           <Tab icon={<VpnKey />} label="Action Permissions" iconPosition="start" />
           <Tab icon={<Navigation />} label="Navigation Permissions" iconPosition="start" />
           <Tab icon={<DataObject />} label="Type Permissions" iconPosition="start" />
+          <Tab icon={<FilterList />} label="Object Permissions" iconPosition="start" />
         </Tabs>
 
         {/* Action Permissions Tab */}
@@ -600,9 +607,22 @@ export default function PermissionManagementTab({
                   <ListItem
                     key={perm.oid}
                     secondaryAction={
-                      <IconButton edge="end" onClick={() => handleDeleteType(perm.oid)}>
-                        <Delete />
-                      </IconButton>
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Button
+                          size="small"
+                          startIcon={<FilterList />}
+                          onClick={() => {
+                            setSelectedTypePermission(perm.oid);
+                            setSelectedTypeName(perm.target_type);
+                            setTabValue(3); // Switch to Object Permissions tab
+                          }}
+                        >
+                          Object Perms
+                        </Button>
+                        <IconButton edge="end" onClick={() => handleDeleteType(perm.oid)}>
+                          <Delete />
+                        </IconButton>
+                      </Box>
                     }
                   >
                     <ListItemText
@@ -620,6 +640,26 @@ export default function PermissionManagementTab({
                   </ListItem>
                 ))}
               </List>
+            )}
+          </Box>
+        </TabPanel>
+
+        {/* Object Permissions Tab */}
+        <TabPanel value={tabValue} index={3}>
+          <Box sx={{ p: 2 }}>
+            {selectedTypePermission ? (
+              <ObjectPermissionsManager
+                typePermissionId={selectedTypePermission}
+                targetTypeName={selectedTypeName}
+                showSnackbar={showSnackbar}
+              />
+            ) : (
+              <Alert severity="info">
+                Please select a Type Permission from the "Type Permissions" tab to manage its object-level permissions.
+                <br />
+                <br />
+                Object permissions allow you to define record-level access control using criteria expressions.
+              </Alert>
             )}
           </Box>
         </TabPanel>
