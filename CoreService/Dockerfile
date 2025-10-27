@@ -29,6 +29,7 @@ COPY tests ./tests
 COPY configs ./configs
 COPY core ./core
 COPY static ./static
+COPY dependencies ./dependencies
 
 COPY configs/app_settings_dev.yaml ./configs/app_settings_dev.yaml
 COPY configs/app_settings_prod.yaml ./configs/app_settings_prod.yaml
