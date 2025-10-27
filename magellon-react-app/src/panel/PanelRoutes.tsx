@@ -51,8 +51,7 @@ export const PanelRoutes = () => {
             <Route path="/settings" element={<SettingsView />} />
 
             <Route path="/login" element={<LoginPageView />} />
-            <Route path="/users" element={<UserManagementPage />} />
-            <Route path="/users2" element={<AccountPage />} />
+            <Route path="/users" element={<AccountPage />} />
             <Route path="/profile" element={<UserProfilePage />} />
 
             {/* Processing routes */}

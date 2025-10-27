@@ -496,62 +496,84 @@ class SchemaIntrospectionService:
 
         # Get the column
         mapper = inspect(entity_class)
-        column = None
-        for col in mapper.columns:
-            if col.name == field_name:
-                column = col
-                break
+        matching_columns = [col for col in mapper.columns if col.name == field_name]
 
-        if not column:
+        if len(matching_columns) == 0:
             raise ValueError(f"Field '{field_name}' not found in entity '{entity_name}'")
+
+        column = matching_columns[0]
 
         # Check if it's a foreign key
         fk_info = cls._get_foreign_key_info(column)
-        if not fk_info:
-            return {
-                'field': field_name,
-                'entity': entity_name,
-                'options': [],
-                'total_count': 0,
-                'has_more': False
-            }
 
-        # Get the target entity
-        target_entity_class = cls.ENTITY_MAP.get(fk_info['entity'])
-        if not target_entity_class:
-            return {
-                'field': field_name,
-                'entity': entity_name,
-                'options': [],
-                'total_count': 0,
-                'has_more': False
-            }
+        if fk_info:
+            # Handle foreign key fields - fetch from related table
+            target_entity_class = cls.ENTITY_MAP.get(fk_info['entity'])
+            if not target_entity_class:
+                return {
+                    'field': field_name,
+                    'entity': entity_name,
+                    'options': [],
+                    'total_count': 0,
+                    'has_more': False
+                }
 
-        # Query the target entity
-        query = db.query(target_entity_class)
+            # Query the target entity
+            query = db.query(target_entity_class)
 
-        # Apply search if provided
-        display_field = fk_info['display_field']
-        if search and hasattr(target_entity_class, display_field):
-            query = query.filter(
-                getattr(target_entity_class, display_field).like(f'%{search}%')
-            )
+            # Apply search if provided
+            display_field = fk_info['display_field']
+            if search and hasattr(target_entity_class, display_field):
+                query = query.filter(
+                    getattr(target_entity_class, display_field).like(f'%{search}%')
+                )
 
-        # Get total count
-        total_count = query.count()
+            # Get total count
+            total_count = query.count()
 
-        # Limit results
-        results = query.limit(limit).all()
+            # Limit results
+            results = query.limit(limit).all()
 
-        # Build options
-        options = []
-        for result in results:
-            option = {
-                'value': str(getattr(result, 'oid' if hasattr(result, 'oid') else 'Oid')),
-                'label': str(getattr(result, display_field, '')),
-                'description': getattr(result, 'description', None) if hasattr(result, 'description') else None
-            }
-            options.append(option)
+            # Build options
+            options = []
+            for result in results:
+                option = {
+                    'value': str(getattr(result, 'oid' if hasattr(result, 'oid') else 'Oid')),
+                    'label': str(getattr(result, display_field, '')),
+                    'description': getattr(result, 'description', None) if hasattr(result, 'description') else None
+                }
+                options.append(option)
+        else:
+            # Handle non-foreign-key fields - fetch distinct values from this field
+            field_attr = getattr(entity_class, field_name)
+
+            # Query distinct values - filter out NULL values first
+            query = db.query(field_attr).distinct().filter(field_attr.isnot(None))
+
+            # Apply search if provided
+            if search:
+                query = query.filter(field_attr.like(f'%{search}%'))
+
+            # Order by the field
+            query = query.order_by(field_attr)
+
+            # Get results first
+            results = query.limit(limit).all()
+
+            # Build options and filter out empty strings
+            options = []
+            for (value,) in results:
+                # Skip empty strings
+                if value and str(value).strip():
+                    option = {
+                        'value': str(value),
+                        'label': str(value),
+                        'description': None
+                    }
+                    options.append(option)
+
+            # Total count
+            total_count = len(options)
 
         return {
             'field': field_name,

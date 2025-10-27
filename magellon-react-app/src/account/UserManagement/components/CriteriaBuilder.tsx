@@ -26,6 +26,7 @@ import {
   Alert,
   Tooltip,
   Grid,
+  CircularProgress,
 } from '@mui/material';
 import {
   Add,
@@ -34,6 +35,7 @@ import {
   Info,
   Refresh,
 } from '@mui/icons-material';
+import axios from 'axios';
 import { DatabaseSchema, FieldDefinition, OperatorDefinition } from '../types/databaseSchema';
 
 interface Condition {
@@ -51,6 +53,31 @@ interface CriteriaBuilderProps {
   onChange: (criteria: string) => void;
 }
 
+// Create axios instance for API calls
+const API_BASE_URL = 'http://localhost:8000';
+
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Add auth token interceptor
+apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem('access_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+interface FieldOption {
+  value: string;
+  label: string;
+  description?: string;
+}
+
 export default function CriteriaBuilder({
   schema,
   entityName,
@@ -61,6 +88,8 @@ export default function CriteriaBuilder({
   const [logicalOperator, setLogicalOperator] = useState<'AND' | 'OR'>('AND');
   const [showRaw, setShowRaw] = useState(false);
   const [rawCriteria, setRawCriteria] = useState('');
+  const [fieldOptions, setFieldOptions] = useState<Record<string, FieldOption[]>>({});
+  const [loadingOptions, setLoadingOptions] = useState<Record<string, boolean>>({});
 
   const entity = schema.entities[entityName];
 
@@ -157,18 +186,70 @@ export default function CriteriaBuilder({
     );
   };
 
+  const fetchFieldOptions = async (fieldName: string) => {
+    if (!entity || !fieldName) return;
+
+    const field = entity.fields.find((f) => f.name === fieldName);
+    if (!field) return;
+
+    // Don't fetch for function-only fields or if already loaded
+    if (fieldOptions[fieldName]) return;
+
+    // Mark as loading
+    setLoadingOptions((prev) => ({ ...prev, [fieldName]: true }));
+
+    try {
+      const response = await apiClient.get(
+        `/db/schema/entity/${entityName}/field/${fieldName}/options`,
+        { params: { limit: 100 } }
+      );
+
+      const options: FieldOption[] = response.data.options || [];
+      setFieldOptions((prev) => ({ ...prev, [fieldName]: options }));
+    } catch (error) {
+      console.error(`Failed to fetch options for field ${fieldName}:`, error);
+      setFieldOptions((prev) => ({ ...prev, [fieldName]: [] }));
+    } finally {
+      setLoadingOptions((prev) => ({ ...prev, [fieldName]: false }));
+    }
+  };
+
   const getFieldSuggestions = (fieldName: string): string[] => {
     if (!entity || !fieldName) return [];
 
     const field = entity.fields.find((f) => f.name === fieldName);
-    if (!field || !field.foreign_key) return [];
+    if (!field) return [];
 
-    // For foreign key fields, suggest function
+    const suggestions: string[] = [];
+
+    // Add function suggestions for user fields
     if (field.reference_type === 'user') {
-      return ['CurrentUserId()', "CurrentUser().Oid"];
+      suggestions.push('CurrentUserId()', "CurrentUser().Oid");
     }
 
-    return [];
+    // Add database values if available
+    const dbOptions = fieldOptions[fieldName] || [];
+    suggestions.push(...dbOptions.map((opt) => opt.value));
+
+    return suggestions;
+  };
+
+  const getOptionLabel = (option: string, fieldName: string): string => {
+    // If it's a function, return as-is
+    if (option.includes('()')) return option;
+
+    // Look up in field options for better label
+    const dbOptions = fieldOptions[fieldName] || [];
+    const dbOption = dbOptions.find((opt) => opt.value === option);
+
+    return dbOption?.label || option;
+  };
+
+  const getOptionDescription = (option: string, fieldName: string): string | undefined => {
+    const dbOptions = fieldOptions[fieldName] || [];
+    const dbOption = dbOptions.find((opt) => opt.value === option);
+
+    return dbOption?.description;
   };
 
   const renderCondition = (condition: Condition, index: number) => {
@@ -194,10 +275,15 @@ export default function CriteriaBuilder({
               getOptionLabel={(option) => option.caption || option.name}
               value={entity?.fields.find((f) => f.name === condition.field) || null}
               onChange={(_, newValue) => {
+                const fieldName = newValue?.name || '';
                 updateCondition(condition.id, {
-                  field: newValue?.name || '',
+                  field: fieldName,
                   value: '', // Reset value when field changes
                 });
+                // Fetch options for this field
+                if (fieldName) {
+                  fetchFieldOptions(fieldName);
+                }
               }}
               renderInput={(params) => (
                 <TextField
@@ -251,6 +337,8 @@ export default function CriteriaBuilder({
                 freeSolo
                 options={suggestions}
                 value={condition.value}
+                loading={loadingOptions[condition.field] || false}
+                getOptionLabel={(option) => getOptionLabel(option, condition.field)}
                 onChange={(_, newValue) => {
                   const isFunctionValue = newValue?.includes('()') || false;
                   updateCondition(condition.id, {
@@ -265,6 +353,33 @@ export default function CriteriaBuilder({
                     valueType: isFunctionValue ? 'function' : 'literal',
                   });
                 }}
+                renderOption={(props, option) => {
+                  const description = getOptionDescription(option, condition.field);
+                  const isFunction = option.includes('()');
+
+                  return (
+                    <li {...props} key={option}>
+                      <Box sx={{ width: '100%' }}>
+                        <Typography variant="body2">
+                          {getOptionLabel(option, condition.field)}
+                          {isFunction && (
+                            <Chip
+                              label="Function"
+                              size="small"
+                              sx={{ ml: 1, height: 18, fontSize: '0.7rem' }}
+                              color="primary"
+                            />
+                          )}
+                        </Typography>
+                        {description && (
+                          <Typography variant="caption" color="text.secondary">
+                            {description}
+                          </Typography>
+                        )}
+                      </Box>
+                    </li>
+                  );
+                }}
                 renderInput={(params) => (
                   <TextField
                     {...params}
@@ -274,13 +389,28 @@ export default function CriteriaBuilder({
                     placeholder={
                       field?.reference_type === 'user'
                         ? 'CurrentUserId() or a value'
-                        : 'Enter value'
+                        : 'Enter value or select from database'
                     }
                     helperText={
-                      selectedOp.value_type === 'list'
+                      loadingOptions[condition.field]
+                        ? 'Loading database values...'
+                        : selectedOp.value_type === 'list'
                         ? "Enter values separated by commas: 'val1', 'val2'"
-                        : undefined
+                        : suggestions.length > 0
+                        ? `${suggestions.length} suggestion(s) available`
+                        : 'Type a value or use a function'
                     }
+                    InputProps={{
+                      ...params.InputProps,
+                      endAdornment: (
+                        <>
+                          {loadingOptions[condition.field] ? (
+                            <CircularProgress color="inherit" size={20} />
+                          ) : null}
+                          {params.InputProps.endAdornment}
+                        </>
+                      ),
+                    }}
                   />
                 )}
               />
