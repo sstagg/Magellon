@@ -12,7 +12,7 @@ from core.helper import custom_replace, dispatch_ctf_task
 from database import get_db
 from models.pydantic_models import SerialEMImportTaskDto
 from models.sqlalchemy_models import Image, Msession, Project, ImageJob, ImageJobTask
-from config import FFT_SUB_URL, GAINS_SUB_URL, IMAGE_SUB_URL, MAGELLON_HOME_DIR, MAGELLON_JOBS_DIR, THUMBNAILS_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, \
+from config import DEFECTS_SUB_URL, FFT_SUB_URL, GAINS_SUB_URL, IMAGE_SUB_URL, MAGELLON_HOME_DIR, MAGELLON_JOBS_DIR, THUMBNAILS_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, \
     FFT_SUFFIX, FRAMES_SUFFIX, app_settings, ATLAS_SUB_URL, CTF_SUB_URL
 
 import logging
@@ -564,7 +564,10 @@ class SerialEmImporter(BaseImporter):
                 self.params.serial_em_dir_path, 
                 "medium_mag"
             )
-            
+            defects_dir = os.path.join(
+                self.params.serial_em_dir_path,
+                "defects"
+            )
             if not os.path.isdir(settings_dir):
                 raise FileNotFoundError(
                     f"'settings' folder not found in {self.params.serial_em_dir_path}"
@@ -578,8 +581,14 @@ class SerialEmImporter(BaseImporter):
                 raise FileNotFoundError(
                     f"'medium_mag' folder not found in {self.params.serial_em_dir_path}"
                 )
+            
+            if not os.path.isdir(defects_dir):
+                defects_dir = None
+                logger.warning(
+                    f"'defects' folder not found in {self.params.serial_em_dir_path}. Continuing without it."
+                )
 
-            return settings_dir, gains_dir, medium_mag_dir
+            return settings_dir, gains_dir, medium_mag_dir, defects_dir
         except Exception as e:
             logger.error(f"Directory validation failed: {e}", exc_info=True)
             raise
@@ -621,6 +630,26 @@ class SerialEmImporter(BaseImporter):
             raise OSError(
                 f"Failed to access gains directory {gains_dir}: {e}"
             ) from e
+    def _find_defects_file(self, defects_dir: str) -> Optional[str]:
+        """Find the first defects file in defects directory."""
+        try:
+            defects_files = [
+                f for f in os.listdir(defects_dir) 
+                if os.path.isfile(os.path.join(defects_dir, f))
+            ]
+            
+            if not defects_files:
+                logger.info(f"No defects files found in directory: {defects_dir}")
+                return None
+            
+            defects_path = os.path.abspath(os.path.join(defects_dir, defects_files[0]))
+            logger.info(f"Found defects file: {defects_path}")
+            return defects_path
+        except OSError as e:
+            logger.error(
+                f"Failed to access defects directory {defects_dir}: {e}"
+            )
+            return None
 
     def get_mrc_mdoc_pairs(self, medium_mag_dir: str):
         """Return list of dicts containing .mrc and corresponding .mrc.mdoc files."""
@@ -753,6 +782,32 @@ class SerialEmImporter(BaseImporter):
         except Exception as e:
             logger.error(f"Failed to copy gains file: {e}", exc_info=True)
             raise
+    
+    def _copy_defects_file(self, defects_file_path: str, target_directory: str) -> Optional[str]:
+        """Copy defects file to defects directory and return filename."""
+        try:
+            if defects_file_path is None:
+                logger.info("No defects file provided, skipping copy.")
+                return None
+            
+            dest_path = os.path.join(target_directory, DEFECTS_SUB_URL)
+            defect_file_name = os.path.basename(defects_file_path)
+            
+            if not os.path.exists(defects_file_path):
+                logger.warning(f"Defects file not found: {defects_file_path}, skipping copy.")
+                return None
+            
+            if os.path.isdir(defects_file_path):
+                shutil.copytree(defects_file_path, dest_path, dirs_exist_ok=True)
+            else:
+                os.makedirs(dest_path, exist_ok=True)
+                shutil.copy(defects_file_path, dest_path)
+            
+            logger.info(f"Copied defects file to: {dest_path}")
+            return defect_file_name
+        except Exception as e:
+            logger.error(f"Failed to copy defects file: {e}", exc_info=True)
+            return None
     
     def _create_montage_image_entry(
         self,
@@ -1141,12 +1196,15 @@ class SerialEmImporter(BaseImporter):
             session_name = self.params.session_name
             
             # Step 2: Validate directory structure
-            settings_dir, gains_dir, medium_mag_dir = self._validate_directory_structure()
-            
+            settings_dir, gains_dir, medium_mag_dir, defects_dir = self._validate_directory_structure()
+
             # Step 3: Find required files
             settings_txt_path = self._find_settings_file(settings_dir)
             gains_file_path = self._find_gains_file(gains_dir)
             mrc_mdoc_pairs = self.get_mrc_mdoc_pairs(medium_mag_dir)
+            defects_file_path = None
+            if defects_dir:
+                defects_file_path = self._find_defects_file(defects_dir)
 
             # Step 4: Scan directory
             
@@ -1184,12 +1242,20 @@ class SerialEmImporter(BaseImporter):
                 self.params.target_directory = target_dir
                 self.create_directories(target_dir)
                 
-                # Step 8: Copy gains file
+                # Step 8.1: Copy gains file
                 try:
                     gain_file_name = self._copy_gains_file(gains_file_path, target_dir)
                 except Exception as e:
                     logger.error(f"Failed to copy gains file: {e}", exc_info=True)
                     raise
+
+                # Step 8.2: Copy defects file
+                if defects_file_path:
+                    try:
+                        defects_file_name = self._copy_defects_file(defects_file_path, target_dir)
+                    except Exception as e:
+                        logger.error(f"Failed to copy defects file: {e}", exc_info=True)
+                        raise
                 
                 # Step 9: Create job
                 try:

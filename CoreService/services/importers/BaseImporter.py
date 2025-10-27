@@ -8,7 +8,7 @@ from fastapi import Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from config import FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, \
+from config import DEFECTS_SUB_URL, FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, \
     FFT_SUFFIX, FRAMES_SUFFIX, app_settings, ATLAS_SUB_URL, CTF_SUB_URL, FAO_SUB_URL, MAGELLON_HOME_DIR, GAINS_SUB_URL
 
 from database import get_db
@@ -501,6 +501,9 @@ class BaseImporter(ABC):
             # Find gain reference if not provided
             if not gain_path:
                 gain_path = self._find_gain_reference()
+            defects_path = None
+            if not defects_path:
+                defects_path = self._find_defects_reference()
 
             # if not gain_path:
             #     logger.warning("No gain reference found for motion correction")
@@ -517,6 +520,7 @@ class BaseImporter(ABC):
             dispatch_motioncor_task(
                 task_id=task_id,
                 gain_path=gain_path,
+                defects_path=defects_path,
                 full_image_path=full_image_path,
                 task_dto=task_dto,
                 motioncor_settings=settings
@@ -542,6 +546,23 @@ class BaseImporter(ABC):
             files = [f for f in os.listdir(gains_dir) if os.path.isfile(os.path.join(gains_dir, f))]
             if files:
                 return os.path.join(gains_dir, files[0])
+
+        return None
+    
+    def _find_defects_reference(self) -> Optional[str]:
+        """
+        Find appropriate defects reference file
+
+        Returns:
+            Path to defects reference file or None if not found
+        """
+        target_dir = self.get_target_directory()
+        defects_dir = os.path.join(target_dir, DEFECTS_SUB_URL)
+
+        if os.path.exists(defects_dir):
+            files = [f for f in os.listdir(defects_dir) if os.path.isfile(os.path.join(defects_dir, f))]
+            if files:
+                return os.path.join(defects_dir, files[0])
 
         return None
 

@@ -64,6 +64,7 @@ directory_settings:
   FAO_SUB_URL: fao/
 
   GAIN_SUB_URL: gains/
+  DEFECTS_SUB_URL: defects/
   FRAMES_SUB_URL: frames/
   FRAMES_SUFFIX: _frame
 

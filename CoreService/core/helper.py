@@ -255,7 +255,7 @@ def dispatch_ctf_task(task_id, full_image_path, task_dto: ImportTaskDto):
     return push_task_to_task_queue(ctf_task)
 
 
-def create_motioncor_task_data(image_path, gain_path, session_name=None,task_dto: ImportTaskDto=None,motioncor_settings: dict = None):
+def create_motioncor_task_data(image_path, gain_path, defects_path=None, session_name=None, task_dto: ImportTaskDto=None, motioncor_settings: dict = None):
     """
     Create the common MotionCor task data structure used across different task creation methods.
 
@@ -303,6 +303,7 @@ def create_motioncor_task_data(image_path, gain_path, session_name=None,task_dto
             # OutMrc="output.files.mrc",
             OutMrc=os.path.basename(task_dto.image_path),
             Gain=gain_path,
+            DefectFile=defects_path,
             PixSize=task_dto.pixel_size* 10**10,
             **settings
         )
@@ -320,6 +321,7 @@ def find_matching_file(base_path, frame_name):
 
 def create_motioncor_task(image_path=None,
                           gain_path=None,
+                          defects_path=None,
                           session_name=None,
                           task_id=None,
                           job_id=None,
@@ -355,6 +357,7 @@ def create_motioncor_task(image_path=None,
         motioncor_task_data = create_motioncor_task_data(
             image_path=matching_file,
             gain_path=gain_path,
+            defects_path=defects_path,
             session_name=session_name,
             task_dto=task_dto,
             motioncor_settings=motioncor_settings
@@ -381,6 +384,7 @@ def dispatch_motioncor_task(task_id,
                             full_image_path,
                             task_dto: ImportTaskDto,
                             gain_path="/gpfs/20241202_53597_gain_multi_ref.tif",
+                            defects_path=None,
                             session_name="24dec03a",
                             motioncor_settings: dict = None
                             ):
@@ -416,6 +420,7 @@ def dispatch_motioncor_task(task_id,
         task_id=task_id,
         job_id=job_id,
         gain_path=gain_path,
+        defects_path=defects_path,
         session_name=session_name,
         task_dto=task_dto,
         motioncor_settings=motioncor_settings

@@ -36,6 +36,7 @@ ATLAS_SUB_URL = app_settings.directory_settings.ATLAS_SUB_URL
 CTF_SUB_URL = app_settings.directory_settings.CTF_SUB_URL
 FAO_SUB_URL = app_settings.directory_settings.FAO_SUB_URL
 GAINS_SUB_URL = app_settings.directory_settings.GAIN_SUB_URL
+DEFECTS_SUB_URL = app_settings.directory_settings.DEFECTS_SUB_URL
 FFT_SUB_URL = app_settings.directory_settings.FFT_SUB_URL
 JOBS_PROCESSING_SUB_URL = app_settings.directory_settings.JOBS_PROCESSING_SUB_URL
 

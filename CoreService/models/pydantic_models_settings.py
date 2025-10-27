@@ -52,6 +52,7 @@ class DirectorySettings(BaseModel):
     CTF_SUB_URL: Optional[str] = None
     FAO_SUB_URL: Optional[str] = None
     GAIN_SUB_URL: Optional[str] = None
+    DEFECTS_SUB_URL: Optional[str] = None
     ATLAS_SUFFIX: Optional[str] = None
 
 
