@@ -80,15 +80,19 @@ class AuthorizationService:
         Get all roles for a user
         """
         try:
+            # Use repository method which already has joinedload for sys_sec_role
             user_roles = SysSecUserRoleRepository.fetch_roles_by_user(db, user_id)
+
+            # Access role attributes - already loaded via joinedload
             return [
                 {
                     "role_id": ur.Roles,
-                    "role_name": ur.sys_sec_role.Name,
-                    "is_administrative": ur.sys_sec_role.IsAdministrative,
-                    "can_edit_model": ur.sys_sec_role.CanEditModel
+                    "role_name": ur.sys_sec_role.Name if ur.sys_sec_role else None,
+                    "is_administrative": ur.sys_sec_role.IsAdministrative if ur.sys_sec_role else False,
+                    "can_edit_model": ur.sys_sec_role.CanEditModel if ur.sys_sec_role else False
                 }
                 for ur in user_roles
+                if ur.sys_sec_role is not None
             ]
         except Exception as e:
             logger.exception(f"Error fetching user roles: {e}")

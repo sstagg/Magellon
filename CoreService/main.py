@@ -73,7 +73,8 @@ print(f'[magenta]{title}[/magenta]')
 
 logger = logging.getLogger(__name__)
 logging.config.dictConfig(LOGGING_CONFIG)
-logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+# Set SQLAlchemy logging to WARNING to reduce noise in logs
+logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
 
 
 production_intilization()
