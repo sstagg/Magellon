@@ -255,6 +255,7 @@ class BaseImporter(ABC):
         create_directory(os.path.join(target_dir, ATLAS_SUB_URL))
         create_directory(os.path.join(target_dir, CTF_SUB_URL))
         create_directory(os.path.join(target_dir, GAINS_SUB_URL))
+        create_directory(os.path.join(target_dir, DEFECTS_SUB_URL))
         create_directory(os.path.join(target_dir, FAO_SUB_URL))
 
     def get_session_name(self) -> Optional[str]:
