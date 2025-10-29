@@ -1,3 +1,4 @@
+import json
 import re
 import os
 import uuid
@@ -260,20 +261,15 @@ def parse_directory(directory_structure, settings_file_path, default_params, uni
                 if os.path.exists(image_path) and image_path.lower().endswith(valid_extensions):
                     navigator_label = extract_navigator_label(clean_path)
 
-                    # Decide whether to add metadata
-                    add_metadata = False
-                    if unique_navigator_labels is None:
-                        add_metadata = True  # No filtering, add all
-                    elif navigator_label in unique_navigator_labels:
-                        add_metadata = True  # Filter present, label is in allowed set
+                    
 
-                    if add_metadata:
-                        metadata = parse_mdoc(clean_path, settings_file_path)
-                        metadata_dict = metadata.__dict__.copy()
-                        metadata_dict["file_path"] = image_path
-                        metadata_dict["name"] = os.path.splitext(os.path.basename(image_path))[0]
+                    
+                    metadata = parse_mdoc(clean_path, settings_file_path)
+                    metadata_dict = metadata.__dict__.copy()
+                    metadata_dict["file_path"] = image_path
+                    metadata_dict["name"] = os.path.splitext(os.path.basename(image_path))[0]
 
-                        metadata_list.append(SerialEMMetadata(**metadata_dict))
+                    metadata_list.append(SerialEMMetadata(**metadata_dict))
 
                     # Always update navigator_dict if label exists
                     if navigator_label:
@@ -459,7 +455,22 @@ def convert_tiff_to_mrc(moviename: str, gainname: str, outname: str) -> str:
 
     except Exception as e:
         raise ValueError(f"convertion of tiff to mrc failed- premade image for ctf: {str(e)}") from e
+    
+def find_nav_file(directory: str) -> str | None:
+    """
+    Recursively search for a .nav file in the given directory.
 
+    Args:
+        directory (str): The root directory to search in.
+
+    Returns:
+        str | None: The full path to the first .nav file found, or None if not found.
+    """
+    for root, _, files in os.walk(directory):
+        for file in files:
+            if file.lower().endswith(".nav"):
+                return os.path.join(root, file)
+    return None
 
 class SerialEmImporter(BaseImporter):
     """Handles SerialEM data import with proper error handling and modular design."""
@@ -1036,49 +1047,41 @@ class SerialEmImporter(BaseImporter):
             return None, None, None
     
     def _establish_parent_child_relationships(
-        self,
-        db_session: Session,
-        db_image_list: List[Image],
-        navigator_dict: Dict,
-        unique_navigator_labels: List,
-        magellon_session_name: str,
-        image_dict: Dict[str, uuid.UUID]
-    ):
-        """Establish parent-child relationships between images (warning only on failure)."""
+    self,
+    db_session: Session,
+    db_image_list: List[Image],
+    navigator_dict: Dict,
+    unique_navigator_labels: List,
+    magellon_session_name: str,
+    image_dict: Dict[str, uuid.UUID],
+    nav_hierarchy: Dict[str, Dict]
+):
         if not unique_navigator_labels or not navigator_dict:
             logger.warning(
                 "Navigator data not available, skipping parent-child relationship mapping"
             )
             return
-        
+
         parent_child = {}
+        for parent_label, info in nav_hierarchy.items():
+            children = info.get("Children", [])
+            for child_label in children:
+                if child_label in navigator_dict:
+                    for img_name in navigator_dict[child_label]:
+                        full_child_key = img_name
+                        parent_key = f"{magellon_session_name}_{parent_label}"
+                        parent_label_clean = parent_label.strip()
+                        if parent_label_clean.endswith("-A"):
+                            parent_label_clean = parent_label_clean[:-2]
+                        parent_key = f"{magellon_session_name}_{parent_label_clean}"
+                        if full_child_key in image_dict and parent_key in image_dict:
+                            parent_child[image_dict[full_child_key]] = image_dict[parent_key]
+                            logger.info(
+                                f"Mapped child '{img_name}' to parent '{parent_label}'"
+                            )
         
-        for db_image in db_image_list:
-            try:
-                parent_name = find_parent_with_partial_child(
-                    db_image.name,
-                    navigator_dict,
-                    unique_navigator_labels,
-                    magellon_session_name
-                )
-                
-                if parent_name:
-                    parent_key = f'{magellon_session_name}_{parent_name}'
-                    if parent_key in image_dict:
-                        parent_child[db_image.oid] = image_dict[parent_key]
-                        logger.debug(
-                            f"Mapped child '{db_image.name}' to parent '{parent_name}'"
-                        )
-                    else:
-                        logger.warning(
-                            f"Parent '{parent_name}' not found in image dict for child '{db_image.name}'"
-                        )
-            except Exception as e:
-                logger.warning(
-                    f"Could not determine parent for '{db_image.name}': {e}"
-                )
-                continue
-        
+
+        # Update DB
         if parent_child:
             try:
                 logger.info(
@@ -1092,14 +1095,11 @@ class SerialEmImporter(BaseImporter):
                 logger.info("Parent-child relationships successfully established")
             except Exception as e:
                 logger.warning(
-                    f"Failed to set some parent-child relationships: {e}. "
-                    "Continuing with import."
+                    f"Failed to set some parent-child relationships: {e}. Continuing with import."
                 )
-                # Don't raise - this is non-critical
         else:
-            logger.warning(
-                "No parent-child relationships identified for this session"
-            )
+            logger.warning("No parent-child relationships identified for this session")
+
     
     def process_task(self, task_dto: Any) -> Dict[str, str]:
         print(" process_task inside serialem called")
@@ -1176,7 +1176,57 @@ class SerialEmImporter(BaseImporter):
         except Exception as e:
             logger.error(f"Error running tasks: {str(e)}", exc_info=True)
             raise
-    
+    import re
+
+    def parse_nav_file(self, nav_file_path: str, unique_navigator_labels: list[str]) -> dict[str, dict]:
+        """
+        Parse .nav file to build parent-child relationships based on MapID and DrawnID.
+
+        Args:
+            nav_file_path (str): Path to .nav file
+            unique_navigator_labels (list[str]): List of navigator labels like ['6', '15', ...]
+
+        Returns:
+            dict: { "6-A": {"MapID": <int>, "Children": [<items>]}, ... }
+        """
+        with open(nav_file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            content = f.read()
+
+        # Split the file into individual "Item" blocks
+        item_blocks = re.findall(r"\[Item\s*=\s*([^\]]+)\](.*?)(?=\[Item|\Z)", content, re.DOTALL)
+
+        items = []
+        for item_name, block_content in item_blocks:
+            item_info = {"Item": item_name.strip()}
+            for line in block_content.strip().splitlines():
+                if "=" in line:
+                    key, value = [x.strip() for x in line.split("=", 1)]
+                    item_info[key] = value
+            items.append(item_info)
+
+        # Build lookup dictionaries
+        mapid_to_item = {}
+        drawnid_to_items = {}
+
+        for item in items:
+            if "MapID" in item:
+                mapid_to_item[item["Item"]] = item["MapID"]
+            if "DrawnID" in item:
+                drawnid_to_items.setdefault(item["DrawnID"], []).append(item["Item"])
+
+        # Now link parents (MapID) to children (DrawnID)
+        relationships = {}
+        for label in unique_navigator_labels:
+            parent_label = f"{label}-A"
+            parent_item = next((i for i in items if i["Item"] == parent_label), None)
+
+            if parent_item and "MapID" in parent_item:
+                map_id = parent_item["MapID"]
+                children = drawnid_to_items.get(map_id, [])
+                relationships[parent_label] = {"MapID": map_id, "Children": children}
+
+        return relationships
+
     def create_db_project_session(self, db_session: Session):
         """Main workflow for creating database project/session and importing data."""
         try:
@@ -1352,15 +1402,33 @@ class SerialEmImporter(BaseImporter):
                     raise
                 
                 # Step 13: Establish parent-child relationships (warning only)
-                self._establish_parent_child_relationships(
-                    db_session,
-                    db_image_list,
-                    navigator_dict,
-                    unique_navigator_labels,
-                    magellon_session_name,
-                    image_dict
-                )
-                
+                nav_file = find_nav_file(self.params.serial_em_dir_path)
+                if nav_file:
+                    
+                    # Parse .nav file and build parent-child relationships
+                    relationships = self.parse_nav_file(nav_file, unique_navigator_labels)
+                    
+                    if isinstance(relationships, list):
+                        # Convert to dict if parse_nav_file accidentally returns a list
+                        relationships = {
+                            list(item.keys())[0]: list(item.values())[0]
+                            for item in relationships
+                        }
+                    
+                    # Pass parsed relationships into the function
+                    self._establish_parent_child_relationships(
+                        db_session,
+                        db_image_list,
+                        navigator_dict,
+                        unique_navigator_labels,
+                        magellon_session_name,
+                        image_dict,
+                        relationships 
+                    )
+                else:
+                    logger.info("No .nav file found, skipping parent-child relationship mapping")
+
+
                 # Step 14: Run tasks if needed
                 if getattr(self.params, 'if_do_subtasks', True):
                     try:
