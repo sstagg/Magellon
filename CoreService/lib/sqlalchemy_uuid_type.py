@@ -18,7 +18,7 @@ class SqlalchemyUuidType(TypeDecorator):
         elif dialect.name == 'mysql':
             return dialect.type_descriptor(BINARY(16))
         else:
-            return super(uuid.UUID, self).load_dialect_impl(dialect)
+            return super().load_dialect_impl(dialect)
 
     def process_bind_param(self, value, dialect):
         if value is None:
