@@ -10,7 +10,7 @@ from services.file_service import copy_file
 from services.mrc_image_service import MrcImageService
 from core.helper import create_directory, dispatch_ctf_task
 from config import (
-    FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL,
+    DEFECTS_SUB_URL, FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL,
     ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, FFT_SUFFIX,
     ATLAS_SUB_URL, CTF_SUB_URL, FRAMES_SUFFIX, GAINS_SUB_URL, FAO_SUB_URL
 )
@@ -41,7 +41,7 @@ class ImportFileService:
         try:
             subdirs = [
                 "", ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, FFT_SUB_URL,
-                IMAGE_SUB_URL, THUMBNAILS_SUB_URL, ATLAS_SUB_URL, CTF_SUB_URL,GAINS_SUB_URL,FAO_SUB_URL
+                IMAGE_SUB_URL, THUMBNAILS_SUB_URL, ATLAS_SUB_URL, CTF_SUB_URL, GAINS_SUB_URL, FAO_SUB_URL, DEFECTS_SUB_URL
             ]
             for subdir in subdirs:
                 path = os.path.join(self.target_directory, subdir)

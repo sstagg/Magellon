@@ -16,7 +16,7 @@ from services.importers.BaseImporter import BaseImporter, TaskFailedException
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
-from config import ( FFT_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, ATLAS_SUB_URL, CTF_SUB_URL, MAGELLON_HOME_DIR, FFT_SUFFIX, GAINS_SUB_URL)
+from config import ( DEFECTS_SUB_URL, FFT_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, ATLAS_SUB_URL, CTF_SUB_URL, MAGELLON_HOME_DIR, FFT_SUFFIX, GAINS_SUB_URL)
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +112,11 @@ class MagellonImporter(BaseImporter):
             if os.path.exists(source_gains):
                 shutil.copytree(source_gains, os.path.join(session_dir, GAINS_SUB_URL), dirs_exist_ok=True)
 
-
+            source_defects = os.path.join(self.params.source_dir, 'home', DEFECTS_SUB_URL)
+            if os.path.exists(source_defects):
+                shutil.copytree(source_defects, os.path.join(session_dir, DEFECTS_SUB_URL), dirs_exist_ok=True)
+            else:
+                logging.info(f"Source defects folder does not exist: {source_defects}, skipping copy.")
             # Copy frames directories
             source_frame_dir_path = os.path.join(self.params.source_dir, 'home', "frames")
             # if os.path.exists(source_frames):
@@ -244,6 +248,7 @@ class MagellonImporter(BaseImporter):
                     'Group': 4
                 }
                 source_gains_dir = os.path.join(self.params.source_dir, 'home', GAINS_SUB_URL)
+                source_defects_dir = os.path.join(self.params.source_dir, 'home', DEFECTS_SUB_URL)
 
                 # Search for gain files in the gains directory
                 gain_files = []
@@ -257,10 +262,16 @@ class MagellonImporter(BaseImporter):
 
                 # Use the most recent gain file (assuming date format in filename)
                 source_gains_file = sorted(gain_files)[-1]
+                defects_path = None
+                if os.path.exists(source_defects_dir):
+                    defect_files = [os.path.join(source_defects_dir, f) for f in os.listdir(source_defects_dir)]
+                    if defect_files:
+                        defects_path = defect_files[0]
 
                 dispatch_motioncor_task(
                     task_id = task_dto.task_id,
                     gain_path=source_gains_file,
+                    defects_path=defects_path,
                     full_image_path= abs_file_path,
                     task_dto= task_dto,
                     motioncor_settings= settings
