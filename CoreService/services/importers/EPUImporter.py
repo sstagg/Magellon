@@ -24,7 +24,7 @@ from fastapi import Depends
 
 from services.file_service import copy_file
 from services.importers.BaseImporter import BaseImporter, TaskFailedException
-from config import FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, \
+from config import DEFECTS_SUB_URL, FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, \
     FFT_SUFFIX, FRAMES_SUFFIX, app_settings, ATLAS_SUB_URL, CTF_SUB_URL,MAGELLON_HOME_DIR,GAINS_SUB_URL
 
 
@@ -383,10 +383,15 @@ class EPUImporter(BaseImporter):
             self.params.target_directory=target_dir
             self.create_directories(target_dir)
             source_gains = os.path.join(self.params.epu_dir_path, GAINS_SUB_URL)
+            source_defects = os.path.join(self.params.epu_dir_path, DEFECTS_SUB_URL)
             if os.path.exists(source_gains):
                 shutil.copytree(source_gains, os.path.join(target_dir, GAINS_SUB_URL), dirs_exist_ok=True)
             else:
                 raise Exception("gains folder not found in the root of the input folder")
+            if os.path.exists(source_defects):
+                shutil.copytree(source_defects, os.path.join(target_dir, DEFECTS_SUB_URL), dirs_exist_ok=True)     
+            else:
+                logger.info("defects folder not found in the root of the input folder")
             # Process file tasks
             if getattr(self.params, 'if_do_subtasks', True):
                 self.run_tasks(task_dto_list)
