@@ -306,6 +306,16 @@ export const SerialEMImportComponent = () => {
         <span>gain.mrc</span>
       </div>
     </div>
+    <div className="flex items-center gap-2 mt-1">
+      <span className="text-yellow-500">📁</span>
+      <span>defects(Optional)</span>
+    </div>
+    <div className="ml-6 mt-1 border-l border-gray-200 pl-3">
+      <div className="flex items-center gap-2">
+        <span className="text-gray-500">📄</span>
+        <span>defects.txt</span>
+      </div>
+    </div>
 
     {/* settings */}
     <div className="flex items-center gap-2 mt-2">
@@ -346,7 +356,7 @@ export const SerialEMImportComponent = () => {
     color="text.secondary"
     sx={{ mt: 2, display: 'block' }}
   >
-    ⚠️ Ensure all required subfolders and files exist before uploading.
+    ⚠️ Ensure all required subfolders exist before uploading.
   </Typography>
 </Box>
 

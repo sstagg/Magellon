@@ -224,6 +224,59 @@ export const EpuImportComponent = () => {
                     Error: {error}
                 </Typography>
             )}
+                        <Box
+  sx={{
+    p: 2,
+    mb: 3,
+    borderRadius: 2,
+    bgcolor: 'background.paper',
+    boxShadow: 1,
+  }}
+>
+  <Typography variant="h6" gutterBottom>
+    Required Folder Structure
+  </Typography>
+<div className="text-sm text-gray-700 ml-2">
+  <div className="flex items-center gap-2">
+    <span className="text-yellow-500">📁</span>
+    <span className="font-medium">Main Folder (Upload this)</span>
+  </div>
+
+  <div className="ml-6 mt-1 border-l border-gray-300 pl-3">
+    {/* gains */}
+    <div className="flex items-center gap-2 mt-1">
+      <span className="text-yellow-500">📁</span>
+      <span>gains</span>
+    </div>
+    <div className="ml-6 mt-1 border-l border-gray-200 pl-3">
+      <div className="flex items-center gap-2">
+        <span className="text-gray-500">📄</span>
+        <span>gain.mrc</span>
+      </div>
+    </div>
+    <div className="flex items-center gap-2 mt-1">
+      <span className="text-yellow-500">📁</span>
+      <span>defects(Optional)</span>
+    </div>
+    <div className="ml-6 mt-1 border-l border-gray-200 pl-3">
+      <div className="flex items-center gap-2">
+        <span className="text-gray-500">📄</span>
+        <span>defects.txt</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+  <Typography
+    variant="caption"
+    color="text.secondary"
+    sx={{ mt: 2, display: 'block' }}
+  >
+    ⚠️ Ensure all required subfolders exist before uploading.
+  </Typography>
+</Box>
+
 
             <Box sx={{
                 border: 1,
