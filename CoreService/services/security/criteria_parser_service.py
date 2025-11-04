@@ -1,7 +1,7 @@
 """
 Criteria Parser Service
 
-Parses XAF-style criteria expressions from sys_sec_object_permission.Criteria
+Parses  criteria expressions from sys_sec_object_permission.Criteria
 and converts them to Casbin resource identifiers.
 
 This completes the TODO in casbin_policy_sync_service.py line 308:
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 class CriteriaParserService:
     """
-    Service to parse XAF criteria expressions into Casbin-compatible resources.
+    Service to parse  criteria expressions into Casbin-compatible resources.
 
     Supported Criteria Formats:
     1. Simple session ID: `[session_id] = 'uuid'` or `[oid] = 'uuid'`
@@ -44,7 +44,7 @@ class CriteriaParserService:
         Parse criteria string into list of Casbin resource identifiers.
 
         Args:
-            criteria: XAF criteria expression (e.g., "[session_id] = 'uuid'")
+            criteria:  criteria expression (e.g., "[session_id] = 'uuid'")
             target_type: Target type from sys_sec_type_permission (e.g., "Image", "Msession")
             user_id: Current user ID for dynamic expressions like CurrentUserId()
 
@@ -109,7 +109,7 @@ class CriteriaParserService:
         Returns:
             Resource prefix for Casbin (e.g., "msession", "image")
         """
-        # Map XAF type names to resource prefixes
+        # Map  type names to resource prefixes
         type_mapping = {
             "Image": "image",
             "Msession": "msession",

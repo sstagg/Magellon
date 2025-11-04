@@ -42,6 +42,10 @@ from services.file_service import FileService
 from services.helper import get_response_image, get_parent_name
 import logging
 
+# Row-Level Security imports
+from core.sqlalchemy_row_level_security import get_session_filter_clause, check_session_access
+from dependencies.auth import get_current_user_id
+
 
 from services.importers.EPUImporter import EPUImporter
 from pathlib import Path
@@ -59,7 +63,11 @@ logger = logging.getLogger(__name__)
 # def get_images_by_stack_old_route(ext: str):
 #     return get_image_by_stack(ext)
 @webapp_router.get('/session_mags')
-def get_session_mags(session_name: str, db_session: Session = Depends(get_db)):
+def get_session_mags(
+    session_name: str,
+    db_session: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id)  # RLS: Get current user
+):
     # session_name = "22apr01a"
     # level = 4
 
@@ -67,20 +75,33 @@ def get_session_mags(session_name: str, db_session: Session = Depends(get_db)):
     msession = db_session.query(Msession).filter(Msession.name == session_name).first()
     if msession is None:
         return {"error": "Session not found"}
+
+    # RLS: Check if user has access to this session
+    if not check_session_access(user_id, msession.oid, action="read"):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Access denied to session '{session_name}'"
+        )
+
     try:
         session_id_binary = msession.oid.bytes
     except AttributeError:
         return {"error": "Invalid session ID"}
 
-    query = text("""
+    # RLS: Get filter clause for session-level security
+    filter_clause, filter_params = get_session_filter_clause(user_id)
+
+    query = text(f"""
         SELECT  image.magnification AS mag
         FROM image
         WHERE image.session_id = :session_id
+        {filter_clause}
         GROUP BY image.magnification
         ORDER BY mag  """)
     try:
-        # result = db_session.execute(query) if params is None else db_session.execute(query, params)
-        result = db_session.execute(query, {"session_id": session_id_binary})
+        # RLS: Merge filter parameters
+        params = {"session_id": session_id_binary, **filter_params}
+        result = db_session.execute(query, params)
         rows = result.fetchall()
         # Convert rows to a list of dictionaries with named keys
         return [row[0] for row in rows[1:]]
@@ -91,6 +112,7 @@ def get_session_mags(session_name: str, db_session: Session = Depends(get_db)):
 @webapp_router.get('/images')
 def get_images_route(
         db_session: Session = Depends(get_db),
+        user_id: UUID = Depends(get_current_user_id),  # RLS: Get current user
         session_name: Optional[str] = Query(None),
         parentId: Optional[UUID] = Query(None),
         page: int = Query(1, alias="page", description="Page number", ge=1),
@@ -100,6 +122,14 @@ def get_images_route(
     msession = db_session.query(Msession).filter(Msession.name == session_name).first()
     if msession is None:
         return {"error": "Session not found"}
+
+    # RLS: Check if user has access to this session
+    if not check_session_access(user_id, msession.oid, action="read"):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Access denied to session '{session_name}'"
+        )
+
     try:
         session_id_binary = msession.oid.bytes
     except AttributeError:
@@ -114,15 +144,19 @@ def get_images_route(
     except AttributeError:
         parent_id_binary = None
 
-    count_query = text("""
+    # RLS: Get filter clause for session-level security
+    filter_clause, filter_params = get_session_filter_clause(user_id)
+
+    count_query = text(f"""
          SELECT COUNT(*) FROM image i
             WHERE (:parentId IS NULL
             AND i.parent_id IS NULL
             OR i.parent_id = :parentId)
-            AND i.session_id = :sessionId;
+            AND i.session_id = :sessionId
+            {filter_clause};
         """)
 
-    query = text("""
+    query = text(f"""
         SELECT
           i.oid,
           i.name ,
@@ -144,13 +178,19 @@ def get_images_route(
         AND i.parent_id IS NULL
         OR i.parent_id = :parentId)
         AND i.session_id = :sessionId
+        {filter_clause}
         LIMIT :limit OFFSET :offset;
         """)
     try:
-        result = db_session.execute(
-            query,
-            {"parentId": parent_id_binary, "sessionId": session_id_binary, "limit": limit, "offset": offset}
-        )
+        # RLS: Merge filter parameters
+        params = {
+            "parentId": parent_id_binary,
+            "sessionId": session_id_binary,
+            "limit": limit,
+            "offset": offset,
+            **filter_params
+        }
+        result = db_session.execute(query, params)
         rows = result.fetchall()
         images_as_dict = []
         for row in rows:
@@ -169,7 +209,9 @@ def get_images_route(
 
         # total_count = images_as_dict[0]["total_count"] if images_as_dict else 0
         # return {"total_count": total_count, "result": images_as_dict}
-        count_result = db_session.execute(count_query, {"parentId": parent_id_binary, "sessionId": session_id_binary})
+        # RLS: Use merged params for count query too
+        count_params = {"parentId": parent_id_binary, "sessionId": session_id_binary, **filter_params}
+        count_result = db_session.execute(count_query, count_params)
         total_count = count_result.scalar()
         next_page = page + 1 if total_count > page * pageSize else None
 
@@ -188,7 +230,8 @@ def get_images_route(
 @webapp_router.get('/images/{image_name}')
 def get_image_route(
         image_name: str,
-        db_session: Session = Depends(get_db)
+        db_session: Session = Depends(get_db),
+        user_id: UUID = Depends(get_current_user_id)  # RLS: Get current user
 ):
     try:
         # Assuming the session name is the part of the image name preceding underscore
@@ -199,13 +242,23 @@ def get_image_route(
         if msession is None:
             raise HTTPException(status_code=404, detail="Session not found")
 
+        # RLS: Check if user has access to this session
+        if not check_session_access(user_id, msession.oid, action="read"):
+            raise HTTPException(
+                status_code=403,
+                detail=f"Access denied to session '{session_name}'"
+            )
+
         try:
             session_id_binary = msession.oid.bytes
         except AttributeError:
             raise HTTPException(status_code=500, detail="Invalid session ID")
 
+        # RLS: Get filter clause for session-level security
+        filter_clause, filter_params = get_session_filter_clause(user_id)
+
         # Fetch the single image based on the image name
-        query = text("""
+        query = text(f"""
             SELECT
               i.oid,
               i.name,
@@ -224,12 +277,12 @@ def get_image_route(
               ) AS children_count
             FROM image i
             WHERE i.name = :image_name
-              AND i.session_id = :sessionId;
+              AND i.session_id = :sessionId
+              {filter_clause};
             """)
-        result = db_session.execute(
-            query,
-            {"image_name": image_name, "sessionId": session_id_binary}
-        )
+        # RLS: Merge filter parameters
+        params = {"image_name": image_name, "sessionId": session_id_binary, **filter_params}
+        result = db_session.execute(query, params)
         row = result.fetchone()
 
         if row is not None:

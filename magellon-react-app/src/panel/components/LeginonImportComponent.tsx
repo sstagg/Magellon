@@ -4,7 +4,7 @@ import {Button, Checkbox, FormControl, FormControlLabel, FormLabel,  InputAdornm
 import React, {useState} from "react";
 import {useForm} from "react-hook-form";
 import {useTranslation} from "react-i18next";
-import {Cached, CalendarMonthOutlined} from "@mui/icons-material";
+import {Cached, CalendarMonthOutlined, AttachFile} from "@mui/icons-material";
 import Grid from '@mui/material/Grid';
 
 
@@ -52,25 +52,45 @@ export const LeginonImportComponent = () => {
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
+    const [defectsFile, setDefectsFile] = useState<File | null>(null);
 
     const onFormSubmit = async (data: ILeginonImportForm) => {
         try {
             setIsSubmitting(true);
             setSubmitError(null);
-            const apiData = {
-                ...data,
-                replace_type: "none",
-                replace_pattern: "",
-                replace_with: "",
-            };
+
+            // Create FormData for multipart/form-data upload
+            const formData = new FormData();
+
+            // Add all form fields
+            formData.append('magellon_project_name', data.magellon_project_name);
+            formData.append('magellon_session_name', data.magellon_session_name);
+            formData.append('camera_directory', data.camera_directory);
+            formData.append('session_name', data.session_name);
+            formData.append('if_do_subtasks', String(data.if_do_subtasks));
+            formData.append('copy_images', String(data.copy_images));
+            formData.append('retries', String(data.retries));
+            formData.append('leginon_mysql_host', data.leginon_mysql_host);
+            formData.append('leginon_mysql_port', String(data.leginon_mysql_port));
+            formData.append('leginon_mysql_db', data.leginon_mysql_db);
+            formData.append('leginon_mysql_user', data.leginon_mysql_user);
+            formData.append('leginon_mysql_pass', data.leginon_mysql_pass);
+            formData.append('replace_type', 'none');
+            formData.append('replace_pattern', '');
+            formData.append('replace_with', '');
+
+            // Add optional defects file if selected
+            if (defectsFile) {
+                formData.append('defects_file', defectsFile);
+            }
 
             const response = await fetch('http://localhost:8000/image/import_leginon_job', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
                     'accept': 'application/json'
+                    // Note: Don't set Content-Type header - browser will set it with boundary
                 },
-                body: JSON.stringify(apiData)
+                body: formData
             });
             const result = await response.json();
 
@@ -298,6 +318,40 @@ export const LeginonImportComponent = () => {
                             margin="dense"
                             {...register('replace_with')}
                         />
+                    </FormControl>
+                </Grid>
+
+                <Grid size={12}>
+                    <FormControl fullWidth>
+                        <Button
+                            variant="outlined"
+                            component="label"
+                            startIcon={<AttachFile />}
+                            sx={{
+                                justifyContent: 'flex-start',
+                                textTransform: 'none',
+                                py: 1.5,
+                                mt: 1
+                            }}
+                        >
+                            {defectsFile ? defectsFile.name : 'Defects File (Optional)'}
+                            <input
+                                type="file"
+                                hidden
+                                accept=".txt"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                        setDefectsFile(file);
+                                    }
+                                }}
+                            />
+                        </Button>
+                        {defectsFile && (
+                            <Typography variant="caption" color="textSecondary" sx={{ mt: 0.5 }}>
+                                Selected: {defectsFile.name}
+                            </Typography>
+                        )}
                     </FormControl>
                 </Grid>
 

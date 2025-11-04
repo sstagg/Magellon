@@ -43,6 +43,7 @@ from controllers.schema_controller import schema_router
 
 
 from controllers.test_controller import test_router
+from controllers.test_rls_controller import test_rls_router
 
 from controllers.webapp_controller import webapp_router
 
@@ -161,6 +162,7 @@ app.include_router(sys_sec_user_role_router, prefix="/db/security/user-roles", t
 app.include_router(sys_sec_permission_router, prefix="/db/security/permissions", tags=["Security - Permissions"])
 app.include_router(sys_sec_permission_mgmt_router, prefix="/db/security", tags=["Security - Permission Management"])
 app.include_router(session_access_router, tags=["Security - Session Access"])
+app.include_router(test_rls_router, tags=["RLS Testing"])
 app.include_router(schema_router, tags=["Database Schema"])
 
 
