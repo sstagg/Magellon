@@ -38,6 +38,7 @@ from controllers.security.sys_sec_role_controller import sys_sec_role_router
 from controllers.security.sys_sec_user_role_controller import sys_sec_user_role_router
 from controllers.security.sys_sec_permission_controller import sys_sec_permission_router
 from controllers.security.sys_sec_permission_mgmt_controller import sys_sec_permission_mgmt_router
+from controllers.security.session_access_controller_v2 import session_access_router
 from controllers.schema_controller import schema_router
 
 
@@ -159,6 +160,7 @@ app.include_router(sys_sec_role_router, prefix="/db/security/roles", tags=["Secu
 app.include_router(sys_sec_user_role_router, prefix="/db/security/user-roles", tags=["Security - User Roles"])
 app.include_router(sys_sec_permission_router, prefix="/db/security/permissions", tags=["Security - Permissions"])
 app.include_router(sys_sec_permission_mgmt_router, prefix="/db/security", tags=["Security - Permission Management"])
+app.include_router(session_access_router, tags=["Security - Session Access"])
 app.include_router(schema_router, tags=["Database Schema"])
 
 

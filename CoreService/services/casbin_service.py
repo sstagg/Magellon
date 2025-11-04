@@ -280,9 +280,19 @@ class CasbinService:
 
         Use this before re-syncing from sys_sec_* tables
         """
+        from sqlalchemy import text
+        from database import engine
+
+        # Clear the database table directly
+        with engine.connect() as conn:
+            conn.execute(text("DELETE FROM casbin_rule"))
+            conn.commit()
+
+        # Reload the empty policy state
         enforcer = cls.get_enforcer()
-        enforcer.clear_policy()
-        logger.warning("[WARNING] All Casbin policies cleared")
+        enforcer.load_policy()
+
+        logger.warning("[WARNING] All Casbin policies cleared from database")
 
     @classmethod
     def reload_policy(cls):

@@ -1,10 +1,10 @@
 """
 Criteria Parser Service
 
-Parses XAF-style criteria expressions and converts them to SQLAlchemy filters.
+Parses  criteria expressions and converts them to SQLAlchemy filters.
 Supports CurrentUserId() and CurrentUser() functions.
 
-Based on DevExpress XAF criteria syntax:
+Based on  criteria syntax:
 - [field] = CurrentUserId()
 - [field] = 'value'
 - [field1] = CurrentUserId() AND [field2] = 'active'
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 class CriteriaParserService:
     """
-    Parses XAF-style criteria expressions into SQLAlchemy filters.
+    Parses  criteria expressions into SQLAlchemy filters.
     """
 
     # Supported operators
@@ -52,7 +52,7 @@ class CriteriaParserService:
         Parse criteria expression and return SQLAlchemy filter.
 
         Args:
-            criteria: XAF-style criteria expression
+            criteria:  criteria expression
             entity_class: SQLAlchemy entity class
             current_user_id: Current user's UUID
             current_user: Current user object (for CurrentUser() function)
@@ -251,7 +251,7 @@ class CriteriaParserService:
         Returns:
             Tuple of (field_name, operator, value)
         """
-        # XAF format: [field] = 'value' or field = 'value'
+        #  format: [field] = 'value' or field = 'value'
         # Extract field name (with or without brackets)
         field_match = re.match(r'\[?(\w+)\]?\s*(.*)', condition)
         if not field_match:

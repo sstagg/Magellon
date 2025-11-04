@@ -228,11 +228,11 @@ class TypePermissionBaseDto(BaseModel):
 
     target_type: str = Field(..., description="Target type/class name")
     role: UUID = Field(..., description="Role ID", alias="Role")
-    read_state: int = Field(default=0, description="Read state")
-    write_state: int = Field(default=0, description="Write state")
-    create_state: int = Field(default=0, description="Create state")
-    delete_state: int = Field(default=0, description="Delete state")
-    navigate_state: int = Field(default=0, description="Navigate state")
+    read_state: Optional[int] = Field(default=0, description="Read state")
+    write_state: Optional[int] = Field(default=0, description="Write state")
+    create_state: Optional[int] = Field(default=0, description="Create state")
+    delete_state: Optional[int] = Field(default=0, description="Delete state")
+    navigate_state: Optional[int] = Field(default=0, description="Navigate state")
 
 
 class TypePermissionCreateDto(TypePermissionBaseDto):

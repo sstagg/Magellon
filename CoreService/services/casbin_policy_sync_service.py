@@ -304,18 +304,28 @@ class CasbinPolicySyncService:
         """
         Sync object-level permissions to Casbin
 
-        NOTE: This handles simple object permissions.
-        Complex criteria-based permissions will need additional application-layer filtering.
+        Parses Criteria field from sys_sec_object_permission and creates
+        instance-level Casbin policies.
 
-        For now, we log object permissions but handle them in application layer
-        because they have criteria that need parsing.
+        Supported Criteria:
+        - Simple equality: [session_id] = 'uuid' → Creates policy for specific session
+        - IN clauses: [session_id] IN ('uuid1', 'uuid2') → Creates policy for each session
+
+        Unsupported (handled in application layer):
+        - Dynamic filters: [user_id] = CurrentUserId()
+        - Complex expressions: [a] = 'x' AND [b] = 'y'
 
         Returns:
-            Number of object permissions logged (not synced to Casbin yet)
+            Number of object permission policies synced to Casbin
         """
         logger.info("Syncing object permissions...")
 
         try:
+            from services.security.criteria_parser_service import (
+                CriteriaParserService,
+                CasbinResourceBuilder
+            )
+
             obj_perms = db.query(SysSecObjectPermission).options(
                 joinedload(SysSecObjectPermission.sys_sec_type_permission).joinedload(
                     SysSecTypePermission.sys_sec_role
@@ -324,29 +334,92 @@ class CasbinPolicySyncService:
                 SysSecObjectPermission.GCRecord.is_(None)
             ).all()
 
-            count = len(obj_perms)
+            total_perms = len(obj_perms)
+            synced_count = 0
+            skipped_count = 0
+            application_layer_count = 0
 
-            if count > 0:
-                logger.info(f"[WARNING] Found {count} object permissions with criteria")
-                logger.info("  -> Object permissions will be handled in application layer")
-                logger.info("  -> They require criteria parsing (e.g., 'owner_id = CurrentUserId()')")
-                logger.info("  -> Use PermissionService.filter_by_object_permissions() for query filtering")
-
-                # Log a few examples
-                for i, perm in enumerate(obj_perms[:3]):
-                    if perm.sys_sec_type_permission and perm.sys_sec_type_permission.sys_sec_role:
-                        role_name = perm.sys_sec_type_permission.sys_sec_role.Name
-                        target_type = perm.sys_sec_type_permission.TargetType
-                        criteria = perm.Criteria or "None"
-                        logger.debug(f"  Example {i+1}: Role={role_name}, Type={target_type}, Criteria={criteria}")
-
-            else:
+            if total_perms == 0:
                 logger.info("[OK] No object permissions found")
+                return 0
 
-            return 0  # Not synced to Casbin yet
+            logger.info(f"Processing {total_perms} object permissions...")
+
+            for perm in obj_perms:
+                # Get role and type info
+                if not perm.sys_sec_type_permission or not perm.sys_sec_type_permission.sys_sec_role:
+                    skipped_count += 1
+                    continue
+
+                role_name = perm.sys_sec_type_permission.sys_sec_role.Name
+                target_type = perm.sys_sec_type_permission.TargetType
+                criteria = perm.Criteria or ""
+
+                # Parse criteria
+                categorization = CriteriaParserService.parse_and_categorize(
+                    criteria, target_type
+                )
+
+                if categorization["can_sync_to_casbin"]:
+                    # Can sync to Casbin - create instance-level policies
+                    resources = categorization["resources"]
+
+                    for resource in resources:
+                        # Create policies for each CRUD operation that is allowed
+                        operations_added = 0
+
+                        if perm.ReadState == 1:
+                            CasbinService.add_permission_for_role(
+                                role_name, resource, "read", "allow"
+                            )
+                            operations_added += 1
+
+                        if perm.WriteState == 1:
+                            CasbinService.add_permission_for_role(
+                                role_name, resource, "write", "allow"
+                            )
+                            operations_added += 1
+
+                        if perm.DeleteState == 1:
+                            CasbinService.add_permission_for_role(
+                                role_name, resource, "delete", "allow"
+                            )
+                            operations_added += 1
+
+                        if perm.NavigateState == 1:
+                            CasbinService.add_permission_for_role(
+                                role_name, resource, "navigate", "allow"
+                            )
+                            operations_added += 1
+
+                        synced_count += operations_added
+
+                    logger.debug(f"  Synced: Role={role_name}, Resource={resources[0]}, Ops={operations_added}")
+
+                else:
+                    # Cannot sync to Casbin - needs application layer handling
+                    application_layer_count += 1
+                    logger.debug(
+                        f"  Application layer: Role={role_name}, Type={target_type}, "
+                        f"Criteria={criteria[:50]}..."
+                    )
+
+            logger.info(f"[OK] Object permission sync completed:")
+            logger.info(f"  - Total permissions: {total_perms}")
+            logger.info(f"  - Synced to Casbin: {synced_count} operations")
+            logger.info(f"  - Application layer: {application_layer_count}")
+            logger.info(f"  - Skipped (invalid): {skipped_count}")
+
+            if application_layer_count > 0:
+                logger.info(f"[INFO] {application_layer_count} permissions require application-layer filtering")
+                logger.info("  -> These use dynamic criteria like CurrentUserId()")
+                logger.info("  -> They will be enforced via SQL WHERE clauses")
+
+            return synced_count
 
         except Exception as e:
-            logger.error(f"[ERROR] Error checking object permissions: {e}")
+            logger.error(f"[ERROR] Error syncing object permissions: {e}")
+            logger.exception(e)
             raise
 
     @staticmethod
