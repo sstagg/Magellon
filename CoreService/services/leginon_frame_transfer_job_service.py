@@ -12,7 +12,7 @@ import logging
 import pymysql
 from fastapi import Depends, HTTPException
 
-from config import FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, \
+from config import FFT_SUB_URL, IMAGE_SUB_URL, MAGELLON_HOME_DIR, THUMBNAILS_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, \
     FFT_SUFFIX, FRAMES_SUFFIX, app_settings, ATLAS_SUB_URL, CTF_SUB_URL, FAO_SUB_URL
 
 from core.helper import dispatch_ctf_task, dispatch_motioncor_task
@@ -128,9 +128,16 @@ class LeginonFrameTransferJobService:
                     db_session.add(magellon_session)
                     db_session.commit()
                     db_session.refresh(magellon_session)
-
             self.open_leginon_connection()
+            #if defects file is provided, save it to camera directory
+            if self.params.defects_file is not None:
+                defects_dir = os.path.join(MAGELLON_HOME_DIR, magellon_session_name, "defects")
+                os.makedirs(defects_dir, exist_ok=True)  # ✅ Ensure directory exists
 
+                defects_file_path = os.path.join(defects_dir, self.params.defects_file.filename)
+                with open(defects_file_path, "wb") as f:
+                    f.write(self.params.defects_file.file.read())
+            
             # get the session object from the database
             session_name = self.params.session_name
             query = "SELECT * FROM SessionData WHERE name = %s"

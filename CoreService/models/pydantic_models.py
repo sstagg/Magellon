@@ -1,5 +1,5 @@
 from enum import Enum
-
+from fastapi import UploadFile, File
 from pydantic import BaseModel, Field, Json, ValidationInfo, field_validator, ConfigDict
 from typing import Any,Optional, List
 import uuid
@@ -194,6 +194,7 @@ class LeginonFrameTransferJobBase(ImportJobBase):
     leginon_mysql_db: Optional[str] = None
     leginon_mysql_user: Optional[str] = None
     leginon_mysql_pass: Optional[str] = None
+    defects_file: Optional[UploadFile] = File(None)
 
     replace_type: str = "none"
     replace_pattern: Optional[str] = None
@@ -273,6 +274,7 @@ class SerialEMImportTaskDto(ImportTaskDto):
 
 class LeginonFrameTransferJobDto(LeginonFrameTransferJobBase):
     target_directory: Optional[str] = None  # should be removed, it is base directory + magellon_session_name name
+    defects_file: Optional[UploadFile] = None   
 
 
 

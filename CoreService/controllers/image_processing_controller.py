@@ -7,10 +7,10 @@ from typing import Dict
 
 import mrcfile
 import numpy as np
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File,Form
 from pydantic import BaseModel
 from starlette.responses import FileResponse
-
+from typing import Optional
 from config import MAGELLON_HOME_DIR
 from controllers.image_processing_tools import lowpass_filter
 from models.pydantic_models import LeginonFrameTransferJobBase, LeginonFrameTransferJobDto, \
@@ -138,8 +138,46 @@ class LeginonImportResponse(BaseModel):
 
 
 @image_processing_router.post("/import_leginon_job")
-def process_image_job(input_data: LeginonFrameTransferJobBase, db: Session = Depends(get_db)):
-    # Generate a unique job ID
+def process_image_job(
+    magellon_project_name: str = Form(...),
+    magellon_session_name: str = Form(...),
+    camera_directory: str = Form(...),
+    session_name: str = Form(...),
+    copy_images: bool = Form(False),
+    retries: int = Form(0),
+
+    leginon_mysql_host: Optional[str] = Form(None),
+    leginon_mysql_port: Optional[int] = Form(None),
+    leginon_mysql_db: Optional[str] = Form(None),
+    leginon_mysql_user: Optional[str] = Form(None),
+    leginon_mysql_pass: Optional[str] = Form(None),
+
+    replace_type: str = Form("none"),
+    replace_pattern: Optional[str] = Form(None),
+    replace_with: Optional[str] = Form(None),
+
+    defects_file: Optional[UploadFile] = File(None),
+
+    db: Session = Depends(get_db)
+):
+
+    # ✅ Create your Pydantic model manually
+    input_data = LeginonFrameTransferJobBase(
+        magellon_project_name=magellon_project_name,
+        magellon_session_name=magellon_session_name,
+        camera_directory=camera_directory,
+        session_name=session_name,
+        copy_images=copy_images,
+        retries=retries,
+        leginon_mysql_host=leginon_mysql_host,
+        leginon_mysql_port=leginon_mysql_port,
+        leginon_mysql_db=leginon_mysql_db,
+        leginon_mysql_user=leginon_mysql_user,
+        leginon_mysql_pass=leginon_mysql_pass,
+        replace_type=replace_type,
+        replace_pattern=replace_pattern,
+        replace_with=replace_with,
+    )
 
     job_id = uuid.uuid4()
     job_dto = LeginonFrameTransferJobDto(
@@ -154,37 +192,21 @@ def process_image_job(input_data: LeginonFrameTransferJobBase, db: Session = Dep
         leginon_mysql_db=input_data.leginon_mysql_db,
         leginon_mysql_user=input_data.leginon_mysql_user,
         leginon_mysql_pass=input_data.leginon_mysql_pass,
-
         replace_type=input_data.replace_type,
         replace_pattern=input_data.replace_pattern,
         replace_with=input_data.replace_with,
-
         job_id=job_id,
         target_directory=os.path.join(MAGELLON_HOME_DIR, input_data.magellon_session_name),
-        task_list=[]  # You can set this to None or any desired value
+        defects_file=defects_file,
+        task_list=[],
     )
 
 
-    # job_dto.job_id = job_id
-    job_dto.target_directory = os.path.join(MAGELLON_HOME_DIR, job_dto.session_name)
-
-    # input_json = json.dumps(job_dto.dict(), cls=UUIDEncoder)
-    # lft_service.setup(input_json)
-
     lft_service.setup_data(job_dto)
-    result= lft_service.process(db)
+    result = lft_service.process(db)
 
-    # Create a client to communicate with the Airflow API
-    # airflow_client = Client(None)
-    #
-    # # Trigger the image processing job in Airflow
-    # airflow_client.trigger_dag(
-    #     dag_id='image_process_job',
-    #     conf={'source_dir': source_dir, 'target_dir': target_dir, 'job_id': job_id.hex}
-    # )
-
-    # Return the job ID as the response
     return result
+
 
 
 
