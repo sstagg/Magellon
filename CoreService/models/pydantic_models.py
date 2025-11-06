@@ -275,6 +275,7 @@ class SerialEMImportTaskDto(ImportTaskDto):
 class LeginonFrameTransferJobDto(LeginonFrameTransferJobBase):
     target_directory: Optional[str] = None  # should be removed, it is base directory + magellon_session_name name
     defects_file: Optional[UploadFile] = None   
+    gains_file: Optional[UploadFile] = None
 
 
 

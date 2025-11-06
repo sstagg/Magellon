@@ -1,5 +1,5 @@
 import Container from "@mui/material/Container";
-import {Button, Checkbox, FormControl, FormControlLabel, FormLabel,  InputAdornment, TextField, Typography} from "@mui/material";
+import {Button, Checkbox, FormControl, FormControlLabel, FormLabel, Box, InputAdornment, TextField, Typography} from "@mui/material";
 
 import React, {useState} from "react";
 import {useForm} from "react-hook-form";
@@ -53,6 +53,7 @@ export const LeginonImportComponent = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [defectsFile, setDefectsFile] = useState<File | null>(null);
+    const [gainsFile, setGainsFile] = useState<File | null>(null);
 
     const onFormSubmit = async (data: ILeginonImportForm) => {
         try {
@@ -82,6 +83,10 @@ export const LeginonImportComponent = () => {
             // Add optional defects file if selected
             if (defectsFile) {
                 formData.append('defects_file', defectsFile);
+            }
+
+            if (gainsFile) {
+                formData.append('gains_file', gainsFile);
             }
 
             const response = await fetch('http://localhost:8000/image/import_leginon_job', {
@@ -321,39 +326,106 @@ export const LeginonImportComponent = () => {
                     </FormControl>
                 </Grid>
 
-                <Grid size={12}>
-                    <FormControl fullWidth>
+                                         <Grid size={12}>
+                <FormControl fullWidth>
+                    <Button
+                    variant="outlined"
+                    component="label"
+                    startIcon={<AttachFile />}
+                    sx={{
+                        justifyContent: 'flex-start',
+                        textTransform: 'none',
+                        py: 1.5,
+                        mt: 1
+                    }}
+                    >
+                    {defectsFile ? defectsFile.name : 'Defects File (Optional)'}
+                    <input
+                        type="file"
+                        hidden
+                        accept=".txt"
+                        onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                            setDefectsFile(file);
+                        }
+                        }}
+                    />
+                    </Button>
+
+                    {defectsFile && (
+                    <Box
+                        display="flex"
+                        alignItems="center"
+                        justifyContent="space-between"
+                        mt={1}
+                    >
+                        <Typography variant="caption" color="textSecondary">
+                        Selected: {defectsFile.name}
+                        </Typography>
                         <Button
-                            variant="outlined"
-                            component="label"
-                            startIcon={<AttachFile />}
-                            sx={{
-                                justifyContent: 'flex-start',
-                                textTransform: 'none',
-                                py: 1.5,
-                                mt: 1
-                            }}
+                        color="error"
+                        size="small"
+                        onClick={() => setDefectsFile(null)}
+                        sx={{ textTransform: 'none' }}
                         >
-                            {defectsFile ? defectsFile.name : 'Defects File (Optional)'}
-                            <input
-                                type="file"
-                                hidden
-                                accept=".txt"
-                                onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) {
-                                        setDefectsFile(file);
-                                    }
-                                }}
-                            />
+                        X
                         </Button>
-                        {defectsFile && (
-                            <Typography variant="caption" color="textSecondary" sx={{ mt: 0.5 }}>
-                                Selected: {defectsFile.name}
-                            </Typography>
-                        )}
-                    </FormControl>
+                    </Box>
+                    )}
+                </FormControl>
                 </Grid>
+
+                            <Grid size={12}>
+                <FormControl fullWidth>
+                    <Button
+                    variant="outlined"
+                    component="label"
+                    startIcon={<AttachFile />}
+                    sx={{
+                        justifyContent: 'flex-start',
+                        textTransform: 'none',
+                        py: 1.5,
+                        mt: 1
+                    }}
+                    >
+                    {gainsFile ? gainsFile.name : 'Gains File (Optional)'}
+                    <input
+                        type="file"
+                        hidden
+                        accept=".txt"
+                        onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                            setGainsFile(file);
+                        }
+                        }}
+                    />
+                    </Button>
+
+                    {gainsFile && (
+                    <Box
+                        display="flex"
+                        alignItems="center"
+                        justifyContent="space-between"
+                        mt={1}
+                    >
+                        <Typography variant="caption" color="textSecondary">
+                        Selected: {gainsFile.name}
+                        </Typography>
+                        <Button
+                        color="error"
+                        size="small"
+                        onClick={() => setGainsFile(null)}
+                        sx={{ textTransform: 'none' }}
+                        >
+                        X
+                        </Button>
+                    </Box>
+                    )}
+                </FormControl>
+                </Grid>
+
 
                 <Grid size={12}>
                     <Button

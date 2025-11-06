@@ -57,6 +57,7 @@ def create_directories(target_dir: str):
     create_directory(os.path.join(target_dir, FAO_SUB_URL))
 
 
+
 def infer_image_levels(name):
     presets = {'sq', 'gr', 'ex', 'hl', 'fc'}
     return sum(1 for preset in presets if preset in name)
@@ -137,6 +138,14 @@ class LeginonFrameTransferJobService:
                 defects_file_path = os.path.join(defects_dir, self.params.defects_file.filename)
                 with open(defects_file_path, "wb") as f:
                     f.write(self.params.defects_file.file.read())
+            gains_file_path = None
+            if self.params.gains_file is not None:
+                gains_dir = os.path.join(MAGELLON_HOME_DIR, magellon_session_name, "gains")
+                os.makedirs(gains_dir, exist_ok=True)  # ✅ Ensure directory exists
+
+                gains_file_path = os.path.join(gains_dir, self.params.gains_file.filename)
+                with open(gains_file_path, "wb") as f:
+                    f.write(self.params.gains_file.file.read())
             
             # get the session object from the database
             session_name = self.params.session_name
@@ -305,7 +314,6 @@ class LeginonFrameTransferJobService:
                         frame_name=image["frame_names"],
                         image_path=source_image_path,
                         job_id=db_job_task.oid,
-
                         frame_path=source_frame_path,
                         # target_path=self.params.target_directory + "/frames/" + f"{image['frame_names']}{source_extension}",
                         job_dto=self.params,
@@ -453,18 +461,45 @@ class LeginonFrameTransferJobService:
         try:
             if task_dto.frame_name:
                 settings = {
-                'FmDose': 1.0,
-                'PatchesX': 7,
-                'PatchesY': 7,
-                'Group': 4
+                    'FmDose': 1.0,
+                    'PatchesX': 7,
+                    'PatchesY': 7,
+                    'Group': 4
                 }
-                dispatch_motioncor_task(
-                    task_id = task_dto.task_id,
-                    full_image_path= abs_file_path,
-                    task_dto= task_dto,
-                    motioncor_settings= settings
-                )
-                return {"message": "Converting to motioncor on the way! " + abs_file_path}
+
+                # Check for gains folder and file
+                gains_dir = os.path.join(MAGELLON_HOME_DIR, task_dto.session_name, "gains")
+                gain_path = None
+
+                if os.path.exists(gains_dir):
+                    gain_files = [
+                        os.path.join(gains_dir, f)
+                        for f in os.listdir(gains_dir)
+                        if os.path.isfile(os.path.join(gains_dir, f))
+                    ]
+                    if gain_files:
+                        # Take the first file (or you can sort if needed)
+                        gain_path = gain_files[0]
+
+                # Dispatch task depending on whether gain_path exists
+                if gain_path:
+                    dispatch_motioncor_task(
+                        task_id=task_dto.task_id,
+                        gain_path=gain_path,  # ✅ use found gain file
+                        full_image_path=abs_file_path,
+                        task_dto=task_dto,
+                        motioncor_settings=settings
+                    )
+                else:
+                    # ✅ call without gain_path so it uses default
+                    dispatch_motioncor_task(
+                        task_id=task_dto.task_id,
+                        full_image_path=abs_file_path,
+                        task_dto=task_dto,
+                        motioncor_settings=settings
+                    )
+
+                return {"message": f"Converting to motioncor on the way! {abs_file_path}"}
 
         except Exception as e:
             return {"error": str(e)}

@@ -157,6 +157,7 @@ def process_image_job(
     replace_with: Optional[str] = Form(None),
 
     defects_file: Optional[UploadFile] = File(None),
+    gains_file: Optional[UploadFile] = File(None),
 
     db: Session = Depends(get_db)
 ):
@@ -198,6 +199,7 @@ def process_image_job(
         job_id=job_id,
         target_directory=os.path.join(MAGELLON_HOME_DIR, input_data.magellon_session_name),
         defects_file=defects_file,
+        gains_file=gains_file,
         task_list=[],
     )
 
