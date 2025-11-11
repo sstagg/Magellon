@@ -8,8 +8,6 @@ import {
     Box,
     Menu,
     MenuItem,
-    useScrollTrigger,
-    Slide,
     alpha,
     useTheme,
 } from '@mui/material';
@@ -17,7 +15,6 @@ import {
     Menu as MenuIcon,
     DarkMode,
     LightMode,
-    Science,
     Dashboard,
     Info,
     ContactMail,
@@ -25,21 +22,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from "react-router-dom";
 import { useThemeContext } from '../themes';
-
-interface Props {
-    children: React.ReactElement;
-}
-
-function HideOnScroll(props: Props) {
-    const { children } = props;
-    const trigger = useScrollTrigger();
-
-    return (
-        <Slide appear={false} direction="down" in={!trigger}>
-            {children}
-        </Slide>
-    );
-}
+import magellanLogo from '../assets/images/magellon-logo.svg';
 
 export default function WebHeader() {
     const navigate = useNavigate();
@@ -62,103 +45,94 @@ export default function WebHeader() {
     ];
 
     return (
-        <HideOnScroll>
-            <AppBar
-                position="fixed"
-                elevation={0}
-                sx={{
-                    background: theme.palette.mode === 'dark'
-                        ? `linear-gradient(135deg, ${alpha('#0a1929', 0.98)} 0%, ${alpha('#1e293b', 0.98)} 100%)`
-                        : `linear-gradient(135deg, ${alpha('#ffffff', 0.98)} 0%, ${alpha('#f8fafc', 0.98)} 100%)`,
-                    backdropFilter: 'blur(24px)',
-                    borderBottom: `1px solid ${alpha(theme.palette.divider, 0.12)}`,
-                    boxShadow: theme.palette.mode === 'dark'
-                        ? '0 4px 20px rgba(0, 0, 0, 0.25)'
-                        : '0 4px 20px rgba(0, 0, 0, 0.08)',
-                }}
-            >
-                <Toolbar sx={{ px: { xs: 2, sm: 4 }, minHeight: '70px !important' }}>
-                    {/* Logo */}
+        <AppBar
+            position="fixed"
+            elevation={0}
+            sx={{
+                backgroundColor: theme.palette.mode === 'dark'
+                    ? alpha('#0f172a', 0.95)
+                    : alpha('#ffffff', 0.95),
+                backdropFilter: 'blur(20px)',
+                borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                boxShadow: theme.palette.mode === 'dark'
+                    ? '0 2px 8px rgba(0, 0, 0, 0.2)'
+                    : '0 2px 8px rgba(0, 0, 0, 0.05)',
+            }}
+        >
+                <Toolbar sx={{ px: { xs: 2, sm: 4 }, minHeight: '72px !important' }}>
+                    {/* Logo with Tagline */}
                     <Box
                         sx={{
                             display: 'flex',
                             alignItems: 'center',
                             cursor: 'pointer',
-                            transition: 'all 0.3s ease-in-out',
+                            transition: 'all 0.2s ease',
                             '&:hover': {
-                                transform: 'scale(1.05)',
+                                opacity: 0.85,
                             }
                         }}
                         onClick={() => navigate('/en/web/home')}
                     >
-                        <Science
+                        <Box
+                            component="img"
+                            src={magellanLogo}
+                            alt="Magellon Logo"
                             sx={{
+                                height: 42,
+                                width: 42,
                                 mr: 1.5,
-                                fontSize: 36,
-                                color: 'primary.main',
-                                filter: 'drop-shadow(0 0 12px rgba(103, 232, 249, 0.4))'
                             }}
                         />
-                        <Typography
-                            variant="h4"
-                            component="div"
-                            sx={{
-                                fontWeight: 800,
-                                fontSize: '1.8rem',
-                                background: theme.palette.mode === 'dark'
-                                    ? 'linear-gradient(45deg, #67e8f9, #818cf8)'
-                                    : 'linear-gradient(45deg, #0891b2, #6366f1)',
-                                backgroundClip: 'text',
-                                WebkitBackgroundClip: 'text',
-                                WebkitTextFillColor: 'transparent',
-                                textShadow: '0 0 20px rgba(103, 232, 249, 0.3)',
-                                letterSpacing: '-0.5px'
-                            }}
-                        >
-                            Magellon
-                        </Typography>
+                        <Box>
+                            <Typography
+                                variant="h6"
+                                component="div"
+                                sx={{
+                                    fontWeight: 700,
+                                    fontSize: '1.4rem',
+                                    color: 'text.primary',
+                                    fontFamily: 'Exo 2, sans-serif',
+                                    letterSpacing: '-0.3px',
+                                    lineHeight: 1.2,
+                                }}
+                            >
+                                Magellon
+                            </Typography>
+                            <Typography
+                                variant="caption"
+                                sx={{
+                                    color: 'text.secondary',
+                                    fontSize: '0.7rem',
+                                    fontWeight: 500,
+                                    letterSpacing: '0.8px',
+                                    textTransform: 'uppercase',
+                                    display: { xs: 'none', sm: 'block' }
+                                }}
+                            >
+                                CryoEM Data Platform
+                            </Typography>
+                        </Box>
                     </Box>
 
                     <Box sx={{ flexGrow: 1 }} />
 
                     {/* Desktop Navigation */}
-                    <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 0.5 }}>
                         {navItems.map((item) => (
                             <Button
                                 key={item.label}
-                                startIcon={item.icon}
                                 onClick={() => navigate(item.path)}
                                 sx={{
-                                    borderRadius: 3,
-                                    px: 3,
-                                    py: 1.2,
+                                    px: 2.5,
+                                    py: 1,
                                     textTransform: 'none',
-                                    fontWeight: 600,
-                                    fontSize: '1rem',
-                                    color: theme.palette.mode === 'dark'
-                                        ? 'rgba(255, 255, 255, 0.9)'
-                                        : 'rgba(15, 23, 42, 0.9)',
-                                    border: theme.palette.mode === 'dark'
-                                        ? `1px solid ${alpha('#67e8f9', 0.2)}`
-                                        : `1px solid ${alpha('#0891b2', 0.2)}`,
-                                    background: theme.palette.mode === 'dark'
-                                        ? alpha('#67e8f9', 0.05)
-                                        : alpha('#0891b2', 0.05),
-                                    transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                                    fontWeight: 500,
+                                    fontSize: '0.95rem',
+                                    color: 'text.secondary',
+                                    transition: 'all 0.2s ease',
                                     '&:hover': {
-                                        background: theme.palette.mode === 'dark'
-                                            ? 'linear-gradient(135deg, rgba(103, 232, 249, 0.15), rgba(129, 140, 248, 0.15))'
-                                            : 'linear-gradient(135deg, rgba(8, 145, 178, 0.15), rgba(99, 102, 241, 0.15))',
-                                        borderColor: theme.palette.mode === 'dark'
-                                            ? alpha('#67e8f9', 0.4)
-                                            : alpha('#0891b2', 0.4),
-                                        color: theme.palette.mode === 'dark'
-                                            ? '#67e8f9'
-                                            : '#0891b2',
-                                        transform: 'translateY(-2px)',
-                                        boxShadow: theme.palette.mode === 'dark'
-                                            ? '0 8px 25px rgba(103, 232, 249, 0.2)'
-                                            : '0 8px 25px rgba(8, 145, 178, 0.2)',
+                                        color: 'primary.main',
+                                        backgroundColor: alpha(theme.palette.primary.main, 0.08),
                                     }
                                 }}
                             >
@@ -166,94 +140,78 @@ export default function WebHeader() {
                             </Button>
                         ))}
 
+                        {/* Divider */}
+                        <Box sx={{
+                            width: '1px',
+                            height: '24px',
+                            backgroundColor: alpha(theme.palette.divider, 0.2),
+                            mx: 2
+                        }} />
+
                         {/* Theme Toggle */}
                         <IconButton
                             onClick={toggleTheme}
+                            size="small"
                             sx={{
-                                ml: 2,
-                                width: 48,
-                                height: 48,
-                                border: `2px solid ${alpha(theme.palette.primary.main, 0.3)}`,
-                                background: alpha(theme.palette.primary.main, 0.1),
-                                color: 'primary.main',
-                                transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                                color: 'text.secondary',
+                                transition: 'all 0.2s ease',
                                 '&:hover': {
-                                    background: alpha(theme.palette.primary.main, 0.2),
-                                    transform: 'rotate(180deg) scale(1.1)',
-                                    borderColor: alpha(theme.palette.primary.main, 0.6),
-                                    boxShadow: `0 8px 25px ${alpha(theme.palette.primary.main, 0.3)}`,
+                                    color: 'primary.main',
+                                    backgroundColor: alpha(theme.palette.primary.main, 0.08),
                                 }
                             }}
                         >
-                            {themeName === 'dark' ? <LightMode /> : <DarkMode />}
+                            {themeName === 'dark' ? <LightMode fontSize="small" /> : <DarkMode fontSize="small" />}
                         </IconButton>
 
-                        {/* Panel Access - Modern Design */}
+                        {/* Panel Access */}
                         <Button
                             variant="contained"
                             startIcon={<Dashboard />}
                             onClick={() => navigate("/en/panel")}
                             sx={{
                                 ml: 2,
-                                borderRadius: 3,
-                                px: 4,
-                                py: 1.5,
+                                px: 3,
+                                py: 1,
                                 textTransform: 'none',
-                                fontWeight: 700,
-                                fontSize: '1rem',
-                                position: 'relative',
-                                overflow: 'hidden',
-                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                fontWeight: 600,
+                                fontSize: '0.95rem',
+                                backgroundColor: 'primary.main',
                                 color: '#ffffff',
-                                border: 'none',
-                                boxShadow: '0 8px 32px rgba(102, 126, 234, 0.3)',
-                                transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                                '&::before': {
-                                    content: '""',
-                                    position: 'absolute',
-                                    top: 0,
-                                    left: 0,
-                                    right: 0,
-                                    bottom: 0,
-                                    background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
-                                    opacity: 0,
-                                    transition: 'opacity 0.3s ease',
-                                },
+                                boxShadow: 'none',
+                                transition: 'all 0.2s ease',
                                 '&:hover': {
-                                    transform: 'translateY(-3px) scale(1.02)',
-                                    boxShadow: '0 12px 40px rgba(102, 126, 234, 0.4)',
-                                    '&::before': {
-                                        opacity: 1,
-                                    }
-                                },
-                                '& .MuiButton-startIcon': {
-                                    position: 'relative',
-                                    zIndex: 1,
-                                },
-                                '& span': {
-                                    position: 'relative',
-                                    zIndex: 1,
+                                    backgroundColor: 'primary.dark',
+                                    boxShadow: 'none',
                                 }
                             }}
                         >
-                            Launch Panel
+                            Access Platform
                         </Button>
                     </Box>
 
                     {/* Mobile Menu Button */}
-                    <Box sx={{ display: { xs: 'flex', md: 'none' } }}>
+                    <Box sx={{ display: { xs: 'flex', md: 'none' }, gap: 1 }}>
+                        <IconButton
+                            onClick={toggleTheme}
+                            size="small"
+                            sx={{
+                                color: 'text.secondary',
+                                '&:hover': {
+                                    color: 'primary.main',
+                                    backgroundColor: alpha(theme.palette.primary.main, 0.08),
+                                }
+                            }}
+                        >
+                            {themeName === 'dark' ? <LightMode fontSize="small" /> : <DarkMode fontSize="small" />}
+                        </IconButton>
                         <IconButton
                             onClick={handleMobileMenuOpen}
                             sx={{
-                                width: 48,
-                                height: 48,
-                                border: `2px solid ${alpha(theme.palette.primary.main, 0.3)}`,
-                                background: alpha(theme.palette.primary.main, 0.1),
-                                color: 'primary.main',
-                                transition: 'all 0.3s ease',
+                                color: 'text.secondary',
                                 '&:hover': {
-                                    background: alpha(theme.palette.primary.main, 0.2),
-                                    transform: 'scale(1.1)',
+                                    color: 'primary.main',
+                                    backgroundColor: alpha(theme.palette.primary.main, 0.08),
                                 }
                             }}
                         >
@@ -313,6 +271,7 @@ export default function WebHeader() {
                                 borderRadius: 2,
                                 mx: 1,
                                 my: 0.5,
+                                mt: 1,
                                 background: alpha(theme.palette.primary.main, 0.1),
                                 transition: 'all 0.2s ease',
                                 '&:hover': {
@@ -322,35 +281,11 @@ export default function WebHeader() {
                         >
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                                 <Dashboard />
-                                <Typography fontWeight={600} color="primary.main">Launch Panel</Typography>
-                            </Box>
-                        </MenuItem>
-                        <MenuItem
-                            onClick={() => {
-                                toggleTheme();
-                                handleMobileMenuClose();
-                            }}
-                            sx={{
-                                py: 1.5,
-                                borderRadius: 2,
-                                mx: 1,
-                                my: 0.5,
-                                transition: 'all 0.2s ease',
-                                '&:hover': {
-                                    background: alpha(theme.palette.primary.main, 0.1),
-                                }
-                            }}
-                        >
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                {themeName === 'dark' ? <LightMode /> : <DarkMode />}
-                                <Typography fontWeight={500}>
-                                    {themeName === 'dark' ? 'Light Mode' : 'Dark Mode'}
-                                </Typography>
+                                <Typography fontWeight={600} color="primary.main">Access Platform</Typography>
                             </Box>
                         </MenuItem>
                     </Menu>
                 </Toolbar>
-            </AppBar>
-        </HideOnScroll>
+        </AppBar>
     );
 }
