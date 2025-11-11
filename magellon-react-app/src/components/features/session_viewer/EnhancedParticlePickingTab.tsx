@@ -107,6 +107,7 @@ import ImageInfoDto from './ImageInfoDto.ts';
 import { ParticlePickingDto } from '../../../domains/ParticlePickingDto.ts';
 import { useImageViewerStore } from './store/imageViewerStore.ts';
 import { settings } from '../../../core/settings.ts';
+import { useAuthenticatedImage } from '../../../hooks/useAuthenticatedImage';
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
 
@@ -191,6 +192,9 @@ const EnhancedParticleEditor: React.FC<{
     const [dragStart, setDragStart] = useState<Point | null>(null);
     const [boxSelection, setBoxSelection] = useState<{ start: Point; end: Point } | null>(null);
     const [hoveredParticle, setHoveredParticle] = useState<string | null>(null);
+
+    // Use authenticated image hook
+    const { imageUrl: authenticatedImageUrl, isLoading: isImageLoading } = useAuthenticatedImage(imageUrl);
 
     const generateId = () => `particle-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -365,7 +369,11 @@ const EnhancedParticleEditor: React.FC<{
             )}
 
             {/* Image */}
-            <image href={imageUrl} width={width} height={height} />
+            {isImageLoading ? (
+                <rect width={width} height={height} fill="#333" />
+            ) : authenticatedImageUrl ? (
+                <image href={authenticatedImageUrl} width={width} height={height} />
+            ) : null}
 
             {/* Particles */}
             <g>

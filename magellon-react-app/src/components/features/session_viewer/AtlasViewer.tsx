@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import ImageInfoDto from "./ImageInfoDto.ts";
 import { settings } from "../../../core/settings.ts";
 import { useImageViewerStore } from './store/imageViewerStore.ts';
+import { AuthenticatedSvgImage } from './components/AuthenticatedSvgImage';
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
 
@@ -111,14 +112,13 @@ export default function AtlasViewer({ name, finalWidth, finalHeight, backgroundC
                         cursor: 'pointer',
                     }}
                 >
-                    <image
+                    <AuthenticatedSvgImage
                         x={x1}
                         y={y1}
                         width={width}
                         height={height}
-                        // Add sessionName parameter to the image thumbnail URL
                         href={`${BASE_URL}/image_thumbnail?name=${encodeURIComponent(area['data-name'])}&sessionName=${sessionName}`}
-                        data-name={area['data-name']}
+                        dataName={area['data-name']}
                         onMouseOver={() => handleMouseOver(area['data-name'])}
                         onMouseOut={handleMouseOut}
                         onClick={() => handleImageClick(area)}

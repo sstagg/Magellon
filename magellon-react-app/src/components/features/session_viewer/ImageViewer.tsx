@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useAuthenticatedImage } from '../../../hooks/useAuthenticatedImage';
 
 interface ImageViewerProps {
     width: number;
@@ -25,6 +26,9 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
                                                      scale = 1
                                                  }) => {
     const [circles, setCircles] = useState<Point[]>([]);
+
+    // Use authenticated image hook to fetch the image with auth header
+    const { imageUrl: authenticatedImageUrl, isLoading } = useAuthenticatedImage(imageUrl);
 
     useEffect(() => {
         // Reset circles when imageUrl changes
@@ -140,20 +144,30 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
                 </defs>
 
                 <g transform={getTransformMatrix()}>
-                    <image
-                        href={imageUrl}
-                        x="0"
-                        y="0"
-                        width={width}
-                        height={height}
-                        filter="url(#imageProcessing)"
-                        preserveAspectRatio="xMidYMid meet"
-                        style={{
-                            ...imageStyle,
-                            transform: undefined, // Remove transform from style as we're using SVG transform
-                            transition: 'none' // SVG transitions work differently
-                        }}
-                    />
+                    {isLoading ? (
+                        <rect
+                            x="0"
+                            y="0"
+                            width={width}
+                            height={height}
+                            fill="#333"
+                        />
+                    ) : authenticatedImageUrl ? (
+                        <image
+                            href={authenticatedImageUrl}
+                            x="0"
+                            y="0"
+                            width={width}
+                            height={height}
+                            filter="url(#imageProcessing)"
+                            preserveAspectRatio="xMidYMid meet"
+                            style={{
+                                ...imageStyle,
+                                transform: undefined, // Remove transform from style as we're using SVG transform
+                                transition: 'none' // SVG transitions work differently
+                            }}
+                        />
+                    ) : null}
                 </g>
 
                 {/* Overlay for circles and measurements */}

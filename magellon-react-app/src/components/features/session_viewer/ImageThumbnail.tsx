@@ -13,6 +13,7 @@ import { FileImage, Folder, FolderOpen } from "lucide-react";
 import ImageInfoDto from "./ImageInfoDto.ts";
 import { settings } from "../../../core/settings.ts";
 import { useImageViewerStore } from './store/imageViewerStore.ts';
+import { useAuthenticatedImage } from '../../../hooks/useAuthenticatedImage';
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
 
@@ -36,8 +37,6 @@ export const ImageThumbnail = ({
                                    showMetadata = true
                                }: ThumbImageProps) => {
     const [isHovered, setIsHovered] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
-    const [hasError, setHasError] = useState(false);
     const theme = useTheme();
 
     const { currentSession } = useImageViewerStore();
@@ -64,10 +63,15 @@ export const ImageThumbnail = ({
         return sizeMapping[size];
     }, [size]);
 
-    const imageUrl = useMemo(() =>
+    // Original API URL
+    const apiUrl = useMemo(() =>
             `${BASE_URL}/image_thumbnail?name=${encodeURIComponent(image.name)}&sessionName=${sessionName}`,
         [image.name, sessionName]
     );
+
+    // Use authenticated image hook
+    const { imageUrl, isLoading, error: imageError } = useAuthenticatedImage(apiUrl);
+    const hasError = !!imageError;
 
     const handleMouseEnter = () => setIsHovered(true);
     const handleMouseLeave = () => setIsHovered(false);
@@ -75,12 +79,6 @@ export const ImageThumbnail = ({
     const handleClick = () => {
         const imageWithLevel = { ...image, level };
         onImageClick(imageWithLevel, level);
-    };
-
-    const handleImageLoad = () => setIsLoading(false);
-    const handleImageError = () => {
-        setIsLoading(false);
-        setHasError(true);
     };
 
     const tooltipContent = (
@@ -183,20 +181,20 @@ export const ImageThumbnail = ({
                                 <Box sx={{ fontSize: '0.7rem' }}>Image not available</Box>
                             </Box>
                         ) : (
-                            <img
-                                src={imageUrl}
-                                alt={imageName}
-                                loading="lazy"
-                                className={imageClasses}
-                                style={{
-                                    width: '100%',
-                                    height: 'auto',
-                                    objectFit: 'cover',
-                                    aspectRatio: '1/1'
-                                }}
-                                onLoad={handleImageLoad}
-                                onError={handleImageError}
-                            />
+                            imageUrl && (
+                                <img
+                                    src={imageUrl}
+                                    alt={imageName}
+                                    loading="lazy"
+                                    className={imageClasses}
+                                    style={{
+                                        width: '100%',
+                                        height: 'auto',
+                                        objectFit: 'cover',
+                                        aspectRatio: '1/1'
+                                    }}
+                                />
+                            )
                         )}
                     </IconButton>
 

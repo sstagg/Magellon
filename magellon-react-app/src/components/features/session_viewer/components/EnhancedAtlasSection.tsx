@@ -31,6 +31,7 @@ import { AtlasImageDto } from '../ImageInfoDto';
 import ImageInfoDto from '../ImageInfoDto';
 import AtlasViewer from '../AtlasViewer';
 import { settings } from '../../../../core/settings';
+import { AuthenticatedAtlasImage } from './AuthenticatedAtlasImage';
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
 
@@ -270,17 +271,16 @@ export const EnhancedAtlasSection: React.FC<EnhancedAtlasSectionProps> = ({
                                     {atlasLoading === atlas.oid ? (
                                         <Skeleton variant="rectangular" width="100%" height="100%" />
                                     ) : (
-                                        <img
-                                            src={`${BASE_URL}/atlas-image?name=${atlas?.name}&sessionName=${sessionName}`}
+                                        <AuthenticatedAtlasImage
+                                            atlasName={atlas.name}
+                                            sessionName={sessionName}
                                             alt={atlas.name}
                                             style={{
                                                 width: '100%',
                                                 height: '100%',
                                                 objectFit: 'cover'
                                             }}
-                                            onError={(e) => {
-                                                e.currentTarget.style.display = 'none';
-                                            }}
+                                            baseUrl={BASE_URL}
                                         />
                                     )}
 
