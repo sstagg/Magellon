@@ -16,7 +16,9 @@ import {
     Person,
     Security,
     Shield,
-    AdminPanelSettings, SupervisorAccount,
+    AdminPanelSettings,
+    SupervisorAccount,
+    Lock,
 } from '@mui/icons-material';
 
 // Import modular components
@@ -24,6 +26,7 @@ import UserManagementTab from './UserManagementTab';
 import RoleManagementTab from './RoleManagementTab';
 import PermissionManagementTab from './PermissionManagementTab';
 import PermissionCheckerTab from './PermissionCheckerTab';
+import SessionAccessManagementTab from './SessionAccessManagementTab';
 
 // Import services
 import { useAuth } from './AuthContext';
@@ -155,7 +158,8 @@ export default function AccountPage() {
             <Tab key="users" icon={<AdminPanelSettings />} label="User Management" iconPosition="start" />,
             <Tab key="roles" icon={<Security />} label="Role Management" iconPosition="start" />,
             <Tab key="permissions" icon={<Shield />} label="Permissions" iconPosition="start" />,
-            <Tab key="checker" icon={<Security />} label="Permission Checker" iconPosition="start" />
+            <Tab key="checker" icon={<Security />} label="Permission Checker" iconPosition="start" />,
+            <Tab key="session-access" icon={<Lock />} label="Session Access" iconPosition="start" />
         );
     }
 
@@ -277,6 +281,14 @@ export default function AccountPage() {
                                 <PermissionCheckerTab
                                     currentUser={user}
                                     showSnackbar={showSnackbar}
+                                />
+                            </TabPanel>
+
+                            <TabPanel value={tabValue} index={5}>
+                                <SessionAccessManagementTab
+                                    currentUser={user}
+                                    showSnackbar={showSnackbar}
+                                    isSuperUser={isSuperUser}
                                 />
                             </TabPanel>
                         </>
