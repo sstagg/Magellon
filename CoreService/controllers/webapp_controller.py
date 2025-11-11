@@ -699,18 +699,43 @@ async def get_image_thumbnail_url(name: str):
     return f"{app_settings.directory_settings.MAGELLON_HOME_DIR}/{IMAGE_SUB_URL}{name}.png"
 
 @webapp_router.get('/sessions', response_model=List[SessionDto])
-def get_all_sessions(name: Optional[str] = None, db: Session = Depends(get_db)):
+def get_all_sessions(
+    name: Optional[str] = None,
+    db: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+):
     """
-    Get all the sessions in database
+    Get all the sessions in database.
+
+    **Requires:** Authentication
+    **Security:** Users can only see sessions they have access to (RLS enforced)
     """
+    logger.debug(f"User {user_id} fetching sessions")
+
     if name:
         sessions = []
         db_msession = SessionRepository.fetch_by_name(db, name)
-        print(db_msession)
-        sessions.append(db_msession)
+
+        # Check if user has access to this specific session
+        if db_msession and check_session_access(user_id, db_msession.oid, action="read"):
+            sessions.append(db_msession)
+            logger.debug(f"User {user_id} accessed session: {name}")
+        else:
+            logger.warning(f"SECURITY: User {user_id} denied access to session: {name}")
+
         return sessions
     else:
-        return SessionRepository.fetch_all(db)
+        # Fetch all sessions and filter by access
+        all_sessions = SessionRepository.fetch_all(db)
+
+        # Filter sessions based on user access
+        accessible_sessions = []
+        for session in all_sessions:
+            if check_session_access(user_id, session.oid, action="read"):
+                accessible_sessions.append(session)
+
+        logger.debug(f"User {user_id} fetched {len(accessible_sessions)} accessible sessions (out of {len(all_sessions)} total)")
+        return accessible_sessions
 
 
 # @webapp_router.post("/run_dag")
@@ -754,15 +779,37 @@ def get_all_sessions(name: Optional[str] = None, db: Session = Depends(get_db)):
 
 
 @webapp_router.get("/create_atlas")
-def create_leginon_atlas(session_name: str, db_session: Session = Depends(get_db)):
+def create_leginon_atlas(
+    session_name: str,
+    db_session: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+):
+    """
+    Create Leginon atlas for a session.
 
+    **Requires:** Authentication
+    **Security:** User must have access to the session
+    **WARNING:** This endpoint connects to external Leginon database
+    """
+    logger.warning(f"User {user_id} creating Leginon atlas for session: {session_name}")
 
-    # session_id = "13892"
+    # Verify session exists and user has access
+    msession = db_session.query(Msession).filter(Msession.name == session_name).first()
+    if not msession:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # ✅ Check session access
+    if not check_session_access(user_id, msession.oid, action="write"):
+        logger.warning(f"SECURITY: User {user_id} denied atlas creation for session: {session_name}")
+        raise HTTPException(status_code=403, detail="Access denied to this session")
+
+    # TODO: Move these credentials to environment variables/config
+    # SECURITY WARNING: Hardcoded credentials should be moved to secure configuration
     db_config = {
         "host": "127.0.0.1",
         "port": 3310,
         "user": "usr_object",
-        "password": "ThPHMn3m39Ds",
+        "password": "ThPHMn3m39Ds",  # TODO: Move to environment variable
         "db": "dbemdata",
         "charset": "utf8",
     }  # Create a connection to the MySQL database
@@ -833,7 +880,9 @@ def create_leginon_atlas(session_name: str, db_session: Session = Depends(get_db
     # db_session.add_all(atlases_to_insert)
     db_session.bulk_save_objects(atlases_to_insert)
     db_session.commit()
-    return {"images": images}
+
+    logger.info(f"User {user_id} successfully created Leginon atlas for session: {session_name}, {len(images)} images")
+    return {"images": images, "created_by": str(user_id)}
 
 
 
@@ -856,17 +905,29 @@ def extract_grid_label(filename: str) -> str:
     return match.group(1) if match else "empty"
 
 @webapp_router.get("/create_magellon_atlas")
-def create_magellon_atlas(session_name: str, db_session: Session = Depends(get_db)):
+def create_magellon_atlas(
+    session_name: str,
+    db_session: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+):
     """
     Create atlas images for a Magellon session using the Image table.
+
+    **Requires:** Authentication
+    **Security:** User must have write access to the session
     """
     try:
+        logger.warning(f"User {user_id} creating Magellon atlas for session: {session_name}")
+
         # Get the session ID from Msession table
         msession = db_session.query(Msession).filter(Msession.name == session_name).first()
         if not msession:
             raise HTTPException(status_code=404, detail="Session not found")
-        if msession is None:
-            return {"error": "Session not found"}
+
+        # ✅ Check session access
+        if not check_session_access(user_id, msession.oid, action="write"):
+            logger.warning(f"SECURITY: User {user_id} denied Magellon atlas creation for session: {session_name}")
+            raise HTTPException(status_code=403, detail="Access denied to this session")
         try:
             session_id_binary = msession.oid.bytes
         except AttributeError:
@@ -937,9 +998,13 @@ def create_magellon_atlas(session_name: str, db_session: Session = Depends(get_d
         db_session.bulk_save_objects(atlases_to_insert)
         db_session.commit()
 
-        return {"images": images}
+        logger.info(f"User {user_id} successfully created Magellon atlas for session: {session_name}, {len(images)} images")
+        return {"images": images, "created_by": str(user_id)}
 
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Error creating Magellon atlas for user {user_id}, session {session_name}: {str(e)}")
         db_session.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
