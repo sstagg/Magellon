@@ -13,6 +13,7 @@ import py7zr
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+
 from config import app_settings
 from database import get_db
 from models.pydantic_models import ImportJobBase, MagellonImportJobDto, EpuImportJobDto
@@ -21,14 +22,15 @@ from models.relion_pydantic_models import RelionStarFileGenerationResponse, Reli
 from models.pydantic_models import ImportJobBase, MagellonImportJobDto, EpuImportJobDto, SerialEMImportJobDto
 from models.sqlalchemy_models import Msession, Image, ImageMetaData, Project
 from sse_starlette.sse import EventSourceResponse
-from services.job_manager import JobManager,JobStatus
+from services.job_manager import JobManager, JobStatus
 from services.importers.MagellonImporter import MagellonImporter
 from services.importers.import_file_service import ImportFileService
 from services.relion_starfile_service import RelionStarFileService
-
+from dependencies.auth import get_current_user_id
+from dependencies.permissions import require_permission
+from core.sqlalchemy_row_level_security import check_session_access, get_filtered_db
 
 export_router = APIRouter()
-
 logger = logging.getLogger(__name__)
 
 
@@ -255,17 +257,32 @@ def get_project_data(db: Session, project_id: UUID) -> Dict:
     }
 
 @export_router.post("/export")
-async def create_archive(session_name: str, db: Session = Depends(get_db)):
+async def create_archive(
+    session_name: str,
+    db: Session = Depends(get_filtered_db),  # ✅ Auto RLS filtering
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+):
     """
     Endpoint to create an archive from given paths.
+
+    **Requires:** Authentication
+    **Security:** User can only export sessions they have access to (RLS enforced)
 
     Returns:
         dict: Information about created archive
     """
     try:
+        # Query with automatic RLS filtering - user will only see their accessible sessions
         msession = db.query(Msession).filter(            Msession.name == session_name, Msession.GCRecord.is_(None)  ).first()
         if not msession:
-            raise HTTPException(status_code=404, detail="Session not found")
+            raise HTTPException(status_code=404, detail="Session not found or access denied")
+
+        # ✅ Explicit session access check for export operation
+        if not check_session_access(user_id, msession.oid, "read"):
+            logger.warning(f"SECURITY: User {user_id} denied export access to session: {session_name}")
+            raise HTTPException(status_code=403, detail="Access denied to export this session")
+
+        logger.warning(f"User {user_id} exporting session: {session_name} (ID: {msession.oid})")
         # Get project data if available
         project_data = None
         if msession.project_id:
@@ -321,17 +338,36 @@ async def create_archive(session_name: str, db: Session = Depends(get_db)):
 
         # file_path = ImportFileService.get_archive_path(filename)
         # return FileResponse(file_path, filename=filename)
+        logger.info(f"User {user_id} completed export for session: {session_name}")
         return {
             "message": "Archive created successfully",
-            "archive": output_archive
+            "archive": output_archive,
+            "exported_by": str(user_id),
+            "session_name": session_name
         }
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Error during export by user {user_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @export_router.get("/validate-magellon-directory")
-def validate_directory(source_dir: str):
+def validate_directory(
+    source_dir: str,
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+):
+    """
+    Validate that a directory contains valid Magellon data structure.
+
+    **Requires:** Authentication
+    **Security:** Authenticated users can validate directory structures
+
+    Returns:
+    - Dict with validation status and message
+    """
     try:
+        logger.info(f"User {user_id} validating Magellon directory: {source_dir}")
         # Check source directory exists
         if not os.path.exists(source_dir):
             raise HTTPException(status_code=404, detail="Source directory not found")
@@ -355,20 +391,30 @@ def validate_directory(source_dir: str):
         if not os.path.exists(gains_dir):
             raise HTTPException(status_code=400, detail="gains directory not found")
 
+        logger.debug(f"Directory validation successful for user {user_id}")
         return {"status": "valid", "message": "Directory structure is valid"}
 
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error validating directory for user {user_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 
 
 @export_router.post("/magellon-import")
-def import_directory(request: MagellonImportJobDto,  db_session: Session = Depends(get_db)):
+def import_directory(
+    request: MagellonImportJobDto,
+    db_session: Session = Depends(get_db),
+    _: None = Depends(require_permission('msession', 'create')),  # ✅ Permission check
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Audit trail
+):
     """
     Import a session from a directory containing session.json and image files.
+
+    **Requires:** 'create' permission on 'msession' resource
+    **Security:** Only users with session creation permission can import data
 
     Directory structure should be:
     /source_directory
@@ -383,6 +429,7 @@ def import_directory(request: MagellonImportJobDto,  db_session: Session = Depen
             ...
     """
     try:
+        logger.warning(f"User {user_id} importing Magellon data from: {request.source_dir}")
         # Validate source directory exists
         if not os.path.exists(request.source_dir):
             raise HTTPException( status_code=404, detail=f"Source directory not found: {request.source_dir}"  )
@@ -395,19 +442,25 @@ def import_directory(request: MagellonImportJobDto,  db_session: Session = Depen
         if result.get('status') == 'failure':
             raise HTTPException(status_code=500, detail=result.get('message', 'Import failed')  )
 
+        logger.info(f"User {user_id} completed Magellon import: {result.get('session_name')}")
         return {
             "message": "Session imported successfully",
             "session_name": result.get('session_name'),
             # "target_directory": request.target_directory,
-            "job_id": result.get('job_id')
+            "job_id": result.get('job_id'),
+            "imported_by": str(user_id)
         }
 
+    except HTTPException:
+        raise
     except FileNotFoundError as e:
+        logger.error(f"Import failed for user {user_id}: File not found - {str(e)}")
         raise HTTPException(status_code=404, detail=str(e))
     except ValueError as e:
+        logger.error(f"Import failed for user {user_id}: Invalid value - {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Error during import: {str(e)}", exc_info=True)
+        logger.error(f"Error during import by user {user_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
     
@@ -416,14 +469,22 @@ def import_directory(request: MagellonImportJobDto,  db_session: Session = Depen
 
 
 @export_router.get("/job/{job_id}")
-def get_job_status(job_id: str, db_session: Session = Depends(get_db)):
+def get_job_status(
+    job_id: str,
+    db_session: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+):
     """
     Get the current status of a job by job_id using the JobManager.
+
+    **Requires:** Authentication
+    **Security:** Authenticated users can check job status
 
     Returns:
         dict: Current job status including progress, current task, and completion status
     """
     try:
+        logger.debug(f"User {user_id} checking job status: {job_id}")
         # Get job manager instance
         job_manager = JobManager()
 
@@ -460,7 +521,10 @@ def get_job_status(job_id: str, db_session: Session = Depends(get_db)):
         # Return job status from job manager
         return job_data
 
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Error retrieving job status for user {user_id}: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Error retrieving job status: {str(e)}"
@@ -515,9 +579,17 @@ def get_job_status(job_id: str, db_session: Session = Depends(get_db)):
 # Add this to the import_export_controller.py file
 
 @export_router.post("/epu-import")
-def import_epu_directory(request: EpuImportJobDto, db_session: Session = Depends(get_db)):
+def import_epu_directory(
+    request: EpuImportJobDto,
+    db_session: Session = Depends(get_db),
+    _: None = Depends(require_permission('msession', 'create')),  # ✅ Permission check
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Audit trail
+):
     """
     Import EPU data from a directory containing XML metadata and image files.
+
+    **Requires:** 'create' permission on 'msession' resource
+    **Security:** Only users with session creation permission can import EPU data
 
     Directory structure should be an EPU session directory containing XML metadata files
     and associated TIFF/EER image files.
@@ -529,6 +601,7 @@ def import_epu_directory(request: EpuImportJobDto, db_session: Session = Depends
     - Dict with import status and session information
     """
     try:
+        logger.warning(f"User {user_id} importing EPU data from: {request.epu_dir_path}")
         # Validate source directory exists
         if not os.path.exists(request.epu_dir_path):
             raise HTTPException(
@@ -548,25 +621,37 @@ def import_epu_directory(request: EpuImportJobDto, db_session: Session = Depends
                 detail=result.get('message', 'EPU Import failed')
             )
 
+        logger.info(f"User {user_id} completed EPU import: {result.get('session_name')}")
         return {
             "message": "EPU session imported successfully",
             "session_name": result.get('session_name'),
-            "job_id": result.get('job_id')
+            "job_id": result.get('job_id'),
+            "imported_by": str(user_id)
         }
 
+    except HTTPException:
+        raise
     except FileNotFoundError as e:
+        logger.error(f"EPU import failed for user {user_id}: File not found - {str(e)}")
         raise HTTPException(status_code=404, detail=str(e))
     except ValueError as e:
+        logger.error(f"EPU import failed for user {user_id}: Invalid value - {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Error during EPU import: {str(e)}", exc_info=True)
+        logger.error(f"Error during EPU import by user {user_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 # Add this validation endpoint for EPU directories
 @export_router.get("/validate-epu-directory")
-def validate_epu_directory(source_dir: str):
+def validate_epu_directory(
+    source_dir: str,
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+):
     """
     Validate that a directory contains valid EPU data structure.
+
+    **Requires:** Authentication
+    **Security:** Authenticated users can validate directory structures
 
     Parameters:
     - source_dir: Path to the EPU directory
@@ -575,6 +660,7 @@ def validate_epu_directory(source_dir: str):
     - Dict with validation status and message
     """
     try:
+        logger.info(f"User {user_id} validating EPU directory: {source_dir}")
         # Check source directory exists
         if not os.path.exists(source_dir):
             raise HTTPException(status_code=404, detail="Source directory not found")
@@ -597,6 +683,7 @@ def validate_epu_directory(source_dir: str):
         if not matching_files:
             raise HTTPException(status_code=400, detail="No matching XML and image files found")
 
+        logger.debug(f"EPU directory validation successful for user {user_id}: {len(matching_files)} matching files")
         return {
             "status": "valid",
             "message": f"Directory contains valid EPU data with {len(matching_files)} matching files"
@@ -605,6 +692,7 @@ def validate_epu_directory(source_dir: str):
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error validating EPU directory for user {user_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -616,10 +704,14 @@ def validate_epu_directory(source_dir: str):
 @export_router.post("/generate-relion-starfile", response_model=RelionStarFileGenerationResponse)
 def generate_relion_starfile(
         request: RelionStarFileGenerationRequest,
-        db: Session = Depends(get_db)
+        db: Session = Depends(get_filtered_db),  # ✅ Auto RLS filtering
+        user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
 ):
     """
     Generate a RELION star file from database session data.
+
+    **Requires:** Authentication
+    **Security:** User can only generate starfiles for sessions they have access to (RLS enforced)
 
     This endpoint:
     1. Queries the database for session and image data
@@ -636,6 +728,21 @@ def generate_relion_starfile(
     - Dict with generation results and file paths
     """
     try:
+        # ✅ First, verify the session exists and user has access
+        session = db.query(Msession).filter(
+            Msession.name == request.session_name,
+            Msession.GCRecord.is_(None)
+        ).first()
+
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found or access denied")
+
+        # ✅ Explicit access check for generation operation
+        if not check_session_access(user_id, session.oid, "read"):
+            logger.warning(f"SECURITY: User {user_id} denied Relion starfile generation for session: {request.session_name}")
+            raise HTTPException(status_code=403, detail="Access denied to generate starfile for this session")
+
+        logger.info(f"User {user_id} generating Relion starfile for session: {request.session_name}")
         service = RelionStarFileService()
 
         result = service.generate_starfile_from_session(
@@ -648,14 +755,21 @@ def generate_relion_starfile(
             db=db
         )
 
+        logger.info(f"User {user_id} completed Relion starfile generation for session: {request.session_name}")
+        # Add user info to result
+        result['generated_by'] = str(user_id)
         return RelionStarFileGenerationResponse(**result)
 
+    except HTTPException:
+        raise
     except ValueError as e:
+        logger.error(f"Relion starfile generation failed for user {user_id}: Invalid value - {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
     except FileNotFoundError as e:
+        logger.error(f"Relion starfile generation failed for user {user_id}: File not found - {str(e)}")
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        logger.error(f"Error generating RELION star file: {str(e)}", exc_info=True)
+        logger.error(f"Error generating RELION star file for user {user_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -664,10 +778,14 @@ def validate_session_for_starfile(
         session_name: str,
         magnification: Optional[int] = None,
         has_movie: Optional[bool] = None,
-        db: Session = Depends(get_db)
+        db: Session = Depends(get_filtered_db),  # ✅ Auto RLS filtering
+        user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
 ):
     """
     Validate that a session can be used for RELION star file generation.
+
+    **Requires:** Authentication
+    **Security:** User can only validate sessions they have access to (RLS enforced)
 
     Checks:
     - Session exists in database
@@ -683,13 +801,16 @@ def validate_session_for_starfile(
     - Dict with validation status and details
     """
     try:
+        logger.debug(f"User {user_id} validating session for starfile: {session_name}")
         service = RelionStarFileService()
         result = service.validate_session_for_starfile(session_name, magnification, has_movie, db)
 
         return RelionSessionValidationResponse(**result)
 
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error validating session for star file: {str(e)}", exc_info=True)
+        logger.error(f"Error validating session for star file (user {user_id}): {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -698,10 +819,14 @@ def get_session_ctf_summary(
         session_name: str,
         magnification: Optional[int] = None,
         has_movie: Optional[bool] = None,
-        db: Session = Depends(get_db)
+        db: Session = Depends(get_filtered_db),  # ✅ Auto RLS filtering
+        user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
 ):
     """
     Get a summary of CTF parameters for a session with optional filtering.
+
+    **Requires:** Authentication
+    **Security:** User can only query sessions they have access to (RLS enforced)
 
     Useful for checking what CTF data is available before generating star files.
 
@@ -714,14 +839,21 @@ def get_session_ctf_summary(
     - Dict with CTF parameter statistics and availability
     """
     try:
-        # Get session
+        logger.debug(f"User {user_id} requesting CTF summary for session: {session_name}")
+
+        # Get session with RLS filtering - user will only see accessible sessions
         msession = db.query(Msession).filter(
             Msession.name == session_name,
             Msession.GCRecord.is_(None)
         ).first()
 
         if not msession:
-            raise HTTPException(status_code=404, detail=f"Session '{session_name}' not found")
+            raise HTTPException(status_code=404, detail=f"Session '{session_name}' not found or access denied")
+
+        # ✅ Explicit access check
+        if not check_session_access(user_id, msession.oid, "read"):
+            logger.warning(f"SECURITY: User {user_id} denied CTF summary access to session: {session_name}")
+            raise HTTPException(status_code=403, detail="Access denied to this session")
 
         # Build query for images with filters
         query = db.query(Image).filter(
@@ -837,14 +969,22 @@ def get_session_ctf_summary(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting CTF summary: {str(e)}", exc_info=True)
+        logger.error(f"Error getting CTF summary for user {user_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
     
 @export_router.post("/serialem-import")
-def import_serialem_directory(request: SerialEMImportJobDto, db_session: Session = Depends(get_db)):
+def import_serialem_directory(
+    request: SerialEMImportJobDto,
+    db_session: Session = Depends(get_db),
+    _: None = Depends(require_permission('msession', 'create')),  # ✅ Permission check
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Audit trail
+):
     """
     Import SerialEM data from a directory containing metadata and image files.
+
+    **Requires:** 'create' permission on 'msession' resource
+    **Security:** Only users with session creation permission can import SerialEM data
 
     Directory structure should be a SerialEM session directory containing .mdoc files
     and associated TIFF/EER image files.
@@ -856,6 +996,7 @@ def import_serialem_directory(request: SerialEMImportJobDto, db_session: Session
     - Dict with import status and session information
     """
     try:
+        logger.warning(f"User {user_id} importing SerialEM data from: {request.serial_em_dir_path}")
         # Validate source directory exists
         if not os.path.exists(request.serial_em_dir_path):
             raise HTTPException(
@@ -875,16 +1016,22 @@ def import_serialem_directory(request: SerialEMImportJobDto, db_session: Session
                 detail=result.get('message', 'SerialEM Import failed')
             )
 
+        logger.info(f"User {user_id} completed SerialEM import: {result.get('session_name')}")
         return {
             "message": "SerialEM session imported successfully",
             "session_name": result.get('session_name'),
-            "job_id": result.get('job_id')
+            "job_id": result.get('job_id'),
+            "imported_by": str(user_id)
         }
 
+    except HTTPException:
+        raise
     except FileNotFoundError as e:
+        logger.error(f"SerialEM import failed for user {user_id}: File not found - {str(e)}")
         raise HTTPException(status_code=404, detail=str(e))
     except ValueError as e:
+        logger.error(f"SerialEM import failed for user {user_id}: Invalid value - {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Error during SerialEM import: {str(e)}", exc_info=True)
+        logger.error(f"Error during SerialEM import by user {user_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

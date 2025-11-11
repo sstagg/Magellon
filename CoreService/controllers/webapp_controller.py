@@ -416,21 +416,23 @@ def get_image_ctf_data_route(image_name_or_oid: str, db: Session = Depends(get_d
         ImageMetaData.data_json != None,
         ImageMetaData.name=="CTF Meta Data"
     ).first()
-    # if not db_ctf:
-    #     raise HTTPException(status_code=404, detail="CTF data not found")
-    #     # data_json is like : [{"key": "volts", "value": "300000.0"}, {"key": "cs", "value": "2.7"}, {"key": "apix", "value": "0.395"}, {"key": "defocus1", "value": "1.7631689452999998e-06"}, {"key": "defocus2", "value": "1.5946771484000002e-06"}, {"key": "angle_astigmatism", "value": "-1.1467587588191854"}, {"key": "amplitude_contrast", "value": "0.07"}, {"key": "extra_phase_shift", "value": "0.0"}, {"key": "confidence_30_10", "value": "-0.2375991372968843"}, {"key": "confidence_5_peak", "value": "-0.07497673401657018"}, {"key": "overfocus_conf_30_10", "value": "-0.26712254410180497"}, {"key": "overfocus_conf_5_peak", "value": "-0.10697129942661074"}, {"key": "resolution_80_percent", "value": "18.057936148038742"}, {"key": "resolution_50_percent", "value": "16.380544285663692"}, {"key": "confidence", "value": "-0.07497673401657018"}]
-    #     # get re
-    # data_json = db_ctf.data_json
+
+    # Check if CTF data exists
+    if not db_ctf or not db_ctf.data_json:
+        raise HTTPException(status_code=404, detail="CTF data not found for this image")
+
+    # data_json format: [{"key": "CTF", "value": {...}}, ...]
     try:
         ctf_entry = next(item for item in db_ctf.data_json if item['key'] == 'CTF')
         ctf_value = ctf_entry['value']
-        
+
         # If value is a string, it should be a stringified JSON, so we need to parse it
         if isinstance(ctf_value, str):
             ctf_data = json.loads(ctf_value)
         else:
             ctf_data = ctf_value  # If it's already a dictionary, use it directly
-    except (KeyError, StopIteration, json.JSONDecodeError):
+    except (KeyError, StopIteration, json.JSONDecodeError) as e:
+        logger.error(f"Error parsing CTF data for image {image_path}: {str(e)}")
         raise HTTPException(status_code=500, detail="Invalid CTF data format")
 
 
