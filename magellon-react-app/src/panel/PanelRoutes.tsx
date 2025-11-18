@@ -20,6 +20,7 @@ import UserProfilePage from "../account/UserManagement/UserProfilePage.tsx";
 import AccountPage from "../account/UserManagement/page.tsx";
 import ScalarApiDocs from "./pages/ScalarApiDocs.tsx";
 import StoplightApiDocs from "./pages/StoplightApiDocs.tsx";
+import SwaggerApiDocs from "./pages/SwaggerApiDocs.tsx";
 
 // Settings placeholder component
 // Test placeholder component
@@ -67,6 +68,7 @@ export const PanelRoutes = () => {
             <Route path="/api" element={<ApiView />} />
             <Route path="/api-scalar" element={<ScalarApiDocs />} />
             <Route path="/api-stoplight" element={<StoplightApiDocs />} />
+            <Route path="/api-swagger" element={<SwaggerApiDocs />} />
         </Routes>
     );
 };
