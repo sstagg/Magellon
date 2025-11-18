@@ -247,7 +247,7 @@ class LeginonFrameTransferJobService:
 
                     db_image = Image(oid=uuid.uuid4(),
                                      name=filename,
-                                     frame_name=image["frame_names"],
+                                    #  frame_name=image["frame_names"],
                                      magnification=image["mag"],
                                      defocus=image["defocus"],
                                      dose=image["calculated_dose"],
@@ -468,9 +468,10 @@ class LeginonFrameTransferJobService:
                 }
 
                 # Check for gains folder and file
-                gains_dir = os.path.join(MAGELLON_HOME_DIR, task_dto.session_name, "gains")
+                gains_dir = os.path.join(MAGELLON_HOME_DIR, task_dto.job_dto.session_name, "gains")
+                defects_dir = os.path.join(MAGELLON_HOME_DIR, task_dto.job_dto.session_name, "defects")
                 gain_path = None
-
+                defects_path=None
                 if os.path.exists(gains_dir):
                     gain_files = [
                         os.path.join(gains_dir, f)
@@ -480,7 +481,14 @@ class LeginonFrameTransferJobService:
                     if gain_files:
                         # Take the first file (or you can sort if needed)
                         gain_path = gain_files[0]
-
+                if os.path.exists(defects_dir):
+                    defects_files = [
+                        os.path.join(defects_dir, f)
+                        for f in os.listdir(defects_dir)
+                        if os.path.isfile(os.path.join(defects_dir, f))
+                    ]
+                    if defects_files:
+                        defects_path = defects_files[0]
                 # Dispatch task depending on whether gain_path exists
                 if gain_path:
                     dispatch_motioncor_task(
@@ -488,6 +496,7 @@ class LeginonFrameTransferJobService:
                         gain_path=gain_path,  # ✅ use found gain file
                         full_image_path=abs_file_path,
                         task_dto=task_dto,
+                        defects_path=defects_path,
                         motioncor_settings=settings
                     )
                 else:
@@ -496,6 +505,7 @@ class LeginonFrameTransferJobService:
                         task_id=task_dto.task_id,
                         full_image_path=abs_file_path,
                         task_dto=task_dto,
+                        defects_path=defects_path,
                         motioncor_settings=settings
                     )
 
