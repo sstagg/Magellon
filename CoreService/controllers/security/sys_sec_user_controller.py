@@ -13,7 +13,8 @@ from dependencies.permissions import require_permission, require_role
 from models.pydantic_models import (
     SysSecUserCreateDto,
     SysSecUserUpdateDto,
-    SysSecUserResponseDto
+    SysSecUserResponseDto,
+    PasswordHashRequest
 )
 from repositories.security.sys_sec_user_repository import SysSecUserRepository
 
@@ -594,3 +595,73 @@ def get_user_count(
         "total_users": count,
         "include_inactive": include_inactive
     }
+
+
+@sys_sec_user_router.post('/generate-password-hash')
+async def generate_password_hash(request: PasswordHashRequest):
+    """
+    Generate bcrypt password hash for manual database recovery.
+
+    **PUBLIC ENDPOINT** - No authentication required.
+
+    **Use Case:**
+    When system administrator loses password and needs to manually update
+    the sys_sec_user.PASSWORD field in the database.
+
+    **Security Notes:**
+    - This endpoint is public because admin cannot authenticate if password is lost
+    - Should only be accessible in secure environments (localhost/internal network)
+    - All requests are logged for security audit trail
+    - Generated hash can be directly inserted into sys_sec_user.PASSWORD field
+
+    **Usage:**
+    1. Call this endpoint with the new password to get the bcrypt hash
+    2. Manually execute SQL to update the password:
+       ```sql
+       UPDATE sys_sec_user
+       SET PASSWORD = '<generated_hash>'
+       WHERE USERNAME = 'admin';
+       ```
+    3. Admin can now login with the new password
+
+    **Example Request:**
+    ```json
+    {
+        "password": "NewSecurePassword123"
+    }
+    ```
+
+    **Example Response:**
+    ```json
+    {
+        "password_hash": "$2b$12$...",
+        "sql_example": "UPDATE sys_sec_user SET PASSWORD = '$2b$12$...' WHERE USERNAME = 'admin';",
+        "note": "Copy the password_hash value and use it in the SQL UPDATE statement"
+    }
+    ```
+    """
+    # Log for security audit trail (without logging the actual password)
+    logger.warning(
+        "PUBLIC ENDPOINT ACCESSED: Password hash generation requested. "
+        "This should only be used for administrator password recovery. "
+        "Verify this request is legitimate."
+    )
+
+    try:
+        # Generate bcrypt hash using the same function used for user creation
+        hashed = hash_password(request.password)
+
+        logger.info("Password hash generated successfully")
+
+        return {
+            "password_hash": hashed,
+            "sql_example": f"UPDATE sys_sec_user SET PASSWORD = '{hashed}' WHERE USERNAME = 'admin';",
+            "note": "Copy the password_hash value and use it in the SQL UPDATE statement to recover admin access"
+        }
+
+    except Exception as e:
+        logger.exception("Error generating password hash")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error generating password hash"
+        )

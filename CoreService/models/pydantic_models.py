@@ -457,3 +457,12 @@ class SysSecUserResponseDto(BaseModel):
     object_type: Optional[int] = Field(None, alias="ObjectType")
     access_failed_count: Optional[int] = Field(None, alias="AccessFailedCount")
     lockout_end: Optional[datetime] = Field(None, alias="LockoutEnd")
+
+
+class PasswordHashRequest(BaseModel):
+    """
+    Request model for generating password hash for manual database recovery.
+    This is used when system administrator loses password and needs to manually
+    update the sys_sec_user.PASSWORD field.
+    """
+    password: str = Field(..., min_length=6, description="Plain text password to hash")
