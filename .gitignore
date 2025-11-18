@@ -71,3 +71,6 @@ Docker/.env
 Docker/.env.backup
 Docker/.env.tmp
 Docker/.env
+
+# Security setup marker file (auto-disable)
+.security_setup_completed

@@ -3,9 +3,10 @@ Authentication Controller
 
 Provides login, logout, token management, and system setup endpoints.
 """
-from datetime import timedelta
+from datetime import timedelta, datetime
 from typing import Optional
 from uuid import UUID
+import os
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -301,6 +302,7 @@ async def setup_security_system(
     **Security:**
     - Can be disabled via `security_setup_settings.ENABLED` in config
     - Optional setup_token can be required for extra security
+    - AUTO_DISABLE: Automatically disables after first successful run (production)
     - Idempotent - safe to run multiple times (won't duplicate data)
 
     **What it does:**
@@ -308,6 +310,7 @@ async def setup_security_system(
     2. Creates "Administrator" role if doesn't exist (with full permissions)
     3. Assigns Administrator role to user if not already assigned
     4. Syncs permissions to Casbin authorization system
+    5. Creates marker file to prevent future runs (if AUTO_DISABLE is true)
 
     **Request Body:**
     ```json
@@ -327,14 +330,28 @@ async def setup_security_system(
         "role_assigned": true,
         "user_id": "353aefbf-bd03-192d-6b46-efbfbdefbfbd",
         "username": "super",
-        "role": "Administrator"
+        "role": "Administrator",
+        "auto_disabled": true
     }
     ```
 
-    **Production Note:**
-    Disable this endpoint after initial setup by setting `security_setup_settings.ENABLED: false` in production config.
+    **Auto-Disable Feature:**
+    If `AUTO_DISABLE: true` in config, the endpoint automatically disables itself after first successful run
+    by creating a `.security_setup_completed` marker file. To re-enable, delete this file.
     """
     logger.warning("SECURITY SETUP ENDPOINT ACCESSED - This should only be used during initial installation")
+
+    # Define marker file path for auto-disable
+    setup_marker_file = os.path.join(os.getcwd(), '.security_setup_completed')
+
+    # Check if setup has already been completed (auto-disable)
+    if app_settings.security_setup_settings.AUTO_DISABLE and os.path.exists(setup_marker_file):
+        logger.error("Setup has already been completed and is now disabled")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Setup has already been completed. This endpoint has been automatically disabled for security. "
+                   f"To re-enable, delete the marker file: {setup_marker_file}"
+        )
 
     # Check if setup is enabled
     if not app_settings.security_setup_settings.ENABLED:
@@ -426,15 +443,37 @@ async def setup_security_system(
 
         logger.info(f"Security setup completed for user: {request.username}")
 
+        # Create marker file for auto-disable (if enabled)
+        auto_disabled = False
+        if app_settings.security_setup_settings.AUTO_DISABLE:
+            try:
+                with open(setup_marker_file, 'w') as f:
+                    f.write(f"Setup completed at: {datetime.now().isoformat()}\n")
+                    f.write(f"User: {request.username}\n")
+                    f.write(f"User ID: {user.oid}\n")
+                    f.write(f"Environment: {app_settings.ENV_TYPE or 'unknown'}\n")
+                auto_disabled = True
+                logger.warning(f"Setup endpoint auto-disabled. Marker file created: {setup_marker_file}")
+            except Exception as e:
+                logger.error(f"Failed to create setup marker file: {str(e)}")
+                # Don't fail the entire setup if marker file creation fails
+
+        response_message = "Security system setup completed successfully"
+        if auto_disabled:
+            response_message += ". Setup endpoint has been automatically disabled."
+
         return {
-            "message": "Security system setup completed successfully",
+            "message": response_message,
             "user_created": user_created,
             "role_created": role_created,
             "role_assigned": role_assigned,
             "user_id": str(user.oid),
             "username": user.USERNAME,
             "role": "Administrator",
-            "note": "User has full administrative permissions. Disable setup endpoint in production config after installation."
+            "auto_disabled": auto_disabled,
+            "marker_file": setup_marker_file if auto_disabled else None,
+            "note": "User has full administrative permissions." +
+                    (" Setup endpoint is now disabled." if auto_disabled else " Disable setup endpoint in production config after installation.")
         }
 
     except Exception as e:
