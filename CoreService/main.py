@@ -99,39 +99,68 @@ production_intilization()
 # logger.addHandler(handler)
 
 # Initialize HTTP Basic Authentication for API docs
-security = HTTPBasic()
+security = HTTPBasic(auto_error=False)
 
-def verify_docs_credentials(credentials: HTTPBasicCredentials = Depends(security)):
+def verify_docs_credentials(
+    request: Request,
+    credentials: HTTPBasicCredentials = Depends(security)
+):
     """
-    Verify HTTP Basic Authentication credentials for API documentation access.
+    Verify authentication credentials for API documentation access.
 
-    Uses credentials from app_settings.api_docs_settings configuration.
-    Protects /docs and /openapi.json endpoints.
+    Supports TWO authentication methods:
+    1. HTTP Basic Auth - username/password from api_docs_settings
+    2. JWT Bearer Token - same token used for API endpoints
+
+    Users can authenticate using either method.
     """
     if not app_settings.api_docs_settings.ENABLED:
         # If authentication is disabled, allow access
         return True
 
-    # Use secrets.compare_digest to prevent timing attacks
-    correct_username = secrets.compare_digest(
-        credentials.username.encode("utf8"),
-        app_settings.api_docs_settings.USERNAME.encode("utf8")
-    )
-    correct_password = secrets.compare_digest(
-        credentials.password.encode("utf8"),
-        app_settings.api_docs_settings.PASSWORD.encode("utf8")
-    )
+    # Method 1: Try JWT Bearer Token authentication first
+    authorization = request.headers.get("Authorization")
+    if authorization and authorization.startswith("Bearer "):
+        try:
+            # Import here to avoid circular imports
+            from dependencies.auth import decode_token
 
-    if not (correct_username and correct_password):
-        logger.warning(f"Failed API docs authentication attempt from username: {credentials.username}")
-        raise HTTPException(
-            status_code=starlette_status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials for API documentation",
-            headers={"WWW-Authenticate": "Basic"},
+            token = authorization.replace("Bearer ", "")
+            payload = decode_token(token)
+
+            if payload:
+                user_id = payload.get("sub")
+                username = payload.get("username", "unknown")
+                logger.info(f"Successful API docs authentication via JWT for user: {username}")
+                return True
+        except Exception as e:
+            logger.debug(f"JWT token validation failed for docs access: {str(e)}")
+            # Fall through to Basic Auth
+
+    # Method 2: Try HTTP Basic Authentication
+    if credentials:
+        # Use secrets.compare_digest to prevent timing attacks
+        correct_username = secrets.compare_digest(
+            credentials.username.encode("utf8"),
+            app_settings.api_docs_settings.USERNAME.encode("utf8")
+        )
+        correct_password = secrets.compare_digest(
+            credentials.password.encode("utf8"),
+            app_settings.api_docs_settings.PASSWORD.encode("utf8")
         )
 
-    logger.info(f"Successful API docs authentication for user: {credentials.username}")
-    return True
+        if correct_username and correct_password:
+            logger.info(f"Successful API docs authentication via Basic Auth for user: {credentials.username}")
+            return True
+        else:
+            logger.warning(f"Failed API docs Basic Auth attempt from username: {credentials.username}")
+
+    # Both methods failed
+    raise HTTPException(
+        status_code=starlette_status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid credentials for API documentation. Use HTTP Basic Auth (username/password) or Bearer token.",
+        headers={"WWW-Authenticate": "Basic"},
+    )
 
 # Disable default docs and openapi endpoints
 app = FastAPI(

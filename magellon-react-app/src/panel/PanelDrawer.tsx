@@ -86,6 +86,23 @@ const navLinks: NavLink[] = [
         title: "About",
         url: "about",
         icon: <CircleUserIcon size={20}/>
+    },
+    {
+        title: "API Docs",
+        url: "api-docs",
+        icon: <BrainCircuit size={20} />,
+        children: [
+            {
+                title: "Scalar",
+                url: "api-scalar",
+                icon: <BrainCircuit size={20} />
+            },
+            {
+                title: "Stoplight",
+                url: "api-stoplight",
+                icon: <BrainCircuit size={20} />
+            }
+        ]
     }
 
     // {
