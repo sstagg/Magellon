@@ -309,12 +309,38 @@ def get_image_route(
 
 
 @webapp_router.get('/fft_image')
-def get_fft_image_route(name: str,sessionName:str):
+def get_fft_image_route(
+    name: str,
+    sessionName: str,
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+):
+    """
+    Get FFT image file.
+
+    **Requires:** Authentication
+    **Security:** User must have access to the session
+    """
     if sessionName:
-        session_name=sessionName.lower()
+        session_name = sessionName.lower()
     else:
         underscore_index = name.find('_')
         session_name = name[:underscore_index].lower()
+
+    logger.debug(f"User {user_id} requesting FFT image: {name} from session: {session_name}")
+
+    # ✅ Verify session exists and check access
+    db_session = next(get_db())
+    try:
+        msession = db_session.query(Msession).filter(Msession.name == session_name).first()
+        if not msession:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        if not check_session_access(user_id, msession.oid, action="read"):
+            logger.warning(f"SECURITY: User {user_id} denied FFT image access for session: {session_name}")
+            raise HTTPException(status_code=403, detail="Access denied to this session")
+    finally:
+        db_session.close()
+
     file_path = f"{app_settings.directory_settings.MAGELLON_HOME_DIR}/{session_name}/{FFT_SUB_URL}{name}{FFT_SUFFIX}"
     return FileResponse(file_path, media_type='image/png')
 
@@ -322,11 +348,29 @@ def get_fft_image_route(name: str,sessionName:str):
 
 # Endpoint to get image metadata
 @webapp_router.get("/images/{image_id}/metadata")#, response_model=List[CategoryResponse]
-def get_image_metadata(image_id: str, db: Session = Depends(get_db)):
+def get_image_metadata(
+    image_id: str,
+    db: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+):
+    """
+    Get metadata for a specific image.
+
+    **Requires:** Authentication
+    **Security:** User must have access to the image's session
+    """
+    logger.debug(f"User {user_id} requesting metadata for image: {image_id}")
+
     # Fetch the image by its ID (name field in this case)
     db_image = db.query(Image).filter_by(name=image_id).first()
     if not db_image:
         raise HTTPException(status_code=404, detail="Image not found.")
+
+    # ✅ Check session access
+    if db_image.session_id:
+        if not check_session_access(user_id, db_image.session_id, action="read"):
+            logger.warning(f"SECURITY: User {user_id} denied metadata access to image: {image_id}")
+            raise HTTPException(status_code=403, detail="Access denied to this image")
 
     # Fetch all metadata associated with the image
     metas = db.query(ImageMetaData).filter(ImageMetaData.image_id == db_image.oid).all()
@@ -394,7 +438,19 @@ def get_image_metadata(image_id: str, db: Session = Depends(get_db)):
 
 
 @webapp_router.get('/ctf-info')
-def get_image_ctf_data_route(image_name_or_oid: str, db: Session = Depends(get_db)):
+def get_image_ctf_data_route(
+    image_name_or_oid: str,
+    db: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+):
+    """
+    Get CTF (Contrast Transfer Function) data for an image.
+
+    **Requires:** Authentication
+    **Security:** User must have access to the image's session
+    """
+    logger.debug(f"User {user_id} requesting CTF data for image: {image_name_or_oid}")
+
     try:
         try:
             # Attempt to convert image_name_or_oid to UUID
@@ -408,6 +464,12 @@ def get_image_ctf_data_route(image_name_or_oid: str, db: Session = Depends(get_d
         if not db_image:
             return HTTPException(status_code=404, detail="Image not found")
 
+        # ✅ Check session access
+        if db_image.session_id:
+            if not check_session_access(user_id, db_image.session_id, action="read"):
+                logger.warning(f"SECURITY: User {user_id} denied CTF data access to image: {image_name_or_oid}")
+                raise HTTPException(status_code=403, detail="Access denied to this image")
+
     except NoResultFound:
         return HTTPException(status_code=404, detail="Image not found")
 
@@ -416,21 +478,23 @@ def get_image_ctf_data_route(image_name_or_oid: str, db: Session = Depends(get_d
         ImageMetaData.data_json != None,
         ImageMetaData.name=="CTF Meta Data"
     ).first()
-    # if not db_ctf:
-    #     raise HTTPException(status_code=404, detail="CTF data not found")
-    #     # data_json is like : [{"key": "volts", "value": "300000.0"}, {"key": "cs", "value": "2.7"}, {"key": "apix", "value": "0.395"}, {"key": "defocus1", "value": "1.7631689452999998e-06"}, {"key": "defocus2", "value": "1.5946771484000002e-06"}, {"key": "angle_astigmatism", "value": "-1.1467587588191854"}, {"key": "amplitude_contrast", "value": "0.07"}, {"key": "extra_phase_shift", "value": "0.0"}, {"key": "confidence_30_10", "value": "-0.2375991372968843"}, {"key": "confidence_5_peak", "value": "-0.07497673401657018"}, {"key": "overfocus_conf_30_10", "value": "-0.26712254410180497"}, {"key": "overfocus_conf_5_peak", "value": "-0.10697129942661074"}, {"key": "resolution_80_percent", "value": "18.057936148038742"}, {"key": "resolution_50_percent", "value": "16.380544285663692"}, {"key": "confidence", "value": "-0.07497673401657018"}]
-    #     # get re
-    # data_json = db_ctf.data_json
+
+    # Check if CTF data exists
+    if not db_ctf or not db_ctf.data_json:
+        raise HTTPException(status_code=404, detail="CTF data not found for this image")
+
+    # data_json format: [{"key": "CTF", "value": {...}}, ...]
     try:
         ctf_entry = next(item for item in db_ctf.data_json if item['key'] == 'CTF')
         ctf_value = ctf_entry['value']
-        
+
         # If value is a string, it should be a stringified JSON, so we need to parse it
         if isinstance(ctf_value, str):
             ctf_data = json.loads(ctf_value)
         else:
             ctf_data = ctf_value  # If it's already a dictionary, use it directly
-    except (KeyError, StopIteration, json.JSONDecodeError):
+    except (KeyError, StopIteration, json.JSONDecodeError) as e:
+        logger.error(f"Error parsing CTF data for image {image_path}: {str(e)}")
         raise HTTPException(status_code=500, detail="Invalid CTF data format")
 
 
@@ -453,12 +517,39 @@ def get_image_ctf_data_route(image_name_or_oid: str, db: Session = Depends(get_d
 
 
 @webapp_router.get('/ctf_image')
-def get_ctf_image_route(name: str, image_type: str,sessionName:str):
+def get_ctf_image_route(
+    name: str,
+    image_type: str,
+    sessionName: str,
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+):
+    """
+    Get CTF image file (powerspec or plots).
+
+    **Requires:** Authentication
+    **Security:** User must have access to the session
+    """
     try:
         if sessionName:
-            session_name=sessionName.lower()
+            session_name = sessionName.lower()
         else:
             session_name = name.split('_', 1)[0].lower()  # Use split instead of find
+
+        logger.debug(f"User {user_id} requesting CTF image: {name} type: {image_type} from session: {session_name}")
+
+        # ✅ Verify session exists and check access
+        db_session = next(get_db())
+        try:
+            msession = db_session.query(Msession).filter(Msession.name == session_name).first()
+            if not msession:
+                raise HTTPException(status_code=404, detail="Session not found")
+
+            if not check_session_access(user_id, msession.oid, action="read"):
+                logger.warning(f"SECURITY: User {user_id} denied CTF image access for session: {session_name}")
+                raise HTTPException(status_code=403, detail="Access denied to this session")
+        finally:
+            db_session.close()
+
         base_path = os.path.join(app_settings.directory_settings.MAGELLON_HOME_DIR, session_name, CTF_SUB_URL, name)
         
 
@@ -481,12 +572,39 @@ def get_ctf_image_route(name: str, image_type: str,sessionName:str):
         print(f"Error fetching CTF image: {e}")
         return get_image_not_found()
 @webapp_router.get('/fao_image')
-def get_ctf_image_route(name: str, image_type: str,sessionName:str):
+def get_fao_image_route(
+    name: str,
+    image_type: str,
+    sessionName: str,
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+):
+    """
+    Get FAO (Focus Area Overview) image file.
+
+    **Requires:** Authentication
+    **Security:** User must have access to the session
+    """
     try:
         if sessionName:
-            session_name=sessionName.lower()
+            session_name = sessionName.lower()
         else:
             session_name = name.split('_', 1)[0].lower()  # Use split instead of find
+
+        logger.debug(f"User {user_id} requesting FAO image: {name} type: {image_type} from session: {session_name}")
+
+        # ✅ Verify session exists and check access
+        db_session = next(get_db())
+        try:
+            msession = db_session.query(Msession).filter(Msession.name == session_name).first()
+            if not msession:
+                raise HTTPException(status_code=404, detail="Session not found")
+
+            if not check_session_access(user_id, msession.oid, action="read"):
+                logger.warning(f"SECURITY: User {user_id} denied FAO image access for session: {session_name}")
+                raise HTTPException(status_code=403, detail="Access denied to this session")
+        finally:
+            db_session.close()
+
         base_path = os.path.join(app_settings.directory_settings.MAGELLON_HOME_DIR, session_name, FAO_SUB_URL, name)
 
 
@@ -511,10 +629,28 @@ def get_ctf_image_route(name: str, image_type: str,sessionName:str):
 
 
 @webapp_router.get('/image_info')
-def get_image_data_route(name: str, db: Session = Depends(get_db)):
+def get_image_data_route(
+    name: str,
+    db: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+):
+    """
+    Get image metadata (defocus, pixel size, magnification, dose).
+
+    **Requires:** Authentication
+    **Security:** User must have access to the image's session
+    """
+    logger.debug(f"User {user_id} requesting image info for: {name}")
+
     db_image = ImageRepository.fetch_by_name(db, name)
     if db_image is None:
         raise HTTPException(status_code=404, detail="image not found with the given name")
+
+    # ✅ Check session access
+    if db_image.session_id:
+        if not check_session_access(user_id, db_image.session_id, action="read"):
+            logger.warning(f"SECURITY: User {user_id} denied image info access to: {name}")
+            raise HTTPException(status_code=403, detail="Access denied to this image")
 
     result = {
         "filename": db_image.name,
@@ -529,7 +665,28 @@ def get_image_data_route(name: str, db: Session = Depends(get_db)):
 
 
 @webapp_router.get('/parent_child')
-def get_correct_image_parent_child(name: str, db_session: Session = Depends(get_db)):
+def get_correct_image_parent_child(
+    name: str,
+    db_session: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+):
+    """
+    Update parent-child relationships for images in a session.
+
+    **Requires:** Authentication
+    **Security:** User must have write access to the session
+    """
+    logger.info(f"User {user_id} updating parent-child relationships for session: {name}")
+
+    # ✅ Verify session exists and check access
+    msession = db_session.query(Msession).filter(Msession.name == name).first()
+    if not msession:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    if not check_session_access(user_id, msession.oid, action="write"):
+        logger.warning(f"SECURITY: User {user_id} denied parent-child update for session: {name}")
+        raise HTTPException(status_code=403, detail="Access denied to this session")
+
     db_image_list = ImageRepository.fetch_all_by_session_name(db_session, name)
     if not db_image_list:
         raise HTTPException(status_code=404, detail="images not found with the given name")
@@ -543,13 +700,26 @@ def get_correct_image_parent_child(name: str, db_session: Session = Depends(get_
 
     db_session.bulk_save_objects(db_image_list)
     db_session.commit()
+    logger.info(f"User {user_id} successfully updated parent-child relationships for session: {name}")
     return {'result': "Done!"}
 
 
 @webapp_router.post("/particle-pickings", summary="creates particle picking metadata for a given image and returns it",
                     status_code=201)
-async def create_particle_picking(meta_name: str = Query(...), image_name_or_oid: str = Query(...),
-                                  db: Session = Depends(get_db)):
+async def create_particle_picking(
+    meta_name: str = Query(...),
+    image_name_or_oid: str = Query(...),
+    db: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+):
+    """
+    Create particle picking metadata for an image.
+
+    **Requires:** Authentication
+    **Security:** User must have write access to the image's session
+    """
+    logger.info(f"User {user_id} creating particle picking metadata: {meta_name} for image: {image_name_or_oid}")
+
     try:
         try:
             # Attempt to convert image_name_or_oid to UUID
@@ -562,6 +732,12 @@ async def create_particle_picking(meta_name: str = Query(...), image_name_or_oid
 
         if not image:
             return HTTPException(status_code=404, detail="Image not found")
+
+        # ✅ Check session access
+        if image.session_id:
+            if not check_session_access(user_id, image.session_id, action="write"):
+                logger.warning(f"SECURITY: User {user_id} denied particle picking creation for image: {image_name_or_oid}")
+                raise HTTPException(status_code=403, detail="Access denied to this image")
 
     except NoResultFound:
         # db.close()
@@ -596,7 +772,29 @@ async def create_particle_picking(meta_name: str = Query(...), image_name_or_oid
 
 
 @webapp_router.get('/particle-pickings')
-def get_image_particles(img_name: str, db: Session = Depends(get_db)):
+def get_image_particles(
+    img_name: str,
+    db: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+):
+    """
+    Get particle picking metadata for an image.
+
+    **Requires:** Authentication
+    **Security:** User must have access to the image's session
+    """
+    logger.debug(f"User {user_id} requesting particle pickings for image: {img_name}")
+
+    # ✅ First check if user has access to this image's session
+    db_image = db.query(Image).filter(Image.name == img_name).first()
+    if not db_image:
+        raise HTTPException(status_code=404, detail="Image not found")
+
+    if db_image.session_id:
+        if not check_session_access(user_id, db_image.session_id, action="read"):
+            logger.warning(f"SECURITY: User {user_id} denied particle pickings access to image: {img_name}")
+            raise HTTPException(status_code=403, detail="Access denied to this image")
+
     result = db.query(ImageMetaData). \
         join(Image, ImageMetaData.image_id == Image.oid). \
         filter(Image.name == img_name). \
@@ -620,54 +818,196 @@ def get_image_particles(img_name: str, db: Session = Depends(get_db)):
 
 
 @webapp_router.get('/particles/{oid}', summary="gets an image particles json by its unique id")
-async def get_image_particle_by_id(oid: UUID, db: Session = Depends(get_db)):
+async def get_image_particle_by_id(
+    oid: UUID,
+    db: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+):
+    """
+    Get particle picking data by metadata OID.
+
+    **Requires:** Authentication
+    **Security:** User must have access to the image's session
+    """
+    logger.debug(f"User {user_id} requesting particle by OID: {oid}")
+
     ppji = db.query(ImageMetaData).filter(ImageMetaData.Oid == oid).all()
     if not ppji:
         raise HTTPException(status_code=404, detail="No Particlepickingjobitem found for Image")
-    return ppji[0].data
+
+    # ✅ Check session access via the image
+    metadata = ppji[0]
+    if metadata.image_id:
+        db_image = db.query(Image).filter(Image.oid == metadata.image_id).first()
+        if db_image and db_image.session_id:
+            if not check_session_access(user_id, db_image.session_id, action="read"):
+                logger.warning(f"SECURITY: User {user_id} denied particle access for OID: {oid}")
+                raise HTTPException(status_code=403, detail="Access denied to this particle data")
+
+    return metadata.data
 
 
 @webapp_router.put("/particle-pickings", summary="Update particle picking data")
-async def update_particle_picking(body_req: ParticlePickingDto, db_session: Session = Depends(get_db)):
+async def update_particle_picking(
+    body_req: ParticlePickingDto,
+    db_session: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+):
+    """
+    Update particle picking data.
+
+    **Requires:** Authentication
+    **Security:** User must have write access to the image's session
+    """
+    logger.info(f"User {user_id} updating particle picking: {body_req.oid}")
+
     try:
         image_meta_data = db_session.query(ImageMetaData).filter(ImageMetaData.oid == body_req.oid).first()
         if not image_meta_data:
             raise HTTPException(status_code=404, detail="Particle picking  not found")
+
+        # ✅ Check session access via the image
+        if image_meta_data.image_id:
+            db_image = db_session.query(Image).filter(Image.oid == image_meta_data.image_id).first()
+            if db_image and db_image.session_id:
+                if not check_session_access(user_id, db_image.session_id, action="write"):
+                    logger.warning(f"SECURITY: User {user_id} denied particle picking update for OID: {body_req.oid}")
+                    raise HTTPException(status_code=403, detail="Access denied to update this particle data")
+
         if body_req.data:
             image_meta_data.data_json = json.loads(body_req.data)
 
         # db_session.merge(body_req)
         db_session.commit()
         db_session.refresh(image_meta_data)
+        logger.info(f"User {user_id} successfully updated particle picking: {body_req.oid}")
     except Exception as e:
         db_session.rollback()
         raise HTTPException(status_code=500, detail=f"Error updating Particle picking : {str(e)}")
     return image_meta_data
 
 
+@webapp_router.get("/debug/casbin-check")
+async def debug_casbin_check(
+    session_name: str,
+    user_id: UUID = Depends(get_current_user_id)
+):
+    """
+    Debug endpoint to check Casbin configuration and access.
+
+    **Requires:** Authentication
+    """
+    from services.casbin_service import CasbinService
+
+    # Force reload policies
+    enforcer = CasbinService.get_enforcer()
+    enforcer.load_policy()
+
+    # Get session
+    db_session = next(get_db())
+    try:
+        msession = db_session.query(Msession).filter(Msession.name == session_name.lower()).first()
+        if not msession:
+            return {"error": "Session not found"}
+
+        # Check access
+        resource = f"msession:{msession.oid}"
+        access_result = CasbinService.enforce(str(user_id), resource, "read")
+
+        # Get user roles
+        roles = enforcer.get_roles_for_user(str(user_id))
+
+        # Get relevant policies
+        admin_policies = enforcer.get_filtered_policy(0, "Administrator")
+        msession_policies = [p for p in admin_policies if "msession" in p[1]]
+
+        return {
+            "user_id": str(user_id),
+            "session_name": session_name,
+            "session_oid": str(msession.oid),
+            "resource": resource,
+            "access_granted": access_result,
+            "user_roles": roles,
+            "administrator_msession_policies": msession_policies,
+            "model_path": "configs/casbin_model.conf"
+        }
+    finally:
+        db_session.close()
+
+
 @webapp_router.get("/image_thumbnail")
-async def get_image_thumbnail(name: str,sessionName:str):
+async def get_image_thumbnail(
+    name: str,
+    sessionName: str,
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+):
+    """
+    Get image thumbnail file.
+
+    **Requires:** Authentication
+    **Security:** User must have access to the session
+    """
     if sessionName:
-        session_name=sessionName.lower()
+        session_name = sessionName.lower()
     else:
         underscore_index = name.find('_')
         session_name = name[:underscore_index].lower()
+
+    logger.info(f"[THUMBNAIL] User {user_id} requesting thumbnail: {name} from session: {session_name}")
+
+    # ✅ Verify session exists and check access
+    db_session = next(get_db())
+    try:
+        msession = db_session.query(Msession).filter(Msession.name == session_name).first()
+        if not msession:
+            logger.error(f"[THUMBNAIL] Session not found: {session_name}")
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        logger.info(f"[THUMBNAIL] Found session {session_name}, OID: {msession.oid}")
+
+        access_granted = check_session_access(user_id, msession.oid, action="read")
+        logger.info(f"[THUMBNAIL] Access check result for user {user_id} on session {msession.oid}: {access_granted}")
+
+        if not access_granted:
+            logger.warning(f"[THUMBNAIL] SECURITY: User {user_id} denied thumbnail access for session: {session_name} (OID: {msession.oid})")
+            raise HTTPException(status_code=403, detail="Access denied to this session")
+
+        logger.info(f"[THUMBNAIL] Access granted, serving file: {name}")
+    finally:
+        db_session.close()
+
     file_path = f"{app_settings.directory_settings.MAGELLON_HOME_DIR}/{session_name}/{IMAGE_SUB_URL}{name}.png"
-    print(file_path)
+
     # Check if the file exists
     if not os.path.exists(file_path):
-        # error_message = {"error": "Image not found"}
-        # return JSONResponse(error_message, status_code=404)
         return get_image_not_found()
 
     return FileResponse(file_path, media_type='image/png')
 
 
 @webapp_router.get("/atlases", response_model=List[AtlasDto])
-async def get_session_atlases(session_name: str, db_session: Session = Depends(get_db)):
+async def get_session_atlases(
+    session_name: str,
+    db_session: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+):
+    """
+    Get all atlases for a session.
+
+    **Requires:** Authentication
+    **Security:** User must have access to the session
+    """
+    logger.debug(f"User {user_id} requesting atlases for session: {session_name}")
+
     msession = db_session.query(Msession).filter(Msession.name == session_name).first()
     if msession is None:
         return {"error": "Session not found"}
+
+    # ✅ Check session access
+    if not check_session_access(user_id, msession.oid, action="read"):
+        logger.warning(f"SECURITY: User {user_id} denied atlas access for session: {session_name}")
+        raise HTTPException(status_code=403, detail="Access denied to this session")
+
     try:
         return db_session.query(Atlas).filter(Atlas.session_id == msession.oid).all()
     # session_id_binary = msession.Oid.bytes
@@ -676,39 +1016,100 @@ async def get_session_atlases(session_name: str, db_session: Session = Depends(g
 
 
 @webapp_router.get("/atlas-image")
-async def get_atlas_image(name: str,sessionName:str):
+async def get_atlas_image(
+    name: str,
+    sessionName: str,
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+):
+    """
+    Get atlas image file.
+
+    **Requires:** Authentication
+    **Security:** User must have access to the session
+    """
     if sessionName:
-        session_name=sessionName.lower()
+        session_name = sessionName.lower()
     else:
         underscore_index = name.find('_')
         session_name = name[:underscore_index].lower()
+
+    logger.debug(f"User {user_id} requesting atlas image: {name} from session: {session_name}")
+
+    # ✅ Verify session exists and check access
+    db_session = next(get_db())
+    try:
+        msession = db_session.query(Msession).filter(Msession.name == session_name).first()
+        if not msession:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        if not check_session_access(user_id, msession.oid, action="read"):
+            logger.warning(f"SECURITY: User {user_id} denied atlas image access for session: {session_name}")
+            raise HTTPException(status_code=403, detail="Access denied to this session")
+    finally:
+        db_session.close()
+
     file_path = f"{app_settings.directory_settings.MAGELLON_HOME_DIR}/{session_name}/{ATLAS_SUB_URL}/{name}.png"
+
     # Check if the file exists
     if not os.path.exists(file_path):
-        # error_message = {"error": "Image not found"}
-        # return JSONResponse(error_message, status_code=404)
         return get_image_not_found()
 
     return FileResponse(file_path, media_type='image/png')
 
 
 @webapp_router.get("/image_thumbnail_url")
-async def get_image_thumbnail_url(name: str):
+async def get_image_thumbnail_url(
+    name: str,
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+):
+    """
+    Get the thumbnail URL for an image.
+
+    **Requires:** Authentication
+    **Security:** Authenticated users can get thumbnail URLs
+    **Note:** This exposes filesystem paths - use with caution
+    """
+    logger.debug(f"User {user_id} requesting thumbnail URL for image: {name}")
     return f"{app_settings.directory_settings.MAGELLON_HOME_DIR}/{IMAGE_SUB_URL}{name}.png"
 
 @webapp_router.get('/sessions', response_model=List[SessionDto])
-def get_all_sessions(name: Optional[str] = None, db: Session = Depends(get_db)):
+def get_all_sessions(
+    name: Optional[str] = None,
+    db: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+):
     """
-    Get all the sessions in database
+    Get all the sessions in database.
+
+    **Requires:** Authentication
+    **Security:** Users can only see sessions they have access to (RLS enforced)
     """
+    logger.debug(f"User {user_id} fetching sessions")
+
     if name:
         sessions = []
         db_msession = SessionRepository.fetch_by_name(db, name)
-        print(db_msession)
-        sessions.append(db_msession)
+
+        # Check if user has access to this specific session
+        if db_msession and check_session_access(user_id, db_msession.oid, action="read"):
+            sessions.append(db_msession)
+            logger.debug(f"User {user_id} accessed session: {name}")
+        else:
+            logger.warning(f"SECURITY: User {user_id} denied access to session: {name}")
+
         return sessions
     else:
-        return SessionRepository.fetch_all(db)
+        # Fetch all sessions and filter by access
+        all_sessions = SessionRepository.fetch_all(db)
+
+        # Filter sessions based on user access
+        accessible_sessions = []
+        for session in all_sessions:
+            if check_session_access(user_id, session.oid, action="read"):
+                accessible_sessions.append(session)
+
+        logger.debug(f"User {user_id} fetched {len(accessible_sessions)} accessible sessions (out of {len(all_sessions)} total)")
+        return accessible_sessions
 
 
 # @webapp_router.post("/run_dag")
@@ -752,19 +1153,55 @@ def get_all_sessions(name: Optional[str] = None, db: Session = Depends(get_db)):
 
 
 @webapp_router.get("/create_atlas")
-def create_leginon_atlas(session_name: str, db_session: Session = Depends(get_db)):
+def create_leginon_atlas(
+    session_name: str,
+    db_session: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+):
+    """
+    Create Leginon atlas for a session.
 
+    **Requires:** Authentication
+    **Security:** User must have access to the session
+    **WARNING:** This endpoint connects to external Leginon database
+    """
+    logger.warning(f"User {user_id} creating Leginon atlas for session: {session_name}")
 
-    # session_id = "13892"
+    # Verify session exists and user has access
+    msession = db_session.query(Msession).filter(Msession.name == session_name).first()
+    if not msession:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # ✅ Check session access
+    if not check_session_access(user_id, msession.oid, action="write"):
+        logger.warning(f"SECURITY: User {user_id} denied atlas creation for session: {session_name}")
+        raise HTTPException(status_code=403, detail="Access denied to this session")
+
+    # ✅ SECURITY FIX: Load credentials from secure configuration
+    if not app_settings.leginon_db_settings.ENABLED:
+        logger.error("Leginon database integration is not enabled in configuration")
+        raise HTTPException(
+            status_code=503,
+            detail="Leginon database integration is not configured. Please contact administrator."
+        )
+
+    if not app_settings.leginon_db_settings.PASSWORD:
+        logger.error("Leginon database password not configured")
+        raise HTTPException(
+            status_code=503,
+            detail="Leginon database credentials not configured. Please contact administrator."
+        )
+
     db_config = {
-        "host": "127.0.0.1",
-        "port": 3310,
-        "user": "usr_object",
-        "password": "ThPHMn3m39Ds",
-        "db": "dbemdata",
+        "host": app_settings.leginon_db_settings.HOST,
+        "port": app_settings.leginon_db_settings.PORT,
+        "user": app_settings.leginon_db_settings.USER,
+        "password": app_settings.leginon_db_settings.PASSWORD,
+        "db": app_settings.leginon_db_settings.DATABASE,
         "charset": "utf8",
-    }  # Create a connection to the MySQL database
+    }
 
+    logger.info(f"Connecting to Leginon database at {db_config['host']}:{db_config['port']}")
     connection = pymysql.connect(**db_config)  # Create a cursor to interact with the database
     cursor = connection.cursor()  # Define the SQL query for the first query
 
@@ -831,7 +1268,9 @@ def create_leginon_atlas(session_name: str, db_session: Session = Depends(get_db
     # db_session.add_all(atlases_to_insert)
     db_session.bulk_save_objects(atlases_to_insert)
     db_session.commit()
-    return {"images": images}
+
+    logger.info(f"User {user_id} successfully created Leginon atlas for session: {session_name}, {len(images)} images")
+    return {"images": images, "created_by": str(user_id)}
 
 
 
@@ -854,17 +1293,29 @@ def extract_grid_label(filename: str) -> str:
     return match.group(1) if match else "empty"
 
 @webapp_router.get("/create_magellon_atlas")
-def create_magellon_atlas(session_name: str, db_session: Session = Depends(get_db)):
+def create_magellon_atlas(
+    session_name: str,
+    db_session: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+):
     """
     Create atlas images for a Magellon session using the Image table.
+
+    **Requires:** Authentication
+    **Security:** User must have write access to the session
     """
     try:
+        logger.warning(f"User {user_id} creating Magellon atlas for session: {session_name}")
+
         # Get the session ID from Msession table
         msession = db_session.query(Msession).filter(Msession.name == session_name).first()
         if not msession:
             raise HTTPException(status_code=404, detail="Session not found")
-        if msession is None:
-            return {"error": "Session not found"}
+
+        # ✅ Check session access
+        if not check_session_access(user_id, msession.oid, action="write"):
+            logger.warning(f"SECURITY: User {user_id} denied Magellon atlas creation for session: {session_name}")
+            raise HTTPException(status_code=403, detail="Access denied to this session")
         try:
             session_id_binary = msession.oid.bytes
         except AttributeError:
@@ -935,9 +1386,13 @@ def create_magellon_atlas(session_name: str, db_session: Session = Depends(get_d
         db_session.bulk_save_objects(atlases_to_insert)
         db_session.commit()
 
-        return {"images": images}
+        logger.info(f"User {user_id} successfully created Magellon atlas for session: {session_name}, {len(images)} images")
+        return {"images": images, "created_by": str(user_id)}
 
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Error creating Magellon atlas for user {user_id}, session {session_name}: {str(e)}")
         db_session.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -945,13 +1400,27 @@ def create_magellon_atlas(session_name: str, db_session: Session = Depends(get_d
 
 
 @webapp_router.get('/do_ctf')
-async def get_do_image_ctf_route(full_image_path: str):
+async def get_do_image_ctf_route(
+    full_image_path: str,
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+):
+    """
+    Dispatch a CTF (Contrast Transfer Function) processing task.
+
+    **Requires:** Authentication
+    **Security:** Authenticated users can trigger CTF processing
+    **Note:** This is a CPU-intensive operation
+    """
+    logger.info(f"User {user_id} dispatching CTF task for image: {full_image_path}")
+
     # full_image_path="/gpfs/research/stagg/leginondata/23oct13x/rawdata/23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex.mrc"
     # session_name = "23oct13x"
     # file_name = "23oct13x_23oct13a_a_00034gr_00008sq_v02_00017hl_00003ex"
 
     # Extract file name without extension
-    return await dispatch_ctf_task(uuid.uuid4(), full_image_path)
+    result = await dispatch_ctf_task(uuid.uuid4(), full_image_path)
+    logger.info(f"User {user_id} successfully dispatched CTF task for: {full_image_path}")
+    return result
 
 
 
@@ -1039,8 +1508,20 @@ def read_images_from_mrc(file_path: str, start_idx: int, count: int) -> ImageRes
         raise HTTPException(status_code=500, detail=str(e))
 
 @webapp_router.get("/mrc/")
-async def get_images(file_path: str, start_idx: int = 0, count: int = 10) -> ImageResponse:
-    """Get a subset of images from the MRC file."""
+async def get_images(
+    file_path: str,
+    start_idx: int = 0,
+    count: int = 10,
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+) -> ImageResponse:
+    """
+    Get a subset of images from an MRC file.
+
+    **Requires:** Authentication
+    **Security:** Authenticated users can read MRC files
+    **Note:** This allows direct file system access
+    """
+    logger.debug(f"User {user_id} reading MRC file: {file_path} (start: {start_idx}, count: {count})")
     return read_images_from_mrc(file_path, start_idx, count)
 
 
@@ -1057,7 +1538,19 @@ class FileItem(BaseModel):
     updated_at: datetime
 
 @webapp_router.get("/files/browse", response_model=List[FileItem])
-async def browse_directory(path: str = "/gpfs"):
+async def browse_directory(
+    path: str = "/gpfs",
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+):
+    """
+    Browse filesystem directories.
+
+    **Requires:** Authentication
+    **Security:** Authenticated users can browse the filesystem
+    **WARNING:** This exposes filesystem structure and file metadata
+    """
+    logger.warning(f"SECURITY: User {user_id} browsing filesystem path: {path}")
+
     try:
         development = False
         if development and path.startswith("/gpfs"):
@@ -1086,17 +1579,24 @@ async def browse_directory(path: str = "/gpfs"):
         # Sort: directories first, then files
         items.sort(key=lambda x: (not x.is_directory, x.name))
 
+        logger.debug(f"User {user_id} retrieved {len(items)} items from path: {path}")
         return items
     except Exception as e:
+        logger.error(f"Error browsing directory for user {user_id}, path: {path}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @webapp_router.get("/test-motioncor")
 async def test_motioncor(
         session_name: str = "24mar28a",
-        file_name: str = "20241203_54449_integrated_movie"
+        file_name: str = "20241203_54449_integrated_movie",
+        user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
 ):
     """
-    API endpoint to test motioncor task creation and dispatch
+    API endpoint to test motioncor task creation and dispatch.
+
+    **Requires:** Authentication
+    **Security:** Authenticated users can trigger test motion correction tasks
+    **WARNING:** This is a test endpoint and should be disabled in production
 
     Args:
         session_name (str): Optional session name, defaults to "24mar28a"
@@ -1108,6 +1608,7 @@ async def test_motioncor(
     Raises:
         HTTPException: If task creation or queue push fails
     """
+    logger.warning(f"SECURITY: User {user_id} triggering test motioncor for session: {session_name}, file: {file_name}")
     try:
         motioncor_task = create_task(session_name, file_name)
         if not motioncor_task:

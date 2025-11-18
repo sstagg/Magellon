@@ -111,6 +111,7 @@ import { useFetchImageCtfInfo } from "../../../services/api/CtfRestService.ts";
 import MetadataExplorer from "./MetadataExplorer.tsx";
 import { useImageViewerStore } from './store/imageViewerStore.ts';
 import {EnhancedParticlePickingTab} from "./EnhancedParticlePickingTab.tsx";
+import { useAuthenticatedImage } from '../../../hooks/useAuthenticatedImage';
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
 
@@ -411,6 +412,12 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
 
     // Get the current session name
     const sessionName = currentSession?.name || '';
+
+    // Authenticated FFT image URL
+    const fftImageUrl = selectedImage?.name
+        ? `${BASE_URL}/fft_image?name=${encodeURIComponent(selectedImage.name)}&sessionName=${sessionName}`
+        : null;
+    const { imageUrl: authenticatedFftUrl, isLoading: isFftLoading } = useAuthenticatedImage(fftImageUrl);
 
     // Enhanced API calls with progress tracking
     const {
@@ -890,15 +897,23 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                         {/* Other tab panels remain similar but with enhanced styling... */}
                         <TabPanel value="2" sx={{ p: 3 }}>
                             <Box sx={{ textAlign: 'center' }}>
-                                <img
-                                    src={`${BASE_URL}/fft_image?name=${encodeURIComponent(selectedImage?.name)}&sessionName=${sessionName}`}
-                                    alt="FFT image"
-                                    style={{
-                                        ...getImageStyle(),
-                                        maxWidth: isMobile ? '100%' : '900px'
-                                    }}
-                                    onError={() => setImageError('Failed to load FFT image')}
-                                />
+                                {isFftLoading ? (
+                                    <Skeleton variant="rectangular" width="100%" height={400} />
+                                ) : authenticatedFftUrl ? (
+                                    <img
+                                        src={authenticatedFftUrl}
+                                        alt="FFT image"
+                                        style={{
+                                            ...getImageStyle(),
+                                            maxWidth: isMobile ? '100%' : '900px'
+                                        }}
+                                        onError={() => setImageError('Failed to load FFT image')}
+                                    />
+                                ) : (
+                                    <Alert severity="info" sx={{ mt: 2 }}>
+                                        No FFT image available
+                                    </Alert>
+                                )}
                                 {imageError && (
                                     <Alert severity="warning" sx={{ mt: 2 }}>
                                         {imageError}

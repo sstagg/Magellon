@@ -72,11 +72,25 @@ class DatabaseSettings(BaseModel):
         return f'{cls.DB_Driver}://{cls.DB_USER}:{cls.DB_PASSWORD}@{cls.DB_HOST}:{cls.DB_Port}/{cls.DB_NAME}'
 
 
+class LeginonDatabaseSettings(BaseModel):
+    """
+    Settings for external Leginon database connection.
+    Used for importing Leginon session data and creating atlases.
+    """
+    ENABLED: Optional[bool] = False
+    HOST: Optional[str] = None
+    PORT: Optional[int] = 3310
+    USER: Optional[str] = None
+    PASSWORD: Optional[str] = None
+    DATABASE: Optional[str] = "dbemdata"
+
+
 class AppSettings(BaseModel):
     consul_settings: ConsulSettings = ConsulSettings()
     directory_settings: DirectorySettings = DirectorySettings()
     database_settings: DatabaseSettings = DatabaseSettings()
     rabbitmq_settings: RabbitMQSettings = RabbitMQSettings()
+    leginon_db_settings: LeginonDatabaseSettings = LeginonDatabaseSettings()
     SLACK_TOKEN: Optional[str] = None
     BASE_DIRECTORY: Optional[str] = os.path.abspath(os.path.dirname(__file__))
     DOCKER_URL: Optional[str] = None

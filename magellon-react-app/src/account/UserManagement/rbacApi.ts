@@ -597,6 +597,119 @@ export class PermissionManagementAPI {
   }
 }
 
+// ==================== SESSION ACCESS MANAGEMENT API ====================
+
+export interface GrantSessionAccessRequest {
+  user_id: string;
+  session_id: string;
+  read_access: boolean;
+  write_access: boolean;
+  delete_access: boolean;
+}
+
+export interface SessionAccessResponse {
+  success: boolean;
+  message: string;
+  permission_id?: string;
+  policies_synced?: number;
+}
+
+export interface SessionInfo {
+  oid: string;
+  name: string;
+  description?: string;
+  start_on?: string;
+  user_can_access: boolean;
+}
+
+export interface AccessibleSessionsResponse {
+  sessions: SessionInfo[];
+  count: number;
+}
+
+export interface SessionAccessCheck {
+  session_id: string;
+  user_id: string;
+  can_read: boolean;
+  can_write: boolean;
+  can_delete: boolean;
+  roles: string[];
+  resource: string;
+}
+
+export interface SessionUserAccess {
+  user_id: string;
+  username: string;
+  role_name: string;
+  read_access: boolean;
+  write_access: boolean;
+  delete_access: boolean;
+  permission_id: string;
+}
+
+export interface SessionUsersResponse {
+  session_id: string;
+  users: SessionUserAccess[];
+  count: number;
+}
+
+export class SessionAccessAPI {
+  /**
+   * Grant user access to specific session
+   */
+  static async grantAccess(data: GrantSessionAccessRequest): Promise<SessionAccessResponse> {
+    const response = await apiClient.post('/api/session-access/grant', data);
+    return response.data;
+  }
+
+  /**
+   * Revoke user's access to specific session
+   */
+  static async revokeAccess(userId: string, sessionId: string): Promise<SessionAccessResponse> {
+    const response = await apiClient.post('/api/session-access/revoke', null, {
+      params: {
+        user_id: userId,
+        session_id: sessionId,
+      },
+    });
+    return response.data;
+  }
+
+  /**
+   * Get all sessions that current user can access
+   */
+  static async getAccessibleSessions(): Promise<AccessibleSessionsResponse> {
+    const response = await apiClient.get('/api/session-access/sessions/accessible');
+    return response.data;
+  }
+
+  /**
+   * Check if current user can access specific session
+   */
+  static async checkSessionAccess(sessionId: string): Promise<SessionAccessCheck> {
+    const response = await apiClient.get(`/api/session-access/check/${sessionId}`);
+    return response.data;
+  }
+
+  /**
+   * Get all users who have access to specific session
+   */
+  static async getSessionUsers(sessionId: string): Promise<SessionUsersResponse> {
+    const response = await apiClient.get(`/api/session-access/session/${sessionId}/users`);
+    return response.data;
+  }
+
+  /**
+   * Get all sessions from the database (for admin selection)
+   */
+  static async getAllSessions(): Promise<any> {
+    const response = await apiClient.get('/db/msessions/', {
+      params: { limit: 1000 } // Get first 1000 sessions
+    });
+    return response.data;
+  }
+}
+
 // ==================== EXPORT DEFAULT ====================
 
 export default {
@@ -604,4 +717,5 @@ export default {
   UserRole: UserRoleAPI,
   Permission: PermissionAPI,
   PermissionManagement: PermissionManagementAPI,
+  SessionAccess: SessionAccessAPI,
 };

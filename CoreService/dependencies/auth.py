@@ -143,6 +143,7 @@ def get_current_user_id(
 
     try:
         user_uuid = UUID(user_id_str)
+        logger.info(f"[AUTH] User authenticated: {user_uuid}")
         return user_uuid
     except (ValueError, TypeError, AttributeError) as e:
         logger.error(f"Invalid user ID in token: {user_id_str}, error: {e}")

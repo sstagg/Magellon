@@ -1,4 +1,5 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from uuid import UUID
 from starlette.requests import Request
 from starlette.responses import RedirectResponse, HTMLResponse
 from starlette.staticfiles import StaticFiles
@@ -7,6 +8,7 @@ from pathlib import Path
 import logging
 from config import fetch_image_root_dir, app_settings
 from lib.image_not_found import get_image_not_found
+from dependencies.auth import get_current_user_id
 
 home_router = APIRouter()
 
@@ -36,12 +38,31 @@ def health_check():
 
 
 @home_router.get("/configs")
-async def get_configs():
+async def get_configs(
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+):
+    """
+    Get application configuration settings.
+
+    **Requires:** Authentication
+    **Security:** Authenticated users can view configuration settings
+    **WARNING:** This endpoint exposes sensitive configuration data
+    """
+    logger.warning(f"SECURITY: User {user_id} accessing application configs")
     return app_settings.dict()
 
 
 @home_router.get("/image_root_dir")
-async def get_image_root_dir():
+async def get_image_root_dir(
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+):
+    """
+    Get the image root directory path.
+
+    **Requires:** Authentication
+    **Security:** Authenticated users can view the image root directory path
+    """
+    logger.debug(f"User {user_id} requesting image root directory")
     root_dir = fetch_image_root_dir()
     return {"image_root_dir": root_dir}
 

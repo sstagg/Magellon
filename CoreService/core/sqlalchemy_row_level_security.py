@@ -260,9 +260,17 @@ def check_session_access(user_id: UUID, session_id: UUID, action: str = "read") 
     Returns:
         True if user has access, False otherwise
     """
+    import logging
+    logger = logging.getLogger(__name__)
+
     user_id_str = str(user_id)
     resource = f"msession:{session_id}"
-    return CasbinService.enforce(user_id_str, resource, action)
+
+    logger.info(f"[RLS] Checking access: user={user_id_str[:8]}..., resource={resource[:40]}..., action={action}")
+    result = CasbinService.enforce(user_id_str, resource, action)
+    logger.info(f"[RLS] Access check result: {result}")
+
+    return result
 
 
 def get_session_filter_clause(user_id: UUID, column_name: str = "session_id") -> tuple:

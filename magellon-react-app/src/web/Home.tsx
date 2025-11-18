@@ -22,7 +22,7 @@ import {
     TrendingUp,
     Biotech,
     Psychology,
-
+    Analytics,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 
@@ -50,7 +50,7 @@ export const Home = () => {
             color: '#f59e0b'
         },
         {
-            icon: <Psychology sx={{ fontSize: 40 }} />,
+            icon: <Analytics sx={{ fontSize: 40 }} />,
             title: "Precision Analytics",
             description: "Sub-angstrom resolution analysis with industry-leading accuracy and reliability.",
             color: '#10b981'
@@ -82,7 +82,7 @@ export const Home = () => {
             <Box
                 sx={{
                     position: 'relative',
-                    minHeight: { xs: '80vh', md: '85vh' }, // Reduced height to allow footer to show
+                    py: { xs: 8, md: 12 },
                     width: '100%',
                     display: 'flex',
                     alignItems: 'center',
@@ -290,7 +290,7 @@ export const Home = () => {
             </Box>
 
             {/* Stats Section */}
-            <Container maxWidth="lg" sx={{ py: 8 }}>
+            <Container maxWidth="lg" sx={{ py: { xs: 4, md: 6 } }}>
                 <Grid container spacing={4}>
                     {stats.map((stat, index) => (
                         <Grid item xs={6} md={3} key={index}>
@@ -318,9 +318,9 @@ export const Home = () => {
             </Container>
 
             {/* Features Section */}
-            <Box sx={{ py: { xs: 10, md: 14 }, backgroundColor: alpha(theme.palette.primary.main, 0.02) }}>
+            <Box sx={{ py: { xs: 8, md: 12 }, backgroundColor: alpha(theme.palette.primary.main, 0.02) }}>
                 <Container maxWidth="lg">
-                    <Box sx={{ textAlign: 'center', mb: { xs: 8, md: 10 } }}>
+                    <Box sx={{ textAlign: 'center', mb: { xs: 6, md: 8 } }}>
                         <Chip
                             label="POWERFUL FEATURES"
                             sx={{
@@ -363,77 +363,94 @@ export const Home = () => {
                         </Typography>
                     </Box>
 
-                    <Grid container spacing={3}>
+                    <Box
+                        sx={{
+                            display: 'grid',
+                            gridTemplateColumns: {
+                                xs: '1fr',
+                                sm: 'repeat(2, 1fr)',
+                                md: 'repeat(3, 1fr)',
+                            },
+                            gap: 4,
+                        }}
+                    >
                         {features.map((feature, index) => (
-                            <Grid item xs={12} sm={6} md={4} key={index}>
-                                <Card
-                                    sx={{
-                                        height: '100%',
-                                        borderRadius: 3,
-                                        border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                                        backgroundColor: theme.palette.background.paper,
-                                        position: 'relative',
-                                        overflow: 'hidden',
-                                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                        boxShadow: 'none',
+                            <Card
+                                key={index}
+                                sx={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    borderRadius: 4,
+                                    border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                                    backgroundColor: theme.palette.background.paper,
+                                    position: 'relative',
+                                    overflow: 'hidden',
+                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                    boxShadow: 'none',
+                                    '&::before': {
+                                        content: '""',
+                                        position: 'absolute',
+                                        top: 0,
+                                        left: 0,
+                                        right: 0,
+                                        height: '4px',
+                                        background: `linear-gradient(90deg, ${feature.color}, ${alpha(feature.color, 0.6)})`,
+                                        opacity: 0,
+                                        transition: 'opacity 0.3s ease',
+                                    },
+                                    '&:hover': {
+                                        transform: 'translateY(-8px)',
+                                        boxShadow: `0 20px 40px ${alpha(feature.color, 0.2)}`,
+                                        borderColor: alpha(feature.color, 0.3),
                                         '&::before': {
-                                            content: '""',
-                                            position: 'absolute',
-                                            top: 0,
-                                            left: 0,
-                                            right: 0,
-                                            height: '3px',
-                                            background: `linear-gradient(90deg, ${feature.color}, ${alpha(feature.color, 0.6)})`,
-                                            opacity: 0,
-                                            transition: 'opacity 0.3s ease',
-                                        },
-                                        '&:hover': {
-                                            transform: 'translateY(-8px)',
-                                            boxShadow: `0 20px 40px ${alpha(feature.color, 0.15)}`,
-                                            borderColor: alpha(feature.color, 0.3),
-                                            '&::before': {
-                                                opacity: 1,
-                                            }
-                                        },
-                                    }}
-                                >
-                                    <CardContent sx={{ p: 4 }}>
-                                        <Avatar
-                                            sx={{
-                                                width: 56,
-                                                height: 56,
-                                                mb: 2.5,
-                                                background: alpha(feature.color, 0.1),
-                                                color: feature.color,
-                                            }}
-                                        >
-                                            {feature.icon}
-                                        </Avatar>
-                                        <Typography
-                                            variant="h6"
-                                            sx={{
-                                                fontWeight: 700,
-                                                mb: 1.5,
-                                                fontSize: '1.25rem',
-                                            }}
-                                        >
-                                            {feature.title}
-                                        </Typography>
-                                        <Typography
-                                            variant="body2"
-                                            color="text.secondary"
-                                            sx={{
-                                                lineHeight: 1.7,
-                                                fontSize: '0.95rem'
-                                            }}
-                                        >
-                                            {feature.description}
-                                        </Typography>
-                                    </CardContent>
-                                </Card>
-                            </Grid>
+                                            opacity: 1,
+                                        }
+                                    },
+                                }}
+                            >
+                                <CardContent sx={{
+                                    p: 4,
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    textAlign: 'center',
+                                    flexGrow: 1
+                                }}>
+                                    <Avatar
+                                        sx={{
+                                            width: 64,
+                                            height: 64,
+                                            mb: 3,
+                                            background: alpha(feature.color, 0.1),
+                                            color: feature.color,
+                                        }}
+                                    >
+                                        {feature.icon}
+                                    </Avatar>
+                                    <Typography
+                                        variant="h6"
+                                        sx={{
+                                            fontWeight: 700,
+                                            mb: 1.5,
+                                            fontSize: '1.15rem',
+                                        }}
+                                    >
+                                        {feature.title}
+                                    </Typography>
+                                    <Typography
+                                        variant="body2"
+                                        color="text.secondary"
+                                        sx={{
+                                            lineHeight: 1.7,
+                                            fontSize: '0.95rem'
+                                        }}
+                                    >
+                                        {feature.description}
+                                    </Typography>
+                                </CardContent>
+                            </Card>
                         ))}
-                    </Grid>
+                    </Box>
                 </Container>
             </Box>
 
@@ -551,147 +568,6 @@ export const Home = () => {
                                     Contact Sales
                                 </Button>
                             </Box>
-                        </Box>
-                    </Box>
-                </Container>
-            </Box>
-
-            {/* Footer Section */}
-            <Box
-                sx={{
-                    py: 6,
-                    borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                    backgroundColor: alpha(theme.palette.background.default, 0.5),
-                }}
-            >
-                <Container maxWidth="lg">
-                    <Grid container spacing={4} justifyContent="space-between">
-                        <Grid item xs={12} md={4}>
-                            <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
-                                Magellon
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.7 }}>
-                                Next-generation CryoEM analysis platform for structural biology research.
-                            </Typography>
-                        </Grid>
-                        <Grid item xs={6} md={2}>
-                            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2 }}>
-                                Product
-                            </Typography>
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                                <Typography
-                                    variant="body2"
-                                    color="text.secondary"
-                                    sx={{ cursor: 'pointer', '&:hover': { color: 'primary.main' } }}
-                                    onClick={() => navigate('/en/panel/images')}
-                                >
-                                    Images
-                                </Typography>
-                                <Typography
-                                    variant="body2"
-                                    color="text.secondary"
-                                    sx={{ cursor: 'pointer', '&:hover': { color: 'primary.main' } }}
-                                    onClick={() => navigate('/en/panel/microscopy')}
-                                >
-                                    Microscopy
-                                </Typography>
-                                <Typography
-                                    variant="body2"
-                                    color="text.secondary"
-                                    sx={{ cursor: 'pointer', '&:hover': { color: 'primary.main' } }}
-                                    onClick={() => navigate('/en/panel/settings')}
-                                >
-                                    Settings
-                                </Typography>
-                            </Box>
-                        </Grid>
-                        <Grid item xs={6} md={2}>
-                            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2 }}>
-                                Company
-                            </Typography>
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                                <Typography
-                                    variant="body2"
-                                    color="text.secondary"
-                                    sx={{ cursor: 'pointer', '&:hover': { color: 'primary.main' } }}
-                                >
-                                    About
-                                </Typography>
-                                <Typography
-                                    variant="body2"
-                                    color="text.secondary"
-                                    sx={{ cursor: 'pointer', '&:hover': { color: 'primary.main' } }}
-                                >
-                                    Careers
-                                </Typography>
-                                <Typography
-                                    variant="body2"
-                                    color="text.secondary"
-                                    sx={{ cursor: 'pointer', '&:hover': { color: 'primary.main' } }}
-                                >
-                                    Contact
-                                </Typography>
-                            </Box>
-                        </Grid>
-                        <Grid item xs={6} md={2}>
-                            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2 }}>
-                                Resources
-                            </Typography>
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                                <Typography
-                                    variant="body2"
-                                    color="text.secondary"
-                                    sx={{ cursor: 'pointer', '&:hover': { color: 'primary.main' } }}
-                                >
-                                    Documentation
-                                </Typography>
-                                <Typography
-                                    variant="body2"
-                                    color="text.secondary"
-                                    sx={{ cursor: 'pointer', '&:hover': { color: 'primary.main' } }}
-                                >
-                                    API Reference
-                                </Typography>
-                                <Typography
-                                    variant="body2"
-                                    color="text.secondary"
-                                    sx={{ cursor: 'pointer', '&:hover': { color: 'primary.main' } }}
-                                >
-                                    Support
-                                </Typography>
-                            </Box>
-                        </Grid>
-                    </Grid>
-                    <Box
-                        sx={{
-                            mt: 6,
-                            pt: 4,
-                            borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            flexWrap: 'wrap',
-                            gap: 2,
-                        }}
-                    >
-                        <Typography variant="body2" color="text.secondary">
-                            © {new Date().getFullYear()} Magellon. All rights reserved.
-                        </Typography>
-                        <Box sx={{ display: 'flex', gap: 3 }}>
-                            <Typography
-                                variant="body2"
-                                color="text.secondary"
-                                sx={{ cursor: 'pointer', '&:hover': { color: 'primary.main' } }}
-                            >
-                                Privacy Policy
-                            </Typography>
-                            <Typography
-                                variant="body2"
-                                color="text.secondary"
-                                sx={{ cursor: 'pointer', '&:hover': { color: 'primary.main' } }}
-                            >
-                                Terms of Service
-                            </Typography>
                         </Box>
                     </Box>
                 </Container>

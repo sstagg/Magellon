@@ -1,19 +1,37 @@
-from fastapi import UploadFile, File, APIRouter
+from fastapi import UploadFile, File, APIRouter, Depends
+from uuid import UUID
 from pathlib import Path
 import io
+import logging
 import matplotlib.pyplot as plt
 import re
 
 from fastapi.responses import FileResponse
 from starlette.responses import StreamingResponse
+from dependencies.auth import get_current_user_id
 
 graph_router = APIRouter()
+logger = logging.getLogger(__name__)
 
 BASE_PATH = Path(__file__).resolve().parent
 
 
 @graph_router.post("/shifts_scatter")
-async def png_shifts_scatter(file: UploadFile = File(...)):
+async def png_shifts_scatter(
+    file: UploadFile = File(...),
+    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+):
+    """
+    Generate a scatter plot of motion shifts from uploaded file data.
+
+    **Requires:** Authentication
+    **Security:** Authenticated users can generate motion graphs
+
+    The endpoint parses shift data from the uploaded file and creates a
+    scatter plot showing X/Y motion shifts with connecting lines.
+    """
+    logger.info(f"User {user_id} generating shifts scatter plot from file: {file.filename}")
+
     shifts = []
     content = await file.read()
     decoded_content = content.decode('utf-8')
@@ -50,6 +68,8 @@ async def png_shifts_scatter(file: UploadFile = File(...)):
     buffer = io.BytesIO()
     plt.savefig(buffer, format='png')
     buffer.seek(0)
+
+    logger.info(f"User {user_id} successfully generated shifts scatter plot with {len(shifts)} data points")
 
     # return the PNG image in the response
     # response = FileResponse(content=buffer.getvalue(), media_type='image/png')
