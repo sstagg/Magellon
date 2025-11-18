@@ -95,6 +95,16 @@ class ApiDocsSettings(BaseModel):
     PASSWORD: Optional[str] = "changeme"
 
 
+class SecuritySetupSettings(BaseModel):
+    """
+    Settings for security system bootstrap/setup endpoint.
+    Used during initial application installation to create admin user.
+    """
+    ENABLED: Optional[bool] = True
+    SETUP_TOKEN: Optional[str] = None  # Optional token for extra security
+    AUTO_DISABLE: Optional[bool] = True  # Automatically disable after first successful run
+
+
 class AppSettings(BaseModel):
     consul_settings: ConsulSettings = ConsulSettings()
     directory_settings: DirectorySettings = DirectorySettings()
@@ -102,6 +112,7 @@ class AppSettings(BaseModel):
     rabbitmq_settings: RabbitMQSettings = RabbitMQSettings()
     leginon_db_settings: LeginonDatabaseSettings = LeginonDatabaseSettings()
     api_docs_settings: ApiDocsSettings = ApiDocsSettings()
+    security_setup_settings: SecuritySetupSettings = SecuritySetupSettings()
     SLACK_TOKEN: Optional[str] = None
     BASE_DIRECTORY: Optional[str] = os.path.abspath(os.path.dirname(__file__))
     DOCKER_URL: Optional[str] = None

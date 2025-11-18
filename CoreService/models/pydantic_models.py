@@ -466,3 +466,13 @@ class PasswordHashRequest(BaseModel):
     update the sys_sec_user.PASSWORD field.
     """
     password: str = Field(..., min_length=6, description="Plain text password to hash")
+
+
+class SecuritySetupRequest(BaseModel):
+    """
+    Request model for bootstrapping security system during application installation.
+    Creates admin user, Administrator role, and assigns full permissions.
+    """
+    username: str = Field(..., min_length=3, max_length=100, description="Admin username")
+    password: str = Field(..., min_length=6, description="Admin password")
+    setup_token: Optional[str] = Field(None, description="Optional setup token for security")

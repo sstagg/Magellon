@@ -43,6 +43,11 @@ api_docs_settings:
   USERNAME: admin
   PASSWORD: admin123
 
+security_setup_settings:
+  ENABLED: true
+  SETUP_TOKEN: null  # No token required in dev (set to a secret string for extra security)
+  AUTO_DISABLE: false  # Don't auto-disable in dev (allow multiple runs for testing)
+
 
 
 rabbitmq_settings:

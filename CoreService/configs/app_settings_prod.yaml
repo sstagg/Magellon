@@ -43,6 +43,11 @@ api_docs_settings:
   USERNAME: admin
   PASSWORD: change_in_production
 
+security_setup_settings:
+  ENABLED: true  # Will auto-disable after first run if AUTO_DISABLE is true
+  SETUP_TOKEN: change_this_secret_token_in_production
+  AUTO_DISABLE: true  # Automatically disable after first successful run
+
 rabbitmq_settings:
   HOST_NAME: rabbitmq
   PORT: 5672
