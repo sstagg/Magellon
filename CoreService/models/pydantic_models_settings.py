@@ -85,12 +85,23 @@ class LeginonDatabaseSettings(BaseModel):
     DATABASE: Optional[str] = "dbemdata"
 
 
+class ApiDocsSettings(BaseModel):
+    """
+    Settings for API documentation HTTP Basic Authentication.
+    Protects /docs and /openapi.json endpoints.
+    """
+    ENABLED: Optional[bool] = True
+    USERNAME: Optional[str] = "admin"
+    PASSWORD: Optional[str] = "changeme"
+
+
 class AppSettings(BaseModel):
     consul_settings: ConsulSettings = ConsulSettings()
     directory_settings: DirectorySettings = DirectorySettings()
     database_settings: DatabaseSettings = DatabaseSettings()
     rabbitmq_settings: RabbitMQSettings = RabbitMQSettings()
     leginon_db_settings: LeginonDatabaseSettings = LeginonDatabaseSettings()
+    api_docs_settings: ApiDocsSettings = ApiDocsSettings()
     SLACK_TOKEN: Optional[str] = None
     BASE_DIRECTORY: Optional[str] = os.path.abspath(os.path.dirname(__file__))
     DOCKER_URL: Optional[str] = None

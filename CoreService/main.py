@@ -1,5 +1,6 @@
 import os
 import socket
+import json
 # import sys
 # import traceback
 # from rich import traceback as rich_traceback
@@ -7,15 +8,21 @@ import socket
 # import fastapi
 import uvicorn
 from PIL.Image import Image
-from fastapi import FastAPI, UploadFile, File, HTTPException ,WebSocket
+from fastapi import FastAPI, UploadFile, File, HTTPException, WebSocket, Depends, Request
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
+from fastapi.openapi.utils import get_openapi
 # from rich.logging import RichHandler
 from rich.traceback import Traceback
 from starlette.middleware.cors import CORSMiddleware
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, HTMLResponse
 from starlette.staticfiles import StaticFiles
+from starlette import status as starlette_status
+import secrets
 
 
 from configs.production_test import production_intilization
+from config import app_settings
 # from starlette_graphene3 import GraphQLApp, make_graphiql_handler
 # from strawberry.fastapi import GraphQLRouter
 
@@ -91,14 +98,129 @@ production_intilization()
 # # Add the RichHandler to the logger
 # logger.addHandler(handler)
 
-app = FastAPI(title="Magellon Core Service", description="Magellon Core Service that provides main services",
-              version="1.0.0", )
+# Initialize HTTP Basic Authentication for API docs
+security = HTTPBasic()
+
+def verify_docs_credentials(credentials: HTTPBasicCredentials = Depends(security)):
+    """
+    Verify HTTP Basic Authentication credentials for API documentation access.
+
+    Uses credentials from app_settings.api_docs_settings configuration.
+    Protects /docs and /openapi.json endpoints.
+    """
+    if not app_settings.api_docs_settings.ENABLED:
+        # If authentication is disabled, allow access
+        return True
+
+    # Use secrets.compare_digest to prevent timing attacks
+    correct_username = secrets.compare_digest(
+        credentials.username.encode("utf8"),
+        app_settings.api_docs_settings.USERNAME.encode("utf8")
+    )
+    correct_password = secrets.compare_digest(
+        credentials.password.encode("utf8"),
+        app_settings.api_docs_settings.PASSWORD.encode("utf8")
+    )
+
+    if not (correct_username and correct_password):
+        logger.warning(f"Failed API docs authentication attempt from username: {credentials.username}")
+        raise HTTPException(
+            status_code=starlette_status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials for API documentation",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+
+    logger.info(f"Successful API docs authentication for user: {credentials.username}")
+    return True
+
+# Disable default docs and openapi endpoints
+app = FastAPI(
+    title="Magellon Core Service",
+    description="Magellon Core Service that provides main services",
+    version="1.0.0",
+    docs_url=None,  # Disable default docs
+    redoc_url=None,  # Disable default redoc
+    openapi_url=None  # Disable default openapi.json
+)
 
 app.add_middleware(CORSMiddleware,
                    allow_origins=["*"],
                    allow_methods=["*"],
                    allow_headers=["*"],
                    allow_credentials=True)
+
+
+# Custom protected docs endpoints
+@app.get("/docs", include_in_schema=False)
+async def get_documentation(authenticated: bool = Depends(verify_docs_credentials)):
+    """
+    Protected Swagger UI documentation endpoint.
+    Requires HTTP Basic Authentication (username/password from api_docs_settings).
+    """
+    return get_swagger_ui_html(
+        openapi_url="/openapi.json",
+        title=f"{app.title} - Documentation",
+        swagger_favicon_url="/static/favicon.ico"
+    )
+
+
+@app.get("/redoc", include_in_schema=False)
+async def get_redoc_documentation(authenticated: bool = Depends(verify_docs_credentials)):
+    """
+    Protected ReDoc documentation endpoint.
+    Requires HTTP Basic Authentication (username/password from api_docs_settings).
+
+    ReDoc provides a cleaner, three-panel documentation interface as an alternative to Swagger UI.
+    Note: OpenAPI schema is inlined to avoid authentication issues with AJAX requests.
+    """
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+    )
+
+    # Properly serialize the OpenAPI schema to JSON
+    openapi_json = json.dumps(openapi_schema)
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>{app.title} - ReDoc</title>
+        <meta charset="utf-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    </head>
+    <body>
+        <div id="redoc-container"></div>
+        <script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script>
+        <script>
+            var spec = {openapi_json};
+            Redoc.init(spec, {{}}, document.getElementById('redoc-container'));
+        </script>
+    </body>
+    </html>
+    """
+
+    return HTMLResponse(content=html_content)
+
+
+@app.get("/openapi.json", include_in_schema=False)
+async def get_open_api_endpoint(authenticated: bool = Depends(verify_docs_credentials)):
+    """
+    Protected OpenAPI schema endpoint.
+    Requires HTTP Basic Authentication (username/password from api_docs_settings).
+    """
+    return JSONResponse(
+        content=get_openapi(
+            title=app.title,
+            version=app.version,
+            description=app.description,
+            routes=app.routes,
+        )
+    )
+
 
 # Get the IP address and port
 # ip_address = uvicorn.Config(app).host

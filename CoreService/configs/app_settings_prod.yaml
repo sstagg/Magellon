@@ -30,6 +30,18 @@ database_settings:
   DB_Port: 3306
   DB_USER: root
 
+leginon_db_settings:
+  ENABLED: false
+  HOST: 127.0.0.1
+  PORT: 3310
+  USER: usr_object
+  PASSWORD: change_in_production
+  DATABASE: dbemdata
+
+api_docs_settings:
+  ENABLED: true
+  USERNAME: admin
+  PASSWORD: change_in_production
 
 rabbitmq_settings:
   HOST_NAME: rabbitmq
