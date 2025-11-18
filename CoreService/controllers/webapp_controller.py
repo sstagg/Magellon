@@ -1177,17 +1177,31 @@ def create_leginon_atlas(
         logger.warning(f"SECURITY: User {user_id} denied atlas creation for session: {session_name}")
         raise HTTPException(status_code=403, detail="Access denied to this session")
 
-    # TODO: Move these credentials to environment variables/config
-    # SECURITY WARNING: Hardcoded credentials should be moved to secure configuration
-    db_config = {
-        "host": "127.0.0.1",
-        "port": 3310,
-        "user": "usr_object",
-        "password": "ThPHMn3m39Ds",  # TODO: Move to environment variable
-        "db": "dbemdata",
-        "charset": "utf8",
-    }  # Create a connection to the MySQL database
+    # ✅ SECURITY FIX: Load credentials from secure configuration
+    if not app_settings.leginon_db_settings.ENABLED:
+        logger.error("Leginon database integration is not enabled in configuration")
+        raise HTTPException(
+            status_code=503,
+            detail="Leginon database integration is not configured. Please contact administrator."
+        )
 
+    if not app_settings.leginon_db_settings.PASSWORD:
+        logger.error("Leginon database password not configured")
+        raise HTTPException(
+            status_code=503,
+            detail="Leginon database credentials not configured. Please contact administrator."
+        )
+
+    db_config = {
+        "host": app_settings.leginon_db_settings.HOST,
+        "port": app_settings.leginon_db_settings.PORT,
+        "user": app_settings.leginon_db_settings.USER,
+        "password": app_settings.leginon_db_settings.PASSWORD,
+        "db": app_settings.leginon_db_settings.DATABASE,
+        "charset": "utf8",
+    }
+
+    logger.info(f"Connecting to Leginon database at {db_config['host']}:{db_config['port']}")
     connection = pymysql.connect(**db_config)  # Create a cursor to interact with the database
     cursor = connection.cursor()  # Define the SQL query for the first query
 
