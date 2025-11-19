@@ -1,5 +1,5 @@
 # Stage 1: Build the application
-FROM node:20.9.0-alpine as build
+FROM node:22-alpine as build
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
