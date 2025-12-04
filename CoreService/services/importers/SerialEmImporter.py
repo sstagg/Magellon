@@ -220,7 +220,7 @@ def parse_mdoc(file_path: str, settings_file_path: str) -> SerialEMMetadata:
     # TOdo convert required strings to float
 
     return SerialEMMetadata(**result)
-def extract_navigator_label(mdoc_path: str) -> str | None:
+def extract_navigator_label(mdoc_path: str) -> Optional[str]:
     """
     Reads an .mdoc file and returns the NavigatorLabel if present.
     If multiple NavigatorLabels exist, returns the first one.
