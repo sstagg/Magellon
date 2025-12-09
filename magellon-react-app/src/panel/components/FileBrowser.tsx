@@ -6,6 +6,8 @@ import {
   ArrowUp,
   Loader, ArrowUpIcon, FileIcon, FolderIcon
 } from 'lucide-react';
+import getAxiosClient from '../../core/AxiosClient.ts';
+import { settings } from '../../core/settings.ts';
 
 interface FileItem {
   name: string;
@@ -19,6 +21,8 @@ interface FileBrowserProps {
   initialPath?: string;
 }
 
+const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
+
 const FileBrowser = ({ onSelect, initialPath = '/gpfs' }: FileBrowserProps) => {
   const [currentPath, setCurrentPath] = useState(initialPath);
   const [items, setItems] = useState<FileItem[]>([]);
@@ -31,15 +35,19 @@ const FileBrowser = ({ onSelect, initialPath = '/gpfs' }: FileBrowserProps) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`http://localhost:8000/web/files/browse?path=${encodeURIComponent(path)}`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      const response = await apiClient.get('/web/files/browse', {
+        params: { path }
+      });
+      setItems(response.data.items);
+      setCurrentPath(response.data.current_path);
+    } catch (err: any) {
+      if (err.response?.status === 401) {
+        setError('Please login to browse files');
+      } else if (err.response?.status === 403) {
+        setError('You do not have permission to browse this directory');
+      } else {
+        setError(err.response?.data?.detail || err.message || 'An error occurred');
       }
-      const data = await response.json();
-      setItems(data.items);
-      setCurrentPath(data.current_path);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
