@@ -62,7 +62,7 @@ nats-py
 
 starfile
 
-bcrypt
+bcrypt==4.3.0
 
 # Casbin - Authorization library
 casbin==1.36.2
