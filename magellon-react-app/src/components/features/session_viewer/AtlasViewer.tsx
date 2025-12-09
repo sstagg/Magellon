@@ -3,8 +3,10 @@ import ImageInfoDto from "./ImageInfoDto.ts";
 import { settings } from "../../../core/settings.ts";
 import { useImageViewerStore } from './store/imageViewerStore.ts';
 import { AuthenticatedSvgImage } from './components/AuthenticatedSvgImage';
+import getAxiosClient from '../../../core/AxiosClient.ts';
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
+const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
 export interface ImageMapArea {
     shape: string;
@@ -79,14 +81,12 @@ export default function AtlasViewer({ name, finalWidth, finalHeight, backgroundC
         setSelectedArea((prevSelectedArea) => (prevSelectedArea === areaName ? null : areaName));
         try {
             // Add sessionName parameter to the API call
-            const response = await fetch(`${BASE_URL}/images/${areaName}?sessionName=${sessionName}`);
-            if (!response.ok) {
-                throw new Error('Image not found');
-            }
-            const data: ApiResponse = await response.json();
-            onImageClick(data.result, 0);
-        } catch (error) {
-            console.error('Error fetching image details:', error);
+            const response = await apiClient.get(`/web/images/${areaName}`, {
+                params: { sessionName }
+            });
+            onImageClick(response.data.result, 0);
+        } catch (error: any) {
+            console.error('Error fetching image details:', error.response?.data?.detail || error.message);
         }
     };
 

@@ -1,14 +1,16 @@
 import {useMutation, useQuery} from "react-query";
 import {settings} from "../../core/settings.ts";
 import {ParticlePickingDto} from "../../domains/ParticlePickingDto.ts";
+import getAxiosClient from '../../core/AxiosClient.ts';
 
-const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL ;
+const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
 
-export function FetchImageParticlePicking(img_name: string) {
-    return fetch(`${BASE_URL}/particle-pickings?img_name=${encodeURIComponent(img_name)}`).then((response) =>
-        response.json()
-    );
+export async function FetchImageParticlePicking(img_name: string) {
+    const response = await apiClient.get('/web/particle-pickings', {
+        params: { img_name }
+    });
+    return response.data;
 }
 
 
@@ -19,40 +21,22 @@ export function useImageParticlePickings(img_name: string,enabled: boolean) {
 
 
 export const createParticlePickingEntity = async (metaName: string, imageName: string) => {
-    const response = await fetch(`${BASE_URL}/particle-pickings?meta_name=${metaName}&image_name_or_oid=${imageName}`, {
-        method: 'POST',
-        // Add headers if necessary
+    const response = await apiClient.post('/web/particle-pickings', null, {
+        params: { meta_name: metaName, image_name_or_oid: imageName }
     });
-
-    if (!response.ok) {
-        throw new Error('Failed to create entity');
-    }
-
-    return response.json();
+    return response.data;
 };
+
 export function useCreateParticlePickingMutation() {
     return useMutation((data: { metaName: string; imageName: string }) => createParticlePickingEntity(data.metaName, data.imageName));
 }
 
 
 async function updateParticlePicking(bodyReq: ParticlePickingDto) {
-    const response = await fetch(`${BASE_URL}/particle-pickings`, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(bodyReq),
-    });
-
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail);
-    }
-
-    return response.json();
+    const response = await apiClient.put('/web/particle-pickings', bodyReq);
+    return response.data;
 }
 
 export function useUpdateParticlePicking() {
     return useMutation(updateParticlePicking);
 }
-

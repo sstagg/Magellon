@@ -31,6 +31,10 @@ import {
 } from '@mui/icons-material';
 
 import { userApiService } from './userApi';
+import getAxiosClient from '../../core/AxiosClient.ts';
+import { settings } from '../../core/settings.ts';
+
+const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
 interface PermissionCheckResult {
     has_permission: boolean;
@@ -86,25 +90,16 @@ export default function PermissionCheckerTab({
         setResult(null);
 
         try {
-            const response = await fetch('http://localhost:8000/db/security/check-permission', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    user_id: formData.user_id,
-                    permission_type: formData.permission_type,
-                    resource: formData.resource,
-                    operation: formData.permission_type === 'type' ? formData.operation : undefined,
-                }),
+            const response = await apiClient.post('/db/security/check-permission', {
+                user_id: formData.user_id,
+                permission_type: formData.permission_type,
+                resource: formData.resource,
+                operation: formData.permission_type === 'type' ? formData.operation : undefined,
             });
 
-            if (!response.ok) {
-                throw new Error('Failed to check permission');
-            }
-
-            const data = await response.json();
-            setResult(data);
+            setResult(response.data);
         } catch (error: any) {
-            showSnackbar('Failed to check permission: ' + error.message, 'error');
+            showSnackbar('Failed to check permission: ' + (error.response?.data?.detail || error.message), 'error');
         } finally {
             setChecking(false);
         }

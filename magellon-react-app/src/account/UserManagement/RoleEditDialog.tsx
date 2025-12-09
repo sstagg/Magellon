@@ -48,6 +48,10 @@ import {
 } from '@mui/icons-material';
 
 import { RoleAPI } from './rbacApi';
+import getAxiosClient from '../../core/AxiosClient.ts';
+import { settings } from '../../core/settings.ts';
+
+const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
 interface RoleEditDialogProps {
     open: boolean;
@@ -184,41 +188,36 @@ export default function RoleEditDialog({
             });
 
             // Load action permissions
-            const actionUrl = `http://localhost:8000/db/security/permissions/actions/role/${encodeURIComponent(roleId)}`;
-            console.log('Fetching action permissions from:', actionUrl);
-            const actionResponse = await fetch(actionUrl);
-            console.log('Action permissions response status:', actionResponse.status);
-            if (actionResponse.ok) {
-                const actionPerms = await actionResponse.json();
-                console.log('Action permissions loaded:', actionPerms);
-                setActionPermissions(Array.isArray(actionPerms) ? actionPerms : []);
-            } else {
-                const errorText = await actionResponse.text();
-                console.warn('Failed to load action permissions:', actionResponse.status, errorText);
+            try {
+                const actionResponse = await apiClient.get(
+                    `/db/security/permissions/actions/role/${encodeURIComponent(roleId)}`
+                );
+                console.log('Action permissions loaded:', actionResponse.data);
+                setActionPermissions(Array.isArray(actionResponse.data) ? actionResponse.data : []);
+            } catch (err: any) {
+                console.warn('Failed to load action permissions:', err.response?.status);
                 setActionPermissions([]);
             }
 
             // Load navigation permissions
-            const navResponse = await fetch(
-                `http://localhost:8000/db/security/permissions/navigation/role/${encodeURIComponent(roleId)}`
-            );
-            if (navResponse.ok) {
-                const navPerms = await navResponse.json();
-                setNavigationPermissions(Array.isArray(navPerms) ? navPerms : []);
-            } else {
-                console.warn('Failed to load navigation permissions:', navResponse.status);
+            try {
+                const navResponse = await apiClient.get(
+                    `/db/security/permissions/navigation/role/${encodeURIComponent(roleId)}`
+                );
+                setNavigationPermissions(Array.isArray(navResponse.data) ? navResponse.data : []);
+            } catch (err: any) {
+                console.warn('Failed to load navigation permissions:', err.response?.status);
                 setNavigationPermissions([]);
             }
 
             // Load type permissions
-            const typeResponse = await fetch(
-                `http://localhost:8000/db/security/permissions/types/role/${encodeURIComponent(roleId)}`
-            );
-            if (typeResponse.ok) {
-                const typePerms = await typeResponse.json();
-                setTypePermissions(Array.isArray(typePerms) ? typePerms : []);
-            } else {
-                console.warn('Failed to load type permissions:', typeResponse.status);
+            try {
+                const typeResponse = await apiClient.get(
+                    `/db/security/permissions/types/role/${encodeURIComponent(roleId)}`
+                );
+                setTypePermissions(Array.isArray(typeResponse.data) ? typeResponse.data : []);
+            } catch (err: any) {
+                console.warn('Failed to load type permissions:', err.response?.status);
                 setTypePermissions([]);
             }
         } catch (error: any) {
@@ -259,38 +258,29 @@ export default function RoleEditDialog({
 
         try {
             const roleId = role.oid || role.Oid;
-            const response = await fetch('http://localhost:8000/db/security/permissions/actions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    role_id: roleId,
-                    action_id: newActionId.trim(),
-                }),
+            await apiClient.post('/db/security/permissions/actions', {
+                role_id: roleId,
+                action_id: newActionId.trim(),
             });
-
-            if (!response.ok) throw new Error('Failed to add action permission');
 
             showSnackbar('Action permission added successfully', 'success');
             setNewActionId('');
             loadRoleData();
         } catch (error: any) {
-            showSnackbar('Failed to add action permission: ' + error.message, 'error');
+            showSnackbar('Failed to add action permission: ' + (error.response?.data?.detail || error.message), 'error');
         }
     };
 
     const handleDeleteActionPermission = async (permissionId: string) => {
         try {
-            const response = await fetch(
-                `http://localhost:8000/db/security/permissions/actions/${permissionId}`,
-                { method: 'DELETE' }
+            await apiClient.delete(
+                `/db/security/permissions/actions/${permissionId}`
             );
-
-            if (!response.ok) throw new Error('Failed to delete action permission');
 
             showSnackbar('Action permission deleted successfully', 'success');
             loadRoleData();
         } catch (error: any) {
-            showSnackbar('Failed to delete action permission: ' + error.message, 'error');
+            showSnackbar('Failed to delete action permission: ' + (error.response?.data?.detail || error.message), 'error');
         }
     };
 
@@ -303,40 +293,31 @@ export default function RoleEditDialog({
 
         try {
             const roleId = role.oid || role.Oid;
-            const response = await fetch('http://localhost:8000/db/security/permissions/navigation', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    role_id: roleId,
-                    item_path: newNavPath.trim(),
-                    navigate_state: newNavState,
-                }),
+            await apiClient.post('/db/security/permissions/navigation', {
+                role_id: roleId,
+                item_path: newNavPath.trim(),
+                navigate_state: newNavState,
             });
-
-            if (!response.ok) throw new Error('Failed to add navigation permission');
 
             showSnackbar('Navigation permission added successfully', 'success');
             setNewNavPath('');
             setNewNavState(1);
             loadRoleData();
         } catch (error: any) {
-            showSnackbar('Failed to add navigation permission: ' + error.message, 'error');
+            showSnackbar('Failed to add navigation permission: ' + (error.response?.data?.detail || error.message), 'error');
         }
     };
 
     const handleDeleteNavigationPermission = async (permissionId: string) => {
         try {
-            const response = await fetch(
-                `http://localhost:8000/db/security/permissions/navigation/${permissionId}`,
-                { method: 'DELETE' }
+            await apiClient.delete(
+                `/db/security/permissions/navigation/${permissionId}`
             );
-
-            if (!response.ok) throw new Error('Failed to delete navigation permission');
 
             showSnackbar('Navigation permission deleted successfully', 'success');
             loadRoleData();
         } catch (error: any) {
-            showSnackbar('Failed to delete navigation permission: ' + error.message, 'error');
+            showSnackbar('Failed to delete navigation permission: ' + (error.response?.data?.detail || error.message), 'error');
         }
     };
 
@@ -349,17 +330,11 @@ export default function RoleEditDialog({
 
         try {
             const roleId = role.oid || role.Oid;
-            const response = await fetch('http://localhost:8000/db/security/permissions/types', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    role_id: roleId,
-                    target_type: newTargetType.trim(),
-                    ...typeOperations,
-                }),
+            await apiClient.post('/db/security/permissions/types', {
+                role_id: roleId,
+                target_type: newTargetType.trim(),
+                ...typeOperations,
             });
-
-            if (!response.ok) throw new Error('Failed to add type permission');
 
             showSnackbar('Type permission added successfully', 'success');
             setNewTargetType('');
@@ -372,23 +347,20 @@ export default function RoleEditDialog({
             });
             loadRoleData();
         } catch (error: any) {
-            showSnackbar('Failed to add type permission: ' + error.message, 'error');
+            showSnackbar('Failed to add type permission: ' + (error.response?.data?.detail || error.message), 'error');
         }
     };
 
     const handleDeleteTypePermission = async (permissionId: string) => {
         try {
-            const response = await fetch(
-                `http://localhost:8000/db/security/permissions/types/${permissionId}`,
-                { method: 'DELETE' }
+            await apiClient.delete(
+                `/db/security/permissions/types/${permissionId}`
             );
-
-            if (!response.ok) throw new Error('Failed to delete type permission');
 
             showSnackbar('Type permission deleted successfully', 'success');
             loadRoleData();
         } catch (error: any) {
-            showSnackbar('Failed to delete type permission: ' + error.message, 'error');
+            showSnackbar('Failed to delete type permission: ' + (error.response?.data?.detail || error.message), 'error');
         }
     };
 

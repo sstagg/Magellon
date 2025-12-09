@@ -6,6 +6,10 @@ import {useForm} from "react-hook-form";
 import {useTranslation} from "react-i18next";
 import {Cached, CalendarMonthOutlined, AttachFile} from "@mui/icons-material";
 import Grid from '@mui/material/Grid';
+import getAxiosClient from '../../core/AxiosClient.ts';
+import { settings } from '../../core/settings.ts';
+
+const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
 
 interface ILeginonImportForm {
@@ -89,23 +93,19 @@ export const LeginonImportComponent = () => {
                 formData.append('gains_file', gainsFile);
             }
 
-            const response = await fetch('http://localhost:8000/image/import_leginon_job', {
-                method: 'POST',
+            const response = await apiClient.post('/image/import_leginon_job', formData, {
                 headers: {
-                    'accept': 'application/json'
-                    // Note: Don't set Content-Type header - browser will set it with boundary
-                },
-                body: formData
+                    'Content-Type': 'multipart/form-data'
+                }
             });
-            const result = await response.json();
 
             // Check for error in response even if HTTP status is 200
-            if (!response.ok || result.error || result.exception) {
-                const errorMessage = result.error || result.exception || 'Failed to submit form';
+            if (response.data.error || response.data.exception) {
+                const errorMessage = response.data.error || response.data.exception || 'Failed to submit form';
                 throw new Error(errorMessage);
             }
 
-            console.log('Success:', result);
+            console.log('Success:', response.data);
         } catch (error) {
             console.error("There was an error submitting the form!", error);
             const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';

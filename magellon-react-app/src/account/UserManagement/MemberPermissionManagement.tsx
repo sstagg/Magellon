@@ -39,6 +39,10 @@ import {
     CheckCircle,
     Cancel,
 } from '@mui/icons-material';
+import getAxiosClient from '../../core/AxiosClient.ts';
+import { settings } from '../../core/settings.ts';
+
+const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
 interface MemberPermission {
     oid: string;
@@ -79,14 +83,12 @@ export default function MemberPermissionManagement({
     const loadPermissions = async () => {
         setLoading(true);
         try {
-            const response = await fetch(
-                `http://localhost:8000/db/security/permissions/members/type/${typePermissionId}`
+            const response = await apiClient.get(
+                `/db/security/permissions/members/type/${typePermissionId}`
             );
-            if (!response.ok) throw new Error('Failed to load member permissions');
-            const data = await response.json();
-            setPermissions(data);
+            setPermissions(response.data);
         } catch (error: any) {
-            showSnackbar('Failed to load member permissions: ' + error.message, 'error');
+            showSnackbar('Failed to load member permissions: ' + (error.response?.data?.detail || error.message), 'error');
         } finally {
             setLoading(false);
         }
@@ -125,33 +127,23 @@ export default function MemberPermissionManagement({
             };
 
             if (editingPermission) {
-                const response = await fetch(
-                    `http://localhost:8000/db/security/permissions/members/${editingPermission.oid}`,
-                    {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ ...payload, oid: editingPermission.oid }),
-                    }
+                await apiClient.put(
+                    `/db/security/permissions/members/${editingPermission.oid}`,
+                    { ...payload, oid: editingPermission.oid }
                 );
-                if (!response.ok) throw new Error('Failed to update member permission');
                 showSnackbar('Member permission updated successfully', 'success');
             } else {
-                const response = await fetch(
-                    'http://localhost:8000/db/security/permissions/members',
-                    {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload),
-                    }
+                await apiClient.post(
+                    '/db/security/permissions/members',
+                    payload
                 );
-                if (!response.ok) throw new Error('Failed to create member permission');
                 showSnackbar('Member permission created successfully', 'success');
             }
 
             setDialogOpen(false);
             loadPermissions();
         } catch (error: any) {
-            showSnackbar('Failed to save member permission: ' + error.message, 'error');
+            showSnackbar('Failed to save member permission: ' + (error.response?.data?.detail || error.message), 'error');
         }
     };
 
@@ -159,15 +151,13 @@ export default function MemberPermissionManagement({
         if (!confirm('Are you sure you want to delete this member permission?')) return;
 
         try {
-            const response = await fetch(
-                `http://localhost:8000/db/security/permissions/members/${permissionId}`,
-                { method: 'DELETE' }
+            await apiClient.delete(
+                `/db/security/permissions/members/${permissionId}`
             );
-            if (!response.ok) throw new Error('Failed to delete member permission');
             showSnackbar('Member permission deleted successfully', 'success');
             loadPermissions();
         } catch (error: any) {
-            showSnackbar('Failed to delete member permission: ' + error.message, 'error');
+            showSnackbar('Failed to delete member permission: ' + (error.response?.data?.detail || error.message), 'error');
         }
     };
 

@@ -38,6 +38,10 @@ import {
     Cancel,
     Code,
 } from '@mui/icons-material';
+import getAxiosClient from '../../core/AxiosClient.ts';
+import { settings } from '../../core/settings.ts';
+
+const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
 interface ObjectPermission {
     oid: string;
@@ -88,14 +92,12 @@ export default function ObjectPermissionManagement({
     const loadPermissions = async () => {
         setLoading(true);
         try {
-            const response = await fetch(
-                `http://localhost:8000/db/security/permissions/objects/type/${typePermissionId}`
+            const response = await apiClient.get(
+                `/db/security/permissions/objects/type/${typePermissionId}`
             );
-            if (!response.ok) throw new Error('Failed to load object permissions');
-            const data = await response.json();
-            setPermissions(data);
+            setPermissions(response.data);
         } catch (error: any) {
-            showSnackbar('Failed to load object permissions: ' + error.message, 'error');
+            showSnackbar('Failed to load object permissions: ' + (error.response?.data?.detail || error.message), 'error');
         } finally {
             setLoading(false);
         }
@@ -142,33 +144,23 @@ export default function ObjectPermissionManagement({
             };
 
             if (editingPermission) {
-                const response = await fetch(
-                    `http://localhost:8000/db/security/permissions/objects/${editingPermission.oid}`,
-                    {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ ...payload, oid: editingPermission.oid }),
-                    }
+                await apiClient.put(
+                    `/db/security/permissions/objects/${editingPermission.oid}`,
+                    { ...payload, oid: editingPermission.oid }
                 );
-                if (!response.ok) throw new Error('Failed to update object permission');
                 showSnackbar('Object permission updated successfully', 'success');
             } else {
-                const response = await fetch(
-                    'http://localhost:8000/db/security/permissions/objects',
-                    {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload),
-                    }
+                await apiClient.post(
+                    '/db/security/permissions/objects',
+                    payload
                 );
-                if (!response.ok) throw new Error('Failed to create object permission');
                 showSnackbar('Object permission created successfully', 'success');
             }
 
             setDialogOpen(false);
             loadPermissions();
         } catch (error: any) {
-            showSnackbar('Failed to save object permission: ' + error.message, 'error');
+            showSnackbar('Failed to save object permission: ' + (error.response?.data?.detail || error.message), 'error');
         }
     };
 
@@ -176,15 +168,13 @@ export default function ObjectPermissionManagement({
         if (!confirm('Are you sure you want to delete this object permission?')) return;
 
         try {
-            const response = await fetch(
-                `http://localhost:8000/db/security/permissions/objects/${permissionId}`,
-                { method: 'DELETE' }
+            await apiClient.delete(
+                `/db/security/permissions/objects/${permissionId}`
             );
-            if (!response.ok) throw new Error('Failed to delete object permission');
             showSnackbar('Object permission deleted successfully', 'success');
             loadPermissions();
         } catch (error: any) {
-            showSnackbar('Failed to delete object permission: ' + error.message, 'error');
+            showSnackbar('Failed to delete object permission: ' + (error.response?.data?.detail || error.message), 'error');
         }
     };
 

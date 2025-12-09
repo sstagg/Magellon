@@ -21,9 +21,9 @@ import { settings } from "../../core/settings.ts";
 import Button from "@mui/material/Button";
 import { CheckCircleIcon } from "lucide-react";
 import { SelectChangeEvent } from '@mui/material';
+import getAxiosClient from '../../core/AxiosClient.ts';
 
-const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
-const exportUrl: string = BASE_URL.replace(/\/web$/, '/export');
+const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
 type FileCopyMode = 'symlink' | 'copy' | 'none';
 
@@ -67,14 +67,10 @@ export const RelionExportComponent = () => {
     const fetchSessions = async () => {
         setLoadingSessions(true);
         try {
-            const response = await fetch(`${BASE_URL}/sessions`);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            const data = await response.json();
-            setSessions(data);
-        } catch (err) {
-            console.error('Failed to fetch sessions:', err);
+            const response = await apiClient.get('/web/sessions');
+            setSessions(response.data);
+        } catch (err: any) {
+            console.error('Failed to fetch sessions:', err.response?.data?.detail || err.message);
         } finally {
             setLoadingSessions(false);
         }
@@ -141,25 +137,12 @@ export const RelionExportComponent = () => {
         setExportResult(null);
 
         try {
-            const response = await fetch(`${exportUrl}/generate-relion-starfile`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData)
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || 'Export failed');
-            }
-
-            const result = await response.json();
-            setExportResult(result);
+            const response = await apiClient.post('/export/generate-relion-starfile', formData);
+            setExportResult(response.data);
             setExportStatus('success');
-        } catch (err) {
+        } catch (err: any) {
             setExportStatus('error');
-            setExportError(err instanceof Error ? err.message : 'Export failed');
+            setExportError(err.response?.data?.detail || err.message || 'Export failed');
         }
     };
 

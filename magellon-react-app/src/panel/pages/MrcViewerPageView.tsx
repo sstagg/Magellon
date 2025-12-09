@@ -22,6 +22,9 @@ import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { Menu, X, Maximize2, Minimize2 } from 'lucide-react';
 import {settings} from "../../core/settings.ts";
 import DirectoryTreeView from "../components/DirectoryTreeView.tsx";
+import getAxiosClient from '../../core/AxiosClient.ts';
+
+const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
 interface MRCViewerProps {
     mrcFilePath?: string;
@@ -123,20 +126,16 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath = "C:\\Users\\
         const fetchImages = async () => {
             try {
                 const startIdx = (page - 1) * itemsPerPage;
-                const response = await fetch(
-                    `http://localhost:8000/web/mrc/?file_path=${encodeURIComponent(
-                        mrcFilePath
-                    )}&start_idx=${startIdx}&count=${itemsPerPage}`
-                );
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error ${response.status}`);
-                }
-
-                const data = await response.json();
-                setImageData(data);
-            } catch (error) {
-                console.error('Error fetching images:', error);
+                const response = await apiClient.get('/web/mrc/', {
+                    params: {
+                        file_path: mrcFilePath,
+                        start_idx: startIdx,
+                        count: itemsPerPage
+                    }
+                });
+                setImageData(response.data);
+            } catch (error: any) {
+                console.error('Error fetching images:', error.response?.data?.detail || error.message);
                 setImageData(null);
             }
         };
