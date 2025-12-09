@@ -220,7 +220,7 @@ def parse_mdoc(file_path: str, settings_file_path: str) -> SerialEMMetadata:
     # TOdo convert required strings to float
 
     return SerialEMMetadata(**result)
-def extract_navigator_label(mdoc_path: str) -> str | None:
+def extract_navigator_label(mdoc_path: str) -> Optional[str]:
     """
     Reads an .mdoc file and returns the NavigatorLabel if present.
     If multiple NavigatorLabels exist, returns the first one.
@@ -458,7 +458,7 @@ def convert_tiff_to_mrc(moviename: str, gainname: str, outname: str) -> str:
     except Exception as e:
         raise ValueError(f"convertion of tiff to mrc failed- premade image for ctf: {str(e)}") from e
     
-def find_nav_file(directory: str) -> str | None:
+def find_nav_file(directory: str) -> Optional[str]:
     """
     Recursively search for a .nav file in the given directory.
 
