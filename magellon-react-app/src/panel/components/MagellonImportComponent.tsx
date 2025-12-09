@@ -16,8 +16,10 @@ import { useState, useEffect } from "react";
 import { settings } from "../../core/settings.ts";
 import Button from "@mui/material/Button";
 import {CheckCircleIcon} from "lucide-react";
+import getAxiosClient from '../../core/AxiosClient.ts';
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
+const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
 
 type FileItem = {
@@ -48,16 +50,14 @@ export const MagellonImportComponent = () => {
     const validateDirectory = async (dirPath: string) => {
         setValidationStatus('validating');
         try {
-            const response = await fetch(`${exportUrl}/validate-magellon-directory?source_dir=${encodeURIComponent(dirPath)}`);
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.detail);
-            }
+            await apiClient.get('/export/validate-magellon-directory', {
+                params: { source_dir: dirPath }
+            });
             setValidationStatus('valid');
             return true;
-        } catch (err) {
+        } catch (err: any) {
             setValidationStatus('invalid');
-            setError(err instanceof Error ? err.message : 'Validation failed');
+            setError(err.response?.data?.detail || err.message || 'Validation failed');
             return false;
         }
     };
@@ -80,26 +80,14 @@ export const MagellonImportComponent = () => {
         setImportError(null);
 
         try {
-
-            const response = await fetch(`${exportUrl}/magellon-import`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    source_dir: selectedDir
-                })
+            await apiClient.post('/export/magellon-import', {
+                source_dir: selectedDir
             });
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || 'Import failed');
-            }
-
             setImportStatus('success');
-        } catch (err) {
+        } catch (err: any) {
             setImportStatus('error');
-            setImportError(err instanceof Error ? err.message : 'Import failed');
+            setImportError(err.response?.data?.detail || err.message || 'Import failed');
         }
     };
 
@@ -108,17 +96,19 @@ export const MagellonImportComponent = () => {
         setLoading(true);
         setError(null);
         try {
-            const response = await fetch(
-                `${BASE_URL}/files/browse?path=${encodeURIComponent(path)}`
-            );
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            const data = await response.json();
-            setFiles(data);
+            const response = await apiClient.get('/web/files/browse', {
+                params: { path }
+            });
+            setFiles(response.data);
             setCurrentPath(path);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'An error occurred');
+        } catch (err: any) {
+            if (err.response?.status === 401) {
+                setError('Please login to browse files');
+            } else if (err.response?.status === 403) {
+                setError('You do not have permission to browse this directory');
+            } else {
+                setError(err.response?.data?.detail || err.message || 'An error occurred');
+            }
         } finally {
             setLoading(false);
         }

@@ -19,9 +19,11 @@ import { useState, useEffect } from "react";
 import { settings } from "../../core/settings.ts";
 import Button from "@mui/material/Button";
 import {CheckCircleIcon} from "lucide-react";
+import getAxiosClient from '../../core/AxiosClient.ts';
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
 const exportUrl: string = BASE_URL.replace(/\/web$/, '/export');
+const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
 type FileItem = {
     id: number;
@@ -64,16 +66,14 @@ export const EpuImportComponent = () => {
     const validateDirectory = async (dirPath: string) => {
         setValidationStatus('validating');
         try {
-            const response = await fetch(`${exportUrl}/validate-epu-directory?source_dir=${encodeURIComponent(dirPath)}`);
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.detail);
-            }
+            await apiClient.get('/export/validate-epu-directory', {
+                params: { source_dir: dirPath }
+            });
             setValidationStatus('valid');
             return true;
-        } catch (err) {
+        } catch (err: any) {
             setValidationStatus('invalid');
-            setError(err instanceof Error ? err.message : 'Validation failed');
+            setError(err.response?.data?.detail || err.message || 'Validation failed');
             return false;
         }
     };
@@ -106,33 +106,22 @@ export const EpuImportComponent = () => {
         setImportError(null);
 
         try {
-            const response = await fetch(`${exportUrl}/epu-import`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    target_directory: epuDirPath,
-                    epu_dir_path: selectedDirectory,
-                    magellon_project_name: magellonProjectName,
-                    magellon_session_name: magellonSessionName,
-                    default_data: {
-                        pixel_size: defaultData.pixel_size,
-                        acceleration_voltage: defaultData.acceleration_voltage,
-                        spherical_aberration: defaultData.spherical_aberration
-                    }
-                })
+            await apiClient.post('/export/epu-import', {
+                target_directory: epuDirPath,
+                epu_dir_path: selectedDirectory,
+                magellon_project_name: magellonProjectName,
+                magellon_session_name: magellonSessionName,
+                default_data: {
+                    pixel_size: defaultData.pixel_size,
+                    acceleration_voltage: defaultData.acceleration_voltage,
+                    spherical_aberration: defaultData.spherical_aberration
+                }
             });
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || 'Import failed');
-            }
-
             setImportStatus('success');
-        } catch (err) {
+        } catch (err: any) {
             setImportStatus('error');
-            setImportError(err instanceof Error ? err.message : 'Import failed');
+            setImportError(err.response?.data?.detail || err.message || 'Import failed');
         }
     };
 
@@ -140,17 +129,19 @@ export const EpuImportComponent = () => {
         setLoading(true);
         setError(null);
         try {
-            const response = await fetch(
-                `${BASE_URL}/files/browse?path=${encodeURIComponent(path)}`
-            );
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            const data = await response.json();
-            setFiles(data);
+            const response = await apiClient.get('/web/files/browse', {
+                params: { path }
+            });
+            setFiles(response.data);
             setCurrentPath(path);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'An error occurred');
+        } catch (err: any) {
+            if (err.response?.status === 401) {
+                setError('Please login to browse files');
+            } else if (err.response?.status === 403) {
+                setError('You do not have permission to browse this directory');
+            } else {
+                setError(err.response?.data?.detail || err.message || 'An error occurred');
+            }
         } finally {
             setLoading(false);
         }

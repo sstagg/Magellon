@@ -26,9 +26,11 @@ import { useState, useEffect } from "react";
 import { settings } from "../../core/settings.ts";
 import Button from "@mui/material/Button";
 import { CheckCircleIcon } from "lucide-react";
+import getAxiosClient from '../../core/AxiosClient.ts';
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
 const exportUrl: string = BASE_URL.replace(/\/web$/, '/export');
+const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
 type FileItem = {
     id: number;
@@ -87,23 +89,20 @@ export const SerialEMImportComponent = () => {
     const validateSerialEMDirectory = async (dirPath: string) => {
         setValidationStatus('validating');
         try {
-            const response = await fetch(`${exportUrl}/validate-serialem-directory?source_dir=${encodeURIComponent(dirPath)}`);
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.detail);
-            }
-            const data = await response.json();
+            const response = await apiClient.get('/export/validate-serialem-directory', {
+                params: { source_dir: dirPath }
+            });
 
             // Update detected files count
-            if (data.file_counts) {
-                setDetectedFiles(data.file_counts);
+            if (response.data.file_counts) {
+                setDetectedFiles(response.data.file_counts);
             }
 
             setValidationStatus('valid');
             return true;
-        } catch (err) {
+        } catch (err: any) {
             setValidationStatus('invalid');
-            setError(err instanceof Error ? err.message : 'Validation failed');
+            setError(err.response?.data?.detail || err.message || 'Validation failed');
             return false;
         }
     };
@@ -141,39 +140,28 @@ export const SerialEMImportComponent = () => {
         setImportError(null);
 
         try {
-            const response = await fetch(`${exportUrl}/serialem-import`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    target_directory: serialemDirPath,
-                    serial_em_dir_path: selectedDirectory,
-                    magellon_project_name: magellonProjectName,
-                    magellon_session_name: magellonSessionName,
-                    session_name: magellonSessionName,
-                    data_type: dataType,
-                    frame_type: frameType,
-                    default_data: {
-                        pixel_size: defaults.pixel_size,
-                        acceleration_voltage: defaults.acceleration_voltage,
-                        spherical_aberration: defaults.spherical_aberration,
-                        amplitude_contrast: defaults.amplitude_contrast,
-                        magnification: defaults.magnification,
-                        detector_pixel_size: defaults.detector_pixel_size
-                    }
-                })
+            await apiClient.post('/export/serialem-import', {
+                target_directory: serialemDirPath,
+                serial_em_dir_path: selectedDirectory,
+                magellon_project_name: magellonProjectName,
+                magellon_session_name: magellonSessionName,
+                session_name: magellonSessionName,
+                data_type: dataType,
+                frame_type: frameType,
+                default_data: {
+                    pixel_size: defaults.pixel_size,
+                    acceleration_voltage: defaults.acceleration_voltage,
+                    spherical_aberration: defaults.spherical_aberration,
+                    amplitude_contrast: defaults.amplitude_contrast,
+                    magnification: defaults.magnification,
+                    detector_pixel_size: defaults.detector_pixel_size
+                }
             });
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || 'Import failed');
-            }
-
             setImportStatus('success');
-        } catch (err) {
+        } catch (err: any) {
             setImportStatus('error');
-            setImportError(err instanceof Error ? err.message : 'Import failed');
+            setImportError(err.response?.data?.detail || err.message || 'Import failed');
         }
     };
 
@@ -181,17 +169,19 @@ export const SerialEMImportComponent = () => {
         setLoading(true);
         setError(null);
         try {
-            const response = await fetch(
-                `${BASE_URL}/files/browse?path=${encodeURIComponent(path)}`
-            );
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            const data = await response.json();
-            setFiles(data);
+            const response = await apiClient.get('/web/files/browse', {
+                params: { path }
+            });
+            setFiles(response.data);
             setCurrentPath(path);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'An error occurred');
+        } catch (err: any) {
+            if (err.response?.status === 401) {
+                setError('Please login to browse files');
+            } else if (err.response?.status === 403) {
+                setError('You do not have permission to browse this directory');
+            } else {
+                setError(err.response?.data?.detail || err.message || 'An error occurred');
+            }
         } finally {
             setLoading(false);
         }
