@@ -419,6 +419,28 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
         : null;
     const { imageUrl: authenticatedFftUrl, isLoading: isFftLoading } = useAuthenticatedImage(fftImageUrl);
 
+    // Authenticated CTF image URLs
+    const ctfPowerspecUrl = selectedImage?.name
+        ? `${BASE_URL}/ctf_image?image_type=powerspec&name=${encodeURIComponent(selectedImage.name)}&sessionName=${sessionName}`
+        : null;
+    const { imageUrl: authenticatedCtfPowerspecUrl, isLoading: isCtfPowerspecLoading } = useAuthenticatedImage(ctfPowerspecUrl);
+
+    const ctfPlotsUrl = selectedImage?.name
+        ? `${BASE_URL}/ctf_image?image_type=plots&name=${encodeURIComponent(selectedImage.name)}&sessionName=${sessionName}`
+        : null;
+    const { imageUrl: authenticatedCtfPlotsUrl, isLoading: isCtfPlotsLoading } = useAuthenticatedImage(ctfPlotsUrl);
+
+    // Authenticated FAO image URLs
+    const faoImageOneUrl = selectedImage?.name
+        ? `${BASE_URL}/fao_image?image_type=one&name=${encodeURIComponent(selectedImage.name)}&sessionName=${sessionName}`
+        : null;
+    const { imageUrl: authenticatedFaoOneUrl, isLoading: isFaoOneLoading } = useAuthenticatedImage(faoImageOneUrl);
+
+    const faoImageTwoUrl = selectedImage?.name
+        ? `${BASE_URL}/fao_image?image_type=two&name=${encodeURIComponent(selectedImage.name)}&sessionName=${sessionName}`
+        : null;
+    const { imageUrl: authenticatedFaoTwoUrl, isLoading: isFaoTwoLoading } = useAuthenticatedImage(faoImageTwoUrl);
+
     // Enhanced API calls with progress tracking
     const {
         data: ImageCtfData,
@@ -1436,15 +1458,21 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                                                             p: 2,
                                                         }}
                                                     >
-                                                        <img
-                                                            src={`${BASE_URL}/ctf_image?image_type=powerspec&name=${encodeURIComponent(selectedImage?.name)}&sessionName=${sessionName}`}
-                                                            alt="CTF power spectrum"
-                                                            style={{
-                                                                maxWidth: '100%',
-                                                                height: 'auto',
-                                                                borderRadius: '8px',
-                                                            }}
-                                                        />
+                                                        {isCtfPowerspecLoading ? (
+                                                            <Skeleton variant="rectangular" width={400} height={400} />
+                                                        ) : authenticatedCtfPowerspecUrl ? (
+                                                            <img
+                                                                src={authenticatedCtfPowerspecUrl}
+                                                                alt="CTF power spectrum"
+                                                                style={{
+                                                                    maxWidth: '100%',
+                                                                    height: 'auto',
+                                                                    borderRadius: '8px',
+                                                                }}
+                                                            />
+                                                        ) : (
+                                                            <Typography color="text.secondary">Image not available</Typography>
+                                                        )}
                                                     </Box>
                                                 </Paper>
                                             </Grid>
@@ -1497,15 +1525,21 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                                                             p: 2,
                                                         }}
                                                     >
-                                                        <img
-                                                            src={`${BASE_URL}/ctf_image?image_type=plots&name=${encodeURIComponent(selectedImage?.name)}&sessionName=${sessionName}`}
-                                                            alt="CTF plots"
-                                                            style={{
-                                                                maxWidth: '100%',
-                                                                height: 'auto',
-                                                                borderRadius: '8px',
-                                                            }}
-                                                        />
+                                                        {isCtfPlotsLoading ? (
+                                                            <Skeleton variant="rectangular" width={400} height={400} />
+                                                        ) : authenticatedCtfPlotsUrl ? (
+                                                            <img
+                                                                src={authenticatedCtfPlotsUrl}
+                                                                alt="CTF plots"
+                                                                style={{
+                                                                    maxWidth: '100%',
+                                                                    height: 'auto',
+                                                                    borderRadius: '8px',
+                                                                }}
+                                                            />
+                                                        ) : (
+                                                            <Typography color="text.secondary">Image not available</Typography>
+                                                        )}
                                                     </Box>
                                                 </Paper>
                                             </Grid>
@@ -1623,22 +1657,34 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
 
                         <TabPanel value="6" sx={{ p: 3 }}>
                             <Stack spacing={2} alignItems="center">
-                                <img
-                                    src={`${BASE_URL}/fao_image?image_type=one&name=${encodeURIComponent(selectedImage?.name)}&sessionName=${sessionName}`}
-                                    alt="Frame alignment - image one"
-                                    style={{
-                                        ...imageStyle,
-                                        maxWidth: isMobile ? '100%' : '900px'
-                                    }}
-                                />
-                                <img
-                                    src={`${BASE_URL}/fao_image?image_type=two&name=${encodeURIComponent(selectedImage?.name)}&sessionName=${sessionName}`}
-                                    alt="Frame alignment - image two"
-                                    style={{
-                                        ...imageStyle,
-                                        maxWidth: isMobile ? '100%' : '900px'
-                                    }}
-                                />
+                                {isFaoOneLoading ? (
+                                    <Skeleton variant="rectangular" width={isMobile ? 300 : 900} height={400} />
+                                ) : authenticatedFaoOneUrl ? (
+                                    <img
+                                        src={authenticatedFaoOneUrl}
+                                        alt="Frame alignment - image one"
+                                        style={{
+                                            ...imageStyle,
+                                            maxWidth: isMobile ? '100%' : '900px'
+                                        }}
+                                    />
+                                ) : (
+                                    <Alert severity="info">Frame alignment image one not available</Alert>
+                                )}
+                                {isFaoTwoLoading ? (
+                                    <Skeleton variant="rectangular" width={isMobile ? 300 : 900} height={400} />
+                                ) : authenticatedFaoTwoUrl ? (
+                                    <img
+                                        src={authenticatedFaoTwoUrl}
+                                        alt="Frame alignment - image two"
+                                        style={{
+                                            ...imageStyle,
+                                            maxWidth: isMobile ? '100%' : '900px'
+                                        }}
+                                    />
+                                ) : (
+                                    <Alert severity="info">Frame alignment image two not available</Alert>
+                                )}
                             </Stack>
                         </TabPanel>
 

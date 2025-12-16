@@ -4,16 +4,20 @@ import {useQuery} from "react-query";
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL ;
 
-// export function fetchImageCtfInfo(img_name: string) {
-//     return axios.get(`${BASE_URL}/ctf-info`, {
-//         params: { img_name } // Automatically converts to query string
-//     }).then(response => response.data); // Automatically parses JSON
-// }
-
 export function fetchImageCtfInfo(img_name: string) {
-    return fetch(`${BASE_URL}/ctf-info?image_name_or_oid=${encodeURIComponent(img_name)}`).then((response) =>
-        response.json()
-    );
+    const token = localStorage.getItem('access_token');
+
+    return fetch(`${BASE_URL}/ctf-info?image_name_or_oid=${encodeURIComponent(img_name)}`, {
+        headers: {
+            'Authorization': token ? `Bearer ${token}` : '',
+            'Content-Type': 'application/json',
+        },
+    }).then((response) => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    });
 }
 
 
