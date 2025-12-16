@@ -35,6 +35,15 @@ export const useImageNavigation = (): UseImageNavigationReturn => {
     // Handle session selection from dropdown
     const handleSessionSelect = useCallback((event: SelectChangeEvent) => {
         const selectedValue = event.target.value;
+
+        // If "None" is selected (empty string), set session to null
+        if (!selectedValue) {
+            setCurrentSession(null);
+            resetImageColumns();
+            setCurrentImage(null);
+            return;
+        }
+
         const sessionDto: SessionDto = {
             Oid: selectedValue,
             name: selectedValue,
