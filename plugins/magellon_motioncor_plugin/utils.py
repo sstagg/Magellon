@@ -156,10 +156,10 @@ def build_motioncor3_command(params: CryoEmMotionCorTaskData) -> str:
         cmd+=getSubCommand('-RotGain',str(params.RotGain))
     else:
         cmd+=getSubCommand('-RotGain',"0")
-    # if params.FlipGain is not None:
-    #     cmd+=getSubCommand('-FlipGain',str(params.FlipGain))
-    # else:
-    #     cmd+=getSubCommand('-FlipGain','0')
+    if params.FlipGain is not None:
+        cmd+=getSubCommand('-FlipGain',str(params.FlipGain))
+    else:
+        cmd+=getSubCommand('-FlipGain','0')
     if params.InvGain is not None:
         cmd+=getSubCommand('-InvGain',str(params.InvGain))
     # if params.MagMajoraxes is not None and params.MagMinoraxes is not None and params.MagAngle is not None:
