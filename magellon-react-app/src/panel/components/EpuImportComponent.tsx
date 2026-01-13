@@ -40,9 +40,25 @@ type DefaultData = {
     pixel_size: number;
     acceleration_voltage: number;
     spherical_aberration: number;
+    flip_gain: number;
+    rot_gain: number;
 }
 
 type ImportStatus = 'idle' | 'processing' | 'success' | 'error';
+
+const rotGainOptions = [
+  { value: 0, label: "0 — No rotation (default)" },
+  { value: 1, label: "1 — Rotate 90° counter-clockwise" },
+  { value: 2, label: "2 — Rotate 180°" },
+  { value: 3, label: "3 — Rotate 270° counter-clockwise" },
+];
+
+const flipGainOptions = [
+  { value: 0, label: "0 — No flipping (default)" },
+  { value: 1, label: "1 — Flip upside down (horizontal axis)" },
+  { value: 2, label: "2 — Flip left–right (vertical axis)" },
+];
+
 
 export const EpuImportComponent = () => {
     const [files, setFiles] = useState<FileItem[]>([]);
@@ -417,43 +433,48 @@ export const EpuImportComponent = () => {
                                 inputProps={{ step: 0.1, min: 0 }}
                             />
                         </Grid>
-                       <Grid item xs={12} md={4}>
-  <TextField
-    fullWidth
-    required
-    select
-    label="Rot Gain"
-    value={defaultData.rot_gain}
-    onChange={(e) => handleDefaultDataChange("rot_gain", e.target.value)}
-    variant="outlined"
-    margin="normal"
-  >
-    {[0, 1, 2, 3].map((value) => (
-      <MenuItem key={value} value={value}>
-        {value}
-      </MenuItem>
-    ))}
-  </TextField>
-</Grid>
-
-<Grid item xs={12} md={4}>
-  <TextField
-    fullWidth
-    required
-    select
-    label="Flip Gain"
-    value={defaultData.flip_gain}
-    onChange={(e) => handleDefaultDataChange("flip_gain", e.target.value)}
-    variant="outlined"
-    margin="normal"
-  >
-    {[0, 1, 2].map((value) => (
-      <MenuItem key={value} value={value}>
-        {value}
-      </MenuItem>
-    ))}
-  </TextField>
-</Grid>
+                      <Grid item xs={12} md={4}>
+                        <TextField
+                          fullWidth
+                          required
+                          select
+                          label="Rot Gain"
+                          value={defaultData.rot_gain}
+                          onChange={(e) =>
+                            handleDefaultDataChange("rot_gain", e.target.value)
+                          }
+                          variant="outlined"
+                          margin="normal"
+                        >
+                          {rotGainOptions.map((opt) => (
+                            <MenuItem key={opt.value} value={String(opt.value)}>
+                              {opt.label}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      </Grid>
+                      
+                      
+                      <Grid item xs={12} md={4}>
+                        <TextField
+                          fullWidth
+                          required
+                          select
+                          label="Flip Gain"
+                          value={defaultData.flip_gain}
+                          onChange={(e) =>
+                            handleDefaultDataChange("flip_gain", e.target.value)
+                          }
+                          variant="outlined"
+                          margin="normal"
+                        >
+                          {flipGainOptions.map((opt) => (
+                            <MenuItem key={opt.value} value={String(opt.value)}>
+                              {opt.label}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      </Grid>
 
                         <Grid item xs={12} sx={{ mt: 2 }}>
                             <Button

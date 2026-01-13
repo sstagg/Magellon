@@ -49,11 +49,27 @@ type SerialEMDefaults = {
     amplitude_contrast: number;
     magnification: number;
     detector_pixel_size: number;
+    rot_gain?: number;
+    flip_gain?: number;
 }
 
 type SerialEMFileType = 'mrc' | 'st' | 'mdoc' | 'nav';
 
 type ImportStatus = 'idle' | 'processing' | 'success' | 'error';
+
+const rotGainOptions = [
+  { value: 0, label: "0 — No rotation (default)" },
+  { value: 1, label: "1 — Rotate 90° counter-clockwise" },
+  { value: 2, label: "2 — Rotate 180°" },
+  { value: 3, label: "3 — Rotate 270° counter-clockwise" },
+];
+
+const flipGainOptions = [
+  { value: 0, label: "0 — No flipping (default)" },
+  { value: 1, label: "1 — Flip upside down (horizontal axis)" },
+  { value: 2, label: "2 — Flip left–right (vertical axis)" },
+];
+
 
 export const SerialEMImportComponent = () => {
     const [files, setFiles] = useState<FileItem[]>([]);
@@ -83,7 +99,9 @@ export const SerialEMImportComponent = () => {
         spherical_aberration: 2.7,
         amplitude_contrast: 0.1,
         magnification: 50000,
-        detector_pixel_size: 5.0
+        detector_pixel_size: 5.0,
+        rot_gain:0,
+        flip_gain:0
     });
 
     const validateSerialEMDirectory = async (dirPath: string) => {
@@ -154,7 +172,9 @@ export const SerialEMImportComponent = () => {
                     spherical_aberration: defaults.spherical_aberration,
                     amplitude_contrast: defaults.amplitude_contrast,
                     magnification: defaults.magnification,
-                    detector_pixel_size: defaults.detector_pixel_size
+                    detector_pixel_size: defaults.detector_pixel_size,
+                    rot_gain: defaults.rot_gain,
+                    flip_gain: defaults.flip_gain
                 }
             });
 
@@ -589,6 +609,50 @@ export const SerialEMImportComponent = () => {
                                 helperText="Physical detector pixel size"
                             />
                         </Grid>
+<Grid item xs={12} md={4}>
+  <TextField
+    fullWidth
+    required
+    select
+    label="Rot Gain"
+    value={defaults.rot_gain}
+    onChange={(e) =>
+      handleDefaultsChange("rot_gain", String(e.target.value))
+    }
+    variant="outlined"
+    margin="normal"
+  >
+    {rotGainOptions.map((opt) => (
+      <MenuItem key={opt.value} value={String(opt.value)}>
+        {opt.label}
+      </MenuItem>
+    ))}
+  </TextField>
+</Grid>
+
+
+<Grid item xs={12} md={4}>
+  <TextField
+    fullWidth
+    required
+    select
+    label="Flip Gain"
+    value={defaults.flip_gain}
+    onChange={(e) =>
+      handleDefaultsChange("flip_gain", String(e.target.value))
+    }
+    variant="outlined"
+    margin="normal"
+  >
+    {flipGainOptions.map((opt) => (
+      <MenuItem key={opt.value} value={String(opt.value)}>
+        {opt.label}
+      </MenuItem>
+    ))}
+  </TextField>
+</Grid>
+
+             
 
                         <Grid item xs={12} sx={{ mt: 2 }}>
                             <Button
