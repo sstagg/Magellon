@@ -1,11 +1,11 @@
 import React from 'react';
-import { ImperativePanelHandle } from 'react-resizable-panels';
+import { PanelImperativeHandle } from 'react-resizable-panels';
 import { ChevronLeft, ChevronRight} from '@mui/icons-material';
 import { Tooltip, IconButton } from '@mui/material';
 import {ChevronDown, ChevronUp} from "lucide-react";
 
 interface PanelCollapseButtonProps {
-    panelRef: React.RefObject<ImperativePanelHandle>;
+    panelRef: React.RefObject<PanelImperativeHandle>;
     direction: 'horizontal' | 'vertical';
     position: 'left' | 'right' | 'top' | 'bottom';
     tooltipWhenVisible?: string;

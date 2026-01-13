@@ -356,7 +356,7 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath = "C:\\Users\\
                 {showSidePanels ? (
                     <Group orientation="horizontal">
                         {/* Left Panel - Directory Tree */}
-                        <Panel defaultSize={15} minSize={10} maxSize={25}>
+                        <Panel defaultSize="15%" minSize="10%" maxSize="25%">
                             <Box sx={{
                                 height: '100%',
                                 p: 0.75,
@@ -376,10 +376,10 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath = "C:\\Users\\
                         <ResizeHandle direction="horizontal" />
 
                         {/* Center Panel - Images */}
-                        <Panel defaultSize={70} minSize={55}>
+                        <Panel defaultSize="70%" minSize="55%">
                             <Group orientation="vertical">
                                 {/* Controls */}
-                                <Panel defaultSize={7} minSize={5} maxSize={10}>
+                                <Panel defaultSize="7%" minSize="5%" maxSize="10%">
                                     <Box sx={{
                                         p: 0.75,
                                         borderBottom: 1,
@@ -434,7 +434,7 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath = "C:\\Users\\
                                 <ResizeHandle direction="vertical" />
 
                                 {/* Images */}
-                                <Panel defaultSize={93} minSize={85}>
+                                <Panel defaultSize="93%" minSize="85%">
                                     <Box sx={{
                                         height: '100%',
                                         p: 0.5,
@@ -471,10 +471,10 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath = "C:\\Users\\
                         <ResizeHandle direction="horizontal" />
 
                         {/* Right Panel - Controls */}
-                        <Panel defaultSize={15} minSize={12} maxSize={20}>
+                        <Panel defaultSize="15%" minSize="12%" maxSize="20%">
                             <Group orientation="vertical">
                                 {/* Image Controls */}
-                                <Panel defaultSize={60} minSize={40}>
+                                <Panel defaultSize="60%" minSize="40%">
                                     <Box sx={{
                                         p: 0.75,
                                         borderBottom: 1,
@@ -522,7 +522,7 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath = "C:\\Users\\
                                 <ResizeHandle direction="vertical" />
 
                                 {/* Metadata */}
-                                <Panel defaultSize={40} minSize={25}>
+                                <Panel defaultSize="40%" minSize="25%">
                                     <Box sx={{
                                         p: 0.75,
                                         overflow: 'auto',

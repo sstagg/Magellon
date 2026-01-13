@@ -216,9 +216,9 @@ export const ImagesPageView = () => {
                             {/* Left Panel - Session Navigator (ImageWorkspace) */}
                             <Panel
                                 id="session-navigator"
-                                defaultSize={leftPanelSize}
-                                minSize={25}        // Minimum 25% of total width (more space for images)
-                                maxSize={50}        // Maximum 50% of total width
+                                defaultSize={`${leftPanelSize}%`}
+                                minSize="25%"       // Minimum 25% of total width (more space for images)
+                                maxSize="50%"       // Maximum 50% of total width
                                 style={{
                                     minWidth: 0,
                                     overflow: 'hidden'
@@ -251,7 +251,7 @@ export const ImagesPageView = () => {
                             {/* Right Panel - Solo Image Viewer (ImageInspector) - Gets more space */}
                             <Panel
                                 id="image-viewer"
-                                minSize={50}        // Minimum 50% of total width - more space for detailed viewing
+                                minSize="50%"       // Minimum 50% of total width - more space for detailed viewing
                                 style={{
                                     minWidth: '500px', // Reduced minimum - let it be more flexible
                                     overflow: 'hidden'
