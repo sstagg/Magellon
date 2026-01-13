@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ImageColumnState } from '../../../../panel/pages/ImagesPageView.tsx';
+import { ImageColumn as ImageColumnState } from './imageViewerStore.ts';
 
 export const useVisibleColumns = (
     imageColumns: ImageColumnState[],

@@ -8,9 +8,12 @@ interface UsePanelLayoutOptions {
     storageKey: string;
 }
 
+// Layout type for react-resizable-panels v4
+type Layout = { [panelId: string]: number };
+
 interface UsePanelLayoutReturn {
     leftPanelSize: number;
-    handleResize: (sizes: number[]) => void;
+    handleResize: (layout: Layout) => void;
     resetLayout: () => void;
     isDrawerOpen: boolean;
     leftMargin: number;
@@ -66,10 +69,12 @@ export const usePanelLayout = (options: UsePanelLayoutOptions): UsePanelLayoutRe
         };
     }, []);
 
-    // Handle panel resize with constraints
-    const handleResize = useCallback((sizes: number[]) => {
-        if (sizes[0] !== undefined) {
-            const constrainedSize = Math.max(minSize, Math.min(maxSize, sizes[0]));
+    // Handle panel resize with constraints (react-resizable-panels v4 API)
+    const handleResize = useCallback((layout: Layout) => {
+        // Get the first panel's size (session-navigator panel)
+        const sessionNavigatorSize = layout['session-navigator'];
+        if (sessionNavigatorSize !== undefined) {
+            const constrainedSize = Math.max(minSize, Math.min(maxSize, sessionNavigatorSize));
             setLeftPanelSize(constrainedSize);
             if (typeof window !== 'undefined') {
                 localStorage.setItem(storageKey, constrainedSize.toString());

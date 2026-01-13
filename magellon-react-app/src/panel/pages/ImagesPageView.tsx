@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, useTheme, useMediaQuery } from '@mui/material';
-import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
+import { Panel, Group, Separator } from 'react-resizable-panels';
 import { ImageWorkspace } from '../../components/features/session_viewer/ImageWorkspace.tsx';
 import { useSessionNames } from '../../services/api/FetchUseSessionNames.ts';
 import { useImageViewerStore } from '../../components/features/session_viewer/store/imageViewerStore.ts';
@@ -18,7 +18,7 @@ const CustomResizeHandle = () => {
     const theme = useTheme();
 
     return (
-        <PanelResizeHandle
+        <Separator
             className="resize-handle-horizontal"
         >
             <Box
@@ -53,7 +53,7 @@ const CustomResizeHandle = () => {
                     }
                 }}
             />
-        </PanelResizeHandle>
+        </Separator>
     );
 };
 
@@ -204,9 +204,9 @@ export const ImagesPageView = () => {
                         overflow: 'hidden',
                         border: `1px solid ${theme.palette.divider}`
                     }}>
-                        <PanelGroup
-                            direction="horizontal"
-                            onLayout={handleResize}
+                        <Group
+                            orientation="horizontal"
+                            onLayoutChange={handleResize}
                             style={{
                                 width: '100%',
                                 height: '100%',
@@ -269,7 +269,7 @@ export const ImagesPageView = () => {
                                     <ImageInspector selectedImage={currentImage} />
                                 </Box>
                             </Panel>
-                        </PanelGroup>
+                        </Group>
                     </Box>
                 </Box>
             </Box>

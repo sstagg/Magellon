@@ -12,7 +12,7 @@ import { useImageViewerStore } from './store/imageViewerStore.ts';
 import GridGallery from "./GridGallery.tsx";
 import HierarchyBrowser from "./HierarchyBrowser.tsx";
 import ColumnBrowser from "./ColumnBrowser.tsx";
-import { ImageColumnState } from "../../../panel/pages/ImagesPageView.tsx";
+import { ImageColumn as ImageColumnState } from "./store/imageViewerStore.ts";
 import { SelectChangeEvent } from '@mui/material';
 import { SessionSelector } from './components/SessionSelector.tsx';
 import { ViewModeSelector } from './components/ViewModeSelector.tsx';

@@ -18,7 +18,7 @@ import {
     useTheme
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
-import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
+import { Panel, Group, Separator } from 'react-resizable-panels';
 import { Menu, X, Maximize2, Minimize2 } from 'lucide-react';
 import {settings} from "../../core/settings.ts";
 import DirectoryTreeView from "../components/DirectoryTreeView.tsx";
@@ -47,7 +47,7 @@ const DRAWER_WIDTH = 240;
 
 // Custom resize handle styles
 const ResizeHandle = ({ direction }: { direction: 'horizontal' | 'vertical' }) => (
-    <PanelResizeHandle>
+    <Separator>
         <Box
             sx={{
                 width: direction === 'horizontal' ? 6 : '100%',
@@ -80,7 +80,7 @@ const ResizeHandle = ({ direction }: { direction: 'horizontal' | 'vertical' }) =
                 }
             }}
         />
-    </PanelResizeHandle>
+    </Separator>
 );
 
 const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath = "C:\\Users\\18505\\Downloads\\templates_selected.mrc", metadataFiles = []}) => {
@@ -354,7 +354,7 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath = "C:\\Users\\
             {/* Main Content */}
             <Box sx={{ flex: 1, overflow: 'hidden' }}>
                 {showSidePanels ? (
-                    <PanelGroup direction="horizontal">
+                    <Group orientation="horizontal">
                         {/* Left Panel - Directory Tree */}
                         <Panel defaultSize={15} minSize={10} maxSize={25}>
                             <Box sx={{
@@ -377,7 +377,7 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath = "C:\\Users\\
 
                         {/* Center Panel - Images */}
                         <Panel defaultSize={70} minSize={55}>
-                            <PanelGroup direction="vertical">
+                            <Group orientation="vertical">
                                 {/* Controls */}
                                 <Panel defaultSize={7} minSize={5} maxSize={10}>
                                     <Box sx={{
@@ -465,14 +465,14 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath = "C:\\Users\\
                                         )}
                                     </Box>
                                 </Panel>
-                            </PanelGroup>
+                            </Group>
                         </Panel>
 
                         <ResizeHandle direction="horizontal" />
 
                         {/* Right Panel - Controls */}
                         <Panel defaultSize={15} minSize={12} maxSize={20}>
-                            <PanelGroup direction="vertical">
+                            <Group orientation="vertical">
                                 {/* Image Controls */}
                                 <Panel defaultSize={60} minSize={40}>
                                     <Box sx={{
@@ -579,9 +579,9 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath = "C:\\Users\\
                                         </Box>
                                     </Box>
                                 </Panel>
-                            </PanelGroup>
+                            </Group>
                         </Panel>
-                    </PanelGroup>
+                    </Group>
                 ) : (
                     // Full-width image grid when panels are hidden (~95% screen usage)
                     <Box sx={{

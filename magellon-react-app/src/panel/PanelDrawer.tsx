@@ -63,6 +63,11 @@ const navLinks: NavLink[] = [
         icon: <Microscope size={20} />
     },
     {
+        title: "Jobs",
+        url: "run-job",
+        icon: <Beaker size={20} />
+    },
+    {
         title: "Import",
         url: "import-job",
         icon: <ArrowRightFromLine size={20} />

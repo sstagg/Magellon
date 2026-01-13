@@ -9,7 +9,7 @@ import {
 } from '@mui/material';
 import { ExpandLess, ExpandMore, Settings } from '@mui/icons-material';
 import ImageInfoDto from './ImageInfoDto.ts';
-import { ImageColumnState } from '../../../panel/pages/ImagesPageView.tsx';
+import { ImageColumn as ImageColumnState } from './store/imageViewerStore.ts';
 import InteractiveColumn from './InteractiveColumn.tsx';
 import { ImageColumn } from './ImageColumn.tsx';
 import ColumnPreferences, {

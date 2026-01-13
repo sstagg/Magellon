@@ -1,112 +1,96 @@
-import {FormControl, Grid, ImageListItem, InputLabel, MenuItem, Select, Stack} from "@mui/material";
+import {
+    Typography,
+    Box,
+    useTheme,
+    useMediaQuery
+} from "@mui/material";
+import { useState, useEffect } from "react";
+import { Beaker } from "lucide-react";
+import { MotionCorForm } from "../components/MotionCorForm.tsx";
 
-import { createTheme, ThemeProvider } from '@mui/material/styles';
-import { QueryBuilderMaterial } from '@react-querybuilder/material';
-// import 'react-querybuilder/dist/query-builder.css';
-
-import {Field, QueryBuilder, RuleGroupType } from 'react-querybuilder';
-import {useState} from "react";
-
-
-
-
-
-// import '@react-awesome-query-builder/mui/css/styles.css';
-// import {ActionMeta, Builder, Config, ImmutableTree, Query} from "@react-awesome-query-builder/mui";
-//
-// const config = {
-//
-//     fields: {
-//         qty: {
-//             label: 'Qty',
-//             type: 'number',
-//             fieldSettings: {
-//                 min: 0,
-//             },
-//             valueSources: ['value'],
-//             preferWidgets: ['number'],
-//         },
-//         price: {
-//             label: 'Price',
-//             type: 'number',
-//             valueSources: ['value'],
-//             fieldSettings: {
-//                 min: 10,
-//                 max: 100,
-//             },
-//             preferWidgets: ['slider', 'rangeslider'],
-//         },
-//         name: {
-//             label: 'Name',
-//             type: 'text',
-//         },
-//         color: {
-//             label: 'Color',
-//             type: 'select',
-//             valueSources: ['value'],
-//             fieldSettings: {
-//                 listValues: [
-//                     {value: 'yellow', title: 'Yellow'},
-//                     {value: 'green', title: 'Green'},
-//                     {value: 'orange', title: 'Orange'}
-//                 ],
-//             }
-//         },
-//         is_promotion: {
-//             label: 'Promo?',
-//             type: 'boolean',
-//             operators: ['equal'],
-//             valueSources: ['value'],
-//         },
-//     }
-// };
-const fields: Field[] = [
-    { name: 'projectName', label: 'Project Name' },
-    { name: 'sessionName', label: 'Session Name' },
-    { name: 'imageName', label: 'Image Name' },
-    { name: 'magnification', label: 'Magnification' ,inputType: 'number' },
-];
-
-const muiTheme = createTheme();
+const DRAWER_WIDTH = 240;
 
 export const RunJobPageView = () => {
-    const [query, setQuery] = useState<RuleGroupType>({ combinator: 'and', rules: [] });
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
+    // Drawer state for layout
+    const [isDrawerOpen, setIsDrawerOpen] = useState(() => {
+        const savedState = localStorage.getItem('drawerOpen');
+        return savedState ? JSON.parse(savedState) : false;
+    });
+
+    useEffect(() => {
+        const handleStorageChange = () => {
+            const savedState = localStorage.getItem('drawerOpen');
+            setIsDrawerOpen(savedState ? JSON.parse(savedState) : false);
+        };
+        window.addEventListener('storage', handleStorageChange);
+        const interval = setInterval(handleStorageChange, 100);
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+            clearInterval(interval);
+        };
+    }, []);
+
+    const handleSuccess = (taskId: string, sessionName: string) => {
+        console.log(`Task ${taskId} created for session ${sessionName}`);
+    };
+
+    const handleError = (error: string) => {
+        console.error('Motion correction error:', error);
+    };
+
+    const leftMargin = isDrawerOpen ? DRAWER_WIDTH : 0;
 
     return (
-        <Grid container>
-            <Stack>
-                <FormControl sx={{ m: 1, minWidth: 120 }} size="small">
-                    <InputLabel id="demo-select-small-label">Pipline</InputLabel>
-                    <Select
-                        labelId="demo-select-small-label"
-                        id="demo-select-small"
-                        value={""}
-                        label="Age"
-                        // onChange={handleChange}
-                    >
-                        <MenuItem value="">
-                            <em>None</em>
-                        </MenuItem>
-                        <MenuItem value="ctf">
-                            <em>CTF</em>
-                        </MenuItem>
-                        <MenuItem value="fa">
-                            <em>Frame Allignment</em>
-                        </MenuItem>
-                    </Select>
-                </FormControl>
+        <Box sx={{
+            position: 'fixed',
+            top: 64,
+            left: leftMargin,
+            right: 0,
+            bottom: 0,
+            zIndex: 1050,
+            backgroundColor: 'background.default',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            transition: theme.transitions.create(['left'], {
+                easing: theme.transitions.easing.sharp,
+                duration: theme.transitions.duration.enteringScreen,
+            }),
+        }}>
+            <Box sx={{ flex: 1, overflow: 'auto', p: { xs: 2, sm: 3, md: 4 } }}>
+                {/* Header Section */}
+                <Box sx={{
+                    display: 'flex',
+                    flexDirection: { xs: 'column', sm: 'row' },
+                    alignItems: { xs: 'flex-start', sm: 'center' },
+                    gap: { xs: 1, sm: 2 },
+                    mb: { xs: 2, sm: 3, md: 4 }
+                }}>
+                    <Beaker
+                        width={isMobile ? 36 : 48}
+                        height={isMobile ? 36 : 48}
+                        color="#0000FF"
+                    />
+                    <Box>
+                        <Typography variant={isMobile ? "h5" : "h4"} sx={{ fontWeight: 600 }}>
+                            Run Processing Jobs
+                        </Typography>
+                        <Typography variant="body1" color="textSecondary" sx={{ mt: 0.5 }}>
+                            Submit motion correction (frame alignment) jobs for processing
+                        </Typography>
+                    </Box>
+                </Box>
 
-                <ThemeProvider theme={muiTheme}>
-                    <QueryBuilderMaterial>
-                        <QueryBuilder fields={fields} query={query} onQueryChange={q => setQuery(q)} />
-                    </QueryBuilderMaterial>
-                </ThemeProvider>
-
-
-            </Stack>
-
-
-        </Grid>
+                {/* Motion Correction Form */}
+                <MotionCorForm
+                    initialSessionName="testing"
+                    onSuccess={handleSuccess}
+                    onError={handleError}
+                />
+            </Box>
+        </Box>
     );
-}
+};
