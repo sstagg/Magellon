@@ -61,6 +61,8 @@ class SerialEMMetadata(BaseModel):
     previous_id: Optional[str] = None
     spherical_aberration: Optional[float] = None
     session_id: Optional[str] = None
+    flip_gain: Optional[int] = None
+    rot_gain: Optional[int] = None
 
     class Config:
         allow_population_by_field_name = True
@@ -879,7 +881,9 @@ class SerialEmImporter(BaseImporter):
                 status=1,
                 pixel_size=self.params.default_data.pixel_size * 10**-10,
                 acceleration_voltage=self.params.default_data.acceleration_voltage,
-                spherical_aberration=self.params.default_data.spherical_aberration
+                spherical_aberration=self.params.default_data.spherical_aberration,
+                flip_gain= self.params.default_data.flip_gain,
+                rot_gain= self.params.default_data.rot_gain
             )
             
             return db_image, job_item, task
@@ -1030,7 +1034,9 @@ class SerialEmImporter(BaseImporter):
                 spherical_aberration=(
                     metadata.spherical_aberration if metadata.spherical_aberration is not None 
                     else self.params.default_data.spherical_aberration
-                )
+                ),
+                flip_gain= self.params.default_data.flip_gain,
+                rot_gain= self.params.default_data.rot_gain
             )
             
             return db_image, job_item, task
