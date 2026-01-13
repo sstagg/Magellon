@@ -186,6 +186,8 @@ class ImportTaskDto(BaseModel):
     maximum_defocus: Optional[int] = 50000
     defocus_search_step: Optional[int] = 100
     binning_x:Optional[int]=1
+    rot_gain: Optional[int]=0
+    flip_gain: Optional[int]=0
 
 
 class LeginonFrameTransferJobBase(ImportJobBase):
@@ -236,6 +238,8 @@ class DefaultParams(BaseModel):
     defocus: float = 15000
     amplitude_contrast: float = 0.07
     detector_pixel_size: int = 5
+    flip_gain: int = 0
+    rot_gain: int = 0
 
 class EpuImportJobDto(EpuImportJobBase):
     target_directory: Optional[str] = None  # should be removed, it is base directory + magellon_session_name name
@@ -302,6 +306,8 @@ class ImportTaskDto(BaseModel):
     maximum_defocus: Optional[int] = 50000
     defocus_search_step: Optional[int] = 100
     binning_x: Optional[int]=1
+    rot_gain: Optional[int]=0
+    flip_gain: Optional[int]=0
 
 class LeginonFrameTransferTaskDto(ImportTaskDto):
     job_dto: LeginonFrameTransferJobDto

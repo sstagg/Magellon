@@ -305,6 +305,8 @@ def create_motioncor_task_data(image_path, gain_path, defects_path=None, session
             Gain=gain_path,
             DefectFile=defects_path,
             PixSize=task_dto.pixel_size* 10**10,
+            RotGain=task_dto.rot_gain,
+            FlipGain=task_dto.flip_gain,
             **settings
         )
 

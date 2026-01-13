@@ -4,6 +4,7 @@ import {
     ListItem,
     ListItemIcon,
     ListItemText,
+    MenuItem,
     Box,
     Dialog,
     DialogContent,
@@ -60,7 +61,9 @@ export const EpuImportComponent = () => {
     const [defaultData, setDefaultData] = useState<DefaultData>({
         pixel_size: 0,
         acceleration_voltage: 300,
-        spherical_aberration: 2.7
+        spherical_aberration: 2.7,
+        rot_gain:0,
+        flip_gain:0
     });
 
     const validateDirectory = async (dirPath: string) => {
@@ -114,7 +117,9 @@ export const EpuImportComponent = () => {
                 default_data: {
                     pixel_size: defaultData.pixel_size,
                     acceleration_voltage: defaultData.acceleration_voltage,
-                    spherical_aberration: defaultData.spherical_aberration
+                    spherical_aberration: defaultData.spherical_aberration,
+                    rot_gain: defaultData.rot_gain,
+                    flip_gain: defaultData.flip_gain
                 }
             });
 
@@ -412,6 +417,43 @@ export const EpuImportComponent = () => {
                                 inputProps={{ step: 0.1, min: 0 }}
                             />
                         </Grid>
+                       <Grid item xs={12} md={4}>
+  <TextField
+    fullWidth
+    required
+    select
+    label="Rot Gain"
+    value={defaultData.rot_gain}
+    onChange={(e) => handleDefaultDataChange("rot_gain", e.target.value)}
+    variant="outlined"
+    margin="normal"
+  >
+    {[0, 1, 2, 3].map((value) => (
+      <MenuItem key={value} value={value}>
+        {value}
+      </MenuItem>
+    ))}
+  </TextField>
+</Grid>
+
+<Grid item xs={12} md={4}>
+  <TextField
+    fullWidth
+    required
+    select
+    label="Flip Gain"
+    value={defaultData.flip_gain}
+    onChange={(e) => handleDefaultDataChange("flip_gain", e.target.value)}
+    variant="outlined"
+    margin="normal"
+  >
+    {[0, 1, 2].map((value) => (
+      <MenuItem key={value} value={value}>
+        {value}
+      </MenuItem>
+    ))}
+  </TextField>
+</Grid>
 
                         <Grid item xs={12} sx={{ mt: 2 }}>
                             <Button

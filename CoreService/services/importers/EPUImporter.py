@@ -718,7 +718,9 @@ class EPUImporter(BaseImporter):
                     status=1,
                     pixel_size=( metadata.pixel_size if metadata.pixel_size is not None else self.params.default_data.pixel_size*10**-10),
                     acceleration_voltage = ( metadata.acceleration_voltage / 1000 if metadata.acceleration_voltage is not None else self.params.default_data.acceleration_voltage),
-                    spherical_aberration=( metadata.spherical_aberration/ 1000 if metadata.spherical_aberration is not None else self.params.default_data.spherical_aberration)
+                    spherical_aberration=( metadata.spherical_aberration/ 1000 if metadata.spherical_aberration is not None else self.params.default_data.spherical_aberration),
+                    rot_gain=self.params.default_data.rot_gain,
+                    flip_gain=self.params.default_data.flip_gain
                 )
                 task_dto_list.append(task_dto)
 
