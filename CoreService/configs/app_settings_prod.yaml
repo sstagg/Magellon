@@ -61,7 +61,8 @@ rabbitmq_settings:
   CTF_OUT_QUEUE_NAME: ctf_out_tasks_queue
   MOTIONCOR_QUEUE_NAME: motioncor_tasks_queue
   MOTIONCOR_OUT_QUEUE_NAME: motioncor_out_tasks_queue
-
+  MOTIONCOR_TEST_QUEUE_NAME: motioncor_test_inqueue
+  MOTIONCOR_TEST_OUT_QUEUE_NAME: motioncor_test_outqueue
 
 directory_settings:
   FFT_DIR: null

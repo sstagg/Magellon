@@ -1,5 +1,6 @@
 fastapi
-uvicorn
+uvicorn[standard]
+websockets
 pydantic==2.6.1
 sqlalchemy>=2.0.25
 sqlalchemy_utils==0.41.1

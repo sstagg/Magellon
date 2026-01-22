@@ -30,6 +30,7 @@ async def do_execute(params: TaskDto):
         result = await do_motioncor(params)
         if result is not None:
             push_result_to_out_queue(result)
+            return result
         #     compute_file_fft(mrc_abs_path=request.image_path, abs_out_file_name=request.target_path)
         return {"message": "Motioncor successfully executed"}
     except Exception as exc:

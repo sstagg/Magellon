@@ -325,6 +325,8 @@ app.include_router(strawberry_graphql_router, prefix="/graphql")
 @app.on_event("startup")
 async def startup_event():
     """Initialize services on application startup"""
+    import threading
+    
     logger.info("=" * 60)
     logger.info("Starting Magellon Core Service...")
     logger.info("=" * 60)
@@ -346,6 +348,16 @@ async def startup_event():
     except Exception as e:
         logger.error(f"[ERROR] Failed to initialize Casbin: {e}")
         logger.warning("[WARNING] Application will start but authorization may not work correctly!")
+
+    # Start motioncor test result processor thread
+    try:
+        from core.motioncor_test_result_processor import result_consumer_engine
+        logger.info("Starting motioncor test result processor...")
+        result_processor_thread = threading.Thread(target=result_consumer_engine, daemon=True)
+        result_processor_thread.start()
+        logger.info("[OK] Motioncor test result processor started")
+    except Exception as e:
+        logger.error(f"[WARNING] Failed to start result processor: {e}")
 
     logger.info("=" * 60)
     logger.info("[OK] Magellon Core Service started successfully")

@@ -16,10 +16,12 @@ import {
     InputLabel,
     Select,
     MenuItem,
-    SelectChangeEvent
+    SelectChangeEvent,
+    LinearProgress,
+    Chip
 } from "@mui/material";
-import { useState } from "react";
-import { Beaker, Upload, FileImage, Settings2, ChevronDown } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Beaker, Upload, FileImage, Settings2, ChevronDown, Zap } from "lucide-react";
 import { settings } from "../../core/settings.ts";
 import getAxiosClient from '../../core/AxiosClient.ts';
 import { useSessionNames } from "../../services/api/FetchUseSessionNames.ts";
@@ -88,8 +90,18 @@ const DEFAULT_PARAMS: MotionCorParams = {
 
 type JobStatus = 'idle' | 'processing' | 'success' | 'error';
 
+interface ProcessingState {
+    status: JobStatus;
+    taskId: string | null;
+    progress: number;
+    statusMessage: string;
+    isConnected: boolean;
+    wsError: string | null;
+    resultData?: any; // Store the full result data from the server
+}
+
 export const MotionCorForm: React.FC<MotionCorFormProps> = ({
-    initialSessionName = "",
+    initialSessionName = "testing",
     initialParams,
     onSuccess,
     onError,
@@ -118,9 +130,159 @@ export const MotionCorForm: React.FC<MotionCorFormProps> = ({
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+    // WebSocket and processing state
+    const [processingState, setProcessingState] = useState<ProcessingState>({
+        status: 'idle',
+        taskId: null,
+        progress: 0,
+        statusMessage: '',
+        isConnected: false,
+        wsError: null
+    });
+    const wsRef = useRef<WebSocket | null>(null);
+
     const handleSessionChange = (event: SelectChangeEvent) => {
         setSessionName(event.target.value);
     };
+
+    // WebSocket connection helper
+    const connectWebSocket = (taskId: string) => {
+        // Extract base URL from settings (e.g., http://localhost:8000)
+        const backendUrl = settings.ConfigData.SERVER_API_URL;
+        const wsProtocol = backendUrl.startsWith('https') ? 'wss:' : 'ws:';
+        // Remove the protocol from the URL to get host:port
+        const hostPart = backendUrl.replace(/^https?:\/\//, '');
+        
+        // Get auth token from localStorage
+        const token = localStorage.getItem('access_token');
+        
+        // Construct WebSocket URL with token as query parameter
+        // Note: endpoint is at /web/ws/motioncor-test/{task_id} with /web prefix from router
+        const wsUrl = `${wsProtocol}//${hostPart}/web/ws/motioncor-test/${taskId}${token ? `?token=${token}` : ''}`;
+        
+        try {
+            const ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                console.log('WebSocket connected for task:', taskId);
+                setProcessingState(prev => ({
+                    ...prev,
+                    isConnected: true,
+                    wsError: null,
+                    statusMessage: 'Connected to task processing...'
+                }));
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const message = JSON.parse(event.data);
+                    console.log('WebSocket message received:', message);
+                    console.log('Message type:', message.type);
+
+                    switch (message.type) {
+                        case 'connected':
+                            console.log('Task processing connected');
+                            setProcessingState(prev => ({
+                                ...prev,
+                                statusMessage: 'Connected to task updates'
+                            }));
+                            break;
+
+                        case 'status_update':
+                            console.log('Status update:', message.message);
+                            setProcessingState(prev => ({
+                                ...prev,
+                                status: 'processing',
+                                progress: message.progress || prev.progress,
+                                statusMessage: message.message || 'Processing...'
+                            }));
+                            setJobStatus('processing');
+                            break;
+
+                        case 'result':
+                            console.log('Result received with data:', message.data);
+                            console.log('Output files:', message.data?.output_files);
+                            setProcessingState(prev => ({
+                                ...prev,
+                                status: 'success',
+                                progress: 100,
+                                statusMessage: 'Task completed successfully!',
+                                resultData: message.data // Store the full result data
+                            }));
+                            setJobStatus('success');
+                            setSuccessMessage(`Motion correction task completed. Task ID: ${taskId}`);
+                            // Pass the result data to the success callback if available
+                            onSuccess?.(taskId, sessionName, message.data);
+                            closeWebSocket();
+                            break;
+
+                        case 'error':
+                            console.error('Task error:', message.error);
+                            setProcessingState(prev => ({
+                                ...prev,
+                                status: 'error',
+                                statusMessage: `Error: ${message.error}`
+                            }));
+                            setJobStatus('error');
+                            setError(message.error || 'Task failed');
+                            onError?.(message.error || 'Task failed');
+                            closeWebSocket();
+                            break;
+
+                        case 'ping':
+                            // Keep-alive ping, no action needed
+                            console.debug('Received ping');
+                            break;
+
+                        default:
+                            console.warn('Unknown message type:', message.type);
+                    }
+                } catch (err) {
+                    console.error('Error processing WebSocket message:', err);
+                    console.error('Raw event data:', event.data);
+                }
+            };
+
+            ws.onerror = (event) => {
+                console.error('WebSocket error:', event);
+                setProcessingState(prev => ({
+                    ...prev,
+                    isConnected: false,
+                    wsError: 'WebSocket connection error'
+                }));
+                setError('WebSocket connection failed');
+                setJobStatus('error');
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                setProcessingState(prev => ({
+                    ...prev,
+                    isConnected: false
+                }));
+            };
+
+            wsRef.current = ws;
+        } catch (err) {
+            console.error('Failed to create WebSocket:', err);
+            setError('Failed to connect to task updates');
+            setJobStatus('error');
+        }
+    };
+
+    const closeWebSocket = () => {
+        if (wsRef.current) {
+            wsRef.current.close();
+            wsRef.current = null;
+        }
+    };
+
+    // Cleanup WebSocket on unmount
+    useEffect(() => {
+        return () => {
+            closeWebSocket();
+        };
+    }, []);
 
     const handleParamChange = (field: keyof MotionCorParams, value: string) => {
         const numValue = parseFloat(value);
@@ -158,6 +320,15 @@ export const MotionCorForm: React.FC<MotionCorFormProps> = ({
         setError(null);
         setSuccessMessage(null);
         setJobStatus('idle');
+        setProcessingState({
+            status: 'idle',
+            taskId: null,
+            progress: 0,
+            statusMessage: '',
+            isConnected: false,
+            wsError: null
+        });
+        closeWebSocket();
     };
 
     const handleSubmit = async () => {
@@ -242,15 +413,28 @@ export const MotionCorForm: React.FC<MotionCorFormProps> = ({
                 },
             });
 
-            setJobStatus('success');
             const taskId = response.data.task_id || 'N/A';
-            setSuccessMessage(`Motion correction task created successfully. Task ID: ${taskId}`);
-            onSuccess?.(taskId, sessionName);
+            setProcessingState(prev => ({
+                ...prev,
+                taskId,
+                status: 'processing',
+                progress: 10,
+                statusMessage: 'Task queued, connecting to updates...'
+            }));
+            setJobStatus('processing');
+
+            // Connect to WebSocket for real-time updates
+            connectWebSocket(taskId);
         } catch (err: any) {
             setJobStatus('error');
             const errMsg = err.response?.data?.detail || err.message || 'Failed to submit job';
             setError(errMsg);
             onError?.(errMsg);
+            setProcessingState(prev => ({
+                ...prev,
+                status: 'error',
+                statusMessage: errMsg
+            }));
         }
     };
 
@@ -266,6 +450,41 @@ export const MotionCorForm: React.FC<MotionCorFormProps> = ({
 
             <Divider sx={{ mb: 3 }} />
 
+            {/* Processing State Display */}
+            {jobStatus === 'processing' && (
+                <Box sx={{ mb: 3, p: 2, backgroundColor: 'action.hover', borderRadius: 1, border: '1px solid', borderColor: 'info.main' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                        <CircularProgress size={24} />
+                        <Typography variant="subtitle1" color="info.main">
+                            {processingState.statusMessage || 'Processing...'}
+                        </Typography>
+                    </Box>
+                    {processingState.taskId && (
+                        <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 1 }}>
+                            Task ID: <code>{processingState.taskId}</code>
+                        </Typography>
+                    )}
+                    {processingState.progress > 0 && (
+                        <Box>
+                            <LinearProgress variant="determinate" value={processingState.progress} />
+                            <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
+                                {processingState.progress}% Complete
+                            </Typography>
+                        </Box>
+                    )}
+                    {processingState.isConnected && (
+                        <Chip
+                            icon={<Zap size={14} />}
+                            label="Connected"
+                            size="small"
+                            color="success"
+                            variant="outlined"
+                            sx={{ mt: 2 }}
+                        />
+                    )}
+                </Box>
+            )}
+
             {/* Status Alerts */}
             {error && (
                 <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
@@ -280,7 +499,7 @@ export const MotionCorForm: React.FC<MotionCorFormProps> = ({
 
             <Grid container spacing={3}>
                 {/* Session Selector */}
-                <Grid size={{ xs: 12, md: 6 }}>
+                {/* <Grid size={{ xs: 12, md: 6 }}>
                     <FormControl fullWidth required>
                         <InputLabel id="session-select-label">Session</InputLabel>
                         <Select
@@ -306,7 +525,7 @@ export const MotionCorForm: React.FC<MotionCorFormProps> = ({
                             </Typography>
                         )}
                     </FormControl>
-                </Grid>
+                </Grid> */}
 
                 {/* Empty grid for alignment */}
                 <Grid size={{ xs: 12, md: 6 }} />

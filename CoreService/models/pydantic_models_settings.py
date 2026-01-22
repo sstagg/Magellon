@@ -21,6 +21,8 @@ class RabbitMQSettings(BaseModel):
     CTF_OUT_QUEUE_NAME: Optional[str] = None
     MOTIONCOR_QUEUE_NAME: Optional[str] = None
     MOTIONCOR_OUT_QUEUE_NAME: Optional[str] = None
+    MOTIONCOR_TEST_QUEUE_NAME: Optional[str] = None
+    MOTIONCOR_TEST_OUT_QUEUE_NAME: Optional[str] = None
     PORT: Optional[int] = 5672
     USER_NAME: Optional[str] = None
     PASSWORD: Optional[str] = None

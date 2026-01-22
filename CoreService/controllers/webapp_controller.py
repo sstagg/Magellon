@@ -1,3 +1,4 @@
+import asyncio
 import math
 import mimetypes
 from datetime import datetime
@@ -18,22 +19,24 @@ from airflow_client.client import ApiClient
 from airflow_client.client.api import dag_run_api
 from airflow_client.client.model.dag_run import DAGRun
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form, WebSocket, WebSocketDisconnect
+
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import Session, joinedload
 from starlette.responses import FileResponse, JSONResponse
+from pathlib import Path
 
 from config import FFT_SUB_URL, IMAGE_SUB_URL, MAGELLON_HOME_DIR, THUMBNAILS_SUB_URL, app_settings, THUMBNAILS_SUFFIX, \
     FFT_SUFFIX, ATLAS_SUB_URL, CTF_SUB_URL, FAO_SUB_URL
-from core.helper import push_task_to_task_queue, dispatch_ctf_task, dispatch_motioncor_task, create_motioncor_task
+from core.helper import create_motioncor_task_data, push_task_to_task_queue, dispatch_ctf_task, dispatch_motioncor_task, create_motioncor_task
 from core.task_factory import MotioncorTaskFactory
 
 from database import get_db
 from lib.image_not_found import get_image_not_found
 from models.plugins_models import CryoEmMotionCorTaskData, MOTIONCOR_TASK, PENDING
-from models.pydantic_models import SessionDto, ImageDto, AtlasDto,     ParticlePickingDto
+from models.pydantic_models import SerialEMImportTaskDto, SessionDto, ImageDto, AtlasDto,     ParticlePickingDto
 from models.sqlalchemy_models import Image, Msession, ImageMetaData, Atlas, ImageMetaDataCategory
 from repositories.image_repository import ImageRepository
 from repositories.session_repository import SessionRepository
@@ -1585,60 +1588,93 @@ async def browse_directory(
         logger.error(f"Error browsing directory for user {user_id}, path: {path}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@webapp_router.get("/test-motioncor")
+@webapp_router.post("/test-motioncor")
 async def test_motioncor(
-        session_name: str = "24mar28a",
-        file_name: str = "20241203_54449_integrated_movie",
-        user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+        image_file: UploadFile = File(...),
+        gain_file: UploadFile = File(...),
+        defects_path: Optional[str] = Form(None),   
+        data: str = Form(...),  # JSON string
+        session_name: str = Form("testing"),
+        user_id: UUID = Depends(get_current_user_id)
 ):
     """
-    API endpoint to test motioncor task creation and dispatch.
-
+    Test motioncor task with uploaded image, gain, and config data.
+    
+    Sends task to motioncor test queue for processing.
+    Returns immediately with task_id for WebSocket subscription.
+    
     **Requires:** Authentication
-    **Security:** Authenticated users can trigger test motion correction tasks
-    **WARNING:** This is a test endpoint and should be disabled in production
-
-    Args:
-        session_name (str): Optional session name, defaults to "24mar28a"
-        file_name (str): Optional file name, defaults to "20241203_54449_integrated_movie"
-
-    Returns:
-        dict: Status message indicating task creation result
-
-    Raises:
-        HTTPException: If task creation or queue push fails
+    **Returns:** {status, task_id} - Client uses task_id to connect to WebSocket for updates
     """
-    logger.warning(f"SECURITY: User {user_id} triggering test motioncor for session: {session_name}, file: {file_name}")
+    from services.motioncor_test_service import MotioncorTestTaskManager
+    
+    logger.warning(f"SECURITY: User {user_id} triggering test motioncor for session: {session_name}")
+    
+    task_id = uuid.uuid4()
+    
     try:
-        motioncor_task = create_task(session_name, file_name)
-        if not motioncor_task:
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to create motioncor task"
-            )
+        # Parse JSON parameters
+        params: dict = json.loads(data)
+        base_tmp_dir = Path("/gpfs/tmp")
+        base_tmp_dir.mkdir(parents=True, exist_ok=True)
 
-        queue_result = push_task_to_task_queue(motioncor_task)
+        # Save uploaded files
+        image_path = base_tmp_dir / image_file.filename
+        gain_path = base_tmp_dir / gain_file.filename
+ 
+        with open(image_path, "wb") as f:
+            f.write(await image_file.read())
 
-        if not queue_result:
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to push task to queue"
-            )
-
-        return {
-            "status": "success",
-            "message": "Motioncor task created and queued successfully",
-            "task_id": str(motioncor_task.pid),
-            "session_name": session_name
+        with open(gain_path, "wb") as f:
+            f.write(await gain_file.read())
+        
+        # Extract default data
+        default_data = params.get("default_data", {})
+        params.setdefault("magellon_project_name", "test_project")
+        params.setdefault("magellon_session_name", session_name)
+        
+        # Prepare motioncor settings (use defaults if not provided)
+        motioncor_settings = {
+            'FmDose': float(default_data.get("FmDose", 1.0)),
+            'PatchesX': int(default_data.get("PatchesX", 7)),
+            'PatchesY': int(default_data.get("PatchesY", 7)),
+            'Group': int(default_data.get("Group", 4))
         }
-
-    except Exception as e:
-        logger.error(f"Error in test_motioncor endpoint: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Internal server error: {str(e)}"
+        
+        # Create the test task
+        motioncor_task = MotioncorTestTaskManager.create_test_task(
+            task_id=task_id,
+            image_path=str(image_path),
+            gain_path=str(gain_path),
+            defects_path=defects_path,
+            session_name=session_name,
+            task_params=params,
+            motioncor_settings=motioncor_settings
         )
+        
+        # Publish task to the test input queue
+        if MotioncorTestTaskManager.publish_task_to_queue(motioncor_task):
+            logger.info(f"Motioncor test task {task_id} queued successfully for user {user_id}")
+            
+            return {
+                "status": "queued",
+                "task_id": str(task_id),
+                "message": "Task has been queued for processing. Connect to WebSocket with this task_id to receive updates.",
+                "websocket_url": f"/ws/motioncor-test/{task_id}"
+            }
+        else:
+            logger.error(f"Failed to queue motioncor test task {task_id}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to queue task. Please try again."
+            )
 
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON in test_motioncor data: {e}")
+        raise HTTPException(status_code=400, detail="Invalid JSON in request data")
+    except Exception as e:
+        logger.error(f"Error in test_motioncor endpoint for user {user_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 def create_task(session_name="24mar28a", file_name="20241203_54449_integrated_movie",gain_path = "/gpfs/20241202_53597_gain_multi_ref.tif"):
     """
@@ -1670,3 +1706,174 @@ def create_task(session_name="24mar28a", file_name="20241203_54449_integrated_mo
     except Exception as e:
         logger.error(f"Error publishing message: {e}")
         return False
+
+
+@webapp_router.websocket("/ws/motioncor-test/{task_id}")
+async def websocket_motioncor_test(websocket: WebSocket, task_id: str):
+    """
+    WebSocket endpoint for real-time motioncor test task updates.
+    
+    Clients connect to this endpoint using the task_id returned from /test-motioncor.
+    Receives status updates and final results as they become available.
+    
+    **Requires:** Authentication token via query parameter
+    **Usage:** 
+        - Connect to: ws://host/ws/motioncor-test/{task_id}?token=<your_jwt_token>
+        - Receive messages with: type (status_update/result/error), status, and data
+    """
+    from services.motioncor_test_service import (
+        register_websocket_connection, 
+        unregister_websocket_connection
+    )
+    from jose import JWTError, jwt
+    from uuid import UUID
+    
+    logger.info(f"WebSocket connection attempt for task {task_id}")
+    
+    # CRITICAL: Accept the WebSocket connection IMMEDIATELY
+    # This must happen before any other WebSocket operations
+    try:
+        await websocket.accept()
+        logger.debug(f"WebSocket accepted for task {task_id}")
+    except Exception as e:
+        logger.error(f"Failed to accept WebSocket for task {task_id}: {e}")
+        return
+    
+    # NOW authenticate after accepting
+    user_id = None
+    
+    # Get token from query parameters
+    token = websocket.query_params.get("token")
+    
+    logger.debug(f"Token present: {bool(token)}")
+    
+    # If we have a token, validate it
+    if token:
+        try:
+            # Manually decode JWT token to avoid HTTPException
+            SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-CHANGE-THIS-IN-PRODUCTION-min-32-chars")
+            ALGORITHM = "HS256"
+            
+            logger.debug(f"Decoding JWT token for task {task_id}")
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            user_id_str = payload.get("sub")
+            
+            if not user_id_str:
+                logger.warning(f"WebSocket auth failed for task {task_id}: No user ID in token")
+                await websocket.send_json({
+                    "type": "error",
+                    "error": "Unauthorized - no user ID in token"
+                })
+                await websocket.close(code=1008, reason="Unauthorized - no user ID")
+                return
+            
+            # Convert to UUID
+            try:
+                user_id = UUID(user_id_str)
+                logger.info(f"User {user_id} authenticated for WebSocket task {task_id}")
+            except (ValueError, TypeError):
+                logger.warning(f"WebSocket auth failed for task {task_id}: Invalid user ID format")
+                await websocket.send_json({
+                    "type": "error",
+                    "error": "Unauthorized - invalid user format"
+                })
+                await websocket.close(code=1008, reason="Unauthorized - invalid user format")
+                return
+                
+        except jwt.ExpiredSignatureError:
+            logger.warning(f"WebSocket auth failed for task {task_id}: Token expired")
+            await websocket.send_json({
+                "type": "error",
+                "error": "Unauthorized - token expired"
+            })
+            await websocket.close(code=1008, reason="Unauthorized - token expired")
+            return
+        except JWTError as e:
+            logger.warning(f"WebSocket auth failed for task {task_id}: {e}")
+            await websocket.send_json({
+                "type": "error",
+                "error": f"Unauthorized - invalid token: {str(e)}"
+            })
+            await websocket.close(code=1008, reason="Unauthorized - invalid token")
+            return
+        except Exception as e:
+            logger.warning(f"WebSocket auth error for task {task_id}: {e}")
+            await websocket.send_json({
+                "type": "error",
+                "error": f"Unauthorized - auth error: {str(e)}"
+            })
+            await websocket.close(code=1008, reason="Unauthorized")
+            return
+    else:
+        # No token provided, reject connection
+        logger.warning(f"WebSocket connection attempted without token for task {task_id}")
+        await websocket.send_json({
+            "type": "error",
+            "error": "Unauthorized - token required"
+        })
+        await websocket.close(code=1008, reason="Unauthorized - token required")
+        return
+    
+    # Register the WebSocket connection after authentication
+    try:
+        connection = await register_websocket_connection(task_id, websocket)
+        # Mark the connection as accepted since we already called websocket.accept() above
+        connection.is_connected = True
+        logger.info(f"WebSocket registered for task {task_id}, user {user_id}")
+    except Exception as e:
+        logger.error(f"Failed to register WebSocket for task {task_id}: {e}")
+        try:
+            await websocket.send_json({
+                "type": "error",
+                "error": f"Failed to register connection: {str(e)}"
+            })
+            await websocket.close(code=1011, reason="Internal error")
+        except:
+            pass
+        return
+    
+    # Send initial connection message
+    try:
+        await connection.send_json({
+            "type": "connected",
+            "task_id": task_id,
+            "user_id": str(user_id),
+            "message": "Connected to task updates. Waiting for task results..."
+        })
+        logger.debug(f"Sent connected message for task {task_id}")
+    except Exception as e:
+        logger.error(f"Failed to send initial message for task {task_id}: {e}")
+    
+    try:
+        # Keep connection alive and listen for client messages
+        while True:
+            # Wait for any message from client (mainly for keep-alive)
+            try:
+                data = await asyncio.wait_for(websocket.receive_json(), timeout=30)
+                logger.debug(f"Received message from client for task {task_id}: {data}")
+            except asyncio.TimeoutError:
+                # Send keep-alive ping
+                try:
+                    await connection.send_json({
+                        "type": "ping",
+                        "task_id": task_id,
+                        "message": "Connection alive"
+                    })
+                except Exception as e:
+                    logger.debug(f"Error sending ping for task {task_id}: {e}")
+            except json.JSONDecodeError:
+                # Client sent invalid JSON, but keep connection open
+                logger.warning(f"Invalid JSON received from client for task {task_id}")
+                
+    except WebSocketDisconnect:
+        logger.info(f"Client disconnected from WebSocket for task {task_id}")
+        try:
+            await unregister_websocket_connection(task_id, connection)
+        except Exception as e:
+            logger.error(f"Error unregistering connection for task {task_id}: {e}")
+    except Exception as e:
+        logger.error(f"Error in WebSocket connection for task {task_id}: {e}")
+        try:
+            await unregister_websocket_connection(task_id, connection)
+        except:
+            pass
