@@ -104,11 +104,16 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
         meta_data=[]
         output_data={}
         print(directory_path)
-        dw_file= isFilePresent( directory_path,"_DW.mrc")
+        
+        # Search for _DW.mrc first, if not found try _DWS.mrc
+        dw_file = isFilePresent(directory_path, "_DW.mrc")
+        if not dw_file:
+            dw_file = isFilePresent(directory_path, "_DWS.mrc")
+        
         if dw_file:
-            output_files.append(OutputFile(name="outputDWMrc",path=dw_file,required=True))
+            output_files.append(OutputFile(name="outputDWMrc", path=dw_file, required=True))
         else:
-            raise Exception("output_DW output file not found")
+            raise Exception("output_DW or output_DWS output file not found")
         
         with concurrent.futures.ThreadPoolExecutor() as executor:
 

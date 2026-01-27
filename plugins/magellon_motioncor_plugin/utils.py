@@ -671,7 +671,9 @@ def convert_tiff_to_mrc(input_file, output_file):
             mrc.update_header_from_data()
         print(f"Converted {input_file} to {output_file}")
     except Exception as e:
-        print(f"Error converting TIFF to MRC: {e}")
+        error_msg = f"Error converting TIFF to MRC: {e}"
+        print(error_msg)
+        raise Exception(error_msg)
 
 def convertToMRC(file, directorypath):
     ext = file.split('.')[-1].lower()
@@ -724,4 +726,6 @@ def save_gain_file(gain_file, directorypath):
         print(f"Saved gain file to {new_gain_path}")
         return new_gain_path
     except Exception as e:
-        print(f"Error saving gain file: {e}")
+        error_msg = f"Error saving gain file: {e}"
+        print(error_msg)
+        raise Exception(error_msg)

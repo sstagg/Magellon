@@ -1628,18 +1628,43 @@ async def test_motioncor(
         with open(gain_path, "wb") as f:
             f.write(await gain_file.read())
         
-        # Extract default data
-        default_data = params.get("default_data", {})
+        # Extract params from form data (params contains the actual form parameters directly)
         params.setdefault("magellon_project_name", "test_project")
         params.setdefault("magellon_session_name", session_name)
         
-        # Prepare motioncor settings (use defaults if not provided)
-        motioncor_settings = {
-            'FmDose': float(default_data.get("FmDose", 1.0)),
-            'PatchesX': int(default_data.get("PatchesX", 7)),
-            'PatchesY': int(default_data.get("PatchesY", 7)),
-            'Group': int(default_data.get("Group", 4))
+        # Log the incoming params for debugging
+        logger.info(f"Received params: {params}")
+        
+        # Prepare motioncor settings with frontend parameters
+        # Map frontend parameter names to backend parameter names
+        motioncor_settings = {}
+        
+        param_mappings = {
+            'FmDose': (float, 'FmDose'),
+            'PixSize': (float, 'PixSize'),
+            'kV': (float, 'kV'),
+            'Patchrows': (int, 'PatchesX'),  # Frontend sends Patchrows -> backend uses PatchesX
+            'Patchcols': (int, 'PatchesY'),  # Frontend sends Patchcols -> backend uses PatchesY
+            'PatchesX': (int, 'PatchesX'),   # Also support direct PatchesX
+            'PatchesY': (int, 'PatchesY'),   # Also support direct PatchesY
+            'Group': (int, 'Group'),
+            'FtBin': (float, 'FtBin'),
+            'Iter': (int, 'Iter'),
+            'Tol': (float, 'Tol'),
+            'FlipGain': (int, 'FlipGain'),
+            'RotGain': (int, 'RotGain'),
+            'Bft_global': (int, 'Bft_global'),
+            'Bft_local': (int, 'Bft_local')
         }
+        
+        for frontend_param, (param_type, backend_param) in param_mappings.items():
+            if frontend_param in params and params[frontend_param] is not None:
+                try:
+                    motioncor_settings[backend_param] = param_type(params[frontend_param])
+                except (ValueError, TypeError):
+                    logger.warning(f"Invalid value for {frontend_param}: {params[frontend_param]}, skipping")
+        
+        logger.info(f"Built motioncor_settings: {motioncor_settings}")
         
         # Create the test task
         motioncor_task = MotioncorTestTaskManager.create_test_task(
@@ -1675,6 +1700,58 @@ async def test_motioncor(
     except Exception as e:
         logger.error(f"Error in test_motioncor endpoint for user {user_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@webapp_router.get("/download-motioncor-output/{task_id}/{filename}")
+async def download_motioncor_output(
+    task_id: str,
+    filename: str,
+    user_id: UUID = Depends(get_current_user_id)
+):
+    """
+    Download motioncor output files (_DW.mrc or _DWS.mrc file only)
+    
+    **Requires:** Authentication
+    **Returns:** File download
+    """
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    logger.warning(f"SECURITY: User {user_id} downloading motioncor output: {filename}")
+    
+    try:
+        # Construct the file path - files are stored in /jobs/{task_id}/
+        file_path = os.path.join(app_settings.jobs_dir, task_id, filename)
+        
+        # Security: Ensure the file path is within the jobs directory
+        file_path = os.path.abspath(file_path)
+        jobs_dir = os.path.abspath(app_settings.jobs_dir)
+        
+        if not file_path.startswith(jobs_dir):
+            logger.error(f"Security: Attempted to access file outside jobs directory: {file_path}")
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Security: Only allow downloading _DW.mrc or _DWS.mrc files
+        if not (filename.endswith("_DW.mrc") or filename.endswith("_DWS.mrc")):
+            logger.error(f"Security: Attempted to download non-DW file: {filename}")
+            raise HTTPException(status_code=403, detail="Only DW/DWS files can be downloaded")
+        
+        # Check if file exists
+        if not os.path.exists(file_path):
+            logger.error(f"File not found: {file_path}")
+            raise HTTPException(status_code=404, detail="File not found")
+        
+        logger.info(f"Serving file for download: {file_path}")
+        return FileResponse(
+            path=file_path,
+            filename=filename,
+            media_type="application/octet-stream"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error downloading motioncor output for user {user_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error downloading file: {str(e)}")
 
 def create_task(session_name="24mar28a", file_name="20241203_54449_integrated_movie",gain_path = "/gpfs/20241202_53597_gain_multi_ref.tif"):
     """

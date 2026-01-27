@@ -26,6 +26,7 @@ import { settings } from "../../core/settings.ts";
 import getAxiosClient from '../../core/AxiosClient.ts';
 import { useSessionNames } from "../../services/api/FetchUseSessionNames.ts";
 import { SessionDto } from "../../components/features/session_viewer/ImageInfoDto.ts";
+import { MrcViewer } from "./MrcViewer.tsx";
 
 const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
@@ -141,6 +142,11 @@ export const MotionCorForm: React.FC<MotionCorFormProps> = ({
     });
     const wsRef = useRef<WebSocket | null>(null);
 
+    // MRC Viewer state
+    const [viewerOpen, setViewerOpen] = useState(false);
+    const [viewerFileUrl, setViewerFileUrl] = useState<string>('');
+    const [viewerFilename, setViewerFilename] = useState<string>('');
+
     const handleSessionChange = (event: SelectChangeEvent) => {
         setSessionName(event.target.value);
     };
@@ -201,18 +207,40 @@ export const MotionCorForm: React.FC<MotionCorFormProps> = ({
 
                         case 'result':
                             console.log('Result received with data:', message.data);
+                            console.log('Result status:', message.status);
                             console.log('Output files:', message.data?.output_files);
-                            setProcessingState(prev => ({
-                                ...prev,
-                                status: 'success',
-                                progress: 100,
-                                statusMessage: 'Task completed successfully!',
-                                resultData: message.data // Store the full result data
-                            }));
-                            setJobStatus('success');
-                            setSuccessMessage(`Motion correction task completed. Task ID: ${taskId}`);
-                            // Pass the result data to the success callback if available
-                            onSuccess?.(taskId, sessionName, message.data);
+                            
+                            // Check if the result indicates success or failure
+                            if (message.status === 'failed' || message.data?.code >= 400) {
+                                // Error result
+                                const errorMessage = message.data?.message || message.data?.error || 'Task failed';
+                                const errorDescription = message.data?.description || '';
+                                const fullError = errorDescription ? `${errorMessage}: ${errorDescription}` : errorMessage;
+                                
+                                console.error('Task failed:', fullError);
+                                setProcessingState(prev => ({
+                                    ...prev,
+                                    status: 'error',
+                                    statusMessage: `Error: ${fullError}`,
+                                    resultData: message.data
+                                }));
+                                setJobStatus('error');
+                                setError(fullError);
+                                onError?.(fullError);
+                            } else {
+                                // Success result
+                                setProcessingState(prev => ({
+                                    ...prev,
+                                    status: 'success',
+                                    progress: 100,
+                                    statusMessage: 'Task completed successfully!',
+                                    resultData: message.data // Store the full result data
+                                }));
+                                setJobStatus('success');
+                                setSuccessMessage(`Motion correction task completed. Task ID: ${taskId}`);
+                                // Pass the result data to the success callback if available
+                                onSuccess?.(taskId, sessionName, message.data);
+                            }
                             closeWebSocket();
                             break;
 
@@ -332,8 +360,16 @@ export const MotionCorForm: React.FC<MotionCorFormProps> = ({
     };
 
     const handleSubmit = async () => {
+        // Clear previous messages and reset processing state for new task
         setError(null);
         setSuccessMessage(null);
+        setProcessingState(prev => ({
+            ...prev,
+            status: 'idle',
+            statusMessage: '',
+            progress: 0,
+            resultData: undefined
+        }));
 
         // Validation
         if (!imageFile) {
@@ -493,7 +529,82 @@ export const MotionCorForm: React.FC<MotionCorFormProps> = ({
             )}
             {successMessage && (
                 <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccessMessage(null)}>
-                    {successMessage}
+                    <Box>
+                        <Typography variant="body2" sx={{ mb: 1 }}>
+                            {successMessage}
+                        </Typography>
+                        {processingState.resultData?.output_files && processingState.resultData.output_files.length > 0 && (
+                            <Box sx={{ mt: 2 }}>
+                                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>
+                                    Result File:
+                                </Typography>
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                    {processingState.resultData.output_files
+                                        .filter((file: any) => file.path && (file.path.endsWith('_DW.mrc') || file.path.endsWith('_DWS.mrc')))
+                                        .map((file: any, idx: number) => {
+                                            const filename = file.path.split('/').pop();
+                                            const downloadUrl = `${settings.ConfigData.SERVER_API_URL}/web/download-motioncor-output/${processingState.taskId}/${filename}`;
+                                            return (
+                                                <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                                                    {filename && (
+                                                        <>
+                                                            <Button
+                                                                size="small"
+                                                                variant="contained"
+                                                                color="info"
+                                                                onClick={() => {
+                                                                    setViewerFileUrl(downloadUrl);
+                                                                    setViewerFilename(filename || '');
+                                                                    setViewerOpen(true);
+                                                                }}
+                                                                sx={{ textTransform: 'none' }}
+                                                            >
+                                                                View {filename}
+                                                            </Button>
+                                                            <Button
+                                                                size="small"
+                                                                variant="outlined"
+                                                                color="success"
+                                                                onClick={async () => {
+                                                                    try {
+                                                                        const token = localStorage.getItem('access_token');
+                                                                        const headers: HeadersInit = {};
+                                                                        if (token) {
+                                                                            headers['Authorization'] = `Bearer ${token}`;
+                                                                        }
+                                                                        
+                                                                        const response = await fetch(downloadUrl, { headers });
+                                                                        if (!response.ok) {
+                                                                            throw new Error(`Download failed: ${response.statusText}`);
+                                                                        }
+                                                                        
+                                                                        const blob = await response.blob();
+                                                                        const url = window.URL.createObjectURL(blob);
+                                                                        const link = document.createElement('a');
+                                                                        link.href = url;
+                                                                        link.download = filename || 'download';
+                                                                        document.body.appendChild(link);
+                                                                        link.click();
+                                                                        document.body.removeChild(link);
+                                                                        window.URL.revokeObjectURL(url);
+                                                                    } catch (err) {
+                                                                        console.error('Download error:', err);
+                                                                        alert('Failed to download file');
+                                                                    }
+                                                                }}
+                                                                sx={{ textTransform: 'none' }}
+                                                            >
+                                                                Download
+                                                            </Button>
+                                                        </>
+                                                    )}
+                                                </Box>
+                                            );
+                                        })}
+                                </Box>
+                            </Box>
+                        )}
+                    </Box>
                 </Alert>
             )}
 
@@ -861,13 +972,31 @@ export const MotionCorForm: React.FC<MotionCorFormProps> = ({
 
     if (showPaper) {
         return (
-            <Paper elevation={2} sx={{ p: 3 }}>
-                {formContent}
-            </Paper>
+            <>
+                <Paper elevation={2} sx={{ p: 3 }}>
+                    {formContent}
+                </Paper>
+                <MrcViewer 
+                    open={viewerOpen} 
+                    onClose={() => setViewerOpen(false)} 
+                    fileUrl={viewerFileUrl}
+                    filename={viewerFilename}
+                />
+            </>
         );
     }
 
-    return <Box>{formContent}</Box>;
+    return (
+        <>
+            <Box>{formContent}</Box>
+            <MrcViewer 
+                open={viewerOpen} 
+                onClose={() => setViewerOpen(false)} 
+                fileUrl={viewerFileUrl}
+                filename={viewerFilename}
+            />
+        </>
+    );
 };
 
 export default MotionCorForm;

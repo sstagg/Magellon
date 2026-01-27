@@ -52,13 +52,15 @@ def process_test_message(ch, method, properties, body):
         logger.info(f"TaskDto parsed: {task_dto.id}")
         
         # Map TaskDto fields to CryoEmMotionCorTaskData
-        # Frontend sends: image_path, gain_path, motioncor_settings (FmDose, PatchesX, PatchesY, Group)
+        # Frontend sends: image_path, gain_path, motioncor_settings with all parameters
         task_data = task_dto.data if task_dto.data else {}
+        motioncor_settings = task_data.get('motioncor_settings', {})
         
         image_path = task_data.get('image_path', '')
         image_name = os.path.basename(image_path) if image_path else "unknown"
         
-        # Create complete CryoEmMotionCorTaskData with all required fields
+        # Create complete CryoEmMotionCorTaskData with all parameters from motioncor_settings
+        # Only add parameters that are provided, let defaults handle the rest
         motioncor_task_data = CryoEmMotionCorTaskData(
             image_id=uuid4(),
             image_name=image_name,
@@ -67,11 +69,18 @@ def process_test_message(ch, method, properties, body):
             outputFile="output.mrc",
             Gain=task_data.get('gain_path', ''),
             DefectFile=task_data.get('defects_path'),
-            PatchesX=int(task_data.get('motioncor_settings', {}).get('PatchesX', 5)),
-            PatchesY=int(task_data.get('motioncor_settings', {}).get('PatchesY', 5)),
-            FmDose=float(task_data.get('motioncor_settings', {}).get('FmDose', 0.75)),
-            PixSize=float(task_data.get('motioncor_settings', {}).get('PixSize', 1.0)),
-            Group=task_data.get('motioncor_settings', {}).get('Group'),
+            PatchesX=int(motioncor_settings.get('PatchesX', 5)) if 'PatchesX' in motioncor_settings else 5,
+            PatchesY=int(motioncor_settings.get('PatchesY', 5)) if 'PatchesY' in motioncor_settings else 5,
+            FmDose=float(motioncor_settings['FmDose']) if 'FmDose' in motioncor_settings else None,
+            PixSize=float(motioncor_settings['PixSize']) if 'PixSize' in motioncor_settings else None,
+            kV=int(motioncor_settings.get('kV', 300)) if 'kV' in motioncor_settings else 300,
+            Group=int(motioncor_settings['Group']) if 'Group' in motioncor_settings else None,
+            FtBin=float(motioncor_settings.get('FtBin', 2)) if 'FtBin' in motioncor_settings else 2,
+            Iter=int(motioncor_settings.get('Iter', 5)) if 'Iter' in motioncor_settings else 5,
+            Tol=float(motioncor_settings.get('Tol', 0.5)) if 'Tol' in motioncor_settings else 0.5,
+            Bft=int(motioncor_settings.get('Bft_global', 100)) if 'Bft_global' in motioncor_settings else 100,
+            FlipGain=int(motioncor_settings.get('FlipGain', 0)) if 'FlipGain' in motioncor_settings else 0,
+            RotGain=int(motioncor_settings.get('RotGain', 0)) if 'RotGain' in motioncor_settings else 0,
             Gpu='0'
         )
         
