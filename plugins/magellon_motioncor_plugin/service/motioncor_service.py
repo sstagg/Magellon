@@ -4,7 +4,7 @@ import subprocess
 import json
 import concurrent.futures
 from core.helper import push_info_to_debug_queue
-from utils import save_gain_file,convertToMRC,is_mrc_file,getImageSize,validateInput,build_motioncor3_command,getFrameAlignment,getPatchFrameAlignment,createframealignImage,isFilePresent,createframealignCenterImage,getFilecontentsfromThread
+from utils import get_dw_file, save_gain_file,convertToMRC,is_mrc_file,getImageSize,validateInput,build_motioncor3_command,getFrameAlignment,getPatchFrameAlignment,createframealignImage,isFilePresent,createframealignCenterImage,getFilecontentsfromThread
 from datetime import datetime
 from core.settings import AppSettingsSingleton
 from core.model_dto import CryoEmMotionCorTaskData, OutputFile, TaskDto, TaskResultDto,DebugInfo,ImageMetaData
@@ -106,9 +106,7 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
         print(directory_path)
         
         # Search for _DW.mrc first, if not found try _DWS.mrc
-        dw_file = isFilePresent(directory_path, "_DW.mrc")
-        if not dw_file:
-            dw_file = isFilePresent(directory_path, "_DWS.mrc")
+        dw_file = get_dw_file(directory_path)
         
         if dw_file:
             output_files.append(OutputFile(name="outputDWMrc", path=dw_file, required=True))

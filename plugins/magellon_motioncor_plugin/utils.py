@@ -249,6 +249,11 @@ def isFilePresent(directory,suffix):
     files = glob.glob(os.path.join(directory, f"*{suffix}"))
     return os.path.abspath(files[0]) if files else None
 
+def get_dw_file(directory_path):
+    """Get any DW variant file (.mrc) - accepts both _DW.mrc and _DWS.mrc"""
+    files = glob.glob(os.path.join(directory_path, "*_DW*.mrc"))
+    return os.path.abspath(files[0]) if files else None
+
 def getRequirements(filePath):
     try:
         with open(filePath, 'r') as file:
