@@ -410,11 +410,24 @@ class EPUImporter(BaseImporter):
 
         except Exception as e:
             logger.error(f"EPU import failed: {str(e)}", exc_info=True)
-            db_session.rollback()
+            try:
+                db_session.rollback()
+            except Exception:
+                pass
+
+            # Safely extract job_id whether `self.db_job` is a dict or an object
+            db_job = getattr(self, 'db_job', None)
+            job_id = ''
+            if isinstance(db_job, dict):
+                job_id = str(db_job.get('oid', ''))
+            else:
+                # getattr on None is safe due to default value
+                job_id = str(getattr(db_job, 'oid', '') or getattr(db_job, 'id', ''))
+
             return {
                 'status': 'failure',
                 'message': f'EPU import failed: {str(e)}',
-                'job_id': str(getattr(self, 'db_job', {}).get('oid', ''))
+                'job_id': job_id
             }
 
     def load_epu_metadata(self) -> List[EPUMetadata]:
