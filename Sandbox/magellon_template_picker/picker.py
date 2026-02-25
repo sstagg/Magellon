@@ -33,17 +33,21 @@ def pick_particles(
         Dictionary of picker settings.
         Required:
           - "diameter_angstrom"
-          - "pixel_size_angstrom"
+          - either:
+            - "pixel_size_angstrom" (already preprocessed image/templates), or
+            - "image_pixel_size_angstrom" (+ optional "template_pixel_size_angstrom")
         Optional:
-          - "bin" (default 1.0)
+          - "bin" (default 1)
           - "threshold" (default 0.4)
           - "max_threshold" (default None)
           - "max_peaks" (default 500)
-          - "overlap_multiplier" (default 1.5)
+          - "overlap_multiplier" (default 1.0)
           - "max_blob_size_multiplier" (default 1.0)
           - "min_blob_roundness" (default 0.0)
           - "peak_position" in {"maximum", "center"} (default "maximum")
           - "border_pixels" (default radius_in_pixels + 1)
+          - "invert_templates" (default False)
+          - "lowpass_resolution_angstrom" (default None)
           - "angle_ranges": list[(start, end, step)] matching template count
             default: [(0.0, 360.0, 10.0)] * len(templates)
 
@@ -54,6 +58,10 @@ def pick_particles(
       - "template_results": per-template intermediate results
       - "merged_score_map": max score across templates
       - "assigned_template_map": template index of winner at each pixel
+      - "preprocessed_image": image used by matcher
+      - "preprocessed_templates": templates used by matcher
+      - "target_pixel_size_angstrom": effective A/pix after preprocessing
+      - "radius_pixels": particle radius in pixels at target sampling
     """
     img = np.asarray(image, dtype=np.float32)
     if img.ndim != 2:
@@ -62,19 +70,37 @@ def pick_particles(
         raise ValueError("templates must contain at least one template")
 
     diameter = float(params["diameter_angstrom"])
-    pixel_size = float(params["pixel_size_angstrom"])
-    bin_factor = float(params.get("bin", 1.0))
+    bin_factor = int(params.get("bin", 1))
     threshold = float(params.get("threshold", 0.4))
     max_threshold = params.get("max_threshold")
     max_peaks = int(params.get("max_peaks", 500))
-    overlap_multiplier = float(params.get("overlap_multiplier", 1.5))
+    overlap_multiplier = float(params.get("overlap_multiplier", 1.0))
     max_blob_size_multiplier = float(params.get("max_blob_size_multiplier", 1.0))
     min_blob_roundness = float(params.get("min_blob_roundness", 0.0))
     peak_position = str(params.get("peak_position", "maximum"))
+    invert_templates = bool(params.get("invert_templates", False))
+    lowpass_resolution = params.get("lowpass_resolution_angstrom")
     if peak_position not in ("maximum", "center"):
         raise ValueError("peak_position must be 'maximum' or 'center'")
 
-    radius_pixels = diameter / pixel_size / 2.0 / bin_factor
+    if "pixel_size_angstrom" in params:
+        target_pixel_size = float(params["pixel_size_angstrom"])
+        work_image = img
+        work_templates = [np.asarray(t, dtype=np.float32) for t in templates]
+    else:
+        image_pixel_size = float(params["image_pixel_size_angstrom"])
+        template_pixel_size = float(params.get("template_pixel_size_angstrom", image_pixel_size))
+        work_image, work_templates, target_pixel_size = _preprocess_inputs(
+            image=img,
+            templates=templates,
+            image_pixel_size=image_pixel_size,
+            template_pixel_size=template_pixel_size,
+            bin_factor=bin_factor,
+            invert_templates=invert_templates,
+            lowpass_resolution=lowpass_resolution,
+        )
+
+    radius_pixels = diameter / target_pixel_size / 2.0
     border_pixels = int(params.get("border_pixels", int(radius_pixels) + 1))
 
     angle_ranges = params.get("angle_ranges")
@@ -83,11 +109,11 @@ def pick_particles(
     if len(angle_ranges) != len(templates):
         raise ValueError("angle_ranges must have one (start,end,step) tuple per template")
 
-    normalized_image = _normalize_image(img)
+    normalized_image = _normalize_image(work_image)
     template_results: List[Dict[str, Any]] = []
     all_particles: List[Dict[str, Any]] = []
 
-    for template_index, template in enumerate(templates, start=1):
+    for template_index, template in enumerate(work_templates, start=1):
         tmpl = np.asarray(template, dtype=np.float32)
         if tmpl.ndim != 2:
             raise ValueError(f"template #{template_index} is not 2D")
@@ -155,7 +181,86 @@ def pick_particles(
         "template_results": template_results,
         "merged_score_map": merged_score_map.astype(np.float32),
         "assigned_template_map": assigned_template_map,
+        "preprocessed_image": work_image.astype(np.float32),
+        "preprocessed_templates": [t.astype(np.float32) for t in work_templates],
+        "target_pixel_size_angstrom": float(target_pixel_size),
+        "radius_pixels": float(radius_pixels),
+        "bin_factor": int(bin_factor),
     }
+
+
+def _is_power_of_two(value: int) -> bool:
+    return value > 0 and (value & (value - 1)) == 0
+
+
+def _mean_pool_bin(image: np.ndarray, bin_factor: int) -> np.ndarray:
+    if not _is_power_of_two(bin_factor):
+        raise ValueError("bin must be a power-of-two integer (1,2,4,8,...)")
+    if bin_factor == 1:
+        return image
+    height, width = image.shape
+    binned_height = (height // bin_factor) * bin_factor
+    binned_width = (width // bin_factor) * bin_factor
+    if binned_height == 0 or binned_width == 0:
+        raise ValueError("bin is too large for image dimensions")
+    cropped = image[:binned_height, :binned_width]
+    reshaped = cropped.reshape(
+        binned_height // bin_factor,
+        bin_factor,
+        binned_width // bin_factor,
+        bin_factor,
+    )
+    return reshaped.mean(axis=(1, 3), dtype=np.float32)
+
+
+def _rescale_template(template: np.ndarray, template_apix: float, target_apix: float) -> np.ndarray:
+    if template_apix <= 0 or target_apix <= 0:
+        raise ValueError("pixel sizes must be > 0")
+    scale = float(template_apix) / float(target_apix)
+    if abs(scale - 1.0) < 1e-6:
+        return template
+    return ndimage.zoom(template, zoom=scale, order=1)
+
+
+def _lowpass_gaussian(image: np.ndarray, apix: float, resolution_angstrom: float | None) -> np.ndarray:
+    if resolution_angstrom is None:
+        return image
+    resolution = float(resolution_angstrom)
+    if resolution <= 0:
+        raise ValueError("lowpass_resolution_angstrom must be > 0")
+    if apix <= 0:
+        raise ValueError("pixel size must be > 0")
+    sigma_pixels = 0.187 * resolution / float(apix)
+    if sigma_pixels <= 0:
+        return image
+    return ndimage.gaussian_filter(image, sigma=sigma_pixels)
+
+
+def _preprocess_inputs(
+    image: np.ndarray,
+    templates: Sequence[np.ndarray],
+    image_pixel_size: float,
+    template_pixel_size: float,
+    bin_factor: int,
+    invert_templates: bool,
+    lowpass_resolution: float | None,
+) -> Tuple[np.ndarray, List[np.ndarray], float]:
+    if image_pixel_size <= 0 or template_pixel_size <= 0:
+        raise ValueError("pixel sizes must be > 0")
+    binned_image = _mean_pool_bin(image.astype(np.float32), bin_factor)
+    target_apix = float(image_pixel_size) * float(bin_factor)
+    filtered_image = _lowpass_gaussian(binned_image, target_apix, lowpass_resolution).astype(np.float32)
+
+    work_templates: List[np.ndarray] = []
+    for template in templates:
+        tmpl = np.asarray(template, dtype=np.float32)
+        if invert_templates:
+            tmpl = -1.0 * tmpl
+        tmpl = _rescale_template(tmpl, template_pixel_size, target_apix)
+        tmpl = _lowpass_gaussian(tmpl, target_apix, lowpass_resolution)
+        work_templates.append(tmpl.astype(np.float32))
+
+    return filtered_image, work_templates, float(target_apix)
 
 
 def _normalize_image(image: np.ndarray) -> np.ndarray:

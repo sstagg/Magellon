@@ -10,7 +10,6 @@ import glob
 from typing import Any, Dict, Iterable, List, Sequence, Tuple
 
 import numpy as np
-from scipy import ndimage
 from matplotlib.patches import Circle
 
 try:
@@ -68,52 +67,6 @@ def _read_mrc(path: str) -> np.ndarray:
     if data.ndim != 2:
         raise ValueError(f"Expected 2D MRC data in {path}, got shape {data.shape}")
     return data
-
-
-def _is_power_of_two(value: int) -> bool:
-    return value > 0 and (value & (value - 1)) == 0
-
-
-def _bin_image(image: np.ndarray, bin_factor: int) -> np.ndarray:
-    if not _is_power_of_two(bin_factor):
-        raise ValueError("bin_factor must be a power-of-two integer (1,2,4,8,...)")
-    if bin_factor == 1:
-        return image
-    height, width = image.shape
-    binned_height = (height // bin_factor) * bin_factor
-    binned_width = (width // bin_factor) * bin_factor
-    if binned_height == 0 or binned_width == 0:
-        raise ValueError("bin_factor is too large for image dimensions")
-    cropped = image[:binned_height, :binned_width]
-    reshaped = cropped.reshape(
-        binned_height // bin_factor,
-        bin_factor,
-        binned_width // bin_factor,
-        bin_factor,
-    )
-    return reshaped.mean(axis=(1, 3), dtype=np.float32)
-
-
-def _rescale_template(template: np.ndarray, template_apix: float, target_apix: float) -> np.ndarray:
-    if template_apix <= 0 or target_apix <= 0:
-        raise ValueError("pixel sizes must be > 0")
-    scale = float(template_apix) / float(target_apix)
-    if abs(scale - 1.0) < 1e-6:
-        return template
-    return ndimage.zoom(template, zoom=scale, order=1)
-
-
-def _lowpass_gaussian(image: np.ndarray, apix: float, resolution_angstrom: float | None) -> np.ndarray:
-    if resolution_angstrom is None:
-        return image
-    if resolution_angstrom <= 0:
-        raise ValueError("resolution_angstrom must be > 0")
-    if apix <= 0:
-        raise ValueError("apix must be > 0")
-    sigma_pixels = 0.187 * float(resolution_angstrom) / float(apix)
-    if sigma_pixels <= 0:
-        return image
-    return ndimage.gaussian_filter(image, sigma=sigma_pixels)
 
 
 def _parse_angle_range(text: str) -> Tuple[float, float, float]:
@@ -235,26 +188,13 @@ def main() -> int:
     _require_matplotlib()
 
     args = _build_parser().parse_args()
-    if not _is_power_of_two(args.bin):
-        raise RuntimeError("--bin must be a power-of-two integer (1,2,4,8,...)")
 
     template_paths = _expand_templates(args.templates)
     if not template_paths:
         raise RuntimeError("No templates found")
 
     image = _read_mrc(args.image)
-    binned_image = _bin_image(image, args.bin)
-    target_apix = float(args.image_apix) * float(args.bin)
-    filtered_image = _lowpass_gaussian(binned_image, target_apix, args.lowpass_resolution)
-
-    templates: List[np.ndarray] = []
-    for path in template_paths:
-        tmpl = _read_mrc(path)
-        if args.invert_templates:
-            tmpl = -1.0 * tmpl
-        tmpl = _rescale_template(tmpl, args.template_apix, target_apix)
-        tmpl = _lowpass_gaussian(tmpl, target_apix, args.lowpass_resolution)
-        templates.append(tmpl.astype(np.float32))
+    templates = [_read_mrc(path) for path in template_paths]
 
     if len(args.angle_range) == 0:
         angle_ranges = [(0.0, 360.0, 10.0)] * len(templates)
@@ -266,12 +206,15 @@ def main() -> int:
         raise RuntimeError("angle-range must be supplied once or once-per-template")
 
     base = pick_particles(
-        image=filtered_image,
+        image=image,
         templates=templates,
         params={
             "diameter_angstrom": args.diameter,
-            "pixel_size_angstrom": target_apix,
-            "bin": 1.0,
+            "image_pixel_size_angstrom": args.image_apix,
+            "template_pixel_size_angstrom": args.template_apix,
+            "bin": args.bin,
+            "invert_templates": args.invert_templates,
+            "lowpass_resolution_angstrom": args.lowpass_resolution,
             "threshold": args.initial_threshold,
             "max_peaks": args.max_peaks,
             "overlap_multiplier": args.overlap_multiplier,
@@ -281,6 +224,8 @@ def main() -> int:
             "angle_ranges": angle_ranges,
         },
     )
+    filtered_image = np.asarray(base["preprocessed_image"], dtype=np.float32)
+    target_apix = float(base["target_pixel_size_angstrom"])
 
     merged_map = np.asarray(base["merged_score_map"], dtype=np.float32)
     finite = np.isfinite(merged_map)
@@ -296,7 +241,7 @@ def main() -> int:
         slider_max = slider_min + 1e-3
     initial_threshold = min(max(float(args.initial_threshold), slider_min), slider_max)
 
-    radius_pixels = float(args.diameter) / float(target_apix) / 2.0
+    radius_pixels = float(base["radius_pixels"])
     current_particles = _threshold_particles(
         base_result=base,
         threshold=initial_threshold,

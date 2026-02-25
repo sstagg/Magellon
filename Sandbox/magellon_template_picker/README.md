@@ -19,8 +19,11 @@ result = pick_particles(
     templates=[template1, template2],
     params={
         "diameter_angstrom": 220.0,
-        "pixel_size_angstrom": 1.1,
-        "bin": 1.0,
+        "image_pixel_size_angstrom": 1.1,
+        "template_pixel_size_angstrom": 2.6,
+        "bin": 2,
+        "lowpass_resolution_angstrom": 12.0,
+        "invert_templates": True,
         "threshold": 0.35,
         "max_peaks": 500,
         "overlap_multiplier": 1.0,
@@ -35,9 +38,14 @@ result = pick_particles(
 - `params`:
   - Required:
     - `diameter_angstrom`
-    - `pixel_size_angstrom`
+    - one of:
+    - `pixel_size_angstrom` (if image/templates are already preprocessed)
+    - `image_pixel_size_angstrom` (raw image input)
   - Optional:
-    - `bin` (default `1.0`)
+    - `template_pixel_size_angstrom` (default `image_pixel_size_angstrom`)
+    - `bin` (default `1`, power-of-two integer)
+    - `lowpass_resolution_angstrom` (default `None`)
+    - `invert_templates` (default `False`)
     - `threshold` (default `0.4`)
     - `max_threshold` (default `None`)
     - `max_peaks` (default `500`)
@@ -61,6 +69,10 @@ result = pick_particles(
   - `particles`
 - `merged_score_map`: best score at each pixel across templates
 - `assigned_template_map`: template winner index map
+- `preprocessed_image`: binned/filtered image used by matcher
+- `preprocessed_templates`: scaled/filtered templates used by matcher
+- `target_pixel_size_angstrom`: effective pixel size after preprocessing
+- `radius_pixels`: particle radius in processed-image pixels
 
 ## Dependencies
 - `numpy`
@@ -82,8 +94,7 @@ python cli.py \
   --threshold 0.35 \
   --lowpass-resolution 12.0 \
   --angle-range 0,360,10 \
-  --outdir /path/to/picker_output \
-  --save-intermediates
+  --outdir /path/to/picker_output
 ```
 
 What the CLI does:
@@ -107,8 +118,7 @@ For testing, use:
 - `origTemplate*` at `2.646 A/pix`
 - `25may06y_stack_34-37_008_X+1Y+1-2.mrc` at `0.830 A/pix`
 
-If image and template pixel sizes differ, resample templates to match the image
-pixel size before calling `pick_particles`.
+When image and template pixel sizes differ, `pick_particles` handles template rescaling internally.
 
 Example test command with your files:
 
@@ -119,7 +129,7 @@ python cli.py \
   --image-apix 1.230 \
   --template-apix 2.646 \
   --invert-templates \
-  --bin 1.0 \
+  --bin 1 \
   --diameter 220 \
   --threshold 0.35 \
   --angle-range 0,360,10 \
@@ -154,6 +164,6 @@ python viewer.py \
 ```
 
 Viewer behavior:
-- Left panel: filtered image with color `+` picks (color = winning template index).
+- Left panel: filtered image with red `+` picks and diameter circles.
 - Right panel: merged CC map with colorbar and threshold indicator.
 - Bottom slider: updates picks and count in real time at different CC cutoffs.

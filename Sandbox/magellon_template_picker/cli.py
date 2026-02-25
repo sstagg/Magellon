@@ -13,7 +13,6 @@ import os
 from typing import Iterable, List, Sequence, Tuple
 
 import numpy as np
-from scipy import ndimage
 from PIL import Image
 from PIL import ImageDraw
 
@@ -163,53 +162,6 @@ def _write_particle_overlay_png(
     image.save(path, format="PNG")
 
 
-def _is_power_of_two(value: int) -> bool:
-    return value > 0 and (value & (value - 1)) == 0
-
-
-def _bin_image(image: np.ndarray, bin_factor: int) -> np.ndarray:
-    if not _is_power_of_two(bin_factor):
-        raise ValueError("bin_factor must be a power-of-two integer (1,2,4,8,...)")
-    if bin_factor == 1:
-        return image
-    height, width = image.shape
-    binned_height = (height // bin_factor) * bin_factor
-    binned_width = (width // bin_factor) * bin_factor
-    if binned_height == 0 or binned_width == 0:
-        raise ValueError("bin_factor is too large for image dimensions")
-    cropped = image[:binned_height, :binned_width]
-    reshaped = cropped.reshape(
-        binned_height // bin_factor,
-        bin_factor,
-        binned_width // bin_factor,
-        bin_factor,
-    )
-    return reshaped.mean(axis=(1, 3), dtype=np.float32)
-
-
-def _rescale_template(template: np.ndarray, template_apix: float, target_apix: float) -> np.ndarray:
-    if template_apix <= 0 or target_apix <= 0:
-        raise ValueError("pixel sizes must be > 0")
-    scale = float(template_apix) / float(target_apix)
-    if abs(scale - 1.0) < 1e-6:
-        return template
-    return ndimage.zoom(template, zoom=scale, order=1)
-
-
-def _lowpass_gaussian(image: np.ndarray, apix: float, resolution_angstrom: float) -> np.ndarray:
-    if resolution_angstrom is None:
-        return image
-    if resolution_angstrom <= 0:
-        raise ValueError("resolution_angstrom must be > 0")
-    if apix <= 0:
-        raise ValueError("apix must be > 0")
-    # Gaussian approximation where transfer is ~0.5 at cutoff frequency apix/resolution.
-    sigma_pixels = 0.187 * float(resolution_angstrom) / float(apix)
-    if sigma_pixels <= 0:
-        return image
-    return ndimage.gaussian_filter(image, sigma=sigma_pixels)
-
-
 def _parse_angle_range(text: str) -> Tuple[float, float, float]:
     parts = [p.strip() for p in text.split(",")]
     if len(parts) != 3:
@@ -310,15 +262,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Low-pass target resolution in Angstrom; applied to binned image and scaled templates",
     )
     parser.add_argument("--outdir", default="picker_output", help="Output directory")
-    parser.add_argument("--save-intermediates", action="store_true", help="Write preprocessed image/templates")
     return parser
 
 
 def main() -> int:
     parser = _build_parser()
     args = parser.parse_args()
-    if not _is_power_of_two(args.bin):
-        raise RuntimeError("--bin must be a power-of-two integer (1,2,4,8,...)")
 
     template_paths = _expand_templates(args.templates)
     if not template_paths:
@@ -327,19 +276,7 @@ def main() -> int:
     os.makedirs(args.outdir, exist_ok=True)
 
     image = _read_mrc(args.image)
-    binned_image = _bin_image(image, args.bin)
-    target_apix = float(args.image_apix) * float(args.bin)
-    radius_pixels = float(args.diameter) / (2.0 * target_apix)
-    filtered_image = _lowpass_gaussian(binned_image, target_apix, args.lowpass_resolution)
-
-    processed_templates = []
-    for idx, path in enumerate(template_paths, start=1):
-        template = _read_mrc(path)
-        if args.invert_templates:
-            template = -1.0 * template
-        scaled = _rescale_template(template, args.template_apix, target_apix)
-        filtered = _lowpass_gaussian(scaled, target_apix, args.lowpass_resolution)
-        processed_templates.append(filtered.astype(np.float32))
+    templates = [_read_mrc(path) for path in template_paths]
 
     if len(args.angle_range) == 0:
         angle_ranges = [(0.0, 360.0, 10.0)] * len(processed_templates)
@@ -351,12 +288,15 @@ def main() -> int:
         raise RuntimeError("angle-range must be supplied once or once-per-template")
 
     result = pick_particles(
-        image=filtered_image,
-        templates=processed_templates,
+        image=image,
+        templates=templates,
         params={
             "diameter_angstrom": args.diameter,
-            "pixel_size_angstrom": target_apix,
-            "bin": 1.0,
+            "image_pixel_size_angstrom": args.image_apix,
+            "template_pixel_size_angstrom": args.template_apix,
+            "bin": args.bin,
+            "invert_templates": args.invert_templates,
+            "lowpass_resolution_angstrom": args.lowpass_resolution,
             "threshold": args.threshold,
             "max_threshold": args.max_threshold,
             "max_peaks": args.max_peaks,
@@ -367,6 +307,9 @@ def main() -> int:
             "angle_ranges": angle_ranges,
         },
     )
+    filtered_image = np.asarray(result["preprocessed_image"], dtype=np.float32)
+    target_apix = float(result["target_pixel_size_angstrom"])
+    radius_pixels = float(result["radius_pixels"])
 
     _write_particles_csv(os.path.join(args.outdir, "particles.csv"), result["particles"])
     with open(os.path.join(args.outdir, "particles.json"), "w") as handle:
@@ -400,7 +343,7 @@ def main() -> int:
 
     summary = {
         "output_dir": os.path.abspath(args.outdir),
-        "num_templates": len(processed_templates),
+        "num_templates": len(templates),
         "num_particles": len(result["particles"]),
         "target_pixel_size_angstrom": target_apix,
         "input_image_binning": float(args.bin),
