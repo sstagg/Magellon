@@ -48,6 +48,7 @@ ATLAS_SUFFIX = app_settings.directory_settings.ATLAS_SUFFIX
 # my_config_value = os.environ.get('MY_CONFIG_VALUE')
 MAGELLON_HOME_DIR = app_settings.directory_settings.MAGELLON_HOME_DIR or os.getenv('DATA_DIR', '/app/data')
 MAGELLON_JOBS_DIR = app_settings.directory_settings.JOBS_DIR or os.getenv('MAGELLON_JOBS_PATH', '/jobs')
+MAGELLON_GPFS_DIR = app_settings.directory_settings.MAGELLON_GPFS_PATH or os.getenv('MAGELLON_GPFS_PATH', '/gpfs')
 IMAGES_DIR = f"{MAGELLON_HOME_DIR}/{IMAGE_SUB_URL}"
 FFT_DIR = f"{MAGELLON_HOME_DIR}/{FFT_SUB_URL}"
 THUMBNAILS_DIR = f"{MAGELLON_HOME_DIR}/{THUMBNAILS_SUB_URL}"

@@ -45,6 +45,7 @@ class DirectorySettings(BaseModel):
     FFT_SUFFIX: Optional[str] = None
     FFT_DIR: Optional[str] = None
     MAGELLON_HOME_DIR: Optional[str] = None
+    MAGELLON_GPFS_PATH: Optional[str] = None
     NFS_ROOT_DIR: Optional[str] = None
     IMAGES_DIR: Optional[str] = None
     THUMBNAILS_DIR: Optional[str] = None

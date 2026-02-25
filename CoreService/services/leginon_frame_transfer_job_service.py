@@ -12,8 +12,8 @@ import logging
 import pymysql
 from fastapi import Depends, HTTPException
 
-from config import FFT_SUB_URL, IMAGE_SUB_URL, MAGELLON_HOME_DIR, THUMBNAILS_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, \
-    FFT_SUFFIX, FRAMES_SUFFIX, app_settings, ATLAS_SUB_URL, CTF_SUB_URL, FAO_SUB_URL
+from config import FFT_SUB_URL, IMAGE_SUB_URL, MAGELLON_GPFS_DIR, MAGELLON_HOME_DIR, THUMBNAILS_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, \
+    FFT_SUFFIX, FRAMES_SUFFIX, app_settings, ATLAS_SUB_URL, CTF_SUB_URL, FAO_SUB_URL, GAINS_SUB_URL, DEFECTS_SUB_URL
 
 from core.helper import dispatch_ctf_task, dispatch_motioncor_task
 from database import get_db
@@ -85,6 +85,8 @@ class LeginonFrameTransferJobService:
         self.mrc_service = MrcImageService()
         self.leginon_db_connection: pymysql.Connection = None
         self.leginon_cursor: pymysql.cursors.Cursor = None
+        self.gains_path: str = None
+        self.defects_path: str = None
 
     def setup(self, input_json: str):
         input_data = json.loads(input_json)
@@ -106,6 +108,7 @@ class LeginonFrameTransferJobService:
             return {'status': 'failure', 'message': f'Job failed with error: {str(e)} Job ID: {self.params.job_id}'}
 
     def create_job(self, db_session: Session):
+        print("Creating job with parameters:", self.params)
         try:
 
             magellon_project: Project = None
@@ -130,22 +133,43 @@ class LeginonFrameTransferJobService:
                     db_session.commit()
                     db_session.refresh(magellon_session)
             self.open_leginon_connection()
-            #if defects file is provided, save it to camera directory
-            if self.params.defects_file is not None:
-                defects_dir = os.path.join(MAGELLON_HOME_DIR, magellon_session_name, "defects")
-                os.makedirs(defects_dir, exist_ok=True)  # ✅ Ensure directory exists
+            # Prepare GPFS locations for gains/defects under: GPFS_ROOT/{session}/home/{gains|defects}
+            gpfs_root = os.environ.get('MAGELLON_GPFS_PATH', MAGELLON_GPFS_DIR)
+            gpfs_session_home = os.path.join(gpfs_root, magellon_session_name, 'home')
+            gpfs_gains_dir = os.path.join(gpfs_session_home, GAINS_SUB_URL)
+            gpfs_defects_dir = os.path.join(gpfs_session_home, DEFECTS_SUB_URL)
 
-                defects_file_path = os.path.join(defects_dir, self.params.defects_file.filename)
-                with open(defects_file_path, "wb") as f:
-                    f.write(self.params.defects_file.file.read())
-            gains_file_path = None
-            if self.params.gains_file is not None:
-                gains_dir = os.path.join(MAGELLON_HOME_DIR, magellon_session_name, "gains")
-                os.makedirs(gains_dir, exist_ok=True)  # ✅ Ensure directory exists
+            # Ensure directories exist on GPFS
+            os.makedirs(gpfs_gains_dir, exist_ok=True)
+            os.makedirs(gpfs_defects_dir, exist_ok=True)
 
-                gains_file_path = os.path.join(gains_dir, self.params.gains_file.filename)
-                with open(gains_file_path, "wb") as f:
+            # Save frontend-provided gains file to GPFS if present
+            if getattr(self.params, 'gains_file', None) is not None:
+                gains_file_path = os.path.join(gpfs_gains_dir, self.params.gains_file.filename)
+                with open(gains_file_path, 'wb') as f:
                     f.write(self.params.gains_file.file.read())
+                self.gains_path = gains_file_path
+
+            # Save frontend-provided defects file to GPFS if present (optional)
+            if getattr(self.params, 'defects_file', None) is not None:
+                defects_file_path = os.path.join(gpfs_defects_dir, self.params.defects_file.filename)
+                with open(defects_file_path, 'wb') as f:
+                    f.write(self.params.defects_file.file.read())
+                self.defects_path = defects_file_path
+
+            # If frontend didn't provide gains, look for any file in GPFS gains dir
+            if self.gains_path is None:
+                gain_candidates = [os.path.join(gpfs_gains_dir, f) for f in os.listdir(gpfs_gains_dir) if os.path.isfile(os.path.join(gpfs_gains_dir, f))]
+                if not gain_candidates:
+                    # No gains found -> error (gains required)
+                    raise FileNotFoundError(f"No gains file found for session '{magellon_session_name}' in '{gpfs_gains_dir}'. Provide a gains file in the frontend or place one there.")
+                self.gains_path = gain_candidates[0]
+
+            # If frontend didn't provide defects, look for any file in GPFS defects dir (optional)
+            if self.defects_path is None:
+                defect_candidates = [os.path.join(gpfs_defects_dir, f) for f in os.listdir(gpfs_defects_dir) if os.path.isfile(os.path.join(gpfs_defects_dir, f))]
+                if defect_candidates:
+                    self.defects_path = defect_candidates[0]
             
             # get the session object from the database
             session_name = self.params.session_name
@@ -218,8 +242,6 @@ class LeginonFrameTransferJobService:
             """
             self.leginon_cursor.execute(query, (session_name + "%",))
             leginon_image_list = self.leginon_cursor.fetchall()
-
-
             if len(leginon_image_list) > 0:
                 # image_dict = {image["filename"]: image for image in leginon_image_list}
                 image_dict = {}
@@ -237,10 +259,9 @@ class LeginonFrameTransferJobService:
                 )
                 db_session.add(job)
                 db_session.flush()  # Flush the session to get the generated Oid
-
                 db_image_list = []
                 db_job_item_list = []
-                separator = "/"
+                separator = "/"              
                 for image in leginon_image_list:
                     filename = image["filename"]
                     # source_image_path = os.path.join(session_result["image path"], filename)
@@ -274,9 +295,11 @@ class LeginonFrameTransferJobService:
 
                     # source_image_path = (session_result["image path"] + separator + filename + ".mrc")
                     # change logic to use image's director instead'
-                    source_frame_path = os.path.join(self.params.camera_directory, image["frame_names"])
-                    source_image_path = os.path.join(session_result["image path"], image["image_name"])
-
+                    source_frame_path = os.path.join(self.params.camera_directory, image["frame_names"]) if image.get("frame_names") else None
+                    # Construct source image path from GPFS root (use env MAGELLON_GPFS_PATH if set),
+                    # format: MAGELLON_GPFS_PATH/{sessionName}/home/{ORIGINAL_IMAGES_SUB_URL}/{image_name}
+                    gpfs_root = os.environ.get('MAGELLON_GPFS_PATH', MAGELLON_GPFS_DIR)
+                    source_image_path = os.path.join(gpfs_root, session_result["name"], 'home', ORIGINAL_IMAGES_SUB_URL, image["image_name"]) 
                     #TODO:
                     # source_frame_path = source_frame_path.replace("/gpfs/", "Y:/")
                     # source_image_path = source_image_path.replace("/gpfs/", "Y:/")
@@ -467,47 +490,21 @@ class LeginonFrameTransferJobService:
                     'Group': 4
                 }
 
-                # Check for gains folder and file
-                gains_dir = os.path.join(MAGELLON_HOME_DIR, task_dto.job_dto.session_name, "gains")
-                defects_dir = os.path.join(MAGELLON_HOME_DIR, task_dto.job_dto.session_name, "defects")
-                gain_path = None
-                defects_path=None
-                if os.path.exists(gains_dir):
-                    gain_files = [
-                        os.path.join(gains_dir, f)
-                        for f in os.listdir(gains_dir)
-                        if os.path.isfile(os.path.join(gains_dir, f))
-                    ]
-                    if gain_files:
-                        # Take the first file (or you can sort if needed)
-                        gain_path = gain_files[0]
-                if os.path.exists(defects_dir):
-                    defects_files = [
-                        os.path.join(defects_dir, f)
-                        for f in os.listdir(defects_dir)
-                        if os.path.isfile(os.path.join(defects_dir, f))
-                    ]
-                    if defects_files:
-                        defects_path = defects_files[0]
-                # Dispatch task depending on whether gain_path exists
-                if gain_path:
-                    dispatch_motioncor_task(
-                        task_id=task_dto.task_id,
-                        gain_path=gain_path,  # ✅ use found gain file
-                        full_image_path=abs_file_path,
-                        task_dto=task_dto,
-                        defects_path=defects_path,
-                        motioncor_settings=settings
-                    )
-                else:
-                    # ✅ call without gain_path so it uses default
-                    dispatch_motioncor_task(
-                        task_id=task_dto.task_id,
-                        full_image_path=abs_file_path,
-                        task_dto=task_dto,
-                        defects_path=defects_path,
-                        motioncor_settings=settings
-                    )
+                # Use gains/defects paths prepared in `create_job` (saved to GPFS)
+                gain_path = getattr(self, 'gains_path', None)
+                defects_path = getattr(self, 'defects_path', None)
+
+                if not gain_path:
+                    raise FileNotFoundError(f"Gains file not configured for session '{task_dto.job_dto.session_name}'. Ensure a gains file was uploaded or placed under GPFS for the session.")
+
+                dispatch_motioncor_task(
+                    task_id=task_dto.task_id,
+                    gain_path=gain_path,
+                    full_image_path=abs_file_path,
+                    task_dto=task_dto,
+                    defects_path=defects_path,
+                    motioncor_settings=settings
+                )
 
                 return {"message": f"Converting to motioncor on the way! {abs_file_path}"}
 

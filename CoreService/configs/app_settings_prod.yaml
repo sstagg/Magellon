@@ -79,6 +79,7 @@ directory_settings:
   MAGELLON_HOME_DIR: /magellon
   MAGELLON_JOBS_DIR: C:/temp/magellon/home/jobs
   NFS_ROOT_DIR: /gpfs
+  MAGELLON_GPFS_PATH: /gpfs
   IMAGE_ROOT_URL: http://localhost/cdn/
   IMAGE_SUB_URL: images/
   JOBS_DIR: null
