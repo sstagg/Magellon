@@ -261,6 +261,11 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Low-pass target resolution in Angstrom; applied to binned image and scaled templates",
     )
+    parser.add_argument(
+        "--write-images",
+        action="store_true",
+        help="Write PNG output images (disabled by default)",
+    )
     parser.add_argument("--outdir", default="picker_output", help="Output directory")
     return parser
 
@@ -315,31 +320,31 @@ def main() -> int:
     with open(os.path.join(args.outdir, "particles.json"), "w") as handle:
         json.dump(result["particles"], handle, indent=2)
 
-    _write_png(os.path.join(args.outdir, "input_binned_filtered.png"), filtered_image)
-    _write_particle_overlay_png(
-        os.path.join(args.outdir, "input_with_template_plus_overlay.png"),
-        filtered_image,
-        result["particles"],
-        radius_pixels=radius_pixels,
-    )
-    _write_map_with_scale_bar_png(
-        os.path.join(args.outdir, "merged_score_map.png"),
-        result["merged_score_map"],
-        threshold=args.threshold,
-        label="Merged CC",
-    )
-
     correlation_maps = []
-    for item in result["template_results"]:
-        idx = int(item["template_index"])
-        corr_name = f"template_{idx:03d}.correlation_map.png"
-        _write_map_with_scale_bar_png(
-            os.path.join(args.outdir, corr_name),
-            item["score_map"],
-            threshold=args.threshold,
-            label=f"Template {idx} CC",
+    if args.write_images:
+        _write_png(os.path.join(args.outdir, "input_binned_filtered.png"), filtered_image)
+        _write_particle_overlay_png(
+            os.path.join(args.outdir, "input_with_template_plus_overlay.png"),
+            filtered_image,
+            result["particles"],
+            radius_pixels=radius_pixels,
         )
-        correlation_maps.append(corr_name)
+        _write_map_with_scale_bar_png(
+            os.path.join(args.outdir, "merged_score_map.png"),
+            result["merged_score_map"],
+            threshold=args.threshold,
+            label="Merged CC",
+        )
+        for item in result["template_results"]:
+            idx = int(item["template_index"])
+            corr_name = f"template_{idx:03d}.correlation_map.png"
+            _write_map_with_scale_bar_png(
+                os.path.join(args.outdir, corr_name),
+                item["score_map"],
+                threshold=args.threshold,
+                label=f"Template {idx} CC",
+            )
+            correlation_maps.append(corr_name)
 
     summary = {
         "output_dir": os.path.abspath(args.outdir),

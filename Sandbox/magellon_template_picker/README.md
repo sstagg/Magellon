@@ -104,13 +104,13 @@ What the CLI does:
 - Rescales templates from `--template-apix` to `target_apix`.
 - Optional template contrast inversion with `--invert-templates`.
 - Applies optional low-pass filtering (`--lowpass-resolution`) to both image and templates.
-- Runs picking and writes:
-  - `particles.csv`, `particles.json`
+- Runs picking and always writes:
+  - `particles.csv`, `particles.json`, `run_summary.json`
+- Optional PNG outputs (only when `--write-images` is set):
   - `input_binned_filtered.png`
   - `input_with_template_plus_overlay.png` (larger `+` markers plus diameter circles, colored by winning template index)
   - `merged_score_map.png` (includes value scale bar and threshold marker)
   - one per-template correlation map PNG with value scale bar: `template_XXX.correlation_map.png`
-  - `run_summary.json`
 
 ## Test Data Notes
 For testing, use:
@@ -129,11 +129,14 @@ python cli.py \
   --image-apix 1.230 \
   --template-apix 2.646 \
   --invert-templates \
-  --bin 1 \
-  --diameter 220 \
-  --threshold 0.35 \
-  --angle-range 0,360,10 \
-  --outdir picker_test_24may23b
+  --bin 8 \
+  --diameter 950 \
+  --threshold 0.1 \
+  --overlap-multiplier 1.0 \
+  --angle-range 0,360,5 \
+  --lowpass-resolution 20 \
+  --outdir testout \
+  --write-images
 ```
 
 And for:
