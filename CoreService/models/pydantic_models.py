@@ -280,6 +280,7 @@ class LeginonFrameTransferJobDto(LeginonFrameTransferJobBase):
     target_directory: Optional[str] = None  # should be removed, it is base directory + magellon_session_name name
     defects_file: Optional[UploadFile] = None   
     gains_file: Optional[UploadFile] = None
+    default_data: Optional[DefaultParams] = None
 
 
 
@@ -311,6 +312,8 @@ class ImportTaskDto(BaseModel):
 
 class LeginonFrameTransferTaskDto(ImportTaskDto):
     job_dto: LeginonFrameTransferJobDto
+    flip_gain: Optional[int] = None
+    rot_gain: Optional[int] = None
 
 
 

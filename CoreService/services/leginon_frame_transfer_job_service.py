@@ -272,7 +272,7 @@ class LeginonFrameTransferJobService:
                                      magnification=image["mag"],
                                      defocus=image["defocus"],
                                      dose=image["calculated_dose"],
-                                     pixel_size=image["pixelsize"],
+                                     pixel_size=image["pixelsize"] if image["pixelsize"] is not None and image["pixelsize"] > 0 else (self.params.default_data.pixel_size if self.params.default_data else 0.739),
                                      binning_x=image["bining_x"],
                                      stage_x=image["stage_x"],
                                      stage_y=image["stage_y"],
@@ -283,9 +283,10 @@ class LeginonFrameTransferJobService:
                                      binning_y=image["bining_y"],
                                      level=get_image_levels(filename, presets_result["regex_pattern"]),
                                      previous_id=image["image_id"],
-                                     acceleration_voltage=image["acceleration_voltage"],
-                                     spherical_aberration=image["spherical_aberration"],
+                                     acceleration_voltage=image["acceleration_voltage"] if image["acceleration_voltage"] is not None and image["acceleration_voltage"] > 0 else (self.params.default_data.acceleration_voltage if self.params.default_data else 300),
+                                     spherical_aberration=(image["spherical_aberration"] * 1000) if image["spherical_aberration"] is not None and image["spherical_aberration"] > 0 else (self.params.default_data.spherical_aberration if self.params.default_data else 2.7),
                                      session_id=magellon_session.oid)
+                    logger.info(f"Created Image for {filename}: spherical_aberration={db_image.spherical_aberration} (converted from micrometers)")
                     # get_image_levels(filename,presets_result["regex_pattern"])
                     # db_session.add(db_image)
                     # db_session.flush()
@@ -341,10 +342,13 @@ class LeginonFrameTransferJobService:
                         # target_path=self.params.target_directory + "/frames/" + f"{image['frame_names']}{source_extension}",
                         job_dto=self.params,
                         status=1,
-                        pixel_size=image["pixelsize"],
-                        acceleration_voltage=image["acceleration_voltage"],
-                        spherical_aberration=image["spherical_aberration"]
+                        pixel_size=image["pixelsize"] if image["pixelsize"] is not None and image["pixelsize"] > 0 else (self.params.default_data.pixel_size if self.params.default_data else 0.739),
+                        acceleration_voltage=image["acceleration_voltage"] if image["acceleration_voltage"] is not None and image["acceleration_voltage"] > 0 else (self.params.default_data.acceleration_voltage if self.params.default_data else 300),
+                        spherical_aberration=(image["spherical_aberration"] * 1000) if image["spherical_aberration"] is not None and image["spherical_aberration"] > 0 else (self.params.default_data.spherical_aberration if self.params.default_data else 2.7),
+                        flip_gain=self.params.default_data.flip_gain if self.params.default_data else 0,
+                        rot_gain=self.params.default_data.rot_gain if self.params.default_data else 0
                     )
+                    logger.info(f"Created task_dto for {filename}: spherical_aberration={task_dto.spherical_aberration} (converted from micrometers)")
                     self.params.task_list.append(task_dto)
                     # print(f"Filename: {filename}, Spot Size: {spot_size}")
 
@@ -473,11 +477,33 @@ class LeginonFrameTransferJobService:
 
     def compute_ctf_task(self, abs_file_path: str, task_dto: LeginonFrameTransferTaskDto):
         try:
-            if (task_dto.pixel_size * 10 ** 10) <= 5:
-                dispatch_ctf_task(task_dto.task_id, abs_file_path, task_dto)
-                return {"message": "Converting to ctf on the way! " + abs_file_path}
+            # Validate CTF prerequisites
+            pixel_size = task_dto.pixel_size
+            spherical_aberration = task_dto.spherical_aberration
+            acceleration_voltage = task_dto.acceleration_voltage
+            
+            logger.info(f"compute_ctf_task: Input values - pixel_size={pixel_size}, spherical_aberration={spherical_aberration}, acceleration_voltage={acceleration_voltage}")
+            
+            # Validate pixel size (should be <= 5 Angstroms for CTF)
+            if pixel_size is None or (pixel_size * 10 ** 10) > 5:
+                logger.warning(f"Skipping CTF: pixel size {pixel_size} exceeds 5 Angstroms or is None")
+                return {"message": f"Skipping CTF computation (pixel size {pixel_size} too large or invalid)"}
+            
+            # Validate spherical aberration (should be non-zero and in reasonable range: 1-4 mm typically)
+            if spherical_aberration is None or spherical_aberration <= 0 or spherical_aberration > 10:
+                logger.warning(f"Skipping CTF: spherical aberration {spherical_aberration} is invalid (should be 1-4 mm)")
+                return {"message": f"Skipping CTF computation (invalid spherical aberration {spherical_aberration})"}
+            
+            # Validate acceleration voltage (should be 100-400 kV typically)
+            if acceleration_voltage is None or acceleration_voltage < 100 or acceleration_voltage > 400:
+                logger.warning(f"Skipping CTF: acceleration voltage {acceleration_voltage} is out of range (should be 100-400 kV)")
+                return {"message": f"Skipping CTF computation (invalid acceleration voltage {acceleration_voltage})"}
+            
+            dispatch_ctf_task(task_dto.task_id, abs_file_path, task_dto)
+            return {"message": "Converting to ctf on the way! " + abs_file_path}
 
         except Exception as e:
+            logger.error(f"Error in compute_ctf_task: {str(e)}", exc_info=True)
             return {"error": str(e)}
 
     def compute_motioncor_task(self, abs_file_path: str, task_dto: ImportTaskDto):
