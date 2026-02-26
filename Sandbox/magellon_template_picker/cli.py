@@ -279,10 +279,10 @@ def main() -> int:
     templates = [_read_mrc(path) for path in template_paths]
 
     if len(args.angle_range) == 0:
-        angle_ranges = [(0.0, 360.0, 10.0)] * len(processed_templates)
-    elif len(args.angle_range) == 1 and len(processed_templates) > 1:
-        angle_ranges = [_parse_angle_range(args.angle_range[0])] * len(processed_templates)
-    elif len(args.angle_range) == len(processed_templates):
+        angle_ranges = [(0.0, 360.0, 10.0)] * len(templates)
+    elif len(args.angle_range) == 1 and len(templates) > 1:
+        angle_ranges = [_parse_angle_range(args.angle_range[0])] * len(templates)
+    elif len(args.angle_range) == len(templates):
         angle_ranges = [_parse_angle_range(x) for x in args.angle_range]
     else:
         raise RuntimeError("angle-range must be supplied once or once-per-template")
