@@ -54,8 +54,8 @@ def pick_particles(
     Returns
     -------
     dict with:
-      - "particles": merged list of particle dicts
       - "template_results": per-template intermediate results
+      - "particles": merged list of particle dicts (unbinned original-image pixel coordinates)
       - "merged_score_map": max score across templates
       - "assigned_template_map": template index of winner at each pixel
       - "preprocessed_image": image used by matcher
@@ -172,6 +172,15 @@ def pick_particles(
         max_threshold=max_threshold,
     )
 
+    coordinate_scale = float(bin_factor) if "pixel_size_angstrom" not in params else 1.0
+    if coordinate_scale != 1.0:
+        merged_particles = _scale_coordinates(merged_particles, coordinate_scale)
+        for result in template_results:
+            result["particles"] = _scale_coordinates(
+                result["particles"],
+                coordinate_scale,
+            )
+
     stacked = np.stack([result["score_map"] for result in template_results], axis=0)
     merged_score_map = np.max(stacked, axis=0)
     assigned_template_map = np.argmax(stacked, axis=0).astype(np.int16) + 1
@@ -187,6 +196,21 @@ def pick_particles(
         "radius_pixels": float(radius_pixels),
         "bin_factor": int(bin_factor),
     }
+
+
+def _scale_coordinates(
+    particles: Sequence[Dict[str, Any]],
+    coordinate_scale: float,
+) -> List[Dict[str, Any]]:
+    if coordinate_scale <= 0 or coordinate_scale == 1.0:
+        return [dict(p) for p in particles]
+    scaled: List[Dict[str, Any]] = []
+    for particle in particles:
+        p = dict(particle)
+        p["x"] = float(p.get("x", 0.0)) * coordinate_scale
+        p["y"] = float(p.get("y", 0.0)) * coordinate_scale
+        scaled.append(p)
+    return scaled
 
 
 def _is_power_of_two(value: int) -> bool:

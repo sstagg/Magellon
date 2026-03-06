@@ -7,6 +7,7 @@ import csv
 import gc
 import json
 import os
+import tempfile
 from dataclasses import asdict
 from pathlib import Path
 
@@ -15,6 +16,7 @@ import numpy as np
 try:
     # Package mode: python -m magellon_can_classifier
     from .classifier import (
+        _fft_scale_image,
         CanParams,
         frc_curve,
         frc_resolution,
@@ -25,6 +27,7 @@ try:
 except ImportError:
     # Script mode: python cli.py
     from classifier import (
+        _fft_scale_image,
         CanParams,
         frc_curve,
         frc_resolution,
@@ -101,6 +104,94 @@ def _write_frc_outputs(
                     cw.writerow(["freq_1_per_A", "resolution_A", "frc"])
                 sw.writerow([c, n1, n2, "", ""])
     return summary_path
+
+
+def _write_iteration_alignment_json(path: str, assignments: np.ndarray, rotations: np.ndarray, shifts: np.ndarray, scores: np.ndarray) -> None:
+    rows = []
+    n = int(assignments.size)
+    for i in range(n):
+        rows.append(
+            {
+                "particle_index_0based": int(i),
+                "class_index_0based": int(assignments[i]),
+                "rotation_degrees": float(rotations[i]),
+                "shift_y_px": float(shifts[i, 0]),
+                "shift_x_px": float(shifts[i, 1]),
+                "score": float(scores[i]) if scores.size == n else None,
+            }
+        )
+    with open(path, "w") as f:
+        json.dump(rows, f, indent=2)
+
+
+def _write_iteration_alignment_star(path: str, assignments: np.ndarray, rotations: np.ndarray, shifts: np.ndarray, scores: np.ndarray) -> None:
+    n = int(assignments.size)
+    with open(path, "w") as f:
+        f.write("data_particles\n\n")
+        f.write("loop_\n")
+        f.write("_magParticleIndex #1\n")
+        f.write("_rlnClassNumber #2\n")
+        f.write("_rlnAnglePsi #3\n")
+        f.write("_rlnOriginX #4\n")
+        f.write("_rlnOriginY #5\n")
+        f.write("_rlnCtfFigureOfMerit #6\n")
+        for i in range(n):
+            cls_1based = int(assignments[i]) + 1
+            ang = float(rotations[i])
+            sx = float(shifts[i, 1])
+            sy = float(shifts[i, 0])
+            score = float(scores[i]) if scores.size == n else 0.0
+            f.write(f"{i} {cls_1based} {ang:.6f} {sx:.6f} {sy:.6f} {score:.6f}\n")
+
+
+def _nearest_even_box_for_target_apix(box_size: int, apix: float, target_apix: float) -> tuple[int, float]:
+    """
+    Pick an even output box size that yields apix_new = apix * box / new_box
+    as close as possible to target_apix.
+    Returns (new_box, fft_scale), where fft_scale = new_box / box_size.
+    """
+    b = int(box_size)
+    if b <= 2:
+        return b, 1.0
+    target = float(target_apix)
+    if target <= 1e-8:
+        return b, 1.0
+    ideal = (float(apix) * float(b)) / target
+    c0 = int(round(ideal))
+    cands = set()
+    for d in range(-4, 5):
+        x = max(2, c0 + d)
+        if x % 2 != 0:
+            x += 1
+        cands.add(x)
+    best_box = b
+    best_err = abs(float(apix) * float(b) / float(best_box) - target)
+    for nb in sorted(cands):
+        apix_new = float(apix) * float(b) / float(nb)
+        err = abs(apix_new - target)
+        if err < best_err:
+            best_err = err
+            best_box = nb
+    return int(best_box), float(best_box) / float(b)
+
+
+def _best_resolution_from_frc_summary(summary_csv: str) -> float | None:
+    best = None
+    with open(summary_csv, newline="") as f:
+        r = csv.DictReader(f)
+        for row in r:
+            txt = row.get("res_0.143_A", "") or row.get("res_0.5_A", "")
+            if txt == "":
+                continue
+            try:
+                v = float(txt)
+            except Exception:
+                continue
+            if v <= 0:
+                continue
+            if best is None or v < best:
+                best = v
+    return best
 
 
 def _parse_relion_star_tables(path: str) -> dict[str, list[dict[str, str]]]:
@@ -365,6 +456,12 @@ def _build_parser() -> argparse.ArgumentParser:
     # preprocessing / alignment
     p.add_argument("--lowpass-resolution", type=float, default=None, help="Low-pass resolution (A)")
     p.add_argument(
+        "--init-resolution",
+        type=float,
+        default=None,
+        help="Deprecated with fixed-scaling mode. Kept for compatibility and currently unused.",
+    )
+    p.add_argument(
         "--fft-scale",
         type=float,
         default=1.0,
@@ -589,95 +686,203 @@ def main() -> int:
         print(f"[cli] CAN params: {can_params}")
 
     iter_pad = max(3, len(str(max(1, int(args.align_iters)))))
+    fixed_scale = float(args.fft_scale)
+    if fixed_scale <= 0:
+        raise RuntimeError("--fft-scale must be > 0")
+    if args.init_resolution is not None and verbose:
+        print(
+            f"[cli] --init-resolution is deprecated for this workflow and ignored; "
+            f"using fixed --fft-scale={fixed_scale:.4f} every iteration"
+        )
+    n_iters = int(args.align_iters)
+    n_start = min(5000, int(n_particles))
+    if n_iters <= 1:
+        iter_counts = [int(n_particles)]
+    else:
+        iter_counts = []
+        for i in range(n_iters):
+            f = float(i) / float(max(1, n_iters - 1))
+            iter_counts.append(int(round(n_start + f * (int(n_particles) - n_start))))
+        iter_counts[-1] = int(n_particles)
+        for i in range(1, len(iter_counts)):
+            iter_counts[i] = max(iter_counts[i], iter_counts[i - 1])
 
-    def _on_iteration(stage: str, iteration: int, avgs: np.ndarray, _counts: np.ndarray) -> None:
-        stage_l = str(stage).strip().lower()
-        if stage_l not in ("can", "mra"):
-            return
-        path = os.path.join(args.outdir, f"{stage_l}_class_averages_iter{int(iteration):0{iter_pad}d}.mrcs")
-        _write_stack(path, np.asarray(avgs, dtype=np.float32))
-        if verbose:
-            print(f"[cli] wrote {stage_l.upper()} class averages: {path}")
-
-    if verbose:
-        print("[cli] preprocessing (stage 1): chunked -> preprocessed_stack.mrcs")
-    pre_path = os.path.join(args.outdir, "preprocessed_stack.mrcs")
     raw_chunk_size = max(64, min(2048, int(max(64, 4_000_000 // max(1, raw_box[0] * raw_box[1])))))
-    raw0 = _load_raw_chunk(0, 1)
-    def0 = defocus[0:1] if defocus is not None else None
-    pre0 = preprocess_stack(
-        stack=raw0,
-        apix=apix,
-        fft_scale=float(args.fft_scale),
-        lowpass_resolution=args.lowpass_resolution,
-        invert=bool(args.invert),
-        center=not bool(args.no_center),
-        normalize=not bool(args.no_normalize),
-        phase_flip_ctf=bool(args.phase_flip_ctf),
-        ctf_defocus_um=def0,
-        ctf_voltage_kv=ctf_voltage if ctf_voltage is not None else 300.0,
-        ctf_cs_mm=ctf_cs if ctf_cs is not None else 2.7,
-        ctf_amp_contrast=ctf_amp if ctf_amp is not None else 0.1,
-        n_threads=int(args.threads),
-    )
-    pre_box = (int(pre0.shape[1]), int(pre0.shape[2]))
-    with mrcfile.new_mmap(pre_path, shape=(n_particles, pre_box[0], pre_box[1]), mrc_mode=2, overwrite=True) as pre_out:
-        pre_out.data[0:1] = pre0
-        for start in range(1, n_particles, raw_chunk_size):
-            end = min(n_particles, start + raw_chunk_size)
-            if verbose and (start == 1 or end == n_particles or ((start // raw_chunk_size) % 10 == 0)):
-                print(f"[cli] preprocess chunk {start}:{end}/{n_particles}")
-            raw_chunk = _load_raw_chunk(start, end)
-            def_chunk = defocus[start:end] if defocus is not None else None
-            pre_chunk = preprocess_stack(
-                stack=raw_chunk,
-                apix=apix,
-                fft_scale=float(args.fft_scale),
-                lowpass_resolution=args.lowpass_resolution,
-                invert=bool(args.invert),
-                center=not bool(args.no_center),
-                normalize=not bool(args.no_normalize),
-                phase_flip_ctf=bool(args.phase_flip_ctf),
-                ctf_defocus_um=def_chunk,
-                ctf_voltage_kv=ctf_voltage if ctf_voltage is not None else 300.0,
-                ctf_cs_mm=ctf_cs if ctf_cs is not None else 2.7,
-                ctf_amp_contrast=ctf_amp if ctf_amp is not None else 0.1,
-                n_threads=int(args.threads),
+    can_init_nodes = None
+    out = None
+    effective_apix = float(apix)
+    pre_path = os.path.join(args.outdir, "preprocessed_stack.mrcs")
+
+    raw_box_n = int(raw_box[0])
+    iter_scale = fixed_scale
+
+    for it in range(1, n_iters + 1):
+        n_use = int(iter_counts[it - 1])
+        effective_apix = float(apix) / float(iter_scale) if abs(float(iter_scale)) > 1e-12 else float(apix)
+        if it == n_iters:
+            pre_path = os.path.join(args.outdir, "preprocessed_stack.mrcs")
+            cleanup_pre_path = False
+        else:
+            tmp = tempfile.NamedTemporaryFile(
+                prefix=f"preprocessed_iter{it:0{iter_pad}d}_",
+                suffix=".mrcs",
+                dir=args.outdir,
+                delete=False,
             )
-            pre_out.data[start:end] = pre_chunk
-            del raw_chunk, pre_chunk
-            gc.collect()
+            pre_path = tmp.name
+            tmp.close()
+            cleanup_pre_path = True
+        if verbose:
+            print(
+                f"[cli] iter {it}/{n_iters}: n_particles={n_use} scale={iter_scale:.4f} effective_apix={effective_apix:.5f}"
+            )
+            print(f"[cli] iter {it}/{n_iters}: preprocessing -> {pre_path}")
 
-    effective_apix = float(apix) / float(args.fft_scale) if abs(float(args.fft_scale)) > 1e-12 else float(apix)
-    if verbose:
-        print(f"[cli] wrote preprocessed stack: {pre_path}")
+        # Build this iteration's preprocessed stack (subset + chosen Fourier scale).
+        raw0 = _load_raw_chunk(0, 1)
+        def0 = defocus[0:1] if defocus is not None else None
+        pre0 = preprocess_stack(
+            stack=raw0,
+            apix=apix,
+            fft_scale=float(iter_scale),
+            lowpass_resolution=None,
+            invert=bool(args.invert),
+            center=not bool(args.no_center),
+            normalize=not bool(args.no_normalize),
+            phase_flip_ctf=bool(args.phase_flip_ctf),
+            ctf_defocus_um=def0,
+            ctf_voltage_kv=ctf_voltage if ctf_voltage is not None else 300.0,
+            ctf_cs_mm=ctf_cs if ctf_cs is not None else 2.7,
+            ctf_amp_contrast=ctf_amp if ctf_amp is not None else 0.1,
+            n_threads=int(args.threads),
+        )
+        pre_box = (int(pre0.shape[1]), int(pre0.shape[2]))
+        with mrcfile.new_mmap(pre_path, shape=(n_use, pre_box[0], pre_box[1]), mrc_mode=2, overwrite=True) as pre_out:
+            pre_out.data[0:1] = pre0
+            for start in range(1, n_use, raw_chunk_size):
+                end = min(n_use, start + raw_chunk_size)
+                raw_chunk = _load_raw_chunk(start, end)
+                def_chunk = defocus[start:end] if defocus is not None else None
+                pre_chunk = preprocess_stack(
+                    stack=raw_chunk,
+                    apix=apix,
+                    fft_scale=float(iter_scale),
+                    lowpass_resolution=None,
+                    invert=bool(args.invert),
+                    center=not bool(args.no_center),
+                    normalize=not bool(args.no_normalize),
+                    phase_flip_ctf=bool(args.phase_flip_ctf),
+                    ctf_defocus_um=def_chunk,
+                    ctf_voltage_kv=ctf_voltage if ctf_voltage is not None else 300.0,
+                    ctf_cs_mm=ctf_cs if ctf_cs is not None else 2.7,
+                    ctf_amp_contrast=ctf_amp if ctf_amp is not None else 0.1,
+                    n_threads=int(args.threads),
+                )
+                pre_out.data[start:end] = pre_chunk
+                del raw_chunk, pre_chunk
+                gc.collect()
 
-    pre_mmap = mrcfile.mmap(pre_path, permissive=True)
-    pre = np.asarray(pre_mmap.data, dtype=np.float32)
+        # Warm-start node vectors come from the previous iteration's MRA averages.
+        # If box size changed due to a new Fourier scale, resize warm-start nodes to match
+        # this iteration's preprocessed box before passing them into CAN.
+        can_init_nodes_iter = can_init_nodes
+        if can_init_nodes_iter is not None:
+            ph, pw = int(pre_box[0]), int(pre_box[1])
+            nh, nw = int(can_init_nodes_iter.shape[1]), int(can_init_nodes_iter.shape[2])
+            if (nh, nw) != (ph, pw):
+                if nh <= 0 or nw <= 0:
+                    can_init_nodes_iter = None
+                else:
+                    sy = float(ph) / float(nh)
+                    sx = float(pw) / float(nw)
+                    if abs(sy - sx) > 1e-6:
+                        raise RuntimeError(
+                            f"Warm-start resize requires isotropic scaling, got previous box={(nh, nw)} current box={(ph, pw)}"
+                        )
+                    s = sy
+                    can_init_nodes_iter = np.stack(
+                        [_fft_scale_image(np.asarray(can_init_nodes_iter[i], dtype=np.float32), s) for i in range(can_init_nodes_iter.shape[0])],
+                        axis=0,
+                    ).astype(np.float32)
+                    if verbose:
+                        print(
+                            f"[cli] iter {it}/{n_iters}: resized CAN warm-start nodes "
+                            f"from box={nh} to box={ph} (scale={s:.4f})"
+                        )
 
-    out = run_align_and_can(
-        preprocessed_stack=pre,
-        apix=effective_apix,
-        align_iters=int(args.align_iters),
-        can_params=can_params,
-        mask_diameter_angstrom=args.particle_diameter_ang,
-        seed=int(args.seed),
-        verbose=verbose,
-        n_threads=int(args.threads),
-        align_progress_every=int(args.align_progress_every),
-        mra_log_each_particle=bool(args.mra_log_each_particle),
-        center_class_averages=not bool(args.no_center_averages),
-        iteration_callback=_on_iteration,
-        include_aligned_stack=bool(args.write_aligned_stack),
-        work_dir=args.outdir,
-    )
-    # Preprocessed stack is no longer needed after pipeline outputs are produced.
-    del pre
-    try:
-        pre_mmap.close()
-    except Exception:
-        pass
-    gc.collect()
+        # Single CAN->MRA iteration run; warm-start CAN from previous iteration MRA averages.
+        def _on_stage(stage: str, _iter_local: int, avgs: np.ndarray, _counts: np.ndarray) -> None:
+            s = str(stage).strip().lower()
+            if s == "can":
+                p = os.path.join(args.outdir, f"can_class_averages_iter{it:0{iter_pad}d}.mrcs")
+            elif s == "mra":
+                p = os.path.join(args.outdir, f"mra_class_averages_iter{it:0{iter_pad}d}.mrcs")
+            else:
+                return
+            _write_stack(p, np.asarray(avgs, dtype=np.float32))
+            if verbose:
+                print(f"[cli] wrote {s.upper()} class averages: {p}")
+
+        pre_mmap = mrcfile.mmap(pre_path, permissive=True)
+        pre_iter = np.asarray(pre_mmap.data, dtype=np.float32)
+        out = run_align_and_can(
+            preprocessed_stack=pre_iter,
+            apix=effective_apix,
+            align_iters=1,
+            can_params=can_params,
+            mask_diameter_angstrom=args.particle_diameter_ang,
+            seed=int(args.seed) + (it - 1),
+            verbose=verbose,
+            n_threads=int(args.threads),
+            align_progress_every=int(args.align_progress_every),
+            mra_log_each_particle=bool(args.mra_log_each_particle),
+            center_class_averages=not bool(args.no_center_averages),
+            iteration_callback=_on_stage,
+            include_aligned_stack=bool(args.write_aligned_stack and it == n_iters),
+            work_dir=args.outdir,
+            can_init_nodes=can_init_nodes_iter,
+        )
+        del pre_iter
+        try:
+            pre_mmap.close()
+        except Exception:
+            pass
+        gc.collect()
+
+        # Write per-iteration transform tables.
+        asn_i = np.asarray(out.get("mra_reference_assignments"), dtype=np.int32)
+        rot_i = np.asarray(out.get("rotations"), dtype=np.float32)
+        shf_i = np.asarray(out.get("shifts"), dtype=np.float32)
+        scr_i = np.asarray(out.get("mra_reference_scores"), dtype=np.float32)
+        base = os.path.join(args.outdir, f"iteration_mra_iter{it:0{iter_pad}d}")
+        _write_iteration_alignment_json(f"{base}.json", asn_i, rot_i, shf_i, scr_i)
+        _write_iteration_alignment_star(f"{base}.star", asn_i, rot_i, shf_i, scr_i)
+
+        # Per-iteration FRC (reporting only; scaling is now fixed by --fft-scale).
+        h1_i = np.asarray(out.get("final_preprocessed_half1"), dtype=np.float32)
+        h2_i = np.asarray(out.get("final_preprocessed_half2"), dtype=np.float32)
+        hc_i = np.asarray(out.get("final_preprocessed_half_counts"), dtype=np.int32)
+        frc_dir_i = os.path.join(args.outdir, f"frc_iter{it:0{iter_pad}d}")
+        frc_sum_i = _write_frc_outputs(h1_i, h2_i, hc_i, apix=float(effective_apix), outdir=frc_dir_i, prefix=f"iter{it:0{iter_pad}d}")
+        if verbose:
+            best_res_i = _best_resolution_from_frc_summary(frc_sum_i)
+            print(f"[cli] iter {it}/{n_iters}: best FRC resolution={best_res_i}")
+
+        # Warm-start CAN for next iteration from current MRA averages (largest classes first).
+        mra_avg_i = np.asarray(out.get("final_preprocessed_class_averages"), dtype=np.float32)
+        mra_cnt_i = np.asarray(out.get("final_preprocessed_class_counts"), dtype=np.int32)
+        nz = np.where(mra_cnt_i > 0)[0]
+        if nz.size >= 2:
+            ord_idx = nz[np.argsort(mra_cnt_i[nz])[::-1]]
+            can_init_nodes = mra_avg_i[ord_idx].astype(np.float32, copy=True)
+        else:
+            can_init_nodes = None
+
+        if cleanup_pre_path:
+            try:
+                os.remove(pre_path)
+            except OSError:
+                pass
 
     if bool(args.write_aligned_stack):
         _write_stack(os.path.join(args.outdir, "aligned_stack.mrcs"), out["aligned_stack"])

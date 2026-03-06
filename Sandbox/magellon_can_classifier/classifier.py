@@ -539,8 +539,7 @@ def _ctf_phase_flip_image(
     #   CTF_SIGN = sign(cos(gamma - acac))
     gamma = 0.5 * math.pi * cs_ang * (lam ** 3) * s4 - math.pi * lam * defocus_ang * s2
     acac = math.atan2(wac, wpc)
-    sign = np.where(np.cos(gamma - acac) >= 0.0, 1.0, -1.0).astype(np.float32)
-
+    sign = np.where(np.cos(gamma - acac) >= 0.0, 1.0, -1.0).astype(np.float32)  # bool mask converted to 1,-1 array for phase-flip
     fft_im = np.fft.fft2(image)
     corrected = np.fft.ifft2(fft_im * sign).real
     return corrected.astype(np.float32)
@@ -841,6 +840,15 @@ def align_stack_to_references(
     compute_backend: str = "cpu",
     aligned_out_path: str | None = None,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Align each particle against all provided references using skimage polar alignment.
+
+    Flow per particle:
+    1) Build one polar transform of the particle.
+    2) Compare against every reference polar map to estimate rotation.
+    3) Refine translation in Cartesian space by phase correlation.
+    4) Pick the highest-scoring reference/alignment.
+    """
     if stack.ndim != 3:
         raise ValueError("stack must be 3D [n, y, x]")
     if references.ndim != 3:
@@ -857,11 +865,13 @@ def align_stack_to_references(
 
     n = int(stack.shape[0])
     k = int(references.shape[0])
+    # Normalize references once up front so per-particle scores are comparable.
     refs = np.stack([_normalize_image(r) for r in references], axis=0).astype(np.float32)
     h, w = refs.shape[1], refs.shape[2]
     polar_radius = max(8, int(min(h, w) // 2))
     polar_shape = (360, polar_radius)
     polar_center = ((h - 1) / 2.0, (w - 1) / 2.0)
+    # Precompute reference polar maps once; this avoids recomputing per particle.
     polar_refs = np.stack(
         [
             _warp_polar(
@@ -879,6 +889,7 @@ def align_stack_to_references(
     polar_refs_t = None
     polar_refs_fft_t = None
     if use_torch_mra:
+        # Torch path computes all reference comparisons for a particle in one dense batch.
         refs_t = torch.from_numpy(refs).to(device=mra_torch_device, dtype=torch.float32)
         polar_refs_t = torch.from_numpy(polar_refs).to(device=mra_torch_device, dtype=torch.float32)
         polar_refs_fft_t = torch.fft.fftn(polar_refs_t, dim=(-2, -1))
@@ -886,6 +897,7 @@ def align_stack_to_references(
     if aligned_out_path is None:
         aligned = np.zeros_like(stack, dtype=np.float32)
     else:
+        # For large runs, write aligned particles straight to disk-backed memmap.
         aligned = np.memmap(
             aligned_out_path,
             dtype=np.float32,
@@ -944,6 +956,7 @@ def align_stack_to_references(
             )
         best_dy = 0.0
         best_dx = 0.0
+        # CPU path: evaluate every reference and keep winner.
         for r in range(k):
             img, ang, score, sh = _align_to_reference_skimage_polar(
                 particle=particle,
@@ -1083,6 +1096,12 @@ def can_classify(
     verbose: bool = True,
     init_node_vectors: np.ndarray | None = None,
 ) -> Dict[str, Any]:
+    """
+    Competitive graph-based clustering (CAN).
+
+    Training is online: one randomly chosen particle presentation per step.
+    After training, all particles are assigned to nearest node to form class averages.
+    """
     rng = np.random.default_rng(seed)
     data = np.asarray(stack, dtype=np.float32)
     if data.ndim != 3:
@@ -1155,6 +1174,7 @@ def can_classify(
     if n_init_nodes == 2 and (0, 1) not in edges:
         edges[(0, 1)] = 1
 
+    # Interval controlling how often new nodes are inserted during training.
     add_interval = max(1, int(num_presentations / max(2, num_classes) / max(1e-6, params.add_speed_factor)))
 
     prim0 = float(params.primary_learn)
@@ -1231,6 +1251,7 @@ def can_classify(
     early_stopped = False
     for t in range(num_presentations):
         n_nodes = int(node_arr_t.shape[0]) if use_torch else len(nodes)
+        # Random presentation with replacement (classical online CAN behavior).
         idx = int(rng.integers(0, n))
         if use_torch:
             x_t = flat_t[idx]
@@ -1268,12 +1289,13 @@ def can_classify(
             s2 = int(np.argmin(dists2))
             dists_s1 = float(dists[s1])
 
-        # age edges from winner
+        # Age winner edges so stale topology can be pruned.
         for nb in neighbors(s1):
             k = edge_key(s1, nb)
             edges[k] += 1
 
-        # update winner + neighbors
+        # Move winner and its graph neighbors toward the presented sample.
+        # Learning rate decays linearly over training.
         frac = max(0.0, (num_presentations - t) / max(1.0, float(num_presentations)))
         prim = prim0 * frac
         sec = sec0 * frac
@@ -1308,18 +1330,18 @@ def can_classify(
 
         errors[s1] += dists_s1
 
-        # remove old edges
+        # Remove edges that have aged out.
         to_drop = [k for k, age in edges.items() if age >= max_age]
         for k in to_drop:
             del edges[k]
 
-        # connect winner and second winner (new edge or reset existing age)
+        # Connect winner and runner-up; this is the core topology update.
         edges[edge_key(s1, s2)] = 1
 
         # decay errors
         errors = [e * float(params.error_decay) for e in errors]
 
-        # add node
+        # Grow graph by splitting high-error regions until target node count is reached.
         if n_nodes < num_classes and t > 0 and t % add_interval == 0:
             q = int(np.argmax(np.asarray(errors)))
             q_neighbors = neighbors(q)
@@ -1412,7 +1434,7 @@ def can_classify(
             prev_assign_cp = assign_cp
             prev_err_cp = float(err_cp)
 
-    # assign particles to closest node (optionally threaded, behavior-preserving)
+    # Final full assignment pass over all particles.
     if use_torch:
         node_arr_t_final = node_arr_t
         node_arr = node_arr_t_final.detach().cpu().numpy()
@@ -1527,7 +1549,16 @@ def run_align_and_can(
     iteration_callback: Callable[[str, int, np.ndarray, np.ndarray], None] | None = None,
     include_aligned_stack: bool = False,
     work_dir: str | None = None,
+    can_init_nodes: np.ndarray | None = None,
 ) -> Dict[str, Any]:
+    """
+    End-to-end topology loop for one run.
+
+    Iteration structure:
+      CAN on current particle set -> MRA to CAN references.
+    MRA alignment is always solved against the base preprocessed stack to avoid
+    accumulating interpolation artifacts across iterations.
+    """
     t0 = time.time()
     pre = np.asarray(preprocessed_stack, dtype=np.float32)
     if pre.ndim != 3:
@@ -1556,8 +1587,12 @@ def run_align_and_can(
     iteration_history: list[dict[str, Any]] = []
     iteration_mra_rotations: list[np.ndarray] = []
     iteration_mra_shifts: list[np.ndarray] = []
+    iteration_mra_assignments: list[np.ndarray] = []
+    iteration_mra_scores: list[np.ndarray] = []
     total_iters = int(align_iters)
+    # `curr_particles` is what CAN sees each iteration. It is updated with MRA outputs.
     curr_particles = pre
+    # Keep latest transforms/assignments so downstream outputs can be generated once.
     last_aligned = pre
     last_rotations = np.zeros((pre.shape[0],), dtype=np.float32)
     last_shifts = np.zeros((pre.shape[0], 2), dtype=np.float32)
@@ -1569,17 +1604,18 @@ def run_align_and_can(
     temp_dir = None
     curr_particles_tmp_path = None
     if work_dir is not None:
+        # Optional on-disk aligned buffers to keep memory bounded on large stacks.
         temp_dir = os.path.join(str(work_dir), "_tmp_align")
         os.makedirs(temp_dir, exist_ok=True)
     if verbose:
         print(f"[pipeline] topology loop: total_iterations={total_iters} (each iteration: CAN -> MRA)")
 
     can_out = None
-    can_warm_start_nodes = None
+    can_warm_start_nodes = np.asarray(can_init_nodes, dtype=np.float32) if can_init_nodes is not None else None
     for iter_idx in range(1, total_iters + 1):
         if verbose:
             print(f"[pipeline] iter {iter_idx}/{total_iters}: CAN on current particles")
-        if iter_idx >= 2 and can_warm_start_nodes is not None and verbose:
+        if can_warm_start_nodes is not None and verbose:
             print(
                 f"[pipeline] iter {iter_idx}/{total_iters}: CAN warm-start from previous MRA "
                 f"(nodes={int(can_warm_start_nodes.shape[0])})"
@@ -1589,7 +1625,7 @@ def run_align_and_can(
             params=can_params,
             seed=can_seed + (iter_idx - 1),
             verbose=verbose,
-            init_node_vectors=can_warm_start_nodes if iter_idx >= 2 else None,
+            init_node_vectors=can_warm_start_nodes,
         )
         if center_class_averages:
             class_avgs = np.asarray(can_out["class_averages"], dtype=np.float32)
@@ -1620,6 +1656,7 @@ def run_align_and_can(
         refs_full = np.asarray(can_out["class_averages"], dtype=np.float32)
         refs = refs_full
         counts = np.asarray(can_out["class_counts"], dtype=np.int32)
+        # Skip empty references for MRA work, then map winning indices back to full class ids.
         keep = counts > 0
         keep_idx = np.where(keep)[0].astype(np.int32)
         if keep.any():
@@ -1658,6 +1695,8 @@ def run_align_and_can(
             can_warm_start_nodes = None
         iteration_mra_rotations.append(np.asarray(rotations, dtype=np.float32).copy())
         iteration_mra_shifts.append(np.asarray(shifts, dtype=np.float32).copy())
+        iteration_mra_assignments.append(np.asarray(ref_assign, dtype=np.int32).copy())
+        iteration_mra_scores.append(np.asarray(ref_scores, dtype=np.float32).copy())
         if iteration_callback is not None:
             iteration_callback(
                 "mra",
@@ -1711,6 +1750,8 @@ def run_align_and_can(
     can_out["iteration_history"] = iteration_history
     can_out["iteration_mra_rotations"] = iteration_mra_rotations
     can_out["iteration_mra_shifts"] = iteration_mra_shifts
+    can_out["iteration_mra_assignments"] = iteration_mra_assignments
+    can_out["iteration_mra_scores"] = iteration_mra_scores
     can_out["effective_apix"] = float(effective_apix)
     if curr_particles_tmp_path is not None:
         can_out["aligned_stack_tmp_path"] = curr_particles_tmp_path

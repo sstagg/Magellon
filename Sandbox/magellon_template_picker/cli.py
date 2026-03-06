@@ -162,6 +162,21 @@ def _write_particle_overlay_png(
     image.save(path, format="PNG")
 
 
+def _rescale_particles_for_display(
+    particles: Iterable[dict],
+    scale: float,
+) -> List[dict]:
+    if scale == 1.0:
+        return [dict(p) for p in particles]
+    scaled: List[dict] = []
+    for p in particles:
+        item = dict(p)
+        item["x"] = float(item.get("x", 0.0)) * scale
+        item["y"] = float(item.get("y", 0.0)) * scale
+        scaled.append(item)
+    return scaled
+
+
 def _parse_angle_range(text: str) -> Tuple[float, float, float]:
     parts = [p.strip() for p in text.split(",")]
     if len(parts) != 3:
@@ -323,11 +338,12 @@ def main() -> int:
     correlation_maps = []
     if args.write_images:
         _write_png(os.path.join(args.outdir, "input_binned_filtered.png"), filtered_image)
+        display_scale = 1.0 / float(result.get("bin_factor", 1))
         _write_particle_overlay_png(
             os.path.join(args.outdir, "input_with_template_plus_overlay.png"),
             filtered_image,
-            result["particles"],
-            radius_pixels=radius_pixels,
+            _rescale_particles_for_display(result["particles"], display_scale),
+            radius_pixels=radius_pixels * display_scale,
         )
         _write_map_with_scale_bar_png(
             os.path.join(args.outdir, "merged_score_map.png"),
