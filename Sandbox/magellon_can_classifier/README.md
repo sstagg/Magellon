@@ -59,7 +59,7 @@ Notes:
 - `class_averages.mrcs` (from scaled/filtered preprocessed particles)
 - `can_class_averages_iter001.mrcs`, `can_class_averages_iter002.mrcs`, ... (CAN stage per iteration)
 - `mra_class_averages_iter001.mrcs`, `mra_class_averages_iter002.mrcs`, ... (MRA stage per iteration)
-- `class_averages_highres_phaseflip.mrcs` (from unscaled/unfiltered phase-flipped particles, replaying final transforms)
+- `class_averages_highres_phaseflip.mrcs` (from unscaled/unfiltered phase-flipped particles, using the final aligned stack from the last MRA iteration)
 - `node_vectors.mrcs`
 - `assignments.csv`
 - `class_counts.csv` (high-res average/half counts)

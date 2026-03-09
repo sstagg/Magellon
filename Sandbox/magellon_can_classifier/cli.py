@@ -16,10 +16,10 @@ try:
     # Package mode: python -m magellon_can_classifier
     from .classifier import (
         _fft_scale_image,
+        class_half_averages,
         CanParams,
         frc_curve,
         frc_resolution,
-        make_replayed_class_averages_with_halves,
         preprocess_stack,
         run_align_and_can,
     )
@@ -27,10 +27,10 @@ except ImportError:
     # Script mode: python cli.py
     from classifier import (
         _fft_scale_image,
+        class_half_averages,
         CanParams,
         frc_curve,
         frc_resolution,
-        make_replayed_class_averages_with_halves,
         preprocess_stack,
         run_align_and_can,
     )
@@ -141,6 +141,17 @@ def _write_iteration_alignment_star(path: str, assignments: np.ndarray, rotation
             sy = float(shifts[i, 0])
             score = float(scores[i]) if scores.size == n else 0.0
             f.write(f"{i} {cls_1based} {ang:.6f} {sx:.6f} {sy:.6f} {score:.6f}\n")
+
+
+def _write_iteration_alignment_txt(path: str, assignments: np.ndarray, rotations: np.ndarray, shifts: np.ndarray, scores: np.ndarray) -> None:
+    n = int(assignments.size)
+    with open(path, "w", newline="") as f:
+        f.write("particle_index_0based class_index_0based rotation_degrees shift_y shift_x score\n")
+        for i in range(n):
+            f.write(
+                f"{i} {int(assignments[i])} {float(rotations[i])} "
+                f"{float(shifts[i, 0])} {float(shifts[i, 1])} {float(scores[i]) if scores.size == n else 0.0}\n"
+            )
 
 
 def _nearest_even_box_for_target_apix(box_size: int, apix: float, target_apix: float) -> tuple[int, float]:
@@ -746,7 +757,7 @@ def main() -> int:
             del raw_chunk, pre_chunk
             gc.collect()
 
-    # Build one scaled + lowpass stack for all non-final iterations.
+    # Build one scaled + lowpass stack for the iterative CAN+MRA loop.
     pre0_scaled = preprocess_stack(
         stack=raw0,
         apix=apix,
@@ -789,23 +800,98 @@ def main() -> int:
             gc.collect()
     del pre0_full, pre0_scaled
 
+    # Iterative loop: each pass runs CAN->MRA.
+    # CAN input for it>1 is previous iteration's MRA-aligned stack.
+    # MRA input is always the unaligned source preprocessed stack for this run.
+    aligned_input_path: str | None = None
+    aligned_input_shape: tuple[int, int, int] | None = None
+    aligned_input_mem: np.memmap | None = None
+    mra_source_path: str = scaled_pre_path if n_iters > 1 else full_pre_path
+    final_aligned_stack: np.ndarray | None = None
+    final_aligned_tmp_path: str | None = None
+    final_aligned_shape: tuple[int, int, int] | None = None
+
     for it in range(1, n_iters + 1):
         n_use = int(n_particles)
-        pre_path = scaled_pre_path if it < n_iters else full_pre_path
-        pre_box = scaled_box if it < n_iters else full_box
-        iter_apix = effective_apix if it < n_iters else float(apix)
+        is_final_iter = it == n_iters
+        iter_apix = float(effective_apix) if n_iters > 1 else float(apix)
+        if it == 1:
+            can_pre_path = mra_source_path
+        else:
+            if aligned_input_path is None or aligned_input_shape is None:
+                raise RuntimeError(f"Missing prior iteration aligned input before iter {it}")
+            can_pre_path = aligned_input_path
+
         if verbose:
             print(
                 f"[cli] iter {it}/{n_iters}: n_particles={n_use} "
-                f"scale={'1.0' if it == n_iters else f'{float(fixed_scale):.4f}'} "
-                f"effective_apix={iter_apix:.5f} stack={os.path.basename(pre_path)}"
+                f"effective_apix={iter_apix:.5f} can_stack={os.path.basename(can_pre_path)} "
+                f"mra_source={os.path.basename(mra_source_path)}"
             )
-            print(f"[cli] iter {it}/{n_iters}: reading preprocess stack -> {pre_path}")
+            print(f"[cli] iter {it}/{n_iters}: reading CAN/MRA preprocess stacks")
 
         # Warm-start node vectors come from the previous iteration's MRA averages.
-        # If box size changed due to a new Fourier scale, resize warm-start nodes to match
-        # this iteration's preprocessed box before passing them into CAN.
+        # Resize them if the particle box changed between iterations.
         can_init_nodes_iter = can_init_nodes
+        # Single CAN->MRA iteration run; warm-start CAN from previous iteration MRA averages.
+        def _on_stage(stage: str, _iter_local: int, avgs: np.ndarray, _counts: np.ndarray) -> None:
+            s = str(stage).strip().lower()
+            if s == "can":
+                p = os.path.join(args.outdir, f"can_class_averages_iter{it:0{iter_pad}d}.mrcs")
+            elif s == "mra":
+                p = os.path.join(args.outdir, f"mra_class_averages_iter{it:0{iter_pad}d}.mrcs")
+            else:
+                return
+            _write_stack(p, np.asarray(avgs, dtype=np.float32))
+            if verbose:
+                print(f"[cli] wrote {s.upper()} class averages: {p}")
+
+        if aligned_input_mem is not None:
+            try:
+                aligned_input_mem._mmap.close()  # type: ignore[attr-defined]
+            except Exception:
+                pass
+            aligned_input_mem = None
+        can_pre_mmap = None
+        mra_pre_mmap = None
+        can_iter: np.ndarray
+        mra_iter: np.ndarray
+        if it == 1:
+            can_pre_mmap = mrcfile.mmap(can_pre_path, permissive=True)
+            can_iter = np.asarray(can_pre_mmap.data[:n_use], dtype=np.float32)
+            if verbose:
+                print(
+                    f"[cli] iter {it}/{n_iters}: CAN input loaded from file {can_pre_path} "
+                    f"shape={can_iter.shape}"
+                )
+            if can_pre_mmap.data.shape[0] < n_use:
+                can_pre_mmap.close()
+                raise RuntimeError(
+                    f"CAN preprocess stack for iter {it} is shorter than expected: {can_pre_mmap.data.shape[0]} < {n_use}"
+                )
+        else:
+            can_iter = np.memmap(can_pre_path, mode="r", dtype=np.float32, shape=aligned_input_shape)
+            aligned_input_mem = can_iter
+            if verbose:
+                print(
+                    f"[cli] iter {it}/{n_iters}: CAN input mapped from file {can_pre_path} "
+                    f"shape={tuple(can_iter.shape)}"
+                )
+
+        mra_pre_mmap = mrcfile.mmap(mra_source_path, permissive=True)
+        mra_iter = np.asarray(mra_pre_mmap.data[:n_use], dtype=np.float32)
+        if verbose:
+            print(
+                f"[cli] iter {it}/{n_iters}: MRA input loaded from file {mra_source_path} "
+                f"shape={mra_iter.shape}"
+            )
+        if mra_pre_mmap.data.shape[0] < n_use:
+            mra_pre_mmap.close()
+            raise RuntimeError(
+                f"MRA source preprocess stack is shorter than expected: {mra_pre_mmap.data.shape[0]} < {n_use}"
+            )
+
+        pre_box = (int(can_iter.shape[1]), int(can_iter.shape[2]))
         if can_init_nodes_iter is not None:
             ph, pw = int(pre_box[0]), int(pre_box[1])
             nh, nw = int(can_init_nodes_iter.shape[1]), int(can_init_nodes_iter.shape[2])
@@ -830,23 +916,9 @@ def main() -> int:
                             f"from box={nh} to box={ph} (scale={s:.4f})"
                         )
 
-        # Single CAN->MRA iteration run; warm-start CAN from previous iteration MRA averages.
-        def _on_stage(stage: str, _iter_local: int, avgs: np.ndarray, _counts: np.ndarray) -> None:
-            s = str(stage).strip().lower()
-            if s == "can":
-                p = os.path.join(args.outdir, f"can_class_averages_iter{it:0{iter_pad}d}.mrcs")
-            elif s == "mra":
-                p = os.path.join(args.outdir, f"mra_class_averages_iter{it:0{iter_pad}d}.mrcs")
-            else:
-                return
-            _write_stack(p, np.asarray(avgs, dtype=np.float32))
-            if verbose:
-                print(f"[cli] wrote {s.upper()} class averages: {p}")
-
-        pre_mmap = mrcfile.mmap(pre_path, permissive=True)
-        pre_iter = np.asarray(pre_mmap.data[:n_use], dtype=np.float32)
         out = run_align_and_can(
-            preprocessed_stack=pre_iter,
+            preprocessed_stack=can_iter,
+            mra_input_stack=mra_iter,
             apix=iter_apix,
             align_iters=1,
             can_params=can_params,
@@ -858,13 +930,45 @@ def main() -> int:
             mra_log_each_particle=bool(args.mra_log_each_particle),
             center_class_averages=not bool(args.no_center_averages),
             iteration_callback=_on_stage,
-            include_aligned_stack=bool(args.write_aligned_stack and it == n_iters),
+            include_aligned_stack=bool(args.write_aligned_stack),
+            preserve_aligned_stack_tmp=True,
             work_dir=args.outdir,
             can_init_nodes=can_init_nodes_iter,
         )
-        del pre_iter
+
+        # Use this iteration's aligned output as the input stack for the next iteration.
+        iter_aligned_tmp = out.get("aligned_stack_tmp_path")
+        iter_aligned_shape = out.get("aligned_stack_shape")
+        if isinstance(iter_aligned_tmp, str) and isinstance(iter_aligned_shape, list):
+            old_aligned_input = aligned_input_path
+            final_aligned_tmp_path = str(iter_aligned_tmp)
+            final_aligned_shape = (int(iter_aligned_shape[0]), int(iter_aligned_shape[1]), int(iter_aligned_shape[2]))
+            aligned_input_path = str(iter_aligned_tmp)
+            aligned_input_shape = final_aligned_shape
+            final_aligned_stack = None
+            if old_aligned_input is not None and old_aligned_input != aligned_input_path:
+                try:
+                    os.remove(old_aligned_input)
+                except OSError:
+                    pass
+        else:
+            raise RuntimeError(f"run_align_and_can did not provide aligned particles for iter {it}")
+
+        # Keep final aligned stack as an in-memory object for reporting only if requested.
+        if is_final_iter and bool(args.write_aligned_stack) and "aligned_stack" in out:
+            final_aligned_stack = np.asarray(out["aligned_stack"], dtype=np.float32)
+            # If output came from disk-backed path, keep tmp path for high-res averaging.
+            if final_aligned_tmp_path is not None:
+                final_aligned_stack = None
+
+        prev_iter_apix = float(iter_apix)
+
+
         try:
-            pre_mmap.close()
+            if can_pre_mmap is not None:
+                can_pre_mmap.close()
+            if mra_pre_mmap is not None:
+                mra_pre_mmap.close()
         except Exception:
             pass
         gc.collect()
@@ -877,6 +981,7 @@ def main() -> int:
         base = os.path.join(args.outdir, f"iteration_mra_iter{it:0{iter_pad}d}")
         _write_iteration_alignment_json(f"{base}.json", asn_i, rot_i, shf_i, scr_i)
         _write_iteration_alignment_star(f"{base}.star", asn_i, rot_i, shf_i, scr_i)
+        _write_iteration_alignment_txt(f"{base}.txt", asn_i, rot_i, shf_i, scr_i)
 
         # Per-iteration FRC (reporting only; scaling is now fixed by --fft-scale).
         h1_i = np.asarray(out.get("final_preprocessed_half1"), dtype=np.float32)
@@ -916,24 +1021,34 @@ def main() -> int:
     counts = np.asarray(out["class_counts"], dtype=np.int32)
     rotations = np.asarray(out["rotations"], dtype=np.float32)
     shifts = np.asarray(out.get("shifts"), dtype=np.float32)
-    iter_mra_rot = out.get("iteration_mra_rotations", [])
-    iter_mra_shf = out.get("iteration_mra_shifts", [])
     mra_ref_assign = np.asarray(out.get("mra_reference_assignments"), dtype=np.int32)
     mra_ref_scores = np.asarray(out.get("mra_reference_scores"), dtype=np.float32)
     n_classes_final = int(out["class_averages"].shape[0])
 
-    # Also generate high-resolution class averages from phase-flipped-only particles
-    # (no scaling, no low-pass), replaying final MRA transforms.
+    # Also generate high-resolution class averages from phase-flipped, unscaled
+    # particles after the final MRA alignment has already been applied.
     # Do this in chunks to avoid holding an additional full-sized stack in RAM.
     if verbose:
         print("[cli] building high-res phase-flipped class averages from final assignments/transforms (chunked)")
-    final_rot = np.asarray(iter_mra_rot[-1], dtype=np.float32) if isinstance(iter_mra_rot, list) and len(iter_mra_rot) > 0 else rotations
-    final_shf = np.asarray(iter_mra_shf[-1], dtype=np.float32) if isinstance(iter_mra_shf, list) and len(iter_mra_shf) > 0 else shifts
     if mra_ref_assign.size != n_particles:
         raise RuntimeError("Missing/invalid final MRA reference assignments for high-res averaging")
 
+    if final_aligned_tmp_path is not None and final_aligned_shape is not None:
+        aligned_reader = np.memmap(final_aligned_tmp_path, mode="r", dtype=np.float32, shape=final_aligned_shape)
+        source_dtype = "memmap"
+    elif final_aligned_stack is not None and final_aligned_stack.shape[0] == n_particles:
+        aligned_reader = final_aligned_stack
+        source_dtype = "array"
+    elif "aligned_stack" in out:
+        aligned_reader = np.asarray(out["aligned_stack"], dtype=np.float32)
+        source_dtype = "array"
+        if aligned_reader.shape[0] != n_particles:
+            raise ValueError("Final aligned stack has incorrect particle count")
+    else:
+        raise RuntimeError("Missing final aligned particle stack for high-res averaging")
+
     n = int(n_particles)
-    h, w = int(raw_box[0]), int(raw_box[1])
+    h, w = int(aligned_reader.shape[1]), int(aligned_reader.shape[2])
     k = int(n_classes_final)
     sum_all = np.zeros((k, h, w), dtype=np.float32)
     sum_h1 = np.zeros((k, h, w), dtype=np.float32)
@@ -946,33 +1061,17 @@ def main() -> int:
     if verbose:
         print(f"[cli] high-res chunk size={chunk_size}")
 
+    if verbose:
+        print(f"[cli] high-res source: {source_dtype} aligned stack")
+
     for start in range(0, n, chunk_size):
         end = min(n, start + chunk_size)
         if verbose and (start == 0 or end == n or ((start // chunk_size) % 10 == 0)):
             print(f"[cli] high-res chunk {start}:{end}/{n}")
-        defocus_chunk = defocus[start:end] if (defocus is not None) else None
-        raw_chunk = _load_raw_chunk(start, end)
-        src_chunk = preprocess_stack(
-            stack=raw_chunk,
-            apix=apix,
-            fft_scale=1.0,
-            lowpass_resolution=None,
-            invert=False,
-            center=not bool(args.no_center),
-            normalize=False,
-            phase_flip_ctf=bool(args.phase_flip_ctf),
-            ctf_defocus_um=defocus_chunk,
-            ctf_voltage_kv=ctf_voltage if ctf_voltage is not None else 300.0,
-            ctf_cs_mm=ctf_cs if ctf_cs is not None else 2.7,
-            ctf_amp_contrast=ctf_amp if ctf_amp is not None else 0.1,
-            n_threads=int(args.threads),
-        )
-        c_avg, c_cnt, c_h1, c_h2, c_half = make_replayed_class_averages_with_halves(
-            source_stack=src_chunk,
+        aligned_chunk = np.asarray(aligned_reader[start:end], dtype=np.float32)
+        c_avg, c_cnt, c_h1, c_h2, c_half = class_half_averages(
+            aligned_chunk,
             assignments=mra_ref_assign[start:end],
-            rotations_deg=final_rot[start:end],
-            shifts_lowres_px=final_shf[start:end],
-            fft_scale=float(args.fft_scale),
             n_classes=n_classes_final,
             n_threads=int(args.threads),
         )
@@ -982,7 +1081,7 @@ def main() -> int:
         cnt_all += c_cnt.astype(np.int64)
         cnt_h1 += c_half[:, 0].astype(np.int64)
         cnt_h2 += c_half[:, 1].astype(np.int64)
-        del raw_chunk, src_chunk, c_avg, c_cnt, c_h1, c_h2, c_half
+        del aligned_chunk, c_avg, c_cnt, c_h1, c_h2, c_half
         gc.collect()
 
     hires_avgs = np.zeros_like(sum_all, dtype=np.float32)
@@ -991,6 +1090,11 @@ def main() -> int:
     nz_all = cnt_all > 0
     nz_h1 = cnt_h1 > 0
     nz_h2 = cnt_h2 > 0
+    if source_dtype == "memmap":
+        try:
+            aligned_reader._mmap.close()  # type: ignore[attr-defined]
+        except Exception:
+            pass
     hires_avgs[nz_all] = (sum_all[nz_all] / cnt_all[nz_all, None, None].astype(np.float32)).astype(np.float32)
     hires_half1[nz_h1] = (sum_h1[nz_h1] / cnt_h1[nz_h1, None, None].astype(np.float32)).astype(np.float32)
     hires_half2[nz_h2] = (sum_h2[nz_h2] / cnt_h2[nz_h2, None, None].astype(np.float32)).astype(np.float32)

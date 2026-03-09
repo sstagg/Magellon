@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import os
+import warnings
 import time
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -340,74 +341,6 @@ def class_half_averages(
         if cnt_h2[c] > 0:
             avg_h2[c] = sum_h2[c] / float(cnt_h2[c])
     return avg_all, cnt_all, avg_h1, avg_h2, np.stack([cnt_h1, cnt_h2], axis=1).astype(np.int32)
-
-
-def make_replayed_class_averages_with_halves(
-    source_stack: np.ndarray,
-    assignments: np.ndarray,
-    rotations_deg: np.ndarray,
-    shifts_lowres_px: np.ndarray,
-    fft_scale: float,
-    n_classes: int,
-    n_threads: int = 1,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    if source_stack.ndim != 3:
-        raise ValueError("source_stack must be 3D [n,y,x]")
-    n = int(source_stack.shape[0])
-    if assignments.size != n or rotations_deg.size != n or shifts_lowres_px.shape[0] != n:
-        raise ValueError("assignment/rotation/shift lengths must match particle count")
-    transformed = np.zeros_like(source_stack, dtype=np.float32)
-    inv_scale = 1.0 / float(fft_scale) if abs(float(fft_scale)) > 1e-12 else 1.0
-    for i in range(n):
-        img = np.asarray(source_stack[i], dtype=np.float32)
-        ang = float(rotations_deg[i])
-        rot = ndimage.rotate(img, ang, reshape=False, order=1, mode="wrap")
-        dy = float(shifts_lowres_px[i, 0]) * inv_scale
-        dx = float(shifts_lowres_px[i, 1]) * inv_scale
-        transformed[i] = ndimage.shift(
-            rot, shift=(dy, dx), order=1, mode="constant", cval=float(np.median(rot))
-        ).astype(np.float32)
-    return class_half_averages(transformed, assignments, n_classes=n_classes, n_threads=n_threads)
-
-
-def replay_mra_transforms_and_average_with_halves(
-    source_stack: np.ndarray,
-    assignments: np.ndarray,
-    iteration_rotations: Sequence[np.ndarray],
-    iteration_shifts: Sequence[np.ndarray],
-    fft_scale: float,
-    n_classes: int,
-    n_threads: int = 1,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Replay all per-iteration MRA transforms in sequence onto source_stack, then
-    compute class averages and odd/even half-averages by final assignments.
-    """
-    if source_stack.ndim != 3:
-        raise ValueError("source_stack must be 3D [n,y,x]")
-    n = int(source_stack.shape[0])
-    if assignments.size != n:
-        raise ValueError("assignments length must match particle count")
-    if len(iteration_rotations) != len(iteration_shifts):
-        raise ValueError("iteration_rotations and iteration_shifts length mismatch")
-    inv_scale = 1.0 / float(fft_scale) if abs(float(fft_scale)) > 1e-12 else 1.0
-    transformed = np.asarray(source_stack, dtype=np.float32).copy()
-    for rots, sh in zip(iteration_rotations, iteration_shifts):
-        r = np.asarray(rots, dtype=np.float32)
-        s = np.asarray(sh, dtype=np.float32)
-        if r.size != n or s.shape != (n, 2):
-            raise ValueError("iteration transform shape mismatch")
-        for i in range(n):
-            img = transformed[i]
-            ang = float(r[i])
-            tmp = ndimage.rotate(img, ang, reshape=False, order=1, mode="wrap")
-            dy = float(s[i, 0]) * inv_scale
-            dx = float(s[i, 1]) * inv_scale
-            transformed[i] = ndimage.shift(
-                tmp, shift=(dy, dx), order=1, mode="constant", cval=float(np.median(tmp))
-            ).astype(np.float32)
-    return class_half_averages(transformed, assignments, n_classes=n_classes, n_threads=n_threads)
-
 
 def frc_curve(img1: np.ndarray, img2: np.ndarray, apix: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     a = np.asarray(img1, dtype=np.float32)
@@ -1539,6 +1472,7 @@ def run_align_and_can(
     apix: float,
     align_iters: int,
     can_params: CanParams,
+    mra_input_stack: np.ndarray | None = None,
     mask_diameter_angstrom: float | None = None,
     seed: int = 0,
     verbose: bool = True,
@@ -1548,6 +1482,7 @@ def run_align_and_can(
     center_class_averages: bool = True,
     iteration_callback: Callable[[str, int, np.ndarray, np.ndarray], None] | None = None,
     include_aligned_stack: bool = False,
+    preserve_aligned_stack_tmp: bool = False,
     work_dir: str | None = None,
     can_init_nodes: np.ndarray | None = None,
 ) -> Dict[str, Any]:
@@ -1556,16 +1491,29 @@ def run_align_and_can(
 
     Iteration structure:
       CAN on current particle set -> MRA to CAN references.
-    MRA alignment is always solved against the base preprocessed stack to avoid
-    accumulating interpolation artifacts across iterations.
+    MRA alignment uses `mra_input_stack` (or defaults to `preprocessed_stack`)
+    to avoid carrying forward pre-alignment artifacts into MRA.
     """
     t0 = time.time()
     pre = np.asarray(preprocessed_stack, dtype=np.float32)
     if pre.ndim != 3:
         raise ValueError("preprocessed_stack must be 3D [n, y, x]")
+    if mra_input_stack is None:
+        mra_input = pre
+    else:
+        mra_input = np.asarray(mra_input_stack, dtype=np.float32)
+        if mra_input.ndim != 3:
+            raise ValueError("mra_input_stack must be 3D [n, y, x]")
+        if mra_input.shape[0] != pre.shape[0]:
+            raise ValueError("mra_input_stack must have same particle count as preprocessed_stack")
+        if mra_input.shape[1:] != pre.shape[1:]:
+            raise ValueError("mra_input_stack image size must match preprocessed_stack image size")
     effective_apix = float(apix)
     if verbose:
-        print(f"[pipeline] using preprocessed stack: shape={tuple(pre.shape)} apix={effective_apix:.5f}")
+        print(
+            f"[pipeline] using CAN input stack: shape={tuple(pre.shape)} apix={effective_apix:.5f} "
+            f"mra_input_shape={tuple(mra_input.shape)}"
+        )
 
     mask_diameter_px = None
     if mask_diameter_angstrom is not None:
@@ -1666,13 +1614,13 @@ def run_align_and_can(
         if verbose:
             print(
                 f"[pipeline] iter {iter_idx}/{total_iters}: MRA to {refs.shape[0]} references "
-                f"(input=preprocessed stack)"
+                f"(can_input_shape={tuple(pre.shape)} mra_input_shape={tuple(mra_input.shape)})"
             )
         aligned_tmp_path = None
         if temp_dir is not None:
             aligned_tmp_path = os.path.join(temp_dir, f"iter{iter_idx:03d}_aligned.f32")
         aligned, rotations, ref_assign_raw, ref_scores, shifts = align_stack_to_references(
-            pre,
+            mra_input,
             refs,
             verbose=verbose,
             n_threads=n_threads,
@@ -1755,7 +1703,8 @@ def run_align_and_can(
     can_out["effective_apix"] = float(effective_apix)
     if curr_particles_tmp_path is not None:
         can_out["aligned_stack_tmp_path"] = curr_particles_tmp_path
-    if curr_particles_tmp_path is not None and not include_aligned_stack:
+        can_out["aligned_stack_shape"] = list(map(int, curr_particles.shape))
+    if curr_particles_tmp_path is not None and not include_aligned_stack and not preserve_aligned_stack_tmp:
         try:
             os.remove(curr_particles_tmp_path)
         except OSError:
