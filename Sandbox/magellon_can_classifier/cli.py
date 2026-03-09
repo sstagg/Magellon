@@ -7,7 +7,6 @@ import csv
 import gc
 import json
 import os
-import tempfile
 from dataclasses import asdict
 from pathlib import Path
 
@@ -695,92 +694,113 @@ def main() -> int:
             f"using fixed --fft-scale={fixed_scale:.4f} every iteration"
         )
     n_iters = int(args.align_iters)
-    n_start = min(5000, int(n_particles))
-    if n_iters <= 1:
-        iter_counts = [int(n_particles)]
-    else:
-        iter_counts = []
-        for i in range(n_iters):
-            f = float(i) / float(max(1, n_iters - 1))
-            iter_counts.append(int(round(n_start + f * (int(n_particles) - n_start))))
-        iter_counts[-1] = int(n_particles)
-        for i in range(1, len(iter_counts)):
-            iter_counts[i] = max(iter_counts[i], iter_counts[i - 1])
 
     raw_chunk_size = max(64, min(2048, int(max(64, 4_000_000 // max(1, raw_box[0] * raw_box[1])))))
     can_init_nodes = None
     out = None
-    effective_apix = float(apix)
-    pre_path = os.path.join(args.outdir, "preprocessed_stack.mrcs")
+    effective_apix = float(apix) / float(fixed_scale) if abs(float(fixed_scale)) > 1e-12 else float(apix)
+    full_pre_path = os.path.join(args.outdir, "preprocessed_stack.mrcs")
+    scaled_pre_path = os.path.join(args.outdir, "preprocessed_scaled_lowpass_stack.mrcs")
+    lowpass_res = float(args.lowpass_resolution) if args.lowpass_resolution is not None else None
 
-    raw_box_n = int(raw_box[0])
-    iter_scale = fixed_scale
+    raw0 = _load_raw_chunk(0, 1)
+    def0 = defocus[0:1] if defocus is not None else None
+    pre0_full = preprocess_stack(
+        stack=raw0,
+        apix=apix,
+        fft_scale=1.0,
+        lowpass_resolution=None,
+        invert=bool(args.invert),
+        center=not bool(args.no_center),
+        normalize=not bool(args.no_normalize),
+        phase_flip_ctf=bool(args.phase_flip_ctf),
+        ctf_defocus_um=def0,
+        ctf_voltage_kv=ctf_voltage if ctf_voltage is not None else 300.0,
+        ctf_cs_mm=ctf_cs if ctf_cs is not None else 2.7,
+        ctf_amp_contrast=ctf_amp if ctf_amp is not None else 0.1,
+        n_threads=int(args.threads),
+    )
+    full_box = (int(pre0_full.shape[1]), int(pre0_full.shape[2]))
+    with mrcfile.new_mmap(full_pre_path, shape=(n_particles, full_box[0], full_box[1]), mrc_mode=2, overwrite=True) as pre_out:
+        pre_out.data[0:1] = pre0_full
+        for start in range(1, n_particles, raw_chunk_size):
+            end = min(n_particles, start + raw_chunk_size)
+            raw_chunk = _load_raw_chunk(start, end)
+            def_chunk = defocus[start:end] if defocus is not None else None
+            pre_chunk = preprocess_stack(
+                stack=raw_chunk,
+                apix=apix,
+                fft_scale=1.0,
+                lowpass_resolution=None,
+                invert=bool(args.invert),
+                center=not bool(args.no_center),
+                normalize=not bool(args.no_normalize),
+                phase_flip_ctf=bool(args.phase_flip_ctf),
+                ctf_defocus_um=def_chunk,
+                ctf_voltage_kv=ctf_voltage if ctf_voltage is not None else 300.0,
+                ctf_cs_mm=ctf_cs if ctf_cs is not None else 2.7,
+                ctf_amp_contrast=ctf_amp if ctf_amp is not None else 0.1,
+                n_threads=int(args.threads),
+            )
+            pre_out.data[start:end] = pre_chunk
+            del raw_chunk, pre_chunk
+            gc.collect()
+
+    # Build one scaled + lowpass stack for all non-final iterations.
+    pre0_scaled = preprocess_stack(
+        stack=raw0,
+        apix=apix,
+        fft_scale=float(fixed_scale),
+        lowpass_resolution=lowpass_res,
+        invert=bool(args.invert),
+        center=not bool(args.no_center),
+        normalize=not bool(args.no_normalize),
+        phase_flip_ctf=bool(args.phase_flip_ctf),
+        ctf_defocus_um=def0,
+        ctf_voltage_kv=ctf_voltage if ctf_voltage is not None else 300.0,
+        ctf_cs_mm=ctf_cs if ctf_cs is not None else 2.7,
+        ctf_amp_contrast=ctf_amp if ctf_amp is not None else 0.1,
+        n_threads=int(args.threads),
+    )
+    scaled_box = (int(pre0_scaled.shape[1]), int(pre0_scaled.shape[2]))
+    with mrcfile.new_mmap(scaled_pre_path, shape=(n_particles, scaled_box[0], scaled_box[1]), mrc_mode=2, overwrite=True) as pre_out:
+        pre_out.data[0:1] = pre0_scaled
+        for start in range(1, n_particles, raw_chunk_size):
+            end = min(n_particles, start + raw_chunk_size)
+            raw_chunk = _load_raw_chunk(start, end)
+            def_chunk = defocus[start:end] if defocus is not None else None
+            pre_chunk = preprocess_stack(
+                stack=raw_chunk,
+                apix=apix,
+                fft_scale=float(fixed_scale),
+                lowpass_resolution=lowpass_res,
+                invert=bool(args.invert),
+                center=not bool(args.no_center),
+                normalize=not bool(args.no_normalize),
+                phase_flip_ctf=bool(args.phase_flip_ctf),
+                ctf_defocus_um=def_chunk,
+                ctf_voltage_kv=ctf_voltage if ctf_voltage is not None else 300.0,
+                ctf_cs_mm=ctf_cs if ctf_cs is not None else 2.7,
+                ctf_amp_contrast=ctf_amp if ctf_amp is not None else 0.1,
+                n_threads=int(args.threads),
+            )
+            pre_out.data[start:end] = pre_chunk
+            del raw_chunk, pre_chunk
+            gc.collect()
+    del pre0_full, pre0_scaled
 
     for it in range(1, n_iters + 1):
-        n_use = int(iter_counts[it - 1])
-        effective_apix = float(apix) / float(iter_scale) if abs(float(iter_scale)) > 1e-12 else float(apix)
-        if it == n_iters:
-            pre_path = os.path.join(args.outdir, "preprocessed_stack.mrcs")
-            cleanup_pre_path = False
-        else:
-            tmp = tempfile.NamedTemporaryFile(
-                prefix=f"preprocessed_iter{it:0{iter_pad}d}_",
-                suffix=".mrcs",
-                dir=args.outdir,
-                delete=False,
-            )
-            pre_path = tmp.name
-            tmp.close()
-            cleanup_pre_path = True
+        n_use = int(n_particles)
+        pre_path = scaled_pre_path if it < n_iters else full_pre_path
+        pre_box = scaled_box if it < n_iters else full_box
+        iter_apix = effective_apix if it < n_iters else float(apix)
         if verbose:
             print(
-                f"[cli] iter {it}/{n_iters}: n_particles={n_use} scale={iter_scale:.4f} effective_apix={effective_apix:.5f}"
+                f"[cli] iter {it}/{n_iters}: n_particles={n_use} "
+                f"scale={'1.0' if it == n_iters else f'{float(fixed_scale):.4f}'} "
+                f"effective_apix={iter_apix:.5f} stack={os.path.basename(pre_path)}"
             )
-            print(f"[cli] iter {it}/{n_iters}: preprocessing -> {pre_path}")
-
-        # Build this iteration's preprocessed stack (subset + chosen Fourier scale).
-        raw0 = _load_raw_chunk(0, 1)
-        def0 = defocus[0:1] if defocus is not None else None
-        pre0 = preprocess_stack(
-            stack=raw0,
-            apix=apix,
-            fft_scale=float(iter_scale),
-            lowpass_resolution=None,
-            invert=bool(args.invert),
-            center=not bool(args.no_center),
-            normalize=not bool(args.no_normalize),
-            phase_flip_ctf=bool(args.phase_flip_ctf),
-            ctf_defocus_um=def0,
-            ctf_voltage_kv=ctf_voltage if ctf_voltage is not None else 300.0,
-            ctf_cs_mm=ctf_cs if ctf_cs is not None else 2.7,
-            ctf_amp_contrast=ctf_amp if ctf_amp is not None else 0.1,
-            n_threads=int(args.threads),
-        )
-        pre_box = (int(pre0.shape[1]), int(pre0.shape[2]))
-        with mrcfile.new_mmap(pre_path, shape=(n_use, pre_box[0], pre_box[1]), mrc_mode=2, overwrite=True) as pre_out:
-            pre_out.data[0:1] = pre0
-            for start in range(1, n_use, raw_chunk_size):
-                end = min(n_use, start + raw_chunk_size)
-                raw_chunk = _load_raw_chunk(start, end)
-                def_chunk = defocus[start:end] if defocus is not None else None
-                pre_chunk = preprocess_stack(
-                    stack=raw_chunk,
-                    apix=apix,
-                    fft_scale=float(iter_scale),
-                    lowpass_resolution=None,
-                    invert=bool(args.invert),
-                    center=not bool(args.no_center),
-                    normalize=not bool(args.no_normalize),
-                    phase_flip_ctf=bool(args.phase_flip_ctf),
-                    ctf_defocus_um=def_chunk,
-                    ctf_voltage_kv=ctf_voltage if ctf_voltage is not None else 300.0,
-                    ctf_cs_mm=ctf_cs if ctf_cs is not None else 2.7,
-                    ctf_amp_contrast=ctf_amp if ctf_amp is not None else 0.1,
-                    n_threads=int(args.threads),
-                )
-                pre_out.data[start:end] = pre_chunk
-                del raw_chunk, pre_chunk
-                gc.collect()
+            print(f"[cli] iter {it}/{n_iters}: reading preprocess stack -> {pre_path}")
 
         # Warm-start node vectors come from the previous iteration's MRA averages.
         # If box size changed due to a new Fourier scale, resize warm-start nodes to match
@@ -824,10 +844,10 @@ def main() -> int:
                 print(f"[cli] wrote {s.upper()} class averages: {p}")
 
         pre_mmap = mrcfile.mmap(pre_path, permissive=True)
-        pre_iter = np.asarray(pre_mmap.data, dtype=np.float32)
+        pre_iter = np.asarray(pre_mmap.data[:n_use], dtype=np.float32)
         out = run_align_and_can(
             preprocessed_stack=pre_iter,
-            apix=effective_apix,
+            apix=iter_apix,
             align_iters=1,
             can_params=can_params,
             mask_diameter_angstrom=args.particle_diameter_ang,
@@ -863,7 +883,14 @@ def main() -> int:
         h2_i = np.asarray(out.get("final_preprocessed_half2"), dtype=np.float32)
         hc_i = np.asarray(out.get("final_preprocessed_half_counts"), dtype=np.int32)
         frc_dir_i = os.path.join(args.outdir, f"frc_iter{it:0{iter_pad}d}")
-        frc_sum_i = _write_frc_outputs(h1_i, h2_i, hc_i, apix=float(effective_apix), outdir=frc_dir_i, prefix=f"iter{it:0{iter_pad}d}")
+        frc_sum_i = _write_frc_outputs(
+            h1_i,
+            h2_i,
+            hc_i,
+            apix=float(iter_apix),
+            outdir=frc_dir_i,
+            prefix=f"iter{it:0{iter_pad}d}",
+        )
         if verbose:
             best_res_i = _best_resolution_from_frc_summary(frc_sum_i)
             print(f"[cli] iter {it}/{n_iters}: best FRC resolution={best_res_i}")
@@ -877,12 +904,6 @@ def main() -> int:
             can_init_nodes = mra_avg_i[ord_idx].astype(np.float32, copy=True)
         else:
             can_init_nodes = None
-
-        if cleanup_pre_path:
-            try:
-                os.remove(pre_path)
-            except OSError:
-                pass
 
     if bool(args.write_aligned_stack):
         _write_stack(os.path.join(args.outdir, "aligned_stack.mrcs"), out["aligned_stack"])
