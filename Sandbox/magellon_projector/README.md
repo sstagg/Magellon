@@ -27,6 +27,13 @@ python main.py project --input map.mrc --output out_stack.mrc \
   --euler 0 90 0 --euler 45 30 180
 ```
 
+- Render the same with the FFT reference backend:
+
+```bash
+python main.py project --input map.mrc --output out_stack_fft.mrc --backend fft-reference \
+  --euler 0 90 0 --euler 45 30 180
+```
+
 - Render a stack using even sampling:
 
 ```bash
@@ -39,6 +46,11 @@ python main.py project --input map.mrc --sample-n 120 --output out_stack.mrc
 python main.py gui --input map.mrc --scale 0.5
 python main.py project --input map.mrc --sample-n 120 --scale 0.5 --output out_stack.mrc
 ```
+
+### GUI backend
+
+- GUI default is real-space (stable default).
+- You can switch to `fft-reference` in the GUI backend controls.
 
 ## GUI behavior
 

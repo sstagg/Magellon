@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sys
-from typing import Sequence, Tuple
+from typing import Sequence
 
 import numpy as np
 from scipy.ndimage import affine_transform, map_coordinates
@@ -58,6 +58,140 @@ def project_volume(
 
     # Return (Y, X) to match standard image conventions.
     return np.asarray(projection.T, dtype=np.float32)
+
+
+def _fftfreq_centered(n: int) -> np.ndarray:
+    return np.fft.fftshift(np.fft.fftfreq(n)).astype(np.float64) * n
+
+
+def _pad_volume_zero(volume: np.ndarray, pad_factor: int = 2) -> np.ndarray:
+    if pad_factor <= 1:
+        return np.asarray(volume, dtype=np.float32)
+
+    nz, ny, nx = volume.shape
+    pz, py, px = pad_factor * nz, pad_factor * ny, pad_factor * nx
+    padded = np.zeros((pz, py, px), dtype=np.float32)
+    z0 = (pz - nz) // 2
+    y0 = (py - ny) // 2
+    x0 = (px - nx) // 2
+    padded[z0 : z0 + nz, y0 : y0 + ny, x0 : x0 + nx] = volume
+    return padded
+
+
+def _sample_complex_volume(F: np.ndarray, coords_zyx: np.ndarray, order: int = 3) -> np.ndarray:
+    real = map_coordinates(
+        F.real,
+        coords_zyx,
+        order=order,
+        mode="constant",
+        cval=0.0,
+        prefilter=(order > 1),
+    )
+    imag = map_coordinates(
+        F.imag,
+        coords_zyx,
+        order=order,
+        mode="constant",
+        cval=0.0,
+        prefilter=(order > 1),
+    )
+    return real + 1j * imag
+
+
+def project_volume_fft_reference(
+    volume: np.ndarray,
+    rot: float,
+    tilt: float,
+    psi: float,
+    pad_factor: int = 2,
+    interpolation: int = 3,
+    output_size: int | None = None,
+) -> np.ndarray:
+    if volume.ndim != 3:
+        raise ValueError("Input volume must be 3D.")
+    if interpolation < 0 or interpolation > 5:
+        raise ValueError("interpolation order must be in range [0, 5]")
+
+    V = np.asarray(volume, dtype=np.float32)
+    padded = _pad_volume_zero(V, pad_factor=pad_factor)
+    spectrum = np.fft.fftshift(
+        np.fft.fftn(np.fft.ifftshift(padded), axes=(0, 1, 2))
+    )
+    return project_volume_fft_reference_from_state(
+        spectrum_shifted=spectrum,
+        original_shape=V.shape,
+        rot=rot,
+        tilt=tilt,
+        psi=psi,
+        output_size=output_size,
+        interpolation=interpolation,
+    )
+
+
+def prepare_fft_reference_state(
+    volume: np.ndarray,
+    pad_factor: int = 2,
+) -> tuple[np.ndarray, tuple[int, int, int]]:
+    V = np.asarray(volume, dtype=np.float32)
+    padded = _pad_volume_zero(V, pad_factor=pad_factor)
+    spectrum = np.fft.fftshift(
+        np.fft.fftn(np.fft.ifftshift(padded), axes=(0, 1, 2))
+    )
+    return spectrum, V.shape
+
+
+def project_volume_fft_reference_from_state(
+    spectrum_shifted: np.ndarray,
+    original_shape: tuple[int, int, int],
+    rot: float,
+    tilt: float,
+    psi: float,
+    interpolation: int = 3,
+    output_size: int | None = None,
+) -> np.ndarray:
+    if spectrum_shifted.ndim != 3:
+        raise ValueError("spectrum_shifted must be 3D.")
+    if interpolation < 0 or interpolation > 5:
+        raise ValueError("interpolation order must be in range [0, 5]")
+
+    nz, ny, nx = spectrum_shifted.shape
+    if not (nz == ny == nx):
+        raise ValueError("fft-reference path currently requires a cubic padded volume.")
+
+    n = nx
+    m = n if output_size is None else int(output_size)
+    if m <= 0:
+        raise ValueError("output_size must be a positive integer.")
+
+    u = _fftfreq_centered(m)
+    v = _fftfreq_centered(m)
+    uu, vv = np.meshgrid(u, v, indexing="xy")
+    plane_pts = np.stack(
+        [uu.ravel(), vv.ravel(), np.zeros(m * m, dtype=np.float64)],
+        axis=0,
+    )
+
+    R = relion_euler_to_matrix(rot, tilt, psi)
+    xyz = R.T @ plane_pts
+
+    cx = (nx - 1) / 2.0
+    cy = (ny - 1) / 2.0
+    cz = (nz - 1) / 2.0
+    x_idx = xyz[0] + cx
+    y_idx = xyz[1] + cy
+    z_idx = xyz[2] + cz
+    coords_zyx = np.vstack([z_idx, y_idx, x_idx])
+
+    slice_2d = _sample_complex_volume(
+        spectrum_shifted, coords_zyx, order=interpolation
+    ).reshape((m, m))
+    projection = np.fft.fftshift(np.fft.ifft2(np.fft.ifftshift(slice_2d))).real
+    image = np.asarray(projection, dtype=np.float32)
+
+    target_x, target_y = original_shape[1], original_shape[2]
+    if target_x > image.shape[0] or target_y > image.shape[1]:
+        raise ValueError("fft-reference output is smaller than original projection shape.")
+    return _center_crop_2d(image, target_x, target_y)
 
 
 def _build_fft_grid(shape):
@@ -305,22 +439,35 @@ def iter_projections(
     if not eulers:
         raise ValueError("No projections requested.")
 
-    if backend not in {"real", "fft", "fft-legacy"}:
-        raise ValueError("backend must be 'real', 'fft', or 'fft-legacy'.")
+    if backend not in {"real", "fft", "fft-legacy", "fft-reference"}:
+        raise ValueError("backend must be 'real', 'fft', 'fft-legacy', or 'fft-reference'.")
 
     precomputed_grid = None
     crop_shape = None
     spectrum = None
+    reference_fft = None
+    reference_shape = None
     if backend in {"fft", "fft-legacy"}:
         volume_xyz = np.asarray(np.transpose(volume, (2, 1, 0)), dtype=np.float64)
         spectrum, precomputed_grid, orig_shape = prepare_fft_state(volume_xyz, padding=fft_padding)
         crop_shape = orig_shape[:2]
+    elif backend == "fft-reference":
+        reference_fft, reference_shape = prepare_fft_reference_state(volume, pad_factor=2)
 
     total = len(eulers)
     for index, (rot, tilt, psi) in enumerate(eulers, start=1):
         if backend == "real":
             projection = project_volume(
                 volume,
+                float(rot),
+                float(tilt),
+                float(psi),
+                interpolation=interpolation,
+            )
+        elif backend == "fft-reference":
+            projection = project_volume_fft_reference_from_state(
+                reference_fft,
+                reference_shape,
                 float(rot),
                 float(tilt),
                 float(psi),

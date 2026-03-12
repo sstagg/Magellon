@@ -14,7 +14,11 @@ matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-from .backend.projection import project_volume
+from .backend.projection import (
+    project_volume,
+    prepare_fft_reference_state,
+    project_volume_fft_reference_from_state,
+)
 from .backend import io as mrc_io
 
 
@@ -46,6 +50,8 @@ class ProjectionGUI:
         self.rot_text = tk.StringVar(value="0.00")
         self.tilt_text = tk.StringVar(value="0.00")
         self.psi_text = tk.StringVar(value="0.00")
+        self.backend = tk.StringVar(value="real")
+        self._fft_reference_state = None
         self._updating_from_slider = False
         self.default_output_dir = default_output_dir or source_dir
 
@@ -112,11 +118,28 @@ class ProjectionGUI:
         self._status = ttk.Label(controls, text="Angles: rot=0.00, tilt=0.00, psi=0.00")
         self._status.grid(row=6, column=0, columnspan=2, pady=(12, 6))
 
+        backend_frame = ttk.LabelFrame(controls, text="Projection backend")
+        backend_frame.grid(row=7, column=0, columnspan=2, sticky="ew", pady=(6, 4))
+        ttk.Radiobutton(
+            backend_frame,
+            text="Real-space",
+            value="real",
+            variable=self.backend,
+            command=self._backend_changed,
+        ).grid(row=0, column=0, sticky="w", padx=4, pady=2)
+        ttk.Radiobutton(
+            backend_frame,
+            text="FFT slice (reference)",
+            value="fft-reference",
+            variable=self.backend,
+            command=self._backend_changed,
+        ).grid(row=1, column=0, sticky="w", padx=4, pady=2)
+
         save_btn = ttk.Button(controls, text="Save current projection (MRC)", command=self._save_current)
-        save_btn.grid(row=7, column=0, columnspan=2, pady=4)
+        save_btn.grid(row=8, column=0, columnspan=2, pady=4)
 
         close_btn = ttk.Button(controls, text="Close", command=self.root.destroy)
-        close_btn.grid(row=8, column=0, columnspan=2, pady=4)
+        close_btn.grid(row=9, column=0, columnspan=2, pady=4)
 
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
@@ -133,6 +156,9 @@ class ProjectionGUI:
             self.figure.colorbar(self.image, ax=self.axis, fraction=0.046, pad=0.04)
         self.canvas.draw()
 
+    def _backend_changed(self):
+        self._update_projection()
+
     def _schedule_update(self, *_):
         # Debounce rapid slider movement
         if hasattr(self, "_update_token"):
@@ -143,6 +169,18 @@ class ProjectionGUI:
         self._update_token = self.root.after(40, self._update_projection)
 
     def _project_current(self, rot: float, tilt: float, psi: float) -> np.ndarray:
+        if self.backend.get() == "fft-reference":
+            if self._fft_reference_state is None:
+                self._fft_reference_state = prepare_fft_reference_state(self.volume, pad_factor=2)
+            reference_fft, reference_shape = self._fft_reference_state
+            return project_volume_fft_reference_from_state(
+                reference_fft,
+                reference_shape,
+                rot=rot,
+                tilt=tilt,
+                psi=psi,
+                interpolation=3,
+            )
         return project_volume(self.volume, rot=rot, tilt=tilt, psi=psi)
 
     def _commit_entry(self, which: str):

@@ -145,9 +145,9 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     project.add_argument(
         "--backend",
-        choices=("real",),
+        choices=("real", "fft-reference"),
         default="real",
-        help="Projection backend: real (default). FFT modes are currently unavailable.",
+        help="Projection backend: real (default), fft-reference.",
     )
     project.add_argument(
         "--scale",
