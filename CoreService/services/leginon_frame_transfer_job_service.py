@@ -132,10 +132,19 @@ class LeginonFrameTransferJobService:
                     db_session.add(magellon_session)
                     db_session.commit()
                     db_session.refresh(magellon_session)
+            # Check if session already exists
+
             self.open_leginon_connection()
             # Prepare GPFS locations for gains/defects under: GPFS_ROOT/{session}/home/{gains|defects}
+            
+            session_folder_name = magellon_session_name
+            if self.params.camera_directory:
+                camera_dir_parts = self.params.camera_directory.replace("\\", "/").split("/")
+                if len(camera_dir_parts) > 2:
+                    session_folder_name = camera_dir_parts[2]
             gpfs_root = os.environ.get('MAGELLON_GPFS_PATH', MAGELLON_GPFS_DIR)
-            gpfs_session_home = os.path.join(gpfs_root, magellon_session_name, 'home')
+            # gpfs_session_home = os.path.join(gpfs_root, magellon_session_name, 'home')
+            gpfs_session_home = os.path.join(gpfs_root, session_folder_name, 'home')
             gpfs_gains_dir = os.path.join(gpfs_session_home, GAINS_SUB_URL)
             gpfs_defects_dir = os.path.join(gpfs_session_home, DEFECTS_SUB_URL)
 
@@ -261,8 +270,10 @@ class LeginonFrameTransferJobService:
                 db_session.flush()  # Flush the session to get the generated Oid
                 db_image_list = []
                 db_job_item_list = []
-                separator = "/"              
+                separator = "/" 
+                
                 for image in leginon_image_list:
+                    print("image contents testing",image)
                     filename = image["filename"]
                     # source_image_path = os.path.join(session_result["image path"], filename)
 
