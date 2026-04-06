@@ -5,26 +5,42 @@ Every pp backend must accept a subclass of ``PPInput`` and return a
 subclass of ``PPOutput``.  The base models define the contract that the
 controller and any future RabbitMQ integration can rely on.
 
-UI Metadata Convention
-----------------------
-Each Field can carry ``json_schema_extra`` with these keys:
+UI Metadata Convention  (``json_schema_extra`` keys)
+----------------------------------------------------
 
-    ui_widget   : str   — "slider" | "number" | "text" | "file_path"
-                          | "file_path_list" | "toggle" | "select" | "hidden"
-    ui_group    : str   — section heading in the settings panel
-    ui_order    : int   — sort key within the group (lower = higher)
-    ui_marks    : list  — slider mark labels  [{"value": 0.3, "label": "Low"}, ...]
-    ui_step     : float — slider/number step size
-    ui_unit     : str   — display unit suffix ("Å", "px", …)
-    ui_advanced : bool  — if True, collapsed under "Advanced" by default
-    ui_hidden   : bool  — if True, not shown in the UI at all
-    ui_file_ext : list  — accepted file extensions for file pickers [".mrc", ".mrcs"]
+Rendering:
+    ui_widget      : str    — "slider" | "number" | "text" | "file_path"
+                              | "file_path_list" | "toggle" | "select" | "hidden"
+    ui_group       : str    — accordion section heading
+    ui_order       : int    — sort key within group (lower = first)
+
+Slider / number:
+    ui_step        : float  — increment step
+    ui_marks       : list   — [{value, label}, …] tick marks
+    ui_unit        : str    — suffix shown after label ("Å", "px", …)
+
+File pickers:
+    ui_file_ext    : list   — accepted extensions [".mrc", ".mrcs"]
+
+Visibility:
+    ui_hidden      : bool   — never rendered (backend-internal fields)
+    ui_advanced    : bool   — collapsed under "Advanced" by default
+
+Help / placeholder:
+    ui_placeholder : str    — input placeholder text
+    ui_help        : str    — tooltip / inline help (distinct from Field description)
+
+Conditional visibility:
+    ui_depends_on  : dict   — {"field_name": value} — only show when condition met
+                              e.g. {"invert_templates": true}
+
+Validation hints:
+    ui_required_message : str — custom message when required field is empty
 """
 
 from __future__ import annotations
 
-from enum import Enum
-from typing import List, Literal, Optional, Tuple
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -85,40 +101,16 @@ class TemplatePickerInput(BaseModel):
     template_paths: List[str] = Field(
         ...,
         min_length=1,
-        description="Paths to template .mrc files",
+        description="2D class-average or projection templates for cross-correlation matching",
         json_schema_extra={
             "ui_widget": "file_path_list",
             "ui_group": "Templates",
             "ui_order": 2,
             "ui_file_ext": [".mrc", ".mrcs"],
-        },
-    )
-
-    # --- Pixel sizes (group: Auto-picking Settings) ---
-
-    image_pixel_size: float = Field(
-        ...,
-        gt=0,
-        description="Micrograph pixel size in Angstrom",
-        json_schema_extra={
-            "ui_widget": "number",
-            "ui_group": "Auto-picking Settings",
-            "ui_order": 10,
-            "ui_step": 0.1,
-            "ui_unit": "Å/px",
-        },
-    )
-
-    template_pixel_size: float = Field(
-        ...,
-        gt=0,
-        description="Template pixel size in Angstrom",
-        json_schema_extra={
-            "ui_widget": "number",
-            "ui_group": "Auto-picking Settings",
-            "ui_order": 11,
-            "ui_step": 0.1,
-            "ui_unit": "Å/px",
+            "ui_placeholder": "/path/to/template.mrc",
+            "ui_help": "Drag and drop .mrc template files, or type server-side paths. "
+                       "Multiple templates are matched independently and merged.",
+            "ui_required_message": "At least one template is required for auto-picking.",
         },
     )
 
@@ -127,7 +119,7 @@ class TemplatePickerInput(BaseModel):
     diameter_angstrom: float = Field(
         ...,
         gt=0,
-        description="Expected particle diameter in Angstrom",
+        description="Expected particle diameter",
         json_schema_extra={
             "ui_widget": "slider",
             "ui_group": "Auto-picking Settings",
@@ -139,6 +131,8 @@ class TemplatePickerInput(BaseModel):
                 {"value": 200, "label": "200"},
                 {"value": 500, "label": "500"},
             ],
+            "ui_help": "Approximate diameter of the target particle. "
+                       "Controls the correlation mask radius.",
         },
     )
 
@@ -146,7 +140,7 @@ class TemplatePickerInput(BaseModel):
         default=0.4,
         ge=0.0,
         le=1.0,
-        description="Correlation score threshold",
+        description="Normalized cross-correlation score cutoff",
         json_schema_extra={
             "ui_widget": "slider",
             "ui_group": "Auto-picking Settings",
@@ -157,24 +151,15 @@ class TemplatePickerInput(BaseModel):
                 {"value": 0.5, "label": "Medium"},
                 {"value": 0.8, "label": "High"},
             ],
-        },
-    )
-
-    max_threshold: Optional[float] = Field(
-        default=None,
-        description="Upper score filter",
-        json_schema_extra={
-            "ui_widget": "number",
-            "ui_group": "Auto-picking Settings",
-            "ui_order": 7,
-            "ui_advanced": True,
+            "ui_help": "Lower values detect more particles (including noise); "
+                       "higher values are more selective.",
         },
     )
 
     max_peaks: int = Field(
         default=500,
         gt=0,
-        description="Maximum particles to return",
+        description="Maximum number of particles to return",
         json_schema_extra={
             "ui_widget": "number",
             "ui_group": "Auto-picking Settings",
@@ -183,40 +168,91 @@ class TemplatePickerInput(BaseModel):
         },
     )
 
+    max_threshold: Optional[float] = Field(
+        default=None,
+        description="Upper score filter — reject suspiciously high scores",
+        json_schema_extra={
+            "ui_widget": "number",
+            "ui_group": "Auto-picking Settings",
+            "ui_order": 9,
+            "ui_advanced": True,
+            "ui_help": "Particles scoring above this value are discarded. "
+                       "Useful for removing ice crystals or carbon edges.",
+        },
+    )
+
+    # --- Pixel sizes (group: Auto-picking Settings) ---
+
+    image_pixel_size: float = Field(
+        ...,
+        gt=0,
+        description="Micrograph pixel size",
+        json_schema_extra={
+            "ui_widget": "number",
+            "ui_group": "Auto-picking Settings",
+            "ui_order": 10,
+            "ui_step": 0.1,
+            "ui_unit": "Å/px",
+            "ui_help": "Pixel size of the input micrograph after any binning.",
+        },
+    )
+
+    template_pixel_size: float = Field(
+        ...,
+        gt=0,
+        description="Template pixel size",
+        json_schema_extra={
+            "ui_widget": "number",
+            "ui_group": "Auto-picking Settings",
+            "ui_order": 11,
+            "ui_step": 0.1,
+            "ui_unit": "Å/px",
+            "ui_help": "Pixel size of the template images. Templates are "
+                       "rescaled to match the micrograph pixel size.",
+        },
+    )
+
     # --- Preprocessing (group: Preprocessing) ---
 
     bin_factor: int = Field(
         default=1,
         ge=1,
-        description="Power-of-two binning factor",
+        description="Power-of-two downsampling factor applied to the micrograph",
         json_schema_extra={
             "ui_widget": "select",
             "ui_group": "Preprocessing",
             "ui_order": 20,
             "ui_options": [1, 2, 4, 8],
+            "ui_help": "Higher binning speeds up picking but reduces accuracy. "
+                       "Bin 2 is usually a good trade-off.",
         },
     )
 
     invert_templates: bool = Field(
         default=False,
-        description="Invert template contrast",
+        description="Multiply templates by -1 before matching",
         json_schema_extra={
             "ui_widget": "toggle",
             "ui_group": "Preprocessing",
             "ui_order": 21,
+            "ui_help": "Enable if your templates have inverted contrast "
+                       "(white particles on dark background).",
         },
     )
 
     lowpass_resolution: Optional[float] = Field(
         default=None,
         gt=0,
-        description="Low-pass filter resolution in Angstrom",
+        description="Gaussian low-pass filter cutoff",
         json_schema_extra={
             "ui_widget": "number",
             "ui_group": "Preprocessing",
             "ui_order": 22,
             "ui_step": 1.0,
             "ui_unit": "Å",
+            "ui_placeholder": "None (disabled)",
+            "ui_help": "Apply a Gaussian low-pass filter to micrograph and templates. "
+                       "Helps suppress high-frequency noise. Leave empty to disable.",
         },
     )
 
@@ -225,18 +261,22 @@ class TemplatePickerInput(BaseModel):
     overlap_multiplier: float = Field(
         default=1.0,
         gt=0,
+        description="Minimum separation between picks as a fraction of particle radius",
         json_schema_extra={
             "ui_widget": "number",
             "ui_group": "Advanced",
             "ui_order": 30,
             "ui_step": 0.1,
             "ui_advanced": True,
+            "ui_help": "1.0 = one radius apart, 1.5 = 1.5 radii apart. "
+                       "Increase to reduce overlapping picks.",
         },
     )
 
     max_blob_size_multiplier: float = Field(
         default=1.0,
         gt=0,
+        description="Maximum connected-component area relative to expected particle area",
         json_schema_extra={
             "ui_widget": "number",
             "ui_group": "Advanced",
@@ -250,28 +290,34 @@ class TemplatePickerInput(BaseModel):
         default=0.0,
         ge=0.0,
         le=1.0,
+        description="Reject blobs less circular than this (0=any, 1=perfect circle)",
         json_schema_extra={
             "ui_widget": "slider",
             "ui_group": "Advanced",
             "ui_order": 32,
             "ui_step": 0.05,
             "ui_advanced": True,
+            "ui_help": "Filter out elongated or irregular peaks. "
+                       "0 accepts all shapes; 0.5 rejects very irregular ones.",
         },
     )
 
     peak_position: Literal["maximum", "center"] = Field(
         default="maximum",
+        description="How to assign coordinates within a detected blob",
         json_schema_extra={
             "ui_widget": "select",
             "ui_group": "Advanced",
             "ui_order": 33,
             "ui_advanced": True,
+            "ui_help": "'maximum' places the pick at the highest-scoring pixel; "
+                       "'center' uses the center-of-mass of the blob.",
         },
     )
 
     angle_ranges: Optional[List[AngleRange]] = Field(
         default=None,
-        description="Per-template rotation sweep; if None, defaults to 0-360/10 for each",
+        description="Per-template rotation sweep (start, end, step in degrees)",
         json_schema_extra={
             "ui_widget": "hidden",
             "ui_group": "Advanced",

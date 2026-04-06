@@ -59,7 +59,7 @@ interface FieldSchema {
     enum?: any[];
     items?: any;
     anyOf?: any[];
-    // UI extensions
+    // UI extensions — rendering
     ui_widget?: string;
     ui_group?: string;
     ui_order?: number;
@@ -67,6 +67,10 @@ interface FieldSchema {
     ui_step?: number;
     ui_unit?: string;
     ui_advanced?: boolean;
+    ui_placeholder?: string;
+    ui_help?: string;
+    ui_depends_on?: Record<string, any>;
+    ui_required_message?: string;
     ui_hidden?: boolean;
     ui_file_ext?: string[];
     ui_options?: any[];
@@ -133,9 +137,11 @@ const SliderField: React.FC<{
 
     return (
         <Box>
-            <Typography variant="body2" gutterBottom>
-                {label}{unit}
-            </Typography>
+            <Tooltip title={field.ui_help || ''} placement="left" arrow disableHoverListener={!field.ui_help}>
+                <Typography variant="body2" gutterBottom>
+                    {label}{unit}
+                </Typography>
+            </Tooltip>
             <Slider
                 value={value ?? field.default ?? min}
                 onChange={(_, v) => onChange(v as number)}
@@ -157,23 +163,26 @@ const NumberField: React.FC<{
 }> = ({ field, name, value, onChange }) => {
     const unit = field.ui_unit || '';
     return (
-        <TextField
-            size="small"
-            label={`${field.title || name}${unit ? ` (${unit})` : ''}`}
-            type="number"
-            value={value ?? field.default ?? ''}
-            onChange={(e) => {
-                const v = e.target.value;
-                onChange(v === '' ? null : parseFloat(v));
-            }}
-            inputProps={{
-                step: field.ui_step ?? 1,
-                min: getMin(field),
-                max: getMax(field),
-            }}
-            fullWidth
-            helperText={field.description}
-        />
+        <Tooltip title={field.ui_help || ''} placement="left" arrow disableHoverListener={!field.ui_help}>
+            <TextField
+                size="small"
+                label={`${field.title || name}${unit ? ` (${unit})` : ''}`}
+                type="number"
+                value={value ?? field.default ?? ''}
+                onChange={(e) => {
+                    const v = e.target.value;
+                    onChange(v === '' ? null : parseFloat(v));
+                }}
+                placeholder={field.ui_placeholder}
+                inputProps={{
+                    step: field.ui_step ?? 1,
+                    min: getMin(field),
+                    max: getMax(field),
+                }}
+                fullWidth
+                helperText={field.description}
+            />
+        </Tooltip>
     );
 };
 
@@ -410,7 +419,15 @@ export const SchemaForm: React.FC<SchemaFormProps> = ({
                     </AccordionSummary>
                     <AccordionDetails>
                         <Stack spacing={2.5}>
-                            {group.fields.map(({ key, field }) => renderField(key, field))}
+                            {group.fields
+                                .filter(({ field }) => {
+                                    // ui_depends_on: only show when condition met
+                                    if (!field.ui_depends_on) return true;
+                                    return Object.entries(field.ui_depends_on).every(
+                                        ([depKey, depVal]) => values[depKey] === depVal
+                                    );
+                                })
+                                .map(({ key, field }) => renderField(key, field))}
                         </Stack>
                     </AccordionDetails>
                 </Accordion>

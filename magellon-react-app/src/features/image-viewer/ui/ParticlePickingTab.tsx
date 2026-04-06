@@ -296,30 +296,10 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                 </SpeedDial>
             </Paper>
 
-            {/* Settings Drawer — schema-driven */}
+            {/* Settings Drawer — purely schema-driven from backend */}
             <ParticleSettingsDrawer
                 open={settingsDrawerOpen}
                 onClose={() => setSettingsDrawerOpen(false)}
-                particleRadius={particleRadius}
-                onRadiusChange={setParticleRadius}
-                particleOpacity={particleOpacity}
-                onOpacityChange={setParticleOpacity}
-                showCrosshair={showCrosshair}
-                onCrosshairToggle={setShowCrosshair}
-                showGrid={showGrid}
-                onGridToggle={setShowGrid}
-                showStats={showStats}
-                onStatsToggle={setShowStats}
-                particleClasses={particleClasses}
-                onClassVisibilityChange={(classId, visible) => {
-                    setParticleClasses(prev =>
-                        prev.map(c =>
-                            c.id === classId
-                                ? { ...c, visible }
-                                : c
-                        )
-                    );
-                }}
                 pickerParams={pickerParams}
                 onPickerParamsChange={setPickerParams}
             />
