@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Box,
     Paper,
@@ -33,8 +33,10 @@ import { useParticleOperations } from '../lib/useParticleOperations.ts';
 import { ParticleCanvas } from './ParticleCanvas.tsx';
 import { ParticleToolbar } from './ParticleToolbar.tsx';
 import { ParticleStatsBar } from './ParticleStatsBar.tsx';
-import { ParticleSettingsDrawer } from './ParticleSettingsDrawer.tsx';
+import { ParticleSettingsPanel } from './ParticleSettingsDrawer.tsx';
 import { ParticleHelpDialog } from './ParticleHelpDialog.tsx';
+import { useSidePanelStore } from '../../../app/layouts/PanelLayout/useBottomPanelStore.ts';
+import { useSettingsPanelSlot } from '../../../app/layouts/PanelLayout/useSettingsPanelSlot.ts';
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
 
@@ -84,8 +86,12 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
     const [zoom, setZoom] = useState(1);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [helpOpen, setHelpOpen] = useState(false);
-    const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
     const [activeClass, setActiveClass] = useState('1');
+
+    // Settings panel — opens in the app-level SidePanelArea (same as Jobs/Logs)
+    const { activePanel, openPanel, closePanel } = useSidePanelStore();
+    const settingsOpen = activePanel === 'settings';
+    const { setContent, clearContent } = useSettingsPanelSlot();
 
     // Algorithm parameters — single dict driven by schema
     const [pickerParams, setPickerParams] = useState<Record<string, any>>({
@@ -153,6 +159,41 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
         showSnackbar,
     });
 
+    // Register settings panel content into the app-level side panel slot
+    useEffect(() => {
+        setContent(
+            <ParticleSettingsPanel
+                open={settingsOpen}
+                pickerParams={pickerParams}
+                onPickerParamsChange={setPickerParams}
+                onRun={runAutoPicking}
+                isRunning={isAutoPickingRunning}
+                onPreviewParticles={(pts) => {
+                    setPreviewParticles(pts);
+                    handleParticlesUpdate(pts);
+                }}
+                onAcceptParticles={() => {
+                    setPreviewParticles(null);
+                    setLastResultCount(null);
+                    showSnackbar('Particles accepted', 'success');
+                }}
+                onDiscardParticles={() => {
+                    const kept = particles.filter(p =>
+                        !p.id?.startsWith('preview-') && !p.id?.startsWith('retune-')
+                    );
+                    handleParticlesUpdate(kept);
+                    setPreviewParticles(null);
+                    setLastResultCount(null);
+                }}
+                imageName={selectedImage?.name || null}
+                autoPickingProgress={autoPickingProgress}
+                resultCount={lastResultCount}
+            />
+        );
+        return () => clearContent();
+    }, [settingsOpen, pickerParams, isAutoPickingRunning, autoPickingProgress, lastResultCount,
+        particles, selectedImage, previewParticles]);
+
     const toggleFullscreen = () => {
         if (!document.fullscreenElement) {
             document.documentElement.requestFullscreen();
@@ -194,7 +235,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                 onToggleGrid={() => setShowGrid(!showGrid)}
                 onAutoPickRun={runAutoPicking}
                 isAutoPickingRunning={isAutoPickingRunning}
-                onSettingsOpen={() => setSettingsDrawerOpen(true)}
+                onSettingsOpen={() => openPanel('settings')}
                 onHelpOpen={() => setHelpOpen(true)}
                 isMobile={isMobile}
                 isFullscreen={isFullscreen}
@@ -300,37 +341,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                 </SpeedDial>
             </Paper>
 
-            {/* Settings Drawer — schema-driven state machine */}
-            <ParticleSettingsDrawer
-                open={settingsDrawerOpen}
-                onClose={() => setSettingsDrawerOpen(false)}
-                pickerParams={pickerParams}
-                onPickerParamsChange={setPickerParams}
-                onRun={() => {
-                    runAutoPicking();
-                }}
-                isRunning={isAutoPickingRunning}
-                onPreviewParticles={(pts) => {
-                    setPreviewParticles(pts);
-                    handleParticlesUpdate(pts);
-                }}
-                onAcceptParticles={() => {
-                    // Preview particles are already on canvas via handleParticlesUpdate
-                    setPreviewParticles(null);
-                    setLastResultCount(null);
-                    showSnackbar('Particles accepted', 'success');
-                }}
-                onDiscardParticles={() => {
-                    // Remove preview particles from canvas
-                    const manual = particles.filter(p => p.type !== 'auto' || !p.id?.startsWith('preview-') && !p.id?.startsWith('retune-'));
-                    handleParticlesUpdate(manual);
-                    setPreviewParticles(null);
-                    setLastResultCount(null);
-                }}
-                imageName={selectedImage?.name || null}
-                autoPickingProgress={autoPickingProgress}
-                resultCount={lastResultCount}
-            />
+            {/* Settings panel content — registered into SidePanelArea slot */}
 
             {/* Help Dialog */}
             <ParticleHelpDialog

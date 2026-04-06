@@ -2,7 +2,6 @@ import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import {
     Box,
     Typography,
-    Drawer,
     CircularProgress,
     Chip,
     Button,
@@ -13,6 +12,7 @@ import {
     Tooltip,
     LinearProgress,
     IconButton,
+    Portal,
     alpha,
     useTheme,
 } from '@mui/material';
@@ -38,22 +38,15 @@ export type DrawerState = 'configure' | 'previewing' | 'preview' | 'running' | '
 
 export interface ParticleSettingsDrawerProps {
     open: boolean;
-    onClose: () => void;
     pickerParams: Record<string, any>;
     onPickerParamsChange: (params: Record<string, any>) => void;
-    /** Called when user clicks Run — should trigger the full pick */
     onRun: () => void;
     isRunning: boolean;
-    /** Called when preview or retune produces particles to show on canvas */
     onPreviewParticles: (particles: Point[]) => void;
-    /** Called when user accepts picks from preview or results */
     onAcceptParticles: () => void;
-    /** Called when user discards preview picks */
     onDiscardParticles: () => void;
     imageName: string | null;
-    /** Auto-picking progress (0-100) while running */
     autoPickingProgress: number;
-    /** Result particle count (set after run completes) */
     resultCount: number | null;
 }
 
@@ -99,14 +92,14 @@ function validateParams(schema: any, params: Record<string, any>, imageName: str
 }
 
 // ---------------------------------------------------------------------------
-// Component
+// Component — renders as a plain Box (no Drawer), meant to be placed
+// inside the SidePanelArea alongside JobsPanel / LogsPanel.
 // ---------------------------------------------------------------------------
 
 const API_URL = appSettings.ConfigData.SERVER_API_URL;
 
-export const ParticleSettingsDrawer: React.FC<ParticleSettingsDrawerProps> = ({
+export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
     open,
-    onClose,
     pickerParams,
     onPickerParamsChange,
     onRun,
@@ -153,7 +146,7 @@ export const ParticleSettingsDrawer: React.FC<ParticleSettingsDrawerProps> = ({
     );
     const isValid = validationErrors.length === 0;
 
-    // --- Preview flow ---
+    // --- Preview ---
     const handlePreview = useCallback(async () => {
         if (!isValid) { setShowErrors(true); return; }
         setShowErrors(false);
@@ -164,8 +157,7 @@ export const ParticleSettingsDrawer: React.FC<ParticleSettingsDrawerProps> = ({
             Object.keys(payload).forEach(k => { if (payload[k] === null || payload[k] === undefined) delete payload[k]; });
 
             const res = await fetch(`${API_URL}/plugins/pp/template-pick/preview`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
             });
             if (!res.ok) {
@@ -177,7 +169,6 @@ export const ParticleSettingsDrawer: React.FC<ParticleSettingsDrawerProps> = ({
             setPreviewCount(data.num_particles);
             setScoreMapPng(data.score_map_png_base64 || null);
 
-            // Push particles to canvas
             const pts: Point[] = (data.particles || []).map((p: any, i: number) => ({
                 x: p.x, y: p.y, id: `preview-${Date.now()}-${i}`,
                 type: 'auto' as const,
@@ -203,8 +194,7 @@ export const ParticleSettingsDrawer: React.FC<ParticleSettingsDrawerProps> = ({
             setRetuning(true);
             try {
                 const res = await fetch(`${API_URL}/plugins/pp/template-pick/preview/${previewId}/retune`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         threshold: newParams.threshold ?? 0.4,
                         max_threshold: newParams.max_threshold ?? null,
@@ -227,7 +217,7 @@ export const ParticleSettingsDrawer: React.FC<ParticleSettingsDrawerProps> = ({
                     }));
                     onPreviewParticles(pts);
                 }
-            } catch { /* ignore retune errors */ }
+            } catch { /* ignore */ }
             setRetuning(false);
         }, 300);
     }, [previewId, onPreviewParticles, onPickerParamsChange]);
@@ -236,7 +226,6 @@ export const ParticleSettingsDrawer: React.FC<ParticleSettingsDrawerProps> = ({
     const handleRun = () => {
         if (!isValid) { setShowErrors(true); return; }
         setShowErrors(false);
-        // Clean up preview if active
         if (previewId) {
             fetch(`${API_URL}/plugins/pp/template-pick/preview/${previewId}`, { method: 'DELETE' }).catch(() => {});
             setPreviewId(null);
@@ -266,258 +255,210 @@ export const ParticleSettingsDrawer: React.FC<ParticleSettingsDrawerProps> = ({
         setDrawerState('configure');
     };
 
-    const handleBack = () => {
-        handleDiscard();
-    };
-
-    // Use persistent variant in preview mode so user sees the micrograph
-    const isPersistent = drawerState === 'preview' || drawerState === 'results';
+    if (!open) return null;
 
     return (
-        <Drawer
-            anchor="right"
-            open={open}
-            onClose={drawerState === 'running' ? undefined : onClose}
-            variant={isPersistent ? 'persistent' : 'temporary'}
-            hideBackdrop={isPersistent}
-            sx={{
-                '& .MuiDrawer-paper': {
-                    width: 360,
-                    boxShadow: isPersistent ? '-4px 0 12px rgba(0,0,0,0.08)' : undefined,
-                },
-            }}
-        >
-            <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
 
-                {/* ============ TOOLBAR (always visible) ============ */}
-                <Box sx={{
-                    px: 2, py: 1.5,
-                    borderBottom: `1px solid ${theme.palette.divider}`,
-                    backgroundColor: alpha(theme.palette.primary.main, 0.03),
-                    mt: '64px', // below AppBar
-                }}>
-                    {/* Title row */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        {(drawerState === 'preview' || drawerState === 'results') && (
-                            <IconButton size="small" onClick={handleBack} sx={{ mr: 0.5 }}>
-                                <BackIcon fontSize="small" />
-                            </IconButton>
-                        )}
-                        <Typography variant="subtitle1" fontWeight={600} sx={{ flex: 1 }}>
-                            {{
-                                configure: 'Algorithm Settings',
-                                previewing: 'Computing Preview...',
-                                preview: 'Preview & Tune',
-                                running: 'Running...',
-                                results: 'Results',
-                            }[drawerState]}
-                        </Typography>
-                        {schema && drawerState === 'configure' && (
-                            <Chip label="template-picker" size="small" variant="outlined" sx={{ fontSize: '0.65rem', height: 22 }} />
-                        )}
-                    </Box>
-
-                    {/* ---- CONFIGURE state: Preview + Run buttons ---- */}
-                    {drawerState === 'configure' && (
-                        <>
-                            <Box sx={{ display: 'flex', gap: 1 }}>
-                                <Tooltip title="Compute maps and preview picks without committing">
-                                    <span style={{ flex: 1 }}>
-                                        <Button variant="outlined" size="small" fullWidth
-                                            startIcon={<PreviewIcon />} onClick={handlePreview}
-                                            sx={{ textTransform: 'none' }}>
-                                            Preview
-                                        </Button>
-                                    </span>
-                                </Tooltip>
-                                <Tooltip title="Run auto-picking and commit particles">
-                                    <span style={{ flex: 1 }}>
-                                        <Button variant="contained" size="small" fullWidth
-                                            startIcon={<RunIcon />} onClick={handleRun}
-                                            sx={{ textTransform: 'none' }}>
-                                            Run
-                                        </Button>
-                                    </span>
-                                </Tooltip>
-                            </Box>
-                            <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                {isValid ? (
-                                    <><ValidIcon sx={{ fontSize: 14, color: 'success.main' }} /><Typography variant="caption" color="success.main">Ready</Typography></>
-                                ) : (
-                                    <><ErrorIcon sx={{ fontSize: 14, color: 'warning.main' }} />
-                                    <Typography variant="caption" color="warning.main" sx={{ cursor: 'pointer', textDecoration: 'underline' }}
-                                        onClick={() => setShowErrors(!showErrors)}>
-                                        {validationErrors.length} issue{validationErrors.length !== 1 ? 's' : ''}
-                                    </Typography></>
-                                )}
-                            </Box>
-                        </>
+            {/* ============ TOOLBAR ============ */}
+            <Box sx={{
+                px: 1.5, py: 1,
+                borderBottom: `1px solid ${theme.palette.divider}`,
+                backgroundColor: alpha(theme.palette.primary.main, 0.03),
+                flexShrink: 0,
+            }}>
+                {/* Title row */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                    {(drawerState === 'preview' || drawerState === 'results') && (
+                        <IconButton size="small" onClick={handleDiscard} sx={{ mr: 0.5 }}>
+                            <BackIcon fontSize="small" />
+                        </IconButton>
                     )}
-
-                    {/* ---- PREVIEW state: pick count + Accept/Run/Discard ---- */}
-                    {drawerState === 'preview' && (
-                        <>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                                <TuneIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                                <Typography variant="body2">
-                                    <strong>{previewCount}</strong> particles detected
-                                </Typography>
-                                {retuning && <CircularProgress size={14} />}
-                            </Box>
-                            <Box sx={{ display: 'flex', gap: 1 }}>
-                                <Button variant="outlined" size="small" color="error" startIcon={<DiscardIcon />}
-                                    onClick={handleDiscard} sx={{ textTransform: 'none', flex: 1 }}>
-                                    Discard
-                                </Button>
-                                <Button variant="outlined" size="small" startIcon={<RunIcon />}
-                                    onClick={handleRun} sx={{ textTransform: 'none', flex: 1 }}>
-                                    Run Full
-                                </Button>
-                                <Button variant="contained" size="small" startIcon={<AcceptIcon />}
-                                    onClick={handleAccept} sx={{ textTransform: 'none', flex: 1 }}>
-                                    Accept
-                                </Button>
-                            </Box>
-                        </>
-                    )}
-
-                    {/* ---- RUNNING state: progress ---- */}
-                    {drawerState === 'running' && (
-                        <Box sx={{ mt: 1 }}>
-                            <LinearProgress variant="determinate" value={autoPickingProgress} sx={{ height: 6, borderRadius: 1 }} />
-                            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                                {autoPickingProgress}% complete
-                            </Typography>
-                        </Box>
-                    )}
-
-                    {/* ---- RESULTS state: summary + accept/discard ---- */}
-                    {drawerState === 'results' && (
-                        <>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                                <ValidIcon sx={{ fontSize: 18, color: 'success.main' }} />
-                                <Typography variant="body2">
-                                    <strong>{resultCount ?? 0}</strong> particles picked
-                                </Typography>
-                            </Box>
-                            <Box sx={{ display: 'flex', gap: 1 }}>
-                                <Button variant="outlined" size="small" color="error" startIcon={<DiscardIcon />}
-                                    onClick={handleDiscard} sx={{ textTransform: 'none', flex: 1 }}>
-                                    Discard
-                                </Button>
-                                <Button variant="contained" size="small" startIcon={<AcceptIcon />}
-                                    onClick={handleAccept} sx={{ textTransform: 'none', flex: 1 }}>
-                                    Accept
-                                </Button>
-                            </Box>
-                        </>
-                    )}
-
-                    {/* ---- PREVIEWING state: spinner ---- */}
-                    {drawerState === 'previewing' && (
-                        <Box sx={{ textAlign: 'center', py: 1 }}>
-                            <CircularProgress size={24} />
-                        </Box>
+                    <Typography variant="caption" fontWeight={600} sx={{ flex: 1 }}>
+                        {{
+                            configure: 'Algorithm Settings',
+                            previewing: 'Computing Preview...',
+                            preview: 'Preview & Tune',
+                            running: 'Running...',
+                            results: 'Results',
+                        }[drawerState]}
+                    </Typography>
+                    {schema && drawerState === 'configure' && (
+                        <Chip label="template-picker" size="small" variant="outlined" sx={{ fontSize: '0.6rem', height: 20 }} />
                     )}
                 </Box>
 
-                {/* ============ VALIDATION ERRORS ============ */}
-                <Collapse in={showErrors && validationErrors.length > 0 && drawerState === 'configure'}>
-                    <Box sx={{ px: 2, pt: 1 }}>
-                        <Alert severity="warning" sx={{ py: 0.5, '& .MuiAlert-message': { fontSize: '0.75rem' } }}>
-                            <AlertTitle sx={{ fontSize: '0.8rem', mb: 0.5 }}>Fix before running</AlertTitle>
-                            {validationErrors.map((err, i) => (
-                                <Typography key={i} variant="caption" display="block" sx={{ lineHeight: 1.6 }}>• {err}</Typography>
-                            ))}
-                        </Alert>
-                    </Box>
-                </Collapse>
-
-                {/* ============ BODY ============ */}
-                <Box sx={{ flex: 1, overflow: 'auto', px: 2, py: 1.5 }}>
-
-                    {/* --- Loading schema --- */}
-                    {schemaLoading && (
-                        <Box sx={{ textAlign: 'center', py: 6 }}>
-                            <CircularProgress size={28} />
-                            <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 1.5 }}>
-                                Loading settings from backend...
-                            </Typography>
+                {/* CONFIGURE: Preview + Run */}
+                {drawerState === 'configure' && (
+                    <>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Button variant="outlined" size="small" fullWidth
+                                startIcon={<PreviewIcon sx={{ fontSize: 14 }} />} onClick={handlePreview}
+                                sx={{ textTransform: 'none', fontSize: '0.75rem', py: 0.5 }}>
+                                Preview
+                            </Button>
+                            <Button variant="contained" size="small" fullWidth
+                                startIcon={<RunIcon sx={{ fontSize: 14 }} />} onClick={handleRun}
+                                sx={{ textTransform: 'none', fontSize: '0.75rem', py: 0.5 }}>
+                                Run
+                            </Button>
                         </Box>
-                    )}
-
-                    {schemaError && (
-                        <Box sx={{ p: 2, borderRadius: 1, mb: 2, backgroundColor: alpha(theme.palette.error.main, 0.08) }}>
-                            <Typography variant="caption" color="error">{schemaError}</Typography>
-                            <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
-                                Backend: {API_URL}
-                            </Typography>
-                        </Box>
-                    )}
-
-                    {/* --- CONFIGURE: full form --- */}
-                    {drawerState === 'configure' && schema && (
-                        <SchemaForm
-                            schema={schema}
-                            values={pickerParams}
-                            onChange={onPickerParamsChange}
-                            defaultExpanded={['Templates', 'Auto-picking Settings']}
-                            collapseAdvanced
-                        />
-                    )}
-
-                    {/* --- PREVIEW: score map + tunable sliders --- */}
-                    {drawerState === 'preview' && schema && (
-                        <>
-                            {scoreMapPng && (
-                                <Box sx={{ mb: 2, borderRadius: 1, overflow: 'hidden', border: `1px solid ${theme.palette.divider}` }}>
-                                    <img
-                                        src={`data:image/png;base64,${scoreMapPng}`}
-                                        alt="Score map"
-                                        style={{ width: '100%', display: 'block' }}
-                                    />
-                                    <Typography variant="caption" color="text.secondary" sx={{ px: 1, py: 0.5, display: 'block' }}>
-                                        Correlation score map — brighter = higher match
-                                    </Typography>
-                                </Box>
+                        <Box sx={{ mt: 0.75, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            {isValid ? (
+                                <><ValidIcon sx={{ fontSize: 12, color: 'success.main' }} /><Typography variant="caption" color="success.main" sx={{ fontSize: '0.7rem' }}>Ready</Typography></>
+                            ) : (
+                                <><ErrorIcon sx={{ fontSize: 12, color: 'warning.main' }} />
+                                <Typography variant="caption" color="warning.main"
+                                    sx={{ cursor: 'pointer', textDecoration: 'underline', fontSize: '0.7rem' }}
+                                    onClick={() => setShowErrors(!showErrors)}>
+                                    {validationErrors.length} issue{validationErrors.length !== 1 ? 's' : ''}
+                                </Typography></>
                             )}
-                            <Typography variant="caption" fontWeight={600} sx={{ display: 'block', mb: 1 }}>
-                                Adjust tunable parameters:
-                            </Typography>
-                            <SchemaForm
-                                schema={schema}
-                                values={pickerParams}
-                                onChange={handleRetune}
-                                tunableOnly={true}
-                                defaultExpanded={['Auto-picking Settings', 'Advanced']}
-                            />
-                        </>
-                    )}
-
-                    {/* --- RUNNING: just the progress message --- */}
-                    {drawerState === 'running' && (
-                        <Box sx={{ textAlign: 'center', py: 4 }}>
-                            <CircularProgress size={40} />
-                            <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                                Running template matching...
-                            </Typography>
                         </Box>
-                    )}
+                    </>
+                )}
 
-                    {/* --- RESULTS: summary --- */}
-                    {drawerState === 'results' && (
-                        <Box sx={{ py: 2 }}>
-                            <Typography variant="body2" gutterBottom>
-                                Auto-picking completed successfully.
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                                {resultCount} particles detected and placed on the canvas.
-                                Click <strong>Accept</strong> to keep them, or <strong>Discard</strong> to remove.
-                            </Typography>
+                {/* PREVIEW: pick count + actions */}
+                {drawerState === 'preview' && (
+                    <>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <TuneIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                            <Typography variant="caption"><strong>{previewCount}</strong> particles</Typography>
+                            {retuning && <CircularProgress size={12} />}
                         </Box>
-                    )}
-                </Box>
+                        <Box sx={{ display: 'flex', gap: 0.5 }}>
+                            <Button variant="outlined" size="small" color="error" startIcon={<DiscardIcon sx={{ fontSize: 12 }} />}
+                                onClick={handleDiscard} sx={{ textTransform: 'none', fontSize: '0.7rem', py: 0.25, flex: 1 }}>
+                                Discard
+                            </Button>
+                            <Button variant="outlined" size="small" startIcon={<RunIcon sx={{ fontSize: 12 }} />}
+                                onClick={handleRun} sx={{ textTransform: 'none', fontSize: '0.7rem', py: 0.25, flex: 1 }}>
+                                Run
+                            </Button>
+                            <Button variant="contained" size="small" startIcon={<AcceptIcon sx={{ fontSize: 12 }} />}
+                                onClick={handleAccept} sx={{ textTransform: 'none', fontSize: '0.7rem', py: 0.25, flex: 1 }}>
+                                Accept
+                            </Button>
+                        </Box>
+                    </>
+                )}
+
+                {/* RUNNING */}
+                {drawerState === 'running' && (
+                    <Box sx={{ mt: 0.5 }}>
+                        <LinearProgress variant="determinate" value={autoPickingProgress} sx={{ height: 4, borderRadius: 1 }} />
+                        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
+                            {autoPickingProgress}% complete
+                        </Typography>
+                    </Box>
+                )}
+
+                {/* RESULTS */}
+                {drawerState === 'results' && (
+                    <>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <ValidIcon sx={{ fontSize: 16, color: 'success.main' }} />
+                            <Typography variant="caption"><strong>{resultCount ?? 0}</strong> particles picked</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', gap: 0.5 }}>
+                            <Button variant="outlined" size="small" color="error" startIcon={<DiscardIcon sx={{ fontSize: 12 }} />}
+                                onClick={handleDiscard} sx={{ textTransform: 'none', fontSize: '0.7rem', py: 0.25, flex: 1 }}>
+                                Discard
+                            </Button>
+                            <Button variant="contained" size="small" startIcon={<AcceptIcon sx={{ fontSize: 12 }} />}
+                                onClick={handleAccept} sx={{ textTransform: 'none', fontSize: '0.7rem', py: 0.25, flex: 1 }}>
+                                Accept
+                            </Button>
+                        </Box>
+                    </>
+                )}
+
+                {/* PREVIEWING spinner */}
+                {drawerState === 'previewing' && (
+                    <Box sx={{ textAlign: 'center', py: 0.5 }}>
+                        <CircularProgress size={20} />
+                    </Box>
+                )}
             </Box>
-        </Drawer>
+
+            {/* ============ VALIDATION ERRORS ============ */}
+            <Collapse in={showErrors && validationErrors.length > 0 && drawerState === 'configure'}>
+                <Box sx={{ px: 1.5, pt: 1 }}>
+                    <Alert severity="warning" sx={{ py: 0.25, '& .MuiAlert-message': { fontSize: '0.7rem' } }}>
+                        <AlertTitle sx={{ fontSize: '0.75rem', mb: 0.25 }}>Fix before running</AlertTitle>
+                        {validationErrors.map((err, i) => (
+                            <Typography key={i} variant="caption" display="block" sx={{ lineHeight: 1.5, fontSize: '0.7rem' }}>• {err}</Typography>
+                        ))}
+                    </Alert>
+                </Box>
+            </Collapse>
+
+            {/* ============ BODY (scrollable) ============ */}
+            <Box sx={{ flex: 1, overflow: 'auto', px: 1.5, py: 1 }}>
+
+                {schemaLoading && (
+                    <Box sx={{ textAlign: 'center', py: 4 }}>
+                        <CircularProgress size={24} />
+                        <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 1 }}>Loading...</Typography>
+                    </Box>
+                )}
+
+                {schemaError && (
+                    <Box sx={{ p: 1.5, borderRadius: 1, mb: 1, backgroundColor: alpha(theme.palette.error.main, 0.08) }}>
+                        <Typography variant="caption" color="error">{schemaError}</Typography>
+                        <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
+                            Backend: {API_URL}
+                        </Typography>
+                    </Box>
+                )}
+
+                {/* CONFIGURE: full form */}
+                {drawerState === 'configure' && schema && (
+                    <SchemaForm schema={schema} values={pickerParams} onChange={onPickerParamsChange}
+                        defaultExpanded={['Templates', 'Auto-picking Settings']} collapseAdvanced />
+                )}
+
+                {/* PREVIEW: score map + tunable sliders */}
+                {drawerState === 'preview' && schema && (
+                    <>
+                        {scoreMapPng && (
+                            <Box sx={{ mb: 1.5, borderRadius: 1, overflow: 'hidden', border: `1px solid ${theme.palette.divider}` }}>
+                                <img src={`data:image/png;base64,${scoreMapPng}`} alt="Score map" style={{ width: '100%', display: 'block' }} />
+                                <Typography variant="caption" color="text.secondary" sx={{ px: 1, py: 0.25, display: 'block', fontSize: '0.65rem' }}>
+                                    Correlation map — brighter = higher match
+                                </Typography>
+                            </Box>
+                        )}
+                        <Typography variant="caption" fontWeight={600} sx={{ display: 'block', mb: 0.5, fontSize: '0.7rem' }}>
+                            Tune parameters:
+                        </Typography>
+                        <SchemaForm schema={schema} values={pickerParams} onChange={handleRetune}
+                            tunableOnly={true} defaultExpanded={['Auto-picking Settings', 'Advanced']} />
+                    </>
+                )}
+
+                {/* RUNNING */}
+                {drawerState === 'running' && (
+                    <Box sx={{ textAlign: 'center', py: 3 }}>
+                        <CircularProgress size={32} />
+                        <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block' }}>
+                            Running template matching...
+                        </Typography>
+                    </Box>
+                )}
+
+                {/* RESULTS */}
+                {drawerState === 'results' && (
+                    <Box sx={{ py: 1 }}>
+                        <Typography variant="caption" color="text.secondary">
+                            {resultCount} particles detected. Click <strong>Accept</strong> to keep or <strong>Discard</strong> to remove.
+                        </Typography>
+                    </Box>
+                )}
+            </Box>
+        </Box>
     );
 };
+
+// Backward-compat export name
+export const ParticleSettingsDrawer = ParticleSettingsPanel;

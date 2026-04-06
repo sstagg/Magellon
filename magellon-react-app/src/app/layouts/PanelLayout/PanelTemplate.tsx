@@ -12,6 +12,7 @@ import { useSidePanelStore } from './useBottomPanelStore.ts';
 import { JobsPanel } from './JobsPanel.tsx';
 import { LogsPanel } from './LogsPanel.tsx';
 import { SocketProvider } from '../../../shared/lib/SocketProvider.tsx';
+import { useSettingsPanelSlot } from './useSettingsPanelSlot.ts';
 
 const DRAWER_WIDTH = 240;
 const FOOTER_HEIGHT = 56;
@@ -164,6 +165,7 @@ export const PanelTemplate = () => {
 
 const SidePanelArea: React.FC = () => {
     const { activePanel, panelWidth } = useSidePanelStore();
+    const settingsContent = useSettingsPanelSlot((s) => s.content);
 
     return (
         <Box sx={{
@@ -183,6 +185,7 @@ const SidePanelArea: React.FC = () => {
         }}>
             {activePanel === 'jobs' && <JobsPanel />}
             {activePanel === 'logs' && <LogsPanel />}
+            {activePanel === 'settings' && settingsContent}
         </Box>
     );
 };
