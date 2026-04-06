@@ -843,6 +843,129 @@ class TestAsyncEndpoint:
 # 7. Socket.IO helper function tests
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# 7. Preview / retune tests
+# ---------------------------------------------------------------------------
+
+class TestPreviewRetune:
+    """Tests for the preview → retune → accept flow."""
+
+    @pytest.fixture()
+    def client(self):
+        from fastapi.testclient import TestClient
+        from main import app
+        return TestClient(app)
+
+    @pytest.fixture()
+    def mrc_files(self, tmp_path):
+        pytest.importorskip("mrcfile")
+        image = _make_micrograph_with_particles(size=256, positions=[(128, 128)])
+        template = _make_template(size=64, sigma=8.0)
+        img_path = str(tmp_path / "micrograph.mrc")
+        tmpl_path = str(tmp_path / "template.mrc")
+        _write_mrc(img_path, image)
+        _write_mrc(tmpl_path, template)
+        return img_path, tmpl_path
+
+    def test_preview_returns_preview_id_and_particles(self, client, mrc_files):
+        img_path, tmpl_path = mrc_files
+        resp = client.post("/plugins/pp/template-pick/preview", json={
+            "image_path": img_path,
+            "template_paths": [tmpl_path],
+            "image_pixel_size": 1.0,
+            "template_pixel_size": 1.0,
+            "diameter_angstrom": 64.0,
+            "threshold": 0.1,
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "preview_id" in data
+        assert "particles" in data
+        assert "score_map_png_base64" in data
+        assert "score_range" in data
+        assert data["num_templates"] == 1
+
+    def test_retune_changes_particle_count(self, client, mrc_files):
+        img_path, tmpl_path = mrc_files
+
+        # Get preview
+        resp = client.post("/plugins/pp/template-pick/preview", json={
+            "image_path": img_path,
+            "template_paths": [tmpl_path],
+            "image_pixel_size": 1.0,
+            "template_pixel_size": 1.0,
+            "diameter_angstrom": 64.0,
+            "threshold": 0.1,
+        })
+        preview_id = resp.json()["preview_id"]
+        initial_count = resp.json()["num_particles"]
+
+        # Retune with very high threshold — should find fewer particles
+        resp2 = client.post(f"/plugins/pp/template-pick/preview/{preview_id}/retune", json={
+            "threshold": 0.99,
+        })
+        assert resp2.status_code == 200
+        assert resp2.json()["num_particles"] <= initial_count
+
+        # Retune with very low threshold — should find more particles
+        resp3 = client.post(f"/plugins/pp/template-pick/preview/{preview_id}/retune", json={
+            "threshold": 0.01,
+        })
+        assert resp3.status_code == 200
+        assert resp3.json()["num_particles"] >= resp2.json()["num_particles"]
+
+    def test_retune_not_found(self, client):
+        resp = client.post("/plugins/pp/template-pick/preview/nonexistent/retune", json={
+            "threshold": 0.5,
+        })
+        assert resp.status_code == 404
+
+    def test_preview_delete(self, client, mrc_files):
+        img_path, tmpl_path = mrc_files
+
+        resp = client.post("/plugins/pp/template-pick/preview", json={
+            "image_path": img_path,
+            "template_paths": [tmpl_path],
+            "image_pixel_size": 1.0,
+            "template_pixel_size": 1.0,
+            "diameter_angstrom": 64.0,
+            "threshold": 0.1,
+        })
+        preview_id = resp.json()["preview_id"]
+
+        # Delete
+        del_resp = client.delete(f"/plugins/pp/template-pick/preview/{preview_id}")
+        assert del_resp.status_code == 200
+
+        # Retune should now 404
+        resp2 = client.post(f"/plugins/pp/template-pick/preview/{preview_id}/retune", json={
+            "threshold": 0.5,
+        })
+        assert resp2.status_code == 404
+
+    def test_score_map_is_valid_base64_png(self, client, mrc_files):
+        img_path, tmpl_path = mrc_files
+        resp = client.post("/plugins/pp/template-pick/preview", json={
+            "image_path": img_path,
+            "template_paths": [tmpl_path],
+            "image_pixel_size": 1.0,
+            "template_pixel_size": 1.0,
+            "diameter_angstrom": 64.0,
+            "threshold": 0.1,
+        })
+        b64 = resp.json()["score_map_png_base64"]
+        assert b64 is not None
+
+        import base64
+        png_bytes = base64.b64decode(b64)
+        # PNG magic number
+        assert png_bytes[:4] == b'\x89PNG'
+
+
+# ---------------------------------------------------------------------------
+# 8. Socket.IO helper function tests
+# ---------------------------------------------------------------------------
+
 class TestSocketIOHelpers:
     """Test the emit_log and emit_job_update helpers."""
 

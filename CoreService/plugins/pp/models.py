@@ -34,6 +34,10 @@ Conditional visibility:
     ui_depends_on  : dict   — {"field_name": value} — only show when condition met
                               e.g. {"invert_templates": true}
 
+Preview / tuning:
+    ui_tunable     : bool   — if True, this param can be re-applied without full recompute
+                              (used by the preview/retune flow)
+
 Validation hints:
     ui_required_message : str — custom message when required field is empty
 """
@@ -153,6 +157,7 @@ class TemplatePickerInput(BaseModel):
             ],
             "ui_help": "Lower values detect more particles (including noise); "
                        "higher values are more selective.",
+            "ui_tunable": True,
         },
     )
 
@@ -165,6 +170,7 @@ class TemplatePickerInput(BaseModel):
             "ui_group": "Auto-picking Settings",
             "ui_order": 8,
             "ui_step": 50,
+            "ui_tunable": True,
         },
     )
 
@@ -178,6 +184,7 @@ class TemplatePickerInput(BaseModel):
             "ui_advanced": True,
             "ui_help": "Particles scoring above this value are discarded. "
                        "Useful for removing ice crystals or carbon edges.",
+            "ui_tunable": True,
         },
     )
 
@@ -268,6 +275,7 @@ class TemplatePickerInput(BaseModel):
             "ui_order": 30,
             "ui_step": 0.1,
             "ui_advanced": True,
+            "ui_tunable": True,
             "ui_help": "1.0 = one radius apart, 1.5 = 1.5 radii apart. "
                        "Increase to reduce overlapping picks.",
         },
@@ -283,6 +291,7 @@ class TemplatePickerInput(BaseModel):
             "ui_order": 31,
             "ui_step": 0.1,
             "ui_advanced": True,
+            "ui_tunable": True,
         },
     )
 
@@ -297,6 +306,7 @@ class TemplatePickerInput(BaseModel):
             "ui_order": 32,
             "ui_step": 0.05,
             "ui_advanced": True,
+            "ui_tunable": True,
             "ui_help": "Filter out elongated or irregular peaks. "
                        "0 accepts all shapes; 0.5 rejects very irregular ones.",
         },
@@ -310,6 +320,7 @@ class TemplatePickerInput(BaseModel):
             "ui_group": "Advanced",
             "ui_order": 33,
             "ui_advanced": True,
+            "ui_tunable": True,
             "ui_help": "'maximum' places the pick at the highest-scoring pixel; "
                        "'center' uses the center-of-mass of the blob.",
         },
@@ -353,3 +364,38 @@ class TemplatePickerOutput(BaseModel):
     overlay_png_path: Optional[str] = None
     score_map_png_path: Optional[str] = None
     summary: Optional[dict] = None
+
+
+# ---------------------------------------------------------------------------
+# Preview / retune models
+# ---------------------------------------------------------------------------
+
+class PreviewResult(BaseModel):
+    """Returned by the preview endpoint after the expensive computation."""
+    preview_id: str
+    particles: List[ParticlePick]
+    num_particles: int
+    num_templates: int
+    target_pixel_size: float
+    image_binning: int
+    score_map_png_base64: Optional[str] = None  # base64-encoded PNG of merged score map
+    score_range: Optional[List[float]] = None    # [min, max] of score values
+
+
+class RetuneRequest(BaseModel):
+    """Tunable parameters sent to the retune endpoint."""
+    model_config = ConfigDict(extra="forbid")
+
+    threshold: float = Field(default=0.4, ge=0.0, le=1.0)
+    max_threshold: Optional[float] = None
+    max_peaks: int = Field(default=500, gt=0)
+    overlap_multiplier: float = Field(default=1.0, gt=0)
+    max_blob_size_multiplier: float = Field(default=1.0, gt=0)
+    min_blob_roundness: float = Field(default=0.0, ge=0.0, le=1.0)
+    peak_position: Literal["maximum", "center"] = "maximum"
+
+
+class RetuneResult(BaseModel):
+    """Returned by the retune endpoint — just particles, no maps."""
+    particles: List[ParticlePick]
+    num_particles: int

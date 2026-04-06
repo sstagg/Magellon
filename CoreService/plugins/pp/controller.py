@@ -8,13 +8,23 @@ The existing PARTICLE_PICKING TaskCategory pipeline is untouched.
 from __future__ import annotations
 
 import asyncio
+import base64
+import io
 import logging
 import uuid
 from datetime import datetime
 
+import numpy as np
 from fastapi import APIRouter, HTTPException
 
-from plugins.pp.models import TemplatePickerInput, TemplatePickerOutput
+from plugins.pp.models import (
+    TemplatePickerInput,
+    TemplatePickerOutput,
+    PreviewResult,
+    RetuneRequest,
+    RetuneResult,
+    ParticlePick,
+)
 from plugins.pp.template_picker.service import run_template_picker, _get_plugin
 
 logger = logging.getLogger(__name__)
@@ -24,6 +34,13 @@ pp_router = APIRouter()
 # In-memory job tracking (simple dict — sufficient for single-process)
 _jobs: dict[str, dict] = {}
 
+# In-memory preview cache — stores computed score maps for retune
+_previews: dict[str, dict] = {}
+
+
+# ---------------------------------------------------------------------------
+# Synchronous pick
+# ---------------------------------------------------------------------------
 
 @pp_router.post(
     "/template-pick",
@@ -31,12 +48,6 @@ _jobs: dict[str, dict] = {}
     summary="Run template-based particle picking (synchronous)",
 )
 async def template_pick(input_data: TemplatePickerInput) -> TemplatePickerOutput:
-    """
-    Synchronous template-picking endpoint.
-
-    Accepts a micrograph path, template paths, and picking parameters.
-    Returns validated particle coordinates with scores.
-    """
     try:
         return run_template_picker(input_data)
     except FileNotFoundError as exc:
@@ -48,16 +59,188 @@ async def template_pick(input_data: TemplatePickerInput) -> TemplatePickerOutput
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+# ---------------------------------------------------------------------------
+# Preview / retune flow
+# ---------------------------------------------------------------------------
+
+@pp_router.post(
+    "/template-pick/preview",
+    response_model=PreviewResult,
+    summary="Compute correlation maps and return initial picks + score map",
+)
+async def template_pick_preview(input_data: TemplatePickerInput):
+    """
+    Phase 1: Run the expensive FFT correlation once.
+    Stores intermediate maps in memory and returns a preview_id
+    plus initial particles and a score map thumbnail.
+    """
+    from plugins.pp.template_picker.service import (
+        _read_mrc, _bin_image, _lowpass_gaussian, _rescale_template,
+    )
+    from plugins.pp.template_picker.algorithm import pick_particles
+
+    try:
+        # Preprocess
+        image = _read_mrc(input_data.image_path)
+        binned = _bin_image(image, input_data.bin_factor)
+        target_apix = input_data.image_pixel_size * input_data.bin_factor
+        filtered_image = _lowpass_gaussian(binned, target_apix, input_data.lowpass_resolution)
+
+        processed_templates = []
+        for path in input_data.template_paths:
+            tmpl = _read_mrc(path)
+            if input_data.invert_templates:
+                tmpl = -1.0 * tmpl
+            scaled = _rescale_template(tmpl, input_data.template_pixel_size, target_apix)
+            filtered = _lowpass_gaussian(scaled, target_apix, input_data.lowpass_resolution)
+            processed_templates.append(filtered.astype(np.float32))
+
+        # Build angle ranges
+        if input_data.angle_ranges is not None:
+            if len(input_data.angle_ranges) == 1 and len(processed_templates) > 1:
+                ar = input_data.angle_ranges[0]
+                angle_ranges = [(ar.start, ar.end, ar.step)] * len(processed_templates)
+            elif len(input_data.angle_ranges) == len(processed_templates):
+                angle_ranges = [(ar.start, ar.end, ar.step) for ar in input_data.angle_ranges]
+            else:
+                raise ValueError("angle_ranges must have 1 entry or one per template")
+        else:
+            angle_ranges = [(0.0, 360.0, 10.0)] * len(processed_templates)
+
+        # Run the expensive computation
+        result = pick_particles(
+            image=filtered_image,
+            templates=processed_templates,
+            params={
+                "diameter_angstrom": input_data.diameter_angstrom,
+                "pixel_size_angstrom": target_apix,
+                "bin": 1.0,
+                "threshold": input_data.threshold,
+                "max_threshold": input_data.max_threshold,
+                "max_peaks": input_data.max_peaks,
+                "overlap_multiplier": input_data.overlap_multiplier,
+                "max_blob_size_multiplier": input_data.max_blob_size_multiplier,
+                "min_blob_roundness": input_data.min_blob_roundness,
+                "peak_position": input_data.peak_position,
+                "angle_ranges": angle_ranges,
+            },
+        )
+
+        # Store maps for retune
+        preview_id = str(uuid.uuid4())
+        radius_pixels = input_data.diameter_angstrom / target_apix / 2.0
+        _previews[preview_id] = {
+            "template_results": result["template_results"],
+            "image_shape": filtered_image.shape,
+            "radius_pixels": radius_pixels,
+            "created_at": datetime.now(),
+        }
+
+        # Generate score map PNG thumbnail
+        merged_map = result["merged_score_map"]
+        score_min = float(np.min(merged_map))
+        score_max = float(np.max(merged_map))
+        score_map_b64 = _score_map_to_base64_png(merged_map)
+
+        particles = [ParticlePick(**p) for p in result["particles"]]
+
+        return PreviewResult(
+            preview_id=preview_id,
+            particles=particles,
+            num_particles=len(particles),
+            num_templates=len(processed_templates),
+            target_pixel_size=target_apix,
+            image_binning=input_data.bin_factor,
+            score_map_png_base64=score_map_b64,
+            score_range=[score_min, score_max],
+        )
+
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Preview failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@pp_router.post(
+    "/template-pick/preview/{preview_id}/retune",
+    response_model=RetuneResult,
+    summary="Re-extract particles with new tunable params (no recompute)",
+)
+async def template_pick_retune(preview_id: str, params: RetuneRequest):
+    """
+    Phase 2: Re-threshold the stored score maps with new parameters.
+    Instant — no FFT recomputation.
+    """
+    from plugins.pp.template_picker.algorithm import (
+        _extract_particles_from_map,
+        _remove_border_particles,
+        _merge_particles,
+    )
+
+    if preview_id not in _previews:
+        raise HTTPException(status_code=404, detail="Preview not found or expired")
+
+    preview = _previews[preview_id]
+    radius_pixels = preview["radius_pixels"]
+    image_shape = preview["image_shape"]
+
+    all_particles = []
+    for item in preview["template_results"]:
+        particles = _extract_particles_from_map(
+            score_map=item["score_map"],
+            angle_map=item["angle_map"],
+            template_index=int(item["template_index"]),
+            threshold=params.threshold,
+            radius_pixels=radius_pixels,
+            max_peaks=params.max_peaks,
+            overlap_multiplier=params.overlap_multiplier,
+            max_blob_size_multiplier=params.max_blob_size_multiplier,
+            min_blob_roundness=params.min_blob_roundness,
+            peak_position=params.peak_position,
+        )
+        particles = _remove_border_particles(
+            particles=particles,
+            diameter_pixels=radius_pixels * 2.0,
+            image_width=image_shape[1],
+            image_height=image_shape[0],
+        )
+        all_particles.extend(particles)
+
+    merged = _merge_particles(
+        particles=all_particles,
+        radius_pixels=radius_pixels,
+        overlap_multiplier=params.overlap_multiplier,
+        max_peaks=params.max_peaks,
+        max_threshold=params.max_threshold,
+    )
+
+    picks = [ParticlePick(**p) for p in merged]
+    return RetuneResult(particles=picks, num_particles=len(picks))
+
+
+@pp_router.delete(
+    "/template-pick/preview/{preview_id}",
+    summary="Discard a preview and free memory",
+)
+async def template_pick_preview_delete(preview_id: str):
+    if preview_id in _previews:
+        del _previews[preview_id]
+        return {"status": "deleted"}
+    raise HTTPException(status_code=404, detail="Preview not found")
+
+
+# ---------------------------------------------------------------------------
+# Async job flow
+# ---------------------------------------------------------------------------
+
 @pp_router.post(
     "/template-pick-async",
     summary="Submit async template-picking job with Socket.IO progress",
 )
 async def template_pick_async(input_data: TemplatePickerInput, sid: str | None = None):
-    """
-    Submits a particle picking job that runs in the background.
-    Progress is pushed via Socket.IO 'job_update' events.
-    Returns a job_id immediately.
-    """
     job_id = str(uuid.uuid4())
     _jobs[job_id] = {
         'id': job_id,
@@ -69,26 +252,20 @@ async def template_pick_async(input_data: TemplatePickerInput, sid: str | None =
         'num_particles': 0,
         'sid': sid,
     }
-
     asyncio.create_task(_run_picking_job(job_id, input_data, sid))
-
     return {'job_id': job_id, 'status': 'queued'}
 
 
 async def _run_picking_job(job_id: str, input_data: TemplatePickerInput, sid: str | None):
-    """Background task that runs the picker and emits progress via Socket.IO."""
     from core.socketio_server import emit_job_update, emit_log
 
     job = _jobs[job_id]
-
     try:
-        # Phase 1: Starting
         job['status'] = 'running'
         job['progress'] = 10
         await emit_job_update(sid, {**job})
         await emit_log('info', 'picking', f"Particle picking started: {input_data.image_path}")
 
-        # Phase 2: Run the actual picker in a thread (CPU-bound)
         job['progress'] = 20
         await emit_job_update(sid, {**job})
         await emit_log('info', 'picking', f"Loading micrograph and {len(input_data.template_paths)} template(s)...")
@@ -96,7 +273,6 @@ async def _run_picking_job(job_id: str, input_data: TemplatePickerInput, sid: st
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(None, run_template_picker, input_data)
 
-        # Phase 3: Completed
         job['status'] = 'completed'
         job['progress'] = 100
         job['num_particles'] = result.num_particles
@@ -104,7 +280,6 @@ async def _run_picking_job(job_id: str, input_data: TemplatePickerInput, sid: st
         await emit_job_update(sid, {**job})
         await emit_log('info', 'picking',
                         f"Particle picking completed — {result.num_particles} particles found")
-
     except Exception as exc:
         job['status'] = 'failed'
         job['error'] = str(exc)
@@ -113,69 +288,83 @@ async def _run_picking_job(job_id: str, input_data: TemplatePickerInput, sid: st
         logger.exception("Async particle picking failed: %s", exc)
 
 
-@pp_router.get(
-    "/jobs",
-    summary="List all particle picking jobs",
-)
+# ---------------------------------------------------------------------------
+# Job management
+# ---------------------------------------------------------------------------
+
+@pp_router.get("/jobs", summary="List all particle picking jobs")
 async def list_jobs():
-    """Return all tracked jobs (most recent first)."""
     jobs = list(_jobs.values())
-    # Don't send full result payload in listing
     return [
         {k: v for k, v in j.items() if k != 'result'}
         for j in reversed(jobs)
     ]
 
 
-@pp_router.get(
-    "/jobs/{job_id}",
-    summary="Get particle picking job details",
-)
+@pp_router.get("/jobs/{job_id}", summary="Get particle picking job details")
 async def get_job(job_id: str):
-    """Return a specific job including its result if completed."""
     if job_id not in _jobs:
         raise HTTPException(status_code=404, detail="Job not found")
     return _jobs[job_id]
 
 
-@pp_router.get(
-    "/template-pick/info",
-    summary="Template picker plugin metadata",
-)
+# ---------------------------------------------------------------------------
+# Plugin introspection
+# ---------------------------------------------------------------------------
+
+@pp_router.get("/template-pick/info", summary="Template picker plugin metadata")
 async def template_pick_info():
-    plugin = _get_plugin()
-    return plugin.get_info()
+    return _get_plugin().get_info()
 
 
-@pp_router.get(
-    "/template-pick/health",
-    summary="Template picker health check",
-)
+@pp_router.get("/template-pick/health", summary="Template picker health check")
 async def template_pick_health():
-    plugin = _get_plugin()
-    return plugin.health_check()
+    return _get_plugin().health_check()
 
 
-@pp_router.get(
-    "/template-pick/requirements",
-    summary="Template picker dependency check",
-)
+@pp_router.get("/template-pick/requirements", summary="Template picker dependency check")
 async def template_pick_requirements():
-    plugin = _get_plugin()
-    return plugin.check_requirements()
+    return _get_plugin().check_requirements()
 
 
-@pp_router.get(
-    "/template-pick/schema/input",
-    summary="Template picker input JSON schema",
-)
+@pp_router.get("/template-pick/schema/input", summary="Template picker input JSON schema")
 async def template_pick_input_schema():
     return TemplatePickerInput.model_json_schema()
 
 
-@pp_router.get(
-    "/template-pick/schema/output",
-    summary="Template picker output JSON schema",
-)
+@pp_router.get("/template-pick/schema/output", summary="Template picker output JSON schema")
 async def template_pick_output_schema():
     return TemplatePickerOutput.model_json_schema()
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _score_map_to_base64_png(score_map: np.ndarray) -> str:
+    """Convert a 2D float score map to a base64-encoded PNG for the frontend."""
+    from PIL import Image
+
+    data = score_map.astype(np.float32)
+    finite = np.isfinite(data)
+    if finite.any():
+        lo = float(np.percentile(data[finite], 1.0))
+        hi = float(np.percentile(data[finite], 99.0))
+    else:
+        lo, hi = 0.0, 1.0
+    if hi <= lo:
+        hi = lo + 1e-6
+
+    clipped = np.clip(data, lo, hi)
+    normalized = ((clipped - lo) / (hi - lo) * 255).astype(np.uint8)
+
+    img = Image.fromarray(normalized, mode="L")
+    # Resize to reasonable thumbnail size for transfer
+    max_dim = 1024
+    if max(img.size) > max_dim:
+        ratio = max_dim / max(img.size)
+        img = img.resize((int(img.width * ratio), int(img.height * ratio)), Image.BILINEAR)
+
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode("ascii")

@@ -74,6 +74,7 @@ interface FieldSchema {
     ui_hidden?: boolean;
     ui_file_ext?: string[];
     ui_options?: any[];
+    ui_tunable?: boolean;
 }
 
 interface SchemaFormProps {
@@ -88,6 +89,8 @@ interface SchemaFormProps {
     defaultExpanded?: string[];
     /** If true, hide groups marked ui_advanced unless user expands them */
     collapseAdvanced?: boolean;
+    /** If set, only show fields where ui_tunable matches this value */
+    tunableOnly?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -320,6 +323,7 @@ export const SchemaForm: React.FC<SchemaFormProps> = ({
     onChange,
     defaultExpanded,
     collapseAdvanced = true,
+    tunableOnly,
 }) => {
     const properties = schema.properties || {};
 
@@ -329,6 +333,7 @@ export const SchemaForm: React.FC<SchemaFormProps> = ({
 
         Object.entries(properties).forEach(([key, field]) => {
             if (field.ui_hidden || field.ui_widget === 'hidden') return;
+            if (tunableOnly !== undefined && !!field.ui_tunable !== tunableOnly) return;
 
             const groupName = field.ui_group || 'General';
             if (!map.has(groupName)) {
