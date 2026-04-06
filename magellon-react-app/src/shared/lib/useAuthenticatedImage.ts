@@ -50,7 +50,11 @@ export const useAuthenticatedImage = (url: string | null): UseAuthenticatedImage
         setImageUrl(objectUrl);
         setIsLoading(false);
       } catch (err) {
-        console.error('Failed to load authenticated image:', err);
+        // Silence expected 400/404 errors (e.g. FFT/CTF not available for this image)
+        const status = axios.isAxiosError(err) ? err.response?.status : undefined;
+        if (status !== 400 && status !== 404) {
+          console.error('Failed to load authenticated image:', err);
+        }
         setError(err instanceof Error ? err : new Error('Failed to load image'));
         setIsLoading(false);
         setImageUrl(null);

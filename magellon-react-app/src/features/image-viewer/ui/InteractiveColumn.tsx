@@ -47,22 +47,8 @@ import { ImageThumbnail } from "./ImageThumbnail.tsx";
 import { InfiniteData } from "react-query";
 import { useImageViewerStore } from '../model/imageViewerStore.ts';
 import { useImageListQuery } from "../api/usePagedImagesHook.ts";
-
-interface ColumnFilter {
-    search?: string;
-    defocusMin?: number;
-    defocusMax?: number;
-    hasChildren?: boolean;
-    magnification?: number;
-}
-
-type SortField = 'name' | 'defocus' | 'children_count' | 'mag' | 'pixelSize';
-type SortDirection = 'asc' | 'desc';
-
-interface SortConfig {
-    field: SortField;
-    direction: SortDirection;
-}
+import { useColumnFilter, type SortField } from '../lib/useColumnFilter.ts';
+import { DEFAULT_PAGE_SIZE, TILE_WIDTH, COLUMN_HEIGHT_THRESHOLD } from '../constants';
 
 type DisplayMode = 'stack' | 'grid' | 'list';
 
@@ -99,24 +85,19 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
     const scrollRef = useRef<HTMLDivElement>(null);
 
     const isHorizontalMode = useMemo(() => {
-        return height !== undefined && height !== 700;
+        return height !== undefined && height !== COLUMN_HEIGHT_THRESHOLD;
     }, [height]);
 
     // Local state
     const [parentId, setParentId] = useState<string | null>(null);
     const [displayMode, setDisplayMode] = useState<DisplayMode>(initialDisplayMode);
-    const [filter, setFilter] = useState<ColumnFilter>({});
-    const [sortConfig, setSortConfig] = useState<SortConfig>({ field: 'name', direction: 'asc' });
     const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
     const [isCollapsed, setIsCollapsed] = useState(initialCollapsed);
     const [isHeaderHovered, setIsHeaderHovered] = useState(false);
     const [showSearch, setShowSearch] = useState(false);
-
     const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
 
     const { currentImage } = useImageViewerStore();
-
-    const pageSize = 50;
 
     const shouldLoad = useMemo(() => {
         if (level === 0) return sessionName !== '';
@@ -128,7 +109,7 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
 
         if (newParentId !== parentId) {
             setParentId(newParentId);
-            setFilter({});
+            resetFilter();
             setSelectedImageId(null);
         }
     }, [parentImage, level, parentId]);
@@ -147,68 +128,17 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
     } = useImageListQuery({
         sessionName,
         parentId,
-        pageSize,
+        pageSize: DEFAULT_PAGE_SIZE,
         level,
         enabled: shouldLoad
     });
 
-    const { filteredImages, totalCount } = useMemo(() => {
-        const allImages = data?.pages?.flatMap(page => page.result) || [];
+    const allImages = useMemo(
+        () => data?.pages?.flatMap(page => page.result) || [],
+        [data]
+    );
 
-        let filtered = allImages.filter(image => {
-            if (filter.search && image.name &&
-                !image.name.toLowerCase().includes(filter.search.toLowerCase())) {
-                return false;
-            }
-
-            if (filter.defocusMin !== undefined &&
-                (image.defocus === undefined || image.defocus < filter.defocusMin)) {
-                return false;
-            }
-
-            if (filter.defocusMax !== undefined &&
-                (image.defocus === undefined || image.defocus > filter.defocusMax)) {
-                return false;
-            }
-
-            if (filter.hasChildren !== undefined &&
-                ((image.children_count || 0) > 0) !== filter.hasChildren) {
-                return false;
-            }
-
-            if (filter.magnification !== undefined &&
-                image.mag !== filter.magnification) {
-                return false;
-            }
-
-            return true;
-        });
-
-        filtered.sort((a, b) => {
-            let aValue: any = a[sortConfig.field];
-            let bValue: any = b[sortConfig.field];
-
-            if (aValue === undefined && bValue === undefined) return 0;
-            if (aValue === undefined) return 1;
-            if (bValue === undefined) return -1;
-
-            if (sortConfig.field === 'name') {
-                aValue = aValue?.toString().toLowerCase() || '';
-                bValue = bValue?.toString().toLowerCase() || '';
-            }
-
-            let comparison = 0;
-            if (aValue < bValue) comparison = -1;
-            if (aValue > bValue) comparison = 1;
-
-            return sortConfig.direction === 'desc' ? -comparison : comparison;
-        });
-
-        return {
-            filteredImages: filtered,
-            totalCount: allImages.length
-        };
-    }, [data, filter, sortConfig]);
+    const { filter, setFilter, resetFilter, sortConfig, setSortConfig, filteredImages, totalCount } = useColumnFilter(allImages);
 
     useEffect(() => {
         if (currentImage && currentImage.level === level) {
@@ -465,7 +395,7 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
         }
 
         const gridCols = isHorizontalMode
-            ? Math.max(1, Math.floor((width || 800) / 120))
+            ? Math.max(1, Math.floor((width || 800) / TILE_WIDTH))
             : (displayMode === 'grid' ? 2 : 1);
 
         const imageSize = displayMode === 'grid' ? 'small' : 'medium';
@@ -480,7 +410,7 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                 ...(isHorizontalMode && {
                     overflowX: 'auto',
                     overflowY: 'hidden',
-                    gridTemplateRows: `repeat(${Math.ceil(filteredImages.length / gridCols)}, minmax(120px, 1fr))`
+                    gridTemplateRows: `repeat(${Math.ceil(filteredImages.length / gridCols)}, minmax(${TILE_WIDTH}px, 1fr))`
                 })
             }}>
                 {filteredImages.map((image, index) => (

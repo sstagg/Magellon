@@ -9,6 +9,8 @@ import { usePanelLayout } from '../../features/image-viewer/lib/usePanelLayout.t
 import { useImageNavigation } from '../../features/image-viewer/lib/useImageNavigation.ts';
 import { useImageDataFetching } from '../../features/image-viewer/lib/useImageDataFetching.ts';
 import { useAtlasData } from '../../features/image-viewer/lib/useAtlasData.ts';
+import { ImageViewerErrorBoundary } from '../../features/image-viewer/ui/ImageViewerErrorBoundary.tsx';
+import { ImageNavigationProvider } from '../../features/image-viewer/lib/ImageNavigationContext.tsx';
 import '../../panel/pages/styles/resizablePanels.module.css';
 
 const DRAWER_WIDTH = 240;
@@ -277,9 +279,11 @@ export const ImagesPageView = () => {
     };
 
     // Main component return - responsive layout selection
-    if (isMobile) {
-        return renderMobileLayout();
-    } else {
-        return renderDesktopLayout();
-    }
+    return (
+        <ImageViewerErrorBoundary>
+            <ImageNavigationProvider>
+                {isMobile ? renderMobileLayout() : renderDesktopLayout()}
+            </ImageNavigationProvider>
+        </ImageViewerErrorBoundary>
+    );
 };

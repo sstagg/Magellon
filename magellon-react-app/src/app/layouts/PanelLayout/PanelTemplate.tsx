@@ -66,9 +66,6 @@ export const PanelTemplate = () => {
         return cleanPath.includes(route);
     });
 
-    console.log('Current path:', location.pathname);
-    console.log('Is full width route:', isFullWidthRoute);
-
     // Store drawer state in localStorage to persist between page refreshes
     const [open, setOpen] = React.useState(() => {
         // For mobile devices, default to closed drawer unless explicitly opened

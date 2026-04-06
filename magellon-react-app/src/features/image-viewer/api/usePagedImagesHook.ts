@@ -30,15 +30,6 @@ export function useImageListQuery({ sessionName, parentId, pageSize, level, enab
             },
             retry: 3, // Number of retries on failure (optional)
             enabled: shouldEnable, // Auto-enable based on available data
-            // Add the onSuccess callback here
-            onSuccess: (data) => {
-                // This code will run after data has been successfully loaded
-                console.log(`Data loaded successfully for level ${level}:`, data);
-            },
-            // Add onError callback for better error handling
-            onError: (error) => {
-                console.error(`Error loading data for level ${level}:`, error);
-            },
             // Refetch when dependencies change
             refetchOnMount: true,
             refetchOnWindowFocus: false, // Disable refetch on window focus for better UX
