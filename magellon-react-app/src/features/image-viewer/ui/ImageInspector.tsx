@@ -40,7 +40,7 @@ import CtfInfoCards from "./CtfInfoCards.tsx";
 import { useFetchImageCtfInfo } from "../../../features/ctf-analysis/api/CtfRestService.ts";
 import MetadataExplorer from "./MetadataExplorer.tsx";
 import { useImageViewerStore } from '../model/imageViewerStore.ts';
-import {EnhancedParticlePickingTab} from "./EnhancedParticlePickingTab.tsx";
+import {ParticlePickingTab} from "./ParticlePickingTab.tsx";
 import { useAuthenticatedImage } from '../../../shared/lib/useAuthenticatedImage.ts';
 import { ImageInfoHeader } from "./ImageInfoHeader.tsx";
 import { CTFAnalysisPanel } from "./CTFAnalysisPanel.tsx";
@@ -395,7 +395,7 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                         </TabPanel>
 
                         <TabPanel value="3" sx={{ p: 0, height: '100%' }}>
-                            <EnhancedParticlePickingTab
+                            <ParticlePickingTab
                                 selectedImage={selectedImage}
                                 ImageParticlePickings={ImageParticlePickings}
                                 isIPPLoading={isIPPLoading}

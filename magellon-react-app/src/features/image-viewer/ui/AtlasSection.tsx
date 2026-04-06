@@ -39,7 +39,7 @@ import { AuthenticatedAtlasImage } from './AuthenticatedAtlasImage';
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
 
-interface EnhancedAtlasSectionProps {
+interface AtlasSectionProps {
     atlases: AtlasImageDto[];
     currentAtlas: AtlasImageDto | null;
     sessionName: string;
@@ -52,7 +52,7 @@ const THUMB_SIZE = 72;
 const THUMB_COLUMN_WIDTH = 88;
 const SCROLL_STEP = THUMB_SIZE + 8;
 
-export const EnhancedAtlasSection: React.FC<EnhancedAtlasSectionProps> = ({
+export const AtlasSection: React.FC<AtlasSectionProps> = ({
     atlases,
     currentAtlas,
     sessionName,

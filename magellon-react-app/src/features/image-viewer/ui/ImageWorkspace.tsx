@@ -25,7 +25,7 @@ import { ImageColumn as ImageColumnState } from "../model/imageViewerStore.ts";
 import GridGallery from "./GridGallery.tsx";
 import HierarchyBrowser from "./HierarchyBrowser.tsx";
 import ColumnBrowser from "./ColumnBrowser.tsx";
-import { EnhancedAtlasSection } from './EnhancedAtlasSection.tsx';
+import { AtlasSection } from './AtlasSection.tsx';
 
 interface ImageNavigatorProps {
     onImageClick: (imageInfo: ImageInfoDto, column: number) => void,
@@ -175,7 +175,7 @@ export const ImageWorkspace: React.FC<ImageNavigatorProps> = ({
             </Box>
 
             {/* ─── Atlas section ─── */}
-            <EnhancedAtlasSection
+            <AtlasSection
                 atlases={Atlases}
                 currentAtlas={currentAtlas}
                 sessionName={sessionName}
