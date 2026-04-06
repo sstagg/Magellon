@@ -302,6 +302,17 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                 onClose={() => setSettingsDrawerOpen(false)}
                 pickerParams={pickerParams}
                 onPickerParamsChange={setPickerParams}
+                onPreview={() => {
+                    showSnackbar('Preview not yet wired — use Run for now', 'info');
+                    // TODO: call /template-pick/preview and show score map overlay
+                }}
+                onRun={() => {
+                    setSettingsDrawerOpen(false);
+                    runAutoPicking();
+                }}
+                isRunning={isAutoPickingRunning}
+                isPreviewing={false}
+                imageName={selectedImage?.name || null}
             />
 
             {/* Help Dialog */}
