@@ -39,6 +39,7 @@ import { ParticlePickingDto } from "../../../entities/particle-picking/types.ts"
 import CtfInfoCards from "./CtfInfoCards.tsx";
 import { useFetchImageCtfInfo } from "../../../features/ctf-analysis/api/CtfRestService.ts";
 import MetadataExplorer from "./MetadataExplorer.tsx";
+import { useFetchImageMetaData } from "../api/ImageMetaDataRestService.ts";
 import { useImageViewerStore } from '../model/imageViewerStore.ts';
 import {ParticlePickingTab} from "./ParticlePickingTab.tsx";
 import { useAuthenticatedImage } from '../../../shared/lib/useAuthenticatedImage.ts';
@@ -87,6 +88,10 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
 
     // Get the current session name
     const sessionName = currentSession?.name || '';
+
+    // Only fetch metadata when Metadata tab is active
+    const isMetadataTab = activeTab === '7';
+    const { data: imageMetadata, error: metadataError, isLoading: isMetadataLoading, refetch: refetchMetadata } = useFetchImageMetaData(selectedImage?.name, isMetadataTab);
 
     // Only fetch FFT when FFT tab is active
     const fftImageUrl = (activeTab === '2' && selectedImage?.name)
@@ -439,7 +444,12 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                         </TabPanel>
 
                         <TabPanel value="7" sx={{ p: 3 }}>
-                            <MetadataExplorer selectedImage={selectedImage} />
+                            <MetadataExplorer
+                                categories={imageMetadata ?? null}
+                                isLoading={isMetadataLoading}
+                                error={metadataError as Error | null}
+                                onRefresh={refetchMetadata}
+                            />
                         </TabPanel>
 
 

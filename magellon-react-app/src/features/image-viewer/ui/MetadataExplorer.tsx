@@ -1,6 +1,6 @@
-// MetadataExplorer.tsx - Replace your existing file with this enhanced version
+// MetadataExplorer.tsx - Reusable metadata explorer component
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
     Box,
     Paper,
@@ -9,35 +9,22 @@ import {
     InputAdornment,
     IconButton,
     Chip,
-    Accordion,
-    AccordionSummary,
-    AccordionDetails,
     List,
-    ListItem,
     ListItemIcon,
     ListItemText,
     ListItemButton,
     Breadcrumbs,
     Link,
     Tooltip,
-    Badge,
     Card,
     CardContent,
-    Tabs,
-    Tab,
     Divider,
     Stack,
     Button,
     ButtonGroup,
     Alert,
     Skeleton,
-    Fade,
     Zoom,
-    LinearProgress,
-    Switch,
-    FormControlLabel,
-    Menu,
-    MenuItem,
     useTheme,
     useMediaQuery,
     alpha,
@@ -46,186 +33,41 @@ import {
 import {
     Search,
     Clear,
-    ExpandMore,
     ChevronRight,
     Category,
     Description,
     Code,
     ContentCopy,
     Download,
-    Visibility,
-    VisibilityOff,
-    GridView,
-    ViewList,
-    FilterList,
-    Sort,
     KeyboardArrowDown,
-    KeyboardArrowUp,
     Folder,
     FolderOpen,
-    DataObject,
-    Schema,
     Terminal,
-    Lightbulb,
-    Info,
-    Warning,
-    CheckCircle,
     Error as ErrorIcon
 } from '@mui/icons-material';
 import {
     Database,
     FileJson,
-    Hash,
-    Calendar,
-    User,
-    Tag,
-    Layers,
-    FileText,
-    ChevronDown,
     TreePine,
-    Table2,
-    Braces
 } from 'lucide-react';
-import { useFetchImageMetaData } from "../api/ImageMetaDataRestService.ts";
 import { CategoryDto, MetadataDto } from "../../../entities/image/types.ts";
-import { SoloImageViewerProps } from "./ImageInspector.tsx";
+import JsonTreeViewer from "./JsonTreeViewer.tsx";
 
-// Helper function to get value type and format
-const getValueTypeInfo = (value: any): { type: string; icon: React.ReactNode; color: string } => {
-    if (value === null) return { type: 'null', icon: <Hash size={14} />, color: '#757575' };
-    if (value === undefined) return { type: 'undefined', icon: <Hash size={14} />, color: '#757575' };
-    if (typeof value === 'boolean') return { type: 'boolean', icon: <CheckCircle fontSize="small" />, color: '#4caf50' };
-    if (typeof value === 'number') return { type: 'number', icon: <Hash size={14} />, color: '#2196f3' };
-    if (typeof value === 'string') return { type: 'string', icon: <FileText size={14} />, color: '#ff9800' };
-    if (Array.isArray(value)) return { type: 'array', icon: <Layers size={14} />, color: '#9c27b0' };
-    if (typeof value === 'object') return { type: 'object', icon: <Braces size={14} />, color: '#00bcd4' };
-    return { type: 'unknown', icon: <Hash size={14} />, color: '#757575' };
-};
-
-// JSON Tree Viewer Component
-const JsonTreeViewer: React.FC<{ data: any; level?: number }> = ({ data, level = 0 }) => {
-    const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-    const theme = useTheme();
-
-    const toggleExpand = (key: string) => {
-        setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
-    };
-
-    const renderValue = (key: string, value: any, path: string): React.ReactNode => {
-        const typeInfo = getValueTypeInfo(value);
-        const isExpandable = typeof value === 'object' && value !== null;
-        const isExpanded = expanded[path];
-
-        return (
-            <Box key={path} sx={{ ml: level * 3 }}>
-                <Box
-                    sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        py: 0.5,
-                        px: 1,
-                        borderRadius: 1,
-                        cursor: isExpandable ? 'pointer' : 'default',
-                        '&:hover': {
-                            backgroundColor: alpha(theme.palette.primary.main, 0.08)
-                        }
-                    }}
-                    onClick={() => isExpandable && toggleExpand(path)}
-                >
-                    {isExpandable && (
-                        <IconButton size="small" sx={{ p: 0, mr: 0.5 }}>
-                            {isExpanded ? <KeyboardArrowDown fontSize="small" /> : <ChevronRight fontSize="small" />}
-                        </IconButton>
-                    )}
-
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
-                        <Typography
-                            variant="body2"
-                            sx={{
-                                fontFamily: 'monospace',
-                                fontWeight: 600,
-                                color: theme.palette.primary.main
-                            }}
-                        >
-                            {key}:
-                        </Typography>
-
-                        <Chip
-                            label={typeInfo.type}
-                            size="small"
-                            icon={typeInfo.icon as any}
-                            sx={{
-                                height: 20,
-                                fontSize: '0.65rem',
-                                backgroundColor: alpha(typeInfo.color, 0.1),
-                                color: typeInfo.color,
-                                '& .MuiChip-icon': {
-                                    color: typeInfo.color,
-                                    marginLeft: '4px'
-                                }
-                            }}
-                        />
-
-                        {!isExpandable && (
-                            <Typography
-                                variant="body2"
-                                sx={{
-                                    fontFamily: 'monospace',
-                                    color: typeInfo.color,
-                                    maxWidth: '60%',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap'
-                                }}
-                            >
-                                {JSON.stringify(value)}
-                            </Typography>
-                        )}
-                    </Box>
-
-                    <Tooltip title="Copy value">
-                        <IconButton
-                            size="small"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                navigator.clipboard.writeText(JSON.stringify(value, null, 2));
-                            }}
-                            sx={{ ml: 'auto' }}
-                        >
-                            <ContentCopy fontSize="small" />
-                        </IconButton>
-                    </Tooltip>
-                </Box>
-
-                {isExpandable && isExpanded && (
-                    <Box sx={{ ml: 2, mt: 0.5 }}>
-                        {Object.entries(value).map(([k, v]) => renderValue(k, v, `${path}.${k}`))}
-                    </Box>
-                )}
-            </Box>
-        );
-    };
-
-    return (
-        <Box>
-            {Object.entries(data).map(([key, value]) => renderValue(key, value, key))}
-        </Box>
-    );
-};
+export interface MetadataExplorerProps {
+    /** Metadata categories to display */
+    categories: CategoryDto[] | null;
+    /** Loading state */
+    isLoading?: boolean;
+    /** Error state */
+    error?: Error | null;
+    /** Callback to retry/refresh */
+    onRefresh?: () => void;
+}
 
 // Main component
-const MetadataExplorer: React.FC<SoloImageViewerProps> = ({ selectedImage }) => {
+const MetadataExplorer: React.FC<MetadataExplorerProps> = ({ categories, isLoading = false, error = null, onRefresh }) => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-
-    // Fetch metadata
-    const { data: imageMetadata, error, isLoading, refetch } = useFetchImageMetaData(selectedImage?.name, false);
-
-    useEffect(() => {
-        if (selectedImage?.name) {
-            refetch();
-        }
-    }, [selectedImage?.name, refetch]);
 
     // State management
     const [selectedCategory, setSelectedCategory] = useState<CategoryDto | null>(null);
@@ -240,29 +82,29 @@ const MetadataExplorer: React.FC<SoloImageViewerProps> = ({ selectedImage }) => 
 
     // Calculate statistics
     const stats = useMemo(() => {
-        if (!imageMetadata) return { totalCategories: 0, totalMetadata: 0 };
+        if (!categories) return { totalCategories: 0, totalMetadata: 0 };
 
         let totalCategories = 0;
         let totalMetadata = 0;
 
-        const countRecursive = (categories: CategoryDto[]) => {
-            categories.forEach(cat => {
+        const countRecursive = (cats: CategoryDto[]) => {
+            cats.forEach(cat => {
                 totalCategories++;
                 totalMetadata += cat.metadata?.length || 0;
                 if (cat.children) countRecursive(cat.children);
             });
         };
 
-        countRecursive(imageMetadata);
+        countRecursive(categories);
         return { totalCategories, totalMetadata };
-    }, [imageMetadata]);
+    }, [categories]);
 
     // Filter categories based on search
     const filteredCategories = useMemo(() => {
-        if (!imageMetadata || !searchQuery) return imageMetadata || [];
+        if (!categories || !searchQuery) return categories || [];
 
-        const filterRecursive = (categories: CategoryDto[]): CategoryDto[] => {
-            return categories.filter(cat => {
+        const filterRecursive = (cats: CategoryDto[]): CategoryDto[] => {
+            return cats.filter(cat => {
                 const matchesSearch = cat.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                     cat.metadata?.some(m => m.name.toLowerCase().includes(searchQuery.toLowerCase()));
                 const hasMatchingChildren = cat.children ? filterRecursive(cat.children).length > 0 : false;
@@ -270,8 +112,8 @@ const MetadataExplorer: React.FC<SoloImageViewerProps> = ({ selectedImage }) => 
             });
         };
 
-        return filterRecursive(imageMetadata);
-    }, [imageMetadata, searchQuery]);
+        return filterRecursive(categories);
+    }, [categories, searchQuery]);
 
     // Handle category selection
     const handleCategoryClick = (category: CategoryDto, parents: CategoryDto[] = []) => {
@@ -299,8 +141,8 @@ const MetadataExplorer: React.FC<SoloImageViewerProps> = ({ selectedImage }) => 
     };
 
     // Render category tree
-    const renderCategoryTree = (categories: CategoryDto[], level = 0, parents: CategoryDto[] = []): React.ReactNode => {
-        return categories.map(category => {
+    const renderCategoryTree = (cats: CategoryDto[], level = 0, parents: CategoryDto[] = []): React.ReactNode => {
+        return cats.map(category => {
             const isExpanded = expandedCategories.has(category.oid);
             const isSelected = selectedCategory?.oid === category.oid;
             const hasChildren = category.children && category.children.length > 0;
@@ -385,9 +227,11 @@ const MetadataExplorer: React.FC<SoloImageViewerProps> = ({ selectedImage }) => 
                 severity="error"
                 icon={<ErrorIcon />}
                 action={
-                    <Button color="inherit" size="small" onClick={() => refetch()}>
-                        Retry
-                    </Button>
+                    onRefresh ? (
+                        <Button color="inherit" size="small" onClick={() => onRefresh()}>
+                            Retry
+                        </Button>
+                    ) : undefined
                 }
             >
                 Error loading metadata: {error.message}
@@ -396,7 +240,7 @@ const MetadataExplorer: React.FC<SoloImageViewerProps> = ({ selectedImage }) => 
     }
 
     // Empty state
-    if (!imageMetadata || imageMetadata.length === 0) {
+    if (!categories || categories.length === 0) {
         return (
             <Box sx={{
                 display: 'flex',
