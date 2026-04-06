@@ -99,6 +99,10 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
         invert_templates: false,
     });
 
+    // Preview state — particles shown on canvas before committing
+    const [previewParticles, setPreviewParticles] = useState<Point[] | null>(null);
+    const [lastResultCount, setLastResultCount] = useState<number | null>(null);
+
     const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning' }>({
         open: false,
         message: '',
@@ -296,23 +300,36 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                 </SpeedDial>
             </Paper>
 
-            {/* Settings Drawer — purely schema-driven from backend */}
+            {/* Settings Drawer — schema-driven state machine */}
             <ParticleSettingsDrawer
                 open={settingsDrawerOpen}
                 onClose={() => setSettingsDrawerOpen(false)}
                 pickerParams={pickerParams}
                 onPickerParamsChange={setPickerParams}
-                onPreview={() => {
-                    showSnackbar('Preview not yet wired — use Run for now', 'info');
-                    // TODO: call /template-pick/preview and show score map overlay
-                }}
                 onRun={() => {
-                    setSettingsDrawerOpen(false);
                     runAutoPicking();
                 }}
                 isRunning={isAutoPickingRunning}
-                isPreviewing={false}
+                onPreviewParticles={(pts) => {
+                    setPreviewParticles(pts);
+                    handleParticlesUpdate(pts);
+                }}
+                onAcceptParticles={() => {
+                    // Preview particles are already on canvas via handleParticlesUpdate
+                    setPreviewParticles(null);
+                    setLastResultCount(null);
+                    showSnackbar('Particles accepted', 'success');
+                }}
+                onDiscardParticles={() => {
+                    // Remove preview particles from canvas
+                    const manual = particles.filter(p => p.type !== 'auto' || !p.id?.startsWith('preview-') && !p.id?.startsWith('retune-'));
+                    handleParticlesUpdate(manual);
+                    setPreviewParticles(null);
+                    setLastResultCount(null);
+                }}
                 imageName={selectedImage?.name || null}
+                autoPickingProgress={autoPickingProgress}
+                resultCount={lastResultCount}
             />
 
             {/* Help Dialog */}
