@@ -76,7 +76,7 @@ export const ImageWorkspace: React.FC<ImageNavigatorProps> = ({
                         onImageClick={onImageClick}
                         sessionName={sessionName}
                         showSettings={true}
-                        initialSettingsCollapsed={false}
+                        initialSettingsCollapsed={true}
                         height="100%"
                     />
                 );
