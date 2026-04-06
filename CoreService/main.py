@@ -1,32 +1,20 @@
 import os
 import socket
 import json
-# import sys
-# import traceback
-# from rich import traceback as rich_traceback
 
-# import fastapi
 import uvicorn
-from PIL.Image import Image
-from fastapi import FastAPI, UploadFile, File, HTTPException, WebSocket, Depends, Request
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Request
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
 from fastapi.openapi.utils import get_openapi
-# from rich.logging import RichHandler
-from rich.traceback import Traceback
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse, HTMLResponse
 from starlette.staticfiles import StaticFiles
 from starlette import status as starlette_status
 import secrets
 
-
 from configs.production_test import production_intilization
 from config import app_settings
-# from starlette_graphene3 import GraphQLApp, make_graphiql_handler
-# from strawberry.fastapi import GraphQLRouter
-
-# from config import register_with_consul, CONSUL_SERVICE_NAME, CONSUL_SERVICE_ID
 from controllers.camera_controller import camera_router
 from controllers.db_controller import db_router
 from controllers.deployment_docker_controller import deployment_docker_router
@@ -36,7 +24,6 @@ from controllers.image_meta_data_category_controller import image_meta_data_cate
 from controllers.image_meta_data_controller import image_meta_data_router
 from controllers.image_processing_controller import image_processing_router
 from controllers.import_export_controller import export_router
-# from controllers.particle_picking_jobitem_controller import ppji_router
 from controllers.slack_controller import slack_router
 
 from controllers.security.auth_controller import router as auth_router
@@ -63,11 +50,7 @@ import logging
 
 from logger_config import LOGGING_CONFIG
 
-# from models import graphql_strawberry_schema
 from models.graphql_strawberry_schema import strawberry_graphql_router
-# from rich.console import Console
-
-# from rich import get_console
 
 import rich.traceback
 
@@ -88,15 +71,6 @@ logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
 
 production_intilization()
 
-
-# Create a RichHandler for the logger
-# handler = RichHandler()
-# handler.setLevel(logging.DEBUG)
-#
-# # Set the formatter for the RichHandler
-# handler.setFormatter(logging.Formatter("%(message)s"))
-# # Add the RichHandler to the logger
-# logger.addHandler(handler)
 
 # Initialize HTTP Basic Authentication for API docs
 security = HTTPBasic(auto_error=False)
@@ -251,15 +225,10 @@ async def get_open_api_endpoint(authenticated: bool = Depends(verify_docs_creden
     )
 
 
-# Get the IP address and port
-# ip_address = uvicorn.Config(app).host
 # Get the hostname of the computer
 local_hostname = socket.gethostname()
 local_ip_address = socket.gethostbyname(local_hostname)
 local_port_number = uvicorn.Config(app).port
-
-# Register application with Consul
-# register_with_consul(app,local_ip_address, CONSUL_SERVICE_NAME, CONSUL_SERVICE_ID, local_port_number, 'health')
 
 app.dbengine = engine
 app.dbsession = session_local
@@ -284,8 +253,6 @@ async def convert_tiff_to_jpeg_route(file: UploadFile = File(...)):
         convert_tiff_to_jpeg(tiff_path,jpeg_path)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error converting TIFF to JPEG: {str(e)}")
-    # finally:
-    #     os.remove(tiff_path)  # Clean up the TIFF file after conversion
 
     return JSONResponse(content={"message": "TIFF file converted to JPEG", "jpeg_path": jpeg_path})
 

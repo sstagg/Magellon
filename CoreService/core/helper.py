@@ -1,7 +1,6 @@
 import logging
 import math
 import os
-# import pdb
 import re
 import uuid
 import glob
@@ -73,17 +72,6 @@ def custom_replace(input_string, replace_type, replace_pattern, replace_with):
         raise ValueError("Invalid replace_type. Use 'none', 'normal', or 'regex'.")
 
 
-def parse_message_to_task_object(message_str):
-    return TaskDto.model_validate_json(message_str)
-
-
-def extract_task_data_from_object(task_object):
-    return CtfTaskData.model_validate(task_object.data)
-
-
-def parse_json_for_cryoemctftask(message_str):
-    return CtfTaskData.model_validate(TaskDto.model_validate_json(message_str).data)
-
 
 def publish_message_to_queue(message: BaseModel, queue_name: str) -> bool:
     """
@@ -110,9 +98,8 @@ def publish_message_to_queue(message: BaseModel, queue_name: str) -> bool:
     try:
         settings = app_settings.rabbitmq_settings
         rabbitmq_client = RabbitmqClient(settings)
-        rabbitmq_client.connect()  # Connect to RabbitMQ
-        # pdb.set_trace()
-        rabbitmq_client.publish_message(message.model_dump_json(), queue_name)  # Use client method
+        rabbitmq_client.connect()
+        rabbitmq_client.publish_message(message.model_dump_json(), queue_name)
         logger.info(f"Message published to {queue_name}")
         return True
     except Exception as e:
@@ -141,28 +128,12 @@ def get_queue_name_by_task_type(task_type: TaskCategory, is_result: bool = False
             'task': app_settings.rabbitmq_settings.CTF_QUEUE_NAME,
             'result': app_settings.rabbitmq_settings.CTF_OUT_QUEUE_NAME
         },
-        # Add other task types and their corresponding queues here
-        # FFT_TASK: {
-        #     'task': app_settings.rabbitmq_settings.FFT_QUEUE_NAME,
-        #     'result': app_settings.rabbitmq_settings.FFT_OUT_QUEUE_NAME
-        # },
-        # PARTICLE_PICKING: {
-        #     'task': app_settings.rabbitmq_settings.PARTICLE_PICKING_QUEUE_NAME,
-        #     'result': app_settings.rabbitmq_settings.PARTICLE_PICKING_OUT_QUEUE_NAME
-        # },
-        # TWO_D_CLASSIFICATION: {
-        #     'task': app_settings.rabbitmq_settings.TWO_D_CLASSIFICATION_QUEUE_NAME,
-        #     'result': app_settings.rabbitmq_settings.TWO_D_CLASSIFICATION_OUT_QUEUE_NAME
-        # }
     }
 
     if task_type.code not in queue_mapping:
         return None
 
     return queue_mapping[task_type.code]['result' if is_result else 'task']
-
-# def push_task_to_task_queue(task: TaskDto):
-#     return publish_message_to_queue(task, app_settings.rabbitmq_settings.CTF_QUEUE_NAME)
 
 def push_task_to_task_queue(task: TaskDto) -> bool:
     """
@@ -248,7 +219,6 @@ def dispatch_ctf_task(task_id, full_image_path, task_dto: ImportTaskDto):
         elif hasattr(task_dto, 'job_dto') and task_dto.job_dto is not None:
             job_id = getattr(task_dto.job_dto, 'job_id', None)
 
-    # str(uuid.uuid4())
     ctf_task = CtfTaskFactory.create_task(pid=task_dto.task_id, instance_id=uuid.uuid4(), job_id=job_id,
                                           data=ctf_task_data.model_dump(), ptype=CTF_TASK, pstatus=PENDING)
     ctf_task.sesson_name = session_name
@@ -287,11 +257,8 @@ def create_motioncor_task_data(image_path, gain_path, defects_path=None, session
         settings.update(motioncor_settings)
 
 
-    # motioncor_task_data.PixSize= task_dto.pixel_size
     if session_name is None:
         session_name = file_name.split("_")[0]
-    # base_name, ext = os.path.splitext(task_dto.image_name)
-    # output_file_name = f"{base_name}.mco{ext}"
     return CryoEmMotionCorTaskData(
             image_id=task_dto.image_id,
             image_name=os.path.basename(task_dto.image_path),
@@ -348,10 +315,7 @@ def create_motioncor_task(image_path=None,
 
     try:
         # Use provided paths or defaults
-        # if image_path is None:
-        #     image_path = os.path.join(os.getcwd(), "gpfs", "20241203_54449_integrated_movie.mrc.tif")
-
-            # Create task data
+        # Create task data
         base_path = os.path.dirname(task_dto.frame_path)
         matching_file = find_matching_file(base_path, task_dto.frame_name)
         if not matching_file:
