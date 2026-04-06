@@ -507,3 +507,230 @@ plugins/
 - [ ] Include router in `main.py`
 - [ ] Write tests: models, algorithm, lifecycle, endpoint
 - [ ] Verify the settings panel renders correctly from your schema
+- [ ] Mark tunable fields with `"ui_tunable": True` for preview/retune support
+- [ ] Add preview/retune endpoints if applicable
+
+---
+
+## Preview / Retune Flow
+
+Plugins that have an expensive compute phase and cheap re-parameterization can support interactive tuning:
+
+```
+POST /preview        → runs expensive computation, stores intermediates, returns preview_id + particles + score_map
+POST /preview/{id}/retune  → re-applies tunable params to stored intermediates (instant)
+DELETE /preview/{id}       → free memory
+```
+
+Mark fields that can be re-tuned without recomputation with `"ui_tunable": True`:
+
+```python
+threshold: float = Field(
+    default=0.4,
+    json_schema_extra={
+        "ui_widget": "slider",
+        "ui_tunable": True,  # ← can be changed in preview mode without recomputing FFT
+        ...
+    },
+)
+```
+
+The frontend `SchemaForm` component accepts `tunableOnly={true}` to render only these fields during the preview phase.
+
+---
+
+## AI-Assisted Development Prompts
+
+Use these prompts with Claude Code, Codex, or similar AI coding tools to create new plugins or refactor existing algorithms into the Magellon plugin format.
+
+### Prompt 1: Create a New Plugin from Scratch
+
+Copy-paste this into your AI assistant session:
+
+```
+I need to create a new Magellon processing plugin. Here is the specification:
+
+## Context
+- Project: Magellon Core Service (FastAPI backend for cryo-EM image processing)
+- Location: C:\projects\Magellon\CoreService
+- Plugin base class: plugins/base.py (PluginBase[InputT, OutputT] ABC)
+- Existing reference: plugins/pp/template_picker/ (fully working example)
+
+## What I need
+Create a new plugin backend called "[YOUR_ALGORITHM_NAME]" in:
+  plugins/pp/[your_algorithm_name]/
+
+## Architecture rules
+1. **algorithm.py** — Pure computation. No Magellon/FastAPI imports. Takes numpy arrays
+   and plain dicts, returns list of dicts. This file should be testable standalone.
+
+2. **service.py** — PluginBase subclass that:
+   - Implements get_info(), input_schema(), output_schema(), execute()
+   - Loads files (MRC via mrcfile) in execute(), calls algorithm, maps results to Pydantic output
+   - Overrides check_requirements() to verify dependencies
+   - Module-level singleton + run_xxx() convenience function
+
+3. **Input model** (in plugins/pp/models.py or own file) — Pydantic BaseModel with:
+   - ConfigDict(extra="forbid")
+   - Every Field has json_schema_extra with ui_* metadata for auto-generated UI
+   - Required keys per field: ui_widget, ui_group, ui_order
+   - Mark interactive-tuning fields with "ui_tunable": True
+   - Auto-filled fields (like image_path) get "ui_hidden": True
+   - Add ui_help tooltip text explaining each parameter
+
+4. **Output model** — Use shared ParticlePick for particle-picking plugins:
+   ```python
+   class ParticlePick(BaseModel):
+       x: int, y: int, score: float, stddev: float, area: int,
+       roundness: float, template_index: int, angle: float, label: str
+   ```
+
+5. **Controller routes** — Add to plugins/pp/controller.py:
+   - POST /<name> (sync), POST /<name>-async (background job)
+   - POST /<name>/preview + POST /<name>/preview/{id}/retune (if applicable)
+   - GET /<name>/schema/input, GET /<name>/info, GET /<name>/health
+
+6. **Tests** — In tests/test_[name].py covering:
+   - Model validation (required fields, extra="forbid", value ranges)
+   - Algorithm with synthetic numpy data
+   - Plugin lifecycle (DISCOVERED→INSTALLED→CONFIGURED→READY→COMPLETED)
+   - HTTP endpoints via FastAPI TestClient
+
+## UI metadata spec for json_schema_extra
+- ui_widget: "slider"|"number"|"text"|"file_path"|"file_path_list"|"toggle"|"select"|"hidden"
+- ui_group: section heading (e.g. "Templates", "Detection Settings", "Preprocessing", "Advanced")
+- ui_order: sort within group (lower = first)
+- ui_step: slider/number increment
+- ui_marks: [{value, label}] for slider ticks
+- ui_unit: suffix ("Å", "px", "Å/px")
+- ui_help: tooltip text
+- ui_advanced: true → collapsed by default
+- ui_tunable: true → can be changed in preview mode without recomputing
+- ui_hidden: true → not shown in UI
+- ui_file_ext: [".mrc"] for file pickers
+- ui_placeholder: input placeholder
+- ui_depends_on: {"other_field": value} conditional visibility
+
+## My algorithm does:
+[DESCRIBE YOUR ALGORITHM HERE — what it takes as input, what it produces,
+ what parameters it has, what's expensive vs cheap to recompute]
+```
+
+### Prompt 2: Refactor an Existing Script into a Plugin
+
+```
+I have an existing Python script that I need to refactor into a Magellon plugin.
+
+## The existing code
+[PASTE YOUR SCRIPT OR POINT TO THE FILE PATH]
+
+## Target structure
+Refactor into the Magellon plugin format:
+
+  plugins/pp/[name]/
+  ├── __init__.py
+  ├── algorithm.py    # Extract pure computation here (no framework deps)
+  └── service.py      # PluginBase subclass wrapping the algorithm
+
+## Refactoring rules
+1. **Separate concerns**: Move all numpy/scipy computation into algorithm.py.
+   Move file I/O, MRC loading, and Magellon integration into service.py.
+
+2. **Replace interactive prompts**: The original script may use input() or argparse.
+   Convert ALL user inputs into Pydantic Field() definitions with ui_* metadata.
+   Every CLI flag becomes a typed, validated, UI-rendered field.
+
+3. **Replace hardcoded paths**: Config file paths, model weights, output dirs
+   should become Field() parameters (with ui_hidden if auto-filled).
+
+4. **Identify tunable params**: Parameters that can be re-applied without
+   re-running the expensive computation get "ui_tunable": True.
+
+5. **Preserve the algorithm**: Don't change the core math/logic — just wrap it.
+   The algorithm.py should be a drop-in replacement that passes the same tests.
+
+6. **Add Pydantic contracts**: Input model with extra="forbid" and full ui_*
+   metadata. Output model using shared ParticlePick (for pp plugins).
+
+7. **Add tests**: Synthetic data test for the algorithm, lifecycle test for the
+   plugin, endpoint test for the HTTP API.
+
+## Reference implementation
+Read these files for the exact patterns to follow:
+- plugins/base.py (PluginBase ABC)
+- plugins/pp/models.py (TemplatePickerInput with full ui_* metadata)
+- plugins/pp/template_picker/algorithm.py (pure computation)
+- plugins/pp/template_picker/service.py (TemplatePickerPlugin)
+- plugins/pp/controller.py (routes including preview/retune)
+- tests/test_template_picker.py (62 tests across all layers)
+```
+
+### Prompt 3: Add Preview/Retune Support to an Existing Plugin
+
+```
+I have an existing Magellon plugin at plugins/pp/[name]/ and I want to add
+preview/retune support so users can interactively tune parameters without
+re-running the expensive computation.
+
+## Current state
+- algorithm.py has a main function that does everything in one pass
+- service.py has execute() that calls it
+
+## What I need
+1. Split the algorithm into two phases:
+   - Phase 1 (expensive): [DESCRIBE — e.g. "FFT correlation, model inference"]
+   - Phase 2 (cheap): [DESCRIBE — e.g. "thresholding, filtering, peak extraction"]
+
+2. Store Phase 1 results in memory under a preview_id
+
+3. Add these endpoints to the controller:
+   - POST /<name>/preview → runs Phase 1, returns preview_id + initial results
+   - POST /<name>/preview/{id}/retune → runs Phase 2 with new params (instant)
+   - DELETE /<name>/preview/{id} → free memory
+
+4. Mark the Phase 2 parameters with "ui_tunable": True in the input model
+
+5. Add RetuneRequest model with just the tunable fields
+
+6. Return a score/confidence map as base64 PNG for visualization
+
+## Reference
+See how template_picker implements this:
+- plugins/pp/controller.py: template_pick_preview() and template_pick_retune()
+- plugins/pp/models.py: PreviewResult, RetuneRequest, RetuneResult
+- Fields with "ui_tunable": True: threshold, max_peaks, overlap_multiplier, etc.
+```
+
+### Prompt 4: Validate and Improve an Existing Plugin's UI Metadata
+
+```
+Review the input model for my Magellon plugin and improve the UI metadata.
+
+## The model
+[PASTE YOUR INPUT MODEL CLASS]
+
+## Check for
+1. Every Field has json_schema_extra with at minimum: ui_widget, ui_group, ui_order
+2. All user-facing fields have ui_help tooltip text
+3. Sliders have ui_marks with meaningful labels (not just numbers)
+4. File inputs have ui_file_ext
+5. Fields are grouped logically (Templates, Detection, Preprocessing, Advanced)
+6. Advanced/expert fields are marked ui_advanced: True
+7. Auto-filled fields are marked ui_hidden: True
+8. Tunable fields are marked ui_tunable: True
+9. Numeric fields have appropriate validation (gt, ge, le, etc.)
+10. Required fields have ui_required_message with user-friendly text
+11. Conditional fields use ui_depends_on
+
+## Reference spec
+- ui_widget: "slider"|"number"|"text"|"file_path"|"file_path_list"|"toggle"|"select"|"hidden"
+- ui_group: accordion section heading
+- ui_order: sort within group (lower = first)
+- ui_step, ui_marks, ui_unit: slider/number config
+- ui_help: tooltip, ui_placeholder: input hint
+- ui_advanced: collapsed by default
+- ui_tunable: changeable without recompute
+- ui_hidden: not rendered
+- ui_depends_on: conditional visibility
+- ui_required_message: custom validation error
+```
