@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, patch, call
 import pytest
 import socketio
 
-from core.socketio_server import sio
+from core.socketio_server import sio, _run_job_simulation
 from main import app
 
 
@@ -139,22 +139,41 @@ async def test_broadcast_none_data():
 
 
 # ---------------------------------------------------------------------------
-# Test: job simulation progress
+# Test: start_job_simulation spawns background task
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_start_job_simulation_spawns_background_task():
+    """Handler should call sio.start_background_task and return immediately."""
+    handler = sio.handlers["/"]["start_job_simulation"]
+    with patch.object(sio, "start_background_task") as mock_bg:
+        await handler("sid-bg", {"job_name": "bg-job", "total_steps": 5})
+        mock_bg.assert_called_once_with(_run_job_simulation, "sid-bg", "bg-job", 5)
+
+
+@pytest.mark.asyncio
+async def test_start_job_simulation_uses_defaults():
+    """Handler should use defaults when data is None."""
+    handler = sio.handlers["/"]["start_job_simulation"]
+    with patch.object(sio, "start_background_task") as mock_bg:
+        await handler("sid-def", None)
+        mock_bg.assert_called_once_with(_run_job_simulation, "sid-def", "test-job", 10)
+
+
+# ---------------------------------------------------------------------------
+# Test: _run_job_simulation progress emits
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
 async def test_job_simulation_emits_progress():
     """
-    Job simulation with 3 steps should emit 3 job_progress events:
-    steps 1-2 as 'running', step 3 as 'completed'.
+    Job simulation with 3 steps should emit 3 running + 1 completed = 4 events.
     """
-    handler = sio.handlers["/"]["start_job_simulation"]
     with patch.object(sio, "emit", new_callable=AsyncMock) as mock_emit, \
          patch("core.socketio_server.asyncio.sleep", new_callable=AsyncMock):
 
-        await handler("sid-job", {"job_name": "ctf-test", "total_steps": 3})
+        await _run_job_simulation("sid-job", "ctf-test", 3)
 
-        # 3 "running" emits in the loop + 1 final "completed" emit = 4 total
         assert mock_emit.call_count == 4
 
         # Step 1 — running
@@ -188,20 +207,16 @@ async def test_job_simulation_emits_progress():
 
 @pytest.mark.asyncio
 async def test_job_simulation_defaults():
-    """Job simulation with no data should use defaults (job_name='test-job', 10 steps)."""
-    handler = sio.handlers["/"]["start_job_simulation"]
+    """Job simulation with 10 steps emits 11 events (10 running + 1 completed)."""
     with patch.object(sio, "emit", new_callable=AsyncMock) as mock_emit, \
          patch("core.socketio_server.asyncio.sleep", new_callable=AsyncMock):
 
-        await handler("sid-default", None)
+        await _run_job_simulation("sid-default", "test-job", 10)
 
-        # 10 steps in loop + 1 final completed = 11 emit calls
         assert mock_emit.call_count == 11
-        # First call should use default job name
         first_data = mock_emit.call_args_list[0][0][1]
         assert first_data["job_name"] == "test-job"
         assert first_data["total_steps"] == 10
-        # Last call should be completed
         last_data = mock_emit.call_args_list[-1][0][1]
         assert last_data["status"] == "completed"
         assert last_data["percent"] == 100
@@ -209,14 +224,12 @@ async def test_job_simulation_defaults():
 
 @pytest.mark.asyncio
 async def test_job_simulation_single_step():
-    """A 1-step job should emit exactly one event with status 'completed'."""
-    handler = sio.handlers["/"]["start_job_simulation"]
+    """A 1-step job should emit 1 running + 1 completed = 2 events."""
     with patch.object(sio, "emit", new_callable=AsyncMock) as mock_emit, \
          patch("core.socketio_server.asyncio.sleep", new_callable=AsyncMock):
 
-        await handler("sid-one", {"job_name": "quick", "total_steps": 1})
+        await _run_job_simulation("sid-one", "quick", 1)
 
-        # 1 running + 1 completed = 2
         assert mock_emit.call_count == 2
         assert mock_emit.call_args_list[0][0][1]["status"] == "running"
         data = mock_emit.call_args_list[1][0][1]
@@ -237,10 +250,8 @@ async def test_job_simulation_single_step():
 async def test_job_survives_client_disconnect_mid_progress():
     """
     Simulate a client disconnecting after step 2 of 5.
-    emit should raise an exception (as it would for a gone sid),
-    and the handler should catch it gracefully — no unhandled crash.
+    emit raises on the 3rd call; handler catches it — no crash.
     """
-    handler = sio.handlers["/"]["start_job_simulation"]
     call_count = 0
 
     async def emit_then_fail(*args, **kwargs):
@@ -252,45 +263,37 @@ async def test_job_survives_client_disconnect_mid_progress():
     with patch.object(sio, "emit", side_effect=emit_then_fail), \
          patch("core.socketio_server.asyncio.sleep", new_callable=AsyncMock):
 
-        # Should NOT raise — the handler catches the error
-        await handler("sid-dropout", {"job_name": "fragile-job", "total_steps": 5})
+        await _run_job_simulation("sid-dropout", "fragile-job", 5)
 
-    # Only 2 successful emits before the disconnect
     assert call_count == 3  # 2 ok + 1 that raised
 
 
 @pytest.mark.asyncio
 async def test_job_survives_emit_connection_reset():
     """
-    Simulate a low-level ConnectionResetError on emit (e.g., TCP reset).
-    Handler should catch and log, not crash the event loop.
+    TCP ConnectionResetError on first emit — should not crash.
     """
-    handler = sio.handlers["/"]["start_job_simulation"]
-
     async def immediate_reset(*args, **kwargs):
         raise ConnectionResetError("Connection reset by peer")
 
     with patch.object(sio, "emit", side_effect=immediate_reset), \
          patch("core.socketio_server.asyncio.sleep", new_callable=AsyncMock):
 
-        # Should not raise
-        await handler("sid-reset", {"job_name": "reset-job", "total_steps": 5})
+        await _run_job_simulation("sid-reset", "reset-job", 5)
 
 
 @pytest.mark.asyncio
 async def test_job_survives_emit_oserror():
     """
-    Simulate an OSError on emit (e.g., broken pipe, network unreachable).
+    OSError (broken pipe) on emit — should not crash.
     """
-    handler = sio.handlers["/"]["start_job_simulation"]
-
     async def broken_pipe(*args, **kwargs):
         raise OSError("Broken pipe")
 
     with patch.object(sio, "emit", side_effect=broken_pipe), \
          patch("core.socketio_server.asyncio.sleep", new_callable=AsyncMock):
 
-        await handler("sid-broken", {"job_name": "pipe-job", "total_steps": 3})
+        await _run_job_simulation("sid-broken", "pipe-job", 3)
 
 
 # ---------------------------------------------------------------------------
@@ -300,10 +303,9 @@ async def test_job_survives_emit_oserror():
 @pytest.mark.asyncio
 async def test_job_aborts_on_flaky_emit():
     """
-    Simulate an intermittent failure: emit works for step 1, fails on step 2.
-    The handler should abort cleanly after the first failure.
+    Emit works for step 1, fails on step 2.
+    Handler aborts cleanly after the first failure.
     """
-    handler = sio.handlers["/"]["start_job_simulation"]
     emitted = []
 
     async def flaky_emit(*args, **kwargs):
@@ -314,9 +316,8 @@ async def test_job_aborts_on_flaky_emit():
     with patch.object(sio, "emit", side_effect=flaky_emit), \
          patch("core.socketio_server.asyncio.sleep", new_callable=AsyncMock):
 
-        await handler("sid-flaky", {"job_name": "flaky-job", "total_steps": 5})
+        await _run_job_simulation("sid-flaky", "flaky-job", 5)
 
-    # Step 1 succeeded, step 2 raised -> handler aborted
     assert len(emitted) == 2
 
 
@@ -327,10 +328,9 @@ async def test_job_aborts_on_flaky_emit():
 @pytest.mark.asyncio
 async def test_concurrent_jobs_same_client():
     """
-    Two jobs started simultaneously for the same sid should both complete
-    without interfering with each other.
+    Two jobs for the same sid run simultaneously — both complete,
+    no interference.
     """
-    handler = sio.handlers["/"]["start_job_simulation"]
     emitted_events = []
 
     async def track_emit(event, data, **kwargs):
@@ -340,8 +340,8 @@ async def test_concurrent_jobs_same_client():
          patch("core.socketio_server.asyncio.sleep", new_callable=AsyncMock):
 
         await asyncio.gather(
-            handler("sid-multi", {"job_name": "job-A", "total_steps": 3}),
-            handler("sid-multi", {"job_name": "job-B", "total_steps": 3}),
+            _run_job_simulation("sid-multi", "job-A", 3),
+            _run_job_simulation("sid-multi", "job-B", 3),
         )
 
     job_a_events = [e for e in emitted_events if e[1] == "job-A"]
@@ -351,7 +351,6 @@ async def test_concurrent_jobs_same_client():
     assert len(job_a_events) == 4
     assert len(job_b_events) == 4
 
-    # Both reached completed
     assert job_a_events[-1] == ("job_progress", "job-A", 3)
     assert job_b_events[-1] == ("job_progress", "job-B", 3)
 
@@ -364,9 +363,8 @@ async def test_concurrent_jobs_same_client():
 async def test_many_concurrent_clients():
     """
     50 clients each running a 3-step job simultaneously.
-    All should complete without errors.
+    All 50 should complete without errors.
     """
-    handler = sio.handlers["/"]["start_job_simulation"]
     completed_jobs = []
 
     async def track_completion(event, data, **kwargs):
@@ -377,7 +375,7 @@ async def test_many_concurrent_clients():
          patch("core.socketio_server.asyncio.sleep", new_callable=AsyncMock):
 
         tasks = [
-            handler(f"sid-{i}", {"job_name": f"job-{i}", "total_steps": 3})
+            _run_job_simulation(f"sid-{i}", f"job-{i}", 3)
             for i in range(50)
         ]
         await asyncio.gather(*tasks)
@@ -393,8 +391,8 @@ async def test_many_concurrent_clients():
 @pytest.mark.asyncio
 async def test_rapid_connect_disconnect_cycles():
     """
-    Simulate 20 rapid connect/disconnect cycles.
-    Each should emit a welcome message and handle disconnect cleanly.
+    20 rapid connect/disconnect cycles.
+    Each should emit a welcome and handle disconnect cleanly.
     """
     connect_handler = sio.handlers["/"]["connect"]
     disconnect_handler = sio.handlers["/"]["disconnect"]
@@ -420,8 +418,7 @@ async def test_rapid_connect_disconnect_cycles():
 async def test_connect_emit_fails_gracefully():
     """
     If the welcome emit fails during connect (client already gone),
-    verify it raises — this is expected Socket.IO behavior, the server
-    handles it at the transport layer.
+    the exception propagates — Socket.IO handles it at the transport layer.
     """
     connect_handler = sio.handlers["/"]["connect"]
 
@@ -429,8 +426,6 @@ async def test_connect_emit_fails_gracefully():
         raise ConnectionResetError("gone before welcome")
 
     with patch.object(sio, "emit", side_effect=fail_emit):
-        # connect handler doesn't have try/except — the exception propagates
-        # and Socket.IO's internals handle it (marks client as disconnected)
         with pytest.raises(ConnectionResetError):
             await connect_handler("sid-ghost", {})
 
@@ -442,8 +437,7 @@ async def test_connect_emit_fails_gracefully():
 @pytest.mark.asyncio
 async def test_broadcast_with_no_clients():
     """
-    Broadcast when emit succeeds but no clients are connected.
-    Should complete without error (emit to nobody is a no-op in Socket.IO).
+    Broadcast when no clients are connected — should complete without error.
     """
     handler = sio.handlers["/"]["broadcast_message"]
     with patch.object(sio, "emit", new_callable=AsyncMock) as mock_emit:
@@ -454,8 +448,7 @@ async def test_broadcast_with_no_clients():
 @pytest.mark.asyncio
 async def test_broadcast_emit_failure():
     """
-    If broadcast emit raises, the error propagates (broadcast has no
-    try/except — it's a fire-and-forget by design).
+    If broadcast emit raises, the error propagates.
     """
     handler = sio.handlers["/"]["broadcast_message"]
 

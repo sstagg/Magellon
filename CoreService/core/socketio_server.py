@@ -34,18 +34,8 @@ async def ping(sid, data):
     await sio.emit('pong', {'echo': data, 'from': 'server'}, room=sid)
 
 
-@sio.event
-async def start_job_simulation(sid, data):
-    """
-    Simulates a long-running job that pushes progress updates to the client.
-    This demonstrates the real use case: server pushing updates as work progresses.
-
-    Gracefully stops if the client disconnects mid-job (emit raises an exception).
-    """
-    job_name = data.get('job_name', 'test-job') if data else 'test-job'
-    total_steps = data.get('total_steps', 10) if data else 10
-    logger.info(f"Starting job simulation '{job_name}' for {sid} ({total_steps} steps)")
-
+async def _run_job_simulation(sid, job_name, total_steps):
+    """Background coroutine that pushes progress updates to the client."""
     try:
         for step in range(1, total_steps + 1):
             await asyncio.sleep(1)  # simulate work
@@ -69,6 +59,19 @@ async def start_job_simulation(sid, data):
         logger.info(f"Job simulation '{job_name}' completed for {sid}")
     except Exception as exc:
         logger.warning(f"Job simulation '{job_name}' aborted for {sid}: {exc}")
+
+
+@sio.event
+async def start_job_simulation(sid, data):
+    """
+    Simulates a long-running job that pushes progress updates to the client.
+    Spawns as a background task so the handler returns immediately
+    and progress emits flow to the client in real time.
+    """
+    job_name = data.get('job_name', 'test-job') if data else 'test-job'
+    total_steps = data.get('total_steps', 10) if data else 10
+    logger.info(f"Starting job simulation '{job_name}' for {sid} ({total_steps} steps)")
+    sio.start_background_task(_run_job_simulation, sid, job_name, total_steps)
 
 
 @sio.event
