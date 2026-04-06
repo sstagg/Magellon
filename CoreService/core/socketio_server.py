@@ -77,3 +77,40 @@ async def broadcast_message(sid, data):
     message = data.get('message', '') if data else ''
     logger.info(f"Broadcast from {sid}: {message}")
     await sio.emit('server_broadcast', {'from_sid': sid, 'message': message})
+
+
+# ---------------------------------------------------------------------------
+# Log streaming — emits to all connected clients
+# ---------------------------------------------------------------------------
+
+async def emit_log(level: str, source: str, message: str):
+    """Broadcast a log entry to all connected clients."""
+    import datetime
+    entry = {
+        'id': f"log-{datetime.datetime.now().timestamp()}",
+        'timestamp': datetime.datetime.now().strftime('%H:%M:%S'),
+        'level': level,
+        'source': source,
+        'message': message,
+    }
+    try:
+        await sio.emit('log_entry', entry)
+    except Exception:
+        pass  # no clients connected
+
+
+# ---------------------------------------------------------------------------
+# Job progress — particle picking and other real jobs
+# ---------------------------------------------------------------------------
+
+async def emit_job_update(sid: str | None, job_data: dict):
+    """
+    Push a job status update. If sid is given, unicast; otherwise broadcast.
+    """
+    try:
+        if sid:
+            await sio.emit('job_update', job_data, room=sid)
+        else:
+            await sio.emit('job_update', job_data)
+    except Exception:
+        pass

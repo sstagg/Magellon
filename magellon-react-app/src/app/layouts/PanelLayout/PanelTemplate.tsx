@@ -11,6 +11,7 @@ import { useLocation } from 'react-router-dom';
 import { useSidePanelStore } from './useBottomPanelStore.ts';
 import { JobsPanel } from './JobsPanel.tsx';
 import { LogsPanel } from './LogsPanel.tsx';
+import { SocketProvider } from '../../../shared/lib/SocketProvider.tsx';
 
 const DRAWER_WIDTH = 240;
 const FOOTER_HEIGHT = 56;
@@ -112,6 +113,7 @@ export const PanelTemplate = () => {
     };
 
     return (
+        <SocketProvider>
         <Box
             sx={{
                 display: 'flex',
@@ -156,6 +158,7 @@ export const PanelTemplate = () => {
                 <PanelFooter drawerOpen={open} drawerWidth={DRAWER_WIDTH} />
             )}
         </Box>
+        </SocketProvider>
     );
 };
 

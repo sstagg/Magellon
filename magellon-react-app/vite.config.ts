@@ -12,6 +12,7 @@ export default defineConfig({
     'process.env': {}   // THIS FIXES THE ERROR
   },
   optimizeDeps: {
+    include: ['socket.io-client'],
     esbuildOptions: {
       define: {
         global: 'globalThis',

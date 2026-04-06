@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ParticlePickingDto } from '../../../entities/particle-picking/types.ts';
 import ImageInfoDto from '../../../entities/image/types.ts';
+import { settings } from '../../../shared/config/settings.ts';
+import { useSocket } from '../../../shared/lib/useSocket.ts';
+import { useJobStore } from '../../../app/layouts/PanelLayout/useJobStore.ts';
 
 export interface Point {
     x: number;
@@ -31,6 +34,11 @@ interface UseParticleOperationsParams {
     particleClasses: ParticleClass[];
     setParticleClasses: React.Dispatch<React.SetStateAction<ParticleClass[]>>;
     autoPickingThreshold: number;
+    particleRadius: number;
+    templatePaths: string[];
+    imagePixelSize: number;
+    templatePixelSize: number;
+    diameterAngstrom: number;
     showSnackbar: (message: string, severity: 'success' | 'error' | 'info' | 'warning') => void;
 }
 
@@ -41,6 +49,11 @@ export function useParticleOperations({
     particleClasses,
     setParticleClasses,
     autoPickingThreshold,
+    particleRadius,
+    templatePaths,
+    imagePixelSize,
+    templatePixelSize,
+    diameterAngstrom,
     showSnackbar,
 }: UseParticleOperationsParams) {
     const [particles, setParticles] = useState<Point[]>([]);
@@ -186,36 +199,78 @@ export function useParticleOperations({
     };
 
     const runAutoPicking = async () => {
-        setIsAutoPickingRunning(true);
-        setAutoPickingProgress(0);
-
-        for (let i = 0; i <= 100; i += 10) {
-            await new Promise(resolve => setTimeout(resolve, 200));
-            setAutoPickingProgress(i);
-
-            if (i === 50) {
-                const autoParticles: Point[] = [];
-                for (let j = 0; j < 15; j++) {
-                    autoParticles.push({
-                        x: Math.random() * 800 + 100,
-                        y: Math.random() * 800 + 100,
-                        id: `auto-${Date.now()}-${j}`,
-                        type: 'auto',
-                        confidence: Math.random() * 0.3 + 0.7,
-                        class: Math.random() > autoPickingThreshold ? '1' : '4'
-                    });
-                }
-
-                const updatedParticles = [...particles, ...autoParticles];
-                setParticles(updatedParticles);
-                addToHistory(updatedParticles);
-                updateStats(updatedParticles);
-            }
+        if (!selectedImage?.name) {
+            showSnackbar('No image selected for auto-picking', 'warning');
+            return;
         }
 
-        setIsAutoPickingRunning(false);
-        setAutoPickingProgress(0);
-        showSnackbar('Auto-picking completed - 15 particles detected', 'success');
+        if (templatePaths.length === 0) {
+            showSnackbar('No templates configured. Open Settings to add template files.', 'warning');
+            return;
+        }
+
+        setIsAutoPickingRunning(true);
+        setAutoPickingProgress(10);
+
+        const API_URL = settings.ConfigData.SERVER_API_URL;
+
+        try {
+            const payload = {
+                image_path: selectedImage.name,
+                template_paths: templatePaths,
+                image_pixel_size: imagePixelSize,
+                template_pixel_size: templatePixelSize,
+                diameter_angstrom: diameterAngstrom,
+                threshold: autoPickingThreshold,
+                max_peaks: 500,
+                bin_factor: 1,
+            };
+
+            setAutoPickingProgress(30);
+
+            const response = await fetch(`${API_URL}/plugins/pp/template-pick`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+
+            setAutoPickingProgress(70);
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({ detail: response.statusText }));
+                throw new Error(errData.detail || `Server error ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            // Map backend ParticlePick to frontend Point format
+            const autoParticles: Point[] = (result.particles || []).map((p: any, idx: number) => ({
+                x: p.x,
+                y: p.y,
+                id: `auto-${Date.now()}-${idx}`,
+                type: 'auto' as const,
+                confidence: Math.min(p.score, 1.0),
+                class: p.score >= autoPickingThreshold ? '1' : '4',
+                timestamp: Date.now(),
+            }));
+
+            setAutoPickingProgress(90);
+
+            const updatedParticles = [...particles, ...autoParticles];
+            setParticles(updatedParticles);
+            addToHistory(updatedParticles);
+            updateStats(updatedParticles);
+
+            setAutoPickingProgress(100);
+            showSnackbar(`Auto-picking completed — ${autoParticles.length} particles detected`, 'success');
+
+        } catch (err: any) {
+            console.error('Auto-picking failed:', err);
+            showSnackbar(`Auto-picking failed: ${err.message}`, 'error');
+        } finally {
+            setIsAutoPickingRunning(false);
+            setAutoPickingProgress(0);
+        }
     };
 
     const exportParticles = () => {

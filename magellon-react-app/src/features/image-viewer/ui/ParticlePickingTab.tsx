@@ -88,6 +88,12 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
     const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
     const [activeClass, setActiveClass] = useState('1');
 
+    // Auto-picking parameters
+    const [templatePaths, setTemplatePaths] = useState<string[]>([]);
+    const [imagePixelSize, setImagePixelSize] = useState(1.0);
+    const [templatePixelSize, setTemplatePixelSize] = useState(1.0);
+    const [diameterAngstrom, setDiameterAngstrom] = useState(200.0);
+
     const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning' }>({
         open: false,
         message: '',
@@ -135,6 +141,11 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
         particleClasses,
         setParticleClasses,
         autoPickingThreshold,
+        particleRadius,
+        templatePaths,
+        imagePixelSize,
+        templatePixelSize,
+        diameterAngstrom,
         showSnackbar,
     });
 
@@ -311,6 +322,14 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                 }}
                 autoPickingThreshold={autoPickingThreshold}
                 onThresholdChange={setAutoPickingThreshold}
+                templatePaths={templatePaths}
+                onTemplatePathsChange={setTemplatePaths}
+                imagePixelSize={imagePixelSize}
+                onImagePixelSizeChange={setImagePixelSize}
+                templatePixelSize={templatePixelSize}
+                onTemplatePixelSizeChange={setTemplatePixelSize}
+                diameterAngstrom={diameterAngstrom}
+                onDiameterAngstromChange={setDiameterAngstrom}
             />
 
             {/* Help Dialog */}

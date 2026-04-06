@@ -760,3 +760,101 @@ class TestEndpoint:
         schema = response.json()
         assert schema["type"] == "object"
         assert "particles" in schema["properties"]
+
+
+# ---------------------------------------------------------------------------
+# 6. Async endpoint and job tracking tests
+# ---------------------------------------------------------------------------
+
+class TestAsyncEndpoint:
+    """Tests for async job submission and tracking."""
+
+    @pytest.fixture()
+    def client(self):
+        from fastapi.testclient import TestClient
+        from main import app
+        return TestClient(app)
+
+    @pytest.fixture()
+    def mrc_files(self, tmp_path):
+        pytest.importorskip("mrcfile")
+        image = _make_micrograph_with_particles(size=256, positions=[(128, 128)])
+        template = _make_template(size=64, sigma=8.0)
+        img_path = str(tmp_path / "micrograph.mrc")
+        tmpl_path = str(tmp_path / "template.mrc")
+        _write_mrc(img_path, image)
+        _write_mrc(tmpl_path, template)
+        return img_path, tmpl_path
+
+    def test_async_pick_returns_job_id(self, client, mrc_files):
+        img_path, tmpl_path = mrc_files
+        payload = {
+            "image_path": img_path,
+            "template_paths": [tmpl_path],
+            "image_pixel_size": 1.0,
+            "template_pixel_size": 1.0,
+            "diameter_angstrom": 64.0,
+            "threshold": 0.1,
+        }
+
+        response = client.post("/plugins/pp/template-pick-async", json=payload)
+        assert response.status_code == 200
+        data = response.json()
+        assert "job_id" in data
+        assert data["status"] == "queued"
+
+    def test_jobs_list_endpoint(self, client):
+        response = client.get("/plugins/pp/jobs")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+
+    def test_job_detail_not_found(self, client):
+        response = client.get("/plugins/pp/jobs/nonexistent-id")
+        assert response.status_code == 404
+
+    def test_async_pick_creates_job_in_store(self, client, mrc_files):
+        """Async endpoint creates a job entry that can be polled."""
+        img_path, tmpl_path = mrc_files
+        payload = {
+            "image_path": img_path,
+            "template_paths": [tmpl_path],
+            "image_pixel_size": 1.0,
+            "template_pixel_size": 1.0,
+            "diameter_angstrom": 64.0,
+            "threshold": 0.1,
+        }
+
+        resp = client.post("/plugins/pp/template-pick-async", json=payload)
+        job_id = resp.json()["job_id"]
+
+        # The job should exist in the jobs list
+        detail = client.get(f"/plugins/pp/jobs/{job_id}")
+        assert detail.status_code == 200
+        job = detail.json()
+        assert job["id"] == job_id
+        assert job["name"] == "Particle Picking"
+        assert job["type"] == "picking"
+        # Status may be queued or running depending on timing
+        assert job["status"] in ("queued", "running", "completed")
+
+
+# ---------------------------------------------------------------------------
+# 7. Socket.IO helper function tests
+# ---------------------------------------------------------------------------
+
+class TestSocketIOHelpers:
+    """Test the emit_log and emit_job_update helpers."""
+
+    @pytest.mark.asyncio
+    async def test_emit_log_no_clients(self):
+        """emit_log should not raise even with no connected clients."""
+        from core.socketio_server import emit_log
+        # Should not raise — graceful no-op
+        await emit_log('info', 'test', 'hello world')
+
+    @pytest.mark.asyncio
+    async def test_emit_job_update_no_clients(self):
+        """emit_job_update should not raise even with no connected clients."""
+        from core.socketio_server import emit_job_update
+        await emit_job_update(None, {'id': 'test', 'status': 'running'})

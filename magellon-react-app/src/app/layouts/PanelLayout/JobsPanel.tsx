@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
     Box,
     Typography,
@@ -16,24 +16,9 @@ import {
     HourglassEmpty,
     PlayArrow,
 } from '@mui/icons-material';
-import { Clock, Cpu } from 'lucide-react';
-
-interface Job {
-    id: string;
-    name: string;
-    type: string;
-    status: 'running' | 'completed' | 'failed' | 'queued';
-    progress?: number;
-    startedAt?: string;
-    duration?: string;
-}
-
-const MOCK_JOBS: Job[] = [
-    { id: '1', name: 'CTF Estimation', type: 'ctf', status: 'running', progress: 65, startedAt: '2 min ago' },
-    { id: '2', name: 'Motion Correction', type: 'motioncor', status: 'completed', duration: '1m 23s' },
-    { id: '3', name: 'Particle Picking', type: 'picking', status: 'queued' },
-    { id: '4', name: 'CTF Estimation', type: 'ctf', status: 'failed', duration: '0m 12s' },
-];
+import { Cpu } from 'lucide-react';
+import { useJobStore, Job } from './useJobStore.ts';
+import { settings } from '../../../shared/config/settings.ts';
 
 const statusConfig = {
     running: { icon: <PlayArrow sx={{ fontSize: 14 }} />, color: 'info', label: 'Running' },
@@ -44,6 +29,64 @@ const statusConfig = {
 
 export const JobsPanel: React.FC = () => {
     const theme = useTheme();
+    const jobs = useJobStore((s) => s.jobs);
+    const { addJob, updateJob } = useJobStore();
+
+    // Fetch existing jobs from backend on mount
+    useEffect(() => {
+        const fetchJobs = async () => {
+            try {
+                const res = await fetch(`${settings.ConfigData.SERVER_API_URL}/plugins/pp/jobs`);
+                if (res.ok) {
+                    const data = await res.json();
+                    data.forEach((j: any) => {
+                        const existing = useJobStore.getState().jobs.find((x) => x.id === j.id);
+                        if (!existing) {
+                            addJob({
+                                id: j.id,
+                                name: j.name || 'Job',
+                                type: j.type || 'unknown',
+                                status: j.status,
+                                progress: j.progress,
+                                started_at: j.started_at,
+                                num_particles: j.num_particles,
+                            });
+                        }
+                    });
+                }
+            } catch {
+                // Backend may not be running — ignore
+            }
+        };
+        fetchJobs();
+    }, []);
+
+    const handleRefresh = async () => {
+        try {
+            const res = await fetch(`${settings.ConfigData.SERVER_API_URL}/plugins/pp/jobs`);
+            if (res.ok) {
+                const data = await res.json();
+                data.forEach((j: any) => {
+                    const existing = useJobStore.getState().jobs.find((x) => x.id === j.id);
+                    if (existing) {
+                        updateJob({ id: j.id, status: j.status, progress: j.progress, num_particles: j.num_particles });
+                    } else {
+                        addJob({
+                            id: j.id,
+                            name: j.name || 'Job',
+                            type: j.type || 'unknown',
+                            status: j.status,
+                            progress: j.progress,
+                            started_at: j.started_at,
+                            num_particles: j.num_particles,
+                        });
+                    }
+                });
+            }
+        } catch {
+            // ignore
+        }
+    };
 
     return (
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -59,10 +102,10 @@ export const JobsPanel: React.FC = () => {
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Cpu size={14} />
                     <Typography variant="caption" fontWeight={600}>Jobs</Typography>
-                    <Chip label={MOCK_JOBS.length} size="small" sx={{ height: 18, fontSize: '0.65rem' }} />
+                    <Chip label={jobs.length} size="small" sx={{ height: 18, fontSize: '0.65rem' }} />
                 </Box>
                 <Tooltip title="Refresh">
-                    <IconButton size="small" sx={{ p: 0.25 }}>
+                    <IconButton size="small" sx={{ p: 0.25 }} onClick={handleRefresh}>
                         <Refresh sx={{ fontSize: 14 }} />
                     </IconButton>
                 </Tooltip>
@@ -70,8 +113,13 @@ export const JobsPanel: React.FC = () => {
 
             {/* Job list */}
             <Box sx={{ flex: 1, overflow: 'auto' }}>
-                {MOCK_JOBS.map((job) => {
-                    const config = statusConfig[job.status];
+                {jobs.length === 0 && (
+                    <Box sx={{ p: 2, textAlign: 'center' }}>
+                        <Typography variant="caption" color="text.secondary">No jobs yet</Typography>
+                    </Box>
+                )}
+                {jobs.map((job) => {
+                    const config = statusConfig[job.status] || statusConfig.queued;
                     return (
                         <Box
                             key={job.id}
@@ -100,11 +148,16 @@ export const JobsPanel: React.FC = () => {
                                         sx={{ height: 3, borderRadius: 1, mt: 0.5 }}
                                     />
                                 )}
+                                {job.status === 'completed' && job.num_particles !== undefined && (
+                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
+                                        {job.num_particles} particles
+                                    </Typography>
+                                )}
                             </Box>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
-                                {(job.duration || job.startedAt) && (
+                                {job.started_at && (
                                     <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                                        {job.duration || job.startedAt}
+                                        {new Date(job.started_at).toLocaleTimeString('en-US', { hour12: false })}
                                     </Typography>
                                 )}
                                 <Chip
