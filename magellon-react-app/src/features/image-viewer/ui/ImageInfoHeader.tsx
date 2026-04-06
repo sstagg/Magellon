@@ -182,56 +182,60 @@ export const ImageInfoHeader: React.FC<ImageInfoHeaderProps> = ({
                         label="Loading image data..."
                     />
 
-                    <Stack
-                        direction={isMobile ? "column" : "row"}
-                        spacing={2}
-                        divider={!isMobile && <Divider orientation="vertical" flexItem />}
-                    >
-                        <Stack spacing={1} sx={{ flex: 1 }}>
+                    <Box sx={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 1,
+                    }}>
+                        <Box sx={{ flex: '1 1 auto', minWidth: isMobile ? '45%' : 0 }}>
                             <InfoItem
                                 label="Magnification"
                                 value={selectedImage.mag ? `${selectedImage.mag}×` : undefined}
                                 icon={<Zap size={16} />}
                                 color={theme.palette.primary.main}
                             />
+                        </Box>
+                        <Box sx={{ flex: '1 1 auto', minWidth: isMobile ? '45%' : 0 }}>
                             <InfoItem
                                 label="Defocus"
                                 value={selectedImage.defocus ? `${selectedImage.defocus?.toFixed(2)} μm` : undefined}
                                 icon={<Target size={16} />}
                                 color={theme.palette.warning.main}
                             />
-                        </Stack>
-
-                        <Stack spacing={1} sx={{ flex: 1 }}>
+                        </Box>
+                        <Box sx={{ flex: '1 1 auto', minWidth: isMobile ? '45%' : 0 }}>
                             <InfoItem
                                 label="Pixel Size"
                                 value={selectedImage.pixelSize ? `${selectedImage.pixelSize?.toFixed(2)} Å/pix` : undefined}
                                 icon={<Layers size={16} />}
                                 color={theme.palette.info.main}
                             />
+                        </Box>
+                        <Box sx={{ flex: '1 1 auto', minWidth: isMobile ? '45%' : 0 }}>
                             <InfoItem
                                 label="Dose"
                                 value={selectedImage.dose}
                                 icon={<BarChart3 size={16} />}
                                 color={theme.palette.success.main}
                             />
-                        </Stack>
-
-                        <Stack spacing={1} sx={{ flex: 1 }}>
+                        </Box>
+                        <Box sx={{ flex: '1 1 auto', minWidth: isMobile ? '45%' : 0 }}>
                             <InfoItem
                                 label="Session"
                                 value={sessionName}
                                 icon={<Database size={16} />}
                                 color={theme.palette.secondary.main}
                             />
+                        </Box>
+                        <Box sx={{ flex: '1 1 auto', minWidth: isMobile ? '45%' : 0 }}>
                             <InfoItem
                                 label="Children"
                                 value={selectedImage.children_count || 0}
                                 icon={<Layers size={16} />}
                                 color={theme.palette.text.secondary}
                             />
-                        </Stack>
-                    </Stack>
+                        </Box>
+                    </Box>
                 </CardContent>
             </Collapse>
         </Card>
