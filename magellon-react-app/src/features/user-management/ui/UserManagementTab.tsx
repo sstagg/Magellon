@@ -11,10 +11,6 @@ import {
     Button,
     Avatar,
     Chip,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
     InputAdornment,
     IconButton,
     Divider,
@@ -22,13 +18,6 @@ import {
     ListItem,
     ListItemText,
     ListItemIcon,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    TablePagination,
     CircularProgress,
     FormControl,
     InputLabel,
@@ -40,19 +29,14 @@ import {
     Save,
     Cancel,
     Lock,
-    LockOpen,
     Email,
     Person,
-    Visibility,
-    VisibilityOff,
     CheckCircle,
     Security,
     VpnKey,
     Shield,
     Search,
     Add,
-    Delete,
-    AssignmentInd,
     Refresh,
     Block,
     AdminPanelSettings,
@@ -63,6 +47,8 @@ import { userApiService } from '../../auth/api/userApi.ts';
 import { RoleAPI, UserRoleAPI, PermissionAPI } from '../api/rbacApi';
 import RoleAssignmentDialog from './RoleAssignmentDialog';
 import ChangePasswordDialog from './ChangePasswordDialog';
+import CreateUserDialog from './CreateUserDialog.tsx';
+import UserTable from './UserTable.tsx';
 
 interface UserManagementTabProps {
     currentUser: any;
@@ -108,12 +94,6 @@ export default function UserManagementTab({
 
     // Create user dialog
     const [createUserDialogOpen, setCreateUserDialogOpen] = useState(false);
-    const [newUserData, setNewUserData] = useState({
-        username: '',
-        password: '',
-        email: '',
-        active: true,
-    });
 
     // Change password dialog (for admin changing other users' passwords)
     const [changePasswordDialogOpen, setChangePasswordDialogOpen] = useState(false);
@@ -207,13 +187,12 @@ export default function UserManagementTab({
         }
     };
 
-    const handleCreateUser = async () => {
+    const handleCreateUser = async (userData: { username: string; password: string; email: string; active: boolean }) => {
         setLoading(true);
         try {
-            await userApiService.createUser(newUserData);
+            await userApiService.createUser(userData);
             showSnackbar('User created successfully', 'success');
             setCreateUserDialogOpen(false);
-            setNewUserData({ username: '', password: '', email: '', active: true });
             loadUsers();
         } catch (error: any) {
             showSnackbar('Failed to create user: ' + error.message, 'error');
@@ -396,184 +375,30 @@ export default function UserManagementTab({
                         <CircularProgress />
                     </Box>
                 ) : (
-                    <>
-                        <TableContainer>
-                            <Table>
-                                <TableHead>
-                                    <TableRow>
-                                        <TableCell>User</TableCell>
-                                        <TableCell>Email</TableCell>
-                                        <TableCell>Roles</TableCell>
-                                        <TableCell>Status</TableCell>
-                                        <TableCell>Created</TableCell>
-                                        <TableCell align="right">Actions</TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {filteredUsers
-                                        .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                                        .map((user) => (
-                                            <TableRow key={user.id || user.oid} hover>
-                                                <TableCell>
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                                        <Avatar>{user.username?.charAt(0).toUpperCase()}</Avatar>
-                                                        <Typography>{user.username}</Typography>
-                                                    </Box>
-                                                </TableCell>
-                                                <TableCell>{user.email || 'N/A'}</TableCell>
-                                                <TableCell>
-                                                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
-                                                        {user.rolesLoadError ? (
-                                                            <Chip
-                                                                label="Error loading roles"
-                                                                size="small"
-                                                                color="warning"
-                                                                variant="outlined"
-                                                                onClick={() => openRoleDialog(user)}
-                                                                sx={{ cursor: 'pointer' }}
-                                                            />
-                                                        ) : user.roles && user.roles.length > 0 ? (
-                                                            <>
-                                                                {user.roles.map((role: any) => (
-                                                                    <Chip
-                                                                        key={role.role_id}
-                                                                        label={role.role_name}
-                                                                        size="small"
-                                                                        color={role.is_administrative ? 'error' : 'primary'}
-                                                                        variant={role.is_administrative ? 'filled' : 'outlined'}
-                                                                        icon={role.is_administrative ? <Security fontSize="small" /> : undefined}
-                                                                        onClick={() => openRoleDialog(user)}
-                                                                        sx={{ cursor: 'pointer' }}
-                                                                    />
-                                                                ))}
-                                                                <IconButton
-                                                                    size="small"
-                                                                    onClick={() => openRoleDialog(user)}
-                                                                    title="Manage Roles"
-                                                                    sx={{ ml: 0.5 }}
-                                                                >
-                                                                    <Edit fontSize="small" />
-                                                                </IconButton>
-                                                            </>
-                                                        ) : (
-                                                            <Chip
-                                                                label="No roles - Click to assign"
-                                                                size="small"
-                                                                variant="outlined"
-                                                                onClick={() => openRoleDialog(user)}
-                                                                sx={{ cursor: 'pointer' }}
-                                                                icon={<Add fontSize="small" />}
-                                                            />
-                                                        )}
-                                                    </Box>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Chip
-                                                        label={user.active ? 'Active' : 'Inactive'}
-                                                        color={user.active ? 'success' : 'default'}
-                                                        size="small"
-                                                    />
-                                                </TableCell>
-                                                <TableCell>
-                                                    {user.created_date ? new Date(user.created_date).toLocaleDateString() : 'N/A'}
-                                                </TableCell>
-                                                <TableCell align="right">
-                                                    {user.active ? (
-                                                        <IconButton
-                                                            size="small"
-                                                            onClick={() => handleDeactivateUser(user.id || user.oid)}
-                                                            title="Deactivate User"
-                                                            color="warning"
-                                                        >
-                                                            <Block />
-                                                        </IconButton>
-                                                    ) : (
-                                                        <IconButton
-                                                            size="small"
-                                                            onClick={() => handleActivateUser(user.id || user.oid)}
-                                                            title="Activate User"
-                                                            color="success"
-                                                        >
-                                                            <LockOpen />
-                                                        </IconButton>
-                                                    )}
-                                                    <IconButton
-                                                        size="small"
-                                                        onClick={() => openChangePasswordDialog(user)}
-                                                        title="Change Password"
-                                                    >
-                                                        <Lock />
-                                                    </IconButton>
-                                                    <IconButton
-                                                        size="small"
-                                                        onClick={() => openRoleDialog(user)}
-                                                        title="Assign Roles"
-                                                    >
-                                                        <AssignmentInd />
-                                                    </IconButton>
-                                                    <IconButton
-                                                        size="small"
-                                                        onClick={() => handleDeleteUser(user.id || user.oid)}
-                                                        title="Delete User"
-                                                        color="error"
-                                                    >
-                                                        <Delete />
-                                                    </IconButton>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-                        <TablePagination
-                            component="div"
-                            count={filteredUsers.length}
-                            page={page}
-                            onPageChange={(_, newPage) => setPage(newPage)}
-                            rowsPerPage={rowsPerPage}
-                            onRowsPerPageChange={(e) => {
-                                setRowsPerPage(parseInt(e.target.value, 10));
-                                setPage(0);
-                            }}
-                            rowsPerPageOptions={[5, 10, 25]}
-                        />
-                    </>
+                    <UserTable
+                        users={filteredUsers}
+                        page={page}
+                        rowsPerPage={rowsPerPage}
+                        onPageChange={(newPage) => setPage(newPage)}
+                        onRowsPerPageChange={(newRowsPerPage) => {
+                            setRowsPerPage(newRowsPerPage);
+                            setPage(0);
+                        }}
+                        onOpenRoleDialog={openRoleDialog}
+                        onOpenChangePasswordDialog={openChangePasswordDialog}
+                        onActivateUser={handleActivateUser}
+                        onDeactivateUser={handleDeactivateUser}
+                        onDeleteUser={handleDeleteUser}
+                    />
                 )}
 
                 {/* Create User Dialog */}
-                <Dialog open={createUserDialogOpen} onClose={() => setCreateUserDialogOpen(false)} maxWidth="sm" fullWidth>
-                    <DialogTitle>Create New User</DialogTitle>
-                    <DialogContent>
-                        <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                            <TextField
-                                fullWidth
-                                label="Username"
-                                value={newUserData.username}
-                                onChange={(e) => setNewUserData({ ...newUserData, username: e.target.value })}
-                            />
-                            <TextField
-                                fullWidth
-                                label="Password"
-                                type="password"
-                                value={newUserData.password}
-                                onChange={(e) => setNewUserData({ ...newUserData, password: e.target.value })}
-                            />
-                            <TextField
-                                fullWidth
-                                label="Email"
-                                type="email"
-                                value={newUserData.email}
-                                onChange={(e) => setNewUserData({ ...newUserData, email: e.target.value })}
-                            />
-                        </Box>
-                    </DialogContent>
-                    <DialogActions>
-                        <Button onClick={() => setCreateUserDialogOpen(false)}>Cancel</Button>
-                        <Button onClick={handleCreateUser} variant="contained">
-                            Create
-                        </Button>
-                    </DialogActions>
-                </Dialog>
+                <CreateUserDialog
+                    open={createUserDialogOpen}
+                    loading={loading}
+                    onClose={() => setCreateUserDialogOpen(false)}
+                    onCreateUser={handleCreateUser}
+                />
 
                 {/* Role Assignment Dialog */}
                 {selectedUser && (

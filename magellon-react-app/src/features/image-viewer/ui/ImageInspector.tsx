@@ -32,7 +32,6 @@ import {
 import ImageInfoDto from "../../../entities/image/types.ts";
 import { settings } from "../../../shared/config/settings.ts";
 import ImageViewer from "./ImageViewer.tsx";
-import ParticleEditor from "./ParticleEditor.tsx";
 import { ParticleSessionDialog } from "./ParticleSessionDialog.tsx";
 import { useImageParticlePickings, useUpdateParticlePicking } from "../../../features/particle-picking/api/ParticlePickingRestService.ts";
 import { ParticlePickingDto } from "../../../entities/particle-picking/types.ts";
