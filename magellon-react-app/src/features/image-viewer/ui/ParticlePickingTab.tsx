@@ -74,7 +74,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
 
     const sessionName = currentSession?.name || '';
 
-    // UI state
+    // UI-only state (display controls, not sent to backend)
     const [tool, setTool] = useState<Tool>('add');
     const [particleRadius, setParticleRadius] = useState(15);
     const [particleOpacity, setParticleOpacity] = useState(0.8);
@@ -82,17 +82,22 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
     const [showCrosshair, setShowCrosshair] = useState(true);
     const [showStats, setShowStats] = useState(true);
     const [zoom, setZoom] = useState(1);
-    const [autoPickingThreshold, setAutoPickingThreshold] = useState(0.7);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [helpOpen, setHelpOpen] = useState(false);
     const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
     const [activeClass, setActiveClass] = useState('1');
 
-    // Auto-picking parameters
-    const [templatePaths, setTemplatePaths] = useState<string[]>([]);
-    const [imagePixelSize, setImagePixelSize] = useState(1.0);
-    const [templatePixelSize, setTemplatePixelSize] = useState(1.0);
-    const [diameterAngstrom, setDiameterAngstrom] = useState(200.0);
+    // Algorithm parameters — single dict driven by schema
+    const [pickerParams, setPickerParams] = useState<Record<string, any>>({
+        template_paths: [],
+        image_pixel_size: 1.0,
+        template_pixel_size: 1.0,
+        diameter_angstrom: 200.0,
+        threshold: 0.4,
+        max_peaks: 500,
+        bin_factor: 1,
+        invert_templates: false,
+    });
 
     const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning' }>({
         open: false,
@@ -140,12 +145,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
         selectedImage,
         particleClasses,
         setParticleClasses,
-        autoPickingThreshold,
-        particleRadius,
-        templatePaths,
-        imagePixelSize,
-        templatePixelSize,
-        diameterAngstrom,
+        pickerParams,
         showSnackbar,
     });
 
@@ -296,7 +296,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                 </SpeedDial>
             </Paper>
 
-            {/* Settings Drawer */}
+            {/* Settings Drawer — schema-driven */}
             <ParticleSettingsDrawer
                 open={settingsDrawerOpen}
                 onClose={() => setSettingsDrawerOpen(false)}
@@ -320,16 +320,8 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                         )
                     );
                 }}
-                autoPickingThreshold={autoPickingThreshold}
-                onThresholdChange={setAutoPickingThreshold}
-                templatePaths={templatePaths}
-                onTemplatePathsChange={setTemplatePaths}
-                imagePixelSize={imagePixelSize}
-                onImagePixelSizeChange={setImagePixelSize}
-                templatePixelSize={templatePixelSize}
-                onTemplatePixelSizeChange={setTemplatePixelSize}
-                diameterAngstrom={diameterAngstrom}
-                onDiameterAngstromChange={setDiameterAngstrom}
+                pickerParams={pickerParams}
+                onPickerParamsChange={setPickerParams}
             />
 
             {/* Help Dialog */}

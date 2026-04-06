@@ -2,8 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ParticlePickingDto } from '../../../entities/particle-picking/types.ts';
 import ImageInfoDto from '../../../entities/image/types.ts';
 import { settings } from '../../../shared/config/settings.ts';
-import { useSocket } from '../../../shared/lib/useSocket.ts';
-import { useJobStore } from '../../../app/layouts/PanelLayout/useJobStore.ts';
 
 export interface Point {
     x: number;
@@ -33,12 +31,8 @@ interface UseParticleOperationsParams {
     selectedImage: ImageInfoDto | null;
     particleClasses: ParticleClass[];
     setParticleClasses: React.Dispatch<React.SetStateAction<ParticleClass[]>>;
-    autoPickingThreshold: number;
-    particleRadius: number;
-    templatePaths: string[];
-    imagePixelSize: number;
-    templatePixelSize: number;
-    diameterAngstrom: number;
+    /** All algorithm params as a flat dict (driven by schema) */
+    pickerParams: Record<string, any>;
     showSnackbar: (message: string, severity: 'success' | 'error' | 'info' | 'warning') => void;
 }
 
@@ -48,12 +42,7 @@ export function useParticleOperations({
     selectedImage,
     particleClasses,
     setParticleClasses,
-    autoPickingThreshold,
-    particleRadius,
-    templatePaths,
-    imagePixelSize,
-    templatePixelSize,
-    diameterAngstrom,
+    pickerParams,
     showSnackbar,
 }: UseParticleOperationsParams) {
     const [particles, setParticles] = useState<Point[]>([]);
@@ -204,6 +193,7 @@ export function useParticleOperations({
             return;
         }
 
+        const templatePaths = pickerParams.template_paths || [];
         if (templatePaths.length === 0) {
             showSnackbar('No templates configured. Open Settings to add template files.', 'warning');
             return;
@@ -215,16 +205,16 @@ export function useParticleOperations({
         const API_URL = settings.ConfigData.SERVER_API_URL;
 
         try {
+            // Build payload from pickerParams + image_path
             const payload = {
+                ...pickerParams,
                 image_path: selectedImage.name,
-                template_paths: templatePaths,
-                image_pixel_size: imagePixelSize,
-                template_pixel_size: templatePixelSize,
-                diameter_angstrom: diameterAngstrom,
-                threshold: autoPickingThreshold,
-                max_peaks: 500,
-                bin_factor: 1,
             };
+
+            // Remove null/undefined optional fields
+            Object.keys(payload).forEach(k => {
+                if (payload[k] === null || payload[k] === undefined) delete payload[k];
+            });
 
             setAutoPickingProgress(30);
 
@@ -243,6 +233,8 @@ export function useParticleOperations({
 
             const result = await response.json();
 
+            const threshold = pickerParams.threshold ?? 0.4;
+
             // Map backend ParticlePick to frontend Point format
             const autoParticles: Point[] = (result.particles || []).map((p: any, idx: number) => ({
                 x: p.x,
@@ -250,7 +242,7 @@ export function useParticleOperations({
                 id: `auto-${Date.now()}-${idx}`,
                 type: 'auto' as const,
                 confidence: Math.min(p.score, 1.0),
-                class: p.score >= autoPickingThreshold ? '1' : '4',
+                class: p.score >= threshold ? '1' : '4',
                 timestamp: Date.now(),
             }));
 
