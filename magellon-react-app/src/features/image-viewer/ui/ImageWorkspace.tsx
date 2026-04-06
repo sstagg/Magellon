@@ -1,23 +1,31 @@
+import React from 'react';
 import {
     Box,
     Fab,
+    FormControl,
+    Select,
+    MenuItem,
+    ToggleButton,
+    ToggleButtonGroup,
+    Tooltip,
     useTheme,
+    SelectChangeEvent,
 } from "@mui/material";
-import ImageInfoDto, { AtlasImageDto, SessionDto } from "../../../entities/image/types.ts";
 import {
     Visibility,
     VisibilityOff,
+    ViewColumn,
+    AccountTreeRounded,
+    GridOnRounded,
 } from "@mui/icons-material";
-import { useImageViewerStore } from '../model/imageViewerStore.ts';
+import { TableProperties } from "lucide-react";
+import ImageInfoDto, { AtlasImageDto, SessionDto } from "../../../entities/image/types.ts";
+import { useImageViewerStore, ViewMode } from '../model/imageViewerStore.ts';
+import { ImageColumn as ImageColumnState } from "../model/imageViewerStore.ts";
 import GridGallery from "./GridGallery.tsx";
 import HierarchyBrowser from "./HierarchyBrowser.tsx";
 import ColumnBrowser from "./ColumnBrowser.tsx";
-import { ImageColumn as ImageColumnState } from "../model/imageViewerStore.ts";
-import { SelectChangeEvent } from '@mui/material';
-import { SessionSelector } from './SessionSelector.tsx';
-import { ViewModeSelector } from './ViewModeSelector.tsx';
 import { EnhancedAtlasSection } from './EnhancedAtlasSection.tsx';
-import { ColumnSettingsPanel } from './ColumnSettingsPanel.tsx';
 
 interface ImageNavigatorProps {
     onImageClick: (imageInfo: ImageInfoDto, column: number) => void,
@@ -40,7 +48,6 @@ export const ImageWorkspace: React.FC<ImageNavigatorProps> = ({
 }) => {
     const theme = useTheme();
 
-    // Get store state and actions
     const {
         isAtlasVisible,
         viewMode,
@@ -48,60 +55,50 @@ export const ImageWorkspace: React.FC<ImageNavigatorProps> = ({
         currentSession,
         toggleAtlasVisibility,
         setViewMode,
-        setCurrentAtlas
+        setCurrentAtlas,
     } = useImageViewerStore();
 
-    // Get session name from store or props
     const sessionName = currentSession?.name || selectedSession?.name || '';
 
-    // Render the appropriate view based on viewMode
+    const handleViewModeChange = (
+        _event: React.MouseEvent<HTMLElement>,
+        newMode: ViewMode | null,
+    ) => {
+        if (newMode !== null) setViewMode(newMode);
+    };
+
     const renderNavView = () => {
         switch (viewMode) {
             case 'grid':
-                return renderGridView();
+                return (
+                    <ColumnBrowser
+                        imageColumns={ImageColumns}
+                        onImageClick={onImageClick}
+                        sessionName={sessionName}
+                        showSettings={true}
+                        initialSettingsCollapsed={false}
+                        height="100%"
+                    />
+                );
             case 'tree':
-                return renderTreeView();
+                return (
+                    <HierarchyBrowser
+                        images={ImageColumns[0].images}
+                        onImageClick={onImageClick}
+                        title="Image Hierarchy"
+                    />
+                );
             case 'flat':
-                return renderFlatView();
+                return (
+                    <GridGallery
+                        images={ImageColumns[0].images}
+                        onImageClick={onImageClick}
+                        title="All Images"
+                    />
+                );
             default:
                 return null;
         }
-    };
-
-    // Render the tree view
-    const renderTreeView = () => {
-        return (
-            <HierarchyBrowser
-                images={ImageColumns[0].images}
-                onImageClick={onImageClick}
-                title="Image Hierarchy"
-            />
-        );
-    };
-
-    // Render the grid/stacked view
-    const renderGridView = () => {
-        return (
-            <ColumnBrowser
-                imageColumns={ImageColumns}
-                onImageClick={onImageClick}
-                sessionName={sessionName}
-                showSettings={true}
-                initialSettingsCollapsed={false}
-                height="100%"
-            />
-        );
-    };
-
-    // Render the flat view
-    const renderFlatView = () => {
-        return (
-            <GridGallery
-                images={ImageColumns[0].images}
-                onImageClick={onImageClick}
-                title="All Images"
-            />
-        );
     };
 
     return (
@@ -110,63 +107,94 @@ export const ImageWorkspace: React.FC<ImageNavigatorProps> = ({
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
-            position: 'relative'
+            position: 'relative',
         }}>
-            {/* Column settings bar */}
-            <ColumnSettingsPanel />
-
-            {/* Header with session selector */}
+            {/* ─── Header: Session dropdown | View mode icons ─── */}
             <Box sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                px: 1,
+                py: 0.5,
+                borderBottom: `1px solid ${theme.palette.divider}`,
+                backgroundColor: theme.palette.background.paper,
                 flexShrink: 0,
-                p: 1,
-                borderBottom: `1px solid ${theme.palette.divider}`
             }}>
-                <Box sx={{
-                    display: 'flex',
-                    gap: 2,
-                    alignItems: 'center',
-                    mb: 1
-                }}>
-                    {/* Session selector */}
-                    <Box sx={{ flex: 1 }}>
-                        <SessionSelector
-                            selectedSession={selectedSession}
-                            sessions={Sessions}
-                            onSessionChange={OnSessionSelected}
-                        />
-                    </Box>
-                </Box>
+                {/* Session dropdown */}
+                <FormControl size="small" sx={{ minWidth: 180, flex: 1 }}>
+                    <Select
+                        displayEmpty
+                        value={selectedSession?.name || ""}
+                        onChange={OnSessionSelected}
+                        sx={{
+                            height: 32,
+                            fontSize: '0.85rem',
+                            '& .MuiSelect-select': { py: 0.5 },
+                        }}
+                    >
+                        <MenuItem value="">
+                            <em>Select Collection...</em>
+                        </MenuItem>
+                        {Sessions?.map((session) => (
+                            <MenuItem key={session.Oid} value={session.name}>
+                                {session.name}
+                            </MenuItem>
+                        ))}
+                    </Select>
+                </FormControl>
 
-                {/* Enhanced Atlas section */}
-                <EnhancedAtlasSection
-                    atlases={Atlases}
-                    currentAtlas={currentAtlas}
-                    sessionName={sessionName}
-                    isVisible={isAtlasVisible}
-                    onAtlasChange={setCurrentAtlas}
-                    onImageClick={onImageClick}
-                />
-
-                {/* View mode selector */}
-                <Box>
-                    <ViewModeSelector
-                        viewMode={viewMode}
-                        onViewModeChange={setViewMode}
-                    />
-                </Box>
+                {/* View mode toggle (center) */}
+                <ToggleButtonGroup
+                    size="small"
+                    value={viewMode}
+                    exclusive
+                    onChange={handleViewModeChange}
+                    sx={{
+                        height: 30,
+                        '& .MuiToggleButton-root': {
+                            px: 1,
+                            border: 'none',
+                            borderRadius: '6px !important',
+                            mx: 0.25,
+                        },
+                    }}
+                >
+                    <ToggleButton value="grid">
+                        <Tooltip title="Columns"><ViewColumn fontSize="small" /></Tooltip>
+                    </ToggleButton>
+                    <ToggleButton value="flat">
+                        <Tooltip title="Grid"><GridOnRounded fontSize="small" /></Tooltip>
+                    </ToggleButton>
+                    <ToggleButton value="tree">
+                        <Tooltip title="Tree"><AccountTreeRounded fontSize="small" /></Tooltip>
+                    </ToggleButton>
+                    <ToggleButton value="table">
+                        <Tooltip title="Table"><TableProperties size={18} /></Tooltip>
+                    </ToggleButton>
+                </ToggleButtonGroup>
             </Box>
 
-            {/* Main image navigation view */}
+            {/* ─── Atlas section ─── */}
+            <EnhancedAtlasSection
+                atlases={Atlases}
+                currentAtlas={currentAtlas}
+                sessionName={sessionName}
+                isVisible={isAtlasVisible}
+                onAtlasChange={setCurrentAtlas}
+                onImageClick={onImageClick}
+            />
+
+            {/* ─── Main content (includes its own Column View Settings) ─── */}
             <Box sx={{
                 flex: 1,
                 overflow: 'hidden',
                 display: 'flex',
-                flexDirection: 'column'
+                flexDirection: 'column',
             }}>
                 {renderNavView()}
             </Box>
 
-            {/* Floating Action Button for Atlas Toggle */}
+            {/* ─── Atlas toggle FAB ─── */}
             <Fab
                 color="primary"
                 size="small"
@@ -177,11 +205,8 @@ export const ImageWorkspace: React.FC<ImageNavigatorProps> = ({
                     right: 16,
                     zIndex: 1000,
                     boxShadow: 3,
-                    '&:hover': {
-                        boxShadow: 6,
-                        transform: 'scale(1.05)'
-                    },
-                    transition: 'all 0.2s ease-in-out'
+                    '&:hover': { boxShadow: 6, transform: 'scale(1.05)' },
+                    transition: 'all 0.2s ease-in-out',
                 }}
                 aria-label={isAtlasVisible ? "Hide Atlas" : "Show Atlas"}
             >

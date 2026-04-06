@@ -7,39 +7,29 @@ import {
     Paper,
     CircularProgress,
     IconButton,
-    Tooltip,
-    Badge,
     Chip,
-    Stack,
     Menu,
     MenuItem,
     ListItemIcon,
     ListItemText,
     TextField,
-    InputAdornment,
-    Button,
     useTheme,
     alpha,
-    Fade
 } from "@mui/material";
 import {
     Clear,
-    MoreVert,
     Refresh,
     ViewList,
     ViewModule,
     GridView,
-    Search,
-    SortAsc,
-    SortDesc,
-    FilterList
+    MoreVert,
 } from "@mui/icons-material";
 import {
-    Folder,
-    AlertTriangle,
-    List as ListIcon,
+    Search,
     ChevronRight,
-    ChevronDown
+    ChevronDown,
+    ArrowDownAZ,
+    ArrowUpAZ,
 } from "lucide-react";
 import ImageInfoDto, { PagedImageResponse } from "../../../entities/image/types.ts";
 import { ImageColumn } from "./ImageColumn.tsx";
@@ -93,7 +83,6 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
     const [displayMode, setDisplayMode] = useState<DisplayMode>(initialDisplayMode);
     const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
     const [isCollapsed, setIsCollapsed] = useState(initialCollapsed);
-    const [isHeaderHovered, setIsHeaderHovered] = useState(false);
     const [showSearch, setShowSearch] = useState(false);
     const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
 
@@ -195,182 +184,138 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
         return Math.max(100, availableHeight);
     }, [isHorizontalMode, height]);
 
+    const handleSortToggle = () => {
+        if (sortConfig.direction === 'asc') {
+            setSortConfig({ ...sortConfig, direction: 'desc' });
+        } else {
+            setSortConfig({ ...sortConfig, direction: 'asc' });
+        }
+    };
+
     const renderSlickHeader = () => (
-        <Box
-            onMouseEnter={() => setIsHeaderHovered(true)}
-            onMouseLeave={() => setIsHeaderHovered(false)}
-            sx={{
-                position: 'sticky',
-                top: 0,
-                zIndex: 2,
-                backgroundColor: alpha(theme.palette.background.paper, 0.95),
-                backdropFilter: 'blur(8px)',
-                borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                transition: 'all 0.2s ease'
-            }}
-        >
-            <Box sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                px: 1.5,
-                py: 0.75,
-                minHeight: 36,
-                gap: 1
-            }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, minWidth: 0 }}>
+        <Box sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.5,
+            borderBottom: `1px solid ${theme.palette.divider}`,
+            px: 1,
+            py: 0.5,
+            minHeight: 28,
+            flexShrink: 0,
+            backgroundColor: theme.palette.background.paper,
+        }}>
+            {showSearch ? (
+                /* ── Search mode: inline input replaces label ── */
+                <>
+                    <Box sx={{
+                        position: 'relative',
+                        flex: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                    }}>
+                        <Search size={12} style={{
+                            position: 'absolute',
+                            left: 6,
+                            color: theme.palette.text.secondary,
+                        }} />
+                        <TextField
+                            autoFocus
+                            size="small"
+                            placeholder="Filter..."
+                            value={filter.search || ''}
+                            onChange={(e) => handleFilterChange({ search: e.target.value })}
+                            sx={{
+                                flex: 1,
+                                '& .MuiOutlinedInput-root': {
+                                    height: 22,
+                                    fontSize: '0.75rem',
+                                    '& input': { py: 0, pl: 2.5, pr: 0.5 },
+                                    '& fieldset': { borderColor: alpha(theme.palette.divider, 0.3) },
+                                },
+                            }}
+                        />
+                    </Box>
+                    <IconButton
+                        size="small"
+                        onClick={() => { setShowSearch(false); handleFilterChange({ search: '' }); }}
+                        sx={{ p: 0.25 }}
+                    >
+                        <Clear sx={{ fontSize: 12 }} />
+                    </IconButton>
+                </>
+            ) : (
+                /* ── Normal mode: label + count + sort + search icons ── */
+                <>
                     {collapsible && (
                         <IconButton
                             size="small"
                             onClick={() => setIsCollapsed(!isCollapsed)}
-                            sx={{ p: 0.25 }}
+                            sx={{ p: 0.15 }}
                         >
-                            {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                            {isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
                         </IconButton>
                     )}
 
                     <Typography
-                        variant="subtitle2"
+                        variant="caption"
                         sx={{
                             fontWeight: 600,
-                            fontSize: '0.8rem',
+                            fontSize: '0.75rem',
                             color: 'primary.main',
-                            minWidth: 0,
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
-                            flexShrink: 0
+                            whiteSpace: 'nowrap',
+                            minWidth: 0,
                         }}
                     >
                         {caption}
                     </Typography>
 
-                    <Chip
-                        label={filteredImages.length}
-                        size="small"
-                        variant="outlined"
-                        sx={{
-                            height: 20,
-                            fontSize: '0.65rem',
-                            minWidth: 28,
-                            '& .MuiChip-label': { px: 0.5 }
-                        }}
-                    />
-
-                    {isHorizontalMode && !isCollapsed && (
-                        <Fade in={showSearch || !!filter.search}>
-                            <TextField
-                                size="small"
-                                placeholder="Search..."
-                                value={filter.search || ''}
-                                onChange={(e) => handleFilterChange({ search: e.target.value })}
-                                sx={{
-                                    ml: 1,
-                                    flex: 1,
-                                    maxWidth: 200,
-                                    '& .MuiOutlinedInput-root': {
-                                        height: 24,
-                                        fontSize: '0.75rem',
-                                        '& input': {
-                                            py: 0.25,
-                                            px: 1
-                                        }
-                                    }
-                                }}
-                                InputProps={{
-                                    startAdornment: (
-                                        <InputAdornment position="start" sx={{ ml: -0.5, mr: 0 }}>
-                                            <Search size={12} />
-                                        </InputAdornment>
-                                    ),
-                                    endAdornment: filter.search && (
-                                        <InputAdornment position="end" sx={{ mr: -0.5 }}>
-                                            <IconButton
-                                                size="small"
-                                                onClick={() => handleFilterChange({ search: '' })}
-                                                sx={{ p: 0.15 }}
-                                            >
-                                                <Clear sx={{ fontSize: 14 }} />
-                                            </IconButton>
-                                        </InputAdornment>
-                                    )
-                                }}
-                            />
-                        </Fade>
-                    )}
-                </Box>
-
-                <Fade in={isHeaderHovered || !!activeFilterCount}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        {isHorizontalMode && (
-                            <IconButton
-                                size="small"
-                                onClick={() => setShowSearch(!showSearch)}
-                                sx={{ p: 0.25 }}
-                            >
-                                <Search fontSize="small" />
-                            </IconButton>
-                        )}
-
-                        {activeFilterCount > 0 && (
-                            <Badge badgeContent={activeFilterCount} color="primary">
-                                <IconButton size="small" sx={{ p: 0.25 }}>
-                                    <FilterList fontSize="small" />
-                                </IconButton>
-                            </Badge>
-                        )}
-
-                        <IconButton
+                    {filteredImages.length > 0 && (
+                        <Chip
+                            label={filteredImages.length}
                             size="small"
-                            onClick={handleRefresh}
-                            disabled={isFetching}
-                            sx={{ p: 0.25 }}
-                        >
-                            <Refresh fontSize="small" />
-                        </IconButton>
-
-                        <IconButton size="small" onClick={handleMenuOpen} sx={{ p: 0.25 }}>
-                            <MoreVert fontSize="small" />
-                        </IconButton>
-                    </Box>
-                </Fade>
-            </Box>
-
-            {!isHorizontalMode && (
-                <Fade in={!isCollapsed && (isHeaderHovered || !!filter.search)}>
-                    <Box sx={{ px: 1.5, pb: 0.75 }}>
-                        <TextField
-                            fullWidth
-                            size="small"
-                            placeholder="Search..."
-                            value={filter.search || ''}
-                            onChange={(e) => handleFilterChange({ search: e.target.value })}
+                            variant="outlined"
                             sx={{
-                                '& .MuiOutlinedInput-root': {
-                                    height: 28,
-                                    fontSize: '0.75rem'
-                                }
-                            }}
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <Search size={14} />
-                                    </InputAdornment>
-                                ),
-                                endAdornment: filter.search && (
-                                    <InputAdornment position="end">
-                                        <IconButton
-                                            size="small"
-                                            onClick={() => handleFilterChange({ search: '' })}
-                                            sx={{ p: 0.25 }}
-                                        >
-                                            <Clear fontSize="small" />
-                                        </IconButton>
-                                    </InputAdornment>
-                                )
+                                height: 16,
+                                fontSize: '0.6rem',
+                                minWidth: 20,
+                                '& .MuiChip-label': { px: 0.5 },
+                                flexShrink: 0,
                             }}
                         />
-                    </Box>
-                </Fade>
+                    )}
+
+                    <Box sx={{ flex: 1 }} />
+
+                    <IconButton
+                        size="small"
+                        onClick={handleSortToggle}
+                        sx={{
+                            p: 0.25,
+                            color: theme.palette.text.secondary,
+                            '&:hover': { color: theme.palette.text.primary },
+                        }}
+                        title={sortConfig.direction === 'asc' ? 'Sort Z-A' : 'Sort A-Z'}
+                    >
+                        {sortConfig.direction === 'desc'
+                            ? <ArrowUpAZ size={14} />
+                            : <ArrowDownAZ size={14} />
+                        }
+                    </IconButton>
+
+                    <IconButton
+                        size="small"
+                        onClick={() => setShowSearch(true)}
+                        sx={{
+                            p: 0.25,
+                            color: theme.palette.text.secondary,
+                            '&:hover': { color: theme.palette.text.primary },
+                        }}
+                    >
+                        <Search size={14} />
+                    </IconButton>
+                </>
             )}
         </Box>
     );
