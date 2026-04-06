@@ -89,7 +89,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
     const [activeClass, setActiveClass] = useState('1');
 
     // Settings panel — opens in the app-level SidePanelArea (same as Jobs/Logs)
-    const { activePanel, openPanel, closePanel } = useSidePanelStore();
+    const { activePanel, togglePanel } = useSidePanelStore();
     const settingsOpen = activePanel === 'settings';
     const { setContent, clearContent } = useSettingsPanelSlot();
 
@@ -235,7 +235,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                 onToggleGrid={() => setShowGrid(!showGrid)}
                 onAutoPickRun={runAutoPicking}
                 isAutoPickingRunning={isAutoPickingRunning}
-                onSettingsOpen={() => openPanel('settings')}
+                onSettingsOpen={() => togglePanel('settings')}
                 onHelpOpen={() => setHelpOpen(true)}
                 isMobile={isMobile}
                 isFullscreen={isFullscreen}
