@@ -19,7 +19,6 @@ from models.sqlalchemy_models import Image, Project, Msession, ImageJob, ImageJo
 from services.atlas import create_atlas_images
 from services.file_service import copy_file, create_directory, check_file_exists
 from core.helper import custom_replace
-from services.helper import get_parent_name
 from services.mrc_image_service import MrcImageService
 from sqlalchemy.orm import Session
 
@@ -323,7 +322,7 @@ class LeginonFrameTransferJobService:
                 atlas_delta_row=image["delta_row"],
                 atlas_delta_column=image["delta_column"],
                 binning_y=image["bining_y"],
-                level=get_image_levels(filename, presets_pattern),
+                level=0,  # computed after creation via compute_level()
                 previous_id=image["image_id"],
                 acceleration_voltage=self._safe_value(image["acceleration_voltage"], 'acceleration_voltage', 300),
                 spherical_aberration=self._safe_value(
@@ -332,6 +331,7 @@ class LeginonFrameTransferJobService:
                 ),
                 session_id=magellon_session.oid,
             )
+            db_image.level = db_image.compute_level(presets_pattern)
             logger.info(f"Created Image for {filename}: spherical_aberration={db_image.spherical_aberration}")
             db_image_list.append(db_image)
             image_dict[filename] = db_image.oid
@@ -390,7 +390,7 @@ class LeginonFrameTransferJobService:
 
     def _link_parent_images(self, db_image_list, image_dict):
         for db_image in db_image_list:
-            parent_name = get_parent_name(db_image.name)
+            parent_name = db_image.derive_parent_name()
             if parent_name in image_dict:
                 db_image.parent_id = image_dict[parent_name]
 

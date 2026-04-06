@@ -2,12 +2,13 @@ import uuid
 
 from sqlalchemy.orm import Session
 
+from domain.imaging.repositories import SessionRepositoryInterface
 from models.pydantic_models import SessionDto
 from models.sqlalchemy_models import Msession
 from repositories.base_repository import BaseRepository
 
 
-class _SessionRepository(BaseRepository[Msession]):
+class _SessionRepository(BaseRepository[Msession], SessionRepositoryInterface):
 
     def __init__(self):
         super().__init__(Msession)

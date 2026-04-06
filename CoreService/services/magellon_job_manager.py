@@ -1,189 +1,28 @@
+"""
+Slim orchestrator for job and task management.
+
+Coordinates between JobPersistence, JobEventPublisher, and in-memory state
+to manage the lifecycle of jobs and their tasks.
+"""
+
 import asyncio
-import json
 import logging
 import os
 import uuid
-from typing import Dict, Any, Optional, List, Union, Callable
+from typing import Dict, Any, Optional, List
 from datetime import datetime
-import nats
 
 from event_types import EventType
 from magellon_event_service import MagellonEventService
+from services.job_models import JobStatus, TaskStatus, Job, Task
+from services.job_persistence import JobPersistence
+from services.job_event_publisher import JobEventPublisher
+
+# Re-export for backward compatibility
+__all__ = ["JobManager", "Job", "Task", "JobStatus", "TaskStatus"]
 
 logger = logging.getLogger(__name__)
 
-# Define job and task status constants
-class JobStatus:
-    """Job status constants"""
-    PENDING = "pending"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
-
-class TaskStatus:
-    """Task status constants"""
-    PENDING = "pending"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
-
-class Job:
-    """Job model with task collection"""
-
-    def __init__(
-            self,
-            job_id: str,
-            job_type: str,
-            name: str,
-            description: Optional[str] = None,
-            metadata: Dict[str, Any] = None,
-            status: str = JobStatus.PENDING,
-            progress: int = 0,
-            created_at: str = None,
-            updated_at: str = None,
-            completed_at: str = None,
-            tasks_total: int = 0,
-            tasks_completed: int = 0,
-            tasks_failed: int = 0,
-            current_task: Optional[str] = None,
-            cancel_requested: bool = False,
-            error: Optional[str] = None
-    ):
-        self.job_id = job_id
-        self.job_type = job_type
-        self.name = name
-        self.description = description or f"{job_type} job"
-        self.metadata = metadata or {}
-        self.status = status
-        self.progress = progress
-        self.created_at = created_at or datetime.utcnow().isoformat()
-        self.updated_at = updated_at or datetime.utcnow().isoformat()
-        self.completed_at = completed_at
-        self.tasks_total = tasks_total
-        self.tasks_completed = tasks_completed
-        self.tasks_failed = tasks_failed
-        self.current_task = current_task
-        self.cancel_requested = cancel_requested
-        self.error = error
-        self.tasks = []  # List of Task objects
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary representation"""
-        return {
-            "job_id": self.job_id,
-            "job_type": self.job_type,
-            "name": self.name,
-            "description": self.description,
-            "metadata": self.metadata,
-            "status": self.status,
-            "progress": self.progress,
-            "created_at": self.created_at,
-            "updated_at": self.updated_at,
-            "completed_at": self.completed_at,
-            "tasks_total": self.tasks_total,
-            "tasks_completed": self.tasks_completed,
-            "tasks_failed": self.tasks_failed,
-            "current_task": self.current_task,
-            "cancel_requested": self.cancel_requested,
-            "error": self.error,
-            "task_ids": [task.task_id for task in self.tasks]
-        }
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'Job':
-        """Create from dictionary representation"""
-        job_data = data.copy()
-        task_ids = job_data.pop("task_ids", [])
-        return cls(**job_data)
-
-    def update_progress(self) -> int:
-        """Update progress based on task completion"""
-        if self.tasks_total == 0:
-            return 0
-
-        completed_and_failed = self.tasks_completed + self.tasks_failed
-        progress = min(int((completed_and_failed / self.tasks_total) * 100), 100)
-        self.progress = progress
-        return progress
-
-    def update_status_from_tasks(self) -> None:
-        """Update job status based on task statuses"""
-        if self.tasks_total == 0:
-            return
-
-        completed_and_failed = self.tasks_completed + self.tasks_failed
-
-        if self.cancel_requested:
-            self.status = JobStatus.CANCELLED
-            if not self.completed_at:
-                self.completed_at = datetime.utcnow().isoformat()
-
-        elif completed_and_failed >= self.tasks_total:
-            if self.tasks_failed > 0:
-                self.status = JobStatus.FAILED
-                self.error = f"{self.tasks_failed} tasks failed"
-            else:
-                self.status = JobStatus.COMPLETED
-
-            if not self.completed_at:
-                self.completed_at = datetime.utcnow().isoformat()
-        elif self.tasks_completed > 0 or self.tasks_failed > 0:
-            self.status = JobStatus.RUNNING
-
-class Task:
-    """Task model for an individual unit of work"""
-
-    def __init__(
-            self,
-            task_id: str,
-            job_id: str,
-            task_type: str,
-            parameters: Dict[str, Any] = None,
-            status: str = TaskStatus.PENDING,
-            progress: int = 0,
-            created_at: str = None,
-            updated_at: str = None,
-            completed_at: str = None,
-            result: Dict[str, Any] = None,
-            error: Optional[str] = None,
-            cancel_requested: bool = False
-    ):
-        self.task_id = task_id
-        self.job_id = job_id
-        self.task_type = task_type
-        self.parameters = parameters or {}
-        self.status = status
-        self.progress = progress
-        self.created_at = created_at or datetime.utcnow().isoformat()
-        self.updated_at = updated_at or datetime.utcnow().isoformat()
-        self.completed_at = completed_at
-        self.result = result or {}
-        self.error = error
-        self.cancel_requested = cancel_requested
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary representation"""
-        return {
-            "task_id": self.task_id,
-            "job_id": self.job_id,
-            "task_type": self.task_type,
-            "parameters": self.parameters,
-            "status": self.status,
-            "progress": self.progress,
-            "created_at": self.created_at,
-            "updated_at": self.updated_at,
-            "completed_at": self.completed_at,
-            "result": self.result,
-            "error": self.error,
-            "cancel_requested": self.cancel_requested
-        }
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'Task':
-        """Create from dictionary representation"""
-        return cls(**data)
 
 class JobManager:
     """
@@ -194,7 +33,7 @@ class JobManager:
     - Track job and task status
     - Publish events for state changes
     - Support job cancellation
-    - Persistence via JetStream (optional)
+    - Persistence via JSON files
     """
 
     _instance = None
@@ -211,9 +50,13 @@ class JobManager:
         if getattr(self, "_initialized", False):
             return
 
-        # Initialize event service
+        # Initialize event service and publisher
         self.event_service = MagellonEventService(nats_url)
+        self._publisher = JobEventPublisher(self.event_service)
         self.use_persistence = use_persistence
+
+        # Initialize persistence
+        self._persistence = JobPersistence()
 
         # In-memory storage
         self._jobs = {}  # job_id -> Job
@@ -223,14 +66,6 @@ class JobManager:
         # State
         self._initialized = True
         self._is_connected = False
-
-        # File paths for JSON persistence (fallback if JetStream not available)
-        self._data_dir = os.path.join(os.path.dirname(__file__), "job_data")
-        self._jobs_file = os.path.join(self._data_dir, "jobs.json")
-        self._tasks_file = os.path.join(self._data_dir, "tasks.json")
-
-        # Ensure data directory exists
-        os.makedirs(self._data_dir, exist_ok=True)
 
         logger.info("JobManager initialized")
 
@@ -266,22 +101,8 @@ class JobManager:
 
     async def _load_from_persistence(self) -> None:
         """Load jobs and tasks from persistence"""
-        try:
-            # First try to load from files (as backup)
-            if os.path.exists(self._jobs_file) and os.path.exists(self._tasks_file):
-                with open(self._jobs_file, 'r') as f:
-                    jobs_data = json.load(f)
-
-                with open(self._tasks_file, 'r') as f:
-                    tasks_data = json.load(f)
-
-                # Process jobs and tasks
-                self._process_loaded_data(jobs_data, tasks_data)
-
-            logger.info(f"Loaded {len(self._jobs)} jobs and {len(self._tasks)} tasks from persistence")
-
-        except Exception as e:
-            logger.error(f"Error loading from persistence: {str(e)}")
+        jobs_data, tasks_data = await self._persistence.load()
+        self._process_loaded_data(jobs_data, tasks_data)
 
     def _process_loaded_data(self, jobs_data: Dict[str, Dict], tasks_data: Dict[str, Dict]) -> None:
         """Process loaded job and task data"""
@@ -310,22 +131,7 @@ class JobManager:
 
     async def _save_to_persistence(self) -> None:
         """Save jobs and tasks to persistence"""
-        try:
-            # Prepare data
-            jobs_data = {job_id: job.to_dict() for job_id, job in self._jobs.items()}
-            tasks_data = {task_id: task.to_dict() for task_id, task in self._tasks.items()}
-
-            # Save to files
-            with open(self._jobs_file, 'w') as f:
-                json.dump(jobs_data, f, indent=2)
-
-            with open(self._tasks_file, 'w') as f:
-                json.dump(tasks_data, f, indent=2)
-
-            logger.info(f"Saved {len(self._jobs)} jobs and {len(self._tasks)} tasks to persistence")
-
-        except Exception as e:
-            logger.error(f"Error saving to persistence: {str(e)}")
+        await self._persistence.save(self._jobs, self._tasks)
 
     # =============== Job Methods ===============
 
@@ -372,11 +178,7 @@ class JobManager:
         self._job_tasks[job_id] = []
 
         # Publish job creation event
-        await self.event_service.publish_event(
-            EventType.JOB_CREATED,
-            job.to_dict(),
-            job_id
-        )
+        await self._publisher.publish_job_event(EventType.JOB_CREATED, job)
 
         # Persist changes
         if self.use_persistence:
@@ -439,56 +241,26 @@ class JobManager:
                     job.status = JobStatus.CANCELLED
                     job.completed_at = datetime.utcnow().isoformat()
                 else:
-                    # Publish job started event
-                    await self.event_service.publish_event(
-                        EventType.JOB_STARTED,
-                        job.to_dict(),
-                        job_id
-                    )
+                    await self._publisher.publish_job_event(EventType.JOB_STARTED, job)
 
             elif updates["status"] == JobStatus.COMPLETED:
-                # Set completion timestamp and ensure progress is 100%
                 job.completed_at = datetime.utcnow().isoformat()
                 job.progress = 100
-
-                # Publish job completed event
-                await self.event_service.publish_event(
-                    EventType.JOB_COMPLETED,
-                    job.to_dict(),
-                    job_id
-                )
+                await self._publisher.publish_job_event(EventType.JOB_COMPLETED, job)
 
             elif updates["status"] == JobStatus.FAILED:
-                # Set completion timestamp
                 job.completed_at = datetime.utcnow().isoformat()
-
-                # Publish job failed event
-                await self.event_service.publish_event(
-                    EventType.JOB_FAILED,
-                    job.to_dict(),
-                    job_id
-                )
+                await self._publisher.publish_job_event(EventType.JOB_FAILED, job)
 
             elif updates["status"] == JobStatus.CANCELLED:
-                # Set completion timestamp
                 job.completed_at = datetime.utcnow().isoformat()
-
-                # Publish job cancelled event
-                await self.event_service.publish_event(
-                    EventType.JOB_CANCELLED,
-                    job.to_dict(),
-                    job_id
-                )
+                await self._publisher.publish_job_event(EventType.JOB_CANCELLED, job)
 
         # Publish update event for other changes
         if original_status == job.status and (
                 "progress" in updates or "current_task" in updates
         ):
-            await self.event_service.publish_event(
-                EventType.JOB_UPDATED,
-                job.to_dict(),
-                job_id
-            )
+            await self._publisher.publish_job_event(EventType.JOB_UPDATED, job)
 
         # Persist changes
         if self.use_persistence:
@@ -558,20 +330,9 @@ class JobManager:
         if job.status == JobStatus.PENDING:
             job.status = JobStatus.CANCELLED
             job.completed_at = datetime.utcnow().isoformat()
-
-            # Publish job cancelled event
-            await self.event_service.publish_event(
-                EventType.JOB_CANCELLED,
-                job.to_dict(),
-                job_id
-            )
+            await self._publisher.publish_job_event(EventType.JOB_CANCELLED, job)
         else:
-            # Publish cancellation requested event
-            await self.event_service.publish_event(
-                EventType.JOB_CANCELLATION_REQUESTED,
-                job.to_dict(),
-                job_id
-            )
+            await self._publisher.publish_job_event(EventType.JOB_CANCELLATION_REQUESTED, job)
 
         # Cancel all pending tasks
         for task in job.tasks:
@@ -706,19 +467,10 @@ class JobManager:
         job.updated_at = datetime.utcnow().isoformat()
 
         # Publish task creation event
-        await self.event_service.publish_task_event(
-            EventType.TASK_CREATED,
-            task_id,
-            job_id,
-            task.to_dict()
-        )
+        await self._publisher.publish_task_event(EventType.TASK_CREATED, task)
 
         # Publish job update event
-        await self.event_service.publish_event(
-            EventType.JOB_UPDATED,
-            job.to_dict(),
-            job_id
-        )
+        await self._publisher.publish_job_event(EventType.JOB_UPDATED, job)
 
         # Persist changes
         if self.use_persistence:
@@ -784,118 +536,60 @@ class JobManager:
                     task.status = TaskStatus.CANCELLED
                     task.completed_at = datetime.utcnow().isoformat()
                 else:
-                    # Publish task started event
-                    await self.event_service.publish_task_event(
-                        EventType.TASK_STARTED,
-                        task_id,
-                        task.job_id,
-                        task.to_dict()
-                    )
+                    await self._publisher.publish_task_event(EventType.TASK_STARTED, task)
 
             elif updates["status"] == TaskStatus.COMPLETED:
-                # Set completion timestamp and progress to 100%
                 task.completed_at = datetime.utcnow().isoformat()
                 task.progress = 100
 
-                # Update parent job task counts
                 if job:
                     job.tasks_completed += 1
                     job.update_progress()
                     job.update_status_from_tasks()
                     job.updated_at = datetime.utcnow().isoformat()
 
-                # Publish task completed event
-                await self.event_service.publish_task_event(
-                    EventType.TASK_COMPLETED,
-                    task_id,
-                    task.job_id,
-                    task.to_dict()
-                )
+                await self._publisher.publish_task_event(EventType.TASK_COMPLETED, task)
 
-                # Publish job update event if job exists
                 if job:
-                    await self.event_service.publish_event(
-                        EventType.JOB_UPDATED,
-                        job.to_dict(),
-                        task.job_id
-                    )
+                    await self._publisher.publish_job_event(EventType.JOB_UPDATED, job)
 
             elif updates["status"] == TaskStatus.FAILED:
-                # Set completion timestamp
                 task.completed_at = datetime.utcnow().isoformat()
 
-                # Update parent job task counts
                 if job:
                     job.tasks_failed += 1
                     job.update_progress()
                     job.update_status_from_tasks()
                     job.updated_at = datetime.utcnow().isoformat()
 
-                # Publish task failed event
-                await self.event_service.publish_task_event(
-                    EventType.TASK_FAILED,
-                    task_id,
-                    task.job_id,
-                    task.to_dict()
-                )
+                await self._publisher.publish_task_event(EventType.TASK_FAILED, task)
 
-                # Publish job update event if job exists
                 if job:
                     if job.status == JobStatus.FAILED:
-                        await self.event_service.publish_event(
-                            EventType.JOB_FAILED,
-                            job.to_dict(),
-                            task.job_id
-                        )
+                        await self._publisher.publish_job_event(EventType.JOB_FAILED, job)
                     else:
-                        await self.event_service.publish_event(
-                            EventType.JOB_UPDATED,
-                            job.to_dict(),
-                            task.job_id
-                        )
+                        await self._publisher.publish_job_event(EventType.JOB_UPDATED, job)
 
             elif updates["status"] == TaskStatus.CANCELLED:
-                # Set completion timestamp
                 task.completed_at = datetime.utcnow().isoformat()
 
-                # Update parent job task counts
                 if job:
                     job.tasks_failed += 1  # Count cancelled as failed
                     job.update_progress()
                     job.update_status_from_tasks()
                     job.updated_at = datetime.utcnow().isoformat()
 
-                # Publish task cancelled event
-                await self.event_service.publish_task_event(
-                    EventType.TASK_CANCELLED,
-                    task_id,
-                    task.job_id,
-                    task.to_dict()
-                )
+                await self._publisher.publish_task_event(EventType.TASK_CANCELLED, task)
 
-                # Publish job update event if job exists
                 if job:
                     if job.status == JobStatus.CANCELLED:
-                        await self.event_service.publish_event(
-                            EventType.JOB_CANCELLED,
-                            job.to_dict(),
-                            task.job_id
-                        )
+                        await self._publisher.publish_job_event(EventType.JOB_CANCELLED, job)
                     else:
-                        await self.event_service.publish_event(
-                            EventType.JOB_UPDATED,
-                            job.to_dict(),
-                            task.job_id
-                        )
+                        await self._publisher.publish_job_event(EventType.JOB_UPDATED, job)
 
         # Publish update event for progress updates
         elif original_status == task.status and "progress" in updates:
-            await self.event_service.publish_task_event(
-                EventType.TASK_UPDATED,
-                task_id,
-                task.job_id,
-                task.to_dict()
-            )
+            await self._publisher.publish_task_event(EventType.TASK_UPDATED, task)
 
         # Persist changes
         if self.use_persistence:
@@ -921,477 +615,323 @@ class JobManager:
         # Update task
         return await self.update_task(task_id, {"progress": progress})
 
-async def request_task_cancellation(self, task_id: str) -> bool:
-    """
-    Request task cancellation
+    async def request_task_cancellation(self, task_id: str) -> bool:
+        """
+        Request task cancellation
 
-    Args:
-        task_id: Task ID
+        Args:
+            task_id: Task ID
 
-    Returns:
-        True if cancellation was requested, False if task not found
-        or already in terminal state
-    """
-    if not self._is_connected:
-        await self.connect()
+        Returns:
+            True if cancellation was requested, False if task not found
+            or already in terminal state
+        """
+        if not self._is_connected:
+            await self.connect()
 
-    # Get task
-    task = await self.get_task(task_id)
-    if not task:
-        logger.warning(f"Attempted to cancel non-existent task {task_id}")
-        return False
+        # Get task
+        task = await self.get_task(task_id)
+        if not task:
+            logger.warning(f"Attempted to cancel non-existent task {task_id}")
+            return False
 
-    # Skip if already in terminal state
-    if task.status in [TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED]:
-        logger.info(f"Task {task_id} already in terminal state {task.status}")
-        return False
+        # Skip if already in terminal state
+        if task.status in [TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED]:
+            logger.info(f"Task {task_id} already in terminal state {task.status}")
+            return False
 
-    # Set cancellation flag
-    task.cancel_requested = True
-    task.updated_at = datetime.utcnow().isoformat()
+        # Set cancellation flag
+        task.cancel_requested = True
+        task.updated_at = datetime.utcnow().isoformat()
 
-    # If task is pending, mark as cancelled immediately
-    if task.status == TaskStatus.PENDING:
-        task.status = TaskStatus.CANCELLED
-        task.completed_at = datetime.utcnow().isoformat()
+        # If task is pending, mark as cancelled immediately
+        if task.status == TaskStatus.PENDING:
+            task.status = TaskStatus.CANCELLED
+            task.completed_at = datetime.utcnow().isoformat()
 
-        # Update parent job
-        job = await self.get_job(task.job_id)
-        if job:
-            job.tasks_failed += 1
-            job.update_progress()
-            job.update_status_from_tasks()
-            job.updated_at = datetime.utcnow().isoformat()
+            # Update parent job
+            job = await self.get_job(task.job_id)
+            if job:
+                job.tasks_failed += 1
+                job.update_progress()
+                job.update_status_from_tasks()
+                job.updated_at = datetime.utcnow().isoformat()
 
-        # Publish task cancelled event
-        await self.event_service.publish_task_event(
-            EventType.TASK_CANCELLED,
-            task_id,
-            task.job_id,
-            task.to_dict()
-        )
+            # Publish task cancelled event
+            await self._publisher.publish_task_event(EventType.TASK_CANCELLED, task)
 
-        # Publish job update event
-        if job:
-            await self.event_service.publish_event(
-                EventType.JOB_UPDATED,
-                job.to_dict(),
-                task.job_id
+            # Publish job update event
+            if job:
+                await self._publisher.publish_job_event(EventType.JOB_UPDATED, job)
+        else:
+            # Publish cancellation requested event
+            await self.event_service.publish_task_event(
+                EventType.TASK_CANCELLATION_REQUESTED,
+                task_id,
+                task.job_id,
+                task.to_dict()
             )
-    else:
-        # Publish cancellation requested event
-        await self.event_service.publish_task_event(
-            EventType.TASK_CANCELLATION_REQUESTED,
-            task_id,
-            task.job_id,
-            task.to_dict()
-        )
 
-    # Persist changes
-    if self.use_persistence:
-        await self._save_to_persistence()
+        # Persist changes
+        if self.use_persistence:
+            await self._save_to_persistence()
 
-    logger.info(f"Requested cancellation for task {task_id}")
-    return True
+        logger.info(f"Requested cancellation for task {task_id}")
+        return True
 
-async def is_task_cancellation_requested(self, task_id: str) -> bool:
-    """
-    Check if cancellation has been requested for a task
+    async def is_task_cancellation_requested(self, task_id: str) -> bool:
+        """
+        Check if cancellation has been requested for a task
 
-    Args:
-        task_id: Task ID
+        Args:
+            task_id: Task ID
 
-    Returns:
-        True if cancellation requested, False otherwise
-    """
-    if not self._is_connected:
-        await self.connect()
+        Returns:
+            True if cancellation requested, False otherwise
+        """
+        if not self._is_connected:
+            await self.connect()
 
-    task = await self.get_task(task_id)
-    if not task:
-        return False
+        task = await self.get_task(task_id)
+        if not task:
+            return False
 
-    # Check task cancellation flag or parent job cancellation flag
-    job = await self.get_job(task.job_id)
-    return task.cancel_requested or (job and job.cancel_requested)
+        # Check task cancellation flag or parent job cancellation flag
+        job = await self.get_job(task.job_id)
+        return task.cancel_requested or (job and job.cancel_requested)
 
-async def list_tasks_by_job(self, job_id: str) -> List[Task]:
-    """
-    List all tasks for a job
+    async def list_tasks_by_job(self, job_id: str) -> List[Task]:
+        """
+        List all tasks for a job
 
-    Args:
-        job_id: Job ID
+        Args:
+            job_id: Job ID
 
-    Returns:
-        List of Task objects
-    """
-    if not self._is_connected:
-        await self.connect()
+        Returns:
+            List of Task objects
+        """
+        if not self._is_connected:
+            await self.connect()
 
-    job = await self.get_job(job_id)
-    if not job:
-        logger.warning(f"Attempted to list tasks for non-existent job {job_id}")
-        return []
+        job = await self.get_job(job_id)
+        if not job:
+            logger.warning(f"Attempted to list tasks for non-existent job {job_id}")
+            return []
 
-    return job.tasks
+        return job.tasks
 
     # =============== Importer-specific Methods ===============
 
-async def publish_file_event(
-        self,
-        event_type: EventType,
-        file_path: str,
-        file_data: Dict[str, Any],
-        job_id: Optional[str] = None
-) -> str:
-    """
-    Publish a file-related event
+    async def publish_file_event(
+            self,
+            event_type: EventType,
+            file_path: str,
+            file_data: Dict[str, Any],
+            job_id: Optional[str] = None
+    ) -> str:
+        """
+        Publish a file-related event
 
-    Args:
-        event_type: Event type from EventType enum
-        file_path: Path to the file
-        file_data: Additional file data
-        job_id: Optional job ID for context
+        Args:
+            event_type: Event type from EventType enum
+            file_path: Path to the file
+            file_data: Additional file data
+            job_id: Optional job ID for context
 
-    Returns:
-        Event ID
-    """
-    if not self._is_connected:
-        await self.connect()
+        Returns:
+            Event ID
+        """
+        if not self._is_connected:
+            await self.connect()
 
-    # Ensure file_path is in data
-    data = {**file_data, "file_path": file_path}
+        return await self._publisher.publish_file_event(
+            event_type, file_path, file_data, job_id
+        )
 
-    # Publish event
-    return await self.event_service.publish_file_event(
-        event_type,
-        file_path,
-        data,
-        job_id
-    )
+    async def publish_directory_event(
+            self,
+            event_type: EventType,
+            dir_path: str,
+            dir_data: Dict[str, Any],
+            job_id: Optional[str] = None
+    ) -> str:
+        """
+        Publish a directory-related event
 
-async def publish_directory_event(
-        self,
-        event_type: EventType,
-        dir_path: str,
-        dir_data: Dict[str, Any],
-        job_id: Optional[str] = None
-) -> str:
-    """
-    Publish a directory-related event
+        Args:
+            event_type: Event type from EventType enum
+            dir_path: Path to the directory
+            dir_data: Additional directory data
+            job_id: Optional job ID for context
 
-    Args:
-        event_type: Event type from EventType enum
-        dir_path: Path to the directory
-        dir_data: Additional directory data
-        job_id: Optional job ID for context
+        Returns:
+            Event ID
+        """
+        if not self._is_connected:
+            await self.connect()
 
-    Returns:
-        Event ID
-    """
-    if not self._is_connected:
-        await self.connect()
+        return await self._publisher.publish_directory_event(
+            event_type, dir_path, dir_data, job_id
+        )
 
-    # Ensure dir_path is in data
-    data = {**dir_data, "directory_path": dir_path}
+    async def publish_processing_event(
+            self,
+            event_type: EventType,
+            process_data: Dict[str, Any],
+            job_id: Optional[str] = None,
+            task_id: Optional[str] = None
+    ) -> str:
+        """
+        Publish a processing-related event
 
-    # Publish event
-    return await self.event_service.publish_directory_event(
-        event_type,
-        dir_path,
-        data,
-        job_id
-    )
+        Args:
+            event_type: Event type from EventType enum
+            process_data: Processing data
+            job_id: Optional job ID for context
+            task_id: Optional task ID for context
 
-async def publish_processing_event(
-        self,
-        event_type: EventType,
-        process_data: Dict[str, Any],
-        job_id: Optional[str] = None,
-        task_id: Optional[str] = None
-) -> str:
-    """
-    Publish a processing-related event
+        Returns:
+            Event ID
+        """
+        if not self._is_connected:
+            await self.connect()
 
-    Args:
-        event_type: Event type from EventType enum
-        process_data: Processing data
-        job_id: Optional job ID for context
-        task_id: Optional task ID for context
-
-    Returns:
-        Event ID
-    """
-    if not self._is_connected:
-        await self.connect()
-
-    # Publish event
-    return await self.event_service.publish_processing_event(
-        event_type,
-        process_data,
-        job_id,
-        task_id
-    )
+        return await self._publisher.publish_processing_event(
+            event_type, process_data, job_id, task_id
+        )
 
     # =============== Synchronous API ===============
 
-def _ensure_loop(self):
-    """Ensure there's an event loop for sync methods"""
-    try:
-        asyncio.get_running_loop()
-    except RuntimeError:
-        # No running event loop
-        return asyncio.new_event_loop()
-    return asyncio.get_event_loop()
+    def _ensure_loop(self):
+        """Ensure there's an event loop for sync methods"""
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            # No running event loop
+            return asyncio.new_event_loop()
+        return asyncio.get_event_loop()
 
-def _run_async(self, coro):
-    """Run an async coroutine from a sync context"""
-    loop = self._ensure_loop()
-    if loop.is_running():
-        # We're in an async context already, use asyncio.run_coroutine_threadsafe
-        import threading
-        if threading.current_thread() is threading.main_thread():
-            # In main thread with running loop - use create_task
-            return asyncio.create_task(coro)
+    def _run_async(self, coro):
+        """Run an async coroutine from a sync context"""
+        loop = self._ensure_loop()
+        if loop.is_running():
+            # We're in an async context already, use asyncio.run_coroutine_threadsafe
+            import threading
+            if threading.current_thread() is threading.main_thread():
+                # In main thread with running loop - use create_task
+                return asyncio.create_task(coro)
+            else:
+                # In another thread - use run_coroutine_threadsafe
+                future = asyncio.run_coroutine_threadsafe(coro, loop)
+                return future.result()
         else:
-            # In another thread - use run_coroutine_threadsafe
-            future = asyncio.run_coroutine_threadsafe(coro, loop)
-            return future.result()
-    else:
-        # We're in a sync context, use loop.run_until_complete
-        return loop.run_until_complete(coro)
+            # We're in a sync context, use loop.run_until_complete
+            return loop.run_until_complete(coro)
 
     # Sync versions of async methods
 
-def connect_sync(self) -> None:
-    """Connect to NATS synchronously"""
-    return self._run_async(self.connect())
+    def connect_sync(self) -> None:
+        """Connect to NATS synchronously"""
+        return self._run_async(self.connect())
 
-def disconnect_sync(self) -> None:
-    """Disconnect from NATS synchronously"""
-    return self._run_async(self.disconnect())
+    def disconnect_sync(self) -> None:
+        """Disconnect from NATS synchronously"""
+        return self._run_async(self.disconnect())
 
-def create_job_sync(
-        self,
-        job_type: str,
-        name: str,
-        description: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
-) -> Job:
-    """
-    Create a new job synchronously
+    def create_job_sync(
+            self,
+            job_type: str,
+            name: str,
+            description: Optional[str] = None,
+            metadata: Optional[Dict[str, Any]] = None
+    ) -> Job:
+        """Create a new job synchronously"""
+        return self._run_async(self.create_job(job_type, name, description, metadata))
 
-    Args:
-        job_type: Type of job (e.g., "epu_import")
-        name: Job name
-        description: Job description
-        metadata: Additional metadata
+    def get_job_sync(self, job_id: str) -> Optional[Job]:
+        """Get job by ID synchronously"""
+        return self._run_async(self.get_job(job_id))
 
-    Returns:
-        Job object
-    """
-    return self._run_async(self.create_job(job_type, name, description, metadata))
+    def update_job_sync(self, job_id: str, updates: Dict[str, Any]) -> Optional[Job]:
+        """Update job properties synchronously"""
+        return self._run_async(self.update_job(job_id, updates))
 
-def get_job_sync(self, job_id: str) -> Optional[Job]:
-    """
-    Get job by ID synchronously
+    def update_job_progress_sync(
+            self,
+            job_id: str,
+            progress: int,
+            current_task: Optional[str] = None
+    ) -> Optional[Job]:
+        """Update job progress synchronously"""
+        return self._run_async(self.update_job_progress(job_id, progress, current_task))
 
-    Args:
-        job_id: Job ID
+    def request_job_cancellation_sync(self, job_id: str) -> bool:
+        """Request job cancellation synchronously"""
+        return self._run_async(self.request_job_cancellation(job_id))
 
-    Returns:
-        Job object or None if not found
-    """
-    return self._run_async(self.get_job(job_id))
+    def is_cancellation_requested_sync(self, job_id: str) -> bool:
+        """Check if cancellation has been requested for a job synchronously"""
+        return self._run_async(self.is_cancellation_requested(job_id))
 
-def update_job_sync(self, job_id: str, updates: Dict[str, Any]) -> Optional[Job]:
-    """
-    Update job properties synchronously
+    def list_jobs_sync(
+            self,
+            status: Optional[str] = None,
+            job_type: Optional[str] = None,
+            limit: int = 100,
+            offset: int = 0
+    ) -> List[Job]:
+        """List jobs with optional filtering synchronously"""
+        return self._run_async(self.list_jobs(status, job_type, limit, offset))
 
-    Args:
-        job_id: Job ID
-        updates: Dictionary of properties to update
+    def create_task_sync(
+            self,
+            job_id: str,
+            task_type: str,
+            parameters: Optional[Dict[str, Any]] = None
+    ) -> Optional[Task]:
+        """Create a new task for a job synchronously"""
+        return self._run_async(self.create_task(job_id, task_type, parameters))
 
-    Returns:
-        Updated Job object or None if not found
-    """
-    return self._run_async(self.update_job(job_id, updates))
+    def get_task_sync(self, task_id: str) -> Optional[Task]:
+        """Get task by ID synchronously"""
+        return self._run_async(self.get_task(task_id))
 
-def update_job_progress_sync(
-        self,
-        job_id: str,
-        progress: int,
-        current_task: Optional[str] = None
-) -> Optional[Job]:
-    """
-    Update job progress synchronously
+    def update_task_sync(self, task_id: str, updates: Dict[str, Any]) -> Optional[Task]:
+        """Update task properties synchronously"""
+        return self._run_async(self.update_task(task_id, updates))
 
-    Args:
-        job_id: Job ID
-        progress: Progress percentage (0-100)
-        current_task: Description of current task
+    def update_task_progress_sync(self, task_id: str, progress: int) -> Optional[Task]:
+        """Update task progress synchronously"""
+        return self._run_async(self.update_task_progress(task_id, progress))
 
-    Returns:
-        Updated Job object or None if not found
-    """
-    return self._run_async(self.update_job_progress(job_id, progress, current_task))
+    def request_task_cancellation_sync(self, task_id: str) -> bool:
+        """Request task cancellation synchronously"""
+        return self._run_async(self.request_task_cancellation(task_id))
 
-def request_job_cancellation_sync(self, job_id: str) -> bool:
-    """
-    Request job cancellation synchronously
+    def is_task_cancellation_requested_sync(self, task_id: str) -> bool:
+        """Check if cancellation has been requested for a task synchronously"""
+        return self._run_async(self.is_task_cancellation_requested(task_id))
 
-    Args:
-        job_id: Job ID
-
-    Returns:
-        True if cancellation was requested, False if job not found
-        or already in terminal state
-    """
-    return self._run_async(self.request_job_cancellation(job_id))
-
-def is_cancellation_requested_sync(self, job_id: str) -> bool:
-    """
-    Check if cancellation has been requested for a job synchronously
-
-    Args:
-        job_id: Job ID
-
-    Returns:
-        True if cancellation requested, False otherwise
-    """
-    return self._run_async(self.is_cancellation_requested(job_id))
-
-def list_jobs_sync(
-        self,
-        status: Optional[str] = None,
-        job_type: Optional[str] = None,
-        limit: int = 100,
-        offset: int = 0
-) -> List[Job]:
-    """
-    List jobs with optional filtering synchronously
-
-    Args:
-        status: Filter by status
-        job_type: Filter by job type
-        limit: Maximum number of jobs to return
-        offset: Number of jobs to skip
-
-    Returns:
-        List of Job objects
-    """
-    return self._run_async(self.list_jobs(status, job_type, limit, offset))
-
-def create_task_sync(
-        self,
-        job_id: str,
-        task_type: str,
-        parameters: Optional[Dict[str, Any]] = None
-) -> Optional[Task]:
-    """
-    Create a new task for a job synchronously
-
-    Args:
-        job_id: Parent job ID
-        task_type: Type of task
-        parameters: Task parameters
-
-    Returns:
-        Task object or None if parent job not found
-    """
-    return self._run_async(self.create_task(job_id, task_type, parameters))
-
-def get_task_sync(self, task_id: str) -> Optional[Task]:
-    """
-    Get task by ID synchronously
-
-    Args:
-        task_id: Task ID
-
-    Returns:
-        Task object or None if not found
-    """
-    return self._run_async(self.get_task(task_id))
-
-def update_task_sync(self, task_id: str, updates: Dict[str, Any]) -> Optional[Task]:
-    """
-    Update task properties synchronously
-
-    Args:
-        task_id: Task ID
-        updates: Dictionary of properties to update
-
-    Returns:
-        Updated Task object or None if not found
-    """
-    return self._run_async(self.update_task(task_id, updates))
-
-def update_task_progress_sync(self, task_id: str, progress: int) -> Optional[Task]:
-    """
-    Update task progress synchronously
-
-    Args:
-        task_id: Task ID
-        progress: Progress percentage (0-100)
-
-    Returns:
-        Updated Task object or None if not found
-    """
-    return self._run_async(self.update_task_progress(task_id, progress))
-
-def request_task_cancellation_sync(self, task_id: str) -> bool:
-    """
-    Request task cancellation synchronously
-
-    Args:
-        task_id: Task ID
-
-    Returns:
-        True if cancellation was requested, False if task not found
-        or already in terminal state
-    """
-    return self._run_async(self.request_task_cancellation(task_id))
-
-def is_task_cancellation_requested_sync(self, task_id: str) -> bool:
-    """
-    Check if cancellation has been requested for a task synchronously
-
-    Args:
-        task_id: Task ID
-
-    Returns:
-        True if cancellation requested, False otherwise
-    """
-    return self._run_async(self.is_task_cancellation_requested(task_id))
-
-def list_tasks_by_job_sync(self, job_id: str) -> List[Task]:
-    """
-    List all tasks for a job synchronously
-
-    Args:
-        job_id: Job ID
-
-    Returns:
-        List of Task objects
-    """
-    return self._run_async(self.list_tasks_by_job(job_id))
+    def list_tasks_by_job_sync(self, job_id: str) -> List[Task]:
+        """List all tasks for a job synchronously"""
+        return self._run_async(self.list_tasks_by_job(job_id))
 
     # =============== Context Manager Support ===============
 
-async def __aenter__(self):
-    """Async context manager enter"""
-    await self.connect()
-    return self
+    async def __aenter__(self):
+        """Async context manager enter"""
+        await self.connect()
+        return self
 
-async def __aexit__(self, exc_type, exc_value, traceback):
-    """Async context manager exit"""
-    await self.disconnect()
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        """Async context manager exit"""
+        await self.disconnect()
 
-def __enter__(self):
-    """Sync context manager enter"""
-    self.connect_sync()
-    return self
+    def __enter__(self):
+        """Sync context manager enter"""
+        self.connect_sync()
+        return self
 
-def __exit__(self, exc_type, exc_value, traceback):
-    """Sync context manager exit"""
-    self.disconnect_sync()
+    def __exit__(self, exc_type, exc_value, traceback):
+        """Sync context manager exit"""
+        self.disconnect_sync()

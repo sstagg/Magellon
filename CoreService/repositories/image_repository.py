@@ -3,12 +3,13 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from domain.imaging.repositories import ImageRepositoryInterface
 from models.pydantic_models import ImageDto
 from models.sqlalchemy_models import Image, Msession
 from repositories.base_repository import BaseRepository
 
 
-class _ImageRepository(BaseRepository[Image]):
+class _ImageRepository(BaseRepository[Image], ImageRepositoryInterface):
 
     def __init__(self):
         super().__init__(Image)

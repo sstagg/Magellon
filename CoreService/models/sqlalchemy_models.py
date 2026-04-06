@@ -1,4 +1,5 @@
 # coding: utf-8
+import re
 import uuid
 from sqlalchemy_utils import UUIDType
 from sqlalchemy.orm import relationship
@@ -18,6 +19,9 @@ class Camera(Base):
     name = Column(String(30))
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)
+
+    def validate_name(self) -> bool:
+        return bool(self.name and 2 <= len(self.name) <= 30)
 
 
 class ImageMetaDataCategory(Base):
@@ -481,6 +485,34 @@ class Image(Base):
     atlas = relationship('Atlas')
     parent = relationship('Image', remote_side=[oid])
     session = relationship('Msession')
+
+    def derive_parent_name(self) -> str:
+        """Derive the expected parent image name from this image's name.
+        E.g., '23oct13x_a_00034gr_00008sq_v02' -> '23oct13x_a_00034gr_00008sq'
+        """
+        split_name = self.name.split('_')
+        if re.search(r'[vV]([0-9][0-9])', split_name[-1]):
+            return '_'.join(split_name[:-2])
+        return '_'.join(split_name[:-1])
+
+    def compute_level(self, presets_pattern: str) -> int:
+        """Compute the image level based on how many preset patterns match the name."""
+        if not presets_pattern:
+            return 0
+        return len(re.findall(presets_pattern, self.name))
+
+    @property
+    def is_exposure(self) -> bool:
+        """Check if this is an exposure-level image (contains 'ex' in name)."""
+        return bool(re.search(r'_\d+ex', self.name)) if self.name else False
+
+    @property
+    def session_name_from_filename(self) -> str:
+        """Extract session name from the image filename (text before first underscore)."""
+        if not self.name:
+            return ""
+        idx = self.name.find('_')
+        return self.name[:idx].lower() if idx > 0 else self.name.lower()
 
 
 class ImageJobTask(Base):

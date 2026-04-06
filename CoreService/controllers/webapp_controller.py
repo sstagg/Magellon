@@ -21,7 +21,7 @@ from models.sqlalchemy_models import Image, Msession, ImageMetaData, ImageMetaDa
 from repositories.image_repository import ImageRepository
 from repositories.session_repository import SessionRepository
 from services.file_service import FileService
-from services.helper import get_response_image, get_parent_name
+from services.helper import get_response_image
 import logging
 
 from core.sqlalchemy_row_level_security import get_session_filter_clause, check_session_access
@@ -670,7 +670,7 @@ def get_correct_image_parent_child(
     image_dict = {db_image.name: db_image.oid for db_image in db_image_list}
 
     for db_image in db_image_list:
-        parent_name = get_parent_name(db_image.name)
+        parent_name = db_image.derive_parent_name()
         if parent_name in image_dict:
             db_image.parent_id = image_dict[parent_name]
 

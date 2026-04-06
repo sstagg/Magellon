@@ -2,12 +2,13 @@ import uuid
 
 from sqlalchemy.orm import Session
 
+from domain.equipment.repositories import CameraRepositoryInterface
 from models.pydantic_models import CameraDto
 from models.sqlalchemy_models import Camera
 from repositories.base_repository import BaseRepository
 
 
-class _CameraRepository(BaseRepository[Camera]):
+class _CameraRepository(BaseRepository[Camera], CameraRepositoryInterface):
 
     def __init__(self):
         super().__init__(Camera)
