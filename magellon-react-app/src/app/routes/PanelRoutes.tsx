@@ -11,7 +11,7 @@ import SettingsView from "../../pages/settings/SettingsView.tsx";
 import DashboardView from "../../pages/dashboard/DashboardView.tsx";
 import { Box, Container, Typography } from "@mui/material";
 import AboutPage from "../../pages/about/AboutPage.tsx";
-import MicroscopyPageView from "../../pages/microscopy/MicroscopyPageView.tsx";
+
 import {ExportPageView} from "../../pages/export/ExportPageView.tsx";
 import {TestIdeaPageView} from "../../panel/pages/TestIdea/TestIdeaPageView.tsx";
 import UserManagementPage from "../../features/user-management/ui/UserManagementPage.tsx";
@@ -43,7 +43,6 @@ export const PanelRoutes = () => {
     return (
         <Routes>
             {/* Main routes */}
-            <Route path="/microscopy" element={<MicroscopyPageView />} />
             <Route path="/dashboard" element={<DashboardView />} />
             <Route path="/home" element={<Home />} />
             <Route path="/images" element={<ImagesPageView />} />

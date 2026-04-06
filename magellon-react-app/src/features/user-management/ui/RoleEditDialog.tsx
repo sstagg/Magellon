@@ -138,7 +138,6 @@ export default function RoleEditDialog({
         '/dashboard',
         '/reports',
         '/settings',
-        '/microscopy',
         '/images',
     ];
 

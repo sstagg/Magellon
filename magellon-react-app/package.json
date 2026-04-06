@@ -22,7 +22,7 @@
     "@mui/x-tree-view": "^8.24.0",
     "@react-buddy/ide-toolbox": "^2.4.0",
     "@react-buddy/palette-mui": "^5.0.2",
-    "@react-querybuilder/material": "^8.14.0",
+    "@react-querybuilder/material": "^8.14.4",
     "@scalar/api-reference-react": "^0.9.20",
     "@stoplight/elements": "^9.0.13",
     "@tailwindcss/vite": "^4.1.18",
