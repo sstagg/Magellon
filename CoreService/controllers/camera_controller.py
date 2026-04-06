@@ -148,8 +148,3 @@ async def delete_camera(
     await CameraRepository.delete(db, oid)
     logger.info(f"Camera {oid} deleted by user {user_id}")
     return {"message": "Camera deleted successfully", "deleted_by": str(user_id)}
-
-# @app.get("/cameras2/", response_model=List[CameraDto])
-# def show_cameras(db: Session = Depends(get_db)):
-#     records = db.query(Camera).all()
-#     return records

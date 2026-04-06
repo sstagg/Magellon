@@ -2,6 +2,7 @@ import os
 import socket
 import json
 
+import socketio
 import uvicorn
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Request
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
@@ -40,6 +41,7 @@ from controllers.test_controller import test_router
 from controllers.test_rls_controller import test_rls_router
 
 from controllers.webapp_controller import webapp_router
+from plugins.pp.controller import pp_router
 
 from prometheus_fastapi_instrumentator import Instrumentator
 from rich import print
@@ -57,6 +59,7 @@ import rich.traceback
 from services.importers.TiffHelper import convert_tiff_to_jpeg, parse_tif
 from services.casbin_service import CasbinService
 from services.casbin_policy_sync_service import CasbinPolicySyncService
+from core.socketio_server import sio
 
 rich.traceback.install(show_locals=True)
 
@@ -283,10 +286,27 @@ app.include_router(session_access_router, tags=["Security - Session Access"])
 app.include_router(test_rls_router, tags=["RLS Testing"])
 app.include_router(schema_router, tags=["Database Schema"])
 
+# Plugins — simple direct HTTP (no RabbitMQ)
+app.include_router(pp_router, tags=["Particle Picking"], prefix="/plugins/pp")
+
 
 Instrumentator().instrument(app).expose(app)
 
 app.include_router(strawberry_graphql_router, prefix="/graphql")
+
+
+# --- Socket.IO test page ---
+@app.get("/socketio-test", include_in_schema=False)
+async def socketio_test_page():
+    """Serve the Socket.IO test UI."""
+    import pathlib
+    html = pathlib.Path("static/socketio_test.html").read_text(encoding="utf-8")
+    return HTMLResponse(content=html)
+
+
+# Wrap FastAPI app with Socket.IO ASGI app
+# uvicorn should target `main:socket_app` instead of `main:app`
+socket_app = socketio.ASGIApp(sio, other_asgi_app=app)
 
 
 @app.on_event("startup")
@@ -338,6 +358,35 @@ async def shutdown_event():
     logger.info("Shutting down Magellon Core Service...")
     logger.info("=" * 60)
 
+
+from core.exceptions import (
+    EntityNotFoundError, DuplicateEntityError, ValidationError,
+    PermissionDeniedError, FileProcessingError, MagellonError
+)
+
+@app.exception_handler(EntityNotFoundError)
+def handle_not_found(request, err):
+    return JSONResponse(status_code=404, content={"message": str(err)})
+
+@app.exception_handler(DuplicateEntityError)
+def handle_duplicate(request, err):
+    return JSONResponse(status_code=409, content={"message": str(err)})
+
+@app.exception_handler(ValidationError)
+def handle_validation(request, err):
+    return JSONResponse(status_code=422, content={"message": str(err)})
+
+@app.exception_handler(PermissionDeniedError)
+def handle_permission(request, err):
+    return JSONResponse(status_code=403, content={"message": str(err)})
+
+@app.exception_handler(FileProcessingError)
+def handle_file_error(request, err):
+    return JSONResponse(status_code=500, content={"message": str(err)})
+
+@app.exception_handler(MagellonError)
+def handle_domain_error(request, err):
+    return JSONResponse(status_code=400, content={"message": str(err)})
 
 @app.exception_handler(Exception)
 def app_exception_handler(request, err):

@@ -2,64 +2,47 @@ import uuid
 from typing import List
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from core.exceptions import EntityNotFoundError
 from models.pydantic_models import ImageMetaDataDto
 from models.sqlalchemy_models import ImageMetaData
+from repositories.base_repository import BaseRepository
 
 
-class ImageMetaDataRepository:
-    @staticmethod
-    async def create(db: Session, image_meta_data_dto: ImageMetaDataDto):
+class _ImageMetaDataRepository(BaseRepository[ImageMetaData]):
+
+    def __init__(self):
+        super().__init__(ImageMetaData)
+
+    async def create(self, db: Session, image_meta_data_dto: ImageMetaDataDto) -> ImageMetaData:
         if image_meta_data_dto.oid is None:
             image_meta_data_dto.oid = str(uuid.uuid4())
-        image_meta_data_entity = ImageMetaData(**image_meta_data_dto.dict())
-        db.add(image_meta_data_entity)
-        db.commit()
-        db.refresh(image_meta_data_entity)
-        return image_meta_data_entity
+        entity = ImageMetaData(**image_meta_data_dto.dict())
+        return await super().create(db, entity)
 
-    @staticmethod
-    def fetch_by_id(db: Session, oid: UUID):
-        return db.query(ImageMetaData).filter(ImageMetaData.oid == oid).first()
-
-    @staticmethod
-    def fetch_all(db: Session, skip: int = 0, limit: int = 100) -> List[ImageMetaData]:
-        return db.query(ImageMetaData).offset(skip).limit(limit).all()
-
-    @staticmethod
-    async def delete(db: Session, oid: uuid.UUID):
-        image_meta_data_entity = db.query(ImageMetaData).filter(ImageMetaData.oid == oid).first()
-        if image_meta_data_entity:
-            db.delete(image_meta_data_entity)
-            db.commit()
+    async def update(self, db: Session, oid: UUID = None, image_meta_data_dto: ImageMetaDataDto = None) -> ImageMetaData:
+        if oid:
+            entity = db.query(ImageMetaData).filter(ImageMetaData.oid == oid).first()
+            if entity:
+                for key, value in image_meta_data_dto.dict(exclude_unset=True).items():
+                    setattr(entity, key, value)
+                db.commit()
+                db.refresh(entity)
+                return entity
+            else:
+                raise EntityNotFoundError("ImageMetaData", oid)
         else:
-            raise HTTPException(status_code=404, detail="Image Metadata not found")
+            db.merge(image_meta_data_dto)
+            db.commit()
 
-    @staticmethod
-    async def update(db: Session, image_meta_data_dto: ImageMetaDataDto):
-        db.merge(image_meta_data_dto)
+    async def update_by_data(self, db: Session, _id: UUID, req_body: str):
+        db_item = db.query(ImageMetaData).filter(ImageMetaData.oid == _id).first()
+        if not db_item:
+            raise EntityNotFoundError("ImageMetaData", oid)
+        db_item.data = req_body
         db.commit()
+        db.refresh(db_item)
 
-    async def update_by_data(db: Session, _id: UUID, req_body: str):
-        try:
-            db_item = db.query(ImageMetaData).filter(ImageMetaData.oid == _id).first()
-            if not db_item:
-                raise HTTPException(status_code=404, detail="Image Metadata  not found")
-            db_item.data = req_body
-            db.commit()
-            db.refresh(db_item)
-        except Exception as e:
-            db.rollback()
-    @staticmethod
-    async def update(db: Session, oid: UUID, image_meta_data_dto: ImageMetaDataDto):
-        image_meta_data_entity = db.query(ImageMetaData).filter(ImageMetaData.oid == oid).first()
-        if image_meta_data_entity:
-            for key, value in image_meta_data_dto.dict(exclude_unset=True).items():
-                setattr(image_meta_data_entity, key, value)
-            db.commit()
-            db.refresh(image_meta_data_entity)
-            return image_meta_data_entity
-        else:
-            raise HTTPException(status_code=404, detail="Image Metadata not found")
+
+ImageMetaDataRepository = _ImageMetaDataRepository()

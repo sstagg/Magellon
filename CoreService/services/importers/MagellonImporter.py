@@ -13,9 +13,8 @@ from models.pydantic_models import ImportTaskDto
 from models.sqlalchemy_models import Msession, ImageJob, Image, ImageJobTask, Project, Atlas
 from services.atlas import create_atlas_images
 from services.importers.BaseImporter import BaseImporter, TaskFailedException
-from fastapi import Depends, HTTPException
+from core.exceptions import ValidationError, EntityNotFoundError, FileProcessingError
 from sqlalchemy.orm import Session
-from database import get_db
 from config import ( DEFECTS_SUB_URL, FFT_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, ATLAS_SUB_URL, CTF_SUB_URL, MAGELLON_HOME_DIR, FFT_SUFFIX, GAINS_SUB_URL)
 
 logger = logging.getLogger(__name__)
@@ -42,7 +41,7 @@ def extract_grid_label(filename: str) -> str:
 
 class MagellonImporter(BaseImporter):
 
-    def process(self, db_session: Session = Depends(get_db)) -> Dict[str, str]:
+    def process(self, db_session: Session) -> Dict[str, str]:
         try:
             # Create temporary directory for extraction
             # temp_dir = os.path.join(self.params.target_directory, 'import', str(uuid.uuid4()))
@@ -55,7 +54,7 @@ class MagellonImporter(BaseImporter):
 
             json_path = os.path.join(self.params.source_dir, 'session.json')
             if not os.path.exists(json_path):
-                raise HTTPException( status_code=400, detail="Invalid archive structure: session.json not found"   )
+                raise ValidationError("Invalid archive structure: session.json not found")
 
             with open(json_path, 'r') as f:
                 session_data = json.load(f)
@@ -314,7 +313,7 @@ class MagellonImporter(BaseImporter):
             atlas_images = result.fetchall()
 
             if not atlas_images:
-                raise HTTPException(status_code=404, detail="No atlas images found for this session")
+                raise EntityNotFoundError("Atlas images", self.params.session_name)
 
             # Group images by their grid label prefix use extract_grid_label(row.filename) to get the grid label
             label_objects = {}
@@ -361,7 +360,7 @@ class MagellonImporter(BaseImporter):
 
         except Exception as e:
             db_session.rollback()
-            raise HTTPException(status_code=500, detail=str(e))
+            raise FileProcessingError(f"Error creating atlas: {str(e)}")
 
 
     def _upsert_project(self, db_session: Session, project_data: Dict[str, Any]) -> Project:

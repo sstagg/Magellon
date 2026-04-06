@@ -17,10 +17,8 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 import shutil
 from core.helper import custom_replace, dispatch_ctf_task
-from database import get_db
 from models.pydantic_models import EPUImportTaskDto
 from models.sqlalchemy_models import Image, Msession, Project, ImageJob, ImageJobTask
-from fastapi import Depends
 
 from services.file_service import copy_file
 from services.importers.BaseImporter import BaseImporter, TaskFailedException
@@ -328,7 +326,7 @@ class EPUImporter(BaseImporter):
         super().__init__()
         self.task_dto_list = []
 
-    def process(self, db_session: Session = Depends(get_db)) -> Dict[str, str]:
+    def process(self, db_session: Session) -> Dict[str, str]:
         """
         Main entry point for the EPU import process
 

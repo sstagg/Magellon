@@ -1,8 +1,5 @@
 import os
 
-from fastapi import Depends
-
-from database import get_db
 from models.pydantic_models import EPUFrameTransferJobBase
 from models.sqlalchemy_models import  Image, Project, Msession
 from services.file_service import create_directory
@@ -26,7 +23,7 @@ def create_directories(target_dir: str):
     create_directory(os.path.join(target_dir, CTF_SUB_URL))
 
 
-def epu_frame_transfer_process(input_data: EPUFrameTransferJobBase, db_session: Session = Depends(get_db)):
+def epu_frame_transfer_process(input_data: EPUFrameTransferJobBase, db_session: Session):
     try:
         magellon_project: Project = None
         magellon_session: Msession = None

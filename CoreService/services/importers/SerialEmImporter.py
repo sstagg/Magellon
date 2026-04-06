@@ -9,10 +9,9 @@ from typing import Dict, Any, List, Optional, Tuple
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from datetime import datetime
-from fastapi import Depends, HTTPException
 import shutil
+from core.exceptions import EntityNotFoundError, PermissionDeniedError, FileProcessingError
 from core.helper import custom_replace, dispatch_ctf_task
-from database import get_db
 from models.pydantic_models import SerialEMImportTaskDto
 from models.sqlalchemy_models import Image, Msession, Project, ImageJob, ImageJobTask
 from config import DEFECTS_SUB_URL, FFT_SUB_URL, GAINS_SUB_URL, IMAGE_SUB_URL, MAGELLON_HOME_DIR, MAGELLON_JOBS_DIR, THUMBNAILS_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, \
@@ -76,7 +75,7 @@ class DirectoryStructure(BaseModel):
 def scan_directory(path):
     try:
         if not os.path.exists(path):
-            raise HTTPException(status_code=404, detail="Path not found")
+            raise EntityNotFoundError("Path", path)
 
         if os.path.isfile(path):
             return DirectoryStructure(name=os.path.basename(path), path=path, type="file")
@@ -92,7 +91,7 @@ def scan_directory(path):
 
         return structure
     except PermissionError:
-        raise HTTPException(status_code=403, detail="Permission denied")
+        raise PermissionDeniedError(f"Permission denied: {path}")
 def find_two_files(directory, file1, file2):
     """
     Search for two specific files in a directory recursively.
@@ -291,10 +290,10 @@ def parse_directory(directory_structure, settings_file_path, default_params, uni
         return metadata_list, navigator_dict
 
     except PermissionError:
-        raise HTTPException(status_code=403, detail="Permission denied")
+        raise PermissionDeniedError(f"Permission denied accessing directory")
     except Exception as e:
         logger.error(f"Unexpected error while parsing directory: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise FileProcessingError(f"Error parsing directory: {str(e)}")
 
 
 
@@ -484,7 +483,7 @@ class SerialEmImporter(BaseImporter):
         self.image_tasks = []
         self.mrc_service = MrcImageService()
     
-    def process(self, db_session: Session = Depends(get_db)) -> Dict[str, str]:
+    def process(self, db_session: Session) -> Dict[str, str]:
         """Main entry point for the import process."""
         try:
             start_time = time.time()

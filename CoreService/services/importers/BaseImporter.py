@@ -4,14 +4,11 @@ import uuid
 from abc import ABC, abstractmethod
 from typing import Optional, Any, Dict, List, Tuple
 
-from fastapi import Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from config import DEFECTS_SUB_URL, FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, \
     FFT_SUFFIX, FRAMES_SUFFIX, app_settings, ATLAS_SUB_URL, CTF_SUB_URL, FAO_SUB_URL, MAGELLON_HOME_DIR, GAINS_SUB_URL
-
-from database import get_db
 from models.sqlalchemy_models import Project, Msession, ImageJob, ImageJobTask, Image, Atlas
 
 import logging
@@ -71,14 +68,14 @@ class BaseImporter(ABC):
 
         self.mrc_service = MrcImageService()
 
-    def setup(self,input_data: BaseModel,  db_session: Session = Depends(get_db)) -> None:
+    def setup(self, input_data: BaseModel, db_session: Session) -> None:
         """Initialize the importer with basic parameters"""
         self.params = input_data
         self.file_service = ImportFileService(target_directory= None, camera_directory= None  )
         self.db_service = ImportDatabaseService(db_session)
 
     @abstractmethod
-    def process(self, db_session: Session = Depends(get_db)) -> Dict[str, str]:
+    def process(self, db_session: Session) -> Dict[str, str]:
         """
         Main entry point for the import process
 

@@ -1,7 +1,7 @@
 import json
 import os
 from PIL import Image
-from fastapi import HTTPException
+from core.exceptions import EntityNotFoundError, FileProcessingError
 
 from config import app_settings
 
@@ -61,9 +61,9 @@ def create_atlas_picture(session_name, image_info, final_width, final_height, ba
                 file_path = os.path.join(current_directory, "images", filename + ".png")
                 small_image = Image.open(file_path)
             except FileNotFoundError:
-                raise HTTPException(status_code=404, detail="No images found")
+                raise EntityNotFoundError("Image file", file_path)
             except Exception as e:
-                raise HTTPException(status_code=404, detail=e)
+                raise FileProcessingError(f"Error loading image {file_path}: {e}")
             x = int(delta_column - min_y )
             y = int(delta_row - min_x )
             big_picture.paste(small_image, (x, y))
@@ -101,4 +101,4 @@ def create_atlas_picture(session_name, image_info, final_width, final_height, ba
         html_code += ']}'
         return html_code,save_path
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+        raise FileProcessingError(f"Error creating atlas picture: {str(e)}")

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from starlette import status
 import logging
 
+from core.exceptions import EntityNotFoundError
 from database import get_db
 from models.pydantic_models import ImageMetaDataDto
 from repositories.image_metadata_repository import ImageMetaDataRepository
@@ -78,6 +79,8 @@ async def update_image_meta_data(
         )
         logger.info(f"Image metadata updated by user {user_id}: {image_meta_data_request.oid}")
         return updated_metadata
+    except EntityNotFoundError:
+        raise HTTPException(status_code=404, detail="Image metadata not found")
     except Exception as e:
         logger.exception(f'Error updating image metadata for user {user_id}')
         raise HTTPException(
@@ -151,8 +154,3 @@ async def delete_image_meta_data(
     await ImageMetaDataRepository.delete(db, oid)
     logger.info(f"Image metadata {oid} deleted by user {user_id}")
     return {"message": "Image metadata deleted successfully", "deleted_by": str(user_id)}
-
-# @app.get("/image_meta_datas2/", response_model=List[ImageMetaDataDto])
-# def show_image_meta_datas(db: Session = Depends(get_db)):
-#     records = db.query(Camera).all()
-#     return records

@@ -10,19 +10,16 @@ import concurrent.futures
 import logging
 
 import pymysql
-from fastapi import Depends, HTTPException
-
 from config import FFT_SUB_URL, IMAGE_SUB_URL, MAGELLON_GPFS_DIR, MAGELLON_HOME_DIR, THUMBNAILS_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, \
     FFT_SUFFIX, FRAMES_SUFFIX, app_settings, ATLAS_SUB_URL, CTF_SUB_URL, FAO_SUB_URL, GAINS_SUB_URL, DEFECTS_SUB_URL
 
 from core.helper import dispatch_ctf_task, dispatch_motioncor_task
-from database import get_db
 from models.pydantic_models import LeginonFrameTransferJobDto, LeginonFrameTransferTaskDto, ImportTaskDto
-# from models.pydantic_models import LeginonFrameTransferJobDto, LeginonFrameTransferTaskDto
 from models.sqlalchemy_models import Image, Project, Msession, ImageJob, ImageJobTask, Atlas
 from services.atlas import create_atlas_images
 from services.file_service import copy_file, create_directory, check_file_exists
-from services.helper import custom_replace, get_parent_name
+from core.helper import custom_replace
+from services.helper import get_parent_name
 from services.mrc_image_service import MrcImageService
 from sqlalchemy.orm import Session
 
@@ -95,7 +92,7 @@ class LeginonFrameTransferJobService:
     def setup_data(self, input_data: LeginonFrameTransferJobDto):
         self.params = input_data
 
-    def process(self, db_session: Session = Depends(get_db)) -> Dict[str, str]:
+    def process(self, db_session: Session) -> Dict[str, str]:
         try:
             start_time = time.time()  # Start measuring the time
             result = self.create_job(db_session)
@@ -108,290 +105,294 @@ class LeginonFrameTransferJobService:
             return {'status': 'failure', 'message': f'Job failed with error: {str(e)} Job ID: {self.params.job_id}'}
 
     def create_job(self, db_session: Session):
-        print("Creating job with parameters:", self.params)
+        logger.info("Creating job with parameters: %s", self.params)
         try:
-
-            magellon_project: Project = None
-            magellon_session: Msession = None
-            if self.params.magellon_project_name is not None:
-                magellon_project = db_session.query(Project).filter(
-                    Project.name == self.params.magellon_project_name).first()
-                if not magellon_project:
-                    magellon_project = Project(name=self.params.magellon_project_name)
-                    db_session.add(magellon_project)
-                    db_session.commit()
-                    db_session.refresh(magellon_project)
-
+            magellon_project = self._ensure_project(db_session)
             magellon_session_name = self.params.magellon_session_name or self.params.session_name
-
-            if self.params.magellon_session_name is not None:
-                magellon_session = db_session.query(Msession).filter(
-                    Msession.name == magellon_session_name).first()
-                if not magellon_session:
-                    magellon_session = Msession(name=magellon_session_name, project_id=magellon_project.oid)
-                    db_session.add(magellon_session)
-                    db_session.commit()
-                    db_session.refresh(magellon_session)
-            # Check if session already exists
+            magellon_session = self._ensure_session(db_session, magellon_session_name, magellon_project)
 
             self.open_leginon_connection()
-            # Prepare GPFS locations for gains/defects under: GPFS_ROOT/{session}/home/{gains|defects}
-            
-            session_folder_name = magellon_session_name
-            if self.params.camera_directory:
-                camera_dir_parts = self.params.camera_directory.replace("\\", "/").split("/")
-                if len(camera_dir_parts) > 2:
-                    session_folder_name = camera_dir_parts[2]
-            gpfs_root = os.environ.get('MAGELLON_GPFS_PATH', MAGELLON_GPFS_DIR)
-            # gpfs_session_home = os.path.join(gpfs_root, magellon_session_name, 'home')
-            gpfs_session_home = os.path.join(gpfs_root, session_folder_name, 'home')
-            gpfs_gains_dir = os.path.join(gpfs_session_home, GAINS_SUB_URL)
-            gpfs_defects_dir = os.path.join(gpfs_session_home, DEFECTS_SUB_URL)
+            self._setup_gains_defects(magellon_session_name)
 
-            # Ensure directories exist on GPFS
-            os.makedirs(gpfs_gains_dir, exist_ok=True)
-            os.makedirs(gpfs_defects_dir, exist_ok=True)
+            session_result, presets_pattern = self._fetch_leginon_session_data()
+            leginon_image_list = self._fetch_leginon_images(self.params.session_name)
 
-            # Save frontend-provided gains file to GPFS if present
-            if getattr(self.params, 'gains_file', None) is not None:
-                gains_file_path = os.path.join(gpfs_gains_dir, self.params.gains_file.filename)
-                with open(gains_file_path, 'wb') as f:
-                    f.write(self.params.gains_file.file.read())
-                self.gains_path = gains_file_path
+            if not leginon_image_list:
+                return {'status': 'success', 'message': 'No images found in Leginon.'}
 
-            # Save frontend-provided defects file to GPFS if present (optional)
-            if getattr(self.params, 'defects_file', None) is not None:
-                defects_file_path = os.path.join(gpfs_defects_dir, self.params.defects_file.filename)
-                with open(defects_file_path, 'wb') as f:
-                    f.write(self.params.defects_file.file.read())
-                self.defects_path = defects_file_path
+            job = self._create_image_job(db_session, session_result, magellon_session)
+            db_image_list, db_job_item_list, image_dict = self._build_image_records(
+                leginon_image_list, session_result, presets_pattern, job, magellon_session
+            )
+            self._link_parent_images(db_image_list, image_dict)
 
-            # If frontend didn't provide gains, look for any file in GPFS gains dir
-            if self.gains_path is None:
-                gain_candidates = [os.path.join(gpfs_gains_dir, f) for f in os.listdir(gpfs_gains_dir) if os.path.isfile(os.path.join(gpfs_gains_dir, f))]
-                if not gain_candidates:
-                    # No gains found -> error (gains required)
-                    raise FileNotFoundError(f"No gains file found for session '{magellon_session_name}' in '{gpfs_gains_dir}'. Provide a gains file in the frontend or place one there.")
-                self.gains_path = gain_candidates[0]
+            db_session.bulk_save_objects(db_image_list)
+            db_session.bulk_save_objects(db_job_item_list)
+            db_session.commit()
 
-            # If frontend didn't provide defects, look for any file in GPFS defects dir (optional)
-            if self.defects_path is None:
-                defect_candidates = [os.path.join(gpfs_defects_dir, f) for f in os.listdir(gpfs_defects_dir) if os.path.isfile(os.path.join(gpfs_defects_dir, f))]
-                if defect_candidates:
-                    self.defects_path = defect_candidates[0]
-            
-            # get the session object from the database
-            session_name = self.params.session_name
-            query = "SELECT * FROM SessionData WHERE name = %s"
-            self.leginon_cursor.execute(query, (session_name,))
-            # Fetch all the results
-            session_result = self.leginon_cursor.fetchone()
+            if getattr(self.params, 'if_do_subtasks', True):
+                self.run_tasks(db_session, magellon_session)
 
+            return {'status': 'success', 'message': 'Job completed successfully.', 'job_id': job.oid}
 
-            # self.create_atlas_pics(self.params.session_name, db_session,magellon_session)
-            # return
-
-            # create directories
-            presets_query = """
-            SELECT GROUP_CONCAT(DISTINCT p.name ORDER BY LENGTH(p.name) DESC SEPARATOR '|')  AS regex_pattern FROM PresetData p
-            LEFT JOIN SessionData s ON  p.`REF|SessionData|session` = s.DEF_id
-            WHERE s.DEF_id = %s;
-            """
-            self.leginon_cursor.execute(presets_query, (session_result["DEF_id"],))
-            presets_result = self.leginon_cursor.fetchone()
-            print(presets_result)
-
-            # get all the images in the leginon database
-            # SQL query
-            query = """
-                SELECT DISTINCT
-                    ai.DEF_id AS image_id,
-                    ai.filename,
-                    ai.`MRC|image` AS image_name,
-                    ai.label,
-                    SQRT(ai.pixels) AS dimx,
-                    t.`delta row` AS delta_row,
-                    t.`delta column` AS delta_column,
-                    sem.magnification AS mag,
-                    sem.defocus,
-                    sem.`SUBD|stage position|a` AS stage_alpha_tilt,
-                    sem.`SUBD|stage position|x` AS stage_x,
-                    sem.`SUBD|stage position|y` AS stage_y,
-                    cem.`exposure time` AS camera_exposure_time,
-                    cem.`save frames` AS save_frames,
-                    cem.`frames name` AS frame_names,   
-                    cem.`SUBD|binning|x` AS bining_x,
-                    cem.`SUBD|binning|y` AS bining_y,
-                    pd.dose AS preset_dose,
-                    pd.`exposure time` AS preset_exposure_time,
-                    pd.dose * POWER(10, -20) * cem.`exposure time` / pd.`exposure time` AS calculated_dose,
-                    psc.pixelsize AS pixelsize,
-                    sem.`high tension`  / 1000 AS acceleration_voltage,
-                    psc.pixelsize * cem.`SUBD|binning|x` AS result_pixelSize,
-                    TemInstrumentData.cs AS spherical_aberration
-                FROM AcquisitionImageData ai
-                LEFT OUTER JOIN ScopeEMData sem ON ai.`REF|ScopeEMData|scope` = sem.DEF_id
-                LEFT OUTER JOIN CameraEMData cem ON ai.`REF|CameraEMData|camera` = cem.DEF_id
-                LEFT OUTER JOIN PresetData pd ON ai.`REF|PresetData|preset` = pd.DEF_id
-                LEFT OUTER JOIN AcquisitionImageTargetData t   ON ai.`REF|AcquisitionImageTargetData|target` = t.DEF_id
-                LEFT OUTER JOIN InstrumentData TemInstrumentData ON pd.`REF|InstrumentData|tem` = TemInstrumentData.DEF_id
-                LEFT OUTER JOIN InstrumentData CameraInstrumentData ON pd.`REF|InstrumentData|ccdcamera` = CameraInstrumentData.DEF_id
-                LEFT OUTER JOIN PixelSizeCalibrationData psc ON 
-                    psc.`REF|InstrumentData|tem` = pd.`REF|InstrumentData|tem`
-                    AND psc.`REF|InstrumentData|ccdcamera` = pd.`REF|InstrumentData|ccdcamera`
-                    AND psc.magnification = sem.magnification
-                    AND psc.DEF_id = (
-                        SELECT MAX(psc_inner.DEF_id)
-                        FROM PixelSizeCalibrationData psc_inner
-                        WHERE psc_inner.`REF|InstrumentData|tem` = pd.`REF|InstrumentData|tem`
-                            AND psc_inner.`REF|InstrumentData|ccdcamera` = pd.`REF|InstrumentData|ccdcamera`
-                            AND psc_inner.magnification = sem.magnification
-                    )
-                WHERE ai.filename LIKE %s
-            """
-            self.leginon_cursor.execute(query, (session_name + "%",))
-            leginon_image_list = self.leginon_cursor.fetchall()
-            if len(leginon_image_list) > 0:
-                # image_dict = {image["filename"]: image for image in leginon_image_list}
-                image_dict = {}
-                # Create a new job
-                job = ImageJob(
-                    # Oid=uuid.uuid4(),
-                    name="Leginon Import: " + session_name,
-                    description="Leginon Import for session: " +
-                                session_name + "in directory: " +
-                                session_result["image path"],
-                    created_date=datetime.now(),  #path=session_result["image path"],
-                    output_directory=self.params.camera_directory,
-                    msession_id=magellon_session.oid
-                    # Set other job properties
-                )
-                db_session.add(job)
-                db_session.flush()  # Flush the session to get the generated Oid
-                db_image_list = []
-                db_job_item_list = []
-                separator = "/" 
-                
-                for image in leginon_image_list:
-                    print("image contents testing",image)
-                    filename = image["filename"]
-                    # source_image_path = os.path.join(session_result["image path"], filename)
-
-                    db_image = Image(oid=uuid.uuid4(),
-                                     name=filename,
-                                    #  frame_name=image["frame_names"],
-                                     magnification=image["mag"],
-                                     defocus=image["defocus"],
-                                     dose=image["calculated_dose"],
-                                     pixel_size=image["pixelsize"] if image["pixelsize"] is not None and image["pixelsize"] > 0 else (self.params.default_data.pixel_size if self.params.default_data else 0.739),
-                                     binning_x=image["bining_x"],
-                                     stage_x=image["stage_x"],
-                                     stage_y=image["stage_y"],
-                                     stage_alpha_tilt=image["stage_alpha_tilt"],
-                                     atlas_dimxy=image["dimx"],
-                                     atlas_delta_row=image["delta_row"],
-                                     atlas_delta_column=image["delta_column"],
-                                     binning_y=image["bining_y"],
-                                     level=get_image_levels(filename, presets_result["regex_pattern"]),
-                                     previous_id=image["image_id"],
-                                     acceleration_voltage=image["acceleration_voltage"] if image["acceleration_voltage"] is not None and image["acceleration_voltage"] > 0 else (self.params.default_data.acceleration_voltage if self.params.default_data else 300),
-                                     spherical_aberration=(image["spherical_aberration"] * 1000) if image["spherical_aberration"] is not None and image["spherical_aberration"] > 0 else (self.params.default_data.spherical_aberration if self.params.default_data else 2.7),
-                                     session_id=magellon_session.oid)
-                    logger.info(f"Created Image for {filename}: spherical_aberration={db_image.spherical_aberration} (converted from micrometers)")
-                    # get_image_levels(filename,presets_result["regex_pattern"])
-                    # db_session.add(db_image)
-                    # db_session.flush()
-                    db_image_list.append(db_image)
-                    image_dict[filename] = db_image.oid
-                    # image_dict = {db_image.name: db_image.Oid for db_image in db_image_list}
-
-                    # source_image_path = (session_result["image path"] + separator + filename + ".mrc")
-                    # change logic to use image's director instead'
-                    source_frame_path = os.path.join(self.params.camera_directory, image["frame_names"]) if image.get("frame_names") else None
-                    # Construct source image path from GPFS root (use env MAGELLON_GPFS_PATH if set),
-                    # format: MAGELLON_GPFS_PATH/{sessionName}/home/{ORIGINAL_IMAGES_SUB_URL}/{image_name}
-                    gpfs_root = os.environ.get('MAGELLON_GPFS_PATH', MAGELLON_GPFS_DIR)
-                    source_image_path = os.path.join(gpfs_root, session_result["name"], 'home', ORIGINAL_IMAGES_SUB_URL, image["image_name"]) 
-                    #TODO:
-                    # source_frame_path = source_frame_path.replace("/gpfs/", "Y:/")
-                    # source_image_path = source_image_path.replace("/gpfs/", "Y:/")
-
-                    if self.params.replace_type == "regex" or self.params.replace_type == "standard":
-                        source_frame_path = custom_replace(source_frame_path, self.params.replace_type,
-                                                           self.params.replace_pattern, self.params.replace_with)
-                        source_image_path = custom_replace(source_image_path, self.params.replace_type,
-                                                           self.params.replace_pattern, self.params.replace_with)
-
-                    # Create a new job item and associate it with the job and image
-                    db_job_task = ImageJobTask(
-                        oid=uuid.uuid4(),
-                        job_id=job.oid,
-                        frame_name=image["frame_names"] if image.get("frame_names") else None,
-                        frame_path=source_frame_path if image.get("frame_names") else None,
-                        image_path=source_image_path,
-                        status_id=1,
-                        stage=0,
-                        image_id=db_image.oid,
-                        # Set job item properties
-                    )
-                    db_job_item_list.append(db_job_task)
-                    # db_session.add(job_item)
-
-                    # Get the file name and extension from the source path
-                    # source_filename, source_extension = os.path.splitext(source_image_path)
-
-                    task_dto = LeginonFrameTransferTaskDto(
-                        task_id=uuid.uuid4(),
-                        task_alias=f"lftj_{filename}_{db_job_task.oid}",
-                        file_name=f"{filename}",
-                        image_id=db_image.oid,
-                        image_name=image["image_name"],
-                        frame_name=image["frame_names"],
-                        image_path=source_image_path,
-                        job_id=db_job_task.oid,
-                        frame_path=source_frame_path,
-                        # target_path=self.params.target_directory + "/frames/" + f"{image['frame_names']}{source_extension}",
-                        job_dto=self.params,
-                        status=1,
-                        pixel_size=image["pixelsize"] if image["pixelsize"] is not None and image["pixelsize"] > 0 else (self.params.default_data.pixel_size if self.params.default_data else 0.739),
-                        acceleration_voltage=image["acceleration_voltage"] if image["acceleration_voltage"] is not None and image["acceleration_voltage"] > 0 else (self.params.default_data.acceleration_voltage if self.params.default_data else 300),
-                        spherical_aberration=(image["spherical_aberration"] * 1000) if image["spherical_aberration"] is not None and image["spherical_aberration"] > 0 else (self.params.default_data.spherical_aberration if self.params.default_data else 2.7),
-                        flip_gain=self.params.default_data.flip_gain if self.params.default_data else 0,
-                        rot_gain=self.params.default_data.rot_gain if self.params.default_data else 0
-                    )
-                    logger.info(f"Created task_dto for {filename}: spherical_aberration={task_dto.spherical_aberration} (converted from micrometers)")
-                    self.params.task_list.append(task_dto)
-                    # print(f"Filename: {filename}, Spot Size: {spot_size}")
-
-                for db_image in db_image_list:
-                    parent_name = get_parent_name(db_image.name)
-                    if parent_name in image_dict:
-                        db_image.parent_id = image_dict[parent_name]
-
-                # update_levels(db_image_list)
-
-                db_session.bulk_save_objects(db_image_list)
-                db_session.bulk_save_objects(db_job_item_list)
-
-                db_session.commit()  # Commit the changes
-
-                if self.params.if_do_subtasks if hasattr(self.params, 'if_do_subtasks') else True:
-                    self.run_tasks(db_session,magellon_session )
-
-            return {'status': 'success', 'message': 'Job completed successfully.', "job_id": db_job_task.oid}
-            # self.create_test_tasks()
         except FileNotFoundError as e:
-            error_message = f"Source directory not found: {self.params.source_directory}"
-            logger.error(error_message, exc_info=True)
-            return {"error": error_message, "exception": str(e)}
+            logger.error("File not found: %s", e, exc_info=True)
+            return {"error": str(e), "exception": str(e)}
         except OSError as e:
-            error_message = f"Error accessing source directory: {self.params.source_directory}"
-            logger.error(error_message, exc_info=True)
-            return {"error": error_message, "exception": str(e)}
+            logger.error("OS error: %s", e, exc_info=True)
+            return {"error": str(e), "exception": str(e)}
         except Exception as e:
-            error_message = f"An unexpected error occurred: {str(e)}"
-            logger.error(error_message, exc_info=True)
-            return {"error": error_message, "exception": str(e)}
+            logger.error("Unexpected error: %s", e, exc_info=True)
+            return {"error": str(e), "exception": str(e)}
+
+    def _ensure_project(self, db_session: Session):
+        if self.params.magellon_project_name is None:
+            return None
+        project = db_session.query(Project).filter(
+            Project.name == self.params.magellon_project_name).first()
+        if not project:
+            project = Project(name=self.params.magellon_project_name)
+            db_session.add(project)
+            db_session.commit()
+            db_session.refresh(project)
+        return project
+
+    def _ensure_session(self, db_session: Session, session_name: str, project):
+        if self.params.magellon_session_name is None:
+            return None
+        session = db_session.query(Msession).filter(Msession.name == session_name).first()
+        if not session:
+            session = Msession(name=session_name, project_id=project.oid)
+            db_session.add(session)
+            db_session.commit()
+            db_session.refresh(session)
+        return session
+
+    def _setup_gains_defects(self, session_name: str):
+        session_folder_name = session_name
+        if self.params.camera_directory:
+            camera_dir_parts = self.params.camera_directory.replace("\\", "/").split("/")
+            if len(camera_dir_parts) > 2:
+                session_folder_name = camera_dir_parts[2]
+
+        gpfs_root = os.environ.get('MAGELLON_GPFS_PATH', MAGELLON_GPFS_DIR)
+        gpfs_session_home = os.path.join(gpfs_root, session_folder_name, 'home')
+        gpfs_gains_dir = os.path.join(gpfs_session_home, GAINS_SUB_URL)
+        gpfs_defects_dir = os.path.join(gpfs_session_home, DEFECTS_SUB_URL)
+
+        os.makedirs(gpfs_gains_dir, exist_ok=True)
+        os.makedirs(gpfs_defects_dir, exist_ok=True)
+
+        # Save frontend-provided files to GPFS if present
+        if getattr(self.params, 'gains_file', None) is not None:
+            gains_file_path = os.path.join(gpfs_gains_dir, self.params.gains_file.filename)
+            with open(gains_file_path, 'wb') as f:
+                f.write(self.params.gains_file.file.read())
+            self.gains_path = gains_file_path
+
+        if getattr(self.params, 'defects_file', None) is not None:
+            defects_file_path = os.path.join(gpfs_defects_dir, self.params.defects_file.filename)
+            with open(defects_file_path, 'wb') as f:
+                f.write(self.params.defects_file.file.read())
+            self.defects_path = defects_file_path
+
+        # Fall back to existing files on GPFS
+        if self.gains_path is None:
+            gain_candidates = [os.path.join(gpfs_gains_dir, f) for f in os.listdir(gpfs_gains_dir)
+                               if os.path.isfile(os.path.join(gpfs_gains_dir, f))]
+            if not gain_candidates:
+                raise FileNotFoundError(
+                    f"No gains file found for session '{session_name}' in '{gpfs_gains_dir}'. "
+                    "Provide a gains file in the frontend or place one there.")
+            self.gains_path = gain_candidates[0]
+
+        if self.defects_path is None:
+            defect_candidates = [os.path.join(gpfs_defects_dir, f) for f in os.listdir(gpfs_defects_dir)
+                                 if os.path.isfile(os.path.join(gpfs_defects_dir, f))]
+            if defect_candidates:
+                self.defects_path = defect_candidates[0]
+
+    def _fetch_leginon_session_data(self):
+        session_name = self.params.session_name
+        self.leginon_cursor.execute("SELECT * FROM SessionData WHERE name = %s", (session_name,))
+        session_result = self.leginon_cursor.fetchone()
+
+        presets_query = """
+            SELECT GROUP_CONCAT(DISTINCT p.name ORDER BY LENGTH(p.name) DESC SEPARATOR '|') AS regex_pattern
+            FROM PresetData p
+            LEFT JOIN SessionData s ON p.`REF|SessionData|session` = s.DEF_id
+            WHERE s.DEF_id = %s;
+        """
+        self.leginon_cursor.execute(presets_query, (session_result["DEF_id"],))
+        presets_result = self.leginon_cursor.fetchone()
+
+        return session_result, presets_result["regex_pattern"]
+
+    def _fetch_leginon_images(self, session_name: str):
+        query = """
+            SELECT DISTINCT
+                ai.DEF_id AS image_id,
+                ai.filename,
+                ai.`MRC|image` AS image_name,
+                ai.label,
+                SQRT(ai.pixels) AS dimx,
+                t.`delta row` AS delta_row,
+                t.`delta column` AS delta_column,
+                sem.magnification AS mag,
+                sem.defocus,
+                sem.`SUBD|stage position|a` AS stage_alpha_tilt,
+                sem.`SUBD|stage position|x` AS stage_x,
+                sem.`SUBD|stage position|y` AS stage_y,
+                cem.`exposure time` AS camera_exposure_time,
+                cem.`save frames` AS save_frames,
+                cem.`frames name` AS frame_names,
+                cem.`SUBD|binning|x` AS bining_x,
+                cem.`SUBD|binning|y` AS bining_y,
+                pd.dose AS preset_dose,
+                pd.`exposure time` AS preset_exposure_time,
+                pd.dose * POWER(10, -20) * cem.`exposure time` / pd.`exposure time` AS calculated_dose,
+                psc.pixelsize AS pixelsize,
+                sem.`high tension` / 1000 AS acceleration_voltage,
+                psc.pixelsize * cem.`SUBD|binning|x` AS result_pixelSize,
+                TemInstrumentData.cs AS spherical_aberration
+            FROM AcquisitionImageData ai
+            LEFT OUTER JOIN ScopeEMData sem ON ai.`REF|ScopeEMData|scope` = sem.DEF_id
+            LEFT OUTER JOIN CameraEMData cem ON ai.`REF|CameraEMData|camera` = cem.DEF_id
+            LEFT OUTER JOIN PresetData pd ON ai.`REF|PresetData|preset` = pd.DEF_id
+            LEFT OUTER JOIN AcquisitionImageTargetData t ON ai.`REF|AcquisitionImageTargetData|target` = t.DEF_id
+            LEFT OUTER JOIN InstrumentData TemInstrumentData ON pd.`REF|InstrumentData|tem` = TemInstrumentData.DEF_id
+            LEFT OUTER JOIN InstrumentData CameraInstrumentData ON pd.`REF|InstrumentData|ccdcamera` = CameraInstrumentData.DEF_id
+            LEFT OUTER JOIN PixelSizeCalibrationData psc ON
+                psc.`REF|InstrumentData|tem` = pd.`REF|InstrumentData|tem`
+                AND psc.`REF|InstrumentData|ccdcamera` = pd.`REF|InstrumentData|ccdcamera`
+                AND psc.magnification = sem.magnification
+                AND psc.DEF_id = (
+                    SELECT MAX(psc_inner.DEF_id)
+                    FROM PixelSizeCalibrationData psc_inner
+                    WHERE psc_inner.`REF|InstrumentData|tem` = pd.`REF|InstrumentData|tem`
+                        AND psc_inner.`REF|InstrumentData|ccdcamera` = pd.`REF|InstrumentData|ccdcamera`
+                        AND psc_inner.magnification = sem.magnification
+                )
+            WHERE ai.filename LIKE %s
+        """
+        self.leginon_cursor.execute(query, (session_name + "%",))
+        return self.leginon_cursor.fetchall()
+
+    def _create_image_job(self, db_session: Session, session_result, magellon_session):
+        session_name = self.params.session_name
+        job = ImageJob(
+            name=f"Leginon Import: {session_name}",
+            description=f"Leginon Import for session: {session_name} in directory: {session_result['image path']}",
+            created_date=datetime.now(),
+            output_directory=self.params.camera_directory,
+            msession_id=magellon_session.oid,
+        )
+        db_session.add(job)
+        db_session.flush()
+        return job
+
+    def _get_default(self, field, fallback):
+        return getattr(self.params.default_data, field, fallback) if self.params.default_data else fallback
+
+    def _safe_value(self, value, field, fallback):
+        if value is not None and value > 0:
+            return value
+        return self._get_default(field, fallback)
+
+    def _build_image_records(self, leginon_image_list, session_result, presets_pattern, job, magellon_session):
+        db_image_list = []
+        db_job_item_list = []
+        image_dict = {}
+        gpfs_root = os.environ.get('MAGELLON_GPFS_PATH', MAGELLON_GPFS_DIR)
+
+        for image in leginon_image_list:
+            filename = image["filename"]
+
+            db_image = Image(
+                oid=uuid.uuid4(),
+                name=filename,
+                magnification=image["mag"],
+                defocus=image["defocus"],
+                dose=image["calculated_dose"],
+                pixel_size=self._safe_value(image["pixelsize"], 'pixel_size', 0.739),
+                binning_x=image["bining_x"],
+                stage_x=image["stage_x"],
+                stage_y=image["stage_y"],
+                stage_alpha_tilt=image["stage_alpha_tilt"],
+                atlas_dimxy=image["dimx"],
+                atlas_delta_row=image["delta_row"],
+                atlas_delta_column=image["delta_column"],
+                binning_y=image["bining_y"],
+                level=get_image_levels(filename, presets_pattern),
+                previous_id=image["image_id"],
+                acceleration_voltage=self._safe_value(image["acceleration_voltage"], 'acceleration_voltage', 300),
+                spherical_aberration=self._safe_value(
+                    (image["spherical_aberration"] * 1000) if image["spherical_aberration"] is not None and image["spherical_aberration"] > 0 else None,
+                    'spherical_aberration', 2.7
+                ),
+                session_id=magellon_session.oid,
+            )
+            logger.info(f"Created Image for {filename}: spherical_aberration={db_image.spherical_aberration}")
+            db_image_list.append(db_image)
+            image_dict[filename] = db_image.oid
+
+            source_frame_path = (os.path.join(self.params.camera_directory, image["frame_names"])
+                                 if image.get("frame_names") else None)
+            source_image_path = os.path.join(
+                gpfs_root, session_result["name"], 'home', ORIGINAL_IMAGES_SUB_URL, image["image_name"]
+            )
+
+            if self.params.replace_type in ("regex", "standard"):
+                source_frame_path = custom_replace(
+                    source_frame_path, self.params.replace_type,
+                    self.params.replace_pattern, self.params.replace_with)
+                source_image_path = custom_replace(
+                    source_image_path, self.params.replace_type,
+                    self.params.replace_pattern, self.params.replace_with)
+
+            db_job_task = ImageJobTask(
+                oid=uuid.uuid4(),
+                job_id=job.oid,
+                frame_name=image["frame_names"] if image.get("frame_names") else None,
+                frame_path=source_frame_path if image.get("frame_names") else None,
+                image_path=source_image_path,
+                status_id=1,
+                stage=0,
+                image_id=db_image.oid,
+            )
+            db_job_item_list.append(db_job_task)
+
+            task_dto = LeginonFrameTransferTaskDto(
+                task_id=uuid.uuid4(),
+                task_alias=f"lftj_{filename}_{db_job_task.oid}",
+                file_name=filename,
+                image_id=db_image.oid,
+                image_name=image["image_name"],
+                frame_name=image["frame_names"],
+                image_path=source_image_path,
+                job_id=db_job_task.oid,
+                frame_path=source_frame_path,
+                job_dto=self.params,
+                status=1,
+                pixel_size=self._safe_value(image["pixelsize"], 'pixel_size', 0.739),
+                acceleration_voltage=self._safe_value(image["acceleration_voltage"], 'acceleration_voltage', 300),
+                spherical_aberration=self._safe_value(
+                    (image["spherical_aberration"] * 1000) if image["spherical_aberration"] is not None and image["spherical_aberration"] > 0 else None,
+                    'spherical_aberration', 2.7
+                ),
+                flip_gain=self._get_default('flip_gain', 0),
+                rot_gain=self._get_default('rot_gain', 0),
+            )
+            logger.info(f"Created task_dto for {filename}: spherical_aberration={task_dto.spherical_aberration}")
+            self.params.task_list.append(task_dto)
+
+        return db_image_list, db_job_item_list, image_dict
+
+    def _link_parent_images(self, db_image_list, image_dict):
+        for db_image in db_image_list:
+            parent_name = get_parent_name(db_image.name)
+            if parent_name in image_dict:
+                db_image.parent_id = image_dict[parent_name]
 
     def run_tasks(self, db_session: Session,magellon_session :Msession):
         try:
