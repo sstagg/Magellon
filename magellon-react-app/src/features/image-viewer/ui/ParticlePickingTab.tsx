@@ -242,18 +242,6 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                 onToggleFullscreen={toggleFullscreen}
             />
 
-            {/* Statistics Bar */}
-            {showStats && (
-                <ParticleStatsBar
-                    stats={stats}
-                    particleClasses={particleClasses}
-                    activeClass={activeClass}
-                    onActiveClassChange={setActiveClass}
-                    selectedCount={selectedParticles.size}
-                    onDeselectAll={deselectAll}
-                />
-            )}
-
             {/* Auto-picking Progress */}
             {isAutoPickingRunning && (
                 <LinearProgress
@@ -263,7 +251,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                 />
             )}
 
-            {/* Main Canvas */}
+            {/* Main Canvas + Stats Sidebar */}
             <Paper
                 elevation={2}
                 sx={{
@@ -271,10 +259,23 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                     position: 'relative',
                     overflow: 'hidden',
                     backgroundColor: theme.palette.grey[900],
-                    borderRadius: 2
+                    borderRadius: 2,
+                    display: 'flex',
                 }}
             >
-                <Box sx={{ width: '100%', height: '100%' }}>
+                {/* Stats Sidebar */}
+                {showStats && !isMobile && (
+                    <ParticleStatsBar
+                        stats={stats}
+                        particleClasses={particleClasses}
+                        activeClass={activeClass}
+                        onActiveClassChange={setActiveClass}
+                        selectedCount={selectedParticles.size}
+                        onDeselectAll={deselectAll}
+                    />
+                )}
+
+                <Box sx={{ flex: 1, minWidth: 0, height: '100%' }}>
                     <ParticleCanvas
                         imageUrl={`${BASE_URL}/image_thumbnail?name=${encodeURIComponent(selectedImage?.name)}&sessionName=${sessionName}`}
                         width={isMobile ? 300 : 1024}

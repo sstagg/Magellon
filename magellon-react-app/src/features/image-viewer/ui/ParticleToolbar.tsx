@@ -1,21 +1,19 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
     Box,
     Paper,
-    Stack,
     IconButton,
-    ButtonGroup,
     ToggleButton,
     ToggleButtonGroup,
     Chip,
     Divider,
     FormControl,
-    InputLabel,
     Select,
     MenuItem,
     SelectChangeEvent,
     Tooltip,
     CircularProgress,
+    Menu,
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -36,18 +34,16 @@ import {
     ContentPaste as PasteIcon,
     SelectAll as SelectAllIcon,
     Brush as BrushIcon,
-    Fullscreen as FullscreenIcon,
-    FullscreenExit as FullscreenExitIcon,
     CropFree as CropFreeIcon,
     PanTool as PanToolIcon,
     TouchApp as TouchAppIcon,
+    MoreVert,
 } from '@mui/icons-material';
 import { Move } from 'lucide-react';
 import { Tool } from '../lib/useParticleOperations.ts';
 import { ParticlePickingDto } from '../../../entities/particle-picking/types.ts';
 
 export interface ParticleToolbarProps {
-    // Session
     selectedParticlePicking: ParticlePickingDto | null;
     ImageParticlePickings: ParticlePickingDto[] | null;
     isIPPLoading: boolean;
@@ -55,10 +51,8 @@ export interface ParticleToolbarProps {
     onRefresh: () => void;
     onCreateNew: () => void;
     onSave: () => void;
-    // Tools
     tool: Tool;
     onToolChange: (tool: Tool) => void;
-    // Actions
     onUndo: () => void;
     onRedo: () => void;
     canUndo: boolean;
@@ -69,12 +63,10 @@ export interface ParticleToolbarProps {
     onDelete: () => void;
     hasSelection: boolean;
     hasCopied: boolean;
-    // View
     zoom: number;
     onZoomIn: () => void;
     onZoomOut: () => void;
     onZoomReset: () => void;
-    // Display
     showGrid: boolean;
     onToggleGrid: () => void;
     onAutoPickRun: () => void;
@@ -82,7 +74,6 @@ export interface ParticleToolbarProps {
     onSettingsOpen: () => void;
     onHelpOpen: () => void;
     isMobile: boolean;
-    // Fullscreen
     isFullscreen: boolean;
     onToggleFullscreen: () => void;
 }
@@ -117,248 +108,109 @@ export const ParticleToolbar: React.FC<ParticleToolbarProps> = ({
     isAutoPickingRunning,
     onSettingsOpen,
     onHelpOpen,
-    isMobile,
-    isFullscreen,
-    onToggleFullscreen,
 }) => {
+    const [actionsAnchor, setActionsAnchor] = useState<null | HTMLElement>(null);
+
     return (
-        <Paper elevation={1} sx={{ p: 2 }}>
-            <Stack spacing={2}>
-                {/* Session and Save Controls */}
-                <Stack direction={isMobile ? "column" : "row"} spacing={2} alignItems="flex-start">
-                    <FormControl size="small" sx={{ minWidth: 200, flex: 1 }}>
-                        <InputLabel>Particle Picking Session</InputLabel>
-                        <Select
-                            value={selectedParticlePicking?.oid || ""}
-                            label="Particle Picking Session"
-                            onChange={OnIppSelected}
-                            startAdornment={
-                                isIPPLoading ? (
-                                    <CircularProgress size={20} sx={{ mr: 1 }} />
-                                ) : null
-                            }
-                        >
-                            <MenuItem value="">
-                                <em>None</em>
-                            </MenuItem>
-                            {Array.isArray(ImageParticlePickings) && ImageParticlePickings?.map((ipp) => (
-                                <MenuItem key={ipp.oid} value={ipp.oid}>
-                                    {ipp.name}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
+        <Paper elevation={1} sx={{ px: 1, py: 0.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
 
-                    <ButtonGroup size="small" variant="outlined">
-                        <Tooltip title="Refresh Sessions">
-                            <IconButton onClick={onRefresh}>
-                                <RefreshIcon />
-                            </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Create New Session">
-                            <IconButton onClick={onCreateNew}>
-                                <AddIcon />
-                            </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Save Current Session">
-                            <IconButton onClick={onSave} disabled={!selectedParticlePicking}>
-                                <SaveIcon />
-                            </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Delete Session">
-                            <IconButton disabled={!selectedParticlePicking}>
-                                <DeleteIcon />
-                            </IconButton>
-                        </Tooltip>
-                    </ButtonGroup>
-
-                    {!isMobile && (
-                        <Tooltip title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}>
-                            <IconButton onClick={onToggleFullscreen}>
-                                {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
-                            </IconButton>
-                        </Tooltip>
-                    )}
-                </Stack>
-
-                {/* Tool Selection */}
-                <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
-                    <ToggleButtonGroup
-                        value={tool}
-                        exclusive
-                        onChange={(e, value) => value && onToolChange(value)}
-                        size="small"
+                {/* Session dropdown (compact) */}
+                <FormControl size="small" sx={{ minWidth: 140, maxWidth: 200 }}>
+                    <Select
+                        displayEmpty
+                        value={selectedParticlePicking?.oid || ""}
+                        onChange={OnIppSelected}
+                        sx={{
+                            height: 28, fontSize: '0.75rem',
+                            '& .MuiSelect-select': { py: 0.25 },
+                        }}
+                        startAdornment={isIPPLoading ? <CircularProgress size={14} sx={{ mr: 0.5 }} /> : null}
                     >
-                        <ToggleButton value="add" aria-label="add particles">
-                            <Tooltip title="Add Particles (1)">
-                                <AddIcon />
-                            </Tooltip>
-                        </ToggleButton>
-                        <ToggleButton value="remove" aria-label="remove particles">
-                            <Tooltip title="Remove Particles (2)">
-                                <RemoveIcon />
-                            </Tooltip>
-                        </ToggleButton>
-                        <ToggleButton value="select" aria-label="select particles">
-                            <Tooltip title="Select Particles (3)">
-                                <TouchAppIcon />
-                            </Tooltip>
-                        </ToggleButton>
-                        <ToggleButton value="move" aria-label="move particles">
-                            <Tooltip title="Move Particles (4)">
-                                <Move size={16} />
-                            </Tooltip>
-                        </ToggleButton>
-                        <ToggleButton value="box" aria-label="box selection">
-                            <Tooltip title="Box Selection (5)">
-                                <CropFreeIcon />
-                            </Tooltip>
-                        </ToggleButton>
-                        <ToggleButton value="brush" aria-label="brush tool">
-                            <Tooltip title="Brush Tool (6)">
-                                <BrushIcon />
-                            </Tooltip>
-                        </ToggleButton>
-                        <ToggleButton value="pan" aria-label="pan view">
-                            <Tooltip title="Pan View">
-                                <PanToolIcon />
-                            </Tooltip>
-                        </ToggleButton>
-                    </ToggleButtonGroup>
+                        <MenuItem value=""><em>Session...</em></MenuItem>
+                        {Array.isArray(ImageParticlePickings) && ImageParticlePickings?.map((ipp) => (
+                            <MenuItem key={ipp.oid} value={ipp.oid} sx={{ fontSize: '0.8rem' }}>
+                                {ipp.name}
+                            </MenuItem>
+                        ))}
+                    </Select>
+                </FormControl>
 
-                    <Divider orientation="vertical" flexItem />
+                {/* Session actions dropdown */}
+                <Tooltip title="Session actions">
+                    <IconButton size="small" onClick={(e) => setActionsAnchor(e.currentTarget)} sx={{ p: 0.25 }}>
+                        <MoreVert sx={{ fontSize: 18 }} />
+                    </IconButton>
+                </Tooltip>
+                <Menu
+                    anchorEl={actionsAnchor}
+                    open={Boolean(actionsAnchor)}
+                    onClose={() => setActionsAnchor(null)}
+                    PaperProps={{ sx: { minWidth: 160 } }}
+                >
+                    <MenuItem onClick={() => { onRefresh(); setActionsAnchor(null); }}>
+                        <RefreshIcon sx={{ fontSize: 18, mr: 1 }} /> Refresh
+                    </MenuItem>
+                    <MenuItem onClick={() => { onCreateNew(); setActionsAnchor(null); }}>
+                        <AddIcon sx={{ fontSize: 18, mr: 1 }} /> New Session
+                    </MenuItem>
+                    <MenuItem onClick={() => { onSave(); setActionsAnchor(null); }} disabled={!selectedParticlePicking}>
+                        <SaveIcon sx={{ fontSize: 18, mr: 1 }} /> Save
+                    </MenuItem>
+                    <MenuItem disabled={!selectedParticlePicking}>
+                        <DeleteIcon sx={{ fontSize: 18, mr: 1 }} /> Delete
+                    </MenuItem>
+                </Menu>
 
-                    {/* Action Buttons */}
-                    <ButtonGroup size="small">
-                        <Tooltip title="Undo (Ctrl+Z)">
-                            <span>
-                                <IconButton
-                                    onClick={onUndo}
-                                    disabled={!canUndo}
-                                    size="small"
-                                >
-                                    <UndoIcon />
-                                </IconButton>
-                            </span>
-                        </Tooltip>
-                        <Tooltip title="Redo (Ctrl+Shift+Z)">
-                            <span>
-                                <IconButton
-                                    onClick={onRedo}
-                                    disabled={!canRedo}
-                                    size="small"
-                                >
-                                    <RedoIcon />
-                                </IconButton>
-                            </span>
-                        </Tooltip>
-                    </ButtonGroup>
+                <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
 
-                    <ButtonGroup size="small">
-                        <Tooltip title="Select All (Ctrl+A)">
-                            <IconButton onClick={onSelectAll} size="small">
-                                <SelectAllIcon />
-                            </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Copy Selected (Ctrl+C)">
-                            <span>
-                                <IconButton
-                                    onClick={onCopy}
-                                    disabled={!hasSelection}
-                                    size="small"
-                                >
-                                    <CopyIcon />
-                                </IconButton>
-                            </span>
-                        </Tooltip>
-                        <Tooltip title="Paste (Ctrl+V)">
-                            <span>
-                                <IconButton
-                                    onClick={onPaste}
-                                    disabled={!hasCopied}
-                                    size="small"
-                                >
-                                    <PasteIcon />
-                                </IconButton>
-                            </span>
-                        </Tooltip>
-                        <Tooltip title="Delete Selected (Delete)">
-                            <span>
-                                <IconButton
-                                    onClick={onDelete}
-                                    disabled={!hasSelection}
-                                    size="small"
-                                >
-                                    <DeleteIcon />
-                                </IconButton>
-                            </span>
-                        </Tooltip>
-                    </ButtonGroup>
+                {/* Tool toggles */}
+                <ToggleButtonGroup
+                    value={tool}
+                    exclusive
+                    onChange={(_, v) => v && onToolChange(v)}
+                    size="small"
+                    sx={{ height: 28, '& .MuiToggleButton-root': { px: 0.75 } }}
+                >
+                    <ToggleButton value="add"><Tooltip title="Add (1)"><AddIcon sx={{ fontSize: 16 }} /></Tooltip></ToggleButton>
+                    <ToggleButton value="remove"><Tooltip title="Remove (2)"><RemoveIcon sx={{ fontSize: 16 }} /></Tooltip></ToggleButton>
+                    <ToggleButton value="select"><Tooltip title="Select (3)"><TouchAppIcon sx={{ fontSize: 16 }} /></Tooltip></ToggleButton>
+                    <ToggleButton value="move"><Tooltip title="Move (4)"><Move size={14} /></Tooltip></ToggleButton>
+                    <ToggleButton value="box"><Tooltip title="Box (5)"><CropFreeIcon sx={{ fontSize: 16 }} /></Tooltip></ToggleButton>
+                    <ToggleButton value="brush"><Tooltip title="Brush (6)"><BrushIcon sx={{ fontSize: 16 }} /></Tooltip></ToggleButton>
+                    <ToggleButton value="pan"><Tooltip title="Pan"><PanToolIcon sx={{ fontSize: 16 }} /></Tooltip></ToggleButton>
+                </ToggleButtonGroup>
 
-                    <Divider orientation="vertical" flexItem />
+                <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
 
-                    {/* View Controls */}
-                    <ButtonGroup size="small">
-                        <Tooltip title="Zoom In (+)">
-                            <IconButton onClick={onZoomIn} size="small">
-                                <ZoomInIcon />
-                            </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Zoom Out (-)">
-                            <IconButton onClick={onZoomOut} size="small">
-                                <ZoomOutIcon />
-                            </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Reset View">
-                            <IconButton onClick={onZoomReset} size="small">
-                                <CenterFocusStrongIcon />
-                            </IconButton>
-                        </Tooltip>
-                    </ButtonGroup>
+                {/* Undo / Redo */}
+                <Tooltip title="Undo"><span><IconButton size="small" onClick={onUndo} disabled={!canUndo} sx={{ p: 0.25 }}><UndoIcon sx={{ fontSize: 16 }} /></IconButton></span></Tooltip>
+                <Tooltip title="Redo"><span><IconButton size="small" onClick={onRedo} disabled={!canRedo} sx={{ p: 0.25 }}><RedoIcon sx={{ fontSize: 16 }} /></IconButton></span></Tooltip>
 
-                    <Chip
-                        label={`Zoom: ${(zoom * 100).toFixed(0)}%`}
-                        size="small"
-                        variant="outlined"
-                    />
+                <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
 
-                    <Box sx={{ flex: 1 }} />
+                {/* Clipboard */}
+                <Tooltip title="Select All"><IconButton size="small" onClick={onSelectAll} sx={{ p: 0.25 }}><SelectAllIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
+                <Tooltip title="Copy"><span><IconButton size="small" onClick={onCopy} disabled={!hasSelection} sx={{ p: 0.25 }}><CopyIcon sx={{ fontSize: 16 }} /></IconButton></span></Tooltip>
+                <Tooltip title="Paste"><span><IconButton size="small" onClick={onPaste} disabled={!hasCopied} sx={{ p: 0.25 }}><PasteIcon sx={{ fontSize: 16 }} /></IconButton></span></Tooltip>
+                <Tooltip title="Delete"><span><IconButton size="small" onClick={onDelete} disabled={!hasSelection} sx={{ p: 0.25 }}><DeleteIcon sx={{ fontSize: 16 }} /></IconButton></span></Tooltip>
 
-                    {/* Right side controls */}
-                    <Tooltip title="Toggle Grid (G)">
-                        <IconButton
-                            onClick={onToggleGrid}
-                            color={showGrid ? "primary" : "default"}
-                            size="small"
-                        >
-                            <GridOnIcon />
-                        </IconButton>
-                    </Tooltip>
+                <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
 
-                    <Tooltip title="Run Auto-picking">
-                        <IconButton
-                            onClick={onAutoPickRun}
-                            disabled={isAutoPickingRunning}
-                            color="primary"
-                            size="small"
-                        >
-                            <AutoFixHighIcon />
-                        </IconButton>
-                    </Tooltip>
+                {/* Zoom */}
+                <Tooltip title="Zoom In"><IconButton size="small" onClick={onZoomIn} sx={{ p: 0.25 }}><ZoomInIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
+                <Tooltip title="Zoom Out"><IconButton size="small" onClick={onZoomOut} sx={{ p: 0.25 }}><ZoomOutIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
+                <Tooltip title="Reset"><IconButton size="small" onClick={onZoomReset} sx={{ p: 0.25 }}><CenterFocusStrongIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
+                <Chip label={`${(zoom * 100).toFixed(0)}%`} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} />
 
-                    <Tooltip title="Settings">
-                        <IconButton onClick={onSettingsOpen} size="small">
-                            <SettingsIcon />
-                        </IconButton>
-                    </Tooltip>
+                <Box sx={{ flex: 1 }} />
 
-                    <Tooltip title="Help (H)">
-                        <IconButton onClick={onHelpOpen} size="small">
-                            <HelpIcon />
-                        </IconButton>
-                    </Tooltip>
-                </Stack>
-            </Stack>
+                {/* Right side */}
+                <Tooltip title="Grid (G)"><IconButton size="small" onClick={onToggleGrid} color={showGrid ? "primary" : "default"} sx={{ p: 0.25 }}><GridOnIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
+                <Tooltip title="Auto-pick"><IconButton size="small" onClick={onAutoPickRun} disabled={isAutoPickingRunning} color="primary" sx={{ p: 0.25 }}><AutoFixHighIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
+                <Tooltip title="Settings"><IconButton size="small" onClick={onSettingsOpen} sx={{ p: 0.25 }}><SettingsIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
+                <Tooltip title="Help (H)"><IconButton size="small" onClick={onHelpOpen} sx={{ p: 0.25 }}><HelpIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
+            </Box>
         </Paper>
     );
 };
