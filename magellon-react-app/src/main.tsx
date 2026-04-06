@@ -3,12 +3,12 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import './assets/css/index.css'
 import {BrowserRouter} from "react-router-dom";
-import AppRoutes from "./AppRoutes.tsx";
-import './core/i18n';
+import AppRoutes from "./app/routes/AppRoutes.tsx";
+import './shared/i18n/i18n.ts';
 import {QueryClient, QueryClientProvider} from "react-query";
 
-import { ThemeProvider } from './themes';
-import {AuthProvider} from "./account/UserManagement/AuthContext.tsx";
+import { ThemeProvider } from './app/providers/theme';
+import {AuthProvider} from "./features/auth/model/AuthContext.tsx";
 
 // Import our new theme provider
 

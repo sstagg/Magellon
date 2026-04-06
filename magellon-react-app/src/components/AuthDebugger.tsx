@@ -11,7 +11,7 @@
  */
 
 import React, { useState } from 'react';
-import { useAuth } from '../account/UserManagement/AuthContext';
+import { useAuth } from '../features/auth/model/AuthContext';
 import { Box, Paper, Typography, Button, TextField, Alert, Chip } from '@mui/material';
 
 export const AuthDebugger: React.FC = () => {
