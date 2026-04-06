@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Magellon Socket.IO Test</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 2rem; }
+        h1 { color: #e94560; margin-bottom: 1.5rem; }
+        h2 { color: #0f3460; background: #e94560; display: inline-block; padding: 0.3rem 0.8rem; border-radius: 4px; margin-bottom: 0.5rem; font-size: 0.9rem; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .card { background: #16213e; border-radius: 8px; padding: 1.2rem; margin-bottom: 1rem; }
+        .status { font-size: 0.9rem; padding: 0.5rem 1rem; border-radius: 4px; margin-bottom: 1rem; }
+        .status.connected { background: #1b4332; color: #95d5b2; }
+        .status.disconnected { background: #5c1a1a; color: #f5a5a5; }
+        button { background: #e94560; color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 4px; cursor: pointer; font-size: 0.9rem; margin-right: 0.5rem; margin-bottom: 0.5rem; }
+        button:hover { background: #c73e54; }
+        button:disabled { background: #555; cursor: not-allowed; }
+        input { background: #0f3460; color: #e0e0e0; border: 1px solid #333; padding: 0.5rem; border-radius: 4px; margin-right: 0.5rem; width: 200px; }
+        #log { background: #0f0f23; border-radius: 4px; padding: 1rem; max-height: 350px; overflow-y: auto; font-family: monospace; font-size: 0.85rem; line-height: 1.6; }
+        .log-entry { border-bottom: 1px solid #1a1a3e; padding: 2px 0; }
+        .log-entry .time { color: #666; }
+        .log-entry.recv { color: #95d5b2; }
+        .log-entry.send { color: #a5b4fc; }
+        .log-entry.system { color: #fbbf24; }
+        .progress-bar { background: #0f3460; border-radius: 4px; height: 24px; margin-top: 0.5rem; overflow: hidden; }
+        .progress-fill { background: #e94560; height: 100%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Magellon Socket.IO Test</h1>
+
+    <div id="statusBar" class="status disconnected">Disconnected</div>
+
+    <div class="card">
+        <h2>PING / PONG</h2>
+        <p style="margin-bottom:0.5rem; font-size:0.85rem;">Send a ping, get a pong back.</p>
+        <input id="pingInput" type="text" placeholder="Type a message..." value="hello">
+        <button onclick="sendPing()">Send Ping</button>
+    </div>
+
+    <div class="card">
+        <h2>JOB SIMULATION</h2>
+        <p style="margin-bottom:0.5rem; font-size:0.85rem;">Starts a fake job on the server; watch progress updates stream in.</p>
+        <input id="jobName" type="text" placeholder="Job name" value="ctf-estimation">
+        <input id="jobSteps" type="number" placeholder="Steps" value="8" style="width:80px;">
+        <button onclick="startJob()">Start Job</button>
+        <div class="progress-bar"><div id="progressFill" class="progress-fill" style="width:0%"></div></div>
+    </div>
+
+    <div class="card">
+        <h2>BROADCAST</h2>
+        <p style="margin-bottom:0.5rem; font-size:0.85rem;">Send a message to all connected clients.</p>
+        <input id="broadcastInput" type="text" placeholder="Broadcast message..." value="Hello everyone!">
+        <button onclick="sendBroadcast()">Broadcast</button>
+    </div>
+
+    <div class="card">
+        <h2>EVENT LOG</h2>
+        <button onclick="clearLog()">Clear</button>
+        <div id="log" style="margin-top:0.5rem;"></div>
+    </div>
+</div>
+
+<script>
+    const logEl = document.getElementById('log');
+    const statusBar = document.getElementById('statusBar');
+    const progressFill = document.getElementById('progressFill');
+
+    function log(msg, cls = 'system') {
+        const t = new Date().toLocaleTimeString();
+        const div = document.createElement('div');
+        div.className = `log-entry ${cls}`;
+        div.innerHTML = `<span class="time">[${t}]</span> ${msg}`;
+        logEl.prepend(div);
+    }
+
+    // Connect to Socket.IO on the same host
+    const socket = io(window.location.origin, {
+        transports: ['websocket', 'polling'],
+    });
+
+    socket.on('connect', () => {
+        statusBar.textContent = `Connected (id: ${socket.id})`;
+        statusBar.className = 'status connected';
+        log('Connected to server');
+    });
+
+    socket.on('disconnect', (reason) => {
+        statusBar.textContent = 'Disconnected';
+        statusBar.className = 'status disconnected';
+        log(`Disconnected: ${reason}`);
+    });
+
+    socket.on('server_message', (data) => {
+        log(`server_message: ${JSON.stringify(data)}`, 'recv');
+    });
+
+    socket.on('pong', (data) => {
+        log(`pong: ${JSON.stringify(data)}`, 'recv');
+    });
+
+    socket.on('job_progress', (data) => {
+        log(`job_progress: ${data.job_name} — step ${data.step}/${data.total_steps} (${data.percent}%) [${data.status}]`, 'recv');
+        progressFill.style.width = data.percent + '%';
+        progressFill.textContent = data.percent + '%';
+        if (data.status === 'completed') {
+            progressFill.style.background = '#2d6a4f';
+        } else {
+            progressFill.style.background = '#e94560';
+        }
+    });
+
+    socket.on('server_broadcast', (data) => {
+        log(`broadcast from ${data.from_sid}: ${data.message}`, 'recv');
+    });
+
+    function sendPing() {
+        const msg = document.getElementById('pingInput').value;
+        log(`emit ping: "${msg}"`, 'send');
+        socket.emit('ping', msg);
+    }
+
+    function startJob() {
+        const name = document.getElementById('jobName').value;
+        const steps = parseInt(document.getElementById('jobSteps').value) || 10;
+        progressFill.style.width = '0%';
+        progressFill.textContent = '';
+        log(`emit start_job_simulation: name=${name}, steps=${steps}`, 'send');
+        socket.emit('start_job_simulation', { job_name: name, total_steps: steps });
+    }
+
+    function sendBroadcast() {
+        const msg = document.getElementById('broadcastInput').value;
+        log(`emit broadcast_message: "${msg}"`, 'send');
+        socket.emit('broadcast_message', { message: msg });
+    }
+
+    function clearLog() { logEl.innerHTML = ''; }
+</script>
+</body>
+</html>
+</script>
+</body>
+</html>
