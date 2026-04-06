@@ -9,7 +9,7 @@ import {
     useTheme,
 } from '@mui/material';
 import { Delete, ArrowDownward } from '@mui/icons-material';
-import { ScrollText } from 'lucide-react';
+import { Terminal } from 'lucide-react';
 
 interface LogEntry {
     id: string;
@@ -60,7 +60,7 @@ export const LogsPanel: React.FC = () => {
                 borderBottom: `1px solid ${theme.palette.divider}`,
             }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <ScrollText size={14} />
+                    <Terminal size={14} />
                     <Typography variant="caption" fontWeight={600}>Logs</Typography>
                     <Chip label={MOCK_LOGS.length} size="small" sx={{ height: 18, fontSize: '0.65rem' }} />
                 </Box>

@@ -16,7 +16,7 @@ import {
     Menu,
     MenuItem
 } from '@mui/material';
-import { HelpCircle, Settings, Cpu, ScrollText } from 'lucide-react';
+import { HelpCircle, Settings, Cpu, Terminal } from 'lucide-react';
 import { AccountCircle, LogoutOutlined } from '@mui/icons-material';
 import ThemeSwitcher from './ThemeSwitcher.tsx';
 import { useAuth } from '../../../features/auth/model/AuthContext.tsx';
@@ -239,7 +239,7 @@ const BottomPanelToggles: React.FC = () => {
                         fontSize: '0.75rem',
                     }}
                 >
-                    <ScrollText size={16} />
+                    <Terminal size={16} />
                     <Typography variant="caption" sx={{ color: 'inherit', fontSize: '0.7rem' }}>
                         Logs
                     </Typography>
