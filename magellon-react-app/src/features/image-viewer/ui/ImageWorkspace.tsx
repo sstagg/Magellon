@@ -17,6 +17,7 @@ import { SelectChangeEvent } from '@mui/material';
 import { SessionSelector } from './SessionSelector.tsx';
 import { ViewModeSelector } from './ViewModeSelector.tsx';
 import { EnhancedAtlasSection } from './EnhancedAtlasSection.tsx';
+import { ColumnSettingsPanel } from './ColumnSettingsPanel.tsx';
 
 interface ImageNavigatorProps {
     onImageClick: (imageInfo: ImageInfoDto, column: number) => void,
@@ -111,6 +112,9 @@ export const ImageWorkspace: React.FC<ImageNavigatorProps> = ({
             overflow: 'hidden',
             position: 'relative'
         }}>
+            {/* Column settings bar */}
+            <ColumnSettingsPanel />
+
             {/* Header with session selector */}
             <Box sx={{
                 flexShrink: 0,

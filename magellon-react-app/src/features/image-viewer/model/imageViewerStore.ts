@@ -42,6 +42,10 @@ interface ImageViewerState {
     contrast: number;
     scale: number;
 
+    // Column display settings
+    thumbnailSize: number;
+    autoHideEmpty: boolean;
+
     // Dialog states
     isParticlePickingDialogOpen: boolean;
 
@@ -61,6 +65,8 @@ interface ImageViewerState {
     setBrightness: (value: number) => void;
     setContrast: (value: number) => void;
     setScale: (value: number) => void;
+    setThumbnailSize: (size: number) => void;
+    setAutoHideEmpty: (hide: boolean) => void;
     openParticlePickingDialog: () => void;
     closeParticlePickingDialog: () => void;
 }
@@ -110,6 +116,8 @@ export const useImageViewerStore = create<ImageViewerState>()((set) => ({
     brightness: 50,
     contrast: 50,
     scale: 1,
+    thumbnailSize: 120,
+    autoHideEmpty: false,
     isParticlePickingDialogOpen: false,
 
     // Actions
@@ -183,6 +191,10 @@ export const useImageViewerStore = create<ImageViewerState>()((set) => ({
     setContrast: (value) => set({ contrast: value }),
 
     setScale: (value) => set({ scale: value }),
+
+    setThumbnailSize: (size) => set({ thumbnailSize: size }),
+
+    setAutoHideEmpty: (hide) => set({ autoHideEmpty: hide }),
 
     openParticlePickingDialog: () => set({ isParticlePickingDialogOpen: true }),
 

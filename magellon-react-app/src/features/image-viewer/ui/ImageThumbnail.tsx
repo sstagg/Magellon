@@ -1,19 +1,11 @@
 import React, { useState, useMemo } from "react";
-import {
-    IconButton,
-    ImageListItemBar,
-    ImageListItem,
-    Box,
-    Tooltip,
-    Badge,
-    Skeleton,
-    useTheme
-} from "@mui/material";
-import { FileImage, Folder, FolderOpen } from "lucide-react";
+import { Box, Tooltip, Skeleton, useTheme } from "@mui/material";
+import { FileImage, FolderOpen } from "lucide-react";
 import ImageInfoDto from "../../../entities/image/types.ts";
 import { settings } from "../../../shared/config/settings.ts";
 import { useImageViewerStore } from '../model/imageViewerStore.ts';
 import { useAuthenticatedImage } from '../../../shared/lib/useAuthenticatedImage.ts';
+import { THUMBNAIL_SIZES } from '../constants.ts';
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
 
@@ -36,7 +28,7 @@ export const ImageThumbnail = ({
                                    size = 'medium',
                                    showMetadata = true
                                }: ThumbImageProps) => {
-    const [isHovered, setIsHovered] = useState(false);
+    const [loaded, setLoaded] = useState(false);
     const theme = useTheme();
 
     const { currentSession } = useImageViewerStore();
@@ -47,34 +39,22 @@ export const ImageThumbnail = ({
     const imageName = image.name || 'Unnamed Image';
     const imageDefocus = image.defocus !== undefined ? `${image.defocus?.toFixed(2)}μm` : 'N/A';
 
-    const imageClasses = useMemo(() => {
-        const classes = ['thumb-image'];
-        if (hasChildren) classes.push('thumb-image-has-children');
-        if (isSelected) classes.push('thumb-image-selected');
-        return classes.join(' ');
-    }, [hasChildren, isSelected]);
-
     const dimensions = useMemo(() => {
-        const sizeMapping = {
-            small: { width: 120, height: 120 },
-            medium: { width: 150, height: 150 },
-            large: { width: 200, height: 200 }
+        const mapping: Record<string, { width: number; height: number }> = {
+            small: THUMBNAIL_SIZES.SMALL,
+            medium: THUMBNAIL_SIZES.MEDIUM,
+            large: THUMBNAIL_SIZES.LARGE,
         };
-        return sizeMapping[size];
+        return mapping[size];
     }, [size]);
 
-    // Original API URL
     const apiUrl = useMemo(() =>
             `${BASE_URL}/image_thumbnail?name=${encodeURIComponent(image.name)}&sessionName=${sessionName}`,
         [image.name, sessionName]
     );
 
-    // Use authenticated image hook
     const { imageUrl, isLoading, error: imageError } = useAuthenticatedImage(apiUrl);
     const hasError = !!imageError;
-
-    const handleMouseEnter = () => setIsHovered(true);
-    const handleMouseLeave = () => setIsHovered(false);
 
     const handleClick = () => {
         const imageWithLevel = { ...image, level };
@@ -85,162 +65,187 @@ export const ImageThumbnail = ({
         <Box sx={{ p: 1, maxWidth: 220 }}>
             <strong>Name:</strong> {imageName}<br />
             {image.defocus !== undefined && <><strong>Defocus:</strong> {imageDefocus}<br /></>}
-            {image.mag && <><strong>Magnification:</strong> {image.mag}×<br /></>}
-            {image.pixelSize && <><strong>Pixel Size:</strong> {image.pixelSize?.toFixed(2)} Å/pix<br /></>}
+            {image.mag && <><strong>Magnification:</strong> {image.mag}&times;<br /></>}
+            {image.pixelSize && <><strong>Pixel Size:</strong> {image.pixelSize?.toFixed(2)} &Aring;/pix<br /></>}
             {hasChildren && <><strong>Child Images:</strong> {childrenCount}</>}
         </Box>
     );
 
-    const barStyle = {
-        borderRadius: isHovered ? '0 0 8px 8px' : '0',
-        margin: isHovered ? '1px' : '0',
-        '.MuiImageListItemBar-title': {
-            fontSize: '0.75rem',
-            fontWeight: 500,
-            textOverflow: 'ellipsis',
-            overflow: 'hidden'
-        },
-        '.MuiImageListItemBar-subtitle': {
-            fontSize: '0.7rem',
-            textOverflow: 'ellipsis',
-            overflow: 'hidden',
-            whiteSpace: 'nowrap'
-        }
-    };
+    const showSkeleton = isLoading && !loaded && !hasError;
 
     return (
         <Tooltip title={tooltipContent} placement="right" arrow>
             <Box
+                component="button"
+                onClick={handleClick}
                 sx={{
-                    width: '100%',
-                    height: fixedHeight ? dimensions.height : 'auto',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
+                    /* reset button defaults */
+                    border: 'none',
+                    padding: 0,
+                    background: 'none',
+                    font: 'inherit',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+
+                    /* layout */
+                    position: 'relative',
                     overflow: 'hidden',
-                    transition: 'transform 0.2s',
-                    transform: isHovered ? 'scale(1.02)' : 'scale(1)',
+                    borderRadius: '8px',
+                    width: dimensions.width,
+                    height: fixedHeight ? dimensions.height : dimensions.width,
+                    aspectRatio: '1 / 1',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+
+                    /* selection ring */
+                    outline: isSelected
+                        ? `2px solid ${theme.palette.primary.main}`
+                        : `1px solid ${theme.palette.divider}`,
+                    outlineOffset: isSelected ? '0px' : '-1px',
+
+                    /* hover scale */
+                    transition: 'transform 0.15s ease, outline 0.15s ease',
+                    '&:hover': {
+                        transform: 'scale(1.02)',
+                    },
                 }}
-                onMouseEnter={handleMouseEnter}
-                onMouseLeave={handleMouseLeave}
             >
-                <ImageListItem
-                    sx={{
-                        width: '100%',
-                        maxWidth: dimensions.width,
-                        height: 'auto',
-                        aspectRatio: '1/1',
-                        position: 'relative',
-                        boxShadow: isSelected ? `0 0 0 2px ${theme.palette.primary.main}` : 'none',
-                        borderRadius: '8px',
-                        overflow: 'hidden'
-                    }}
-                >
-                    <IconButton
+                {/* Skeleton placeholder */}
+                {showSkeleton && (
+                    <Skeleton
+                        variant="rectangular"
+                        width="100%"
+                        height="100%"
+                        animation="wave"
                         sx={{
-                            padding: 0,
-                            width: '100%',
-                            height: '100%',
-                            display: 'flex',
-                            justifyContent: 'center',
-                            alignItems: 'center',
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
                             borderRadius: '8px',
                         }}
-                        onClick={handleClick}
-                        disableRipple={false}
+                    />
+                )}
+
+                {/* Error state */}
+                {hasError && (
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '100%',
+                            height: '100%',
+                            backgroundColor:
+                                theme.palette.mode === 'dark'
+                                    ? 'rgba(0,0,0,0.2)'
+                                    : 'rgba(0,0,0,0.05)',
+                            color: theme.palette.text.secondary,
+                            borderRadius: '8px',
+                            p: 1,
+                            textAlign: 'center',
+                        }}
                     >
-                        {isLoading && (
-                            <Skeleton
-                                variant="rectangular"
-                                width="100%"
-                                height="100%"
-                                animation="wave"
-                                sx={{ position: 'absolute', top: 0, left: 0, borderRadius: '8px' }}
-                            />
-                        )}
+                        <FileImage size={24} style={{ marginBottom: 4 }} />
+                        <Box sx={{ fontSize: '0.7rem' }}>Image not available</Box>
+                    </Box>
+                )}
 
-                        {hasError ? (
-                            <Box
-                                sx={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    width: '100%',
-                                    height: '100%',
-                                    backgroundColor: theme.palette.mode === 'dark'
-                                        ? 'rgba(0, 0, 0, 0.2)'
-                                        : 'rgba(0, 0, 0, 0.05)',
-                                    color: theme.palette.text.secondary,
-                                    borderRadius: '8px',
-                                    p: 1,
-                                    textAlign: 'center'
-                                }}
-                            >
-                                <FileImage size={24} style={{ marginBottom: 4 }} />
-                                <Box sx={{ fontSize: '0.7rem' }}>Image not available</Box>
-                            </Box>
-                        ) : (
-                            imageUrl && (
-                                <img
-                                    src={imageUrl}
-                                    alt={imageName}
-                                    loading="lazy"
-                                    className={imageClasses}
-                                    style={{
-                                        width: '100%',
-                                        height: 'auto',
-                                        objectFit: 'cover',
-                                        aspectRatio: '1/1'
-                                    }}
-                                />
-                            )
-                        )}
-                    </IconButton>
+                {/* Image */}
+                {!hasError && imageUrl && (
+                    <img
+                        src={imageUrl}
+                        alt={imageName}
+                        loading="lazy"
+                        onLoad={() => setLoaded(true)}
+                        style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            display: loaded ? 'block' : 'none',
+                        }}
+                    />
+                )}
 
-                    {/* Enhanced Folder badge for images with children */}
-                    {hasChildren && (
+                {/* Children count badge — top-right */}
+                {hasChildren && (
+                    <Box
+                        sx={{
+                            position: 'absolute',
+                            top: 4,
+                            right: 4,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                            backgroundColor:
+                                theme.palette.mode === 'dark'
+                                    ? 'rgba(0,0,0,0.75)'
+                                    : 'rgba(255,255,255,0.9)',
+                            color: theme.palette.primary.main,
+                            borderRadius: '10px',
+                            px: 0.75,
+                            py: 0.25,
+                            fontSize: '0.65rem',
+                            fontWeight: 600,
+                            lineHeight: 1,
+                            boxShadow: '0 1px 4px rgba(0,0,0,0.25)',
+                            zIndex: 2,
+                            pointerEvents: 'none',
+                        }}
+                    >
+                        <FolderOpen size={12} />
+                        {childrenCount}
+                    </Box>
+                )}
+
+                {/* Name gradient overlay — bottom */}
+                {showMetadata && (
+                    <Box
+                        sx={{
+                            position: 'absolute',
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)',
+                            px: 0.75,
+                            py: 0.5,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'flex-end',
+                            pointerEvents: 'none',
+                            minHeight: '36px',
+                        }}
+                    >
                         <Box
+                            component="span"
                             sx={{
-                                position: 'absolute',
-                                top: 6,
-                                right: 6,
-                                backgroundColor: theme.palette.mode === 'dark'
-                                    ? 'rgba(0, 0, 0, 0.7)'
-                                    : 'rgba(255, 255, 255, 0.9)',
-                                borderRadius: '6px',
-                                width: 32,
-                                height: 32,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-                                zIndex: 2,
-                                padding: 0,
-                                border: `2px solid ${theme.palette.primary.main}`,
+                                color: '#fff',
+                                fontSize: '0.68rem',
+                                fontWeight: 500,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
                             }}
                         >
-                            <FolderOpen
-                                size={20}
-                                color={theme.palette.primary.main}
-                                fill={theme.palette.primary.main}
-                                style={{
-                                    display: 'block',
-                                    margin: 'auto',
-                                    strokeWidth: 2.5
-                                }}
-                            />
+                            {imageName}
                         </Box>
-                    )}
-
-                    {showMetadata && (
-                        <ImageListItemBar
-                            title={`${hasChildren ? `${childrenCount} Imgs` : ''} ${imageDefocus !== 'N/A' ? `Def: ${imageDefocus}` : ''}`}
-                            subtitle={imageName}
-                            sx={barStyle}
-                        />
-                    )}
-                </ImageListItem>
+                        {imageDefocus !== 'N/A' && (
+                            <Box
+                                component="span"
+                                sx={{
+                                    color: 'rgba(255,255,255,0.7)',
+                                    fontSize: '0.6rem',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
+                                Def: {imageDefocus}
+                            </Box>
+                        )}
+                    </Box>
+                )}
             </Box>
         </Tooltip>
     );
