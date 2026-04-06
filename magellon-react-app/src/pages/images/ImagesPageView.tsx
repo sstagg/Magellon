@@ -11,278 +11,133 @@ import { useImageDataFetching } from '../../features/image-viewer/lib/useImageDa
 import { useAtlasData } from '../../features/image-viewer/lib/useAtlasData.ts';
 import { ImageViewerErrorBoundary } from '../../features/image-viewer/ui/ImageViewerErrorBoundary.tsx';
 import { ImageNavigationProvider } from '../../features/image-viewer/lib/ImageNavigationContext.tsx';
+import { useSidePanelStore } from '../../app/layouts/PanelLayout/useBottomPanelStore.ts';
 import '../../panel/pages/styles/resizablePanels.module.css';
 
-const DRAWER_WIDTH = 240;
-
-// Custom styled resize handle
 const CustomResizeHandle = () => {
     const theme = useTheme();
-
     return (
-        <Separator
-            className="resize-handle-horizontal"
-        >
-            <Box
-                sx={{
-                    width: '100%',
-                    height: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    position: 'relative',
-                    '&::before': {
-                        content: '""',
-                        position: 'absolute',
-                        top: '50%',
-                        left: '50%',
-                        transform: 'translate(-50%, -50%)',
-                        width: '3px',
-                        height: '40px',
-                        background: `repeating-linear-gradient(
-                            to bottom,
-                            ${theme.palette.text.secondary} 0px,
-                            ${theme.palette.text.secondary} 3px,
-                            transparent 3px,
-                            transparent 7px
-                        )`,
-                        borderRadius: '1.5px',
-                        opacity: 0.4,
-                        transition: 'opacity 0.2s ease'
-                    },
-                    '&:hover::before': {
-                        opacity: 0.8,
-                    }
-                }}
-            />
+        <Separator className="resize-handle-horizontal">
+            <Box sx={{
+                width: '100%', height: '100%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                position: 'relative',
+                '&::before': {
+                    content: '""', position: 'absolute', top: '50%', left: '50%',
+                    transform: 'translate(-50%, -50%)', width: '3px', height: '40px',
+                    background: `repeating-linear-gradient(to bottom, ${theme.palette.text.secondary} 0px, ${theme.palette.text.secondary} 3px, transparent 3px, transparent 7px)`,
+                    borderRadius: '1.5px', opacity: 0.4, transition: 'opacity 0.2s ease',
+                },
+                '&:hover::before': { opacity: 0.8 },
+            }} />
         </Separator>
     );
 };
 
 export const ImagesPageView = () => {
-    // Theme and responsive breakpoints
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-    // Use custom hooks for panel layout management
     const { leftPanelSize, handleResize, leftMargin } = usePanelLayout({
-        defaultSize: 35,
-        minSize: 25,
-        maxSize: 50,
-        storageKey: 'images-page-left-panel-size'
+        defaultSize: 35, minSize: 25, maxSize: 50,
+        storageKey: 'images-page-left-panel-size',
     });
 
-    // Use custom hook for image navigation
     const { handleImageClick, handleSessionSelect } = useImageNavigation();
-
-    // Get state from Zustand store (single source of truth)
-    const {
-        currentSession,
-        currentImage,
-        imageColumns
-    } = useImageViewerStore();
-
-    // Fetch session data
+    const { currentSession, currentImage, imageColumns } = useImageViewerStore();
     const { data: sessionData } = useSessionNames();
-
-    // Fetch and manage atlas images
     const { atlasImages } = useAtlasData({
         sessionName: currentSession?.name,
-        enabled: currentSession !== null
+        enabled: currentSession !== null,
     });
 
-    // Fetch and manage image data with hierarchy
-    useImageDataFetching({
-        sessionName: currentSession?.name,
-        pageSize: 100
-    });
+    useImageDataFetching({ sessionName: currentSession?.name, pageSize: 100 });
 
-    // Calculate padding values
-    const paddingValue = isMobile ? '0.5%' : '0.5%';
-    const topBottomPadding = isMobile ? '0.5%' : '0.5%';
+    const { activePanel, panelWidth } = useSidePanelStore();
+    const rightOffset = activePanel ? panelWidth : 0;
 
-    // Mobile layout - stack components vertically with proper height allocation
-    const renderMobileLayout = () => {
-        return (
-            <Box sx={{
-                position: 'fixed',
-                top: 40, // Account for header
-                left: leftMargin,
-                right: 0,
-                bottom: 0,
-                zIndex: 1050, // Below drawer but above content
-                backgroundColor: 'background.default',
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden',
-                transition: theme.transitions.create(['left'], {
-                    easing: theme.transitions.easing.sharp,
-                    duration: theme.transitions.duration.enteringScreen,
-                }),
-            }}>
-                {/* Container with padding for beautiful layout */}
-                <Box sx={{
-                    flex: 1,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    p: paddingValue,
-                    pt: topBottomPadding,
-                    pb: topBottomPadding,
-                    overflow: 'hidden'
-                }}>
-                    {/* ImageWorkspace - Fixed height to ensure adequate space */}
-                    <Box sx={{
-                        height: currentImage ? '65%' : '100%', // Give more space when image selected
-                        minHeight: '500px', // Ensure substantial minimum height
-                        overflow: 'auto',
-                        borderRadius: 2,
-                        backgroundColor: 'background.paper',
-                        boxShadow: 1,
-                        mb: currentImage ? 2 : 0
-                    }}>
-                        <ImageWorkspace
-                            onImageClick={handleImageClick}
-                            selectedSession={currentSession}
-                            OnSessionSelected={handleSessionSelect}
-                            selectedImage={currentImage}
-                            ImageColumns={imageColumns}
-                            Sessions={sessionData}
-                            Atlases={atlasImages}
-                        />
-                    </Box>
-
-                    {/* ImageInspector - Only show when image is selected */}
-                    {currentImage && (
-                        <Box sx={{
-                            height: '35%',
-                            minHeight: '250px', // Adequate minimum for image details
-                            overflow: 'auto',
-                            borderRadius: 2,
-                            backgroundColor: 'background.paper',
-                            boxShadow: 1
-                        }}>
-                            <ImageInspector selectedImage={currentImage} />
-                        </Box>
-                    )}
-                </Box>
-            </Box>
-        );
+    const workspaceProps = {
+        onImageClick: handleImageClick,
+        selectedSession: currentSession,
+        OnSessionSelected: handleSessionSelect,
+        selectedImage: currentImage,
+        ImageColumns: imageColumns,
+        Sessions: sessionData,
+        Atlases: atlasImages,
     };
 
-    // Desktop layout - resizable panels with full screen, beautiful padding and rounded corners
-    const renderDesktopLayout = () => {
+    if (isMobile) {
         return (
-            <Box sx={{
-                position: 'fixed',
-                top: 64, // Account for header
-                left: leftMargin,
-                right: 0,
-                bottom: 0,
-                zIndex: 1050, // Below drawer but above content
-                backgroundColor: 'background.default',
-                overflow: 'hidden',
-                display: 'flex',
-                transition: theme.transitions.create(['left'], {
-                    easing: theme.transitions.easing.sharp,
-                    duration: theme.transitions.duration.enteringScreen,
-                }),
-            }}>
-                {/* Container with padding for beautiful layout */}
-                <Box sx={{
-                    flex: 1,
-                    display: 'flex',
-                    p: paddingValue,
-                    pt: topBottomPadding,
-                    pb: topBottomPadding,
-                    overflow: 'hidden'
-                }}>
-                    {/* Main content area with rounded corners and shadow */}
+            <ImageViewerErrorBoundary>
+                <ImageNavigationProvider>
                     <Box sx={{
-                        width: '100%',
-                        height: '100%',
-                        borderRadius: 3,
-                        backgroundColor: 'background.paper',
-                        boxShadow: 3,
-                        overflow: 'hidden',
-                        border: `1px solid ${theme.palette.divider}`
+                        position: 'fixed', top: 40, left: leftMargin, right: rightOffset, bottom: 0,
+                        zIndex: 1050, backgroundColor: 'background.default',
+                        display: 'flex', flexDirection: 'column', overflow: 'hidden',
+                        transition: theme.transitions.create(['left', 'right']),
                     }}>
-                        <Group
-                            orientation="horizontal"
-                            onLayoutChange={handleResize}
-                            style={{
-                                width: '100%',
-                                height: '100%',
-                                minWidth: 0
-                            }}
-                        >
-                            {/* Left Panel - Session Navigator (ImageWorkspace) */}
-                            <Panel
-                                id="session-navigator"
-                                defaultSize={`${leftPanelSize}%`}
-                                minSize="25%"       // Minimum 25% of total width (more space for images)
-                                maxSize="50%"       // Maximum 50% of total width
-                                style={{
-                                    minWidth: 0,
-                                    overflow: 'hidden'
-                                }}
-                            >
-                                <Box sx={{
-                                    height: '100%',
-                                    overflow: 'hidden',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    backgroundColor: 'background.paper',
-                                    borderTopLeftRadius: 3,
-                                    borderBottomLeftRadius: 3
-                                }}>
-                                    <ImageWorkspace
-                                        onImageClick={handleImageClick}
-                                        selectedSession={currentSession}
-                                        OnSessionSelected={handleSessionSelect}
-                                        selectedImage={currentImage}
-                                        ImageColumns={imageColumns}
-                                        Sessions={sessionData}
-                                        Atlases={atlasImages}
-                                    />
-                                </Box>
-                            </Panel>
-
-                            {/* Resize Handle */}
-                            <CustomResizeHandle />
-
-                            {/* Right Panel - Solo Image Viewer (ImageInspector) - Gets more space */}
-                            <Panel
-                                id="image-viewer"
-                                minSize="50%"       // Minimum 50% of total width - more space for detailed viewing
-                                style={{
-                                    minWidth: '500px', // Reduced minimum - let it be more flexible
-                                    overflow: 'hidden'
-                                }}
-                            >
-                                <Box sx={{
-                                    height: '100%',
-                                    overflow: 'hidden',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    backgroundColor: 'background.paper',
-                                    borderTopRightRadius: 3,
-                                    borderBottomRightRadius: 3
-                                }}>
+                        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: '0.5%', overflow: 'hidden' }}>
+                            <Box sx={{
+                                height: currentImage ? '65%' : '100%', minHeight: 500,
+                                overflow: 'auto', borderRadius: 2, backgroundColor: 'background.paper', boxShadow: 1,
+                                mb: currentImage ? 2 : 0,
+                            }}>
+                                <ImageWorkspace {...workspaceProps} />
+                            </Box>
+                            {currentImage && (
+                                <Box sx={{ height: '35%', minHeight: 250, overflow: 'auto', borderRadius: 2, backgroundColor: 'background.paper', boxShadow: 1 }}>
                                     <ImageInspector selectedImage={currentImage} />
                                 </Box>
-                            </Panel>
-                        </Group>
+                            )}
+                        </Box>
                     </Box>
-                </Box>
-            </Box>
+                </ImageNavigationProvider>
+            </ImageViewerErrorBoundary>
         );
-    };
+    }
 
-    // Main component return - responsive layout selection
     return (
         <ImageViewerErrorBoundary>
             <ImageNavigationProvider>
-                {isMobile ? renderMobileLayout() : renderDesktopLayout()}
+                <Box sx={{
+                    position: 'fixed', top: 64, left: leftMargin, right: rightOffset, bottom: 0,
+                    zIndex: 1050, backgroundColor: 'background.default',
+                    overflow: 'hidden', display: 'flex',
+                    transition: theme.transitions.create(['left', 'right']),
+                }}>
+                    <Box sx={{ flex: 1, display: 'flex', p: '0.5%', overflow: 'hidden' }}>
+                        <Box sx={{
+                            width: '100%', height: '100%', borderRadius: 3,
+                            backgroundColor: 'background.paper', boxShadow: 3, overflow: 'hidden',
+                            border: `1px solid ${theme.palette.divider}`,
+                        }}>
+                            <Group
+                                orientation="horizontal"
+                                onLayoutChange={handleResize}
+                                style={{ width: '100%', height: '100%', minWidth: 0 }}
+                            >
+                                <Panel
+                                    id="session-navigator"
+                                    defaultSize={`${leftPanelSize}%`}
+                                    minSize="25%" maxSize="50%"
+                                    style={{ minWidth: 0, overflow: 'hidden' }}
+                                >
+                                    <Box sx={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', backgroundColor: 'background.paper' }}>
+                                        <ImageWorkspace {...workspaceProps} />
+                                    </Box>
+                                </Panel>
+
+                                <CustomResizeHandle />
+
+                                <Panel id="image-viewer" minSize="50%" style={{ minWidth: 500, overflow: 'hidden' }}>
+                                    <Box sx={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', backgroundColor: 'background.paper' }}>
+                                        <ImageInspector selectedImage={currentImage} />
+                                    </Box>
+                                </Panel>
+                            </Group>
+                        </Box>
+                    </Box>
+                </Box>
             </ImageNavigationProvider>
         </ImageViewerErrorBoundary>
     );

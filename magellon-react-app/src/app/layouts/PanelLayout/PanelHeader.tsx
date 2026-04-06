@@ -16,11 +16,12 @@ import {
     Menu,
     MenuItem
 } from '@mui/material';
-import { HelpCircle, Settings } from 'lucide-react';
+import { HelpCircle, Settings, Cpu, ScrollText } from 'lucide-react';
 import { AccountCircle, LogoutOutlined } from '@mui/icons-material';
-import ThemeSwitcher from './ThemeSwitcher.tsx'; // Import ThemeSwitcher
+import ThemeSwitcher from './ThemeSwitcher.tsx';
 import { useAuth } from '../../../features/auth/model/AuthContext.tsx';
-import {useNavigate} from "react-router-dom"; // Import useAuth
+import { useNavigate } from "react-router-dom";
+import { useSidePanelStore } from './useBottomPanelStore.ts';
 
 const DRAWER_WIDTH = 240;
 
@@ -124,6 +125,11 @@ export const PanelHeader: React.FC<PanelHeaderProps> = ({
 
                 {!isMobile && (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {/* Bottom panel toggles */}
+                        <BottomPanelToggles />
+
+                        <Box sx={{ width: '1px', height: 20, backgroundColor: 'rgba(255,255,255,0.2)', mx: 0.5 }} />
+
                         <Tooltip title="Help Documentation">
                             <IconButton
                                 color="inherit"
@@ -191,5 +197,54 @@ export const PanelHeader: React.FC<PanelHeaderProps> = ({
                 )}
             </Toolbar>
         </StyledAppBar>
+    );
+};
+
+const BottomPanelToggles: React.FC = () => {
+    const { activePanel, togglePanel } = useSidePanelStore();
+
+    return (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+            <Tooltip title="Jobs">
+                <IconButton
+                    size="small"
+                    onClick={() => togglePanel('jobs')}
+                    sx={{
+                        color: activePanel === 'jobs' ? 'primary.light' : 'inherit',
+                        backgroundColor: activePanel === 'jobs' ? 'rgba(144,202,249,0.15)' : 'transparent',
+                        borderRadius: 1,
+                        px: 1,
+                        py: 0.5,
+                        gap: 0.5,
+                        fontSize: '0.75rem',
+                    }}
+                >
+                    <Cpu size={16} />
+                    <Typography variant="caption" sx={{ color: 'inherit', fontSize: '0.7rem' }}>
+                        Jobs
+                    </Typography>
+                </IconButton>
+            </Tooltip>
+            <Tooltip title="Logs">
+                <IconButton
+                    size="small"
+                    onClick={() => togglePanel('logs')}
+                    sx={{
+                        color: activePanel === 'logs' ? 'primary.light' : 'inherit',
+                        backgroundColor: activePanel === 'logs' ? 'rgba(144,202,249,0.15)' : 'transparent',
+                        borderRadius: 1,
+                        px: 1,
+                        py: 0.5,
+                        gap: 0.5,
+                        fontSize: '0.75rem',
+                    }}
+                >
+                    <ScrollText size={16} />
+                    <Typography variant="caption" sx={{ color: 'inherit', fontSize: '0.7rem' }}>
+                        Logs
+                    </Typography>
+                </IconButton>
+            </Tooltip>
+        </Box>
     );
 };

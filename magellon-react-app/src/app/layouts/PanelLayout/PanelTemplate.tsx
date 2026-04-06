@@ -6,8 +6,11 @@ import { PanelDrawer } from "./PanelDrawer.tsx";
 import { PanelHeader } from "./PanelHeader.tsx";
 import { PanelRoutes } from "../../routes/PanelRoutes.tsx";
 import PanelFooter from './PanelFooter.tsx';
-import { useMediaQuery } from '@mui/material';
+import { useMediaQuery, Collapse } from '@mui/material';
 import { useLocation } from 'react-router-dom';
+import { useSidePanelStore } from './useBottomPanelStore.ts';
+import { JobsPanel } from './JobsPanel.tsx';
+import { LogsPanel } from './LogsPanel.tsx';
 
 const DRAWER_WIDTH = 240;
 const FOOTER_HEIGHT = 56;
@@ -138,17 +141,45 @@ export const PanelTemplate = () => {
                         borderRadius: 0,
                         boxShadow: 'none',
                         maxWidth: '100%',
-                        overflow: isFullWidthRoute ? 'hidden' : 'visible'
+                        overflow: isFullWidthRoute ? 'hidden' : 'visible',
                     }}
                 >
                     <PanelRoutes />
                 </Box>
             </Main>
 
+            {/* App-level right side panel (Jobs / Logs) */}
+            <SidePanelArea />
+
             {/* Hide footer for full-width routes */}
             {!isFullWidthRoute && (
                 <PanelFooter drawerOpen={open} drawerWidth={DRAWER_WIDTH} />
             )}
+        </Box>
+    );
+};
+
+const SidePanelArea: React.FC = () => {
+    const { activePanel, panelWidth } = useSidePanelStore();
+
+    return (
+        <Box sx={{
+            position: 'fixed',
+            top: 64,
+            right: 0,
+            bottom: 0,
+            width: activePanel ? panelWidth : 0,
+            zIndex: 1200,
+            borderLeft: activePanel ? (theme) => `1px solid ${theme.palette.divider}` : 'none',
+            backgroundColor: 'background.paper',
+            overflow: 'hidden',
+            transition: (theme) => theme.transitions.create(['width'], {
+                duration: theme.transitions.duration.shorter,
+            }),
+            boxShadow: activePanel ? '-4px 0 12px rgba(0,0,0,0.08)' : 'none',
+        }}>
+            {activePanel === 'jobs' && <JobsPanel />}
+            {activePanel === 'logs' && <LogsPanel />}
         </Box>
     );
 };
