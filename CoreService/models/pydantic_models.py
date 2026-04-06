@@ -1,6 +1,6 @@
 from enum import Enum
 from fastapi import UploadFile, File
-from pydantic import BaseModel, Field, Json, ValidationInfo, field_validator, ConfigDict
+from pydantic import BaseModel, Field, Json, field_validator, ConfigDict
 from typing import Any,Optional, List
 import uuid
 from uuid import UUID
@@ -198,37 +198,8 @@ class LeginonFrameTransferJobBase(ImportJobBase):
     leginon_mysql_pass: Optional[str] = None
     defects_file: Optional[UploadFile] = File(None)
 
-    replace_type: str = "none"
-    replace_pattern: Optional[str] = None
-    replace_with: Optional[str] = None
-
-    @field_validator("replace_type")
-    def validate_replace_type(cls, v: str, info: ValidationInfo) -> str:
-        """
-        Validates the replace_type value.
-        """
-        valid_types = ["standard", "none", "regex"]
-        if v not in valid_types:
-            raise ValueError(f"Invalid replace_type: {v}. Valid options are: {', '.join(valid_types)}")
-        return v
-
 class EpuImportJobBase(ImportJobBase):
-
     epu_dir_path: Optional[str] = None
-
-    replace_type: str = "none"
-    replace_pattern: Optional[str] = None
-    replace_with: Optional[str] = None
-
-    @field_validator("replace_type")
-    def validate_replace_type(cls, v: str, info: ValidationInfo) -> str:
-        """
-        Validates the replace_type value.
-        """
-        valid_types = ["standard", "none", "regex"]
-        if v not in valid_types:
-            raise ValueError(f"Invalid replace_type: {v}. Valid options are: {', '.join(valid_types)}")
-        return v
 class DefaultParams(BaseModel):
     pixel_size : float = 0.739
     acceleration_voltage: float = 300
@@ -252,19 +223,6 @@ class EPUImportTaskDto(ImportTaskDto):
 
 class SerialEMImportJobBase(ImportJobBase):
     serial_em_dir_path: Optional[str] = None
-    replace_type: str = "none"
-    replace_pattern: Optional[str] = None
-    replace_with: Optional[str] = None
-
-    @field_validator("replace_type")
-    def validate_replace_type(cls, v: str, info: ValidationInfo) -> str:
-        """
-        Validates the replace_type value.
-        """
-        valid_types = ["standard", "none", "regex"]
-        if v not in valid_types:
-            raise ValueError(f"Invalid replace_type: {v}. Valid options are: {', '.join(valid_types)}")
-        return v
 
 class SerialEMImportJobDto(SerialEMImportJobBase):
     target_directory: Optional[str] = None  # should be removed, it is base directory + magellon_session_name name
@@ -378,18 +336,14 @@ class EPUFrameTransferJobBase(BaseModel):
     copy_images: Optional[bool] = False
     retries: Optional[int] = None
 
-    replace_type: str = "none"
+    replace_type: ReplaceType = ReplaceType.NONE
     replace_pattern: Optional[str] = None
     replace_with: Optional[str] = None
 
     @field_validator("replace_type")
-    def validate_replace_type(cls, v: str, info: ValidationInfo) -> str:
-        """
-        Validates the replace_type value.
-        """
-        valid_types = ["standard", "none", "regex"]
-        if v not in valid_types:
-            raise ValueError(f"Invalid replace_type: {v}. Valid options are: {', '.join(valid_types)}")
+    def validate_replace_type(cls, v):
+        if v not in ReplaceType.__members__.values():
+            raise ValueError(f"Invalid replace_type: {v}. Valid options are: {', '.join(ReplaceType.__members__.keys())}")
         return v
 
 

@@ -8,7 +8,6 @@ import re
 import json
 from collections import defaultdict
 import xml.etree.ElementTree as ET
-from fastapi import HTTPException
 from lxml import etree
 from io import BytesIO
 from typing import List, Optional

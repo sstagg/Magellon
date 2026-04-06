@@ -25,6 +25,8 @@ from controllers.image_meta_data_category_controller import image_meta_data_cate
 from controllers.image_meta_data_controller import image_meta_data_router
 from controllers.image_processing_controller import image_processing_router
 from controllers.import_export_controller import export_router
+from controllers.import_controller import import_router
+from controllers.relion_controller import relion_router
 from controllers.slack_controller import slack_router
 
 from controllers.security.auth_controller import router as auth_router
@@ -41,6 +43,9 @@ from controllers.test_controller import test_router
 from controllers.test_rls_controller import test_rls_router
 
 from controllers.webapp_controller import webapp_router
+from controllers.webapp_motioncor_controller import motioncor_router
+from controllers.webapp_atlas_controller import atlas_router
+from controllers.webapp_particles_controller import particles_router
 from plugins.pp.controller import pp_router
 
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -264,6 +269,8 @@ async def convert_tiff_to_jpeg_route(file: UploadFile = File(...)):
 app.include_router(home_router, tags=["Home"])
 app.include_router(db_router, tags=["Database"], prefix="/db")
 app.include_router(export_router, tags=["Export"], prefix="/export")
+app.include_router(import_router, tags=["Import"], prefix="/export")
+app.include_router(relion_router, tags=["RELION"], prefix="/export")
 app.include_router(test_router, tags=["Test"], prefix="/test")
 app.include_router(camera_router, tags=["Cameras"], prefix="/db/cameras")
 app.include_router(image_meta_data_category_router, tags=["MetaData Category"], prefix="/db/meta-data-category")
@@ -271,6 +278,9 @@ app.include_router(image_meta_data_router, tags=["MetaData"], prefix="/db/meta-d
 app.include_router(deployment_docker_router, tags=["Docker"], prefix="/deployment/docker")
 app.include_router(image_processing_router, tags=['Image Processing'], prefix="/image")
 app.include_router(webapp_router, tags=['Image Viewer - WebApp'], prefix="/web")
+app.include_router(motioncor_router, tags=['MotionCor & File Browsing'], prefix="/web")
+app.include_router(atlas_router, tags=['Atlas'], prefix="/web")
+app.include_router(particles_router, tags=['Particle Picking'], prefix="/web")
 app.include_router(graph_router, tags=['Graphs'], prefix="/graphs")
 app.include_router(slack_router, tags=['Communication'], prefix='/io')
 

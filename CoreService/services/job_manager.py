@@ -7,7 +7,6 @@ import redis.asyncio as redis
 from contextlib import asynccontextmanager
 import logging
 from datetime import datetime
-from fastapi import Depends
 import os
 logger = logging.getLogger(__name__)
 

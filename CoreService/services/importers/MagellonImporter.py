@@ -162,10 +162,6 @@ class MagellonImporter(BaseImporter):
             }
 
         except Exception as e:
-            # Clean up temporary directory in case of error
-            # if 'temp_dir' in locals() and os.path.exists(temp_dir):
-            #     shutil.rmtree(temp_dir)
-            # raise HTTPException(status_code=500, detail=str(e))
             return {
                 'status': 'failure',
                 'message': 'Import encountered problem.',
