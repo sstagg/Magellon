@@ -8,6 +8,19 @@ from uuid import uuid4, UUID
 from pydantic import BaseModel
 
 
+class PluginStatus(str, Enum):
+    """Lifecycle states for a Magellon plugin."""
+    DISCOVERED = "discovered"      # Found on disk / in registry
+    INSTALLED = "installed"        # Dependencies resolved
+    CONFIGURED = "configured"      # Settings validated
+    READY = "ready"                # setup() completed, can accept work
+    RUNNING = "running"            # execute() in progress
+    COMPLETED = "completed"        # Last execution succeeded
+    ERROR = "error"                # Recoverable error, can retry
+    FAILED = "failed"              # Terminal failure
+    DISABLED = "disabled"          # Administratively disabled
+
+
 class TaskCategory(BaseModel):
     code: int
     name: str
