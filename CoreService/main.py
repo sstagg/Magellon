@@ -314,9 +314,9 @@ async def socketio_test_page():
     return HTMLResponse(content=html)
 
 
-# Wrap FastAPI app with Socket.IO ASGI app
-# uvicorn should target `main:socket_app` instead of `main:app`
-socket_app = socketio.ASGIApp(sio, other_asgi_app=app)
+# Mount Socket.IO inside FastAPI (handles both HTTP polling and WebSocket)
+app.mount('/socket.io', socketio.ASGIApp(sio, socketio_path=''))
+
 
 
 @app.on_event("startup")
@@ -402,3 +402,4 @@ def handle_domain_error(request, err):
 def app_exception_handler(request, err):
     return JSONResponse(status_code=400,
                         content={"message": f"Failed to execute: {request.method}: {request.url}. Detail: {err}"})
+
