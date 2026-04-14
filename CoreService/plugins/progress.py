@@ -21,6 +21,14 @@ from services.job_service import job_service
 logger = logging.getLogger(__name__)
 
 
+class JobCancelledError(Exception):
+    """Raised by a reporter when the user has asked to cancel this job.
+
+    Plugins don't need to catch this — it propagates out of ``execute()``
+    and the controller translates it into a cancelled-job envelope.
+    """
+
+
 class ProgressReporter(Protocol):
     """Minimal contract every reporter implements.
 
@@ -66,6 +74,13 @@ class JobReporter:
         self._last_percent = -1
 
     def report(self, percent: int, message: Optional[str] = None) -> None:
+        # Cooperative cancellation: raise as soon as we learn the user asked
+        # to stop. Plugins that call report() at stage boundaries will bail
+        # within one stage; pure-compute stretches without reports can't be
+        # interrupted by this alone (documented tradeoff).
+        if job_service.is_cancelled(self._job_id):
+            raise JobCancelledError(f"Job {self._job_id} cancelled")
+
         clamped = max(0, min(100, int(percent)))
         # Skip no-op updates; an explicit message still fires so logs land.
         if clamped == self._last_percent and not message:

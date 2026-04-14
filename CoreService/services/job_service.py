@@ -27,12 +27,14 @@ STATUS_QUEUED = 0
 STATUS_RUNNING = 1
 STATUS_COMPLETED = 2
 STATUS_FAILED = 3
+STATUS_CANCELLED = 4
 
 _STATUS_LABEL = {
     STATUS_QUEUED: "queued",
     STATUS_RUNNING: "running",
     STATUS_COMPLETED: "completed",
     STATUS_FAILED: "failed",
+    STATUS_CANCELLED: "cancelled",
 }
 
 
@@ -63,6 +65,23 @@ class JobService:
     expected transaction is non-trivial. For short writes the direct call
     is fine — each method opens and closes its own session.
     """
+
+    # In-memory set of jobs the user has asked to cancel. Cooperative:
+    # plugins check this via the reporter and raise at stage boundaries;
+    # a running thread won't be pre-empted. Cleared once the job settles.
+    _cancel_requests: set[str] = set()
+
+    # -- cancellation -------------------------------------------------------
+
+    def request_cancel(self, job_id: str) -> None:
+        """Flag a running job for cancellation. Idempotent."""
+        self._cancel_requests.add(job_id)
+
+    def is_cancelled(self, job_id: str) -> bool:
+        return job_id in self._cancel_requests
+
+    def _clear_cancel(self, job_id: str) -> None:
+        self._cancel_requests.discard(job_id)
 
     # -- create -------------------------------------------------------------
 
@@ -148,6 +167,7 @@ class JobService:
             job.processed_json = processed
             db.commit()
             db.refresh(job)
+            self._clear_cancel(job_id)
             return _envelope(job, include_result=True)
 
     def fail_job(self, job_id: str, *, error: str) -> Dict[str, Any]:
@@ -160,6 +180,21 @@ class JobService:
             job.processed_json = processed
             db.commit()
             db.refresh(job)
+            self._clear_cancel(job_id)
+            return _envelope(job)
+
+    def cancel_job(self, job_id: str, *, reason: str = "Cancelled by user") -> Dict[str, Any]:
+        """Mark a job cancelled in the DB. Call after a cooperative stop."""
+        with session_local() as db:
+            job = self._get_or_404(db, job_id)
+            job.status_id = STATUS_CANCELLED
+            job.end_date = datetime.utcnow()
+            processed = dict(job.processed_json or {})
+            processed["error"] = reason
+            job.processed_json = processed
+            db.commit()
+            db.refresh(job)
+            self._clear_cancel(job_id)
             return _envelope(job)
 
     # -- read ---------------------------------------------------------------

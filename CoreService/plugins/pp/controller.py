@@ -279,7 +279,7 @@ async def template_pick_async(input_data: TemplatePickerInput, sid: str | None =
 
 async def _run_picking_job(job_id: str, input_data: TemplatePickerInput, sid: str | None):
     from core.socketio_server import emit_job_update, emit_log
-    from plugins.progress import JobReporter
+    from plugins.progress import JobCancelledError, JobReporter
 
     loop = asyncio.get_running_loop()
     reporter = JobReporter(job_id=job_id, sid=sid, plugin_label='picking', loop=loop)
@@ -301,6 +301,10 @@ async def _run_picking_job(job_id: str, input_data: TemplatePickerInput, sid: st
         await emit_job_update(sid, completed)
         await emit_log('info', 'picking',
                         f"Particle picking completed — {result.num_particles} particles found")
+    except JobCancelledError:
+        cancelled = job_service.cancel_job(job_id)
+        await emit_job_update(sid, cancelled)
+        await emit_log('info', 'picking', f"Particle picking cancelled (job {job_id})")
     except Exception as exc:
         failed = job_service.fail_job(job_id, error=str(exc))
         await emit_job_update(sid, failed)
@@ -639,6 +643,11 @@ async def _run_batch_job(
         db: Session = next(get_db())
         try:
             for i, entry in enumerate(req.images):
+                if job_service.is_cancelled(job_id):
+                    await emit_log('info', 'batch-picking', f"Batch cancelled at {i}/{total}")
+                    cancelled = job_service.cancel_job(job_id)
+                    await emit_job_update(sid, cancelled)
+                    return
                 image_oid = UUID(entry.oid)
                 image = db.query(Image).filter(Image.oid == image_oid).first()
                 if not image or not image.session_id:

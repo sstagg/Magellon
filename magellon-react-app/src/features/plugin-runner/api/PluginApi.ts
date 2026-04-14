@@ -14,6 +14,8 @@ export interface PluginSummary {
     category: string;
     name: string;
     version: string;
+    /** Bumped when input/output schema changes; used to invalidate cached forms. */
+    schema_version?: string;
     description: string;
     developer: string;
 }
@@ -99,6 +101,11 @@ export const fetchJob = async (jobId: string): Promise<Job> => {
     return res.data;
 };
 
+export const cancelJob = async (jobId: string): Promise<Job> => {
+    const res = await api.delete(`/plugins/jobs/${jobId}`);
+    return res.data;
+};
+
 export const fetchJobs = async (pluginId?: string): Promise<Job[]> => {
     const res = await api.get('/plugins/jobs', {
         params: pluginId ? { plugin_id: pluginId } : undefined,
@@ -131,6 +138,9 @@ export const useSubmitPluginBatch = (pluginId: string) =>
         const { sid, ...payload } = body;
         return submitPluginBatch(pluginId, payload, sid);
     });
+
+export const useCancelJob = () =>
+    useMutation((jobId: string) => cancelJob(jobId));
 
 export const usePluginJobs = (pluginId?: string) =>
     useQuery(['plugin-jobs', pluginId ?? 'all'], () => fetchJobs(pluginId), {

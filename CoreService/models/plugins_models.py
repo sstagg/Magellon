@@ -234,6 +234,10 @@ class PluginInfo(BaseModel):
     description: Optional[str] = None
     copyright: Optional[str] = None
     version: Optional[str] = None
+    # Bumped by the plugin author whenever the input or output JSON
+    # Schema changes in a breaking way. The frontend compares against
+    # its cached value and re-fetches the form when they diverge.
+    schema_version: Optional[str] = "1"
     created_date: Optional[datetime] = datetime.utcnow()
     last_updated: Optional[datetime] = datetime.utcnow()
     # port_number: Optional[int] = Field(..., ge=0, le=65535)

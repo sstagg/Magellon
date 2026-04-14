@@ -20,6 +20,7 @@ import { ChevronDown, ChevronRight, Image as ImageIcon, Layers, Play, ZoomIn, Zo
 import { useQueryClient } from 'react-query';
 import {
     JobSubmitRequest,
+    useCancelJob,
     usePluginInputSchema,
     useSubmitPluginJob,
     PluginSummary,
@@ -47,6 +48,7 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
     const { data: schema, isLoading: schemaLoading, error: schemaError } =
         usePluginInputSchema(plugin.plugin_id);
     const submit = useSubmitPluginJob(plugin.plugin_id);
+    const cancel = useCancelJob();
 
     // pp/template-picker uses the preview endpoint on this page — test images
     // typically don't exist in the DB, so saving to image-metadata or creating
@@ -326,6 +328,19 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
                                 : (currentJob?.status === 'running' ? 'Running…'
                                     : currentJob?.status === 'queued' ? 'Queued…' : 'Run')}
                         </Button>
+                        {!usePreviewMode
+                            && currentJobId
+                            && (currentJob?.status === 'running' || currentJob?.status === 'queued') && (
+                            <Button
+                                variant="outlined"
+                                color="warning"
+                                startIcon={<XIcon size={14} />}
+                                onClick={() => cancel.mutate(currentJobId)}
+                                disabled={cancel.isLoading}
+                            >
+                                {cancel.isLoading ? 'Cancelling…' : 'Cancel'}
+                            </Button>
+                        )}
                     </Stack>
                 </Stack>
 
@@ -808,6 +823,7 @@ const RunStatusBanner: React.FC<RunStatusBannerProps> = ({ job }) => {
     const statusColor =
         job.status === 'completed' ? 'success' :
         job.status === 'failed' ? 'error' :
+        job.status === 'cancelled' ? 'warning' :
         job.status === 'running' ? 'info' :
         job.status === 'queued' ? 'warning' : 'default';
 

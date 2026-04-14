@@ -42,6 +42,7 @@ class PluginSummary(BaseModel):
     category: str
     name: str
     version: str
+    schema_version: str
     description: str
     developer: str
 
@@ -78,6 +79,7 @@ async def list_plugins() -> List[PluginSummary]:
             category=entry.category,
             name=entry.name,
             version=info.version,
+            schema_version=info.schema_version or "1",
             description=info.description,
             developer=info.developer,
         ))
@@ -189,6 +191,23 @@ async def get_any_job(job_id: str):
         raise HTTPException(status_code=404, detail="Job not found")
 
 
+@plugins_router.delete("/jobs/{job_id}", summary="Request cancellation of a running plugin job")
+async def cancel_any_job(job_id: str):
+    """Cooperative cancel: flags the job so the plugin stops at its next
+    progress checkpoint. Terminal jobs are untouched; the current envelope
+    is returned so the caller can observe the outcome."""
+    try:
+        envelope = job_service.get_job(job_id, include_result=False)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if envelope["status"] in ("completed", "failed", "cancelled"):
+        return envelope
+
+    job_service.request_cancel(job_id)
+    return {**envelope, "cancel_requested": True}
+
+
 # ---------------------------------------------------------------------------
 # Internals
 # ---------------------------------------------------------------------------
@@ -196,7 +215,7 @@ async def get_any_job(job_id: str):
 async def _run_generic_job(entry, job_id: str, validated_input, sid: str | None) -> None:
     """Execute plugin.run() in a worker thread, stream progress over Socket.IO."""
     from core.socketio_server import emit_job_update, emit_log
-    from plugins.progress import JobReporter
+    from plugins.progress import JobCancelledError, JobReporter
 
     plugin = entry.instance
     plugin_label = entry.plugin_id
@@ -219,6 +238,10 @@ async def _run_generic_job(entry, job_id: str, validated_input, sid: str | None)
         completed = job_service.complete_job(job_id, result=result_dict, num_items=num_items)
         await emit_job_update(sid, completed)
         await emit_log('info', plugin_label, f"{plugin_label} completed (job {job_id})")
+    except JobCancelledError:
+        cancelled = job_service.cancel_job(job_id)
+        await emit_job_update(sid, cancelled)
+        await emit_log('info', plugin_label, f"{plugin_label} cancelled (job {job_id})")
     except Exception as exc:
         failed = job_service.fail_job(job_id, error=str(exc))
         await emit_job_update(sid, failed)
