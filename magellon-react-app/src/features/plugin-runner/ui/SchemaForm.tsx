@@ -20,6 +20,8 @@ export interface SchemaFormProps {
     value: Record<string, any>;
     onChange: (next: Record<string, any>) => void;
     disabled?: boolean;
+    /** Per-field validation errors keyed by property name. */
+    errors?: Record<string, string>;
 }
 
 /**
@@ -29,7 +31,7 @@ export interface SchemaFormProps {
  * ordered by the minimum ui_order in each group. Otherwise falls back
  * to a flat list. Respects ui_widget:"hidden" / ui_hidden.
  */
-export const SchemaForm: React.FC<SchemaFormProps> = ({ schema, value, onChange, disabled }) => {
+export const SchemaForm: React.FC<SchemaFormProps> = ({ schema, value, onChange, disabled, errors }) => {
     if (!schema?.properties) {
         return (
             <Typography variant="body2" color="text.secondary">
@@ -75,7 +77,7 @@ export const SchemaForm: React.FC<SchemaFormProps> = ({ schema, value, onChange,
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {visibleEntries
                     .sort((a, b) => a.order - b.order)
-                    .map(({ key, prop }) => renderField(key, prop, value, set, required, disabled))}
+                    .map(({ key, prop }) => renderField(key, prop, value, set, required, disabled, errors?.[key]))}
             </Box>
         );
     }
@@ -125,7 +127,7 @@ export const SchemaForm: React.FC<SchemaFormProps> = ({ schema, value, onChange,
                         <AccordionDetails sx={{ pt: 0 }}>
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                 {items.map(({ key, prop }) =>
-                                    renderField(key, prop, value, set, required, disabled),
+                                    renderField(key, prop, value, set, required, disabled, errors?.[key]),
                                 )}
                             </Box>
                         </AccordionDetails>
@@ -143,12 +145,15 @@ function renderField(
     set: (k: string, v: any) => void,
     required: string[],
     disabled?: boolean,
+    error?: string,
 ): React.ReactNode {
     const isRequired = required.includes(key);
     const label = prop.title ?? humanize(key);
     const help = prop.ui_help ?? prop.description ?? '';
     const unit = prop.ui_unit ?? prop.units;
     const current = value[key];
+    const hasError = !!error;
+    const helperText = hasError ? error : help;
 
     if (Array.isArray(prop.enum)) {
         return (
@@ -157,7 +162,8 @@ function renderField(
                 select
                 label={label}
                 required={isRequired}
-                helperText={help}
+                helperText={helperText}
+                error={hasError}
                 disabled={disabled}
                 value={current ?? prop.default ?? ''}
                 onChange={(e) => set(key, e.target.value)}
@@ -173,21 +179,27 @@ function renderField(
 
     if (prop.type === 'boolean') {
         return (
-            <FormControlLabel
-                key={key}
-                control={
-                    <Checkbox
-                        checked={!!(current ?? prop.default ?? false)}
-                        onChange={(e) => set(key, e.target.checked)}
-                        disabled={disabled}
-                    />
-                }
-                label={
-                    <Tooltip title={help} placement="right">
-                        <span>{label}{isRequired ? ' *' : ''}</span>
-                    </Tooltip>
-                }
-            />
+            <Box key={key}>
+                <FormControlLabel
+                    control={
+                        <Checkbox
+                            checked={!!(current ?? prop.default ?? false)}
+                            onChange={(e) => set(key, e.target.checked)}
+                            disabled={disabled}
+                        />
+                    }
+                    label={
+                        <Tooltip title={help} placement="right">
+                            <span>{label}{isRequired ? ' *' : ''}</span>
+                        </Tooltip>
+                    }
+                />
+                {hasError && (
+                    <Typography variant="caption" color="error" sx={{ display: 'block', ml: 4, mt: -0.5 }}>
+                        {error}
+                    </Typography>
+                )}
+            </Box>
         );
     }
 
@@ -197,7 +209,8 @@ function renderField(
                 key={key}
                 label={label}
                 required={isRequired}
-                helperText={help}
+                helperText={helperText}
+                error={hasError}
                 disabled={disabled}
                 type="number"
                 value={current ?? prop.default ?? ''}
@@ -232,7 +245,8 @@ function renderField(
                     key={key}
                     label={label}
                     required={isRequired}
-                    helperText={help || 'Comma-separated values'}
+                    helperText={hasError ? error : (help || 'Comma-separated values')}
+                    error={hasError}
                     disabled={disabled}
                     value={asText}
                     onChange={(e) => {
@@ -248,11 +262,11 @@ function renderField(
                 />
             );
         }
-        return <JsonField key={key} label={label} help={help} value={current} onSet={(v) => set(key, v)} disabled={disabled} required={isRequired} />;
+        return <JsonField key={key} label={label} help={help} value={current} onSet={(v) => set(key, v)} disabled={disabled} required={isRequired} error={error} />;
     }
 
     if (prop.type === 'object' || prop.type === undefined) {
-        return <JsonField key={key} label={label} help={help} value={current} onSet={(v) => set(key, v)} disabled={disabled} required={isRequired} />;
+        return <JsonField key={key} label={label} help={help} value={current} onSet={(v) => set(key, v)} disabled={disabled} required={isRequired} error={error} />;
     }
 
     return (
@@ -260,7 +274,8 @@ function renderField(
             key={key}
             label={label}
             required={isRequired}
-            helperText={help}
+            helperText={helperText}
+            error={hasError}
             disabled={disabled}
             value={current ?? prop.default ?? ''}
             onChange={(e) => set(key, e.target.value)}
@@ -277,13 +292,15 @@ interface JsonFieldProps {
     onSet: (v: any) => void;
     disabled?: boolean;
     required?: boolean;
+    error?: string;
 }
 
-const JsonField: React.FC<JsonFieldProps> = ({ label, help, value, onSet, disabled, required }) => {
+const JsonField: React.FC<JsonFieldProps> = ({ label, help, value, onSet, disabled, required, error: externalError }) => {
     const [text, setText] = React.useState(() =>
         value === undefined ? '' : JSON.stringify(value, null, 2),
     );
-    const [error, setError] = React.useState<string | null>(null);
+    const [parseError, setParseError] = React.useState<string | null>(null);
+    const error = parseError ?? externalError ?? null;
 
     React.useEffect(() => {
         const incoming = value === undefined ? '' : JSON.stringify(value, null, 2);
@@ -306,15 +323,15 @@ const JsonField: React.FC<JsonFieldProps> = ({ label, help, value, onSet, disabl
                 const next = e.target.value;
                 setText(next);
                 if (next.trim() === '') {
-                    setError(null);
+                    setParseError(null);
                     onSet(undefined);
                     return;
                 }
                 try {
                     onSet(JSON.parse(next));
-                    setError(null);
+                    setParseError(null);
                 } catch {
-                    setError('Invalid JSON');
+                    setParseError('Invalid JSON');
                 }
             }}
             inputProps={{ 'data-json-field': label, style: { fontFamily: 'monospace' } }}

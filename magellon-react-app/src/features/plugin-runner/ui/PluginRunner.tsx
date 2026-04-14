@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     Box,
     Button,
@@ -69,6 +69,22 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
     const [previewRunning, setPreviewRunning] = useState(false);
     const [previewResult, setPreviewResult] = useState<any | null>(null);
     const [previewRunError, setPreviewRunError] = useState<string | null>(null);
+    const [retuning, setRetuning] = useState(false);
+    const [previewStale, setPreviewStale] = useState(false);
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+    // Tunable keys — fields whose changes can be re-applied via /retune without
+    // redoing the expensive FFT. Derived from the plugin's own schema metadata.
+    const tunableKeys = useMemo<Set<string>>(() => {
+        const out = new Set<string>();
+        const props = (schema as any)?.properties;
+        if (props) {
+            for (const [key, raw] of Object.entries<any>(props)) {
+                if (raw?.ui_tunable === true) out.add(key);
+            }
+        }
+        return out;
+    }, [schema]);
 
     const imagePathField = useMemo(() => findImagePathField(schema), [schema]);
     const templatePathsField = useMemo(() => findTemplatePathsField(schema), [schema]);
@@ -145,6 +161,7 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
     );
 
     const handleSubmit = async () => {
+        setFieldErrors({});
         try {
             const job = await submit.mutateAsync({
                 input: values,
@@ -155,14 +172,18 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
             setCurrentJobId(job.job_id);
             useJobStore.getState().upsertJob(job);
             queryClient.invalidateQueries(['plugin-jobs']);
-        } catch (err) {
-            // mutation state carries the error
+        } catch (err: any) {
+            const detail = err?.response?.data?.detail;
+            const parsed = parseFieldErrors(detail);
+            if (Object.keys(parsed).length > 0) setFieldErrors(parsed);
         }
     };
 
     const handlePreview = async () => {
         setPreviewRunError(null);
+        setFieldErrors({});
         setPreviewRunning(true);
+        setPreviewStale(false);
         try {
             const payload = { ...values };
             Object.keys(payload).forEach((k) => {
@@ -170,15 +191,76 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
             });
             const res = await api.post('/plugins/pp/template-pick/preview', payload);
             setPreviewResult(res.data);
+            lastRetunedValuesRef.current = pickTunable(values, tunableKeys);
         } catch (err: any) {
             const detail = err?.response?.data?.detail;
-            setPreviewRunError(
-                typeof detail === 'string' ? detail : (err?.message || 'Preview failed'),
-            );
+            const parsed = parseFieldErrors(detail);
+            if (Object.keys(parsed).length > 0) {
+                setFieldErrors(parsed);
+                setPreviewRunError('Fix the highlighted field(s) and retry.');
+            } else {
+                setPreviewRunError(
+                    typeof detail === 'string' ? detail : (err?.message || 'Preview failed'),
+                );
+            }
         } finally {
             setPreviewRunning(false);
         }
     };
+
+    // Live retune: when a preview exists and only tunable fields change, re-apply
+    // them via /retune without recomputing correlation maps. Any non-tunable
+    // change marks the preview as stale so the user knows to re-run Preview.
+    const lastRetunedValuesRef = useRef<Record<string, any>>({});
+    const retuneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => {
+        if (!usePreviewMode) return;
+        const previewId = previewResult?.preview_id;
+        if (!previewId) return;
+
+        const changedKeys = diffChangedKeys(values, lastRetunedValuesRef.current);
+        if (changedKeys.length === 0) return;
+
+        const nonTunableChanged = changedKeys.some((k) => !tunableKeys.has(k));
+        if (nonTunableChanged) {
+            setPreviewStale(true);
+            return;
+        }
+        // All changes are tunable — fire a debounced retune.
+        if (retuneTimerRef.current) clearTimeout(retuneTimerRef.current);
+        retuneTimerRef.current = setTimeout(async () => {
+            setRetuning(true);
+            try {
+                const retunePayload: Record<string, any> = {};
+                for (const k of tunableKeys) {
+                    if (values[k] !== undefined && values[k] !== null) retunePayload[k] = values[k];
+                }
+                const res = await api.post(
+                    `/plugins/pp/template-pick/preview/${previewId}/retune`,
+                    retunePayload,
+                );
+                setPreviewResult((prev: any) => prev ? {
+                    ...prev,
+                    particles: res.data.particles,
+                    num_particles: res.data.num_particles,
+                } : prev);
+                lastRetunedValuesRef.current = pickTunable(values, tunableKeys);
+            } catch (err: any) {
+                // Retune failed — surface as an error but keep the existing preview.
+                const detail = err?.response?.data?.detail;
+                setPreviewRunError(
+                    typeof detail === 'string' ? detail : (err?.message || 'Retune failed'),
+                );
+            } finally {
+                setRetuning(false);
+            }
+        }, 300);
+
+        return () => {
+            if (retuneTimerRef.current) clearTimeout(retuneTimerRef.current);
+        };
+    }, [values, previewResult?.preview_id, tunableKeys, usePreviewMode]);
 
     if (schemaLoading) {
         return (
@@ -306,8 +388,18 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
                         <SchemaForm
                             schema={schema}
                             value={values}
-                            onChange={setValues}
+                            onChange={(next) => {
+                                setValues(next);
+                                if (Object.keys(fieldErrors).length > 0) {
+                                    const remaining: Record<string, string> = {};
+                                    for (const [k, msg] of Object.entries(fieldErrors)) {
+                                        if (next[k] === values[k]) remaining[k] = msg;
+                                    }
+                                    setFieldErrors(remaining);
+                                }
+                            }}
                             disabled={isRunning}
+                            errors={fieldErrors}
                         />
 
                         <Collapse in={showRequest}>
@@ -347,12 +439,20 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
                                 </Alert>
                             )}
                             {usePreviewMode && previewResult && (
-                                <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                                     <Chip size="small" color="success"
                                         label={`${previewResult.num_particles} particle${previewResult.num_particles === 1 ? '' : 's'}`} />
-                                    <Typography variant="caption" color="text.secondary">
-                                        preview_id {String(previewResult.preview_id).slice(0, 8)} · tune params and click Preview again
-                                    </Typography>
+                                    {retuning && (
+                                        <Chip size="small" color="info" icon={<CircularProgress size={10} color="inherit" />} label="Retuning…" />
+                                    )}
+                                    {previewStale && !retuning && (
+                                        <Chip size="small" color="warning" label="Preview stale — re-run Preview" />
+                                    )}
+                                    {!retuning && !previewStale && tunableKeys.size > 0 && (
+                                        <Typography variant="caption" color="text.secondary">
+                                            Live tune: {tunableKeys.size} field{tunableKeys.size === 1 ? '' : 's'}
+                                        </Typography>
+                                    )}
                                 </Box>
                             )}
                             {!usePreviewMode && currentJob && (
@@ -439,6 +539,48 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
         </Card>
     );
 };
+
+function parseFieldErrors(detail: unknown): Record<string, string> {
+    if (!Array.isArray(detail)) return {};
+    const out: Record<string, string> = {};
+    for (const item of detail as any[]) {
+        if (!item?.loc || !item?.msg) continue;
+        // FastAPI loc looks like ["body", "input", "threshold"] for wrapped
+        // JobSubmitRequest bodies, or ["body", "threshold"] for direct
+        // /preview bodies. Strip the request-envelope segments and take the
+        // first remaining segment as the field key.
+        const loc = Array.isArray(item.loc) ? item.loc : [];
+        const segments = loc.filter((s: unknown) => s !== 'body' && s !== 'input');
+        const key = segments.length > 0 ? String(segments[0]) : '';
+        if (key && !out[key]) out[key] = String(item.msg);
+    }
+    return out;
+}
+
+function pickTunable(values: Record<string, any>, tunableKeys: Set<string>): Record<string, any> {
+    const out: Record<string, any> = {};
+    for (const k of tunableKeys) out[k] = values[k];
+    return out;
+}
+
+function diffChangedKeys(next: Record<string, any>, prev: Record<string, any>): string[] {
+    const keys = new Set<string>([...Object.keys(next), ...Object.keys(prev)]);
+    const changed: string[] = [];
+    for (const k of keys) {
+        if (!shallowEqual(next[k], prev[k])) changed.push(k);
+    }
+    return changed;
+}
+
+function shallowEqual(a: any, b: any): boolean {
+    if (a === b) return true;
+    if (Array.isArray(a) && Array.isArray(b)) {
+        if (a.length !== b.length) return false;
+        for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+        return true;
+    }
+    return false;
+}
 
 function parentDir(path: string | null | undefined): string | null {
     if (!path) return null;
