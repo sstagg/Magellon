@@ -1,8 +1,10 @@
 """
 FastAPI router for particle-picking backends.
 
-This is the simple / direct HTTP approach — no RabbitMQ, no TaskFactory.
-The existing PARTICLE_PICKING TaskCategory pipeline is untouched.
+This router exposes the template-picker plugin directly (sync, preview/retune,
+async). Job persistence is delegated to :mod:`services.job_service` so every
+plugin lands rows in ``image_job``; preview state lives in a TTL cache so
+abandoned previews self-expire instead of leaking memory.
 """
 
 from __future__ import annotations
@@ -15,6 +17,7 @@ import uuid
 from datetime import datetime
 
 import numpy as np
+from cachetools import TTLCache
 from fastapi import APIRouter, HTTPException
 
 from plugins.pp.models import (
@@ -26,16 +29,19 @@ from plugins.pp.models import (
     ParticlePick,
 )
 from plugins.pp.template_picker.service import run_template_picker, _get_plugin
+from services.job_service import job_service
 
 logger = logging.getLogger(__name__)
 
 pp_router = APIRouter()
 
-# In-memory job tracking (simple dict — sufficient for single-process)
-_jobs: dict[str, dict] = {}
+# Preview cache: expensive score maps, 10-minute TTL, capped at 50 entries so
+# concurrent users don't balloon memory. Abandoned previews self-evict.
+_PREVIEW_TTL_SECONDS = 600
+_PREVIEW_MAX_ENTRIES = 50
+_previews: TTLCache[str, dict] = TTLCache(maxsize=_PREVIEW_MAX_ENTRIES, ttl=_PREVIEW_TTL_SECONDS)
 
-# In-memory preview cache — stores computed score maps for retune
-_previews: dict[str, dict] = {}
+_PLUGIN_ID = "pp/template-picker"
 
 
 # ---------------------------------------------------------------------------
@@ -126,7 +132,7 @@ async def template_pick_preview(input_data: TemplatePickerInput):
             },
         )
 
-        # Store maps for retune
+        # Store maps for retune (TTL-cached; auto-evicted after 10 minutes)
         preview_id = str(uuid.uuid4())
         radius_pixels = input_data.diameter_angstrom / target_apix / 2.0
         _previews[preview_id] = {
@@ -180,10 +186,10 @@ async def template_pick_retune(preview_id: str, params: RetuneRequest):
         _merge_particles,
     )
 
-    if preview_id not in _previews:
+    preview = _previews.get(preview_id)
+    if preview is None:
         raise HTTPException(status_code=404, detail="Preview not found or expired")
 
-    preview = _previews[preview_id]
     radius_pixels = preview["radius_pixels"]
     image_shape = preview["image_shape"]
 
@@ -226,8 +232,7 @@ async def template_pick_retune(preview_id: str, params: RetuneRequest):
     summary="Discard a preview and free memory",
 )
 async def template_pick_preview_delete(preview_id: str):
-    if preview_id in _previews:
-        del _previews[preview_id]
+    if _previews.pop(preview_id, None) is not None:
         return {"status": "deleted"}
     raise HTTPException(status_code=404, detail="Preview not found")
 
@@ -241,71 +246,62 @@ async def template_pick_preview_delete(preview_id: str):
     summary="Submit async template-picking job with Socket.IO progress",
 )
 async def template_pick_async(input_data: TemplatePickerInput, sid: str | None = None):
-    job_id = str(uuid.uuid4())
-    _jobs[job_id] = {
-        'id': job_id,
-        'name': 'Particle Picking',
-        'type': 'picking',
-        'status': 'queued',
-        'progress': 0,
-        'started_at': datetime.now().isoformat(),
-        'num_particles': 0,
-        'sid': sid,
-    }
+    envelope = job_service.create_job(
+        plugin_id=_PLUGIN_ID,
+        name="Particle Picking",
+        settings=input_data.model_dump(mode="json"),
+        image_ids=None,
+    )
+    job_id = envelope["job_id"]
     asyncio.create_task(_run_picking_job(job_id, input_data, sid))
-    return {'job_id': job_id, 'status': 'queued'}
+    return envelope
 
 
 async def _run_picking_job(job_id: str, input_data: TemplatePickerInput, sid: str | None):
     from core.socketio_server import emit_job_update, emit_log
 
-    job = _jobs[job_id]
     try:
-        job['status'] = 'running'
-        job['progress'] = 10
-        await emit_job_update(sid, {**job})
+        running = job_service.mark_running(job_id, progress=10)
+        await emit_job_update(sid, running)
         await emit_log('info', 'picking', f"Particle picking started: {input_data.image_path}")
 
-        job['progress'] = 20
-        await emit_job_update(sid, {**job})
+        progressed = job_service.update_progress(job_id, progress=20)
+        await emit_job_update(sid, progressed)
         await emit_log('info', 'picking', f"Loading micrograph and {len(input_data.template_paths)} template(s)...")
 
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(None, run_template_picker, input_data)
 
-        job['status'] = 'completed'
-        job['progress'] = 100
-        job['num_particles'] = result.num_particles
-        job['result'] = result.model_dump()
-        await emit_job_update(sid, {**job})
+        completed = job_service.complete_job(
+            job_id,
+            result=result.model_dump(),
+            num_items=result.num_particles,
+        )
+        await emit_job_update(sid, completed)
         await emit_log('info', 'picking',
                         f"Particle picking completed — {result.num_particles} particles found")
     except Exception as exc:
-        job['status'] = 'failed'
-        job['error'] = str(exc)
-        await emit_job_update(sid, {**job})
+        failed = job_service.fail_job(job_id, error=str(exc))
+        await emit_job_update(sid, failed)
         await emit_log('error', 'picking', f"Particle picking failed: {exc}")
         logger.exception("Async particle picking failed: %s", exc)
 
 
 # ---------------------------------------------------------------------------
-# Job management
+# Job management (plugin-scoped convenience endpoints — delegate to JobService)
 # ---------------------------------------------------------------------------
 
-@pp_router.get("/jobs", summary="List all particle picking jobs")
+@pp_router.get("/jobs", summary="List particle picking jobs")
 async def list_jobs():
-    jobs = list(_jobs.values())
-    return [
-        {k: v for k, v in j.items() if k != 'result'}
-        for j in reversed(jobs)
-    ]
+    return job_service.list_jobs(plugin_id=_PLUGIN_ID)
 
 
 @pp_router.get("/jobs/{job_id}", summary="Get particle picking job details")
 async def get_job(job_id: str):
-    if job_id not in _jobs:
+    try:
+        return job_service.get_job(job_id)
+    except LookupError:
         raise HTTPException(status_code=404, detail="Job not found")
-    return _jobs[job_id]
 
 
 # ---------------------------------------------------------------------------

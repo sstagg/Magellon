@@ -305,6 +305,8 @@ class ImageJob(Base):
     direction = Column(SMALLINT(5))
     image_selection_criteria = Column(Text)
     pipeline_id = Column(ForeignKey('pipeline.oid'), index=True)
+    plugin_id = Column(String(100), index=True)
+    settings = Column(JSON)
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)
 

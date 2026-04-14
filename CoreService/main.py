@@ -47,6 +47,7 @@ from controllers.webapp_motioncor_controller import motioncor_router
 from controllers.webapp_atlas_controller import atlas_router
 from controllers.webapp_particles_controller import particles_router
 from plugins.pp.controller import pp_router
+from plugins.controller import plugins_router
 
 from prometheus_fastapi_instrumentator import Instrumentator
 from rich import print
@@ -297,7 +298,10 @@ app.include_router(test_rls_router, tags=["RLS Testing"])
 app.include_router(schema_router, tags=["Database Schema"])
 
 # Plugins — simple direct HTTP (no RabbitMQ)
+# Plugin-specific routes (template-pick, preview, retune) registered first so
+# their literal paths match before the generic {plugin_id:path} catch-all.
 app.include_router(pp_router, tags=["Particle Picking"], prefix="/plugins/pp")
+app.include_router(plugins_router, tags=["Plugins"], prefix="/plugins")
 
 
 Instrumentator().instrument(app).expose(app)
