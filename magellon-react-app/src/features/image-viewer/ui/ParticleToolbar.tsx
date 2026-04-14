@@ -32,6 +32,7 @@ import {
     Refresh as RefreshIcon,
     ContentCopy as CopyIcon,
     ContentPaste as PasteIcon,
+    Download as DownloadIcon,
     SelectAll as SelectAllIcon,
     Brush as BrushIcon,
     CropFree as CropFreeIcon,
@@ -51,6 +52,7 @@ export interface ParticleToolbarProps {
     onRefresh: () => void;
     onCreateNew: () => void;
     onSave: () => void;
+    onExportCoco: () => void;
     tool: Tool;
     onToolChange: (tool: Tool) => void;
     onUndo: () => void;
@@ -86,6 +88,7 @@ export const ParticleToolbar: React.FC<ParticleToolbarProps> = ({
     onRefresh,
     onCreateNew,
     onSave,
+    onExportCoco,
     tool,
     onToolChange,
     onUndo,
@@ -159,6 +162,9 @@ export const ParticleToolbar: React.FC<ParticleToolbarProps> = ({
                     </MenuItem>
                     <MenuItem onClick={() => { onSave(); setActionsAnchor(null); }} disabled={!selectedParticlePicking}>
                         <SaveIcon sx={{ fontSize: 18, mr: 1 }} /> Save
+                    </MenuItem>
+                    <MenuItem onClick={() => { onExportCoco(); setActionsAnchor(null); }} disabled={!selectedParticlePicking}>
+                        <DownloadIcon sx={{ fontSize: 18, mr: 1 }} /> Export as COCO
                     </MenuItem>
                     <MenuItem disabled={!selectedParticlePicking}>
                         <DeleteIcon sx={{ fontSize: 18, mr: 1 }} /> Delete

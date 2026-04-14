@@ -14,6 +14,7 @@ import base64
 import io
 import json
 import logging
+import math
 import os
 import uuid
 from datetime import datetime
@@ -738,6 +739,108 @@ async def _run_batch_job(
         failed_env = job_service.fail_job(job_id, error=str(exc))
         await emit_job_update(sid, failed_env)
         await emit_log('error', 'batch-picking', f"Batch failed: {exc}")
+
+
+# ---------------------------------------------------------------------------
+# COCO export — convert a saved IPP record into a COCO-format JSON document.
+# Particles are circles of fixed radius, so we emit bbox-only annotations
+# centered on each pick (the standard cryo-EM convention) and stash the
+# non-standard score / pick_type / radius keys for round-trip preservation.
+# ---------------------------------------------------------------------------
+
+# Frontend defines these classes in ParticlePickingTab.tsx. Keeping the names
+# in sync here lets the exported COCO carry meaningful category labels.
+_COCO_CATEGORIES = [
+    {"id": 1, "name": "Good", "supercategory": "particle"},
+    {"id": 2, "name": "Edge", "supercategory": "particle"},
+    {"id": 3, "name": "Contamination", "supercategory": "particle"},
+    {"id": 4, "name": "Uncertain", "supercategory": "particle"},
+]
+
+
+@pp_router.get(
+    "/template-pick/records/{ipp_oid}/coco",
+    summary="Export a particle-picking record as a COCO annotations JSON",
+)
+async def template_pick_record_coco(
+    ipp_oid: str,
+    radius: float = 15.0,
+    user_id: UUID = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    try:
+        oid = UUID(ipp_oid)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid record id")
+
+    ipp = db.query(ImageMetaData).filter(ImageMetaData.oid == oid).first()
+    if not ipp:
+        raise HTTPException(status_code=404, detail="Picking record not found")
+
+    image = db.query(Image).filter(Image.oid == ipp.image_id).first()
+    if not image:
+        raise HTTPException(status_code=404, detail="Parent image not found")
+    if image.session_id and not check_session_access(user_id, image.session_id, action="read"):
+        raise HTTPException(status_code=403, detail="Access denied to this image")
+
+    points = ipp.data_json or []
+    if not isinstance(points, list):
+        points = []
+
+    width = int(image.dimension_x) if image.dimension_x is not None else 0
+    height = int(image.dimension_y) if image.dimension_y is not None else 0
+    r = float(radius)
+    diameter = 2.0 * r
+    area = math.pi * r * r
+
+    annotations: list[dict] = []
+    for idx, p in enumerate(points, start=1):
+        if not isinstance(p, dict):
+            continue
+        cx = float(p.get("x", 0.0))
+        cy = float(p.get("y", 0.0))
+        cls = str(p.get("class", "1"))
+        category_id = int(cls) if cls.isdigit() else 1
+        ann: dict = {
+            "id": idx,
+            "image_id": 1,
+            "category_id": category_id,
+            "bbox": [cx - r, cy - r, diameter, diameter],
+            "area": area,
+            "segmentation": [],
+            "iscrowd": 0,
+            "radius": r,
+        }
+        score = p.get("confidence")
+        if score is not None:
+            ann["score"] = float(score)
+        pick_type = p.get("type")
+        if pick_type:
+            ann["pick_type"] = pick_type
+        annotations.append(ann)
+
+    return {
+        "info": {
+            "description": f"Magellon particle picking record: {ipp.name}",
+            "source": "magellon",
+            "ipp_oid": str(ipp.oid),
+            "image_oid": str(image.oid),
+            "image_name": image.name,
+            "date_created": datetime.now().isoformat(),
+            "version": "1.0",
+        },
+        "licenses": [],
+        "images": [
+            {
+                "id": 1,
+                "width": width,
+                "height": height,
+                "file_name": image.name or "",
+            }
+        ],
+        "categories": _COCO_CATEGORIES,
+        "annotations": annotations,
+    }
 
 
 # ---------------------------------------------------------------------------

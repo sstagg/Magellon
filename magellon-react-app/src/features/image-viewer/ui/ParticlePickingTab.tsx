@@ -221,6 +221,33 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
     }, [settingsOpen, pickerParams, isAutoPickingRunning, autoPickingProgress, lastResultCount,
         particles, selectedImage, previewParticles, sessionName]);
 
+    const handleExportCoco = async () => {
+        if (!selectedParticlePicking?.oid) {
+            showSnackbar('No picking record selected', 'warning');
+            return;
+        }
+        try {
+            const token = localStorage.getItem('access_token');
+            const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+            const url = `${settings.ConfigData.SERVER_API_URL}/plugins/pp/template-pick/records/${selectedParticlePicking.oid}/coco?radius=${PARTICLE_RADIUS}`;
+            const res = await fetch(url, { headers });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ detail: res.statusText }));
+                throw new Error(err.detail || `Server error ${res.status}`);
+            }
+            const coco = await res.json();
+            const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(coco, null, 2));
+            const link = document.createElement('a');
+            link.setAttribute('href', dataUri);
+            const safeName = (selectedParticlePicking.name || 'picking').replace(/[^a-z0-9._-]+/gi, '_');
+            link.setAttribute('download', `${safeName}.coco.json`);
+            link.click();
+            showSnackbar(`Exported ${coco.annotations?.length ?? 0} particles as COCO`, 'success');
+        } catch (err: any) {
+            showSnackbar(`COCO export failed: ${err.message}`, 'error');
+        }
+    };
+
     const toggleFullscreen = () => {
         if (!document.fullscreenElement) {
             document.documentElement.requestFullscreen();
@@ -242,6 +269,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                 onRefresh={onParticlePickingLoad}
                 onCreateNew={handleOpen}
                 onSave={handleSave}
+                onExportCoco={handleExportCoco}
                 tool={tool}
                 onToolChange={setTool}
                 onUndo={undo}
