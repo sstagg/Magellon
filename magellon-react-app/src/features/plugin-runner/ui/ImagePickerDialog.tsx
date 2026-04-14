@@ -4,6 +4,7 @@ import {
     Box,
     Breadcrumbs,
     Button,
+    Checkbox,
     CircularProgress,
     Dialog,
     DialogActions,
@@ -37,12 +38,25 @@ interface BrowseItem {
     mime_type: string | null;
 }
 
-interface ImagePickerDialogProps {
-    open: boolean;
-    onClose: () => void;
-    onPick: (absolutePath: string) => void;
-    initialPath?: string;
-}
+type ImagePickerDialogProps =
+    | {
+          open: boolean;
+          onClose: () => void;
+          multiple?: false;
+          onPick: (absolutePath: string) => void;
+          onPathChange?: (path: string) => void;
+          title?: string;
+          initialPath?: string;
+      }
+    | {
+          open: boolean;
+          onClose: () => void;
+          multiple: true;
+          onPick: (absolutePaths: string[]) => void;
+          onPathChange?: (path: string) => void;
+          title?: string;
+          initialPath?: string;
+      };
 
 const api = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
@@ -50,10 +64,8 @@ const isImageFile = (name: string) =>
     IMAGE_EXTS.some((ext) => name.toLowerCase().endsWith(ext));
 
 const splitPath = (p: string): string[] => {
-    // Handle both POSIX and Windows drive paths.
     const normalized = p.replace(/\\/g, '/');
-    const parts = normalized.split('/').filter(Boolean);
-    return parts;
+    return normalized.split('/').filter(Boolean);
 };
 
 const parentOf = (p: string): string | null => {
@@ -65,16 +77,14 @@ const parentOf = (p: string): string | null => {
     return parent || '/';
 };
 
-export const ImagePickerDialog: React.FC<ImagePickerDialogProps> = ({
-    open,
-    onClose,
-    onPick,
-    initialPath = 'C:/',
-}) => {
+export const ImagePickerDialog: React.FC<ImagePickerDialogProps> = (props) => {
+    const { open, onClose, title, initialPath = 'C:/', onPathChange } = props;
+    const multiple = 'multiple' in props && props.multiple === true;
+
     const [pathInput, setPathInput] = useState(initialPath);
     const [currentPath, setCurrentPath] = useState(initialPath);
     const [items, setItems] = useState<BrowseItem[]>([]);
-    const [selected, setSelected] = useState<string | null>(null);
+    const [selected, setSelected] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -86,7 +96,8 @@ export const ImagePickerDialog: React.FC<ImagePickerDialogProps> = ({
             setItems(res.data ?? []);
             setCurrentPath(path);
             setPathInput(path);
-            setSelected(null);
+            setSelected([]);
+            onPathChange?.(path);
         } catch (err: any) {
             setError(err.response?.data?.detail || err.message || 'Failed to browse');
         } finally {
@@ -99,11 +110,20 @@ export const ImagePickerDialog: React.FC<ImagePickerDialogProps> = ({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open]);
 
+    const toggleSelected = (path: string) => {
+        setSelected((prev) => {
+            if (multiple) {
+                return prev.includes(path) ? prev.filter((p) => p !== path) : [...prev, path];
+            }
+            return [path];
+        });
+    };
+
     const handleItemClick = (item: BrowseItem) => {
         if (item.is_directory) {
             fetchDir(item.path);
         } else if (isImageFile(item.name)) {
-            setSelected(item.path);
+            toggleSelected(item.path);
         }
     };
 
@@ -117,10 +137,13 @@ export const ImagePickerDialog: React.FC<ImagePickerDialogProps> = ({
     };
 
     const handleConfirm = () => {
-        if (selected) {
-            onPick(selected);
-            onClose();
+        if (selected.length === 0) return;
+        if (multiple) {
+            (props.onPick as (paths: string[]) => void)(selected);
+        } else {
+            (props.onPick as (path: string) => void)(selected[0]);
         }
+        onClose();
     };
 
     const visible = items.filter((it) => it.is_directory || isImageFile(it.name));
@@ -128,7 +151,7 @@ export const ImagePickerDialog: React.FC<ImagePickerDialogProps> = ({
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-            <DialogTitle>Pick test image</DialogTitle>
+            <DialogTitle>{title ?? (multiple ? 'Pick files' : 'Pick test image')}</DialogTitle>
             <DialogContent dividers>
                 <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
                     <TextField
@@ -182,34 +205,46 @@ export const ImagePickerDialog: React.FC<ImagePickerDialogProps> = ({
                                 No folders or images here.
                             </Typography>
                         )}
-                        {visible.map((it) => (
-                            <ListItemButton
-                                key={it.path}
-                                onClick={() => handleItemClick(it)}
-                                selected={selected === it.path}
-                            >
-                                <ListItemIcon>
-                                    {it.is_directory ? <FolderIcon size={18} /> : <FileIcon size={18} />}
-                                </ListItemIcon>
-                                <ListItemText
-                                    primary={it.name}
-                                    secondary={!it.is_directory && it.size != null ? `${it.size} bytes` : undefined}
-                                />
-                            </ListItemButton>
-                        ))}
+                        {visible.map((it) => {
+                            const isSelected = selected.includes(it.path);
+                            return (
+                                <ListItemButton
+                                    key={it.path}
+                                    onClick={() => handleItemClick(it)}
+                                    selected={isSelected}
+                                >
+                                    {multiple && !it.is_directory && (
+                                        <Checkbox
+                                            edge="start"
+                                            size="small"
+                                            checked={isSelected}
+                                            tabIndex={-1}
+                                            disableRipple
+                                        />
+                                    )}
+                                    <ListItemIcon>
+                                        {it.is_directory ? <FolderIcon size={18} /> : <FileIcon size={18} />}
+                                    </ListItemIcon>
+                                    <ListItemText
+                                        primary={it.name}
+                                        secondary={!it.is_directory && it.size != null ? `${it.size} bytes` : undefined}
+                                    />
+                                </ListItemButton>
+                            );
+                        })}
                     </List>
                 )}
 
-                {selected && (
+                {selected.length > 0 && (
                     <Typography variant="caption" color="success.main" sx={{ mt: 1, display: 'block' }}>
-                        Selected: {selected}
+                        {multiple ? `${selected.length} file(s) selected` : `Selected: ${selected[0]}`}
                     </Typography>
                 )}
             </DialogContent>
             <DialogActions>
                 <Button onClick={onClose}>Cancel</Button>
-                <Button variant="contained" disabled={!selected} onClick={handleConfirm}>
-                    Use this image
+                <Button variant="contained" disabled={selected.length === 0} onClick={handleConfirm}>
+                    {multiple ? `Use ${selected.length || ''} file(s)` : 'Use this image'}
                 </Button>
             </DialogActions>
         </Dialog>
