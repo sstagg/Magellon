@@ -1,0 +1,7 @@
+:root {
+    --sl-color-accent-low: #0b1f4f;
+    --sl-color-accent: #2962ff;
+    --sl-color-accent-high: #a8c8ff;
+    --sl-font: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --sl-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}

@@ -1,0 +1,34 @@
+---
+title: Magellon
+description: Scientific imaging workflows for cryo-EM — plugin-driven pipelines, batch jobs, and data exploration.
+template: splash
+hero:
+    tagline: Run cryo-EM pipelines with a modular, plugin-driven platform. CTF estimation, motion correction, particle picking — all under one roof.
+    actions:
+        - text: Get Started
+          link: /getting-started/overview/
+          icon: right-arrow
+        - text: View on GitHub
+          link: https://github.com/sstagg/Magellon
+          icon: external
+          variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## What you get
+
+<CardGrid stagger>
+    <Card title="Plugin platform" icon="puzzle">
+        Drop Python plugins with Pydantic schemas; the UI renders forms automatically.
+    </Card>
+    <Card title="Batch jobs" icon="list-format">
+        Submit work on one image or a whole session. Progress streams over Socket.IO.
+    </Card>
+    <Card title="Result renderers" icon="chart-bar">
+        CTF Thon rings, drift trajectories, particle overlays — tailored per plugin.
+    </Card>
+    <Card title="Docker-first" icon="seti:docker">
+        `bash start.sh` and the full stack is up. Runs the same locally and on a cluster.
+    </Card>
+</CardGrid>
