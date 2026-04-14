@@ -93,17 +93,31 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
     const settingsOpen = activePanel === 'settings';
     const { setContent, clearContent } = useSettingsPanelSlot();
 
-    // Algorithm parameters — single dict driven by schema
+    // Algorithm parameters — single dict driven by schema. Defaults tuned so a
+    // default "Run" completes in seconds, not minutes, on a typical micrograph.
     const [pickerParams, setPickerParams] = useState<Record<string, any>>({
         template_paths: [],
         image_pixel_size: 1.0,
-        template_pixel_size: 1.0,
-        diameter_angstrom: 200.0,
-        threshold: 0.4,
+        template_pixel_size: 2.646,
+        diameter_angstrom: 220.0,
+        threshold: 0.35,
         max_peaks: 500,
-        bin_factor: 1,
-        invert_templates: false,
+        bin_factor: 4,
+        invert_templates: true,
+        lowpass_resolution: 12.0,
     });
+
+    // Auto-fill image_pixel_size from the selected image's metadata when known.
+    useEffect(() => {
+        const apix = (selectedImage as any)?.pixelSize;
+        if (typeof apix === 'number' && apix > 0) {
+            setPickerParams((prev) =>
+                prev.image_pixel_size && prev.image_pixel_size !== 1.0
+                    ? prev
+                    : { ...prev, image_pixel_size: apix },
+            );
+        }
+    }, [selectedImage?.oid]);
 
     // Preview state — particles shown on canvas before committing
     const [previewParticles, setPreviewParticles] = useState<Point[] | null>(null);
@@ -277,7 +291,11 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
 
                 <Box sx={{ flex: 1, minWidth: 0, height: '100%' }}>
                     <ParticleCanvas
-                        imageUrl={`${BASE_URL}/image_thumbnail?name=${encodeURIComponent(selectedImage?.name)}&sessionName=${sessionName}`}
+                        imageUrl={
+                            selectedImage?.name
+                                ? `${BASE_URL}/image_thumbnail?name=${encodeURIComponent(selectedImage.name)}&sessionName=${encodeURIComponent(sessionName)}`
+                                : ''
+                        }
                         width={isMobile ? 300 : 1024}
                         height={isMobile ? 300 : 1024}
                         particles={particles}

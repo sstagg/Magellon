@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from starlette.responses import FileResponse, JSONResponse
 
 from config import FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL, app_settings, THUMBNAILS_SUFFIX, \
-    FFT_SUFFIX, CTF_SUB_URL, FAO_SUB_URL
+    FFT_SUFFIX, CTF_SUB_URL, FAO_SUB_URL, ORIGINAL_IMAGES_SUB_URL
 from database import get_db
 from lib.image_not_found import get_image_not_found
 from models.pydantic_models import SessionDto, ImageDto
@@ -778,6 +778,46 @@ async def get_image_thumbnail(
         return get_image_not_found()
 
     return FileResponse(file_path, media_type='image/png')
+
+
+@webapp_router.get("/image_mrc_path")
+async def get_image_mrc_path(
+    name: str,
+    sessionName: str,
+    user_id: UUID = Depends(get_current_user_id),
+):
+    """Resolve an image name + session to the absolute raw-MRC path on disk.
+
+    Used by auto-picking flows that need to pass a real filesystem path to
+    a plugin. Returns 404 if the session or file is missing.
+    """
+    session_name = sessionName.lower() if sessionName else name.split('_', 1)[0].lower()
+
+    db_session = next(get_db())
+    try:
+        msession = db_session.query(Msession).filter(Msession.name == session_name).first()
+        if not msession:
+            raise HTTPException(status_code=404, detail="Session not found")
+        if not check_session_access(user_id, msession.oid, action="read"):
+            raise HTTPException(status_code=403, detail="Access denied to this session")
+    finally:
+        db_session.close()
+
+    base = f"{app_settings.directory_settings.MAGELLON_HOME_DIR}/{session_name}/{ORIGINAL_IMAGES_SUB_URL}"
+    stripped = name
+    for ext in ('.mrc', '.mrcs', '.tif', '.tiff'):
+        if stripped.lower().endswith(ext):
+            stripped = stripped[: -len(ext)]
+            break
+
+    for candidate in (f"{base}{name}", f"{base}{stripped}.mrc", f"{base}{stripped}.mrcs"):
+        if os.path.exists(candidate):
+            return {"path": os.path.abspath(candidate)}
+
+    raise HTTPException(
+        status_code=404,
+        detail=f"No raw image found for '{name}' in session '{session_name}'",
+    )
 
 
 @webapp_router.get("/image_thumbnail_url")

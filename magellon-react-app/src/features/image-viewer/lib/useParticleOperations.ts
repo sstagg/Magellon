@@ -203,24 +203,41 @@ export function useParticleOperations({
         setAutoPickingProgress(10);
 
         const API_URL = settings.ConfigData.SERVER_API_URL;
+        const WEB_URL = settings.ConfigData.SERVER_WEB_API_URL;
+        const token = localStorage.getItem('access_token');
+        const authHeader: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
         try {
-            // Build payload from pickerParams + image_path
-            const payload = {
-                ...pickerParams,
-                image_path: selectedImage.name,
-            };
+            // Resolve session image name → absolute MRC path on the server.
+            const sessionName =
+                (selectedImage as any).session_name ||
+                (selectedImage as any).sessionName ||
+                '';
+            const resolveUrl =
+                `${WEB_URL}/image_mrc_path?name=${encodeURIComponent(selectedImage.name)}` +
+                (sessionName ? `&sessionName=${encodeURIComponent(sessionName)}` : '');
+            const resolveRes = await fetch(resolveUrl, { headers: authHeader });
+            if (!resolveRes.ok) {
+                const err = await resolveRes.json().catch(() => ({ detail: resolveRes.statusText }));
+                throw new Error(err.detail || `Could not locate image on disk (${resolveRes.status})`);
+            }
+            const { path: imagePath } = await resolveRes.json();
 
-            // Remove null/undefined optional fields
-            Object.keys(payload).forEach(k => {
+            setAutoPickingProgress(25);
+
+            const payload: Record<string, any> = {
+                ...pickerParams,
+                image_path: imagePath,
+            };
+            Object.keys(payload).forEach((k) => {
                 if (payload[k] === null || payload[k] === undefined) delete payload[k];
             });
 
-            setAutoPickingProgress(30);
+            setAutoPickingProgress(40);
 
             const response = await fetch(`${API_URL}/plugins/pp/template-pick`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...authHeader },
                 body: JSON.stringify(payload),
             });
 
