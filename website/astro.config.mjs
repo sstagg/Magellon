@@ -3,25 +3,35 @@ import starlight from '@astrojs/starlight';
 
 export default defineConfig({
     site: 'https://magellon.org',
-    output: 'static',
     integrations: [
         starlight({
             title: 'Magellon',
-            description: 'Scientific imaging workflows — plugins, jobs, and data tools for cryo-EM pipelines.',
+            description: 'Software for cryo-EM data visualization and analysis — easy to install, flexible, and easily extensible.',
             logo: {
-                src: './src/assets/magellon-mark.svg',
+                src: './src/assets/magellon-logo.svg',
                 replacesTitle: false,
             },
+            favicon: '/favicon.svg',
             social: [
                 { icon: 'github', label: 'GitHub', href: 'https://github.com/sstagg/Magellon' },
+                { icon: 'external', label: 'CryoSift', href: 'https://www.cryosift.org' },
             ],
             sidebar: [
                 {
-                    label: 'Getting Started',
+                    label: 'Introduction',
                     items: [
+                        { label: 'Welcome', link: '/' },
                         { label: 'Overview', slug: 'getting-started/overview' },
-                        { label: 'Installation', slug: 'getting-started/installation' },
+                        { label: 'Demo', slug: 'getting-started/demo' },
+                    ],
+                },
+                {
+                    label: 'Installation',
+                    items: [
                         { label: 'Quick Start', slug: 'getting-started/quick-start' },
+                        { label: 'Full Install Guide', slug: 'getting-started/installation' },
+                        { label: 'Docker Setup', slug: 'docker/setup' },
+                        { label: 'Container Management', slug: 'docker/containers' },
                     ],
                 },
                 {
@@ -33,22 +43,28 @@ export default defineConfig({
                     ],
                 },
                 {
-                    label: 'Docker',
-                    items: [
-                        { label: 'Docker Setup', slug: 'docker/setup' },
-                        { label: 'Container Management', slug: 'docker/containers' },
-                    ],
-                },
-                {
-                    label: 'Usage Guide',
+                    label: 'Using Magellon',
                     items: [
                         { label: 'Data Import', slug: 'usage/data-import' },
                         { label: 'Data Visualization', slug: 'usage/visualization' },
                         { label: 'Plugins', slug: 'usage/plugins' },
                     ],
                 },
+                {
+                    label: 'Community',
+                    items: [
+                        { label: 'Community Hub', slug: 'community' },
+                        { label: 'Source Code', link: 'https://github.com/sstagg/Magellon', attrs: { target: '_blank', rel: 'noopener' } },
+                        { label: 'Discussion Group', link: 'https://www.magellon.org/groups', attrs: { target: '_blank', rel: 'noopener' } },
+                        { label: 'CryoSift', link: 'https://www.cryosift.org', attrs: { target: '_blank', rel: 'noopener' } },
+                    ],
+                },
             ],
             customCss: ['./src/styles/custom.css'],
+            lastUpdated: true,
+            editLink: {
+                baseUrl: 'https://github.com/sstagg/Magellon/edit/main/website/',
+            },
         }),
     ],
 });

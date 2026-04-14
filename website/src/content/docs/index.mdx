@@ -1,34 +1,62 @@
 ---
 title: Magellon
-description: Scientific imaging workflows for cryo-EM — plugin-driven pipelines, batch jobs, and data exploration.
+description: Software for cryo-EM data visualization and analysis — easy to install, flexible, and easily extensible.
 template: splash
 hero:
-    tagline: Run cryo-EM pipelines with a modular, plugin-driven platform. CTF estimation, motion correction, particle picking — all under one roof.
+    title: Magellon
+    tagline: Software for cryo-EM data visualization and analysis. Easy to install, flexible, and easily extensible.
+    image:
+        alt: Magellon logo
+        file: ../../assets/magellon-logo.svg
     actions:
         - text: Get Started
-          link: /getting-started/overview/
+          link: /getting-started/quick-start/
           icon: right-arrow
-        - text: View on GitHub
+          variant: primary
+        - text: Try the Demo
+          link: /getting-started/demo/
+          icon: external
+        - text: Source on GitHub
           link: https://github.com/sstagg/Magellon
           icon: external
           variant: minimal
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
+import { Image } from 'astro:assets';
+import heroMicrograph from '../../assets/hero-micrograph.png';
 
-## What you get
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+<div class="hero-screenshot">
+    <Image src={heroMicrograph} alt="Magellon viewing a cryo-EM micrograph with particle picks" loading="eager" />
+    <p class="hero-caption">A micrograph from the bundled demo session, with picked particles overlaid in the Magellon viewer.</p>
+</div>
+
+## What Magellon does
 
 <CardGrid stagger>
     <Card title="Plugin platform" icon="puzzle">
-        Drop Python plugins with Pydantic schemas; the UI renders forms automatically.
+        Drop a Python plugin with Pydantic schemas; the UI renders forms automatically.
+        CTF estimation, motion correction, particle picking — all under one roof.
     </Card>
     <Card title="Batch jobs" icon="list-format">
-        Submit work on one image or a whole session. Progress streams over Socket.IO.
+        Submit work on a single image or a whole session. Progress streams live over Socket.IO,
+        and every result is persisted to the database.
     </Card>
-    <Card title="Result renderers" icon="chart-bar">
-        CTF Thon rings, drift trajectories, particle overlays — tailored per plugin.
+    <Card title="Per-plugin result views" icon="seti:plan">
+        Thon-ring sketches for CTF fits, drift trajectories for motion correction, particle
+        overlays for pickers — tailored visualisations, not raw JSON.
     </Card>
     <Card title="Docker-first" icon="seti:docker">
-        `bash start.sh` and the full stack is up. Runs the same locally and on a cluster.
+        `bash start.sh` and the full stack is up. The same containers run on a laptop and a cluster.
     </Card>
+</CardGrid>
+
+## Start here
+
+<CardGrid>
+    <LinkCard title="Quick Start" description="From clone to a running job in five steps." href="/getting-started/quick-start/" />
+    <LinkCard title="Demo Walkthrough" description="Use the bundled demo data to see Magellon end-to-end." href="/getting-started/demo/" />
+    <LinkCard title="Full Installation" description="Detailed Dockerized install for a fresh machine." href="/getting-started/installation/" />
+    <LinkCard title="Plugins Guide" description="Run shipped plugins or write your own." href="/usage/plugins/" />
 </CardGrid>
