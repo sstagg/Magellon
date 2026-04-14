@@ -22,7 +22,6 @@ import AccountPage from "../../features/user-management/ui/page.tsx";
 const MrcViewerPageView = lazy(() => import("../../pages/mrc-viewer/MrcViewerPageView.tsx"));
 const ApiView = lazy(() => import("../../pages/api-docs/ApiView.tsx").then(m => ({ default: m.ApiView })));
 const ScalarApiDocs = lazy(() => import("../../pages/api-docs/ScalarApiDocs.tsx"));
-const StoplightApiDocs = lazy(() => import("../../pages/api-docs/StoplightApiDocs.tsx"));
 const SwaggerApiDocs = lazy(() => import("../../pages/api-docs/SwaggerApiDocs.tsx"));
 
 const RouteFallback = () => (
@@ -73,7 +72,6 @@ export const PanelRoutes = () => {
                 <Route path="/domains/*" element={<DomainRoutes />} />
                 <Route path="/api" element={<ApiView />} />
                 <Route path="/api-scalar" element={<ScalarApiDocs />} />
-                <Route path="/api-stoplight" element={<StoplightApiDocs />} />
                 <Route path="/api-swagger" element={<SwaggerApiDocs />} />
             </Routes>
         </Suspense>

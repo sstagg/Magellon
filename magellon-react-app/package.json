@@ -21,7 +21,6 @@
     "@mui/material": "^7.3.10",
     "@mui/x-tree-view": "^8.27.2",
     "@scalar/api-reference-react": "^0.9.22",
-    "@stoplight/elements": "^9.0.18",
     "@types/swagger-ui-react": "^5.18.0",
     "axios": "1.14.0",
     "i18next": "^26.0.4",
@@ -36,7 +35,7 @@
     "react-resizable-panels": "^4.10.0",
     "react-router-dom": "^7.14.1",
     "socket.io-client": "^4.8.3",
-    "swagger-ui-react": "^5.32.2",
+    "swagger-ui-react": "^5.32.3",
     "zod": "^4.3.6",
     "zustand": "^5.0.12"
   },

@@ -104,11 +104,6 @@ const navLinks: NavLink[] = [
                 icon: <BrainCircuit size={20} />
             },
             {
-                title: "Stoplight",
-                url: "api-stoplight",
-                icon: <BrainCircuit size={20} />
-            },
-            {
                 title: "Swagger",
                 url: "api-swagger",
                 icon: <BrainCircuit size={20} />
