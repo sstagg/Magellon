@@ -28,7 +28,7 @@ import {
 } from '@mui/icons-material';
 import { SchemaForm } from '../../../shared/ui/SchemaForm.tsx';
 import { settings as appSettings } from '../../../shared/config/settings.ts';
-import { Point } from '../lib/useParticleOperations.ts';
+import { Point, TEMPLATE_PICKER_PATH } from '../lib/useParticleOperations.ts';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -115,6 +115,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
     const [schema, setSchema] = useState<any>(null);
     const [schemaLoading, setSchemaLoading] = useState(false);
     const [schemaError, setSchemaError] = useState<string | null>(null);
+    const [runtimeError, setRuntimeError] = useState<string | null>(null);
     const [showErrors, setShowErrors] = useState(false);
     const [drawerState, setDrawerState] = useState<DrawerState>('configure');
     const [previewId, setPreviewId] = useState<string | null>(null);
@@ -133,7 +134,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
     useEffect(() => {
         if (!open || schema) return;
         setSchemaLoading(true);
-        fetch(`${API_URL}/plugins/pp/template-pick/schema/input`)
+        fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/schema/input`)
             .then((res) => { if (!res.ok) throw new Error(`${res.status}`); return res.json(); })
             .then((data) => { setSchema(data); setSchemaError(null); })
             .catch((err) => setSchemaError(`Could not load: ${err.message}`))
@@ -150,13 +151,14 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
     const handlePreview = useCallback(async () => {
         if (!isValid) { setShowErrors(true); return; }
         setShowErrors(false);
+        setRuntimeError(null);
         setDrawerState('previewing');
 
         try {
             const payload = { ...pickerParams, image_path: imageName };
             Object.keys(payload).forEach(k => { if (payload[k] === null || payload[k] === undefined) delete payload[k]; });
 
-            const res = await fetch(`${API_URL}/plugins/pp/template-pick/preview`, {
+            const res = await fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/preview`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
             });
@@ -180,7 +182,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
             setDrawerState('preview');
         } catch (err: any) {
             setDrawerState('configure');
-            setSchemaError(`Preview failed: ${err.message}`);
+            setRuntimeError(`Preview failed: ${err.message}`);
         }
     }, [isValid, pickerParams, imageName, onPreviewParticles]);
 
@@ -193,7 +195,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
         retuneTimer.current = setTimeout(async () => {
             setRetuning(true);
             try {
-                const res = await fetch(`${API_URL}/plugins/pp/template-pick/preview/${previewId}/retune`, {
+                const res = await fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/preview/${previewId}/retune`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         threshold: newParams.threshold ?? 0.4,
@@ -227,7 +229,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
         if (!isValid) { setShowErrors(true); return; }
         setShowErrors(false);
         if (previewId) {
-            fetch(`${API_URL}/plugins/pp/template-pick/preview/${previewId}`, { method: 'DELETE' }).catch(() => {});
+            fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/preview/${previewId}`, { method: 'DELETE' }).catch(() => {});
             setPreviewId(null);
         }
         setDrawerState('running');
@@ -237,7 +239,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
     // --- Accept / Discard ---
     const handleAccept = () => {
         if (previewId) {
-            fetch(`${API_URL}/plugins/pp/template-pick/preview/${previewId}`, { method: 'DELETE' }).catch(() => {});
+            fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/preview/${previewId}`, { method: 'DELETE' }).catch(() => {});
             setPreviewId(null);
         }
         setScoreMapPng(null);
@@ -247,7 +249,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
 
     const handleDiscard = () => {
         if (previewId) {
-            fetch(`${API_URL}/plugins/pp/template-pick/preview/${previewId}`, { method: 'DELETE' }).catch(() => {});
+            fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/preview/${previewId}`, { method: 'DELETE' }).catch(() => {});
             setPreviewId(null);
         }
         setScoreMapPng(null);
@@ -410,6 +412,16 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                             Backend: {API_URL}
                         </Typography>
                     </Box>
+                )}
+
+                {runtimeError && (
+                    <Alert
+                        severity="error"
+                        onClose={() => setRuntimeError(null)}
+                        sx={{ mb: 1, py: 0.5, '& .MuiAlert-message': { fontSize: '0.75rem' } }}
+                    >
+                        {runtimeError}
+                    </Alert>
                 )}
 
                 {/* CONFIGURE: full form */}

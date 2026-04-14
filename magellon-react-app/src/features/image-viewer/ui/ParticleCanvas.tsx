@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { alpha } from '@mui/material';
 import { useAuthenticatedImage } from '../../../shared/lib/useAuthenticatedImage.ts';
 import { Point, ParticleClass, Tool } from '../lib/useParticleOperations.ts';
@@ -20,6 +20,8 @@ interface ParticleCanvasProps {
     onParticlesUpdate: (particles: Point[]) => void;
     onSelectedParticlesUpdate: (selected: Set<string>) => void;
     onShowSnackbar: (message: string, severity: 'success' | 'error' | 'info' | 'warning') => void;
+    /** Called when the underlying image reports its natural dimensions. */
+    onImageNaturalSize?: (shape: [number, number]) => void;
 }
 
 // Enhanced Particle Editor Component (SVG canvas)
@@ -39,7 +41,8 @@ export const ParticleCanvas: React.FC<ParticleCanvasProps> = ({
           particleClasses,
           onParticlesUpdate,
           onSelectedParticlesUpdate,
-          onShowSnackbar
+          onShowSnackbar,
+          onImageNaturalSize,
       }) => {
     const svgRef = useRef<SVGSVGElement>(null);
     const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -49,6 +52,20 @@ export const ParticleCanvas: React.FC<ParticleCanvasProps> = ({
     const [hoveredParticle, setHoveredParticle] = useState<string | null>(null);
 
     const { imageUrl: authenticatedImageUrl, isLoading: isImageLoading } = useAuthenticatedImage(imageUrl);
+
+    // Detect the thumbnail's natural dimensions and report upward — so the
+    // parent can size its coord space to the actual image when backend
+    // didn't supply an image_shape.
+    useEffect(() => {
+        if (!authenticatedImageUrl || !onImageNaturalSize) return;
+        const probe = new Image();
+        probe.onload = () => {
+            if (probe.naturalWidth > 0 && probe.naturalHeight > 0) {
+                onImageNaturalSize([probe.naturalHeight, probe.naturalWidth]);
+            }
+        };
+        probe.src = authenticatedImageUrl;
+    }, [authenticatedImageUrl, onImageNaturalSize]);
 
     const generateId = () => `particle-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 

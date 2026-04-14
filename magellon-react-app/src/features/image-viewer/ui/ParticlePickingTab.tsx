@@ -78,15 +78,18 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
 
     // UI-only state (display controls, not sent to backend)
     const [tool, setTool] = useState<Tool>('add');
-    const [particleRadius, setParticleRadius] = useState(15);
-    const [particleOpacity, setParticleOpacity] = useState(0.8);
     const [showGrid, setShowGrid] = useState(false);
-    const [showCrosshair, setShowCrosshair] = useState(true);
-    const [showStats, setShowStats] = useState(true);
     const [zoom, setZoom] = useState(1);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [helpOpen, setHelpOpen] = useState(false);
     const [activeClass, setActiveClass] = useState('1');
+
+    // Display constants — not currently tunable from the UI. Keep as consts
+    // so unused setters don't masquerade as wired controls.
+    const PARTICLE_RADIUS = 15;
+    const PARTICLE_OPACITY = 0.8;
+    const SHOW_CROSSHAIR = true;
+    const SHOW_STATS = true;
 
     // Settings panel — opens in the app-level SidePanelArea (same as Jobs/Logs)
     const { activePanel, togglePanel } = useSidePanelStore();
@@ -152,6 +155,8 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
         stats,
         isAutoPickingRunning,
         autoPickingProgress,
+        imageShape,
+        setImageShape,
         undo,
         redo,
         selectAll,
@@ -278,7 +283,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                 }}
             >
                 {/* Stats Sidebar */}
-                {showStats && !isMobile && (
+                {SHOW_STATS && !isMobile && (
                     <ParticleStatsBar
                         stats={stats}
                         particleClasses={particleClasses}
@@ -296,21 +301,26 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                                 ? `${BASE_URL}/image_thumbnail?name=${encodeURIComponent(selectedImage.name)}&sessionName=${encodeURIComponent(sessionName)}`
                                 : ''
                         }
-                        width={isMobile ? 300 : 1024}
-                        height={isMobile ? 300 : 1024}
+                        width={imageShape ? imageShape[1] : (isMobile ? 300 : 1024)}
+                        height={imageShape ? imageShape[0] : (isMobile ? 300 : 1024)}
                         particles={particles}
                         selectedParticles={selectedParticles}
                         tool={tool}
-                        particleRadius={particleRadius}
-                        particleOpacity={particleOpacity}
+                        particleRadius={PARTICLE_RADIUS}
+                        particleOpacity={PARTICLE_OPACITY}
                         showGrid={showGrid}
-                        showCrosshair={showCrosshair}
+                        showCrosshair={SHOW_CROSSHAIR}
                         zoom={zoom}
                         activeClass={activeClass}
                         particleClasses={particleClasses}
                         onParticlesUpdate={handleParticlesUpdate}
                         onSelectedParticlesUpdate={setSelectedParticles}
                         onShowSnackbar={showSnackbar}
+                        onImageNaturalSize={(shape) => {
+                            // Only fall back to the thumbnail's natural size
+                            // when backend hasn't supplied image_shape yet.
+                            if (!imageShape) setImageShape(shape);
+                        }}
                     />
                 </Box>
 

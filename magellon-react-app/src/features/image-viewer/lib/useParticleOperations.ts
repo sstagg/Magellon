@@ -3,6 +3,10 @@ import { ParticlePickingDto } from '../../../entities/particle-picking/types.ts'
 import ImageInfoDto from '../../../entities/image/types.ts';
 import { settings } from '../../../shared/config/settings.ts';
 
+// API path for the template-picker plugin. Centralized here so that renames
+// or plugin-id changes don't require hunting through the feature.
+export const TEMPLATE_PICKER_PATH = '/plugins/pp/template-pick';
+
 export interface Point {
     x: number;
     y: number;
@@ -52,6 +56,9 @@ export function useParticleOperations({
     const [copiedParticles, setCopiedParticles] = useState<Point[]>([]);
     const [isAutoPickingRunning, setIsAutoPickingRunning] = useState(false);
     const [autoPickingProgress, setAutoPickingProgress] = useState(0);
+    // [height, width] of the coord space particles live in — set by the picker
+    // backend so the canvas can size its viewBox to match particle positions.
+    const [imageShape, setImageShape] = useState<[number, number] | null>(null);
 
     const [stats, setStats] = useState({
         total: 0,
@@ -94,6 +101,7 @@ export function useParticleOperations({
                 const parsedParticles = selectedParticlePicking.data_json as Point[];
                 setParticles(parsedParticles);
                 updateStats(parsedParticles);
+                setImageShape(null);
             } catch (error) {
                 console.error('Error parsing particles:', error);
                 showSnackbar('Error loading particles', 'error');
@@ -102,6 +110,7 @@ export function useParticleOperations({
             setParticles([]);
             setHistory([[]]);
             setHistoryIndex(0);
+            setImageShape(null);
         }
     }, [selectedParticlePicking]);
 
@@ -235,7 +244,7 @@ export function useParticleOperations({
 
             setAutoPickingProgress(40);
 
-            const response = await fetch(`${API_URL}/plugins/pp/template-pick`, {
+            const response = await fetch(`${API_URL}${TEMPLATE_PICKER_PATH}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...authHeader },
                 body: JSON.stringify(payload),
@@ -249,6 +258,10 @@ export function useParticleOperations({
             }
 
             const result = await response.json();
+
+            if (Array.isArray(result.image_shape) && result.image_shape.length === 2) {
+                setImageShape([result.image_shape[0], result.image_shape[1]]);
+            }
 
             const threshold = pickerParams.threshold ?? 0.4;
 
@@ -331,6 +344,8 @@ export function useParticleOperations({
         stats,
         isAutoPickingRunning,
         autoPickingProgress,
+        imageShape,
+        setImageShape,
         addToHistory,
         undo,
         redo,
