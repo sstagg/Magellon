@@ -1,4 +1,5 @@
 import asyncio
+import io
 import json
 import mimetypes
 import os
@@ -8,14 +9,16 @@ from typing import List, Optional, Dict
 from uuid import UUID
 
 import mrcfile
+import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 from pathlib import Path
-from starlette.responses import FileResponse
+from starlette.responses import FileResponse, StreamingResponse
 
 from config import app_settings
 from core.helper import dispatch_ctf_task, create_motioncor_task
 from dependencies.auth import get_current_user_id
+from services.mrc_image_service import MrcImageService
 
 import logging
 
@@ -207,6 +210,69 @@ async def browse_directory(
     except Exception as e:
         logger.error(f"Error browsing directory for user {user_id}, path: {path}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+PREVIEW_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff"}
+PREVIEW_MRC_EXTS = {".mrc", ".mrcs", ".map"}
+
+
+def _render_mrc_to_png_bytes(abs_path: str, height: int = 1024) -> bytes:
+    """Open an MRC file and return normalized PNG bytes (in-memory, no disk writes)."""
+    with mrcfile.open(abs_path, permissive=True) as mrc:
+        data = mrc.data
+        # Collapse stacks: take first frame if the file is a movie/tilt series.
+        if data.ndim == 3:
+            frame = data[0]
+        elif data.ndim == 2:
+            frame = data
+        else:
+            frame = np.asarray(data).reshape(data.shape[-2], data.shape[-1])
+
+    img = MrcImageService().scale_image(frame, height)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    return buf.getvalue()
+
+
+@motioncor_router.get("/files/preview")
+async def preview_file(
+    path: str,
+    user_id: UUID = Depends(get_current_user_id)
+):
+    """
+    Serve an image file by absolute path for preview purposes.
+
+    **Requires:** Authentication
+    **Security:** Only allows a whitelisted set of image extensions.
+    MRC/MRCS/MAP files are rendered to PNG on the fly using
+    MrcImageService (percentile-clipped, downsampled).
+    Used by the standalone plugin runner to preview test images that
+    live outside any session directory.
+    """
+    logger.warning(f"SECURITY: User {user_id} previewing file: {path}")
+
+    target = Path(path)
+    ext = target.suffix.lower()
+
+    if ext in PREVIEW_MRC_EXTS:
+        if not target.exists() or not target.is_file():
+            raise HTTPException(status_code=404, detail="File not found")
+        try:
+            png_bytes = _render_mrc_to_png_bytes(str(target))
+        except Exception as e:
+            logger.error(f"MRC preview failed for {path}: {e}")
+            raise HTTPException(status_code=500, detail=f"MRC render failed: {e}")
+        return StreamingResponse(io.BytesIO(png_bytes), media_type="image/png")
+
+    if ext in PREVIEW_IMAGE_EXTS:
+        if not target.exists() or not target.is_file():
+            raise HTTPException(status_code=404, detail="File not found")
+        mime, _ = mimetypes.guess_type(target.name)
+        return FileResponse(str(target), media_type=mime or "application/octet-stream")
+
+    raise HTTPException(status_code=415, detail="Unsupported file type for preview")
+
 
 @motioncor_router.post("/test-motioncor")
 async def test_motioncor(

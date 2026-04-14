@@ -50,7 +50,7 @@ export const PluginBrowser: React.FC<PluginBrowserProps> = ({ onSelect }) => {
 
     const handleSelect = (p: PluginSummary) => {
         if (onSelect) return onSelect(p);
-        navigate(`/plugins/${p.plugin_id}`);
+        navigate(`/en/panel/plugins/${p.plugin_id}`);
     };
 
     return (

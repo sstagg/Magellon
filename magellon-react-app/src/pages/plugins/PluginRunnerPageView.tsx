@@ -20,12 +20,12 @@ export const PluginRunnerPageView: React.FC = () => {
     const plugin = plugins?.find((p) => p.plugin_id === pluginId);
 
     return (
-        <Container maxWidth="md" sx={{ py: 3 }}>
+        <Container maxWidth="lg" sx={{ py: 3 }}>
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
                 <Button
                     size="small"
                     startIcon={<ArrowLeft size={16} />}
-                    onClick={() => navigate('/plugins')}
+                    onClick={() => navigate('/en/panel/plugins')}
                 >
                     All plugins
                 </Button>
