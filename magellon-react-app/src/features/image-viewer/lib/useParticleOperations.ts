@@ -33,21 +33,26 @@ interface UseParticleOperationsParams {
     selectedParticlePicking: ParticlePickingDto | null;
     handleIppUpdate: (ipp: ParticlePickingDto) => void;
     selectedImage: ImageInfoDto | null;
+    sessionName?: string;
     particleClasses: ParticleClass[];
     setParticleClasses: React.Dispatch<React.SetStateAction<ParticleClass[]>>;
     /** All algorithm params as a flat dict (driven by schema) */
     pickerParams: Record<string, any>;
     showSnackbar: (message: string, severity: 'success' | 'error' | 'info' | 'warning') => void;
+    /** Called after a successful run-and-save so the IPP dropdown refreshes. */
+    onIppSaved?: (ippOid: string, ippName: string) => void;
 }
 
 export function useParticleOperations({
     selectedParticlePicking,
     handleIppUpdate,
     selectedImage,
+    sessionName,
     particleClasses,
     setParticleClasses,
     pickerParams,
     showSnackbar,
+    onIppSaved,
 }: UseParticleOperationsParams) {
     const [particles, setParticles] = useState<Point[]>([]);
     const [selectedParticles, setSelectedParticles] = useState<Set<string>>(new Set());
@@ -212,79 +217,103 @@ export function useParticleOperations({
         setAutoPickingProgress(10);
 
         const API_URL = settings.ConfigData.SERVER_API_URL;
-        const WEB_URL = settings.ConfigData.SERVER_WEB_API_URL;
         const token = localStorage.getItem('access_token');
         const authHeader: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
+        // Image oid + session name together mean the image lives in our DB — go
+        // through run-and-save so the result persists as an ImageMetaData row
+        // (plugin_id=pp). Without both, fall back to the stateless sync call.
+        const hasDbImage = !!(selectedImage.oid && sessionName);
+
         try {
-            // Resolve session image name → absolute MRC path on the server.
-            const sessionName =
-                (selectedImage as any).session_name ||
-                (selectedImage as any).sessionName ||
-                '';
-            const resolveUrl =
-                `${WEB_URL}/image_mrc_path?name=${encodeURIComponent(selectedImage.name)}` +
-                (sessionName ? `&sessionName=${encodeURIComponent(sessionName)}` : '');
-            const resolveRes = await fetch(resolveUrl, { headers: authHeader });
-            if (!resolveRes.ok) {
-                const err = await resolveRes.json().catch(() => ({ detail: resolveRes.statusText }));
-                throw new Error(err.detail || `Could not locate image on disk (${resolveRes.status})`);
-            }
-            const { path: imagePath } = await resolveRes.json();
-
-            setAutoPickingProgress(25);
-
-            const payload: Record<string, any> = {
-                ...pickerParams,
-                image_path: imagePath,
-            };
-            Object.keys(payload).forEach((k) => {
-                if (payload[k] === null || payload[k] === undefined) delete payload[k];
+            const picker_params: Record<string, any> = { ...pickerParams };
+            delete picker_params.image_path;
+            Object.keys(picker_params).forEach((k) => {
+                if (picker_params[k] === null || picker_params[k] === undefined) delete picker_params[k];
             });
 
             setAutoPickingProgress(40);
 
-            const response = await fetch(`${API_URL}${TEMPLATE_PICKER_PATH}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...authHeader },
-                body: JSON.stringify(payload),
-            });
+            let autoParticles: Point[] = [];
+            let savedIpp: { oid: string; name: string } | null = null;
 
-            setAutoPickingProgress(70);
+            if (hasDbImage) {
+                const body = {
+                    session_name: sessionName!,
+                    image_oid: selectedImage.oid,
+                    ipp_name: selectedParticlePicking?.name || `Auto-pick ${new Date().toISOString().slice(0, 16)}`,
+                    picker_params,
+                };
+                const response = await fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/run-and-save`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...authHeader },
+                    body: JSON.stringify(body),
+                });
+                setAutoPickingProgress(70);
+                if (!response.ok) {
+                    const errData = await response.json().catch(() => ({ detail: response.statusText }));
+                    throw new Error(errData.detail || `Server error ${response.status}`);
+                }
+                const result = await response.json();
+                if (Array.isArray(result.image_shape) && result.image_shape.length === 2) {
+                    setImageShape([result.image_shape[0], result.image_shape[1]]);
+                }
+                savedIpp = { oid: result.ipp_oid, name: result.ipp_name };
 
-            if (!response.ok) {
-                const errData = await response.json().catch(() => ({ detail: response.statusText }));
-                throw new Error(errData.detail || `Server error ${response.status}`);
+                // Fetch the saved data_json to render the newly-saved points.
+                const fetchUrl = `${API_URL}/plugins/pp/template-pick`; // unused; we load via /web below
+                // The saved Point objects live in data_json — reload so the
+                // state matches what's in the DB and the dropdown entry.
+                void fetchUrl;
+                // Fall through: onIppSaved triggers a refresh in the caller, so
+                // we just drop the preview points and let the reload repopulate.
+            } else {
+                // No DB image — use the stateless sync endpoint and keep
+                // particles in local state only (e.g. the plugin test page).
+                const payload: Record<string, any> = { ...picker_params };
+                // For the stateless path the caller is responsible for providing
+                // an image_path; preserve whatever was passed in pickerParams.
+                if (pickerParams.image_path) payload.image_path = pickerParams.image_path;
+                const response = await fetch(`${API_URL}${TEMPLATE_PICKER_PATH}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...authHeader },
+                    body: JSON.stringify(payload),
+                });
+                setAutoPickingProgress(70);
+                if (!response.ok) {
+                    const errData = await response.json().catch(() => ({ detail: response.statusText }));
+                    throw new Error(errData.detail || `Server error ${response.status}`);
+                }
+                const result = await response.json();
+                if (Array.isArray(result.image_shape) && result.image_shape.length === 2) {
+                    setImageShape([result.image_shape[0], result.image_shape[1]]);
+                }
+                const threshold = pickerParams.threshold ?? 0.4;
+                autoParticles = (result.particles || []).map((p: any, idx: number) => ({
+                    x: p.x,
+                    y: p.y,
+                    id: `auto-${Date.now()}-${idx}`,
+                    type: 'auto' as const,
+                    confidence: Math.min(p.score, 1.0),
+                    class: p.score >= threshold ? '1' : '4',
+                    timestamp: Date.now(),
+                }));
+
+                setAutoPickingProgress(90);
+                const updatedParticles = [...particles, ...autoParticles];
+                setParticles(updatedParticles);
+                addToHistory(updatedParticles);
+                updateStats(updatedParticles);
             }
-
-            const result = await response.json();
-
-            if (Array.isArray(result.image_shape) && result.image_shape.length === 2) {
-                setImageShape([result.image_shape[0], result.image_shape[1]]);
-            }
-
-            const threshold = pickerParams.threshold ?? 0.4;
-
-            // Map backend ParticlePick to frontend Point format
-            const autoParticles: Point[] = (result.particles || []).map((p: any, idx: number) => ({
-                x: p.x,
-                y: p.y,
-                id: `auto-${Date.now()}-${idx}`,
-                type: 'auto' as const,
-                confidence: Math.min(p.score, 1.0),
-                class: p.score >= threshold ? '1' : '4',
-                timestamp: Date.now(),
-            }));
-
-            setAutoPickingProgress(90);
-
-            const updatedParticles = [...particles, ...autoParticles];
-            setParticles(updatedParticles);
-            addToHistory(updatedParticles);
-            updateStats(updatedParticles);
 
             setAutoPickingProgress(100);
-            showSnackbar(`Auto-picking completed — ${autoParticles.length} particles detected`, 'success');
+
+            if (savedIpp) {
+                showSnackbar(`Auto-picking saved as "${savedIpp.name}"`, 'success');
+                onIppSaved?.(savedIpp.oid, savedIpp.name);
+            } else {
+                showSnackbar(`Auto-picking completed — ${autoParticles.length} particles detected`, 'success');
+            }
 
         } catch (err: any) {
             console.error('Auto-picking failed:', err);

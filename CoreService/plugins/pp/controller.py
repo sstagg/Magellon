@@ -22,13 +22,14 @@ from uuid import UUID
 import numpy as np
 from cachetools import TTLCache
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from config import ORIGINAL_IMAGES_SUB_URL, app_settings
 from core.sqlalchemy_row_level_security import check_session_access
 from database import get_db
 from dependencies.auth import get_current_user_id
-from models.sqlalchemy_models import Image, ImageMetaData, Msession
+from models.sqlalchemy_models import Image, ImageMetaData, Msession, Plugin
 from plugins.pp.models import (
     BatchItemResult,
     BatchPickRequest,
@@ -407,6 +408,93 @@ async def list_session_images(
 # are preprocessed once and reused across the cohort.
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Run-on-image with persistence — the "Mode 2" flow. Runs the pick on one
+# session image and writes the result into ImageMetaData so the particle
+# picking dropdown on that image picks it up.
+# ---------------------------------------------------------------------------
+
+class RunAndSaveRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    session_name: str
+    image_oid: str
+    ipp_name: str = Field(default="Auto-pick", description="ImageMetaData.name for the saved record")
+    picker_params: TemplatePickerInput
+
+
+class RunAndSaveResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ipp_oid: str
+    ipp_name: str
+    image_oid: str
+    num_particles: int
+    image_shape: list[int] | None = None
+
+
+@pp_router.post(
+    "/template-pick/run-and-save",
+    response_model=RunAndSaveResponse,
+    summary="Run template-picking on one session image and persist the result",
+)
+async def template_pick_run_and_save(
+    req: RunAndSaveRequest,
+    user_id: UUID = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    image_oid = UUID(req.image_oid)
+    image = db.query(Image).filter(Image.oid == image_oid).first()
+    if not image:
+        raise HTTPException(status_code=404, detail="Image not found")
+    if not image.session_id or not check_session_access(user_id, image.session_id, action="write"):
+        raise HTTPException(status_code=403, detail="Access denied to this image")
+
+    mrc_path = _resolve_mrc_path(req.session_name, image.name)
+    if not mrc_path:
+        raise HTTPException(status_code=404, detail="MRC file not found on disk")
+
+    picker = req.picker_params.model_copy(update={"image_path": mrc_path})
+    target_apix = picker.image_pixel_size * picker.bin_factor
+
+    loop = asyncio.get_event_loop()
+    processed_templates, angle_ranges = await loop.run_in_executor(
+        None, preprocess_templates, picker, target_apix,
+    )
+    raw_particles, img_shape = await loop.run_in_executor(
+        None,
+        pick_in_image,
+        mrc_path, processed_templates, angle_ranges, picker, target_apix,
+    )
+
+    threshold = picker.threshold
+    now_ts = int(datetime.now().timestamp() * 1000)
+    points = [
+        {
+            "x": p["x"],
+            "y": p["y"],
+            "id": f"auto-{now_ts}-{idx}",
+            "type": "auto",
+            "confidence": min(float(p.get("score", 0.0)), 1.0),
+            "class": "1" if p.get("score", 0.0) >= threshold else "4",
+            "timestamp": now_ts,
+        }
+        for idx, p in enumerate(raw_particles)
+    ]
+
+    row = await loop.run_in_executor(
+        None, _save_particle_picking, db, image_oid, req.ipp_name, points,
+    )
+
+    return RunAndSaveResponse(
+        ipp_oid=str(row.oid),
+        ipp_name=row.name,
+        image_oid=str(image_oid),
+        num_particles=len(points),
+        image_shape=list(img_shape),
+    )
+
+
 @pp_router.post(
     "/template-pick/batch",
     summary="Run template-picking on a list of session images (async, Socket.IO progress)",
@@ -446,13 +534,51 @@ def _resolve_mrc_path(session_name: str, image_name: str) -> str | None:
     return None
 
 
+# Cache the resolved plugin oid so we don't re-query on every save.
+_PP_PLUGIN_OID: UUID | None = None
+_PP_PLUGIN_NAME = "pp"
+
+
+def _get_pp_plugin_oid(db: Session) -> UUID:
+    """Return the Plugin.oid for the 'pp' plugin, creating the row if needed.
+
+    ImageMetaData.plugin_id is a FK to Plugin.oid (UUID), but our plugin
+    identifier is the string 'pp'. We keep a single Plugin row with name='pp'
+    to satisfy the FK and tag every particle-picking record with it.
+    """
+    global _PP_PLUGIN_OID
+    if _PP_PLUGIN_OID is not None:
+        return _PP_PLUGIN_OID
+
+    existing = (
+        db.query(Plugin)
+        .filter(Plugin.name == _PP_PLUGIN_NAME, Plugin.GCRecord.is_(None))
+        .first()
+    )
+    if existing:
+        _PP_PLUGIN_OID = existing.oid
+        return _PP_PLUGIN_OID
+
+    row = Plugin(
+        oid=uuid.uuid4(),
+        name=_PP_PLUGIN_NAME,
+        created_date=datetime.now(),
+        version="1.0",
+    )
+    db.add(row)
+    db.commit()
+    _PP_PLUGIN_OID = row.oid
+    return _PP_PLUGIN_OID
+
+
 def _save_particle_picking(
     db: Session,
     image_oid: UUID,
     ipp_name: str,
     particles_payload: list[dict],
-) -> None:
+) -> ImageMetaData:
     """Upsert the ImageMetaData row (type=5) that stores picked particles."""
+    plugin_oid = _get_pp_plugin_oid(db)
     existing = (
         db.query(ImageMetaData)
         .filter(ImageMetaData.image_id == image_oid, ImageMetaData.name == ipp_name)
@@ -460,18 +586,22 @@ def _save_particle_picking(
     )
     if existing:
         existing.data_json = particles_payload
+        existing.plugin_id = plugin_oid
+        existing.last_modified_date = datetime.now()
         db.commit()
-        return
+        return existing
     row = ImageMetaData(
         oid=uuid.uuid4(),
         name=ipp_name,
         created_date=datetime.now(),
         image_id=image_oid,
+        plugin_id=plugin_oid,
         type=5,
         data_json=particles_payload,
     )
     db.add(row)
     db.commit()
+    return row
 
 
 async def _run_batch_job(

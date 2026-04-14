@@ -174,10 +174,15 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
         selectedParticlePicking,
         handleIppUpdate,
         selectedImage,
+        sessionName,
         particleClasses,
         setParticleClasses,
         pickerParams,
         showSnackbar,
+        onIppSaved: () => {
+            // Refresh IPP list so the newly-saved record appears in the dropdown.
+            onParticlePickingLoad();
+        },
     });
 
     // Register settings panel content into the app-level side panel slot

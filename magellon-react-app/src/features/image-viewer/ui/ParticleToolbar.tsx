@@ -115,29 +115,32 @@ export const ParticleToolbar: React.FC<ParticleToolbarProps> = ({
         <Paper elevation={1} sx={{ px: 1, py: 0.5 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
 
-                {/* Session dropdown (compact) */}
-                <FormControl size="small" sx={{ minWidth: 140, maxWidth: 200 }}>
-                    <Select
-                        displayEmpty
-                        value={selectedParticlePicking?.oid || ""}
-                        onChange={OnIppSelected}
-                        sx={{
-                            height: 28, fontSize: '0.75rem',
-                            '& .MuiSelect-select': { py: 0.25 },
-                        }}
-                        startAdornment={isIPPLoading ? <CircularProgress size={14} sx={{ mr: 0.5 }} /> : null}
-                    >
-                        <MenuItem value=""><em>Session...</em></MenuItem>
-                        {Array.isArray(ImageParticlePickings) && ImageParticlePickings?.map((ipp) => (
-                            <MenuItem key={ipp.oid} value={ipp.oid} sx={{ fontSize: '0.8rem' }}>
-                                {ipp.name}
-                            </MenuItem>
-                        ))}
-                    </Select>
-                </FormControl>
+                {/* Picking-record dropdown — each entry is one saved set of
+                    particle picks (manual or auto) for this image. */}
+                <Tooltip title="Particle-picking records for this image (manual or auto)">
+                    <FormControl size="small" sx={{ minWidth: 160, maxWidth: 220 }}>
+                        <Select
+                            displayEmpty
+                            value={selectedParticlePicking?.oid || ""}
+                            onChange={OnIppSelected}
+                            sx={{
+                                height: 28, fontSize: '0.75rem',
+                                '& .MuiSelect-select': { py: 0.25 },
+                            }}
+                            startAdornment={isIPPLoading ? <CircularProgress size={14} sx={{ mr: 0.5 }} /> : null}
+                        >
+                            <MenuItem value=""><em>Picking record…</em></MenuItem>
+                            {Array.isArray(ImageParticlePickings) && ImageParticlePickings?.map((ipp) => (
+                                <MenuItem key={ipp.oid} value={ipp.oid} sx={{ fontSize: '0.8rem' }}>
+                                    {ipp.name}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                </Tooltip>
 
-                {/* Session actions dropdown */}
-                <Tooltip title="Session actions">
+                {/* Picking-record actions dropdown */}
+                <Tooltip title="Picking record actions">
                     <IconButton size="small" onClick={(e) => setActionsAnchor(e.currentTarget)} sx={{ p: 0.25 }}>
                         <MoreVert sx={{ fontSize: 18 }} />
                     </IconButton>
@@ -146,13 +149,13 @@ export const ParticleToolbar: React.FC<ParticleToolbarProps> = ({
                     anchorEl={actionsAnchor}
                     open={Boolean(actionsAnchor)}
                     onClose={() => setActionsAnchor(null)}
-                    PaperProps={{ sx: { minWidth: 160 } }}
+                    PaperProps={{ sx: { minWidth: 180 } }}
                 >
                     <MenuItem onClick={() => { onRefresh(); setActionsAnchor(null); }}>
                         <RefreshIcon sx={{ fontSize: 18, mr: 1 }} /> Refresh
                     </MenuItem>
                     <MenuItem onClick={() => { onCreateNew(); setActionsAnchor(null); }}>
-                        <AddIcon sx={{ fontSize: 18, mr: 1 }} /> New Session
+                        <AddIcon sx={{ fontSize: 18, mr: 1 }} /> New picking record
                     </MenuItem>
                     <MenuItem onClick={() => { onSave(); setActionsAnchor(null); }} disabled={!selectedParticlePicking}>
                         <SaveIcon sx={{ fontSize: 18, mr: 1 }} /> Save
