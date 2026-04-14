@@ -1,5 +1,8 @@
 import React from 'react';
 import {
+    Accordion,
+    AccordionDetails,
+    AccordionSummary,
     Box,
     TextField,
     FormControlLabel,
@@ -9,6 +12,7 @@ import {
     Tooltip,
     InputAdornment,
 } from '@mui/material';
+import { ChevronDown } from 'lucide-react';
 import type { JsonSchema } from '../api/PluginApi.ts';
 
 export interface SchemaFormProps {
@@ -19,12 +23,11 @@ export interface SchemaFormProps {
 }
 
 /**
- * Renders a flat Pydantic-derived JSON schema as MUI form fields.
+ * Renders a Pydantic-derived JSON schema as MUI form fields.
  *
- * Covers the common cases: string, number/integer, boolean, enum, and simple
- * arrays of primitives (entered as comma-separated). Nested objects and
- * complex $ref chains are rendered as raw JSON textareas — good enough for
- * plugins with simple inputs, and degrades gracefully for the rest.
+ * If any property declares ui_group, fields are grouped into accordions
+ * ordered by the minimum ui_order in each group. Otherwise falls back
+ * to a flat list. Respects ui_widget:"hidden" / ui_hidden.
  */
 export const SchemaForm: React.FC<SchemaFormProps> = ({ schema, value, onChange, disabled }) => {
     if (!schema?.properties) {
@@ -46,162 +49,226 @@ export const SchemaForm: React.FC<SchemaFormProps> = ({ schema, value, onChange,
             const name = prop.$ref.split('/').pop();
             if (name && defs[name]) return { ...defs[name], ...prop };
         }
-        // Pydantic v2 renders Optional[X] as anyOf: [{X}, {type: "null"}].
-        // Collapse that to the non-null variant so type-based branches fire.
         if (Array.isArray(prop?.anyOf)) {
             const nonNull = prop.anyOf.filter((v: any) => v?.type !== 'null');
             if (nonNull.length === 1) {
                 const inner = nonNull[0];
-                const resolvedInner = inner?.$ref
-                    ? resolve(inner)
-                    : inner;
+                const resolvedInner = inner?.$ref ? resolve(inner) : inner;
                 return { ...resolvedInner, ...prop, anyOf: undefined, type: resolvedInner.type };
             }
         }
         return prop;
     };
 
+    type Entry = { key: string; prop: any; order: number };
+    const visibleEntries: Entry[] = Object.entries(properties)
+        .map(([key, raw]) => {
+            const prop = resolve(raw);
+            return { key, prop, order: typeof prop.ui_order === 'number' ? prop.ui_order : 1e6 };
+        })
+        .filter(({ prop }) => !(prop.ui_widget === 'hidden' || prop.ui_hidden === true));
+
+    const hasGroups = visibleEntries.some((e) => typeof e.prop.ui_group === 'string' && e.prop.ui_group);
+
+    if (!hasGroups) {
+        return (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {visibleEntries
+                    .sort((a, b) => a.order - b.order)
+                    .map(({ key, prop }) => renderField(key, prop, value, set, required, disabled))}
+            </Box>
+        );
+    }
+
+    const groupMap = new Map<string, Entry[]>();
+    for (const entry of visibleEntries) {
+        const group = entry.prop.ui_group || 'General';
+        if (!groupMap.has(group)) groupMap.set(group, []);
+        groupMap.get(group)!.push(entry);
+    }
+
+    const orderedGroups = Array.from(groupMap.entries())
+        .map(([name, items]) => ({
+            name,
+            items: items.sort((a, b) => a.order - b.order),
+            minOrder: Math.min(...items.map((i) => i.order)),
+        }))
+        .sort((a, b) => a.minOrder - b.minOrder);
+
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {Object.entries(properties).map(([key, rawProp]) => {
-                const prop = resolve(rawProp);
-                if (prop.ui_widget === 'hidden' || prop.ui_hidden === true) return null;
-                const isRequired = required.includes(key);
-                const label = prop.title ?? humanize(key);
-                const help = prop.description ?? '';
-                const current = value[key];
-
-                // Enum → Select
-                if (Array.isArray(prop.enum)) {
-                    return (
-                        <TextField
-                            key={key}
-                            select
-                            label={label}
-                            required={isRequired}
-                            helperText={help}
-                            disabled={disabled}
-                            value={current ?? prop.default ?? ''}
-                            onChange={(e) => set(key, e.target.value)}
-                            size="small"
-                            fullWidth
-                        >
-                            {prop.enum.map((opt: any) => (
-                                <MenuItem key={String(opt)} value={opt}>{String(opt)}</MenuItem>
-                            ))}
-                        </TextField>
-                    );
-                }
-
-                // Boolean → Checkbox
-                if (prop.type === 'boolean') {
-                    return (
-                        <FormControlLabel
-                            key={key}
-                            control={
-                                <Checkbox
-                                    checked={!!(current ?? prop.default ?? false)}
-                                    onChange={(e) => set(key, e.target.checked)}
-                                    disabled={disabled}
-                                />
-                            }
-                            label={
-                                <Tooltip title={help} placement="right">
-                                    <span>{label}{isRequired ? ' *' : ''}</span>
-                                </Tooltip>
-                            }
-                        />
-                    );
-                }
-
-                // Number / integer → numeric TextField
-                if (prop.type === 'number' || prop.type === 'integer') {
-                    return (
-                        <TextField
-                            key={key}
-                            label={label}
-                            required={isRequired}
-                            helperText={help}
-                            disabled={disabled}
-                            type="number"
-                            value={current ?? prop.default ?? ''}
-                            onChange={(e) => {
-                                const raw = e.target.value;
-                                if (raw === '') return set(key, undefined);
-                                const parsed = prop.type === 'integer' ? parseInt(raw, 10) : parseFloat(raw);
-                                set(key, Number.isNaN(parsed) ? raw : parsed);
-                            }}
-                            size="small"
-                            fullWidth
-                            InputProps={prop.units ? {
-                                endAdornment: <InputAdornment position="end">{prop.units}</InputAdornment>,
-                            } : undefined}
-                            inputProps={{
-                                min: prop.minimum,
-                                max: prop.maximum,
-                                step: prop.type === 'integer' ? 1 : 'any',
-                            }}
-                        />
-                    );
-                }
-
-                // Array of primitives → comma-separated input
-                if (prop.type === 'array') {
-                    const asText = Array.isArray(current)
-                        ? current.join(',')
-                        : (current ?? '');
-                    const itemType = prop.items?.type;
-                    const isPrimitiveArray =
-                        itemType === 'string' || itemType === 'number' || itemType === 'integer';
-                    if (isPrimitiveArray) {
-                        return (
-                            <TextField
-                                key={key}
-                                label={label}
-                                required={isRequired}
-                                helperText={help || 'Comma-separated values'}
-                                disabled={disabled}
-                                value={asText}
-                                onChange={(e) => {
-                                    const parts = e.target.value.split(',').map((s) => s.trim()).filter(Boolean);
-                                    if (itemType === 'string') {
-                                        set(key, parts);
-                                    } else {
-                                        set(key, parts.map((p) => Number(p)).filter((n) => !Number.isNaN(n)));
-                                    }
-                                }}
-                                size="small"
-                                fullWidth
-                            />
-                        );
-                    }
-                    // Complex array → JSON textarea
-                    return <JsonField key={key} label={label} help={help} value={current} onSet={(v) => set(key, v)} disabled={disabled} required={isRequired} />;
-                }
-
-                // Object / unknown → JSON textarea
-                if (prop.type === 'object' || prop.type === undefined) {
-                    return <JsonField key={key} label={label} help={help} value={current} onSet={(v) => set(key, v)} disabled={disabled} required={isRequired} />;
-                }
-
-                // Default: string TextField
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {orderedGroups.map(({ name, items }) => {
+                const defaultOpen = !/advanced/i.test(name);
                 return (
-                    <TextField
-                        key={key}
-                        label={label}
-                        required={isRequired}
-                        helperText={help}
-                        disabled={disabled}
-                        value={current ?? prop.default ?? ''}
-                        onChange={(e) => set(key, e.target.value)}
-                        size="small"
-                        fullWidth
-                    />
+                    <Accordion
+                        key={name}
+                        disableGutters
+                        defaultExpanded={defaultOpen}
+                        elevation={0}
+                        sx={{
+                            border: '1px solid',
+                            borderColor: 'divider',
+                            borderRadius: 1,
+                            '&:before': { display: 'none' },
+                            overflow: 'hidden',
+                        }}
+                    >
+                        <AccordionSummary
+                            expandIcon={<ChevronDown size={16} />}
+                            sx={{ minHeight: 40, '& .MuiAccordionSummary-content': { my: 1 } }}
+                        >
+                            <Typography variant="subtitle2">{name}</Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                                {items.length} field{items.length === 1 ? '' : 's'}
+                            </Typography>
+                        </AccordionSummary>
+                        <AccordionDetails sx={{ pt: 0 }}>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                {items.map(({ key, prop }) =>
+                                    renderField(key, prop, value, set, required, disabled),
+                                )}
+                            </Box>
+                        </AccordionDetails>
+                    </Accordion>
                 );
             })}
         </Box>
     );
 };
+
+function renderField(
+    key: string,
+    prop: any,
+    value: Record<string, any>,
+    set: (k: string, v: any) => void,
+    required: string[],
+    disabled?: boolean,
+): React.ReactNode {
+    const isRequired = required.includes(key);
+    const label = prop.title ?? humanize(key);
+    const help = prop.ui_help ?? prop.description ?? '';
+    const unit = prop.ui_unit ?? prop.units;
+    const current = value[key];
+
+    if (Array.isArray(prop.enum)) {
+        return (
+            <TextField
+                key={key}
+                select
+                label={label}
+                required={isRequired}
+                helperText={help}
+                disabled={disabled}
+                value={current ?? prop.default ?? ''}
+                onChange={(e) => set(key, e.target.value)}
+                size="small"
+                fullWidth
+            >
+                {prop.enum.map((opt: any) => (
+                    <MenuItem key={String(opt)} value={opt}>{String(opt)}</MenuItem>
+                ))}
+            </TextField>
+        );
+    }
+
+    if (prop.type === 'boolean') {
+        return (
+            <FormControlLabel
+                key={key}
+                control={
+                    <Checkbox
+                        checked={!!(current ?? prop.default ?? false)}
+                        onChange={(e) => set(key, e.target.checked)}
+                        disabled={disabled}
+                    />
+                }
+                label={
+                    <Tooltip title={help} placement="right">
+                        <span>{label}{isRequired ? ' *' : ''}</span>
+                    </Tooltip>
+                }
+            />
+        );
+    }
+
+    if (prop.type === 'number' || prop.type === 'integer') {
+        return (
+            <TextField
+                key={key}
+                label={label}
+                required={isRequired}
+                helperText={help}
+                disabled={disabled}
+                type="number"
+                value={current ?? prop.default ?? ''}
+                onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw === '') return set(key, undefined);
+                    const parsed = prop.type === 'integer' ? parseInt(raw, 10) : parseFloat(raw);
+                    set(key, Number.isNaN(parsed) ? raw : parsed);
+                }}
+                size="small"
+                fullWidth
+                InputProps={unit ? {
+                    endAdornment: <InputAdornment position="end">{unit}</InputAdornment>,
+                } : undefined}
+                inputProps={{
+                    min: prop.minimum,
+                    max: prop.maximum,
+                    step: prop.ui_step ?? (prop.type === 'integer' ? 1 : 'any'),
+                }}
+            />
+        );
+    }
+
+    if (prop.type === 'array') {
+        const asText = Array.isArray(current) ? current.join(',') : (current ?? '');
+        const itemType = prop.items?.type;
+        const isPrimitiveArray =
+            itemType === 'string' || itemType === 'number' || itemType === 'integer';
+        if (isPrimitiveArray) {
+            return (
+                <TextField
+                    key={key}
+                    label={label}
+                    required={isRequired}
+                    helperText={help || 'Comma-separated values'}
+                    disabled={disabled}
+                    value={asText}
+                    onChange={(e) => {
+                        const parts = e.target.value.split(',').map((s) => s.trim()).filter(Boolean);
+                        if (itemType === 'string') {
+                            set(key, parts);
+                        } else {
+                            set(key, parts.map((p) => Number(p)).filter((n) => !Number.isNaN(n)));
+                        }
+                    }}
+                    size="small"
+                    fullWidth
+                />
+            );
+        }
+        return <JsonField key={key} label={label} help={help} value={current} onSet={(v) => set(key, v)} disabled={disabled} required={isRequired} />;
+    }
+
+    if (prop.type === 'object' || prop.type === undefined) {
+        return <JsonField key={key} label={label} help={help} value={current} onSet={(v) => set(key, v)} disabled={disabled} required={isRequired} />;
+    }
+
+    return (
+        <TextField
+            key={key}
+            label={label}
+            required={isRequired}
+            helperText={help}
+            disabled={disabled}
+            value={current ?? prop.default ?? ''}
+            onChange={(e) => set(key, e.target.value)}
+            size="small"
+            fullWidth
+        />
+    );
+}
 
 interface JsonFieldProps {
     label: string;
@@ -214,12 +281,11 @@ interface JsonFieldProps {
 
 const JsonField: React.FC<JsonFieldProps> = ({ label, help, value, onSet, disabled, required }) => {
     const [text, setText] = React.useState(() =>
-        value === undefined ? '' : JSON.stringify(value, null, 2)
+        value === undefined ? '' : JSON.stringify(value, null, 2),
     );
     const [error, setError] = React.useState<string | null>(null);
 
     React.useEffect(() => {
-        // Keep text in sync if parent resets the value.
         const incoming = value === undefined ? '' : JSON.stringify(value, null, 2);
         if (incoming !== text && document.activeElement?.getAttribute('data-json-field') !== label) {
             setText(incoming);
@@ -247,7 +313,7 @@ const JsonField: React.FC<JsonFieldProps> = ({ label, help, value, onSet, disabl
                 try {
                     onSet(JSON.parse(next));
                     setError(null);
-                } catch (err: any) {
+                } catch {
                     setError('Invalid JSON');
                 }
             }}

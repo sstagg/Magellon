@@ -16,7 +16,7 @@ import {
     IconButton,
     Tooltip,
 } from '@mui/material';
-import { ChevronDown, ChevronRight, Image as ImageIcon, Layers, Play, ZoomIn, ZoomOut, Maximize2, Move } from 'lucide-react';
+import { ChevronDown, ChevronRight, Image as ImageIcon, Layers, Play, ZoomIn, ZoomOut, Maximize2, Move, X as XIcon } from 'lucide-react';
 import { useQueryClient } from 'react-query';
 import {
     JobSubmitRequest,
@@ -160,67 +160,111 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
         ? values[templatePathsField as string].length
         : 0;
 
-    return (
-        <Card variant="outlined">
-            <CardContent>
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-                    <Typography variant="h6">{plugin.name}</Typography>
-                    <Chip size="small" label={`v${plugin.version}`} />
-                    <Chip size="small" variant="outlined" label={plugin.category} />
-                </Stack>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    {plugin.description}
-                </Typography>
+    const pickedName = pickedPath ? (pickedPath.split(/[\\/]/).pop() || pickedPath) : null;
+    const isRunning = submit.isLoading || currentJob?.status === 'running' || currentJob?.status === 'queued';
 
-                <Divider sx={{ my: 2 }} />
+    return (
+        <Card variant="outlined" sx={{ overflow: 'visible' }}>
+            <CardContent sx={{ pb: 2 }}>
+                <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={2}
+                    alignItems={{ xs: 'flex-start', sm: 'center' }}
+                    justifyContent="space-between"
+                    sx={{ mb: 1 }}
+                >
+                    <Box sx={{ minWidth: 0 }}>
+                        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ rowGap: 0.5 }}>
+                            <Typography variant="h6" sx={{ lineHeight: 1.2 }}>{plugin.name}</Typography>
+                            <Chip size="small" label={`v${plugin.version}`} />
+                            <Chip size="small" variant="outlined" label={plugin.category} />
+                        </Stack>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                            {plugin.description}
+                        </Typography>
+                    </Box>
+                    <Stack direction="row" spacing={1} alignItems="center" flexShrink={0}>
+                        <Button
+                            size="small"
+                            variant="text"
+                            onClick={() => setShowRequest((v) => !v)}
+                            startIcon={showRequest ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                            sx={{ color: 'text.secondary' }}
+                        >
+                            Request
+                        </Button>
+                        <Button
+                            variant="contained"
+                            startIcon={isRunning ? <CircularProgress size={14} color="inherit" /> : <Play size={16} />}
+                            onClick={handleSubmit}
+                            disabled={isRunning}
+                        >
+                            {currentJob?.status === 'running' ? 'Running…' : currentJob?.status === 'queued' ? 'Queued…' : 'Run'}
+                        </Button>
+                    </Stack>
+                </Stack>
+
+                <Divider sx={{ mt: 2, mb: 2 }} />
 
                 <Grid container spacing={3}>
                     <Grid size={{ xs: 12, md: 7 }}>
-                        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ mb: 1, rowGap: 1 }}>
-                            <Typography variant="subtitle2" sx={{ flex: 1, minWidth: 80 }}>Input</Typography>
-                            <Button
-                                size="small"
-                                variant="outlined"
-                                startIcon={<ImageIcon size={14} />}
-                                onClick={() => setImagePickerOpen(true)}
-                            >
-                                Pick test image…
-                            </Button>
-                            {templatePathsField && (
+                        <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 0.5 }}>
+                            Inputs
+                        </Typography>
+                        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ mt: 0.5, mb: 1.5, rowGap: 1 }}>
+                            {pickedName ? (
+                                <Chip
+                                    size="small"
+                                    icon={<ImageIcon size={14} />}
+                                    label={pickedName}
+                                    title={pickedPath ?? undefined}
+                                    onDelete={() => {
+                                        setPickedPath(null);
+                                        if (imagePathField) {
+                                            setValues((prev) => ({ ...prev, [imagePathField]: undefined }));
+                                        }
+                                    }}
+                                    deleteIcon={<XIcon size={14} />}
+                                    onClick={() => setImagePickerOpen(true)}
+                                />
+                            ) : (
                                 <Button
                                     size="small"
                                     variant="outlined"
-                                    startIcon={<Layers size={14} />}
-                                    onClick={() => setTemplatePickerOpen(true)}
+                                    startIcon={<ImageIcon size={14} />}
+                                    onClick={() => setImagePickerOpen(true)}
                                 >
-                                    Pick templates…
+                                    Pick test image…
                                 </Button>
                             )}
+                            {templatePathsField && (
+                                templateCount > 0 ? (
+                                    <Chip
+                                        size="small"
+                                        icon={<Layers size={14} />}
+                                        label={`${templateCount} template${templateCount === 1 ? '' : 's'}`}
+                                        onDelete={() => setValues((prev) => ({ ...prev, [templatePathsField]: [] }))}
+                                        deleteIcon={<XIcon size={14} />}
+                                        onClick={() => setTemplatePickerOpen(true)}
+                                    />
+                                ) : (
+                                    <Button
+                                        size="small"
+                                        variant="outlined"
+                                        startIcon={<Layers size={14} />}
+                                        onClick={() => setTemplatePickerOpen(true)}
+                                    >
+                                        Pick templates…
+                                    </Button>
+                                )
+                            )}
                         </Stack>
-                        {pickedPath && (
-                            <Typography
-                                variant="caption"
-                                color="text.secondary"
-                                sx={{ display: 'block', mb: 0.5, wordBreak: 'break-all' }}
-                            >
-                                Test image: {pickedPath}
-                                {imagePathField && ` → "${imagePathField}"`}
-                            </Typography>
-                        )}
-                        {templatePathsField && templateCount > 0 && (
-                            <Typography
-                                variant="caption"
-                                color="text.secondary"
-                                sx={{ display: 'block', mb: 1 }}
-                            >
-                                {templateCount} template(s) → "{templatePathsField}"
-                            </Typography>
-                        )}
+
                         <SchemaForm
                             schema={schema}
                             value={values}
                             onChange={setValues}
-                            disabled={submit.isLoading || currentJob?.status === 'running'}
+                            disabled={isRunning}
                         />
 
                         <Collapse in={showRequest}>
@@ -231,7 +275,7 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
                                     borderRadius: 1,
                                     border: '1px solid',
                                     borderColor: 'divider',
-                                    bgcolor: 'action.hover',
+                                    bgcolor: (t) => t.palette.mode === 'dark' ? 'grey.900' : 'grey.50',
                                     fontFamily: 'monospace',
                                     fontSize: 12,
                                     overflowX: 'auto',
@@ -249,42 +293,28 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
 
                     <Grid size={{ xs: 12, md: 5 }}>
                         <Box sx={{ position: { md: 'sticky' }, top: { md: 16 } }}>
-                            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ mb: 2, rowGap: 1 }}>
-                                <Button
-                                    variant="contained"
-                                    startIcon={<Play size={16} />}
-                                    onClick={handleSubmit}
-                                    disabled={submit.isLoading || currentJob?.status === 'running'}
-                                >
-                                    {currentJob?.status === 'running' ? 'Running…' : 'Run'}
-                                </Button>
-                                <Button
-                                    size="small"
-                                    variant="text"
-                                    onClick={() => setShowRequest((v) => !v)}
-                                    startIcon={showRequest ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                                >
-                                    {showRequest ? 'Hide request' : 'Show request'}
-                                </Button>
-                            </Stack>
                             {submit.isError && (
                                 <Alert severity="error" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
                                     {formatSubmitError(submit.error)}
                                 </Alert>
                             )}
-                            <Typography variant="subtitle2" sx={{ mb: 1 }}>Preview</Typography>
+                            {currentJob && (
+                                <RunStatusBanner job={currentJob} />
+                            )}
+                            <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 0.5, display: 'block', mb: 0.5 }}>
+                                Preview
+                            </Typography>
                             {previewError ? (
                                 <Alert severity="warning">{previewError}</Alert>
                             ) : previewUrl ? (
                                 <Box
                                     sx={{
-                                        border: '1px solid',
-                                        borderColor: 'divider',
                                         borderRadius: 1,
-                                        p: 1,
+                                        overflow: 'hidden',
+                                        bgcolor: 'grey.900',
+                                        boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.06)',
                                         display: 'flex',
                                         justifyContent: 'center',
-                                        bgcolor: 'action.hover',
                                     }}
                                 >
                                     <ZoomablePreview
@@ -304,22 +334,26 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
                                         border: '1px dashed',
                                         borderColor: 'divider',
                                         borderRadius: 1,
-                                        p: 3,
+                                        py: 5,
+                                        px: 3,
                                         textAlign: 'center',
                                         color: 'text.secondary',
                                         bgcolor: 'action.hover',
                                     }}
                                 >
+                                    <ImageIcon size={28} style={{ opacity: 0.5 }} />
+                                    <Typography variant="body2" sx={{ mt: 1 }}>
+                                        No test image selected
+                                    </Typography>
                                     <Typography variant="caption">
-                                        Pick a test image to preview it here.
+                                        Pick one above to preview it here.
                                     </Typography>
                                 </Box>
                             )}
 
-                            {currentJob && (
-                                <Box sx={{ mt: 3 }}>
-                                    <Divider sx={{ mb: 2 }} />
-                                    <JobProgress jobId={currentJob.job_id} pluginId={plugin.plugin_id} />
+                            {currentJob?.status === 'completed' && (
+                                <Box sx={{ mt: 2 }}>
+                                    <ResultRenderer pluginId={plugin.plugin_id} result={currentJob.result} />
                                 </Box>
                             )}
                         </Box>
@@ -567,44 +601,82 @@ const ParticleOverlay: React.FC<ParticleOverlayProps> = ({ result, diameterAngst
 
 // ---------------------------------------------------------------------------
 
-interface JobProgressProps {
-    jobId: string;
-    pluginId: string;
+interface RunStatusBannerProps {
+    job: any;
 }
 
-const JobProgress: React.FC<JobProgressProps> = ({ jobId, pluginId }) => {
-    const job = useJobStore((s) => s.jobs.find((j) => j.job_id === jobId));
-    if (!job) return null;
-
+const RunStatusBanner: React.FC<RunStatusBannerProps> = ({ job }) => {
     const statusColor =
         job.status === 'completed' ? 'success' :
         job.status === 'failed' ? 'error' :
-        job.status === 'running' ? 'info' : 'default';
+        job.status === 'running' ? 'info' :
+        job.status === 'queued' ? 'warning' : 'default';
+
+    const startedAt = job.started_at ? new Date(job.started_at).getTime() : null;
+    const finishedAt = job.finished_at ? new Date(job.finished_at).getTime() : null;
+    const [now, setNow] = React.useState(() => Date.now());
+    const active = job.status === 'running' || job.status === 'queued';
+
+    React.useEffect(() => {
+        if (!active) return;
+        const id = setInterval(() => setNow(Date.now()), 500);
+        return () => clearInterval(id);
+    }, [active]);
+
+    const elapsedMs = startedAt
+        ? (finishedAt ?? now) - startedAt
+        : null;
+
+    const particles = job.result?.num_particles;
 
     return (
-        <Box>
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-                <Chip size="small" color={statusColor as any} label={job.status} />
-                <Typography variant="caption" color="text.secondary">
-                    job {job.job_id}
+        <Box
+            sx={{
+                mb: 2,
+                p: 1.25,
+                borderRadius: 1,
+                border: '1px solid',
+                borderColor: 'divider',
+                bgcolor: (t) => t.palette.mode === 'dark' ? 'background.paper' : 'grey.50',
+            }}
+        >
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: active ? 1 : 0, flexWrap: 'wrap', rowGap: 0.5 }}>
+                <Chip size="small" color={statusColor as any} label={job.status} sx={{ textTransform: 'capitalize' }} />
+                {elapsedMs != null && (
+                    <Typography variant="caption" color="text.secondary" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                        {formatDuration(elapsedMs)}
+                    </Typography>
+                )}
+                {job.status === 'completed' && typeof particles === 'number' && (
+                    <Chip size="small" variant="outlined" color="success" label={`${particles} particle${particles === 1 ? '' : 's'}`} />
+                )}
+                <Box sx={{ flex: 1 }} />
+                <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+                    {String(job.job_id).slice(0, 8)}
                 </Typography>
             </Stack>
-            {(job.status === 'running' || job.status === 'queued') && (
+            {active && (
                 <LinearProgress
-                    variant="determinate"
+                    variant={typeof job.progress === 'number' ? 'determinate' : 'indeterminate'}
                     value={job.progress ?? 0}
-                    sx={{ height: 6, borderRadius: 1 }}
+                    sx={{ height: 4, borderRadius: 1 }}
                 />
             )}
             {job.status === 'failed' && job.error && (
                 <Alert severity="error" sx={{ mt: 1 }}>{job.error}</Alert>
             )}
-            {job.status === 'completed' && (
-                <ResultRenderer pluginId={pluginId} result={job.result} />
-            )}
         </Box>
     );
 };
+
+function formatDuration(ms: number): string {
+    if (ms < 1000) return `${ms} ms`;
+    const s = ms / 1000;
+    if (s < 60) return `${s.toFixed(1)}s`;
+    const m = Math.floor(s / 60);
+    const rem = Math.round(s - m * 60);
+    return `${m}m ${rem}s`;
+}
 
 // ---------------------------------------------------------------------------
 
