@@ -39,4 +39,4 @@ Pull requests are welcome — small fixes, documentation tweaks, and new plugins
 2. Make your change with tests where applicable.
 3. Open a PR against `main` describing what changed and why.
 
-For a new plugin, see the [Plugins guide](/usage/plugins/) — the framework handles discovery, schema exposure, and progress streaming, so most of the work is the science itself.
+For a new plugin, see the [Plugins guide](/docs/usage/plugins/) — the framework handles discovery, schema exposure, and progress streaming, so most of the work is the science itself.

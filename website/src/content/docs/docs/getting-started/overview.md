@@ -15,6 +15,6 @@ Magellon is a cryo-EM workflow platform. It ties together a FastAPI core service
 
 ## Where to go next
 
-- [Installation](/getting-started/installation/) — Docker-based setup.
-- [Quick Start](/getting-started/quick-start/) — run your first job end-to-end.
-- [Plugins](/usage/plugins/) — understand the runner and extend it.
+- [Installation](/docs/getting-started/installation/) — Docker-based setup.
+- [Quick Start](/docs/getting-started/quick-start/) — run your first job end-to-end.
+- [Plugins](/docs/usage/plugins/) — understand the runner and extend it.

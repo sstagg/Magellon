@@ -27,4 +27,4 @@ import { Steps } from '@astrojs/starlight/components';
 
 </Steps>
 
-For a fuller walk-through — including demo data — see [Installation](/getting-started/installation/).
+For a fuller walk-through — including demo data — see [Installation](/docs/getting-started/installation/).

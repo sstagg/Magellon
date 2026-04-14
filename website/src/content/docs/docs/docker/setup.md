@@ -16,7 +16,7 @@ import { Steps } from '@astrojs/starlight/components';
     cd Magellon/Docker
     ```
 
-3. Copy and edit `.env` — see [Environment Settings](/configuration/environment/).
+3. Copy and edit `.env` — see [Environment Settings](/docs/configuration/environment/).
 
 4. Start the stack.
 

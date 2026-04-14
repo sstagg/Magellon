@@ -21,39 +21,39 @@ export default defineConfig({
                     label: 'Introduction',
                     items: [
                         { label: 'Welcome', link: '/' },
-                        { label: 'Overview', slug: 'getting-started/overview' },
-                        { label: 'Demo', slug: 'getting-started/demo' },
+                        { label: 'Overview', slug: 'docs/getting-started/overview' },
+                        { label: 'Demo', slug: 'docs/getting-started/demo' },
                     ],
                 },
                 {
                     label: 'Installation',
                     items: [
-                        { label: 'Quick Start', slug: 'getting-started/quick-start' },
-                        { label: 'Full Install Guide', slug: 'getting-started/installation' },
-                        { label: 'Docker Setup', slug: 'docker/setup' },
-                        { label: 'Container Management', slug: 'docker/containers' },
+                        { label: 'Quick Start', slug: 'docs/getting-started/quick-start' },
+                        { label: 'Full Install Guide', slug: 'docs/getting-started/installation' },
+                        { label: 'Docker Setup', slug: 'docs/docker/setup' },
+                        { label: 'Container Management', slug: 'docs/docker/containers' },
                     ],
                 },
                 {
                     label: 'Configuration',
                     items: [
-                        { label: 'Directory Structure', slug: 'configuration/directory-structure' },
-                        { label: 'Environment Settings', slug: 'configuration/environment' },
-                        { label: 'Advanced Configuration', slug: 'configuration/advanced' },
+                        { label: 'Directory Structure', slug: 'docs/configuration/directory-structure' },
+                        { label: 'Environment Settings', slug: 'docs/configuration/environment' },
+                        { label: 'Advanced Configuration', slug: 'docs/configuration/advanced' },
                     ],
                 },
                 {
                     label: 'Using Magellon',
                     items: [
-                        { label: 'Data Import', slug: 'usage/data-import' },
-                        { label: 'Data Visualization', slug: 'usage/visualization' },
-                        { label: 'Plugins', slug: 'usage/plugins' },
+                        { label: 'Data Import', slug: 'docs/usage/data-import' },
+                        { label: 'Data Visualization', slug: 'docs/usage/visualization' },
+                        { label: 'Plugins', slug: 'docs/usage/plugins' },
                     ],
                 },
                 {
                     label: 'Community',
                     items: [
-                        { label: 'Community Hub', slug: 'community' },
+                        { label: 'Community Hub', slug: 'docs/community' },
                         { label: 'Source Code', link: 'https://github.com/sstagg/Magellon', attrs: { target: '_blank', rel: 'noopener' } },
                         { label: 'Discussion Group', link: 'https://www.magellon.org/groups', attrs: { target: '_blank', rel: 'noopener' } },
                         { label: 'CryoSift', link: 'https://www.cryosift.org', attrs: { target: '_blank', rel: 'noopener' } },

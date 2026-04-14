@@ -13,4 +13,4 @@ magellon/
 └── services/   # Service-specific working state
 ```
 
-Paths are passed into the containers via environment variables — see [Environment Settings](/configuration/environment/). Keeping these directories on fast storage (SSD, local GPFS) has a measurable impact on import time and job throughput.
+Paths are passed into the containers via environment variables — see [Environment Settings](/docs/configuration/environment/). Keeping these directories on fast storage (SSD, local GPFS) has a measurable impact on import time and job throughput.
