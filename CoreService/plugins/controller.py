@@ -196,17 +196,21 @@ async def get_any_job(job_id: str):
 async def _run_generic_job(entry, job_id: str, validated_input, sid: str | None) -> None:
     """Execute plugin.run() in a worker thread, stream progress over Socket.IO."""
     from core.socketio_server import emit_job_update, emit_log
+    from plugins.progress import JobReporter
 
     plugin = entry.instance
     plugin_label = entry.plugin_id
+    loop = asyncio.get_running_loop()
+    reporter = JobReporter(job_id=job_id, sid=sid, plugin_label=plugin_label, loop=loop)
 
     try:
-        running = job_service.mark_running(job_id, progress=10)
+        running = job_service.mark_running(job_id, progress=0)
         await emit_job_update(sid, running)
         await emit_log('info', plugin_label, f"{plugin_label} started (job {job_id})")
 
-        loop = asyncio.get_event_loop()
-        output = await loop.run_in_executor(None, plugin.run, validated_input)
+        output = await loop.run_in_executor(
+            None, lambda: plugin.run(validated_input, reporter=reporter)
+        )
 
         # Plugins return a Pydantic model; downstream code reads from dict.
         result_dict = output.model_dump() if hasattr(output, "model_dump") else output

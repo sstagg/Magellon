@@ -367,12 +367,13 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                     </>
                 )}
 
-                {/* RUNNING */}
+                {/* RUNNING — indeterminate: the sync endpoint doesn't stream
+                    progress, and showing a fake 0→100 was misleading. */}
                 {drawerState === 'running' && (
                     <Box sx={{ mt: 0.5 }}>
-                        <LinearProgress variant="determinate" value={autoPickingProgress} sx={{ height: 4, borderRadius: 1 }} />
+                        <LinearProgress sx={{ height: 4, borderRadius: 1 }} />
                         <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
-                            {autoPickingProgress}% complete
+                            Running...
                         </Typography>
                     </Box>
                 )}

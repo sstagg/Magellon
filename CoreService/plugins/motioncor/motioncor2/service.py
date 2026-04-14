@@ -23,6 +23,7 @@ from models.plugins_models import (
     TaskCategory,
 )
 from plugins.base import PluginBase
+from plugins.progress import NullReporter, ProgressReporter
 from plugins.motioncor.models import (
     DriftSample,
     MotionCorInput,
@@ -78,7 +79,12 @@ class MotionCor2Plugin(PluginBase[MotionCorInput, MotionCorOutput]):
 
     # -- execution ---------------------------------------------------------
 
-    def execute(self, input_data: MotionCorInput) -> MotionCorOutput:
+    def execute(
+        self,
+        input_data: MotionCorInput,
+        *,
+        reporter: ProgressReporter = NullReporter(),
+    ) -> MotionCorOutput:
         binary = shutil.which(MOTIONCOR_BINARY)
         if not binary:
             raise RuntimeError("motioncor2 binary is not available on PATH")

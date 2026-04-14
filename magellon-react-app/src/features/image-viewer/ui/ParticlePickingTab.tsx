@@ -297,13 +297,10 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                 onToggleFullscreen={toggleFullscreen}
             />
 
-            {/* Auto-picking Progress */}
+            {/* Auto-picking Progress — indeterminate: the sync endpoint
+                doesn't stream progress, and showing 0→100 was fake. */}
             {isAutoPickingRunning && (
-                <LinearProgress
-                    variant="determinate"
-                    value={autoPickingProgress}
-                    sx={{ mb: 1 }}
-                />
+                <LinearProgress sx={{ mb: 1 }} />
             )}
 
             {/* Main Canvas + Stats Sidebar */}

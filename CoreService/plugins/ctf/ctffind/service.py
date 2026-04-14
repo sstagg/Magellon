@@ -23,6 +23,7 @@ from models.plugins_models import (
     TaskCategory,
 )
 from plugins.base import PluginBase
+from plugins.progress import NullReporter, ProgressReporter
 from plugins.ctf.models import (
     CtfEstimationInput,
     CtfEstimationOutput,
@@ -77,7 +78,12 @@ class CtffindPlugin(PluginBase[CtfEstimationInput, CtfEstimationOutput]):
 
     # -- execution ---------------------------------------------------------
 
-    def execute(self, input_data: CtfEstimationInput) -> CtfEstimationOutput:
+    def execute(
+        self,
+        input_data: CtfEstimationInput,
+        *,
+        reporter: ProgressReporter = NullReporter(),
+    ) -> CtfEstimationOutput:
         binary = shutil.which(CTFFIND_BINARY) or shutil.which(f"{CTFFIND_BINARY}4")
         if not binary:
             raise RuntimeError("ctffind binary is not available on PATH")

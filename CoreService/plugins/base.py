@@ -54,6 +54,7 @@ from models.plugins_models import (
     RecuirementResultEnum,
     TaskCategory,
 )
+from plugins.progress import NullReporter, ProgressReporter
 
 logger = logging.getLogger(__name__)
 
@@ -161,9 +162,14 @@ class PluginBase(ABC, Generic[InputT, OutputT]):
         return input_data
 
     @abstractmethod
-    def execute(self, input_data: InputT) -> OutputT:
+    def execute(self, input_data: InputT, *, reporter: ProgressReporter = NullReporter()) -> OutputT:
         """
         Core processing — the only method every plugin *must* implement.
+
+        ``reporter`` is always supplied by the host; plugins may call
+        ``reporter.report(percent, message)`` at stage boundaries to stream
+        progress over Socket.IO. A :class:`NullReporter` is passed when no
+        job context exists, so plugins can ignore the parameter safely.
         """
         ...
 
@@ -178,13 +184,22 @@ class PluginBase(ABC, Generic[InputT, OutputT]):
 
     # -- public entry point (do not override) ------------------------------
 
-    def run(self, raw_input: Dict[str, Any] | InputT) -> OutputT:
+    def run(
+        self,
+        raw_input: Dict[str, Any] | InputT,
+        *,
+        reporter: Optional[ProgressReporter] = None,
+    ) -> OutputT:
         """
         Validated execution pipeline: validate → pre → execute → post → validate.
 
         This is the method the host calls.  It enforces the Pydantic
-        contracts on both sides and manages status transitions.
+        contracts on both sides and manages status transitions. If
+        ``reporter`` is omitted a :class:`NullReporter` is used so plugins
+        can assume the parameter is always populated.
         """
+        effective_reporter: ProgressReporter = reporter or NullReporter()
+
         # --- validate input ---
         if isinstance(raw_input, dict):
             validated_input = self.input_schema().model_validate(raw_input)
@@ -198,7 +213,7 @@ class PluginBase(ABC, Generic[InputT, OutputT]):
         self._status = PluginStatus.RUNNING
         try:
             prepared = self.pre_execute(validated_input)
-            raw_output = self.execute(prepared)
+            raw_output = self.execute(prepared, reporter=effective_reporter)
             final = self.post_execute(prepared, raw_output)
 
             # --- validate output ---

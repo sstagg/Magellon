@@ -214,7 +214,6 @@ export function useParticleOperations({
         }
 
         setIsAutoPickingRunning(true);
-        setAutoPickingProgress(10);
 
         const API_URL = settings.ConfigData.SERVER_API_URL;
         const token = localStorage.getItem('access_token');
@@ -232,8 +231,6 @@ export function useParticleOperations({
                 if (picker_params[k] === null || picker_params[k] === undefined) delete picker_params[k];
             });
 
-            setAutoPickingProgress(40);
-
             let autoParticles: Point[] = [];
             let savedIpp: { oid: string; name: string } | null = null;
 
@@ -249,7 +246,6 @@ export function useParticleOperations({
                     headers: { 'Content-Type': 'application/json', ...authHeader },
                     body: JSON.stringify(body),
                 });
-                setAutoPickingProgress(70);
                 if (!response.ok) {
                     const errData = await response.json().catch(() => ({ detail: response.statusText }));
                     throw new Error(errData.detail || `Server error ${response.status}`);
@@ -279,7 +275,6 @@ export function useParticleOperations({
                     headers: { 'Content-Type': 'application/json', ...authHeader },
                     body: JSON.stringify(payload),
                 });
-                setAutoPickingProgress(70);
                 if (!response.ok) {
                     const errData = await response.json().catch(() => ({ detail: response.statusText }));
                     throw new Error(errData.detail || `Server error ${response.status}`);
@@ -299,14 +294,11 @@ export function useParticleOperations({
                     timestamp: Date.now(),
                 }));
 
-                setAutoPickingProgress(90);
                 const updatedParticles = [...particles, ...autoParticles];
                 setParticles(updatedParticles);
                 addToHistory(updatedParticles);
                 updateStats(updatedParticles);
             }
-
-            setAutoPickingProgress(100);
 
             if (savedIpp) {
                 showSnackbar(`Auto-picking saved as "${savedIpp.name}"`, 'success');
@@ -320,7 +312,6 @@ export function useParticleOperations({
             showSnackbar(`Auto-picking failed: ${err.message}`, 'error');
         } finally {
             setIsAutoPickingRunning(false);
-            setAutoPickingProgress(0);
         }
     };
 

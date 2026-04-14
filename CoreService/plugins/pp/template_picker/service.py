@@ -29,6 +29,7 @@ from models.plugins_models import (
     PARTICLE_PICKING,
 )
 from plugins.base import PluginBase
+from plugins.progress import NullReporter, ProgressReporter
 from plugins.pp.models import (
     ParticlePick,
     TemplatePickerInput,
@@ -196,22 +197,33 @@ class TemplatePickerPlugin(PluginBase[TemplatePickerInput, TemplatePickerOutput]
         )
         return input_data
 
-    def execute(self, input_data: TemplatePickerInput) -> TemplatePickerOutput:
+    def execute(
+        self,
+        input_data: TemplatePickerInput,
+        *,
+        reporter: ProgressReporter = NullReporter(),
+    ) -> TemplatePickerOutput:
         # --- Load and preprocess micrograph ---
+        reporter.report(5, f"Loading micrograph: {os.path.basename(input_data.image_path)}")
         image = _read_mrc(input_data.image_path)
         binned = _bin_image(image, input_data.bin_factor)
         target_apix = input_data.image_pixel_size * input_data.bin_factor
         filtered_image = _lowpass_gaussian(binned, target_apix, input_data.lowpass_resolution)
 
         # --- Load and preprocess templates ---
+        n_templates = len(input_data.template_paths)
+        reporter.report(15, f"Preprocessing {n_templates} template(s)")
         processed_templates: List[np.ndarray] = []
-        for path in input_data.template_paths:
+        for idx, path in enumerate(input_data.template_paths):
             tmpl = _read_mrc(path)
             if input_data.invert_templates:
                 tmpl = -1.0 * tmpl
             scaled = _rescale_template(tmpl, input_data.template_pixel_size, target_apix)
             filtered = _lowpass_gaussian(scaled, target_apix, input_data.lowpass_resolution)
             processed_templates.append(filtered.astype(np.float32))
+            if n_templates > 1:
+                pct = 15 + int(15 * (idx + 1) / n_templates)
+                reporter.report(pct)
 
         # --- Build angle ranges ---
         if input_data.angle_ranges is not None:
@@ -226,6 +238,7 @@ class TemplatePickerPlugin(PluginBase[TemplatePickerInput, TemplatePickerOutput]
             angle_ranges = [(0.0, 360.0, 10.0)] * len(processed_templates)
 
         # --- Run core algorithm ---
+        reporter.report(35, "Running FFT correlation and peak extraction")
         result = pick_particles(
             image=filtered_image,
             templates=processed_templates,
@@ -246,6 +259,7 @@ class TemplatePickerPlugin(PluginBase[TemplatePickerInput, TemplatePickerOutput]
 
         raw_particles = result["particles"]
         particles = [ParticlePick(**p) for p in raw_particles]
+        reporter.report(90, f"Found {len(particles)} particle(s)")
 
         # --- Write artifacts if output_dir requested ---
         csv_path = None
@@ -310,9 +324,13 @@ def _get_plugin() -> TemplatePickerPlugin:
     return _plugin_instance
 
 
-def run_template_picker(input_data: TemplatePickerInput) -> TemplatePickerOutput:
+def run_template_picker(
+    input_data: TemplatePickerInput,
+    *,
+    reporter: ProgressReporter | None = None,
+) -> TemplatePickerOutput:
     """Convenience wrapper — the controller calls this."""
-    return _get_plugin().run(input_data)
+    return _get_plugin().run(input_data, reporter=reporter)
 
 
 # ---------------------------------------------------------------------------

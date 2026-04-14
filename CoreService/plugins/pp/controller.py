@@ -279,18 +279,19 @@ async def template_pick_async(input_data: TemplatePickerInput, sid: str | None =
 
 async def _run_picking_job(job_id: str, input_data: TemplatePickerInput, sid: str | None):
     from core.socketio_server import emit_job_update, emit_log
+    from plugins.progress import JobReporter
+
+    loop = asyncio.get_running_loop()
+    reporter = JobReporter(job_id=job_id, sid=sid, plugin_label='picking', loop=loop)
 
     try:
-        running = job_service.mark_running(job_id, progress=10)
+        running = job_service.mark_running(job_id, progress=0)
         await emit_job_update(sid, running)
         await emit_log('info', 'picking', f"Particle picking started: {input_data.image_path}")
 
-        progressed = job_service.update_progress(job_id, progress=20)
-        await emit_job_update(sid, progressed)
-        await emit_log('info', 'picking', f"Loading micrograph and {len(input_data.template_paths)} template(s)...")
-
-        loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(None, run_template_picker, input_data)
+        result = await loop.run_in_executor(
+            None, lambda: run_template_picker(input_data, reporter=reporter)
+        )
 
         completed = job_service.complete_job(
             job_id,
