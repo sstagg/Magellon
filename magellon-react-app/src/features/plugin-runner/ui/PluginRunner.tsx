@@ -20,6 +20,7 @@ import {
     PluginSummary,
 } from '../api/PluginApi.ts';
 import { SchemaForm } from './SchemaForm.tsx';
+import { ResultRenderer } from './results/ResultRenderers.tsx';
 import { useJobStore } from '../../../app/layouts/PanelLayout/useJobStore.ts';
 import { useSocket } from '../../../shared/lib/useSocket.ts';
 
@@ -120,7 +121,7 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
                 {currentJob && (
                     <Box sx={{ mt: 3 }}>
                         <Divider sx={{ mb: 2 }} />
-                        <JobProgress jobId={currentJob.job_id} />
+                        <JobProgress jobId={currentJob.job_id} pluginId={plugin.plugin_id} />
                     </Box>
                 )}
             </CardContent>
@@ -132,9 +133,10 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
 
 interface JobProgressProps {
     jobId: string;
+    pluginId: string;
 }
 
-const JobProgress: React.FC<JobProgressProps> = ({ jobId }) => {
+const JobProgress: React.FC<JobProgressProps> = ({ jobId, pluginId }) => {
     const job = useJobStore((s) => s.jobs.find((j) => j.job_id === jobId));
     if (!job) return null;
 
@@ -161,10 +163,8 @@ const JobProgress: React.FC<JobProgressProps> = ({ jobId }) => {
             {job.status === 'failed' && job.error && (
                 <Alert severity="error" sx={{ mt: 1 }}>{job.error}</Alert>
             )}
-            {job.status === 'completed' && job.num_items !== undefined && (
-                <Typography variant="body2" sx={{ mt: 1 }}>
-                    {job.num_items} items produced
-                </Typography>
+            {job.status === 'completed' && (
+                <ResultRenderer pluginId={pluginId} result={job.result} />
             )}
         </Box>
     );

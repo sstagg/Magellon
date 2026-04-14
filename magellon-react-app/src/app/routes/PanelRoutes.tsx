@@ -13,7 +13,6 @@ import { Box, Container, Typography } from "@mui/material";
 import AboutPage from "../../pages/about/AboutPage.tsx";
 
 import {ExportPageView} from "../../pages/export/ExportPageView.tsx";
-import {TestIdeaPageView} from "../../panel/pages/TestIdea/TestIdeaPageView.tsx";
 import PluginsPageView from "../../pages/plugins/PluginsPageView.tsx";
 import PluginRunnerPageView from "../../pages/plugins/PluginRunnerPageView.tsx";
 import UserManagementPage from "../../features/user-management/ui/UserManagementPage.tsx";
@@ -53,7 +52,6 @@ export const PanelRoutes = () => {
             <Route path="/plugins" element={<PluginsPageView />} />
             <Route path="/plugins/*" element={<PluginRunnerPageView />} />
             <Route path="/test" element={<TestView />} />
-            <Route path="/test-idea" element={<TestIdeaPageView />} />
             <Route path="/settings" element={<SettingsView />} />
 
             <Route path="/login" element={<LoginPageView />} />
