@@ -357,6 +357,7 @@ class TemplatePickerOutput(BaseModel):
     num_templates: int
     target_pixel_size: float
     image_binning: int
+    image_shape: Optional[List[int]] = None  # [height, width] of the binned image used for picking
 
     # Optional artifact paths (populated when output_dir is given)
     particles_csv_path: Optional[str] = None

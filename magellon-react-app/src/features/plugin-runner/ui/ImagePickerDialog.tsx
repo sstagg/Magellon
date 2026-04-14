@@ -47,6 +47,7 @@ type ImagePickerDialogProps =
           onPathChange?: (path: string) => void;
           title?: string;
           initialPath?: string;
+          storageKey?: string;
       }
     | {
           open: boolean;
@@ -56,6 +57,7 @@ type ImagePickerDialogProps =
           onPathChange?: (path: string) => void;
           title?: string;
           initialPath?: string;
+          storageKey?: string;
       };
 
 const api = getAxiosClient(settings.ConfigData.SERVER_API_URL);
@@ -78,11 +80,20 @@ const parentOf = (p: string): string | null => {
 };
 
 export const ImagePickerDialog: React.FC<ImagePickerDialogProps> = (props) => {
-    const { open, onClose, title, initialPath = 'C:/', onPathChange } = props;
+    const { open, onClose, title, initialPath = 'C:/', onPathChange, storageKey } = props;
     const multiple = 'multiple' in props && props.multiple === true;
 
-    const [pathInput, setPathInput] = useState(initialPath);
-    const [currentPath, setCurrentPath] = useState(initialPath);
+    const effectiveKey = storageKey ?? `imagePicker:lastPath:${title ?? (multiple ? 'multi' : 'single')}`;
+    const readStoredPath = () => {
+        try {
+            return localStorage.getItem(effectiveKey) || initialPath;
+        } catch {
+            return initialPath;
+        }
+    };
+
+    const [pathInput, setPathInput] = useState(readStoredPath);
+    const [currentPath, setCurrentPath] = useState(readStoredPath);
     const [items, setItems] = useState<BrowseItem[]>([]);
     const [selected, setSelected] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
@@ -97,6 +108,7 @@ export const ImagePickerDialog: React.FC<ImagePickerDialogProps> = (props) => {
             setCurrentPath(path);
             setPathInput(path);
             setSelected([]);
+            try { localStorage.setItem(effectiveKey, path); } catch { /* noop */ }
             onPathChange?.(path);
         } catch (err: any) {
             setError(err.response?.data?.detail || err.message || 'Failed to browse');
@@ -106,7 +118,7 @@ export const ImagePickerDialog: React.FC<ImagePickerDialogProps> = (props) => {
     };
 
     useEffect(() => {
-        if (open) fetchDir(initialPath);
+        if (open) fetchDir(readStoredPath());
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open]);
 

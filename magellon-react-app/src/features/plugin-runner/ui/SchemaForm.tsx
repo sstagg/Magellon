@@ -46,6 +46,18 @@ export const SchemaForm: React.FC<SchemaFormProps> = ({ schema, value, onChange,
             const name = prop.$ref.split('/').pop();
             if (name && defs[name]) return { ...defs[name], ...prop };
         }
+        // Pydantic v2 renders Optional[X] as anyOf: [{X}, {type: "null"}].
+        // Collapse that to the non-null variant so type-based branches fire.
+        if (Array.isArray(prop?.anyOf)) {
+            const nonNull = prop.anyOf.filter((v: any) => v?.type !== 'null');
+            if (nonNull.length === 1) {
+                const inner = nonNull[0];
+                const resolvedInner = inner?.$ref
+                    ? resolve(inner)
+                    : inner;
+                return { ...resolvedInner, ...prop, anyOf: undefined, type: resolvedInner.type };
+            }
+        }
         return prop;
     };
 
@@ -53,6 +65,7 @@ export const SchemaForm: React.FC<SchemaFormProps> = ({ schema, value, onChange,
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {Object.entries(properties).map(([key, rawProp]) => {
                 const prop = resolve(rawProp);
+                if (prop.ui_widget === 'hidden' || prop.ui_hidden === true) return null;
                 const isRequired = required.includes(key);
                 const label = prop.title ?? humanize(key);
                 const help = prop.description ?? '';

@@ -101,9 +101,8 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
     const handlePickTemplates = (paths: string[]) => {
         if (!templatePathsField) return;
         setValues((prev) => {
-            const existing = Array.isArray(prev[templatePathsField]) ? prev[templatePathsField] : [];
-            const merged = Array.from(new Set([...existing, ...paths]));
-            const next: Record<string, any> = { ...prev, [templatePathsField]: merged };
+            const replaced = Array.from(new Set(paths));
+            const next: Record<string, any> = { ...prev, [templatePathsField]: replaced };
             const apix = templatePixelSizeFor(plugin.plugin_id, paths);
             if (apix != null) next['template_pixel_size'] = apix;
             return next;
@@ -286,10 +285,15 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
                                         bgcolor: 'action.hover',
                                     }}
                                 >
-                                    <img
+                                    <ZoomablePreview
                                         src={previewUrl}
-                                        alt="Test image preview"
-                                        style={{ maxWidth: '100%', maxHeight: 420, objectFit: 'contain' }}
+                                        overlay={
+                                            <ParticleOverlay
+                                                result={currentJob?.status === 'completed' ? currentJob.result : undefined}
+                                                diameterAngstrom={Number(values['diameter_angstrom']) || undefined}
+                                                imagePixelSize={Number(values['image_pixel_size']) || undefined}
+                                            />
+                                        }
                                     />
                                 </Box>
                             ) : (
@@ -327,6 +331,7 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
                 onPick={handlePickImage}
                 onPathChange={setLastImageDir}
                 initialPath={lastImageDir ?? parentDir(pickedPath) ?? undefined}
+                storageKey="imagePicker:lastPath:shared"
             />
             <ImagePickerDialog
                 open={templatePickerOpen}
@@ -336,6 +341,7 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
                 onPathChange={setLastTemplateDir}
                 title="Pick templates"
                 initialPath={lastTemplateDir ?? parentDir(pickedPath) ?? undefined}
+                storageKey="imagePicker:lastPath:shared"
             />
         </Card>
     );
@@ -350,6 +356,150 @@ function parentDir(path: string | null | undefined): string | null {
     if (/^[A-Za-z]:$/.test(parent)) return parent + '/';
     return parent || '/';
 }
+
+// ---------------------------------------------------------------------------
+
+interface ZoomablePreviewProps {
+    src: string;
+    overlay?: React.ReactNode;
+}
+
+const ZoomablePreview: React.FC<ZoomablePreviewProps> = ({ src, overlay }) => {
+    const [scale, setScale] = React.useState(1);
+    const [offset, setOffset] = React.useState({ x: 0, y: 0 });
+    const dragRef = React.useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
+    const wrapRef = React.useRef<HTMLDivElement | null>(null);
+
+    const reset = () => { setScale(1); setOffset({ x: 0, y: 0 }); };
+
+    const onWheel = (e: React.WheelEvent) => {
+        e.preventDefault();
+        const rect = wrapRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        const cx = e.clientX - rect.left;
+        const cy = e.clientY - rect.top;
+        const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+        const nextScale = Math.min(12, Math.max(1, scale * factor));
+        if (nextScale === scale) return;
+        // Keep cursor anchored during zoom.
+        const k = nextScale / scale;
+        setOffset({
+            x: cx - k * (cx - offset.x),
+            y: cy - k * (cy - offset.y),
+        });
+        setScale(nextScale);
+    };
+
+    const onMouseDown = (e: React.MouseEvent) => {
+        if (scale === 1) return;
+        dragRef.current = { x: e.clientX, y: e.clientY, ox: offset.x, oy: offset.y };
+    };
+    const onMouseMove = (e: React.MouseEvent) => {
+        if (!dragRef.current) return;
+        setOffset({
+            x: dragRef.current.ox + (e.clientX - dragRef.current.x),
+            y: dragRef.current.oy + (e.clientY - dragRef.current.y),
+        });
+    };
+    const endDrag = () => { dragRef.current = null; };
+
+    return (
+        <Box
+            ref={wrapRef}
+            onWheel={onWheel}
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={endDrag}
+            onMouseLeave={endDrag}
+            onDoubleClick={reset}
+            sx={{
+                position: 'relative',
+                overflow: 'hidden',
+                maxWidth: '100%',
+                maxHeight: 420,
+                cursor: scale > 1 ? (dragRef.current ? 'grabbing' : 'grab') : 'zoom-in',
+                userSelect: 'none',
+            }}
+        >
+            <Box
+                sx={{
+                    transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
+                    transformOrigin: '0 0',
+                    position: 'relative',
+                    display: 'inline-block',
+                }}
+            >
+                <img
+                    src={src}
+                    alt="Test image preview"
+                    draggable={false}
+                    style={{ display: 'block', maxWidth: '100%', maxHeight: 420, objectFit: 'contain' }}
+                />
+                {overlay}
+            </Box>
+            {scale !== 1 && (
+                <Typography
+                    variant="caption"
+                    sx={{
+                        position: 'absolute', top: 4, right: 6,
+                        bgcolor: 'rgba(0,0,0,0.55)', color: '#fff',
+                        px: 0.75, py: 0.25, borderRadius: 0.5,
+                        pointerEvents: 'none',
+                    }}
+                >
+                    {scale.toFixed(1)}× — double-click to reset
+                </Typography>
+            )}
+        </Box>
+    );
+};
+
+interface ParticleOverlayProps {
+    result: any;
+    diameterAngstrom?: number;
+    imagePixelSize?: number;
+}
+
+const ParticleOverlay: React.FC<ParticleOverlayProps> = ({ result, diameterAngstrom, imagePixelSize }) => {
+    if (!result) return null;
+    const particles = Array.isArray(result.particles) ? result.particles : [];
+    const shape = result.image_shape as [number, number] | undefined;
+    if (!particles.length || !shape || shape.length !== 2) return null;
+    const [h, w] = shape;
+
+    // Particle radius in binned-image pixels; fall back to 1.2% of image width.
+    const bin = Number(result.image_binning) || 1;
+    const targetApix = Number(result.target_pixel_size) || (imagePixelSize ? imagePixelSize * bin : undefined);
+    const radiusBinned =
+        diameterAngstrom && targetApix ? diameterAngstrom / targetApix / 2 : w * 0.012;
+
+    return (
+        <svg
+            viewBox={`0 0 ${w} ${h}`}
+            preserveAspectRatio="xMidYMid meet"
+            style={{
+                position: 'absolute',
+                inset: 0,
+                width: '100%',
+                height: '100%',
+                pointerEvents: 'none',
+            }}
+        >
+            {particles.map((p: any, i: number) => (
+                <circle
+                    key={i}
+                    cx={p.x}
+                    cy={p.y}
+                    r={radiusBinned}
+                    fill="none"
+                    stroke="#00e676"
+                    strokeWidth={Math.max(w, h) * 0.002}
+                    opacity={0.9}
+                />
+            ))}
+        </svg>
+    );
+};
 
 // ---------------------------------------------------------------------------
 
@@ -448,7 +598,8 @@ const PLUGIN_PRESETS: Record<string, PluginPreset> = {
         defaults: {
             diameter_angstrom: 220,
             invert_templates: true,
-            bin_factor: 1,
+            bin_factor: 4,
+            lowpass_resolution: 12.0,
             threshold: 0.35,
         },
         imagePixelSizesByFilename: [

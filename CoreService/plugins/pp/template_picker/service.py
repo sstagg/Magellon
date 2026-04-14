@@ -279,6 +279,7 @@ class TemplatePickerPlugin(PluginBase[TemplatePickerInput, TemplatePickerOutput]
             num_templates=len(processed_templates),
             target_pixel_size=target_apix,
             image_binning=input_data.bin_factor,
+            image_shape=[int(filtered_image.shape[0]), int(filtered_image.shape[1])],
             particles_csv_path=csv_path,
             particles_json_path=json_path,
             summary=summary,

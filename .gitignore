@@ -29,6 +29,7 @@
 /magellon-react-app/test-results/
 /magellon-react-app/playwright-report/
 /magellon-react-app/playwright/.cache/
+/magellon-react-app/tests/e2e/screenshots/
 
 
 /WebApp/node_modules/
