@@ -313,3 +313,72 @@ def _get_plugin() -> TemplatePickerPlugin:
 def run_template_picker(input_data: TemplatePickerInput) -> TemplatePickerOutput:
     """Convenience wrapper — the controller calls this."""
     return _get_plugin().run(input_data)
+
+
+# ---------------------------------------------------------------------------
+# Batch helpers — let callers preprocess templates once and reuse across many
+# images. MRC read + rescale + lowpass is the bulk of cold-start cost; the
+# per-image step is just the FFT + correlation.
+# ---------------------------------------------------------------------------
+
+def preprocess_templates(
+    input_data: TemplatePickerInput,
+    target_apix: float,
+) -> tuple[List[np.ndarray], List[tuple[float, float, float]]]:
+    """Return (processed_templates, angle_ranges) ready for `pick_particles`."""
+    processed: List[np.ndarray] = []
+    for path in input_data.template_paths:
+        tmpl = _read_mrc(path)
+        if input_data.invert_templates:
+            tmpl = -1.0 * tmpl
+        scaled = _rescale_template(tmpl, input_data.template_pixel_size, target_apix)
+        filtered = _lowpass_gaussian(scaled, target_apix, input_data.lowpass_resolution)
+        processed.append(filtered.astype(np.float32))
+
+    if input_data.angle_ranges is not None:
+        if len(input_data.angle_ranges) == 1 and len(processed) > 1:
+            ar = input_data.angle_ranges[0]
+            angle_ranges = [(ar.start, ar.end, ar.step)] * len(processed)
+        elif len(input_data.angle_ranges) == len(processed):
+            angle_ranges = [(ar.start, ar.end, ar.step) for ar in input_data.angle_ranges]
+        else:
+            raise ValueError("angle_ranges must have 1 entry or one per template")
+    else:
+        angle_ranges = [(0.0, 360.0, 10.0)] * len(processed)
+
+    return processed, angle_ranges
+
+
+def pick_in_image(
+    image_path: str,
+    processed_templates: List[np.ndarray],
+    angle_ranges: List[tuple[float, float, float]],
+    input_data: TemplatePickerInput,
+    target_apix: float,
+) -> tuple[List[dict], tuple[int, int]]:
+    """Run the per-image picking step using already-preprocessed templates.
+
+    Returns (raw_particle_dicts, filtered_image_shape).
+    """
+    image = _read_mrc(image_path)
+    binned = _bin_image(image, input_data.bin_factor)
+    filtered_image = _lowpass_gaussian(binned, target_apix, input_data.lowpass_resolution)
+
+    result = pick_particles(
+        image=filtered_image,
+        templates=processed_templates,
+        params={
+            "diameter_angstrom": input_data.diameter_angstrom,
+            "pixel_size_angstrom": target_apix,
+            "bin": 1.0,
+            "threshold": input_data.threshold,
+            "max_threshold": input_data.max_threshold,
+            "max_peaks": input_data.max_peaks,
+            "overlap_multiplier": input_data.overlap_multiplier,
+            "max_blob_size_multiplier": input_data.max_blob_size_multiplier,
+            "min_blob_roundness": input_data.min_blob_roundness,
+            "peak_position": input_data.peak_position,
+            "angle_ranges": angle_ranges,
+        },
+    )
+    return result["particles"], (int(filtered_image.shape[0]), int(filtered_image.shape[1]))

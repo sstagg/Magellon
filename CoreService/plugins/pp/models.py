@@ -400,3 +400,54 @@ class RetuneResult(BaseModel):
     """Returned by the retune endpoint — just particles, no maps."""
     particles: List[ParticlePick]
     num_particles: int
+
+
+# ---------------------------------------------------------------------------
+# Batch picking — run on many session images in one go
+# ---------------------------------------------------------------------------
+
+class BatchImageEntry(BaseModel):
+    """One image in a batch — referenced by DB oid and filename."""
+    model_config = ConfigDict(extra="forbid")
+
+    oid: str  # Image.oid as string UUID
+    name: str  # Image.name (used to resolve MRC path)
+
+
+class BatchPickRequest(BaseModel):
+    """Body for /template-pick/batch — picker params plus a fixed image list.
+
+    The frontend resolves the image set (typically by magnification within a
+    session) and posts the concrete list to keep the backend stateless.
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    session_name: str
+    images: List[BatchImageEntry]
+    picker_params: "TemplatePickerInput"
+    ipp_name: str = Field(
+        default="Auto-pick batch",
+        description="Name to use for the saved ParticlePicking metadata row",
+    )
+
+
+class BatchItemResult(BaseModel):
+    """Per-image outcome reported back to the client."""
+    model_config = ConfigDict(extra="forbid")
+
+    image_oid: str
+    image_name: str
+    num_particles: int = 0
+    image_shape: Optional[List[int]] = None
+    status: Literal["done", "skipped", "error"]
+    error: Optional[str] = None
+
+
+class BatchPickResult(BaseModel):
+    """Final payload attached to the job envelope on completion."""
+    model_config = ConfigDict(extra="forbid")
+
+    total: int
+    succeeded: int
+    failed: int
+    items: List[BatchItemResult]

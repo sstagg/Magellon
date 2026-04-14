@@ -35,6 +35,7 @@ import { ParticleToolbar } from './ParticleToolbar.tsx';
 import { ParticleStatsBar } from './ParticleStatsBar.tsx';
 import { ParticleSettingsPanel } from './ParticleSettingsDrawer.tsx';
 import { ParticleHelpDialog } from './ParticleHelpDialog.tsx';
+import { BatchRunDialog } from './BatchRunDialog.tsx';
 import { useSidePanelStore } from '../../../app/layouts/PanelLayout/useBottomPanelStore.ts';
 import { useSettingsPanelSlot } from '../../../app/layouts/PanelLayout/useSettingsPanelSlot.ts';
 
@@ -82,6 +83,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
     const [zoom, setZoom] = useState(1);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [helpOpen, setHelpOpen] = useState(false);
+    const [batchDialogOpen, setBatchDialogOpen] = useState(false);
     const [activeClass, setActiveClass] = useState('1');
 
     // Display constants — not currently tunable from the UI. Keep as consts
@@ -186,6 +188,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                 pickerParams={pickerParams}
                 onPickerParamsChange={setPickerParams}
                 onRun={runAutoPicking}
+                onRunBatch={sessionName ? () => setBatchDialogOpen(true) : undefined}
                 isRunning={isAutoPickingRunning}
                 onPreviewParticles={(pts) => {
                     setPreviewParticles(pts);
@@ -211,7 +214,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
         );
         return () => clearContent();
     }, [settingsOpen, pickerParams, isAutoPickingRunning, autoPickingProgress, lastResultCount,
-        particles, selectedImage, previewParticles]);
+        particles, selectedImage, previewParticles, sessionName]);
 
     const toggleFullscreen = () => {
         if (!document.fullscreenElement) {
@@ -376,6 +379,22 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
             <ParticleHelpDialog
                 open={helpOpen}
                 onClose={() => setHelpOpen(false)}
+            />
+
+            {/* Batch Run Dialog */}
+            <BatchRunDialog
+                open={batchDialogOpen}
+                onClose={() => setBatchDialogOpen(false)}
+                sessionName={sessionName}
+                currentImage={selectedImage}
+                pickerParams={pickerParams}
+                onComplete={(res) => {
+                    showSnackbar(
+                        `Batch complete — ${res.succeeded}/${res.total} succeeded`,
+                        res.failed > 0 ? 'warning' : 'success',
+                    );
+                    onParticlePickingLoad();
+                }}
             />
 
             {/* Particle Session Dialog */}

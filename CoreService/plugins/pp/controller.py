@@ -12,23 +12,40 @@ from __future__ import annotations
 import asyncio
 import base64
 import io
+import json
 import logging
+import os
 import uuid
 from datetime import datetime
+from uuid import UUID
 
 import numpy as np
 from cachetools import TTLCache
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
 
+from config import ORIGINAL_IMAGES_SUB_URL, app_settings
+from core.sqlalchemy_row_level_security import check_session_access
+from database import get_db
+from dependencies.auth import get_current_user_id
+from models.sqlalchemy_models import Image, ImageMetaData, Msession
 from plugins.pp.models import (
-    TemplatePickerInput,
-    TemplatePickerOutput,
+    BatchItemResult,
+    BatchPickRequest,
+    BatchPickResult,
+    ParticlePick,
     PreviewResult,
     RetuneRequest,
     RetuneResult,
-    ParticlePick,
+    TemplatePickerInput,
+    TemplatePickerOutput,
 )
-from plugins.pp.template_picker.service import run_template_picker, _get_plugin
+from plugins.pp.template_picker.service import (
+    _get_plugin,
+    pick_in_image,
+    preprocess_templates,
+    run_template_picker,
+)
 from services.job_service import job_service
 
 logger = logging.getLogger(__name__)
@@ -331,6 +348,265 @@ async def template_pick_input_schema():
 @pp_router.get("/template-pick/schema/output", summary="Template picker output JSON schema")
 async def template_pick_output_schema():
     return TemplatePickerOutput.model_json_schema()
+
+
+# ---------------------------------------------------------------------------
+# Session image listing — drives the "Run Batch" dialog. Filters by
+# magnification with optional tolerance so the user can dial the cohort.
+# ---------------------------------------------------------------------------
+
+@pp_router.get(
+    "/template-pick/session-images",
+    summary="List images in a session filtered by magnification",
+)
+async def list_session_images(
+    session_name: str,
+    magnification: int | None = None,
+    tolerance: int = 0,
+    user_id: UUID = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    msession = db.query(Msession).filter(
+        Msession.name == session_name,
+        Msession.GCRecord.is_(None),
+    ).first()
+    if not msession:
+        raise HTTPException(status_code=404, detail=f"Session '{session_name}' not found")
+    if not check_session_access(user_id, msession.oid, action="read"):
+        raise HTTPException(status_code=403, detail="Access denied to this session")
+
+    query = db.query(Image).filter(
+        Image.session_id == msession.oid,
+        Image.GCRecord.is_(None),
+    )
+    if magnification is not None:
+        if tolerance > 0:
+            query = query.filter(
+                Image.magnification.between(magnification - tolerance, magnification + tolerance)
+            )
+        else:
+            query = query.filter(Image.magnification == magnification)
+
+    rows = query.order_by(Image.name).all()
+    return [
+        {
+            "oid": str(r.oid),
+            "name": r.name,
+            "magnification": int(r.magnification) if r.magnification is not None else None,
+            "dimension_x": int(r.dimension_x) if r.dimension_x is not None else None,
+            "dimension_y": int(r.dimension_y) if r.dimension_y is not None else None,
+            "pixel_size": float(r.pixel_size) if r.pixel_size is not None else None,
+        }
+        for r in rows
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Batch picking — one job, one plugin invocation, many images. Templates
+# are preprocessed once and reused across the cohort.
+# ---------------------------------------------------------------------------
+
+@pp_router.post(
+    "/template-pick/batch",
+    summary="Run template-picking on a list of session images (async, Socket.IO progress)",
+)
+async def template_pick_batch(
+    req: BatchPickRequest,
+    sid: str | None = None,
+    user_id: UUID = Depends(get_current_user_id),
+):
+    envelope = job_service.create_job(
+        plugin_id=_PLUGIN_ID,
+        name=f"Batch particle picking ({len(req.images)} images)",
+        settings={
+            "session_name": req.session_name,
+            "num_images": len(req.images),
+            "ipp_name": req.ipp_name,
+            "picker_params": req.picker_params.model_dump(mode="json"),
+        },
+        image_ids=[e.oid for e in req.images],
+        user_id=str(user_id),
+    )
+    job_id = envelope["job_id"]
+    asyncio.create_task(_run_batch_job(job_id, req, str(user_id), sid))
+    return envelope
+
+
+def _resolve_mrc_path(session_name: str, image_name: str) -> str | None:
+    base = f"{app_settings.directory_settings.MAGELLON_HOME_DIR}/{session_name}/{ORIGINAL_IMAGES_SUB_URL}"
+    stripped = image_name
+    for ext in ('.mrc', '.mrcs', '.tif', '.tiff'):
+        if stripped.lower().endswith(ext):
+            stripped = stripped[: -len(ext)]
+            break
+    for candidate in (f"{base}{image_name}", f"{base}{stripped}.mrc", f"{base}{stripped}.mrcs"):
+        if os.path.exists(candidate):
+            return os.path.abspath(candidate)
+    return None
+
+
+def _save_particle_picking(
+    db: Session,
+    image_oid: UUID,
+    ipp_name: str,
+    particles_payload: list[dict],
+) -> None:
+    """Upsert the ImageMetaData row (type=5) that stores picked particles."""
+    existing = (
+        db.query(ImageMetaData)
+        .filter(ImageMetaData.image_id == image_oid, ImageMetaData.name == ipp_name)
+        .first()
+    )
+    if existing:
+        existing.data_json = particles_payload
+        db.commit()
+        return
+    row = ImageMetaData(
+        oid=uuid.uuid4(),
+        name=ipp_name,
+        created_date=datetime.now(),
+        image_id=image_oid,
+        type=5,
+        data_json=particles_payload,
+    )
+    db.add(row)
+    db.commit()
+
+
+async def _run_batch_job(
+    job_id: str,
+    req: BatchPickRequest,
+    user_id: str,
+    sid: str | None,
+):
+    from core.socketio_server import emit_job_update, emit_log
+
+    try:
+        running = job_service.mark_running(job_id, progress=1)
+        await emit_job_update(sid, running)
+        await emit_log('info', 'batch-picking', f"Batch started: {len(req.images)} images")
+
+        loop = asyncio.get_event_loop()
+
+        # --- Template preprocess (once) ---
+        picker = req.picker_params
+        target_apix = picker.image_pixel_size * picker.bin_factor
+        processed_templates, angle_ranges = await loop.run_in_executor(
+            None, preprocess_templates, picker, target_apix,
+        )
+        await emit_log('info', 'batch-picking', f"Preprocessed {len(processed_templates)} template(s)")
+
+        # --- Per-image picking ---
+        items: list[BatchItemResult] = []
+        total = len(req.images)
+        succeeded = 0
+        failed = 0
+
+        # One DB session per background task — opened here and closed in finally.
+        db: Session = next(get_db())
+        try:
+            for i, entry in enumerate(req.images):
+                image_oid = UUID(entry.oid)
+                image = db.query(Image).filter(Image.oid == image_oid).first()
+                if not image or not image.session_id:
+                    items.append(BatchItemResult(
+                        image_oid=entry.oid, image_name=entry.name,
+                        status="skipped", error="Image not found",
+                    ))
+                    failed += 1
+                    continue
+
+                if not check_session_access(user_id, image.session_id, action="write"):
+                    items.append(BatchItemResult(
+                        image_oid=entry.oid, image_name=entry.name,
+                        status="skipped", error="Access denied",
+                    ))
+                    failed += 1
+                    continue
+
+                mrc_path = _resolve_mrc_path(req.session_name, entry.name)
+                if not mrc_path:
+                    items.append(BatchItemResult(
+                        image_oid=entry.oid, image_name=entry.name,
+                        status="skipped", error="MRC file not found on disk",
+                    ))
+                    failed += 1
+                    continue
+
+                try:
+                    raw_particles, img_shape = await loop.run_in_executor(
+                        None,
+                        pick_in_image,
+                        mrc_path, processed_templates, angle_ranges, picker, target_apix,
+                    )
+
+                    # Convert to the frontend's Point shape so the particle
+                    # picking tab can load it as-is from data_json.
+                    threshold = picker.threshold
+                    now_ts = int(datetime.now().timestamp() * 1000)
+                    points = [
+                        {
+                            "x": p["x"],
+                            "y": p["y"],
+                            "id": f"auto-{now_ts}-{idx}",
+                            "type": "auto",
+                            "confidence": min(float(p.get("score", 0.0)), 1.0),
+                            "class": "1" if p.get("score", 0.0) >= threshold else "4",
+                            "timestamp": now_ts,
+                        }
+                        for idx, p in enumerate(raw_particles)
+                    ]
+
+                    await loop.run_in_executor(
+                        None, _save_particle_picking, db, image_oid, req.ipp_name, points,
+                    )
+
+                    items.append(BatchItemResult(
+                        image_oid=entry.oid,
+                        image_name=entry.name,
+                        num_particles=len(points),
+                        image_shape=list(img_shape),
+                        status="done",
+                    ))
+                    succeeded += 1
+                except Exception as per_image_exc:  # noqa: BLE001
+                    logger.exception("Batch pick failed on image %s", entry.name)
+                    items.append(BatchItemResult(
+                        image_oid=entry.oid, image_name=entry.name,
+                        status="error", error=str(per_image_exc),
+                    ))
+                    failed += 1
+
+                # Progress: 0..95 during iteration, 100 at completion
+                progress = int(5 + 90 * (i + 1) / total)
+                progressed = job_service.update_progress(
+                    job_id, progress=progress, num_items=succeeded,
+                )
+                await emit_job_update(sid, progressed)
+                await emit_log(
+                    'info', 'batch-picking',
+                    f"[{i + 1}/{total}] {entry.name}: {items[-1].status}"
+                    + (f" ({items[-1].num_particles} particles)" if items[-1].status == "done" else ""),
+                )
+        finally:
+            db.close()
+
+        result = BatchPickResult(
+            total=total, succeeded=succeeded, failed=failed, items=items,
+        )
+        completed = job_service.complete_job(
+            job_id, result=result.model_dump(), num_items=succeeded,
+        )
+        await emit_job_update(sid, completed)
+        await emit_log(
+            'info', 'batch-picking',
+            f"Batch done — {succeeded}/{total} succeeded, {failed} failed",
+        )
+    except Exception as exc:
+        logger.exception("Batch picking job failed")
+        failed_env = job_service.fail_job(job_id, error=str(exc))
+        await emit_job_update(sid, failed_env)
+        await emit_log('error', 'batch-picking', f"Batch failed: {exc}")
 
 
 # ---------------------------------------------------------------------------

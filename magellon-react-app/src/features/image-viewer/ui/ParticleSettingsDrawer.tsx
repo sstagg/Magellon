@@ -25,6 +25,7 @@ import {
     Check as AcceptIcon,
     Close as DiscardIcon,
     Tune as TuneIcon,
+    Layers as BatchIcon,
 } from '@mui/icons-material';
 import { SchemaForm } from '../../../shared/ui/SchemaForm.tsx';
 import { settings as appSettings } from '../../../shared/config/settings.ts';
@@ -41,6 +42,8 @@ export interface ParticleSettingsDrawerProps {
     pickerParams: Record<string, any>;
     onPickerParamsChange: (params: Record<string, any>) => void;
     onRun: () => void;
+    /** Opens the batch-run modal so the user can pick the cohort of images. */
+    onRunBatch?: () => void;
     isRunning: boolean;
     onPreviewParticles: (particles: Point[]) => void;
     onAcceptParticles: () => void;
@@ -103,6 +106,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
     pickerParams,
     onPickerParamsChange,
     onRun,
+    onRunBatch,
     isRunning,
     onPreviewParticles,
     onAcceptParticles,
@@ -290,20 +294,38 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                     )}
                 </Box>
 
-                {/* CONFIGURE: Preview + Run */}
+                {/* CONFIGURE: Preview + Run + Run Batch */}
                 {drawerState === 'configure' && (
                     <>
-                        <Box sx={{ display: 'flex', gap: 1 }}>
-                            <Button variant="outlined" size="small" fullWidth
-                                startIcon={<PreviewIcon sx={{ fontSize: 14 }} />} onClick={handlePreview}
-                                sx={{ textTransform: 'none', fontSize: '0.75rem', py: 0.5 }}>
-                                Preview
-                            </Button>
-                            <Button variant="contained" size="small" fullWidth
+                        <Button
+                            variant="outlined" size="small" fullWidth
+                            startIcon={<PreviewIcon sx={{ fontSize: 14 }} />} onClick={handlePreview}
+                            sx={{ textTransform: 'none', fontSize: '0.75rem', py: 0.5, mb: 0.75 }}
+                        >
+                            Preview &amp; tune (no save)
+                        </Button>
+                        <Box sx={{ display: 'flex', gap: 0.75 }}>
+                            <Button
+                                variant="contained" size="small" fullWidth
                                 startIcon={<RunIcon sx={{ fontSize: 14 }} />} onClick={handleRun}
-                                sx={{ textTransform: 'none', fontSize: '0.75rem', py: 0.5 }}>
-                                Run
+                                sx={{ textTransform: 'none', fontSize: '0.75rem', py: 0.5 }}
+                            >
+                                Run on image
                             </Button>
+                            {onRunBatch && (
+                                <Button
+                                    variant="outlined" size="small" fullWidth
+                                    startIcon={<BatchIcon sx={{ fontSize: 14 }} />}
+                                    onClick={() => {
+                                        if (!isValid) { setShowErrors(true); return; }
+                                        setShowErrors(false);
+                                        onRunBatch();
+                                    }}
+                                    sx={{ textTransform: 'none', fontSize: '0.75rem', py: 0.5 }}
+                                >
+                                    Run batch…
+                                </Button>
+                            )}
                         </Box>
                         <Box sx={{ mt: 0.75, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                             {isValid ? (
