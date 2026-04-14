@@ -1,32 +1,36 @@
+import { lazy, Suspense } from "react";
 import { Route, Routes } from "react-router-dom";
 import { Home } from "../../pages/home/HomePage.tsx";
-import { ApiView } from "../../pages/api-docs/ApiView.tsx";
 import DomainRoutes from "../../domains/DomainRoutes.tsx";
 import { ImagesPageView } from "../../pages/images/ImagesPageView.tsx";
 import { RunJobPageView } from "../../pages/run-job/RunJobPageView.tsx";
-import MrcViewerPageView from "../../pages/mrc-viewer/MrcViewerPageView.tsx";
 import ImportPageView from "../../pages/import/ImportPageView.tsx";
 import SettingsView from "../../pages/settings/SettingsView.tsx";
 
 import DashboardView from "../../pages/dashboard/DashboardView.tsx";
-import { Box, Container, Typography } from "@mui/material";
+import { Box, CircularProgress, Container, Typography } from "@mui/material";
 import AboutPage from "../../pages/about/AboutPage.tsx";
 
 import {ExportPageView} from "../../pages/export/ExportPageView.tsx";
 import PluginsPageView from "../../pages/plugins/PluginsPageView.tsx";
 import PluginRunnerPageView from "../../pages/plugins/PluginRunnerPageView.tsx";
-import UserManagementPage from "../../features/user-management/ui/UserManagementPage.tsx";
 import LoginPageView from "../../features/auth/ui/LoginPageView.tsx";
 import UserProfilePage from "../../features/user-management/ui/UserProfilePage.tsx";
 import AccountPage from "../../features/user-management/ui/page.tsx";
-import ScalarApiDocs from "../../pages/api-docs/ScalarApiDocs.tsx";
-import StoplightApiDocs from "../../pages/api-docs/StoplightApiDocs.tsx";
-import SwaggerApiDocs from "../../pages/api-docs/SwaggerApiDocs.tsx";
 
-// Settings placeholder component
-// Test placeholder component
+// Heavy, infrequently visited routes — split out so the main bundle stays lean.
+const MrcViewerPageView = lazy(() => import("../../pages/mrc-viewer/MrcViewerPageView.tsx"));
+const ApiView = lazy(() => import("../../pages/api-docs/ApiView.tsx").then(m => ({ default: m.ApiView })));
+const ScalarApiDocs = lazy(() => import("../../pages/api-docs/ScalarApiDocs.tsx"));
+const StoplightApiDocs = lazy(() => import("../../pages/api-docs/StoplightApiDocs.tsx"));
+const SwaggerApiDocs = lazy(() => import("../../pages/api-docs/SwaggerApiDocs.tsx"));
 
-// Test placeholder component
+const RouteFallback = () => (
+    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 240 }}>
+        <CircularProgress />
+    </Box>
+);
+
 const TestView = () => (
     <Container maxWidth="lg">
         <Box sx={{ mt: 4, mb: 4 }}>
@@ -42,35 +46,37 @@ const TestView = () => (
 
 export const PanelRoutes = () => {
     return (
-        <Routes>
-            {/* Main routes */}
-            <Route path="/dashboard" element={<DashboardView />} />
-            <Route path="/home" element={<Home />} />
-            <Route path="/images" element={<ImagesPageView />} />
-            <Route path="/import-job" element={<ImportPageView />} />
-            <Route path="/export" element={<ExportPageView />} />
-            <Route path="/plugins" element={<PluginsPageView />} />
-            <Route path="/plugins/*" element={<PluginRunnerPageView />} />
-            <Route path="/test" element={<TestView />} />
-            <Route path="/settings" element={<SettingsView />} />
+        <Suspense fallback={<RouteFallback />}>
+            <Routes>
+                {/* Main routes */}
+                <Route path="/dashboard" element={<DashboardView />} />
+                <Route path="/home" element={<Home />} />
+                <Route path="/images" element={<ImagesPageView />} />
+                <Route path="/import-job" element={<ImportPageView />} />
+                <Route path="/export" element={<ExportPageView />} />
+                <Route path="/plugins" element={<PluginsPageView />} />
+                <Route path="/plugins/*" element={<PluginRunnerPageView />} />
+                <Route path="/test" element={<TestView />} />
+                <Route path="/settings" element={<SettingsView />} />
 
-            <Route path="/login" element={<LoginPageView />} />
-            <Route path="/users" element={<AccountPage />} />
-            <Route path="/profile" element={<UserProfilePage />} />
+                <Route path="/login" element={<LoginPageView />} />
+                <Route path="/users" element={<AccountPage />} />
+                <Route path="/profile" element={<UserProfilePage />} />
 
-            {/* Processing routes */}
-            <Route path="/run-job" element={<RunJobPageView />} />
-            <Route path="/mrc-viewer" element={<MrcViewerPageView />} />
-            <Route path="/about" element={<AboutPage />} />
+                {/* Processing routes */}
+                <Route path="/run-job" element={<RunJobPageView />} />
+                <Route path="/mrc-viewer" element={<MrcViewerPageView />} />
+                <Route path="/about" element={<AboutPage />} />
 
 
-            {/* Other routes */}
-            <Route path="/domains/*" element={<DomainRoutes />} />
-            <Route path="/api" element={<ApiView />} />
-            <Route path="/api-scalar" element={<ScalarApiDocs />} />
-            <Route path="/api-stoplight" element={<StoplightApiDocs />} />
-            <Route path="/api-swagger" element={<SwaggerApiDocs />} />
-        </Routes>
+                {/* Other routes */}
+                <Route path="/domains/*" element={<DomainRoutes />} />
+                <Route path="/api" element={<ApiView />} />
+                <Route path="/api-scalar" element={<ScalarApiDocs />} />
+                <Route path="/api-stoplight" element={<StoplightApiDocs />} />
+                <Route path="/api-swagger" element={<SwaggerApiDocs />} />
+            </Routes>
+        </Suspense>
     );
 };
 
