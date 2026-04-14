@@ -48,6 +48,11 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
         usePluginInputSchema(plugin.plugin_id);
     const submit = useSubmitPluginJob(plugin.plugin_id);
 
+    // pp/template-picker uses the preview endpoint on this page — test images
+    // typically don't exist in the DB, so saving to image-metadata or creating
+    // job rows isn't useful. Other plugins keep the job-submit flow.
+    const usePreviewMode = plugin.plugin_id === 'pp/template-picker';
+
     const defaults = useMemo(() => buildDefaults(schema), [schema]);
     const [values, setValues] = useState<Record<string, any>>({});
     const [currentJobId, setCurrentJobId] = useState<string | null>(null);
@@ -59,6 +64,11 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
     const [lastTemplateDir, setLastTemplateDir] = useState<string | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [previewError, setPreviewError] = useState<string | null>(null);
+
+    // Local preview state (pp/template-picker only)
+    const [previewRunning, setPreviewRunning] = useState(false);
+    const [previewResult, setPreviewResult] = useState<any | null>(null);
+    const [previewRunError, setPreviewRunError] = useState<string | null>(null);
 
     const imagePathField = useMemo(() => findImagePathField(schema), [schema]);
     const templatePathsField = useMemo(() => findTemplatePathsField(schema), [schema]);
@@ -112,11 +122,17 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
     };
 
     const requestPreview = useMemo(() => {
-        const body: JobSubmitRequest = { input: values, name: `${plugin.name} run` };
         const base = settings.ConfigData.SERVER_API_URL.replace(/\/$/, '');
+        if (usePreviewMode) {
+            return {
+                url: `${base}/plugins/pp/template-pick/preview`,
+                body: values,
+            };
+        }
+        const body: JobSubmitRequest = { input: values, name: `${plugin.name} run` };
         const url = `${base}/plugins/${plugin.plugin_id}/jobs${sid ? `?sid=${sid}` : ''}`;
         return { url, body };
-    }, [plugin.plugin_id, plugin.name, values, sid]);
+    }, [plugin.plugin_id, plugin.name, values, sid, usePreviewMode]);
 
     React.useEffect(() => {
         if (schema && Object.keys(values).length === 0) {
@@ -144,6 +160,26 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
         }
     };
 
+    const handlePreview = async () => {
+        setPreviewRunError(null);
+        setPreviewRunning(true);
+        try {
+            const payload = { ...values };
+            Object.keys(payload).forEach((k) => {
+                if (payload[k] === null || payload[k] === undefined) delete payload[k];
+            });
+            const res = await api.post('/plugins/pp/template-pick/preview', payload);
+            setPreviewResult(res.data);
+        } catch (err: any) {
+            const detail = err?.response?.data?.detail;
+            setPreviewRunError(
+                typeof detail === 'string' ? detail : (err?.message || 'Preview failed'),
+            );
+        } finally {
+            setPreviewRunning(false);
+        }
+    };
+
     if (schemaLoading) {
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -161,7 +197,11 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
         : 0;
 
     const pickedName = pickedPath ? (pickedPath.split(/[\\/]/).pop() || pickedPath) : null;
-    const isRunning = submit.isLoading || currentJob?.status === 'running' || currentJob?.status === 'queued';
+    const isRunning = usePreviewMode
+        ? previewRunning
+        : (submit.isLoading || currentJob?.status === 'running' || currentJob?.status === 'queued');
+    const displayedResult = usePreviewMode ? previewResult : currentJob?.result;
+    const showsResult = usePreviewMode ? !!previewResult : currentJob?.status === 'completed';
 
     return (
         <Card variant="outlined" sx={{ overflow: 'visible' }}>
@@ -196,10 +236,13 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
                         <Button
                             variant="contained"
                             startIcon={isRunning ? <CircularProgress size={14} color="inherit" /> : <Play size={16} />}
-                            onClick={handleSubmit}
+                            onClick={usePreviewMode ? handlePreview : handleSubmit}
                             disabled={isRunning}
                         >
-                            {currentJob?.status === 'running' ? 'Running…' : currentJob?.status === 'queued' ? 'Queued…' : 'Run'}
+                            {usePreviewMode
+                                ? (previewRunning ? 'Previewing…' : 'Preview')
+                                : (currentJob?.status === 'running' ? 'Running…'
+                                    : currentJob?.status === 'queued' ? 'Queued…' : 'Run')}
                         </Button>
                     </Stack>
                 </Stack>
@@ -293,12 +336,26 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
 
                     <Grid size={{ xs: 12, md: 5 }}>
                         <Box sx={{ position: { md: 'sticky' }, top: { md: 16 } }}>
-                            {submit.isError && (
+                            {!usePreviewMode && submit.isError && (
                                 <Alert severity="error" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
                                     {formatSubmitError(submit.error)}
                                 </Alert>
                             )}
-                            {currentJob && (
+                            {usePreviewMode && previewRunError && (
+                                <Alert severity="error" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
+                                    {previewRunError}
+                                </Alert>
+                            )}
+                            {usePreviewMode && previewResult && (
+                                <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Chip size="small" color="success"
+                                        label={`${previewResult.num_particles} particle${previewResult.num_particles === 1 ? '' : 's'}`} />
+                                    <Typography variant="caption" color="text.secondary">
+                                        preview_id {String(previewResult.preview_id).slice(0, 8)} · tune params and click Preview again
+                                    </Typography>
+                                </Box>
+                            )}
+                            {!usePreviewMode && currentJob && (
                                 <RunStatusBanner job={currentJob} />
                             )}
                             <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 0.5, display: 'block', mb: 0.5 }}>
@@ -321,7 +378,7 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
                                         src={previewUrl}
                                         overlay={
                                             <ParticleOverlay
-                                                result={currentJob?.status === 'completed' ? currentJob.result : undefined}
+                                                result={showsResult ? displayedResult : undefined}
                                                 diameterAngstrom={Number(values['diameter_angstrom']) || undefined}
                                                 imagePixelSize={Number(values['image_pixel_size']) || undefined}
                                             />
@@ -351,9 +408,9 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
                                 </Box>
                             )}
 
-                            {currentJob?.status === 'completed' && (
+                            {showsResult && displayedResult && (
                                 <Box sx={{ mt: 2 }}>
-                                    <ResultRenderer pluginId={plugin.plugin_id} result={currentJob.result} />
+                                    <ResultRenderer pluginId={plugin.plugin_id} result={displayedResult} />
                                 </Box>
                             )}
                         </Box>

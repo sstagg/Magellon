@@ -379,6 +379,7 @@ class PreviewResult(BaseModel):
     num_templates: int
     target_pixel_size: float
     image_binning: int
+    image_shape: Optional[List[int]] = None     # [height, width] of the binned image
     score_map_png_base64: Optional[str] = None  # base64-encoded PNG of merged score map
     score_range: Optional[List[float]] = None    # [min, max] of score values
 
