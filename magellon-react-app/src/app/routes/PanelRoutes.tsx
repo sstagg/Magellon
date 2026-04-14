@@ -14,6 +14,8 @@ import AboutPage from "../../pages/about/AboutPage.tsx";
 
 import {ExportPageView} from "../../pages/export/ExportPageView.tsx";
 import {TestIdeaPageView} from "../../panel/pages/TestIdea/TestIdeaPageView.tsx";
+import PluginsPageView from "../../pages/plugins/PluginsPageView.tsx";
+import PluginRunnerPageView from "../../pages/plugins/PluginRunnerPageView.tsx";
 import UserManagementPage from "../../features/user-management/ui/UserManagementPage.tsx";
 import LoginPageView from "../../features/auth/ui/LoginPageView.tsx";
 import UserProfilePage from "../../features/user-management/ui/UserProfilePage.tsx";
@@ -48,6 +50,8 @@ export const PanelRoutes = () => {
             <Route path="/images" element={<ImagesPageView />} />
             <Route path="/import-job" element={<ImportPageView />} />
             <Route path="/export" element={<ExportPageView />} />
+            <Route path="/plugins" element={<PluginsPageView />} />
+            <Route path="/plugins/*" element={<PluginRunnerPageView />} />
             <Route path="/test" element={<TestView />} />
             <Route path="/test-idea" element={<TestIdeaPageView />} />
             <Route path="/settings" element={<SettingsView />} />

@@ -1,0 +1,102 @@
+import React, { useMemo, useState } from 'react';
+import {
+    Box,
+    Card,
+    CardActionArea,
+    CardContent,
+    Chip,
+    CircularProgress,
+    Stack,
+    TextField,
+    Typography,
+    Alert,
+    Grid,
+} from '@mui/material';
+import { Puzzle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { usePlugins, PluginSummary } from '../api/PluginApi.ts';
+
+interface PluginBrowserProps {
+    onSelect?: (plugin: PluginSummary) => void;
+}
+
+export const PluginBrowser: React.FC<PluginBrowserProps> = ({ onSelect }) => {
+    const navigate = useNavigate();
+    const { data, isLoading, error } = usePlugins();
+    const [query, setQuery] = useState('');
+
+    const filtered = useMemo(() => {
+        const all = data ?? [];
+        if (!query.trim()) return all;
+        const q = query.toLowerCase();
+        return all.filter((p) =>
+            p.plugin_id.toLowerCase().includes(q) ||
+            p.name.toLowerCase().includes(q) ||
+            p.description.toLowerCase().includes(q),
+        );
+    }, [data, query]);
+
+    if (isLoading) {
+        return (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+                <CircularProgress />
+            </Box>
+        );
+    }
+
+    if (error) {
+        return <Alert severity="error">Failed to load plugin list.</Alert>;
+    }
+
+    const handleSelect = (p: PluginSummary) => {
+        if (onSelect) return onSelect(p);
+        navigate(`/plugins/${p.plugin_id}`);
+    };
+
+    return (
+        <Box>
+            <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 3 }}>
+                <Puzzle size={22} />
+                <Typography variant="h5" sx={{ flex: 1 }}>Plugins</Typography>
+                <TextField
+                    size="small"
+                    placeholder="Search plugins…"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    sx={{ width: 280 }}
+                />
+            </Stack>
+
+            {filtered.length === 0 ? (
+                <Alert severity="info">No plugins match the current filter.</Alert>
+            ) : (
+                <Grid container spacing={2}>
+                    {filtered.map((plugin) => (
+                        <Grid key={plugin.plugin_id} size={{ xs: 12, sm: 6, md: 4 }}>
+                            <Card variant="outlined" sx={{ height: '100%' }}>
+                                <CardActionArea
+                                    onClick={() => handleSelect(plugin)}
+                                    sx={{ height: '100%', alignItems: 'flex-start' }}
+                                >
+                                    <CardContent>
+                                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                                            <Typography variant="h6">{plugin.name}</Typography>
+                                            <Chip size="small" label={`v${plugin.version}`} />
+                                        </Stack>
+                                        <Chip size="small" variant="outlined" label={plugin.category} sx={{ mb: 1 }} />
+                                        <Typography variant="body2" color="text.secondary">
+                                            {plugin.description}
+                                        </Typography>
+                                        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                                            {plugin.developer}
+                                        </Typography>
+                                    </CardContent>
+                                </CardActionArea>
+                            </Card>
+                        </Grid>
+                    ))}
+                </Grid>
+            )}
+        </Box>
+    );
+};

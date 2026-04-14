@@ -6,44 +6,42 @@ import { useLogStore, LogEntry } from '../../app/layouts/PanelLayout/useLogStore
 /**
  * Global Socket.IO listener that routes events to Zustand stores.
  * Mount this once near the app root (inside PanelTemplate or App).
+ *
+ * Job payloads follow the backend envelope:
+ *   { job_id, plugin_id, name, status, progress, num_items, started_at, ended_at, error, result }
  */
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { on, connected } = useSocket();
     const addLog = useLogStore((s) => s.addLog);
-    const { addJob, updateJob } = useJobStore();
+    const upsertJob = useJobStore((s) => s.upsertJob);
 
     useEffect(() => {
         if (!connected) return;
 
-        // Job updates from backend
         const offJob = on('job_update', (data: any) => {
+            // Backend envelope is already the shape we store. Keep a small
+            // fallback so legacy {id, type} payloads don't silently drop.
             const job: Job = {
-                id: data.id,
+                job_id: data.job_id ?? data.id,
+                plugin_id: data.plugin_id,
                 name: data.name || 'Job',
-                type: data.type || 'unknown',
                 status: data.status,
                 progress: data.progress,
+                num_items: data.num_items ?? data.num_particles,
                 started_at: data.started_at,
-                num_particles: data.num_particles,
+                ended_at: data.ended_at,
                 error: data.error,
+                settings: data.settings,
                 result: data.result,
             };
-
-            // Check if job already exists in store
-            const existing = useJobStore.getState().jobs.find((j) => j.id === job.id);
-            if (existing) {
-                updateJob(job);
-            } else {
-                addJob(job);
-            }
+            if (!job.job_id) return;
+            upsertJob(job);
         });
 
-        // Log entries from backend
         const offLog = on('log_entry', (data: LogEntry) => {
             addLog(data);
         });
 
-        // Also push a connection log
         addLog({
             id: `log-connect-${Date.now()}`,
             timestamp: new Date().toLocaleTimeString('en-US', { hour12: false }),

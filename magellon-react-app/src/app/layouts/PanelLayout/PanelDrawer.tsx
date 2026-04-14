@@ -18,7 +18,8 @@ import {
 
     PanelLeft,
     Home,
-    Beaker, BrainCircuit, ArrowRightFromLine, ArrowLeftFromLineIcon, CircleUserIcon, User
+    Beaker, BrainCircuit, ArrowRightFromLine, ArrowLeftFromLineIcon, CircleUserIcon, User,
+    Puzzle,
 } from "lucide-react";
 import { Box, Collapse, Typography, useMediaQuery } from '@mui/material';
 import {ExpandLess, ExpandMore, Security} from '@mui/icons-material';
@@ -61,6 +62,11 @@ const navLinks: NavLink[] = [
         title: "Jobs",
         url: "run-job",
         icon: <Beaker size={20} />
+    },
+    {
+        title: "Plugins",
+        url: "plugins",
+        icon: <Puzzle size={20} />
     },
     {
         title: "Import",

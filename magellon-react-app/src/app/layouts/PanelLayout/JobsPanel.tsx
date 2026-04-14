@@ -27,65 +27,30 @@ const statusConfig = {
     queued: { icon: <HourglassEmpty sx={{ fontSize: 14 }} />, color: 'default', label: 'Queued' },
 } as const;
 
+const JOBS_URL = `${settings.ConfigData.SERVER_API_URL}/plugins/jobs`;
+
+async function fetchJobs(): Promise<Job[]> {
+    try {
+        const res = await fetch(JOBS_URL);
+        if (!res.ok) return [];
+        return await res.json();
+    } catch {
+        return [];
+    }
+}
+
 export const JobsPanel: React.FC = () => {
     const theme = useTheme();
     const jobs = useJobStore((s) => s.jobs);
-    const { addJob, updateJob } = useJobStore();
+    const upsertJob = useJobStore((s) => s.upsertJob);
 
-    // Fetch existing jobs from backend on mount
     useEffect(() => {
-        const fetchJobs = async () => {
-            try {
-                const res = await fetch(`${settings.ConfigData.SERVER_API_URL}/plugins/pp/jobs`);
-                if (res.ok) {
-                    const data = await res.json();
-                    data.forEach((j: any) => {
-                        const existing = useJobStore.getState().jobs.find((x) => x.id === j.id);
-                        if (!existing) {
-                            addJob({
-                                id: j.id,
-                                name: j.name || 'Job',
-                                type: j.type || 'unknown',
-                                status: j.status,
-                                progress: j.progress,
-                                started_at: j.started_at,
-                                num_particles: j.num_particles,
-                            });
-                        }
-                    });
-                }
-            } catch {
-                // Backend may not be running — ignore
-            }
-        };
-        fetchJobs();
-    }, []);
+        fetchJobs().then((list) => list.forEach(upsertJob));
+    }, [upsertJob]);
 
     const handleRefresh = async () => {
-        try {
-            const res = await fetch(`${settings.ConfigData.SERVER_API_URL}/plugins/pp/jobs`);
-            if (res.ok) {
-                const data = await res.json();
-                data.forEach((j: any) => {
-                    const existing = useJobStore.getState().jobs.find((x) => x.id === j.id);
-                    if (existing) {
-                        updateJob({ id: j.id, status: j.status, progress: j.progress, num_particles: j.num_particles });
-                    } else {
-                        addJob({
-                            id: j.id,
-                            name: j.name || 'Job',
-                            type: j.type || 'unknown',
-                            status: j.status,
-                            progress: j.progress,
-                            started_at: j.started_at,
-                            num_particles: j.num_particles,
-                        });
-                    }
-                });
-            }
-        } catch {
-            // ignore
-        }
+        const list = await fetchJobs();
+        list.forEach(upsertJob);
     };
 
     return (
@@ -122,7 +87,7 @@ export const JobsPanel: React.FC = () => {
                     const config = statusConfig[job.status] || statusConfig.queued;
                     return (
                         <Box
-                            key={job.id}
+                            key={job.job_id}
                             sx={{
                                 display: 'flex',
                                 alignItems: 'center',
@@ -141,6 +106,11 @@ export const JobsPanel: React.FC = () => {
                                 <Typography variant="caption" fontWeight={500} noWrap display="block">
                                     {job.name}
                                 </Typography>
+                                {job.plugin_id && (
+                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }} noWrap display="block">
+                                        {job.plugin_id}
+                                    </Typography>
+                                )}
                                 {job.status === 'running' && job.progress !== undefined && (
                                     <LinearProgress
                                         variant="determinate"
@@ -148,9 +118,9 @@ export const JobsPanel: React.FC = () => {
                                         sx={{ height: 3, borderRadius: 1, mt: 0.5 }}
                                     />
                                 )}
-                                {job.status === 'completed' && job.num_particles !== undefined && (
+                                {job.status === 'completed' && job.num_items !== undefined && job.num_items > 0 && (
                                     <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
-                                        {job.num_particles} particles
+                                        {job.num_items} items
                                     </Typography>
                                 )}
                             </Box>

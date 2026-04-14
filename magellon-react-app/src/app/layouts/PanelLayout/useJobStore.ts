@@ -1,22 +1,26 @@
 import { create } from 'zustand';
 
+export type JobStatus = 'queued' | 'running' | 'completed' | 'failed';
+
 export interface Job {
-    id: string;
+    job_id: string;
+    plugin_id?: string;
     name: string;
-    type: string;
-    status: 'running' | 'completed' | 'failed' | 'queued';
+    status: JobStatus;
     progress?: number;
+    num_items?: number;
     started_at?: string;
-    duration?: string;
-    num_particles?: number;
+    ended_at?: string;
     error?: string;
+    settings?: any;
     result?: any;
 }
 
 interface JobStore {
     jobs: Job[];
     addJob: (job: Job) => void;
-    updateJob: (jobUpdate: Partial<Job> & { id: string }) => void;
+    updateJob: (jobUpdate: Partial<Job> & { job_id: string }) => void;
+    upsertJob: (job: Job) => void;
     clearJobs: () => void;
 }
 
@@ -29,9 +33,17 @@ export const useJobStore = create<JobStore>((set) => ({
 
     updateJob: (jobUpdate) => set((state) => ({
         jobs: state.jobs.map((j) =>
-            j.id === jobUpdate.id ? { ...j, ...jobUpdate } : j
+            j.job_id === jobUpdate.job_id ? { ...j, ...jobUpdate } : j
         ),
     })),
+
+    upsertJob: (job) => set((state) => {
+        const idx = state.jobs.findIndex((j) => j.job_id === job.job_id);
+        if (idx === -1) return { jobs: [job, ...state.jobs] };
+        const next = [...state.jobs];
+        next[idx] = { ...next[idx], ...job };
+        return { jobs: next };
+    }),
 
     clearJobs: () => set({ jobs: [] }),
 }));
