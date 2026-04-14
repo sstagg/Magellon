@@ -298,68 +298,23 @@ export const SerialEMImportComponent = () => {
   <Typography variant="h6" gutterBottom>
     Required Folder Structure
   </Typography>
-<div className="text-sm text-gray-700 ml-2">
-  <div className="flex items-center gap-2">
-    <span className="text-yellow-500">📁</span>
-    <span className="font-medium">Main Folder (Upload this)</span>
-  </div>
-
-  <div className="ml-6 mt-1 border-l border-gray-300 pl-3">
-    {/* gains */}
-    <div className="flex items-center gap-2 mt-1">
-      <span className="text-yellow-500">📁</span>
-      <span>gains</span>
-    </div>
-    <div className="ml-6 mt-1 border-l border-gray-200 pl-3">
-      <div className="flex items-center gap-2">
-        <span className="text-gray-500">📄</span>
-        <span>gain.mrc</span>
-      </div>
-    </div>
-    <div className="flex items-center gap-2 mt-1">
-      <span className="text-yellow-500">📁</span>
-      <span>defects(Optional)</span>
-    </div>
-    <div className="ml-6 mt-1 border-l border-gray-200 pl-3">
-      <div className="flex items-center gap-2">
-        <span className="text-gray-500">📄</span>
-        <span>defects.txt</span>
-      </div>
-    </div>
-
-    {/* settings */}
-    <div className="flex items-center gap-2 mt-2">
-      <span className="text-yellow-500">📁</span>
-      <span>settings</span>
-    </div>
-    <div className="ml-6 mt-1 border-l border-gray-200 pl-3">
-      <div className="flex items-center gap-2">
-        <span className="text-gray-500">📄</span>
-        <span>settings.txt</span>
-      </div>
-    </div>
-
-    {/* medium_mag (same level as settings) */}
-    <div className="flex items-center gap-2 mt-2">
-      <span className="text-yellow-500">📁</span>
-      <span>medium_mag</span>
-    </div>
-    <div className="ml-6 mt-1 border-l border-gray-200 pl-3">
-      <div className="flex items-center gap-2">
-        <span className="text-gray-500">📄</span>
-        <span>MMM.mrc</span>
-      </div>
-      <div className="flex items-center gap-2">
-        <span className="text-gray-500">📄</span>
-        <span>MMM.mrc.mdoc</span>
-      </div>
-      <div className="flex items-center gap-2">
-        <span className="text-gray-500">📄</span>
-        <span>.....</span>
-      </div>
-    </div>
-  </div>
-</div>
+<Box sx={{ fontSize: 14, color: '#374151', ml: 1, '& .row': { display: 'flex', alignItems: 'center', gap: 1 }, '& .indent': { ml: 3, mt: 0.5, borderLeft: '1px solid', borderColor: '#e5e7eb', pl: 1.5 }, '& .indent-main': { ml: 3, mt: 0.5, borderLeft: '1px solid', borderColor: '#d1d5db', pl: 1.5 } }}>
+  <Box className="row"><span>📁</span><Box component="span" sx={{ fontWeight: 500 }}>Main Folder (Upload this)</Box></Box>
+  <Box className="indent-main">
+    <Box className="row" sx={{ mt: 0.5 }}><span>📁</span><span>gains</span></Box>
+    <Box className="indent"><Box className="row"><span>📄</span><span>gain.mrc</span></Box></Box>
+    <Box className="row" sx={{ mt: 0.5 }}><span>📁</span><span>defects(Optional)</span></Box>
+    <Box className="indent"><Box className="row"><span>📄</span><span>defects.txt</span></Box></Box>
+    <Box className="row" sx={{ mt: 1 }}><span>📁</span><span>settings</span></Box>
+    <Box className="indent"><Box className="row"><span>📄</span><span>settings.txt</span></Box></Box>
+    <Box className="row" sx={{ mt: 1 }}><span>📁</span><span>medium_mag</span></Box>
+    <Box className="indent">
+      <Box className="row"><span>📄</span><span>MMM.mrc</span></Box>
+      <Box className="row"><span>📄</span><span>MMM.mrc.mdoc</span></Box>
+      <Box className="row"><span>📄</span><span>.....</span></Box>
+    </Box>
+  </Box>
+</Box>
 
   <Typography
     variant="caption"

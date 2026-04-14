@@ -349,43 +349,43 @@ const mockPresets: Preset[] = [
 
 const getCategoryIcon = (category: string) => {
     switch (category) {
-        case 'microscope': return <Microscope className="w-4 h-4" />;
-        case 'camera': return <Camera className="w-4 h-4" />;
-        case 'preset': return <BookmarkPlus className="w-4 h-4" />;
-        default: return <Box className="w-4 h-4" />;
+        case 'microscope': return <Microscope size={16} />;
+        case 'camera': return <Camera size={16} />;
+        case 'preset': return <BookmarkPlus size={16} />;
+        default: return <Box sx={{ width: 16, height: 16 }} />;
     }
 };
 
 const getSubcategoryIcon = (subcategory: string) => {
     const iconMap: Record<string, React.ReactNode> = {
-        system: <Monitor className="w-3 h-3" />,
-        optics: <Eye className="w-3 h-3" />,
-        beam: <Zap className="w-3 h-3" />,
-        alignment: <Target className="w-3 h-3" />,
-        focus: <Focus className="w-3 h-3" />,
-        stage: <Move className="w-3 h-3" />,
-        vacuum: <Gauge className="w-3 h-3" />,
-        exposure: <Clock className="w-3 h-3" />,
-        sensor: <Thermometer className="w-3 h-3" />,
-        identification: <Settings className="w-3 h-3" />,
-        timing: <Clock className="w-3 h-3" />,
-        filter: <Filter className="w-3 h-3" />,
-        screen: <Monitor className="w-3 h-3" />,
-        dose: <Sun className="w-3 h-3" />,
-        lens: <Eye className="w-3 h-3" />,
-        mode: <Layers className="w-3 h-3" />,
-        diffraction: <Grid className="w-3 h-3" />,
-        geometry: <Box className="w-3 h-3" />,
-        sampling: <Grid className="w-3 h-3" />,
-        status: <Monitor className="w-3 h-3" />,
-        frames: <Film className="w-3 h-3" />,
-        correction: <Sliders className="w-3 h-3" />,
-        control: <Play className="w-3 h-3" />,
-        stigmator: <Target className="w-3 h-3" />,
-        holder: <Box className="w-3 h-3" />
+        system: <Monitor size={12} />,
+        optics: <Eye size={12} />,
+        beam: <Zap size={12} />,
+        alignment: <Target size={12} />,
+        focus: <Focus size={12} />,
+        stage: <Move size={12} />,
+        vacuum: <Gauge size={12} />,
+        exposure: <Clock size={12} />,
+        sensor: <Thermometer size={12} />,
+        identification: <Settings size={12} />,
+        timing: <Clock size={12} />,
+        filter: <Filter size={12} />,
+        screen: <Monitor size={12} />,
+        dose: <Sun size={12} />,
+        lens: <Eye size={12} />,
+        mode: <Layers size={12} />,
+        diffraction: <Grid size={12} />,
+        geometry: <Box sx={{ width: 12, height: 12 }} />,
+        sampling: <Grid size={12} />,
+        status: <Monitor size={12} />,
+        frames: <Film size={12} />,
+        correction: <Sliders size={12} />,
+        control: <Play size={12} />,
+        stigmator: <Target size={12} />,
+        holder: <Box sx={{ width: 12, height: 12 }} />,
     };
 
-    return iconMap[subcategory] || <Settings className="w-3 h-3" />;
+    return iconMap[subcategory] || <Settings size={12} />;
 };
 
 const PropertyExplorer: React.FC = () => {
@@ -661,9 +661,9 @@ const PropertyExplorer: React.FC = () => {
                             }}
                         >
                             {expandedCategories.has(category) ? (
-                                <ChevronDown className="w-4 h-4 text-gray-500" />
+                                <ChevronDown size={16} color="#6b7280" />
                             ) : (
-                                <ChevronRight className="w-4 h-4 text-gray-500" />
+                                <ChevronRight size={16} color="#6b7280" />
                             )}
                             {getCategoryIcon(category)}
                             <Typography
@@ -708,9 +708,9 @@ const PropertyExplorer: React.FC = () => {
                                                 }}
                                             >
                                                 {expandedSubcategories.has(subcategoryKey) ? (
-                                                    <ChevronDown className="w-3 h-3 text-gray-400" />
+                                                    <ChevronDown size={12} color="#9ca3af" />
                                                 ) : (
-                                                    <ChevronRight className="w-3 h-3 text-gray-400" />
+                                                    <ChevronRight size={12} color="#9ca3af" />
                                                 )}
                                                 {getSubcategoryIcon(subcategory)}
                                                 <Typography
@@ -793,7 +793,7 @@ const PropertyExplorer: React.FC = () => {
                         }}
                     >
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <BookmarkPlus className="w-4 h-4 text-gray-600" />
+                            <BookmarkPlus size={16} color="#4b5563" />
                             <Typography variant="body2" sx={{ fontWeight: 500, color: 'text.primary' }}>
                                 Presets
                             </Typography>
@@ -810,7 +810,7 @@ const PropertyExplorer: React.FC = () => {
                             }}
                             title="Add New Preset"
                         >
-                            <Plus className="w-3 h-3" />
+                            <Plus size={12} />
                         </IconButton>
                     </Box>
 
@@ -842,11 +842,11 @@ const PropertyExplorer: React.FC = () => {
                                     }}
                                 >
                                     {expandedPresets.has(preset.id) ? (
-                                        <ChevronDown className="w-3 h-3 text-gray-400" />
+                                        <ChevronDown size={12} color="#9ca3af" />
                                     ) : (
-                                        <ChevronRight className="w-3 h-3 text-gray-400" />
+                                        <ChevronRight size={12} color="#9ca3af" />
                                     )}
-                                    <Settings className="w-3 h-3 text-gray-500" />
+                                    <Settings size={12} color="#6b7280" />
                                     <Typography
                                         variant="caption"
                                         sx={{
@@ -874,7 +874,7 @@ const PropertyExplorer: React.FC = () => {
                                         }}
                                         title="Duplicate Preset"
                                     >
-                                        <Copy className="w-3 h-3" />
+                                        <Copy size={12} />
                                     </IconButton>
                                     <IconButton
                                         size="small"
@@ -891,7 +891,7 @@ const PropertyExplorer: React.FC = () => {
                                         }}
                                         title="Delete Preset"
                                     >
-                                        <Trash2 className="w-3 h-3" />
+                                        <Trash2 size={12} />
                                     </IconButton>
                                 </Box>
                             </Box>

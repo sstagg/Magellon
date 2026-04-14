@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Folder,
-  File,
   ChevronRight,
-  ArrowUp,
   Loader, ArrowUpIcon, FileIcon, FolderIcon
 } from 'lucide-react';
+import { Box, Typography, Button } from '@mui/material';
 import getAxiosClient from '../api/AxiosClient.ts';
 import { settings } from '../config/settings.ts';
 
@@ -80,99 +78,138 @@ const FileBrowser = ({ onSelect, initialPath = '/gpfs' }: FileBrowserProps) => {
     fetchDirectory(newPath);
   };
 
+  const tileSx = (isSelected: boolean, isHovered: boolean) => ({
+    position: 'relative',
+    height: 64,
+    width: 64,
+    borderRadius: 1.5,
+    p: 0.5,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    cursor: 'pointer',
+    border: '2px solid',
+    borderColor: isSelected ? '#3b82f6' : isHovered ? '#93c5fd' : '#e5e7eb',
+    bgcolor: isSelected || isHovered ? '#eff6ff' : '#ffffff',
+    boxShadow: isHovered ? 3 : 0,
+    transition: 'all 120ms',
+  });
+
   return (
-      <div className="bg-white rounded-lg shadow-lg p-6">
-        <h2 className="text-xl font-semibold mb-4">File Browser</h2>
+    <Box sx={{ bgcolor: '#ffffff', borderRadius: 2, boxShadow: 3, p: 3 }}>
+      <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>File Browser</Typography>
 
-        {/* Breadcrumb navigation */}
-        <div className="flex items-center gap-1 mb-4 text-sm overflow-x-auto">
-          <button
-              onClick={() => fetchDirectory('/')}
-              className="text-blue-600 hover:text-blue-800 whitespace-nowrap"
-          >
-            root
-          </button>
-          {pathParts.map((part, index) => (
-              <React.Fragment key={index}>
-                <ChevronRight className="text-gray-400 flex-shrink-0" size={16} />
-                <button
-                    onClick={() => handleBreadcrumbClick(index)}
-                    className="text-blue-600 hover:text-blue-800 whitespace-nowrap"
-                >
-                  {part}
-                </button>
-              </React.Fragment>
-          ))}
-        </div>
+      {/* Breadcrumb navigation */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 2, fontSize: 14, overflowX: 'auto' }}>
+        <Button
+          size="small"
+          onClick={() => fetchDirectory('/')}
+          sx={{ color: '#2563eb', whiteSpace: 'nowrap', minWidth: 'auto', textTransform: 'none', '&:hover': { color: '#1e40af', bgcolor: 'transparent' } }}
+        >
+          root
+        </Button>
+        {pathParts.map((part, index) => (
+          <React.Fragment key={index}>
+            <ChevronRight color="#9ca3af" size={16} style={{ flexShrink: 0 }} />
+            <Button
+              size="small"
+              onClick={() => handleBreadcrumbClick(index)}
+              sx={{ color: '#2563eb', whiteSpace: 'nowrap', minWidth: 'auto', textTransform: 'none', '&:hover': { color: '#1e40af', bgcolor: 'transparent' } }}
+            >
+              {part}
+            </Button>
+          </React.Fragment>
+        ))}
+      </Box>
 
-        {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-              {error}
-            </div>
-        )}
+      {error && (
+        <Box sx={{ bgcolor: '#fee2e2', border: '1px solid #f87171', color: '#b91c1c', px: 2, py: 1.5, borderRadius: 1, mb: 2 }}>
+          {error}
+        </Box>
+      )}
 
-        {loading ? (
-            <div className="flex justify-center items-center py-12">
-              <Loader className="animate-spin text-blue-500" size={32} />
-            </div>
-        ) : (
-            <div className="flex flex-wrap gap-4 max-h-96 overflow-y-auto p-4">
-              {currentPath !== '/' && (
-                  <div
-                      onClick={handleNavigateUp}
-                      onMouseEnter={() => setHoveredPath('up')}
-                      onMouseLeave={() => setHoveredPath(null)}
-                      className={`relative h-16 w-16 bg-gray-50 rounded-lg flex flex-col items-center justify-center cursor-pointer border border-gray-200
-              ${hoveredPath === 'up' ? 'bg-blue-50 border-blue-300 shadow-lg' : ''}`}
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
+          <Loader color="#3b82f6" size={32} style={{ animation: 'spin 1s linear infinite' }} />
+          <Box component="style">{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</Box>
+        </Box>
+      ) : (
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, maxHeight: 384, overflowY: 'auto', p: 2 }}>
+          {currentPath !== '/' && (
+            <Box
+              onClick={handleNavigateUp}
+              onMouseEnter={() => setHoveredPath('up')}
+              onMouseLeave={() => setHoveredPath(null)}
+              sx={{
+                position: 'relative',
+                height: 64,
+                width: 64,
+                bgcolor: hoveredPath === 'up' ? '#eff6ff' : '#f9fafb',
+                borderRadius: 1.5,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                border: '1px solid',
+                borderColor: hoveredPath === 'up' ? '#93c5fd' : '#e5e7eb',
+                boxShadow: hoveredPath === 'up' ? 3 : 0,
+              }}
+            >
+              <ArrowUpIcon color={hoveredPath === 'up' ? '#3b82f6' : '#6b7280'} size={24}/>
+            </Box>
+          )}
+
+          {items.map((item) => {
+            const isSelected = item.path === selectedPath;
+            const isHovered = hoveredPath === item.path;
+            return (
+              <Box
+                key={item.path}
+                onClick={() => handleItemClick(item)}
+                onMouseEnter={() => setHoveredPath(item.path)}
+                onMouseLeave={() => setHoveredPath(null)}
+                sx={tileSx(isSelected, isHovered)}
+              >
+                {item.type === 'directory' ? (
+                  <FolderIcon color={isHovered ? '#3b82f6' : '#6b7280'} size={40} style={{ flexShrink: 0, marginTop: 4 }} />
+                ) : (
+                  <FileIcon color={isHovered ? '#3b82f6' : '#6b7280'} size={40} style={{ flexShrink: 0, marginTop: 4 }} />
+                )}
+                <Box sx={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'center' }}>
+                  <Box
+                    sx={{
+                      fontSize: '10px',
+                      lineHeight: 1.1,
+                      textAlign: 'center',
+                      wordBreak: 'break-word',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      color: isHovered ? '#2563eb' : '#4b5563',
+                    }}
                   >
-                    <ArrowUpIcon className={`${hoveredPath === 'up' ? 'text-blue-500' : 'text-gray-500'}`} size={24}/>
-                  </div>
-              )}
+                    {item.name}
+                  </Box>
+                  {item.is_session && (
+                    <Box sx={{ fontSize: '8px', textAlign: 'center', color: isHovered ? '#3b82f6' : '#6b7280' }}>
+                      (session)
+                    </Box>
+                  )}
+                </Box>
+              </Box>
+            );
+          })}
+        </Box>
+      )}
 
-              {items.map((item) => (
-                  <div
-                      key={item.path}
-                      onClick={() => handleItemClick(item)}
-                      onMouseEnter={() => setHoveredPath(item.path)}
-                      onMouseLeave={() => setHoveredPath(null)}
-                      className={`relative h-16 w-16 bg-white rounded-lg p-1 flex flex-col items-center cursor-pointer border-2
-              ${item.path === selectedPath ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}
-              ${hoveredPath === item.path ? 'bg-blue-50 border-blue-300 shadow-lg' : ''}`}
-                  >
-                    {item.type === 'directory' ? (
-                        <FolderIcon
-                            className={`flex-shrink-0 mt-1 ${hoveredPath === item.path ? 'text-blue-500' : 'text-gray-500'}`}
-                            size={40}
-                        />
-                    ) : (
-                        <FileIcon
-                            className={`flex-shrink-0 mt-1 ${hoveredPath === item.path ? 'text-blue-500' : 'text-gray-500'}`}
-                            size={40}
-                        />
-                    )}
-                    <div className="w-full flex-1 flex flex-col justify-start items-center">
-                      <div className={`text-[10px] leading-tight text-center break-words line-clamp-2
-                ${hoveredPath === item.path ? 'text-blue-600' : 'text-gray-600'}`}>
-                        {item.name}
-                      </div>
-                      {item.is_session && (
-                          <div className={`text-[8px] text-center
-                  ${hoveredPath === item.path ? 'text-blue-500' : 'text-gray-500'}`}>
-                            (session)
-                          </div>
-                      )}
-                    </div>
-                  </div>
-              ))}
-            </div>
-        )}
-
-        {selectedPath && (
-            <div className="mt-4 text-sm text-green-600">
-              Selected: {selectedPath}
-            </div>
-        )}
-      </div>
+      {selectedPath && (
+        <Box sx={{ mt: 2, fontSize: 14, color: '#16a34a' }}>
+          Selected: {selectedPath}
+        </Box>
+      )}
+    </Box>
   );
 };
 

@@ -178,76 +178,23 @@ export const MagellonImportComponent = () => {
     Required Folder Structure
   </Typography>
 
-  <div className="text-sm text-gray-700 ml-2">
-    <div className="flex items-center gap-2">
-      <span className="text-yellow-500">📁</span>
-      <span className="font-medium">Main Folder (Upload this)</span>
-    </div>
-
-    <div className="ml-6 mt-1 border-l border-gray-300 pl-3">
-      {/* home */}
-      <div className="flex items-center gap-2 mt-1">
-        <span className="text-yellow-500">📁</span>
-        <span>home</span>
-      </div>
-
-      <div className="ml-6 mt-1 border-l border-gray-200 pl-3">
-        {/* gains */}
-        <div className="flex items-center gap-2 mt-1">
-          <span className="text-yellow-500">📁</span>
-          <span>gains</span>
-        </div>
-        <div className="ml-6 mt-1 border-l border-gray-200 pl-3">
-          <div className="flex items-center gap-2">
-            <span className="text-gray-500">📄</span>
-            <span>gain.mrc</span>
-          </div>
-        </div>
-
-        {/* defects (optional) */}
-        <div className="flex items-center gap-2 mt-2">
-          <span className="text-yellow-500">📁</span>
-          <span>defects (Optional)</span>
-        </div>
-        <div className="ml-6 mt-1 border-l border-gray-200 pl-3">
-          <div className="flex items-center gap-2">
-            <span className="text-gray-500">📄</span>
-            <span>defects.txt</span>
-          </div>
-        </div>
-
-        {/* frames */}
-        <div className="flex items-center gap-2 mt-2">
-          <span className="text-yellow-500">📁</span>
-          <span>frames</span>
-        </div>
-        <div className="ml-6 mt-1 border-l border-gray-200 pl-3">
-          <div className="flex items-center gap-2">
-            <span className="text-gray-500">📄</span>
-            <span>example_frame.mrc</span>
-          </div>
-        </div>
-
-        {/* original */}
-        <div className="flex items-center gap-2 mt-2">
-          <span className="text-yellow-500">📁</span>
-          <span>original</span>
-        </div>
-        <div className="ml-6 mt-1 border-l border-gray-200 pl-3">
-          <div className="flex items-center gap-2">
-            <span className="text-gray-500">📄</span>
-            <span>raw_image.mrc</span>
-          </div>
-        </div>
-      </div>
-
-      {/* session.json */}
-      <div className="flex items-center gap-2 mt-3">
-        <span className="text-gray-500">📄</span>
-        <span>session.json</span>
-      </div>
-    </div>
-  </div>
+  <Box sx={{ fontSize: 14, color: '#374151', ml: 1, '& .row': { display: 'flex', alignItems: 'center', gap: 1 }, '& .indent': { ml: 3, mt: 0.5, borderLeft: '1px solid', borderColor: '#e5e7eb', pl: 1.5 }, '& .indent-main': { ml: 3, mt: 0.5, borderLeft: '1px solid', borderColor: '#d1d5db', pl: 1.5 } }}>
+    <Box className="row"><span>📁</span><Box component="span" sx={{ fontWeight: 500 }}>Main Folder (Upload this)</Box></Box>
+    <Box className="indent-main">
+      <Box className="row" sx={{ mt: 0.5 }}><span>📁</span><span>home</span></Box>
+      <Box className="indent">
+        <Box className="row" sx={{ mt: 0.5 }}><span>📁</span><span>gains</span></Box>
+        <Box className="indent"><Box className="row"><span>📄</span><span>gain.mrc</span></Box></Box>
+        <Box className="row" sx={{ mt: 1 }}><span>📁</span><span>defects (Optional)</span></Box>
+        <Box className="indent"><Box className="row"><span>📄</span><span>defects.txt</span></Box></Box>
+        <Box className="row" sx={{ mt: 1 }}><span>📁</span><span>frames</span></Box>
+        <Box className="indent"><Box className="row"><span>📄</span><span>example_frame.mrc</span></Box></Box>
+        <Box className="row" sx={{ mt: 1 }}><span>📁</span><span>original</span></Box>
+        <Box className="indent"><Box className="row"><span>📄</span><span>raw_image.mrc</span></Box></Box>
+      </Box>
+      <Box className="row" sx={{ mt: 1.5 }}><span>📄</span><span>session.json</span></Box>
+    </Box>
+  </Box>
 
   <Typography
     variant="caption"
