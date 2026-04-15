@@ -1,0 +1,39 @@
+
+ENV_TYPE: development
+LOCAL_IP_ADDRESS: localhost
+PORT_NUMBER: 8010
+
+REPLACE_TYPE: none
+REPLACE_PATTERN: /gpfs/
+REPLACE_WITH: Y:/
+
+JOBS_DIR: /jobs
+HOST_JOBS_DIR: C:\temp\outputs
+
+consul_settings:
+  CONSUL_HOST: localhost
+  CONSUL_PASSWORD: '8500'
+  CONSUL_USERNAME: '8500'
+  CONSUL_PORT: 8500
+  CONSUL_SERVICE_ID: 11f0bd1e-0000-4000-8000-000000000fft
+  CONSUL_SERVICE_NAME: magellon-fft-service
+
+database_settings:
+  DB_Driver: mysql+pymysql
+  DB_HOST: localhost
+  DB_NAME: magellon02
+  DB_PASSWORD: behd1d#3454!2
+  DB_Port: 3306
+  DB_USER: behdad
+
+rabbitmq_settings:
+  HOST_NAME: localhost
+  PORT: 5672
+  USER_NAME: rabbit
+  PASSWORD: behd1d2
+  VIRTUAL_HOST: /
+  SSL_ENABLED: false
+  CONNECTION_TIMEOUT: 30
+  PREFETCH_COUNT: 10
+  QUEUE_NAME: fft_tasks_queue
+  OUT_QUEUE_NAME: fft_out_tasks_queue

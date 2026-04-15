@@ -1,0 +1,27 @@
+# Magellon Plugin SDK — shared rabbitmq / logging / bootstrap / events helpers.
+-e ../../magellon-sdk[rabbitmq,nats,logging,config,consul]
+
+fastapi
+uvicorn
+pydantic
+rich
+pyyaml
+
+python-json-logger
+
+prometheus_client
+python-dotenv
+
+python-consul
+pika==1.3.2
+
+sqlalchemy
+sqlalchemy_utils
+PyMySQL==1.1.0
+
+mrcfile==1.5.0
+tifffile
+numpy==1.26.4
+scipy==1.12.0
+Pillow==10.2.0
+matplotlib==3.9.2

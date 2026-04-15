@@ -1,0 +1,41 @@
+
+
+ENV_TYPE: production
+LOCAL_IP_ADDRESS: host.docker.internal
+PORT_NUMBER: 8036
+
+REPLACE_TYPE: none
+REPLACE_PATTERN: C:\temp\magellon
+REPLACE_WITH: /gpfs
+
+JOBS_DIR: /jobs
+HOST_JOBS_DIR: C:\temp\magellon\jobs
+
+consul_settings:
+  CONSUL_HOST: consul
+  CONSUL_PASSWORD: '8500'
+  CONSUL_PORT: 8500
+  CONSUL_SERVICE_ID: magellon-service-11f0bd1e-0000-4000-8000-000000000fft
+  CONSUL_SERVICE_NAME: magellon-fft-service
+  CONSUL_USERNAME: '8500'
+
+database_settings:
+  DB_Driver: mysql+pymysql
+  DB_HOST: mysql
+  DB_NAME: magellon01
+  DB_PASSWORD: behd1d2
+  DB_Port: 3306
+  DB_USER: root
+
+
+rabbitmq_settings:
+  HOST_NAME: rabbitmq
+  PORT: 5672
+  USER_NAME: rabbit
+  PASSWORD: behd1d2
+  VIRTUAL_HOST: /
+  SSL_ENABLED: false
+  CONNECTION_TIMEOUT: 30
+  PREFETCH_COUNT: 10
+  QUEUE_NAME: fft_tasks_queue
+  OUT_QUEUE_NAME: fft_out_tasks_queue
