@@ -1,10 +1,14 @@
 # Magellon — Target Architecture and Migration Plan
 
-> **⚠ Partially superseded — 2026-04-14.** The Temporal-centric sections of
-> this document (principle #3 re: Temporal + NATS + CloudEvents, the target
-> diagram, and the phased migration) are **no longer the direction**.
-> Magellon's workload is one-plugin-one-call; a workflow engine is not
-> earning its keep. See `IMPLEMENTATION_PLAN.md` for the revised plan.
+> **⚠ Partially superseded — 2026-04-14, broadened 2026-04-15.** The
+> Temporal-centric sections of this document (principle #3 re: Temporal +
+> NATS + CloudEvents, the target diagram, and the phased migration) are
+> **no longer the direction**. Magellon's workload is one-plugin-one-call;
+> a workflow engine is not earning its keep. The plugin platform refactor
+> (P1–P9, complete 2026-04-15) further made RabbitMQ — *not* NATS — the
+> primary plugin lifecycle bus (tasks, discovery, config, cancellation),
+> and removed Consul. See `CURRENT_ARCHITECTURE.md` §10 and
+> `IMPLEMENTATION_PLAN.md` for the actual landed direction.
 >
 > The orchestrator-agnostic parts of this doc still apply: the plugin contract,
 > the job-as-one-row-of-truth principle, the critique of the three-job-manager

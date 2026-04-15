@@ -1,6 +1,6 @@
 # Magellon — Current Architecture (as-is)
 
-**Status:** Reference manual of the system as it exists on `main` (2026-04-14).
+**Status:** Reference manual of the system as it exists on `main` (2026-04-15).
 **Audience:** Architects, new plugin developers, reviewers of the v1 plan.
 **Companion:** `IMPLEMENTATION_PLAN.md` (where we are going and how).
 
@@ -27,7 +27,9 @@ and processing (Khoshbin et al., *IUCrJ* 12, 637–646, 2025; bioRxiv
   particle picking, FFT, …). Some run *inside* CoreService; others run
   *outside* as containerised RabbitMQ consumers.
 - An infrastructure layer in `Docker/docker-compose.yml`: MySQL, RabbitMQ,
-  NATS, Dragonfly (Redis-compatible), Consul, Prometheus, Grafana.
+  NATS, Dragonfly (Redis-compatible), Prometheus, Grafana. **Consul was
+  removed in P8 (2026-04-15)** — discovery and dynamic configuration both
+  ride the RabbitMQ broker now.
 
 Repo layout:
 
@@ -57,13 +59,15 @@ Magellon/
 | `rabbitmq`     | Task broker for external plugins           | Management UI on 15672. Live path for CTF / MotionCor.      |
 | `nats`         | Event bus (present, minimally used)        | Deployed in compose. No live publishers today — see §6.     |
 | `dragonfly`    | Redis-compatible KV + pub/sub              | Cache. Dragonfly-backed `JobManager` was deleted 2026-04-14.|
-| `consul`       | Service discovery                          | External plugins register here                              |
 | `prometheus`   | Metrics                                    | Scrapes `/metrics`                                          |
 | `grafana`      | Dashboards                                 |                                                             |
 | `core_service` | FastAPI app                                | Owns in-process plugin runtime and Socket.IO                |
 | `*_plugin`     | External plugin containers                 | CTF, MotionCor, result processor                            |
 
 No Temporal server — removed from compose in the 2026-04-14 revert.
+No Consul server either — removed in P8 (2026-04-15); the
+`magellon.plugins.*` topic exchange handles announce / heartbeat /
+config-push that used to flow through Consul KV + service-catalog.
 
 ---
 
@@ -152,9 +156,13 @@ plugin HTTP surface (see §4.2).
 ### 4.1 Architecture A — external RabbitMQ plugins (`Magellon/plugins/`)
 
 Each external plugin is its own Python project with its own Docker image.
-They share a near-identical `core/` subpackage that is **copy-pasted across
-repos**: `core/model_dto.py`, `core/rabbitmq_client.py`, `core/settings.py`,
-`core/consul.py`. Drift between copies has been observed.
+The previously copy-pasted `core/` subpackage has been **consolidated into
+`magellon-sdk`** across Phases B.1 / B.2 / B.3 (`c90eefb` / `eda4933` /
+`f9a4511`); plugin `core/` shims now re-export from the SDK. The
+`core/consul.py` shim was deleted in P8 alongside the broker. Each plugin's
+`main.py` collapses to a `PluginBrokerRunner` instance (P5) that does the
+RMQ loop, broker-based discovery (P6), dynamic config subscription (P7),
+and provenance-stamped result publishing (P4) for free.
 
 **Queue topology** (from `CoreService/core/helper.py` + plugin configs):
 
@@ -348,20 +356,23 @@ listed in §3.3.
 | # | Problem | Evidence |
 |---|---------|----------|
 | 1 | ~~`ImageJobTask` state not advanced after RMQ task completion~~ | **Resolved (Phase 4).** `task_output_processor._advance_task_state` writes `status_id` + `stage` (MotionCor=1, CTF=2, unknown=99). 5 unit tests. |
-| 2 | No failure path from external plugin crashes | Partial. Result processor now marks `status_id=FAILED` on exception paths, but there is still no error topic / explicit failure envelope from plugins. |
+| 2 | ~~No failure path from external plugin crashes~~ | **Resolved (P2 + P5).** `magellon_sdk.errors.classify_exception` returns `AckAction.{ACK,NACK_REQUEUE,DLQ}` per a typed taxonomy; `PluginBrokerRunner` honours it (DLQ for poison, requeue for transient, ack-with-failure-result for plugin-domain errors). |
 | 3 | ~~No mid-flight progress for external plugins~~ | **Publisher half resolved (Phase 4.5).** `magellon_sdk.events.StepEventPublisher` emits `magellon.step.*` CloudEvents on NATS. CoreService Socket.IO forwarder is the remaining half. |
-| 4 | Two plugin architectures | Same split (`plugins/` RMQ vs `CoreService/plugins/` in-process). The `TaskDispatcher` Protocol (§6 below) is now the shared seam — both paths can register the same `TaskCategory` code. |
+| 4 | Two plugin architectures | Same split (`plugins/` RMQ vs `CoreService/plugins/` in-process). The `TaskDispatcher` Protocol is the shared seam, and **`CategoryContract` (P1)** is the canonical input/output schema both halves resolve against — substitutability is now contract-pinned, not convention-pinned. |
 | 5 | ~~Temporal-era dead-code island (~2K lines)~~ | **Resolved (A.1 follow-up, `7d1f657`).** |
 | 6 | ~~SDK scaffolded, thin~~ | **Filled in.** `magellon-sdk 0.1.0` now ships `PluginBase`, `Envelope`, `Executor` Protocol, `ProgressReporter`, **`TaskDispatcher` + `TaskDispatcherRegistry` (Phase 6)**, **NATS transport** (`NatsPublisher`/`NatsConsumer`), **RMQ transport** (`RabbitmqClient` with `declare_queue_with_dlq`), and **`events.StepEventPublisher`**. |
 | 7 | ~~Duplicated `core/` across external plugins~~ | **Resolved (Phases B.1/B.2/B.3, `c90eefb`/`eda4933`/`f9a4511`).** |
 | 8 | ~~Queue mapping hardcoded~~ | **Resolved (Phase 6 + wiring).** `core.dispatcher_registry.get_task_dispatcher_registry()` owns the `TaskCategory.code` → dispatcher mapping. `push_task_to_task_queue` delegates. `get_queue_name_by_task_type` remains for the audit helper. |
 | 9 | ~~`asyncio.run` inside blocking pika callback~~ | **Resolved (Phase 3).** All 4 plugin consumer engines use one daemon-thread event loop + `asyncio.run_coroutine_threadsafe(...).result()`. |
-| 10 | Poison messages silently dropped | Partial — `basic_nack(requeue=False)` is now called (Phase 3), and `declare_queue_with_dlq` gives new queues a real parking lot. Existing queues still drop on the floor until a broker-policy migration runs. |
+| 10 | ~~Poison messages silently dropped~~ | **Resolved (P2).** `classify_exception` routes parse / validation / unsupported-input errors to DLQ explicitly, transient infra errors to requeue, and plugin-domain failures to an ack-with-failure-result. Existing queues still need the broker-policy migration before DLQ delivery actually fires for them. |
 | 11 | ~~`rabbitmq_client.connect()` swallows errors~~ | **Resolved (Phase 3).** `RabbitmqClient.connect()` and `publish_message()` now re-raise `AMQPConnectionError` / `ChannelError`; `publish_message_to_queue` returns `False` instead of silent-dropping. |
 | 12 | Path coupling via shared filesystem | Unchanged. `TaskOutputProcessor` still assumes `MAGELLON_HOME_DIR` is visible everywhere. Orthogonal to the transport work. |
 | 13 | ~~No CloudEvents / no envelope versioning~~ | **Resolved (Phase 2).** `magellon_sdk.envelope.Envelope[DataT]` is CloudEvents 1.0 compliant with `specversion`, `source`, `type`, `subject`, `time`, `datacontenttype`. Used by the NATS transport and the step-event publisher. |
 | 14 | ~~No DLQ, no retry policy~~ | **Capability landed.** `RabbitmqClient.declare_queue_with_dlq()` wires `x-dead-letter-exchange` + routing key on new queues; 2 integration tests. Existing queues need a broker-policy migration (can't re-declare with new `x-*` args). Retry policy is still open. |
-| 15 | Settings drift per plugin | Unchanged — per-plugin `configs/settings_dev.yml` files still diverge. Out of scope for the current phase work. |
+| 15 | ~~Settings drift per plugin~~ | **Mostly resolved (P7).** Runtime knobs now flow through `magellon.plugins.config.<category>` / `.broadcast` topic exchange; every `PluginBrokerRunner` ships a `ConfigSubscriber` that drains pending updates between tasks and calls `plugin.configure()`. Static per-plugin `settings_dev.yml` files still exist for boot-time wiring. |
+| 16 | No operator hard-stop for runaway plugin work | **Resolved (P9).** `POST /cancellation/queues/purge` drains pending tasks from one or more category queues; `POST /cancellation/containers/{name}/kill` issues `docker kill` on a stuck plugin replica. Cooperative cancel via `JobManager.request_cancel` remains the in-flight path. |
+| 17 | Broker-based discovery / liveness (replaces Consul) | **Landed (P6).** Plugins emit one `magellon.plugins.announce.*` on boot and a `magellon.plugins.heartbeat.*` every N seconds via `DiscoveryPublisher` + `HeartbeatLoop`. CoreService listens with `core.plugin_liveness_registry.start_liveness_listener` and exposes the registry to the plugin discovery endpoints. |
+| 18 | Provenance on results | **Resolved (P4).** `PluginBrokerRunner` auto-injects plugin manifest (id, name, version, schema_version, container hostname, host) into every `TaskResultDto.provenance` after the result_factory builds the wire shape; CoreService records it for audit. |
 
 ---
 
@@ -394,7 +405,31 @@ Gaps (relevant to the v1 plan):
 
 ---
 
-## 10. What to read next
+## 10. Plugin platform refactor (P1–P9, 2026-04-15)
+
+Nine sequential phases that landed the broker-native plugin platform.
+Each row is one commit; tests landed alongside.
+
+| Phase | Commit     | What it delivered                                                                 |
+|-------|------------|-----------------------------------------------------------------------------------|
+| P1    | `9a39299`  | `CategoryContract` + I/O diversity rules — canonical input/output per category.   |
+| P2    | `9078dc6`  | Typed failure taxonomy (`AckAction.{ACK,NACK_REQUEUE,DLQ}` via `classify_exception`). |
+| P3    | `ef5fffe`  | Result-processor promoted in-process — `OUT_QUEUES` consumed inside CoreService.  |
+| P4    | `3e8af0a`  | Per-task provenance auto-stamped on every `TaskResultDto`.                        |
+| P5    | `886f0e9`  | `PluginBrokerRunner` harness — plugins' `main.py` collapses to one constructor.   |
+| P6    | `9a73c74`+`96f2908` | Broker-based discovery + heartbeat (replaces Consul); CoreService liveness registry. |
+| P7    | `40f9008`+`ba20628` | Broker-based dynamic config — `magellon.plugins.config.<category>` + `.broadcast`. |
+| P8    | `2f7aa9c`  | Consul deleted — package, service, models, plugin shims, compose.                 |
+| P9    | `7e95930`  | Cancellation primitives — queue purge + container kill, Administrator-gated.      |
+
+Net effect for a plugin author today: a new plugin is `class
+MyPlugin(PluginBase): ...` plus a `main.py` that builds a `PluginBrokerRunner`
+against a `CategoryContract`. Discovery, heartbeat, dynamic config,
+provenance stamping, and typed failure routing are inherited.
+
+---
+
+## 11. What to read next
 
 - **`IMPLEMENTATION_PLAN.md`** — the v1 / v2 / v3 phasing: hardening the
   RMQ system with a `JobManager` seam + SDK + progress bus, then NATS

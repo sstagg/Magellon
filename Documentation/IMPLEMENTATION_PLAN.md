@@ -1,7 +1,17 @@
 # Magellon — Implementation Plan
 
-**Status:** Revised 2026-04-14. Supersedes the Temporal-centric plan that was
-partially executed — Phases 0–1 landed, Phase 2 reverted in commit `86fe9cc`.
+**Status:** Revised 2026-04-14; **partially superseded 2026-04-15** by the
+plugin-platform refactor (P1–P9, see §"Plugin platform refactor" below).
+Original revision superseded the Temporal-centric plan — Phases 0–1 landed,
+Phase 2 reverted in commit `86fe9cc`.
+
+> **⚠ Direction change vs. this plan as written.** Guiding rule #5 said
+> "RabbitMQ goes" and Phase A.4/A.5 described retiring the RMQ dispatch
+> helpers and dropping RMQ from compose. **That direction was reversed.**
+> RabbitMQ is now load-bearing for *more* than tasks: discovery (P6),
+> dynamic config (P7), and cancellation (P9) all ride a `magellon.plugins`
+> topic exchange. Consul was deleted instead (P8). The remainder of this
+> plan still applies for Phases B / D / E / F.
 
 **Context:** The earlier plan assumed Temporal would become the workflow engine
 and NATS the event backbone. The actual workload is **one plugin, one call,
@@ -58,6 +68,34 @@ decision — folded into Phase E below.
 Not pursued. The SDK retains `PluginBase`, progress reporter, CloudEvents
 envelope, and the `Executor` Protocol — the orchestrator-agnostic contract —
 so nothing re-introducing Temporal later has to restart from zero.
+
+### Plugin platform refactor (P1–P9, complete 2026-04-15)
+Nine sequential phases that turned plugins into broker-native, single-purpose
+category workers. This was *not* in the plan above — it was the realization
+during Phase B work that the duplicated `core/` consolidation alone wasn't
+enough; the broker needed to own discovery and config too, which then made
+Consul redundant.
+
+| Phase | Commit     | Delivered                                                                                       |
+|-------|------------|-------------------------------------------------------------------------------------------------|
+| P1    | `9a39299`  | `CategoryContract` + I/O diversity rules.                                                        |
+| P2    | `9078dc6`  | Typed failure taxonomy (`AckAction.{ACK,NACK_REQUEUE,DLQ}`).                                     |
+| P3    | `ef5fffe`  | Result-processor promoted in-process (`OUT_QUEUES` consumed in CoreService).                     |
+| P4    | `3e8af0a`  | Per-task provenance auto-stamped on `TaskResultDto`.                                             |
+| P5    | `886f0e9`  | `PluginBrokerRunner` harness — plugin `main.py` collapses to one constructor.                    |
+| P6    | `9a73c74` + `96f2908` | Broker-based discovery + heartbeat (replaces Consul); CoreService liveness registry. |
+| P7    | `40f9008` + `ba20628` | Broker-based dynamic config (`magellon.plugins.config.<category>` + `.broadcast`).   |
+| P8    | `2f7aa9c`  | Consul deleted — package, models, plugin shims, compose service.                                  |
+| P9    | `7e95930`  | Cancellation primitives — `POST /cancellation/queues/purge`, `/containers/{name}/kill`.           |
+
+**Direct implication for Phase A:** A.4 ("Retire RabbitMQ dispatch helpers")
+and A.5 ("Drop RabbitMQ from docker-compose.yml") will not be pursued — the
+broker is now the integration point for *all* plugin lifecycle traffic, not
+just task dispatch. A.1/A.2/A.3 already landed (`a989d6f` / `3066a64` / `5f3922e`).
+
+### Phase A — Consolidate (status)
+A.1 / A.2 / A.3 done as above. A.4 / A.5 cancelled per the platform refactor.
+A.6 (Phase 0 dead-code sweep) ongoing as part of regular cleanup.
 
 ---
 
@@ -225,6 +263,6 @@ behaviour it touches. Reviewer rejects otherwise.
 
 ## Current iteration
 
-Phase A (consolidation) starts next — A.1 and A.2 are pure deletions of dead
-code with zero behaviour change, so they can land immediately and in either
-order.
+Plugin platform refactor (P1–P9) is **complete** as of 2026-04-15. Natural
+next thread is Phase B (plugin execution taxonomy) or Phase C event-path
+consolidation; both are independent of the broker work that just landed.
