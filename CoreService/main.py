@@ -412,9 +412,13 @@ async def startup_event():
                 app.state.step_event_forwarder = forwarder
                 logger.info("[OK] Step-event forwarder (NATS → job_event) started (with state projector)")
             else:
-                logger.warning(
-                    "[WARNING] Step-event forwarder: NATS stream not yet present "
-                    "— forwarder will not run this boot"
+                # With ensure_stream=True (the default) we should never get
+                # here unless the NATS broker itself is unreachable — the
+                # consumer auto-creates the stream when missing.
+                logger.error(
+                    "[ERROR] Step-event forwarder: could not attach to NATS "
+                    "(broker reachable? JetStream enabled?) — events will not "
+                    "be projected this boot"
                 )
         except Exception as e:
             logger.error(f"[WARNING] Step-event forwarder failed to start: {e}")

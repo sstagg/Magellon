@@ -102,12 +102,78 @@ def test_publisher_connect_is_idempotent():
     new_conn.assert_called_once()
 
 
-def test_publisher_publish_without_connect_raises():
-    pub = RabbitmqEventPublisher(_settings())
-    import pytest
+def test_publisher_publish_auto_connects_when_idle():
+    """publish() now self-heals: if no live channel exists it opens one
+    before publishing. This is the first half of the idle-disconnect
+    fix — callers don't have to remember to connect()."""
+    fake_channel = MagicMock()
+    fake_conn = MagicMock()
+    fake_conn.is_closed = False
+    fake_conn.channel.return_value = fake_channel
 
-    with pytest.raises(RuntimeError, match="connect"):
+    with patch.object(pika, "BlockingConnection", return_value=fake_conn) as new_conn:
+        pub = RabbitmqEventPublisher(_settings())
         pub.publish("job.x.step.ctf", _envelope())
+
+    new_conn.assert_called_once()
+    fake_channel.basic_publish.assert_called_once()
+
+
+def test_publisher_reconnects_once_when_stream_lost_mid_publish():
+    """The bug we hit on the FFT plugin: pika's BlockingConnection drops
+    the channel after idle, then every subsequent basic_publish raises
+    StreamLostError forever. The publisher must reconnect once and retry
+    so a transient broker hiccup doesn't kill the mirror permanently."""
+    from pika.exceptions import StreamLostError
+
+    healthy_channel_1 = MagicMock()
+    healthy_conn_1 = MagicMock()
+    healthy_conn_1.is_closed = False
+    healthy_conn_1.channel.return_value = healthy_channel_1
+
+    healthy_channel_2 = MagicMock()
+    healthy_conn_2 = MagicMock()
+    healthy_conn_2.is_closed = False
+    healthy_conn_2.channel.return_value = healthy_channel_2
+
+    # First basic_publish dies with the same error pika raises on idle drop.
+    # Second one (after reconnect) succeeds.
+    healthy_channel_1.basic_publish.side_effect = StreamLostError(
+        "Stream connection lost: ConnectionResetError(104, 'Connection reset by peer')"
+    )
+
+    with patch.object(
+        pika, "BlockingConnection",
+        side_effect=[healthy_conn_1, healthy_conn_2],
+    ) as new_conn:
+        pub = RabbitmqEventPublisher(_settings())
+        pub.connect()
+        pub.publish("job.x.step.ctf", _envelope())
+
+    # Two physical connections opened: one initial, one after the failure.
+    assert new_conn.call_count == 2
+    # And the second channel saw the retried publish.
+    healthy_channel_2.basic_publish.assert_called_once()
+
+
+def test_publisher_uses_heartbeat_to_keep_idle_connection_alive():
+    """Without heartbeat the broker drops the socket on idle. We pass
+    heartbeat=30 + blocked_connection_timeout=300 to make the connection
+    survive long quiet periods between batches."""
+    fake_channel = MagicMock()
+    fake_conn = MagicMock()
+    fake_conn.is_closed = False
+    fake_conn.channel.return_value = fake_channel
+
+    with patch.object(pika, "BlockingConnection", return_value=fake_conn) as new_conn:
+        with patch.object(pika, "ConnectionParameters", wraps=pika.ConnectionParameters) as new_params:
+            pub = RabbitmqEventPublisher(_settings())
+            pub.connect()
+
+    new_conn.assert_called_once()
+    _, kwargs = new_params.call_args
+    assert kwargs.get("heartbeat") == 30
+    assert kwargs.get("blocked_connection_timeout") == 300
 
 
 def test_consumer_binding_defaults_to_step_wildcard():

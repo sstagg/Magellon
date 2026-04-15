@@ -147,20 +147,63 @@ async def test_publish_preserves_order():
     await asyncio.wait_for(_order(), timeout=TEST_BUDGET)
 
 
-async def _missing_stream():
+async def _missing_stream_no_ensure():
     if not await _nats_reachable():
         pytest.skip(f"NATS not reachable at {NATS_URL}")
 
     stream, subject, durable = _unique_stream()
-    con = NatsConsumer(NATS_URL, stream=stream, subject=subject, durable_name=durable)
+    # ensure_stream=False preserves the legacy "return False if missing" semantic.
+    con = NatsConsumer(
+        NATS_URL, stream=stream, subject=subject,
+        durable_name=durable, ensure_stream=False,
+    )
     try:
         assert await con.connect() is False
     finally:
         await con.close()
 
 
-async def test_consumer_connect_false_when_stream_missing():
-    await asyncio.wait_for(_missing_stream(), timeout=TEST_BUDGET)
+async def test_consumer_connect_false_when_stream_missing_and_no_ensure():
+    await asyncio.wait_for(_missing_stream_no_ensure(), timeout=TEST_BUDGET)
+
+
+async def _missing_stream_auto_create():
+    if not await _nats_reachable():
+        pytest.skip(f"NATS not reachable at {NATS_URL}")
+
+    stream, subject, durable = _unique_stream()
+    # Default ensure_stream=True: consumer self-heals by creating the stream.
+    # This is the boot-race fix — backend can start before any publisher.
+    con = NatsConsumer(NATS_URL, stream=stream, subject=subject, durable_name=durable)
+    try:
+        assert await con.connect() is True
+
+        # And a publisher hitting the same stream afterwards must still work
+        # (idempotent "already in use" path on add_stream).
+        pub = NatsPublisher(NATS_URL, stream=stream, subjects=[subject])
+        await pub.connect()
+
+        received: list = []
+
+        async def _cb(env: Envelope):
+            received.append(env)
+
+        await con.subscribe(_cb)
+
+        try:
+            await pub.publish(
+                subject, Envelope.wrap(source="sdk-tests", type="t", data={"n": 1})
+            )
+            assert await _wait_for(lambda: len(received) >= 1, 5)
+        finally:
+            await pub.close()
+    finally:
+        await con.close()
+        await _delete_stream(stream)
+
+
+async def test_consumer_auto_creates_missing_stream_by_default():
+    await asyncio.wait_for(_missing_stream_auto_create(), timeout=TEST_BUDGET)
 
 
 async def _publish_before_connect():

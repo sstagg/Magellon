@@ -116,6 +116,7 @@ class NatsConsumer:
         durable_name: str,
         fetch_batch: int = 10,
         fetch_timeout: float = 1.0,
+        ensure_stream: bool = True,
     ) -> None:
         self.broker_url = broker_url
         self.stream = stream
@@ -123,6 +124,7 @@ class NatsConsumer:
         self.durable_name = durable_name
         self.fetch_batch = fetch_batch
         self.fetch_timeout = fetch_timeout
+        self.ensure_stream = ensure_stream
         self.nc: Any = None
         self.js: Any = None
         self.sub: Any = None
@@ -139,8 +141,32 @@ class NatsConsumer:
         try:
             await self.js.stream_info(self.stream)
         except NatsError:
-            logger.info("NATS stream %r not yet present — consumer will wait", self.stream)
-            return False
+            # Stream missing. Either we own it (ensure_stream=True) and
+            # create it ourselves so a publisher arriving later just hits
+            # the idempotent "stream name already in use" path; or we
+            # back off and let the caller retry. The default (True)
+            # eliminates the historical boot-order race where the backend
+            # gave up because plugins hadn't published yet.
+            if not self.ensure_stream:
+                logger.info(
+                    "NATS stream %r not yet present — consumer will wait", self.stream
+                )
+                return False
+            try:
+                await self.js.add_stream(name=self.stream, subjects=[self.subject])
+                logger.info(
+                    "NATS stream %r auto-created by consumer (subjects=%s)",
+                    self.stream, [self.subject],
+                )
+            except NatsError as e:
+                # Race: a publisher created it between our check and add.
+                # Benign — proceed to consumer attach.
+                if "stream name already in use" not in str(e):
+                    logger.warning(
+                        "NATS stream %r ensure failed: %s — consumer will wait",
+                        self.stream, e,
+                    )
+                    return False
 
         try:
             await self.js.add_consumer(

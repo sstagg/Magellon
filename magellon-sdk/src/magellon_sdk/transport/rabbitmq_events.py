@@ -24,7 +24,15 @@ import threading
 from typing import Any, Callable, Optional
 
 import pika
-from pika.exceptions import AMQPConnectionError, ChannelError
+from pika.exceptions import (
+    AMQPConnectionError,
+    AMQPChannelError,
+    ChannelError,
+    ChannelWrongStateError,
+    ConnectionClosed,
+    ConnectionWrongStateError,
+    StreamLostError,
+)
 
 from magellon_sdk.envelope import Envelope
 
@@ -53,61 +61,135 @@ class RabbitmqEventPublisher:
     the CloudEvents ``id`` so brokers/operators can correlate.
     """
 
+    # Connection-level reset signals: the next publish must reconnect first.
+    # Pulled out as a tuple so both publish() and the consumer can share.
+    _RECONNECTABLE_ERRORS = (
+        StreamLostError,
+        ConnectionClosed,
+        ConnectionWrongStateError,
+        ChannelWrongStateError,
+        AMQPConnectionError,
+        AMQPChannelError,
+    )
+
     def __init__(
         self,
         settings: Any,
         *,
         exchange: str = DEFAULT_EXCHANGE,
+        heartbeat: int = 30,
+        blocked_connection_timeout: int = 300,
     ) -> None:
         self.settings = settings
         self.exchange = exchange
+        # heartbeat keeps the TCP alive when the publisher is idle for long
+        # periods (the failure mode that took down the FFT plugin's RMQ
+        # mirror in the e2e). 30s is well under typical broker idle-timeouts
+        # while staying cheap.
+        self.heartbeat = heartbeat
+        self.blocked_connection_timeout = blocked_connection_timeout
         self.connection: Optional[pika.BlockingConnection] = None
         self.channel: Any = None
 
-    def connect(self) -> None:
-        if self.connection and not self.connection.is_closed:
-            return
+    def _open(self) -> None:
+        """(Re)open connection + channel and re-declare the exchange.
+
+        Idempotent on the broker side: re-declaring an existing exchange
+        with matching properties is a no-op.
+        """
         credentials = pika.PlainCredentials(
             self.settings.USER_NAME, self.settings.PASSWORD
         )
         params = pika.ConnectionParameters(
-            host=self.settings.HOST_NAME, credentials=credentials
+            host=self.settings.HOST_NAME,
+            credentials=credentials,
+            heartbeat=self.heartbeat,
+            blocked_connection_timeout=self.blocked_connection_timeout,
         )
+        self.connection = pika.BlockingConnection(params)
+        self.channel = self.connection.channel()
+        self.channel.exchange_declare(
+            exchange=self.exchange, exchange_type="topic", durable=True
+        )
+
+    def _is_alive(self) -> bool:
+        if self.connection is None or self.channel is None:
+            return False
+        if self.connection.is_closed:
+            return False
         try:
-            self.connection = pika.BlockingConnection(params)
-            self.channel = self.connection.channel()
-            self.channel.exchange_declare(
-                exchange=self.exchange, exchange_type="topic", durable=True
-            )
+            return bool(self.channel.is_open)
+        except Exception:
+            return False
+
+    def connect(self) -> None:
+        if self._is_alive():
+            return
+        # Best-effort cleanup of any half-open state from a prior failure.
+        self._reset_silently()
+        try:
+            self._open()
             logger.info("RabbitmqEventPublisher: exchange %r ready", self.exchange)
         except (AMQPConnectionError, ChannelError):
             logger.exception("RabbitmqEventPublisher: connect failed")
             raise
 
-    def publish(self, routing_key: str, envelope: Envelope[Any]) -> None:
-        if not self.channel:
-            raise RuntimeError("RabbitmqEventPublisher.connect() must be called first")
-        body = envelope.model_dump_json().encode("utf-8")
-        self.channel.basic_publish(
-            exchange=self.exchange,
-            routing_key=routing_key,
-            body=body,
-            properties=pika.BasicProperties(
-                content_type="application/json",
-                message_id=envelope.id,
-                type=envelope.type,
-                delivery_mode=2,
-            ),
-        )
-
-    def close(self) -> None:
-        if self.connection and not self.connection.is_closed:
+    def _reset_silently(self) -> None:
+        """Drop any cached connection/channel without raising — used when
+        we already know the underlying transport is broken."""
+        if self.connection is not None:
             try:
-                self.connection.close()
+                if not self.connection.is_closed:
+                    self.connection.close()
             except Exception:
                 pass
         self.connection = None
         self.channel = None
+
+    def publish(self, routing_key: str, envelope: Envelope[Any]) -> None:
+        # Auto-reconnect on first publish OR after an idle drop. Without
+        # this the publisher zombifies: pika BlockingConnection has no
+        # heartbeat-driven recovery, so once the broker drops a stale
+        # socket every subsequent basic_publish raises ChannelWrongState
+        # forever. With heartbeats we *should* never lose the channel,
+        # but the retry is the belt to the heartbeat's suspenders.
+        if not self._is_alive():
+            self.connect()
+
+        body = envelope.model_dump_json().encode("utf-8")
+        properties = pika.BasicProperties(
+            content_type="application/json",
+            message_id=envelope.id,
+            type=envelope.type,
+            delivery_mode=2,
+        )
+
+        try:
+            self.channel.basic_publish(
+                exchange=self.exchange,
+                routing_key=routing_key,
+                body=body,
+                properties=properties,
+            )
+        except self._RECONNECTABLE_ERRORS as e:
+            logger.warning(
+                "RabbitmqEventPublisher: publish failed (%s) — reconnecting once",
+                type(e).__name__,
+            )
+            self._reset_silently()
+            self.connect()
+            # One retry. If it fails again the caller's fanout will swallow
+            # the per-event exception and move on, which matches our "one
+            # transport down doesn't poison the others" isolation rule.
+            self.channel.basic_publish(
+                exchange=self.exchange,
+                routing_key=routing_key,
+                body=body,
+                properties=properties,
+            )
+
+    def close(self) -> None:
+        self._reset_silently()
 
 
 class RabbitmqEventConsumer:
@@ -142,7 +224,10 @@ class RabbitmqEventConsumer:
             self.settings.USER_NAME, self.settings.PASSWORD
         )
         params = pika.ConnectionParameters(
-            host=self.settings.HOST_NAME, credentials=credentials
+            host=self.settings.HOST_NAME,
+            credentials=credentials,
+            heartbeat=30,
+            blocked_connection_timeout=300,
         )
         self.connection = pika.BlockingConnection(params)
         self.channel = self.connection.channel()
