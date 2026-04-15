@@ -207,6 +207,55 @@ def test_callback_requeues_on_retryable_error():
     ch.basic_nack.assert_called_once_with(delivery_tag=7, requeue=True)
 
 
+# ---------------------------------------------------------------------------
+# Dynamic config (P7)
+# ---------------------------------------------------------------------------
+
+def test_pending_config_is_applied_between_tasks():
+    """A config push that arrives between deliveries must reach the
+    plugin's configure() before the next run — that's the whole point
+    of doing this through the broker instead of a restart."""
+    plugin = _StubPlugin()
+    runner = _make_runner(plugin)
+    runner._config_subscriber = MagicMock()
+    runner._config_subscriber.take_pending.return_value = {"new_setting": "v2"}
+
+    runner._process(_make_task().model_dump_json().encode())
+
+    assert plugin._config.get("new_setting") == "v2"
+
+
+def test_no_pending_config_skips_configure_call():
+    """Idle ticks must not churn through configure() — the plugin's
+    state machine treats configure() as a transition, so no-op pushes
+    would needlessly bump it."""
+    plugin = _StubPlugin()
+    plugin.configure = MagicMock()  # type: ignore[method-assign]
+    runner = _make_runner(plugin)
+    runner._config_subscriber = MagicMock()
+    runner._config_subscriber.take_pending.return_value = None
+
+    runner._process(_make_task().model_dump_json().encode())
+
+    plugin.configure.assert_not_called()
+
+
+def test_configure_failure_does_not_break_task_processing():
+    """A bad configure() must not derail an otherwise valid task —
+    the plugin keeps the previous config and the result still ships.
+    Otherwise one bad config push could DLQ every queued task."""
+    plugin = _StubPlugin()
+    plugin.configure = MagicMock(side_effect=RuntimeError("bad knob"))  # type: ignore[method-assign]
+    runner = _make_runner(plugin)
+    runner._config_subscriber = MagicMock()
+    runner._config_subscriber.take_pending.return_value = {"x": 1}
+
+    # Should not raise, and should still produce a valid result.
+    out_bytes = runner._process(_make_task().model_dump_json().encode())
+    out = TaskResultDto.model_validate_json(out_bytes)
+    assert out.output_data == {"answer": 42}
+
+
 def test_callback_does_not_publish_when_plugin_raises():
     """A failed run must not produce a result on the out-queue —
     publishing a half-baked TaskResultDto would fool the writer."""

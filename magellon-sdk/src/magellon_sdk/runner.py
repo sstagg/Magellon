@@ -42,6 +42,7 @@ from pika.exceptions import ConnectionClosedByBroker
 
 from magellon_sdk.base import PluginBase
 from magellon_sdk.categories.contract import CategoryContract
+from magellon_sdk.config_broker import ConfigSubscriber
 from magellon_sdk.discovery import (
     Announce,
     DiscoveryPublisher,
@@ -94,6 +95,7 @@ class PluginBrokerRunner:
         contract: Optional[CategoryContract] = None,
         heartbeat_interval_seconds: float = 15.0,
         enable_discovery: bool = True,
+        enable_config: bool = True,
     ) -> None:
         self.plugin = plugin
         self.settings = settings
@@ -106,9 +108,15 @@ class PluginBrokerRunner:
         self.contract = contract
         self.heartbeat_interval_seconds = heartbeat_interval_seconds
         self.enable_discovery = enable_discovery and contract is not None
+        # Dynamic config (P7). Same gate as discovery: needs a contract
+        # to know which category subject to bind. The subscriber drains
+        # between deliveries inside _process(), so a config push never
+        # races a running execute().
+        self.enable_config = enable_config and contract is not None
         self._stopping = threading.Event()
         self._heartbeat_loop: Optional[HeartbeatLoop] = None
         self._discovery_publisher: Optional[DiscoveryPublisher] = None
+        self._config_subscriber: Optional[ConfigSubscriber] = None
 
     # ------------------------------------------------------------------
     # Per-message processing
@@ -120,6 +128,12 @@ class PluginBrokerRunner:
         Raises on any failure so the broker callback can route through
         :func:`classify_exception` and pick REQUEUE vs DLQ.
         """
+        # Apply any pending config push *before* decoding the next task
+        # so the plugin sees the new settings on the very next run.
+        # Errors from a plugin's configure() must not poison the task —
+        # log and continue with the previous config.
+        self._apply_pending_config()
+
         text = body.decode("utf-8")
         task = TaskDto.model_validate_json(text)
 
@@ -220,6 +234,43 @@ class PluginBrokerRunner:
             )
             self._heartbeat_loop.start()
 
+    def _start_config_subscriber(self) -> None:
+        """Spin up the config subscriber once per process."""
+        if not self.enable_config or self.contract is None:
+            return
+        if self._config_subscriber is not None:
+            return
+        self._config_subscriber = ConfigSubscriber(
+            self.settings, contract=self.contract
+        )
+        self._config_subscriber.start()
+
+    def _apply_pending_config(self) -> None:
+        """Drain the subscriber buffer and hand it to the plugin.
+
+        Called from :meth:`_process` between deliveries — never while
+        ``execute()`` is running. A bad ``configure()`` call must not
+        derail the task loop, so exceptions are caught and logged.
+        """
+        if self._config_subscriber is None:
+            return
+        pending = self._config_subscriber.take_pending()
+        if not pending:
+            return
+        try:
+            self.plugin.configure(pending)
+            logger.info(
+                "PluginBrokerRunner[%s]: applied config update (%d keys)",
+                self.plugin.get_info().name,
+                len(pending),
+            )
+        except Exception as exc:
+            logger.warning(
+                "PluginBrokerRunner[%s]: configure() raised %s — keeping previous config",
+                self.plugin.get_info().name,
+                exc,
+            )
+
     def start_blocking(self) -> None:
         """Run the consume loop on the calling thread. Reconnects on
         broker bounce. Returns when ``stop()`` is called."""
@@ -231,6 +282,7 @@ class PluginBrokerRunner:
                 client.declare_queue(self.out_queue)
                 client.consume(self.in_queue, self._build_callback(client))
                 self._start_discovery()
+                self._start_config_subscriber()
                 logger.info(
                     "PluginBrokerRunner[%s]: consuming %s, publishing %s",
                     self.plugin.get_info().name,
@@ -260,6 +312,8 @@ class PluginBrokerRunner:
             self._heartbeat_loop.stop()
         if self._discovery_publisher is not None:
             self._discovery_publisher.close()
+        if self._config_subscriber is not None:
+            self._config_subscriber.stop()
 
 
 __all__ = ["PluginBrokerRunner", "ResultFactory"]
