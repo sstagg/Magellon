@@ -23,6 +23,8 @@ class RabbitMQSettings(BaseModel):
     MOTIONCOR_OUT_QUEUE_NAME: Optional[str] = None
     MOTIONCOR_TEST_QUEUE_NAME: Optional[str] = None
     MOTIONCOR_TEST_OUT_QUEUE_NAME: Optional[str] = None
+    FFT_QUEUE_NAME: Optional[str] = "fft_tasks_queue"
+    FFT_OUT_QUEUE_NAME: Optional[str] = "fft_out_tasks_queue"
     PORT: Optional[int] = 5672
     USER_NAME: Optional[str] = None
     PASSWORD: Optional[str] = None

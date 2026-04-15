@@ -14,7 +14,7 @@ from __future__ import annotations
 from functools import lru_cache
 
 from magellon_sdk.dispatcher import RabbitmqTaskDispatcher, TaskDispatcherRegistry
-from magellon_sdk.models import CTF_TASK, MOTIONCOR
+from magellon_sdk.models import CTF_TASK, FFT_TASK, MOTIONCOR
 
 from config import app_settings
 
@@ -44,6 +44,14 @@ def get_task_dispatcher_registry() -> TaskDispatcherRegistry:
             queue_name=rmq.MOTIONCOR_QUEUE_NAME,
             rabbitmq_settings=rmq,
             name="rabbitmq:motioncor",
+        ),
+    )
+    registry.register(
+        FFT_TASK,
+        RabbitmqTaskDispatcher(
+            queue_name=rmq.FFT_QUEUE_NAME,
+            rabbitmq_settings=rmq,
+            name="rabbitmq:fft",
         ),
     )
     return registry

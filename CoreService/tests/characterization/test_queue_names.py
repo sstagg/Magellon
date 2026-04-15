@@ -32,12 +32,17 @@ def test_motioncor_queue_names():
 
 
 @pytest.mark.characterization
+def test_fft_queue_names():
+    assert get_queue_name_by_task_type(FFT_TASK, is_result=False) == "fft_tasks_queue"
+    assert get_queue_name_by_task_type(FFT_TASK, is_result=True) == "fft_out_tasks_queue"
+
+
+@pytest.mark.characterization
 def test_unmapped_categories_return_none():
     """Categories without a queue mapping return None (not raise).
 
     Pins today's permissive behaviour so we notice if it tightens.
     """
-    assert get_queue_name_by_task_type(FFT_TASK, is_result=False) is None
     assert get_queue_name_by_task_type(PARTICLE_PICKING, is_result=False) is None
     assert get_queue_name_by_task_type(TWO_D_CLASSIFICATION, is_result=False) is None
 
@@ -50,3 +55,5 @@ def test_app_settings_queue_values():
     assert r.CTF_OUT_QUEUE_NAME == "ctf_out_tasks_queue"
     assert r.MOTIONCOR_QUEUE_NAME == "motioncor_tasks_queue"
     assert r.MOTIONCOR_OUT_QUEUE_NAME == "motioncor_out_tasks_queue"
+    assert r.FFT_QUEUE_NAME == "fft_tasks_queue"
+    assert r.FFT_OUT_QUEUE_NAME == "fft_out_tasks_queue"

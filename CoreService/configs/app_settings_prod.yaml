@@ -63,6 +63,8 @@ rabbitmq_settings:
   MOTIONCOR_OUT_QUEUE_NAME: motioncor_out_tasks_queue
   MOTIONCOR_TEST_QUEUE_NAME: motioncor_test_inqueue
   MOTIONCOR_TEST_OUT_QUEUE_NAME: motioncor_test_outqueue
+  FFT_QUEUE_NAME: fft_tasks_queue
+  FFT_OUT_QUEUE_NAME: fft_out_tasks_queue
 
 directory_settings:
   FFT_DIR: null

@@ -8,8 +8,8 @@ from pydantic import BaseModel
 
 from config import app_settings
 from core.rabbitmq_client import RabbitmqClient
-from core.task_factory import CtfTaskFactory, MotioncorTaskFactory
-from models.plugins_models import TaskDto, CtfTaskData, TaskResultDto, CTF_TASK, PENDING, CryoEmMotionCorTaskData, \
+from core.task_factory import CtfTaskFactory, FftTaskFactory, MotioncorTaskFactory
+from models.plugins_models import TaskDto, CtfTaskData, FftTaskData, FFT_TASK, TaskResultDto, CTF_TASK, PENDING, CryoEmMotionCorTaskData, \
     MOTIONCOR_TASK, TaskCategory
 from models.pydantic_models import LeginonFrameTransferTaskDto, EPUImportTaskDto, ImportTaskDto
 
@@ -128,6 +128,10 @@ def get_queue_name_by_task_type(task_type: TaskCategory, is_result: bool = False
             'task': app_settings.rabbitmq_settings.CTF_QUEUE_NAME,
             'result': app_settings.rabbitmq_settings.CTF_OUT_QUEUE_NAME
         },
+        1: {  # FFT_TASK.code
+            'task': app_settings.rabbitmq_settings.FFT_QUEUE_NAME,
+            'result': app_settings.rabbitmq_settings.FFT_OUT_QUEUE_NAME
+        },
     }
 
     if task_type.code not in queue_mapping:
@@ -242,6 +246,46 @@ def dispatch_ctf_task(task_id, full_image_path, task_dto: ImportTaskDto):
                                           data=ctf_task_data.model_dump(), ptype=CTF_TASK, pstatus=PENDING)
     ctf_task.sesson_name = session_name
     return push_task_to_task_queue(ctf_task)
+
+
+def dispatch_fft_task(
+    image_path: str,
+    target_path: str,
+    *,
+    job_id=None,
+    task_id=None,
+    image_id=None,
+) -> bool:
+    """Dispatch an FFT task to the fft plugin over RMQ.
+
+    Small, stand-alone analog of :func:`dispatch_ctf_task` — the FFT
+    plugin is a test bed for the async pipeline, so this helper exists
+    mainly to drive it from the /fft/dispatch REST endpoint.
+
+    ``image_path`` is the input (mrc/tiff/png), ``target_path`` is
+    where the plugin should write the FFT PNG. Both are required;
+    they're explicit here because the plugin has no knowledge of
+    CoreService's FFT_SUB_URL conventions.
+    """
+    file_name = os.path.splitext(os.path.basename(image_path))[0]
+
+    fft_data = FftTaskData(
+        image_id=image_id,
+        image_name=file_name,
+        image_path=image_path,
+        target_path=target_path,
+        target_name=os.path.basename(target_path),
+    )
+
+    fft_task = FftTaskFactory.create_task(
+        pid=task_id or uuid.uuid4(),
+        instance_id=uuid.uuid4(),
+        job_id=job_id,
+        data=fft_data.model_dump(),
+        ptype=FFT_TASK,
+        pstatus=PENDING,
+    )
+    return push_task_to_task_queue(fft_task)
 
 
 def create_motioncor_task_data(image_path, gain_path, defects_path=None, session_name=None, task_dto: ImportTaskDto=None, motioncor_settings: dict = None):
