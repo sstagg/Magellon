@@ -15,6 +15,12 @@ import subprocess
 from pathlib import Path
 from typing import List, Type
 
+from magellon_sdk.models import (
+    Capability,
+    IsolationLevel,
+    ResourceHints,
+    Transport,
+)
 from models.plugins_models import (
     MOTIONCOR_TASK,
     PluginInfo,
@@ -41,6 +47,33 @@ class MotionCor2Plugin(PluginBase[MotionCorInput, MotionCorOutput]):
     ``check_requirements`` so the UI can warn before submit."""
 
     task_category: TaskCategory = MOTIONCOR_TASK
+
+    # -- capability declaration -------------------------------------------
+    # MotionCor2 is the reason this field exists. 8k×8k × ~75 frames per
+    # movie, GPU-bound, tens of GB of working memory, minutes per movie.
+    # Running it in-process would put the whole backend one OOM away from
+    # a crash. Default deployment is a container with its own GPU; the
+    # in-process transport stays declared for dev smoke tests where a
+    # tiny movie fits in host RAM.
+    capabilities = [
+        Capability.GPU_REQUIRED,
+        Capability.MEMORY_INTENSIVE,
+        Capability.CPU_INTENSIVE,
+        Capability.LONG_RUNNING,
+        Capability.PROGRESS_REPORTING,
+        Capability.IDEMPOTENT,
+    ]
+    supported_transports = [Transport.RMQ, Transport.NATS, Transport.HTTP, Transport.IN_PROCESS]
+    default_transport = Transport.RMQ
+    isolation = IsolationLevel.CONTAINER
+    resource_hints = ResourceHints(
+        memory_mb=32_000,
+        gpu_count=1,
+        gpu_memory_mb=16_000,
+        cpu_cores=4,
+        typical_duration_seconds=180.0,
+    )
+    tags = ["motion-correction", "gpu", "movie"]
 
     # -- metadata ----------------------------------------------------------
 

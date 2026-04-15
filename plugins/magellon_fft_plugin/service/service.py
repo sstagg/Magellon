@@ -17,6 +17,14 @@ import sys
 from typing import Optional
 
 from magellon_sdk.events import BoundStepReporter
+from magellon_sdk.models import (
+    Capability,
+    IsolationLevel,
+    PluginInfo,
+    PluginManifest,
+    ResourceHints,
+    Transport,
+)
 
 from core.model_dto import FftTaskData, PluginInfoSingleton, TaskDto
 from core.setup_plugin import (
@@ -42,6 +50,47 @@ plugin_info_data = {
 
 def get_plugin_info():
     return PluginInfoSingleton.get_instance(**plugin_info_data)
+
+
+# ---------------------------------------------------------------------------
+# Capability manifest
+# ---------------------------------------------------------------------------
+# The containerized counterpart of what in-house plugins set as
+# ClassVars on PluginBase. The CoreService plugin manager (future)
+# will fetch this at registration time via the /manifest endpoint,
+# so out-of-tree plugins appear in the registry with the same shape
+# as in-house ones.
+#
+# FFT is small and cheap — 2D numpy FFT on a micrograph finishes in
+# well under a second. It's deployed as a separate service only to
+# prove the distributed transport path works; in production it could
+# just as easily run in-process. Hence IN_PROCESS stays in the
+# supported list alongside the transports it actually uses today.
+
+def get_manifest() -> PluginManifest:
+    info = get_plugin_info()
+    return PluginManifest(
+        info=PluginInfo(
+            name=info.name,
+            version=info.version,
+            developer=info.developer,
+            description="Fast Fourier Transform of a micrograph, rendered to PNG",
+        ),
+        capabilities=[
+            Capability.CPU_INTENSIVE,
+            Capability.IDEMPOTENT,
+            Capability.PROGRESS_REPORTING,
+        ],
+        supported_transports=[Transport.RMQ, Transport.NATS, Transport.HTTP, Transport.IN_PROCESS],
+        default_transport=Transport.RMQ,
+        isolation=IsolationLevel.CONTAINER,
+        resources=ResourceHints(
+            memory_mb=500,
+            cpu_cores=1,
+            typical_duration_seconds=1.0,
+        ),
+        tags=["fft", "imaging"],
+    )
 
 
 def _resolve_output_path(data: FftTaskData) -> str:

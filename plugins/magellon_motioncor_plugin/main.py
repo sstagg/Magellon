@@ -16,7 +16,7 @@ from core.consul import register_with_consul, init_consul_client
 from core.rabbitmq_consumer_engine import consumer_engine
 from core.model_dto import CryoEmMotionCorTaskData, TaskDto,CreateFrameAlignRequest
 from core.settings import AppSettingsSingleton
-from service.service import do_execute, check_requirements, get_plugin_info
+from service.service import do_execute, check_requirements, get_manifest, get_plugin_info
 from core.logger_config import setup_logging
 from utils import createframealignCenterImage, createframealignImage
 # import pdb
@@ -89,6 +89,14 @@ async def root():
     # pdb.set_trace()
     logger.info("Hello behdad %s", number)
     return {"message": "Welcome ", "plugin_info": plugin_info.dict()}
+
+
+@app.get("/manifest", summary="Plugin capability manifest")
+async def manifest_endpoint():
+    """Capability manifest — the plugin manager relies on this to avoid
+    scheduling MotionCor anywhere that can't satisfy its GPU / memory
+    demands. Same shape as in-house plugins' ``instance.manifest()``."""
+    return get_manifest().model_dump(mode="json")
 
 
 # This function checks for all the requirements of the plugin, attempts to install and fix them,

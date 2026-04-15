@@ -16,7 +16,7 @@ from core.logger_config import setup_logging
 from core.model_dto import TaskDto
 from core.rabbitmq_consumer_engine import consumer_engine
 from core.settings import AppSettingsSingleton
-from service.service import check_requirements, do_execute, get_plugin_info
+from service.service import check_requirements, do_execute, get_manifest, get_plugin_info
 
 
 plugin_info = get_plugin_info()
@@ -94,6 +94,17 @@ async def shutdown_event():
 @app.get("/", summary="Get Plugin Information")
 async def root():
     return {"message": "Welcome ", "plugin_info": plugin_info.dict()}
+
+
+@app.get("/manifest", summary="Plugin capability manifest")
+async def manifest_endpoint():
+    """Capability manifest consumed by the CoreService plugin manager.
+
+    Same shape as in-house plugins' ``instance.manifest()`` output, so
+    the manager can treat this plugin uniformly whether it's mounted
+    in-process or running in its own container.
+    """
+    return get_manifest().model_dump(mode="json")
 
 
 @app.get("/setup", summary="Check and Set Up Plugin Requirements")

@@ -15,6 +15,12 @@ import subprocess
 from pathlib import Path
 from typing import List, Type
 
+from magellon_sdk.models import (
+    Capability,
+    IsolationLevel,
+    ResourceHints,
+    Transport,
+)
 from models.plugins_models import (
     CTF_TASK,
     PluginInfo,
@@ -40,6 +46,26 @@ class CtffindPlugin(PluginBase[CtfEstimationInput, CtfEstimationOutput]):
     check so the UI can tell users the binary is missing before they run."""
 
     task_category: TaskCategory = CTF_TASK
+
+    # -- capability declaration -------------------------------------------
+    # ctffind4 is CPU-bound (no GPU path), single-threaded per invocation,
+    # and typically finishes in seconds per micrograph. Safe in-process
+    # for modest batches; HTTP fan-out makes sense once throughput matters.
+    # IDEMPOTENT: re-running with identical inputs produces the same
+    # estimate — the UI can safely retry a failed task.
+    capabilities = [
+        Capability.CPU_INTENSIVE,
+        Capability.IDEMPOTENT,
+    ]
+    supported_transports = [Transport.IN_PROCESS, Transport.HTTP, Transport.RMQ]
+    default_transport = Transport.IN_PROCESS
+    isolation = IsolationLevel.IN_PROCESS
+    resource_hints = ResourceHints(
+        memory_mb=1_000,
+        cpu_cores=1,
+        typical_duration_seconds=10.0,
+    )
+    tags = ["ctf", "imaging"]
 
     # -- metadata ----------------------------------------------------------
 

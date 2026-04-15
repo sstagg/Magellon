@@ -57,6 +57,37 @@ def test_template_picker_advertises_real_capabilities(client):
 
 
 @pytest.mark.characterization
+def test_motioncor_advertises_gpu_and_container_isolation(client):
+    """MotionCor is the canonical "don't run me in-process" plugin.
+    The manifest must reflect that so the future dispatcher knows to
+    route it to a GPU container, not the backend process itself —
+    this is why the manifest field exists at all."""
+    body = client.get("/plugins/").json()
+    mc = next(e for e in body if e["plugin_id"] == "motioncor/motioncor2")
+    assert "gpu_required" in mc["capabilities"]
+    assert "memory_intensive" in mc["capabilities"]
+    assert "long_running" in mc["capabilities"]
+    assert mc["isolation"] == "container"
+
+    # Manifest endpoint exposes the resource hints a scheduler needs.
+    m = client.get("/plugins/motioncor/motioncor2/manifest").json()
+    assert m["resources"]["gpu_count"] == 1
+    assert m["resources"]["memory_mb"] >= 16_000
+
+
+@pytest.mark.characterization
+def test_ctffind_advertises_cpu_only_shape(client):
+    """Sanity check that ctffind doesn't accidentally claim GPU — it's
+    a CPU-bound binary and misclassifying it would starve GPU capacity
+    for plugins that actually need it."""
+    body = client.get("/plugins/").json()
+    ctf = next(e for e in body if e["plugin_id"] == "ctf/ctffind")
+    assert "cpu_intensive" in ctf["capabilities"]
+    assert "gpu_required" not in ctf["capabilities"]
+    assert ctf["isolation"] == "in_process"
+
+
+@pytest.mark.characterization
 def test_plugin_manifest_endpoint_round_trips(client):
     """The /manifest endpoint returns the full PluginManifest. Same
     shape a remote/containerized plugin will eventually serve, so the

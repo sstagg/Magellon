@@ -9,6 +9,15 @@ from fastapi import Depends, HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from magellon_sdk.models import (
+    Capability,
+    IsolationLevel,
+    PluginInfo,
+    PluginManifest,
+    ResourceHints,
+    Transport,
+)
+
 from core.database import get_db, get_db_connection
 from core.helper import append_json_to_file
 from core.model_dto import TaskDto, PluginInfoSingleton, TaskResultDto
@@ -32,6 +41,36 @@ plugin_info_data = {
 
 def get_plugin_info():
     return PluginInfoSingleton.get_instance(**plugin_info_data)
+
+
+def get_manifest() -> PluginManifest:
+    """Capability manifest for the result-processor.
+
+    This plugin is a sink: it consumes task results off the RMQ out-
+    queues and projects them into the DB / filesystem. Declaring it
+    here keeps it visible to the manager even though it never shows
+    up as a "task type" a user picks — the shape still applies.
+    """
+    info = get_plugin_info()
+    return PluginManifest(
+        info=PluginInfo(
+            name=info.name,
+            version=info.version,
+            developer=info.developer,
+            description="Consumes task result envelopes and projects them into DB / filesystem",
+        ),
+        capabilities=[
+            Capability.IDEMPOTENT,
+        ],
+        supported_transports=[Transport.RMQ],
+        default_transport=Transport.RMQ,
+        isolation=IsolationLevel.CONTAINER,
+        resources=ResourceHints(
+            memory_mb=500,
+            cpu_cores=1,
+        ),
+        tags=["sink", "result-processor", "persistence"],
+    )
 
 
 async def get_all_cameras(name: Optional[str] = None, db: Session = Depends(get_db)):

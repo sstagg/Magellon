@@ -1,6 +1,15 @@
 import logging
 import sys
 
+from magellon_sdk.models import (
+    Capability,
+    IsolationLevel,
+    PluginInfo,
+    PluginManifest,
+    ResourceHints,
+    Transport,
+)
+
 from core.helper import push_result_to_out_queue
 from core.model_dto import TaskDto, PluginInfoSingleton
 from core.setup_plugin import check_python_version, check_operating_system, check_requirements_txt
@@ -27,6 +36,37 @@ plugin_info_data = {
 
 def get_plugin_info():
     return PluginInfoSingleton.get_instance(**plugin_info_data)
+
+
+def get_manifest() -> PluginManifest:
+    """Capability manifest for the containerized CTF plugin.
+
+    Same shape as PluginBase.manifest() on in-house plugins — the
+    CoreService plugin manager consumes this via GET /manifest so
+    out-of-tree plugins appear in the registry uniformly.
+    """
+    info = get_plugin_info()
+    return PluginManifest(
+        info=PluginInfo(
+            name=info.name,
+            version=info.version,
+            developer=info.developer,
+            description="Defocus/astigmatism estimation via the ctffind4 binary",
+        ),
+        capabilities=[
+            Capability.CPU_INTENSIVE,
+            Capability.IDEMPOTENT,
+        ],
+        supported_transports=[Transport.RMQ, Transport.NATS, Transport.HTTP],
+        default_transport=Transport.RMQ,
+        isolation=IsolationLevel.CONTAINER,
+        resources=ResourceHints(
+            memory_mb=1_000,
+            cpu_cores=1,
+            typical_duration_seconds=10.0,
+        ),
+        tags=["ctf", "imaging"],
+    )
 
 
 async def do_execute(params: TaskDto):
