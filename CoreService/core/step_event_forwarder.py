@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Callable
+from typing import Any, Awaitable, Callable, Optional
 
 from sqlalchemy.orm import Session
 
@@ -21,6 +21,8 @@ from magellon_sdk.envelope import Envelope
 from magellon_sdk.transport.nats import NatsConsumer
 
 from services.job_event_writer import JobEventWriter
+
+DownstreamHandler = Callable[[Envelope[Any]], Awaitable[None]]
 
 logger = logging.getLogger(__name__)
 
@@ -42,14 +44,21 @@ class StepEventForwarder:
         self,
         consumer: NatsConsumer,
         session_factory: Callable[[], Session],
+        downstream: Optional[DownstreamHandler] = None,
     ) -> None:
         self.consumer = consumer
         self.session_factory = session_factory
+        self.downstream = downstream
 
     async def handle(self, envelope: Envelope[Any]) -> None:
         """Per-event callback. Creates a scoped session per envelope so
         one bad event never poisons a long-lived session, and so
-        :meth:`JobEventWriter.write`'s ``commit`` doesn't cross events."""
+        :meth:`JobEventWriter.write`'s ``commit`` doesn't cross events.
+
+        After persistence, if a ``downstream`` handler is configured
+        (e.g. Socket.IO emit) it runs for *every* envelope — lifecycle
+        and progress alike — so live progress still reaches the UI even
+        though it isn't persisted."""
         db = self.session_factory()
         try:
             JobEventWriter(db).write(envelope)
@@ -60,6 +69,16 @@ class StepEventForwarder:
             raise
         finally:
             db.close()
+
+        if self.downstream is not None:
+            try:
+                await self.downstream(envelope)
+            except Exception:
+                logger.exception(
+                    "StepEventForwarder: downstream handler failed for event %s — "
+                    "non-fatal, event is already persisted",
+                    envelope.id,
+                )
 
     async def start(self) -> bool:
         """Connect + subscribe. Returns False if the stream is absent
@@ -80,7 +99,10 @@ class StepEventForwarder:
         logger.info("StepEventForwarder stopped")
 
 
-def build_default_forwarder(session_factory: Callable[[], Session]) -> StepEventForwarder:
+def build_default_forwarder(
+    session_factory: Callable[[], Session],
+    downstream: Optional[DownstreamHandler] = None,
+) -> StepEventForwarder:
     """Factory using env-driven config.
 
     Env vars (all optional):
@@ -95,7 +117,7 @@ def build_default_forwarder(session_factory: Callable[[], Session]) -> StepEvent
         subject=os.environ.get("NATS_STEP_EVENTS_SUBJECT", DEFAULT_SUBJECT_PATTERN),
         durable_name=os.environ.get("NATS_STEP_EVENTS_DURABLE", DEFAULT_DURABLE),
     )
-    return StepEventForwarder(consumer, session_factory)
+    return StepEventForwarder(consumer, session_factory, downstream=downstream)
 
 
 __all__ = ["StepEventForwarder", "build_default_forwarder"]

@@ -168,6 +168,50 @@ async def test_start_returns_false_when_stream_missing(session_factory):
 
 
 @pytest.mark.asyncio
+async def test_downstream_runs_for_lifecycle_and_progress(session_factory):
+    """The downstream hook must see *every* envelope, not just the
+    ones the writer persists — progress events are live-only and still
+    need to reach Socket.IO."""
+    from core.step_event_forwarder import StepEventForwarder
+
+    seen = []
+
+    async def capture(env):
+        seen.append(env.type)
+
+    forwarder = StepEventForwarder(
+        consumer=None, session_factory=session_factory, downstream=capture
+    )
+
+    await forwarder.handle(_envelope(STEP_COMPLETED))
+    await forwarder.handle(_envelope(STEP_PROGRESS))
+
+    assert seen == [STEP_COMPLETED, STEP_PROGRESS]
+
+
+@pytest.mark.asyncio
+async def test_downstream_failure_is_swallowed(session_factory):
+    """Socket.IO breakage must not block persistence or kill the loop."""
+    from core.step_event_forwarder import StepEventForwarder
+
+    async def boom(env):
+        raise RuntimeError("socketio offline")
+
+    forwarder = StepEventForwarder(
+        consumer=None, session_factory=session_factory, downstream=boom
+    )
+
+    # Should not raise — downstream failure is logged, not propagated.
+    await forwarder.handle(_envelope(STEP_COMPLETED))
+
+    db = session_factory()
+    try:
+        assert db.query(JobEventRow).count() == 1  # persistence unaffected
+    finally:
+        db.close()
+
+
+@pytest.mark.asyncio
 async def test_start_subscribes_when_connected(session_factory):
     from core.step_event_forwarder import StepEventForwarder
 

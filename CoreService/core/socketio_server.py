@@ -117,3 +117,64 @@ async def emit_job_update(sid: str | None, job_data: dict):
             await sio.emit('job_update', job_data)
     except Exception:
         pass
+
+
+# ---------------------------------------------------------------------------
+# Step events — per-job room subscriptions so the UI sees live plugin
+# lifecycle + progress without polling. Room naming: "job:<uuid>".
+# ---------------------------------------------------------------------------
+
+
+def _job_room(job_id) -> str:
+    return f"job:{job_id}"
+
+
+@sio.event
+async def join_job_room(sid, data):
+    """Client opts into a specific job's event stream.
+
+    Payload: ``{"job_id": "<uuid>"}``. Idempotent — re-joining the same
+    room is a no-op.
+    """
+    job_id = (data or {}).get("job_id")
+    if not job_id:
+        return {"ok": False, "error": "job_id required"}
+    await sio.enter_room(sid, _job_room(job_id))
+    logger.info(f"sid={sid} joined {_job_room(job_id)}")
+    return {"ok": True, "room": _job_room(job_id)}
+
+
+@sio.event
+async def leave_job_room(sid, data):
+    job_id = (data or {}).get("job_id")
+    if not job_id:
+        return {"ok": False, "error": "job_id required"}
+    await sio.leave_room(sid, _job_room(job_id))
+    logger.info(f"sid={sid} left {_job_room(job_id)}")
+    return {"ok": True}
+
+
+async def emit_step_event(envelope) -> None:
+    """Broadcast a step-event envelope to its job room.
+
+    ``envelope`` is a :class:`magellon_sdk.envelope.Envelope`. We emit
+    the CloudEvents-shaped payload as-is so the frontend reads the same
+    shape it would off NATS/RMQ — one canonical event model across all
+    transports.
+    """
+    data = envelope.data if isinstance(envelope.data, dict) else {}
+    job_id = data.get("job_id")
+    if not job_id:
+        return
+    payload = {
+        "id": envelope.id,
+        "type": envelope.type,
+        "source": envelope.source,
+        "subject": envelope.subject,
+        "time": envelope.time.isoformat() if envelope.time else None,
+        "data": data,
+    }
+    try:
+        await sio.emit("step_event", payload, room=_job_room(job_id))
+    except Exception:
+        logger.exception("emit_step_event failed (non-fatal)")

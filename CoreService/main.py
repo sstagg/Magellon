@@ -367,8 +367,9 @@ async def startup_event():
     if os.environ.get("MAGELLON_STEP_EVENTS_FORWARDER") == "1":
         try:
             from core.step_event_forwarder import build_default_forwarder
+            from core.socketio_server import emit_step_event
             from database import session_local as _session_local
-            forwarder = build_default_forwarder(_session_local)
+            forwarder = build_default_forwarder(_session_local, downstream=emit_step_event)
             started = await forwarder.start()
             if started:
                 app.state.step_event_forwarder = forwarder
