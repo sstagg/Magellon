@@ -360,6 +360,24 @@ async def startup_event():
     except Exception as e:
         logger.error(f"[WARNING] Failed to start result processor: {e}")
 
+    # Start RMQ → job_event forwarder (opt-in via MAGELLON_RMQ_STEP_EVENTS_FORWARDER=1).
+    # Sibling of the NATS forwarder below; both write to the same job_event
+    # row keyed on event_id, so re-delivery across channels dedupes at the DB.
+    app.state.rmq_step_event_forwarder = None
+    if os.environ.get("MAGELLON_RMQ_STEP_EVENTS_FORWARDER") == "1":
+        try:
+            from core.rmq_step_event_forwarder import build_default_rmq_forwarder
+            from database import session_local as _session_local
+            rmq_forwarder = build_default_rmq_forwarder(
+                app_settings.rabbitmq_settings,
+                _session_local,
+            )
+            rmq_forwarder.start()
+            app.state.rmq_step_event_forwarder = rmq_forwarder
+            logger.info("[OK] RMQ step-event forwarder started")
+        except Exception as e:
+            logger.error(f"[WARNING] RMQ step-event forwarder failed to start: {e}")
+
     # Start NATS → job_event forwarder (opt-in via MAGELLON_STEP_EVENTS_FORWARDER=1).
     # When disabled or when NATS/stream is absent, the service still boots — the
     # forwarder is purely a read-side log that can catch up once the publisher is up.
@@ -401,6 +419,14 @@ async def shutdown_event():
             logger.info("[OK] Step-event forwarder stopped")
         except Exception as e:
             logger.error(f"[WARNING] Step-event forwarder stop failed: {e}")
+
+    rmq_forwarder = getattr(app.state, "rmq_step_event_forwarder", None)
+    if rmq_forwarder is not None:
+        try:
+            rmq_forwarder.stop()
+            logger.info("[OK] RMQ step-event forwarder stopped")
+        except Exception as e:
+            logger.error(f"[WARNING] RMQ step-event forwarder stop failed: {e}")
 
 
 from core.exceptions import (
