@@ -1,0 +1,39 @@
+{
+  "created_date": "2026-04-14T00:00:00",
+  "data": {
+    "accelerationVoltage": 300.0,
+    "amplitudeContrast": 0.07,
+    "binning_x": 1,
+    "defocusSearchStep": 100.0,
+    "image_id": "00000000-0000-0000-0000-000000000005",
+    "image_name": "sample",
+    "image_path": "/data/sample.mrc",
+    "inputFile": "/data/sample.mrc",
+    "maximumDefocus": 50000.0,
+    "maximumResolution": 5.0,
+    "minimumDefocus": 5000.0,
+    "minimumResolution": 30.0,
+    "outputFile": "sample_ctf_output.mrc",
+    "pixelSize": 1.0,
+    "sizeOfAmplitudeSpectrum": 512,
+    "sphericalAberration": 2.7
+  },
+  "end_on": null,
+  "id": "00000000-0000-0000-0000-000000000001",
+  "job_id": "00000000-0000-0000-0000-000000000002",
+  "result": null,
+  "sesson_id": "00000000-0000-0000-0000-000000000004",
+  "sesson_name": "sample_session",
+  "start_on": null,
+  "status": {
+    "code": 0,
+    "description": "Task is pending",
+    "name": "pending"
+  },
+  "type": {
+    "code": 2,
+    "description": "Contrast Transfer Function",
+    "name": "CTF"
+  },
+  "worker_instance_id": "00000000-0000-0000-0000-000000000003"
+}
