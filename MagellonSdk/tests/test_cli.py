@@ -24,7 +24,7 @@ def test_no_args_prints_help(capsys):
     assert "Build, test, and publish" in capsys.readouterr().out
 
 
-@pytest.mark.parametrize("cmd", ["new", "test", "package", "publish", "worker"])
+@pytest.mark.parametrize("cmd", ["new", "test", "package", "publish"])
 def test_stub_subcommands_exit_nonzero(cmd, capsys):
     """Until they're implemented, subcommands must not silently succeed."""
     rc = main([cmd])
@@ -45,3 +45,16 @@ def test_parser_surface_pinned():
         "publish",
         "worker",
     }
+
+
+def test_worker_requires_plugin_arg(capsys):
+    """--plugin is mandatory for the worker subcommand."""
+    with pytest.raises(SystemExit):
+        main(["worker"])
+    assert "--plugin" in capsys.readouterr().err
+
+
+def test_worker_reports_missing_plugin(capsys):
+    rc = main(["worker", "--plugin", "does-not-exist"])
+    assert rc == 2
+    assert "No plugin registered" in capsys.readouterr().err
