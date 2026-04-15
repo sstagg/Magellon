@@ -14,41 +14,20 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Optional, Protocol
+from typing import Optional
+
+# ProgressReporter, NullReporter, and JobCancelledError are the plugin-
+# facing contract and live in the SDK. Re-exported here so existing
+# CoreService call sites keep working unchanged.
+from magellon_sdk.progress import (  # noqa: F401  (re-export)
+    JobCancelledError,
+    NullReporter,
+    ProgressReporter,
+)
 
 from services.job_service import job_service
 
 logger = logging.getLogger(__name__)
-
-
-class JobCancelledError(Exception):
-    """Raised by a reporter when the user has asked to cancel this job.
-
-    Plugins don't need to catch this — it propagates out of ``execute()``
-    and the controller translates it into a cancelled-job envelope.
-    """
-
-
-class ProgressReporter(Protocol):
-    """Minimal contract every reporter implements.
-
-    Plugins depend on this Protocol, not a concrete class — so test code
-    can hand in a plain mock with a ``report`` attribute.
-    """
-
-    def report(self, percent: int, message: Optional[str] = None) -> None: ...
-
-    def log(self, level: str, message: str) -> None: ...
-
-
-class NullReporter:
-    """No-op reporter used when a plugin runs outside a job context."""
-
-    def report(self, percent: int, message: Optional[str] = None) -> None:
-        return
-
-    def log(self, level: str, message: str) -> None:
-        return
 
 
 class JobReporter:

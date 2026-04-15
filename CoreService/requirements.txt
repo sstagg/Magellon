@@ -79,3 +79,8 @@ pytest-cov==4.1.0
 # JWT Authentication
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+
+# Magellon Plugin SDK — stable, versioned plugin contract.
+# Editable install from the sibling checkout during Phase 1 dev.
+# Phase 1 PR 1.6 will flip this to a pinned release from a private index.
+-e ../MagellonSdk

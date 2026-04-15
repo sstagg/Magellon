@@ -7,31 +7,19 @@ from uuid import uuid4, UUID
 
 from pydantic import BaseModel
 
+# The plugin-contract types (PluginInfo, PluginStatus, TaskCategory,
+# RequirementResult, etc.) are the canonical public surface of the SDK.
+# Re-exported here so existing CoreService imports keep working without
+# churning call sites — see magellon_sdk.models for the definitions.
+from magellon_sdk.models import (  # noqa: F401  (re-export)
+    CheckRequirementsResult,
+    PluginInfo,
+    PluginStatus,
+    RecuirementResultEnum,
+    RequirementResult,
+    TaskCategory,
+)
 
-class PluginStatus(str, Enum):
-    """Lifecycle states for a Magellon plugin."""
-    DISCOVERED = "discovered"      # Found on disk / in registry
-    INSTALLED = "installed"        # Dependencies resolved
-    CONFIGURED = "configured"      # Settings validated
-    READY = "ready"                # setup() completed, can accept work
-    RUNNING = "running"            # execute() in progress
-    COMPLETED = "completed"        # Last execution succeeded
-    ERROR = "error"                # Recoverable error, can retry
-    FAILED = "failed"              # Terminal failure
-    DISABLED = "disabled"          # Administratively disabled
-
-
-class TaskCategory(BaseModel):
-    code: int
-    name: str
-    description: str
-    def __hash__(self):
-        return hash(self.code)  # Using code as the unique identifier
-
-    def __eq__(self, other):
-        if not isinstance(other, TaskCategory):
-            return False
-        return self.code == other.code
 
 class TaskOutcome(BaseModel):
     code: int
@@ -226,23 +214,6 @@ class TaskStatusEnum(Enum):
     FAILED = {"code": 3, "name": "failed", "description": "Task has failed"}
 
 
-class PluginInfo(BaseModel):
-    id: Optional[str] = str(uuid.uuid4())
-    instance_id: Optional[str] = str(uuid.uuid4())
-    name: Optional[str] = None
-    developer: Optional[str] = None
-    description: Optional[str] = None
-    copyright: Optional[str] = None
-    version: Optional[str] = None
-    # Bumped by the plugin author whenever the input or output JSON
-    # Schema changes in a breaking way. The frontend compares against
-    # its cached value and re-fetches the form when they diverge.
-    schema_version: Optional[str] = "1"
-    created_date: Optional[datetime] = datetime.utcnow()
-    last_updated: Optional[datetime] = datetime.utcnow()
-    # port_number: Optional[int] = Field(..., ge=0, le=65535)
-
-
 class PluginInfoSingleton:
     _instance = None
 
@@ -251,28 +222,6 @@ class PluginInfoSingleton:
         if cls._instance is None:
             cls._instance = PluginInfo(**kwargs)
         return cls._instance
-
-
-class CheckRequirementsResult(Enum):
-    SUCCESS = 100
-    FAILURE_PYTHON_VERSION_ERROR = 201
-    FAILURE_OS_ERROR = 202
-    FAILURE_REQUIREMENTS = 203
-
-
-class RecuirementResultEnum(Enum):
-    SUCCESS = 10
-    WARNING = 20
-    FAILURE = 30
-
-
-class RequirementResult(BaseModel):
-    code: Optional[int] = None
-    error_type: Optional[CheckRequirementsResult] = None
-    result: RecuirementResultEnum = RecuirementResultEnum.FAILURE
-    condition: Optional[str] = None
-    message: Optional[str] = None
-    instructions: Optional[str] = None
 
 
 # Enums for TaskType
