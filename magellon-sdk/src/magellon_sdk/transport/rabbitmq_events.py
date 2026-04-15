@@ -35,6 +35,7 @@ from pika.exceptions import (
 )
 
 from magellon_sdk.envelope import Envelope
+from magellon_sdk.errors import AckAction, classify_exception
 
 logger = logging.getLogger(__name__)
 
@@ -263,9 +264,35 @@ class RabbitmqEventConsumer:
                     envelope = Envelope.model_validate_json(body)
                     callback(envelope)
                     ch.basic_ack(delivery_tag=method.delivery_tag)
-                except Exception:
-                    logger.exception("RabbitmqEventConsumer: callback failed")
-                    ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+                    return
+                except Exception as exc:
+                    # Decode errors are unrecoverable for this message —
+                    # the body is what it is. Plugin-side exceptions may
+                    # be retryable. Let the classifier decide; default
+                    # policy sends untyped exceptions back for N retries
+                    # before giving up, which is what we want for a
+                    # step-event stream (broker blips shouldn't DLQ).
+                    redeliveries = int(getattr(method, "redelivered", False))
+                    classification = classify_exception(
+                        exc, redelivery_count=redeliveries
+                    )
+                    logger.warning(
+                        "RabbitmqEventConsumer: %s → %s (%s)",
+                        type(exc).__name__,
+                        classification.action.value,
+                        classification.reason,
+                    )
+                    if classification.action is AckAction.REQUEUE:
+                        ch.basic_nack(
+                            delivery_tag=method.delivery_tag, requeue=True
+                        )
+                    else:
+                        # ACK path never reached here (early return on
+                        # success); DLQ uses nack+no-requeue which
+                        # relies on the queue's dead-letter exchange.
+                        ch.basic_nack(
+                            delivery_tag=method.delivery_tag, requeue=False
+                        )
 
             self.channel.basic_consume(
                 queue=self.queue_name, on_message_callback=_on_message
