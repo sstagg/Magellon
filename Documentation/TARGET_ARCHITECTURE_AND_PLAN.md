@@ -1,6 +1,17 @@
 # Magellon — Target Architecture and Migration Plan
 
-**Status:** Proposal. Not merged. Discuss before acting on phase boundaries.
+> **⚠ Partially superseded — 2026-04-14.** The Temporal-centric sections of
+> this document (principle #3 re: Temporal + NATS + CloudEvents, the target
+> diagram, and the phased migration) are **no longer the direction**.
+> Magellon's workload is one-plugin-one-call; a workflow engine is not
+> earning its keep. See `IMPLEMENTATION_PLAN.md` for the revised plan.
+>
+> The orchestrator-agnostic parts of this doc still apply: the plugin contract,
+> the job-as-one-row-of-truth principle, the critique of the three-job-manager
+> split, and the versioned-contract / reversible-migration principles. Those
+> motivate the revised plan's Phase A (consolidation) and Phase C (event path).
+
+**Status:** Superseded in part (2026-04-14). Retained as reference.
 **Audience:** Core maintainers, plugin developers, operators.
 **Companion:** `CURRENT_ARCHITECTURE.md` (the as-is state this plan migrates away from).
 

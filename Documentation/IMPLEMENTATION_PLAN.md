@@ -1,200 +1,223 @@
 # Magellon — Implementation Plan
 
-**Purpose:** Phase-by-phase, PR-by-PR execution plan for the migration
-described in `TARGET_ARCHITECTURE_AND_PLAN.md`. Every PR listed here has a
-concrete definition-of-done and a rollback path.
+**Status:** Revised 2026-04-14. Supersedes the Temporal-centric plan that was
+partially executed — Phases 0–1 landed, Phase 2 reverted in commit `86fe9cc`.
 
-**Guiding rules:**
-
-- **Safety net before refactor.** No production code moves until the tests
-  pin the current behaviour.
-- **Additive, then subtractive.** Build the new path alongside the old,
-  prove it, *then* delete the old.
-- **Every PR is independently reversible.** If a PR is merged and something
-  breaks, `git revert` that one PR must restore green.
-- **Keep PRs small.** One concern per PR. Reviewer time is the scarce
-  resource.
-- **"Scaffolding" is not dead code.** `services/magellon_job_manager.py`,
-  `services/temporal_job_manager.py`, and `services/event_publisher.py` are
-  inputs to Phase 2. Do not delete.
+**Context:** The earlier plan assumed Temporal would become the workflow engine
+and NATS the event backbone. The actual workload is **one plugin, one call,
+one reply** (see `CoreService/docs/plugin-developer-guide.md`). Temporal's value
+(durable history, multi-step signals, cross-restart retries) had no concrete
+consumer, so we reverted. The extension point — `magellon_sdk.executor.Executor`
+Protocol — survived the revert so a workflow engine can plug back in when
+pipelines become a real requirement.
 
 ---
 
-## Phase 0 — Safety net
+## Guiding rules
 
-**Goal:** Lock down every externally observable behaviour of the live
-system so subsequent phases cannot silently regress it. No production
-behaviour changes in this phase.
-
-| PR    | Title                                                  | DoD                                                                                                                  |
-|-------|--------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
-| 0.1   | CI baseline green                                      | Existing pytest suite passes locally and in CI. Broken tests are either fixed or explicitly `xfail`'d with an issue. |
-| 0.2   | Envelope golden files                                  | Golden JSON for `TaskBase.model_dump()` at CTF and MotionCor payloads. Change-detection test compares fresh vs golden. |
-| 0.3   | Queue-name characterization                            | Test pins `get_queue_name_by_task_type` output for every `TaskCategory.code` currently defined.                      |
-| 0.4   | PluginRegistry discovery pin                           | Test asserts which plugin IDs auto-register (`ctf/ctffind`, `motioncor/motioncor2`, `pp/template-picker`) and their `PluginInfo`. |
-| 0.5   | Plugin controller HTTP contract tests                  | TestClient-driven tests pin `/plugins/`, `/plugins/{id}/info`, `/plugins/{id}/schema/input`, `POST /plugins/{id}/jobs` response shapes. |
-| 0.6   | Socket.IO emit shape tests                             | Fake Socket.IO server captures `emit_job_update` / `emit_log` frames during a synthetic plugin run. Payload shape pinned. |
-| 0.7   | External-plugin contract test (CTF)                    | In CI, boot `magellon_ctf_plugin` image, publish a canned `TaskDto`, assert a canned `TaskResultDto` shape comes back. Smoke-level, not exhaustive. |
-| 0.8   | End-to-end smoke test                                  | Script boots MySQL + RabbitMQ + CoreService, submits one plugin job via the in-process path, asserts progress frames and final row. |
-| 0.9   | Add Temporal server to docker-compose                  | Temporal server and Temporal UI available in dev stack. No workers. No code paths use it. Verified with `curl` only. |
-| 0.10  | Dead-code audit                                        | Short report (as a markdown file under `Documentation/`) listing truly unused modules with evidence; no deletions yet. |
-| 0.11  | Low-risk cleanups                                      | Fix `MagellonSdk/README.md` typo. Remove obviously unused imports. No behaviour change. |
-
-**Exit criterion:** Green CI with all new tests. Any change to the
-envelope bytes-on-the-wire now fails a test.
-
-**Rollback:** revert PRs individually; none change production behaviour.
+1. **Default to in-process.** A plugin is a Python module under `CoreService/plugins/`
+   that subclasses `PluginBase[In, Out]` and gets mounted on a FastAPI router.
+   Containers and remote executors are *deployment modes*, not new plugin models.
+2. **Simple plugins stay simple.** FFT-grade plugins should be a single Python
+   file, no Docker required. If a plugin needs a heavy binary (ctffind4,
+   MotionCor2), it is allowed — but allowed, not mandatory.
+3. **YAGNI on orchestration.** No workflow engine until multi-step pipelines
+   become a real workload. When they do, the Executor Protocol is the
+   integration point — do not re-scaffold.
+4. **One job, one truth.** Collapse `job_service`, `magellon_job_manager`,
+   and the dead `job_manager` / `temporal_job_manager` into one path.
+5. **One event path to the UI.** Socket.IO is what the frontend consumes today;
+   it is sufficient for one-plugin-one-call. Defer NATS/JetStream until
+   fan-out or durability becomes a real need.
+6. **Additive, then subtractive.** Build the new path alongside the old,
+   prove it in CI, then delete.
+7. **Reversible PRs.** Each PR in this plan stands alone; `git revert` restores
+   green.
 
 ---
 
-## Phase 1 — Extract the SDK
+## Completed phases
 
-**Goal:** Move the plugin contract into a standalone package so future
-plugins (in-process or remote) depend on a stable, versioned SDK — not on
-`CoreService/plugins/`.
+### Phase 0 — Safety net (complete)
+PRs 0.1–0.6 (`9c37b07`, `5d426f4`) characterization tests: pytest.ini,
+envelope goldens, queue names, plugin registry, HTTP contract, Socket.IO
+emit shape. PR 0.10 (`1c17ede`) dead-code audit. PR 0.11 (`9609240`) typo fix.
+PR 0.9 (Temporal infra) — reverted in `86fe9cc`. PRs 0.7–0.8 (live-docker
+contract + full e2e smoke) never landed; deferred to Phase C.
 
-| PR    | Title                                             | DoD                                                                                                        |
-|-------|---------------------------------------------------|------------------------------------------------------------------------------------------------------------|
-| 1.1   | SDK scaffolding                                   | `MagellonSdk/src/magellon_sdk/` has `__init__.py`, `py.typed`, pyproject.toml sets `name = magellon-sdk`, version `0.1.0`. |
-| 1.2   | Move `PluginBase` into SDK                        | `magellon_sdk.base` contains `PluginBase`. `CoreService/plugins/base.py` becomes `from magellon_sdk.base import *` re-export. All tests green. |
-| 1.3   | Move `ProgressReporter` into SDK                  | Same pattern for `plugins/progress.py`. `JobReporter` stays in CoreService (it depends on CoreService internals); `ProgressReporter`, `NullReporter`, `JobCancelledError` move. |
-| 1.4   | CloudEvents envelope helpers                      | `magellon_sdk.envelope` exposes `Envelope[T]` (Pydantic) with `specversion`, `id`, `source`, `type`, `subject`, `time`, `dataschema`, `datacontenttype`, `data: T`. Round-trip test. |
-| 1.5   | Executor interface (stub only)                    | `magellon_sdk.executor.base.Executor` protocol. No implementations yet. |
-| 1.6   | SDK publish to private index (or path-based dev)  | CoreService depends on `magellon-sdk==0.1.0`. Plugin authors can `pip install magellon-sdk`. |
-| 1.7   | Plugin CLI skeleton                               | `magellon-plugin --help` works. Subcommands stubbed (`new`, `test`, `package`, `publish`) returning "not implemented". |
+### Phase 1 — SDK extract (complete minus publish)
+PRs 1.1–1.5, 1.7 all landed (`a4d1e10`, `5d14b06`, `b90ffe2`, `eb00daa`,
+`f10456f`). `magellon-sdk 0.1.0` is installable as an editable dep from
+`../MagellonSdk`. PR 1.6 (publish to an index) deferred pending an infra
+decision — folded into Phase E below.
 
-**Exit criterion:** `pip install magellon-sdk` gives a usable `PluginBase`.
-CoreService re-exports preserve all existing import paths. All Phase 0
-tests still green.
-
-**Rollback:** revert 1.6 to restore in-repo imports; earlier PRs are pure
-movement.
+### Phase 2 — Temporal (reverted `86fe9cc`)
+Not pursued. The SDK retains `PluginBase`, progress reporter, CloudEvents
+envelope, and the `Executor` Protocol — the orchestrator-agnostic contract —
+so nothing re-introducing Temporal later has to restart from zero.
 
 ---
 
-## Phase 2 — First vertical slice on Temporal (CTF)
+## Phase A — Consolidate (cleanup we owe)
 
-**Goal:** Prove end-to-end that one plugin can run via Temporal + NATS
-while the rest of the system runs on the legacy path. Flagged, reversible.
+**Goal:** Pay the debt the prior phases exposed — three job managers, dead
+Temporal/RabbitMQ scaffolding, orphaned controllers — before building anything
+new.
 
-| PR    | Title                                               | DoD                                                                                                         |
-|-------|-----------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
-| 2.1   | Temporal worker scaffold in SDK                     | `magellon_sdk.worker.run_worker(plugin)` boots a `temporalio.worker.Worker` for one plugin.                 |
-| 2.2   | CTF plugin as Temporal activity                     | CTF plugin container also runs `magellon-plugin worker --plugin ctf/ctffind`. Activity wraps `plugin.run`. |
-| 2.3   | `CtfWorkflow`                                       | Single-activity workflow. `workflow.execute_activity("ctf.run", ..., start_to_close_timeout=...)`.          |
-| 2.4   | `CTF_VIA_TEMPORAL` feature flag                     | Env var (default off). When on, `JobService` starts `CtfWorkflow`; when off, RabbitMQ dispatch unchanged.   |
-| 2.5   | NATS→Socket.IO UI gateway                           | Subscribes to `magellon.step.progress`, forwards to Socket.IO per-`sid`. Runs inside CoreService initially. |
-| 2.6   | Temporal activity → NATS progress wiring            | Activity calls `plugin.run(reporter=TemporalReporter(...))` which emits on NATS and heartbeats Temporal.    |
-| 2.7   | Staging validation                                  | One full Leginon import in staging runs CTF via Temporal and everything else via legacy. Progress frames render. Rollback = flip the flag. |
+| PR  | Title | DoD |
+|-----|-------|-----|
+| A.1 | Delete orphaned Temporal scaffolding | `controllers/workflow_job_controller.py` (472 lines, no mounted routes) and `services/temporal_job_manager.py` (406 lines, only caller was the orphan controller) removed. Any incidental imports fixed. |
+| A.2 | Delete Dragonfly `services/job_manager.py` | 670-line unused singleton flagged by the Phase 0 audit. Confirm zero live callers via grep, then delete. Dragonfly stays as a cache. |
+| A.3 | Pick ONE job manager as canonical | Decide: is `job_service.py` (the live plugin dispatch) or `magellon_job_manager.py` (domain/import) the survivor? Merge the other into it. One lifecycle, one state store, one progress path. |
+| A.4 | Retire the RabbitMQ dispatch helpers | `core/helper.py` — `publish_message_to_queue`, `get_queue_name_by_task_type`, `push_task_to_task_queue`, `dispatch_ctf_task`, `dispatch_motioncor_task` — all dead now that plugins dispatch in-process. Delete along with `core/rabbitmq_client.py`. |
+| A.5 | Drop RabbitMQ from `docker-compose.yml` | Remove the service and its volume. If any importer still writes to `/magellon/messages/*/messages.json` as an audit trail, replace with structured log lines. |
+| A.6 | Finalize the Phase 0 dead-code audit sweep | Walk `Documentation/PHASE_0_DEAD_CODE_AUDIT.md`, execute the "SAFE TO DELETE" rows that are still safe, re-verify each before removal. |
 
-**Exit criterion:** Flag on in staging; CTF jobs flow through Temporal.
-All Phase 0 golden tests still green with the flag off. With the flag on,
-new tests assert Temporal workflow was started and NATS events were seen.
+**Exit criterion:** `grep -ri "temporal\|rabbitmq"` returns hits only in history,
+docs, or settings-file examples. One `JobService`. One dispatch path.
 
-**Rollback:** flip `CTF_VIA_TEMPORAL=off`.
-
----
-
-## Phase 3 — Executor abstraction
-
-**Goal:** Decouple "what the plugin does" from "where it runs." This is
-the phase that solves the customer GPU+Docker install burden.
-
-| PR    | Title                                          | DoD                                                                                                       |
-|-------|------------------------------------------------|-----------------------------------------------------------------------------------------------------------|
-| 3.1   | `LocalProcess` executor                        | Default. Runs `plugin.run` in the worker process. No behaviour change for existing Phase 2 slice.         |
-| 3.2   | `LocalDocker` executor                         | Runs plugin in a container via `docker-py`. Streams stdout into progress logs.                            |
-| 3.3   | `RunPod` executor                              | `POST /v2/{endpoint}/run`; webhook listener in CoreService turns RunPod events into progress events.      |
-| 3.4   | Per-plugin `executor:` config                  | `PluginInfo` grows an `executor` field; default `localprocess`. Activity reads it at runtime.             |
-| 3.5   | `Kubernetes` executor                          | Creates a one-shot `Job`; streams logs. Behind a separate opt-in (not wired to any plugin by default).    |
-| 3.6   | RunPod customer doc                            | `Documentation/runpod_quickstart.md`: API key setup, which plugins support it, sample `executor: runpod` config. |
-
-**Exit criterion:** One customer, in a supported plugin (recommend CTF
-first, then MotionCor), flips to `executor: runpod` and runs successfully.
-
-**Rollback:** change config back to `localprocess`.
+**Rollback:** per-PR `git revert`.
 
 ---
 
-## Phase 4 — Migrate remaining plugins
+## Phase B — Plugin execution taxonomy
 
-**Goal:** Bring MotionCor, the result processor, and the particle picker
-onto the same (Temporal + NATS + Executor) path.
+**Goal:** Make the "plugins without containers" story first-class and
+documented. Today it is implicit — `template_picker` is in-process; CTF and
+MotionCor run in dedicated containers — but the developer guide doesn't
+spell out the choice. New plugin authors should pick the right mode on day
+one, not after their first refactor.
 
-| PR    | Title                                                  | DoD                                                                                                    |
-|-------|--------------------------------------------------------|--------------------------------------------------------------------------------------------------------|
-| 4.1   | MotionCor on Temporal                                  | `motioncor/motioncor2` plugin becomes a Temporal activity; `MotionCorWorkflow` defined. Flag-gated.    |
-| 4.2   | Result processor as a workflow step                    | Result handling becomes a Temporal activity downstream of CTF and MotionCor. `*_out_tasks_queue` bypass. |
-| 4.3   | Particle picker workflow wrapper                       | `pp/template-picker` already runs in-process; wrap it in a workflow so UI/event path is uniform.       |
-| 4.4   | All plugin flags on in staging                         | Every plugin goes through Temporal in staging for one week. No unexplained failures.                  |
-| 4.5   | All plugin flags on in prod                            | Staged rollout: 10% → 50% → 100%.                                                                      |
+| PR  | Title | DoD |
+|-----|-------|-----|
+| B.1 | Taxonomy in the developer guide | `plugin-developer-guide.md` gets a new top section: **Deployment modes**. Three rows — in-process (default), subprocess (local binary wrapper), containerized (separate image + HTTP). Decision matrix: "when to pick each". |
+| B.2 | FFT as the canonical simple-plugin exemplar | The empty `plugins/fft/` stub becomes a complete working plugin: `algorithm.py` (numpy FFT), `service.py` (PluginBase), `models.py` (Pydantic I/O with full `ui_*` metadata), `controller.py` route, full test suite. Target under 200 LOC total. This is the template for FFT-grade plugins. |
+| B.3 | Audit current CTF / MotionCor deployment | One-page report: are they truly containerized (HTTP-over-network), or packaged containers that call in-process? What would it take to run CTF in-process on a host that has `ctffind4` installed? Informs B.4. |
+| B.4 | `SubprocessExecutor` in the SDK (*if earned*) | Only land if B.3 shows it is worthwhile. Wraps a local binary from a PluginBase — same plugin contract, different runtime. Implements the Executor Protocol stub. |
+| B.5 | `HttpContainerExecutor` doc-only (*if earned*) | Document the existing CTF/MotionCor container pattern as a third deployment mode. Probably no new code; just formalize the pattern they already follow. |
 
-**Exit criterion:** Every plugin can run through Temporal in prod.
-RabbitMQ dispatch queues are still there but no longer dispatched to.
+**Exit criterion:** A new plugin author reading the guide can answer "do I need
+a container?" in under 2 minutes. FFT is merged and shipping.
 
-**Rollback:** per-plugin flag off.
-
----
-
-## Phase 5 — Retire legacy
-
-**Goal:** Delete the old paths. Only possible when Phase 4 has been
-soaking in prod long enough that nobody trusts the legacy path anymore.
-
-| PR    | Title                                                            | DoD                                                                                       |
-|-------|------------------------------------------------------------------|-------------------------------------------------------------------------------------------|
-| 5.1   | Migrate `controllers/import_controller.py` off Dragonfly JobManager | Import controller uses the unified `JobService`. All import tests still green.           |
-| 5.2   | Delete `services/job_manager.py` (Dragonfly)                     | File deleted. Dragonfly stays in compose (cache use) but is no longer a job store.        |
-| 5.3   | Delete RabbitMQ dispatch helpers                                 | `core/helper.py` `dispatch_ctf_task`, `dispatch_motioncor_task`, `get_queue_name_by_task_type`, `push_task_to_task_queue`, `publish_message_to_queue` removed. `core/rabbitmq_client.py` deleted. |
-| 5.4   | Delete the three plugin-repo `core/` duplicates                  | Plugin repos depend on `magellon-sdk` only. Container entrypoint is `magellon-plugin worker`. |
-| 5.5   | Drop RabbitMQ from `docker-compose.yml`                          | RabbitMQ service removed. Any lingering references fail loudly in CI.                     |
-| 5.6   | Collapse job-manager scaffolding into `JobService`               | `services/magellon_job_manager.py` and `services/temporal_job_manager.py` merge into the one `JobService`. |
-| 5.7   | Delete on-disk message audit                                     | Remove `/magellon/messages/<queue>/messages.json` writes. JetStream retention covers audit. |
-
-**Exit criterion:** `grep -ri rabbitmq` returns only historical docs. One
-`JobService`. One plugin SDK. One event path.
-
-**Rollback:** per PR, `git revert`.
+**Rollback:** PR B.2 is additive (new plugin); others are docs or optional
+extension points.
 
 ---
 
-## Phase 6 (optional) — Plugin Hub
+## Phase C — Event & dispatch consolidation
 
-**Goal:** Stand up the plugin ecosystem: publish, discover, install. Can
-start in parallel with Phases 2–4; it has no dependency on the Temporal
-migration.
+**Goal:** One event path from plugin → UI. Today Socket.IO works and is
+wired; NATS is present but only used by import/domain workflows; RabbitMQ is
+dead after Phase A. Fragment count should go to 1.
 
-| PR    | Title                               | DoD                                                                         |
-|-------|-------------------------------------|-----------------------------------------------------------------------------|
-| 6.1   | Hub API skeleton                    | FastAPI app. Endpoints: list, search, get, upload. MinIO-backed storage.     |
-| 6.2   | `magellon-plugin publish` CLI       | Builds a wheel from a plugin project, uploads via Hub API, writes metadata. |
-| 6.3   | Hub Web (minimal)                   | Read-only browse/search. Plugin cards show `PluginInfo`, schemas, versions. |
-| 6.4   | Hub install flow in CoreService     | Admin endpoint fetches plugin wheel from hub and installs into Python env; calls `registry.refresh()`. |
-| 6.5   | Auth for authors                    | Author accounts + API tokens for publishing.                                |
+| PR  | Title | DoD |
+|-----|-------|-----|
+| C.1 | Socket.IO as the sole UI event path | All plugin-progress emits go through one helper. `JobService.emit(...)` is the single producer. No other module calls `sio.emit` directly. Contract pinned by the existing PR 0.6 tests. |
+| C.2 | Decide NATS fate | Audit: what actually subscribes to NATS today? If only import workflows, either (a) move those to Socket.IO too and drop NATS, or (b) keep NATS behind one clear seam (`MagellonEventService`) and document that plugin code never touches it. |
+| C.3 | JobService as the single progress seam | Plugin author writes `reporter.report(pct, msg)`; reporter fans out to Socket.IO + DB. No other fan-out paths. Existing `JobReporter` stays host-side; `ProgressReporter` Protocol in SDK. |
+| C.4 | PR 0.7 — plugin-container contract test | The Phase 0 test that was deferred: boot a plugin container image in CI, POST a canned input, assert response shape. Validates the containerized-plugin path once rather than per-plugin. |
+| C.5 | PR 0.8 — end-to-end smoke test | Also deferred from Phase 0: MySQL + CoreService + one plugin, submit one job, assert progress frames and result row. Runs nightly in CI. |
+
+**Exit criterion:** `grep -r "sio.emit\|nats.publish"` returns a bounded set of
+locations (ideally: one helper each). Nightly e2e smoke green.
+
+**Rollback:** per-PR revert; C.2 is the only one that removes a dependency
+(NATS), and only if the audit shows it has no live consumer.
 
 ---
 
-## Cross-cutting — test discipline
+## Phase D — Frontend consolidation
+
+**Goal:** Finish the FSD migration that's been in progress, pick one HTTP
+client, retire legacy folders. Scoped narrowly — this is cleanup, not a
+rewrite.
+
+| PR  | Title | DoD |
+|-----|-------|-----|
+| D.1 | FSD migration — finish the job | Move remaining `src/pages/*` and top-level `src/components/*` into `src/features/` or `src/shared/`. Old folders deleted. |
+| D.2 | HTTP client standardization | Pick Axios or `fetch` (Axios recommended — existing JobsPanel uses it, interceptors already exist). Remove the other. One `api/` client module. |
+| D.3 | Socket.IO subscription consistency | Centralize subscription lifecycle. Today only JobsPanel subscribes; other real-time panels fall back to polling. One `useJobEvents(jobId)` hook used everywhere. |
+
+**Exit criterion:** `src/pages/` and legacy `src/components/` empty or
+removed. `grep "from 'axios'\|from \"axios\"" | wc -l` equals
+`grep "fetch(" | wc -l` in app code only at the boundary file.
+
+**Rollback:** per-PR revert; none touch backend contracts.
+
+---
+
+## Phase E — SDK publish path
+
+**Goal:** Unblock external plugin authors. Today `magellon-sdk` installs only
+via path (`-e ../MagellonSdk`). That's fine for in-tree work; it doesn't let
+a third party `pip install magellon-sdk`.
+
+| PR  | Title | DoD |
+|-----|-------|-----|
+| E.1 | Decide publish target | Document the decision in `Documentation/`: private PyPI (self-hosted), GitHub Packages, or public PyPI. Includes auth/CI implications. This is a *decision*, not code. |
+| E.2 | CI publish-on-tag | GitHub Action builds the wheel, publishes on `v*` tags. Secrets provisioned. Smoke-install in a clean venv on publish. |
+| E.3 | `magellon-sdk 0.2.0` — first published version | Bump from 0.1.0 (scaffold) to 0.2.0 (first external release). Changelog, pinned deps. CoreService switches from editable install to a version pin. |
+| E.4 | SDK versioning strategy | Short `Documentation/SDK_VERSIONING.md`: semver rules, deprecation window, breaking-change communication. |
+
+**Exit criterion:** A plugin repo outside `C:\projects\Magellon` can
+`pip install magellon-sdk` and author a working plugin without touching
+Magellon source.
+
+**Rollback:** CoreService can revert to editable install at any time.
+
+---
+
+## Phase F — Plugin Hub (optional, deferred)
+
+**Goal (if pursued):** publish/discover/install flow for third-party plugins.
+
+Defer until: an external author actually needs it, or the in-tree plugin
+count grows past ~10. Today CTF, MotionCor, template_picker + an FFT stub
+fit comfortably in-tree. PRs 6.1–6.5 in the prior plan stand as a reference;
+re-plan them when the need is real.
+
+---
+
+## Deferred indefinitely
+
+Each of these remains valuable *as an option* if the workload changes. None
+are being built on spec.
+
+- **Workflow orchestration** (Temporal, Airflow, Prefect). Add when
+  multi-step pipelines that need retries/signals/history become a real
+  workload. Plug in via `magellon_sdk.executor.Executor`.
+- **`LocalDocker` / `RunPod` / `Kubernetes` executors.** Add the first one a
+  paying customer asks for. Not before.
+- **Fan-out event bus (NATS/JetStream).** Add when either (a) multi-tenant
+  scale-out requires it, or (b) the import/domain workflows grow a second
+  consumer. Until then Socket.IO is enough.
+- **On-disk message audit**. The `/magellon/messages/*/messages.json`
+  writes went away with RabbitMQ; replace with structured logs if audit is
+  ever required again.
+
+---
+
+## Test discipline (unchanged from prior plan)
 
 A test lives at the layer that enforces the contract it pins:
 
-| Layer                   | Lives in                       | Runs when                      |
-|-------------------------|-------------------------------|--------------------------------|
-| Plugin unit test        | Plugin repo                    | Plugin CI                      |
-| Envelope golden         | `CoreService/tests/characterization/` | CoreService CI           |
-| Queue-name / discovery  | Same                           | Same                           |
-| HTTP contract (plugins) | `CoreService/tests/contracts/` | CoreService CI                 |
-| Workflow unit test      | `CoreService/tests/workflows/` | CoreService CI (uses `temporalio.testing`) |
-| E2E smoke               | `CoreService/tests/e2e/`       | CI nightly + pre-release       |
-| External plugin contract| `plugins/<plugin>/tests/contract/` | Plugin CI                 |
+| Layer                   | Lives in                                  | Runs when                 |
+|-------------------------|-------------------------------------------|---------------------------|
+| Plugin unit test        | The plugin's own directory                | CoreService CI            |
+| Envelope / schema golden| `CoreService/tests/characterization/`     | CoreService CI            |
+| HTTP contract           | `CoreService/tests/characterization/`     | CoreService CI            |
+| Socket.IO emit shape    | `CoreService/tests/characterization/`     | CoreService CI            |
+| Container contract      | `CoreService/tests/contracts/` (Phase C.4)| CoreService CI (dockered) |
+| E2E smoke               | `CoreService/tests/e2e/` (Phase C.5)      | CI nightly + pre-release  |
+| SDK unit tests          | `MagellonSdk/tests/`                      | SDK CI                    |
 
-**Rule:** no PR in Phase 2+ merges without a test. Reviewer rejects
-otherwise.
+**Rule:** no PR in Phase A or later merges without the tests that pin the
+behaviour it touches. Reviewer rejects otherwise.
 
 ---
 
-## Current iteration (starts now)
+## Current iteration
 
-We are beginning **Phase 0**, starting with **PR 0.1 (CI baseline)** and
-**PR 0.2 (envelope golden files)**. Everything else waits on the safety
-net being green.
+Phase A (consolidation) starts next — A.1 and A.2 are pure deletions of dead
+code with zero behaviour change, so they can land immediately and in either
+order.
