@@ -1,3 +1,6 @@
+# Magellon Plugin SDK — shared rabbitmq / logging / bootstrap helpers.
+-e ../../MagellonSdk[rabbitmq,logging]
+
 fastapi
 uvicorn
 pydantic
