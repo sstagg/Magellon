@@ -5,6 +5,12 @@ from core.helper import push_result_to_out_queue
 from core.model_dto import TaskDto, PluginInfoSingleton
 from core.setup_plugin import check_python_version, check_operating_system, check_requirements_txt
 from service.motioncor_service import do_motioncor
+from service.step_events import (
+    get_publisher,
+    safe_emit_completed,
+    safe_emit_failed,
+    safe_emit_started,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -25,15 +31,24 @@ def get_plugin_info():
 
 
 async def do_execute(params: TaskDto):
+    publisher = await get_publisher()
+    await safe_emit_started(publisher, job_id=params.job_id, task_id=params.id)
     try:
         # the_data = CryoEmCtfTaskData.model_validate(params.data)
         result = await do_motioncor(params)
         if result is not None:
             push_result_to_out_queue(result)
+            await safe_emit_completed(
+                publisher, job_id=params.job_id, task_id=params.id
+            )
             return result
         #     compute_file_fft(mrc_abs_path=request.image_path, abs_out_file_name=request.target_path)
+        await safe_emit_completed(publisher, job_id=params.job_id, task_id=params.id)
         return {"message": "Motioncor successfully executed"}
     except Exception as exc:
+        await safe_emit_failed(
+            publisher, job_id=params.job_id, task_id=params.id, error=str(exc)
+        )
         return {"error": str(exc)}
 
 
