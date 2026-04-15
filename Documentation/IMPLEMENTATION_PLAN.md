@@ -51,7 +51,7 @@ contract + full e2e smoke) never landed; deferred to Phase C.
 ### Phase 1 — SDK extract (complete minus publish)
 PRs 1.1–1.5, 1.7 all landed (`a4d1e10`, `5d14b06`, `b90ffe2`, `eb00daa`,
 `f10456f`). `magellon-sdk 0.1.0` is installable as an editable dep from
-`../MagellonSdk`. PR 1.6 (publish to an index) deferred pending an infra
+`../magellon-sdk`. PR 1.6 (publish to an index) deferred pending an infra
 decision — folded into Phase E below.
 
 ### Phase 2 — Temporal (reverted `86fe9cc`)
@@ -155,7 +155,7 @@ removed. `grep "from 'axios'\|from \"axios\"" | wc -l` equals
 ## Phase E — SDK publish path
 
 **Goal:** Unblock external plugin authors. Today `magellon-sdk` installs only
-via path (`-e ../MagellonSdk`). That's fine for in-tree work; it doesn't let
+via path (`-e ../magellon-sdk`). That's fine for in-tree work; it doesn't let
 a third party `pip install magellon-sdk`.
 
 | PR  | Title | DoD |
@@ -216,7 +216,7 @@ A test lives at the layer that enforces the contract it pins:
 | Socket.IO emit shape    | `CoreService/tests/characterization/`     | CoreService CI            |
 | Container contract      | `CoreService/tests/contracts/` (Phase C.4)| CoreService CI (dockered) |
 | E2E smoke               | `CoreService/tests/e2e/` (Phase C.5)      | CI nightly + pre-release  |
-| SDK unit tests          | `MagellonSdk/tests/`                      | SDK CI                    |
+| SDK unit tests          | `magellon-sdk/tests/`                     | SDK CI                    |
 
 **Rule:** no PR in Phase A or later merges without the tests that pin the
 behaviour it touches. Reviewer rejects otherwise.

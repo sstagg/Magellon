@@ -1,5 +1,5 @@
 # Magellon Plugin SDK — shared rabbitmq / logging / bootstrap helpers.
--e ../../MagellonSdk[rabbitmq,logging,config,consul]
+-e ../../magellon-sdk[rabbitmq,logging,config,consul]
 
 fastapi
 uvicorn

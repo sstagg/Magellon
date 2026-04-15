@@ -161,12 +161,12 @@ Don't couple this migration to a DB swap.
 
 ---
 
-## 4. The plugin SDK (`MagellonSdk/`)
+## 4. The plugin SDK (`magellon-sdk/`)
 
-Today `MagellonSdk/` is a scaffold. Target:
+Today `magellon-sdk/` is a scaffold. Target:
 
 ```
-MagellonSdk/src/magellon_sdk/
+magellon-sdk/src/magellon_sdk/
 ├── __init__.py
 ├── base.py             # PluginBase (moved out of CoreService)
 ├── progress.py         # ProgressReporter Protocol, NullReporter
@@ -377,7 +377,7 @@ Each phase ends with: green CI, a rollback switch, and an updated section in
 ### Phase 1 — Extract the SDK
 
 - Move `CoreService/plugins/base.py` and `plugins/progress.py` into
-  `MagellonSdk/src/magellon_sdk/`.
+  `magellon-sdk/src/magellon_sdk/`.
 - CoreService re-exports from the SDK so existing imports keep working.
 - Publish `magellon-sdk` to a private index at `0.1.0`.
 - Add CloudEvents envelope helpers and `TaskEnvelope` (Pydantic) to the SDK.
