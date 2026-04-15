@@ -158,3 +158,104 @@ def test_stop_calls_consumer_stop(session_factory):
     forwarder.stop()
 
     assert consumer.stopped is True
+
+
+class _StubLoop:
+    """Stand-in for asyncio.AbstractEventLoop — we only need
+    to observe that handle() scheduled the downstream coro
+    against it."""
+
+    def __init__(self):
+        self.scheduled = []
+
+    def call_soon_threadsafe(self, *args, **kwargs):  # unused, present for completeness
+        pass
+
+
+def test_handle_schedules_downstream_on_loop_when_both_provided(session_factory, monkeypatch):
+    from core import rmq_step_event_forwarder as mod
+    from core.rmq_step_event_forwarder import RmqStepEventForwarder
+
+    scheduled = []
+
+    def _fake_run(coro, loop):
+        scheduled.append((coro, loop))
+        coro.close()  # prevent "coroutine was never awaited" warning
+
+    monkeypatch.setattr(mod.asyncio, "run_coroutine_threadsafe", _fake_run)
+
+    async def _downstream(env):
+        pass
+
+    loop = _StubLoop()
+    forwarder = RmqStepEventForwarder(
+        consumer=StubConsumer(),
+        session_factory=session_factory,
+        downstream=_downstream,
+        loop=loop,
+    )
+    env = _envelope(STEP_COMPLETED)
+    forwarder.handle(env)
+
+    assert len(scheduled) == 1
+    assert scheduled[0][1] is loop
+
+
+def test_handle_skips_downstream_without_loop(session_factory, monkeypatch):
+    """downstream alone (no loop) must not schedule — there's no
+    asgi loop to dispatch to from the consumer thread."""
+    from core import rmq_step_event_forwarder as mod
+    from core.rmq_step_event_forwarder import RmqStepEventForwarder
+
+    called = []
+
+    def _fake_run(coro, loop):
+        called.append((coro, loop))
+        coro.close()
+
+    monkeypatch.setattr(mod.asyncio, "run_coroutine_threadsafe", _fake_run)
+
+    async def _downstream(env):
+        pass
+
+    forwarder = RmqStepEventForwarder(
+        consumer=StubConsumer(),
+        session_factory=session_factory,
+        downstream=_downstream,
+        loop=None,
+    )
+    forwarder.handle(_envelope(STEP_COMPLETED))
+
+    assert called == []
+
+
+def test_downstream_failure_does_not_break_persistence(session_factory, monkeypatch):
+    """A crash scheduling the downstream must be swallowed — the DB
+    write already happened and the RMQ consumer must keep draining."""
+    from core import rmq_step_event_forwarder as mod
+    from core.rmq_step_event_forwarder import RmqStepEventForwarder
+
+    def _fake_run(coro, loop):
+        coro.close()
+        raise RuntimeError("loop closed")
+
+    monkeypatch.setattr(mod.asyncio, "run_coroutine_threadsafe", _fake_run)
+
+    async def _downstream(env):
+        pass
+
+    forwarder = RmqStepEventForwarder(
+        consumer=StubConsumer(),
+        session_factory=session_factory,
+        downstream=_downstream,
+        loop=_StubLoop(),
+    )
+    env = _envelope(STEP_COMPLETED)
+
+    forwarder.handle(env)  # must not raise
+
+    db = session_factory()
+    try:
+        assert db.query(JobEventRow).count() == 1
+    finally:
+        db.close()

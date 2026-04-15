@@ -1,3 +1,4 @@
+import asyncio
 import os
 import socket
 import json
@@ -367,10 +368,16 @@ async def startup_event():
     if os.environ.get("MAGELLON_RMQ_STEP_EVENTS_FORWARDER") == "1":
         try:
             from core.rmq_step_event_forwarder import build_default_rmq_forwarder
+            from core.socketio_server import emit_step_event
             from database import session_local as _session_local
+            # Capture the asgi event loop so the RMQ consumer daemon thread
+            # can dispatch the async Socket.IO emit via run_coroutine_threadsafe.
+            # Without the loop the forwarder stays a pure persistence sink.
             rmq_forwarder = build_default_rmq_forwarder(
                 app_settings.rabbitmq_settings,
                 _session_local,
+                downstream=emit_step_event,
+                loop=asyncio.get_running_loop(),
             )
             rmq_forwarder.start()
             app.state.rmq_step_event_forwarder = rmq_forwarder
