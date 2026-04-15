@@ -149,6 +149,63 @@ def test_publish_message_to_queue_helper_success():
         _delete_queue(q)
 
 
+def test_declare_queue_with_dlq_routes_rejected_message_to_dlq():
+    """When a message is rejected (basic_nack, requeue=False) on a
+    queue declared via ``declare_queue_with_dlq``, it lands on the DLQ
+    — not on the floor. This is the whole point of a DLQ."""
+    q = _unique_queue()
+    dlq = f"{q}_dlq"
+    try:
+        client = RabbitmqClient(_Settings())
+        client.connect()
+        try:
+            # Declare with DLX binding. Returns the DLQ name it picked.
+            assert client.declare_queue_with_dlq(q) == dlq
+
+            # Publish a message straight to the main queue.
+            client.channel.basic_publish(
+                exchange="",
+                routing_key=q,
+                body=b"doomed",
+                properties=pika.BasicProperties(delivery_mode=2),
+            )
+
+            # Consume + reject it so it routes via the DLX.
+            method, _, body = client.channel.basic_get(queue=q, auto_ack=False)
+            assert method is not None
+            assert body == b"doomed"
+            client.channel.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+
+            # It should now be sitting on the DLQ.
+            method2, _, body2 = client.channel.basic_get(queue=dlq, auto_ack=True)
+            assert method2 is not None, "message did not reach DLQ"
+            assert body2 == b"doomed"
+        finally:
+            client.close_connection()
+    finally:
+        _delete_queue(q)
+        _delete_queue(dlq)
+
+
+def test_declare_queue_with_dlq_is_idempotent():
+    """Calling declare_queue_with_dlq twice on the same name must not
+    raise — matches pika's ``queue_declare`` semantics when args
+    match."""
+    q = _unique_queue()
+    dlq = f"{q}_dlq"
+    try:
+        client = RabbitmqClient(_Settings())
+        client.connect()
+        try:
+            client.declare_queue_with_dlq(q)
+            client.declare_queue_with_dlq(q)  # second call: no-op
+        finally:
+            client.close_connection()
+    finally:
+        _delete_queue(q)
+        _delete_queue(dlq)
+
+
 def test_publish_message_to_queue_returns_false_on_bad_broker():
     """Previously: connect() swallowed errors -> publish appeared to
     succeed -> helper returned True. Now helper returns False because

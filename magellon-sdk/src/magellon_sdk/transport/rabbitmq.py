@@ -73,6 +73,43 @@ class RabbitmqClient:
         self.channel.queue_declare(queue=queue_name, durable=True)
         logger.info(f"Declared queue: {queue_name}")
 
+    def declare_queue_with_dlq(
+        self,
+        queue_name: str,
+        *,
+        dlq_suffix: str = "_dlq",
+    ) -> str:
+        """Declare ``queue_name`` with a dead-letter queue alongside.
+
+        Creates:
+
+        - ``<queue_name>`` (durable) with ``x-dead-letter-exchange=""``
+          and ``x-dead-letter-routing-key=<queue_name><dlq_suffix>`` so
+          rejected/expired messages route to the DLQ via the default
+          exchange.
+        - ``<queue_name><dlq_suffix>`` (durable) — the parking lot.
+
+        Returns the DLQ name.
+
+        **Only use on new queues.** Re-declaring an existing queue
+        with different ``x-*`` args raises a
+        :class:`PRECONDITION_FAILED` channel error. Existing queues
+        (``ctf_tasks_queue``, ``motioncor_tasks_queue``) need a broker
+        policy or an operator-driven rename — do not call this on them.
+        """
+        dlq_name = f"{queue_name}{dlq_suffix}"
+        self.channel.queue_declare(queue=dlq_name, durable=True)
+        self.channel.queue_declare(
+            queue=queue_name,
+            durable=True,
+            arguments={
+                "x-dead-letter-exchange": "",
+                "x-dead-letter-routing-key": dlq_name,
+            },
+        )
+        logger.info("Declared queue %s with DLQ %s", queue_name, dlq_name)
+        return dlq_name
+
     def publish_message(self, message, queue_name: Optional[str] = None) -> None:
         """Publish ``message`` to ``queue_name``.
 

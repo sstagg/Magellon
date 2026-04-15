@@ -232,7 +232,7 @@ Closing this gap is Phase 4.
 | ~~`TaskOutputProcessor` never advances `ImageJobTask.status_id/stage`~~ | 4 (done) | Result processor now writes `status_id` (COMPLETED / FAILED) and `stage` (MotionCor=1, CTF=2, unknown=99) on the `image_job_task` row keyed by `task_result.task_id`. 5 mocked-DB unit tests. |
 | Plugin-progress pipe to UI | 4.5 (publisher half done) | SDK ships `magellon_sdk.events.StepEventPublisher` + `StepStarted`/`StepProgress`/`StepCompleted`/`StepFailed` payloads + subject helper. Plugins can now emit `magellon.step.*` CloudEvents. CoreService Socket.IO forwarder is still TODO. |
 | `support/events/publisher.py` + `subscriber.py` still importable as FastAPI apps | 2 | Keep as thin shims around `magellon_sdk.transport.nats` — migration in this phase. |
-| No DLQ on task queues | 3 | `RabbitmqClient.publish_message` has no reject/retry policy. Still open. |
+| DLQ on task queues | 3 (capability landed) | `RabbitmqClient.declare_queue_with_dlq(name)` now declares a queue + matching `<name>_dlq` with `x-dead-letter-exchange`/`x-dead-letter-routing-key` set. Rejected/expired messages land on the DLQ instead of the floor. New plugin queues should opt in; existing queues (`ctf_tasks_queue`, `motioncor_tasks_queue`) need a broker-policy migration because re-declaring them with new `x-*` args is a `PRECONDITION_FAILED`. |
 | ~~`asyncio.run()` inside pika blocking callback~~ | 3 (done) | Fixed in all 4 plugin consumer engines: one daemon-thread event loop per process, callbacks use `run_coroutine_threadsafe(...).result()`. |
 | ~~`RabbitmqClient.connect()` swallowed `AMQPConnectionError`~~ | 3 (done) | Now raises so helpers report `False` instead of silent-dropping a message as success. |
 
