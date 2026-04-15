@@ -136,25 +136,44 @@ def get_queue_name_by_task_type(task_type: TaskCategory, is_result: bool = False
     return queue_mapping[task_type.code]['result' if is_result else 'task']
 
 def push_task_to_task_queue(task: TaskDto) -> bool:
+    """Push a task to its worker via the configured dispatcher.
+
+    Delegates to :class:`magellon_sdk.dispatcher.TaskDispatcherRegistry`;
+    adding a new plugin is now a single ``registry.register(...)`` call
+    in :mod:`core.dispatcher_registry` — no edit to this function or
+    the task-type→queue switch needed.
     """
-    Push a task to its appropriate queue based on task type
+    try:
+        from core.dispatcher_registry import get_task_dispatcher_registry
 
-    Args:
-        task (TaskDto): Task to be published
+        _audit_outgoing_message(task)
+        return get_task_dispatcher_registry().dispatch(task)
+    except Exception as e:
+        logger.error(f"Error pushing task to queue: {e}")
+        return False
 
-    Returns:
-        bool: True if successfully published, False otherwise
+
+def _audit_outgoing_message(task: TaskDto) -> None:
+    """Best-effort on-disk audit log of outgoing tasks.
+
+    Writes one JSON line per dispatched task to
+    ``/magellon/messages/<queue>/messages.json``. Matches the old
+    ``publish_message_to_queue`` behaviour so operators keep their
+    audit trail through the dispatcher migration. Failures are
+    swallowed — this is diagnostics, not correctness.
     """
     try:
         queue_name = get_queue_name_by_task_type(task.type, is_result=False)
         if not queue_name:
-            logger.error(f"No queue found for task type: {task.type}")
-            return False
-
-        return publish_message_to_queue(task, queue_name)
-    except Exception as e:
-        logger.error(f"Error pushing task to queue: {e}")
-        return False
+            return
+        destination_dir = os.path.join("/magellon", "messages", queue_name)
+        os.makedirs(destination_dir, exist_ok=True)
+        append_json_to_file(
+            os.path.join(destination_dir, "messages.json"),
+            task.model_dump_json(),
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.debug("outgoing-message audit failed (non-fatal): %s", e)
 
 
 def push_result_to_out_queue(result: TaskResultDto) -> bool:
