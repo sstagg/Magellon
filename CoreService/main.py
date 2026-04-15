@@ -361,6 +361,21 @@ async def startup_event():
     except Exception as e:
         logger.error(f"[WARNING] Failed to start result processor: {e}")
 
+    # Plugin liveness listener (P6). Subscribes to magellon.plugins.*
+    # so announce + heartbeat messages from PluginBrokerRunner-based
+    # plugins land in an in-memory registry. Replaces Consul service
+    # registration as the source of truth for "what's alive right now".
+    try:
+        from core.plugin_liveness_registry import start_liveness_listener
+        from config import app_settings as _app_settings
+        logger.info("Starting plugin liveness listener...")
+        app.state.plugin_liveness_listener = start_liveness_listener(
+            _app_settings.rabbitmq_settings
+        )
+        logger.info("[OK] Plugin liveness listener started")
+    except Exception as e:
+        logger.error(f"[WARNING] Failed to start plugin liveness listener: {e}")
+
     # Start in-process result-processor (P3). Replaces the out-of-tree
     # magellon_result_processor plugin: every task-result queue declared
     # in rabbitmq_settings.OUT_QUEUES is consumed here and projected
