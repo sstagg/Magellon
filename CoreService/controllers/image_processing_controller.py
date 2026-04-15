@@ -155,35 +155,64 @@ class FftDispatchResponse(BaseModel):
     status: str = "dispatched"
 
 
+class FftBatchDispatchRequest(BaseModel):
+    image_paths: list[str]
+    job_id: Optional[UUID] = None
+    name: Optional[str] = None
+
+
+class FftBatchDispatchResponse(BaseModel):
+    job_id: UUID
+    task_ids: list[UUID]
+    queue_name: str
+    target_paths: list[str]
+    status: str = "dispatched"
+
+
+def _fft_target_for(image_path: str, override: Optional[str] = None) -> str:
+    if override:
+        return override
+    base = os.path.splitext(os.path.basename(image_path))[0] + "_FFT.png"
+    return os.path.join(os.path.dirname(image_path), base)
+
+
 @image_processing_router.post(
     "/fft/dispatch",
     response_model=FftDispatchResponse,
-    summary="Dispatch an FFT task to the fft plugin over RMQ. Returns job_id+task_id "
-            "so the UI can subscribe to job:<uuid> and watch step events stream back.",
+    summary="Dispatch an FFT task to the fft plugin over RMQ. Persists "
+            "the job + task via JobManager, then publishes. Returns "
+            "job_id+task_id so the UI can subscribe to job:<uuid> and "
+            "watch step events stream back.",
 )
 async def fft_dispatch(
     request: FftDispatchRequest,
     _: None = Depends(require_permission('image_processing', 'write')),
     user_id: UUID = Depends(get_current_user_id),
 ):
-    """Async FFT via the plugin — separate from the synchronous
-    ``/fft_of_mrc_file`` endpoint that the import pipeline still uses.
+    """Single-image FFT dispatch.
 
-    Exists primarily as a test bed for the messaging stack: it takes
-    a file path, generates a job_id + task_id, fires a TaskDto at
-    ``fft_tasks_queue``, and returns the IDs so the React test page
-    can subscribe to the corresponding ``job:<uuid>`` Socket.IO room.
+    Creates a 1-task ImageJob via JobManager (so the DB has authoritative
+    job state from the moment of dispatch), then publishes one TaskDto
+    onto ``fft_tasks_queue``. The step-event projector flips that row
+    through running → completed/failed as envelopes flow back.
+
+    For dispatching N images under one job, use ``/fft/batch_dispatch``.
     """
     from core.helper import dispatch_fft_task
+    from services.job_manager import job_manager
 
-    job_id = request.job_id or uuid.uuid4()
     task_id = uuid.uuid4()
+    target_path = _fft_target_for(request.image_path, request.target_path)
 
-    if request.target_path:
-        target_path = request.target_path
-    else:
-        base = os.path.splitext(os.path.basename(request.image_path))[0] + "_FFT.png"
-        target_path = os.path.join(os.path.dirname(request.image_path), base)
+    job_envelope = job_manager.create_job(
+        plugin_id="magellon_fft_plugin",
+        name=f"FFT {os.path.basename(request.image_path)}",
+        settings={"image_path": request.image_path, "target_path": target_path},
+        task_ids=[task_id],
+        user_id=str(user_id) if user_id else None,
+        job_id=request.job_id,
+    )
+    job_id = uuid.UUID(job_envelope["job_id"])
 
     logger.info(
         "User %s dispatching FFT task %s in job %s for image %s",
@@ -197,6 +226,9 @@ async def fft_dispatch(
         image_id=request.image_id,
     )
     if not ok:
+        # DB has a QUEUED job that will never run — flip it to failed
+        # so the UI doesn't see a permanently-pending row.
+        job_manager.fail_job(str(job_id), error="Failed to publish FFT task to RMQ")
         raise HTTPException(status_code=502, detail="Failed to publish FFT task to RMQ")
 
     return FftDispatchResponse(
@@ -205,6 +237,71 @@ async def fft_dispatch(
         queue_name="fft_tasks_queue",
         image_path=request.image_path,
         target_path=target_path,
+    )
+
+
+@image_processing_router.post(
+    "/fft/batch_dispatch",
+    response_model=FftBatchDispatchResponse,
+    summary="Dispatch N FFT tasks under a single job. Persists one "
+            "ImageJob with N ImageJobTask rows via JobManager, then "
+            "publishes N TaskDtos. Returns job_id + task_ids; subscribe "
+            "to job:<job_id> for the aggregate progress stream.",
+)
+async def fft_batch_dispatch(
+    request: FftBatchDispatchRequest,
+    _: None = Depends(require_permission('image_processing', 'write')),
+    user_id: UUID = Depends(get_current_user_id),
+):
+    from core.helper import dispatch_fft_task
+    from services.job_manager import job_manager
+
+    if not request.image_paths:
+        raise HTTPException(status_code=400, detail="image_paths must be non-empty")
+
+    n = len(request.image_paths)
+    task_ids = [uuid.uuid4() for _ in range(n)]
+    target_paths = [_fft_target_for(p) for p in request.image_paths]
+
+    job_envelope = job_manager.create_job(
+        plugin_id="magellon_fft_plugin",
+        name=request.name or f"FFT batch x{n}",
+        settings={"image_paths": request.image_paths, "target_paths": target_paths},
+        task_ids=task_ids,
+        user_id=str(user_id) if user_id else None,
+        job_id=request.job_id,
+    )
+    job_id = uuid.UUID(job_envelope["job_id"])
+
+    failures: list[str] = []
+    for img, tgt, tid in zip(request.image_paths, target_paths, task_ids):
+        ok = dispatch_fft_task(
+            image_path=img,
+            target_path=tgt,
+            job_id=job_id,
+            task_id=tid,
+        )
+        if not ok:
+            failures.append(str(tid))
+
+    if failures:
+        job_manager.fail_job(
+            str(job_id),
+            error=f"Failed to publish {len(failures)}/{n} task(s): {failures}",
+        )
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to publish {len(failures)}/{n} FFT task(s)",
+        )
+
+    logger.info(
+        "User %s dispatched FFT batch job=%s tasks=%d", user_id, job_id, n,
+    )
+    return FftBatchDispatchResponse(
+        job_id=job_id,
+        task_ids=task_ids,
+        queue_name="fft_tasks_queue",
+        target_paths=target_paths,
     )
 
 

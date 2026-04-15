@@ -1,20 +1,30 @@
-"""Full-stack FFT e2e: real docker-compose stack + Socket.IO subscriber.
+"""Full-stack FFT e2e: real docker-compose stack + DB + Socket.IO subscriber.
 
 Pipeline exercised
 ------------------
 
-    test logs in as super -> POST /image/fft/dispatch x10
-       -> backend publishes 10 TaskDtos onto fft_tasks_queue
-          -> magellon_fft_plugin container drains, runs FFT, writes PNG
-             -> emits started/progress/completed envelopes onto NATS
-                -> backend's NATS->Socket.IO forwarder fans out to job:<uuid>
-                   <- this test's socketio.AsyncClient reads them off the wire
+    test logs in as super -> POST /image/fft/batch_dispatch (10 images)
+       -> JobManager.create_job persists ImageJob + 10 ImageJobTask (QUEUED)
+          -> backend publishes 10 TaskDtos onto fft_tasks_queue
+             -> magellon_fft_plugin container drains, runs FFT, writes PNG
+                -> emits started/progress/completed envelopes onto NATS+RMQ
+                   -> backend's forwarder writes job_event rows AND
+                      runs StepEventJobStateProjector to flip image_job /
+                      image_job_task statuses, then fans out to Socket.IO
+                      <- this test's socketio.AsyncClient reads them
 
-Asserts:
-- 10 ``magellon.step.started``, 10 ``magellon.step.completed``,
-  >=20 ``magellon.step.progress``, 0 ``magellon.step.failed``.
-- Each completed event names an output PNG that exists on the host
-  filesystem (mounted into both backend and plugin via ``MAGELLON_GPFS_PATH``).
+Asserts the *whole* state machine, not just the wire events:
+
+  Pre-dispatch  : no rows for our run_id
+  Post-dispatch : ImageJob status=QUEUED(0), 10 ImageJobTask status=QUEUED(0)
+  Post-events   : 10 magellon.step.started + 10 magellon.step.completed,
+                  >=20 progress, 0 failed; all targeted at job_id
+  Post-complete : ImageJob status=COMPLETED(2), processed_json.progress=100,
+                  processed_json.completed_tasks length=10,
+                  all 10 ImageJobTask status=COMPLETED(2),
+                  exactly 20 job_event rows (started + completed; progress
+                  is filtered at the writer by design)
+  Filesystem    : every reported output PNG exists on the host
 
 Skip rules
 ----------
@@ -26,8 +36,9 @@ in a unit-test loop. Operator workflow:
     set MAGELLON_GPFS_HOST_PATH=c:\\magellon\\gpfs   # whatever .env points at
     pytest tests/integration/test_fft_full_stack_e2e.py -v
 
-If ``MAGELLON_GPFS_HOST_PATH`` is unset we fall back to ``c:\\magellon\\gpfs``
-which matches the value baked into ``Docker/.env``.
+If ``MAGELLON_GPFS_HOST_PATH`` is unset we fall back to ``c:\\magellon\\gpfs``;
+if ``MAGELLON_E2E_DB_URL`` is unset we fall back to root@127.0.0.1:3306 with
+the password baked into Docker/.env.
 """
 from __future__ import annotations
 
@@ -37,13 +48,11 @@ import os
 import time
 import uuid
 from pathlib import Path
-from typing import List
+from typing import Any, Dict, List, Optional
 
 import pytest
 
 logger = logging.getLogger(__name__)
-
-pytestmark = pytest.mark.integration_e2e
 
 # 10 FFTs over a real socket fan-out — each task is sub-second on
 # 256x256 images, so 90s gives ~80s of headroom for cold container
@@ -53,6 +62,10 @@ TEST_BUDGET = 90.0
 BACKEND_URL = os.environ.get("MAGELLON_BACKEND_URL", "http://127.0.0.1:8000")
 SUPER_USER = os.environ.get("MAGELLON_E2E_USER", "super")
 SUPER_PASS = os.environ.get("MAGELLON_E2E_PASS", "behd1d2")
+DB_URL = os.environ.get(
+    "MAGELLON_E2E_DB_URL",
+    "mysql+pymysql://root:behd1d2@127.0.0.1:3306/magellon01",
+)
 
 
 def _stack_up() -> bool:
@@ -128,19 +141,99 @@ def _login() -> str:
     return token
 
 
-def _dispatch_one(token: str, image_path_in_container: str, job_id: uuid.UUID) -> dict:
-    """POST /image/fft/dispatch — returns the response body (job_id, task_id, ...)."""
+def _batch_dispatch(token: str, image_paths_in_container: List[str],
+                    job_id: uuid.UUID, name: str) -> dict:
+    """POST /image/fft/batch_dispatch — returns {job_id, task_ids, target_paths}."""
     import requests
 
     resp = requests.post(
-        f"{BACKEND_URL}/image/fft/dispatch",
-        json={"image_path": image_path_in_container, "job_id": str(job_id)},
+        f"{BACKEND_URL}/image/fft/batch_dispatch",
+        json={
+            "image_paths": image_paths_in_container,
+            "job_id": str(job_id),
+            "name": name,
+        },
         headers={"Authorization": f"Bearer {token}"},
-        timeout=10,
+        timeout=30,
     )
-    assert resp.status_code == 200, f"dispatch failed: {resp.status_code} {resp.text[:300]}"
+    assert resp.status_code == 200, f"batch_dispatch failed: {resp.status_code} {resp.text[:400]}"
     return resp.json()
 
+
+# ---- DB helpers --------------------------------------------------------------
+
+def _db_engine():
+    """Lazy import + memoize — keeps unit-test collectors that import this
+    module from also dragging in SQLAlchemy when the e2e stack isn't up."""
+    if not hasattr(_db_engine, "_e"):
+        from sqlalchemy import create_engine
+        _db_engine._e = create_engine(DB_URL, pool_pre_ping=True, future=True)
+    return _db_engine._e
+
+
+def _get_image_job(job_id: uuid.UUID) -> Optional[Dict[str, Any]]:
+    from sqlalchemy import text
+
+    with _db_engine().connect() as conn:
+        row = conn.execute(
+            text(
+                "SELECT BIN_TO_UUID(oid) AS oid, name, plugin_id, status_id, "
+                "processed_json, start_date, end_date "
+                "FROM image_job WHERE oid = UUID_TO_BIN(:jid)"
+            ),
+            {"jid": str(job_id)},
+        ).mappings().first()
+    return dict(row) if row else None
+
+
+def _get_image_job_tasks(job_id: uuid.UUID) -> List[Dict[str, Any]]:
+    from sqlalchemy import text
+
+    with _db_engine().connect() as conn:
+        rows = conn.execute(
+            text(
+                "SELECT BIN_TO_UUID(oid) AS oid, status_id, processed_json "
+                "FROM image_job_task WHERE job_id = UUID_TO_BIN(:jid) "
+                "ORDER BY oid"
+            ),
+            {"jid": str(job_id)},
+        ).mappings().all()
+    return [dict(r) for r in rows]
+
+
+def _get_job_events(job_id: uuid.UUID) -> List[Dict[str, Any]]:
+    from sqlalchemy import text
+
+    with _db_engine().connect() as conn:
+        rows = conn.execute(
+            text(
+                "SELECT event_id, event_type, step, ts "
+                "FROM job_event WHERE job_id = UUID_TO_BIN(:jid) "
+                "ORDER BY ts"
+            ),
+            {"jid": str(job_id)},
+        ).mappings().all()
+    return [dict(r) for r in rows]
+
+
+def _processed(row: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Tolerant unwrap: MySQL JSON columns surface as either dicts (when
+    PyMySQL has json deserialization on) or strings. Tests don't care."""
+    if not row:
+        return {}
+    raw = row.get("processed_json")
+    if raw is None:
+        return {}
+    if isinstance(raw, (dict, list)):
+        return raw if isinstance(raw, dict) else {}
+    import json
+    try:
+        return json.loads(raw)
+    except Exception:
+        return {}
+
+
+# ---- Socket.IO subscriber ----------------------------------------------------
 
 async def _drain_socketio_events(job_id: uuid.UUID, expected_completed: int,
                                  deadline: float) -> List[dict]:
@@ -183,6 +276,8 @@ async def _drain_socketio_events(job_id: uuid.UUID, expected_completed: int,
     return received
 
 
+# ---- the test ----------------------------------------------------------------
+
 def test_full_stack_dispatches_ten_ffts_and_streams_events(tmp_path):
     gpfs_root = _gpfs_host_root()
     if not gpfs_root.exists():
@@ -201,17 +296,34 @@ def test_full_stack_dispatches_ten_ffts_and_streams_events(tmp_path):
     token = _login()
     job_id = uuid.uuid4()
 
-    expected_outputs_host: List[Path] = []
-    expected_outputs_container = set()
-    for img in images:
-        in_container = f"{container_dir}/{img.name}"
-        body = _dispatch_one(token, in_container, job_id)
-        assert body["job_id"] == str(job_id)
-        # Backend derives target_path = <dirname>/<stem>_FFT.png
-        target = body["target_path"]
-        expected_outputs_container.add(target)
-        expected_outputs_host.append(host_dir / (Path(img).stem + "_FFT.png"))
+    # -- pre-dispatch: nothing in the DB for this job yet --------------------
+    assert _get_image_job(job_id) is None
+    assert _get_image_job_tasks(job_id) == []
+    assert _get_job_events(job_id) == []
 
+    # -- dispatch: one batch, 10 tasks, single ImageJob ----------------------
+    in_container = [f"{container_dir}/{img.name}" for img in images]
+    body = _batch_dispatch(token, in_container, job_id, name=f"e2e {run_id}")
+    assert body["job_id"] == str(job_id)
+    assert len(body["task_ids"]) == 10
+    expected_outputs_container = set(body["target_paths"])
+    expected_outputs_host = [host_dir / (Path(img).stem + "_FFT.png") for img in images]
+
+    # -- post-dispatch: JobManager has persisted everything as QUEUED --------
+    job_row = _get_image_job(job_id)
+    assert job_row is not None, "ImageJob not persisted by /fft/batch_dispatch"
+    assert job_row["status_id"] == 0, f"expected QUEUED(0), got {job_row['status_id']}"
+    assert job_row["plugin_id"] == "magellon_fft_plugin"
+    proc = _processed(job_row)
+    assert proc.get("expected_tasks") == 10, proc
+    assert proc.get("completed_tasks") == [], proc
+
+    task_rows = _get_image_job_tasks(job_id)
+    assert len(task_rows) == 10, f"expected 10 tasks, got {len(task_rows)}"
+    assert all(r["status_id"] == 0 for r in task_rows), \
+        [r["status_id"] for r in task_rows]
+
+    # -- drain Socket.IO until 10 completed events arrive --------------------
     deadline = time.monotonic() + TEST_BUDGET
     events = asyncio.run(
         _drain_socketio_events(
@@ -251,3 +363,48 @@ def test_full_stack_dispatches_ten_ffts_and_streams_events(tmp_path):
 
     missing_on_host = [p for p in expected_outputs_host if not p.exists() or p.stat().st_size == 0]
     assert not missing_on_host, f"FFT outputs missing on host: {missing_on_host}"
+
+    # -- post-completion: projector flipped DB state through to COMPLETED ----
+    # The projector runs in the forwarder's downstream chain BEFORE Socket.IO
+    # emit, so by the time we received the last completed envelope above the
+    # DB row should already be settled. Allow a brief grace window for the
+    # final commit + the second forwarder (RMQ) finishing its own write.
+    deadline_db = time.monotonic() + 10.0
+    while time.monotonic() < deadline_db:
+        job_row = _get_image_job(job_id)
+        if job_row and job_row["status_id"] == 2:
+            break
+        time.sleep(0.25)
+
+    assert job_row is not None
+    assert job_row["status_id"] == 2, (
+        f"expected COMPLETED(2), got {job_row['status_id']} — "
+        f"projector did not flip job state"
+    )
+    proc = _processed(job_row)
+    assert proc.get("progress") == 100, proc
+    completed_task_ids = proc.get("completed_tasks") or []
+    assert len(completed_task_ids) == 10, (
+        f"expected 10 completed_tasks recorded, got {len(completed_task_ids)}: {proc}"
+    )
+
+    task_rows = _get_image_job_tasks(job_id)
+    assert len(task_rows) == 10
+    bad = [r for r in task_rows if r["status_id"] != 2]
+    assert not bad, f"non-COMPLETED tasks remain: {[(r['oid'], r['status_id']) for r in bad]}"
+
+    # job_event log: exactly 20 lifecycle rows. Progress envelopes are
+    # filtered at the writer (live-only). The same logical event arriving
+    # via NATS *and* RMQ dedups on event_id, so we expect 10+10, not 40.
+    event_rows = _get_job_events(job_id)
+    by_event_type: Dict[str, List[Dict[str, Any]]] = {}
+    for r in event_rows:
+        by_event_type.setdefault(r["event_type"], []).append(r)
+
+    assert "magellon.step.progress" not in by_event_type, (
+        "progress events leaked into job_event — writer filter regressed"
+    )
+    assert len(by_event_type.get("magellon.step.started", [])) == 10, by_event_type
+    assert len(by_event_type.get("magellon.step.completed", [])) == 10, by_event_type
+    assert "magellon.step.failed" not in by_event_type, by_event_type
+    assert len(event_rows) == 20, f"expected 20 lifecycle rows, got {len(event_rows)}"

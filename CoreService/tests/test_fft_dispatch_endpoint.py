@@ -29,6 +29,19 @@ def client(monkeypatch) -> TestClient:
 
     monkeypatch.setattr(CasbinService, "enforce", staticmethod(lambda *a, **kw: True))
 
+    # Stub JobManager so the contract test stays DB-free. The endpoint
+    # now persists a job before publishing; we don't care about that
+    # write here — we just need a job_id back so the response shape is
+    # well-formed.
+    import services.job_manager as jm_mod
+
+    def _fake_create_job(**kw):
+        jid = kw.get("job_id") or uuid4()
+        return {"job_id": str(jid)}
+
+    monkeypatch.setattr(jm_mod.job_manager, "create_job", _fake_create_job)
+    monkeypatch.setattr(jm_mod.job_manager, "fail_job", lambda *a, **kw: {})
+
     app = FastAPI()
     app.include_router(image_processing_router)
     app.dependency_overrides[get_current_user_id] = lambda: uuid4()

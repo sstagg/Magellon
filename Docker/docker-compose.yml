@@ -148,6 +148,12 @@ services:
       - DRAGONFLY_HOST=dragonfly
       - DRAGONFLY_PORT=6379
       - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
+      # Step-event forwarders (RMQ + NATS): persist lifecycle envelopes
+      # to job_event AND drive JobManager state transitions for
+      # message-driven plugins (FFT/CTF/MotionCor).
+      - MAGELLON_RMQ_STEP_EVENTS_FORWARDER=1
+      - MAGELLON_STEP_EVENTS_FORWARDER=1
+      - NATS_URL=nats://nats:4222
     networks:
       magellon-network:
         ipv4_address: 172.16.238.15
@@ -269,6 +275,13 @@ services:
       - RUN_ENV=docker
       - GPFS_ROOT=${MAGELLON_GPFS_PATH}
       - JOBS_PATH=${MAGELLON_JOBS_PATH}
+      # Step-event publishing — the plugin emits started/progress/
+      # completed envelopes onto NATS so the backend's projector can
+      # transition image_job state. Without these the plugin still
+      # processes RMQ messages but nothing reaches job_event / Socket.IO.
+      - MAGELLON_STEP_EVENTS_ENABLED=1
+      - MAGELLON_STEP_EVENTS_RMQ=1
+      - NATS_URL=nats://nats:4222
     volumes:
       - ${MAGELLON_HOME_PATH}:/magellon
       - ${MAGELLON_GPFS_PATH}:/gpfs
@@ -278,6 +291,9 @@ services:
     networks:
       magellon-network:
         ipv4_address: 172.16.238.23
+    depends_on:
+      - rabbitmq
+      - nats
 
 volumes:
   # Named volumes for all services

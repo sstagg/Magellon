@@ -24,6 +24,25 @@ from services.job_event_writer import JobEventWriter
 
 DownstreamHandler = Callable[[Envelope[Any]], Awaitable[None]]
 
+
+def chain_downstream(*handlers: DownstreamHandler) -> DownstreamHandler:
+    """Run multiple downstream handlers in order for one envelope.
+
+    Each handler is awaited; an exception in one is logged and swallowed
+    so the next still runs (the writer already persisted the event, and
+    we'd rather have a partial fan-out than drop everything).
+    """
+    async def _run(envelope: Envelope[Any]) -> None:
+        for h in handlers:
+            try:
+                await h(envelope)
+            except Exception:
+                logger.exception(
+                    "downstream handler %r failed for event %s",
+                    getattr(h, "__qualname__", repr(h)), envelope.id,
+                )
+    return _run
+
 logger = logging.getLogger(__name__)
 
 
@@ -120,4 +139,4 @@ def build_default_forwarder(
     return StepEventForwarder(consumer, session_factory, downstream=downstream)
 
 
-__all__ = ["StepEventForwarder", "build_default_forwarder"]
+__all__ = ["StepEventForwarder", "build_default_forwarder", "chain_downstream"]
