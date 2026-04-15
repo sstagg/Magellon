@@ -256,6 +256,29 @@ services:
               count: all
               capabilities: [gpu]
 
+  magellon_fft_plugin:
+    build:
+      # Repo root as context so the plugin's editable SDK install
+      # (`-e ../../magellon-sdk[...]`) resolves at build time.
+      context: ..
+      dockerfile: plugins/magellon_fft_plugin/Dockerfile
+    image: magellon_fft_plugin_image
+    container_name: magellon_fft_plugin_container
+    environment:
+      - APP_ENV=production
+      - RUN_ENV=docker
+      - GPFS_ROOT=${MAGELLON_GPFS_PATH}
+      - JOBS_PATH=${MAGELLON_JOBS_PATH}
+    volumes:
+      - ${MAGELLON_HOME_PATH}:/magellon
+      - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_JOBS_PATH}:/jobs
+    ports:
+      - "127.0.0.1:${MAGELLON_FFT_PLUGIN_PORT}:80"
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.23
+
 volumes:
   # Named volumes for all services
   rabbitmq-data: { }
