@@ -1,16 +1,33 @@
-from typing import Dict, Any, Optional
-from uuid import UUID
-import os
 import json
-from sqlalchemy.orm import Session
-from sqlalchemy.exc import SQLAlchemyError
+import logging
+import os
 import uuid
+from typing import Any, Dict, Optional
+from uuid import UUID
+
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
+
+from core.helper import move_file_to_directory
 from core.model_dto import TaskResultDto
 from core.settings import AppSettingsSingleton, QueueType
-from core.sqlalchemy_models import ImageMetaData
-from core.helper import move_file_to_directory
-import logging
+from core.sqlalchemy_models import ImageJobTask, ImageMetaData
+
 logger = logging.getLogger(__name__)
+
+# ImageJobTask.status_id values — match CoreService.services.job_manager.
+STATUS_QUEUED = 0
+STATUS_RUNNING = 1
+STATUS_COMPLETED = 2
+STATUS_FAILED = 3
+
+# ImageJobTask.stage values — per task-type code. The stage is the
+# position of that step in the per-image pipeline:
+#   1 = MotionCor (TaskCategory.code == 5)
+#   2 = CTF       (TaskCategory.code == 2)
+# Unknown task types land at 99 so operators can spot them in the UI.
+_TASK_TYPE_TO_STAGE = {5: 1, 2: 2}
+_DEFAULT_STAGE = 99
 class TaskOutputProcessor:
     def __init__(self, db: Session):
         self.db = db
@@ -125,6 +142,39 @@ class TaskOutputProcessor:
         except Exception as e:
             print(f"Unexpected error: {e}")
 
+    def _advance_task_state(
+        self,
+        task_result: TaskResultDto,
+        *,
+        status_id: int,
+    ) -> None:
+        """Advance the ``image_job_task`` row for this result.
+
+        Sets ``status_id`` (COMPLETED / FAILED) and ``stage`` (derived
+        from task-type code). Without this the frontend's progress bar
+        stalls at the "pending" status regardless of actual outcome.
+        The commented-out block at
+        ``services/service.py::do_execute`` was an earlier attempt —
+        this consolidates it here, on the same DB session that writes
+        ``ImageMetaData``.
+        """
+        if task_result.task_id is None:
+            logger.warning("TaskResultDto has no task_id — skipping ImageJobTask advance")
+            return
+
+        db_task = (
+            self.db.query(ImageJobTask)
+            .filter(ImageJobTask.oid == task_result.task_id)
+            .first()
+        )
+        if db_task is None:
+            logger.warning("ImageJobTask %s not found — cannot advance state", task_result.task_id)
+            return
+
+        db_task.status_id = status_id
+        type_code = task_result.type.code if task_result.type else None
+        db_task.stage = _TASK_TYPE_TO_STAGE.get(type_code, _DEFAULT_STAGE)
+
     def process(self, task_result: TaskResultDto) -> Dict[str, Any]:
         """
         Process task output based on its type and save results.
@@ -141,6 +191,15 @@ class TaskOutputProcessor:
 
             self._save_metadata(task_result)
 
+            # Mark the per-image task finished so the UI progress bar
+            # advances past "pending". Status derives from the result:
+            # if the plugin reported FAILED status, persist FAILED;
+            # otherwise treat as COMPLETED. The existing exception
+            # path below catches any DB error and marks it FAILED.
+            reported_code = task_result.status.code if task_result.status else None
+            final_status = STATUS_FAILED if reported_code == STATUS_FAILED else STATUS_COMPLETED
+            self._advance_task_state(task_result, status_id=final_status)
+
             # Commit database changes
             self.db.commit()
             logger.info("Successfully added to database.")
@@ -150,6 +209,15 @@ class TaskOutputProcessor:
         except Exception as exc:
             logger.error(f"Error processing {task_result.type.name}: {exc}", exc_info=True)
             self.db.rollback()
+
+            # Best-effort: mark the task FAILED so the UI doesn't hang.
+            try:
+                self._advance_task_state(task_result, status_id=STATUS_FAILED)
+                self.db.commit()
+            except Exception as state_err:
+                logger.error("Could not mark ImageJobTask as FAILED: %s", state_err)
+                self.db.rollback()
+
             return {"error": str(exc)}
 
         finally:

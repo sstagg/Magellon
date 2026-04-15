@@ -227,8 +227,9 @@ Closing this gap is Phase 4.
 | Gap | Phase | Notes |
 |-----|-------|-------|
 | Hardcoded task-type → queue switch | 6 | `TaskDispatcher` Protocol in SDK; `RabbitmqTaskDispatcher` + `InProcessTaskDispatcher` impls. |
-| External plugin progress invisible to UI | 4 | Route plugin progress through NATS → CoreService → Socket.IO. |
-| `TaskOutputProcessor` never advances `ImageJobTask.status_id/stage` | 4 | Single writer path is `JobManager`; result processor currently bypasses it. |
+| External plugin progress invisible to UI | 4 (partial) | Plumbing deferred — see Phase 4.5 below. Today's step: at least final state lands in DB so UI moves past "pending". |
+| ~~`TaskOutputProcessor` never advances `ImageJobTask.status_id/stage`~~ | 4 (done) | Result processor now writes `status_id` (COMPLETED / FAILED) and `stage` (MotionCor=1, CTF=2, unknown=99) on the `image_job_task` row keyed by `task_result.task_id`. 5 mocked-DB unit tests. |
+| Plugin-progress pipe to UI | 4.5 (planned) | Follow-up: external plugins publish `magellon.step.*` CloudEvents on NATS; CoreService consumer forwards to Socket.IO room `job:<job_id>`. Prerequisite: Phase 6 dispatcher landed. |
 | `support/events/publisher.py` + `subscriber.py` still importable as FastAPI apps | 2 | Keep as thin shims around `magellon_sdk.transport.nats` — migration in this phase. |
 | No DLQ on task queues | 3 | `RabbitmqClient.publish_message` has no reject/retry policy. Still open. |
 | ~~`asyncio.run()` inside pika blocking callback~~ | 3 (done) | Fixed in all 4 plugin consumer engines: one daemon-thread event loop per process, callbacks use `run_coroutine_threadsafe(...).result()`. |
