@@ -26,9 +26,12 @@ pipelines become a real requirement.
    integration point — do not re-scaffold.
 4. **One job, one truth.** Collapse `job_service`, `magellon_job_manager`,
    and the dead `job_manager` / `temporal_job_manager` into one path.
-5. **One event path to the UI.** Socket.IO is what the frontend consumes today;
-   it is sufficient for one-plugin-one-call. Defer NATS/JetStream until
-   fan-out or durability becomes a real need.
+5. **Two layers, not three.** Socket.IO for CoreService ↔ UI (real-time
+   browser pushes). NATS for CoreService ↔ containerized plugins (async
+   request + progress + reply, long jobs without holding an HTTP
+   connection). In-process plugins don't need either — direct function
+   call with a `ProgressReporter` that fans out to Socket.IO.
+   **RabbitMQ goes.**
 6. **Additive, then subtractive.** Build the new path alongside the old,
    prove it in CI, then delete.
 7. **Reversible PRs.** Each PR in this plan stands alone; `git revert` restores
@@ -106,23 +109,26 @@ extension points.
 
 ## Phase C — Event & dispatch consolidation
 
-**Goal:** One event path from plugin → UI. Today Socket.IO works and is
-wired; NATS is present but only used by import/domain workflows; RabbitMQ is
-dead after Phase A. Fragment count should go to 1.
+**Goal:** Two event seams, each with one producer and one consumer shape:
+Socket.IO for CoreService → UI, NATS for CoreService ↔ containerized
+plugins. Today both exist; both have fragmented callers; neither has a
+single owning module. Cut the fragments, keep the layering. RabbitMQ is
+already gone after Phase A.
 
 | PR  | Title | DoD |
 |-----|-------|-----|
-| C.1 | Socket.IO as the sole UI event path | All plugin-progress emits go through one helper. `JobService.emit(...)` is the single producer. No other module calls `sio.emit` directly. Contract pinned by the existing PR 0.6 tests. |
-| C.2 | Decide NATS fate | Audit: what actually subscribes to NATS today? If only import workflows, either (a) move those to Socket.IO too and drop NATS, or (b) keep NATS behind one clear seam (`MagellonEventService`) and document that plugin code never touches it. |
-| C.3 | JobService as the single progress seam | Plugin author writes `reporter.report(pct, msg)`; reporter fans out to Socket.IO + DB. No other fan-out paths. Existing `JobReporter` stays host-side; `ProgressReporter` Protocol in SDK. |
-| C.4 | PR 0.7 — plugin-container contract test | The Phase 0 test that was deferred: boot a plugin container image in CI, POST a canned input, assert response shape. Validates the containerized-plugin path once rather than per-plugin. |
-| C.5 | PR 0.8 — end-to-end smoke test | Also deferred from Phase 0: MySQL + CoreService + one plugin, submit one job, assert progress frames and result row. Runs nightly in CI. |
+| C.1 | Socket.IO — single producer for UI events | All UI-facing `emit` calls funnel through `JobService.emit(...)`. No other module calls `sio.emit` directly. Contract pinned by the existing PR 0.6 tests. |
+| C.2 | NATS — single seam for container-plugin transport | Consolidate NATS publish/subscribe behind `services/event_service.py` (the `MagellonEventService` is already close to this). Subjects documented: `magellon.plugin.<id>.request`, `.progress`, `.reply`. Plugin authors use a helper, not `nats.connect(...)` directly. |
+| C.3 | `ProgressReporter` fans out to the right seam | Plugin author always writes `reporter.report(pct, msg)`. In-process plugins: reporter pushes Socket.IO. Container plugins: reporter publishes NATS, gateway in CoreService forwards to Socket.IO. Plugin code stays transport-agnostic. |
+| C.4 | Document the plugin transport protocol | Short `Documentation/PLUGIN_TRANSPORT.md`: NATS subject naming, request/progress/reply payload shape (reuse the CloudEvents envelope already in SDK), timeout / retry expectations. One page. |
+| C.5 | PR 0.7 — plugin-container contract test | The Phase 0 test that was deferred: boot a plugin container image in CI, publish a canned request on NATS, assert progress frames + reply shape. Validates the containerized-plugin transport once rather than per-plugin. |
+| C.6 | PR 0.8 — end-to-end smoke test | Also deferred from Phase 0: MySQL + NATS + CoreService + one container plugin, submit one job, assert progress frames arrive on Socket.IO and result row persists. Runs nightly in CI. |
 
-**Exit criterion:** `grep -r "sio.emit\|nats.publish"` returns a bounded set of
-locations (ideally: one helper each). Nightly e2e smoke green.
+**Exit criterion:** Each bus has exactly one owning module (`JobService` for
+Socket.IO, `MagellonEventService` for NATS). Plugin code never imports
+`socketio` or `nats` directly. Nightly e2e smoke green.
 
-**Rollback:** per-PR revert; C.2 is the only one that removes a dependency
-(NATS), and only if the audit shows it has no live consumer.
+**Rollback:** per-PR revert.
 
 ---
 
@@ -188,9 +194,10 @@ are being built on spec.
   workload. Plug in via `magellon_sdk.executor.Executor`.
 - **`LocalDocker` / `RunPod` / `Kubernetes` executors.** Add the first one a
   paying customer asks for. Not before.
-- **Fan-out event bus (NATS/JetStream).** Add when either (a) multi-tenant
-  scale-out requires it, or (b) the import/domain workflows grow a second
-  consumer. Until then Socket.IO is enough.
+- **JetStream durability / replay.** NATS core (non-persistent pub/sub) is
+  enough for today's request → progress → reply pattern. Turn on JetStream
+  when either (a) plugin outputs need to survive a CoreService restart
+  mid-job, or (b) a second consumer wants to replay event history.
 - **On-disk message audit**. The `/magellon/messages/*/messages.json`
   writes went away with RabbitMQ; replace with structured logs if audit is
   ever required again.
