@@ -26,12 +26,12 @@ from magellon_sdk.models import (
     Transport,
 )
 
-from core.model_dto import FftTaskData, PluginInfoSingleton, TaskDto
-from core.setup_plugin import (
+from magellon_sdk.bootstrap import (
     check_operating_system,
     check_python_version,
     check_requirements_txt,
 )
+from magellon_sdk.models import FftTaskData, PluginInfoSingleton, TaskDto
 from service.fft_service import compute_file_fft
 from service.step_events import STEP_NAME, get_publisher
 

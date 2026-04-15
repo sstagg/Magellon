@@ -12,9 +12,9 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 
 from core.logger_config import setup_logging
-from core.model_dto import TaskDto
 from core.settings import AppSettingsSingleton
 from magellon_sdk.categories.contract import FFT
+from magellon_sdk.models import TaskDto
 from service.plugin import FftBrokerRunner, FftPlugin, build_fft_result
 from service.service import check_requirements, do_execute, get_manifest, get_plugin_info
 

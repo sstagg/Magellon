@@ -97,9 +97,9 @@ def _publish_task_dto(rmq_settings, queue_name: str, image_path: Path, target_pa
     side reads the same singleton, so credentials match.
     """
     from core.helper import publish_message_to_queue
-    from core.task_factory import FftTaskFactory
     from magellon_sdk.models import FftTaskData
     from magellon_sdk.models.tasks import PENDING, FFT_TASK
+    from magellon_sdk.task_factory import FftTaskFactory
 
     data = FftTaskData(
         image_id=None,
