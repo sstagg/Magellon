@@ -78,7 +78,7 @@ class BaseAppSettings(BaseModel):
             with open(file_path, "r") as file:
                 data_dict = yaml.safe_load(file)
             try:
-                return cls.parse_obj(data_dict)
+                return cls.model_validate(data_dict)
             except ValidationError:
                 return None
         return None
@@ -87,7 +87,7 @@ class BaseAppSettings(BaseModel):
     def load_yaml_settings(cls, yaml_string: str):
         try:
             data_dict = yaml.safe_load(yaml_string)
-            return cls.parse_obj(data_dict)
+            return cls.model_validate(data_dict)
         except (ValidationError, yaml.YAMLError):
             return None
 
@@ -104,7 +104,7 @@ class BaseAppSettings(BaseModel):
 
     def save_yaml_settings(self, file_path: str) -> None:
         with open(file_path, "w") as file:
-            yaml.dump(self.dict(), file)
+            yaml.dump(self.model_dump(), file)
 
     def save_settings_to_json_file(self, file_path: str) -> None:
         with open(file_path, "w") as file:

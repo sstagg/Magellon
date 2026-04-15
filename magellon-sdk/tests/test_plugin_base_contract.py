@@ -12,10 +12,25 @@ from pydantic import BaseModel
 
 def test_plugin_base_import_paths():
     """PluginBase is importable from both magellon_sdk.base and the
-    top-level package once it's re-exported."""
-    from magellon_sdk.base import PluginBase
+    top-level package."""
+    from magellon_sdk import PluginBase as TopLevelPluginBase
+    from magellon_sdk.base import PluginBase as SubmodulePluginBase
 
-    assert issubclass(PluginBase, ABC)
+    assert TopLevelPluginBase is SubmodulePluginBase
+    assert issubclass(SubmodulePluginBase, ABC)
+
+
+def test_top_level_surface():
+    """Pin the names re-exported at the package top level.
+
+    Plugin authors write ``from magellon_sdk import PluginBase, Envelope,
+    NullReporter`` — renames here break every plugin.
+    """
+    import magellon_sdk
+
+    for name in ("PluginBase", "Envelope", "ProgressReporter", "NullReporter",
+                 "JobCancelledError"):
+        assert hasattr(magellon_sdk, name), f"magellon_sdk.{name} missing"
 
 
 def test_models_surface():
