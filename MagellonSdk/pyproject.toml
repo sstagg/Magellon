@@ -37,6 +37,9 @@ dev = [
     "pytest-asyncio>=0.21",
 ]
 
+[project.scripts]
+magellon-plugin = "magellon_sdk.cli:main"
+
 [project.urls]
 Homepage = "https://magellon.org/magellonsdk"
 Repository = "https://github.com/magellon-org/magellon"
