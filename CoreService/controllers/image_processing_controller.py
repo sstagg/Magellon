@@ -139,6 +139,75 @@ async def fft_of_mrc_file(
         return {"error": str(e), "user_id": str(user_id)}
 
 
+class FftDispatchRequest(BaseModel):
+    image_path: str
+    target_path: Optional[str] = None
+    job_id: Optional[UUID] = None
+    image_id: Optional[UUID] = None
+
+
+class FftDispatchResponse(BaseModel):
+    job_id: UUID
+    task_id: UUID
+    queue_name: str
+    image_path: str
+    target_path: str
+    status: str = "dispatched"
+
+
+@image_processing_router.post(
+    "/fft/dispatch",
+    response_model=FftDispatchResponse,
+    summary="Dispatch an FFT task to the fft plugin over RMQ. Returns job_id+task_id "
+            "so the UI can subscribe to job:<uuid> and watch step events stream back.",
+)
+async def fft_dispatch(
+    request: FftDispatchRequest,
+    _: None = Depends(require_permission('image_processing', 'write')),
+    user_id: UUID = Depends(get_current_user_id),
+):
+    """Async FFT via the plugin — separate from the synchronous
+    ``/fft_of_mrc_file`` endpoint that the import pipeline still uses.
+
+    Exists primarily as a test bed for the messaging stack: it takes
+    a file path, generates a job_id + task_id, fires a TaskDto at
+    ``fft_tasks_queue``, and returns the IDs so the React test page
+    can subscribe to the corresponding ``job:<uuid>`` Socket.IO room.
+    """
+    from core.helper import dispatch_fft_task
+
+    job_id = request.job_id or uuid.uuid4()
+    task_id = uuid.uuid4()
+
+    if request.target_path:
+        target_path = request.target_path
+    else:
+        base = os.path.splitext(os.path.basename(request.image_path))[0] + "_FFT.png"
+        target_path = os.path.join(os.path.dirname(request.image_path), base)
+
+    logger.info(
+        "User %s dispatching FFT task %s in job %s for image %s",
+        user_id, task_id, job_id, request.image_path,
+    )
+    ok = dispatch_fft_task(
+        image_path=request.image_path,
+        target_path=target_path,
+        job_id=job_id,
+        task_id=task_id,
+        image_id=request.image_id,
+    )
+    if not ok:
+        raise HTTPException(status_code=502, detail="Failed to publish FFT task to RMQ")
+
+    return FftDispatchResponse(
+        job_id=job_id,
+        task_id=task_id,
+        queue_name="fft_tasks_queue",
+        image_path=request.image_path,
+        target_path=target_path,
+    )
+
+
 @image_processing_router.post("/ctf")
 async def calculate_ctf(
     abs_file_path: str,
