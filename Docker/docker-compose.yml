@@ -126,8 +126,10 @@ services:
 
   backend:
     build:
-      context: ../CoreService
-      dockerfile: Dockerfile
+      # Repo root as context so the editable SDK install
+      # (`-e ../magellon-sdk` in CoreService/requirements.txt) resolves.
+      context: ..
+      dockerfile: CoreService/Dockerfile
     image: magellon-core-image
     container_name: magellon-core-container
     restart: unless-stopped

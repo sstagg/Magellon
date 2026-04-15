@@ -1,12 +1,12 @@
 # syntax=docker/dockerfile:1
-#https://www.freecodecamp.org/news/how-to-dockerize-a-flask-app/
-#https://github.com/Dev-Elie/Flask-Docker-App
+# Build context MUST be the repo root, not CoreService/ — requirements.txt
+# pins `-e ../magellon-sdk`, which only resolves if we lay the project out
+# in-image the same way it lives on disk:
+#   /app/magellon-sdk
+#   /app/CoreService
+# (compose: `context: ..` from Docker/, `dockerfile: CoreService/Dockerfile`)
 FROM python:3.11-slim-bookworm
 
-WORKDIR /app
-
-#COPY ../../MainService/requirements.txt requirements.txt
-COPY requirements.txt ./
 RUN apt-get update && apt-get install -y \
     libpq-dev \
     build-essential \
@@ -16,55 +16,47 @@ RUN apt-get update && apt-get install -y \
     wget \
  && rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip first
-RUN pip3 install --upgrade pip
-RUN pip install psycopg2-binary --no-cache-dir
-RUN pip3 install --no-cache-dir --upgrade -r ./requirements.txt
-#RUN pip3 install /en_core_web_sm-2.0.0.tar.gz
+# SDK source first — pip's editable install in CoreService/requirements.txt
+# points at this via `../magellon-sdk` (resolved from /app/CoreService).
+COPY magellon-sdk /app/magellon-sdk
 
-#COPY . .
-COPY main.py ./main.py
-#COPY requirements.txt ./
-#COPY areas ./app
-COPY controllers ./controllers
-COPY lib ./lib
-COPY models ./models
-COPY repositories ./repositories
-COPY services ./services
-COPY templates ./templates
-COPY tests ./tests
-COPY configs ./configs
-COPY core ./core
-COPY static ./static
-COPY dependencies ./dependencies
+WORKDIR /app/CoreService
+COPY CoreService/requirements.txt ./
 
-COPY configs/app_settings_dev.yaml ./configs/app_settings_dev.yaml
-COPY configs/app_settings_prod.yaml ./configs/app_settings_prod.yaml
-COPY logger_config.py ./logger_config.py
-COPY config.py ./config.py
-COPY database.py ./database.py
-COPY test_main.http ./
+RUN pip3 install --upgrade pip \
+ && pip install psycopg2-binary --no-cache-dir \
+ && pip3 install --no-cache-dir --upgrade -r ./requirements.txt
 
-# Create a volume for the application data
+COPY CoreService/main.py ./main.py
+COPY CoreService/controllers ./controllers
+COPY CoreService/lib ./lib
+COPY CoreService/models ./models
+COPY CoreService/repositories ./repositories
+COPY CoreService/services ./services
+COPY CoreService/templates ./templates
+COPY CoreService/tests ./tests
+COPY CoreService/configs ./configs
+COPY CoreService/core ./core
+COPY CoreService/static ./static
+COPY CoreService/dependencies ./dependencies
+COPY CoreService/domain ./domain
+COPY CoreService/plugins ./plugins
+
+COPY CoreService/configs/app_settings_dev.yaml ./configs/app_settings_dev.yaml
+COPY CoreService/configs/app_settings_prod.yaml ./configs/app_settings_prod.yaml
+COPY CoreService/logger_config.py ./logger_config.py
+COPY CoreService/config.py ./config.py
+COPY CoreService/database.py ./database.py
+COPY CoreService/test_main.http ./
+
 VOLUME /magellon
 VOLUME ./configs
 VOLUME /gpfs
 
-# Set the environment variable for the data directory
-ENV DATA_DIR=/app/data
+ENV DATA_DIR=/app/CoreService/data \
+    PYTHONPATH=/app/CoreService \
+    APP_MODULE=main:app \
+    APP_ENV=production
 
-# Set environment variables for the app
-ENV PYTHONPATH=/app
-ENV APP_MODULE=main:app
-
-ENV APP_ENV=production
-
-# Expose port 80
 EXPOSE 80
-#CMD [ "python3", "-m" , "flask", "run", "--host=0.0.0.0","--port=80"]
-# Start the application using Uvicorn ASGI server
-#uvicorn main:app --host 0.0.0.0 --port 8181
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80"]
-#CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--reload", "--reload-dir", "/app"]
-#If you are running your container behind a TLS Termination Proxy (load balancer) like Nginx or Traefik, add the option --proxy-headers, this will tell Uvicorn to trust the headers sent by that proxy telling it that the application is running behind HTTPS, etc.
-#CMD ["uvicorn", "main:app", "--proxy-headers", "--host", "0.0.0.0", "--port", "80"]
