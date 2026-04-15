@@ -2,7 +2,7 @@
 
 Plugins run in a worker thread via ``run_in_executor``. To stream mid-flight
 progress back to the Socket.IO client they receive a ``ProgressReporter``.
-The reporter persists each update via :class:`JobService` and marshals the
+The reporter persists each update via :class:`JobManager` and marshals the
 Socket.IO emit back onto the running asyncio loop.
 
 Plugins call ``reporter.report(percent, message)`` at logical stage
@@ -25,7 +25,7 @@ from magellon_sdk.progress import (  # noqa: F401  (re-export)
     ProgressReporter,
 )
 
-from services.job_service import job_service
+from services.job_manager import job_manager
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ class JobReporter:
 
     Safe to call from any thread: the Socket.IO coroutines are scheduled
     onto the supplied asyncio loop via ``run_coroutine_threadsafe`` and
-    DB writes happen directly (JobService opens its own session per call).
+    DB writes happen directly (JobManager opens its own session per call).
     """
 
     def __init__(
@@ -57,7 +57,7 @@ class JobReporter:
         # to stop. Plugins that call report() at stage boundaries will bail
         # within one stage; pure-compute stretches without reports can't be
         # interrupted by this alone (documented tradeoff).
-        if job_service.is_cancelled(self._job_id):
+        if job_manager.is_cancelled(self._job_id):
             raise JobCancelledError(f"Job {self._job_id} cancelled")
 
         clamped = max(0, min(100, int(percent)))
@@ -67,7 +67,7 @@ class JobReporter:
         self._last_percent = clamped
 
         try:
-            envelope = job_service.update_progress(self._job_id, progress=clamped)
+            envelope = job_manager.update_progress(self._job_id, progress=clamped)
         except Exception:
             logger.exception("Progress update failed for job %s", self._job_id)
             return

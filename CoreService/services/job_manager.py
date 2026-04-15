@@ -1,10 +1,10 @@
-"""JobService — DB-persisted job lifecycle for plugin executions.
+"""JobManager — DB-persisted job lifecycle for plugin executions.
 
 Writes job state to the ``image_job`` table (plus ``image_job_task`` for
 per-image tasks in a batch). Broadcasts every state change over Socket.IO
 so the frontend can render real progress instead of client-side guesses.
 
-The service is plugin-agnostic: any plugin runner (sync, async, batch)
+The manager is plugin-agnostic: any plugin runner (sync, async, batch)
 calls the same ``create_job`` / ``update_job`` / ``complete_job`` methods.
 """
 from __future__ import annotations
@@ -57,8 +57,8 @@ def _envelope(job: ImageJob, *, include_result: bool = False, progress: int = 0,
     }
 
 
-class JobService:
-    """DB-backed persistence for plugin jobs.
+class JobManager:
+    """DB-backed persistence for plugin jobs — single state writer.
 
     All methods are synchronous from SQLAlchemy's perspective; callers in
     async code should invoke them through ``run_in_executor`` if the
@@ -224,4 +224,4 @@ class JobService:
 
 
 # Module-level singleton.
-job_service = JobService()
+job_manager = JobManager()

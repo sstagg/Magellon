@@ -31,7 +31,7 @@ flowchart LR
         PPRouter["/plugins/pp/* <br/>plugin-specific router"]
         Registry[PluginRegistry<br/>lazy scan]
         PluginImpl[TemplatePickerPlugin<br/>: PluginBase]
-        JobSvc[JobService]
+        JobSvc[JobManager]
         Sio[Socket.IO server<br/>/socket.io]
     end
 
@@ -193,9 +193,9 @@ The generic router is enough to run any plugin — the plugin-specific one adds 
 
 Async plugins don't block the HTTP request. They return a **job envelope** immediately; actual execution runs in `asyncio.create_task(...)` and streams progress via Socket.IO.
 
-### JobService
+### JobManager
 
-**File:** `CoreService/services/job_service.py`
+**File:** `CoreService/services/job_manager.py`
 **Table:** `image_job` (+ `image_job_task` per image)
 
 ```mermaid
@@ -475,7 +475,7 @@ sequenceDiagram
     participant BD as BatchRunDialog
     participant Sock as Socket.IO client
     participant API as /template-pick/batch
-    participant JobSvc as JobService
+    participant JobSvc as JobManager
     participant Task as asyncio task
     participant Svc as template_picker
     participant DB as image_meta_data
@@ -619,7 +619,7 @@ sequenceDiagram
 | `pp` router | `CoreService/plugins/pp/controller.py` |
 | `pp` Pydantic models | `CoreService/plugins/pp/models.py` |
 | `pp` algorithm | `CoreService/plugins/pp/template_picker/service.py`, `algorithm.py` |
-| Job service | `CoreService/services/job_service.py` |
+| Job service | `CoreService/services/job_manager.py` |
 | Socket.IO server | `CoreService/core/socketio_server.py` |
 | SQLAlchemy models | `CoreService/models/sqlalchemy_models.py` (`Image`, `ImageMetaData`, `ImageJob`, `Plugin`) |
 | Plugin enums / info | `CoreService/models/plugins_models.py` (`PluginStatus`, `TaskCategory`, `PluginInfo`) |

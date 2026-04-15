@@ -26,7 +26,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from plugins.registry import registry
-from services.job_service import job_service
+from services.job_manager import job_manager
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +130,7 @@ async def submit_job(plugin_id: str, request: JobSubmitRequest, sid: str | None 
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"Invalid input: {exc}")
 
-    envelope = job_service.create_job(
+    envelope = job_manager.create_job(
         plugin_id=plugin_id,
         name=request.name or f"{entry.name} job",
         settings=validated.model_dump(mode="json"),
@@ -164,7 +164,7 @@ async def submit_batch(plugin_id: str, request: BatchSubmitRequest, sid: str | N
     envelopes: List[Dict[str, Any]] = []
     for idx, validated in enumerate(validated_inputs):
         image_id = request.image_ids[idx] if request.image_ids else None
-        envelope = job_service.create_job(
+        envelope = job_manager.create_job(
             plugin_id=plugin_id,
             name=request.name or f"{entry.name} batch [{idx + 1}/{len(validated_inputs)}]",
             settings=validated.model_dump(mode="json"),
@@ -180,13 +180,13 @@ async def submit_batch(plugin_id: str, request: BatchSubmitRequest, sid: str | N
 
 @plugins_router.get("/jobs", summary="List plugin jobs")
 async def list_all_jobs(plugin_id: Optional[str] = None, limit: int = 100):
-    return job_service.list_jobs(plugin_id=plugin_id, limit=limit)
+    return job_manager.list_jobs(plugin_id=plugin_id, limit=limit)
 
 
 @plugins_router.get("/jobs/{job_id}", summary="Get plugin job detail")
 async def get_any_job(job_id: str):
     try:
-        return job_service.get_job(job_id)
+        return job_manager.get_job(job_id)
     except LookupError:
         raise HTTPException(status_code=404, detail="Job not found")
 
@@ -197,14 +197,14 @@ async def cancel_any_job(job_id: str):
     progress checkpoint. Terminal jobs are untouched; the current envelope
     is returned so the caller can observe the outcome."""
     try:
-        envelope = job_service.get_job(job_id, include_result=False)
+        envelope = job_manager.get_job(job_id, include_result=False)
     except LookupError:
         raise HTTPException(status_code=404, detail="Job not found")
 
     if envelope["status"] in ("completed", "failed", "cancelled"):
         return envelope
 
-    job_service.request_cancel(job_id)
+    job_manager.request_cancel(job_id)
     return {**envelope, "cancel_requested": True}
 
 
@@ -223,7 +223,7 @@ async def _run_generic_job(entry, job_id: str, validated_input, sid: str | None)
     reporter = JobReporter(job_id=job_id, sid=sid, plugin_label=plugin_label, loop=loop)
 
     try:
-        running = job_service.mark_running(job_id, progress=0)
+        running = job_manager.mark_running(job_id, progress=0)
         await emit_job_update(sid, running)
         await emit_log('info', plugin_label, f"{plugin_label} started (job {job_id})")
 
@@ -235,15 +235,15 @@ async def _run_generic_job(entry, job_id: str, validated_input, sid: str | None)
         result_dict = output.model_dump() if hasattr(output, "model_dump") else output
         num_items = _infer_num_items(result_dict)
 
-        completed = job_service.complete_job(job_id, result=result_dict, num_items=num_items)
+        completed = job_manager.complete_job(job_id, result=result_dict, num_items=num_items)
         await emit_job_update(sid, completed)
         await emit_log('info', plugin_label, f"{plugin_label} completed (job {job_id})")
     except JobCancelledError:
-        cancelled = job_service.cancel_job(job_id)
+        cancelled = job_manager.cancel_job(job_id)
         await emit_job_update(sid, cancelled)
         await emit_log('info', plugin_label, f"{plugin_label} cancelled (job {job_id})")
     except Exception as exc:
-        failed = job_service.fail_job(job_id, error=str(exc))
+        failed = job_manager.fail_job(job_id, error=str(exc))
         await emit_job_update(sid, failed)
         await emit_log('error', plugin_label, f"{plugin_label} failed: {exc}")
         logger.exception("Plugin job failed: %s", plugin_label)

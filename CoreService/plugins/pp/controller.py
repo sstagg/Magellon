@@ -2,7 +2,7 @@
 FastAPI router for particle-picking backends.
 
 This router exposes the template-picker plugin directly (sync, preview/retune,
-async). Job persistence is delegated to :mod:`services.job_service` so every
+async). Job persistence is delegated to :mod:`services.job_manager` so every
 plugin lands rows in ``image_job``; preview state lives in a TTL cache so
 abandoned previews self-expire instead of leaking memory.
 """
@@ -48,7 +48,7 @@ from plugins.pp.template_picker.service import (
     preprocess_templates,
     run_template_picker,
 )
-from services.job_service import job_service
+from services.job_manager import job_manager
 
 logger = logging.getLogger(__name__)
 
@@ -266,7 +266,7 @@ async def template_pick_preview_delete(preview_id: str):
     summary="Submit async template-picking job with Socket.IO progress",
 )
 async def template_pick_async(input_data: TemplatePickerInput, sid: str | None = None):
-    envelope = job_service.create_job(
+    envelope = job_manager.create_job(
         plugin_id=_PLUGIN_ID,
         name="Particle Picking",
         settings=input_data.model_dump(mode="json"),
@@ -285,7 +285,7 @@ async def _run_picking_job(job_id: str, input_data: TemplatePickerInput, sid: st
     reporter = JobReporter(job_id=job_id, sid=sid, plugin_label='picking', loop=loop)
 
     try:
-        running = job_service.mark_running(job_id, progress=0)
+        running = job_manager.mark_running(job_id, progress=0)
         await emit_job_update(sid, running)
         await emit_log('info', 'picking', f"Particle picking started: {input_data.image_path}")
 
@@ -293,7 +293,7 @@ async def _run_picking_job(job_id: str, input_data: TemplatePickerInput, sid: st
             None, lambda: run_template_picker(input_data, reporter=reporter)
         )
 
-        completed = job_service.complete_job(
+        completed = job_manager.complete_job(
             job_id,
             result=result.model_dump(),
             num_items=result.num_particles,
@@ -302,29 +302,29 @@ async def _run_picking_job(job_id: str, input_data: TemplatePickerInput, sid: st
         await emit_log('info', 'picking',
                         f"Particle picking completed — {result.num_particles} particles found")
     except JobCancelledError:
-        cancelled = job_service.cancel_job(job_id)
+        cancelled = job_manager.cancel_job(job_id)
         await emit_job_update(sid, cancelled)
         await emit_log('info', 'picking', f"Particle picking cancelled (job {job_id})")
     except Exception as exc:
-        failed = job_service.fail_job(job_id, error=str(exc))
+        failed = job_manager.fail_job(job_id, error=str(exc))
         await emit_job_update(sid, failed)
         await emit_log('error', 'picking', f"Particle picking failed: {exc}")
         logger.exception("Async particle picking failed: %s", exc)
 
 
 # ---------------------------------------------------------------------------
-# Job management (plugin-scoped convenience endpoints — delegate to JobService)
+# Job management (plugin-scoped convenience endpoints — delegate to JobManager)
 # ---------------------------------------------------------------------------
 
 @pp_router.get("/jobs", summary="List particle picking jobs")
 async def list_jobs():
-    return job_service.list_jobs(plugin_id=_PLUGIN_ID)
+    return job_manager.list_jobs(plugin_id=_PLUGIN_ID)
 
 
 @pp_router.get("/jobs/{job_id}", summary="Get particle picking job details")
 async def get_job(job_id: str):
     try:
-        return job_service.get_job(job_id)
+        return job_manager.get_job(job_id)
     except LookupError:
         raise HTTPException(status_code=404, detail="Job not found")
 
@@ -510,7 +510,7 @@ async def template_pick_batch(
     sid: str | None = None,
     user_id: UUID = Depends(get_current_user_id),
 ):
-    envelope = job_service.create_job(
+    envelope = job_manager.create_job(
         plugin_id=_PLUGIN_ID,
         name=f"Batch particle picking ({len(req.images)} images)",
         settings={
@@ -619,7 +619,7 @@ async def _run_batch_job(
     from core.socketio_server import emit_job_update, emit_log
 
     try:
-        running = job_service.mark_running(job_id, progress=1)
+        running = job_manager.mark_running(job_id, progress=1)
         await emit_job_update(sid, running)
         await emit_log('info', 'batch-picking', f"Batch started: {len(req.images)} images")
 
@@ -643,9 +643,9 @@ async def _run_batch_job(
         db: Session = next(get_db())
         try:
             for i, entry in enumerate(req.images):
-                if job_service.is_cancelled(job_id):
+                if job_manager.is_cancelled(job_id):
                     await emit_log('info', 'batch-picking', f"Batch cancelled at {i}/{total}")
-                    cancelled = job_service.cancel_job(job_id)
+                    cancelled = job_manager.cancel_job(job_id)
                     await emit_job_update(sid, cancelled)
                     return
                 image_oid = UUID(entry.oid)
@@ -721,7 +721,7 @@ async def _run_batch_job(
 
                 # Progress: 0..95 during iteration, 100 at completion
                 progress = int(5 + 90 * (i + 1) / total)
-                progressed = job_service.update_progress(
+                progressed = job_manager.update_progress(
                     job_id, progress=progress, num_items=succeeded,
                 )
                 await emit_job_update(sid, progressed)
@@ -736,7 +736,7 @@ async def _run_batch_job(
         result = BatchPickResult(
             total=total, succeeded=succeeded, failed=failed, items=items,
         )
-        completed = job_service.complete_job(
+        completed = job_manager.complete_job(
             job_id, result=result.model_dump(), num_items=succeeded,
         )
         await emit_job_update(sid, completed)
@@ -746,7 +746,7 @@ async def _run_batch_job(
         )
     except Exception as exc:
         logger.exception("Batch picking job failed")
-        failed_env = job_service.fail_job(job_id, error=str(exc))
+        failed_env = job_manager.fail_job(job_id, error=str(exc))
         await emit_job_update(sid, failed_env)
         await emit_log('error', 'batch-picking', f"Batch failed: {exc}")
 
