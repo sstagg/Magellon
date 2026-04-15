@@ -1,81 +1,24 @@
-import logging
+"""Compatibility shim — pure/file helpers come from the SDK; queue
+pushes wire the plugin's settings into the shared publisher.
+
+``move_file_to_directory`` stays here — only result_processor needs it
+and it touches ``shutil``, not the RabbitMQ transport.
+"""
 import os
-import pdb
-import re
 import shutil
 
 from pydantic import BaseModel
 
-from core.model_dto import TaskDto, CtfTaskData, TaskResultDto
-from core.rabbitmq_client import RabbitmqClient
 from core.settings import AppSettingsSingleton
-
-logger = logging.getLogger(__name__)
-
-
-def create_directory(path):
-    """
-    Creates the directory for the given image path if it does not exist.
-
-    Args:
-    image_path (str): The absolute path of the image file.
-
-    Returns:
-    None
-    """
-    try:
-        directory = os.path.dirname(path)
-        if not os.path.exists(directory):
-            os.makedirs(directory, exist_ok=True)
-            # Set permissions to 777
-            # os.chmod(directory, 0o777)
-    except Exception as e:
-        print(f"An error occurred while creating the directory: {str(e)}")
-
-
-def custom_replace(input_string, replace_type, replace_pattern, replace_with):
-    """
-    Function to perform various types of string replacement based on the specified replace_type.
-
-    Parameters:
-        input_string (str): The input string to be modified.
-        replace_type (str): Type of replacement. Can be 'none', 'normal', or 'regex'.
-        replace_pattern (str): Pattern to search for in the input string.
-        replace_with (str): String to replace the replace_pattern with.
-
-    Returns:
-        str: The modified string after replacement.
-    """
-    if replace_type == 'none':
-        return input_string
-
-    elif replace_type == 'standard':
-        return input_string.replace(replace_pattern, replace_with)
-
-    elif replace_type == 'regex':
-        return re.sub(replace_pattern, replace_with, input_string)
-
-    else:
-        raise ValueError("Invalid replace_type. Use 'none', 'normal', or 'regex'.")
-
-
-def append_json_to_file(file_path, json_str):
-    try:
-        # Append the JSON string as a new line to the file
-        with open(file_path, 'a') as file:
-            file.write(json_str + '\n')
-
-        return True  # Success
-    except Exception as e:
-        print(f"Error appending JSON to file: {e}")
-        return False  # Failure
-
-
-def parse_message_to_task_object(message_str):
-    return TaskDto.model_validate_json(message_str)
-
-def parse_message_to_task_result_object(message_str):
-    return TaskResultDto.model_validate_json(message_str)
+from magellon_sdk.messaging import (  # noqa: F401
+    append_json_to_file,
+    create_directory,
+    custom_replace,
+    parse_message_to_task_object,
+    parse_message_to_task_result_object,
+)
+from magellon_sdk.messaging import publish_message_to_queue as _sdk_publish
+from magellon_sdk.models import CtfTaskData, TaskDto, TaskResultDto
 
 
 def extract_task_data_from_object(task_object):
@@ -87,53 +30,31 @@ def parse_json_for_cryoemctftask(message_str):
 
 
 def publish_message_to_queue(message: BaseModel, queue_name: str) -> bool:
-    """
-    This function publishes a message to a specified RabbitMQ queue.
-
-    Args:
-        message: The message object to be published. Can be either a CryoEmTaskResultDto or a TaskDto.
-        queue_name: The name of the RabbitMQ queue to publish to.
-
-    Returns:
-        True on success, False on error.
-    """
-    try:
-        settings = AppSettingsSingleton.get_instance().rabbitmq_settings
-        rabbitmq_client = RabbitmqClient(settings)
-        rabbitmq_client.connect()  # Connect to RabbitMQ
-        # pdb.set_trace()
-        rabbitmq_client.publish_message(message.model_dump_json(), queue_name)  # Use client method
-        logger.info(f"Message published to {queue_name}")
-        return True
-    except Exception as e:
-        logger.error(f"Error publishing message: {e}")
-        return False
-    finally:
-        rabbitmq_client.close_connection()  # Disconnect from RabbitMQ
+    return _sdk_publish(
+        message,
+        queue_name,
+        rabbitmq_settings=AppSettingsSingleton.get_instance().rabbitmq_settings,
+    )
 
 
 def push_result_to_out_queue(result: TaskResultDto):
-    return publish_message_to_queue(result, AppSettingsSingleton.get_instance().rabbitmq_settings.OUT_QUEUE_NAME)
+    return publish_message_to_queue(
+        result, AppSettingsSingleton.get_instance().rabbitmq_settings.OUT_QUEUE_NAME
+    )
 
 
 def push_task_to_task_queue(task: TaskDto):
-    return publish_message_to_queue(task, AppSettingsSingleton.get_instance().rabbitmq_settings.QUEUE_NAME)
+    return publish_message_to_queue(
+        task, AppSettingsSingleton.get_instance().rabbitmq_settings.QUEUE_NAME
+    )
 
 
 def move_file_to_directory(file_path: str, destination_dir: str) -> None:
-    """
-    Move a file to specified directory, creating the directory if it doesn't exist.
-
-    Args:
-        file_path: Source file path
-        destination_dir: Destination directory path
-    """
+    """Move ``file_path`` into ``destination_dir``, creating it if missing."""
     try:
         if not os.path.exists(destination_dir):
             os.makedirs(destination_dir)
-
         filename = os.path.basename(file_path)
-        destination_path = os.path.join(destination_dir, filename)
-        shutil.move(file_path, destination_path)
+        shutil.move(file_path, os.path.join(destination_dir, filename))
     except Exception as e:
         print(f"Error moving file {file_path}: {e}")
