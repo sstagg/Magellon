@@ -41,6 +41,12 @@ from typing import Any, Callable, Optional
 from pika.exceptions import ConnectionClosedByBroker
 
 from magellon_sdk.base import PluginBase
+from magellon_sdk.categories.contract import CategoryContract
+from magellon_sdk.discovery import (
+    Announce,
+    DiscoveryPublisher,
+    HeartbeatLoop,
+)
 from magellon_sdk.errors import AckAction, classify_exception
 from magellon_sdk.models import TaskDto, TaskResultDto
 from magellon_sdk.transport.rabbitmq import RabbitmqClient
@@ -85,13 +91,24 @@ class PluginBrokerRunner:
         in_queue: str,
         out_queue: str,
         result_factory: ResultFactory,
+        contract: Optional[CategoryContract] = None,
+        heartbeat_interval_seconds: float = 15.0,
+        enable_discovery: bool = True,
     ) -> None:
         self.plugin = plugin
         self.settings = settings
         self.in_queue = in_queue
         self.out_queue = out_queue
         self.result_factory = result_factory
+        # Discovery + heartbeat (P6). Optional so the harness still
+        # works for plugins that haven't been migrated to declare a
+        # contract yet — they just don't show up in the live registry.
+        self.contract = contract
+        self.heartbeat_interval_seconds = heartbeat_interval_seconds
+        self.enable_discovery = enable_discovery and contract is not None
         self._stopping = threading.Event()
+        self._heartbeat_loop: Optional[HeartbeatLoop] = None
+        self._discovery_publisher: Optional[DiscoveryPublisher] = None
 
     # ------------------------------------------------------------------
     # Per-message processing
@@ -165,6 +182,44 @@ class PluginBrokerRunner:
 
         return _on_message
 
+    def _start_discovery(self) -> None:
+        """Publish the announce manifest + start the heartbeat loop.
+
+        Idempotent: a reconnect re-runs the announce so a manager that
+        came up after the plugin still picks it up. Heartbeat thread is
+        only started once per process.
+        """
+        if not self.enable_discovery or self.contract is None:
+            return
+        if self._discovery_publisher is None:
+            self._discovery_publisher = DiscoveryPublisher(self.settings)
+        info = self.plugin.get_info()
+        manifest = self.plugin.manifest()
+        announce = Announce(
+            plugin_id=info.name,
+            plugin_version=info.version,
+            category=self.contract.category.name.lower(),
+            manifest=manifest,
+        )
+        try:
+            self._discovery_publisher.announce(self.contract, announce)
+        except Exception as exc:
+            # Best-effort: a broker hiccup at announce time must not
+            # take the consumer down. Heartbeats will eventually carry
+            # the manager over.
+            logger.warning("PluginBrokerRunner: announce failed: %s", exc)
+
+        if self._heartbeat_loop is None:
+            self._heartbeat_loop = HeartbeatLoop(
+                publisher=self._discovery_publisher,
+                contract=self.contract,
+                plugin_id=info.name,
+                plugin_version=info.version,
+                instance_id=announce.instance_id,
+                interval_seconds=self.heartbeat_interval_seconds,
+            )
+            self._heartbeat_loop.start()
+
     def start_blocking(self) -> None:
         """Run the consume loop on the calling thread. Reconnects on
         broker bounce. Returns when ``stop()`` is called."""
@@ -175,6 +230,7 @@ class PluginBrokerRunner:
                 client.declare_queue(self.in_queue)
                 client.declare_queue(self.out_queue)
                 client.consume(self.in_queue, self._build_callback(client))
+                self._start_discovery()
                 logger.info(
                     "PluginBrokerRunner[%s]: consuming %s, publishing %s",
                     self.plugin.get_info().name,
@@ -200,6 +256,10 @@ class PluginBrokerRunner:
 
     def stop(self) -> None:
         self._stopping.set()
+        if self._heartbeat_loop is not None:
+            self._heartbeat_loop.stop()
+        if self._discovery_publisher is not None:
+            self._discovery_publisher.close()
 
 
 __all__ = ["PluginBrokerRunner", "ResultFactory"]
