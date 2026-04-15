@@ -18,6 +18,9 @@ class RecordingPublisher:
     async def started(self, **kw):
         self.calls.append(("started", kw))
 
+    async def progress(self, **kw):
+        self.calls.append(("progress", kw))
+
     async def completed(self, **kw):
         self.calls.append(("completed", kw))
 
@@ -67,15 +70,20 @@ async def test_do_execute_emits_started_then_completed_on_success(
     assert captured["out"] == str(tmp_path / "img_FFT.png")
 
     names = [c[0] for c in recording_publisher.calls]
-    assert names == ["started", "completed"]
+    # Progress ticks bracket the compute call to prove the path works
+    # end-to-end without needing a long-running step.
+    assert names == ["started", "progress", "progress", "completed"]
     for _, kw in recording_publisher.calls:
         assert kw["job_id"] == params.job_id
         assert kw["task_id"] == params.id
         assert kw["step"] == "fft"
     # completed event must carry the output_files breadcrumb.
-    assert recording_publisher.calls[1][1]["output_files"] == [
+    assert recording_publisher.calls[-1][1]["output_files"] == [
         str(tmp_path / "img_FFT.png")
     ]
+    # Progress events should carry monotonically increasing percent.
+    progress_calls = [kw for name, kw in recording_publisher.calls if name == "progress"]
+    assert [p["percent"] for p in progress_calls] == [25.0, 90.0]
 
 
 @pytest.mark.asyncio
@@ -97,8 +105,10 @@ async def test_do_execute_emits_started_then_failed_on_error(
 
     assert result == {"error": "fft crashed"}
     names = [c[0] for c in recording_publisher.calls]
-    assert names == ["started", "failed"]
-    assert recording_publisher.calls[1][1]["error"] == "fft crashed"
+    # First progress tick fires before the compute call, so a crash mid-
+    # compute leaves: started, progress(loading), failed.
+    assert names == ["started", "progress", "failed"]
+    assert recording_publisher.calls[-1][1]["error"] == "fft crashed"
 
 
 @pytest.mark.asyncio

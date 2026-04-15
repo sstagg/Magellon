@@ -177,12 +177,78 @@ class StepEventPublisher:
         await self._pub.publish(subject, envelope)
 
 
+class BoundStepReporter:
+    """One-task view over a :class:`StepEventPublisher`.
+
+    Plugins typically run a single ``do_execute`` against one (job_id,
+    task_id, step) triple — repeating those args on every emit is noise.
+    This wrapper binds them once so the call site reads as the actual
+    progress story:
+
+        reporter = BoundStepReporter(publisher, job_id=..., task_id=..., step="fft")
+        await reporter.started()
+        await reporter.progress(50, "computing FFT")
+        await reporter.completed(output_files=[out_path])
+
+    ``publisher`` may be ``None`` — that's the disabled-step-events case
+    (``MAGELLON_STEP_EVENTS_ENABLED`` unset). Every method becomes a
+    no-op so plugins don't need their own None guards.
+    """
+
+    def __init__(
+        self,
+        publisher: Optional[StepEventPublisher],
+        *,
+        job_id: UUID,
+        step: str,
+        task_id: Optional[UUID] = None,
+    ) -> None:
+        self._pub = publisher
+        self._job_id = job_id
+        self._task_id = task_id
+        self._step = step
+
+    async def started(self) -> None:
+        if self._pub is None:
+            return
+        await self._pub.started(job_id=self._job_id, step=self._step, task_id=self._task_id)
+
+    async def progress(self, percent: float, message: Optional[str] = None) -> None:
+        if self._pub is None:
+            return
+        await self._pub.progress(
+            job_id=self._job_id,
+            step=self._step,
+            percent=percent,
+            message=message,
+            task_id=self._task_id,
+        )
+
+    async def completed(self, output_files: Optional[List[str]] = None) -> None:
+        if self._pub is None:
+            return
+        await self._pub.completed(
+            job_id=self._job_id,
+            step=self._step,
+            task_id=self._task_id,
+            output_files=output_files,
+        )
+
+    async def failed(self, error: str) -> None:
+        if self._pub is None:
+            return
+        await self._pub.failed(
+            job_id=self._job_id, step=self._step, error=error, task_id=self._task_id
+        )
+
+
 __all__ = [
     "STEP_COMPLETED",
     "STEP_EVENT_TYPES",
     "STEP_FAILED",
     "STEP_PROGRESS",
     "STEP_STARTED",
+    "BoundStepReporter",
     "StepCompleted",
     "StepEventPublisher",
     "StepFailed",

@@ -114,43 +114,9 @@ async def get_publisher() -> Optional[StepEventPublisher]:
             return None
 
 
-async def safe_emit_started(publisher, *, job_id, task_id) -> None:
-    if publisher is None:
-        return
-    try:
-        await publisher.started(job_id=job_id, task_id=task_id, step=STEP_NAME)
-    except Exception:
-        logger.exception("step-event .started emit failed (non-fatal)")
-
-
-async def safe_emit_completed(publisher, *, job_id, task_id, output_files=None) -> None:
-    if publisher is None:
-        return
-    try:
-        await publisher.completed(
-            job_id=job_id, task_id=task_id, step=STEP_NAME, output_files=output_files
-        )
-    except Exception:
-        logger.exception("step-event .completed emit failed (non-fatal)")
-
-
-async def safe_emit_failed(publisher, *, job_id, task_id, error: str) -> None:
-    if publisher is None:
-        return
-    try:
-        await publisher.failed(
-            job_id=job_id, task_id=task_id, step=STEP_NAME, error=error
-        )
-    except Exception:
-        logger.exception("step-event .failed emit failed (non-fatal)")
-
-
 __all__ = [
     "get_publisher",
     "is_enabled",
-    "safe_emit_started",
-    "safe_emit_completed",
-    "safe_emit_failed",
     "PLUGIN_NAME",
     "STEP_NAME",
 ]

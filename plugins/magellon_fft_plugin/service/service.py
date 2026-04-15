@@ -16,6 +16,8 @@ import os
 import sys
 from typing import Optional
 
+from magellon_sdk.events import BoundStepReporter
+
 from core.model_dto import FftTaskData, PluginInfoSingleton, TaskDto
 from core.setup_plugin import (
     check_operating_system,
@@ -23,12 +25,7 @@ from core.setup_plugin import (
     check_requirements_txt,
 )
 from service.fft_service import compute_file_fft
-from service.step_events import (
-    get_publisher,
-    safe_emit_completed,
-    safe_emit_failed,
-    safe_emit_started,
-)
+from service.step_events import STEP_NAME, get_publisher
 
 logger = logging.getLogger(__name__)
 
@@ -67,28 +64,38 @@ def _resolve_output_path(data: FftTaskData) -> str:
     return os.path.join(os.path.dirname(data.image_path), base)
 
 
+async def _safe_emit(coro) -> None:
+    """Swallow + log emit failures — a broker blip must not abort an
+    otherwise-successful FFT compute."""
+    try:
+        await coro
+    except Exception:
+        logger.exception("step-event emit failed (non-fatal)")
+
+
 async def do_execute(params: TaskDto):
     publisher = await get_publisher()
-    await safe_emit_started(publisher, job_id=params.job_id, task_id=params.id)
+    reporter = BoundStepReporter(
+        publisher, job_id=params.job_id, task_id=params.id, step=STEP_NAME
+    )
+
+    await _safe_emit(reporter.started())
     try:
         data = FftTaskData.model_validate(params.data)
         if not data.image_path:
             raise ValueError("FFT task: image_path is required")
         out_path = _resolve_output_path(data)
 
+        # Demo progress tick — FFT is fast enough that one mid-flight
+        # event is plenty to prove the progress path works end-to-end.
+        await _safe_emit(reporter.progress(25.0, "loading image"))
         compute_file_fft(image_path=data.image_path, abs_out_file_name=out_path)
+        await _safe_emit(reporter.progress(90.0, "writing PNG"))
 
-        await safe_emit_completed(
-            publisher,
-            job_id=params.job_id,
-            task_id=params.id,
-            output_files=[out_path],
-        )
+        await _safe_emit(reporter.completed(output_files=[out_path]))
         return {"message": "FFT successfully executed", "output_path": out_path}
     except Exception as exc:
-        await safe_emit_failed(
-            publisher, job_id=params.job_id, task_id=params.id, error=str(exc)
-        )
+        await _safe_emit(reporter.failed(error=str(exc)))
         return {"error": str(exc)}
 
 

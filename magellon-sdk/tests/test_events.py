@@ -16,6 +16,7 @@ from magellon_sdk.events import (
     STEP_FAILED,
     STEP_PROGRESS,
     STEP_STARTED,
+    BoundStepReporter,
     StepCompleted,
     StepEventPublisher,
     StepProgress,
@@ -134,3 +135,61 @@ async def test_publisher_source_reflects_plugin_name():
 
     _, env = rec.calls[0]
     assert env.source == "magellon/plugins/motioncor"
+
+
+# ---- BoundStepReporter ----
+
+
+@pytest.mark.asyncio
+async def test_bound_reporter_emits_full_lifecycle_with_bound_ids():
+    rec = _Recorder()
+    pub = StepEventPublisher(rec, plugin_name="fft")
+    job, task = uuid4(), uuid4()
+    reporter = BoundStepReporter(pub, job_id=job, task_id=task, step="fft")
+
+    await reporter.started()
+    await reporter.progress(50.0, "halfway")
+    await reporter.completed(output_files=["/tmp/out.png"])
+
+    types = [env.type for _, env in rec.calls]
+    assert types == [STEP_STARTED, STEP_PROGRESS, STEP_COMPLETED]
+
+    for _, env in rec.calls:
+        assert env.data["job_id"] == str(job)
+        assert env.data["task_id"] == str(task)
+        assert env.data["step"] == "fft"
+
+    progress_env = rec.calls[1][1]
+    assert progress_env.data["percent"] == 50.0
+    assert progress_env.data["message"] == "halfway"
+
+    completed_env = rec.calls[2][1]
+    assert completed_env.data["output_files"] == ["/tmp/out.png"]
+
+
+@pytest.mark.asyncio
+async def test_bound_reporter_failed_carries_error():
+    rec = _Recorder()
+    pub = StepEventPublisher(rec, plugin_name="fft")
+    reporter = BoundStepReporter(pub, job_id=uuid4(), step="fft")
+
+    await reporter.failed(error="bad input")
+
+    _, env = rec.calls[0]
+    assert env.type == STEP_FAILED
+    assert env.data["error"] == "bad input"
+    # task_id is optional and stays None when not bound
+    assert env.data["task_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_bound_reporter_with_none_publisher_is_a_noop():
+    """Passing publisher=None mirrors MAGELLON_STEP_EVENTS_ENABLED unset.
+    Plugins should be able to call every method without their own guard."""
+    reporter = BoundStepReporter(None, job_id=uuid4(), step="fft")
+
+    # None of these should raise.
+    await reporter.started()
+    await reporter.progress(10.0, "x")
+    await reporter.completed(output_files=["/tmp/x"])
+    await reporter.failed(error="x")
