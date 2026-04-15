@@ -18,6 +18,7 @@ import secrets
 from configs.production_test import production_intilization
 from config import app_settings
 from controllers.camera_controller import camera_router
+from controllers.cancellation_controller import cancellation_router
 from controllers.db_controller import db_router
 from controllers.deployment_docker_controller import deployment_docker_router
 from controllers.graph_controller import graph_router
@@ -303,6 +304,9 @@ app.include_router(schema_router, tags=["Database Schema"])
 # their literal paths match before the generic {plugin_id:path} catch-all.
 app.include_router(pp_router, tags=["Particle Picking"], prefix="/plugins/pp")
 app.include_router(plugins_router, tags=["Plugins"], prefix="/plugins")
+
+# P9 — operator hard-stop levers (queue purge + container kill).
+app.include_router(cancellation_router, tags=["Cancellation"], prefix="/cancellation")
 
 
 Instrumentator().instrument(app).expose(app)
