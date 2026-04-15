@@ -1,9 +1,39 @@
 import os
 import uuid
-from typing import Optional
+from enum import Enum
+from typing import List, Optional
 
 import yaml
 from pydantic import BaseModel, ValidationError
+
+
+class OutQueueType(str, Enum):
+    """Categories of result queues the in-process result-processor consumes.
+
+    Mirrors the plugin's old enum (now folded into CoreService — see P3).
+    The string values double as default ``dir_name`` lookups when a queue
+    config doesn't override.
+    """
+
+    CTF = "ctf"
+    MOTIONCOR = "motioncor"
+    FFT = "fft"
+    PARTICLE_PICKING = "particle_picking"
+
+
+class OutQueueConfig(BaseModel):
+    """One result-queue subscription for the in-process result-processor.
+
+    ``name`` is the RMQ queue. ``queue_type`` selects the per-category
+    metadata. ``dir_name`` overrides the on-disk subfolder used when
+    moving output files (defaults to ``queue_type``). ``category``
+    is the ``image_meta_data.category_id`` to stamp on saved metadata.
+    """
+
+    name: str
+    queue_type: OutQueueType
+    dir_name: Optional[str] = None
+    category: Optional[int] = None
 
 
 class ConsulSettings(BaseModel):
@@ -32,6 +62,11 @@ class RabbitMQSettings(BaseModel):
     SSL_ENABLED: Optional[bool] = False
     CONNECTION_TIMEOUT: Optional[int] = 30
     PREFETCH_COUNT: Optional[int] = 10
+    # Result-processor fan-in. The in-process consumer (see
+    # ``core.result_consumer``) subscribes to every entry here. Empty
+    # list = result-processor stays dormant, which is the safe default
+    # for any deployment that hasn't migrated off the out-of-tree plugin.
+    OUT_QUEUES: List[OutQueueConfig] = []
 
 
 class DirectorySettings(BaseModel):

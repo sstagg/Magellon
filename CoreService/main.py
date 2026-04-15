@@ -361,6 +361,20 @@ async def startup_event():
     except Exception as e:
         logger.error(f"[WARNING] Failed to start result processor: {e}")
 
+    # Start in-process result-processor (P3). Replaces the out-of-tree
+    # magellon_result_processor plugin: every task-result queue declared
+    # in rabbitmq_settings.OUT_QUEUES is consumed here and projected
+    # straight into the DB on the same engine the rest of CoreService
+    # uses. Empty OUT_QUEUES = the loop exits immediately, so deployments
+    # still running the legacy plugin aren't disturbed.
+    try:
+        from core.result_consumer import result_consumer_engine as run_result_consumer
+        logger.info("Starting in-process result-processor (OUT_QUEUES)...")
+        threading.Thread(target=run_result_consumer, daemon=True).start()
+        logger.info("[OK] In-process result-processor started")
+    except Exception as e:
+        logger.error(f"[WARNING] Failed to start in-process result-processor: {e}")
+
     # Start RMQ → job_event forwarder. Default-on; set
     # MAGELLON_RMQ_STEP_EVENTS_FORWARDER=0 to disable (e.g. local dev
     # without RMQ). Sibling of the NATS forwarder below; both write to

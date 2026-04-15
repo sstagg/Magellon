@@ -65,6 +65,20 @@ rabbitmq_settings:
   MOTIONCOR_TEST_OUT_QUEUE_NAME: motioncor_test_outqueue
   FFT_QUEUE_NAME: fft_tasks_queue
   FFT_OUT_QUEUE_NAME: fft_out_tasks_queue
+  # In-process result-processor (P3). See dev YAML for shape notes.
+  OUT_QUEUES:
+    - name: ctf_out_tasks_queue
+      queue_type: ctf
+      dir_name: ctf
+      category: 2
+    - name: motioncor_out_tasks_queue
+      queue_type: motioncor
+      dir_name: fao
+      category: 3
+    - name: fft_out_tasks_queue
+      queue_type: fft
+      dir_name: ffts
+      category: 1
 
 directory_settings:
   FFT_DIR: null
