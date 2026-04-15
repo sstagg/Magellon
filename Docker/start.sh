@@ -4,8 +4,6 @@ VOLUMES=(
   "mysql_conf"
   "mysql_init"
   "rabbitmq_data"
-  "consul_data"
-  "consul_config"
   "prometheus_config"
   "grafana_storage"
   "grafana_temp"

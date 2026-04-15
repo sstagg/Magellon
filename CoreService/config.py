@@ -1,5 +1,4 @@
 import os
-import consul
 
 from models.pydantic_models_settings import AppSettings
 
@@ -14,13 +13,6 @@ if os.environ.get('APP_ENV', "development") == 'production':
 else:
     # from .config_dev import *
     app_settings = AppSettings.load_settings("./configs/app_settings_dev.yaml")
-
-consul_client = None
-
-consul_config = {
-    "host": app_settings.consul_settings.CONSUL_HOST,
-    "port": app_settings.consul_settings.CONSUL_PORT
-}
 
 IMAGE_ROOT_URL = app_settings.directory_settings.IMAGE_ROOT_URL
 
@@ -57,16 +49,14 @@ DOCKER_PASSWORD = app_settings.DOCKER_PASSWORD
 
 
 def fetch_image_root_dir():
-    if consul_client:
-        try:
-            _, image_root_dir_kv = consul_client.kv.get('IMAGE_ROOT_DIR')
-            if image_root_dir_kv is None:
-                raise ValueError("IMAGE_ROOT_DIR not found in Consul KV store")
-            return image_root_dir_kv['Value']
-        except:
-            pass
+    """Image root directory path.
 
-    return os.getenv('DATA_DIR', '/app/data')
+    Was Consul-KV-backed; now reads from the same env var the
+    container start-up uses, with the configured MAGELLON_HOME_DIR as
+    the fallback. Dynamic config pushes (P7) handle the case where the
+    operator wants to retarget at runtime — they re-publish to the
+    plugins.config broadcast subject and the fleet picks it up."""
+    return os.getenv('DATA_DIR', MAGELLON_HOME_DIR)
 
 
 def get_db_connection():

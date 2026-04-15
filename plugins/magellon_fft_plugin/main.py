@@ -11,7 +11,6 @@ from rich import traceback
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 
-from core.consul import init_consul_client, register_with_consul
 from core.logger_config import setup_logging
 from core.model_dto import TaskDto
 from core.rabbitmq_consumer_engine import consumer_engine
@@ -71,17 +70,9 @@ else:
 @app.on_event("startup")
 async def startup_event():
     try:
+        # Discovery + dynamic config ride the broker now (P6/P7).
         rabbitmq_thread = threading.Thread(target=consumer_engine, daemon=True)
         rabbitmq_thread.start()
-        init_consul_client()
-        register_with_consul(
-            app,
-            local_ip_address,
-            AppSettingsSingleton.get_instance().consul_settings.CONSUL_SERVICE_NAME,
-            AppSettingsSingleton.get_instance().consul_settings.CONSUL_SERVICE_ID,
-            local_port_number,
-            "health",
-        )
     except Exception as e:
         print(f"Error during startup: {e}")
 

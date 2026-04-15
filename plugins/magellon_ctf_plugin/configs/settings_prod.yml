@@ -15,13 +15,6 @@ REPLACE_WITH: /gpfs
 JOBS_DIR: /jobs
 HOST_JOBS_DIR: C:\temp\magellon\jobs
 
-consul_settings:
-  CONSUL_HOST: consul
-  CONSUL_PASSWORD: '8500'
-  CONSUL_PORT: 8500
-  CONSUL_SERVICE_ID: magellon-service-11f0bd1e-8c57-412d-82e4-0c940da261c6
-  CONSUL_SERVICE_NAME: magellon-ctf-service
-  CONSUL_USERNAME: '8500'
 
 database_settings:
   DB_Driver: mysql+pymysql

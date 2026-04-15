@@ -12,7 +12,6 @@ from starlette.responses import JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 from prometheus_client import Info
 
-from core.consul import register_with_consul, init_consul_client
 from core.rabbitmq_consumer_engine import consumer_engine
 from core.model_dto import CryoEmMotionCorTaskData, TaskDto,CreateFrameAlignRequest
 from core.settings import AppSettingsSingleton
@@ -57,22 +56,10 @@ else:
 @app.on_event("startup")
 async def startup_event():
     try:
-        # Start RabbitMQ consumer thread
+        # Start RabbitMQ consumer thread. Discovery + dynamic config
+        # ride the broker now (P6/P7) — Consul is gone.
         rabbitmq_thread = threading.Thread(target=consumer_engine, daemon=True)
         rabbitmq_thread.start()
-
-        # Initialize Consul client
-        init_consul_client()
-
-        # Register with Consul
-        register_with_consul(
-            app,
-            local_ip_address,
-            AppSettingsSingleton.get_instance().consul_settings.CONSUL_SERVICE_NAME,
-            AppSettingsSingleton.get_instance().consul_settings.CONSUL_SERVICE_ID,
-            local_port_number,
-            'health'
-        )
     except Exception as e:
         print(f"Error during startup: {e}")
 

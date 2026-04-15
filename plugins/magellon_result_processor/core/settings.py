@@ -13,7 +13,6 @@ from pydantic import BaseModel
 from magellon_sdk.config import (  # noqa: F401
     BaseAppSettings,
     BaseAppSettingsSingleton,
-    ConsulSettings,
     DatabaseSettings,
 )
 from magellon_sdk.config import RabbitMQSettings as _BaseRabbitMQSettings
@@ -50,7 +49,6 @@ class AppSettingsSingleton(BaseAppSettingsSingleton):
 __all__ = [
     "AppSettings",
     "AppSettingsSingleton",
-    "ConsulSettings",
     "DatabaseSettings",
     "OutQueueConfig",
     "QueueType",

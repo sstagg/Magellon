@@ -215,8 +215,6 @@ fi
 mkdir -p "$ROOT_DIR/services/mysql/data"
 mkdir -p "$ROOT_DIR/services/mysql/conf"
 mkdir -p "$ROOT_DIR/services/mysql/init"
-mkdir -p "$ROOT_DIR/services/consul/data"
-mkdir -p "$ROOT_DIR/services/consul/config"
 mkdir -p "$ROOT_DIR/services/prometheus"
 # Set permissions with better security practices
 log "Setting directory permissions..."
@@ -229,8 +227,6 @@ writable_dirs=(
     "$ROOT_DIR/services/mysql/data"
     "$ROOT_DIR/services/mysql/conf"
     "$ROOT_DIR/services/mysql/init"
-    "$ROOT_DIR/services/consul/data"
-    "$ROOT_DIR/services/consul/config"
     "$ROOT_DIR/services/prometheus"
 )
 

@@ -1,8 +1,6 @@
 @echo off
 
 
-rmdir /s /q .\consul\data
-mkdir .\consul\data
 REM Step 1: Start Docker Compose
 REM docker-compose  up -d
 docker-compose --profile default up -d

@@ -13,13 +13,6 @@ REPLACE_WITH: Y:/
 JOBS_DIR: /jobs
 HOST_JOBS_DIR: C:\temp\outputs
 
-consul_settings:
-  CONSUL_HOST: localhost
-  CONSUL_PASSWORD: '8500'
-  CONSUL_USERNAME: '8500'
-  CONSUL_PORT: 8500
-  CONSUL_SERVICE_ID: 11f0bd1e-8c57-412d-82e4-0c940da261c6
-  CONSUL_SERVICE_NAME: magellon-motioncor-service
 
 database_settings:
   DB_Driver: mysql+pymysql

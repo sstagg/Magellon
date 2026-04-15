@@ -9,7 +9,6 @@ from __future__ import annotations
 from magellon_sdk.config.settings import (
     BaseAppSettings,
     BaseAppSettingsSingleton,
-    ConsulSettings,
     DatabaseSettings,
     RabbitMQSettings,
 )
@@ -17,7 +16,6 @@ from magellon_sdk.config.settings import (
 __all__ = [
     "BaseAppSettings",
     "BaseAppSettingsSingleton",
-    "ConsulSettings",
     "DatabaseSettings",
     "RabbitMQSettings",
 ]

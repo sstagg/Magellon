@@ -136,10 +136,6 @@ REPLACE_WITH: ''
 JOBS_DIR: ''
 HOST_JOBS_DIR: ''
 
-consul_settings:
-  CONSUL_HOST: ''
-  CONSUL_PORT: 0
-
 database_settings: {{}}
 
 rabbitmq_settings:

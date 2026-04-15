@@ -15,7 +15,6 @@ from starlette.responses import JSONResponse, StreamingResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 from prometheus_client import Info
 
-from core.consul import register_with_consul, init_consul_client, get_kv_value, get_services
 from core.rabbitmq_consumer_engine import consumer_engine
 from core.model_dto import TaskDto
 from core.settings import AppSettingsSingleton
@@ -74,24 +73,10 @@ else:
 # async def startup_event(db: Session = Depends(get_db)):
 async def startup_event():
     try:
-        # Start RabbitMQ consumer thread
+        # Start RabbitMQ consumer thread. Discovery + dynamic config
+        # ride the broker now (P6/P7) — Consul is gone.
         rabbitmq_thread = threading.Thread(target=consumer_engine,  daemon=True)
         rabbitmq_thread.start()
-        # Initialize Consul client
-        init_consul_client()
-        # Register with Consul
-        register_with_consul(
-            app,
-            local_ip_address,
-            AppSettingsSingleton.get_instance().consul_settings.CONSUL_SERVICE_NAME,
-            AppSettingsSingleton.get_instance().consul_settings.CONSUL_SERVICE_ID,
-            local_port_number,
-            'health'
-        )
-
-        # configurations_data = get_kv_value("magellon-ctf-service-configuration")
-        # AppSettingsSingleton.update_settings_from_yaml(configurations_data)
-        # services = get_services("magellon-ctf-service")
 
 
     except Exception as e:

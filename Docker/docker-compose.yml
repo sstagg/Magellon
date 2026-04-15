@@ -76,20 +76,6 @@ services:
       magellon-network:
         ipv4_address: 172.16.238.8
 
-  consul:
-    image: consul:1.15.4
-    restart: unless-stopped
-    container_name: magellon-consul-container
-    ports:
-      - "127.0.0.1:${CONSUL_PORT}:8500"
-    volumes:
-      - ${MAGELLON_ROOT_DIR}/services/consul/data:/consul/data
-      - ${MAGELLON_ROOT_DIR}/services/consul/config:/consul/config
-    networks:
-      magellon-network:
-        ipv4_address: 172.16.238.9
-
-
   prometheus:
     image: prom/prometheus:latest
     restart: unless-stopped
@@ -145,7 +131,6 @@ services:
       - GPFS_PATH=${MAGELLON_GPFS_PATH}
       - HOME_PATH=${MAGELLON_HOME_PATH}
       - JOBS_PATH=${MAGELLON_JOBS_PATH}
-      - CONSUL_HOST=consul
       - RABBITMQ_HOST=rabbitmq
       - DRAGONFLY_HOST=dragonfly
       - DRAGONFLY_PORT=6379
@@ -173,7 +158,6 @@ services:
       - "127.0.0.1:${MAGELLON_FRONTEND_PORT}:80"
     environment:
       - BACKEND_HOST=backend
-      - CONSUL_HOST=consul
       - API_URL=http://localhost:${MAGELLON_BACKEND_PORT}
     networks:
       magellon-network:

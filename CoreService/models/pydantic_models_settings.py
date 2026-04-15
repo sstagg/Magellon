@@ -36,15 +36,6 @@ class OutQueueConfig(BaseModel):
     category: Optional[int] = None
 
 
-class ConsulSettings(BaseModel):
-    CONSUL_HOST: Optional[str] = None
-    CONSUL_PORT: Optional[int] = None
-    CONSUL_USERNAME: Optional[str] = None
-    CONSUL_PASSWORD: Optional[str] = None
-    CONSUL_SERVICE_NAME: Optional[str] = None
-    CONSUL_SERVICE_ID: Optional[str] = None
-
-
 class RabbitMQSettings(BaseModel):
     HOST_NAME: Optional[str] = None
     CTF_QUEUE_NAME: Optional[str] = None
@@ -146,7 +137,6 @@ class SecuritySetupSettings(BaseModel):
 
 
 class AppSettings(BaseModel):
-    consul_settings: ConsulSettings = ConsulSettings()
     directory_settings: DirectorySettings = DirectorySettings()
     database_settings: DatabaseSettings = DatabaseSettings()
     rabbitmq_settings: RabbitMQSettings = RabbitMQSettings()

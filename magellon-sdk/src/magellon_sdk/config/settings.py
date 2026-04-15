@@ -30,15 +30,6 @@ class DatabaseSettings(BaseModel):
         return f"{cls.DB_Driver}://{cls.DB_USER}:{cls.DB_PASSWORD}@{cls.DB_HOST}:{cls.DB_Port}/{cls.DB_NAME}"
 
 
-class ConsulSettings(BaseModel):
-    CONSUL_HOST: Optional[str] = None
-    CONSUL_PORT: Optional[int] = None
-    CONSUL_USERNAME: Optional[str] = None
-    CONSUL_PASSWORD: Optional[str] = None
-    CONSUL_SERVICE_NAME: Optional[str] = None
-    CONSUL_SERVICE_ID: Optional[str] = None
-
-
 class RabbitMQSettings(BaseModel):
     HOST_NAME: Optional[str] = None
     QUEUE_NAME: Optional[str] = None
@@ -61,7 +52,6 @@ class BaseAppSettings(BaseModel):
     ``AppSettings.load_yaml_file_settings(...)``.
     """
 
-    consul_settings: ConsulSettings = ConsulSettings()
     database_settings: DatabaseSettings = DatabaseSettings()
     rabbitmq_settings: RabbitMQSettings = RabbitMQSettings()
     LOCAL_IP_ADDRESS: Optional[str] = None

@@ -4,7 +4,6 @@ from typing import Optional
 from magellon_sdk.config import (  # noqa: F401
     BaseAppSettings,
     BaseAppSettingsSingleton,
-    ConsulSettings,
     DatabaseSettings,
     RabbitMQSettings,
 )
@@ -23,7 +22,6 @@ class AppSettingsSingleton(BaseAppSettingsSingleton):
 __all__ = [
     "AppSettings",
     "AppSettingsSingleton",
-    "ConsulSettings",
     "DatabaseSettings",
     "RabbitMQSettings",
     "ValidationError",

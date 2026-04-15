@@ -1,5 +1,5 @@
 # Magellon Plugin SDK — shared rabbitmq / logging / bootstrap / events helpers.
--e ../../magellon-sdk[rabbitmq,nats,logging,config,consul]
+-e ../../magellon-sdk[rabbitmq,nats,logging,config]
 
 fastapi
 uvicorn
@@ -12,7 +12,6 @@ python-json-logger
 prometheus_client
 python-dotenv
 
-python-consul
 pika==1.3.2
 
 sqlalchemy

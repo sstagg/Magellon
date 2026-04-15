@@ -58,19 +58,6 @@ services:
       magellon-network:
         ipv4_address: 172.16.238.8
 
-  consul:
-    image: consul:1.15.4
-    restart: unless-stopped
-    container_name: consul-container
-    ports:
-      - "8500:8500"
-    volumes:
-      - ./consul/data:/consul/data
-      - ./consul/config:/consul/config
-    networks:
-      magellon-network:
-        ipv4_address: 172.16.238.9
-
   magellon_ctf_plugin:
     build:
       context: ..
