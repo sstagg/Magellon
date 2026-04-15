@@ -12,7 +12,7 @@ platform refactor (see `Documentation/IMPLEMENTATION_PLAN.md`, Phase 1).
 ## Install (dev, path-based)
 
 ```bash
-pip install -e ./MagellonSdk
+pip install -e ./magellon-sdk
 ```
 
 ## Contract
