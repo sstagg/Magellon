@@ -536,6 +536,10 @@ class ImageJobTask(Base):
     image_path = Column(String(255))
     frame_name = Column(String(255))
     frame_path = Column(String(255))
+    # Per-task provenance (P4 / migration 0003). Records which plugin
+    # (and which version of it) produced this task's result.
+    plugin_id = Column(String(100), index=True)
+    plugin_version = Column(String(50))
 
     image = relationship('Image')
     job = relationship('ImageJob')

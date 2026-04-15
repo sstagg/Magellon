@@ -193,6 +193,14 @@ class TaskOutputProcessor:
         type_code = task_result.type.code if task_result.type else None
         db_task.stage = _TASK_TYPE_TO_STAGE.get(type_code, _DEFAULT_STAGE)
 
+        # Provenance (P4). Only overwrite when the plugin sent values —
+        # leaving them None would erase the previous attempt's record on
+        # a retry, and we want the audit trail to favour what we know.
+        if task_result.plugin_id is not None:
+            db_task.plugin_id = task_result.plugin_id
+        if task_result.plugin_version is not None:
+            db_task.plugin_version = task_result.plugin_version
+
     def process(self, task_result: TaskResultDto) -> Dict[str, Any]:
         """Project the result. Returns a small dict for caller logging."""
         try:

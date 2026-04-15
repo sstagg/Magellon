@@ -39,7 +39,16 @@ class _StubStatus:
 
 
 class _StubResult:
-    def __init__(self, *, task_id, type_code, type_name="t", status_code=None):
+    def __init__(
+        self,
+        *,
+        task_id,
+        type_code,
+        type_name="t",
+        status_code=None,
+        plugin_id=None,
+        plugin_version=None,
+    ):
         self.task_id = task_id
         self.type = _StubType(type_code, type_name)
         self.status = _StubStatus(status_code) if status_code is not None else None
@@ -49,6 +58,8 @@ class _StubResult:
         self.output_files = []
         self.output_data = None
         self.meta_data = None
+        self.plugin_id = plugin_id
+        self.plugin_version = plugin_version
 
 
 def _make_processor(db_task=None, out_queues=None):
@@ -135,6 +146,43 @@ def test_queue_config_returns_none_for_unknown_type():
     proc, _ = _make_processor(out_queues=[])
     assert proc._get_queue_type_output_dir("ctf") is None
     assert proc._get_queue_type_category("ctf") is None
+
+
+# ---------------------------------------------------------------------------
+# Provenance (P4)
+# ---------------------------------------------------------------------------
+
+def test_provenance_written_when_plugin_supplies_it():
+    """A plugin that publishes its identity must show up in the row.
+    This is the audit-trail guarantee operators rely on when chasing
+    'which engine produced this defocus value?'."""
+    db_task = MagicMock(status_id=0, stage=0, plugin_id=None, plugin_version=None)
+    proc, _ = _make_processor(db_task)
+    result = _StubResult(
+        task_id=uuid4(),
+        type_code=2,
+        plugin_id="ctf-ctffind",
+        plugin_version="4.1.14",
+    )
+
+    proc._advance_task_state(result, status_id=STATUS_COMPLETED)
+
+    assert db_task.plugin_id == "ctf-ctffind"
+    assert db_task.plugin_version == "4.1.14"
+
+
+def test_provenance_preserved_when_plugin_omits_it():
+    """A retry from an older plugin (no provenance fields) must NOT
+    erase what the previous attempt recorded — the audit trail favours
+    what we know over what we don't."""
+    db_task = MagicMock(status_id=0, stage=0, plugin_id="ctf-ctffind", plugin_version="4.1.14")
+    proc, _ = _make_processor(db_task)
+    result = _StubResult(task_id=uuid4(), type_code=2)  # no provenance
+
+    proc._advance_task_state(result, status_id=STATUS_COMPLETED)
+
+    assert db_task.plugin_id == "ctf-ctffind"
+    assert db_task.plugin_version == "4.1.14"
 
 
 def test_destination_dir_falls_back_to_type_name_when_no_config():

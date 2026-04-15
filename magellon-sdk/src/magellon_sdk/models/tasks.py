@@ -252,6 +252,15 @@ class TaskResultDto(BaseModel):
     # metadata is attached (e.g. aggregate outcomes).
     meta_data: Optional[List[ImageMetaData]] = None
     output_files: List[OutputFile] = []
+    # Provenance (P4). The plugin that produced this result identifies
+    # itself so operators can answer "which engine processed this
+    # micrograph?" without grepping logs. Optional because (a) older
+    # plugins won't populate them yet, and (b) aggregator results have
+    # no single-plugin owner. Both should match the values exposed in
+    # the plugin's manifest (PluginInfo.name + .version) so the audit
+    # trail and the registry agree.
+    plugin_id: Optional[str] = None
+    plugin_version: Optional[str] = None
 
 
 class DebugInfo(BaseModel):
