@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models.pydantic_models import MagellonImportJobDto, EpuImportJobDto, SerialEMImportJobDto
 from models.sqlalchemy_models import ImageJob
-from services.job_manager import JobManager, JobStatus
 from services.importers.MagellonImporter import MagellonImporter
 from dependencies.auth import get_current_user_id
 from dependencies.permissions import require_permission
@@ -144,41 +143,27 @@ def get_job_status(
     """
     try:
         logger.debug(f"User {user_id} checking job status: {job_id}")
-        # Get job manager instance
-        job_manager = JobManager()
+        job = db_session.query(ImageJob).filter(ImageJob.oid == job_id).first()
 
-        # Get job data
-        job_data = job_manager.get_job(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
 
-        if not job_data:
-            # Try to get job from database
-            job = db_session.query(ImageJob).filter(ImageJob.oid == job_id).first()
+        status_map = {
+            1: "pending",
+            2: "running",
+            3: "running",
+            4: "completed",
+            5: "failed",
+            6: "cancelled",
+        }
 
-            if not job:
-                raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
-
-            # Job exists in database but not in job manager
-            status_map = {
-                1: "pending",
-                2: "running",
-                3: "running",  # Processing
-                4: "completed",
-                5: "failed",
-                6: "cancelled"
-            }
-
-            # Return limited job info from database
-            return {
-                "job_id": job_id,
-                "name": job.name,
-                "description": job.description,
-                "status": status_map.get(job.status_id, "unknown"),
-                "created_at": job.created_date.isoformat() if job.created_date else None,
-                "message": "Job exists in database but detailed status is not available"
-            }
-
-        # Return job status from job manager
-        return job_data
+        return {
+            "job_id": job_id,
+            "name": job.name,
+            "description": job.description,
+            "status": status_map.get(job.status_id, "unknown"),
+            "created_at": job.created_date.isoformat() if job.created_date else None,
+        }
 
     except HTTPException:
         raise
