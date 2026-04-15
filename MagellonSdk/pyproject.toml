@@ -43,6 +43,13 @@ logging = [
     "python-json-logger>=2.0",
     "rich>=13.0",
 ]
+config = [
+    "pyyaml>=6.0",
+]
+consul = [
+    "python-consul>=1.1",
+    "fastapi",
+]
 
 [project.scripts]
 magellon-plugin = "magellon_sdk.cli:main"
