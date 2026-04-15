@@ -8,6 +8,13 @@ Organized into submodules so the surface area stays navigable:
 Everything exported from either submodule is re-exported here, so
 ``from magellon_sdk.models import PluginInfo, TaskDto`` keeps working.
 """
+from magellon_sdk.models.manifest import (
+    Capability,
+    IsolationLevel,
+    PluginManifest,
+    ResourceHints,
+    Transport,
+)
 from magellon_sdk.models.plugin import (
     CheckRequirementsResult,
     PluginInfo,
@@ -48,6 +55,12 @@ from magellon_sdk.models.tasks import (
 )
 
 __all__ = [
+    # manifest.py — capability-aware plugin description.
+    "Capability",
+    "IsolationLevel",
+    "PluginManifest",
+    "ResourceHints",
+    "Transport",
     # plugin.py.
     "CheckRequirementsResult",
     "PluginInfo",

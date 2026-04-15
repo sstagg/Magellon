@@ -25,6 +25,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from magellon_sdk.models import Capability, IsolationLevel, PluginManifest, Transport
 from plugins.registry import registry
 from services.job_manager import job_manager
 
@@ -38,6 +39,13 @@ plugins_router = APIRouter()
 # ---------------------------------------------------------------------------
 
 class PluginSummary(BaseModel):
+    """Discovery payload — identity + the capability fields a UI / manager
+    needs to decide *whether* and *how* to call this plugin.
+
+    The full manifest is also fetchable at /plugins/{id}/manifest, but
+    embedding the small high-signal subset here means the discovery
+    endpoint is enough to render a plugin picker / health dashboard
+    without N round-trips."""
     plugin_id: str
     category: str
     name: str
@@ -45,6 +53,11 @@ class PluginSummary(BaseModel):
     schema_version: str
     description: str
     developer: str
+    # Capability subset surfaced into discovery — full manifest at /manifest
+    capabilities: list[Capability] = []
+    supported_transports: list[Transport] = []
+    default_transport: Transport = Transport.IN_PROCESS
+    isolation: IsolationLevel = IsolationLevel.IN_PROCESS
 
 
 class JobSubmitRequest(BaseModel):
@@ -73,7 +86,7 @@ class BatchSubmitRequest(BaseModel):
 async def list_plugins() -> List[PluginSummary]:
     summaries: List[PluginSummary] = []
     for entry in registry.list():
-        info = entry.instance.get_info()
+        info = entry.manifest.info
         summaries.append(PluginSummary(
             plugin_id=entry.plugin_id,
             category=entry.category,
@@ -82,8 +95,22 @@ async def list_plugins() -> List[PluginSummary]:
             schema_version=info.schema_version or "1",
             description=info.description,
             developer=info.developer,
+            capabilities=list(entry.manifest.capabilities),
+            supported_transports=list(entry.manifest.supported_transports),
+            default_transport=entry.manifest.default_transport,
+            isolation=entry.manifest.isolation,
         ))
     return summaries
+
+
+@plugins_router.get("/{plugin_id:path}/manifest", summary="Plugin capability manifest")
+async def plugin_manifest(plugin_id: str) -> PluginManifest:
+    """Full capability description — what the plugin needs (resources,
+    isolation) and how it can be reached (transports). Remote plugins
+    will eventually serve this same shape from their own /manifest, so
+    a future PluginManager can consume in-house and remote plugins
+    through one model."""
+    return _require_plugin(plugin_id).manifest
 
 
 def _require_plugin(plugin_id: str):

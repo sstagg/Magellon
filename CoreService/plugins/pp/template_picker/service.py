@@ -20,6 +20,12 @@ from typing import Any, Dict, List, Type
 import numpy as np
 from scipy import ndimage
 
+from magellon_sdk.models import (
+    Capability,
+    IsolationLevel,
+    ResourceHints,
+    Transport,
+)
 from models.plugins_models import (
     PluginInfo,
     PluginStatus,
@@ -126,6 +132,26 @@ class TemplatePickerPlugin(PluginBase[TemplatePickerInput, TemplatePickerOutput]
     """
 
     task_category: TaskCategory = PARTICLE_PICKING
+
+    # -- capability declaration -------------------------------------------
+    # Template-picker is CPU-only, runs in seconds-to-tens-of-seconds
+    # depending on image size, and reports progress at stage boundaries.
+    # Safe to run in-process for interactive use; HTTP also works for
+    # horizontally-scaled deployments.
+    capabilities = [
+        Capability.CPU_INTENSIVE,
+        Capability.PROGRESS_REPORTING,
+        Capability.IDEMPOTENT,
+    ]
+    supported_transports = [Transport.IN_PROCESS, Transport.HTTP]
+    default_transport = Transport.IN_PROCESS
+    isolation = IsolationLevel.IN_PROCESS
+    resource_hints = ResourceHints(
+        memory_mb=2_000,
+        cpu_cores=2,
+        typical_duration_seconds=15.0,
+    )
+    tags = ["particle-picking", "imaging"]
 
     # -- metadata ----------------------------------------------------------
 

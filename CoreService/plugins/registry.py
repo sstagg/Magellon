@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from threading import Lock
 from typing import Dict, Iterator, List, Optional
 
+from magellon_sdk.models import PluginManifest
 from plugins.base import PluginBase
 
 logger = logging.getLogger(__name__)
@@ -24,11 +25,18 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class PluginEntry:
-    """A registered plugin instance with its resolved id and metadata."""
+    """A registered plugin instance with its resolved id and metadata.
+
+    ``manifest`` is captured at registration time so dispatch/discovery
+    code doesn't have to re-call ``instance.manifest()`` on every
+    request — and so a plugin manager can reason about *all* plugins
+    uniformly without instantiating them.
+    """
     plugin_id: str           # e.g. "pp/template-picker"
     category: str            # e.g. "pp"
     name: str                # e.g. "template-picker"
     instance: PluginBase
+    manifest: PluginManifest
 
 
 class PluginRegistry:
@@ -62,11 +70,19 @@ class PluginRegistry:
                         continue
                     if attr is PluginBase or not issubclass(attr, PluginBase):
                         continue
+                    # Per the user's isolation rule: one bad plugin must
+                    # not poison discovery for the others. Each plugin
+                    # gets its own try/except so an instantiation crash
+                    # or manifest() failure leaves the rest registered.
                     try:
                         instance = attr()
                         info = instance.get_info()
+                        manifest = instance.manifest()
                     except Exception as exc:
-                        logger.warning("Skipping plugin class %s: instantiation failed (%s)", attr, exc)
+                        logger.warning(
+                            "Skipping plugin class %s: instantiation/manifest failed (%s)",
+                            attr, exc,
+                        )
                         continue
 
                     # category = first path segment after "plugins."
@@ -84,8 +100,14 @@ class PluginRegistry:
                         category=category,
                         name=info.name,
                         instance=instance,
+                        manifest=manifest,
                     )
-                    logger.info("Registered plugin: %s", plugin_id)
+                    logger.info(
+                        "Registered plugin: %s (transports=%s, isolation=%s)",
+                        plugin_id,
+                        [t.value for t in manifest.supported_transports],
+                        manifest.isolation.value,
+                    )
             self._loaded = True
 
     # -- public API ---------------------------------------------------------

@@ -30,10 +30,46 @@ def test_list_plugins_shape(client):
     assert isinstance(body, list)
     assert len(body) >= 1
 
-    # Every entry must carry these fields — they drive the plugin picker UI.
-    required = {"plugin_id", "category", "name", "version", "schema_version", "description", "developer"}
+    # Every entry must carry these fields — they drive the plugin picker UI
+    # and now also the manager's transport/isolation routing decisions.
+    required = {
+        "plugin_id", "category", "name", "version", "schema_version",
+        "description", "developer",
+        # New capability surface — added with the PluginManifest work
+        "capabilities", "supported_transports", "default_transport", "isolation",
+    }
     for entry in body:
         assert required.issubset(entry.keys()), f"Missing keys in {entry}"
+
+
+@pytest.mark.characterization
+def test_template_picker_advertises_real_capabilities(client):
+    """Template-picker is the worked example of a plugin that opts into
+    the new capability fields. Discovery must surface them so a UI/
+    manager can route accordingly without fetching the full manifest."""
+    body = client.get("/plugins/").json()
+    tp = next(e for e in body if e["plugin_id"] == "pp/template-picker")
+    assert "cpu_intensive" in tp["capabilities"]
+    assert "progress_reporting" in tp["capabilities"]
+    assert "in_process" in tp["supported_transports"]
+    assert "http" in tp["supported_transports"]
+    assert tp["isolation"] == "in_process"
+
+
+@pytest.mark.characterization
+def test_plugin_manifest_endpoint_round_trips(client):
+    """The /manifest endpoint returns the full PluginManifest. Same
+    shape a remote/containerized plugin will eventually serve, so the
+    manager can consume in-house and remote plugins through one model."""
+    resp = client.get("/plugins/pp/template-picker/manifest")
+    assert resp.status_code == 200
+    m = resp.json()
+    assert m["info"]["name"] == "template-picker"
+    assert "resources" in m
+    assert m["resources"]["memory_mb"] == 2_000
+    assert m["resources"]["cpu_cores"] == 2
+    assert m["isolation"] == "in_process"
+    assert "tags" in m
 
 
 @pytest.mark.characterization

@@ -55,6 +55,13 @@ from magellon_sdk.models import (
     RequirementResult,
     TaskCategory,
 )
+from magellon_sdk.models.manifest import (
+    Capability,
+    IsolationLevel,
+    PluginManifest,
+    ResourceHints,
+    Transport,
+)
 from magellon_sdk.progress import NullReporter, ProgressReporter
 
 logger = logging.getLogger(__name__)
@@ -198,6 +205,45 @@ class PluginBase(ABC, Generic[InputT, OutputT]):
             "version": info.version,
             "status": self._status.value,
         }
+
+    # ------------------------------------------------------------------
+    # Capability declaration
+    # ------------------------------------------------------------------
+    # Plugins declare *what* they need and *how* they can be reached by
+    # setting the class-level fields below or overriding manifest().
+    # Defaults assume a small CPU-only in-process plugin (the safe shape
+    # — opt into heavier isolation by being explicit). MotionCor would
+    # set isolation = IsolationLevel.CONTAINER and resources with
+    # gpu_count=1, memory_mb=32_000.
+
+    capabilities: ClassVar[List[Capability]] = []
+    supported_transports: ClassVar[List[Transport]] = [Transport.IN_PROCESS]
+    default_transport: ClassVar[Transport] = Transport.IN_PROCESS
+    isolation: ClassVar[IsolationLevel] = IsolationLevel.IN_PROCESS
+    resource_hints: ClassVar[ResourceHints] = ResourceHints()
+    replaces: ClassVar[List[str]] = []
+    deprecates: ClassVar[List[str]] = []
+    tags: ClassVar[List[str]] = []
+
+    def manifest(self) -> PluginManifest:
+        """Build the manifest the host's plugin manager consumes.
+
+        Default builds from the class-level capability fields plus
+        :meth:`get_info`. Plugins that need dynamic detection (e.g.
+        "GPU_REQUIRED only if CUDA isn't present") may override this and
+        compute the capability set at call time.
+        """
+        return PluginManifest(
+            info=self.get_info(),
+            capabilities=list(self.capabilities),
+            supported_transports=list(self.supported_transports),
+            default_transport=self.default_transport,
+            isolation=self.isolation,
+            resources=self.resource_hints,
+            replaces=list(self.replaces),
+            deprecates=list(self.deprecates),
+            tags=list(self.tags),
+        )
 
 
 __all__ = ["InputT", "OutputT", "PluginBase"]
