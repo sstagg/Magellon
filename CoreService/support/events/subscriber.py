@@ -24,31 +24,33 @@ class ConsumerContext:
         self.running = False
 
     async def connect(self):
-        if not self.nc:
-            self.nc = await nats.connect(self.broker_url)
-            self.js = self.nc.jetstream()
+        if self.nc:
+            # Already connected — idempotent re-entry.
+            return True
 
-            # Make sure the stream exists before creating a consumer
-            try:
-                stream_info = await self.js.stream_info(self.stream_name)
-                print(f"Connected to stream: {self.stream_name}")
-            except nats.errors.Error:
-                print(f"Stream '{self.stream_name}' not found - waiting for publisher to create it")
-                return False
+        self.nc = await nats.connect(self.broker_url)
+        self.js = self.nc.jetstream()
 
-            # Create a consumer if it doesn't exist
-            try:
-                # Create a durable consumer for the stream
-                await self.js.add_consumer(
-                    self.stream_name,
-                    durable_name=self.consumer_name,
-                    ack_policy="explicit",
-                )
-                print(f"Consumer '{self.consumer_name}' created or already exists")
-                return True
-            except nats.errors.Error as e:
-                print(f"Error creating consumer: {e}")
-                return False
+        # Make sure the stream exists before creating a consumer
+        try:
+            await self.js.stream_info(self.stream_name)
+            print(f"Connected to stream: {self.stream_name}")
+        except nats.errors.Error:
+            print(f"Stream '{self.stream_name}' not found - waiting for publisher to create it")
+            return False
+
+        # Create a consumer if it doesn't exist
+        try:
+            await self.js.add_consumer(
+                self.stream_name,
+                durable_name=self.consumer_name,
+                ack_policy="explicit",
+            )
+            print(f"Consumer '{self.consumer_name}' created or already exists")
+            return True
+        except nats.errors.Error as e:
+            print(f"Error creating consumer: {e}")
+            return False
 
     async def close(self):
         if self.sub:
@@ -110,8 +112,10 @@ class ConsumerContext:
                         # Negative acknowledge to try again later
                         await msg.nak()
             except asyncio.TimeoutError:
-                # No messages received, just continue
-                await asyncio.sleep(0.1)
+                # No messages received — fetch() already blocked for
+                # its own timeout so loop straight back without an
+                # extra sleep (double-throttling).
+                continue
             except Exception as e:
                 print(f"Error fetching messages: {e}")
                 await asyncio.sleep(1)  # Wait before retrying

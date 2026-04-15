@@ -3,7 +3,7 @@ from fastapi import FastAPI, Depends
 from cloudevents.http import CloudEvent
 import nats
 import uuid
-import datetime
+from datetime import datetime, timezone
 import uvicorn
 import json
 import asyncio
@@ -67,7 +67,7 @@ async def publish_event(message: str):
         "id": str(uuid.uuid4()),
         "source": "publisher-app",
         "type": "com.example.message",
-        "time": datetime.datetime.now().isoformat()
+        "time": datetime.now(timezone.utc).isoformat()
     }
 
     # The data payload
