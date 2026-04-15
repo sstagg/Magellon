@@ -222,6 +222,16 @@ def dispatch_ctf_task(task_id, full_image_path, task_dto: ImportTaskDto):
     ctf_task = CtfTaskFactory.create_task(pid=task_dto.task_id, instance_id=uuid.uuid4(), job_id=job_id,
                                           data=ctf_task_data.model_dump(), ptype=CTF_TASK, pstatus=PENDING)
     ctf_task.sesson_name = session_name
+
+    # Phase 2 feature flag: route CTF through Temporal instead of RabbitMQ.
+    # Imports are local so the legacy path never loads temporalio.
+    from services.temporal_dispatch import (
+        ctf_via_temporal_enabled,
+        dispatch_ctf_via_temporal,
+    )
+    if ctf_via_temporal_enabled():
+        return dispatch_ctf_via_temporal(ctf_task)
+
     return push_task_to_task_queue(ctf_task)
 
 

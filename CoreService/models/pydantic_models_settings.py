@@ -108,6 +108,18 @@ class SecuritySetupSettings(BaseModel):
     AUTO_DISABLE: Optional[bool] = True  # Automatically disable after first successful run
 
 
+class TemporalSettings(BaseModel):
+    """Connection + feature-flag settings for the Temporal dispatch path.
+
+    Phase 2 of the architecture refactor routes CTF jobs through Temporal
+    workflows instead of RabbitMQ. Everything defaults off so staging
+    and prod keep the legacy path until the flag is flipped.
+    """
+    TARGET: Optional[str] = "localhost:7233"
+    NAMESPACE: Optional[str] = "default"
+    CTF_VIA_TEMPORAL: Optional[bool] = False
+
+
 class AppSettings(BaseModel):
     consul_settings: ConsulSettings = ConsulSettings()
     directory_settings: DirectorySettings = DirectorySettings()
@@ -116,6 +128,7 @@ class AppSettings(BaseModel):
     leginon_db_settings: LeginonDatabaseSettings = LeginonDatabaseSettings()
     api_docs_settings: ApiDocsSettings = ApiDocsSettings()
     security_setup_settings: SecuritySetupSettings = SecuritySetupSettings()
+    temporal_settings: TemporalSettings = TemporalSettings()
     SLACK_TOKEN: Optional[str] = None
     BASE_DIRECTORY: Optional[str] = os.path.abspath(os.path.dirname(__file__))
     DOCKER_URL: Optional[str] = None
