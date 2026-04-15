@@ -37,10 +37,11 @@ bodies onto a per-plugin **result** queue that CoreService consumes
 Queue names come from `RabbitMQSettings` (`models/pydantic_models_settings.py`)
 and are mapped from task-type code in `core/helper.py::get_queue_name_by_task_type`.
 
-> **Task-type → queue** mapping is hardcoded by integer code (2 = CTF,
-> 5 = MotionCor). Adding a new plugin requires editing that function
-> plus the settings schema. Phase 6's `TaskDispatcher` Protocol will
-> remove this switch.
+> **Task-type → queue** mapping was hardcoded by integer code (2 = CTF,
+> 5 = MotionCor). `magellon_sdk.dispatcher.TaskDispatcherRegistry` now
+> owns this mapping — each plugin registers its own dispatcher (RMQ or
+> in-process) and routes by `TaskCategory.code`. `get_queue_name_by_task_type`
+> remains for now; call-site migration is a follow-up.
 
 ### 1.2 Envelope: `TaskDto`
 
@@ -226,7 +227,7 @@ Closing this gap is Phase 4.
 
 | Gap | Phase | Notes |
 |-----|-------|-------|
-| Hardcoded task-type → queue switch | 6 | `TaskDispatcher` Protocol in SDK; `RabbitmqTaskDispatcher` + `InProcessTaskDispatcher` impls. |
+| ~~Hardcoded task-type → queue switch~~ | 6 (done) | `magellon_sdk.dispatcher` ships `TaskDispatcher` Protocol + `RabbitmqTaskDispatcher` + `InProcessTaskDispatcher` + `TaskDispatcherRegistry`. 11 unit tests. CoreService migration of `get_queue_name_by_task_type` call sites is a follow-up. |
 | External plugin progress invisible to UI | 4 (partial) | Plumbing deferred — see Phase 4.5 below. Today's step: at least final state lands in DB so UI moves past "pending". |
 | ~~`TaskOutputProcessor` never advances `ImageJobTask.status_id/stage`~~ | 4 (done) | Result processor now writes `status_id` (COMPLETED / FAILED) and `stage` (MotionCor=1, CTF=2, unknown=99) on the `image_job_task` row keyed by `task_result.task_id`. 5 mocked-DB unit tests. |
 | Plugin-progress pipe to UI | 4.5 (planned) | Follow-up: external plugins publish `magellon.step.*` CloudEvents on NATS; CoreService consumer forwards to Socket.IO room `job:<job_id>`. Prerequisite: Phase 6 dispatcher landed. |
