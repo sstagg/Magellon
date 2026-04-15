@@ -32,15 +32,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Plugins that run inside a Temporal worker pull in the Temporal SDK
-# explicitly. In-process-only plugins don't pay the dep cost.
-temporal = [
-    "temporalio>=1.25",
-]
 dev = [
     "pytest>=7",
     "pytest-asyncio>=0.21",
-    "temporalio>=1.25",
 ]
 
 [project.scripts]

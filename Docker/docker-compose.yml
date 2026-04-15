@@ -104,62 +104,6 @@ services:
       magellon-network:
         ipv4_address: 172.16.238.11
 
-  # ---------------------------------------------------------------------------
-  # Temporal — workflow orchestration (Phase 2+ target).
-  # Deployed in Phase 0 as infra-only: no workers, no client code uses it yet.
-  # Verify with:
-  #   docker exec -it magellon-temporal-container tctl --address temporal:7233 \
-  #       cluster health
-  # or visit http://localhost:8080 for the web UI.
-  # ---------------------------------------------------------------------------
-
-  temporal-postgres:
-    image: postgres:13
-    container_name: magellon-temporal-postgres-container
-    restart: unless-stopped
-    environment:
-      POSTGRES_PASSWORD: temporal
-      POSTGRES_USER: temporal
-    volumes:
-      - temporal-postgres-data:/var/lib/postgresql/data
-    networks:
-      magellon-network:
-        ipv4_address: 172.16.238.30
-
-  temporal:
-    image: temporalio/auto-setup:1.24.2
-    container_name: magellon-temporal-container
-    restart: unless-stopped
-    depends_on:
-      - temporal-postgres
-    environment:
-      - DB=postgres12
-      - DB_PORT=5432
-      - POSTGRES_USER=temporal
-      - POSTGRES_PWD=temporal
-      - POSTGRES_SEEDS=temporal-postgres
-      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
-    ports:
-      - "127.0.0.1:7233:7233"   # gRPC — clients connect here
-    networks:
-      magellon-network:
-        ipv4_address: 172.16.238.31
-
-  temporal-ui:
-    image: temporalio/ui:2.27.2
-    container_name: magellon-temporal-ui-container
-    restart: unless-stopped
-    depends_on:
-      - temporal
-    environment:
-      - TEMPORAL_ADDRESS=temporal:7233
-      - TEMPORAL_CORS_ORIGINS=http://localhost:3000
-    ports:
-      - "127.0.0.1:8080:8080"   # Web UI
-    networks:
-      magellon-network:
-        ipv4_address: 172.16.238.32
-
   grafana:
     image: grafana/grafana:latest
     restart: unless-stopped
@@ -319,7 +263,6 @@ volumes:
   postgres_data: { }
   grafana_storage: { }
   dragonfly-data: { }  # Added volume for Dragonfly
-  temporal-postgres-data: { }  # Temporal workflow history (Phase 0)
   app_data:  # Define a named volume for application data
   cache:
     driver: local
