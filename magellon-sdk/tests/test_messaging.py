@@ -71,16 +71,12 @@ def test_parse_message_to_task_object_round_trip():
 
 
 def test_parse_message_to_task_result_object_round_trip():
-    from uuid import uuid4
-    # task_id / image_id are typed UUID (non-optional) in the model, so
-    # supply real values to exercise the parse helper.
-    result = TaskResultDto(
-        task_id=uuid4(), image_id=uuid4(), code=200, message="ok"
-    )
+    result = TaskResultDto(code=200, message="ok")
     parsed = messaging.parse_message_to_task_result_object(result.model_dump_json())
     assert parsed.code == 200
     assert parsed.message == "ok"
-    assert parsed.task_id == result.task_id
+    assert parsed.task_id is None
+    assert parsed.image_id is None
 
 
 class _StubClient:

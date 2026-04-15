@@ -13,12 +13,16 @@ and pair it with a :class:`TaskDto` subclass as :class:`FftTask` /
 from __future__ import annotations
 
 import hashlib
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+
+def _now_utc() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 class TaskCategory(BaseModel):
@@ -56,7 +60,7 @@ class TaskBase(BaseModel):
     data: Dict[str, Any]
     status: Optional[TaskStatus] = None
     type: Optional[TaskCategory] = None
-    created_date: Optional[datetime] = datetime.now()
+    created_date: Optional[datetime] = Field(default_factory=_now_utc)
     start_on: Optional[datetime] = None
     end_on: Optional[datetime] = None
     result: Optional[TaskOutcome] = None
@@ -68,7 +72,7 @@ class TaskBase(BaseModel):
 
 
 class TaskDto(TaskBase):
-    job_id: Optional[UUID] = uuid4()
+    job_id: Optional[UUID] = Field(default_factory=uuid4)
 
     @classmethod
     def create(
@@ -84,7 +88,7 @@ class TaskDto(TaskBase):
             id=pid,
             job_id=job_id,
             worker_instance_id=instance_id,
-            created_date=datetime.now(),
+            created_date=_now_utc(),
             status=pstatus,
             type=ptype,
             data=data,
@@ -97,9 +101,9 @@ class JobDto(TaskBase):
     @classmethod
     def create(cls, pdata: Dict[str, Any], ptype: TaskCategory) -> "JobDto":
         return cls(
-            uuid=uuid4(),
+            id=uuid4(),
             data=pdata,
-            created_date=datetime.now(),
+            created_date=_now_utc(),
             status=TaskStatus(code=0, name="pending", description="Job is pending"),
             type=ptype,
         )
@@ -160,7 +164,7 @@ class CryoEmMotionCorTaskData(CryoEmImageTaskData):
     Gpu: str = "0"
     FtBin: float = 2
     FmDose: Optional[float] = None
-    PixSize: Optional[float] = False
+    PixSize: Optional[float] = None
     kV: int = 300
     Cs: int = 0
     AmpCont: float = 0.07
@@ -224,8 +228,8 @@ class OutputFile(BaseModel):
 class TaskResultDto(BaseModel):
     worker_instance_id: Optional[UUID] = None
     job_id: Optional[UUID] = None
-    task_id: UUID = None
-    image_id: UUID = None
+    task_id: Optional[UUID] = None
+    image_id: Optional[UUID] = None
     image_path: Optional[str] = None
     session_id: Optional[UUID] = None
     session_name: Optional[str] = None
@@ -234,7 +238,7 @@ class TaskResultDto(BaseModel):
     description: Optional[str] = None
     status: Optional[TaskStatus] = None
     type: Optional[TaskCategory] = None
-    created_date: Optional[datetime] = datetime.now()
+    created_date: Optional[datetime] = Field(default_factory=_now_utc)
     started_on: Optional[datetime] = None
     ended_on: Optional[datetime] = None
     output_data: Dict[str, Any] = {}
