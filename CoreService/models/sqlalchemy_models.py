@@ -581,3 +581,33 @@ class ImageMetaData(Base):
     plugin = relationship('Plugin')
     plugin_type = relationship('PluginType')
     task = relationship('ImageJobTask')
+
+
+class JobEvent(Base):
+    """Append-only log of lifecycle events (step started / completed /
+    failed) received from plugins via NATS and/or RMQ.
+
+    Named ``job_event`` — not ``image_job_event`` — so future non-image
+    jobs can share the log without a rename. Rows are keyed by
+    ``event_id`` (CloudEvents ``id``) with a UNIQUE constraint, giving
+    idempotent writes: the same logical event arriving on both
+    channels produces exactly one row.
+
+    Progress events are *not* persisted — they're live-only
+    notifications. Only lifecycle transitions land here.
+    """
+    __tablename__ = 'job_event'
+
+    oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
+    event_id = Column(String(64), unique=True, nullable=False, index=True)
+    job_id = Column(ForeignKey('image_job.oid'), index=True, nullable=False)
+    task_id = Column(ForeignKey('image_job_task.oid'), index=True)
+    event_type = Column(String(64), nullable=False, index=True)
+    step = Column(String(64), nullable=False, index=True)
+    source = Column(String(200))
+    ts = Column(DateTime, nullable=False)
+    data_json = Column(JSON)
+    created_date = Column(DateTime, nullable=False)
+
+    job = relationship('ImageJob')
+    task = relationship('ImageJobTask')
