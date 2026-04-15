@@ -2,7 +2,7 @@
 
 **Version:** 1.0
 **Last Updated:** 2025-12-09
-**Status:** Implementation Ready
+**Status:** Superseded 2026-04-14 — Temporal integration was reverted in `86fe9cc`. See `Documentation/IMPLEMENTATION_PLAN.md` for the current direction. File paths referenced below (`services/temporal_job_manager.py`, `controllers/workflow_job_controller.py`) no longer exist.
 
 ---
 
