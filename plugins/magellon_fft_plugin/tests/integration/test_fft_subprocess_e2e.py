@@ -9,8 +9,8 @@ Pipeline exercised
 ------------------
 
     test publishes TaskDto -> RMQ fft_tasks_queue_subproc
-       -> FFT plugin SUBPROCESS (uvicorn) consumer thread picks up
-          -> do_execute runs FFT, writes PNG
+       -> FFT plugin SUBPROCESS (uvicorn) FftBrokerRunner picks up
+          -> FftPlugin.execute runs FFT, writes PNG
              -> emits started / progress / completed envelopes
                 -> NATS stream MAGELLON_STEP_EVENTS_SUBPROC
                    <- test's NATS pull-subscriber drains them

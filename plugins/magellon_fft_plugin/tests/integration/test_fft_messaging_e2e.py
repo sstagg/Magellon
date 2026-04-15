@@ -4,8 +4,8 @@ Pipeline exercised
 ------------------
 
     test publishes TaskDto -> RMQ fft_tasks_queue
-       -> plugin consumer thread picks up
-          -> do_execute runs FFT, writes PNG to disk
+       -> FftBrokerRunner consumer thread picks up
+          -> FftPlugin.execute runs FFT, writes PNG to disk
              -> emits started / progress / completed envelopes
                 -> NATS JetStream stream MAGELLON_STEP_EVENTS
                    <- test's NATS pull-subscriber drains them

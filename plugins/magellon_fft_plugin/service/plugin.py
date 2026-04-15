@@ -97,8 +97,8 @@ def _get_loop() -> asyncio.AbstractEventLoop:
 
 
 def _resolve_output_path(data: FftTaskData) -> str:
-    """Pick the FFT PNG output path. Mirrors ``service.service``'s
-    helper — kept local so the broker path doesn't import the HTTP path."""
+    """Pick the FFT PNG output path: explicit ``target_path`` if given,
+    otherwise ``<image_stem>_FFT.png`` next to the input image."""
     if data.target_path:
         return data.target_path
     if not data.image_path:
