@@ -7,8 +7,8 @@ test suite stays runnable on machines without Docker Desktop.
 
 Settings for the FFT plugin are injected once at session start via
 :func:`AppSettingsSingleton.update_settings_from_yaml`. That has to
-happen *before* ``core.rabbitmq_consumer_engine`` is imported because
-that module captures ``rabbitmq_settings`` at module-load time.
+happen *before* the broker runner is constructed because the runner
+reads ``rabbitmq_settings`` from the singleton.
 """
 from __future__ import annotations
 

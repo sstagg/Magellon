@@ -13,8 +13,9 @@ from starlette.responses import JSONResponse
 
 from core.logger_config import setup_logging
 from core.model_dto import TaskDto
-from core.rabbitmq_consumer_engine import consumer_engine
 from core.settings import AppSettingsSingleton
+from magellon_sdk.categories.contract import FFT
+from service.plugin import FftBrokerRunner, FftPlugin, build_fft_result
 from service.service import check_requirements, do_execute, get_manifest, get_plugin_info
 
 
@@ -67,19 +68,42 @@ else:
     )
 
 
+_runner: FftBrokerRunner | None = None
+
+
 @app.on_event("startup")
 async def startup_event():
+    """Spin up the broker runner on a daemon thread.
+
+    The runner harness (P5) owns the pika loop, discovery + heartbeat
+    (P6), dynamic config (P7), provenance stamping (P4), and typed
+    failure routing (P2). We just hand it the plugin + queue names.
+    """
+    global _runner
     try:
-        # Discovery + dynamic config ride the broker now (P6/P7).
-        rabbitmq_thread = threading.Thread(target=consumer_engine, daemon=True)
-        rabbitmq_thread.start()
+        rmq = AppSettingsSingleton.get_instance().rabbitmq_settings
+        _runner = FftBrokerRunner(
+            plugin=FftPlugin(),
+            settings=rmq,
+            in_queue=rmq.QUEUE_NAME,
+            out_queue=rmq.OUT_QUEUE_NAME,
+            result_factory=build_fft_result,
+            contract=FFT,
+        )
+        threading.Thread(
+            target=_runner.start_blocking, name="fft-broker-runner", daemon=True
+        ).start()
     except Exception as e:
-        print(f"Error during startup: {e}")
+        logger.exception("Error during startup: %s", e)
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    pass
+    if _runner is not None:
+        try:
+            _runner.stop()
+        except Exception:
+            logger.exception("FftBrokerRunner: stop() raised")
 
 
 @app.get("/", summary="Get Plugin Information")

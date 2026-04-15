@@ -176,14 +176,27 @@ async def _drain_step_events(nats_url: str, stream: str, subjects: str,
 
 
 def _start_consumer_thread() -> threading.Thread:
-    """Boot the FFT plugin's RMQ consumer on a daemon thread.
+    """Boot the FFT plugin's broker runner on a daemon thread.
 
-    Imported lazily so the module-level ``settings`` capture happens
-    after the conftest has injected test brokers.
+    Lazy import so the conftest can inject test brokers before the
+    runner reads ``AppSettingsSingleton``.
     """
-    from core.rabbitmq_consumer_engine import consumer_engine
+    from core.settings import AppSettingsSingleton
+    from magellon_sdk.categories.contract import FFT
+    from service.plugin import FftBrokerRunner, FftPlugin, build_fft_result
 
-    t = threading.Thread(target=consumer_engine, daemon=True, name="fft-consumer-e2e")
+    rmq = AppSettingsSingleton.get_instance().rabbitmq_settings
+    runner = FftBrokerRunner(
+        plugin=FftPlugin(),
+        settings=rmq,
+        in_queue=rmq.QUEUE_NAME,
+        out_queue=rmq.OUT_QUEUE_NAME,
+        result_factory=build_fft_result,
+        contract=FFT,
+    )
+    t = threading.Thread(
+        target=runner.start_blocking, daemon=True, name="fft-consumer-e2e"
+    )
     t.start()
     return t
 

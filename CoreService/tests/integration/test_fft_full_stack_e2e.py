@@ -235,11 +235,21 @@ def _processed(row: Optional[Dict[str, Any]]) -> Dict[str, Any]:
 
 # ---- Socket.IO subscriber ----------------------------------------------------
 
-async def _drain_socketio_events(job_id: uuid.UUID, expected_completed: int,
-                                 deadline: float) -> List[dict]:
-    """Connect to the backend's Socket.IO server, join job:<id>, collect
-    ``step_event`` payloads until ``expected_completed`` completed events
-    arrive or wall-clock ``deadline`` elapses."""
+async def _subscribe_dispatch_drain(job_id: uuid.UUID, expected_completed: int,
+                                    deadline: float, dispatch_callable):
+    """Join the job room *before* dispatching, then drain ``step_event``
+    payloads until ``expected_completed`` completed events arrive or
+    ``deadline`` elapses.
+
+    The original shape connected after dispatch, which races the plugin —
+    a fast plugin can fire ``started`` events before the subscriber is in
+    the room, and Socket.IO doesn't replay missed emits. Subscribing
+    first is the only way to make ``len(started) == 10`` deterministic.
+
+    ``dispatch_callable`` is the blocking HTTP call; it runs in a worker
+    thread so the Socket.IO event loop keeps draining incoming frames
+    concurrently. Returns ``(events, dispatch_body)``.
+    """
     import socketio
 
     received: List[dict] = []
@@ -262,6 +272,8 @@ async def _drain_socketio_events(job_id: uuid.UUID, expected_completed: int,
         ack = await sio.call("join_job_room", {"job_id": str(job_id)}, timeout=5)
         assert ack and ack.get("ok"), f"join_job_room rejected: {ack}"
 
+        dispatch_body = await asyncio.to_thread(dispatch_callable)
+
         try:
             remaining = max(0.5, deadline - time.monotonic())
             await asyncio.wait_for(done.wait(), timeout=remaining)
@@ -273,7 +285,7 @@ async def _drain_socketio_events(job_id: uuid.UUID, expected_completed: int,
         except Exception:
             pass
 
-    return received
+    return received, dispatch_body
 
 
 # ---- the test ----------------------------------------------------------------
@@ -301,37 +313,37 @@ def test_full_stack_dispatches_ten_ffts_and_streams_events(tmp_path):
     assert _get_image_job_tasks(job_id) == []
     assert _get_job_events(job_id) == []
 
-    # -- dispatch: one batch, 10 tasks, single ImageJob ----------------------
+    # -- subscribe BEFORE dispatch so no early started events are missed -----
     in_container = [f"{container_dir}/{img.name}" for img in images]
-    body = _batch_dispatch(token, in_container, job_id, name=f"e2e {run_id}")
+
+    def _do_dispatch():
+        return _batch_dispatch(token, in_container, job_id, name=f"e2e {run_id}")
+
+    deadline = time.monotonic() + TEST_BUDGET
+    events, body = asyncio.run(
+        _subscribe_dispatch_drain(
+            job_id=job_id,
+            expected_completed=10,
+            deadline=deadline,
+            dispatch_callable=_do_dispatch,
+        )
+    )
+
     assert body["job_id"] == str(job_id)
     assert len(body["task_ids"]) == 10
     expected_outputs_container = set(body["target_paths"])
     expected_outputs_host = [host_dir / (Path(img).stem + "_FFT.png") for img in images]
 
-    # -- post-dispatch: JobManager has persisted everything as QUEUED --------
+    # -- post-dispatch: JobManager has persisted everything --------
+    # (state already advanced past QUEUED by the time events drained)
     job_row = _get_image_job(job_id)
     assert job_row is not None, "ImageJob not persisted by /fft/batch_dispatch"
-    assert job_row["status_id"] == 0, f"expected QUEUED(0), got {job_row['status_id']}"
     assert job_row["plugin_id"] == "magellon_fft_plugin"
     proc = _processed(job_row)
     assert proc.get("expected_tasks") == 10, proc
-    assert proc.get("completed_tasks") == [], proc
 
     task_rows = _get_image_job_tasks(job_id)
     assert len(task_rows) == 10, f"expected 10 tasks, got {len(task_rows)}"
-    assert all(r["status_id"] == 0 for r in task_rows), \
-        [r["status_id"] for r in task_rows]
-
-    # -- drain Socket.IO until 10 completed events arrive --------------------
-    deadline = time.monotonic() + TEST_BUDGET
-    events = asyncio.run(
-        _drain_socketio_events(
-            job_id=job_id,
-            expected_completed=10,
-            deadline=deadline,
-        )
-    )
 
     by_type: dict = {}
     for env in events:
