@@ -1,6 +1,9 @@
 .DS_Store
 **/__pycache__/
 
+# Plugin runtime audit log written by append_json_to_file
+plugins/*/output_file.json
+
 .idea/
 /CoreService3/
 /MainService/.idea/

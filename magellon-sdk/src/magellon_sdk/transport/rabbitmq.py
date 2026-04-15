@@ -48,6 +48,12 @@ class RabbitmqClient:
             "host": self.settings.HOST_NAME,
             "credentials": credentials,
         }
+        port = getattr(self.settings, "PORT", None)
+        if port is not None:
+            conn_kwargs["port"] = port
+        virtual_host = getattr(self.settings, "VIRTUAL_HOST", None)
+        if virtual_host:
+            conn_kwargs["virtual_host"] = virtual_host
         if self._heartbeat is not None:
             conn_kwargs["heartbeat"] = self._heartbeat
         if self._blocked_connection_timeout is not None:
