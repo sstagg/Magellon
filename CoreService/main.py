@@ -360,6 +360,27 @@ async def startup_event():
     except Exception as e:
         logger.error(f"[WARNING] Failed to start result processor: {e}")
 
+    # Start NATS → job_event forwarder (opt-in via MAGELLON_STEP_EVENTS_FORWARDER=1).
+    # When disabled or when NATS/stream is absent, the service still boots — the
+    # forwarder is purely a read-side log that can catch up once the publisher is up.
+    app.state.step_event_forwarder = None
+    if os.environ.get("MAGELLON_STEP_EVENTS_FORWARDER") == "1":
+        try:
+            from core.step_event_forwarder import build_default_forwarder
+            from database import session_local as _session_local
+            forwarder = build_default_forwarder(_session_local)
+            started = await forwarder.start()
+            if started:
+                app.state.step_event_forwarder = forwarder
+                logger.info("[OK] Step-event forwarder (NATS → job_event) started")
+            else:
+                logger.warning(
+                    "[WARNING] Step-event forwarder: NATS stream not yet present "
+                    "— forwarder will not run this boot"
+                )
+        except Exception as e:
+            logger.error(f"[WARNING] Step-event forwarder failed to start: {e}")
+
     logger.info("=" * 60)
     logger.info("[OK] Magellon Core Service started successfully")
     logger.info("=" * 60)
@@ -371,6 +392,14 @@ async def shutdown_event():
     logger.info("=" * 60)
     logger.info("Shutting down Magellon Core Service...")
     logger.info("=" * 60)
+
+    forwarder = getattr(app.state, "step_event_forwarder", None)
+    if forwarder is not None:
+        try:
+            await forwarder.stop()
+            logger.info("[OK] Step-event forwarder stopped")
+        except Exception as e:
+            logger.error(f"[WARNING] Step-event forwarder stop failed: {e}")
 
 
 from core.exceptions import (
