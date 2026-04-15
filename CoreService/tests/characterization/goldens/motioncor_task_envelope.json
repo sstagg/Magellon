@@ -30,6 +30,7 @@
     "SumRangeMaxDose": 0,
     "SumRangeMinDose": 0,
     "Tol": 0.5,
+    "engine_opts": {},
     "image_id": "00000000-0000-0000-0000-000000000005",
     "image_name": "sample",
     "image_path": "/data/sample.tif",

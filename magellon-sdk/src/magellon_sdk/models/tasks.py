@@ -113,6 +113,12 @@ class CryoEmImageTaskData(BaseModel):
     image_id: Optional[UUID] = None
     image_name: Optional[str] = None
     image_path: Optional[str] = None
+    # Contravariant-input escape hatch: plugin-specific knobs that
+    # the category contract doesn't know about. Every subclass
+    # inherits this so CtfTaskData, FftTaskData, etc. all support
+    # engine-specific extras without the category schema growing.
+    # Opaque to the backend — round-trips untouched.
+    engine_opts: Dict[str, Any] = Field(default_factory=dict)
 
 
 class MrcToPngTaskData(CryoEmImageTaskData):

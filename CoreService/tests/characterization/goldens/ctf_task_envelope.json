@@ -5,6 +5,7 @@
     "amplitudeContrast": 0.07,
     "binning_x": 1,
     "defocusSearchStep": 100.0,
+    "engine_opts": {},
     "image_id": "00000000-0000-0000-0000-000000000005",
     "image_name": "sample",
     "image_path": "/data/sample.mrc",

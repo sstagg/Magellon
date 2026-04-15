@@ -1,0 +1,90 @@
+"""Canonical output shapes per category.
+
+A plugin's ``execute()`` must return at least the fields its
+category declares — the DB projection relies on those. A plugin may
+also populate ``extras`` with plugin-specific data that the generic
+projection preserves as an opaque blob; specialized consumers can
+read it if they know what to look for.
+
+This is the covariant half of the substitutability contract:
+
+    ctffind returns {defocus_u, defocus_v, cc, resolution_limit}
+    gctf    returns {defocus_u, defocus_v, cc, resolution_limit,
+                     extras={"per_tile_variance": [...], ...}}
+
+Both fit the same slot; the richer one just offers more to anyone
+willing to read it.
+"""
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field
+
+
+class CategoryOutput(BaseModel):
+    """Base for every category's canonical output shape.
+
+    ``extras`` is the escape hatch for plugin-specific fields —
+    generic consumers (the DB projector) ignore it; specialized
+    consumers read it by key.
+    """
+
+    extras: Dict[str, Any] = Field(default_factory=dict)
+
+
+class FftOutput(CategoryOutput):
+    """FFT result: path to the rendered PNG and source reference."""
+
+    output_path: str
+    source_image_path: Optional[str] = None
+
+
+class CtfOutput(CategoryOutput):
+    """CTF estimation result — every CTF engine must produce these."""
+
+    defocus_u: float
+    defocus_v: float
+    astigmatism_angle: float
+    cc: float
+    resolution_limit: float
+    additional_phase_shift: Optional[float] = None
+    # The raw artifact on disk (star / txt). Optional because not
+    # every engine persists one.
+    artifact_path: Optional[str] = None
+    diagnostic_image_path: Optional[str] = None
+
+
+class MotionCorOutput(CategoryOutput):
+    """Motion-correction result: the aligned movie + drift summary."""
+
+    aligned_mrc_path: str
+    log_path: Optional[str] = None
+    total_drift_pixels: float
+    max_frame_drift_pixels: float
+    num_frames: int
+
+
+class ParticlePickingOutput(CategoryOutput):
+    """Particle-picking result: particle count + artifact locations.
+
+    Individual particle records live on disk (CSV/JSON) rather than
+    inlined — a typical picker emits thousands of particles and the
+    broker doesn't need to carry that load.
+    """
+
+    num_particles: int
+    particles_csv_path: Optional[str] = None
+    particles_json_path: Optional[str] = None
+    # Shape as a two-element list (rows, cols); list keeps pydantic
+    # happy without a separate tuple type.
+    image_shape: Optional[List[int]] = None
+
+
+__all__ = [
+    "CategoryOutput",
+    "FftOutput",
+    "CtfOutput",
+    "MotionCorOutput",
+    "ParticlePickingOutput",
+]
