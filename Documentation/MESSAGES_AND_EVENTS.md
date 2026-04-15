@@ -230,8 +230,9 @@ Closing this gap is Phase 4.
 | External plugin progress invisible to UI | 4 | Route plugin progress through NATS → CoreService → Socket.IO. |
 | `TaskOutputProcessor` never advances `ImageJobTask.status_id/stage` | 4 | Single writer path is `JobManager`; result processor currently bypasses it. |
 | `support/events/publisher.py` + `subscriber.py` still importable as FastAPI apps | 2 | Keep as thin shims around `magellon_sdk.transport.nats` — migration in this phase. |
-| No DLQ on task queues | 3 | `RabbitmqClient.publish_message` has no reject/retry policy. |
-| `asyncio.run()` inside pika blocking callback | 3 | Known bug in `plugins/magellon_ctf_plugin/core/rabbitmq_consumer_engine.py`. |
+| No DLQ on task queues | 3 | `RabbitmqClient.publish_message` has no reject/retry policy. Still open. |
+| ~~`asyncio.run()` inside pika blocking callback~~ | 3 (done) | Fixed in all 4 plugin consumer engines: one daemon-thread event loop per process, callbacks use `run_coroutine_threadsafe(...).result()`. |
+| ~~`RabbitmqClient.connect()` swallowed `AMQPConnectionError`~~ | 3 (done) | Now raises so helpers report `False` instead of silent-dropping a message as success. |
 
 ---
 

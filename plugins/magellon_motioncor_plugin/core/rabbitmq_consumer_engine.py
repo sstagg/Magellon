@@ -1,41 +1,68 @@
-import json
-import pdb
-import time
-import logging
 import asyncio
-from core.helper import append_json_to_file, parse_message_to_task_object, parse_json_for_cryoemctftask, extract_task_data_from_object, publish_message_to_queue
+import json
+import logging
+import os
+import threading
+import time
+from datetime import datetime
+from uuid import uuid4
+
+from core.helper import (
+    append_json_to_file,
+    extract_task_data_from_object,
+    parse_json_for_cryoemctftask,
+    parse_message_to_task_object,
+    publish_message_to_queue,
+)
+from core.model_dto import (
+    COMPLETED,
+    FAILED,
+    CryoEmMotionCorTaskData,
+    TaskCategory,
+    TaskDto,
+    TaskResultDto,
+    TaskStatus,
+)
 from core.rabbitmq_client import RabbitmqClient
-from core.model_dto import TaskResultDto, CryoEmMotionCorTaskData, COMPLETED, FAILED, TaskDto, TaskCategory, TaskStatus
 from core.settings import AppSettingsSingleton
 from pika.exceptions import ConnectionClosedByBroker
 from service.service import do_execute
-from datetime import datetime
-from uuid import uuid4
-import os
 
 file_path = "output_file.json"
 logger = logging.getLogger(__name__)
 settings = AppSettingsSingleton.get_instance().rabbitmq_settings
 rabbitmq_client = RabbitmqClient(settings)  # Create the client with settings
 
+# One long-lived event loop on a daemon thread — see CTF plugin for rationale.
+_loop = asyncio.new_event_loop()
+_loop_thread = threading.Thread(target=_loop.run_forever, daemon=True)
+_loop_thread.start()
+
+
+def _run_coro(coro):
+    """Schedule ``coro`` on the shared loop and block until it finishes.
+
+    Using ``asyncio.run`` per-message would tear down and rebuild a
+    loop for every task, stall pika's heartbeat, and break anything
+    capturing loop references across calls.
+    """
+    future = asyncio.run_coroutine_threadsafe(coro, _loop)
+    return future.result()
+
 
 def process_message(ch, method, properties, body):
     """Process standard motioncor tasks from the regular queue."""
     try:
-        # pdb.set_trace()
-        # logger.info("Just Got Message : ",body.decode("utf-8"))
-        append_json_to_file(file_path, body.decode("utf-8"))  # just for testing , it adds a record to output_file.json
+        append_json_to_file(file_path, body.decode("utf-8"))
         the_task = parse_message_to_task_object(body.decode("utf-8"))
-        # the_task_data = extract_task_data_from_object(the_task)
-        asyncio.run(do_execute(params=the_task))
-        # Acknowledge the message
+        _run_coro(do_execute(params=the_task))
         ch.basic_ack(delivery_tag=method.delivery_tag)
 
     except json.JSONDecodeError as e:
-        logger.error(f"Error decoding JSON: " ,e)
+        logger.error("Error decoding JSON: %s", e)
         ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
     except Exception as e:
-        logger.error(f"Error processing message: " ,e)
+        logger.error("Error processing message: %s", e)
         ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
 
@@ -99,7 +126,7 @@ def process_test_message(ch, method, properties, body):
         logger.info(f"Executing motioncor test task: {task_dto.id}")
         
         # Execute the task with properly formed TaskDto
-        result = asyncio.run(do_execute(params=test_task_dto))
+        result = _run_coro(do_execute(params=test_task_dto))
         logger.info(f"Motioncor test task execution result: {result}")
         
         # Check if result is a TaskResultDto (successful execution) or error dict

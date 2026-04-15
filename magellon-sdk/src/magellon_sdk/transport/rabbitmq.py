@@ -32,6 +32,14 @@ class RabbitmqClient:
         self._blocked_connection_timeout = blocked_connection_timeout
 
     def connect(self) -> None:
+        """Open a blocking connection + channel.
+
+        Raises :class:`pika.exceptions.AMQPConnectionError` /
+        :class:`ChannelError` on failure — previous versions swallowed
+        these, which left ``self.connection`` as ``None`` and caused
+        the next ``publish_message`` call to ``AttributeError`` on a
+        missing channel, masking the real error.
+        """
         credentials = pika.PlainCredentials(
             self.settings.USER_NAME,
             self.settings.PASSWORD,
@@ -50,7 +58,8 @@ class RabbitmqClient:
             self.channel = self.connection.channel()
             logger.info("Connected to RabbitMQ server")
         except (AMQPConnectionError, ChannelError) as e:
-            logger.error(f"Error connecting to RabbitMQ: {e}")
+            logger.error("Error connecting to RabbitMQ: %s", e)
+            raise
 
     def close_connection(self) -> None:
         if self.connection and not self.connection.is_closed:
@@ -65,6 +74,13 @@ class RabbitmqClient:
         logger.info(f"Declared queue: {queue_name}")
 
     def publish_message(self, message, queue_name: Optional[str] = None) -> None:
+        """Publish ``message`` to ``queue_name``.
+
+        Raises :class:`AMQPConnectionError` / :class:`ChannelError` on
+        failure so callers (e.g. ``messaging.publish_message_to_queue``)
+        can return ``False`` instead of reporting a silently-dropped
+        message as a success.
+        """
         queue_name = queue_name or self.settings.QUEUE_NAME
         self.declare_queue(queue_name)
         try:
@@ -76,9 +92,10 @@ class RabbitmqClient:
                     delivery_mode=2,
                 ),
             )
-            logger.info(f"Message published to {queue_name}")
+            logger.info("Message published to %s", queue_name)
         except (AMQPConnectionError, ChannelError) as e:
-            logger.error(f"Error publishing message: {e}")
+            logger.error("Error publishing message to %s: %s", queue_name, e)
+            raise
 
     def consume(self, queue_name: str, callback: Callable) -> None:
         self.declare_queue(queue_name)

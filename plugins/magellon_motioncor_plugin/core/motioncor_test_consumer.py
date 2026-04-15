@@ -3,9 +3,10 @@ Consumer for motioncor test tasks.
 Listens to the motioncor test input queue, processes tasks, and sends results to output queue.
 """
 
+import asyncio
 import json
 import logging
-import asyncio
+import threading
 from datetime import datetime
 
 from core.helper import publish_message_to_queue, append_json_to_file
@@ -19,6 +20,12 @@ logger = logging.getLogger(__name__)
 
 # For testing/debugging - log all messages
 log_file_path = "motioncor_test_messages.json"
+
+# Shared event loop so we don't tear down a loop per message (breaks
+# heartbeats, re-entrant state). See CTF plugin for rationale.
+_loop = asyncio.new_event_loop()
+_loop_thread = threading.Thread(target=_loop.run_forever, daemon=True)
+_loop_thread.start()
 
 
 def parse_message_to_task_object(message_str: str) -> TaskDto:
@@ -54,8 +61,8 @@ def process_message(ch, method, properties, body):
         
         logger.info(f"Processing motioncor test task {the_task.id}")
         
-        # Execute the task asynchronously
-        result = asyncio.run(do_execute(params=the_task))
+        # Execute the task via the shared loop.
+        result = asyncio.run_coroutine_threadsafe(do_execute(params=the_task), _loop).result()
         
         # Create result object
         task_result = TaskResultDto(

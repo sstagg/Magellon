@@ -1,9 +1,10 @@
-import json
-import pdb
-import time
-import logging
 import asyncio
-from core.helper import append_json_to_file,  parse_message_to_task_object
+import json
+import logging
+import threading
+import time
+
+from core.helper import append_json_to_file, parse_message_to_task_object
 from core.rabbitmq_client import RabbitmqClient
 from core.settings import AppSettingsSingleton
 from pika.exceptions import ConnectionClosedByBroker
@@ -15,23 +16,29 @@ settings = AppSettingsSingleton.get_instance().rabbitmq_settings
 rabbitmq_client = RabbitmqClient(settings)  # Create the client with settings
 
 
+# One long-lived event loop on a daemon thread. Using asyncio.run() per
+# message would spin up + tear down a loop for every task, which breaks
+# any coroutine that captures loop references and can stall pika's
+# heartbeat long enough for the broker to drop the connection.
+_loop = asyncio.new_event_loop()
+_loop_thread = threading.Thread(target=_loop.run_forever, daemon=True)
+_loop_thread.start()
+
+
 def process_message(ch, method, properties, body):
     try:
-        # pdb.set_trace()
-        # logger.info("Just Got Message : ",body.decode("utf-8"))
-        append_json_to_file(file_path, body.decode("utf-8"))  # just for testing , it adds a record to output_file.json
+        append_json_to_file(file_path, body.decode("utf-8"))
         the_task = parse_message_to_task_object(body.decode("utf-8"))
-        # the_task_data = extract_task_data_from_object(the_task)
-        asyncio.run(do_execute(params=the_task))
-        # Acknowledge the message
+        future = asyncio.run_coroutine_threadsafe(do_execute(params=the_task), _loop)
+        future.result()
         ch.basic_ack(delivery_tag=method.delivery_tag)
 
     except json.JSONDecodeError as e:
-        logger.error(f"Error decoding JSON: " ,e)
-        # Optionally, you can reject or handle the message differently in case of a JSON decoding error
+        logger.error("Error decoding JSON: %s", e)
         ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
     except Exception as e:
-        logger.error(f"Error processing message: " ,e)
+        logger.error("Error processing message: %s", e)
+        ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
 
 # keep a live connection to rabbitmq server and

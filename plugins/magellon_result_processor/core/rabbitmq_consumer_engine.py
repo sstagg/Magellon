@@ -1,46 +1,52 @@
-import json
-import pdb
-import time
-import logging
 import asyncio
-from typing import List, Tuple, Callable
+import json
+import logging
+import threading
+import time
+from typing import Callable, List, Tuple
 
-from core.database import get_db
-from core.helper import append_json_to_file, parse_message_to_task_object, parse_message_to_task_result_object
+from core.helper import (
+    append_json_to_file,
+    parse_message_to_task_object,
+    parse_message_to_task_result_object,
+)
 from core.rabbitmq_client import RabbitmqClient
 from core.settings import AppSettingsSingleton
 from pika.exceptions import ConnectionClosedByBroker
 from services.service import do_execute
-from sqlalchemy.orm import Session
 
 file_path = "output_file.json"
 logger = logging.getLogger(__name__)
 settings = AppSettingsSingleton.get_instance().rabbitmq_settings
 rabbitmq_client = RabbitmqClient(settings)  # Create the client with settings
 
+# One long-lived event loop on a daemon thread — see CTF plugin for rationale.
+_loop = asyncio.new_event_loop()
+_loop_thread = threading.Thread(target=_loop.run_forever, daemon=True)
+_loop_thread.start()
+
+
 def get_output_queues() -> List[Tuple[str, Callable]]:
     """Configure output queues and their processors."""
     settings = AppSettingsSingleton.get_instance().rabbitmq_settings
     return [(queue.name, process_message) for queue in settings.OUT_QUEUES]
 
+
 def process_message(ch, method, properties, body):
     try:
-        # pdb.set_trace()
-
-        # logger.info("Just Got Message : ",body.decode("utf-8"))
-        # append_json_to_file(file_path, body.decode("utf-8"))  # just for testing , it adds a record to output_file.json
         the_task = parse_message_to_task_result_object(body.decode("utf-8"))
-        # the_task_data = extract_task_data_from_object(the_task)
-        asyncio.run(do_execute(task_result_param=the_task))
-        # Acknowledge the message
+        future = asyncio.run_coroutine_threadsafe(
+            do_execute(task_result_param=the_task), _loop
+        )
+        future.result()
         ch.basic_ack(delivery_tag=method.delivery_tag)
 
     except json.JSONDecodeError as e:
-        logger.error(f"Error decoding JSON: ", e)
-        # Optionally, you can reject or handle the message differently in case of a JSON decoding error
+        logger.error("Error decoding JSON: %s", e)
         ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
     except Exception as e:
-        logger.error(f"Error processing message: ", e)
+        logger.error("Error processing message: %s", e)
+        ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
 
 # keep a live connection to rabbitmq server and
