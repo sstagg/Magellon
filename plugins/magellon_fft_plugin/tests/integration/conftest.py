@@ -52,9 +52,16 @@ def _docker_required() -> None:
     os.environ.setdefault("TESTCONTAINERS_RYUK_DISABLED", "true")
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def rmq_container(_docker_required) -> Iterator[dict]:
-    """Start RabbitMQ on an ephemeral host port and yield connection info."""
+    """Start RabbitMQ on an ephemeral host port and yield connection info.
+
+    Module-scoped (not session-scoped) so the in-process and subprocess
+    e2e tests don't share a broker. The in-process test leaves a daemon
+    consumer thread alive that retries connections in a tight loop on
+    error, which DoS'd the broker for the subsequent subprocess test.
+    Per-module brokers cost ~5s of extra startup but cleanly isolate.
+    """
     from testcontainers.rabbitmq import RabbitMqContainer
 
     container = RabbitMqContainer("rabbitmq:3.13-management-alpine")
@@ -72,7 +79,7 @@ def rmq_container(_docker_required) -> Iterator[dict]:
         container.stop()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def nats_container(_docker_required) -> Iterator[dict]:
     """Start NATS with JetStream enabled and yield ``broker_url``."""
     from testcontainers.core.container import DockerContainer
@@ -107,7 +114,7 @@ def _wait_for_rmq(host: str, port: int, deadline: float = 30.0) -> None:
     raise RuntimeError(f"RMQ at {host}:{port} not reachable: {last_err}")
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def configured_plugin(rmq_container, nats_container) -> Iterator[dict]:
     """Inject broker URLs into the plugin's AppSettings singleton + env.
 

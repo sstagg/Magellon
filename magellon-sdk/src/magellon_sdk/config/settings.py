@@ -139,7 +139,14 @@ class BaseAppSettingsSingleton:
             raise TypeError(
                 f"{cls.__name__} must set _settings_class to a BaseAppSettings subclass"
             )
-        path = cls._prod_yaml if os.environ.get("APP_ENV", "development") == "production" else cls._dev_yaml
+        # MAGELLON_SETTINGS_FILE wins over the APP_ENV-based default —
+        # lets a subprocess (test harness, container) point at a config
+        # without writing into the plugin's configs/ dir or fighting CWD.
+        override = os.environ.get("MAGELLON_SETTINGS_FILE")
+        if override:
+            path = override
+        else:
+            path = cls._prod_yaml if os.environ.get("APP_ENV", "development") == "production" else cls._dev_yaml
         return cls._settings_class.load_yaml_file_settings(path)
 
     @classmethod
