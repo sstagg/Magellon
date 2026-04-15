@@ -183,7 +183,7 @@ def _start_consumer_thread() -> threading.Thread:
     """
     from core.settings import AppSettingsSingleton
     from magellon_sdk.categories.contract import FFT
-    from service.plugin import FftBrokerRunner, FftPlugin, build_fft_result
+    from plugin import FftBrokerRunner, FftPlugin, build_fft_result
 
     rmq = AppSettingsSingleton.get_instance().rabbitmq_settings
     runner = FftBrokerRunner(

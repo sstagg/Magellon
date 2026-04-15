@@ -48,8 +48,8 @@ from magellon_sdk.categories.outputs import FftOutput
 from magellon_sdk.progress import NullReporter, ProgressReporter
 from magellon_sdk.runner import PluginBrokerRunner
 
-from service.fft_service import compute_file_fft
-from service.step_events import STEP_NAME, get_publisher
+from plugin.compute import compute_file_fft
+from plugin.events import STEP_NAME, get_publisher
 
 logger = logging.getLogger(__name__)
 

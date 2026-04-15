@@ -29,7 +29,7 @@ RUN pip install --upgrade pip setuptools wheel \
 
 COPY plugins/magellon_fft_plugin/configs ./configs
 COPY plugins/magellon_fft_plugin/core ./core
-COPY plugins/magellon_fft_plugin/service ./service
+COPY plugins/magellon_fft_plugin/plugin ./plugin
 COPY plugins/magellon_fft_plugin/main.py ./main.py
 
 ENV PYTHONPATH=/app/plugins/magellon_fft_plugin \

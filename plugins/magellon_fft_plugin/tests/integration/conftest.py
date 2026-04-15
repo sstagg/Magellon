@@ -21,7 +21,7 @@ from typing import Iterator
 
 import pytest
 
-# Make the FFT plugin importable as ``core.*`` / ``service.*`` —
+# Make the FFT plugin importable as ``core.*`` / ``plugin.*`` —
 # matches how the plugin is run in production (cwd == plugin root).
 _PLUGIN_ROOT = Path(__file__).resolve().parents[2]
 if str(_PLUGIN_ROOT) not in sys.path:

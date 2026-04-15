@@ -25,7 +25,7 @@ from starlette.responses import JSONResponse
 from core.settings import AppSettingsSingleton
 from magellon_sdk.categories.contract import FFT
 from magellon_sdk.logging_config import setup_logging
-from service.plugin import FftBrokerRunner, FftPlugin, build_fft_result
+from plugin import FftBrokerRunner, FftPlugin, build_fft_result
 
 
 _plugin = FftPlugin()

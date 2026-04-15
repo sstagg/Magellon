@@ -31,7 +31,7 @@ def test_input_and_output_schema_match_fft_category_contract():
     output models. If this drifts, the dispatcher and the plugin can't
     speak the same language."""
     from magellon_sdk.categories.contract import FFT
-    from service.plugin import FftPlugin
+    from plugin.plugin import FftPlugin
 
     assert FftPlugin.input_schema() is FFT.input_model
     assert FftPlugin.output_schema() is FFT.output_model
@@ -40,7 +40,7 @@ def test_input_and_output_schema_match_fft_category_contract():
 def test_get_info_matches_manifest_provenance():
     """plugin_id/plugin_version stamped on results come from get_info().
     Pin the values so the audit trail (P4) stays predictable."""
-    from service.plugin import FftPlugin
+    from plugin.plugin import FftPlugin
 
     info = FftPlugin().get_info()
     assert info.name == "FFT Plugin"
@@ -51,7 +51,7 @@ def test_manifest_advertises_progress_and_rmq_default():
     """Capability + transport defaults — these flow into the announce
     payload, so a regression here would silently misregister the plugin."""
     from magellon_sdk.models.manifest import Capability, Transport
-    from service.plugin import FftPlugin
+    from plugin.plugin import FftPlugin
 
     manifest = FftPlugin().manifest()
     assert Capability.PROGRESS_REPORTING in manifest.capabilities
@@ -69,7 +69,7 @@ def test_execute_returns_fft_output_with_paths(monkeypatch, tmp_path):
     test doesn't need a broker."""
     from magellon_sdk.categories.outputs import FftOutput
     from magellon_sdk.models.tasks import FftTaskData
-    from service import plugin as plugin_mod
+    from plugin import plugin as plugin_mod
 
     captured = {}
 
@@ -96,7 +96,7 @@ def test_execute_resolves_output_path_when_target_omitted(monkeypatch, tmp_path)
     """No target_path → derive ``<stem>_FFT.png`` next to the input. The
     HTTP path's _resolve_output_path has the same rule; both must agree."""
     from magellon_sdk.models.tasks import FftTaskData
-    from service import plugin as plugin_mod
+    from plugin import plugin as plugin_mod
 
     monkeypatch.setattr(
         plugin_mod, "compute_file_fft",
@@ -113,7 +113,7 @@ def test_execute_raises_when_neither_path_supplied():
     raise so the runner classifies into DLQ via P2's exception taxonomy
     rather than silently producing an empty FftOutput."""
     from magellon_sdk.models.tasks import FftTaskData
-    from service.plugin import FftPlugin
+    from plugin.plugin import FftPlugin
 
     with pytest.raises(ValueError, match="image_path or target_path"):
         FftPlugin().execute(FftTaskData())
@@ -129,7 +129,7 @@ def test_build_fft_result_carries_envelope_identifiers():
     JobEventWriter can correlate it back to the originating task."""
     from magellon_sdk.categories.outputs import FftOutput
     from magellon_sdk.models import TaskDto
-    from service.plugin import build_fft_result
+    from plugin.plugin import build_fft_result
 
     job_id = uuid4()
     task_id = uuid4()
@@ -155,7 +155,7 @@ def test_build_fft_result_merges_output_extras_into_output_data():
     result. Generic consumers ignore them; specialized ones can read."""
     from magellon_sdk.categories.outputs import FftOutput
     from magellon_sdk.models import TaskDto
-    from service.plugin import build_fft_result
+    from plugin.plugin import build_fft_result
 
     task = TaskDto(id=uuid4(), job_id=uuid4(), data={})
     output = FftOutput(
@@ -178,8 +178,8 @@ def test_runner_exposes_active_task_during_plugin_run(monkeypatch, tmp_path):
     execute() can recover job_id/task_id for step-event emission. After
     _process returns the var is reset to its prior value."""
     from magellon_sdk.models import TaskDto
-    from service import plugin as plugin_mod
-    from service.plugin import (
+    from plugin import plugin as plugin_mod
+    from plugin.plugin import (
         FftBrokerRunner,
         FftPlugin,
         build_fft_result,
@@ -247,7 +247,7 @@ def test_execute_emits_started_progress_completed_when_publisher_present(
     """Sync execute() bridges to the async step-event publisher via the
     daemon loop. Pin the order and the keyword shape."""
     from magellon_sdk.models import TaskDto
-    from service import plugin as plugin_mod
+    from plugin import plugin as plugin_mod
 
     calls = []
 
@@ -299,7 +299,7 @@ def test_execute_emits_failed_on_compute_error(monkeypatch, tmp_path):
     """A crash inside compute_file_fft must produce a failed envelope
     *and* re-raise so the runner can NACK + classify per P2."""
     from magellon_sdk.models import TaskDto
-    from service import plugin as plugin_mod
+    from plugin import plugin as plugin_mod
 
     calls = []
 
