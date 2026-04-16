@@ -8,6 +8,7 @@ MB1.1 lands Protocols + policy dataclasses. Concrete entry points
 (``get_bus``, route value objects, mock binder) land in MB1.2 / MB1.3.
 No production caller imports this package yet.
 """
+from magellon_sdk.bus._facade import DefaultMessageBus, get_bus
 from magellon_sdk.bus.interfaces import (
     Binder,
     ConsumerHandle,
@@ -42,4 +43,7 @@ __all__ = [
     "SubscriptionHandle",
     "TaskHandler",
     "TasksBus",
+    # facade + registry
+    "DefaultMessageBus",
+    "get_bus",
 ]
