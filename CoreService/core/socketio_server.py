@@ -135,13 +135,65 @@ async def join_job_room(sid, data):
 
     Payload: ``{"job_id": "<uuid>"}``. Idempotent — re-joining the same
     room is a no-op.
+
+    After joining, replays persisted lifecycle events (started /
+    completed / failed) for the job to *this sid only*. Closes the
+    race where a fast plugin finishes before the UI mounts and joins.
+    Progress events are not persisted so they can't be replayed; the
+    client dedupes on CloudEvents ``id`` so any overlap with live
+    delivery collapses cleanly.
     """
     job_id = (data or {}).get("job_id")
     if not job_id:
         return {"ok": False, "error": "job_id required"}
     await sio.enter_room(sid, _job_room(job_id))
     logger.info(f"sid={sid} joined {_job_room(job_id)}")
+    await _replay_persisted_events(sid, job_id)
     return {"ok": True, "room": _job_room(job_id)}
+
+
+async def _replay_persisted_events(sid: str, job_id: str) -> None:
+    """Re-emit persisted lifecycle events for ``job_id`` to ``sid``.
+
+    Queries ``job_event`` ordered by ``ts`` and emits each row in the
+    same shape :func:`emit_step_event` produces, so the React client
+    sees no difference between replayed and live deliveries.
+    """
+    rows = await asyncio.to_thread(_load_persisted_events, job_id)
+    for payload in rows:
+        try:
+            await sio.emit("step_event", payload, room=sid)
+        except Exception:
+            logger.exception("replay emit failed for sid=%s event_id=%s", sid, payload.get("id"))
+    if rows:
+        logger.info("replayed %d persisted event(s) to sid=%s for job=%s", len(rows), sid, job_id)
+
+
+def _load_persisted_events(job_id: str) -> list[dict]:
+    from database import session_local
+    from models.sqlalchemy_models import JobEvent
+
+    db = session_local()
+    try:
+        rows = (
+            db.query(JobEvent)
+            .filter(JobEvent.job_id == job_id)
+            .order_by(JobEvent.ts.asc())
+            .all()
+        )
+        return [
+            {
+                "id": r.event_id,
+                "type": r.event_type,
+                "source": r.source,
+                "subject": f"magellon.job.{r.job_id}.step.{r.step}",
+                "time": r.ts.isoformat() if r.ts else None,
+                "data": r.data_json or {},
+            }
+            for r in rows
+        ]
+    finally:
+        db.close()
 
 
 @sio.event

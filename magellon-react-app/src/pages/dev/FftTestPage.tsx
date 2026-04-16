@@ -102,7 +102,7 @@ export const FftTestPage: React.FC = () => {
     const handleDispatchSingle = async () => {
         const payload: Record<string, unknown> = { image_path: imagePath };
         if (targetPath) payload.target_path = targetPath;
-        const res = await client.post<SingleDispatchResponse>('/fft/dispatch', payload);
+        const res = await client.post<SingleDispatchResponse>('/image/fft/dispatch', payload);
         setDispatch({
             job_id: res.data.job_id,
             queue_name: res.data.queue_name,
@@ -120,7 +120,7 @@ export const FftTestPage: React.FC = () => {
             setError('At least one image path is required for batch dispatch.');
             return;
         }
-        const res = await client.post<BatchDispatchResponse>('/fft/batch_dispatch', {
+        const res = await client.post<BatchDispatchResponse>('/image/fft/batch_dispatch', {
             image_paths: paths,
             name: `FFT batch x${paths.length}`,
         });
