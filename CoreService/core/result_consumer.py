@@ -1,81 +1,86 @@
-"""In-process consumer for plugin result queues (P3).
+"""In-process consumer for plugin result routes (P3 + MB4.5).
 
-Replaces the out-of-tree ``magellon_result_processor`` plugin's
-RabbitMQ consumer loop. Subscribes to every queue listed in
-``app_settings.rabbitmq_settings.OUT_QUEUES`` and projects each
-``TaskResultDto`` through :class:`TaskOutputProcessor`, which writes
-the per-task DB rows on a fresh SQLAlchemy session.
+Subscribes to every subject listed in ``app_settings.rabbitmq_settings.OUT_QUEUES``
+via the MessageBus and projects each :class:`TaskResultDto` through
+:class:`TaskOutputProcessor`, which writes the per-task DB rows on a
+fresh SQLAlchemy session.
 
-Designed to be run on a daemon thread spawned from ``main.py``
-startup — same pattern as the existing motioncor test consumer and
-the RMQ step-event forwarder. Failures are isolated per delivery so
-one bad message can't take the loop down.
+MB4.5 replaced the direct pika loop with ``bus.tasks.consumer``:
+- Connection / reconnect / ack / nack-to-DLQ are the binder's job.
+- Decoding is the binder's job (body → Envelope).
+- This module only owns: what to subscribe to, what handler to run.
+
+Failures are isolated per delivery so one bad message can't take the
+loop down. Decode errors propagate to the binder as exceptions → the
+classifier routes them to DLQ. Processing errors (DB writes etc.)
+also DLQ — a row that failed mid-projection would just fail again
+on retry.
 """
 from __future__ import annotations
 
-import json
 import logging
-import time
-from typing import Optional
+from typing import List, Optional
 
-from pika.exceptions import ConnectionClosedByBroker
 from sqlalchemy.orm import sessionmaker
 
 from config import app_settings
-from core.rabbitmq_client import RabbitmqClient
 from database import session_local as default_session_local
+from magellon_sdk.bus import ConsumerHandle, get_bus
+from magellon_sdk.bus.routes import TaskRoute
+from magellon_sdk.envelope import Envelope
+from magellon_sdk.errors import PermanentError
 from models.plugins_models import TaskResultDto
 from services.task_output_processor import TaskOutputProcessor
 
 logger = logging.getLogger(__name__)
 
 
-def _process_one(body: bytes, session_factory: sessionmaker) -> None:
-    """Decode the message, hand it to TaskOutputProcessor on a fresh
-    session. Raises on decode failure so the broker callback can DLQ
-    the bad delivery instead of silently dropping it."""
-    text = body.decode("utf-8")
-    task_result = TaskResultDto.model_validate_json(text)
+def _make_handler(session_factory: sessionmaker):
+    """Bind a session factory into a bus-shaped task handler.
 
-    db = session_factory()
-    out_queues = app_settings.rabbitmq_settings.OUT_QUEUES
-    processor = TaskOutputProcessor(db=db, out_queues=out_queues)
-    processor.process(task_result)
-    # processor.process() closes the session in its finally block.
+    Handler signature matches ``bus.tasks.consumer``: takes an
+    :class:`Envelope`, returns ``None`` (ack) or raises (classify →
+    DLQ). The binder reconstructs the envelope from wire bytes + ce-*
+    headers; ``envelope.data`` is the raw result dict.
+    """
 
-
-def _make_callback(session_factory: sessionmaker):
-    """Bind a session factory into a pika-shaped on_message callback."""
-
-    def _on_message(ch, method, properties, body):
+    def _on_envelope(envelope: Envelope) -> None:
         try:
-            _process_one(body, session_factory)
-            ch.basic_ack(delivery_tag=method.delivery_tag)
-        except json.JSONDecodeError as exc:
-            # Bad JSON will never decode on retry — DLQ immediately.
-            logger.error("result_consumer: undecodable message → DLQ: %s", exc)
-            ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+            task_result = TaskResultDto.model_validate(envelope.data)
+        except Exception as exc:
+            # Malformed payload will never decode on retry. Raise as
+            # PermanentError so classify_exception routes to DLQ.
+            raise PermanentError(f"undecodable TaskResultDto: {exc}") from exc
+
+        db = session_factory()
+        out_queues = app_settings.rabbitmq_settings.OUT_QUEUES
+        processor = TaskOutputProcessor(db=db, out_queues=out_queues)
+        try:
+            processor.process(task_result)
+            # processor.process() closes the session in its finally block.
         except Exception as exc:
             # The processor already commits/rolls-back its own session.
-            # We DLQ here rather than requeue: a write that died
-            # mid-projection would just fail again on the same row, and
-            # the JobManager status writer will mark the task FAILED via
-            # the processor's best-effort path before we get here.
-            logger.error(
-                "result_consumer: processing failed → DLQ: %s", exc, exc_info=True
-            )
-            ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+            # We re-raise so the binder DLQs this delivery via classify:
+            # a write that died mid-projection would just fail again on
+            # the same row, and the JobManager status writer will mark
+            # the task FAILED via the processor's best-effort path
+            # before we get here.
+            raise PermanentError(f"processor failed: {exc}") from exc
 
-    return _on_message
+    return _on_envelope
 
 
-def result_consumer_engine(
+def start_result_consumers(
     session_factory: Optional[sessionmaker] = None,
-) -> None:
-    """Long-running consumer loop. Reconnects on broker bounce.
+) -> List[ConsumerHandle]:
+    """Register one bus consumer per ``OUT_QUEUES`` entry.
 
-    ``session_factory`` is injectable for tests; production passes
-    the module-level ``database.session_local``.
+    Returns the list of consumer handles so the caller (startup code)
+    can close them cleanly on shutdown. Idempotent in practice —
+    calling twice produces duplicate consumers, which would double-
+    process each delivery. ``main.py`` should call this once.
+
+    Returns an empty list if ``OUT_QUEUES`` is empty (no-op).
     """
     factory = session_factory or default_session_local
     out_queues = app_settings.rabbitmq_settings.OUT_QUEUES
@@ -85,30 +90,41 @@ def result_consumer_engine(
             "result_consumer: OUT_QUEUES is empty — staying dormant. "
             "Add queues to rabbitmq_settings.OUT_QUEUES to enable."
         )
+        return []
+
+    handler = _make_handler(factory)
+    bus = get_bus()
+    handles: List[ConsumerHandle] = []
+    for q in out_queues:
+        route = TaskRoute.named(q.name)
+        handles.append(bus.tasks.consumer(route, handler))
+        logger.info("result_consumer: subscribed to %s", q.name)
+    return handles
+
+
+# Backward-compat shim: the old module exposed ``result_consumer_engine``
+# as a blocking loop spawned on a daemon thread. Post-MB4.5 the bus
+# owns the loop — consumers run on binder-managed threads. This
+# function registers consumers, waits on the first handle's
+# ``run_until_shutdown`` (which blocks until the binder is closed or
+# all handles are closed), and returns. Keeps ``main.py`` working
+# without code changes at the caller site.
+def result_consumer_engine(
+    session_factory: Optional[sessionmaker] = None,
+) -> None:
+    handles = start_result_consumers(session_factory)
+    if not handles:
         return
-
-    queue_names = [q.name for q in out_queues]
-    logger.info("result_consumer: subscribing to %s", queue_names)
-
-    while True:
-        try:
-            client = RabbitmqClient(app_settings.rabbitmq_settings)
-            client.connect()
-            callback = _make_callback(factory)
-            for name in queue_names:
-                client.declare_queue(name)
-                client.consume(name, callback)
-            logger.info("result_consumer: consuming. press CTRL+C to exit")
-            client.start_consuming()
-        except KeyboardInterrupt:
-            logger.info("result_consumer: interrupted, exiting")
-            break
-        except ConnectionClosedByBroker:
-            logger.warning("result_consumer: broker closed connection, reconnecting in 5s")
-            time.sleep(5)
-        except Exception as exc:
-            logger.error("result_consumer: loop crashed (%s) — reconnecting in 5s", exc)
-            time.sleep(5)
+    try:
+        handles[0].run_until_shutdown()
+    except KeyboardInterrupt:
+        logger.info("result_consumer: interrupted, exiting")
+    finally:
+        for h in handles:
+            try:
+                h.close()
+            except Exception:
+                pass
 
 
-__all__ = ["result_consumer_engine"]
+__all__ = ["result_consumer_engine", "start_result_consumers"]
