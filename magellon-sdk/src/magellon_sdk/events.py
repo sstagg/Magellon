@@ -325,6 +325,12 @@ async def make_step_publisher(
         if cached is not None:
             return cached
 
+        # NATS and RMQ init are independent — one transport down must
+        # not poison the other. We disable the publisher only when
+        # *both* are unavailable (or unrequested). Same isolation rule
+        # as the per-event fanout below.
+        transports: List[Any] = []
+
         try:
             from magellon_sdk.transport.nats import NatsPublisher
 
@@ -340,50 +346,55 @@ async def make_step_publisher(
                 ],
             )
             await nats.connect()
-
-            transports: List[Any] = [nats]
-            if (
-                os.environ.get("MAGELLON_STEP_EVENTS_RMQ") == "1"
-                and rmq_settings is not None
-            ):
-                try:
-                    from magellon_sdk.transport.rabbitmq_events import (
-                        DEFAULT_EXCHANGE,
-                        RabbitmqEventPublisher,
-                    )
-
-                    rmq = RabbitmqEventPublisher(
-                        rmq_settings, exchange=DEFAULT_EXCHANGE
-                    )
-                    rmq.connect()
-                    transports.append(_RmqAsyncAdapter(rmq))
-                    logger.info(
-                        "[%s] step-event publisher: RMQ mirror enabled", plugin_name
-                    )
-                except Exception:
-                    logger.exception(
-                        "[%s] step-event publisher: RMQ init failed — NATS only",
-                        plugin_name,
-                    )
-
-            inner: Any = (
-                transports[0] if len(transports) == 1 else _FanoutPublisher(transports)
-            )
-            publisher = StepEventPublisher(inner, plugin_name=plugin_name)
-            _PUBLISHERS[plugin_name] = publisher
-            logger.info(
-                "[%s] step-event publisher ready (transports=%d)",
-                plugin_name,
-                len(transports),
-            )
-            return publisher
+            transports.append(nats)
         except Exception:
-            logger.exception(
-                "[%s] step-event publisher init failed — disabling for this run",
+            logger.warning(
+                "[%s] step-event publisher: NATS init failed — RMQ-only if available",
+                plugin_name,
+            )
+
+        if (
+            os.environ.get("MAGELLON_STEP_EVENTS_RMQ") == "1"
+            and rmq_settings is not None
+        ):
+            try:
+                from magellon_sdk.transport.rabbitmq_events import (
+                    DEFAULT_EXCHANGE,
+                    RabbitmqEventPublisher,
+                )
+
+                rmq = RabbitmqEventPublisher(
+                    rmq_settings, exchange=DEFAULT_EXCHANGE
+                )
+                rmq.connect()
+                transports.append(_RmqAsyncAdapter(rmq))
+                logger.info(
+                    "[%s] step-event publisher: RMQ mirror enabled", plugin_name
+                )
+            except Exception:
+                logger.warning(
+                    "[%s] step-event publisher: RMQ init failed", plugin_name,
+                )
+
+        if not transports:
+            logger.warning(
+                "[%s] step-event publisher: no transport available — disabling",
                 plugin_name,
             )
             os.environ["MAGELLON_STEP_EVENTS_ENABLED"] = "0"
             return None
+
+        inner: Any = (
+            transports[0] if len(transports) == 1 else _FanoutPublisher(transports)
+        )
+        publisher = StepEventPublisher(inner, plugin_name=plugin_name)
+        _PUBLISHERS[plugin_name] = publisher
+        logger.info(
+            "[%s] step-event publisher ready (transports=%d)",
+            plugin_name,
+            len(transports),
+        )
+        return publisher
 
 
 def reset_publishers_for_tests() -> None:

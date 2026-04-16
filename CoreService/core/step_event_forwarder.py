@@ -25,6 +25,35 @@ from services.job_event_writer import JobEventWriter
 DownstreamHandler = Callable[[Envelope[Any]], Awaitable[None]]
 
 
+async def log_step_event(envelope: Envelope[Any]) -> None:
+    """Emit a one-line INFO log per step event.
+
+    Sits in the downstream chain so the operator can watch events flow
+    through CoreService logs without tailing RMQ/NATS separately.
+    Lifecycle events also get a row in ``job_event`` (via
+    :class:`JobEventWriter`); progress events are live-only and would
+    otherwise be invisible from the backend log.
+    """
+    data: Any = envelope.data if isinstance(envelope.data, dict) else {}
+    job_id = data.get("job_id", "?")
+    task_id = data.get("task_id", "?")
+    step = data.get("step", "?")
+    short_type = envelope.type.replace("magellon.step.", "")
+    extras = ""
+    if short_type == "progress" and "percent" in data:
+        extras = f" {data['percent']}%"
+        if data.get("message"):
+            extras += f" — {data['message']}"
+    elif short_type == "failed":
+        extras = f" — {data.get('error', '')}"
+    elif short_type == "completed" and data.get("output_files"):
+        extras = f" — {len(data['output_files'])} file(s)"
+    logging.getLogger("magellon.step_events").info(
+        "step_event: %s job=%s task=%s step=%s%s",
+        short_type, job_id, task_id, step, extras,
+    )
+
+
 def chain_downstream(*handlers: DownstreamHandler) -> DownstreamHandler:
     """Run multiple downstream handlers in order for one envelope.
 

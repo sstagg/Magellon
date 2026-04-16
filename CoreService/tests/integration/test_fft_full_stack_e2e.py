@@ -68,27 +68,29 @@ DB_URL = os.environ.get(
 )
 
 
-def _stack_up() -> bool:
-    return os.environ.get("MAGELLON_E2E_STACK", "").lower() in {"1", "up", "true", "yes"}
-
-
-pytestmark = [
-    pytest.mark.integration_e2e,
-    pytest.mark.skipif(
-        not _stack_up(),
-        reason="MAGELLON_E2E_STACK!=up — start `docker compose up -d` first",
-    ),
-]
+pytestmark = [pytest.mark.integration_e2e]
 
 
 def _gpfs_host_root() -> Path:
-    """Host path that compose mounts at ``/gpfs`` inside containers.
+    """Host directory the FFT plugin reads inputs from and writes outputs to.
 
-    Defaults to the value baked into Docker/.env so a fresh checkout
-    'just works' on Windows. Override via env when the operator's
-    .env points elsewhere.
+    In direct-run mode (no compose) the plugin process is on the host, so
+    the ``image_path`` we dispatch with must be a real host path. Default
+    ``C:/temp/magellon/gpfs`` matches the throwaway test layout; override
+    via env when you point at a different scratch root.
     """
-    raw = os.environ.get("MAGELLON_GPFS_HOST_PATH", r"c:\magellon\gpfs")
+    raw = os.environ.get("MAGELLON_GPFS_HOST_PATH", r"C:\temp\magellon\gpfs")
+    return Path(raw)
+
+
+def _magellon_home_root() -> Path:
+    """Where ``task_output_processor`` lands the projected PNGs.
+
+    Mirrors ``MAGELLON_HOME_DIR`` from the running CoreService — the test
+    has to know it to assert the file ended up where the projector put it.
+    Default matches ``configs/app_settings_dev.yaml``.
+    """
+    raw = os.environ.get("MAGELLON_HOME_DIR", r"C:\magellon\home")
     return Path(raw)
 
 
@@ -292,13 +294,15 @@ async def _subscribe_dispatch_drain(job_id: uuid.UUID, expected_completed: int,
 
 def test_full_stack_dispatches_ten_ffts_and_streams_events(tmp_path):
     gpfs_root = _gpfs_host_root()
-    if not gpfs_root.exists():
-        pytest.skip(f"GPFS host root {gpfs_root} not present — is the stack mounted?")
+    gpfs_root.mkdir(parents=True, exist_ok=True)
 
     run_id = uuid.uuid4().hex[:8]
     rel_dir = f"fft_e2e_{run_id}"
     host_dir = gpfs_root / rel_dir
-    container_dir = f"/gpfs/{rel_dir}"  # how the plugin sees it
+    # Direct-run: backend, plugin, and test all share the host filesystem,
+    # so the path we dispatch with is the same path the plugin opens. No
+    # /gpfs/ container-prefix translation needed.
+    dispatch_dir = str(host_dir).replace("\\", "/")
 
     images = _generate_input_images(host_dir, count=10)
     assert len(images) == 10
@@ -314,7 +318,7 @@ def test_full_stack_dispatches_ten_ffts_and_streams_events(tmp_path):
     assert _get_job_events(job_id) == []
 
     # -- subscribe BEFORE dispatch so no early started events are missed -----
-    in_container = [f"{container_dir}/{img.name}" for img in images]
+    in_container = [f"{dispatch_dir}/{img.name}" for img in images]
 
     def _do_dispatch():
         return _batch_dispatch(token, in_container, job_id, name=f"e2e {run_id}")
@@ -332,7 +336,15 @@ def test_full_stack_dispatches_ten_ffts_and_streams_events(tmp_path):
     assert body["job_id"] == str(job_id)
     assert len(body["task_ids"]) == 10
     expected_outputs_container = set(body["target_paths"])
-    expected_outputs_host = [host_dir / (Path(img).stem + "_FFT.png") for img in images]
+    # task_output_processor moves each PNG from where the plugin wrote it
+    # (sibling of the input) to MAGELLON_HOME_DIR/<session>/ffts/<stem>/.
+    # No session_name in the dispatch payload, so the session segment is
+    # empty: MAGELLON_HOME_DIR/ffts/<stem>/<stem>_FFT.png.
+    home_root = _magellon_home_root()
+    expected_outputs_host = [
+        home_root / "ffts" / Path(img).stem / (Path(img).stem + "_FFT.png")
+        for img in images
+    ]
 
     # -- post-dispatch: JobManager has persisted everything --------
     # (state already advanced past QUEUED by the time events drained)

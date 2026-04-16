@@ -229,8 +229,19 @@ class RabbitmqEventConsumer:
             credentials=credentials,
             heartbeat=30,
             blocked_connection_timeout=300,
+            socket_timeout=2,
+            connection_attempts=1,
+            retry_delay=0,
         )
-        self.connection = pika.BlockingConnection(params)
+        # Quiet pika's per-attempt INFO/WARNING noise during the connect
+        # try — we re-raise and the caller logs a single clean warning.
+        pika_logger = logging.getLogger("pika")
+        prior = pika_logger.level
+        pika_logger.setLevel(logging.CRITICAL)
+        try:
+            self.connection = pika.BlockingConnection(params)
+        finally:
+            pika_logger.setLevel(prior or logging.WARNING)
         self.channel = self.connection.channel()
         self.channel.exchange_declare(
             exchange=self.exchange, exchange_type="topic", durable=True
@@ -255,6 +266,12 @@ class RabbitmqEventConsumer:
         def _run():
             try:
                 self._connect()
+            except AMQPConnectionError as e:
+                logger.warning(
+                    "RabbitmqEventConsumer: broker %s not reachable (%s) — consumer will not start",
+                    self.settings.HOST_NAME, e,
+                )
+                return
             except Exception:
                 logger.exception("RabbitmqEventConsumer: failed to connect")
                 return

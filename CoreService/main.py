@@ -406,17 +406,17 @@ async def startup_event():
         try:
             from core.rmq_step_event_forwarder import build_default_rmq_forwarder
             from core.socketio_server import emit_step_event
-            from core.step_event_forwarder import chain_downstream
+            from core.step_event_forwarder import chain_downstream, log_step_event
             from database import session_local as _session_local
             from services.job_state_projector import project_step_event
             # Capture the asgi event loop so the RMQ consumer daemon thread
             # can dispatch the async Socket.IO emit via run_coroutine_threadsafe.
             # Order: projector first (DB state must be fresh before the UI
-            # reads it on receipt), then Socket.IO emit.
+            # reads it on receipt), then Socket.IO emit, then log line.
             rmq_forwarder = build_default_rmq_forwarder(
                 app_settings.rabbitmq_settings,
                 _session_local,
-                downstream=chain_downstream(project_step_event, emit_step_event),
+                downstream=chain_downstream(project_step_event, emit_step_event, log_step_event),
                 loop=asyncio.get_running_loop(),
             )
             rmq_forwarder.start()
@@ -432,13 +432,13 @@ async def startup_event():
     app.state.step_event_forwarder = None
     if os.environ.get("MAGELLON_STEP_EVENTS_FORWARDER", "1") != "0":
         try:
-            from core.step_event_forwarder import build_default_forwarder, chain_downstream
+            from core.step_event_forwarder import build_default_forwarder, chain_downstream, log_step_event
             from core.socketio_server import emit_step_event
             from database import session_local as _session_local
             from services.job_state_projector import project_step_event
             forwarder = build_default_forwarder(
                 _session_local,
-                downstream=chain_downstream(project_step_event, emit_step_event),
+                downstream=chain_downstream(project_step_event, emit_step_event, log_step_event),
             )
             started = await forwarder.start()
             if started:

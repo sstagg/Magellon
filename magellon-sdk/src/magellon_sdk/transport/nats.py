@@ -71,8 +71,15 @@ class NatsPublisher:
             await self.js.add_stream(name=self.stream, subjects=self.subjects)
             logger.info("NATS stream %r created", self.stream)
         except NatsError as e:
-            if "stream name already in use" in str(e):
-                logger.debug("NATS stream %r already exists", self.stream)
+            msg = str(e)
+            # Two benign "already exists" shapes from the broker:
+            #   * same stream name re-declared with matching config
+            #   * a *different* stream already owns one of our subjects
+            # Both mean: the JetStream we want to publish to already
+            # exists. Either way the publish path works, so swallow
+            # rather than poisoning the whole step-event publisher.
+            if "stream name already in use" in msg or "subjects overlap" in msg:
+                logger.debug("NATS stream %r already present (%s)", self.stream, msg)
             else:
                 raise
 
@@ -117,6 +124,8 @@ class NatsConsumer:
         fetch_batch: int = 10,
         fetch_timeout: float = 1.0,
         ensure_stream: bool = True,
+        connect_timeout: float = 2.0,
+        max_reconnect_attempts: int = 2,
     ) -> None:
         self.broker_url = broker_url
         self.stream = stream
@@ -125,6 +134,8 @@ class NatsConsumer:
         self.fetch_batch = fetch_batch
         self.fetch_timeout = fetch_timeout
         self.ensure_stream = ensure_stream
+        self.connect_timeout = connect_timeout
+        self.max_reconnect_attempts = max_reconnect_attempts
         self.nc: Any = None
         self.js: Any = None
         self.sub: Any = None
@@ -135,7 +146,28 @@ class NatsConsumer:
         if self.nc:
             return True
 
-        self.nc = await nats.connect(self.broker_url)
+        # Mute nats.aio.client BEFORE the call. The library logs every
+        # failed reconnect attempt at ERROR with a full stack trace; we
+        # don't want that whether the connect succeeds or fails. We
+        # restore on success so genuine post-connect errors still show.
+        nats_logger = logging.getLogger("nats.aio.client")
+        prior_level = nats_logger.level
+        nats_logger.setLevel(logging.CRITICAL)
+        try:
+            self.nc = await nats.connect(
+                self.broker_url,
+                connect_timeout=self.connect_timeout,
+                max_reconnect_attempts=0,
+                allow_reconnect=False,
+            )
+        except Exception as e:
+            logger.info(
+                "NATS broker %s not reachable (%s) — consumer will not start",
+                self.broker_url, e,
+            )
+            return False
+        else:
+            nats_logger.setLevel(prior_level or logging.WARNING)
         self.js = self.nc.jetstream()
 
         try:
