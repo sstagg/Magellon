@@ -7,7 +7,6 @@ import glob
 from pydantic import BaseModel
 
 from config import app_settings
-from core.rabbitmq_client import RabbitmqClient
 from core.task_factory import CtfTaskFactory, FftTaskFactory, MotioncorTaskFactory
 from models.plugins_models import TaskDto, CtfTaskData, FftTaskData, FFT_TASK, TaskResultDto, CTF_TASK, PENDING, CryoEmMotionCorTaskData, \
     MOTIONCOR_TASK, TaskCategory
@@ -72,41 +71,6 @@ def custom_replace(input_string, replace_type, replace_pattern, replace_with):
         raise ValueError("Invalid replace_type. Use 'none', 'normal', or 'regex'.")
 
 
-
-def publish_message_to_queue(message: BaseModel, queue_name: str) -> bool:
-    """
-    This function publishes a message to a specified RabbitMQ queue.
-
-    Args:
-        message: The message object to be published. Can be either a CryoEmTaskResultDto or a TaskDto.
-        queue_name: The name of the RabbitMQ queue to publish to.
-
-    Returns:
-        True on success, False on error.
-    """
-
-    try:
-        destination_dir =os.path.join("/magellon", "messages", queue_name )
-        # Create the destination directory if it doesn't exist
-        if not os.path.exists(destination_dir):
-            os.makedirs(destination_dir)
-        append_json_to_file( os.path.join(destination_dir,"messages.json") , message.model_dump_json())
-    except Exception as e:
-        print(f"Error: {e}")
-
-
-    try:
-        settings = app_settings.rabbitmq_settings
-        rabbitmq_client = RabbitmqClient(settings)
-        rabbitmq_client.connect()
-        rabbitmq_client.publish_message(message.model_dump_json(), queue_name)
-        logger.info(f"Message published to {queue_name}")
-        return True
-    except Exception as e:
-        logger.error(f"Error publishing message: {e}")
-        return False
-    finally:
-        rabbitmq_client.close_connection()  # Disconnect from RabbitMQ
 
 def get_queue_name_by_task_type(task_type: TaskCategory, is_result: bool = False) -> str:
     """
@@ -178,29 +142,6 @@ def _audit_outgoing_message(task: TaskDto) -> None:
         )
     except Exception as e:  # noqa: BLE001
         logger.debug("outgoing-message audit failed (non-fatal): %s", e)
-
-
-def push_result_to_out_queue(result: TaskResultDto) -> bool:
-    """
-    Push a task result to its appropriate output queue based on task type
-
-    Args:
-        result (TaskResultDto): Result to be published
-
-    Returns:
-        bool: True if successfully published, False otherwise
-    """
-    try:
-        queue_name = get_queue_name_by_task_type(result.type, is_result=True)
-        if not queue_name:
-            logger.error(f"No result queue found for task type: {result.type}")
-            return False
-
-        return publish_message_to_queue(result, queue_name)
-    except Exception as e:
-        logger.error(f"Error pushing result to queue: {e}")
-        return False
-
 
 
 def dispatch_ctf_task(task_id, full_image_path, task_dto: ImportTaskDto):
