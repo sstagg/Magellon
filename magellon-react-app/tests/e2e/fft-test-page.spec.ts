@@ -2,18 +2,40 @@ import { test, expect, Page } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const FRONTEND = 'http://localhost:8080';
-const BACKEND = 'http://127.0.0.1:8000';
+// This spec exercises the full live stack:
+//   CoreService :8000  +  FFT plugin :8010  +  Vite :8080
+//   RabbitMQ + NATS in Docker  +  MySQL with auth seed
+// It is opt-in. Without `MAGELLON_E2E_LIVE=1` the spec is skipped so
+// it never breaks contributors who only have the frontend repo.
+//
+// To run locally:
+//   1. boot RMQ + NATS in Docker
+//   2. start CoreService (uvicorn :8000) with NATS_URL=nats://127.0.0.1:4222
+//   3. start the FFT plugin runner (:8010) with MAGELLON_STEP_EVENTS_ENABLED=1
+//   4. start Vite dev server (:8080)
+//   5. drop 3 small PNGs into MAGELLON_E2E_FIXTURE_DIR (defaults to
+//      C:/temp/magellon/gpfs/playwright_run)
+//   6. MAGELLON_E2E_LIVE=1 npm run test:e2e:live
+//
+// In CI: gate the workflow step on the same flag and run with the
+// same prerequisites available in the runner.
+const LIVE = process.env.MAGELLON_E2E_LIVE === '1';
+
+const FRONTEND = process.env.MAGELLON_E2E_FRONTEND ?? 'http://localhost:8080';
+const BACKEND = process.env.MAGELLON_E2E_BACKEND ?? 'http://127.0.0.1:8000';
+const FIXTURE_DIR = (
+  process.env.MAGELLON_E2E_FIXTURE_DIR ?? 'C:/temp/magellon/gpfs/playwright_run'
+).replace(/\\/g, '/');
 const SHOTS = path.join(process.cwd(), 'tests', 'e2e', 'screenshots', 'fft-test');
 fs.mkdirSync(SHOTS, { recursive: true });
 
-const USERNAME = 'super';
-const PASSWORD = 'behd1d2';
+const USERNAME = process.env.MAGELLON_E2E_USERNAME ?? 'super';
+const PASSWORD = process.env.MAGELLON_E2E_PASSWORD ?? 'behd1d2';
 
 const INPUT_PATHS = [
-  'C:/temp/magellon/gpfs/playwright_run/sample_00.png',
-  'C:/temp/magellon/gpfs/playwright_run/sample_01.png',
-  'C:/temp/magellon/gpfs/playwright_run/sample_02.png',
+  `${FIXTURE_DIR}/sample_00.png`,
+  `${FIXTURE_DIR}/sample_01.png`,
+  `${FIXTURE_DIR}/sample_02.png`,
 ];
 
 const shot = async (page: Page, name: string) => {
@@ -22,6 +44,8 @@ const shot = async (page: Page, name: string) => {
   // eslint-disable-next-line no-console
   console.log(`[shot] ${p}`);
 };
+
+test.skip(!LIVE, 'Set MAGELLON_E2E_LIVE=1 to run — requires the live stack');
 
 test('FftTestPage dispatches a batch and renders progressive step events', async ({ page, context }) => {
   test.setTimeout(180_000);

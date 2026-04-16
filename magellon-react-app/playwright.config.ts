@@ -34,17 +34,31 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
+      testIgnore: ['**/tests/e2e/**'],
       use: { ...devices['Desktop Chrome'] },
     },
 
     {
       name: 'firefox',
+      testIgnore: ['**/tests/e2e/**'],
       use: { ...devices['Desktop Firefox'] },
     },
 
     {
       name: 'webkit',
+      testIgnore: ['**/tests/e2e/**'],
       use: { ...devices['Desktop Safari'] },
+    },
+
+    /* Live-stack e2e — opt-in. Runs only specs under tests/e2e and
+     * only when MAGELLON_E2E_LIVE=1 (the spec self-skips otherwise).
+     * Chromium-only by default; Firefox and WebKit add browser
+     * download cost without exercising any code path the live spec
+     * specifically depends on. */
+    {
+      name: 'e2e-live',
+      testDir: './tests/e2e',
+      use: { ...devices['Desktop Chrome'] },
     },
 
     /* Test against mobile viewports. */
