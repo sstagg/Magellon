@@ -1,0 +1,24 @@
+# NEVER COMMIT
+.env
+*.pem
+*.key
+credentials
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# Generated / scratch
+state/
+tmp/
+*.log
+downloads/
+uploads/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node
+node_modules/
