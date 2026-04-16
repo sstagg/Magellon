@@ -29,10 +29,16 @@ The harness is sync (pika BlockingConnection) by deliberate choice —
 matches the existing transport layer (see ``transport.rabbitmq_events``)
 and the threading model the consumers run under. Async plugins are a
 separate concern.
+
+MB0 split discovery + config subscriber lifecycle into
+:mod:`magellon_sdk.runner.lifecycle`. The runner still owns the
+references (``_discovery_publisher``, ``_heartbeat_loop``,
+``_config_subscriber``) so the consume callback can reach them
+cheaply and tests can patch them directly. The lifecycle module owns
+construction + first-start.
 """
 from __future__ import annotations
 
-import json
 import logging
 import threading
 import time
@@ -43,13 +49,10 @@ from pika.exceptions import ConnectionClosedByBroker
 from magellon_sdk.base import PluginBase
 from magellon_sdk.categories.contract import CategoryContract
 from magellon_sdk.config_broker import ConfigSubscriber
-from magellon_sdk.discovery import (
-    Announce,
-    DiscoveryPublisher,
-    HeartbeatLoop,
-)
+from magellon_sdk.discovery import DiscoveryPublisher, HeartbeatLoop
 from magellon_sdk.errors import AckAction, classify_exception
 from magellon_sdk.models import TaskDto, TaskResultDto
+from magellon_sdk.runner.lifecycle import start_config_subscriber, start_discovery
 from magellon_sdk.transport.rabbitmq import RabbitmqClient
 
 logger = logging.getLogger(__name__)
@@ -201,49 +204,31 @@ class PluginBrokerRunner:
 
         Idempotent: a reconnect re-runs the announce so a manager that
         came up after the plugin still picks it up. Heartbeat thread is
-        only started once per process.
+        only started once per process. Lifecycle plumbing lives in
+        :mod:`magellon_sdk.runner.lifecycle`.
         """
         if not self.enable_discovery or self.contract is None:
             return
-        if self._discovery_publisher is None:
-            self._discovery_publisher = DiscoveryPublisher(self.settings)
-        info = self.plugin.get_info()
-        manifest = self.plugin.manifest()
-        announce = Announce(
-            plugin_id=info.name,
-            plugin_version=info.version,
-            category=self.contract.category.name.lower(),
-            manifest=manifest,
+        publisher, heartbeat, _announce = start_discovery(
+            settings=self.settings,
+            plugin=self.plugin,
+            contract=self.contract,
+            heartbeat_interval_seconds=self.heartbeat_interval_seconds,
+            existing_publisher=self._discovery_publisher,
+            existing_heartbeat=self._heartbeat_loop,
         )
-        try:
-            self._discovery_publisher.announce(self.contract, announce)
-        except Exception as exc:
-            # Best-effort: a broker hiccup at announce time must not
-            # take the consumer down. Heartbeats will eventually carry
-            # the manager over.
-            logger.warning("PluginBrokerRunner: announce failed: %s", exc)
-
-        if self._heartbeat_loop is None:
-            self._heartbeat_loop = HeartbeatLoop(
-                publisher=self._discovery_publisher,
-                contract=self.contract,
-                plugin_id=info.name,
-                plugin_version=info.version,
-                instance_id=announce.instance_id,
-                interval_seconds=self.heartbeat_interval_seconds,
-            )
-            self._heartbeat_loop.start()
+        self._discovery_publisher = publisher
+        self._heartbeat_loop = heartbeat
 
     def _start_config_subscriber(self) -> None:
         """Spin up the config subscriber once per process."""
         if not self.enable_config or self.contract is None:
             return
-        if self._config_subscriber is not None:
-            return
-        self._config_subscriber = ConfigSubscriber(
-            self.settings, contract=self.contract
+        self._config_subscriber = start_config_subscriber(
+            settings=self.settings,
+            contract=self.contract,
+            existing=self._config_subscriber,
         )
-        self._config_subscriber.start()
 
     def _apply_pending_config(self) -> None:
         """Drain the subscriber buffer and hand it to the plugin.
