@@ -1,0 +1,4 @@
+sample_images/
+outputs/
+__pycache__/
+*.pyc
