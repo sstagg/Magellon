@@ -214,12 +214,20 @@ class InMemoryBinder:
         subject = route.subject
         self.published_tasks.append((subject, envelope))
         delivery = _delivery_from_envelope(envelope, subject)
-        # Count as in-flight the moment we enqueue — a consumer may
-        # not have dequeued it yet, but wait_for_drain should wait for
-        # this message.
+        # Only count toward in-flight if a consumer is registered —
+        # otherwise the message sits in the queue with no side effect
+        # to wait for and wait_for_drain would hang forever. Tests
+        # that want to inspect un-consumed publishes assert on
+        # ``published_tasks`` directly.
         with self._in_flight_cond:
-            self._in_flight += 1
+            has_consumer = bool(self._task_consumers.get(subject))
+            if has_consumer:
+                self._in_flight += 1
         self._task_queues[subject].put(delivery)
+        if not has_consumer:
+            # Tag delivery so the consumer loop knows not to decrement
+            # if it shows up later. Simplest: mark on the delivery.
+            delivery.headers.setdefault("_inmemory_uncounted", True)
         return PublishReceipt(ok=True, message_id=str(envelope.id))
 
     def consume_tasks(
@@ -321,12 +329,14 @@ class InMemoryBinder:
             if item is _STOP_SENTINEL:
                 return
             delivery: _Delivery = item
+            uncounted = delivery.headers.pop("_inmemory_uncounted", False)
             try:
                 self._dispatch_task_delivery(delivery, handler, policy)
             finally:
-                with self._in_flight_cond:
-                    self._in_flight -= 1
-                    self._in_flight_cond.notify_all()
+                if not uncounted:
+                    with self._in_flight_cond:
+                        self._in_flight -= 1
+                        self._in_flight_cond.notify_all()
 
     def _dispatch_task_delivery(
         self,

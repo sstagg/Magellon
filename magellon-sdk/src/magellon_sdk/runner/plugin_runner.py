@@ -1,59 +1,61 @@
-"""Plugin broker harness — the boilerplate every plugin's ``main.py``
-used to repeat (P5).
+"""Plugin broker harness — wires a :class:`PluginBase` into the bus.
 
-Each out-of-tree plugin previously hand-rolled the same loop:
+Pre-MB4.1 the runner owned its own :class:`RabbitmqClient` and drove
+pika's blocking consume loop directly. Post-MB4.1 task I/O (consume
+incoming tasks, publish results) goes through the MessageBus: the
+caller-supplied ``in_queue`` / ``out_queue`` strings become
+:class:`TaskRoute` / :class:`TaskResultRoute` ``.named(...)`` routes,
+and the binder behind the bus (RMQ in production, InMemory in tests)
+handles the transport.
 
-  1. Connect to RabbitMQ.
-  2. Declare an in-queue + an out-queue.
-  3. For each delivery: decode JSON → ``TaskDto`` → ``InputT`` →
-     ``plugin.run(input)`` → build ``TaskResultDto`` → publish to the
-     out-queue → ack.
-  4. NACK on exception (which used to mean "DLQ on every transient
-     blip" — fixed by the P2 classifier).
+Discovery (announce + heartbeat) and config subscription still run
+against a direct pika connection — those migrate to ``bus.events`` in
+MB5. For now the runner needs both an RMQ-compatible ``settings``
+object (for discovery/config) and a bus (for task I/O).
 
-That loop is identical across plugins. ``PluginBrokerRunner`` lifts
-it into the SDK so a new plugin's ``main.py`` collapses to::
+The constructor signature is unchanged for backward compatibility —
+every existing plugin's ``main.py`` keeps working. New callers that
+want to pass a specific bus (tests, in-memory runs) can use the new
+``bus=`` keyword; otherwise the runner pulls it from :func:`get_bus`.
 
+A new plugin's ``main.py`` now looks like::
+
+    from magellon_sdk.bus.bootstrap import install_rmq_bus
     from magellon_sdk.runner import PluginBrokerRunner
 
+    install_rmq_bus(app_settings.rabbitmq_settings)
     runner = PluginBrokerRunner(
         plugin=MyPlugin(),
-        settings=app_settings.rabbitmq_settings,
+        settings=app_settings.rabbitmq_settings,  # discovery + config
         in_queue="ctf_tasks_queue",
         out_queue="ctf_out_tasks_queue",
-        result_factory=build_ctf_result,  # plugin's bespoke wrapper
+        result_factory=build_ctf_result,
     )
     runner.start_blocking()
 
-The harness is sync (pika BlockingConnection) by deliberate choice —
-matches the existing transport layer (see ``transport.rabbitmq_events``)
-and the threading model the consumers run under. Async plugins are a
-separate concern.
-
-MB0 split discovery + config subscriber lifecycle into
-:mod:`magellon_sdk.runner.lifecycle`. The runner still owns the
-references (``_discovery_publisher``, ``_heartbeat_loop``,
-``_config_subscriber``) so the consume callback can reach them
-cheaply and tests can patch them directly. The lifecycle module owns
-construction + first-start.
+Per-message handler: :meth:`_handle_task` receives an Envelope from
+the bus, validates the data against the plugin's ``input_schema``,
+runs the plugin, stamps provenance, and publishes the result via
+``bus.tasks.send``. Raising routes through the standard
+``classify_exception`` taxonomy — same REQUEUE / DLQ semantics the
+binder enforces.
 """
 from __future__ import annotations
 
 import logging
 import threading
-import time
 from typing import Any, Callable, Optional
 
-from pika.exceptions import ConnectionClosedByBroker
-
 from magellon_sdk.base import PluginBase
+from magellon_sdk.bus._facade import get_bus
+from magellon_sdk.bus.interfaces import ConsumerHandle, MessageBus
+from magellon_sdk.bus.routes import TaskResultRoute, TaskRoute
 from magellon_sdk.categories.contract import CategoryContract
 from magellon_sdk.config_broker import ConfigSubscriber
 from magellon_sdk.discovery import DiscoveryPublisher, HeartbeatLoop
-from magellon_sdk.errors import AckAction, classify_exception
+from magellon_sdk.envelope import Envelope
 from magellon_sdk.models import TaskDto, TaskResultDto
 from magellon_sdk.runner.lifecycle import start_config_subscriber, start_discovery
-from magellon_sdk.transport.rabbitmq import RabbitmqClient
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +68,7 @@ ResultFactory = Callable[[TaskDto, Any], TaskResultDto]
 
 
 class PluginBrokerRunner:
-    """Wire one ``PluginBase`` into a RabbitMQ task/result loop.
+    """Wire one ``PluginBase`` into the bus's task loop.
 
     Parameters
     ----------
@@ -77,14 +79,22 @@ class PluginBrokerRunner:
     settings :
         RMQ settings duck-typed object — needs ``HOST_NAME``,
         ``USER_NAME``, ``PASSWORD``, optional ``PORT`` / ``VIRTUAL_HOST``.
+        Used by discovery + config subscriber, which still run
+        against a direct pika connection (MB5 migrates them to the bus).
     in_queue :
-        Queue name the plugin consumes ``TaskDto`` JSON from.
+        Queue name / subject the plugin consumes ``TaskDto`` deliveries
+        from. Becomes ``TaskRoute.named(in_queue)`` on the bus.
     out_queue :
-        Queue name the harness publishes ``TaskResultDto`` JSON to.
+        Queue name / subject the harness publishes ``TaskResultDto``
+        results to. Becomes ``TaskResultRoute.named(out_queue)``.
     result_factory :
         Plugin-supplied callable that turns ``(task, plugin_output)``
         into a ``TaskResultDto``. The plugin owns its wire shape;
         the harness only stamps provenance afterwards.
+    bus :
+        Optional. If omitted, :func:`get_bus` is called lazily on
+        :meth:`start_blocking`. Tests pass a pre-built bus
+        (InMemoryBinder-backed, typically) to avoid the global.
     """
 
     def __init__(
@@ -99,59 +109,94 @@ class PluginBrokerRunner:
         heartbeat_interval_seconds: float = 15.0,
         enable_discovery: bool = True,
         enable_config: bool = True,
+        bus: Optional[MessageBus] = None,
     ) -> None:
         self.plugin = plugin
         self.settings = settings
         self.in_queue = in_queue
         self.out_queue = out_queue
         self.result_factory = result_factory
-        # Discovery + heartbeat (P6). Optional so the harness still
-        # works for plugins that haven't been migrated to declare a
-        # contract yet — they just don't show up in the live registry.
         self.contract = contract
         self.heartbeat_interval_seconds = heartbeat_interval_seconds
         self.enable_discovery = enable_discovery and contract is not None
-        # Dynamic config (P7). Same gate as discovery: needs a contract
-        # to know which category subject to bind. The subscriber drains
-        # between deliveries inside _process(), so a config push never
-        # races a running execute().
         self.enable_config = enable_config and contract is not None
+        self._bus = bus
+        # Routes derived from the legacy string params — callers pass
+        # physical queue names today; MB5+ can migrate to contract-based
+        # routes (TaskRoute.for_category(...)) when plugin configs update.
+        self._in_route = TaskRoute.named(in_queue)
+        self._out_route = TaskResultRoute.named(out_queue)
         self._stopping = threading.Event()
+        self._task_handle: Optional[ConsumerHandle] = None
         self._heartbeat_loop: Optional[HeartbeatLoop] = None
         self._discovery_publisher: Optional[DiscoveryPublisher] = None
         self._config_subscriber: Optional[ConfigSubscriber] = None
 
     # ------------------------------------------------------------------
-    # Per-message processing
+    # Per-message flow
     # ------------------------------------------------------------------
 
-    def _process(self, body: bytes) -> bytes:
-        """Decode → run → encode. Pure function for testability.
+    def _handle_task(self, envelope: Envelope) -> None:
+        """Bus-side entry point: validate → run → publish result.
 
-        Raises on any failure so the broker callback can route through
-        :func:`classify_exception` and pick REQUEUE vs DLQ.
+        Raising propagates up to the binder, which routes through
+        :func:`classify_exception` → REQUEUE / DLQ per policy. Returns
+        ``None`` on success: the binder acks.
         """
-        # Apply any pending config push *before* decoding the next task
-        # so the plugin sees the new settings on the very next run.
-        # Errors from a plugin's configure() must not poison the task —
-        # log and continue with the previous config.
+        # Drain any pending config between deliveries so the plugin
+        # sees the new settings on the very next run. A bad configure()
+        # must not poison the task — swallow + log.
         self._apply_pending_config()
 
-        text = body.decode("utf-8")
-        task = TaskDto.model_validate_json(text)
-
-        # Validate the task data against the plugin's declared input
-        # schema before invoking. This is the same check P1's
-        # CategoryContract does — running it here too keeps a malformed
-        # task from reaching the plugin's bespoke logic.
-        input_schema = self.plugin.input_schema()
-        validated = input_schema.model_validate(task.data)
-
+        task = self._task_from_envelope(envelope)
+        validated = self.plugin.input_schema().model_validate(task.data)
         plugin_output = self.plugin.run(validated)
 
         result = self.result_factory(task, plugin_output)
         self._stamp_provenance(result)
 
+        result_envelope = Envelope.wrap(
+            source=f"magellon/plugins/{self.plugin.get_info().name}",
+            type="magellon.task.result",
+            subject=self._out_route.subject,
+            data=result,
+        )
+        receipt = self._require_bus().tasks.send(self._out_route, result_envelope)
+        if not receipt.ok:
+            logger.error(
+                "PluginBrokerRunner[%s]: result publish failed on %s: %s",
+                self.plugin.get_info().name,
+                self._out_route.subject,
+                receipt.error,
+            )
+
+    @staticmethod
+    def _task_from_envelope(envelope: Envelope) -> TaskDto:
+        """Pull the ``TaskDto`` out of the envelope's ``data``.
+
+        Binder reconstructs envelopes with ``data`` as a dict (JSON
+        on the wire was a raw TaskDto shape); we validate back into
+        the typed model here. If someone publishes with
+        ``Envelope.wrap(data=task_dto)`` on the producer side, data
+        will already be a TaskDto instance — model_validate handles
+        both shapes.
+        """
+        data = envelope.data
+        if isinstance(data, TaskDto):
+            return data
+        return TaskDto.model_validate(data)
+
+    # Legacy pure-function shape used by pre-MB4.1 tests. Accepts raw
+    # TaskDto JSON bytes, returns raw TaskResultDto JSON bytes — the
+    # shape the old pika callback had. Useful for plugin-level tests
+    # that want to exercise the transformation without the bus.
+    def _process(self, body: bytes) -> bytes:
+        self._apply_pending_config()
+        task = TaskDto.model_validate_json(body.decode("utf-8"))
+        validated = self.plugin.input_schema().model_validate(task.data)
+        plugin_output = self.plugin.run(validated)
+        result = self.result_factory(task, plugin_output)
+        self._stamp_provenance(result)
         return result.model_dump_json().encode("utf-8")
 
     def _stamp_provenance(self, result: TaskResultDto) -> None:
@@ -168,44 +213,15 @@ class PluginBrokerRunner:
             result.plugin_version = info.version
 
     # ------------------------------------------------------------------
-    # Broker loop
+    # Discovery + config (still on direct pika — MB5 migrates)
     # ------------------------------------------------------------------
-
-    def _build_callback(self, client: RabbitmqClient):
-        def _on_message(ch, method, properties, body):
-            try:
-                out_body = self._process(body)
-                # Publish the result on the same channel; we're inside
-                # the consumer thread, so it's safe to reuse.
-                client.publish_message(out_body, self.out_queue)
-                ch.basic_ack(delivery_tag=method.delivery_tag)
-                return
-            except Exception as exc:
-                redeliveries = int(getattr(method, "redelivered", False))
-                classification = classify_exception(
-                    exc, redelivery_count=redeliveries
-                )
-                logger.warning(
-                    "PluginBrokerRunner[%s]: %s → %s (%s)",
-                    self.plugin.get_info().name,
-                    type(exc).__name__,
-                    classification.action.value,
-                    classification.reason,
-                )
-                if classification.action is AckAction.REQUEUE:
-                    ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
-                else:
-                    ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
-
-        return _on_message
 
     def _start_discovery(self) -> None:
         """Publish the announce manifest + start the heartbeat loop.
 
-        Idempotent: a reconnect re-runs the announce so a manager that
-        came up after the plugin still picks it up. Heartbeat thread is
-        only started once per process. Lifecycle plumbing lives in
-        :mod:`magellon_sdk.runner.lifecycle`.
+        Idempotent: safe to call twice. Lifecycle plumbing lives in
+        :mod:`magellon_sdk.runner.lifecycle` — will absorb into
+        ``bus.events.publish`` in MB5.
         """
         if not self.enable_discovery or self.contract is None:
             return
@@ -221,7 +237,6 @@ class PluginBrokerRunner:
         self._heartbeat_loop = heartbeat
 
     def _start_config_subscriber(self) -> None:
-        """Spin up the config subscriber once per process."""
         if not self.enable_config or self.contract is None:
             return
         self._config_subscriber = start_config_subscriber(
@@ -233,9 +248,8 @@ class PluginBrokerRunner:
     def _apply_pending_config(self) -> None:
         """Drain the subscriber buffer and hand it to the plugin.
 
-        Called from :meth:`_process` between deliveries — never while
-        ``execute()`` is running. A bad ``configure()`` call must not
-        derail the task loop, so exceptions are caught and logged.
+        Called from :meth:`_handle_task` between deliveries — never
+        while ``execute()`` is running.
         """
         if self._config_subscriber is None:
             return
@@ -256,43 +270,49 @@ class PluginBrokerRunner:
                 exc,
             )
 
+    # ------------------------------------------------------------------
+    # Main loop
+    # ------------------------------------------------------------------
+
+    def _require_bus(self) -> MessageBus:
+        if self._bus is None:
+            self._bus = get_bus()
+        return self._bus
+
     def start_blocking(self) -> None:
-        """Run the consume loop on the calling thread. Reconnects on
-        broker bounce. Returns when ``stop()`` is called."""
-        while not self._stopping.is_set():
-            client = RabbitmqClient(self.settings)
-            try:
-                client.connect()
-                client.declare_queue(self.in_queue)
-                client.declare_queue(self.out_queue)
-                client.consume(self.in_queue, self._build_callback(client))
-                self._start_discovery()
-                self._start_config_subscriber()
-                logger.info(
-                    "PluginBrokerRunner[%s]: consuming %s, publishing %s",
-                    self.plugin.get_info().name,
-                    self.in_queue,
-                    self.out_queue,
-                )
-                client.start_consuming()
-            except KeyboardInterrupt:
-                logger.info("PluginBrokerRunner: interrupted")
-                break
-            except ConnectionClosedByBroker:
-                logger.warning(
-                    "PluginBrokerRunner: broker closed connection — reconnecting in 5s"
-                )
-                time.sleep(5)
-            except Exception as exc:
-                logger.error(
-                    "PluginBrokerRunner: loop crashed (%s) — reconnecting in 5s", exc
-                )
-                time.sleep(5)
-            finally:
-                client.close_connection()
+        """Register the task consumer on the bus + run until shutdown.
+
+        Reconnect is the binder's concern now; this method trusts the
+        bus to keep the consumer alive across transient broker
+        blips. Discovery / config still open their own pika
+        connections and have independent reconnect behavior (MB5
+        folds them into the bus).
+        """
+        bus = self._require_bus()
+        self._task_handle = bus.tasks.consumer(
+            self._in_route, self._handle_task
+        )
+        self._start_discovery()
+        self._start_config_subscriber()
+        logger.info(
+            "PluginBrokerRunner[%s]: consuming %s, publishing %s",
+            self.plugin.get_info().name,
+            self._in_route.subject,
+            self._out_route.subject,
+        )
+        try:
+            self._task_handle.run_until_shutdown()
+        finally:
+            self.stop()
 
     def stop(self) -> None:
         self._stopping.set()
+        if self._task_handle is not None:
+            try:
+                self._task_handle.close()
+            except Exception as e:  # noqa: BLE001
+                logger.debug("task handle close failed: %s", e)
+            self._task_handle = None
         if self._heartbeat_loop is not None:
             self._heartbeat_loop.stop()
         if self._discovery_publisher is not None:
