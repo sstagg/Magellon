@@ -11,8 +11,11 @@ credentials
 state/
 tmp/
 *.log
+*.mrc
 downloads/
 uploads/
+outputs/
+.instance-env
 
 # Python
 __pycache__/
