@@ -361,3 +361,40 @@ def test_runner_uses_get_bus_when_no_explicit_bus_passed():
     finally:
         get_bus.reset()
         bus.close()
+
+
+def test_runner_auto_installs_rmq_bus_when_no_factory_registered(monkeypatch):
+    """Pre-MB4.2 compat: a plugin main.py that hasn't been migrated to
+    call install_rmq_bus() still works — the runner falls back to
+    building + installing an RmqBus from its settings at first use."""
+    binder = MockBinder()
+    bus = DefaultMessageBus(binder)
+    bus.start()
+    get_bus.reset()  # no factory, no override
+
+    # Intercept install_rmq_bus in the module where _require_bus imports it
+    from magellon_sdk.bus import bootstrap as _bootstrap
+
+    def _fake_install(settings, **kwargs):
+        get_bus.override(bus)
+        return bus
+
+    monkeypatch.setattr(_bootstrap, "install_rmq_bus", _fake_install)
+
+    try:
+        runner = PluginBrokerRunner(
+            plugin=_StubPlugin(),
+            settings=MagicMock(),
+            in_queue="ctf_in",
+            out_queue="ctf_out",
+            result_factory=_result_factory,
+        )
+        # _handle_task triggers _require_bus → no factory → fallback
+        env = Envelope.wrap(
+            source="test", type="t", subject="ctf_in", data=_make_task()
+        )
+        runner._handle_task(env)
+        assert len(binder.published_tasks) == 1
+    finally:
+        get_bus.reset()
+        bus.close()

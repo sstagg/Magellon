@@ -275,9 +275,35 @@ class PluginBrokerRunner:
     # ------------------------------------------------------------------
 
     def _require_bus(self) -> MessageBus:
-        if self._bus is None:
+        """Resolve the bus, with a fallback that keeps pre-MB4.2
+        plugins working.
+
+        Lookup order:
+        1. ``self._bus`` if the caller passed one explicitly.
+        2. :func:`get_bus` if a bus is installed (plugin main.py that
+           called ``install_rmq_bus(...)`` — MB4.2+ pattern).
+        3. Fallback: build an :class:`RmqBinder` from
+           ``self.settings`` and install it. Keeps plugins whose
+           ``main.py`` hasn't been migrated to the bootstrap helper
+           working transparently.
+        """
+        if self._bus is not None:
+            return self._bus
+        try:
             self._bus = get_bus()
-        return self._bus
+            return self._bus
+        except RuntimeError:
+            # No factory registered — build + install one from our
+            # RMQ settings. Matches what install_rmq_bus would do.
+            from magellon_sdk.bus.bootstrap import install_rmq_bus
+
+            logger.info(
+                "PluginBrokerRunner: no bus installed — auto-installing RmqBus "
+                "from runner settings. For MB4.2+ plugin main.py should call "
+                "install_rmq_bus() explicitly at startup."
+            )
+            self._bus = install_rmq_bus(self.settings)
+            return self._bus
 
     def start_blocking(self) -> None:
         """Register the task consumer on the bus + run until shutdown.
