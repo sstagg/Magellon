@@ -1,0 +1,110 @@
+#!/bin/bash
+# Mock MotionCor2 binary for the local-wiring smoke test.
+#
+# The real binary needs CUDA, ~32 GB RAM, and runs for 20-60 s per movie.
+# For wiring verification (RMQ in/out, step events, output-file shape) all
+# we need is something that:
+#   - parses MotionCor2 CLI flags (-InTiff/-InMrc, -OutMrc, -LogDir, -Patch)
+#   - produces an `output.mrc`, an `output_DW.mrc`, and the per-patch log
+#     files that motioncor_service.py looks for
+#
+# Real GPU validation lives in `runpod_gpu_test.py`.
+
+set -e
+
+# --- parse flags we care about --------------------------------------------
+OUT_MRC=""
+LOG_DIR="."
+PATCH_X=1
+PATCH_Y=1
+INPUT_FILE=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -OutMrc)   OUT_MRC="$2"; shift 2 ;;
+        -LogDir)   LOG_DIR="$2"; shift 2 ;;
+        -InMrc|-InTiff|-InEer)  INPUT_FILE="$2"; shift 2 ;;
+        -Patch)
+            # MotionCor takes "-Patch X Y" as one flag with a space-separated value
+            read -r PATCH_X PATCH_Y <<< "$2"
+            shift 2
+            ;;
+        *) shift ;;
+    esac
+done
+
+if [[ -z "$OUT_MRC" ]]; then
+    echo "mock_motioncor: -OutMrc not provided" >&2
+    exit 2
+fi
+
+mkdir -p "$LOG_DIR" "$(dirname "$OUT_MRC")"
+
+# --- write a minimal valid MRC stub ----------------------------------------
+# 1024-byte MRC header with NX=NY=NZ=1, MODE=2 (float32), then one float.
+write_stub_mrc() {
+    local path="$1"
+    python3 - "$path" <<'PY'
+import struct, sys, os
+path = sys.argv[1]
+header = bytearray(1024)
+struct.pack_into("<iii", header, 0, 1, 1, 1)         # nx, ny, nz
+struct.pack_into("<i", header, 12, 2)                 # mode = float32
+struct.pack_into("<iii", header, 16, 0, 0, 0)         # nxstart, nystart, nzstart
+struct.pack_into("<iii", header, 28, 1, 1, 1)         # mx, my, mz
+struct.pack_into("<fff", header, 40, 1.0, 1.0, 1.0)   # cella
+struct.pack_into("<fff", header, 52, 90.0, 90.0, 90.0)
+struct.pack_into("<iii", header, 64, 1, 2, 3)         # mapc, mapr, maps
+struct.pack_into("<fff", header, 76, 0.0, 1.0, 0.5)   # dmin, dmax, dmean
+header[208:212] = b"MAP "
+header[212:216] = b"\x44\x44\x00\x00"                 # little-endian
+with open(path, "wb") as f:
+    f.write(header)
+    f.write(struct.pack("<f", 0.5))
+    # mrcfile readers tolerate the truncated payload — for our smoke test
+    # the file size > 1024 bytes is enough to satisfy size assertions.
+PY
+}
+
+write_stub_mrc "$OUT_MRC"
+
+# Per motioncor_service.py the dose-weighted file is required ("_DW.mrc"
+# or "_DWS.mrc"). Without it the plugin throws and the task fails.
+DW_MRC="${OUT_MRC%.mrc}_DW.mrc"
+write_stub_mrc "$DW_MRC"
+
+# --- write the log files motioncor_service.py greps for --------------------
+# Real MotionCor2 dumps shifts in this format:
+#   x Shift   y Shift
+#   1   -0.123    0.456
+write_shift_log() {
+    local path="$1"
+    {
+        echo "MotionCor2 mock — synthetic per-frame shifts"
+        echo "  x Shift   y Shift"
+        for i in $(seq 1 5); do
+            # gentle drift that survives the dedup-by-frame filter
+            # using awk (always present) so we don't need bc in the image
+            printf "  %d   %.3f    %.3f\n" "$i" \
+                "$(awk "BEGIN { printf \"%.3f\", $i * -0.1 }")" \
+                "$(awk "BEGIN { printf \"%.3f\", $i * 0.05 }")"
+        done
+    } > "$path"
+}
+
+stem="$(basename "${OUT_MRC%.mrc}")"
+
+if [[ "$PATCH_X" -gt 1 || "$PATCH_Y" -gt 1 ]]; then
+    write_shift_log "$LOG_DIR/${stem}-Patch-Patch.log"
+    write_shift_log "$LOG_DIR/${stem}-Patch-Full.log"
+    write_shift_log "$LOG_DIR/${stem}-Patch-Frame.log"
+else
+    write_shift_log "$LOG_DIR/${stem}-Full.log"
+fi
+
+echo "mock_motioncor: completed"
+echo "  input    : $INPUT_FILE"
+echo "  output   : $OUT_MRC"
+echo "  dw       : $DW_MRC"
+echo "  log dir  : $LOG_DIR (patches=${PATCH_X}x${PATCH_Y})"
+exit 0
