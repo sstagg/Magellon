@@ -232,12 +232,30 @@ class FftBrokerRunner(PluginBrokerRunner):
 
     The base runner keeps ``plugin.run()`` input-only so PluginBase's
     signature is shared across every plugin. FFT needs the envelope to
-    emit step events keyed on ``job_id`` — overriding ``_process()`` is
-    the smallest hook; alternatives (changing PluginBase or threading
-    a context kwarg through ``run()``) would touch every plugin.
+    emit step events keyed on ``job_id`` — overriding the per-message
+    hooks is the smallest surface; alternatives (changing PluginBase
+    or threading a context kwarg through ``run()``) would touch every
+    plugin.
+
+    Two hooks overridden: ``_process`` (legacy bytes→bytes path used
+    by plugin-level tests) and ``_handle_task`` (MB4.1+ production
+    path driven by ``bus.tasks.consumer``). Both wrap the inner
+    execution in a ContextVar set/reset.
     """
 
+    def _handle_task(self, envelope) -> None:
+        """Production path: set the ContextVar for the span of one
+        bus-driven delivery, then delegate to the base handler."""
+        task = self._task_from_envelope(envelope)
+        token = _active_task.set(task)
+        try:
+            super()._handle_task(envelope)
+        finally:
+            _active_task.reset(token)
+
     def _process(self, body: bytes) -> bytes:
+        """Legacy pure-function path — kept so existing plugin tests
+        that feed raw TaskDto JSON still set the ContextVar."""
         text = body.decode("utf-8")
         task = TaskDto.model_validate_json(text)
         token = _active_task.set(task)

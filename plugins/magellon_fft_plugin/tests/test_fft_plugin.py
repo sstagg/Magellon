@@ -235,6 +235,70 @@ def test_runner_exposes_active_task_during_plugin_run(monkeypatch, tmp_path):
     assert payload["plugin_version"] == "1.0.0"
 
 
+def test_handle_task_exposes_active_task_during_bus_driven_run(monkeypatch, tmp_path):
+    """MB4.2: the production path is bus-driven — _handle_task must
+    set the ContextVar just like _process does, so step-event
+    emission inside execute() still sees the active TaskDto."""
+    from magellon_sdk.bus import DefaultMessageBus
+    from magellon_sdk.bus.binders.mock import MockBinder
+    from magellon_sdk.envelope import Envelope
+    from magellon_sdk.models import TaskDto
+    from plugin import plugin as plugin_mod
+    from plugin.plugin import (
+        FftBrokerRunner,
+        FftPlugin,
+        build_fft_result,
+        get_active_task,
+    )
+
+    monkeypatch.setattr(
+        plugin_mod, "compute_file_fft",
+        lambda image_path, abs_out_file_name, height=1024: abs_out_file_name,
+    )
+
+    seen = {}
+
+    class CapturingPlugin(FftPlugin):
+        def execute(self, input_data, *, reporter=None):
+            seen["task"] = get_active_task()
+            return super().execute(input_data, reporter=reporter or _null_reporter())
+
+    bus = DefaultMessageBus(MockBinder())
+    bus.start()
+    try:
+        runner = FftBrokerRunner(
+            plugin=CapturingPlugin(),
+            settings=_FakeRmqSettings(),
+            in_queue="fft_tasks_queue",
+            out_queue="fft_out_tasks_queue",
+            result_factory=build_fft_result,
+            contract=None,
+            enable_discovery=False,
+            enable_config=False,
+            bus=bus,
+        )
+
+        job_id = uuid4()
+        task_id = uuid4()
+        task = TaskDto(
+            id=task_id,
+            job_id=job_id,
+            data={"image_path": str(tmp_path / "x.mrc"), "target_path": str(tmp_path / "x.png")},
+        )
+        envelope = Envelope.wrap(
+            source="test", type="magellon.task.dispatch",
+            subject="fft_tasks_queue", data=task,
+        )
+
+        runner._handle_task(envelope)
+
+        assert seen["task"].id == task_id
+        assert seen["task"].job_id == job_id
+        assert get_active_task() is None  # reset after return
+    finally:
+        bus.close()
+
+
 # ---------------------------------------------------------------------------
 # Step events — emitted via the daemon loop when active task + publisher
 # are present

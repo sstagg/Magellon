@@ -23,6 +23,7 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 
 from core.settings import AppSettingsSingleton
+from magellon_sdk.bus.bootstrap import install_rmq_bus
 from magellon_sdk.categories.contract import FFT
 from magellon_sdk.logging_config import setup_logging
 from plugin import FftBrokerRunner, FftPlugin, build_fft_result
@@ -67,13 +68,16 @@ _runner: FftBrokerRunner | None = None
 async def startup_event():
     """Spin up the broker runner on a daemon thread.
 
-    The runner harness owns the pika loop, discovery + heartbeat,
-    dynamic config, provenance stamping, and typed failure routing.
-    We just hand it the plugin + queue names.
+    MB4.2: ``install_rmq_bus`` wires a process-wide ``MessageBus``
+    backed by the plugin's RMQ settings. The runner's task I/O
+    (consume + publish result) then flows through the bus; discovery
+    + heartbeat + config still run on their own pika connections for
+    now (MB5 folds them in too).
     """
     global _runner
     try:
         rmq = AppSettingsSingleton.get_instance().rabbitmq_settings
+        install_rmq_bus(rmq)
         _runner = FftBrokerRunner(
             plugin=_plugin,
             settings=rmq,
