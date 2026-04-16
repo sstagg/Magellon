@@ -16,16 +16,26 @@ Design choices (matching the existing RMQ code, spec §5):
   binder can translate subject → legacy queue at the wire boundary.
   Without the map, the subject is used as-is.
 
-Wire format: each envelope goes out as its ``model_dump_json()`` bytes
-(full CloudEvents envelope). On consume, the body is decoded back into
-an Envelope and passed to the handler. MB3+ may revisit whether to
-emit only ``envelope.data`` for back-compat with pre-bus plugins; for
-now envelope-on-wire is the default and the simplest contract.
+Wire format: **CloudEvents 1.0 "binary content mode"**. The AMQP body
+carries ``envelope.data`` serialized as JSON (unchanged from today's
+``TaskDto.model_dump_json()`` shape — existing plugins can decode it
+without any code change). Envelope metadata rides on AMQP
+``properties.headers`` as ``ce-specversion`` / ``ce-id`` /
+``ce-source`` / ``ce-type`` / ``ce-subject`` / ``ce-time`` /
+``ce-dataschema``. ``properties.content_type`` carries ``datacontenttype``.
+
+On consume, headers + body are reassembled into an :class:`Envelope`
+for the handler. Pre-bus messages that lack ``ce-*`` headers are
+wrapped in a synthetic envelope with neutral defaults — the bus
+stays lossless for the transition.
 """
 from __future__ import annotations
 
+import json
 import logging
 import threading
+import uuid
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 import pika
@@ -201,9 +211,19 @@ class RmqBinder:
         self._require_started()
         queue_name = self._resolve_queue(route.subject)
         write_audit_entry(self._audit, route.subject, envelope)
-        body = envelope.model_dump_json().encode("utf-8")
+        body = _body_from_envelope(envelope)
+        properties = _ce_properties(envelope)
         try:
-            self._client.publish_message(body, queue_name)
+            # Declare the queue (idempotent) then basic_publish directly
+            # so we control properties. RabbitmqClient.publish_message
+            # hard-codes delivery_mode and has no headers slot.
+            self._client.declare_queue(queue_name)
+            self._client.channel.basic_publish(
+                exchange="",
+                routing_key=queue_name,
+                body=body,
+                properties=properties,
+            )
             return PublishReceipt(ok=True, message_id=str(envelope.id))
         except (AMQPConnectionError, ChannelError) as e:
             logger.error("publish_task failed for %s: %s", queue_name, e)
@@ -231,7 +251,7 @@ class RmqBinder:
         def _callback(ch, method, properties, body):
             redelivery_count = _redelivery_count(method, properties)
             try:
-                envelope = Envelope.model_validate_json(body.decode("utf-8"))
+                envelope = _reconstruct_envelope(body, properties)
                 _invoke(handler, envelope)
                 ch.basic_ack(delivery_tag=method.delivery_tag)
             except Exception as exc:
@@ -272,13 +292,14 @@ class RmqBinder:
     def publish_event(self, route: RouteRef, envelope: Envelope) -> PublishReceipt:
         self._require_started()
         exchange = exchange_for_subject(route.subject)
-        body = envelope.model_dump_json().encode("utf-8")
+        body = _body_from_envelope(envelope)
+        properties = _ce_properties(envelope)
         try:
             self._client.channel.basic_publish(
                 exchange=exchange,
                 routing_key=route.subject,
                 body=body,
-                properties=pika.BasicProperties(delivery_mode=2),
+                properties=properties,
             )
             return PublishReceipt(ok=True, message_id=str(envelope.id))
         except (AMQPConnectionError, ChannelError) as e:
@@ -315,7 +336,7 @@ class RmqBinder:
 
         def _callback(ch, method, properties, body):
             try:
-                envelope = Envelope.model_validate_json(body.decode("utf-8"))
+                envelope = _reconstruct_envelope(body, properties)
                 _invoke(handler, envelope)
             except Exception:  # noqa: BLE001
                 logger.exception(
@@ -381,6 +402,105 @@ def _redelivery_count(method: Any, properties: Any) -> int:
             except (TypeError, ValueError):
                 pass
     return int(bool(getattr(method, "redelivered", False)))
+
+
+# ---------------------------------------------------------------------------
+# CloudEvents 1.0 binary content mode: body = data, headers = metadata
+# ---------------------------------------------------------------------------
+
+_CE_SPECVERSION = "ce-specversion"
+_CE_ID = "ce-id"
+_CE_SOURCE = "ce-source"
+_CE_TYPE = "ce-type"
+_CE_SUBJECT = "ce-subject"
+_CE_TIME = "ce-time"
+_CE_DATASCHEMA = "ce-dataschema"
+
+
+def _body_from_envelope(envelope: Envelope) -> bytes:
+    """Serialize ``envelope.data`` as the AMQP body.
+
+    Pydantic model → ``model_dump_json()`` (keeps today's wire format
+    for plugins decoding TaskDto.model_validate_json(body)).
+    Dict / list / primitive → ``json.dumps``.
+    ``None`` → empty bytes.
+    """
+    data = envelope.data
+    if data is None:
+        return b""
+    if hasattr(data, "model_dump_json"):
+        return data.model_dump_json().encode("utf-8")
+    return json.dumps(data).encode("utf-8")
+
+
+def _ce_properties(envelope: Envelope) -> pika.BasicProperties:
+    """Build AMQP properties carrying envelope metadata per CloudEvents
+    binary content mode."""
+    headers: Dict[str, Any] = {
+        _CE_SPECVERSION: envelope.specversion,
+        _CE_ID: str(envelope.id),
+        _CE_SOURCE: envelope.source,
+        _CE_TYPE: envelope.type,
+        _CE_TIME: envelope.time.isoformat() if envelope.time else None,
+    }
+    if envelope.subject is not None:
+        headers[_CE_SUBJECT] = envelope.subject
+    if envelope.dataschema is not None:
+        headers[_CE_DATASCHEMA] = envelope.dataschema
+    return pika.BasicProperties(
+        delivery_mode=2,
+        content_type=envelope.datacontenttype,
+        headers=headers,
+    )
+
+
+def _reconstruct_envelope(body: bytes, properties: Any) -> Envelope:
+    """Rebuild an :class:`Envelope` from AMQP body + headers.
+
+    If ``ce-*`` headers are absent (legacy publisher, pre-bus test
+    fixture), synthesize an envelope with neutral defaults so the
+    handler receives a uniform shape. This is the compat seam that
+    keeps MB3 from breaking today's plugins.
+    """
+    headers: Dict[str, Any] = {}
+    content_type = "application/json"
+    if properties is not None:
+        headers = dict(properties.headers or {})
+        content_type = properties.content_type or content_type
+
+    try:
+        data = json.loads(body.decode("utf-8")) if body else None
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        data = body  # last resort — raw bytes; handler must cope
+
+    time = _parse_ce_time(headers.get(_CE_TIME))
+
+    return Envelope(
+        specversion=headers.get(_CE_SPECVERSION, "1.0"),
+        id=headers.get(_CE_ID) or str(uuid.uuid4()),
+        source=headers.get(_CE_SOURCE, "unknown"),
+        type=headers.get(_CE_TYPE, "unknown"),
+        subject=headers.get(_CE_SUBJECT),
+        time=time,
+        datacontenttype=content_type,
+        dataschema=headers.get(_CE_DATASCHEMA),
+        data=data,
+    )
+
+
+def _parse_ce_time(value: Any) -> datetime:
+    """Parse an ISO 8601 ``ce-time`` header; fall back to ``now()``."""
+    if value is None:
+        return datetime.now(timezone.utc)
+    if isinstance(value, datetime):
+        return value
+    try:
+        # pika returns header strings as bytes on some versions
+        if isinstance(value, (bytes, bytearray)):
+            value = value.decode("utf-8")
+        return datetime.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        return datetime.now(timezone.utc)
 
 
 def _invoke(handler: Callable, envelope: Envelope) -> None:

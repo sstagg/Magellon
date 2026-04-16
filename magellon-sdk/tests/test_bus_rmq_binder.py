@@ -190,16 +190,40 @@ def test_require_started_raises_when_not_started():
 
 # -- publish_task ---------------------------------------------------------
 
-def test_publish_task_uses_default_exchange_and_subject_as_routing_key(binder):
-    route = TaskRoute.for_category(CTF)  # subject: magellon.tasks.ctf
+def test_publish_task_sends_data_only_body_on_default_exchange(binder):
+    """CloudEvents binary content mode: body = envelope.data JSON.
+
+    Existing plugins decode ``TaskDto.model_validate_json(body)``; the
+    bus must preserve that format so MB3 producer migration doesn't
+    break pre-MB4 plugins."""
+    route = TaskRoute.for_category(CTF)
 
     receipt = binder.publish_task(route, _env({"img": "x.mrc"}))
 
     assert receipt.ok
-    binder._client.publish_message.assert_called_once()
-    body, queue = binder._client.publish_message.call_args[0]
-    assert queue == "magellon.tasks.ctf"
-    assert b'"img":"x.mrc"' in body  # envelope JSON contains the data
+    call = binder._client.channel.basic_publish.call_args
+    assert call.kwargs["exchange"] == ""
+    assert call.kwargs["routing_key"] == "magellon.tasks.ctf"
+    # Body is the data dict, not the envelope
+    assert call.kwargs["body"] == b'{"img": "x.mrc"}'
+
+
+def test_publish_task_sets_cloudevents_headers(binder):
+    """Envelope metadata rides on AMQP headers (ce-id, ce-source, ...)."""
+    env = _env({"img": "x.mrc"})
+
+    binder.publish_task(TaskRoute.for_category(CTF), env)
+
+    props = binder._client.channel.basic_publish.call_args.kwargs["properties"]
+    assert props.delivery_mode == 2
+    assert props.content_type == "application/json"
+    headers = props.headers
+    assert headers["ce-specversion"] == "1.0"
+    assert headers["ce-id"] == str(env.id)
+    assert headers["ce-source"] == "magellon/tests"
+    assert headers["ce-type"] == "magellon.test"
+    assert headers["ce-subject"] == "test"
+    assert "ce-time" in headers
 
 
 def test_publish_task_uses_legacy_queue_map_when_provided(mock_client):
@@ -210,14 +234,14 @@ def test_publish_task_uses_legacy_queue_map_when_provided(mock_client):
 
     b.publish_task(TaskRoute.for_category(CTF), _env({"x": 1}))
 
-    _, queue = b._client.publish_message.call_args[0]
-    assert queue == "ctf_tasks_queue"
+    call = b._client.channel.basic_publish.call_args
+    assert call.kwargs["routing_key"] == "ctf_tasks_queue"
     b.close()
 
 
 def test_publish_task_returns_ok_false_on_broker_error(binder):
     from pika.exceptions import AMQPConnectionError
-    binder._client.publish_message.side_effect = AMQPConnectionError("down")
+    binder._client.channel.basic_publish.side_effect = AMQPConnectionError("down")
 
     receipt = binder.publish_task(TaskRoute.for_category(CTF), _env({}))
 
@@ -292,18 +316,40 @@ def test_consume_calls_qos_only_when_prefetch_set(binder):
 
 
 def test_consume_callback_acks_on_success(binder):
+    """Handler sees a reconstructed envelope; data comes from the
+    body, metadata from ce-* headers."""
     received = []
     callback, _ = _invoke_consumer_callback(
         binder, TaskRoute.for_category(CTF), TaskConsumerPolicy(), received.append
     )
-    ch, method, props = _ch_method_props()
-    body = _env({"img": "x.mrc"}).model_dump_json().encode()
+    ch, method, props = _ch_method_props(headers=_ce_headers(source="test", type="test"))
+    body = b'{"img": "x.mrc"}'
 
     callback(ch, method, props, body)
 
     assert len(received) == 1
+    assert received[0].data == {"img": "x.mrc"}
+    assert received[0].source == "test"
     ch.basic_ack.assert_called_once_with(delivery_tag=method.delivery_tag)
     ch.basic_nack.assert_not_called()
+
+
+def test_consume_callback_handles_legacy_body_without_ce_headers(binder):
+    """Pre-bus producers (before MB3) publish raw TaskDto JSON with
+    no ce-* headers. Binder must still reconstruct a usable envelope
+    so the handler doesn't care where the message came from."""
+    received = []
+    callback, _ = _invoke_consumer_callback(
+        binder, TaskRoute.for_category(CTF), TaskConsumerPolicy(), received.append
+    )
+    ch, method, props = _ch_method_props()  # no headers
+    callback(ch, method, props, b'{"img": "x.mrc"}')
+
+    assert len(received) == 1
+    assert received[0].data == {"img": "x.mrc"}
+    assert received[0].source == "unknown"  # synthesized default
+    assert received[0].type == "unknown"
+    ch.basic_ack.assert_called_once()
 
 
 def test_consume_callback_requeues_retryable_error(binder):
@@ -313,8 +359,8 @@ def test_consume_callback_requeues_retryable_error(binder):
     callback, _ = _invoke_consumer_callback(
         binder, TaskRoute.for_category(CTF), TaskConsumerPolicy(), handler
     )
-    ch, method, props = _ch_method_props()
-    callback(ch, method, props, _env({}).model_dump_json().encode())
+    ch, method, props = _ch_method_props(headers=_ce_headers())
+    callback(ch, method, props, b'{}')
 
     ch.basic_nack.assert_called_once_with(delivery_tag=method.delivery_tag, requeue=True)
 
@@ -326,17 +372,14 @@ def test_consume_callback_dlqs_permanent_error(binder):
     callback, _ = _invoke_consumer_callback(
         binder, TaskRoute.for_category(CTF), TaskConsumerPolicy(), handler
     )
-    ch, method, props = _ch_method_props()
-    callback(ch, method, props, _env({}).model_dump_json().encode())
+    ch, method, props = _ch_method_props(headers=_ce_headers())
+    callback(ch, method, props, b'{}')
 
     ch.basic_nack.assert_called_once_with(delivery_tag=method.delivery_tag, requeue=False)
 
 
 def test_consume_callback_reads_magellon_redelivery_header(binder):
-    """When the x-magellon-redelivery header is set, it's the source
-    of truth for the classifier. Boolean method.redelivered is the
-    fallback."""
-    captured = []
+    """x-magellon-redelivery overrides the pika redelivered boolean."""
 
     def handler(env):
         raise RetryableError("blip")
@@ -345,10 +388,9 @@ def test_consume_callback_reads_magellon_redelivery_header(binder):
         binder, TaskRoute.for_category(CTF), TaskConsumerPolicy(), handler
     )
 
-    # With header=5, classify_exception sees 5
-    ch, method, props = _ch_method_props(headers={"x-magellon-redelivery": 5})
-    callback(ch, method, props, _env({}).model_dump_json().encode())
-    # Behavior still requeues (RetryableError) — but count comes from header
+    headers = {**_ce_headers(), "x-magellon-redelivery": 5}
+    ch, method, props = _ch_method_props(headers=headers)
+    callback(ch, method, props, b'{}')
     ch.basic_nack.assert_called_once()
 
 
@@ -380,6 +422,9 @@ def test_publish_event_routes_to_plugins_exchange_for_heartbeat(binder):
     call = binder._client.channel.basic_publish.call_args
     assert call.kwargs["exchange"] == EXCHANGE_PLUGINS
     assert call.kwargs["routing_key"] == route.subject
+    # Body is data only; envelope metadata rides on headers
+    assert call.kwargs["body"] == b'{"status": "ready"}'
+    assert call.kwargs["properties"].headers["ce-type"] == "magellon.test"
 
 
 def test_publish_event_routes_to_events_exchange_for_step_events(binder):
@@ -432,12 +477,20 @@ def test_subscribe_events_decodes_envelope_and_invokes_handler(binder):
     consume_call = client.channel.basic_consume.call_args
     callback = consume_call.kwargs["on_message_callback"]
 
-    # Drive the callback with an envelope on the wire
-    env = _env({"status": "ready"})
-    callback(MagicMock(), MagicMock(routing_key="magellon.plugins.heartbeat.ctf.x"), None, env.model_dump_json().encode())
+    # Drive the callback with a binary-content-mode message
+    props = MagicMock()
+    props.headers = _ce_headers(source="plugins/ctf", type="magellon.plugins.heartbeat")
+    props.content_type = "application/json"
+    callback(
+        MagicMock(),
+        MagicMock(routing_key="magellon.plugins.heartbeat.ctf.x"),
+        props,
+        b'{"status": "ready"}',
+    )
 
     assert len(received) == 1
     assert received[0].data == {"status": "ready"}
+    assert received[0].source == "plugins/ctf"
 
 
 def test_subscribe_events_swallows_handler_exceptions(binder):
@@ -450,8 +503,11 @@ def test_subscribe_events_swallows_handler_exceptions(binder):
     client = handle._client
     callback = client.channel.basic_consume.call_args.kwargs["on_message_callback"]
 
+    props = MagicMock()
+    props.headers = _ce_headers()
+    props.content_type = "application/json"
     # Must not raise
-    callback(MagicMock(), MagicMock(routing_key="x"), None, _env({}).model_dump_json().encode())
+    callback(MagicMock(), MagicMock(routing_key="x"), props, b'{}')
 
 
 # ---------------------------------------------------------------------------
@@ -474,4 +530,20 @@ def _ch_method_props(*, headers=None):
     method.redelivered = False
     properties = MagicMock()
     properties.headers = headers
+    properties.content_type = "application/json"
     return ch, method, properties
+
+
+def _ce_headers(*, source: str = "magellon/tests", type: str = "magellon.test") -> dict:
+    """Minimum ce-* headers for a binary-content-mode message."""
+    import uuid as _uuid
+    from datetime import datetime as _dt, timezone as _tz
+
+    return {
+        "ce-specversion": "1.0",
+        "ce-id": str(_uuid.uuid4()),
+        "ce-source": source,
+        "ce-type": type,
+        "ce-subject": "test",
+        "ce-time": _dt.now(_tz.utc).isoformat(),
+    }
