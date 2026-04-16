@@ -54,6 +54,8 @@ ENV PYTHONPATH=/app
 ENV APP_MODULE=main:app
 ENV APP_ENV=production
 ENV MAGELLON_SETTINGS_FILE=/app/configs/settings_docker_test.yml
+ENV MAGELLON_STEP_EVENTS_ENABLED=1
+ENV MAGELLON_STEP_EVENTS_RMQ=1
 ENV CTF_ESTIMATION_FILE=/app/ctffind
 RUN chmod +x ./ctffind
 

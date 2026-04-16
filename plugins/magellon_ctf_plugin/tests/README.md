@@ -60,14 +60,42 @@ SKIP_BUILD=1 python plugins/magellon_ctf_plugin/tests/smoke_test_docker.py
 The script will:
 1. Check prerequisites (MRC files, Docker network, RabbitMQ)
 2. Build the `magellon-ctf-plugin:test` image from `Dockerfile.test`
-3. Start a container on `docker_magellon-network`
-4. Publish 10 CTF TaskDto messages to `ctf_tasks_queue`
-5. Wait for all 10 output directories to appear (timeout: 180s)
-6. Verify each task produced 5 files with valid defocus estimates
-7. Check container logs for errors
-8. Clean up the container
+3. Purge leftover messages from `ctf_tasks_queue` and `ctf_out_tasks_queue`
+4. Start background RabbitMQ collectors for step events and result messages
+5. Start a container on `docker_magellon-network`
+6. Publish 10 CTF TaskDto messages to `ctf_tasks_queue`
+7. Wait for all 10 output directories to appear (timeout: 180s)
+8. Verify each task produced 5 files with valid defocus estimates
+9. Verify step events: `started` + `completed` per task on `magellon.events` exchange
+10. Verify result messages: `TaskResultDto` per task on `ctf_out_tasks_queue`
+11. Check container logs for errors
+12. Clean up the container
 
 Exit code 0 = all passed, non-zero = failure.
+
+### What is verified
+
+| Check | Source | Required |
+|---|---|---|
+| Output files (5 per task) | Host filesystem | Yes |
+| Defocus estimates in range | `*_ctf_output.txt` | Yes |
+| File sizes > 1 KB | MRC, PNG, JPG | Yes |
+| `started` step event per task | `magellon.events` exchange (`magellon.job.*.step.ctf`) | Yes |
+| `completed` step event per task | `magellon.events` exchange | Yes |
+| At least one `TaskResultDto` from our tasks | `ctf_out_tasks_queue` | Yes |
+| `progress` step events | `magellon.events` exchange | No (CTF is single-step) |
+| No errors in container logs | `docker logs` | Warning only |
+
+### Note on result messages vs step events
+
+Step events use a **topic exchange** (`magellon.events`) — every bound queue gets its
+own copy of each event, so the smoke test's exclusive queue always sees all 10.
+
+Result messages are published directly to the **point-to-point queue** `ctf_out_tasks_queue`.
+If the CoreService `result_consumer` is running, RMQ round-robins between it and the smoke
+test's collector, so we see only ~half the results. The smoke test treats this as
+expected — step events already provide authoritative per-task lifecycle verification,
+and the result-queue check just needs to prove the publish path works at all.
 
 ### Environment overrides
 
@@ -134,9 +162,12 @@ docker rm -f magellon-ctf-test
 
 ## Dockerfile.test notes
 
-Three fixes were applied to the base Dockerfile:
+Four fixes/additions vs. the production Dockerfile:
 
-- `DEBIAN_FRONTEND=noninteractive` — prevents `tzdata` from hanging the build
+- `DEBIAN_FRONTEND=noninteractive` + `TZ=Etc/UTC` — prevents `tzdata` from hanging the build
 - `nats` extra in SDK install — the SDK imports `nats-py` unconditionally
 - `MAGELLON_SETTINGS_FILE` baked into the image — Docker Desktop on Windows
   mangles Unix paths passed via `-e`, converting `/app/...` to `C:/git/app/...`
+- `MAGELLON_STEP_EVENTS_ENABLED=1` + `MAGELLON_STEP_EVENTS_RMQ=1` — enable
+  the step-event publisher's RMQ mirror so the smoke test can subscribe to
+  the `magellon.events` exchange and verify lifecycle events
