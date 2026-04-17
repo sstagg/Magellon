@@ -39,7 +39,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 import pika
-from pika.exceptions import AMQPConnectionError, ChannelError
+from pika.exceptions import AMQPConnectionError, ChannelError, StreamLostError
 
 from magellon_sdk.bus.binders.rmq.audit import write_audit_entry
 from magellon_sdk.bus.binders.rmq.topology import (
@@ -213,7 +213,8 @@ class RmqBinder:
         write_audit_entry(self._audit, route.subject, envelope)
         body = _body_from_envelope(envelope)
         properties = _ce_properties(envelope)
-        try:
+
+        def _do_publish() -> None:
             # Declare the queue (idempotent) then basic_publish directly
             # so we control properties. RabbitmqClient.publish_message
             # hard-codes delivery_mode and has no headers slot.
@@ -224,12 +225,36 @@ class RmqBinder:
                 body=body,
                 properties=properties,
             )
+
+        try:
+            _do_publish()
             return PublishReceipt(ok=True, message_id=str(envelope.id))
-        except (AMQPConnectionError, ChannelError) as e:
-            logger.error("publish_task failed for %s: %s", queue_name, e)
-            return PublishReceipt(
-                ok=False, message_id=str(envelope.id), error=str(e)
+        except (AMQPConnectionError, ChannelError, StreamLostError) as first_err:
+            # Pika's BlockingConnection doesn't auto-reconnect — once the
+            # broker drops us (idle timeout, broker restart, network blip)
+            # every subsequent publish fails forever until the binder is
+            # rebuilt. Reconnect once and retry; if it still fails, surface
+            # the second error so callers see the real cause.
+            logger.warning(
+                "publish_task: %s on %s — reconnecting once",
+                type(first_err).__name__, queue_name,
             )
+            try:
+                self._client.close_connection()
+            except Exception:  # noqa: BLE001 — closing a half-dead conn can throw
+                pass
+            try:
+                self._client.connect()
+                _do_publish()
+                return PublishReceipt(ok=True, message_id=str(envelope.id))
+            except (AMQPConnectionError, ChannelError, StreamLostError) as second_err:
+                logger.error(
+                    "publish_task failed for %s after reconnect: %s",
+                    queue_name, second_err,
+                )
+                return PublishReceipt(
+                    ok=False, message_id=str(envelope.id), error=str(second_err)
+                )
 
     def consume_tasks(
         self,
