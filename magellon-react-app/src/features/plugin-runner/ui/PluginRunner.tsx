@@ -28,6 +28,7 @@ import {
 import { SchemaForm } from './SchemaForm.tsx';
 import { ResultRenderer } from './results/ResultRenderers.tsx';
 import { ImagePickerDialog } from './ImagePickerDialog.tsx';
+import { ProgressTracker } from './ProgressTracker.tsx';
 import { useJobStore } from '../../../app/layouts/PanelLayout/useJobStore.ts';
 import { useSocket } from '../../../shared/lib/useSocket.ts';
 import { settings } from '../../../shared/config/settings.ts';
@@ -472,6 +473,9 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
                             )}
                             {!usePreviewMode && currentJob && (
                                 <RunStatusBanner job={currentJob} />
+                            )}
+                            {!usePreviewMode && currentJobId && (
+                                <ProgressTracker jobId={currentJobId} />
                             )}
                             <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 0.5, display: 'block', mb: 0.5 }}>
                                 Preview
