@@ -230,6 +230,7 @@ class PluginBrokerRunner:
             plugin=self.plugin,
             contract=self.contract,
             heartbeat_interval_seconds=self.heartbeat_interval_seconds,
+            task_queue=self.in_queue,
             existing_publisher=self._discovery_publisher,
             existing_heartbeat=self._heartbeat_loop,
         )

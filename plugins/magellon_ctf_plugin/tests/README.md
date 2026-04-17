@@ -13,7 +13,7 @@ container, and verifies the output files and defocus estimates.
 | MySQL | `magellon-mysql_container` on the magellon network |
 | MRC test data | 10 files in `C:/temp/magellon/gpfs/ctf_test/` |
 | Python | 3.10+ with `pika` installed (`pip install pika`) |
-| SDK wheel | `magellon_sdk-1.0.0-py3-none-any.whl` in the plugin root |
+| SDK wheel | `magellon_sdk-1.1.0-py3-none-any.whl` in the plugin root |
 
 ### MRC test files
 
@@ -40,7 +40,7 @@ If the wheel doesn't exist yet:
 cd magellon-sdk
 pip install build
 python -m build --wheel
-cp dist/magellon_sdk-1.0.0-py3-none-any.whl ../plugins/magellon_ctf_plugin/
+cp dist/magellon_sdk-1.1.0-py3-none-any.whl ../plugins/magellon_ctf_plugin/
 ```
 
 ## Automated test

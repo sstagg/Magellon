@@ -11,6 +11,32 @@ Version pattern follows SemVer as defined in `CONTRACT.md` §4.
 
 ---
 
+## 1.1.0 — 2026-04-17
+
+Minor. Additive changes only — every 1.0 plugin keeps working.
+
+### Added
+
+- **`Announce.task_queue: Optional[str]`.** Plugins now surface their
+  input-queue name in the announce message. `PluginBrokerRunner` wires
+  the runner's `in_queue` through `start_discovery()` into the
+  announce. Enables the dispatcher to target a specific implementation
+  when multiple impls coexist in the same category (hub phase H1).
+  Back-compat: old plugins that still announce with `task_queue=None`
+  still work; the dispatcher falls back to the legacy category-scoped
+  queue name in that case.
+- **`start_discovery()` gained a `task_queue=` keyword parameter.**
+  Defaults to `None` to preserve existing callers.
+
+### Changed
+
+- CONTRACT.md §2.4 updated to document the per-impl routing pattern
+  that H1 uses: `magellon.tasks.<category>.<plugin_id>` (or any
+  plugin-chosen queue name declared via `Announce.task_queue`).
+  Legacy `magellon.tasks.<category>` route remains valid.
+
+---
+
 ## 1.0.0 — 2026-04-17
 
 First frozen public contract. See `CONTRACT.md` for the scope of

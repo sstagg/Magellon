@@ -53,6 +53,7 @@ class PluginLivenessEntry:
         "manifest",
         "last_heartbeat",
         "status",
+        "task_queue",
     )
 
     def __init__(
@@ -65,6 +66,7 @@ class PluginLivenessEntry:
         manifest: Optional[Any] = None,
         last_heartbeat: Optional[datetime] = None,
         status: str = "ready",
+        task_queue: Optional[str] = None,
     ) -> None:
         self.plugin_id = plugin_id
         self.plugin_version = plugin_version
@@ -73,6 +75,10 @@ class PluginLivenessEntry:
         self.manifest = manifest
         self.last_heartbeat = last_heartbeat
         self.status = status
+        # Plugin-declared task queue (SDK 1.1+ Announce.task_queue).
+        # ``None`` for pre-1.1 plugins; the dispatcher falls back to
+        # the category-scoped legacy route in that case.
+        self.task_queue = task_queue
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -83,6 +89,7 @@ class PluginLivenessEntry:
             "manifest": self.manifest.model_dump() if self.manifest else None,
             "last_heartbeat": self.last_heartbeat.isoformat() if self.last_heartbeat else None,
             "status": self.status,
+            "task_queue": self.task_queue,
         }
 
 
@@ -108,6 +115,7 @@ class PluginLivenessRegistry:
     def record_announce(self, msg: Announce) -> None:
         with self._lock:
             key = self._key(msg.plugin_id, msg.instance_id)
+            task_queue = getattr(msg, "task_queue", None)
             entry = self._entries.get(key)
             if entry is None:
                 entry = PluginLivenessEntry(
@@ -117,12 +125,19 @@ class PluginLivenessRegistry:
                     instance_id=msg.instance_id,
                     manifest=msg.manifest,
                     last_heartbeat=msg.ts,
+                    task_queue=task_queue,
                 )
                 self._entries[key] = entry
             else:
                 entry.manifest = msg.manifest
                 entry.plugin_version = msg.plugin_version
                 entry.last_heartbeat = msg.ts
+                # Re-announces can update the queue (config change,
+                # plugin upgrade). Only overwrite when the new announce
+                # actually carried a value — avoid wiping on pre-1.1
+                # plugins that re-announce without the field.
+                if task_queue is not None:
+                    entry.task_queue = task_queue
 
     def record_heartbeat(self, msg: Heartbeat) -> None:
         with self._lock:

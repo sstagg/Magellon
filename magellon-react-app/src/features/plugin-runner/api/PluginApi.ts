@@ -1,4 +1,4 @@
-import { useQuery, useMutation } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from 'react-query';
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
 import { settings } from '../../../shared/config/settings.ts';
 import type { Job } from '../../../app/layouts/PanelLayout/useJobStore.ts';
@@ -29,6 +29,18 @@ export interface PluginSummary {
      * default to ``in-process`` when the field is missing.
      */
     kind?: 'in-process' | 'broker';
+    /**
+     * Hub state (H1). ``enabled`` gates whether the dispatcher will
+     * route new tasks to this plugin; flips via POST
+     * /plugins/{id}/enable|disable. ``is_default_for_category`` is true
+     * for the impl that wins category-scoped dispatches (when multiple
+     * impls of the same category are announced). Optional for older
+     * backend builds — default ``enabled=true``, no default-badge.
+     */
+    enabled?: boolean;
+    is_default_for_category?: boolean;
+    /** SDK 1.1+ plugin's announced input queue. UI-surfaced for debug. */
+    task_queue?: string | null;
 }
 
 export interface PluginInfo {
@@ -130,6 +142,50 @@ export const fetchJobs = async (pluginId?: string): Promise<Job[]> => {
 
 export const usePlugins = () =>
     useQuery(['plugins'], fetchPlugins, { staleTime: 60_000 });
+
+// ---------------------------------------------------------------------------
+// Hub operator actions (H1): enable/disable + set-default-for-category
+// ---------------------------------------------------------------------------
+
+export const enablePlugin = async (pluginId: string) => {
+    const res = await api.post(`/plugins/${pluginId}/enable`);
+    return res.data;
+};
+
+export const disablePlugin = async (pluginId: string) => {
+    const res = await api.post(`/plugins/${pluginId}/disable`);
+    return res.data;
+};
+
+export const setCategoryDefault = async (category: string, pluginId: string) => {
+    const short = pluginId.includes('/') ? pluginId.split('/').slice(1).join('/') : pluginId;
+    const res = await api.post(`/plugins/categories/${category}/default`, {
+        plugin_id: short,
+    });
+    return res.data;
+};
+
+export const useTogglePlugin = () => {
+    const qc = useQueryClient();
+    return useMutation(
+        async ({ pluginId, enabled }: { pluginId: string; enabled: boolean }) =>
+            (enabled ? enablePlugin : disablePlugin)(pluginId),
+        {
+            onSuccess: () => qc.invalidateQueries(['plugins']),
+        },
+    );
+};
+
+export const useSetCategoryDefault = () => {
+    const qc = useQueryClient();
+    return useMutation(
+        async ({ category, pluginId }: { category: string; pluginId: string }) =>
+            setCategoryDefault(category, pluginId),
+        {
+            onSuccess: () => qc.invalidateQueries(['plugins']),
+        },
+    );
+};
 
 export const usePluginInputSchema = (pluginId: string | null) =>
     useQuery(

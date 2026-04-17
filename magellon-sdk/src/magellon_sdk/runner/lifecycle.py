@@ -31,6 +31,7 @@ def start_discovery(
     plugin: PluginBase,
     contract: CategoryContract,
     heartbeat_interval_seconds: float,
+    task_queue: Optional[str] = None,
     existing_publisher: Optional[DiscoveryPublisher] = None,
     existing_heartbeat: Optional[HeartbeatLoop] = None,
 ) -> Tuple[DiscoveryPublisher, HeartbeatLoop, Announce]:
@@ -40,6 +41,10 @@ def start_discovery(
     heartbeat to reuse them. First call creates both; later calls
     re-announce (so a manager that booted after the plugin still picks
     it up) but leave the heartbeat thread alone.
+
+    ``task_queue`` is the runner's ``in_queue`` — piped into the
+    :class:`Announce` so a dispatcher can route to this specific
+    implementation's queue when multiple impls coexist.
 
     A broker hiccup at announce time is logged and swallowed — the
     heartbeat will eventually carry the manager over.
@@ -52,6 +57,7 @@ def start_discovery(
         plugin_version=info.version,
         category=contract.category.name.lower(),
         manifest=manifest,
+        task_queue=task_queue,
     )
     try:
         publisher.announce(contract, announce)

@@ -1,20 +1,29 @@
 import React, { useMemo, useState } from 'react';
 import {
     Box,
+    Button,
     Card,
     CardActionArea,
     CardContent,
     Chip,
     CircularProgress,
+    FormControlLabel,
     Stack,
+    Switch,
     TextField,
+    Tooltip,
     Typography,
     Alert,
     Grid,
 } from '@mui/material';
-import { Puzzle } from 'lucide-react';
+import { Puzzle, Star } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { usePlugins, PluginSummary } from '../api/PluginApi.ts';
+import {
+    usePlugins,
+    useTogglePlugin,
+    useSetCategoryDefault,
+    PluginSummary,
+} from '../api/PluginApi.ts';
 
 interface PluginBrowserProps {
     onSelect?: (plugin: PluginSummary) => void;
@@ -23,7 +32,21 @@ interface PluginBrowserProps {
 export const PluginBrowser: React.FC<PluginBrowserProps> = ({ onSelect }) => {
     const navigate = useNavigate();
     const { data, isLoading, error } = usePlugins();
+    const toggle = useTogglePlugin();
+    const setDefault = useSetCategoryDefault();
     const [query, setQuery] = useState('');
+
+    // Count per-category impls — a "Set as default" action only makes
+    // sense when ≥2 impls exist for the category. For solo impls the
+    // default is unambiguous and the badge alone is enough.
+    const implsByCategory = useMemo(() => {
+        const m = new Map<string, number>();
+        (data ?? []).forEach((p) => {
+            const c = p.category?.toLowerCase();
+            if (c) m.set(c, (m.get(c) ?? 0) + 1);
+        });
+        return m;
+    }, [data]);
 
     const filtered = useMemo(() => {
         const all = data ?? [];
@@ -71,38 +94,96 @@ export const PluginBrowser: React.FC<PluginBrowserProps> = ({ onSelect }) => {
                 <Alert severity="info">No plugins match the current filter.</Alert>
             ) : (
                 <Grid container spacing={2}>
-                    {filtered.map((plugin) => (
-                        <Grid key={plugin.plugin_id} size={{ xs: 12, sm: 6, md: 4 }}>
-                            <Card variant="outlined" sx={{ height: '100%' }}>
-                                <CardActionArea
-                                    onClick={() => handleSelect(plugin)}
-                                    sx={{ height: '100%', alignItems: 'flex-start' }}
-                                >
-                                    <CardContent>
-                                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-                                            <Typography variant="h6">{plugin.name}</Typography>
-                                            <Chip size="small" label={`v${plugin.version}`} />
-                                        </Stack>
-                                        <Stack direction="row" spacing={0.5} sx={{ mb: 1 }}>
-                                            <Chip size="small" variant="outlined" label={plugin.category} />
-                                            <Chip
+                    {filtered.map((plugin) => {
+                        const enabled = plugin.enabled ?? true;
+                        const isDefault = plugin.is_default_for_category === true;
+                        const siblingCount = implsByCategory.get(plugin.category?.toLowerCase() ?? '') ?? 1;
+                        const canSetDefault = !isDefault && siblingCount > 1;
+                        return (
+                            <Grid key={plugin.plugin_id} size={{ xs: 12, sm: 6, md: 4 }}>
+                                <Card variant="outlined" sx={{ height: '100%', opacity: enabled ? 1 : 0.65 }}>
+                                    <CardActionArea
+                                        onClick={() => handleSelect(plugin)}
+                                        sx={{ height: '100%', alignItems: 'flex-start' }}
+                                    >
+                                        <CardContent>
+                                            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                                                <Typography variant="h6">{plugin.name}</Typography>
+                                                <Chip size="small" label={`v${plugin.version}`} />
+                                                {isDefault && (
+                                                    <Tooltip title="Default impl for this category">
+                                                        <Chip
+                                                            size="small"
+                                                            color="success"
+                                                            icon={<Star size={14} />}
+                                                            label="Default"
+                                                        />
+                                                    </Tooltip>
+                                                )}
+                                            </Stack>
+                                            <Stack direction="row" spacing={0.5} sx={{ mb: 1 }}>
+                                                <Chip size="small" variant="outlined" label={plugin.category} />
+                                                <Chip
+                                                    size="small"
+                                                    variant="outlined"
+                                                    label={plugin.kind === 'broker' ? 'broker' : 'in-process'}
+                                                    color={plugin.kind === 'broker' ? 'primary' : 'default'}
+                                                />
+                                            </Stack>
+                                            <Typography variant="body2" color="text.secondary">
+                                                {plugin.description}
+                                            </Typography>
+                                            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                                                {plugin.developer}
+                                            </Typography>
+                                        </CardContent>
+                                    </CardActionArea>
+                                    <Stack
+                                        direction="row"
+                                        spacing={1}
+                                        alignItems="center"
+                                        sx={{ px: 2, py: 1, borderTop: '1px solid', borderColor: 'divider' }}
+                                        // MUI nests the CardActionArea's ripple above siblings; stopping
+                                        // propagation lets the switch fire without also selecting the card.
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        <FormControlLabel
+                                            control={
+                                                <Switch
+                                                    size="small"
+                                                    checked={enabled}
+                                                    disabled={toggle.isLoading}
+                                                    onChange={(e) =>
+                                                        toggle.mutate({
+                                                            pluginId: plugin.plugin_id,
+                                                            enabled: e.target.checked,
+                                                        })
+                                                    }
+                                                />
+                                            }
+                                            label={enabled ? 'Enabled' : 'Disabled'}
+                                            sx={{ m: 0, flex: 1 }}
+                                        />
+                                        {canSetDefault && (
+                                            <Button
                                                 size="small"
                                                 variant="outlined"
-                                                label={plugin.kind === 'broker' ? 'broker' : 'in-process'}
-                                                color={plugin.kind === 'broker' ? 'primary' : 'default'}
-                                            />
-                                        </Stack>
-                                        <Typography variant="body2" color="text.secondary">
-                                            {plugin.description}
-                                        </Typography>
-                                        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                                            {plugin.developer}
-                                        </Typography>
-                                    </CardContent>
-                                </CardActionArea>
-                            </Card>
-                        </Grid>
-                    ))}
+                                                disabled={setDefault.isLoading}
+                                                onClick={() =>
+                                                    setDefault.mutate({
+                                                        category: plugin.category,
+                                                        pluginId: plugin.plugin_id,
+                                                    })
+                                                }
+                                            >
+                                                Set as default
+                                            </Button>
+                                        )}
+                                    </Stack>
+                                </Card>
+                            </Grid>
+                        );
+                    })}
                 </Grid>
             )}
         </Box>

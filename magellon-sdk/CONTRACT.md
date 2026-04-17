@@ -1,6 +1,6 @@
 # magellon-sdk — Public Contract
 
-**Status:** 1.0.0 frozen, 2026-04-17. Companion to `Documentation/UNIFIED_PLATFORM_PLAN.md`.
+**Status:** 1.1.0, 2026-04-17. Companion to `Documentation/UNIFIED_PLATFORM_PLAN.md`.
 **Audience:** Plugin authors (what you can rely on), SDK maintainers (what you can change).
 **Rule in one line:** *Public surface breaks only on a major version bump. Everything not in §2 is internal; change at will.*
 
@@ -88,13 +88,14 @@ For every class in §2.1:
 
 ### 2.4 Subject / routing-key format
 
-- Task routes: `magellon.tasks.<category>` where `<category>` is lowercase category name.
+- Task routes (category-scoped, legacy): `magellon.tasks.<category>` where `<category>` is lowercase category name. Single-impl deployments and pre-1.1 plugins use this shape.
+- Task routes (per-impl, added 1.1): `magellon.tasks.<category>.<plugin_id>` — any queue name the plugin declares via `Announce.task_queue`. Hub deployments route tasks here so a second implementation doesn't auto-round-robin with the default.
 - Task-result routes: `magellon.tasks.<category>.result`.
 - Step event subjects (NATS form): `magellon.job.<job_id>.step.<step>`.
 - Step event routing keys (RMQ form — drops the `magellon.` prefix): `job.<job_id>.step.<step>`.
 - Discovery subjects: `magellon.plugins.announce.<category>.<plugin_id>` and `magellon.plugins.heartbeat.<category>.<plugin_id>`.
 
-These strings are part of the contract. Cross-implementation plugins bind to these; we can't rename them inside a major.
+These strings are part of the contract. Cross-implementation plugins bind to these; we can't rename them inside a major. The per-impl suffix is an additive extension, not a replacement — both shapes are promised stable within 1.x.
 
 ### 2.5 CloudEvents envelope shape
 
