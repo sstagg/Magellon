@@ -147,3 +147,9 @@ class RabbitmqClient:
     def start_consuming(self) -> None:
         logger.info("Waiting for messages. To exit press CTRL+C")
         self.channel.start_consuming()
+
+
+# Only ``RabbitmqClient`` is intended for plugin authors that want to
+# poke pika directly (discovery, standalone publishers, test harnesses).
+# Everything else in this module is internal to the client.
+__all__ = ["RabbitmqClient"]
