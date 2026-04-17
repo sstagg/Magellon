@@ -24,9 +24,13 @@ from starlette.responses import JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 from prometheus_client import Info
 
-from core.rabbitmq_consumer_engine import consumer_engine
+from magellon_sdk.bus.bootstrap import install_rmq_bus
+from magellon_sdk.categories.contract import MOTIONCOR_CATEGORY
+
 from core.model_dto import CryoEmMotionCorTaskData, TaskDto,CreateFrameAlignRequest
 from core.settings import AppSettingsSingleton
+from core.test_consumer import start_test_consumer
+from plugin import MotioncorBrokerRunner, MotioncorPlugin, build_motioncor_result
 from service.service import do_execute, check_requirements, get_manifest, get_plugin_info
 from core.logger_config import setup_logging
 from utils import createframealignCenterImage, createframealignImage
@@ -65,34 +69,68 @@ else:
     i.info({'name': plugin_info.name, 'description': 'No description', 'instance': plugin_info.instance_id})
 
 
+_runner: MotioncorBrokerRunner | None = None
+_plugin = MotioncorPlugin()
+
+
 @app.on_event("startup")
 async def startup_event():
+    """MB4.3: install the process-wide MessageBus, pre-warm the
+    step-event publisher, then spin up the broker runner on a daemon
+    thread plus a separate test-queue consumer. Replaces the
+    hand-rolled core.rabbitmq_consumer_engine."""
+    global _runner
     try:
+        rmq = AppSettingsSingleton.get_instance().rabbitmq_settings
+        install_rmq_bus(rmq)
+
         # Pre-warm the step-event publisher so the first task doesn't pay
         # the cold-start cost (NATS connect attempt + JetStream add_stream
         # timeout, then RMQ exchange declare). Fire-and-forget on the
-        # consumer engine's daemon loop so it completes in the background
-        # before the first task arrives.
+        # plugin's dedicated daemon loop.
         try:
-            from core.rabbitmq_consumer_engine import _loop
+            from plugin.plugin import _get_loop
             from service.step_events import get_publisher
-            asyncio.run_coroutine_threadsafe(get_publisher(), _loop)
+            asyncio.run_coroutine_threadsafe(get_publisher(), _get_loop())
             logger.info("step-event publisher pre-warm scheduled")
         except Exception:
             logger.exception("step-event publisher pre-warm scheduling failed (non-fatal)")
 
-        # Start RabbitMQ consumer thread. Discovery + dynamic config
-        # ride the broker now (P6/P7) — Consul is gone.
-        rabbitmq_thread = threading.Thread(target=consumer_engine, daemon=True)
-        rabbitmq_thread.start()
-    except Exception as e:
-        print(f"Error during startup: {e}")
+        _runner = MotioncorBrokerRunner(
+            plugin=_plugin,
+            settings=rmq,
+            in_queue=rmq.QUEUE_NAME,
+            out_queue=rmq.OUT_QUEUE_NAME,
+            result_factory=build_motioncor_result,
+            contract=MOTIONCOR_CATEGORY,
+        )
+        threading.Thread(
+            target=_runner.start_blocking, name="motioncor-broker-runner", daemon=True,
+        ).start()
+
+        # Test queue is opt-in — separate bus.tasks.consumer subscription
+        # that handles the denormalized frontend payload by translating
+        # before delegating to do_execute. See core/test_consumer.py.
+        app.state.test_consumer_handle = start_test_consumer()
+        logger.info("MotioncorBrokerRunner started")
+    except Exception:
+        logger.exception("MotioncorBrokerRunner: startup failed")
+        raise
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    # Your cleanup logic here
-    pass
+    if _runner is not None:
+        try:
+            _runner.stop()
+        except Exception:
+            logger.exception("MotioncorBrokerRunner: stop() raised")
+    handle = getattr(app.state, "test_consumer_handle", None)
+    if handle is not None:
+        try:
+            handle.close()
+        except Exception:
+            logger.exception("motioncor test consumer: close() raised")
 
 
 @app.get("/", summary="Get Plugin Information")
