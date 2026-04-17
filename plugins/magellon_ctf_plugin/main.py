@@ -25,9 +25,12 @@ from starlette.responses import JSONResponse, StreamingResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 from prometheus_client import Info
 
-from core.rabbitmq_consumer_engine import consumer_engine
+from magellon_sdk.bus.bootstrap import install_rmq_bus
+from magellon_sdk.categories.contract import CTF
+
 from core.model_dto import TaskDto
 from core.settings import AppSettingsSingleton
+from plugin import CtfBrokerRunner, CtfPlugin, build_ctf_result
 from service.service import do_execute, check_requirements, get_manifest, get_plugin_info
 from core.logger_config import setup_logging
 from dotenv import load_dotenv
@@ -75,34 +78,48 @@ else:
     i.info({'name': plugin_info.name, 'description': 'No description', 'instance': plugin_info.instance_id})
 
 
+_runner: CtfBrokerRunner | None = None
+_plugin = CtfPlugin()
+
+
 @app.on_event("startup")
 async def startup_event():
+    """MB4.2: install the process-wide MessageBus, pre-warm the
+    step-event publisher, then spin up the broker runner on a daemon
+    thread. Replaces the hand-rolled core.rabbitmq_consumer_engine."""
+    global _runner
     try:
+        rmq = AppSettingsSingleton.get_instance().rabbitmq_settings
+        install_rmq_bus(rmq)
+
         # Pre-warm the step-event publisher so the first task doesn't pay
         # the cold-start cost (NATS connect attempt + JetStream add_stream
-        # timeout, then RMQ exchange declare). Without this, the first
-        # ``await get_publisher()`` inside do_execute races the dispatch
-        # and times out → those tasks emit no events. Fire-and-forget on
-        # the consumer engine's daemon loop so it completes in the
-        # background before the first task arrives.
+        # timeout, then RMQ exchange declare). Without this, _make_reporter
+        # races the first dispatch and times out → those tasks emit no
+        # events. Fire-and-forget on the plugin's dedicated daemon loop.
         try:
-            from core.rabbitmq_consumer_engine import _loop
+            from plugin.plugin import _get_loop
             from service.step_events import get_publisher
-            asyncio.run_coroutine_threadsafe(get_publisher(), _loop)
+            asyncio.run_coroutine_threadsafe(get_publisher(), _get_loop())
             logger.info("step-event publisher pre-warm scheduled")
         except Exception:
             logger.exception("step-event publisher pre-warm scheduling failed (non-fatal)")
 
-        # Start RabbitMQ consumer thread. Discovery + dynamic config
-        # ride the broker now (P6/P7) — the consumer's
-        # PluginBrokerRunner publishes its own announce/heartbeat and
-        # subscribes to the config exchange. Consul is gone.
-        rabbitmq_thread = threading.Thread(target=consumer_engine, daemon=True)
-        rabbitmq_thread.start()
-
-
-    except Exception as e:
-        print(f"Error during startup: {e}")
+        _runner = CtfBrokerRunner(
+            plugin=_plugin,
+            settings=rmq,
+            in_queue=rmq.QUEUE_NAME,
+            out_queue=rmq.OUT_QUEUE_NAME,
+            result_factory=build_ctf_result,
+            contract=CTF,
+        )
+        threading.Thread(
+            target=_runner.start_blocking, name="ctf-broker-runner", daemon=True,
+        ).start()
+        logger.info("CtfBrokerRunner started")
+    except Exception:
+        logger.exception("CtfBrokerRunner: startup failed")
+        raise
 
 
 # def callback(key, value, **kwargs):
@@ -111,8 +128,11 @@ async def startup_event():
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    # Your cleanup logic here
-    pass
+    if _runner is not None:
+        try:
+            _runner.stop()
+        except Exception:
+            logger.exception("CtfBrokerRunner: stop() raised")
 
 
 @app.get("/", summary="Get Plugin Information")
