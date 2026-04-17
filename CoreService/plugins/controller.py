@@ -20,13 +20,25 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import uuid
 from typing import Any, Dict, List, Literal, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from core.plugin_liveness_registry import get_registry as get_liveness_registry
-from magellon_sdk.models import Capability, IsolationLevel, PluginManifest, Transport
+from magellon_sdk.bus import get_bus
+from magellon_sdk.bus.routes import TaskRoute
+from magellon_sdk.categories.contract import CATEGORIES, CategoryContract
+from magellon_sdk.envelope import Envelope
+from magellon_sdk.models import (
+    Capability,
+    IsolationLevel,
+    PluginManifest,
+    TaskDto,
+    TaskStatus,
+    Transport,
+)
 from plugins.registry import registry
 from services.job_manager import job_manager
 
@@ -212,14 +224,90 @@ async def plugin_output_schema(plugin_id: str):
 
 @plugins_router.post("/{plugin_id:path}/jobs", summary="Submit one plugin job (async)")
 async def submit_job(plugin_id: str, request: JobSubmitRequest, sid: str | None = None):
-    entry = _require_plugin(plugin_id)
+    """Dispatch one job.
+
+    U1.3: in-process plugins still run via ``plugin.run()`` in an executor
+    (existing code path). Broker plugins dispatch via ``bus.tasks.send`` —
+    the plugin's runner (Docker container or separate process) consumes
+    the task and publishes the result + step events back. ``job_manager``
+    row is the same shape either way; callers don't need to care.
+    """
+    in_process = _find_in_process_plugin(plugin_id)
+    if in_process is not None:
+        return await _submit_in_process_job(in_process, request, sid)
+    broker = _find_broker_plugin(plugin_id)
+    if broker is not None:
+        return await _submit_broker_job(plugin_id, broker, request)
+    raise HTTPException(status_code=404, detail=f"Plugin {plugin_id} not found")
+
+
+@plugins_router.post("/{plugin_id:path}/jobs/batch", summary="Submit a batch of plugin jobs (one per input)")
+async def submit_batch(plugin_id: str, request: BatchSubmitRequest, sid: str | None = None):
+    if request.image_ids is not None and len(request.image_ids) != len(request.inputs):
+        raise HTTPException(
+            status_code=422,
+            detail="image_ids length must match inputs length when provided",
+        )
+
+    in_process = _find_in_process_plugin(plugin_id)
+    if in_process is not None:
+        return await _submit_in_process_batch(in_process, request, sid)
+    broker = _find_broker_plugin(plugin_id)
+    if broker is not None:
+        return await _submit_broker_batch(plugin_id, broker, request)
+    raise HTTPException(status_code=404, detail=f"Plugin {plugin_id} not found")
+
+
+# ---------------------------------------------------------------------------
+# Lookup helpers
+# ---------------------------------------------------------------------------
+
+def _find_in_process_plugin(plugin_id: str):
+    """Static registry lookup. Returns the ``PluginEntry`` or ``None``."""
+    return registry.get(plugin_id)
+
+
+def _find_broker_plugin(plugin_id: str) -> Optional[CategoryContract]:
+    """Look up a broker plugin by plugin_id, resolve its category contract.
+
+    Plugins in the liveness registry use whatever ``plugin_id`` they
+    announced; the ``/plugins/`` list prepends the category (e.g.
+    "fft/FFT Plugin"). Accept both forms here. Returns the
+    :class:`CategoryContract` — that's what we need for dispatch
+    (category-scoped TaskRoute + input_model for validation).
+    """
+    # Strip optional "category/" prefix — we only need the contract by category.
+    short_id = plugin_id.split("/", 1)[1] if "/" in plugin_id else plugin_id
+    for entry in get_liveness_registry().list_live():
+        if entry.plugin_id == short_id or entry.plugin_id == plugin_id:
+            return _category_contract_by_name(entry.category)
+    return None
+
+
+def _category_contract_by_name(category_name: str) -> Optional[CategoryContract]:
+    """Find a :class:`CategoryContract` by its category name.
+
+    :data:`CATEGORIES` is keyed by code; brokers announce by name. Scan
+    once — there are only a handful of categories in practice.
+    """
+    for contract in CATEGORIES.values():
+        if contract.category.name.lower() == category_name.lower():
+            return contract
+    return None
+
+
+# ---------------------------------------------------------------------------
+# In-process dispatch — existing path
+# ---------------------------------------------------------------------------
+
+async def _submit_in_process_job(entry, request: JobSubmitRequest, sid: str | None):
     try:
         validated = entry.instance.input_schema().model_validate(request.input)
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"Invalid input: {exc}")
 
     envelope = job_manager.create_job(
-        plugin_id=plugin_id,
+        plugin_id=entry.plugin_id,
         name=request.name or f"{entry.name} job",
         settings=validated.model_dump(mode="json"),
         image_ids=[request.image_id] if request.image_id else None,
@@ -230,18 +318,7 @@ async def submit_job(plugin_id: str, request: JobSubmitRequest, sid: str | None 
     return envelope
 
 
-@plugins_router.post("/{plugin_id:path}/jobs/batch", summary="Submit a batch of plugin jobs (one per input)")
-async def submit_batch(plugin_id: str, request: BatchSubmitRequest, sid: str | None = None):
-    entry = _require_plugin(plugin_id)
-
-    if request.image_ids is not None and len(request.image_ids) != len(request.inputs):
-        raise HTTPException(
-            status_code=422,
-            detail="image_ids length must match inputs length when provided",
-        )
-
-    # Validate all inputs up front — fail the whole batch cleanly rather than
-    # creating half the jobs then blowing up.
+async def _submit_in_process_batch(entry, request: BatchSubmitRequest, sid: str | None):
     validated_inputs = []
     for idx, raw in enumerate(request.inputs):
         try:
@@ -253,7 +330,7 @@ async def submit_batch(plugin_id: str, request: BatchSubmitRequest, sid: str | N
     for idx, validated in enumerate(validated_inputs):
         image_id = request.image_ids[idx] if request.image_ids else None
         envelope = job_manager.create_job(
-            plugin_id=plugin_id,
+            plugin_id=entry.plugin_id,
             name=request.name or f"{entry.name} batch [{idx + 1}/{len(validated_inputs)}]",
             settings=validated.model_dump(mode="json"),
             image_ids=[image_id] if image_id else None,
@@ -263,6 +340,152 @@ async def submit_batch(plugin_id: str, request: BatchSubmitRequest, sid: str | N
         envelopes.append(envelope)
         asyncio.create_task(_run_generic_job(entry, envelope["job_id"], validated, sid))
 
+    return {"jobs": envelopes, "count": len(envelopes)}
+
+
+# ---------------------------------------------------------------------------
+# Broker dispatch — publish to magellon.tasks.<category> via the bus
+# ---------------------------------------------------------------------------
+
+_BROKER_ENVELOPE_SOURCE = "magellon/core_service/plugin_controller"
+
+
+def _validate_broker_input(contract: CategoryContract, raw: Dict[str, Any]):
+    """Validate input against the category's Pydantic input model.
+
+    Contracts like ``CTF``/``FFT``/``MOTIONCOR_CATEGORY`` pin
+    ``input_model`` (e.g. ``CtfTaskData``). ``PARTICLE_PICKER`` doesn't
+    pin one yet (see contract.py) — fall back to round-tripping the
+    raw dict so dispatch still works for those.
+    """
+    model = contract.input_model
+    if model is None:
+        return raw
+    try:
+        return model.model_validate(raw)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid input: {exc}")
+
+
+def _build_task_dto(
+    contract: CategoryContract,
+    validated_input,
+    task_id: uuid.UUID,
+    job_id: str,
+    user_id: Optional[str],
+) -> TaskDto:
+    """Wrap a validated input in the TaskDto the bus transports.
+
+    ``task_id`` must match the one registered with ``job_manager.create_job``;
+    otherwise the step-event projector can't link events back to the
+    job row and the row stays ``queued`` forever.
+    """
+    data = (
+        validated_input.model_dump(mode="json")
+        if hasattr(validated_input, "model_dump")
+        else validated_input
+    )
+    return TaskDto(
+        id=task_id,
+        worker_instance_id=uuid.uuid4(),
+        job_id=uuid.UUID(job_id),
+        data=data,
+        type=contract.category,
+        status=TaskStatus(code=0, name="pending", description="Task is pending"),
+    )
+
+
+def _publish_to_bus(contract: CategoryContract, task: TaskDto) -> bool:
+    route = TaskRoute.for_category(contract)
+    envelope = Envelope.wrap(
+        source=_BROKER_ENVELOPE_SOURCE,
+        type="magellon.task.dispatch",
+        subject=route.subject,
+        data=task,
+    )
+    receipt = get_bus().tasks.send(route, envelope)
+    if not receipt.ok:
+        logger.error(
+            "broker dispatch failed on %s: %s", route.subject, receipt.error,
+        )
+    return receipt.ok
+
+
+async def _submit_broker_job(
+    plugin_id: str,
+    contract: CategoryContract,
+    request: JobSubmitRequest,
+) -> Dict[str, Any]:
+    validated = _validate_broker_input(contract, request.input)
+    settings = (
+        validated.model_dump(mode="json")
+        if hasattr(validated, "model_dump") else validated
+    )
+    # Generate the task_id up front so the same id registered with the
+    # job_manager rides inside the TaskDto. The step-event projector
+    # needs this linkage to flip the job row's status.
+    task_id = uuid.uuid4()
+
+    envelope = job_manager.create_job(
+        plugin_id=plugin_id,
+        name=request.name or f"{plugin_id} job",
+        settings=settings,
+        task_ids=[task_id],
+        image_ids=[request.image_id] if request.image_id else None,
+        user_id=request.user_id,
+        msession_id=request.msession_id,
+    )
+    task = _build_task_dto(
+        contract, validated, task_id, envelope["job_id"], request.user_id,
+    )
+    if not _publish_to_bus(contract, task):
+        job_manager.fail_job(envelope["job_id"], error="Failed to publish task to bus")
+        raise HTTPException(status_code=502, detail="Failed to publish task to bus")
+    return envelope
+
+
+async def _submit_broker_batch(
+    plugin_id: str,
+    contract: CategoryContract,
+    request: BatchSubmitRequest,
+) -> Dict[str, Any]:
+    # Up-front validation — fail the whole batch cleanly rather than
+    # creating half the jobs then failing mid-flight.
+    validated_inputs = [
+        _validate_broker_input(contract, raw) for raw in request.inputs
+    ]
+
+    envelopes: List[Dict[str, Any]] = []
+    publish_failures: List[str] = []
+    for idx, validated in enumerate(validated_inputs):
+        image_id = request.image_ids[idx] if request.image_ids else None
+        settings = (
+            validated.model_dump(mode="json")
+            if hasattr(validated, "model_dump") else validated
+        )
+        task_id = uuid.uuid4()
+        env = job_manager.create_job(
+            plugin_id=plugin_id,
+            name=request.name or f"{plugin_id} batch [{idx + 1}/{len(validated_inputs)}]",
+            settings=settings,
+            task_ids=[task_id],
+            image_ids=[image_id] if image_id else None,
+            user_id=request.user_id,
+            msession_id=request.msession_id,
+        )
+        envelopes.append(env)
+        task = _build_task_dto(
+            contract, validated, task_id, env["job_id"], request.user_id,
+        )
+        if not _publish_to_bus(contract, task):
+            job_manager.fail_job(env["job_id"], error="Failed to publish task to bus")
+            publish_failures.append(env["job_id"])
+
+    if publish_failures:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to publish {len(publish_failures)}/{len(envelopes)} tasks to bus",
+        )
     return {"jobs": envelopes, "count": len(envelopes)}
 
 
