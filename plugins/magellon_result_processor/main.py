@@ -1,8 +1,7 @@
 import logging
 import os
 import socket
-import threading
-from typing import Optional, List
+from typing import Optional
 
 from rich import traceback
 
@@ -11,11 +10,13 @@ from fastapi.logger import logger
 from sqlalchemy.orm import Session
 
 from starlette.middleware.cors import CORSMiddleware
-from starlette.responses import JSONResponse, StreamingResponse
+from starlette.responses import JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 from prometheus_client import Info
 
-from core.rabbitmq_consumer_engine import consumer_engine
+from magellon_sdk.bus.bootstrap import install_rmq_bus
+
+from core.bus_consumer import start_result_consumers
 from core.model_dto import TaskResultDto
 from core.settings import AppSettingsSingleton
 from services import service
@@ -23,7 +24,6 @@ from services.service import do_execute, check_requirements, get_manifest, get_p
 from core.logger_config import setup_logging
 from dotenv import load_dotenv
 
-# import pdb
 from core.database import engine, session_local, get_db
 
 plugin_info = get_plugin_info()
@@ -70,17 +70,27 @@ else:
 
 
 @app.on_event("startup")
-# async def startup_event(db: Session = Depends(get_db)):
 async def startup_event():
+    """MB4.4: install the process-wide MessageBus, then register one
+    bus consumer per ``OUT_QUEUES`` entry. The binder owns the pika
+    loop, ack/nack/DLQ classification, and reconnection — this module
+    only declares what to subscribe to and what handler to run.
+    Replaces the hand-rolled ``rabbitmq_consumer_engine.consumer_engine``
+    daemon thread.
+    """
     try:
-        # Start RabbitMQ consumer thread. Discovery + dynamic config
-        # ride the broker now (P6/P7) — Consul is gone.
-        rabbitmq_thread = threading.Thread(target=consumer_engine,  daemon=True)
-        rabbitmq_thread.start()
-
-
+        rmq = AppSettingsSingleton.get_instance().rabbitmq_settings
+        install_rmq_bus(rmq)
+        app.state.result_consumer_handles = start_result_consumers()
+        logger.info(
+            "result_processor: started %d bus consumer(s)",
+            len(app.state.result_consumer_handles),
+        )
     except Exception as e:
-        print(f"Error during startup: {e}")
+        logger.exception("result_processor: startup failed")
+        # Surface so deployments don't think the process is healthy
+        # while the bus consumers silently failed to attach.
+        raise
 
 
 # def callback(key, value, **kwargs):
@@ -89,8 +99,12 @@ async def startup_event():
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    # Your cleanup logic here
-    pass
+    handles = getattr(app.state, "result_consumer_handles", []) or []
+    for h in handles:
+        try:
+            h.close()
+        except Exception:
+            logger.exception("result_processor: consumer handle close failed")
 
 
 @app.get("/", summary="Get Plugin Information")
