@@ -16,7 +16,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from prometheus_client import Info
 
 from core.rabbitmq_consumer_engine import consumer_engine
-from core.model_dto import TaskDto
+from core.model_dto import TaskResultDto
 from core.settings import AppSettingsSingleton
 from services import service
 from services.service import do_execute, check_requirements, get_manifest, get_plugin_info
@@ -120,8 +120,12 @@ async def setup():
 
 
 @app.post("/execute", summary="Execute Plugin Operation")
-async def execute_endpoint(request: TaskDto, db: Session = Depends(get_db)):
-    return await do_execute(request,db)
+async def execute_endpoint(request: TaskResultDto):
+    # The HTTP /execute path mirrors what the RMQ consumer does on each
+    # incoming result envelope — it expects a TaskResultDto, not a TaskDto.
+    # do_execute opens its own DB session via TaskOutputProcessor, so
+    # there's no db dependency to pass through.
+    return await do_execute(request)
 
 
 Instrumentator().instrument(app).expose(app)

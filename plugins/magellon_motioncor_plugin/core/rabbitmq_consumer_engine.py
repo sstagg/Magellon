@@ -129,6 +129,13 @@ def process_test_message(ch, method, properties, body):
         result = _run_coro(do_execute(params=test_task_dto))
         logger.info(f"Motioncor test task execution result: {result}")
         
+        # Pull the test out-queue from settings instead of hard-coding so
+        # deployments can rename it without editing this file.
+        test_out_queue = (
+            AppSettingsSingleton.get_instance().rabbitmq_settings.MOTIONCOR_TEST_OUT_QUEUE_NAME
+            or "motioncor_test_outqueue"
+        )
+
         # Check if result is a TaskResultDto (successful execution) or error dict
         if isinstance(result, dict) and "error" in result:
             # Error occurred during execution
@@ -140,18 +147,31 @@ def process_test_message(ch, method, properties, body):
                 meta_data=[],
                 output_files=[]
             )
-            publish_message_to_queue(error_result, "motioncor_test_outqueue")
+            publish_message_to_queue(error_result, test_out_queue)
             logger.error(f"Motioncor test task error published for task: {task_dto.id}")
-        else:
-            # Result should be a TaskResultDto from do_motioncor
-            # Ensure the task_id matches the incoming test task id
-            if hasattr(result, 'task_id'):
-                # Create a copy with updated task_id to ensure it's properly set
-                result_dict = result.model_dump()
-                result_dict['task_id'] = task_dto.id
-                result = TaskResultDto(**result_dict)
-            publish_message_to_queue(result, "motioncor_test_outqueue")
+        elif hasattr(result, "model_dump"):
+            # Real TaskResultDto from do_motioncor — patch task_id and publish.
+            result_dict = result.model_dump()
+            result_dict['task_id'] = task_dto.id
+            publish_message_to_queue(TaskResultDto(**result_dict), test_out_queue)
             logger.info(f"Result published for task: {task_dto.id}")
+        else:
+            # Defensive: do_motioncor returned an unexpected shape (raw dict
+            # with no "error" key, or some other Python value). Wrap it in
+            # a FAILED TaskResultDto rather than crashing on the publish path.
+            unknown_result = TaskResultDto(
+                task_id=task_dto.id,
+                status=FAILED,
+                message="Motioncor test task returned an unexpected result shape",
+                output_data={"raw": str(result)[:1000]},
+                meta_data=[],
+                output_files=[],
+            )
+            publish_message_to_queue(unknown_result, test_out_queue)
+            logger.error(
+                "Motioncor test task: unexpected result type %s for task %s",
+                type(result).__name__, task_dto.id,
+            )
         
         # Acknowledge the message
         ch.basic_ack(delivery_tag=method.delivery_tag)
@@ -176,8 +196,12 @@ def process_test_message(ch, method, properties, body):
                     meta_data=[],
                     output_files=[]
                 )
-                publish_message_to_queue(error_result, "motioncor_test_outqueue")
-            except:
+                publish_message_to_queue(
+                    error_result,
+                    AppSettingsSingleton.get_instance().rabbitmq_settings.MOTIONCOR_TEST_OUT_QUEUE_NAME
+                    or "motioncor_test_outqueue",
+                )
+            except Exception:
                 pass
         
         ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)

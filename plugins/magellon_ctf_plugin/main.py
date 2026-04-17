@@ -5,6 +5,16 @@ import os
 import socket
 import threading
 
+# Step-event observability defaults — flipped on so this plugin emits
+# lifecycle events without operators having to set env vars by hand.
+# RMQ mirror is enabled because most local-dev setups don't run NATS
+# JetStream, and CoreService's RMQ step-event forwarder is the path
+# that delivers events to the React UI in those setups. ``setdefault``
+# means production deployments that explicitly turn these off win.
+# Must run before SDK imports below — the publisher reads these at init.
+os.environ.setdefault("MAGELLON_STEP_EVENTS_ENABLED", "1")
+os.environ.setdefault("MAGELLON_STEP_EVENTS_RMQ", "1")
+
 from rich import traceback
 
 from fastapi import FastAPI, WebSocket, Response
@@ -68,6 +78,21 @@ else:
 @app.on_event("startup")
 async def startup_event():
     try:
+        # Pre-warm the step-event publisher so the first task doesn't pay
+        # the cold-start cost (NATS connect attempt + JetStream add_stream
+        # timeout, then RMQ exchange declare). Without this, the first
+        # ``await get_publisher()`` inside do_execute races the dispatch
+        # and times out → those tasks emit no events. Fire-and-forget on
+        # the consumer engine's daemon loop so it completes in the
+        # background before the first task arrives.
+        try:
+            from core.rabbitmq_consumer_engine import _loop
+            from service.step_events import get_publisher
+            asyncio.run_coroutine_threadsafe(get_publisher(), _loop)
+            logger.info("step-event publisher pre-warm scheduled")
+        except Exception:
+            logger.exception("step-event publisher pre-warm scheduling failed (non-fatal)")
+
         # Start RabbitMQ consumer thread. Discovery + dynamic config
         # ride the broker now (P6/P7) — the consumer's
         # PluginBrokerRunner publishes its own announce/heartbeat and
