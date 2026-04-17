@@ -19,11 +19,13 @@ across plugins.
 from __future__ import annotations
 
 import asyncio
+import io
 import logging
 import uuid
+import zipfile
 from typing import Any, Dict, List, Literal, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel, Field
 
 from core.installed_plugins import get_installed_registry
@@ -34,6 +36,14 @@ from core.plugin_docker_runner import (
 )
 from core.plugin_liveness_registry import get_registry as get_liveness_registry
 from core.plugin_state import get_state_store
+from magellon_sdk import __version__ as sdk_version
+from magellon_sdk.archive import (
+    PluginArchiveManifest,
+    SchemaVersionError,
+    SdkCompatError,
+    check_sdk_compat,
+    load_manifest_bytes,
+)
 from magellon_sdk.bus import get_bus
 from magellon_sdk.bus.routes import TaskRoute
 from magellon_sdk.categories.contract import CATEGORIES, CategoryContract
@@ -797,6 +807,99 @@ async def install_plugin(request: _InstallPluginRequest) -> Dict[str, Any]:
         )
     get_installed_registry().add(entry)
     return entry.to_dict()
+
+
+@plugins_router.post(
+    "/install/archive",
+    summary="Install a plugin from a .magplugin archive upload",
+)
+async def install_plugin_archive(
+    archive: UploadFile = File(..., description="A .magplugin zip archive."),
+) -> Dict[str, Any]:
+    """Accept a ``.magplugin`` archive, validate its manifest, spawn
+    the container using manifest defaults.
+
+    The archive is what ``magellon-sdk plugin pack`` produces: a zip
+    with a top-level ``plugin.yaml`` (see :mod:`magellon_sdk.archive`).
+    This endpoint is the Magellon-native complement to the raw
+    ``POST /install`` endpoint — the operator doesn't have to know the
+    image's env/volume/network shape because the plugin author
+    declared defaults in ``plugin.yaml``.
+
+    Validation order (fail-fast cheapest-first):
+    1. Archive is a zip containing ``plugin.yaml``.
+    2. Manifest parses + fields validate.
+    3. ``sdk_compat`` pin includes this CoreService's SDK version.
+    4. Docker daemon is reachable.
+    5. ``docker run`` succeeds.
+    """
+    # Read the whole upload — archives are tiny (manifest + maybe a
+    # README). If they stop being tiny we'll add a size limit here.
+    try:
+        raw = await archive.read()
+    finally:
+        await archive.close()
+
+    try:
+        with zipfile.ZipFile(io.BytesIO(raw)) as z:
+            try:
+                with z.open("plugin.yaml") as f:
+                    manifest_bytes = f.read()
+            except KeyError:
+                raise HTTPException(
+                    status_code=422,
+                    detail="archive has no top-level plugin.yaml — "
+                           "pack with `magellon-sdk plugin pack <dir>`",
+                )
+    except zipfile.BadZipFile:
+        raise HTTPException(status_code=422, detail="archive is not a valid zip file")
+
+    try:
+        manifest = load_manifest_bytes(manifest_bytes)
+    except SchemaVersionError as exc:
+        raise HTTPException(status_code=422, detail=f"unsupported schema_version: {exc}")
+    except Exception as exc:  # noqa: BLE001 — surface pydantic + yaml errors as-is
+        raise HTTPException(status_code=422, detail=f"invalid plugin.yaml: {exc}")
+
+    try:
+        check_sdk_compat(manifest.sdk_compat, sdk_version)
+    except SdkCompatError as exc:
+        # Hard-fail: installing a plugin whose SDK pin excludes us
+        # risks field-shape drift at runtime. Better the operator
+        # rebuilds their plugin against a compatible SDK.
+        raise HTTPException(
+            status_code=409,
+            detail=f"plugin incompatible with this CoreService (SDK {sdk_version}): {exc}",
+        )
+
+    _ensure_docker()
+    runner = get_docker_runner()
+    volumes = [
+        VolumeMount(v.host, v.container, v.read_only)
+        for v in manifest.install_defaults.volumes
+    ]
+    entry = runner.run_image(
+        image_ref=manifest.image.ref,
+        env=dict(manifest.install_defaults.env),
+        volumes=volumes,
+        network=manifest.install_defaults.network,
+    )
+    if entry.state == "failed":
+        get_installed_registry().add(entry)
+        raise HTTPException(
+            status_code=502,
+            detail=f"docker run failed: {entry.error or 'unknown error'}",
+        )
+    get_installed_registry().add(entry)
+
+    response = entry.to_dict()
+    response["archive"] = {
+        "plugin_id": manifest.plugin_id,
+        "name": manifest.name,
+        "version": manifest.version,
+        "category": manifest.category,
+    }
+    return response
 
 
 @plugins_router.get("/installed", summary="List installed plugin containers")

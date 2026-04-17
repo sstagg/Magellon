@@ -11,6 +11,41 @@ Version pattern follows SemVer as defined in `CONTRACT.md` §4.
 
 ---
 
+## 1.2.0 — 2026-04-17
+
+Minor. Additive — every 1.x plugin keeps working.
+
+### Added
+
+- **`magellon_sdk.archive`** — plugin archive format for the hub
+  (H3a). Pydantic `PluginArchiveManifest` + `load_manifest_bytes` +
+  `check_sdk_compat` helpers. Archive is a zip containing
+  `plugin.yaml` at the top level; see `CONTRACT.md` §7 for the full
+  shape.
+- **`magellon-sdk` CLI** (entry point renamed from the `magellon-plugin`
+  scaffolding stub). Three subcommands, all argparse-based, no new
+  runtime dep:
+  - `magellon-sdk plugin init <name>` — scaffolds a directory with a
+    ready-to-edit `plugin.yaml` and a README.
+  - `magellon-sdk plugin pack <dir>` — validates the manifest and
+    zips to `<plugin_id>-<version>.magplugin`.
+  - `magellon-sdk plugin validate <path>` — accepts a directory, a
+    `plugin.yaml` file, or a `.magplugin` zip. SDK compat mismatch
+    is a warning here; `/plugins/install/archive` hard-fails.
+- **`pyyaml` promoted to a core dependency** (was an optional extra).
+  `archive.manifest` needs it unconditionally; plugins already pulled
+  it via `[config]` so the net effect is nil.
+
+### Changed
+
+- **Console-script entry point renamed** `magellon-plugin` →
+  `magellon-sdk`. Only the name changed; no plugin depended on the
+  old stub (it was a pre-H3 scaffolding placeholder that printed
+  "not yet implemented"). Worth a note in case someone had scripted
+  around it.
+
+---
+
 ## 1.1.0 — 2026-04-17
 
 Minor. Additive changes only — every 1.0 plugin keeps working.

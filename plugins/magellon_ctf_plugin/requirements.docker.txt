@@ -1,4 +1,4 @@
-./magellon_sdk-1.1.0-py3-none-any.whl[rabbitmq,nats,logging,config]
+./magellon_sdk-1.2.0-py3-none-any.whl[rabbitmq,nats,logging,config]
 
 fastapi
 uvicorn

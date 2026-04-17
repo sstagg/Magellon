@@ -38,7 +38,7 @@ from magellon_sdk.models import (
 from magellon_sdk.progress import JobCancelledError, NullReporter, ProgressReporter
 from magellon_sdk.runner import PluginBrokerRunner
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 __all__ = [
     # Runtime

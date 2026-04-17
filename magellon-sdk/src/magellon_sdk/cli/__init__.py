@@ -1,9 +1,16 @@
-"""magellon-plugin command-line interface.
+"""``magellon-sdk`` command-line interface (H3a).
 
-Entry point declared in pyproject.toml as ``magellon-plugin``. Subcommands
-stubbed at 0.1.0 — implementations arrive in later PRs (new, test,
-package, publish). Using the stdlib ``argparse`` to keep the SDK
-dependency-light (no click on the plugin author's critical path).
+Registered as the ``magellon-sdk`` console script. Entry points:
+
+- ``magellon-sdk plugin init <name>`` — scaffold a new plugin archive
+  directory with a ready-to-edit ``plugin.yaml`` + README.
+- ``magellon-sdk plugin pack <dir>`` — validate ``plugin.yaml`` and
+  zip the directory into a ``<plugin_id>-<version>.magplugin`` archive.
+- ``magellon-sdk plugin validate <archive_or_dir>`` — validate a
+  manifest without producing an archive. Safe to run in CI.
+
+Kept intentionally argparse-only (stdlib) to avoid pulling in click /
+typer as runtime deps of every plugin that installs the SDK.
 """
 from __future__ import annotations
 

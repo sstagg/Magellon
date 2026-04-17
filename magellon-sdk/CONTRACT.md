@@ -1,6 +1,6 @@
 # magellon-sdk — Public Contract
 
-**Status:** 1.1.0, 2026-04-17. Companion to `Documentation/UNIFIED_PLATFORM_PLAN.md`.
+**Status:** 1.2.0, 2026-04-17. Companion to `Documentation/UNIFIED_PLATFORM_PLAN.md`.
 **Audience:** Plugin authors (what you can rely on), SDK maintainers (what you can change).
 **Rule in one line:** *Public surface breaks only on a major version bump. Everything not in §2 is internal; change at will.*
 
@@ -69,6 +69,13 @@ from magellon_sdk.config import BaseAppSettings, BaseAppSettingsSingleton, Rabbi
 
 # Logging setup (optional)
 from magellon_sdk.logging_config import setup_logging
+
+# Plugin archive format (1.2+) — manifest shape for .magplugin archives
+from magellon_sdk.archive import (
+    PluginArchiveManifest, ArchiveImage, ArchiveInstallDefaults,
+    ArchiveVolumeSpec, load_manifest_bytes, load_manifest_yaml,
+    check_sdk_compat, SchemaVersionError, SdkCompatError,
+)
 ```
 
 ### 2.2 Pydantic field guarantees
@@ -176,7 +183,31 @@ Kept the names un-prefixed (`DiscoveryPublisher`, `HeartbeatLoop`, `ConfigSubscr
 
 ---
 
-## 7. What a plugin author actually needs to read
+## 7. Plugin archive format (`.magplugin`, added 1.2)
+
+Authored via the `magellon-sdk plugin` CLI. Zip with a top-level `plugin.yaml` (required) and optional `README.md`. Field shapes are versioned separately via `schema_version` — bump on breaking changes. `schema_version: 1` readers are promised stable within 1.x.
+
+Required fields (`schema_version: 1`):
+
+- `plugin_id` — lowercase slug: letters, digits, `.`, `-`, `_`. Matches `PluginInfo.name` when the plugin announces itself.
+- `name` — human display name.
+- `version` — plugin version (SemVer recommended).
+- `category` — lowercase Magellon category (`fft`, `ctf`, `motioncor`, `pp`, ...).
+- `sdk_compat` — version specifier string, comma-separated clauses using `>=`, `<=`, `>`, `<`, `==`, `!=`. Example: `">=1.0,<2.0"`. `POST /plugins/install/archive` hard-rejects archives whose pin excludes the running CoreService SDK.
+- `image.ref` — Docker image reference. Archive does **not** ship the image payload (that's an H3 follow-up); CoreService pulls from the registry named here.
+
+Optional fields:
+
+- `install_defaults.env` — key-value env overrides applied to `docker run`.
+- `install_defaults.volumes` — list of `{host, container, read_only}` mounts.
+- `install_defaults.network` — Docker network to join.
+- `description`, `developer`, `license` — free text.
+
+Wire-level guarantees within 1.x: the above fields will not be renamed or retyped. Additional optional fields may be added. Readers tolerate extras via Pydantic's `extra="ignore"` default.
+
+---
+
+## 8. What a plugin author actually needs to read
 
 If you're writing a plugin, read:
 1. This file §2 (what you can import).

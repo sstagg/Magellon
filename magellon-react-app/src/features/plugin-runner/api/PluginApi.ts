@@ -222,6 +222,18 @@ export const installPlugin = async (body: InstallPluginRequest): Promise<Install
     return res.data;
 };
 
+/** Install a plugin from a .magplugin archive upload (H3a). */
+export const installPluginArchive = async (
+    archive: File,
+): Promise<InstalledPlugin & { archive?: { plugin_id: string; name: string; version: string; category: string } }> => {
+    const form = new FormData();
+    form.append('archive', archive);
+    const res = await api.post('/plugins/install/archive', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data;
+};
+
 export const fetchInstalled = async (): Promise<InstalledPlugin[]> => {
     const res = await api.get('/plugins/installed');
     return res.data.installed ?? [];
@@ -248,6 +260,16 @@ export const useInstalledPlugins = () =>
 export const useInstallPlugin = () => {
     const qc = useQueryClient();
     return useMutation(installPlugin, {
+        onSuccess: () => {
+            qc.invalidateQueries(['plugins-installed']);
+            qc.invalidateQueries(['plugins']);
+        },
+    });
+};
+
+export const useInstallPluginArchive = () => {
+    const qc = useQueryClient();
+    return useMutation(installPluginArchive, {
         onSuccess: () => {
             qc.invalidateQueries(['plugins-installed']);
             qc.invalidateQueries(['plugins']);

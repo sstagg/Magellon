@@ -7,7 +7,7 @@ packages = ["src/magellon_sdk"]
 
 [project]
 name = "magellon-sdk"
-version = "1.1.0"
+version = "1.2.0"
 description = "SDK for building Magellon plugins: PluginBase, ProgressReporter, CloudEvents envelope, and executor contracts."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -29,6 +29,10 @@ classifiers = [
 ]
 dependencies = [
     "pydantic>=2.0",
+    # Required by magellon_sdk.archive.manifest (H3a plugin archive format)
+    # and by the `magellon-sdk plugin` CLI. Every plugin ships with this
+    # already (via the [config] extra) so promoting it to core is free.
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
@@ -51,7 +55,7 @@ config = [
 ]
 
 [project.scripts]
-magellon-plugin = "magellon_sdk.cli:main"
+magellon-sdk = "magellon_sdk.cli:main"
 
 [project.urls]
 Homepage = "https://magellon.org/magellonsdk"
