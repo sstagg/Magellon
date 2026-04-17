@@ -31,6 +31,7 @@ import {
     Tooltip,
     Typography,
 } from '@mui/material';
+import { alpha, useTheme } from '@mui/material/styles';
 import { RefreshCw, ExternalLink, Activity, AlertTriangle, CheckCircle2, XCircle, Eye, Trash2, X, Copy, Check } from 'lucide-react';
 import getAxiosClient from '../../shared/api/AxiosClient.ts';
 import { settings } from '../../shared/config/settings.ts';
@@ -136,21 +137,23 @@ function pluginStaleness(p: PluginEntry): { tone: 'ok' | 'warn' | 'bad'; label: 
 // ---------- Sub-components ----------
 
 const StatusChip: React.FC<{ tone: 'ok' | 'warn' | 'bad'; label: string }> = ({ tone, label }) => {
-    const palette = {
-        ok: { bg: '#1b3b1f', fg: '#7ee787', icon: <CheckCircle2 size={14} /> },
-        warn: { bg: '#3b2f1b', fg: '#f5c451', icon: <AlertTriangle size={14} /> },
-        bad: { bg: '#3b1b1b', fg: '#f87171', icon: <XCircle size={14} /> },
-    }[tone];
+    const theme = useTheme();
+    const palette = theme.palette[tone === 'ok' ? 'success' : tone === 'warn' ? 'warning' : 'error'];
+    const icon = tone === 'ok' ? <CheckCircle2 size={14} /> : tone === 'warn' ? <AlertTriangle size={14} /> : <XCircle size={14} />;
+    // Light backdrop in light mode, deep backdrop in dark mode — both
+    // keep the foreground readable against the paper underneath.
+    const bg = alpha(palette.main, theme.palette.mode === 'dark' ? 0.18 : 0.12);
+    const fg = theme.palette.mode === 'dark' ? palette.light : palette.dark;
     return (
         <Chip
             size="small"
-            icon={palette.icon}
+            icon={icon}
             label={label}
             sx={{
-                bgcolor: palette.bg,
-                color: palette.fg,
+                bgcolor: bg,
+                color: fg,
                 fontWeight: 600,
-                '& .MuiChip-icon': { color: palette.fg },
+                '& .MuiChip-icon': { color: fg },
             }}
         />
     );
@@ -167,7 +170,7 @@ const QueueActionButtons: React.FC<QueueActions & { name: string | null; depth: 
         return (
             <Stack direction="row" spacing={0.5}>
                 <Tooltip title="Peek messages (auto-requeue)">
-                    <IconButton size="small" onClick={() => onBrowse(name)} sx={{ color: 'rgba(255,255,255,0.6)' }}>
+                    <IconButton size="small" onClick={() => onBrowse(name)} sx={{ color: 'text.secondary' }}>
                         <Eye size={16} />
                     </IconButton>
                 </Tooltip>
@@ -177,7 +180,7 @@ const QueueActionButtons: React.FC<QueueActions & { name: string | null; depth: 
                             size="small"
                             onClick={() => onPurge(name)}
                             disabled={depth === 0}
-                            sx={{ color: depth > 0 ? '#f87171' : 'rgba(255,255,255,0.3)' }}
+                            sx={{ color: depth > 0 ? 'error.main' : 'text.disabled' }}
                         >
                             <Trash2 size={16} />
                         </IconButton>
@@ -193,9 +196,9 @@ const PipelineCard: React.FC<{ p: PipelineEntry } & QueueActions> = ({ p, onBrow
         <Card
             variant="outlined"
             sx={{
-                bgcolor: '#0d1117',
-                borderColor: 'rgba(255,255,255,0.08)',
-                color: 'rgba(255,255,255,0.85)',
+                bgcolor: 'background.paper',
+                borderColor: 'divider',
+                color: 'text.primary',
                 height: '100%',
             }}
         >
@@ -206,7 +209,7 @@ const PipelineCard: React.FC<{ p: PipelineEntry } & QueueActions> = ({ p, onBrow
                 </Stack>
 
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
-                    <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.55)' }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                         Task queue · {p.task_queue.name ?? '—'}
                     </Typography>
                     <QueueActionButtons name={p.task_queue.name} depth={p.task_queue.depth} onBrowse={onBrowse} onPurge={onPurge} />
@@ -218,10 +221,10 @@ const PipelineCard: React.FC<{ p: PipelineEntry } & QueueActions> = ({ p, onBrow
                     <Stat label="Out/s" value={formatRate(p.task_queue.deliver_rate)} />
                 </Stack>
 
-                <Divider sx={{ bgcolor: 'rgba(255,255,255,0.08)', mb: 1.5 }} />
+                <Divider sx={{ borderColor: 'divider', mb: 1.5 }} />
 
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
-                    <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.55)' }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                         Result queue · {p.result_queue.name ?? '—'}
                     </Typography>
                     <QueueActionButtons name={p.result_queue.name} depth={p.result_queue.depth} onBrowse={onBrowse} onPurge={onPurge} />
@@ -244,12 +247,13 @@ const InfraQueueRow: React.FC<{ q: QueueTile } & QueueActions> = ({ q, onBrowse,
         alignItems="center"
         sx={{
             py: 1,
-            borderBottom: '1px solid rgba(255,255,255,0.06)',
+            borderBottom: '1px solid',
+            borderColor: 'divider',
             '&:last-child': { borderBottom: 'none' },
         }}
     >
         <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-            <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 600, color: 'rgba(255,255,255,0.9)' }}>
+            <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 600, color: 'text.primary' }}>
                 {q.name}
             </Typography>
         </Box>
@@ -266,12 +270,12 @@ const InfraQueueRow: React.FC<{ q: QueueTile } & QueueActions> = ({ q, onBrowse,
 const Stat: React.FC<{ label: string; value: number | string; accent?: boolean; bad?: boolean }> =
     ({ label, value, accent, bad }) => (
         <Box>
-            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>{label}</Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>{label}</Typography>
             <Typography
                 variant="h6"
                 sx={{
                     fontWeight: 700,
-                    color: accent ? (bad ? '#f87171' : '#67e8f9') : 'rgba(255,255,255,0.9)',
+                    color: accent ? (bad ? 'error.main' : 'primary.main') : 'text.primary',
                     lineHeight: 1.2,
                 }}
             >
@@ -383,12 +387,12 @@ export const PipelineHealthPage: React.FC = () => {
         <Container maxWidth="xl" sx={{ py: 3 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                 <Box>
-                    <Typography variant="h4" sx={{ fontWeight: 700 }}>Pipeline Health</Typography>
-                    <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)' }}>
+                    <Typography variant="h4" sx={{ fontWeight: 700, color: 'text.primary' }}>Pipeline Health</Typography>
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                         Magellon-domain projection of RabbitMQ broker state and plugin liveness.
                         For raw queue/exchange browsing,{' '}
                         {mgmtUiUrl ? (
-                            <MuiLink href={mgmtUiUrl} target="_blank" rel="noopener" sx={{ color: '#67e8f9' }}>
+                            <MuiLink href={mgmtUiUrl} target="_blank" rel="noopener" sx={{ color: 'primary.main' }}>
                                 open the RabbitMQ Management UI <ExternalLink size={12} style={{ verticalAlign: 'middle' }} />
                             </MuiLink>
                         ) : 'open the RabbitMQ Management UI'}.
@@ -437,9 +441,9 @@ export const PipelineHealthPage: React.FC = () => {
 
             {/* Infrastructure queues — events bus, plugin liveness, ad-hoc with activity. */}
             {data && data.infrastructure.length > 0 && (
-                <Paper variant="outlined" sx={{ bgcolor: '#0d1117', borderColor: 'rgba(255,255,255,0.08)', p: 2, mb: 2 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>Infrastructure Queues</Typography>
-                    <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.55)', display: 'block', mb: 1.5 }}>
+                <Paper variant="outlined" sx={{ bgcolor: 'background.paper', borderColor: 'divider', p: 2, mb: 2 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, color: 'text.primary' }}>Infrastructure Queues</Typography>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 1.5 }}>
                         Events bus, plugin liveness, and any other queue with activity that isn't a per-pipeline task/result queue.
                     </Typography>
                     <Box>
@@ -452,16 +456,16 @@ export const PipelineHealthPage: React.FC = () => {
 
             {/* Plugin liveness — Magellon-specific, not in built-in RMQ UI. */}
             {data && (
-                <Paper variant="outlined" sx={{ bgcolor: '#0d1117', borderColor: 'rgba(255,255,255,0.08)', p: 2, mb: 2 }}>
+                <Paper variant="outlined" sx={{ bgcolor: 'background.paper', borderColor: 'divider', p: 2, mb: 2 }}>
                     <Stack direction="row" alignItems="center" spacing={1} mb={1}>
-                        <Activity size={18} style={{ color: '#67e8f9' }} />
-                        <Typography variant="h6" sx={{ fontWeight: 700 }}>Plugin Liveness</Typography>
-                        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.55)' }}>
+                        <Activity size={18} color="currentColor" style={{ color: 'inherit' }} />
+                        <Typography variant="h6" sx={{ fontWeight: 700, color: 'primary.main' }}>Plugin Liveness</Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                             ({data.plugins.length} alive)
                         </Typography>
                     </Stack>
                     {data.plugins.length === 0 ? (
-                        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.55)' }}>
+                        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                             No plugin announces received yet. Plugins publish liveness on <code>magellon.plugins.*</code>.
                         </Typography>
                     ) : (
@@ -499,7 +503,7 @@ export const PipelineHealthPage: React.FC = () => {
             )}
 
             {data && (
-                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.45)' }}>
+                <Typography variant="caption" sx={{ color: 'text.disabled' }}>
                     Last updated {new Date(data.as_of).toLocaleTimeString()} ·
                     polling every {POLL_INTERVAL_MS / 1000}s
                 </Typography>
@@ -515,7 +519,7 @@ export const PipelineHealthPage: React.FC = () => {
             />
 
             <Dialog open={purgeQueue !== null} onClose={closePurge} maxWidth="xs" fullWidth>
-                <DialogTitle sx={{ color: '#f87171', fontWeight: 700 }}>
+                <DialogTitle sx={{ color: 'error.main', fontWeight: 700 }}>
                     Purge queue?
                 </DialogTitle>
                 <DialogContent>
@@ -561,6 +565,7 @@ const BrowseDrawer: React.FC<{
     onClose: () => void;
     onRefresh: () => void;
 }> = ({ queue, data, loading, error, onClose, onRefresh }) => {
+    const theme = useTheme();
     const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
     const copyPayload = useCallback(async (idx: number, payload: unknown) => {
@@ -581,13 +586,17 @@ const BrowseDrawer: React.FC<{
             open={queue !== null}
             onClose={onClose}
             PaperProps={{
-                sx: { width: { xs: '100%', sm: 600, md: 720 }, bgcolor: '#0a1929', color: 'rgba(255,255,255,0.85)' },
+                sx: {
+                    width: { xs: '100%', sm: 600, md: 720 },
+                    bgcolor: 'background.default',
+                    color: 'text.primary',
+                },
             }}
         >
-            <Box sx={{ p: 2, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+            <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
                     <Box>
-                        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.55)' }}>Peek queue</Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>Peek queue</Typography>
                         <Typography variant="h6" sx={{ fontFamily: 'monospace', fontWeight: 700 }}>{queue}</Typography>
                     </Box>
                     <Stack direction="row" spacing={1}>
@@ -610,7 +619,7 @@ const BrowseDrawer: React.FC<{
                 {error && <Alert severity="error">{error}</Alert>}
                 {!error && data && data.error && <Alert severity="warning">{data.error}</Alert>}
                 {!error && data && data.messages.length === 0 && (
-                    <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.55)' }}>
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                         Queue is empty (no ready messages). Already-delivered messages aren't included in a peek.
                     </Typography>
                 )}
@@ -618,11 +627,11 @@ const BrowseDrawer: React.FC<{
                     <Paper
                         key={idx}
                         variant="outlined"
-                        sx={{ bgcolor: '#0d1117', borderColor: 'rgba(255,255,255,0.08)', mb: 2, p: 1.5 }}
+                        sx={{ bgcolor: 'background.paper', borderColor: 'divider', mb: 2, p: 1.5 }}
                     >
                         <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1}>
                             <Box sx={{ minWidth: 0, flexGrow: 1 }}>
-                                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>routing key</Typography>
+                                <Typography variant="caption" sx={{ color: 'text.secondary' }}>routing key</Typography>
                                 <Typography variant="body2" sx={{ fontFamily: 'monospace', mb: 0.5, wordBreak: 'break-all' }}>
                                     {m.routing_key ?? '—'}
                                 </Typography>
@@ -630,13 +639,13 @@ const BrowseDrawer: React.FC<{
                                     <Stack direction="row" spacing={2}>
                                         {m.ce_type && (
                                             <Box>
-                                                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>ce-type</Typography>
+                                                <Typography variant="caption" sx={{ color: 'text.secondary' }}>ce-type</Typography>
                                                 <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{m.ce_type}</Typography>
                                             </Box>
                                         )}
                                         {m.ce_subject && (
                                             <Box>
-                                                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>ce-subject</Typography>
+                                                <Typography variant="caption" sx={{ color: 'text.secondary' }}>ce-subject</Typography>
                                                 <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{m.ce_subject}</Typography>
                                             </Box>
                                         )}
@@ -645,23 +654,25 @@ const BrowseDrawer: React.FC<{
                             </Box>
                             <Tooltip title={copiedIdx === idx ? 'Copied!' : 'Copy payload'}>
                                 <IconButton size="small" onClick={() => copyPayload(idx, m.payload)}>
-                                    {copiedIdx === idx ? <Check size={16} style={{ color: '#7ee787' }} /> : <Copy size={16} />}
+                                    {copiedIdx === idx ? <Check size={16} style={{ color: theme.palette.success.main }} /> : <Copy size={16} />}
                                 </IconButton>
                             </Tooltip>
                         </Stack>
                         <Box
                             component="pre"
-                            sx={{
+                            sx={(theme) => ({
                                 m: 0,
                                 p: 1,
-                                bgcolor: '#06090f',
+                                bgcolor: theme.palette.mode === 'dark'
+                                    ? alpha(theme.palette.common.black, 0.5)
+                                    : alpha(theme.palette.common.black, 0.04),
                                 borderRadius: 1,
                                 fontSize: '0.78rem',
                                 fontFamily: 'monospace',
-                                color: 'rgba(255,255,255,0.85)',
+                                color: 'text.primary',
                                 overflow: 'auto',
                                 maxHeight: 320,
-                            }}
+                            })}
                         >
                             {typeof m.payload === 'string' ? m.payload : JSON.stringify(m.payload, null, 2)}
                         </Box>
@@ -673,13 +684,13 @@ const BrowseDrawer: React.FC<{
 };
 
 const Th: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-    <TableCell sx={{ color: 'rgba(255,255,255,0.6)', borderColor: 'rgba(255,255,255,0.08)', fontWeight: 600 }}>
+    <TableCell sx={{ color: 'text.secondary', borderColor: 'divider', fontWeight: 600 }}>
         {children}
     </TableCell>
 );
 
 const Td: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-    <TableCell sx={{ color: 'rgba(255,255,255,0.85)', borderColor: 'rgba(255,255,255,0.08)' }}>
+    <TableCell sx={{ color: 'text.primary', borderColor: 'divider' }}>
         {children}
     </TableCell>
 );
