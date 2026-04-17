@@ -11,8 +11,12 @@ from magellon_sdk.models import (
 )
 
 from core.helper import push_result_to_out_queue
-from core.model_dto import TaskDto, PluginInfoSingleton
-from core.setup_plugin import check_python_version, check_operating_system, check_requirements_txt
+from magellon_sdk.bootstrap import (
+    check_operating_system,
+    check_python_version,
+    check_requirements_txt,
+)
+from magellon_sdk.models import TaskDto, PluginInfoSingleton
 from service.ctf_service import do_ctf
 from service.step_events import (
     get_publisher,

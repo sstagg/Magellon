@@ -28,7 +28,8 @@ from prometheus_client import Info
 from magellon_sdk.bus.bootstrap import install_rmq_bus
 from magellon_sdk.categories.contract import CTF
 
-from core.model_dto import TaskDto
+from magellon_sdk.models import TaskDto
+
 from core.settings import AppSettingsSingleton
 from plugin import CtfBrokerRunner, CtfPlugin, build_ctf_result
 from service.service import do_execute, check_requirements, get_manifest, get_plugin_info

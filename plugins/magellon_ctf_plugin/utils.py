@@ -3,7 +3,7 @@ from typing import Optional,List
 # from model import CtfInput
 import subprocess
 
-from core.model_dto import CtfTaskData
+from magellon_sdk.models import CtfTaskData
 
 # from loggerSetup import setupLogger
 # logger=setupLogger()

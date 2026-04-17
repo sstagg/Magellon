@@ -2,7 +2,7 @@ import logging
 import uuid
 import os
 from core.helper import push_task_to_task_queue
-from core.model_dto import FFT_TASK, PENDING, TaskDto, CtfTaskData, CTF_TASK
+from magellon_sdk.models import FFT_TASK, PENDING, TaskDto, CtfTaskData, CTF_TASK
 from core.task_factory import CtfTaskFactory
 
 logger = logging.getLogger(__name__)

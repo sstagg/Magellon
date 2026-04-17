@@ -1,25 +1,18 @@
-"""Compatibility shim — pure/file helpers come from the SDK; queue
-pushes wire the plugin's settings into the shared publisher.
+"""Plugin-settings-bound publish helpers.
+
+Wraps :func:`magellon_sdk.messaging.publish_message_to_queue` with this
+plugin's :class:`AppSettingsSingleton` so callers don't have to thread
+RMQ settings through every call site. After the MB4.2 cutover the
+broker runner publishes results via the bus directly; these helpers
+remain for the legacy HTTP ``/execute`` path and the debug-queue emits
+inside ``do_ctf``.
 """
 from pydantic import BaseModel
 
-from core.settings import AppSettingsSingleton
-from magellon_sdk.messaging import (  # noqa: F401
-    append_json_to_file,
-    create_directory,
-    custom_replace,
-    parse_message_to_task_object,
-)
 from magellon_sdk.messaging import publish_message_to_queue as _sdk_publish
-from magellon_sdk.models import CtfTaskData, TaskDto, TaskResultDto
+from magellon_sdk.models import TaskDto, TaskResultDto
 
-
-def extract_task_data_from_object(task_object):
-    return CtfTaskData.model_validate(task_object.data)
-
-
-def parse_json_for_cryoemctftask(message_str):
-    return CtfTaskData.model_validate(TaskDto.model_validate_json(message_str).data)
+from core.settings import AppSettingsSingleton
 
 
 def publish_message_to_queue(message: BaseModel, queue_name: str) -> bool:

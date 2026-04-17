@@ -5,7 +5,7 @@ import subprocess
 from datetime import datetime
 
 from core.helper import push_info_to_debug_queue
-from core.model_dto import CtfTaskData, OutputFile, TaskDto, TaskResultDto, ImageMetaData, DebugInfo
+from magellon_sdk.models import CtfTaskData, OutputFile, TaskDto, TaskResultDto, ImageMetaData, DebugInfo
 from core.settings import AppSettingsSingleton
 from service.ctfeval import run_ctf_evaluation
 from utils import buildCtfCommand, readLastLine, getFileContents
