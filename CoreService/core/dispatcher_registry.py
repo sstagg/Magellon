@@ -11,24 +11,24 @@ The registry's public API is unchanged: callers still use
 
 Bus wiring strategy:
 
-- On import, this module registers a **default bus factory** with
-  ``get_bus.set_factory(...)`` that builds an :class:`RmqBinder` with
-  a ``legacy_queue_map`` drawn from ``app_settings.rabbitmq_settings``.
-  The map translates bus subjects (e.g. ``magellon.tasks.ctf``) to
-  today's legacy queue names (e.g. ``ctf_tasks_queue``) so existing
-  plugin consumers keep receiving on the same queue.
-- Factory runs lazily on first ``get_bus()`` call — keeps test
-  startup cheap. Tests that want a mock bus call
-  ``get_bus.override(mock)`` before the first dispatch.
+- CoreService startup (``main.py``) calls :func:`install_core_bus`
+  explicitly *before* any consumer thread spawns. It builds an
+  :class:`RmqBinder` with a ``legacy_queue_map`` drawn from
+  ``app_settings.rabbitmq_settings`` — the map translates bus
+  subjects (e.g. ``magellon.tasks.ctf``) to today's legacy queue
+  names (e.g. ``ctf_tasks_queue``) so existing plugin consumers
+  keep receiving on the same queue.
+- Tests that want a mock bus call ``get_bus.override(mock)`` before
+  the first dispatch; they never invoke :func:`install_core_bus`.
 """
 from __future__ import annotations
 
 import logging
 from functools import lru_cache
-from typing import TYPE_CHECKING
 
-from magellon_sdk.bus import DefaultMessageBus, get_bus
-from magellon_sdk.bus.binders.rmq import RmqBinder
+from magellon_sdk.bus import get_bus
+from magellon_sdk.bus.bootstrap import install_rmq_bus
+from magellon_sdk.bus.interfaces import MessageBus
 from magellon_sdk.bus.routes import TaskResultRoute, TaskRoute
 from magellon_sdk.categories.contract import CTF, FFT, MOTIONCOR_CATEGORY
 from magellon_sdk.dispatcher import TaskDispatcherRegistry
@@ -36,9 +36,6 @@ from magellon_sdk.envelope import Envelope
 from magellon_sdk.models import CTF_TASK, FFT_TASK, MOTIONCOR, TaskDto
 
 from config import app_settings
-
-if TYPE_CHECKING:
-    from magellon_sdk.bus import MessageBus
 
 logger = logging.getLogger(__name__)
 
@@ -105,23 +102,19 @@ def _build_legacy_queue_map() -> dict[str, str]:
     return mapping
 
 
-def _default_bus_factory() -> "MessageBus":
-    """Build the production bus: RmqBinder with legacy queue map, started."""
-    rmq = app_settings.rabbitmq_settings
-    binder = RmqBinder(
-        settings=rmq,
+def install_core_bus() -> MessageBus:
+    """Install the production RMQ-backed bus as the process-wide bus.
+
+    Must be called once at CoreService startup *before* any thread
+    that calls ``get_bus()`` (result consumer, step-event forwarder,
+    liveness listener). Idempotent-safe when called a second time
+    only in the sense that ``get_bus.override`` replaces the instance;
+    the previous binder is leaked, so don't do that in production.
+    """
+    return install_rmq_bus(
+        app_settings.rabbitmq_settings,
         legacy_queue_map=_build_legacy_queue_map(),
     )
-    bus = DefaultMessageBus(binder)
-    bus.start()
-    return bus
-
-
-# Register the default factory on module import. Idempotent in practice:
-# if a test has already set a factory (or overridden the bus), we leave
-# their override in place so test fixtures retain precedence.
-if get_bus._factory is None:
-    get_bus.set_factory(_default_bus_factory)
 
 
 # ---------------------------------------------------------------------------
@@ -155,4 +148,4 @@ def get_task_dispatcher_registry() -> TaskDispatcherRegistry:
     return registry
 
 
-__all__ = ["get_task_dispatcher_registry"]
+__all__ = ["get_task_dispatcher_registry", "install_core_bus"]

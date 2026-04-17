@@ -355,6 +355,19 @@ async def startup_event():
         logger.error(f"[ERROR] Failed to initialize Casbin: {e}")
         logger.warning("[WARNING] Application will start but authorization may not work correctly!")
 
+    # Install the process-wide MessageBus before any consumer thread
+    # spawns. Result consumer, step-event forwarder, and liveness
+    # listener all call get_bus() on their threads — without this the
+    # first one to boot races and crashes with "No MessageBus configured".
+    try:
+        from core.dispatcher_registry import install_core_bus
+        logger.info("Installing process-wide MessageBus (RMQ binder)...")
+        install_core_bus()
+        logger.info("[OK] MessageBus installed")
+    except Exception as e:
+        logger.error(f"[ERROR] MessageBus install failed: {e}")
+        logger.warning("[WARNING] Bus consumers will fail to start")
+
     # Start motioncor test result processor thread
     try:
         from core.motioncor_test_result_processor import result_consumer_engine
