@@ -179,7 +179,11 @@ class FftPlugin(PluginBase[FftTaskData, FftOutput]):
         loop = _get_loop()
         try:
             future = asyncio.run_coroutine_threadsafe(get_publisher(), loop)
-            publisher = future.result(timeout=5.0)
+            # Was 5s — too tight for the cold-start path that pays for
+            # NATS JetStream add_stream (capped at 3s in the SDK now)
+            # plus RMQ exchange declare. After the singleton is built
+            # (first task), the cache hits in microseconds.
+            publisher = future.result(timeout=15.0)
         except Exception:
             logger.exception("step-event publisher init failed (non-fatal)")
             return None

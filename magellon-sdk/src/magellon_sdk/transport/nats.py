@@ -55,16 +55,34 @@ class NatsPublisher:
         *,
         stream: str,
         subjects: Iterable[str],
+        connect_timeout: float = 3.0,
     ) -> None:
         self.broker_url = broker_url
         self.stream = stream
         self.subjects = list(subjects)
+        self.connect_timeout = connect_timeout
         self.nc: Any = None
         self.js: Any = None
 
     async def connect(self) -> None:
         if self.nc:
             return
+        # Hard-bound the whole connect path. nats.connect() is usually fast
+        # but js.add_stream() will wait indefinitely for a JetStream RPC
+        # reply when the broker is up but JetStream isn't enabled — leaving
+        # callers (publisher init, step-event reporter) hanging forever.
+        # asyncio.wait_for cancels both legs cleanly on deadline.
+        try:
+            await asyncio.wait_for(self._connect_inner(), timeout=self.connect_timeout)
+        except asyncio.TimeoutError as exc:
+            # Surface as a generic Exception so make_step_publisher's
+            # broad-except falls back to RMQ-only.
+            raise RuntimeError(
+                f"NATS connect timed out after {self.connect_timeout}s "
+                f"(broker reachable? JetStream enabled?)"
+            ) from exc
+
+    async def _connect_inner(self) -> None:
         self.nc = await nats.connect(self.broker_url)
         self.js = self.nc.jetstream()
         try:

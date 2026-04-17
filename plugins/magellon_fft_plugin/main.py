@@ -11,8 +11,22 @@ and Prometheus's ``/metrics`` from the instrumentator.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
 import threading
+
+# Step-event observability defaults — flipped on for this dev/blueprint
+# plugin so the Tasks panel on the FFT test page sees lifecycle events
+# without the operator having to set env vars by hand. RMQ mirror is
+# enabled because most local-dev setups don't run NATS JetStream, and
+# CoreService's RMQ step-event forwarder is the path that actually
+# delivers events to the React UI in those setups. Use ``setdefault``
+# so production deployments that explicitly turn these off still win.
+# IMPORTANT: must run before SDK imports below — the publisher reads
+# these at module init.
+os.environ.setdefault("MAGELLON_STEP_EVENTS_ENABLED", "1")
+os.environ.setdefault("MAGELLON_STEP_EVENTS_RMQ", "1")
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -78,6 +92,20 @@ async def startup_event():
     try:
         rmq = AppSettingsSingleton.get_instance().rabbitmq_settings
         install_rmq_bus(rmq)
+
+        # Pre-warm the step-event publisher so the first task doesn't pay
+        # the cold-start cost (NATS connect attempt + JetStream add_stream
+        # timeout, then RMQ exchange declare). Without this, _make_reporter
+        # races the first dispatch and times out → those tasks emit no
+        # events. Fire-and-forget on the dedicated step-events daemon loop.
+        try:
+            from plugin.events import get_publisher
+            from plugin.plugin import _get_loop
+            asyncio.run_coroutine_threadsafe(get_publisher(), _get_loop())
+            logger.info("step-event publisher pre-warm scheduled")
+        except Exception:
+            logger.exception("step-event publisher pre-warm scheduling failed (non-fatal)")
+
         _runner = FftBrokerRunner(
             plugin=_plugin,
             settings=rmq,

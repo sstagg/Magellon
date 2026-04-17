@@ -258,13 +258,27 @@ class _RmqAsyncAdapter:
 
     pika's basic_publish is fast enough that wrapping in ``asyncio.to_thread``
     would be overhead — emits are best-effort observability anyway.
+
+    NATS subjects and RMQ routing keys diverge: NATS uses
+    ``magellon.job.<id>.step.<step>``; RMQ binds (and routes) on
+    ``job.<id>.step.<step>`` (no ``magellon.`` prefix — the prefix
+    is the implicit exchange ``magellon.events`` already). Without
+    this conversion every publish lands on the exchange but matches
+    no binding, so consumers see nothing while ``publish_in`` ticks up.
     """
+
+    _NATS_SUBJECT_PREFIX = "magellon."
 
     def __init__(self, rmq: Any) -> None:
         self._rmq = rmq
 
     async def publish(self, subject: str, envelope: Envelope) -> None:
-        self._rmq.publish(subject, envelope)
+        routing_key = (
+            subject[len(self._NATS_SUBJECT_PREFIX):]
+            if subject.startswith(self._NATS_SUBJECT_PREFIX)
+            else subject
+        )
+        self._rmq.publish(routing_key, envelope)
 
 
 class _FanoutPublisher:
