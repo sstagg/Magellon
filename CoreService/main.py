@@ -457,7 +457,18 @@ async def startup_event():
                 _session_local,
                 downstream=chain_downstream(project_step_event, emit_step_event, log_step_event),
             )
-            started = await forwarder.start()
+            # Hard timeout so a stuck NATS consumer (e.g. a previous
+            # process still holding the durable, or JetStream wedged on
+            # add_stream) can't block uvicorn from binding the socket —
+            # which would render the entire HTTP API + Socket.IO unreachable.
+            try:
+                started = await asyncio.wait_for(forwarder.start(), timeout=5.0)
+            except asyncio.TimeoutError:
+                logger.error(
+                    "[ERROR] Step-event forwarder: NATS start timed out after 5s — "
+                    "skipping. Other services unaffected."
+                )
+                started = False
             if started:
                 app.state.step_event_forwarder = forwarder
                 logger.info("[OK] Step-event forwarder (NATS → job_event) started (with state projector)")
