@@ -18,6 +18,7 @@ from service.step_events import (
     get_publisher,
     safe_emit_completed,
     safe_emit_failed,
+    safe_emit_progress,
     safe_emit_started,
 )
 
@@ -71,18 +72,29 @@ def get_manifest() -> PluginManifest:
 
 async def do_execute(params: TaskDto):
     publisher = await get_publisher()
-    await safe_emit_started(publisher, job_id=params.job_id, task_id=params.id)
+    job_id, task_id = params.job_id, params.id
+    await safe_emit_started(publisher, job_id=job_id, task_id=task_id)
     try:
-        # the_data = CryoEmCtfTaskData.model_validate(params.data)
+        # Coarse-grained progress so the UI shows movement during the
+        # ~10s ctffind run instead of staying frozen at "started".
+        # Fine-grained per-iteration progress would require parsing
+        # ctffind4 stdout — leave that for a future refinement.
+        await safe_emit_progress(
+            publisher, job_id=job_id, task_id=task_id,
+            percent=10.0, message="running ctffind",
+        )
         result = await do_ctf(params)
+        await safe_emit_progress(
+            publisher, job_id=job_id, task_id=task_id,
+            percent=85.0, message="publishing result",
+        )
         if result is not None:
             push_result_to_out_queue(result)
-        #     compute_file_fft(mrc_abs_path=request.image_path, abs_out_file_name=request.target_path)
-        await safe_emit_completed(publisher, job_id=params.job_id, task_id=params.id)
+        await safe_emit_completed(publisher, job_id=job_id, task_id=task_id)
         return {"message": "CTF successfully executed"}
     except Exception as exc:
         await safe_emit_failed(
-            publisher, job_id=params.job_id, task_id=params.id, error=str(exc)
+            publisher, job_id=job_id, task_id=task_id, error=str(exc)
         )
         return {"error": str(exc)}
 

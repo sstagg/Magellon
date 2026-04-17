@@ -18,6 +18,7 @@ from service.step_events import (
     get_publisher,
     safe_emit_completed,
     safe_emit_failed,
+    safe_emit_progress,
     safe_emit_started,
 )
 
@@ -80,22 +81,30 @@ def get_manifest() -> PluginManifest:
 
 async def do_execute(params: TaskDto):
     publisher = await get_publisher()
-    await safe_emit_started(publisher, job_id=params.job_id, task_id=params.id)
+    job_id, task_id = params.job_id, params.id
+    await safe_emit_started(publisher, job_id=job_id, task_id=task_id)
     try:
-        # the_data = CryoEmCtfTaskData.model_validate(params.data)
+        # MotionCor3 runs ~3 minutes typical. Coarse progress so the UI
+        # doesn't sit at "started" the whole time. Per-frame progress
+        # would require parsing MotionCor3 stdout — future refinement.
+        await safe_emit_progress(
+            publisher, job_id=job_id, task_id=task_id,
+            percent=10.0, message="running motioncor3",
+        )
         result = await do_motioncor(params)
+        await safe_emit_progress(
+            publisher, job_id=job_id, task_id=task_id,
+            percent=85.0, message="publishing result",
+        )
         if result is not None:
             push_result_to_out_queue(result)
-            await safe_emit_completed(
-                publisher, job_id=params.job_id, task_id=params.id
-            )
+            await safe_emit_completed(publisher, job_id=job_id, task_id=task_id)
             return result
-        #     compute_file_fft(mrc_abs_path=request.image_path, abs_out_file_name=request.target_path)
-        await safe_emit_completed(publisher, job_id=params.job_id, task_id=params.id)
+        await safe_emit_completed(publisher, job_id=job_id, task_id=task_id)
         return {"message": "Motioncor successfully executed"}
     except Exception as exc:
         await safe_emit_failed(
-            publisher, job_id=params.job_id, task_id=params.id, error=str(exc)
+            publisher, job_id=job_id, task_id=task_id, error=str(exc)
         )
         return {"error": str(exc)}
 

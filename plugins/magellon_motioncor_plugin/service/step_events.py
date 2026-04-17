@@ -38,6 +38,20 @@ async def safe_emit_started(publisher, *, job_id, task_id) -> None:
         logger.exception("step-event .started emit failed (non-fatal)")
 
 
+async def safe_emit_progress(
+    publisher, *, job_id, task_id, percent: float, message: Optional[str] = None,
+) -> None:
+    if publisher is None:
+        return
+    try:
+        await publisher.progress(
+            job_id=job_id, task_id=task_id, step=STEP_NAME,
+            percent=percent, message=message,
+        )
+    except Exception:
+        logger.exception("step-event .progress emit failed (non-fatal)")
+
+
 async def safe_emit_completed(publisher, *, job_id, task_id, output_files=None) -> None:
     if publisher is None:
         return
@@ -63,6 +77,7 @@ async def safe_emit_failed(publisher, *, job_id, task_id, error: str) -> None:
 __all__ = [
     "get_publisher",
     "safe_emit_started",
+    "safe_emit_progress",
     "safe_emit_completed",
     "safe_emit_failed",
     "PLUGIN_NAME",
