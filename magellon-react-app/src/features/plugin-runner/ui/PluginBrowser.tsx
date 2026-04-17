@@ -16,14 +16,18 @@ import {
     Alert,
     Grid,
 } from '@mui/material';
-import { Puzzle, Star } from 'lucide-react';
+import { Download, Puzzle, Square, Star, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
     usePlugins,
     useTogglePlugin,
     useSetCategoryDefault,
+    useInstalledPlugins,
+    useStopInstalled,
+    useRemoveInstalled,
     PluginSummary,
 } from '../api/PluginApi.ts';
+import { InstallPluginDialog } from './InstallPluginDialog.tsx';
 
 interface PluginBrowserProps {
     onSelect?: (plugin: PluginSummary) => void;
@@ -34,7 +38,11 @@ export const PluginBrowser: React.FC<PluginBrowserProps> = ({ onSelect }) => {
     const { data, isLoading, error } = usePlugins();
     const toggle = useTogglePlugin();
     const setDefault = useSetCategoryDefault();
+    const { data: installed = [] } = useInstalledPlugins();
+    const stopInstalled = useStopInstalled();
+    const removeInstalled = useRemoveInstalled();
     const [query, setQuery] = useState('');
+    const [installOpen, setInstallOpen] = useState(false);
 
     // Count per-category impls — a "Set as default" action only makes
     // sense when ≥2 impls exist for the category. For solo impls the
@@ -88,7 +96,72 @@ export const PluginBrowser: React.FC<PluginBrowserProps> = ({ onSelect }) => {
                     onChange={(e) => setQuery(e.target.value)}
                     sx={{ width: 280 }}
                 />
+                <Button
+                    variant="contained"
+                    startIcon={<Download size={18} />}
+                    onClick={() => setInstallOpen(true)}
+                >
+                    Install plugin
+                </Button>
             </Stack>
+
+            {installed.length > 0 && (
+                <Box sx={{ mb: 3 }}>
+                    <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                        Installed containers
+                    </Typography>
+                    <Stack spacing={1}>
+                        {installed.map((ent) => (
+                            <Card key={ent.install_id} variant="outlined">
+                                <Box sx={{ display: 'flex', alignItems: 'center', px: 2, py: 1, gap: 1 }}>
+                                    <Box sx={{ flex: 1 }}>
+                                        <Typography variant="body2" component="span">
+                                            {ent.image_ref}
+                                        </Typography>
+                                        <Chip
+                                            size="small"
+                                            label={ent.state}
+                                            color={
+                                                ent.state === 'running'
+                                                    ? 'success'
+                                                    : ent.state === 'exited' || ent.state === 'stopped'
+                                                    ? 'warning'
+                                                    : 'default'
+                                            }
+                                            sx={{ ml: 1 }}
+                                        />
+                                        {ent.announcing_on_bus && (
+                                            <Chip size="small" color="primary" label="announcing" sx={{ ml: 0.5 }} />
+                                        )}
+                                        {ent.error && (
+                                            <Typography variant="caption" color="error" sx={{ display: 'block' }}>
+                                                {ent.error}
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                    <Button
+                                        size="small"
+                                        startIcon={<Square size={14} />}
+                                        disabled={ent.state !== 'running' || stopInstalled.isLoading}
+                                        onClick={() => stopInstalled.mutate(ent.install_id)}
+                                    >
+                                        Stop
+                                    </Button>
+                                    <Button
+                                        size="small"
+                                        color="error"
+                                        startIcon={<Trash2 size={14} />}
+                                        disabled={removeInstalled.isLoading}
+                                        onClick={() => removeInstalled.mutate(ent.install_id)}
+                                    >
+                                        Remove
+                                    </Button>
+                                </Box>
+                            </Card>
+                        ))}
+                    </Stack>
+                </Box>
+            )}
 
             {filtered.length === 0 ? (
                 <Alert severity="info">No plugins match the current filter.</Alert>
@@ -186,6 +259,7 @@ export const PluginBrowser: React.FC<PluginBrowserProps> = ({ onSelect }) => {
                     })}
                 </Grid>
             )}
+            <InstallPluginDialog open={installOpen} onClose={() => setInstallOpen(false)} />
         </Box>
     );
 };

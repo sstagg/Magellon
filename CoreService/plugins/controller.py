@@ -26,6 +26,12 @@ from typing import Any, Dict, List, Literal, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from core.installed_plugins import get_installed_registry
+from core.plugin_docker_runner import (
+    DockerNotAvailable,
+    VolumeMount,
+    get_runner as get_docker_runner,
+)
 from core.plugin_liveness_registry import get_registry as get_liveness_registry
 from core.plugin_state import get_state_store
 from magellon_sdk.bus import get_bus
@@ -699,6 +705,149 @@ async def set_category_default(category: str, request: _SetDefaultRequest) -> Di
         )
     get_state_store().set_default(category, short_id)
     return {"category": category.lower(), "default_plugin_id": short_id}
+
+
+# ---------------------------------------------------------------------------
+# Install flow — spawn a plugin container from a Docker image ref (H2)
+# ---------------------------------------------------------------------------
+#
+# Security note: this endpoint launches arbitrary Docker images with the
+# CoreService user's Docker privileges. In effect, anyone who can POST
+# here can run code on the host. Gate behind an admin-only auth scope
+# before exposing /plugins/install beyond localhost. H2 ships the
+# mechanism; auth is a cross-cutting concern tracked separately.
+#
+# Scope clarification: H2 owns the container lifecycle. The operator is
+# responsible for the image pointing at the right RMQ and declaring the
+# right task_queue — CoreService does not inject config. A follow-up
+# phase (plugin images reading RMQ from env with yaml fallback) can
+# make "install arbitrary image and it just works" possible; today we
+# assume the image was built for this deployment.
+
+class _InstallVolume(BaseModel):
+    host_path: str
+    container_path: str
+    read_only: bool = False
+
+
+class _InstallPluginRequest(BaseModel):
+    """Everything docker run needs. Everything config-ish the plugin
+    itself reads from its own settings YAML — not our problem here."""
+    image_ref: str = Field(..., description="Docker image ref, e.g. ghcr.io/org/plugin:v1")
+    env: Dict[str, str] = Field(default_factory=dict)
+    volumes: List[_InstallVolume] = Field(default_factory=list)
+    network: Optional[str] = Field(
+        default=None,
+        description="Docker network name. Use the network RMQ is on "
+                    "(e.g. 'magellon_default' under docker-compose) so "
+                    "the plugin can resolve rabbitmq by hostname.",
+    )
+
+
+def _ensure_docker() -> None:
+    """Fail fast with 503 when the docker CLI / daemon is unreachable.
+
+    Called from every /installed endpoint before we touch the runner —
+    better to tell the client "Docker unavailable" than surface a
+    FileNotFoundError as a 500.
+    """
+    if not get_docker_runner().ping():
+        raise HTTPException(
+            status_code=503,
+            detail="Docker is not available on this CoreService host.",
+        )
+
+
+@plugins_router.post("/install", summary="Install a plugin from a Docker image")
+async def install_plugin(request: _InstallPluginRequest) -> Dict[str, Any]:
+    """Spawn a plugin container in detached mode.
+
+    The container will announce itself on ``magellon.plugins.announce.*``
+    if it's a Magellon plugin image built for this deployment. That
+    announcement flows into the liveness registry (same path the
+    fixed-set plugins use); the GET /plugins/ page picks it up on the
+    next refresh with ``kind=broker``.
+
+    If the image is misconfigured (wrong RMQ host, wrong credentials,
+    not actually a plugin), ``docker run`` itself succeeds but the
+    plugin never announces. The installed-plugins entry stays
+    ``running`` with no liveness match — the UI surfaces this as
+    "installed but not announcing" so the operator can diagnose
+    without CoreService pretending to know more than it does.
+    """
+    _ensure_docker()
+    runner = get_docker_runner()
+    volumes = [
+        VolumeMount(v.host_path, v.container_path, v.read_only) for v in request.volumes
+    ]
+    entry = runner.run_image(
+        image_ref=request.image_ref,
+        env=request.env,
+        volumes=volumes,
+        network=request.network,
+    )
+    if entry.state == "failed":
+        # Still record the entry so the operator can read the error
+        # message from GET /installed; running it through the registry
+        # keeps one consistent "where is my install" story.
+        get_installed_registry().add(entry)
+        raise HTTPException(
+            status_code=502,
+            detail=f"docker run failed: {entry.error or 'unknown error'}",
+        )
+    get_installed_registry().add(entry)
+    return entry.to_dict()
+
+
+@plugins_router.get("/installed", summary="List installed plugin containers")
+async def list_installed() -> Dict[str, Any]:
+    """Return current installs with Docker-refreshed state.
+
+    Joins each install_id against the liveness registry so the UI can
+    distinguish "container is running and announcing" (healthy) from
+    "container is running but not announcing" (config issue) and
+    "container stopped/crashed" (Docker-level failure).
+    """
+    _ensure_docker()
+    runner = get_docker_runner()
+    live_plugin_ids = {
+        e.plugin_id for e in get_liveness_registry().list_live()
+    }
+
+    rows: List[Dict[str, Any]] = []
+    for entry in get_installed_registry().list():
+        docker_state = runner.inspect_state(entry)
+        if docker_state is not None:
+            entry.state = docker_state
+        row = entry.to_dict()
+        # Best-effort liveness hint: if ANY live plugin was recorded
+        # since this container started, mark it announcing. We can't
+        # key on container_id (liveness doesn't know Docker IDs), so
+        # this is a coarse "is anyone new talking?" signal. Future
+        # work: have plugins stamp their container_id on Announce.
+        row["announcing_on_bus"] = bool(live_plugin_ids)
+        rows.append(row)
+    return {"installed": rows}
+
+
+@plugins_router.post("/installed/{install_id}/stop", summary="Stop an installed container")
+async def stop_installed(install_id: str) -> Dict[str, Any]:
+    _ensure_docker()
+    entry = get_installed_registry().get(install_id)
+    if entry is None:
+        raise HTTPException(status_code=404, detail=f"Install {install_id} not found")
+    get_docker_runner().stop(entry)
+    return entry.to_dict()
+
+
+@plugins_router.delete("/installed/{install_id}", summary="Remove an installed container")
+async def remove_installed(install_id: str) -> Dict[str, Any]:
+    _ensure_docker()
+    entry = get_installed_registry().remove(install_id)
+    if entry is None:
+        raise HTTPException(status_code=404, detail=f"Install {install_id} not found")
+    get_docker_runner().remove(entry)
+    return entry.to_dict()
 
 
 @plugins_router.get("/jobs", summary="List plugin jobs")

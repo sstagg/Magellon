@@ -187,6 +187,91 @@ export const useSetCategoryDefault = () => {
     );
 };
 
+// ---------------------------------------------------------------------------
+// Install flow (H2): POST /plugins/install + lifecycle on /plugins/installed
+// ---------------------------------------------------------------------------
+
+export interface InstallVolume {
+    host_path: string;
+    container_path: string;
+    read_only?: boolean;
+}
+
+export interface InstallPluginRequest {
+    image_ref: string;
+    env?: Record<string, string>;
+    volumes?: InstallVolume[];
+    network?: string | null;
+}
+
+export interface InstalledPlugin {
+    install_id: string;
+    image_ref: string;
+    container_id: string;
+    container_name: string;
+    state: string;
+    env: Record<string, string>;
+    volumes: InstallVolume[];
+    network: string | null;
+    error: string | null;
+    announcing_on_bus?: boolean;
+}
+
+export const installPlugin = async (body: InstallPluginRequest): Promise<InstalledPlugin> => {
+    const res = await api.post('/plugins/install', body);
+    return res.data;
+};
+
+export const fetchInstalled = async (): Promise<InstalledPlugin[]> => {
+    const res = await api.get('/plugins/installed');
+    return res.data.installed ?? [];
+};
+
+export const stopInstalled = async (installId: string): Promise<InstalledPlugin> => {
+    const res = await api.post(`/plugins/installed/${installId}/stop`);
+    return res.data;
+};
+
+export const removeInstalled = async (installId: string): Promise<InstalledPlugin> => {
+    const res = await api.delete(`/plugins/installed/${installId}`);
+    return res.data;
+};
+
+export const useInstalledPlugins = () =>
+    useQuery(['plugins-installed'], fetchInstalled, {
+        // Installed-plugin state moves slowly; cheap polling lets the
+        // user see container-state changes (running → exited, etc.)
+        // without refreshing the page manually.
+        refetchInterval: 5000,
+    });
+
+export const useInstallPlugin = () => {
+    const qc = useQueryClient();
+    return useMutation(installPlugin, {
+        onSuccess: () => {
+            qc.invalidateQueries(['plugins-installed']);
+            qc.invalidateQueries(['plugins']);
+        },
+    });
+};
+
+export const useStopInstalled = () => {
+    const qc = useQueryClient();
+    return useMutation(stopInstalled, {
+        onSuccess: () => qc.invalidateQueries(['plugins-installed']),
+    });
+};
+
+export const useRemoveInstalled = () => {
+    const qc = useQueryClient();
+    return useMutation(removeInstalled, {
+        onSuccess: () => {
+            qc.invalidateQueries(['plugins-installed']);
+            qc.invalidateQueries(['plugins']);
+        },
+    });
+};
+
 export const usePluginInputSchema = (pluginId: string | null) =>
     useQuery(
         ['plugin-schema-input', pluginId],
