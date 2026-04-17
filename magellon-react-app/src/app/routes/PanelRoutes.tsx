@@ -24,6 +24,7 @@ const MrcViewerPageView = lazy(() => import("../../pages/mrc-viewer/MrcViewerPag
 const ApiView = lazy(() => import("../../pages/api-docs/ApiView.tsx").then(m => ({ default: m.ApiView })));
 const ScalarApiDocs = lazy(() => import("../../pages/api-docs/ScalarApiDocs.tsx"));
 const SwaggerApiDocs = lazy(() => import("../../pages/api-docs/SwaggerApiDocs.tsx"));
+const PipelineHealthPage = lazy(() => import("../../pages/admin/PipelineHealthPage.tsx"));
 
 const RouteFallback = () => (
     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 240 }}>
@@ -58,6 +59,7 @@ export const PanelRoutes = () => {
                 <Route path="/plugins/*" element={<PluginRunnerPageView />} />
                 <Route path="/test" element={<TestView />} />
                 <Route path="/dev/fft-test" element={<FftTestPage />} />
+                <Route path="/admin/pipeline-health" element={<PipelineHealthPage />} />
                 <Route path="/settings" element={<SettingsView />} />
 
                 <Route path="/login" element={<LoginPageView />} />

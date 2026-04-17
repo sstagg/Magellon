@@ -20,6 +20,7 @@ import {
     Home,
     Beaker, BrainCircuit, ArrowRightFromLine, ArrowLeftFromLineIcon, CircleUserIcon, User,
     Puzzle,
+    Wrench, Activity,
 } from "lucide-react";
 import { Box, Collapse, Typography, useMediaQuery } from '@mui/material';
 import {ExpandLess, ExpandMore, Security} from '@mui/icons-material';
@@ -107,6 +108,23 @@ const navLinks: NavLink[] = [
                 title: "Swagger",
                 url: "api-swagger",
                 icon: <BrainCircuit size={20} />
+            }
+        ]
+    },
+    {
+        title: "Tools",
+        url: "tools",
+        icon: <Wrench size={20} />,
+        children: [
+            {
+                title: "Pipeline Health",
+                url: "admin/pipeline-health",
+                icon: <Activity size={20} />
+            },
+            {
+                title: "FFT Test",
+                url: "dev/fft-test",
+                icon: <Activity size={20} />
             }
         ]
     }
