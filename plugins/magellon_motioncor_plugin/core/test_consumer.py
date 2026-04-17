@@ -27,8 +27,7 @@ from magellon_sdk.bus.routes import TaskRoute
 from magellon_sdk.envelope import Envelope
 from magellon_sdk.errors import PermanentError
 
-from core.helper import publish_message_to_queue
-from core.model_dto import (
+from magellon_sdk.models import (
     FAILED,
     CryoEmMotionCorTaskData,
     TaskCategory,
@@ -36,6 +35,8 @@ from core.model_dto import (
     TaskResultDto,
     TaskStatus,
 )
+
+from core.helper import publish_message_to_queue
 from core.settings import AppSettingsSingleton
 from service.service import do_execute
 

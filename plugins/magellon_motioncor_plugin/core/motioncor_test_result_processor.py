@@ -8,10 +8,11 @@ import logging
 import asyncio
 from typing import Optional
 
-from core.helper import append_json_to_file
+from magellon_sdk.messaging import append_json_to_file
+from magellon_sdk.models import TaskResultDto
+
 from core.rabbitmq_client import RabbitmqClient
 from core.settings import AppSettingsSingleton
-from core.model_dto import TaskResultDto
 from pika.exceptions import ConnectionClosedByBroker
 
 logger = logging.getLogger(__name__)

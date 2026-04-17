@@ -8,7 +8,7 @@ import mrcfile
 import numpy as np
 import matplotlib.pyplot as plt
 # from loggerSetup import setupLogger
-from core.model_dto import CryoEmMotionCorTaskData
+from magellon_sdk.models import CryoEmMotionCorTaskData
 from PIL import Image
 import tifffile
 import cv2

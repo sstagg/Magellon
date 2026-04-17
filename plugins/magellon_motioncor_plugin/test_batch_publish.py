@@ -30,7 +30,7 @@ from pathlib import Path
 import pika
 
 from core.helper import push_task_to_task_queue
-from core.model_dto import CryoEmMotionCorTaskData, MOTIONCOR, PENDING
+from magellon_sdk.models import CryoEmMotionCorTaskData, MOTIONCOR, PENDING
 from core.settings import AppSettingsSingleton
 from core.task_factory import MotioncorTaskFactory
 

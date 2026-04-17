@@ -9,10 +9,12 @@ import logging
 import threading
 from datetime import datetime
 
-from core.helper import publish_message_to_queue, append_json_to_file
+from magellon_sdk.messaging import append_json_to_file
+from magellon_sdk.models import TaskDto, TaskResultDto, COMPLETED, FAILED
+
+from core.helper import publish_message_to_queue
 from core.rabbitmq_client import RabbitmqClient
 from core.settings import AppSettingsSingleton
-from core.model_dto import TaskDto, TaskResultDto, COMPLETED, FAILED
 from pika.exceptions import ConnectionClosedByBroker
 from service.service import do_execute
 

@@ -27,7 +27,9 @@ from prometheus_client import Info
 from magellon_sdk.bus.bootstrap import install_rmq_bus
 from magellon_sdk.categories.contract import MOTIONCOR_CATEGORY
 
-from core.model_dto import CryoEmMotionCorTaskData, TaskDto,CreateFrameAlignRequest
+from magellon_sdk.models import CryoEmMotionCorTaskData, TaskDto
+
+from core.model_dto import CreateFrameAlignRequest
 from core.settings import AppSettingsSingleton
 from core.test_consumer import start_test_consumer
 from plugin import MotioncorBrokerRunner, MotioncorPlugin, build_motioncor_result

@@ -7,7 +7,7 @@ from core.helper import push_info_to_debug_queue
 from utils import get_dw_file, save_gain_file,convertToMRC,is_mrc_file,getImageSize,validateInput,build_motioncor3_command,getFrameAlignment,getPatchFrameAlignment,createframealignImage,isFilePresent,createframealignCenterImage,getFilecontentsfromThread
 from datetime import datetime
 from core.settings import AppSettingsSingleton
-from core.model_dto import CryoEmMotionCorTaskData, OutputFile, TaskDto, TaskResultDto,DebugInfo,ImageMetaData
+from magellon_sdk.models import CryoEmMotionCorTaskData, OutputFile, TaskDto, TaskResultDto, DebugInfo, ImageMetaData
 
 logger = logging.getLogger(__name__)
 

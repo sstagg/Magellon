@@ -26,7 +26,7 @@ from magellon_sdk.bus.routes import TaskRoute
 from magellon_sdk.envelope import Envelope
 from magellon_sdk.errors import PermanentError
 
-from core.model_dto import TaskResultDto
+from magellon_sdk.models import TaskResultDto
 from core.settings import AppSettingsSingleton
 from services.service import do_execute
 

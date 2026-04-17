@@ -16,8 +16,9 @@ from prometheus_client import Info
 
 from magellon_sdk.bus.bootstrap import install_rmq_bus
 
+from magellon_sdk.models import TaskResultDto
+
 from core.bus_consumer import start_result_consumers
-from core.model_dto import TaskResultDto
 from core.settings import AppSettingsSingleton
 from services import service
 from services.service import do_execute, check_requirements, get_manifest, get_plugin_info

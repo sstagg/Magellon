@@ -1,7 +1,5 @@
-import json
 import logging
 import os
-import shutil
 import sys
 import uuid
 from typing import Optional
@@ -19,10 +17,14 @@ from magellon_sdk.models import (
 )
 
 from core.database import get_db, get_db_connection
-from core.helper import append_json_to_file
-from core.model_dto import TaskDto, PluginInfoSingleton, TaskResultDto
+from magellon_sdk.bootstrap import (
+    check_operating_system,
+    check_python_version,
+    check_requirements_txt,
+)
+from magellon_sdk.models import TaskDto, PluginInfoSingleton, TaskResultDto
+
 from core.settings import AppSettingsSingleton
-from core.setup_plugin import check_python_version, check_operating_system, check_requirements_txt
 from core.sqlalchemy_models import Camera, ImageJobTask, ImageMetaData, Msession
 from services.task_output_processor import TaskOutputProcessor
 
@@ -88,28 +90,6 @@ async def get_all_cameras(name: Optional[str] = None, db: Session = Depends(get_
         limit: int = 100
         return db.query(Camera).offset(skip).limit(limit).all()
 
-
-def move_file_to_directory(file_path, destination_dir):
-    # Extract the file name from the full file path
-    filename = os.path.basename(file_path)
-    # Create the destination path by joining the destination directory and the file name
-    destination_path = os.path.join(destination_dir, filename)
-
-    try:
-        # Create the destination directory if it doesn't exist
-        if not os.path.exists(destination_dir):
-            os.makedirs(destination_dir)
-        shutil.move(file_path, destination_path)
-        print(f"File moved from {file_path} to {destination_path}")
-    except Exception as e:
-        print(f"Error: {e}")
-
-def is_valid_json(my_json: str) -> bool:
-    try:
-        json.loads(my_json)
-        return True
-    except ValueError:
-        return False
 
 async def do_execute(task_result_param: TaskResultDto):
     try:

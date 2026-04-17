@@ -9,7 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from core.helper import move_file_to_directory
-from core.model_dto import TaskResultDto
+from magellon_sdk.models import TaskResultDto
 from core.settings import AppSettingsSingleton, QueueType
 from core.sqlalchemy_models import ImageJobTask, ImageMetaData
 

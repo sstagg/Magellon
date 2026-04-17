@@ -1,41 +1,12 @@
-"""Compatibility shim — re-exports canonical DTOs and adds motioncor-only shapes."""
+"""MotionCor-only DTO shapes.
+
+Everything else this plugin needs (TaskDto, TaskResultDto,
+CryoEmMotionCorTaskData, etc.) lives in :mod:`magellon_sdk.models` —
+import from there directly.
+"""
 from typing import List
 
 from pydantic import BaseModel
-
-from magellon_sdk.models import (  # noqa: F401
-    COMPLETED,
-    CTF_TASK,
-    CheckRequirementsResult,
-    CryoEmImageTaskData,
-    CryoEmMotionCorTaskData,
-    DebugInfo,
-    FAILED,
-    FFT_TASK,
-    FftTask,
-    FftTaskData,
-    IN_PROGRESS,
-    ImageMetaData,
-    JobDto,
-    MOTIONCOR,
-    MotioncorTask,
-    MrcToPngTaskData,
-    OutputFile,
-    PARTICLE_PICKING,
-    PENDING,
-    PluginInfo,
-    PluginInfoSingleton,
-    RecuirementResultEnum,
-    RequirementResult,
-    TWO_D_CLASSIFICATION,
-    TaskBase,
-    TaskCategory,
-    TaskDto,
-    TaskOutcome,
-    TaskResultDto,
-    TaskStatus,
-    TaskStatusEnum,
-)
 
 
 class CreateFrameAlignRequest(BaseModel):
