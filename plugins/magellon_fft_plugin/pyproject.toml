@@ -1,0 +1,49 @@
+[project]
+name = "magellon-fft-plugin"
+version = "0.1.0"
+description = "FFT reference plugin for Magellon: computes 2D FFT magnitude spectrum of a micrograph."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "Behdad Khoshbin", email = "b.khoshbin@gmail.com" },
+]
+
+dependencies = [
+    "magellon-sdk[rabbitmq,nats,logging,config]",
+
+    "fastapi",
+    "uvicorn",
+    "pydantic",
+    "rich",
+    "pyyaml",
+    "python-json-logger",
+    "prometheus-client",
+    "prometheus-fastapi-instrumentator",
+    "python-dotenv",
+
+    "pika==1.3.2",
+
+    "sqlalchemy",
+    "sqlalchemy-utils",
+    "PyMySQL==1.1.0",
+
+    "mrcfile==1.5.0",
+    "tifffile",
+    "numpy==1.26.4",
+    "scipy==1.12.0",
+    "Pillow==10.2.0",
+    "matplotlib==3.9.2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=7",
+    "pytest-asyncio>=0.21",
+    "testcontainers>=4",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+magellon-sdk = { path = "../../magellon-sdk", editable = true }

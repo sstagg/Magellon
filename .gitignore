@@ -40,6 +40,9 @@ plugins/*/output_file.json
 /WebApp/.idea/
 /WebApp/dist/
 
+/plugins/magellon_fft_plugin/.venv/
+/plugins/magellon_fft_plugin/__pycache__/
+
 /plugins/magellon_ctf_plugin/mysql/
 /plugins/magellon_ctf_plugin/.idea/
 /plugins/magellon_ctf_plugin/venv/
