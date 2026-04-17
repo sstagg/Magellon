@@ -136,7 +136,7 @@ class FftTaskData(CryoEmImageTaskData):
 
 class CtfTaskData(CryoEmImageTaskData):
     inputFile: str
-    outputFile: str = "ouput.mrc"
+    outputFile: str = "output.mrc"
     pixelSize: float = 1.0
     accelerationVoltage: float = 300.0
     sphericalAberration: float = 2.70

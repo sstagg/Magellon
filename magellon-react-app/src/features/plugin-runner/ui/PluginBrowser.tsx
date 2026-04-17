@@ -83,7 +83,15 @@ export const PluginBrowser: React.FC<PluginBrowserProps> = ({ onSelect }) => {
                                             <Typography variant="h6">{plugin.name}</Typography>
                                             <Chip size="small" label={`v${plugin.version}`} />
                                         </Stack>
-                                        <Chip size="small" variant="outlined" label={plugin.category} sx={{ mb: 1 }} />
+                                        <Stack direction="row" spacing={0.5} sx={{ mb: 1 }}>
+                                            <Chip size="small" variant="outlined" label={plugin.category} />
+                                            <Chip
+                                                size="small"
+                                                variant="outlined"
+                                                label={plugin.kind === 'broker' ? 'broker' : 'in-process'}
+                                                color={plugin.kind === 'broker' ? 'primary' : 'default'}
+                                            />
+                                        </Stack>
                                         <Typography variant="body2" color="text.secondary">
                                             {plugin.description}
                                         </Typography>

@@ -18,6 +18,17 @@ export interface PluginSummary {
     schema_version?: string;
     description: string;
     developer: string;
+    /**
+     * - ``in-process``: PluginBase subclass discovered on disk; reachable
+     *   via POST /plugins/{plugin_id}/jobs.
+     * - ``broker``: external plugin (Docker container or separate
+     *   process) that announced itself on ``magellon.plugins.liveness``;
+     *   dispatch flows through the bus, not through this controller.
+     *
+     * Optional for backwards compatibility with older backend builds —
+     * default to ``in-process`` when the field is missing.
+     */
+    kind?: 'in-process' | 'broker';
 }
 
 export interface PluginInfo {
