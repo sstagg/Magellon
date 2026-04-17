@@ -119,8 +119,8 @@ def make_task(mrc_name: str, job_id: str) -> dict:
     return {
         "id": task_id,
         "job_id": job_id,
-        "sesson_id": None,
-        "sesson_name": "ctf_smoke_test",
+        "session_id": None,
+        "session_name": "ctf_smoke_test",
         "worker_instance_id": str(uuid.uuid4()),
         "data": {
             "image_id": None,

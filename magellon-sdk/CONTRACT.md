@@ -1,6 +1,6 @@
 # magellon-sdk — Public Contract
 
-**Status:** Pre-1.0 draft, 2026-04-17. Companion to `Documentation/UNIFIED_PLATFORM_PLAN.md`.
+**Status:** 1.0.0 frozen, 2026-04-17. Companion to `Documentation/UNIFIED_PLATFORM_PLAN.md`.
 **Audience:** Plugin authors (what you can rely on), SDK maintainers (what you can change).
 **Rule in one line:** *Public surface breaks only on a major version bump. Everything not in §2 is internal; change at will.*
 
@@ -139,71 +139,39 @@ Breaking changes inside a major aren't allowed. To evolve the contract without c
 3. **Keep the old shape for ≥1 minor cycle.** Gives plugin authors time to migrate.
 4. **Remove on the next major bump.** Not before.
 
-Example: if we want to rename `TaskBase.sesson_id` to `TaskBase.session_id` (and we should — see §6.A), we add `session_id` as an alias, have `sesson_id` raise `DeprecationWarning` on access, and keep both through all of `2.x`. Then drop `sesson_id` in `3.0`.
+Example: post-1.0, renaming a field like `TaskBase.session_id` would require adding the new name as an alias, raising `DeprecationWarning` on the old accessor, and keeping both through all of `1.x` — removing the old name only in `2.0`. (Pre-1.0 we took the cheaper path; see §6.)
 
 ---
 
-## 6. Decisions needed before 1.0 tag
+## 6. Pre-1.0 decisions (resolved 2026-04-17)
 
-This doc is the record of what needs to be resolved before `pyproject.toml` bumps to `1.0.0`. Pre-1.0 we're allowed to do breaking cleanup; post-1.0 we're not. Each item below needs an explicit call.
+This section is the audit trail for the six decisions that had to be resolved before cutting the 1.0 tag. Pre-1.0 we were allowed to do breaking cleanup without aliases or deprecation cycles; that latitude is now closed. Each item below records the call that was made and the reason.
 
-### 6.A  ``TaskBase.sesson_id`` / ``sesson_name`` typos
+Context: at the time of the 1.0 cut the SDK had never been used in production — only in development and testing. That made clean breaking fixes strictly better than alias/deprecation chains, which would have carried the typo/dup-field scars forward for no real migration benefit. Post-1.0, §5's deprecation policy applies in full.
 
-**Location:** `magellon_sdk/models/tasks.py:57-58`.
-**Impact:** the typo `sesson` (should be `session`) is in every `TaskDto`, every `TaskResultDto`, every DB row's `sesson_name` column mapping, every plugin that reads these fields.
-**Options:**
-   - **(A) Fix before 1.0.** Rename to `session_id` / `session_name`. Breaking: every in-flight task, every persisted DB row, every plugin reading these fields. Requires DB migration + serialization migration + plugin updates.
-   - **(B) Freeze the typo in 1.0.** Document it as a known wart. Never fix (renaming post-1.0 means 2.0).
-   - **(C) Alias now, deprecate later.** Add `session_id`/`session_name` as Pydantic aliases that map to the same underlying storage. Both work during 1.x. Kill the typo'd variant in 2.0. Compromise: plugins can migrate at their own pace, DB migration deferred.
+### 6.A  ``TaskBase.sesson_id`` / ``sesson_name`` typos — ✅ FIXED
 
-**Recommendation:** **(C)**. Lowest friction, gives us the option to clean up without blocking 1.0.
+Renamed to `session_id` / `session_name` in `magellon_sdk/models/tasks.py`. All 16 call sites across CoreService, the three plugins, smoke scripts, and characterization tests were updated in the same commit as the SDK change. No alias kept; the typo is gone. See CHANGELOG 1.0.0 for the file list.
 
-### 6.B  ``CryoEmMotionCorTaskData`` duplicate output-file fields
+### 6.B  ``CryoEmMotionCorTaskData`` duplicate output-file fields — ✅ FIXED
 
-**Location:** `magellon_sdk/models/tasks.py:158-159`.
-Both `OutMrc: str = "output.mrc"` and `outputFile: str = "output.mrc"` exist, default to the same value, and are carried in parallel through the MotionCor pipeline.
-**Options:**
-   - **(A) Keep both; document that `OutMrc` is the canonical one** (mirrors MotionCor3 CLI `-OutMrc` flag). `outputFile` is a compatibility shim for the TaskBase-style field.
-   - **(B) Remove `outputFile` before 1.0.** Breaking for anyone using the TaskBase shape consistently.
+Dropped `outputFile` from `CryoEmMotionCorTaskData`. `OutMrc` is the single canonical field (mirrors MotionCor3's `-OutMrc` CLI flag — the name the binary actually reads). MotionCor plugin callers consolidated on `OutMrc`; the parallel `outputFile` branch in `service/motioncor_service.py` and the validation block in `utils.py` were removed.
 
-**Recommendation:** **(A)**. Document and move on.
+### 6.C  Field-naming inconsistency across task classes — 📝 LOCKED
 
-### 6.C  Field-naming inconsistency across task classes
+Locked as-is. Each class intentionally mirrors its source-domain convention: `CryoEmMotionCorTaskData` uses TitleCase because it's a direct handoff to the MotionCor3 CLI; `FftTaskData` uses snake_case because it's pure-Python; `CtfTaskData` is camelCase from its hand-written origins. Harmonizing would have been churn without a behavioral payoff, and each class is internally consistent within its own domain.
 
-See §2.1 `CtfTaskData` (camelCase + one snake_case outlier), `CryoEmMotionCorTaskData` (TitleCase mirroring MotionCor3 CLI), `FftTaskData` (snake_case).
-**Options:**
-   - **(A) Harmonize to snake_case before 1.0.** Breaking for every plugin. Months of plugin updates.
-   - **(B) Lock as-is and document intent.** Each class mirrors its source-domain convention intentionally: MotionCor matches its CLI, FFT matches Python conventions, CTF was hand-written and drifted.
+### 6.D  ``PARTICLE_PICKER.input_model`` — 📝 DEFERRED
 
-**Recommendation:** **(B)**. The naming is ugly but consistent with the domains it models. Breaking real code to pretty up field names isn't worth it.
+Left as `CryoEmImageTaskData` with `engine_opts: Dict[str, Any]` as the escape hatch. Picker input shapes are still settling across template-picker and future CNN-based engines; introducing a canonical `ParticlePickingTaskData` now would lock assumptions we don't have yet. A richer typed model can be added in 1.x as a non-breaking addition (new optional fields, `engine_opts` still valid).
 
-### 6.D  ``PARTICLE_PICKER.input_model``
+### 6.E  ``discovery.py`` public-or-private? — 📝 DOCUMENTED as internal
 
-**Location:** `magellon_sdk/categories/contract.py:182`.
-Currently `input_model = CryoEmImageTaskData` (the base). Richer picker inputs (templates, thresholds, etc.) ride `engine_opts: Dict[str, Any]` — untyped.
-**Options:**
-   - **(A) Define a canonical `ParticlePickingTaskData` before 1.0.** Breaking later if it's under-specified now.
-   - **(B) Keep `engine_opts` escape hatch in 1.0; define the richer model in 1.x as a non-breaking addition.** Plugin authors can upcast when they're ready.
+Kept the names un-prefixed (`DiscoveryPublisher`, `HeartbeatLoop`, `ConfigSubscriber`) to avoid a rename churn across the harness, but added a module-level docstring marking them as harness internals used by `PluginBrokerRunner`. They are listed in §3 under "internal surface." Plugin authors who think they need to reach around `PluginBrokerRunner` should open an issue.
 
-**Recommendation:** **(B)**. Particle-picking shapes are still settling; don't lock prematurely.
+### 6.F  Top-level `__init__.py` re-exports — ✅ BROADENED
 
-### 6.E  ``discovery.py`` public-or-private?
-
-Currently: `DiscoveryPublisher`, `HeartbeatLoop`, `ConfigSubscriber` are module-level classes with no `_` prefix, importable today, used by `PluginBrokerRunner` internally.
-**Options:**
-   - **(A) Private.** Rename to `_DiscoveryPublisher` etc.; callers outside `PluginBrokerRunner` break. But no production caller outside the harness should be using these anyway.
-   - **(B) Public.** Keep as-is; document as stable surface.
-
-**Recommendation:** **(A)**. Announce + heartbeat are implementation details of the runner; exposing them makes it tempting for plugins to reach around the harness.
-
-### 6.F  Top-level `__init__.py` re-exports
-
-Currently re-exports `Envelope`, `PluginBase`, `ProgressReporter`, `NullReporter`, `JobCancelledError`.
-**Options:**
-   - **(A) Minimal.** Keep as-is. Plugin authors use submodule paths for everything else.
-   - **(B) Broader.** Add `TaskDto`, `TaskResultDto`, `PluginManifest`, `install_rmq_bus`, `PluginBrokerRunner` — the most-used names — so `from magellon_sdk import ...` works for most plugin scaffolds.
-
-**Recommendation:** **(B)**. Easier scaffolding, less typing for the common case. Submodule paths stay valid.
+`magellon_sdk/__init__.py` now re-exports the full common scaffolding: `PluginBase`, `Envelope`, `ProgressReporter`, `NullReporter`, `JobCancelledError` (retained) plus `PluginBrokerRunner`, `TaskDto`, `TaskResultDto`, `PluginInfo`, `PluginManifest`, `install_rmq_bus`, `install_inmemory_bus`, `install_mock_bus`. A minimal plugin scaffold can now `from magellon_sdk import …` without reaching into submodules. Submodule paths remain valid.
 
 ---
 

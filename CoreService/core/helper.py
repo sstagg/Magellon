@@ -185,7 +185,7 @@ def dispatch_ctf_task(task_id, full_image_path, task_dto: ImportTaskDto):
 
     ctf_task = CtfTaskFactory.create_task(pid=task_dto.task_id, instance_id=uuid.uuid4(), job_id=job_id,
                                           data=ctf_task_data.model_dump(), ptype=CTF_TASK, pstatus=PENDING)
-    ctf_task.sesson_name = session_name
+    ctf_task.session_name = session_name
     return push_task_to_task_queue(ctf_task)
 
 
@@ -269,9 +269,6 @@ def create_motioncor_task_data(image_path, gain_path, defects_path=None, session
             image_path=task_dto.image_path,
 
             inputFile=image_path,
-
-            outputFile=os.path.basename(task_dto.image_path),
-            # OutMrc="output.files.mrc",
             OutMrc=os.path.basename(task_dto.image_path),
             Gain=gain_path,
             DefectFile=defects_path,
@@ -342,7 +339,7 @@ def create_motioncor_task(image_path=None,
             pstatus=PENDING
         )
         # Set session name from task data if not explicitly provided
-        motioncor_task.sesson_name = session_name or motioncor_task_data.image_name.split("_")[0]
+        motioncor_task.session_name = session_name or motioncor_task_data.image_name.split("_")[0]
 
         return motioncor_task
     except Exception as e:

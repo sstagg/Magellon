@@ -1,5 +1,18 @@
 """Broker-based plugin discovery + heartbeat (P6).
 
+**Plugin authors should not import from this module.** It's the
+announce / heartbeat wiring that :class:`PluginBrokerRunner` uses
+internally. Plugins that need to announce themselves do so by
+running a ``PluginBrokerRunner`` — the runner wires up discovery
+for them. Reaching :class:`DiscoveryPublisher` directly bypasses
+the runner's lifecycle management and is explicitly NOT part of
+the public contract (see ``magellon-sdk/CONTRACT.md`` §3).
+
+:class:`Announce` and :class:`Heartbeat` Pydantic models ARE public
+— a host that receives these messages needs to decode them. Those
+shapes are part of the wire contract and frozen behind SemVer like
+any other public Pydantic model.
+
 Replaces Consul service registration. The premise: a plugin connecting
 to RabbitMQ already proves its existence to the broker — anything that
 requires a *separate* registration step (Consul, etcd) is duplicate

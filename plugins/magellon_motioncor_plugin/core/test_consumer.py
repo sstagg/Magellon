@@ -77,7 +77,7 @@ def _normalize_test_task(task_dto: TaskDto) -> TaskDto:
         image_name=image_name,
         image_path=image_path,
         inputFile=image_path,
-        outputFile="output.mrc",
+        OutMrc="output.mrc",
         Gain=task_data.get("gain_path", ""),
         DefectFile=task_data.get("defects_path"),
         PatchesX=int(motioncor_settings.get("PatchesX", 5)),
@@ -106,7 +106,7 @@ def _normalize_test_task(task_dto: TaskDto) -> TaskDto:
         type=getattr(task_dto, "type", None) or TaskCategory(
             code=5, name="MOTIONCOR", description="Motion Correction",
         ),
-        sesson_name=task_data.get("session_name") or (image_name.split("_")[0] if image_name else "test"),
+        session_name=task_data.get("session_name") or (image_name.split("_")[0] if image_name else "test"),
         start_on=datetime.now(),
     )
 

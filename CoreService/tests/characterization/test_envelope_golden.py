@@ -65,8 +65,8 @@ def _make_ctf_envelope() -> dict:
     task = TaskDto(
         id=FIXED_TASK_ID,
         job_id=FIXED_JOB_ID,
-        sesson_id=FIXED_SESSION_ID,
-        sesson_name="sample_session",
+        session_id=FIXED_SESSION_ID,
+        session_name="sample_session",
         worker_instance_id=FIXED_WORKER_ID,
         data=data.model_dump(),
         status=PENDING,
@@ -112,8 +112,8 @@ def _make_motioncor_envelope() -> dict:
     task = TaskDto(
         id=FIXED_TASK_ID,
         job_id=FIXED_JOB_ID,
-        sesson_id=FIXED_SESSION_ID,
-        sesson_name="sample_session",
+        session_id=FIXED_SESSION_ID,
+        session_name="sample_session",
         worker_instance_id=FIXED_WORKER_ID,
         data=data.model_dump(),
         status=PENDING,
@@ -158,7 +158,7 @@ def test_ctf_envelope_top_level_keys():
     """
     envelope = _make_ctf_envelope()
     assert set(envelope.keys()) == {
-        "id", "job_id", "sesson_id", "sesson_name", "worker_instance_id",
+        "id", "job_id", "session_id", "session_name", "worker_instance_id",
         "data", "status", "type", "created_date", "start_on", "end_on", "result",
     }
 
@@ -167,7 +167,7 @@ def test_ctf_envelope_top_level_keys():
 def test_motioncor_envelope_top_level_keys():
     envelope = _make_motioncor_envelope()
     assert set(envelope.keys()) == {
-        "id", "job_id", "sesson_id", "sesson_name", "worker_instance_id",
+        "id", "job_id", "session_id", "session_name", "worker_instance_id",
         "data", "status", "type", "created_date", "start_on", "end_on", "result",
     }
 

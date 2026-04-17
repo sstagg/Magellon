@@ -32,7 +32,7 @@ itself. Real-GPU validation runs less often via RunPod.
 | RabbitMQ | `magellon-rabbitmq-container` on the magellon network |
 | Movies (auto-seeded) | Any TIF/MRC under `C:/temp/motioncor/Magellon-test/example*` |
 | Python | 3.10+ with `pika` installed (`pip install pika`) |
-| SDK wheel | `magellon_sdk-0.1.0-py3-none-any.whl` in the plugin root |
+| SDK wheel | `magellon_sdk-1.0.0-py3-none-any.whl` in the plugin root |
 
 The script auto-seeds test data from `C:/temp/motioncor/Magellon-test/example*`
 into `C:/temp/magellon/gpfs/motioncor_test/` on first run. Set `SKIP_SEED=1`
@@ -46,7 +46,7 @@ If the wheel doesn't exist yet:
 cd magellon-sdk
 pip install build
 python -m build --wheel
-cp dist/magellon_sdk-0.1.0-py3-none-any.whl ../plugins/magellon_motioncor_plugin/
+cp dist/magellon_sdk-1.0.0-py3-none-any.whl ../plugins/magellon_motioncor_plugin/
 ```
 
 ### Run it

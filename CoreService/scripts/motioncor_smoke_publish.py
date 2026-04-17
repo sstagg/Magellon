@@ -48,7 +48,7 @@ def build_task(image_path: str, *, gain: str, fm_dose: float, pix_size: float) -
         image_name=file_name,
         image_path=image_path,
         inputFile=image_path,
-        outputFile=out_file,
+        OutMrc=out_file,
         Gain=gain,
         PatchesX=5,
         PatchesY=5,
@@ -69,7 +69,7 @@ def build_task(image_path: str, *, gain: str, fm_dose: float, pix_size: float) -
         ptype=MOTIONCOR,
         pstatus=PENDING,
     )
-    task.sesson_name = "smoke-test"
+    task.session_name = "smoke-test"
     return task
 
 

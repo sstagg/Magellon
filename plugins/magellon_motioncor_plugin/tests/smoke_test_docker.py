@@ -134,15 +134,14 @@ def make_task(movie_name: str, gain_name: str, job_id: str) -> dict:
     return {
         "id": task_id,
         "job_id": job_id,
-        "sesson_id": None,
-        "sesson_name": "motioncor_smoke_test",
+        "session_id": None,
+        "session_name": "motioncor_smoke_test",
         "worker_instance_id": str(uuid.uuid4()),
         "data": {
             "image_id": image_id,
             "image_name": stem,
             "image_path": input_path,
             "inputFile": input_path,
-            "outputFile": f"{stem}_aligned.mrc",
             "OutMrc": f"{stem}_aligned.mrc",
             "Gain": gain_path,
             "engine_opts": {},

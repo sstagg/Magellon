@@ -72,7 +72,7 @@ def build_task(image_path: str, *, pixel_size: float, voltage: float, cs: float,
         ptype=CTF_TASK,
         pstatus=PENDING,
     )
-    task.sesson_name = "smoke-test"
+    task.session_name = "smoke-test"
     return task
 
 

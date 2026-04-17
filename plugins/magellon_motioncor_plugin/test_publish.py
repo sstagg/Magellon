@@ -48,7 +48,7 @@ def create_task():
             image_path=os.path.join("./FoilHole_5455736_Data_5446166_123_20250206_151858_EER.eer"),
             inputFile=os.path.join("./FoilHole_5455736_Data_5446166_123_20250206_151858_EER.eer"),
             # InTiff=os.path.join(os.getcwd(),"gpfs","20241203_54449_integrated_movie.mrc.tif"),
-            outputFile="output.files.mrc",
+            OutMrc="output.files.mrc",
             # FmIntFile=os.path.join("/gpfs","fminit.txt"),
             Gain=os.path.join("./20250205_102818_EER_GainReference.gain.eer"),
         PatchesX= 5,
@@ -62,7 +62,7 @@ def create_task():
         )
         motioncor_task = MotioncorTaskFactory.create_task(pid=str(uuid.uuid4()), instance_id=uuid.uuid4(), job_id=uuid.uuid4(),
                                       data=data1.model_dump(), ptype=MOTIONCOR, pstatus=PENDING)
-        motioncor_task.sesson_name="24mar28a"
+        motioncor_task.session_name="24mar28a"
         return motioncor_task
     except Exception as e:
         logger.error(f"Error publishing message: {e}")

@@ -59,17 +59,16 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
         directory_path = os.path.join(AppSettingsSingleton.get_instance().JOBS_DIR, str(the_task_data.image_id))
         print("directory path",directory_path)
         os.makedirs(directory_path, exist_ok=True)
-        host_file_path = os.path.join(AppSettingsSingleton.get_instance().HOST_JOBS_DIR, str(the_task_data.image_id), the_task_data.outputFile)
-        the_task_data.outputFile = os.path.join(directory_path, the_task_data.outputFile)
-        if not the_task_data.outputFile.endswith(".mrc"):
-            the_task_data.outputFile += ".mrc"
-        params.data["OutMrc"] = os.path.join(directory_path, the_task_data.OutMrc)
-        if not params.data["OutMrc"].endswith(".mrc"):
-            params.data["OutMrc"]+=".mrc"
-        the_task_data.OutMrc =  params.data["OutMrc"] 
+        host_file_path = os.path.join(
+            AppSettingsSingleton.get_instance().HOST_JOBS_DIR,
+            str(the_task_data.image_id),
+            the_task_data.OutMrc,
+        )
+        the_task_data.OutMrc = os.path.join(directory_path, the_task_data.OutMrc)
         if not the_task_data.OutMrc.endswith(".mrc"):
-            the_task_data.OutMrc+=".mrc"
-        the_task_data.LogDir= directory_path
+            the_task_data.OutMrc += ".mrc"
+        params.data["OutMrc"] = the_task_data.OutMrc
+        the_task_data.LogDir = directory_path
         if not is_mrc_file(the_task_data.Gain):
             the_task_data.Gain=convertToMRC(the_task_data.Gain,directory_path)
             save_gain_file(the_task_data.Gain,directory_path)
@@ -95,7 +94,7 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
             return TaskResultDto(
                 worker_instance_id=params.worker_instance_id, task_id=params.id,
                 job_id=params.job_id, image_id=params.data["image_id"],
-                image_path=params.data["image_path"], session_name=params.sesson_name,
+                image_path=params.data["image_path"], session_name=params.session_name,
                 code=500, message="MotionCor3 execution failed", description=process.stderr.strip(),
                 status=params.status, type=params.type, created_date=datetime.now(),
                 started_on=params.start_on, ended_on=datetime.now(), meta_data=[], output_files=[]
@@ -167,7 +166,7 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
                 job_id=params.job_id,
                 image_id=params.data["image_id"],
                 image_path=params.data["image_path"],
-                session_name=params.sesson_name,
+                session_name=params.session_name,
                 code=200,
                 message="Motioncor executed successfully",
                 description="Output for Motioncor for an input file",
@@ -187,7 +186,7 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
             job_id=params.job_id,
             image_id=params.data["image_id"],
             image_path=params.data["image_path"],
-            session_name=params.sesson_name,
+            session_name=params.session_name,
             code=500,
             message="Motioncor execution was unsuccessful",
             description=f"An error occurred: {str(e)}",

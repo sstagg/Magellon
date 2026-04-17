@@ -86,8 +86,8 @@ def make_task(movie_name: str, gain_name: str) -> dict:
     return {
         "id": task_id,
         "job_id": JOB_ID,
-        "sesson_id": None,
-        "sesson_name": "motioncor_manual_test",
+        "session_id": None,
+        "session_name": "motioncor_manual_test",
         "worker_instance_id": str(uuid.uuid4()),
         "data": {
             "image_id": image_id,

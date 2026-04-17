@@ -116,7 +116,7 @@ class MotioncorTestTaskManager:
                 status=PENDING,
                 type=MOTIONCOR_TASK,
                 data=task_data,
-                sesson_name=session_name
+                session_name=session_name
             )
             
             logger.info(f"Created motioncor test task: {task_id}")

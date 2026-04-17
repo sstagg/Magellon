@@ -54,8 +54,8 @@ class TaskOutcome(BaseModel):
 
 class TaskBase(BaseModel):
     id: Optional[UUID] = None
-    sesson_id: Optional[UUID] = None
-    sesson_name: Optional[str] = None
+    session_id: Optional[UUID] = None
+    session_name: Optional[str] = None
     worker_instance_id: Optional[UUID] = None
     data: Dict[str, Any]
     status: Optional[TaskStatus] = None
@@ -155,8 +155,11 @@ class CryoEmMotionCorTaskData(CryoEmImageTaskData):
     InTiff: Optional[str] = None
     InEer: Optional[str] = None
     inputFile: str
+    # OutMrc is the canonical output field — mirrors MotionCor3 CLI's
+    # ``-OutMrc`` flag and is the name the binary actually reads.
+    # (Pre-1.0 we also had a parallel ``outputFile`` field that set
+    # the same value; it was never sent to the binary. Dropped.)
     OutMrc: str = "output.mrc"
-    outputFile: str = "output.mrc"
     Gain: str
     Dark: Optional[str] = None
     DefectFile: Optional[str] = None

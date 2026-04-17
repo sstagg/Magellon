@@ -64,7 +64,7 @@ RUN rm -rf /root/.cache/pip/*
 # requirements.txt (which has an editable ../../magellon-sdk path
 # that doesn't exist in the build context).
 COPY requirements.docker.txt ./
-COPY magellon_sdk-0.1.0-py3-none-any.whl ./
+COPY magellon_sdk-1.0.0-py3-none-any.whl ./
 RUN pip install --upgrade -r ./requirements.docker.txt
 RUN ln -s /usr/lib/x86_64-linux-gnu/libtiff.so.5 /usr/lib/x86_64-linux-gnu/libtiff.so.6
 

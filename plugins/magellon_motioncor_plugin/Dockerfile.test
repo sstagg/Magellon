@@ -38,7 +38,7 @@ RUN rm -rf /root/.cache/pip/*
 # Local-wiring test image: no CUDA, no real MotionCor binary. The mock at
 # tests/mock_motioncor produces the file shapes the plugin expects so we
 # can verify RMQ in/out + step events end-to-end without a GPU.
-COPY magellon_sdk-0.1.0-py3-none-any.whl ./
+COPY magellon_sdk-1.0.0-py3-none-any.whl ./
 COPY requirements.docker.txt ./requirements.txt
 RUN pip install --upgrade -r ./requirements.txt
 RUN pip install debugpy
