@@ -232,7 +232,26 @@ class PluginBase(ABC, Generic[InputT, OutputT]):
         :meth:`get_info`. Plugins that need dynamic detection (e.g.
         "GPU_REQUIRED only if CUDA isn't present") may override this and
         compute the capability set at call time.
+
+        Includes JSON Schemas of the input/output contract — generated
+        from the Pydantic classes the plugin declares in :meth:`input_schema`
+        and :meth:`output_schema`. Hub UIs render forms from these;
+        validation layers check submissions against them.
         """
+        # Schemas are best-effort: a plugin with an exotic / non-serializable
+        # shape shouldn't fail manifest() just because JSON-Schema emit
+        # hiccups. Swallow and log; the rest of the manifest is still useful.
+        input_schema_json: Optional[dict] = None
+        output_schema_json: Optional[dict] = None
+        try:
+            input_schema_json = self.input_schema().model_json_schema()
+        except Exception:  # noqa: BLE001
+            logger.debug("input_schema() JSON-Schema emit failed for %s", type(self).__name__)
+        try:
+            output_schema_json = self.output_schema().model_json_schema()
+        except Exception:  # noqa: BLE001
+            logger.debug("output_schema() JSON-Schema emit failed for %s", type(self).__name__)
+
         return PluginManifest(
             info=self.get_info(),
             capabilities=list(self.capabilities),
@@ -243,6 +262,8 @@ class PluginBase(ABC, Generic[InputT, OutputT]):
             replaces=list(self.replaces),
             deprecates=list(self.deprecates),
             tags=list(self.tags),
+            input_schema=input_schema_json,
+            output_schema=output_schema_json,
         )
 
 

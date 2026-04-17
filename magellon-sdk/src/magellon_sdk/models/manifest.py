@@ -32,7 +32,7 @@ Design notes
 from __future__ import annotations
 
 from enum import Enum
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -161,6 +161,17 @@ class PluginManifest(BaseModel):
     tags: List[str] = Field(
         default_factory=list,
         description="Free-form labels for filtering (e.g. 'imaging', 'beta')",
+    )
+    input_schema: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="JSON Schema of the plugin's input contract, generated "
+                    "from the Pydantic ``input_schema()`` class. Unlocks "
+                    "form-rendering in the UI, schema-compat checks between "
+                    "plugin versions, and upload validation in a plugin hub.",
+    )
+    output_schema: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="JSON Schema of the plugin's output contract.",
     )
 
     def has_capability(self, cap: Capability) -> bool:
