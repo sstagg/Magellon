@@ -93,60 +93,41 @@ class BatchSubmitRequest(BaseModel):
 
 @plugins_router.get("/", summary="List all registered plugins")
 async def list_plugins() -> List[PluginSummary]:
-    """Merge the static in-process registry with the live broker-side
-    registry (plugins that announced over ``magellon.plugins.liveness``).
+    """List every plugin the liveness registry has seen.
 
-    In-process and broker entries are emitted with distinct ``plugin_id``
-    values and a ``kind`` discriminator so the UI can render both kinds
-    on one page without ambiguity. Dedupe is intentionally conservative:
-    we only suppress a broker entry if its plugin_id collides with an
-    in-process entry (rare in practice — the broker plugins use names
-    like "FFT Plugin"/"CTF Plugin" while the in-process ones use names
-    like "CTFFind4"/"MotionCor2").
+    Post-U1.1, in-process plugins announce themselves at CoreService
+    startup (see ``plugins.in_process_announce``), so the liveness
+    registry is the single source of truth — no more separate static
+    walk. The ``kind`` field is derived by cross-referencing with the
+    in-process registry: plugins that also appear there ran inside
+    this Python process; the rest are broker plugins (Docker containers
+    or separate processes).
+
+    Plugins that announced with ``plugin_id = "CTF Plugin"`` (no
+    category prefix) get a composed id ``"{category}/{plugin_id}"`` so
+    the UI's plugin-id scheme is uniform. Plugins that already use the
+    composed form (the in-process ones) pass through unchanged.
     """
+    # Set of plugin_ids known to run in-process — used to label the
+    # summary's ``kind`` field. Populated once per request.
+    in_process_ids = {entry.plugin_id for entry in registry.list()}
+
     summaries: List[PluginSummary] = []
     seen_ids: set[str] = set()
 
-    # In-process plugins (PluginBase subclasses discovered on disk).
-    for entry in registry.list():
-        info = entry.manifest.info
-        summaries.append(PluginSummary(
-            plugin_id=entry.plugin_id,
-            category=entry.category,
-            name=entry.name,
-            version=info.version,
-            schema_version=info.schema_version or "1",
-            description=info.description,
-            developer=info.developer,
-            capabilities=list(entry.manifest.capabilities),
-            supported_transports=list(entry.manifest.supported_transports),
-            default_transport=entry.manifest.default_transport,
-            isolation=entry.manifest.isolation,
-            kind="in-process",
-        ))
-        seen_ids.add(entry.plugin_id)
-
-    # Broker plugins — pulled from the same liveness registry that
-    # Pipeline Health uses. Manifest comes from each plugin's last
-    # ``Announce`` message. When a plugin restarted before this
-    # CoreService process started (so we missed its one-shot announce
-    # but are still receiving heartbeats), fall back to bare-minimum
-    # data so the operator at least sees the plugin exists.
     for entry in get_liveness_registry().list_live():
-        # Compose a plugin_id consistent with the in-process shape:
-        # "{category}/{plugin_id-from-broker}". The broker's plugin_id
-        # is typically a display name (e.g. "FFT Plugin").
-        composed_id = (
-            f"{entry.category}/{entry.plugin_id}" if entry.category else entry.plugin_id
-        )
-        if composed_id in seen_ids:
+        plugin_id = entry.plugin_id
+        if "/" not in plugin_id and entry.category:
+            plugin_id = f"{entry.category}/{plugin_id}"
+        if plugin_id in seen_ids:
             continue
+        kind = "in-process" if plugin_id in in_process_ids else "broker"
 
         manifest = entry.manifest
         if manifest is not None:
             info = manifest.info
             summaries.append(PluginSummary(
-                plugin_id=composed_id,
+                plugin_id=plugin_id,
                 category=entry.category,
                 name=entry.plugin_id,
                 version=info.version,
@@ -157,15 +138,14 @@ async def list_plugins() -> List[PluginSummary]:
                 supported_transports=list(manifest.supported_transports),
                 default_transport=manifest.default_transport,
                 isolation=manifest.isolation,
-                kind="broker",
+                kind=kind,
             ))
         else:
-            # Manifest missing — synthesise from what the heartbeat
-            # carries. The card will lack rich metadata until the
-            # plugin re-announces (typically on its next reconnect or
-            # a restart), but the operator at least sees it exists.
+            # Heartbeat arrived but we missed the Announce (CoreService
+            # started after the plugin). Synthesise placeholder metadata
+            # — the plugin still shows up, with a hint to re-announce.
             summaries.append(PluginSummary(
-                plugin_id=composed_id,
+                plugin_id=plugin_id,
                 category=entry.category,
                 name=entry.plugin_id,
                 version=entry.plugin_version or "?",
@@ -177,9 +157,9 @@ async def list_plugins() -> List[PluginSummary]:
                 supported_transports=[Transport.RMQ],
                 default_transport=Transport.RMQ,
                 isolation=IsolationLevel.CONTAINER,
-                kind="broker",
+                kind=kind,
             ))
-        seen_ids.add(composed_id)
+        seen_ids.add(plugin_id)
 
     return summaries
 
