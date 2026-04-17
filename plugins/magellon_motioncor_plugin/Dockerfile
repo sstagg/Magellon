@@ -59,9 +59,13 @@ RUN rm -rf /root/.cache/pip/*
 # Set working directory
 
 
-# Install other Python dependencies
-COPY requirements.txt ./
-RUN pip install --upgrade -r ./requirements.txt
+# Install other Python dependencies. Use requirements.docker.txt
+# (which pins the SDK to the bundled wheel) instead of
+# requirements.txt (which has an editable ../../magellon-sdk path
+# that doesn't exist in the build context).
+COPY requirements.docker.txt ./
+COPY magellon_sdk-0.1.0-py3-none-any.whl ./
+RUN pip install --upgrade -r ./requirements.docker.txt
 RUN ln -s /usr/lib/x86_64-linux-gnu/libtiff.so.5 /usr/lib/x86_64-linux-gnu/libtiff.so.6
 
 # Install debugpy
@@ -77,6 +81,7 @@ ENV PYTHONPATH=/app
 COPY configs/settings_dev.yml ./configs/settings_dev.yml
 COPY configs/settings_prod.yml ./configs/settings_prod.yml
 COPY core ./core
+COPY plugin ./plugin
 COPY service ./service
 # COPY model.py ./model.py
 COPY main.py ./main.py

@@ -1,0 +1,93 @@
+Task data classes — side-by-side comparison
+=============================================
+
+Source: magellon-sdk/src/magellon_sdk/models/tasks.py
+Confirmed: there is NO ``MotionCorTaskData`` class in the SDK or in
+any plugin. The only MotionCor-related task data class is
+``CryoEmMotionCorTaskData``. Both ``CtfTaskData`` and
+``CryoEmMotionCorTaskData`` extend the same base
+``CryoEmImageTaskData``.
+
+
+Common base — CryoEmImageTaskData (lines 112–121)
+-------------------------------------------------
+Every task-data class below inherits these:
+
+    image_id      : Optional[UUID]
+    image_name    : Optional[str]
+    image_path    : Optional[str]
+    engine_opts   : Dict[str, Any]   # opaque plugin-specific extras
+
+
+CtfTaskData (lines 137–150)              CryoEmMotionCorTaskData (lines 153–185)
+-------------------------------          ---------------------------------------
+inputFile           : str                inputFile          : str
+outputFile          : str = "ouput.mrc"  outputFile         : str = "output.mrc"
+pixelSize           : float = 1.0        PixSize            : Optional[float] = None
+accelerationVoltage : float = 300.0      kV                 : int = 300
+sphericalAberration : float = 2.70       Cs                 : int = 0
+amplitudeContrast   : float = 0.07       AmpCont            : float = 0.07
+sizeOfAmplitudeSpectrum : int = 512      —
+minimumResolution   : float = 30.0       —
+maximumResolution   : float = 5.0        —
+minimumDefocus      : float = 5000.0     —
+maximumDefocus      : float = 50000.0    —
+defocusSearchStep   : float = 100.0      —
+binning_x           : int = 1            FtBin              : float = 2
+
+— (CTF doesn't have these)               InMrc              : Optional[str]
+                                         InTiff             : Optional[str]
+                                         InEer              : Optional[str]
+                                         OutMrc             : str = "output.mrc"
+                                         Gain               : str
+                                         Dark               : Optional[str]
+                                         DefectFile         : Optional[str]
+                                         DefectMap          : Optional[str]
+                                         PatchesX           : int = 1
+                                         PatchesY           : int = 1
+                                         Iter               : int = 5
+                                         Tol                : float = 0.5
+                                         Bft                : int = 100
+                                         LogDir             : str = "."
+                                         Gpu                : str = "0"
+                                         FmDose             : Optional[float]
+                                         ExtPhase           : float = 0
+                                         SumRangeMinDose    : int = 3
+                                         SumRangeMaxDose    : int = 25
+                                         Group              : Optional[int]
+                                         RotGain            : int = 0
+                                         FlipGain           : int = 0
+                                         InvGain            : Optional[int]
+                                         FmIntFile          : Optional[str]
+                                         EerSampling        : int = 1
+
+
+Notes
+-----
+1. There is no ``MotionCorTaskData``. Searched the SDK,
+   CoreService/models, all plugins/*/core/model_dto.py — only
+   ``CryoEmMotionCorTaskData`` exists, and every layer that uses
+   it imports it from the SDK (re-exported in plugin model_dto
+   files).
+
+2. Naming style differs: CTF uses lowerCamelCase / snake_case
+   (``pixelSize``, ``binning_x``); MotionCor uses TitleCase that
+   mirrors the MotionCor3 binary's CLI flags (``PixSize``,
+   ``FtBin``, ``Gpu``). The MotionCor field names look like the
+   MotionCor3 binary's own argv shape.
+
+3. ``CtfTaskData.outputFile`` has the typo ``"ouput.mrc"`` (missing
+   ``t``) — minor latent bug, separate from this comparison.
+
+4. ``CryoEmMotionCorTaskData`` requires a ``Gain`` field (no default).
+   For input data without a gain reference, callers must pass an
+   empty string explicitly (``Gain=""``) — easy to miss in test
+   harnesses and dispatch code.
+
+5. The two classes overlap minimally — only the inherited base fields
+   plus ``inputFile``/``outputFile`` and the optical parameters
+   (``pixelSize``↔``PixSize``, ``kV``↔``accelerationVoltage``,
+   ``Cs``↔``sphericalAberration``, ``AmpCont``↔``amplitudeContrast``).
+   The actual algorithm-specific fields are disjoint, which is
+   correct: CTF estimation and motion correction take different
+   inputs.
