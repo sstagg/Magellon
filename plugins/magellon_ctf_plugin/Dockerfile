@@ -32,9 +32,12 @@ RUN pip install psycopg2-binary
 # Clear pip cache
 RUN rm -rf /root/.cache/pip/*
 
-# Install other Python dependencies
-COPY requirements.txt ./
-RUN pip install  --upgrade -r ./requirements.txt
+# Install other Python dependencies. Use requirements.docker.txt (which
+# pins the SDK to the bundled wheel) instead of requirements.txt (which
+# has an editable ../../magellon-sdk path that doesn't exist in-image).
+COPY requirements.docker.txt ./
+COPY magellon_sdk-0.1.0-py3-none-any.whl ./
+RUN pip install --upgrade -r ./requirements.docker.txt
 # Install debugpy
 #RUN pip install --upgrade pip
 RUN pip install debugpy
@@ -48,6 +51,7 @@ COPY appionlib ./appionlib
 COPY configs/settings_dev.yml ./configs/settings_dev.yml
 COPY configs/settings_prod.yml ./configs/settings_prod.yml
 COPY core ./core
+COPY plugin ./plugin
 COPY pyami ./pyami
 COPY service ./service
 COPY main.py ./main.py
