@@ -27,7 +27,11 @@ admin_broker_router = APIRouter()
     "/health",
     summary="Magellon-domain projection of RMQ state + plugin liveness",
 )
-async def get_broker_health() -> dict:
+def get_broker_health() -> dict:
+    # Plain `def` (not async) so FastAPI runs this on the threadpool.
+    # The service does a blocking urllib call to the RMQ Management API;
+    # an `async def` here would stall the entire event loop (and every
+    # websocket reconnect with it) for up to _HTTP_TIMEOUT_S per request.
     return broker_inspector_service.get_broker_health(app_settings.rabbitmq_settings)
 
 
