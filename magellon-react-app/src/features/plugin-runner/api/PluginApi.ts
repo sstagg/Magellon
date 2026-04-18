@@ -277,6 +277,87 @@ export const useInstallPluginArchive = () => {
     });
 };
 
+// ---------------------------------------------------------------------------
+// Plugin catalog (H3b): shared library of archives published by authors
+// ---------------------------------------------------------------------------
+
+export interface CatalogEntry {
+    catalog_id: string;
+    plugin_id: string;
+    name: string;
+    version: string;
+    category: string;
+    sdk_compat: string;
+    image_ref: string;
+    description: string;
+    developer: string;
+    license: string;
+    uploaded_at: string;
+    uploaded_by: string | null;
+}
+
+export interface CatalogBrowseResponse {
+    entries: CatalogEntry[];
+    categories: Record<string, number>;
+}
+
+export const browseCatalog = async (
+    params: { search?: string; category?: string } = {},
+): Promise<CatalogBrowseResponse> => {
+    const res = await api.get('/plugins/catalog', { params });
+    return res.data;
+};
+
+export const uploadCatalogArchive = async (file: File): Promise<CatalogEntry> => {
+    const form = new FormData();
+    form.append('archive', file);
+    const res = await api.post('/plugins/catalog', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data;
+};
+
+export const deleteCatalogEntry = async (catalogId: string) => {
+    const res = await api.delete(`/plugins/catalog/${catalogId}`);
+    return res.data;
+};
+
+export const installCatalogEntry = async (catalogId: string) => {
+    const res = await api.post(`/plugins/catalog/${catalogId}/install`);
+    return res.data;
+};
+
+export const useCatalog = (params: { search?: string; category?: string } = {}) =>
+    useQuery(
+        ['plugin-catalog', params.search ?? '', params.category ?? ''],
+        () => browseCatalog(params),
+        { keepPreviousData: true, staleTime: 10_000 },
+    );
+
+export const useUploadCatalog = () => {
+    const qc = useQueryClient();
+    return useMutation(uploadCatalogArchive, {
+        onSuccess: () => qc.invalidateQueries(['plugin-catalog']),
+    });
+};
+
+export const useDeleteCatalog = () => {
+    const qc = useQueryClient();
+    return useMutation(deleteCatalogEntry, {
+        onSuccess: () => qc.invalidateQueries(['plugin-catalog']),
+    });
+};
+
+export const useInstallCatalog = () => {
+    const qc = useQueryClient();
+    return useMutation(installCatalogEntry, {
+        onSuccess: () => {
+            qc.invalidateQueries(['plugins-installed']);
+            qc.invalidateQueries(['plugins']);
+        },
+    });
+};
+
 export const useStopInstalled = () => {
     const qc = useQueryClient();
     return useMutation(stopInstalled, {

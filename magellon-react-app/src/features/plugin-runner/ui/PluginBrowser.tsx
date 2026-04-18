@@ -16,7 +16,7 @@ import {
     Alert,
     Grid,
 } from '@mui/material';
-import { Download, Puzzle, Square, Star, Trash2 } from 'lucide-react';
+import { Package, Puzzle, Square, Star, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
     usePlugins,
@@ -27,6 +27,7 @@ import {
     useRemoveInstalled,
     PluginSummary,
 } from '../api/PluginApi.ts';
+import { BrowseCatalogDialog } from './BrowseCatalogDialog.tsx';
 import { InstallPluginDialog } from './InstallPluginDialog.tsx';
 
 interface PluginBrowserProps {
@@ -43,6 +44,7 @@ export const PluginBrowser: React.FC<PluginBrowserProps> = ({ onSelect }) => {
     const removeInstalled = useRemoveInstalled();
     const [query, setQuery] = useState('');
     const [installOpen, setInstallOpen] = useState(false);
+    const [browseOpen, setBrowseOpen] = useState(false);
 
     // Count per-category impls — a "Set as default" action only makes
     // sense when ≥2 impls exist for the category. For solo impls the
@@ -98,10 +100,10 @@ export const PluginBrowser: React.FC<PluginBrowserProps> = ({ onSelect }) => {
                 />
                 <Button
                     variant="contained"
-                    startIcon={<Download size={18} />}
-                    onClick={() => setInstallOpen(true)}
+                    startIcon={<Package size={18} />}
+                    onClick={() => setBrowseOpen(true)}
                 >
-                    Install plugin
+                    Browse plugins
                 </Button>
             </Stack>
 
@@ -259,6 +261,11 @@ export const PluginBrowser: React.FC<PluginBrowserProps> = ({ onSelect }) => {
                     })}
                 </Grid>
             )}
+            <BrowseCatalogDialog
+                open={browseOpen}
+                onClose={() => setBrowseOpen(false)}
+                onOpenInstallDialog={() => setInstallOpen(true)}
+            />
             <InstallPluginDialog open={installOpen} onClose={() => setInstallOpen(false)} />
         </Box>
     );

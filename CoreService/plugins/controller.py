@@ -29,6 +29,7 @@ from fastapi import APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel, Field
 
 from core.installed_plugins import get_installed_registry
+from core.plugin_catalog import get_catalog
 from core.plugin_docker_runner import (
     DockerNotAvailable,
     VolumeMount,
@@ -809,37 +810,9 @@ async def install_plugin(request: _InstallPluginRequest) -> Dict[str, Any]:
     return entry.to_dict()
 
 
-@plugins_router.post(
-    "/install/archive",
-    summary="Install a plugin from a .magplugin archive upload",
-)
-async def install_plugin_archive(
-    archive: UploadFile = File(..., description="A .magplugin zip archive."),
-) -> Dict[str, Any]:
-    """Accept a ``.magplugin`` archive, validate its manifest, spawn
-    the container using manifest defaults.
-
-    The archive is what ``magellon-sdk plugin pack`` produces: a zip
-    with a top-level ``plugin.yaml`` (see :mod:`magellon_sdk.archive`).
-    This endpoint is the Magellon-native complement to the raw
-    ``POST /install`` endpoint — the operator doesn't have to know the
-    image's env/volume/network shape because the plugin author
-    declared defaults in ``plugin.yaml``.
-
-    Validation order (fail-fast cheapest-first):
-    1. Archive is a zip containing ``plugin.yaml``.
-    2. Manifest parses + fields validate.
-    3. ``sdk_compat`` pin includes this CoreService's SDK version.
-    4. Docker daemon is reachable.
-    5. ``docker run`` succeeds.
-    """
-    # Read the whole upload — archives are tiny (manifest + maybe a
-    # README). If they stop being tiny we'll add a size limit here.
-    try:
-        raw = await archive.read()
-    finally:
-        await archive.close()
-
+def _parse_archive_bytes(raw: bytes):
+    """Extract + validate plugin.yaml from archive bytes. Raises the
+    right HTTPExceptions so callers can just propagate."""
     try:
         with zipfile.ZipFile(io.BytesIO(raw)) as z:
             try:
@@ -855,12 +828,14 @@ async def install_plugin_archive(
         raise HTTPException(status_code=422, detail="archive is not a valid zip file")
 
     try:
-        manifest = load_manifest_bytes(manifest_bytes)
+        return load_manifest_bytes(manifest_bytes)
     except SchemaVersionError as exc:
         raise HTTPException(status_code=422, detail=f"unsupported schema_version: {exc}")
     except Exception as exc:  # noqa: BLE001 — surface pydantic + yaml errors as-is
         raise HTTPException(status_code=422, detail=f"invalid plugin.yaml: {exc}")
 
+
+def _enforce_sdk_compat(manifest) -> None:
     try:
         check_sdk_compat(manifest.sdk_compat, sdk_version)
     except SdkCompatError as exc:
@@ -872,6 +847,14 @@ async def install_plugin_archive(
             detail=f"plugin incompatible with this CoreService (SDK {sdk_version}): {exc}",
         )
 
+
+def _install_from_manifest(manifest) -> Dict[str, Any]:
+    """Docker-run the image declared in ``manifest`` with its defaults.
+
+    Shared by both the raw-archive upload path and the catalog-install
+    path — the "spawn the container + record the install" behaviour
+    is identical once we have a validated manifest in hand.
+    """
     _ensure_docker()
     runner = get_docker_runner()
     volumes = [
@@ -900,6 +883,114 @@ async def install_plugin_archive(
         "category": manifest.category,
     }
     return response
+
+
+@plugins_router.post(
+    "/install/archive",
+    summary="Install a plugin from a .magplugin archive upload",
+)
+async def install_plugin_archive(
+    archive: UploadFile = File(..., description="A .magplugin zip archive."),
+) -> Dict[str, Any]:
+    """Accept a ``.magplugin`` archive, validate its manifest, spawn
+    the container using manifest defaults.
+
+    The archive is what ``magellon-sdk plugin pack`` produces: a zip
+    with a top-level ``plugin.yaml`` (see :mod:`magellon_sdk.archive`).
+    """
+    try:
+        raw = await archive.read()
+    finally:
+        await archive.close()
+
+    manifest = _parse_archive_bytes(raw)
+    _enforce_sdk_compat(manifest)
+    return _install_from_manifest(manifest)
+
+
+# ---------------------------------------------------------------------------
+# Plugin catalog (H3b) — filesystem-backed store for uploaded archives
+# ---------------------------------------------------------------------------
+#
+# Upload is immediate-publish — no human review gate. See
+# core/plugin_catalog.py top-of-module note for where that lives when
+# we add it. Trust model: same as /install. Gate behind admin auth
+# before public exposure.
+
+
+class _CatalogInstallResponse(BaseModel):
+    """POST /catalog/{catalog_id}/install response shape."""
+    install: Dict[str, Any]
+    catalog_id: str
+
+
+@plugins_router.get("/catalog", summary="Browse the plugin catalog")
+async def browse_catalog(
+    search: Optional[str] = None,
+    category: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Return catalog entries with optional substring + category filter.
+
+    ``categories`` is included so the UI can render a filter bar showing
+    only categories that actually have entries — avoids dead chips.
+    """
+    cat = get_catalog()
+    entries = [e.to_dict() for e in cat.search(query=search, category=category)]
+    return {"entries": entries, "categories": cat.categories()}
+
+
+@plugins_router.post("/catalog", summary="Upload a plugin archive to the catalog")
+async def upload_catalog_entry(
+    archive: UploadFile = File(..., description="A .magplugin zip archive."),
+) -> Dict[str, Any]:
+    """Publish a ``.magplugin`` archive to the catalog.
+
+    Validates the manifest up front; SDK-compat mismatch is a warning
+    here, not a hard fail — the catalog may host archives targeting
+    future SDK versions, and the install endpoint enforces compat at
+    install time.
+    """
+    try:
+        raw = await archive.read()
+    finally:
+        await archive.close()
+
+    manifest = _parse_archive_bytes(raw)
+    # Do NOT _enforce_sdk_compat here — an archive incompatible with
+    # today's CoreService may still be useful to catalog for a future
+    # upgrade. Compat is checked at install time instead.
+    entry = get_catalog().upload(archive_bytes=raw, manifest=manifest)
+    return {"catalog_id": entry.catalog_id, **entry.to_dict()}
+
+
+@plugins_router.delete(
+    "/catalog/{catalog_id}",
+    summary="Remove an entry from the catalog",
+)
+async def delete_catalog_entry(catalog_id: str) -> Dict[str, Any]:
+    entry = get_catalog().remove(catalog_id)
+    if entry is None:
+        raise HTTPException(status_code=404, detail=f"catalog entry {catalog_id} not found")
+    return entry.to_dict()
+
+
+@plugins_router.post(
+    "/catalog/{catalog_id}/install",
+    summary="Install a plugin from a catalog entry",
+)
+async def install_catalog_entry(catalog_id: str) -> _CatalogInstallResponse:
+    """Re-use the upload-path install logic against the stored archive.
+
+    Compat is enforced here (not at upload time) so catalog browsers
+    see the entry even when it targets a future SDK — they just can't
+    install it until CoreService upgrades.
+    """
+    entry = get_catalog().get(catalog_id)
+    if entry is None:
+        raise HTTPException(status_code=404, detail=f"catalog entry {catalog_id} not found")
+    _enforce_sdk_compat(entry.manifest)
+    install_response = _install_from_manifest(entry.manifest)
+    return _CatalogInstallResponse(install=install_response, catalog_id=catalog_id)
 
 
 @plugins_router.get("/installed", summary="List installed plugin containers")
