@@ -1,9 +1,15 @@
-"""Tests for the P9 cancellation primitives.
+"""Tests for the P9 + MB6.1 cancellation primitives.
 
 The service is two unrelated functions that happen to share a file
 because operators reach for them together. We test them apart and
-mock the boundary in each case (pika for purge, the docker SDK for
-kill) — neither external dependency is available in CI.
+mock the boundary in each case (the bus for purge, the docker SDK
+for kill) — neither external dependency is available in CI.
+
+Post-MB6.1: ``purge_queue`` delegates to ``bus.tasks.purge`` instead
+of hand-rolling a pika connection. Connection lifecycle, passive-
+declare safety check, and error propagation are all the binder's job
+— the tests here pin only what the service owns: route translation,
+logging, and return-value passthrough.
 """
 from __future__ import annotations
 
@@ -21,7 +27,13 @@ from services import cancellation_service
 # ---------------------------------------------------------------------------
 
 class _FakeRmqSettings:
-    """Minimum duck-type the service needs from rabbitmq_settings."""
+    """Minimum duck-type the service used to need from rabbitmq_settings.
+
+    Retained as the first positional arg on purge_queue / purge_queues
+    for backwards compatibility with existing callers; MB6.1 no longer
+    consults it (the bus was configured at startup from the same
+    settings). Future PR can drop the argument once all callers are
+    updated."""
     HOST_NAME = "localhost"
     USER_NAME = "rabbit"
     PASSWORD = "behd1d2"
@@ -32,74 +44,50 @@ def rmq_settings():
     return _FakeRmqSettings()
 
 
-def _make_pika_connection(message_count: int):
-    """Build a fake pika BlockingConnection whose passive declare
-    returns ``message_count``. Returns (connection, channel) so the
-    test can assert on either."""
-    method_frame = MagicMock()
-    method_frame.method.message_count = message_count
-
-    channel = MagicMock()
-    channel.queue_declare.return_value = method_frame
-
-    connection = MagicMock()
-    connection.channel.return_value = channel
-    connection.is_closed = False
-    return connection, channel
+def _bus_with_purge(return_value=None, *, side_effect=None):
+    """Build a mock bus whose ``tasks.purge(route)`` returns the given
+    value (or raises the given exception). Returns the bus so the test
+    can also inspect which route the service registered."""
+    bus = MagicMock()
+    if side_effect is not None:
+        bus.tasks.purge.side_effect = side_effect
+    else:
+        bus.tasks.purge.return_value = return_value
+    return bus
 
 
 # ---------------------------------------------------------------------------
 # purge_queue
 # ---------------------------------------------------------------------------
 
-def test_purge_queue_returns_message_count_and_purges(rmq_settings):
-    """Happy path: passive declare reports N pending, purge runs, and
-    the function returns N. The count is what the operator audit log
-    records as 'cancelled N tasks', so it must be the pre-purge value
+def test_purge_queue_delegates_to_bus_and_returns_count(rmq_settings):
+    """Happy path: the service translates the queue name into a
+    TaskRoute, calls bus.tasks.purge, and returns whatever count the
+    binder reports. The count is what the operator audit log records
+    as 'cancelled N tasks', so it must be the binder's pre-purge value
     not a post-purge re-read."""
-    connection, channel = _make_pika_connection(message_count=7)
-    with patch.object(cancellation_service.pika, "BlockingConnection",
-                      return_value=connection) as mock_conn:
+    bus = _bus_with_purge(return_value=7)
+    with patch.object(cancellation_service, "get_bus", return_value=bus):
         result = cancellation_service.purge_queue(rmq_settings, "ctf_tasks_queue")
 
     assert result == 7
-    channel.queue_declare.assert_called_once_with(
-        queue="ctf_tasks_queue", passive=True
-    )
-    channel.queue_purge.assert_called_once_with(queue="ctf_tasks_queue")
-    mock_conn.assert_called_once()
-    connection.close.assert_called_once()
+    # Route translation: queue name → TaskRoute.named(...)
+    assert bus.tasks.purge.call_count == 1
+    route_arg = bus.tasks.purge.call_args.args[0]
+    assert route_arg.subject == "ctf_tasks_queue"
 
 
-def test_purge_queue_raises_when_queue_missing(rmq_settings):
-    """passive=True is the contract — declaring a non-existent queue
-    must surface as an error so a typo'd cancel doesn't silently
-    pretend success."""
-    connection, channel = _make_pika_connection(message_count=0)
-    channel.queue_declare.side_effect = RuntimeError("NOT_FOUND - no queue 'ghost'")
-
-    with patch.object(cancellation_service.pika, "BlockingConnection",
-                      return_value=connection):
+def test_purge_queue_propagates_bus_errors(rmq_settings):
+    """Binder errors (queue doesn't exist, broker unreachable, channel
+    reset mid-purge) must bubble up — silently succeeding would let a
+    typo'd cancel or a broker outage masquerade as 'cancelled 0 tasks'.
+    Pre-MB6.1 the service hand-rolled a pika connection and had to
+    manage its close in a finally block; post-MB6.1 the binder owns
+    that."""
+    bus = _bus_with_purge(side_effect=RuntimeError("NOT_FOUND - no queue 'ghost'"))
+    with patch.object(cancellation_service, "get_bus", return_value=bus):
         with pytest.raises(RuntimeError, match="NOT_FOUND"):
             cancellation_service.purge_queue(rmq_settings, "ghost")
-
-    # Connection should still be closed (finally block).
-    connection.close.assert_called_once()
-
-
-def test_purge_queue_closes_connection_on_purge_failure(rmq_settings):
-    """If queue_purge itself raises, the finally must still run —
-    leaking pika connections in an admin path would eventually starve
-    the broker."""
-    connection, channel = _make_pika_connection(message_count=3)
-    channel.queue_purge.side_effect = RuntimeError("broker hiccup")
-
-    with patch.object(cancellation_service.pika, "BlockingConnection",
-                      return_value=connection):
-        with pytest.raises(RuntimeError, match="broker hiccup"):
-            cancellation_service.purge_queue(rmq_settings, "ctf_tasks_queue")
-
-    connection.close.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

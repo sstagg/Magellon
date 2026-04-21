@@ -1,4 +1,4 @@
-"""Plugin / job cancellation primitives (P9).
+"""Plugin / job cancellation primitives (P9 + MB6.1).
 
 Two operations, paired because together they cover the realistic
 cancel-everything story:
@@ -18,13 +18,18 @@ cancel-everything story:
 Both are deliberately thin around the underlying client so the FastAPI
 controller can stay an authz + log layer with no broker / docker
 imports of its own.
+
+Post-MB6.1: :func:`purge_queue` delegates to the installed MessageBus
+(``bus.tasks.purge``). The pika connection, channel lifecycle, and
+passive-declare safety check are all the binder's responsibility.
 """
 from __future__ import annotations
 
 import logging
 from typing import Any, Dict, List, Optional
 
-import pika
+from magellon_sdk.bus import get_bus
+from magellon_sdk.bus.routes import TaskRoute
 
 logger = logging.getLogger(__name__)
 
@@ -37,32 +42,21 @@ def purge_queue(rabbitmq_settings: Any, queue_name: str) -> int:
     """Drop every pending message from ``queue_name``.
 
     Returns the count purged so callers can log "cancelled N tasks".
-    Opens a short-lived connection — the operation is rare enough that
-    pooling would be premature, and a fresh connection means a stale
-    cached channel can never confuse the result.
+
+    Delegates to ``bus.tasks.purge`` — the binder handles the
+    connection, the passive-declare safety check ("fail if the queue
+    doesn't exist" so typo'd cancels don't silently succeed), and the
+    purge itself.
+
+    The ``rabbitmq_settings`` argument is retained for backwards
+    compatibility with the FastAPI controller; it is no longer
+    consulted — the bus was already configured at startup from the
+    same settings. Future PR can drop the argument once callers no
+    longer pass it.
     """
-    credentials = pika.PlainCredentials(
-        rabbitmq_settings.USER_NAME, rabbitmq_settings.PASSWORD
-    )
-    params = pika.ConnectionParameters(
-        host=rabbitmq_settings.HOST_NAME,
-        credentials=credentials,
-        heartbeat=30,
-    )
-    connection = pika.BlockingConnection(params)
-    try:
-        channel = connection.channel()
-        # passive=True means "fail loudly if the queue doesn't exist"
-        # — an operator cancelling a queue we never declared is a real
-        # bug worth surfacing, not a no-op.
-        method = channel.queue_declare(queue=queue_name, passive=True)
-        message_count = method.method.message_count
-        channel.queue_purge(queue=queue_name)
-        logger.info("purge_queue: %s → %d message(s) discarded", queue_name, message_count)
-        return message_count
-    finally:
-        if not connection.is_closed:
-            connection.close()
+    count = get_bus().tasks.purge(TaskRoute.named(queue_name))
+    logger.info("purge_queue: %s → %d message(s) discarded", queue_name, count)
+    return count
 
 
 def purge_queues(rabbitmq_settings: Any, queue_names: List[str]) -> Dict[str, int]:
@@ -71,8 +65,8 @@ def purge_queues(rabbitmq_settings: Any, queue_names: List[str]) -> Dict[str, in
     Returns ``{queue_name: count_purged}`` — partial success is fine
     (one missing queue must not block the others), so individual
     failures are caught and recorded as ``-1`` rather than raised.
-    A real failure (e.g., broker unreachable) still propagates from
-    the connection open, which is what we want.
+    A real failure (e.g., bus unreachable) still propagates from the
+    first call, which is what we want.
     """
     out: Dict[str, int] = {}
     for q in queue_names:
