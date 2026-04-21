@@ -6,6 +6,12 @@ of the Magellon bus will typically want. They do not import ``pika``
 or any other transport SDK — they take a :class:`MessageBus` by
 argument and delegate to ``bus.tasks.consumer`` / ``bus.events.subscribe``.
 """
+from magellon_sdk.bus.services.config_publisher import (
+    get_config_publisher,
+    push_broadcast,
+    push_to_category,
+    reset_publisher,
+)
 from magellon_sdk.bus.services.liveness_registry import (
     LivenessListener,
     PluginLivenessEntry,
@@ -32,7 +38,11 @@ __all__ = [
     "PluginLivenessRegistry",
     "ResultHandler",
     "StepEventForwarder",
+    "get_config_publisher",
     "get_registry",
+    "push_broadcast",
+    "push_to_category",
+    "reset_publisher",
     "result_consumer_engine",
     "start_liveness_listener",
     "start_result_consumers",

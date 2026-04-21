@@ -1,45 +1,24 @@
-"""CoreService-side wrapper for broker-based plugin config (P7).
+"""CoreService facade for ``magellon_sdk.bus.services.config_publisher``.
 
-Thin facade on :class:`magellon_sdk.config_broker.ConfigPublisher` that
-takes the global ``rabbitmq_settings`` block off ``app_settings`` so
-admin endpoints (or background tasks that need to push config — e.g.,
-a config file change watcher) don't have to know the wiring.
-
-Kept separate from the SDK class so we can:
-
-  - Add CoreService-only concerns (authz logging, audit trail) without
-    polluting the plugin SDK.
-  - Inject a per-process singleton instead of opening a new RMQ
-    connection per push.
+MB5.4c moved the singleton + reset helper into the SDK. The push
+wrappers stay here because they emit a CoreService-specific operator
+log line and because keeping ``push_*`` local preserves the
+``patch.object(svc, "get_config_publisher")`` test pattern — the
+helpers resolve ``get_config_publisher`` via this module's namespace,
+so test fixtures that patch on the module can intercept.
 """
 from __future__ import annotations
 
 import logging
-import threading
 from typing import Any, Dict, Optional
 
+from magellon_sdk.bus.services.config_publisher import (
+    get_config_publisher,
+    reset_publisher,
+)
 from magellon_sdk.categories.contract import CategoryContract
-from magellon_sdk.config_broker import ConfigPublisher
 
 logger = logging.getLogger(__name__)
-
-
-_PUBLISHER: Optional[ConfigPublisher] = None
-_LOCK = threading.Lock()
-
-
-def get_config_publisher(rabbitmq_settings: Any) -> ConfigPublisher:
-    """Return the process-wide config publisher.
-
-    Lazily constructed so importing this module doesn't require a
-    broker — matters for tests and for `alembic` runs that import the
-    package transitively.
-    """
-    global _PUBLISHER
-    with _LOCK:
-        if _PUBLISHER is None:
-            _PUBLISHER = ConfigPublisher(rabbitmq_settings)
-        return _PUBLISHER
 
 
 def push_to_category(
@@ -72,18 +51,6 @@ def push_broadcast(
         sorted(settings.keys()),
         version,
     )
-
-
-def reset_publisher() -> None:
-    """Test helper — drop the cached publisher between tests."""
-    global _PUBLISHER
-    with _LOCK:
-        if _PUBLISHER is not None:
-            try:
-                _PUBLISHER.close()
-            except Exception:
-                pass
-        _PUBLISHER = None
 
 
 __all__ = [
