@@ -68,6 +68,12 @@ class BaseImporter(ABC):
 
         self.mrc_service = MrcImageService()
 
+        # Optional pre-assigned ImageJob.oid set by callers that want to
+        # return the job_id synchronously before ``process()`` runs
+        # (e.g. the FastAPI endpoint scheduling import as a background
+        # task). When None, ``process()`` generates its own UUID.
+        self.pre_assigned_job_id: Optional[uuid.UUID] = None
+
     def setup(self, input_data: BaseModel, db_session: Session) -> None:
         """Initialize the importer with basic parameters"""
         self.params = input_data

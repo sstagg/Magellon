@@ -1,11 +1,12 @@
 import os
 import logging
+import uuid
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from sqlalchemy.orm import Session
 
-from database import get_db
+from database import get_db, session_local
 from models.pydantic_models import MagellonImportJobDto, EpuImportJobDto, SerialEMImportJobDto
 from models.sqlalchemy_models import ImageJob
 from services.importers.MagellonImporter import MagellonImporter
@@ -14,6 +15,50 @@ from dependencies.permissions import require_permission
 
 import_router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def _run_magellon_import(
+    request: MagellonImportJobDto,
+    job_id: UUID,
+    user_id: UUID,
+) -> None:
+    """Run MagellonImporter on its own DB session, out of the request lifecycle.
+
+    Scheduled by the ``/magellon-import`` endpoint via FastAPI's
+    ``BackgroundTasks``. The request-scoped ``Session`` from ``get_db``
+    has already been closed by the time this runs, so a fresh session
+    is opened from ``session_local`` and closed deterministically.
+
+    Exceptions are logged but never re-raised — the HTTP response has
+    already been sent; the failure surfaces on the job row (status_id=5)
+    and in the server log.
+    """
+    db = session_local()
+    try:
+        importer = MagellonImporter()
+        importer.pre_assigned_job_id = job_id
+        importer.setup(request, db)
+        result = importer.process(db)
+        if result.get("status") == "failure":
+            logger.error(
+                "Magellon import job %s (user %s) failed: %s",
+                job_id, user_id, result.get("message"),
+            )
+        else:
+            logger.info(
+                "Magellon import job %s (user %s) completed: session=%s",
+                job_id, user_id, result.get("session_name"),
+            )
+    except Exception:  # noqa: BLE001 — background task must not propagate
+        logger.exception(
+            "Magellon import job %s (user %s) raised unhandled exception",
+            job_id, user_id,
+        )
+    finally:
+        try:
+            db.close()
+        except Exception:
+            logger.exception("Failed to close import background db session")
 
 
 @import_router.get("/validate-magellon-directory")
@@ -68,15 +113,22 @@ def validate_directory(
 @import_router.post("/magellon-import")
 def import_directory(
     request: MagellonImportJobDto,
-    db_session: Session = Depends(get_db),
+    background_tasks: BackgroundTasks,
     _: None = Depends(require_permission('msession', 'create')),  # ✅ Permission check
     user_id: UUID = Depends(get_current_user_id)  # ✅ Audit trail
 ):
     """
-    Import a session from a directory containing session.json and image files.
+    Schedule import of a session from a directory containing session.json and image files.
 
     **Requires:** 'create' permission on 'msession' resource
     **Security:** Only users with session creation permission can import data
+
+    The endpoint returns immediately with a generated ``job_id``; the
+    full import runs in a FastAPI background task. Progress is surfaced
+    via the existing Socket.IO channel; the job row can be polled via
+    ``GET /job/{job_id}``. On a large session there is a brief window
+    between the 202-style response and the first ImageJob row insert —
+    the status endpoint will 404 during that window.
 
     Directory structure should be:
     /source_directory
@@ -91,38 +143,25 @@ def import_directory(
             ...
     """
     try:
-        logger.warning(f"User {user_id} importing Magellon data from: {request.source_dir}")
-        # Validate source directory exists
+        logger.info(f"User {user_id} scheduling Magellon import from: {request.source_dir}")
+        # Validate source directory exists — fail fast before scheduling.
         if not os.path.exists(request.source_dir):
-            raise HTTPException( status_code=404, detail=f"Source directory not found: {request.source_dir}"  )
+            raise HTTPException(status_code=404, detail=f"Source directory not found: {request.source_dir}")
 
-        # Initialize and run importer
-        importer = MagellonImporter()
-        importer.setup(request, db_session)
-        result = importer.process(db_session)
+        job_id = uuid.uuid4()
+        background_tasks.add_task(_run_magellon_import, request, job_id, user_id)
 
-        if result.get('status') == 'failure':
-            raise HTTPException(status_code=500, detail=result.get('message', 'Import failed')  )
-
-        logger.info(f"User {user_id} completed Magellon import: {result.get('session_name')}")
         return {
-            "message": "Session imported successfully",
-            "session_name": result.get('session_name'),
-            # "target_directory": request.target_directory,
-            "job_id": result.get('job_id'),
-            "imported_by": str(user_id)
+            "message": "Import scheduled",
+            "job_id": str(job_id),
+            "status": "scheduled",
+            "imported_by": str(user_id),
         }
 
     except HTTPException:
         raise
-    except FileNotFoundError as e:
-        logger.error(f"Import failed for user {user_id}: File not found - {str(e)}")
-        raise HTTPException(status_code=404, detail=str(e))
-    except ValueError as e:
-        logger.error(f"Import failed for user {user_id}: Invalid value - {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Error during import by user {user_id}: {str(e)}", exc_info=True)
+        logger.error(f"Error scheduling import by user {user_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

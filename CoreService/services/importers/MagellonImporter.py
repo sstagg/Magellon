@@ -75,9 +75,12 @@ class MagellonImporter(BaseImporter):
             if os.path.exists(session_dir):
                 return {'status': 'failure',"message": f"this project already exists: {session_dir}"}
 
-            # Create job record
+            # Create job record. Honour a pre-assigned oid if the caller
+            # set one (see BaseImporter.pre_assigned_job_id) — the import
+            # controller uses this so it can return the job_id to the
+            # client before the background task runs.
             job = ImageJob(
-                oid=uuid.uuid4(),
+                oid=self.pre_assigned_job_id or uuid.uuid4(),
                 name=f"Import: {self.db_msession.name}",
                 description=f"Import job for session: {self.db_msession.name}",
                 created_date=datetime.now(),
