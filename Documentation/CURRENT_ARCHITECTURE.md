@@ -215,9 +215,21 @@ On each result it:
    Failures route through the same helper inside the error handler, so
    a plugin crash surfaces as `status_id=3` instead of a hung row.
 
-The out-of-tree `magellon_result_processor` plugin still exists in the
-repo but is no longer imported by CoreService — left as archaeology
-until deletion in a follow-up cleanup.
+The out-of-tree `magellon_result_processor` plugin **is still built
+and started by default** (`Docker/docker-compose.yml:167`). Its
+`main.py` also registers a `bus.tasks.consumer` per `OUT_QUEUES`
+entry — and its `configs/settings_prod.yml:31–39` lists the same
+`ctf_out_tasks_queue` + `motioncor_out_tasks_queue` CoreService
+subscribes to. RabbitMQ round-robins deliveries between the two
+consumers: ~50% of CTF and MotionCor results are projected by
+CoreService's newer `TaskOutputProcessor` (with `_advance_task_state`),
+~50% by the plugin container's older copy at
+`plugins/magellon_result_processor/services/task_output_processor.py`.
+FFT is unaffected — only CoreService lists `fft_out_tasks_queue`.
+The intent per `CoreService/main.py:417–422` was either/or, not both;
+the compose stack and plugin settings were never updated to enforce
+that. Tracked as §8 #19 and resolution PR MB4.C in
+`IMPLEMENTATION_PLAN.md`.
 
 **Client visibility.** Live. External plugins emit
 `magellon.step.*` CloudEvents via
@@ -388,6 +400,7 @@ listed in §3.3.
 | 16 | No operator hard-stop for runaway plugin work | **Resolved (P9).** `POST /cancellation/queues/purge` drains pending tasks from one or more category queues; `POST /cancellation/containers/{name}/kill` issues `docker kill` on a stuck plugin replica. Cooperative cancel via `JobManager.request_cancel` remains the in-flight path. |
 | 17 | Broker-based discovery / liveness (replaces Consul) | **Landed (P6).** Plugins emit one `magellon.plugins.announce.*` on boot and a `magellon.plugins.heartbeat.*` every N seconds via `DiscoveryPublisher` + `HeartbeatLoop`. CoreService listens with `core.plugin_liveness_registry.start_liveness_listener` and exposes the registry to the plugin discovery endpoints. |
 | 18 | Provenance on results | **Resolved (P4).** `PluginBrokerRunner` auto-injects plugin manifest (id, name, version, schema_version, container hostname, host) into every `TaskResultDto.provenance` after the result_factory builds the wire shape; CoreService records it for audit. |
+| 19 | Result-processor plugin double-consumes with in-process consumer | **Surfaced 2026-04-21.** `magellon_result_plugin` at `Docker/docker-compose.yml:167` runs by default with its `OUT_QUEUES` (`plugins/magellon_result_processor/configs/settings_prod.yml:31`) overlapping CoreService's (`CoreService/configs/app_settings_prod.yaml:61`). RMQ round-robins each CTF/MotionCor result between the two consumers; the plugin's copy of `TaskOutputProcessor` may be missing the P4 `_advance_task_state` fix, so some task rows silently stay at `pending`. Resolution tracked as PR MB4.C in `IMPLEMENTATION_PLAN.md`; simplest fix is blanking the plugin's `OUT_QUEUES`. |
 
 ---
 
