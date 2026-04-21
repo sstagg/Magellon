@@ -18,12 +18,20 @@ from magellon_sdk.bus.services.result_consumer import (
     result_consumer_engine,
     start_result_consumers,
 )
+from magellon_sdk.bus.services.step_event_forwarder import (
+    BusStepEventConsumer,
+    DownstreamHandler,
+    StepEventForwarder,
+)
 
 __all__ = [
+    "BusStepEventConsumer",
+    "DownstreamHandler",
     "LivenessListener",
     "PluginLivenessEntry",
     "PluginLivenessRegistry",
     "ResultHandler",
+    "StepEventForwarder",
     "get_registry",
     "result_consumer_engine",
     "start_liveness_listener",
