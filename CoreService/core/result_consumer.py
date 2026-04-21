@@ -1,20 +1,30 @@
-"""In-process consumer for plugin result routes (P3 + MB4.5).
+"""CoreService's in-process result-consumer wiring (P3 + MB4.5 + MB4.B).
 
-Subscribes to every subject listed in ``app_settings.rabbitmq_settings.OUT_QUEUES``
-via the MessageBus and projects each :class:`TaskResultDto` through
-:class:`TaskOutputProcessor`, which writes the per-task DB rows on a
-fresh SQLAlchemy session.
+Thin wrapper over :mod:`magellon_sdk.bus.services.result_consumer`. This
+module owns the CoreService-specific glue:
 
-MB4.5 replaced the direct pika loop with ``bus.tasks.consumer``:
-- Connection / reconnect / ack / nack-to-DLQ are the binder's job.
-- Decoding is the binder's job (body → Envelope).
-- This module only owns: what to subscribe to, what handler to run.
+- Resolves which subjects to subscribe to from
+  ``app_settings.rabbitmq_settings.OUT_QUEUES``.
+- Decodes each bus :class:`Envelope` into a :class:`TaskResultDto`
+  and projects it through :class:`TaskOutputProcessor`, which writes
+  into CoreService's MySQL on a fresh SQLAlchemy session.
+- Classifies failures — malformed payloads and projection errors both
+  become :class:`PermanentError` so the binder routes them to the DLQ
+  rather than requeuing a poison message.
 
-Failures are isolated per delivery so one bad message can't take the
-loop down. Decode errors propagate to the binder as exceptions → the
-classifier routes them to DLQ. Processing errors (DB writes etc.)
-also DLQ — a row that failed mid-projection would just fail again
-on retry.
+The actual bus iteration + ``bus.tasks.consumer`` calls + handle
+lifecycle live in the SDK — this module delegates via
+``_sdk_start_result_consumers`` / ``_sdk_result_consumer_engine``.
+MB4.B relocated that logic so the same code paths back CoreService's
+in-process consumer and any self-hosted processor that wants to ride
+the bus.
+
+Dormancy note: if ``OUT_QUEUES`` is empty this module returns early
+without touching the bus at all. That's the safety valve for
+deployments that still run the out-of-tree
+``magellon_result_processor`` plugin — populating ``OUT_QUEUES`` in
+both places causes a round-robin double-consume (see MB4.C in
+``IMPLEMENTATION_PLAN.md``).
 """
 from __future__ import annotations
 
@@ -27,6 +37,10 @@ from config import app_settings
 from database import session_local as default_session_local
 from magellon_sdk.bus import ConsumerHandle, get_bus
 from magellon_sdk.bus.routes import TaskRoute
+from magellon_sdk.bus.services.result_consumer import (
+    result_consumer_engine as _sdk_result_consumer_engine,
+    start_result_consumers as _sdk_start_result_consumers,
+)
 from magellon_sdk.envelope import Envelope
 from magellon_sdk.errors import PermanentError
 from models.plugins_models import TaskResultDto
@@ -60,14 +74,22 @@ def _make_handler(session_factory: sessionmaker):
             # processor.process() closes the session in its finally block.
         except Exception as exc:
             # The processor already commits/rolls-back its own session.
-            # We re-raise so the binder DLQs this delivery via classify:
+            # Re-raise so the binder DLQs this delivery via classify —
             # a write that died mid-projection would just fail again on
-            # the same row, and the JobManager status writer will mark
-            # the task FAILED via the processor's best-effort path
-            # before we get here.
+            # the same row, and the processor's best-effort path already
+            # marked the task FAILED before we get here.
             raise PermanentError(f"processor failed: {exc}") from exc
 
     return _on_envelope
+
+
+def _routes_from_out_queues() -> List[TaskRoute]:
+    """Translate each ``OUT_QUEUES`` entry into a :class:`TaskRoute`
+    named for the legacy queue name (MB3's ``legacy_queue_map`` path)."""
+    out_queues = app_settings.rabbitmq_settings.OUT_QUEUES
+    if not out_queues:
+        return []
+    return [TaskRoute.named(q.name) for q in out_queues]
 
 
 def start_result_consumers(
@@ -76,55 +98,46 @@ def start_result_consumers(
     """Register one bus consumer per ``OUT_QUEUES`` entry.
 
     Returns the list of consumer handles so the caller (startup code)
-    can close them cleanly on shutdown. Idempotent in practice —
-    calling twice produces duplicate consumers, which would double-
-    process each delivery. ``main.py`` should call this once.
+    can close them cleanly on shutdown. Returns an empty list if
+    ``OUT_QUEUES`` is empty (no-op, dormant).
 
-    Returns an empty list if ``OUT_QUEUES`` is empty (no-op).
+    Idempotent in practice — calling twice produces duplicate consumers,
+    which would double-process each delivery. ``main.py`` calls this once.
     """
-    factory = session_factory or default_session_local
-    out_queues = app_settings.rabbitmq_settings.OUT_QUEUES
-
-    if not out_queues:
+    routes = _routes_from_out_queues()
+    if not routes:
         logger.info(
             "result_consumer: OUT_QUEUES is empty — staying dormant. "
             "Add queues to rabbitmq_settings.OUT_QUEUES to enable."
         )
         return []
 
-    handler = _make_handler(factory)
-    bus = get_bus()
-    handles: List[ConsumerHandle] = []
-    for q in out_queues:
-        route = TaskRoute.named(q.name)
-        handles.append(bus.tasks.consumer(route, handler))
-        logger.info("result_consumer: subscribed to %s", q.name)
-    return handles
+    handler = _make_handler(session_factory or default_session_local)
+    return _sdk_start_result_consumers(routes, handler, get_bus())
 
 
-# Backward-compat shim: the old module exposed ``result_consumer_engine``
-# as a blocking loop spawned on a daemon thread. Post-MB4.5 the bus
-# owns the loop — consumers run on binder-managed threads. This
-# function registers consumers, waits on the first handle's
-# ``run_until_shutdown`` (which blocks until the binder is closed or
-# all handles are closed), and returns. Keeps ``main.py`` working
-# without code changes at the caller site.
 def result_consumer_engine(
     session_factory: Optional[sessionmaker] = None,
 ) -> None:
-    handles = start_result_consumers(session_factory)
-    if not handles:
+    """Blocking variant for ``threading.Thread(target=...)`` callers.
+
+    Registers consumers and blocks on the first handle's
+    ``run_until_shutdown`` until the bus closes or KeyboardInterrupt.
+    Returns immediately (dormant) when ``OUT_QUEUES`` is empty —
+    notably *without* touching the bus, so deployments that haven't
+    migrated off the out-of-tree result_processor plugin aren't
+    disturbed.
+    """
+    routes = _routes_from_out_queues()
+    if not routes:
+        logger.info(
+            "result_consumer: OUT_QUEUES is empty — staying dormant. "
+            "Add queues to rabbitmq_settings.OUT_QUEUES to enable."
+        )
         return
-    try:
-        handles[0].run_until_shutdown()
-    except KeyboardInterrupt:
-        logger.info("result_consumer: interrupted, exiting")
-    finally:
-        for h in handles:
-            try:
-                h.close()
-            except Exception:
-                pass
+
+    handler = _make_handler(session_factory or default_session_local)
+    _sdk_result_consumer_engine(routes, handler, get_bus())
 
 
 __all__ = ["result_consumer_engine", "start_result_consumers"]
