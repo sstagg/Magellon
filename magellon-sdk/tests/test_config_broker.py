@@ -63,39 +63,47 @@ def test_config_update_version_optional_for_simple_pushes():
 
 def test_publisher_routes_category_push_to_category_subject():
     """A CTF-only setting must not land on the broadcast subject —
-    that would push CTF knobs onto motioncor plugins."""
-    pub = ConfigPublisher(settings=MagicMock())
-    pub._channel = MagicMock()
-    pub._connection = MagicMock()
-    pub._connection.is_closed = False
+    that would push CTF knobs onto motioncor plugins. Post-MB5.2 the
+    route is ConfigRoute.for_category(contract) whose subject string
+    is ``magellon.plugins.config.ctf``."""
+    bus = MagicMock()
+    pub = ConfigPublisher(bus=bus)
 
     pub.publish_to_category(CTF, {"max_res": 4.5})
 
-    call = pub._channel.basic_publish.call_args
-    assert call.kwargs["routing_key"] == config_subject("CTF")
+    bus.events.publish.assert_called_once()
+    route, envelope = bus.events.publish.call_args.args
+    assert route.subject == config_subject("CTF")
+    # Envelope wraps the ConfigUpdate so the wire body stays
+    # identical (CloudEvents binary content mode).
+    assert envelope.data.target == "ctf"
+    assert envelope.data.settings == {"max_res": 4.5}
 
 
 def test_publisher_routes_broadcast_to_broadcast_subject():
-    pub = ConfigPublisher(settings=MagicMock())
-    pub._channel = MagicMock()
-    pub._connection = MagicMock()
-    pub._connection.is_closed = False
+    bus = MagicMock()
+    pub = ConfigPublisher(bus=bus)
 
     pub.publish_broadcast({"log_level": "INFO"})
 
-    call = pub._channel.basic_publish.call_args
-    assert call.kwargs["routing_key"] == CONFIG_BROADCAST_SUBJECT
+    bus.events.publish.assert_called_once()
+    route, envelope = bus.events.publish.call_args.args
+    assert route.subject == CONFIG_BROADCAST_SUBJECT
+    assert envelope.data.target == "broadcast"
 
 
 def test_publisher_swallows_broker_errors():
     """A broker hiccup at config-push time must not raise into the
     caller — the operator CLI / API handler shouldn't 500 because the
-    broker happens to be bouncing."""
-    pub = ConfigPublisher(settings=MagicMock())
-    with patch.object(pub, "_ensure_open", side_effect=RuntimeError("broker down")):
-        # Should not raise.
-        pub.publish_to_category(CTF, {"x": 1})
-        pub.publish_broadcast({"y": 2})
+    broker happens to be bouncing. Post-MB5.2 the publisher catches
+    anything bus.events.publish raises."""
+    bus = MagicMock()
+    bus.events.publish.side_effect = RuntimeError("broker down")
+    pub = ConfigPublisher(bus=bus)
+
+    # Should not raise.
+    pub.publish_to_category(CTF, {"x": 1})
+    pub.publish_broadcast({"y": 2})
 
 
 # ---------------------------------------------------------------------------
