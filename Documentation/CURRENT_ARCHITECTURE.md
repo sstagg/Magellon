@@ -179,12 +179,17 @@ with `2=CTF`, `5=MOTIONCOR`. Adding a task type is a source edit.
 
 **Dispatch path.** Importers (`services/importers/{MagellonImporter,EPUImporter,SerialEmImporter,BaseImporter}.py`)
 and the Leginon frame-transfer service build a `TaskDto` and call
-`dispatch_ctf_task` / `dispatch_motioncor_task` (`core/helper.py:183`
-and `:349`). Both end at `push_task_to_task_queue` (`core/helper.py:138`)
-which uses `RabbitmqClient` to publish a durable message
-(`delivery_mode=2`) to the queue. `publish_message_to_queue` (`:76`)
-also writes every outgoing message to
-`/magellon/messages/<queue>/messages.json` as an on-disk audit log.
+`dispatch_ctf_task` / `dispatch_motioncor_task` (`core/helper.py:147`
+and `:349`). Both end at `push_task_to_task_queue` (`core/helper.py:106`)
+which delegates to `get_task_dispatcher_registry().dispatch(task)`
+(`core/dispatcher_registry.py:124`). The registry wraps the `TaskDto`
+in a CloudEvents `Envelope` and publishes via `bus.tasks.send` on the
+RMQ-backed `MessageBus` (installed once at startup by
+`install_core_bus()`, called from `main.py:367`). The on-disk audit
+log is still written to `/magellon/messages/<queue>/messages.json`
+via `_audit_outgoing_message` (`core/helper.py:124`), now decoupled
+from the publish path. (Updated 2026-04-21: MB3 producer migration
+landed; `RabbitmqClient` is no longer on the dispatch path.)
 
 **Consumer pattern** (`plugins/magellon_ctf_plugin/core/rabbitmq_consumer_engine.py`):
 each plugin spins a pika `BlockingConnection` and, inside the blocking
@@ -366,7 +371,7 @@ listed in §3.3.
 | 9 | ~~`asyncio.run` inside blocking pika callback~~ | **Resolved (Phase 3).** All 4 plugin consumer engines use one daemon-thread event loop + `asyncio.run_coroutine_threadsafe(...).result()`. |
 | 10 | ~~Poison messages silently dropped~~ | **Resolved (P2).** `classify_exception` routes parse / validation / unsupported-input errors to DLQ explicitly, transient infra errors to requeue, and plugin-domain failures to an ack-with-failure-result. Existing queues still need the broker-policy migration before DLQ delivery actually fires for them. |
 | 11 | ~~`rabbitmq_client.connect()` swallows errors~~ | **Resolved (Phase 3).** `RabbitmqClient.connect()` and `publish_message()` now re-raise `AMQPConnectionError` / `ChannelError`; `publish_message_to_queue` returns `False` instead of silent-dropping. |
-| 12 | Path coupling via shared filesystem | Unchanged. `TaskOutputProcessor` still assumes `MAGELLON_HOME_DIR` is visible everywhere. Orthogonal to the transport work. |
+| 12 | ~~Path coupling via shared filesystem~~ | **Reframed as architectural choice (2026-04-21).** `TaskOutputProcessor` assumes `MAGELLON_HOME_DIR` is a POSIX-shared namespace visible to CoreService and every plugin worker — this is the data plane and is intentional, not a gap. See `DATA_PLANE.md`. Object-storage-only deployments are an explicit non-goal. |
 | 13 | ~~No CloudEvents / no envelope versioning~~ | **Resolved (Phase 2).** `magellon_sdk.envelope.Envelope[DataT]` is CloudEvents 1.0 compliant with `specversion`, `source`, `type`, `subject`, `time`, `datacontenttype`. Used by the NATS transport and the step-event publisher. |
 | 14 | ~~No DLQ, no retry policy~~ | **Capability landed.** `RabbitmqClient.declare_queue_with_dlq()` wires `x-dead-letter-exchange` + routing key on new queues; 2 integration tests. Existing queues need a broker-policy migration (can't re-declare with new `x-*` args). Retry policy is still open. |
 | 15 | ~~Settings drift per plugin~~ | **Mostly resolved (P7).** Runtime knobs now flow through `magellon.plugins.config.<category>` / `.broadcast` topic exchange; every `PluginBrokerRunner` ships a `ConfigSubscriber` that drains pending updates between tasks and calls `plugin.configure()`. Static per-plugin `settings_dev.yml` files still exist for boot-time wiring. |
@@ -431,6 +436,10 @@ provenance stamping, and typed failure routing are inherited.
 
 ## 11. What to read next
 
+- **`ARCHITECTURE_PRINCIPLES.md`** — the canonical rule-set every
+  non-trivial PR in Magellon is reviewed against. Read this first.
+- **`DATA_PLANE.md`** — the shared-filesystem decision, the deployment
+  matrix, and what the platform forecloses on (object-storage-only).
 - **`IMPLEMENTATION_PLAN.md`** — the v1 / v2 / v3 phasing: hardening the
   RMQ system with a `JobManager` seam + SDK + progress bus, then NATS
   additively, then a data-driven decision.

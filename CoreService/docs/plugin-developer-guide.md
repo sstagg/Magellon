@@ -37,6 +37,27 @@ The frontend never has hard-coded knowledge of any plugin's parameters. It fetch
 
 ---
 
+## Data Plane: Shared Filesystem
+
+Magellon separates **metadata** from **bytes**:
+
+- **Control plane** — the MessageBus (`magellon_sdk.bus`) carries task dispatch, results metadata, progress events, and cancellation. Small payloads only (≤ 10 KB per envelope).
+- **Data plane** — a shared POSIX filesystem mounted at `$MAGELLON_HOME_DIR` on CoreService and every plugin worker. Carries MRC files, motion-corrected outputs, CTF star files, thumbnails. Large payloads (MB–GB per file).
+
+**Your plugin's obligations on the data plane:**
+
+1. Read input files from paths provided in the task envelope. Do not re-fetch over the network; the file is already on disk where you can see it.
+2. Write outputs under `$MAGELLON_HOME_DIR/<session>/<category>/<image>/`. This is the layout `TaskOutputProcessor` projects into the database — any other layout breaks the result pipeline.
+3. Return file **paths**, not file bytes, in `TaskResultDto`. The result processor moves files based on the paths you report.
+4. Write atomically: write to a temp name in the session directory, then `os.rename` to the final name. `rename` within one filesystem is atomic on POSIX.
+5. Never use `/tmp` for cross-plugin artifacts — it is not shared between workers.
+
+**What you can assume:** if another plugin wrote `$MAGELLON_HOME_DIR/<session>/foo.mrc` and reported completion, you can open that path and read it. The platform guarantees a single filesystem namespace across all workers.
+
+**What you cannot assume:** object-storage semantics (S3, GCS). Magellon is not deployed against those backends — see `Documentation/DATA_PLANE.md` for the full architectural decision and deployment matrix.
+
+---
+
 ## Quick Start: Creating a New Plugin
 
 ### 1. Create the directory structure

@@ -12,6 +12,13 @@ Phase 2 reverted in commit `86fe9cc`.
 > dynamic config (P7), and cancellation (P9) all ride a `magellon.plugins`
 > topic exchange. Consul was deleted instead (P8). The remainder of this
 > plan still applies for Phases B / D / E / F.
+>
+> **Governing docs (2026-04-21).** `ARCHITECTURE_PRINCIPLES.md` is the
+> canonical rule-set every PR in this plan is reviewed against.
+> `DATA_PLANE.md` closes the "artifact transport" open question by
+> committing to a shared POSIX filesystem; object-storage-only
+> deployments are an explicit non-goal. The currently active work is
+> under "Active tracks — 2026-04-21" below.
 
 **Context:** The earlier plan assumed Temporal would become the workflow engine
 and NATS the event backbone. The actual workload is **one plugin, one call,
@@ -231,7 +238,10 @@ are being built on spec.
   multi-step pipelines that need retries/signals/history become a real
   workload. Plug in via `magellon_sdk.executor.Executor`.
 - **`LocalDocker` / `RunPod` / `Kubernetes` executors.** Add the first one a
-  paying customer asks for. Not before.
+  paying customer asks for. Not before. Note: any cloud-GPU executor
+  must include a mounted shared filesystem per `DATA_PLANE.md` — the
+  platform assumes path-addressed image data. RunPod-style serverless
+  with no attached FS volume is not a Magellon target.
 - **JetStream durability / replay.** NATS core (non-persistent pub/sub) is
   enough for today's request → progress → reply pattern. Turn on JetStream
   when either (a) plugin outputs need to survive a CoreService restart
@@ -261,8 +271,84 @@ behaviour it touches. Reviewer rejects otherwise.
 
 ---
 
-## Current iteration
+## Active tracks — 2026-04-21
 
-Plugin platform refactor (P1–P9) is **complete** as of 2026-04-15. Natural
-next thread is Phase B (plugin execution taxonomy) or Phase C event-path
-consolidation; both are independent of the broker work that just landed.
+Two parallel tracks are the current work, following adoption of
+`ARCHITECTURE_PRINCIPLES.md` and `DATA_PLANE.md`. The previously open
+"artifact transport" question is **closed** per `DATA_PLANE.md` — the
+platform commits to a shared POSIX filesystem as the data plane; that
+removes what would otherwise have been Track D (artifact transport
+abstraction) from the roadmap.
+
+Tracks A and B run in parallel. Track A is paced by one reviewer-cadence
+chain; Track B PRs are independent and can be picked up one at a time.
+
+### Track A — Finish the MessageBus migration
+
+**Goal.** Close out MB4–MB6 so the bus abstraction is complete, no
+`pika` imports leak outside the binder, and every production queue is
+DLQ-wired. Half-migrated is the worst state to sit in — new call sites
+drift onto whichever pattern the author copied from. Non-negotiable.
+
+Follows `MESSAGE_BUS_EXECUTION_PLAN.md` with this PR ordering. PR IDs
+use the `MB` prefix to match the execution plan and to avoid colliding
+with Phase-A PR numbering.
+
+| PR   | Title | DoD |
+|------|-------|-----|
+| MB4.A | Delete plugin RMQ shims | `plugins/magellon_ctf_plugin/core/rabbitmq_client.py`, `plugins/magellon_motioncor_plugin/core/rabbitmq_client.py`, `plugins/magellon_result_processor/core/rabbitmq_client.py` removed. Each plugin's `main.py` unchanged externally. Per-plugin smoke test green against docker-compose. |
+| MB4.B | Relocate `result_consumer.py` to SDK | `CoreService/core/result_consumer.py` → `magellon_sdk/bus/binders/rmq/result_consumer.py`. CoreService imports via `from magellon_sdk.bus.services import ...`. `tests/integration/test_e2e_seam.py` green. |
+| MB5.1 | Discovery uses `bus.events` | `magellon_sdk/discovery.py::DiscoveryPublisher` routed through `bus.events.publish(AnnounceRoute(...), env)` and `HeartbeatRoute(...)`. Direct RMQ calls deleted. Discovery smoke test green. |
+| MB5.2 | Config broker uses `bus.events` | `magellon_sdk/config_broker.py` publishes and subscribes via `bus.events`. Dynamic-config round-trip test green. |
+| MB5.3 | Step events absorbed into RMQ binder | `magellon_sdk/transport/rabbitmq_events.py::RabbitmqEventPublisher` collapsed; `StepEventPublisher` redirects to `bus.events.publish(StepEventRoute(...), env)`. `test_transport_rabbitmq_events.py` rewritten against the bus. |
+| MB5.4 | Relocate forwarders to SDK | `CoreService/core/plugin_liveness_registry.py` → `magellon_sdk/bus/services/liveness_registry.py`; `CoreService/core/rmq_step_event_forwarder.py` → `magellon_sdk/bus/services/step_event_forwarder.py`; `CoreService/services/plugin_config_publisher.py` → `magellon_sdk/bus/services/config_publisher.py`. CoreService keeps thin FastAPI wrappers. All tests green. |
+| MB6.1 | Cancellation uses `bus.tasks.purge` | `CoreService/services/cancellation_service.py::purge_queue` delegates to `magellon_sdk/bus/operator/cancellation.py`. `POST /cancellation/queues/purge` returns identical shape. |
+| MB6.2 | Collapse `transport/rabbitmq.py` into the binder | `magellon_sdk/transport/rabbitmq.py` contents moved to private modules under `bus/binders/rmq/`. No external module imports `RabbitmqClient`. |
+| MB6.3 | Lint rule | ruff config (or `scripts/lint_no_pika.py` in CI) rejects `pika` / `aio_pika` imports outside `magellon_sdk/bus/binders/rmq/**`. Same rule covers `RabbitmqClient` imports. Per `ARCHITECTURE_PRINCIPLES.md` §3. |
+| MB6.4 | DLQ topology migration | `scripts/migrate_dlq_topology.py` runs the §9.6.1 runbook. Scheduled after MB6.3 has soaked ≥ 1 week in production. Post-verify: deliberate-poison message routes to DLQ on CTF + MotionCor queues. |
+
+**Parallelism.** MB5.1 / MB5.2 / MB5.3 touch independent subsystems — merge in any order. MB5.4 depends on MB5.1 / MB5.2 / MB5.3 completion. MB6.2 depends on MB4.A through MB6.1.
+
+**Exit gate.** `rg '^import pika|^from pika' -g '!magellon_sdk/bus/binders/rmq/**'` returns zero, CI-enforced by MB6.3.
+
+**Rollback.** Per-PR `git revert` except MB6.4 (destructive), which has its own runbook rollback in `MESSAGE_BUS_SPEC_AND_PLAN.md` §9.6.1.
+
+### Track B — Close product-visible gaps
+
+**Goal.** Address four product gaps surfaced in the 2026-04-21
+architect's review: cooperative cancel for external plugins (R4),
+missing plugin-container contract tests (R5), fragmented config
+surface (R7), synchronous import handler (R8). Independent of Track A;
+each PR can be picked up individually.
+
+PR IDs use the `G` prefix (Gap closure) to avoid colliding with
+Phase-B PR numbering.
+
+| PR  | Title | DoD |
+|-----|-------|-----|
+| G.1 | Cooperative cancel for external plugins | New event `magellon.plugins.cancel.<job_id>` published on operator-initiated cancel. `PluginBrokerRunner` subscribes and sets a flag; plugin checks it at the next `reporter.report(...)` and raises `JobCancelledError` — same contract in-process plugins already honour. Integration test: mid-flight cancel on CTF plugin aborts cleanly within one progress tick. |
+| G.2 | Contract test per plugin container | `pytest` fixture in `CoreService/tests/contracts/` boots each plugin image via docker-compose, publishes a canned envelope through the bus, asserts reply shape + provenance stamping. Lands one plugin per PR: CTF first, MotionCor second, FFT third. Closes the gap called out in `CURRENT_ARCHITECTURE.md` §9. |
+| G.3 | Unified `PluginConfigResolver` | New SDK class layers YAML → env vars → bus-pushed dynamic config with documented precedence. Replaces the current four-way split (static `settings_dev.yml`, env vars like `MAGELLON_STEP_EVENTS_ENABLED`, `magellon.plugins.config.*` topic, hardcoded `CategoryContract` defaults). Plugins call `resolver.get(key)`; resolution order is one function with a docstring. |
+| G.4 | Background the import handler | `controllers/import_controller.py:68` returns `job_id` immediately; `MagellonImporter.process()` runs in FastAPI `BackgroundTasks` (or a dedicated threadpool if CPU-bound work is spotted). Progress already flows over Socket.IO. Smoke test: 1000-image synthetic session completes without tying up an HTTP worker. |
+
+**Ordering.** G.4 is the cheapest (half a day) and the most immediately user-visible — recommend as the first Track B PR. G.1 uses the bus via Track A's MB5.1 path; it can land earlier by targeting the RMQ binder directly and being retargeted trivially.
+
+**Rollback.** Per-PR `git revert`; none of these touch the bus abstraction boundary.
+
+### Cross-track: documentation (E)
+
+Landed 2026-04-21:
+
+- `ARCHITECTURE_PRINCIPLES.md` (new) — canonical rule-set.
+- `DATA_PLANE.md` (new) — shared-filesystem decision + deployment matrix.
+- `CURRENT_ARCHITECTURE.md` §4.1, §8 #12, §11 — corrected and reframed.
+- `TARGET_ARCHITECTURE_AND_PLAN.md` — superseded-banner now points at the new canon.
+- `CoreService/docs/plugin-developer-guide.md` — new "Data Plane" section.
+
+These are governance; they gate the review of every PR in Track A and Track B.
+
+### First move
+
+If starting tomorrow: **MB4.A + G.4 as independent PRs**. MB4.A unblocks
+the Track A chain; G.4 is the highest-leverage user-visible improvement
+at lowest cost. Each is small enough to review in half a day.

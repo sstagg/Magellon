@@ -14,6 +14,11 @@
 > the job-as-one-row-of-truth principle, the critique of the three-job-manager
 > split, and the versioned-contract / reversible-migration principles. Those
 > motivate the revised plan's Phase A (consolidation) and Phase C (event path).
+>
+> **For the canonical rule-set going forward, read `ARCHITECTURE_PRINCIPLES.md`
+> and `DATA_PLANE.md`.** The principles distilled from this doc have moved
+> there; the data-plane decision (shared POSIX filesystem, not object storage)
+> is new and supersedes any cloud-GPU / RunPod storage assumption below.
 
 **Status:** Superseded in part (2026-04-14). Retained as reference.
 **Audience:** Core maintainers, plugin developers, operators.
