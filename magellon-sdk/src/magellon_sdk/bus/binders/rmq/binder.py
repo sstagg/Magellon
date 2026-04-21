@@ -63,7 +63,7 @@ from magellon_sdk.bus.policy import (
 )
 from magellon_sdk.envelope import Envelope
 from magellon_sdk.errors import AckAction, classify_exception
-from magellon_sdk.transport.rabbitmq import RabbitmqClient
+from magellon_sdk.bus.binders.rmq._client import RabbitmqClient
 
 logger = logging.getLogger(__name__)
 

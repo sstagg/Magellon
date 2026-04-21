@@ -21,7 +21,7 @@ from pika.exceptions import AMQPConnectionError
 
 from magellon_sdk import messaging
 from magellon_sdk.models import TaskDto
-from magellon_sdk.transport.rabbitmq import RabbitmqClient
+from magellon_sdk.bus.binders.rmq._client import RabbitmqClient  # MB6.2: moved here
 
 
 RMQ_HOST = os.environ.get("RABBITMQ_HOST", "127.0.0.1")

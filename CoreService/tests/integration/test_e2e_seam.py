@@ -82,6 +82,20 @@ def _broker_reachable() -> bool:
 def _require_broker():
     if not _broker_reachable():
         pytest.skip(f"RabbitMQ not reachable at {RMQ_HOST}:{RMQ_PORT}")
+    # MB6.2: messaging.publish_message_to_queue (used by
+    # RabbitmqTaskDispatcher) now delegates to bus.tasks.send. Install
+    # the RMQ bus for the duration of this module so the dispatcher
+    # has a binder to publish through.
+    from magellon_sdk.bus._facade import get_bus
+    from magellon_sdk.bus.bootstrap import install_rmq_bus
+    bus = install_rmq_bus(_Settings())
+    try:
+        yield
+    finally:
+        try:
+            bus.close()
+        finally:
+            get_bus.override(None)
 
 
 def _params() -> pika.ConnectionParameters:

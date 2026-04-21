@@ -79,64 +79,68 @@ def test_parse_message_to_task_result_object_round_trip():
     assert parsed.image_id is None
 
 
-class _StubClient:
-    def __init__(self, settings, **_kwargs):
-        self.settings = settings
-        self.connected = False
-        self.closed = False
-        self.published = None
+def test_publish_message_to_queue_success():
+    """Post-MB6.2: publish_message_to_queue delegates to bus.tasks.send
+    on a TaskRoute.named(queue_name) and returns receipt.ok."""
+    from unittest.mock import MagicMock
 
-    def connect(self):
-        self.connected = True
+    from magellon_sdk.bus import PublishReceipt
+    from magellon_sdk.bus._facade import get_bus as _get_bus
 
-    def publish_message(self, body, queue_name):
-        self.published = (body, queue_name)
-
-    def close_connection(self):
-        self.closed = True
-
-
-class _ExplodingClient(_StubClient):
-    def publish_message(self, body, queue_name):
-        raise RuntimeError("broker down")
-
-
-def test_publish_message_to_queue_success(monkeypatch):
-    created: list = []
-
-    def _factory(settings, **kwargs):
-        client = _StubClient(settings, **kwargs)
-        created.append(client)
-        return client
-
-    monkeypatch.setattr(messaging, "RabbitmqClient", _factory)
-
-    ok = messaging.publish_message_to_queue(
-        _DummyPayload(x=1, label="hi"), "q.test", rabbitmq_settings=object()
-    )
+    bus = MagicMock()
+    bus.tasks.send.return_value = PublishReceipt(ok=True, message_id="abc")
+    _get_bus.override(bus)
+    try:
+        ok = messaging.publish_message_to_queue(
+            _DummyPayload(x=1, label="hi"), "q.test", rabbitmq_settings=object()
+        )
+    finally:
+        _get_bus.override(None)
 
     assert ok is True
-    [client] = created
-    assert client.connected and client.closed
-    body, qname = client.published
-    assert qname == "q.test"
-    assert json.loads(body) == {"x": 1, "label": "hi"}
+    assert bus.tasks.send.call_count == 1
+    route, envelope = bus.tasks.send.call_args.args
+    assert route.subject == "q.test"
+    assert envelope.data.x == 1
+    assert envelope.data.label == "hi"
 
 
-def test_publish_message_to_queue_closes_on_error(monkeypatch):
-    created: list = []
+def test_publish_message_to_queue_returns_false_on_error():
+    """Any exception from the bus path becomes ``False`` — plugin
+    helpers treat publish as fire-and-forget."""
+    from unittest.mock import MagicMock
 
-    def _factory(settings, **kwargs):
-        client = _ExplodingClient(settings, **kwargs)
-        created.append(client)
-        return client
+    from magellon_sdk.bus._facade import get_bus as _get_bus
 
-    monkeypatch.setattr(messaging, "RabbitmqClient", _factory)
-
-    ok = messaging.publish_message_to_queue(
-        _DummyPayload(x=1, label="hi"), "q.test", rabbitmq_settings=object()
-    )
+    bus = MagicMock()
+    bus.tasks.send.side_effect = RuntimeError("broker down")
+    _get_bus.override(bus)
+    try:
+        ok = messaging.publish_message_to_queue(
+            _DummyPayload(x=1, label="hi"), "q.test", rabbitmq_settings=object()
+        )
+    finally:
+        _get_bus.override(None)
 
     assert ok is False
-    [client] = created
-    assert client.closed, "connection must be closed even on publish failure"
+
+
+def test_publish_message_to_queue_returns_false_when_receipt_not_ok():
+    """A bus receipt with ok=False (e.g. AMQP channel error absorbed by
+    the binder) still returns False."""
+    from unittest.mock import MagicMock
+
+    from magellon_sdk.bus import PublishReceipt
+    from magellon_sdk.bus._facade import get_bus as _get_bus
+
+    bus = MagicMock()
+    bus.tasks.send.return_value = PublishReceipt(ok=False, message_id="", error="amqp")
+    _get_bus.override(bus)
+    try:
+        ok = messaging.publish_message_to_queue(
+            _DummyPayload(x=1, label="hi"), "q.test", rabbitmq_settings=object()
+        )
+    finally:
+        _get_bus.override(None)
+
+    assert ok is False

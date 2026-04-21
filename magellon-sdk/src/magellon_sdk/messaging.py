@@ -1,8 +1,10 @@
 """Shared message/file helpers used by every plugin's ``core/helper.py``.
 
-The RabbitMQ-touching helpers take ``rabbitmq_settings`` explicitly so
-this module stays decoupled from each plugin's ``AppSettingsSingleton``.
-Plugin shims wire the singleton in at call time.
+Post-MB6.2 ``publish_message_to_queue`` is a thin wrapper over
+``bus.tasks.send`` — plugins publish via the MessageBus like every
+other producer. The ``rabbitmq_settings`` argument is retained for
+backcompat with pre-MB6.2 plugin helpers; it is no longer consulted
+(the bus was configured at startup from the same settings).
 """
 from __future__ import annotations
 
@@ -14,7 +16,6 @@ from typing import Optional
 from pydantic import BaseModel
 
 from magellon_sdk.models import TaskDto, TaskResultDto
-from magellon_sdk.transport import RabbitmqClient
 
 logger = logging.getLogger(__name__)
 
@@ -71,34 +72,43 @@ def parse_message_to_task_result_object(message_str: str) -> TaskResultDto:
 def publish_message_to_queue(
     message: BaseModel,
     queue_name: str,
-    rabbitmq_settings,
+    rabbitmq_settings=None,
 ) -> bool:
-    """Publish ``message`` (as JSON) to ``queue_name``.
+    """Publish ``message`` (as JSON) to ``queue_name`` via the MessageBus.
 
-    ``rabbitmq_settings`` is any object exposing the attributes a
-    :class:`RabbitmqClient` consumes (HOST_NAME, PORT, USER_NAME, …).
-    Plugin shims pass in their ``AppSettingsSingleton`` RabbitMQ block.
+    Post-MB6.2: delegates to ``bus.tasks.send`` on a
+    :class:`TaskRoute.named` — the binder owns the connection /
+    publish / error classification. Returns ``True`` on success,
+    ``False`` on any error (connection down, bus not installed, etc.)
+    so plugin helpers can treat this as fire-and-forget.
 
-    Returns ``True`` on success, ``False`` on error. The connection is
-    always closed, even when publish fails, so callers do not leak
-    sockets when RabbitMQ is flaky.
+    The ``rabbitmq_settings`` argument is retained for backcompat with
+    pre-MB6.2 callers (plugin ``core/helper.py`` files, CoreService
+    smoke scripts). It is no longer consulted — the bus was
+    configured at startup from the same settings block.
     """
-    client: Optional[RabbitmqClient] = None
+    from magellon_sdk.bus import get_bus
+    from magellon_sdk.bus.routes import TaskRoute
+    from magellon_sdk.envelope import Envelope
+
     try:
-        client = RabbitmqClient(rabbitmq_settings)
-        client.connect()
-        client.publish_message(message.model_dump_json(), queue_name)
-        logger.info("Message published to %s", queue_name)
-        return True
+        envelope = Envelope.wrap(
+            source="magellon/sdk/messaging",
+            type="magellon.task.dispatch",
+            subject=queue_name,
+            data=message,
+        )
+        receipt = get_bus().tasks.send(TaskRoute.named(queue_name), envelope)
+        if receipt.ok:
+            logger.info("Message published to %s", queue_name)
+        else:
+            logger.error(
+                "Error publishing message to %s: %s", queue_name, receipt.error
+            )
+        return receipt.ok
     except Exception as e:
         logger.error("Error publishing message to %s: %s", queue_name, e)
         return False
-    finally:
-        if client is not None:
-            try:
-                client.close_connection()
-            except Exception:
-                pass
 
 
 __all__ = [
