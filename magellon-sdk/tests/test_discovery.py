@@ -101,24 +101,24 @@ def test_announce_subject_uses_category_and_plugin_lowercased():
 def test_publisher_swallows_broker_errors_so_plugin_loop_survives():
     """A broker hiccup at announce/heartbeat time must not raise into
     the plugin — discovery is best-effort, not part of correctness."""
-    pub = DiscoveryPublisher(settings=MagicMock())
+    bus = MagicMock()
+    bus.events.publish.side_effect = RuntimeError("broker down")
+    pub = DiscoveryPublisher(bus=bus)
 
-    with patch.object(pub, "_ensure_open", side_effect=RuntimeError("broker down")):
-        # Should not raise.
-        pub.heartbeat(CTF, Heartbeat(plugin_id="x", plugin_version="1", category="ctf"))
-        pub.announce(CTF, Announce(
-            plugin_id="x", plugin_version="1", category="ctf", manifest=_make_manifest()
-        ))
+    # Should not raise.
+    pub.heartbeat(CTF, Heartbeat(plugin_id="x", plugin_version="1", category="ctf"))
+    pub.announce(CTF, Announce(
+        plugin_id="x", plugin_version="1", category="ctf", manifest=_make_manifest()
+    ))
 
 
 def test_publisher_routes_to_correct_subject():
     """Announce → announce.<cat>.<plugin>; heartbeat → heartbeat.<cat>.<plugin>.
     The subject is what every consumer binds on; getting it wrong
-    silently strands the message."""
-    pub = DiscoveryPublisher(settings=MagicMock())
-    pub._channel = MagicMock()
-    pub._connection = MagicMock()
-    pub._connection.is_closed = False
+    silently strands the message. Post-MB5.1 this routes through
+    bus.events.publish with an AnnounceRoute / HeartbeatRoute."""
+    bus = MagicMock()
+    pub = DiscoveryPublisher(bus=bus)
 
     pub.heartbeat(CTF, Heartbeat(plugin_id="ctf-ctffind", plugin_version="1", category="ctf"))
     pub.announce(CTF, Announce(
@@ -128,11 +128,35 @@ def test_publisher_routes_to_correct_subject():
         manifest=_make_manifest(),
     ))
 
-    routing_keys = [
-        call.kwargs["routing_key"] for call in pub._channel.basic_publish.call_args_list
-    ]
-    assert "magellon.plugins.heartbeat.ctf.ctf-ctffind" in routing_keys
-    assert "magellon.plugins.announce.ctf.ctf-ctffind" in routing_keys
+    assert bus.events.publish.call_count == 2
+    subjects = [call.args[0].subject for call in bus.events.publish.call_args_list]
+    assert "magellon.plugins.heartbeat.ctf.ctf-ctffind" in subjects
+    assert "magellon.plugins.announce.ctf.ctf-ctffind" in subjects
+
+    # Envelope wraps the original Announce / Heartbeat as data so the
+    # wire body (via CloudEvents binary content mode) stays identical
+    # to pre-MB5.1 — consumers can still Announce.model_validate_json(body).
+    envelopes = [call.args[1] for call in bus.events.publish.call_args_list]
+    for env in envelopes:
+        assert env.source == "magellon/plugin/discovery"
+        assert env.data is not None
+
+
+def test_publisher_resolves_bus_lazily_via_get_bus_when_not_injected():
+    """If no bus is passed to the constructor, DiscoveryPublisher
+    resolves one via get_bus() on each publish — lets production
+    callers (lifecycle.start_discovery) construct the publisher before
+    the bus finishes installing at startup."""
+    from magellon_sdk import discovery as disc_mod
+
+    fake_bus = MagicMock()
+    pub = DiscoveryPublisher(settings=MagicMock())  # no bus= kwarg
+
+    with patch.object(disc_mod, "get_bus", return_value=fake_bus) as mock_get_bus:
+        pub.heartbeat(CTF, Heartbeat(plugin_id="x", plugin_version="1", category="ctf"))
+
+    mock_get_bus.assert_called_once()
+    fake_bus.events.publish.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

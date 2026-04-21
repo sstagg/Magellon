@@ -1,4 +1,4 @@
-"""Broker-based plugin discovery + heartbeat (P6).
+"""Broker-based plugin discovery + heartbeat (P6 + MB5.1).
 
 **Plugin authors should not import from this module.** It's the
 announce / heartbeat wiring that :class:`PluginBrokerRunner` uses
@@ -35,24 +35,30 @@ listening manager subscribes with a wildcard binding key
 (``magellon.plugins.heartbeat.#``) and updates an in-memory liveness
 table. Persisting that table is out of scope; the source of truth
 stays in the broker stream.
+
+MB5.1 re-routed the publisher through ``bus.events.publish`` on
+:class:`AnnounceRoute` / :class:`HeartbeatRoute`. The binder's
+CloudEvents binary content mode means the AMQP body is still the
+``Announce``/``Heartbeat`` JSON (metadata rides in ``ce-*`` headers),
+so consumers decoding the body with ``Announce.model_validate_json``
+keep working without change. That lets the subscriber side (liveness
+registry) migrate separately in MB5.4a.
 """
 from __future__ import annotations
 
 import logging
 import threading
-import time
 from datetime import datetime, timezone
 from typing import Any, Optional
 from uuid import uuid4
 
-import pika
 from pydantic import BaseModel, Field
 
-from magellon_sdk.categories.contract import (
-    CategoryContract,
-    announce_subject,
-    heartbeat_subject,
-)
+from magellon_sdk.bus import get_bus
+from magellon_sdk.bus.interfaces import MessageBus
+from magellon_sdk.bus.routes.event_route import AnnounceRoute, HeartbeatRoute
+from magellon_sdk.categories.contract import CategoryContract
+from magellon_sdk.envelope import Envelope
 from magellon_sdk.models.manifest import PluginManifest
 
 logger = logging.getLogger(__name__)
@@ -117,89 +123,81 @@ class Announce(BaseModel):
 # Publisher
 # ---------------------------------------------------------------------------
 
-# All discovery messages share the events-style topic exchange — same
-# fabric the step-event mirror uses. Using one exchange means an
-# operator only has to point one consumer at one place to see "what
-# plugins are alive right now."
+# Legacy constant exported for modules that imported it before MB5.1
+# (``config_broker.py`` did this pre-MB5.2). Kept as a deprecated
+# re-export — the RMQ binder owns exchange naming via
+# ``magellon_sdk.bus.binders.rmq.topology``. Remove once MB6.2 has
+# landed and no external module imports this.
 DEFAULT_EXCHANGE = "magellon.plugins"
+
+_ENVELOPE_SOURCE = "magellon/plugin/discovery"
+_ANNOUNCE_TYPE = "magellon.plugin.announce.v1"
+_HEARTBEAT_TYPE = "magellon.plugin.heartbeat.v1"
 
 
 class DiscoveryPublisher:
     """Fire-and-forget publisher for announce + heartbeat messages.
 
-    Owns its own short-lived RMQ connection so the publishing thread
-    can be killed without affecting the plugin's main consumer
-    connection. Failures are logged and swallowed: discovery is best-
-    effort, not part of the plugin's correctness path.
+    Delegates to ``bus.events.publish`` on :class:`AnnounceRoute` /
+    :class:`HeartbeatRoute`. Failures are logged and swallowed —
+    discovery is best-effort, not part of the plugin's correctness
+    path. The bus's own RMQ binder owns the pika connection + its
+    lifecycle; this class carries no transport state of its own.
+
+    Constructor signatures kept as-is for backcompat with pre-MB5.1
+    callers (``lifecycle.py``, test harnesses). The ``settings`` arg
+    is no longer consulted — the bus was already configured at
+    startup from the same settings. A future PR can drop the
+    argument once all callers stop passing it.
+
+    Tests that want a mock bus pass it via the ``bus=`` kwarg.
     """
 
     def __init__(
         self,
-        settings: Any,
+        settings: Any = None,
         *,
-        exchange: str = DEFAULT_EXCHANGE,
+        bus: Optional[MessageBus] = None,
     ) -> None:
-        self.settings = settings
-        self.exchange = exchange
-        self._connection: Optional[pika.BlockingConnection] = None
-        self._channel: Any = None
+        # settings is legacy — retained so the pre-MB5.1 call site
+        # (DiscoveryPublisher(settings)) keeps working during the
+        # migration chain.
+        self._settings = settings
+        self._bus = bus
 
-    def _ensure_open(self) -> None:
-        if self._connection is not None and not self._connection.is_closed:
-            return
-        credentials = pika.PlainCredentials(
-            self.settings.USER_NAME, self.settings.PASSWORD
-        )
-        params = pika.ConnectionParameters(
-            host=self.settings.HOST_NAME,
-            credentials=credentials,
-            heartbeat=30,
-        )
-        self._connection = pika.BlockingConnection(params)
-        self._channel = self._connection.channel()
-        self._channel.exchange_declare(
-            exchange=self.exchange, exchange_type="topic", durable=True
-        )
+    def _resolve_bus(self) -> MessageBus:
+        return self._bus if self._bus is not None else get_bus()
 
     def announce(self, contract: CategoryContract, message: Announce) -> None:
-        subject = announce_subject(contract.category.name, message.plugin_id)
-        self._publish(subject, message.model_dump_json().encode("utf-8"))
+        route = AnnounceRoute.for_plugin(contract, message.plugin_id)
+        self._publish(route, _ANNOUNCE_TYPE, message)
 
     def heartbeat(self, contract: CategoryContract, message: Heartbeat) -> None:
-        subject = heartbeat_subject(contract.category.name, message.plugin_id)
-        self._publish(subject, message.model_dump_json().encode("utf-8"))
+        route = HeartbeatRoute.for_plugin(contract, message.plugin_id)
+        self._publish(route, _HEARTBEAT_TYPE, message)
 
-    def _publish(self, routing_key: str, body: bytes) -> None:
+    def _publish(self, route: Any, event_type: str, data: BaseModel) -> None:
         try:
-            self._ensure_open()
-            self._channel.basic_publish(
-                exchange=self.exchange,
-                routing_key=routing_key,
-                body=body,
-                properties=pika.BasicProperties(
-                    content_type="application/json",
-                    delivery_mode=2,
-                ),
+            envelope = Envelope.wrap(
+                source=_ENVELOPE_SOURCE,
+                type=event_type,
+                subject=route.subject,
+                data=data,
             )
+            self._resolve_bus().events.publish(route, envelope)
         except Exception as exc:
             # Discovery is best-effort. A broker hiccup must not take the
             # plugin's main consumer down with it; we'll try again on the
             # next heartbeat tick.
-            logger.warning("DiscoveryPublisher: publish to %s failed: %s", routing_key, exc)
-            self._reset()
-
-    def _reset(self) -> None:
-        if self._connection is not None:
-            try:
-                if not self._connection.is_closed:
-                    self._connection.close()
-            except Exception:
-                pass
-        self._connection = None
-        self._channel = None
+            logger.warning(
+                "DiscoveryPublisher: publish to %s failed: %s", route.subject, exc
+            )
 
     def close(self) -> None:
-        self._reset()
+        """No-op. The binder owns the broker connection; nothing for
+        the publisher itself to clean up. Retained for API symmetry
+        with pre-MB5.1 callers."""
+        return None
 
 
 # ---------------------------------------------------------------------------
