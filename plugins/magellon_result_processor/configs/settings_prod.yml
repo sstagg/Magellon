@@ -28,12 +28,12 @@ rabbitmq_settings:
   PREFETCH_COUNT: 10
   QUEUE_NAME: ctf_out_tasks_queue
   OUT_QUEUE_NAME: ctf_out_tasks_queue
-  OUT_QUEUES:
-    - name: ctf_out_tasks_queue
-      queue_type: ctf
-      dir_name: ctf
-      category: 2
-    - name: motioncor_out_tasks_queue
-      queue_type: motioncor
-      dir_name: fao
-      category: 3
+  # MB4.C (2026-04-21): intentionally empty — CoreService's in-process
+  # result_consumer (P3) is the sole projector in the default stack.
+  # Populating this here caused RMQ to round-robin deliveries between
+  # two consumers, so ~50% of CTF/MotionCor results were projected by
+  # this plugin's older TaskOutputProcessor (which may be missing the
+  # P4 _advance_task_state fix) and ~50% by CoreService's newer copy.
+  # Self-hosted deployments that actually want this plugin to process
+  # results can re-populate; the default is dormant.
+  OUT_QUEUES: []
