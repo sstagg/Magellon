@@ -294,23 +294,35 @@ Follows `MESSAGE_BUS_EXECUTION_PLAN.md` with this PR ordering. PR IDs
 use the `MB` prefix to match the execution plan and to avoid colliding
 with Phase-A PR numbering.
 
+**Verified snapshot (2026-04-21).** MB4.A and MB4.B shipped this week
+(`ca85bad`, `af4e019`). Remaining production-code `pika` importers
+verified: 5 files (cancellation_service, transport/rabbitmq_events,
+transport/rabbitmq, discovery, config_broker) plus 2 shims
+(`CoreService/core/rabbitmq_client.py` — 8 lines — that MB4.A didn't
+catch, and `plugin_liveness_registry.py:245` lazy RabbitmqClient
+import). No pre-existing ruff config — MB6.3 is config-from-scratch,
+not a one-line rule. No `scripts/migrate_dlq_topology.py` — MB6.4 is
+script + runbook.
+
 | PR   | Title | DoD |
 |------|-------|-----|
-| MB4.A | Delete plugin RMQ shims | `plugins/magellon_ctf_plugin/core/rabbitmq_client.py`, `plugins/magellon_motioncor_plugin/core/rabbitmq_client.py`, `plugins/magellon_result_processor/core/rabbitmq_client.py` removed. Each plugin's `main.py` unchanged externally. Per-plugin smoke test green against docker-compose. |
-| MB4.B | Relocate `result_consumer.py` to SDK | `CoreService/core/result_consumer.py` → `magellon_sdk/bus/binders/rmq/result_consumer.py`. CoreService imports via `from magellon_sdk.bus.services import ...`. `tests/integration/test_e2e_seam.py` green. |
+| ~~MB4.A~~ | **Done (`ca85bad`).** Delete plugin RMQ shims | `plugins/magellon_motioncor_plugin/core/rabbitmq_client.py` + `plugins/magellon_result_processor/core/rabbitmq_client.py` removed. CTF shim already absent. Unused import removed from `test_publish.py`. |
+| ~~MB4.B~~ | **Done (`af4e019`).** Relocate `result_consumer.py` bus glue to SDK | New `magellon_sdk/bus/services/result_consumer.py` owns the generic iteration; `CoreService/core/result_consumer.py` is a thin wrapper. 4 new SDK tests + 5 existing CoreService tests green. |
 | MB4.C | Stop the result-processor double-consume | Blank `OUT_QUEUES: []` in `plugins/magellon_result_processor/configs/settings_dev.yml` and `settings_prod.yml`. Plugin container then subscribes to nothing and logs `result_processor: OUT_QUEUES empty — staying dormant.` CoreService's in-process consumer becomes the sole writer. Lower-churn alternative to removing the container from `docker-compose.yml`; that can follow once the plugin is confirmed unused for one release cycle. Surfaced in `CURRENT_ARCHITECTURE.md` §8 #19. |
-| MB5.1 | Discovery uses `bus.events` | `magellon_sdk/discovery.py::DiscoveryPublisher` routed through `bus.events.publish(AnnounceRoute(...), env)` and `HeartbeatRoute(...)`. Direct RMQ calls deleted. Discovery smoke test green. |
-| MB5.2 | Config broker uses `bus.events` | `magellon_sdk/config_broker.py` publishes and subscribes via `bus.events`. Dynamic-config round-trip test green. |
-| MB5.3 | Step events absorbed into RMQ binder | `magellon_sdk/transport/rabbitmq_events.py::RabbitmqEventPublisher` collapsed; `StepEventPublisher` redirects to `bus.events.publish(StepEventRoute(...), env)`. `test_transport_rabbitmq_events.py` rewritten against the bus. |
-| MB5.4 | Relocate forwarders to SDK | `CoreService/core/plugin_liveness_registry.py` → `magellon_sdk/bus/services/liveness_registry.py`; `CoreService/core/rmq_step_event_forwarder.py` → `magellon_sdk/bus/services/step_event_forwarder.py`; `CoreService/services/plugin_config_publisher.py` → `magellon_sdk/bus/services/config_publisher.py`. CoreService keeps thin FastAPI wrappers. All tests green. |
-| MB6.1 | Cancellation uses `bus.tasks.purge` | `CoreService/services/cancellation_service.py::purge_queue` delegates to `magellon_sdk/bus/operator/cancellation.py`. `POST /cancellation/queues/purge` returns identical shape. |
-| MB6.2 | Collapse `transport/rabbitmq.py` into the binder | `magellon_sdk/transport/rabbitmq.py` contents moved to private modules under `bus/binders/rmq/`. No external module imports `RabbitmqClient`. |
-| MB6.3 | Lint rule | ruff config (or `scripts/lint_no_pika.py` in CI) rejects `pika` / `aio_pika` imports outside `magellon_sdk/bus/binders/rmq/**`. Same rule covers `RabbitmqClient` imports. Per `ARCHITECTURE_PRINCIPLES.md` §3. |
-| MB6.4 | DLQ topology migration | `scripts/migrate_dlq_topology.py` runs the §9.6.1 runbook. Scheduled after MB6.3 has soaked ≥ 1 week in production. Post-verify: deliberate-poison message routes to DLQ on CTF + MotionCor queues. |
+| MB5.1 | Discovery uses `bus.events` | `magellon_sdk/discovery.py:48` still imports pika directly. Rewrite `DiscoveryPublisher` + `HeartbeatLoop` to publish via `bus.events.publish(AnnounceRoute(...), env)` and `HeartbeatRoute(...)`. Keep `Announce` / `Heartbeat` Pydantic models (public wire shapes). Discovery smoke test green. ~270-line file; ~120-line delta. |
+| MB5.2 | Config broker uses `bus.events` | `magellon_sdk/config_broker.py:39` still imports pika directly. Route publish + subscribe through `bus.events`. Keep `ConfigUpdate` model. Dynamic-config round-trip test green. ~330-line file; ~150-line delta. |
+| MB5.3 | Step events into binder | `magellon_sdk/transport/rabbitmq_events.py:26` imports pika; `magellon_sdk/events.py:375` lazy-imports the RMQ publisher. Rewrite `StepEventPublisher` to call `bus.events.publish(StepEventRoute(...), env)`. `test_transport_rabbitmq_events.py` rewritten against the bus. Subscriber side (CoreService forwarder) waits for MB5.4b. |
+| MB5.4a | Relocate liveness registry to SDK | `CoreService/core/plugin_liveness_registry.py` (318 lines, includes a lazy `RabbitmqClient` import at line 245) → `magellon_sdk/bus/services/liveness_registry.py`. CoreService keeps a thin FastAPI wrapper. |
+| MB5.4b | Relocate step-event forwarder to SDK | `CoreService/core/rmq_step_event_forwarder.py` (146 lines) → `magellon_sdk/bus/services/step_event_forwarder.py`. Socket.IO `emit_step_event` callback + `project_step_event` projector stay in CoreService; injected as callables. |
+| MB5.4c | Relocate config publisher to SDK | `CoreService/services/plugin_config_publisher.py` (94 lines) → `magellon_sdk/bus/services/config_publisher.py`. FastAPI admin controller unchanged — imports moved. |
+| MB6.1 | Cancellation uses `bus.tasks.purge` | `CoreService/services/cancellation_service.py:27-65` hand-rolls `pika.BlockingConnection` + `channel.queue_purge()`. Replace with `get_bus().tasks.purge(TaskRoute.named(queue_name))`. `purge_queue`/`purge_queues` public signatures preserved; `kill_plugin_container` untouched. `POST /cancellation/queues/purge` returns identical shape. |
+| MB6.2 | Collapse `transport/rabbitmq.py` into binder-private | Move `magellon_sdk/transport/rabbitmq.py` contents into `magellon_sdk/bus/binders/rmq/`; delete `magellon_sdk/transport/rabbitmq_events.py` (absorbed in MB5.3); delete `CoreService/core/rabbitmq_client.py` (8-line re-export shim). Update `magellon_sdk/transport/__init__.py` re-export; fix SDK integration test import paths. No external module imports `RabbitmqClient`. |
+| MB6.3 | Lint config + CI workflow | **Adds config from scratch — none exists today.** Add `[tool.ruff]` section to a pyproject.toml (SDK and CoreService) with `INP001`/`TID252` style rule rejecting `pika` / `aio_pika` / `from magellon_sdk.transport.rabbitmq import RabbitmqClient` outside `magellon_sdk/bus/binders/rmq/**`. Add `.github/workflows/lint.yml` running on push + PR. Allowlist: `tests/**`, `scripts/**`, plugin `smoke_test_docker.py`. Per `ARCHITECTURE_PRINCIPLES.md` §3. |
+| MB6.4 | DLQ topology migration | Create `scripts/migrate_dlq_topology.py` implementing the runbook at `MESSAGE_BUS_SPEC_AND_PLAN.md` §9.6.1. Script supports `--dry-run` and `--queue <name>`. Merge after MB6.3 has soaked ≥ 1 week in production. Operator executes in a scheduled window. Post-verify: deliberate-poison message routes to DLQ on CTF + MotionCor queues. **Only PR in the plan that isn't `git revert`-safe** — rollback per runbook. |
 
-**Parallelism.** MB5.1 / MB5.2 / MB5.3 touch independent subsystems — merge in any order. MB5.4 depends on MB5.1 / MB5.2 / MB5.3 completion. MB6.2 depends on MB4.A through MB6.1.
+**Parallelism.** MB5.1 / MB5.2 / MB5.3 touch independent subsystems — merge in any order. MB5.4a / MB5.4b / MB5.4c each depend on their MB5.x counterpart (liveness on MB5.1, forwarder on MB5.3, config publisher on MB5.2). MB6.1 is independent — can land alongside MB5.x. MB6.2 depends on everything above. MB6.3 depends on MB6.2.
 
-**Exit gate.** `rg '^import pika|^from pika' -g '!magellon_sdk/bus/binders/rmq/**'` returns zero, CI-enforced by MB6.3.
+**Exit gate.** `rg '^import pika|^from pika' -g '!magellon_sdk/bus/binders/rmq/**' -g '!**/tests/**' -g '!**/scripts/**'` returns zero, CI-enforced by MB6.3.
 
 **Rollback.** Per-PR `git revert` except MB6.4 (destructive), which has its own runbook rollback in `MESSAGE_BUS_SPEC_AND_PLAN.md` §9.6.1.
 
@@ -330,7 +342,7 @@ Phase-B PR numbering.
 | G.1 | Cooperative cancel for external plugins | New event `magellon.plugins.cancel.<job_id>` published on operator-initiated cancel. `PluginBrokerRunner` subscribes and sets a flag; plugin checks it at the next `reporter.report(...)` and raises `JobCancelledError` — same contract in-process plugins already honour. Integration test: mid-flight cancel on CTF plugin aborts cleanly within one progress tick. |
 | G.2 | Contract test per plugin container | `pytest` fixture in `CoreService/tests/contracts/` boots each plugin image via docker-compose, publishes a canned envelope through the bus, asserts reply shape + provenance stamping. Lands one plugin per PR: CTF first, MotionCor second, FFT third. Closes the gap called out in `CURRENT_ARCHITECTURE.md` §9. |
 | G.3 | Unified `PluginConfigResolver` | New SDK class layers YAML → env vars → bus-pushed dynamic config with documented precedence. Replaces the current four-way split (static `settings_dev.yml`, env vars like `MAGELLON_STEP_EVENTS_ENABLED`, `magellon.plugins.config.*` topic, hardcoded `CategoryContract` defaults). Plugins call `resolver.get(key)`; resolution order is one function with a docstring. |
-| G.4 | Background the import handler | `controllers/import_controller.py:68` returns `job_id` immediately; `MagellonImporter.process()` runs in FastAPI `BackgroundTasks` (or a dedicated threadpool if CPU-bound work is spotted). Progress already flows over Socket.IO. Smoke test: 1000-image synthetic session completes without tying up an HTTP worker. |
+| ~~G.4~~ | **Done (`2de2449`).** Background the import handler | `/magellon-import` returns a scheduled `job_id` immediately; `MagellonImporter.process()` runs in FastAPI `BackgroundTasks` with its own DB session. `BaseImporter.pre_assigned_job_id` attribute threads the id so the endpoint's response matches the row the BG task eventually inserts. Smoke test with 1000-image session is staging-only. |
 
 **Ordering.** G.4 is the cheapest (half a day) and the most immediately user-visible — recommend as the first Track B PR. G.1 uses the bus via Track A's MB5.1 path; it can land earlier by targeting the RMQ binder directly and being retargeted trivially.
 
