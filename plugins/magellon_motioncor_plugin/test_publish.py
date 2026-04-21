@@ -3,7 +3,6 @@ import uuid
 import os
 from core.helper import push_task_to_task_queue
 from magellon_sdk.models import FFT_TASK, PENDING, MOTIONCOR, MotioncorTask, CryoEmMotionCorTaskData
-from core.rabbitmq_client import RabbitmqClient
 from core.settings import AppSettingsSingleton
 from core.task_factory import MotioncorTaskFactory
 logger = logging.getLogger(__name__)
