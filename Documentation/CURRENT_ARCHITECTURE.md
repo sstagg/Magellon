@@ -115,25 +115,19 @@ rows atomically on `create_job`, updates on `mark_running`,
 `update_progress`, `complete_job`, `fail_job`, `cancel_job`, and emits
 Socket.IO events as it goes.
 
-**Dead-code island (Temporal-era, ~2K lines, zero live importers):**
-
-| File                                                 | What it was                            |
-|------------------------------------------------------|----------------------------------------|
-| `services/magellon_job_manager.py`                   | Domain-style job manager over NATS     |
-| `services/job_event_publisher.py`                    | Facade over MagellonEventService       |
-| `services/magellon_event_service.py`                 | NATS JetStream + subject taxonomy      |
-| `services/event_logging_service.py`                  | Streams NATS events to stdout/log      |
-| `services/event_publisher.py`                        | Legacy NATS publisher                  |
-| `activities/image_processing_activities.py`          | Temporal activities                    |
-| `worker_{ctf,motioncor,thumbnail,all}.py`            | Temporal worker entry points           |
-| `docs/architecture/{WORKFLOW,EVENT}_ARCHITECTURE.md` | Temporal-era design docs               |
-
-None are imported by live code. Slated for deletion in an A.1-followup PR.
+**Dead-code island — removed (A.1 follow-up, `7d1f657`).** The Temporal-era
+scaffolding (~2K lines: `services/magellon_job_manager.py`,
+`services/job_event_publisher.py`, `services/magellon_event_service.py`,
+`services/event_logging_service.py`, `services/event_publisher.py`,
+`activities/image_processing_activities.py`, `worker_{ctf,motioncor,thumbnail,all}.py`,
+and `docs/architecture/{WORKFLOW,EVENT}_ARCHITECTURE.md`) was deleted
+alongside the Temporal revert. Any new orchestrator adoption starts from
+`magellon_sdk.executor.Executor` (surviving Protocol), not from these.
 
 **Importer path uses `job_service` too** for `ImageJob`/`ImageJobTask` row
-creation, but dispatches individual tasks via RabbitMQ (see §4.1). Task
-**state writes** after dispatch currently do not come back through
-`job_service` — see §4.1's gap note.
+creation, and task state writes after dispatch now come back through the
+in-process `TaskOutputProcessor` (P3, §4.1) which calls
+`_advance_task_state` to update `status_id` + `stage` per result.
 
 ### 3.4 Plugin registry (in-process)
 
@@ -174,8 +168,12 @@ and provenance-stamped result publishing (P4) for free.
 | Results MC      | `motioncor_out_tasks_queue`   | MC plugin    | `magellon_result_processor`   |
 | Test bridge     | `motioncor_test_inqueue/out`  | Frontend     | MC plugin (test harness only) |
 
-Queue naming is hardcoded in `core/helper.py:111` (`get_queue_name_by_task_type`)
-with `2=CTF`, `5=MOTIONCOR`. Adding a task type is a source edit.
+Routing is now owned by `core/dispatcher_registry.py::get_task_dispatcher_registry()`
+(MB3): `_BusTaskDispatcher` instances keyed by `TaskCategory` wrap each
+task in a CloudEvents `Envelope` and send via `bus.tasks.send`. Adding a
+task type is one `registry.register(...)` call. The legacy switch in
+`get_queue_name_by_task_type` (`core/helper.py:75`) survives only as a
+lookup helper for the on-disk audit log.
 
 **Dispatch path.** Importers (`services/importers/{MagellonImporter,EPUImporter,SerialEmImporter,BaseImporter}.py`)
 and the Leginon frame-transfer service build a `TaskDto` and call
@@ -191,40 +189,52 @@ via `_audit_outgoing_message` (`core/helper.py:124`), now decoupled
 from the publish path. (Updated 2026-04-21: MB3 producer migration
 landed; `RabbitmqClient` is no longer on the dispatch path.)
 
-**Consumer pattern** (`plugins/magellon_ctf_plugin/core/rabbitmq_consumer_engine.py`):
-each plugin spins a pika `BlockingConnection` and, inside the blocking
-callback, calls `asyncio.run(do_execute(the_task))`. This has two known
-issues:
+**Consumer pattern** (P5 — `magellon_sdk.runner.plugin_runner.PluginBrokerRunner`):
+each plugin's `main.py` installs the RMQ bus (`install_rmq_bus(rmq)`)
+and constructs one `PluginBrokerRunner`. The runner registers a
+`bus.tasks.consumer` for its category route and hands deliveries to
+`plugin.run(...)` on a single dedicated event loop
+(`asyncio.run_coroutine_threadsafe`). Exceptions are classified via
+`magellon_sdk.errors.classify_exception` into `AckAction.{ACK, NACK_REQUEUE, DLQ}`:
+parse and unsupported-input errors route to DLQ, transient infra
+errors requeue, plugin-domain errors ack with a failure result. No more
+`asyncio.run` per message; no more silent poison-drop.
 
-1. It defeats `PREFETCH_COUNT > 1` — the callback is synchronous.
-2. `basic_nack(requeue=False)` silently drops poison messages; no DLQ.
-
-**Result processing.** `magellon_result_processor` subscribes to a *list*
-of out-queues (`OUT_QUEUES` fan-in) and delegates to `TaskOutputProcessor`
-at `plugins/magellon_result_processor/services/task_output_processor.py:128`.
+**Result processing — in-process (P3).** CoreService owns the result
+writer: `CoreService/core/result_consumer.py` subscribes to each
+category's result route and delegates to
+`CoreService/services/task_output_processor.py::TaskOutputProcessor`.
 On each result it:
 
-1. Moves output files (CTF star files, MC MRCs) to
-   `MAGELLON_HOME_DIR/<session>/<dir_name>/<image>/`.
+1. Moves output files (CTF star files, MC MRCs) under
+   `MAGELLON_HOME_DIR/<session>/<dir_name>/<image>/` (see `DATA_PLANE.md`).
 2. Writes `ImageMetaData` rows keyed by `image_id`, with `category_id`
    distinguishing CTF (2) vs MotionCor (3).
+3. Calls `_advance_task_state(...)` (P4) to set `ImageJobTask.status_id`
+   (COMPLETED=2 / FAILED=3) and `stage` (MotionCor=1, CTF=2, unknown=99).
+   Failures route through the same helper inside the error handler, so
+   a plugin crash surfaces as `status_id=3` instead of a hung row.
 
-**Known gap (`task_output_processor.py`):**
-`ImageJobTask.status_id` and `stage` are **never advanced past 1 (pending)**
-after a task completes. The lines that would set `db_task.stage = 5`
-were removed during a refactor. Consequences:
+The out-of-tree `magellon_result_processor` plugin still exists in the
+repo but is no longer imported by CoreService — left as archaeology
+until deletion in a follow-up cleanup.
 
-- UI has no reliable per-task completion signal on the RMQ path.
-- There is no failure path either — a plugin crash mid-task is invisible
-  to CoreService; the task row stays at `pending` indefinitely.
+**Client visibility.** Live. External plugins emit
+`magellon.step.*` CloudEvents via
+`magellon_sdk.events.StepEventPublisher`; CoreService runs two
+forwarders — `core/rmq_step_event_forwarder.py` and
+`core/step_event_forwarder.py` (NATS) — which fan into
+`JobEventWriter` and re-emit on Socket.IO. The React UI consumes one
+Socket.IO stream whether the plugin ran in-process or in a container.
 
-**Client visibility.** Nothing streams mid-flight progress from external
-plugins to the UI today. The user sees "dispatched" and, eventually, the
-result appears in `ImageMetaData` — or doesn't.
-
-**Settings drift.** Each plugin has its own `configs/settings_dev.yml` and
-they have diverged (different log formats, different broker host
-fallbacks).
+**Settings drift — mostly resolved (P7).** Runtime knobs flow through
+`magellon.plugins.config.<category>` / `.broadcast` topic exchanges;
+every `PluginBrokerRunner` ships a `ConfigSubscriber` that drains
+pending updates between tasks and calls `plugin.configure(...)`.
+Static per-plugin `settings_dev.yml` files still exist for boot-time
+wiring (broker host, credentials); unification of that layer is
+tracked as Track B PR G.3 (`PluginConfigResolver`) in
+`IMPLEMENTATION_PLAN.md`.
 
 ### 4.2 Architecture B — in-process `PluginBase` + registry (`CoreService/plugins/`)
 
