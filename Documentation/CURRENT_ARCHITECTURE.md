@@ -328,33 +328,46 @@ For concreteness, the actual sequence a Magellon import runs through:
 7. `magellon_result_processor` consumes both out-queues, moves output
    files, writes `ImageMetaData`. **`ImageJobTask.stage` is not updated
    (see §4.1 gap).**
-8. The UI sees Socket.IO events only for the in-process bits; the external
-   plugin portion is silent until results show up in `ImageMetaData`.
+8. The UI sees Socket.IO events for both paths now. External plugins
+   emit `magellon.step.*` envelopes via
+   `magellon_sdk.events.StepEventPublisher`; CoreService's step-event
+   forwarder (`magellon_sdk/bus/services/step_event_forwarder.py`,
+   relocated in MB5.4b) consumes them via `bus.events.subscribe` and
+   emits `emit_step_event` onto the same Socket.IO channel the
+   in-process plugin runtime uses. The React app sees one stream
+   regardless of where the plugin ran.
 
 ---
 
 ## 6. Progress and event surface today
 
-Two paths carry mid-flight progress; one is live, one is scaffolded-but-
-unused:
+All progress flows converge on one Socket.IO channel. Three producers,
+one consumer (the React app):
 
-1. **Socket.IO `emit_job_update` / `emit_log`** from the in-process plugin
-   runtime (`plugins/progress.py` → `core/socketio_server.py`). The React
-   app subscribes per-`sid`. **This is the only path the current UI
-   consumes for plugin jobs.** External RMQ plugins do **not** emit on
-   this path.
+1. **In-process plugin runtime** — `plugins/progress.py::JobReporter`
+   emits `emit_job_update` / `emit_log` via
+   `core/socketio_server.py`. The React app subscribes per-`sid`.
+   Unchanged since P5.
 
-2. **NATS** — a broker is deployed in compose but no live publisher
-   currently writes to it. `services/event_publisher.py` + the
-   `services/magellon_event_service.py` singleton implement a complete
-   NATS publisher with a `job.*` / `step.*` / `worker.*` subject
-   taxonomy, but their only importers are the Temporal-era workers and
-   activities, which are dead code (§3.3). A third path via Dragonfly
-   pub/sub existed in the deleted `services/job_manager.py` and is now
-   gone.
+2. **External RMQ plugins (MB5.3 + MB5.4b)** — plugin's
+   `magellon_sdk.events.StepEventPublisher` publishes each
+   `magellon.step.*` envelope via `bus.events.publish(StepEventRoute,
+   env)`. CoreService's step-event forwarder
+   (`magellon_sdk.bus.services.step_event_forwarder`, relocated in
+   MB5.4b) subscribes via `bus.events.subscribe(StepEventRoute.all(),
+   handler)`. Handler writes a `job_event` row (idempotent on
+   `event_id` UNIQUE) and schedules a Socket.IO `emit_step_event`
+   via `asyncio.run_coroutine_threadsafe` against the asgi loop.
 
-The concrete developer-experience cost: external plugin progress is
-invisible today.
+3. **NATS forwarder (pre-existing)** — when `NATS_STEP_EVENTS_STREAM`
+   is configured, plugins fan out to NATS JetStream too; the NATS
+   forwarder in CoreService (`core/step_event_forwarder.py`) runs
+   the same handler chain. The `job_event.event_id` UNIQUE index
+   makes cross-transport re-delivery a no-op, so RMQ + NATS can
+   coexist without double-writes.
+
+Pre-MB5.3 this section called out "external plugin progress is
+invisible today." That gap is closed.
 
 ---
 
@@ -373,8 +386,8 @@ What survived the revert: the orchestrator-agnostic contract — `PluginBase`,
 multi-step pipelines with retry policy trees or human-in-the-loop),
 that's the plug-in point.
 
-What did not survive but is still in the tree: the dead-code island
-listed in §3.3.
+The dead-code island that the original revert left in the tree is
+gone — see §3.3 (deleted in the A.1 follow-up, `7d1f657`).
 
 ---
 
@@ -384,7 +397,7 @@ listed in §3.3.
 |---|---------|----------|
 | 1 | ~~`ImageJobTask` state not advanced after RMQ task completion~~ | **Resolved (Phase 4).** `task_output_processor._advance_task_state` writes `status_id` + `stage` (MotionCor=1, CTF=2, unknown=99). 5 unit tests. |
 | 2 | ~~No failure path from external plugin crashes~~ | **Resolved (P2 + P5).** `magellon_sdk.errors.classify_exception` returns `AckAction.{ACK,NACK_REQUEUE,DLQ}` per a typed taxonomy; `PluginBrokerRunner` honours it (DLQ for poison, requeue for transient, ack-with-failure-result for plugin-domain errors). |
-| 3 | ~~No mid-flight progress for external plugins~~ | **Publisher half resolved (Phase 4.5).** `magellon_sdk.events.StepEventPublisher` emits `magellon.step.*` CloudEvents on NATS. CoreService Socket.IO forwarder is the remaining half. |
+| 3 | ~~No mid-flight progress for external plugins~~ | **Fully resolved (MB5.3 + MB5.4b).** `StepEventPublisher` publishes via `bus.events.publish(StepEventRoute, env)`; `magellon_sdk.bus.services.step_event_forwarder.StepEventForwarder` subscribes via `bus.events.subscribe(StepEventRoute.all(), handler)` and emits `emit_step_event` onto Socket.IO. React app consumes one stream regardless of plugin location. |
 | 4 | Two plugin architectures | Same split (`plugins/` RMQ vs `CoreService/plugins/` in-process). The `TaskDispatcher` Protocol is the shared seam, and **`CategoryContract` (P1)** is the canonical input/output schema both halves resolve against — substitutability is now contract-pinned, not convention-pinned. |
 | 5 | ~~Temporal-era dead-code island (~2K lines)~~ | **Resolved (A.1 follow-up, `7d1f657`).** |
 | 6 | ~~SDK scaffolded, thin~~ | **Filled in.** `magellon-sdk 0.1.0` now ships `PluginBase`, `Envelope`, `Executor` Protocol, `ProgressReporter`, **`TaskDispatcher` + `TaskDispatcherRegistry` (Phase 6)**, **NATS transport** (`NatsPublisher`/`NatsConsumer`), **RMQ transport** (`RabbitmqClient` with `declare_queue_with_dlq`), and **`events.StepEventPublisher`**. |
@@ -395,7 +408,7 @@ listed in §3.3.
 | 11 | ~~`rabbitmq_client.connect()` swallows errors~~ | **Resolved (Phase 3).** `RabbitmqClient.connect()` and `publish_message()` now re-raise `AMQPConnectionError` / `ChannelError`; `publish_message_to_queue` returns `False` instead of silent-dropping. |
 | 12 | ~~Path coupling via shared filesystem~~ | **Reframed as architectural choice (2026-04-21).** `TaskOutputProcessor` assumes `MAGELLON_HOME_DIR` is a POSIX-shared namespace visible to CoreService and every plugin worker — this is the data plane and is intentional, not a gap. See `DATA_PLANE.md`. Object-storage-only deployments are an explicit non-goal. |
 | 13 | ~~No CloudEvents / no envelope versioning~~ | **Resolved (Phase 2).** `magellon_sdk.envelope.Envelope[DataT]` is CloudEvents 1.0 compliant with `specversion`, `source`, `type`, `subject`, `time`, `datacontenttype`. Used by the NATS transport and the step-event publisher. |
-| 14 | ~~No DLQ, no retry policy~~ | **Capability landed.** `RabbitmqClient.declare_queue_with_dlq()` wires `x-dead-letter-exchange` + routing key on new queues; 2 integration tests. Existing queues need a broker-policy migration (can't re-declare with new `x-*` args). Retry policy is still open. |
+| 14 | ~~No DLQ, no retry policy~~ | **DLQ fully scripted (MB6.4); retry policy still open.** `RabbitmqClient.declare_queue_with_dlq()` wires the args on new queues (2 integration tests). Existing queues are migrated via `CoreService/scripts/migrate_dlq_topology.py` per `Documentation/DLQ_MIGRATION_RUNBOOK.md` — production run is a scheduled ops event post-MB6.3 soak. Retry policy (per-category back-off) is still open. |
 | 15 | ~~Settings drift per plugin~~ | **Mostly resolved (P7).** Runtime knobs now flow through `magellon.plugins.config.<category>` / `.broadcast` topic exchange; every `PluginBrokerRunner` ships a `ConfigSubscriber` that drains pending updates between tasks and calls `plugin.configure()`. Static per-plugin `settings_dev.yml` files still exist for boot-time wiring. |
 | 16 | No operator hard-stop for runaway plugin work | **Resolved (P9).** `POST /cancellation/queues/purge` drains pending tasks from one or more category queues; `POST /cancellation/containers/{name}/kill` issues `docker kill` on a stuck plugin replica. Cooperative cancel via `JobManager.request_cancel` remains the in-flight path. |
 | 17 | Broker-based discovery / liveness (replaces Consul) | **Landed (P6).** Plugins emit one `magellon.plugins.announce.*` on boot and a `magellon.plugins.heartbeat.*` every N seconds via `DiscoveryPublisher` + `HeartbeatLoop`. CoreService listens with `core.plugin_liveness_registry.start_liveness_listener` and exposes the registry to the plugin discovery endpoints. |
