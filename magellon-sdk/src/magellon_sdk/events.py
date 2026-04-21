@@ -252,33 +252,41 @@ class BoundStepReporter:
 # ---------------------------------------------------------------------------
 
 
-class _RmqAsyncAdapter:
-    """Adapt the sync :class:`RabbitmqEventPublisher` to the async
-    ``publish(subject, envelope)`` shape :class:`StepEventPublisher` calls.
+class _BusRmqAdapter:
+    """MB5.3 replacement for the pre-MB5.3 pika-backed adapter.
 
-    pika's basic_publish is fast enough that wrapping in ``asyncio.to_thread``
-    would be overhead — emits are best-effort observability anyway.
+    Routes step-event envelopes through ``bus.events.publish`` on the
+    RMQ binder. The subject-stripping behaviour is preserved: NATS
+    subjects carry the ``magellon.`` prefix (``magellon.job.<id>.
+    step.<step>``); RMQ routing keys on the ``magellon.events``
+    exchange do not (``job.<id>.step.<step>``). ``StepEventRoute``
+    expects the stripped form — see its docstring for the rationale
+    ("preserve today's wire format").
 
-    NATS subjects and RMQ routing keys diverge: NATS uses
-    ``magellon.job.<id>.step.<step>``; RMQ binds (and routes) on
-    ``job.<id>.step.<step>`` (no ``magellon.`` prefix — the prefix
-    is the implicit exchange ``magellon.events`` already). Without
-    this conversion every publish lands on the exchange but matches
-    no binding, so consumers see nothing while ``publish_in`` ticks up.
+    pika basic_publish is fast enough that wrapping in ``asyncio.to_thread``
+    would be overhead — emits are best-effort observability anyway,
+    and the binder call is already a single blocking syscall.
+
+    Bus is passed in explicitly (no ``get_bus()`` fallback) so callers
+    can inject a mock binder in tests without patching module state.
     """
 
     _NATS_SUBJECT_PREFIX = "magellon."
 
-    def __init__(self, rmq: Any) -> None:
-        self._rmq = rmq
+    def __init__(self, bus: Any) -> None:
+        self._bus = bus
 
     async def publish(self, subject: str, envelope: Envelope) -> None:
-        routing_key = (
+        # Lazy-imported to keep ``magellon_sdk.events`` importable
+        # without the bus layer being wired (tests, ahead-of-install).
+        from magellon_sdk.bus.routes.event_route import StepEventRoute
+
+        rmq_subject = (
             subject[len(self._NATS_SUBJECT_PREFIX):]
             if subject.startswith(self._NATS_SUBJECT_PREFIX)
             else subject
         )
-        self._rmq.publish(routing_key, envelope)
+        self._bus.events.publish(StepEventRoute(subject=rmq_subject), envelope)
 
 
 class _FanoutPublisher:
@@ -372,18 +380,20 @@ async def make_step_publisher(
             and rmq_settings is not None
         ):
             try:
-                from magellon_sdk.transport.rabbitmq_events import (
-                    DEFAULT_EXCHANGE,
-                    RabbitmqEventPublisher,
-                )
+                # MB5.3: RMQ mirror now rides the MessageBus. The binder
+                # owns the connection the plugin already uses for tasks;
+                # we don't need a second pika connection just for step
+                # events. ``rmq_settings`` is kept in the signature for
+                # backcompat (plugin main.py files still pass it) but
+                # no longer consulted — the bus was installed from the
+                # same settings at startup.
+                from magellon_sdk.bus import get_bus
 
-                rmq = RabbitmqEventPublisher(
-                    rmq_settings, exchange=DEFAULT_EXCHANGE
-                )
-                rmq.connect()
-                transports.append(_RmqAsyncAdapter(rmq))
+                bus = get_bus()
+                transports.append(_BusRmqAdapter(bus))
                 logger.info(
-                    "[%s] step-event publisher: RMQ mirror enabled", plugin_name
+                    "[%s] step-event publisher: RMQ mirror enabled (via bus)",
+                    plugin_name,
                 )
             except Exception:
                 logger.warning(
