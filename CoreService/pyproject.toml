@@ -1,0 +1,53 @@
+# Minimal pyproject.toml for CoreService — exists only to carry the
+# MB6.3 ruff lint rule. CoreService is not packaged as a library; it's
+# run as a FastAPI application via ``uvicorn main:app``, so the
+# ``[project]`` section is intentionally absent. If that changes, add
+# ``[build-system]`` + ``[project]`` sections here.
+
+# ---------------------------------------------------------------------------
+# MB6.3 — lint rule: block pika imports outside allowlisted paths
+# ---------------------------------------------------------------------------
+#
+# Architectural principle #3 (ARCHITECTURE_PRINCIPLES.md) says layer
+# boundaries are lint-enforced, not guideline-enforced. The
+# MessageBus migration (MB4–MB6) consolidated all pika usage into
+# ``magellon_sdk.bus.binders.rmq``; CoreService code only ever talks
+# to the bus surface. This config blocks any regression.
+#
+# Enforced bans mirror the SDK's (magellon-sdk/pyproject.toml):
+#   - ``pika`` / ``aio_pika``  — no direct broker access outside
+#     binder / tests / dev scripts.
+#   - ``magellon_sdk.transport.rabbitmq``       — moved in MB6.2.
+#   - ``magellon_sdk.transport.rabbitmq_events`` — deleted in MB6.2.
+#
+# Allowlisted paths (via per-file-ignores):
+#   - ``tests/**``                  — integration tests hit a real broker.
+#   - ``scripts/**``                — operator + dev scripts are allowed
+#     to publish directly (motioncor_smoke_publish.py etc.).
+#   - ``core/motioncor_test_*.py``  — test-bridge harness used by the
+#     frontend's motioncor-test page (pre-MB4 scaffolding; remove when
+#     that page is migrated off the legacy bridge).
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+extend-exclude = [
+    "venv",
+    "app.log*",
+    "__pycache__",
+]
+
+[tool.ruff.lint]
+select = ["TID"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"pika".msg = "pika belongs in magellon_sdk/bus/binders/rmq/ only. Use bus.tasks.send / bus.events.publish via the MessageBus (see ARCHITECTURE_PRINCIPLES.md §3)."
+"aio_pika".msg = "aio_pika is not used; route via bus.tasks / bus.events."
+"magellon_sdk.transport.rabbitmq".msg = "Moved to magellon_sdk.bus.binders.rmq._client in MB6.2. Production callers should use the bus API."
+"magellon_sdk.transport.rabbitmq_events".msg = "Deleted in MB6.2. Step events flow via bus.events; see magellon_sdk.events.StepEventPublisher."
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["TID251", "TID252", "TID253"]
+"scripts/**" = ["TID251", "TID252", "TID253"]
+"core/motioncor_test_result_processor.py" = ["TID251", "TID252", "TID253"]
+"services/motioncor_test_service.py" = ["TID251", "TID252", "TID253"]

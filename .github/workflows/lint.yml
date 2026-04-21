@@ -1,0 +1,41 @@
+name: lint
+
+# MB6.3: enforce the "no pika outside the binder" invariant declared in
+# ARCHITECTURE_PRINCIPLES.md §3. The ruff banned-api rule is configured
+# in magellon-sdk/pyproject.toml and CoreService/pyproject.toml; this
+# workflow is what makes it blocking on every push and PR.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-sdk:
+    name: ruff / magellon-sdk
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ruff
+        run: pip install ruff
+      - name: ruff check magellon-sdk
+        working-directory: magellon-sdk
+        run: ruff check src tests
+
+  lint-core-service:
+    name: ruff / CoreService
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ruff
+        run: pip install ruff
+      - name: ruff check CoreService
+        working-directory: CoreService
+        run: ruff check . --exclude venv --exclude __pycache__
