@@ -54,7 +54,8 @@ from magellon_sdk.categories.contract import CategoryContract
 from magellon_sdk.config_broker import ConfigSubscriber
 from magellon_sdk.discovery import DiscoveryPublisher, HeartbeatLoop
 from magellon_sdk.envelope import Envelope
-from magellon_sdk.models import TaskDto, TaskResultDto
+from magellon_sdk.models import FAILED, TaskDto, TaskResultDto
+from magellon_sdk.progress import JobCancelledError
 from magellon_sdk.runner.lifecycle import start_config_subscriber, start_discovery
 
 logger = logging.getLogger(__name__)
@@ -131,6 +132,8 @@ class PluginBrokerRunner:
         self._heartbeat_loop: Optional[HeartbeatLoop] = None
         self._discovery_publisher: Optional[DiscoveryPublisher] = None
         self._config_subscriber: Optional[ConfigSubscriber] = None
+        # G.1 cooperative cancel: populated in start_blocking().
+        self._cancel_listener: Optional[Any] = None
 
     # ------------------------------------------------------------------
     # Per-message flow
@@ -142,6 +145,15 @@ class PluginBrokerRunner:
         Raising propagates up to the binder, which routes through
         :func:`classify_exception` → REQUEUE / DLQ per policy. Returns
         ``None`` on success: the binder acks.
+
+        :class:`JobCancelledError` is handled specially (G.1): the
+        plugin's progress reporter raised because an operator
+        cancelled the job mid-flight. We convert that into a
+        CANCELLED-flavoured :class:`TaskResultDto`, publish it so
+        the result processor + UI see the transition, and return
+        normally so the binder acks. Re-raising would push the task
+        to the DLQ, which confuses operators ("why is my cancelled
+        task in the DLQ?").
         """
         # Drain any pending config between deliveries so the plugin
         # sees the new settings on the very next run. A bad configure()
@@ -150,11 +162,25 @@ class PluginBrokerRunner:
 
         task = self._task_from_envelope(envelope)
         validated = self.plugin.input_schema().model_validate(task.data)
-        plugin_output = self.plugin.run(validated)
+
+        try:
+            plugin_output = self.plugin.run(validated)
+        except JobCancelledError as exc:
+            logger.info(
+                "PluginBrokerRunner[%s]: task %s cancelled (%s); publishing cancelled result",
+                self.plugin.get_info().name, task.id, exc,
+            )
+            result = self._build_cancelled_result(task, str(exc))
+            self._stamp_provenance(result)
+            self._publish_result(result)
+            return
 
         result = self.result_factory(task, plugin_output)
         self._stamp_provenance(result)
+        self._publish_result(result)
 
+    def _publish_result(self, result: TaskResultDto) -> None:
+        """Publish the result envelope, logging a failed send."""
         result_envelope = Envelope.wrap(
             source=f"magellon/plugins/{self.plugin.get_info().name}",
             type="magellon.task.result",
@@ -169,6 +195,34 @@ class PluginBrokerRunner:
                 self._out_route.subject,
                 receipt.error,
             )
+
+    def _build_cancelled_result(self, task: TaskDto, reason: str) -> TaskResultDto:
+        """Minimal cancelled-status result. Uses ``FAILED`` as the wire
+        status because the TaskStatus enum doesn't have a CANCELLED
+        code today; the ``message`` field carries the human-readable
+        distinction, and ``output_data`` includes a ``cancelled=True``
+        flag so downstream consumers that care can distinguish the
+        two. Upgrading to a real CANCELLED enum value is a later
+        polish (touches TaskOutputProcessor status mapping).
+
+        ``image_id`` lives inside ``task.data`` on every category's
+        TaskDto — the top-level TaskDto is category-agnostic. Pulling
+        it out lets the result processor project against the right
+        image row; without it the cancelled status floats without
+        anchor."""
+        image_id = None
+        if isinstance(task.data, dict):
+            image_id = task.data.get("image_id")
+        return TaskResultDto(
+            task_id=task.id,
+            image_id=image_id,
+            type=task.type,
+            code=FAILED.code,
+            message=f"cancelled: {reason}",
+            status=FAILED,
+            output_data={"cancelled": True, "reason": reason},
+            job_id=task.job_id,
+        )
 
     @staticmethod
     def _task_from_envelope(envelope: Envelope) -> TaskDto:
@@ -306,6 +360,21 @@ class PluginBrokerRunner:
             self._bus = install_rmq_bus(self.settings)
             return self._bus
 
+    def _start_cancel_listener(self, bus: MessageBus) -> None:
+        """G.1: subscribe to the per-job cancel subject so each
+        delivery's progress checkpoint can see its cancel flag flip."""
+        # Lazy import: cancel_registry depends on magellon_sdk.bus which
+        # may not be initialized in every test context.
+        from magellon_sdk.bus.services.cancel_registry import start_cancel_listener
+        try:
+            self._cancel_listener = start_cancel_listener(bus=bus)
+        except Exception:
+            logger.exception(
+                "PluginBrokerRunner[%s]: cancel listener failed to start "
+                "(cooperative cancel disabled for this process)",
+                self.plugin.get_info().name,
+            )
+
     def start_blocking(self) -> None:
         """Register the task consumer on the bus + run until shutdown.
 
@@ -321,6 +390,7 @@ class PluginBrokerRunner:
         )
         self._start_discovery()
         self._start_config_subscriber()
+        self._start_cancel_listener(bus)
         logger.info(
             "PluginBrokerRunner[%s]: consuming %s, publishing %s",
             self.plugin.get_info().name,
@@ -346,6 +416,12 @@ class PluginBrokerRunner:
             self._discovery_publisher.close()
         if self._config_subscriber is not None:
             self._config_subscriber.stop()
+        if self._cancel_listener is not None:
+            try:
+                self._cancel_listener.stop()
+            except Exception as e:  # noqa: BLE001
+                logger.debug("cancel listener stop failed: %s", e)
+            self._cancel_listener = None
 
 
 __all__ = ["PluginBrokerRunner", "ResultFactory"]

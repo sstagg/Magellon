@@ -119,8 +119,37 @@ class StepEventRoute:
         return EventPattern(subject_glob="job.*.step.*")
 
 
+# ---------------------------------------------------------------------------
+# Cancel — per-job cooperative cancel (G.1)
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class CancelRoute:
+    """Per-job cancel request — ``magellon.plugins.cancel.<job_id>``.
+
+    Published by CoreService's cancel controller when an operator
+    cancels a job; plugins subscribe via :meth:`all` on startup and
+    check the resulting :class:`CancelRegistry` at progress
+    checkpoints (see ``BoundStepReporter``). Kept on the
+    ``magellon.plugins`` exchange so it rides the same fabric as
+    announce/heartbeat/config.
+    """
+
+    subject: str
+
+    @classmethod
+    def for_job(cls, job_id: str) -> "CancelRoute":
+        return cls(subject=f"magellon.plugins.cancel.{job_id}")
+
+    @classmethod
+    def all(cls) -> EventPattern:
+        """Match every job's cancel pulse."""
+        return EventPattern(subject_glob="magellon.plugins.cancel.>")
+
+
 __all__ = [
     "AnnounceRoute",
+    "CancelRoute",
     "ConfigRoute",
     "HeartbeatRoute",
     "StepEventRoute",

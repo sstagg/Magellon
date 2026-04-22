@@ -214,11 +214,13 @@ class BoundStepReporter:
         self._step = step
 
     async def started(self) -> None:
+        self._check_cancelled()
         if self._pub is None:
             return
         await self._pub.started(job_id=self._job_id, step=self._step, task_id=self._task_id)
 
     async def progress(self, percent: float, message: Optional[str] = None) -> None:
+        self._check_cancelled()
         if self._pub is None:
             return
         await self._pub.progress(
@@ -228,6 +230,31 @@ class BoundStepReporter:
             message=message,
             task_id=self._task_id,
         )
+
+    def _check_cancelled(self) -> None:
+        """G.1 cooperative-cancel hook. If an operator has cancelled
+        the job bound to this reporter, raise :class:`JobCancelledError`
+        so the plugin's ``execute()`` unwinds at the next checkpoint.
+
+        The ``CancelRegistry`` is populated by
+        :mod:`magellon_sdk.bus.services.cancel_registry` which is
+        subscribed-to by :class:`PluginBrokerRunner` on startup.
+        Plugin code sees the exception the first time it calls
+        ``reporter.started()`` or ``reporter.progress(...)`` after
+        the cancel event arrives on the bus — typically within
+        milliseconds.
+
+        Terminal emits (``completed`` / ``failed``) deliberately do
+        not check: if the plugin has reached its own success/failure
+        exit, it's pointless to abort — just let it emit and finish.
+        """
+        # Lazy import keeps ``magellon_sdk.events`` importable without
+        # the bus layer (older tests, ahead-of-install tooling).
+        from magellon_sdk.bus.services.cancel_registry import get_cancel_registry
+        from magellon_sdk.progress import JobCancelledError
+
+        if get_cancel_registry().is_cancelled(self._job_id):
+            raise JobCancelledError(f"Job {self._job_id} cancelled by operator")
 
     async def completed(self, output_files: Optional[List[str]] = None) -> None:
         if self._pub is None:

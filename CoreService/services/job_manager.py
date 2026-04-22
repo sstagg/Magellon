@@ -74,8 +74,61 @@ class JobManager:
     # -- cancellation -------------------------------------------------------
 
     def request_cancel(self, job_id: str) -> None:
-        """Flag a running job for cancellation. Idempotent."""
+        """Flag a running job for cancellation. Idempotent.
+
+        Two cancellation paths fan out from here:
+
+        - **In-process plugins** poll :meth:`is_cancelled` via their
+          :class:`JobReporter` and raise :class:`JobCancelledError`
+          at the next checkpoint. Same shape as pre-G.1.
+
+        - **External (RMQ) plugins** (G.1) rely on a bus-delivered
+          cancel event. This method publishes
+          ``magellon.plugins.cancel.<job_id>`` via
+          ``bus.events.publish``; the plugin's ``PluginBrokerRunner``
+          subscribes on startup and marks the id in its
+          :class:`CancelRegistry`. The plugin's progress reporter
+          picks up the flag at the next ``reporter.progress(...)``
+          and raises.
+
+        Bus publish is best-effort: if the bus isn't installed or
+        the broker is hiccuping, we log and continue — the in-process
+        path is unaffected, and a retry of the cancel will republish.
+        """
         self._cancel_requests.add(job_id)
+        self._publish_bus_cancel(job_id)
+
+    @staticmethod
+    def _publish_bus_cancel(job_id: str) -> None:
+        """Publish the G.1 cancel event. Swallow any failure so a
+        broker hiccup doesn't block in-process cancel semantics."""
+        try:
+            from magellon_sdk.bus import get_bus
+            from magellon_sdk.bus.routes.event_route import CancelRoute
+            from magellon_sdk.bus.services.cancel_registry import CancelMessage
+            from magellon_sdk.envelope import Envelope
+
+            msg = CancelMessage(job_id=uuid.UUID(job_id)) if isinstance(job_id, str) else CancelMessage(job_id=job_id)
+            route = CancelRoute.for_job(str(msg.job_id))
+            envelope = Envelope.wrap(
+                source="magellon/core_service/job_manager",
+                type="magellon.plugin.cancel.v1",
+                subject=route.subject,
+                data=msg,
+            )
+            receipt = get_bus().events.publish(route, envelope)
+            if not receipt.ok:
+                logger.warning(
+                    "JobManager.request_cancel: bus publish returned ok=False for job %s: %s",
+                    job_id, receipt.error,
+                )
+        except Exception:  # noqa: BLE001
+            logger.warning(
+                "JobManager.request_cancel: bus publish failed for job %s — "
+                "in-process cancel still fires; external plugins will not "
+                "see this cancel until the bus recovers",
+                job_id, exc_info=True,
+            )
 
     def is_cancelled(self, job_id: str) -> bool:
         return job_id in self._cancel_requests
