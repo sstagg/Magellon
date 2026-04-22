@@ -193,3 +193,89 @@ async def test_bound_reporter_with_none_publisher_is_a_noop():
     await reporter.progress(10.0, "x")
     await reporter.completed(output_files=["/tmp/x"])
     await reporter.failed(error="x")
+
+
+# ---- BoundStepReporter cancel hook (G.1) ----
+
+
+@pytest.mark.asyncio
+async def test_bound_reporter_progress_raises_when_job_cancelled():
+    """G.1: when an operator cancels the job, the very next
+    ``reporter.progress(...)`` must raise :class:`JobCancelledError`.
+    That's the seam plugins unwind through — no separate cancel-
+    polling code in the plugin."""
+    from magellon_sdk.bus.services.cancel_registry import get_cancel_registry
+    from magellon_sdk.progress import JobCancelledError
+
+    rec = _Recorder()
+    pub = StepEventPublisher(rec, plugin_name="ctf")
+    job_id = uuid4()
+    reporter = BoundStepReporter(pub, job_id=job_id, step="ctf")
+
+    # One emit OK before cancel.
+    await reporter.progress(10.0, "running")
+    assert len(rec.calls) == 1
+
+    # Operator flips the cancel bit.
+    reg = get_cancel_registry()
+    try:
+        reg.mark_cancelled(job_id)
+
+        with pytest.raises(JobCancelledError, match=str(job_id)):
+            await reporter.progress(50.0, "more work")
+
+        # The cancelled emit must NOT have reached the publisher —
+        # the check gate is before the publish call.
+        assert len(rec.calls) == 1
+    finally:
+        reg.reset()
+
+
+@pytest.mark.asyncio
+async def test_bound_reporter_started_also_checks_cancel():
+    """Started() is a checkpoint too — if the operator cancels
+    between dispatch and the plugin's first emit, we want to unwind
+    without doing any work."""
+    from magellon_sdk.bus.services.cancel_registry import get_cancel_registry
+    from magellon_sdk.progress import JobCancelledError
+
+    rec = _Recorder()
+    pub = StepEventPublisher(rec, plugin_name="ctf")
+    job_id = uuid4()
+    reporter = BoundStepReporter(pub, job_id=job_id, step="ctf")
+
+    reg = get_cancel_registry()
+    try:
+        reg.mark_cancelled(job_id)
+        with pytest.raises(JobCancelledError):
+            await reporter.started()
+        assert rec.calls == []
+    finally:
+        reg.reset()
+
+
+@pytest.mark.asyncio
+async def test_bound_reporter_terminal_emits_do_not_check_cancel():
+    """completed() / failed() deliberately don't check the registry.
+    If the plugin's own logic has reached a terminal state, aborting
+    mid-emit is pointless — let the event land so the UI can show
+    the final transition."""
+    from magellon_sdk.bus.services.cancel_registry import get_cancel_registry
+
+    rec = _Recorder()
+    pub = StepEventPublisher(rec, plugin_name="ctf")
+    job_id = uuid4()
+    reporter = BoundStepReporter(pub, job_id=job_id, step="ctf")
+
+    reg = get_cancel_registry()
+    try:
+        reg.mark_cancelled(job_id)
+        # Both should succeed even though the job is marked cancelled.
+        await reporter.completed(output_files=["/tmp/out.mrc"])
+        await reporter.failed(error="late failure")
+    finally:
+        reg.reset()
+
+    types = [env.type for _, env in rec.calls]
+    assert STEP_COMPLETED in types
+    assert STEP_FAILED in types
