@@ -323,21 +323,17 @@ in a scheduled ops window, after MB6.3 soaks for a week.
 
 ### Track B — Close product-visible gaps
 
-**Goal.** Address four product gaps surfaced in the 2026-04-21
-architect's review: cooperative cancel for external plugins (R4),
-missing plugin-container contract tests (R5), fragmented config
-surface (R7), synchronous import handler (R8). Independent of Track A;
-each PR can be picked up individually.
+**Track B status (2026-04-21, end of day).** All 4 PRs shipped.
 
 PR IDs use the `G` prefix (Gap closure) to avoid colliding with
 Phase-B PR numbering.
 
-| PR  | Title | DoD |
-|-----|-------|-----|
-| G.1 | Cooperative cancel for external plugins | New event `magellon.plugins.cancel.<job_id>` published on operator-initiated cancel. `PluginBrokerRunner` subscribes and sets a flag; plugin checks it at the next `reporter.report(...)` and raises `JobCancelledError` — same contract in-process plugins already honour. Integration test: mid-flight cancel on CTF plugin aborts cleanly within one progress tick. |
-| G.2 | Contract test per plugin container | `pytest` fixture in `CoreService/tests/contracts/` boots each plugin image via docker-compose, publishes a canned envelope through the bus, asserts reply shape + provenance stamping. Lands one plugin per PR: CTF first, MotionCor second, FFT third. Closes the gap called out in `CURRENT_ARCHITECTURE.md` §9. |
-| G.3 | Unified `PluginConfigResolver` | New SDK class layers YAML → env vars → bus-pushed dynamic config with documented precedence. Replaces the current four-way split (static `settings_dev.yml`, env vars like `MAGELLON_STEP_EVENTS_ENABLED`, `magellon.plugins.config.*` topic, hardcoded `CategoryContract` defaults). Plugins call `resolver.get(key)`; resolution order is one function with a docstring. |
-| ~~G.4~~ | **Done (`2de2449`).** Background the import handler | `/magellon-import` returns a scheduled `job_id` immediately; `MagellonImporter.process()` runs in FastAPI `BackgroundTasks` with its own DB session. `BaseImporter.pre_assigned_job_id` attribute threads the id so the endpoint's response matches the row the BG task eventually inserts. Smoke test with 1000-image session is staging-only. |
+| PR  | Title | Status |
+|-----|-------|--------|
+| ~~G.1~~ | Cooperative cancel for external plugins | **Done (`6663d23`).** New `CancelRoute` + `CancelRegistry` + bus listener. `BoundStepReporter.started/progress` check the registry and raise `JobCancelledError` so plugins abort at their next progress checkpoint. `PluginBrokerRunner._handle_task` catches the raise and publishes a FAILED-status result with `output_data["cancelled"]=True`. `JobManager.request_cancel` publishes the bus cancel event alongside the in-process flag. 5 new SDK tests; ruff clean. |
+| ~~G.2~~ | Contract test per plugin container | **Done (`59b420c`).** `CoreService/tests/contracts/` framework + one test module per plugin (CTF, MotionCor, FFT). Each hits the plugin's HTTP `/execute` endpoint with a canned TaskDto (missing-file input → clean failure), asserts `task_id`/`job_id` echo + TaskResultDto shape. Bypasses RMQ to avoid racing CoreService's in-process result consumer. Skips cleanly with an actionable message when the plugin container isn't up. |
+| ~~G.3~~ | Unified `PluginConfigResolver` | **Done (`50deb25`).** `magellon_sdk/config/resolver.py` layers runtime overrides > env vars > YAML > defaults with lock-protected `apply_overrides`. Typed accessors (`get_bool/get_int/get_float/get_str`) that log-and-default on garbage so plugin hot loops don't crash on typo'd values. `snapshot()` for diagnostics. 26 tests pinning precedence + merge semantics. Per-plugin migration to use the resolver is per-plugin follow-up; the class contract is frozen. |
+| ~~G.4~~ | Background the import handler | **Done (`2de2449`, earlier session).** `/magellon-import` returns a scheduled `job_id` immediately; `MagellonImporter.process()` runs in FastAPI `BackgroundTasks` with its own DB session. `BaseImporter.pre_assigned_job_id` attribute threads the id. |
 
 **Ordering.** G.4 is the cheapest (half a day) and the most immediately user-visible — recommend as the first Track B PR. G.1 uses the bus via Track A's MB5.1 path; it can land earlier by targeting the RMQ binder directly and being retargeted trivially.
 
