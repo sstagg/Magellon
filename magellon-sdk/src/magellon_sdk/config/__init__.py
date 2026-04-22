@@ -6,6 +6,7 @@ subclass that binds the concrete settings type.
 """
 from __future__ import annotations
 
+from magellon_sdk.config.resolver import PluginConfigResolver
 from magellon_sdk.config.settings import (
     BaseAppSettings,
     BaseAppSettingsSingleton,
@@ -17,5 +18,6 @@ __all__ = [
     "BaseAppSettings",
     "BaseAppSettingsSingleton",
     "DatabaseSettings",
+    "PluginConfigResolver",
     "RabbitMQSettings",
 ]
