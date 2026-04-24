@@ -30,10 +30,17 @@ from magellon_sdk.bus import get_bus
 from magellon_sdk.bus.bootstrap import install_rmq_bus
 from magellon_sdk.bus.interfaces import MessageBus
 from magellon_sdk.bus.routes import TaskResultRoute, TaskRoute
-from magellon_sdk.categories.contract import CTF, FFT, MOTIONCOR_CATEGORY
+from magellon_sdk.categories.contract import (
+    CTF,
+    FFT,
+    HOLE_DETECT,
+    MOTIONCOR_CATEGORY,
+    SQUARE_DETECT,
+)
 from magellon_sdk.dispatcher import TaskDispatcherRegistry
 from magellon_sdk.envelope import Envelope
 from magellon_sdk.models import CTF_TASK, FFT_TASK, MOTIONCOR, TaskDto
+from magellon_sdk.models.tasks import HOLE_DETECTION, SQUARE_DETECTION
 
 from config import app_settings
 
@@ -99,6 +106,8 @@ def _build_legacy_queue_map() -> dict[str, str]:
     _map(CTF, rmq.CTF_QUEUE_NAME, rmq.CTF_OUT_QUEUE_NAME)
     _map(MOTIONCOR_CATEGORY, rmq.MOTIONCOR_QUEUE_NAME, rmq.MOTIONCOR_OUT_QUEUE_NAME)
     _map(FFT, rmq.FFT_QUEUE_NAME, rmq.FFT_OUT_QUEUE_NAME)
+    _map(SQUARE_DETECT, rmq.SQUARE_DETECTION_QUEUE_NAME, rmq.SQUARE_DETECTION_OUT_QUEUE_NAME)
+    _map(HOLE_DETECT, rmq.HOLE_DETECTION_QUEUE_NAME, rmq.HOLE_DETECTION_OUT_QUEUE_NAME)
     return mapping
 
 
@@ -144,6 +153,18 @@ def get_task_dispatcher_registry() -> TaskDispatcherRegistry:
     registry.register(
         FFT_TASK,
         _BusTaskDispatcher(route=TaskRoute.for_category(FFT), name="bus:fft"),
+    )
+    registry.register(
+        SQUARE_DETECTION,
+        _BusTaskDispatcher(
+            route=TaskRoute.for_category(SQUARE_DETECT), name="bus:square_detection"
+        ),
+    )
+    registry.register(
+        HOLE_DETECTION,
+        _BusTaskDispatcher(
+            route=TaskRoute.for_category(HOLE_DETECT), name="bus:hole_detection"
+        ),
     )
     return registry
 

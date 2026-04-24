@@ -43,10 +43,12 @@ STATUS_FAILED = 3
 
 # ImageJobTask.stage values — per task-type code. The stage is the
 # position of that step in the per-image pipeline:
-#   1 = MotionCor (TaskCategory.code == 5)
-#   2 = CTF       (TaskCategory.code == 2)
+#   1 = MotionCor        (TaskCategory.code == 5)
+#   2 = CTF              (TaskCategory.code == 2)
+#   3 = SquareDetection  (TaskCategory.code == 6)
+#   4 = HoleDetection    (TaskCategory.code == 7)
 # Unknown task types land at 99 so operators can spot them in the UI.
-_TASK_TYPE_TO_STAGE = {5: 1, 2: 2}
+_TASK_TYPE_TO_STAGE = {5: 1, 2: 2, 6: 3, 7: 4}
 _DEFAULT_STAGE = 99
 
 # Default category id when no OutQueueConfig matches — preserves the

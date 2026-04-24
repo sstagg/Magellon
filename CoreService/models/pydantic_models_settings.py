@@ -19,6 +19,8 @@ class OutQueueType(str, Enum):
     MOTIONCOR = "motioncor"
     FFT = "fft"
     PARTICLE_PICKING = "particle_picking"
+    SQUARE_DETECTION = "square_detection"
+    HOLE_DETECTION = "hole_detection"
 
 
 class OutQueueConfig(BaseModel):
@@ -46,6 +48,10 @@ class RabbitMQSettings(BaseModel):
     MOTIONCOR_TEST_OUT_QUEUE_NAME: Optional[str] = None
     FFT_QUEUE_NAME: Optional[str] = "fft_tasks_queue"
     FFT_OUT_QUEUE_NAME: Optional[str] = "fft_out_tasks_queue"
+    SQUARE_DETECTION_QUEUE_NAME: Optional[str] = "square_detection_tasks_queue"
+    SQUARE_DETECTION_OUT_QUEUE_NAME: Optional[str] = "square_detection_out_tasks_queue"
+    HOLE_DETECTION_QUEUE_NAME: Optional[str] = "hole_detection_tasks_queue"
+    HOLE_DETECTION_OUT_QUEUE_NAME: Optional[str] = "hole_detection_out_tasks_queue"
     PORT: Optional[int] = 5672
     USER_NAME: Optional[str] = None
     PASSWORD: Optional[str] = None

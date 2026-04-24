@@ -57,6 +57,10 @@ rabbitmq_settings:
   MOTIONCOR_TEST_OUT_QUEUE_NAME: motioncor_test_outqueue
   FFT_QUEUE_NAME: fft_tasks_queue
   FFT_OUT_QUEUE_NAME: fft_out_tasks_queue
+  SQUARE_DETECTION_QUEUE_NAME: square_detection_tasks_queue
+  SQUARE_DETECTION_OUT_QUEUE_NAME: square_detection_out_tasks_queue
+  HOLE_DETECTION_QUEUE_NAME: hole_detection_tasks_queue
+  HOLE_DETECTION_OUT_QUEUE_NAME: hole_detection_out_tasks_queue
   # In-process result-processor (P3). See dev YAML for shape notes.
   OUT_QUEUES:
     - name: ctf_out_tasks_queue
@@ -71,6 +75,14 @@ rabbitmq_settings:
       queue_type: fft
       dir_name: ffts
       category: 1
+    - name: square_detection_out_tasks_queue
+      queue_type: square_detection
+      dir_name: squares
+      category: 6
+    - name: hole_detection_out_tasks_queue
+      queue_type: hole_detection
+      dir_name: holes
+      category: 7
 
 directory_settings:
   FFT_DIR: null

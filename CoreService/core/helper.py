@@ -96,6 +96,14 @@ def get_queue_name_by_task_type(task_type: TaskCategory, is_result: bool = False
             'task': app_settings.rabbitmq_settings.FFT_QUEUE_NAME,
             'result': app_settings.rabbitmq_settings.FFT_OUT_QUEUE_NAME
         },
+        6: {  # SQUARE_DETECTION.code
+            'task': app_settings.rabbitmq_settings.SQUARE_DETECTION_QUEUE_NAME,
+            'result': app_settings.rabbitmq_settings.SQUARE_DETECTION_OUT_QUEUE_NAME
+        },
+        7: {  # HOLE_DETECTION.code
+            'task': app_settings.rabbitmq_settings.HOLE_DETECTION_QUEUE_NAME,
+            'result': app_settings.rabbitmq_settings.HOLE_DETECTION_OUT_QUEUE_NAME
+        },
     }
 
     if task_type.code not in queue_mapping:
