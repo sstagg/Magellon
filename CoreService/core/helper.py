@@ -7,9 +7,10 @@ import glob
 from pydantic import BaseModel
 
 from config import app_settings
-from core.task_factory import CtfTaskFactory, FftTaskFactory, MotioncorTaskFactory
+from core.task_factory import CtfTaskFactory, FftTaskFactory, MotioncorTaskFactory, TaskFactory
 from models.plugins_models import TaskDto, CtfTaskData, FftTaskData, FFT_TASK, TaskResultDto, CTF_TASK, PENDING, CryoEmMotionCorTaskData, \
     MOTIONCOR_TASK, TaskCategory
+from magellon_sdk.models.tasks import HOLE_DETECTION, PtolemyTaskData, SQUARE_DETECTION
 from models.pydantic_models import LeginonFrameTransferTaskDto, EPUImportTaskDto, ImportTaskDto
 
 logger = logging.getLogger(__name__)
@@ -195,6 +196,79 @@ def dispatch_ctf_task(task_id, full_image_path, task_dto: ImportTaskDto):
                                           data=ctf_task_data.model_dump(), ptype=CTF_TASK, pstatus=PENDING)
     ctf_task.session_name = session_name
     return push_task_to_task_queue(ctf_task)
+
+
+def _dispatch_ptolemy_task(
+    *,
+    category: TaskCategory,
+    image_path: str,
+    job_id=None,
+    task_id=None,
+    image_id=None,
+    session_name=None,
+) -> bool:
+    """Shared body for dispatch_square_detection_task / dispatch_hole_detection_task.
+
+    Both ptolemy categories take the same input shape (``PtolemyTaskData``
+    with an MRC path) and differ only in the category that controls which
+    queue + which plugin pipeline runs.
+    """
+    file_name = os.path.splitext(os.path.basename(image_path))[0]
+    data = PtolemyTaskData(
+        image_id=image_id,
+        image_name=file_name,
+        image_path=image_path,
+        input_file=image_path,
+    )
+    ptolemy_task = TaskFactory.create_task(
+        pid=task_id or uuid.uuid4(),
+        instance_id=uuid.uuid4(),
+        job_id=job_id,
+        data=data.model_dump(),
+        ptype=category,
+        pstatus=PENDING,
+    )
+    if session_name:
+        ptolemy_task.session_name = session_name
+    return push_task_to_task_queue(ptolemy_task)
+
+
+def dispatch_square_detection_task(
+    image_path: str,
+    *,
+    job_id=None,
+    task_id=None,
+    image_id=None,
+    session_name=None,
+) -> bool:
+    """Dispatch a low-mag square-detection task to the ptolemy plugin."""
+    return _dispatch_ptolemy_task(
+        category=SQUARE_DETECTION,
+        image_path=image_path,
+        job_id=job_id,
+        task_id=task_id,
+        image_id=image_id,
+        session_name=session_name,
+    )
+
+
+def dispatch_hole_detection_task(
+    image_path: str,
+    *,
+    job_id=None,
+    task_id=None,
+    image_id=None,
+    session_name=None,
+) -> bool:
+    """Dispatch a med-mag hole-detection task to the ptolemy plugin."""
+    return _dispatch_ptolemy_task(
+        category=HOLE_DETECTION,
+        image_path=image_path,
+        job_id=job_id,
+        task_id=task_id,
+        image_id=image_id,
+        session_name=session_name,
+    )
 
 
 def dispatch_fft_task(

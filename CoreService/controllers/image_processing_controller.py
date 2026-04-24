@@ -305,6 +305,139 @@ async def fft_batch_dispatch(
     )
 
 
+# ---------------------------------------------------------------------------
+# Ptolemy (square / hole detection) — manual dispatch endpoints
+# ---------------------------------------------------------------------------
+# Unlike CTF / MotionCor, ptolemy is not dispatched from the bulk import
+# pipeline — it applies only to atlas-scale or grid-overview images.
+# These endpoints let operators fan out square or hole detection on
+# specific images without waiting for pipeline automation to pick them up.
+
+class PtolemyDispatchRequest(BaseModel):
+    image_path: str
+    job_id: Optional[UUID] = None
+    image_id: Optional[UUID] = None
+    session_name: Optional[str] = None
+
+
+class PtolemyDispatchResponse(BaseModel):
+    job_id: UUID
+    task_id: UUID
+    queue_name: str
+    image_path: str
+    category: str
+    status: str = "dispatched"
+
+
+def _ptolemy_dispatch(
+    request: PtolemyDispatchRequest,
+    *,
+    category_label: str,
+    plugin_id: str,
+    queue_name: str,
+    user_id: UUID,
+) -> PtolemyDispatchResponse:
+    """Shared body for the two ptolemy dispatch endpoints.
+
+    Creates a 1-task ImageJob via JobManager (so DB has authoritative
+    state from the moment of dispatch), then publishes the TaskDto
+    onto the category's RMQ queue.
+    """
+    from core.helper import (
+        dispatch_hole_detection_task,
+        dispatch_square_detection_task,
+    )
+    from services.job_manager import job_manager
+
+    task_id = uuid.uuid4()
+
+    job_envelope = job_manager.create_job(
+        plugin_id=plugin_id,
+        name=f"{category_label} {os.path.basename(request.image_path)}",
+        settings={"image_path": request.image_path},
+        task_ids=[task_id],
+        user_id=str(user_id) if user_id else None,
+        job_id=request.job_id,
+    )
+    job_id = uuid.UUID(job_envelope["job_id"])
+
+    logger.info(
+        "User %s dispatching %s task %s in job %s for image %s",
+        user_id, category_label, task_id, job_id, request.image_path,
+    )
+
+    dispatch_fn = (
+        dispatch_square_detection_task
+        if category_label == "SquareDetection"
+        else dispatch_hole_detection_task
+    )
+    ok = dispatch_fn(
+        image_path=request.image_path,
+        job_id=job_id,
+        task_id=task_id,
+        image_id=request.image_id,
+        session_name=request.session_name,
+    )
+    if not ok:
+        job_manager.fail_job(
+            str(job_id), error=f"Failed to publish {category_label} task to RMQ",
+        )
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to publish {category_label} task to RMQ",
+        )
+
+    return PtolemyDispatchResponse(
+        job_id=job_id,
+        task_id=task_id,
+        queue_name=queue_name,
+        image_path=request.image_path,
+        category=category_label,
+    )
+
+
+@image_processing_router.post(
+    "/ptolemy/square/dispatch",
+    response_model=PtolemyDispatchResponse,
+    summary="Dispatch a ptolemy square-detection task (low-mag MRC) via RMQ. "
+            "Creates a JobManager-backed job + one task, returns job_id and "
+            "task_id for step-event subscription.",
+)
+async def ptolemy_square_dispatch(
+    request: PtolemyDispatchRequest,
+    _: None = Depends(require_permission('image_processing', 'write')),
+    user_id: UUID = Depends(get_current_user_id),
+):
+    return _ptolemy_dispatch(
+        request,
+        category_label="SquareDetection",
+        plugin_id="magellon_ptolemy_plugin",
+        queue_name="square_detection_tasks_queue",
+        user_id=user_id,
+    )
+
+
+@image_processing_router.post(
+    "/ptolemy/hole/dispatch",
+    response_model=PtolemyDispatchResponse,
+    summary="Dispatch a ptolemy hole-detection task (med-mag MRC) via RMQ. "
+            "Creates a JobManager-backed job + one task, returns job_id and "
+            "task_id for step-event subscription.",
+)
+async def ptolemy_hole_dispatch(
+    request: PtolemyDispatchRequest,
+    _: None = Depends(require_permission('image_processing', 'write')),
+    user_id: UUID = Depends(get_current_user_id),
+):
+    return _ptolemy_dispatch(
+        request,
+        category_label="HoleDetection",
+        plugin_id="magellon_ptolemy_plugin",
+        queue_name="hole_detection_tasks_queue",
+        user_id=user_id,
+    )
+
+
 @image_processing_router.post("/ctf")
 async def calculate_ctf(
     abs_file_path: str,
