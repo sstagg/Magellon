@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import math
-from matplotlib import path
+
 
 class PointSet2D():
     def __init__(self, y, x):
@@ -9,9 +9,16 @@ class PointSet2D():
             x = np.array(x)
         if type(y) is list:
             y = np.array(y)
-        self.x = x            
+        self.x = x
         self.y = y
-        self.path = path.Path(self.as_matrix_y())
+
+    @property
+    def path(self):
+        """Lazy matplotlib.path.Path — only constructed when ``contains_point``
+        is called. The square / hole pipelines never hit that path, so we
+        avoid pulling matplotlib into every PointSet2D instance."""
+        from matplotlib import path as _mpl_path
+        return _mpl_path.Path(self.as_matrix_y())
 
     def area(self):
         # compute area treating pointset as polygon

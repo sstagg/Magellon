@@ -2,7 +2,8 @@ import numpy as np
 import pandas as pd
 import plugin.ptolemy.geometry as geom
 from plugin.ptolemy.PointSet import PointSet2D
-import matplotlib.pyplot as plt
+# matplotlib.pyplot imported lazily in viz_crops — the plugin pipeline
+# never calls it, so a container without matplotlib installs fine.
 
 class CropSet:
     def __init__(self, crops, boxes, rotated_boxes):
@@ -63,6 +64,7 @@ class CropSet:
         self.df['final_activations'] = finals
         
     def viz_crops(self):
+        import matplotlib.pyplot as plt
         for crop in self.crops:
             plt.imshow(crop, cmap='Greys_r')
             plt.axis('off')

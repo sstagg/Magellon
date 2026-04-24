@@ -10,7 +10,9 @@ import math
 from plugin.ptolemy.models import BasicUNet, Wrapper
 from scipy.spatial.distance import cdist, euclidean, pdist, squareform
 from scipy.special import expit
-import matplotlib.pyplot as plt
+# matplotlib.pyplot isn't used at runtime — only in commented-out debug
+# prints inside grid_from_centroids. Keep it lazy so the container can
+# drop matplotlib entirely.
 
 def flood_segments(mask, search_size):
     """

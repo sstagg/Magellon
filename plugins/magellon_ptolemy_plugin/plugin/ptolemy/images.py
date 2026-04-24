@@ -6,8 +6,9 @@ import plugin.ptolemy.mrc as mrc
 from plugin.ptolemy.algorithms import flood_segments
 import copy
 from plugin.ptolemy.CropSet import CropSet
-import matplotlib
-import matplotlib.pyplot as plt
+# matplotlib imports lazy — only viz_* methods use them, and the plugin
+# pipeline (make_mask → process_mask → get_crops → score_crops) doesn't
+# call any of them. Keeps matplotlib out of the container.
 
 
 def load_mrc(path):
@@ -77,6 +78,8 @@ class Exposure:
         return crops
 
     def viz_boxes(self, rotated=False, selections=False, given=False):
+        import matplotlib
+        import matplotlib.pyplot as plt
         if selections and not hasattr(self, 'operator_selections'):
             raise ValueError
         
@@ -110,6 +113,8 @@ class Exposure:
         
 
     def viz_boxes_and_scores(self, rotated=False, selections=False, numeric_scores=False):
+        import matplotlib
+        import matplotlib.pyplot as plt
         # plt.plot image and boxes with nice viz
         if not hasattr(self, 'boxes'):
             raise ValueError # say you haven't gotten the boxes yet
@@ -154,6 +159,7 @@ class Exposure:
 
         
     def viz_mask(self, selections=False, imsize=(8, 8)):
+        import matplotlib.pyplot as plt
         plt.figure(figsize=imsize)
         plt.imshow(self.mask, cmap='Greys_r')
         plt.axis('off')
@@ -162,6 +168,7 @@ class Exposure:
         # plt.show()
         
     def viz_image(self, selections=False, imsize=(8, 8)):
+        import matplotlib.pyplot as plt
         plt.figure(figsize=imsize)
         plt.imshow(self.image, cmap='Greys_r')
         plt.axis('off')
@@ -171,6 +178,7 @@ class Exposure:
         
         
     def viz_image_centers(self, imsize=(8, 8)):
+        import matplotlib.pyplot as plt
         plt.figure(figsize=imsize)
         plt.imshow(self.image, cmap='Greys_r')
         plt.scatter(self.crops.center_coords.y, self.crops.center_coords.x)
