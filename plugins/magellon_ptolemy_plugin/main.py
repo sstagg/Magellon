@@ -147,6 +147,41 @@ async def health_check() -> dict:
     return {"status": "ok"}
 
 
+# ---------------------------------------------------------------------------
+# Synchronous /execute endpoint — routes to the right plugin by task.type.
+# Broker is still the production path; this is for contract tests + manual
+# debugging, mirroring the CTF / MotionCor plugin convention.
+# ---------------------------------------------------------------------------
+
+from magellon_sdk.categories.contract import HOLE_DETECT, SQUARE_DETECT  # noqa: E402
+from magellon_sdk.models import TaskDto  # noqa: E402
+from plugin import build_hole_result, build_square_result  # noqa: E402
+
+
+@app.post("/execute", summary="Execute Plugin Operation (sync)")
+async def execute_endpoint(task: TaskDto):
+    """Route the task to the matching plugin and return a TaskResultDto."""
+    type_code = task.type.code if task.type else None
+    if type_code == SQUARE_DETECT.category.code:
+        validated = _square_plugin.input_schema().model_validate(task.data)
+        output = _square_plugin.run(validated)
+        return build_square_result(task, output)
+    if type_code == HOLE_DETECT.category.code:
+        validated = _hole_plugin.input_schema().model_validate(task.data)
+        output = _hole_plugin.run(validated)
+        return build_hole_result(task, output)
+    return JSONResponse(
+        status_code=400,
+        content={
+            "message": (
+                f"Unsupported task.type.code={type_code}. "
+                f"Expected {SQUARE_DETECT.category.code} (SquareDetection) "
+                f"or {HOLE_DETECT.category.code} (HoleDetection)."
+            )
+        },
+    )
+
+
 @app.exception_handler(Exception)
 def app_exception_handler(request, err):
     return JSONResponse(

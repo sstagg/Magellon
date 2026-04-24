@@ -1,6 +1,6 @@
 ENV_TYPE: production
 LOCAL_IP_ADDRESS: host.docker.internal
-PORT_NUMBER: 8037
+PORT_NUMBER: 8038
 
 REPLACE_TYPE: none
 REPLACE_PATTERN: C:\temp\magellon
