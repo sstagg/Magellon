@@ -65,6 +65,37 @@ class MotionCorOutput(CategoryOutput):
     num_frames: int
 
 
+class Detection(BaseModel):
+    """One square or hole, as returned by ptolemy.
+
+    Coordinate frame: the image's own pixel grid, in ptolemy's
+    (axis0, axis1) order — i.e. ``as_matrix_y()`` layout. Consumers
+    that need (x, y) for drawing use ``(v[0], v[1])`` directly.
+    """
+
+    vertices: List[List[float]]
+    center: List[int]
+    area: float
+    score: float
+    brightness: Optional[float] = None  # square only (low-mag proxy for ice quality)
+
+
+class SquareDetectionOutput(CategoryOutput):
+    """Low-mag result: ranked squares (highest score first)."""
+
+    detections: List[Detection]
+    detections_json_path: Optional[str] = None
+    annotated_png_path: Optional[str] = None
+
+
+class HoleDetectionOutput(CategoryOutput):
+    """Med-mag result: ranked holes (highest score first)."""
+
+    detections: List[Detection]
+    detections_json_path: Optional[str] = None
+    annotated_png_path: Optional[str] = None
+
+
 class ParticlePickingOutput(CategoryOutput):
     """Particle-picking result: particle count + artifact locations.
 
@@ -87,4 +118,7 @@ __all__ = [
     "CtfOutput",
     "MotionCorOutput",
     "ParticlePickingOutput",
+    "Detection",
+    "SquareDetectionOutput",
+    "HoleDetectionOutput",
 ]

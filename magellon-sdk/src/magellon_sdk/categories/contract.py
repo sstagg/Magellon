@@ -33,8 +33,10 @@ from magellon_sdk.categories.outputs import (
     CategoryOutput,
     CtfOutput,
     FftOutput,
+    HoleDetectionOutput,
     MotionCorOutput,
     ParticlePickingOutput,
+    SquareDetectionOutput,
 )
 from magellon_sdk.models.tasks import (
     CTF_TASK,
@@ -43,8 +45,11 @@ from magellon_sdk.models.tasks import (
     CtfTaskData,
     FFT_TASK,
     FftTaskData,
+    HOLE_DETECTION,
     MOTIONCOR,
     PARTICLE_PICKING,
+    PtolemyTaskData,
+    SQUARE_DETECTION,
     TaskCategory,
 )
 
@@ -190,6 +195,18 @@ PARTICLE_PICKER = CategoryContract(
     output_model=ParticlePickingOutput,
 )
 
+SQUARE_DETECT = CategoryContract(
+    category=SQUARE_DETECTION,
+    input_model=PtolemyTaskData,
+    output_model=SquareDetectionOutput,
+)
+
+HOLE_DETECT = CategoryContract(
+    category=HOLE_DETECTION,
+    input_model=PtolemyTaskData,
+    output_model=HoleDetectionOutput,
+)
+
 
 # ---------------------------------------------------------------------------
 # Registry
@@ -202,6 +219,8 @@ CATEGORIES: Dict[int, CategoryContract] = {
     CTF.category.code: CTF,
     MOTIONCOR_CATEGORY.category.code: MOTIONCOR_CATEGORY,
     PARTICLE_PICKER.category.code: PARTICLE_PICKER,
+    SQUARE_DETECT.category.code: SQUARE_DETECT,
+    HOLE_DETECT.category.code: HOLE_DETECT,
 }
 
 
@@ -223,6 +242,8 @@ __all__ = [
     "CTF",
     "MOTIONCOR_CATEGORY",
     "PARTICLE_PICKER",
+    "SQUARE_DETECT",
+    "HOLE_DETECT",
     "CATEGORIES",
     "CONFIG_BROADCAST_SUBJECT",
     "get_category",

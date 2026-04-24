@@ -134,6 +134,18 @@ class FftTaskData(CryoEmImageTaskData):
     frame_path: Optional[str] = None
 
 
+class PtolemyTaskData(CryoEmImageTaskData):
+    """Input for either ptolemy category — just the MRC to analyze.
+
+    The same shape serves both square-detection (low-mag MRC) and
+    hole-detection (med-mag MRC). The category chosen by the caller
+    tells the plugin which pipeline to run; no type discriminator
+    field is needed in the body.
+    """
+
+    input_file: str
+
+
 class CtfTaskData(CryoEmImageTaskData):
     inputFile: str
     outputFile: str = "output.mrc"
@@ -213,6 +225,8 @@ CTF_TASK = TaskCategory(code=2, name="CTF", description="Contrast Transfer Funct
 PARTICLE_PICKING = TaskCategory(code=3, name="Particle Picking", description="Identifying particles in images")
 TWO_D_CLASSIFICATION = TaskCategory(code=4, name="2D Classification", description="Classifying 2D images")
 MOTIONCOR = TaskCategory(code=5, name="MotionCor", description="Motion correction for electron microscopy")
+SQUARE_DETECTION = TaskCategory(code=6, name="SquareDetection", description="Low-mag square detection and pickability scoring")
+HOLE_DETECTION = TaskCategory(code=7, name="HoleDetection", description="Medium-mag hole detection and pickability scoring")
 
 # Task-status constants.
 PENDING = TaskStatus(code=0, name="pending", description="Task is pending")
