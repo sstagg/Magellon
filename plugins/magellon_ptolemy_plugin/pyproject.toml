@@ -1,0 +1,48 @@
+[project]
+name = "magellon-ptolemy-plugin"
+version = "1.0.0"
+description = "Ptolemy square + hole detection plugin for Magellon (ONNX runtime; vendors SMLC-NYSBC ptolemy under CC BY-NC 4.0)."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "Behdad Khoshbin", email = "b.khoshbin@gmail.com" },
+]
+
+dependencies = [
+    "magellon-sdk[rabbitmq,nats,logging,config]>=1.0,<2.0",
+
+    "fastapi",
+    "uvicorn",
+    "pydantic",
+    "rich",
+    "pyyaml",
+    "python-json-logger",
+    "prometheus-client",
+    "prometheus-fastapi-instrumentator",
+    "python-dotenv",
+
+    "pika==1.3.2",
+
+    "onnxruntime==1.18.0",
+
+    "mrcfile==1.5.0",
+    "Pillow==10.2.0",
+    "numpy==1.26.4",
+    "scipy==1.12.0",
+    "scikit-learn==1.4.2",
+    "scikit-image==0.22.0",
+    "pandas==2.2.2",
+    "matplotlib==3.9.2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=7",
+    "pytest-asyncio>=0.21",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+magellon-sdk = { path = "../../magellon-sdk", editable = true }

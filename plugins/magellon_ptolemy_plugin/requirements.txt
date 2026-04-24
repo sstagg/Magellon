@@ -1,0 +1,28 @@
+# Magellon Plugin SDK — shared rabbitmq / logging / bootstrap / events helpers.
+-e ../../magellon-sdk[rabbitmq,nats,logging,config]
+
+fastapi
+uvicorn
+pydantic
+rich
+pyyaml
+
+python-json-logger
+
+prometheus_client
+prometheus-fastapi-instrumentator
+python-dotenv
+
+pika==1.3.2
+
+# Ptolemy pipeline — no torch, no torchvision. ONNX only.
+onnxruntime==1.18.0
+
+mrcfile==1.5.0
+Pillow==10.2.0
+numpy==1.26.4
+scipy==1.12.0
+scikit-learn==1.4.2
+scikit-image==0.22.0
+pandas==2.2.2
+matplotlib==3.9.2
