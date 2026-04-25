@@ -1,0 +1,19 @@
+# virtualenv
+.venv/
+__pycache__/
+
+# benchmark/runtime outputs
+benchmark_outputs/
+
+# runtime artifacts (regenerate with pick_algorithm.py / denoise / visualize)
+example_images/*.mrc
+example_images/*.png
+example_images/*.json
+example_images/*.log
+example_images/*.txt
+!example_images/README.txt
+
+# custom-trained model weights (download/train separately)
+weights/*.sav
+weights/*.pt
+!weights/README.txt
