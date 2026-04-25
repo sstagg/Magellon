@@ -134,6 +134,31 @@ class FftTaskData(CryoEmImageTaskData):
     frame_path: Optional[str] = None
 
 
+class TopazPickTaskData(CryoEmImageTaskData):
+    """Input for the Topaz particle-picking category.
+
+    The MRC to pick is at ``input_file``. Engine knobs (model, NMS radius,
+    score threshold, preprocess scale) ride on the inherited
+    ``engine_opts`` dict so the canonical category contract stays narrow.
+    Defaults match the Topaz tutorial: model=resnet16, radius=14,
+    threshold=-3, scale=8.
+    """
+
+    input_file: str
+
+
+class MicrographDenoiseTaskData(CryoEmImageTaskData):
+    """Input for the Topaz-Denoise category — one MRC in, denoised MRC out.
+
+    ``input_file`` is the source. ``output_file`` is where the plugin
+    writes the denoised MRC; defaults to ``<input>_denoised.mrc`` when
+    omitted. Engine knobs (model, patch_size) ride on ``engine_opts``.
+    """
+
+    input_file: str
+    output_file: Optional[str] = None
+
+
 class PtolemyTaskData(CryoEmImageTaskData):
     """Input for either ptolemy category — just the MRC to analyze.
 
@@ -227,6 +252,8 @@ TWO_D_CLASSIFICATION = TaskCategory(code=4, name="2D Classification", descriptio
 MOTIONCOR = TaskCategory(code=5, name="MotionCor", description="Motion correction for electron microscopy")
 SQUARE_DETECTION = TaskCategory(code=6, name="SquareDetection", description="Low-mag square detection and pickability scoring")
 HOLE_DETECTION = TaskCategory(code=7, name="HoleDetection", description="Medium-mag hole detection and pickability scoring")
+TOPAZ_PARTICLE_PICKING = TaskCategory(code=8, name="TopazParticlePicking", description="High-mag particle picking via Topaz CNN")
+MICROGRAPH_DENOISING = TaskCategory(code=9, name="MicrographDenoising", description="Topaz-Denoise UNet on a single MRC")
 
 # Task-status constants.
 PENDING = TaskStatus(code=0, name="pending", description="Task is pending")

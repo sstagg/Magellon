@@ -34,6 +34,7 @@ from magellon_sdk.categories.outputs import (
     CtfOutput,
     FftOutput,
     HoleDetectionOutput,
+    MicrographDenoisingOutput,
     MotionCorOutput,
     ParticlePickingOutput,
     SquareDetectionOutput,
@@ -46,11 +47,15 @@ from magellon_sdk.models.tasks import (
     FFT_TASK,
     FftTaskData,
     HOLE_DETECTION,
+    MICROGRAPH_DENOISING,
     MOTIONCOR,
+    MicrographDenoiseTaskData,
     PARTICLE_PICKING,
     PtolemyTaskData,
     SQUARE_DETECTION,
+    TOPAZ_PARTICLE_PICKING,
     TaskCategory,
+    TopazPickTaskData,
 )
 
 
@@ -207,6 +212,18 @@ HOLE_DETECT = CategoryContract(
     output_model=HoleDetectionOutput,
 )
 
+TOPAZ_PICK = CategoryContract(
+    category=TOPAZ_PARTICLE_PICKING,
+    input_model=TopazPickTaskData,
+    output_model=ParticlePickingOutput,
+)
+
+DENOISE = CategoryContract(
+    category=MICROGRAPH_DENOISING,
+    input_model=MicrographDenoiseTaskData,
+    output_model=MicrographDenoisingOutput,
+)
+
 
 # ---------------------------------------------------------------------------
 # Registry
@@ -221,6 +238,8 @@ CATEGORIES: Dict[int, CategoryContract] = {
     PARTICLE_PICKER.category.code: PARTICLE_PICKER,
     SQUARE_DETECT.category.code: SQUARE_DETECT,
     HOLE_DETECT.category.code: HOLE_DETECT,
+    TOPAZ_PICK.category.code: TOPAZ_PICK,
+    DENOISE.category.code: DENOISE,
 }
 
 
@@ -244,6 +263,8 @@ __all__ = [
     "PARTICLE_PICKER",
     "SQUARE_DETECT",
     "HOLE_DETECT",
+    "TOPAZ_PICK",
+    "DENOISE",
     "CATEGORIES",
     "CONFIG_BROADCAST_SUBJECT",
     "get_category",
