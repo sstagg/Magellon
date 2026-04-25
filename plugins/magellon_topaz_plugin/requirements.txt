@@ -1,0 +1,23 @@
+# Magellon Plugin SDK — shared rabbitmq / logging / bootstrap / events helpers.
+-e ../../magellon-sdk[rabbitmq,nats,logging,config]
+
+fastapi
+uvicorn
+pydantic
+rich
+pyyaml
+
+python-json-logger
+
+prometheus_client
+prometheus-fastapi-instrumentator
+python-dotenv
+
+pika==1.3.2
+
+# Topaz pipeline runtime — NO torch, NO topaz-em.
+onnxruntime==1.18.0
+
+mrcfile==1.5.0
+numpy==1.26.4
+scipy==1.12.0
