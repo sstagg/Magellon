@@ -1,0 +1,107 @@
+name: contract-tests
+
+# Two jobs:
+#
+#   contract-collect    — every push/PR. Runs the contract test suite without
+#                         any plugin containers up; every test should skip
+#                         cleanly. Catches collection / fixture / SDK-import
+#                         regressions.
+#   contract-integration — workflow_dispatch only. Builds the plugin images,
+#                         boots them via docker compose, and runs the same
+#                         suite for real against /execute. Heavy (~5 min build
+#                         per plugin) so it's manual-trigger.
+#
+# Closes the §9 gap from CURRENT_ARCHITECTURE.md ("no contract test between
+# CoreService and external plugin containers" — collect job adds the always-on
+# guard; integration job is the manual on-demand prove-it run).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  contract-collect:
+    name: contract suite (skip-mode)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install CoreService deps
+        working-directory: CoreService
+        run: |
+          pip install -e ../magellon-sdk[rabbitmq,nats,logging,config]
+          pip install -r requirements.txt || true
+          pip install pytest httpx
+      - name: Collect + run (every test should skip)
+        working-directory: CoreService
+        run: |
+          pytest tests/contracts/ -v --tb=short
+          # Regression check: at least one test in each plugin contract file
+          # must be present (catches accidental file deletion).
+          test $(grep -c "^def test_" tests/contracts/test_ctf_plugin_contract.py) -ge 1
+          test $(grep -c "^def test_" tests/contracts/test_motioncor_plugin_contract.py) -ge 1
+          test $(grep -c "^def test_" tests/contracts/test_fft_plugin_contract.py) -ge 1
+          test $(grep -c "^def test_" tests/contracts/test_ptolemy_plugin_contract.py) -ge 1
+          test $(grep -c "^def test_" tests/contracts/test_topaz_plugin_contract.py) -ge 1
+
+  contract-integration:
+    name: contract suite (live plugins)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test deps
+        working-directory: CoreService
+        run: |
+          pip install -e ../magellon-sdk[rabbitmq,nats,logging,config]
+          pip install -r requirements.txt || true
+          pip install pytest httpx requests
+      - name: Build plugin images
+        working-directory: Docker
+        run: |
+          docker compose build \
+            magellon_fft_plugin \
+            magellon_ptolemy_plugin \
+            magellon_topaz_plugin
+      - name: Boot plugins
+        working-directory: Docker
+        run: |
+          docker compose up -d rabbitmq nats
+          # Wait for RMQ (plugins try to connect at startup; tolerant on fail
+          # but cleaner with broker present).
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:15672 > /dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          docker compose up -d \
+            magellon_fft_plugin \
+            magellon_ptolemy_plugin \
+            magellon_topaz_plugin
+          # Wait for all /health endpoints
+          for port in 8037 8038 8039; do
+            for i in {1..30}; do
+              if curl -fsS http://127.0.0.1:${port}/health > /dev/null 2>&1; then
+                break
+              fi
+              sleep 2
+            done
+          done
+      - name: Run contract tests against live plugins
+        working-directory: CoreService
+        env:
+          MAGELLON_FFT_PLUGIN_PORT: 8037
+          MAGELLON_PTOLEMY_PLUGIN_PORT: 8038
+          MAGELLON_TOPAZ_PLUGIN_PORT: 8039
+        run: pytest tests/contracts/ -v --tb=short
+      - name: Tear down
+        if: always()
+        working-directory: Docker
+        run: docker compose down -v

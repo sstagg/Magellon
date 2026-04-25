@@ -166,6 +166,14 @@ class AppSettings(BaseModel):
     DEBUG_CTF_PATH: Optional[str] = None
     DEBUG_CTF_REPLACE: Optional[str] = None
 
+    # Auto-dispatch topaz tasks during the import pipeline. Off by default —
+    # topaz applies only to high-mag exposures (pixel size <= 5 A/px) and
+    # producing picks for every exposure may not be desired in every session.
+    # Operators can flip these on per-environment via YAML to enable
+    # automatic per-image picking / denoising alongside CTF + MotionCor.
+    AUTO_DISPATCH_TOPAZ_PICK: Optional[bool] = False
+    AUTO_DISPATCH_TOPAZ_DENOISE: Optional[bool] = False
+
     ENV_TYPE: Optional[str] = None
 
     @classmethod
