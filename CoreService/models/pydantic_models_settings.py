@@ -21,6 +21,8 @@ class OutQueueType(str, Enum):
     PARTICLE_PICKING = "particle_picking"
     SQUARE_DETECTION = "square_detection"
     HOLE_DETECTION = "hole_detection"
+    TOPAZ_PICK = "topaz_pick"
+    MICROGRAPH_DENOISE = "micrograph_denoise"
 
 
 class OutQueueConfig(BaseModel):
@@ -52,6 +54,10 @@ class RabbitMQSettings(BaseModel):
     SQUARE_DETECTION_OUT_QUEUE_NAME: Optional[str] = "square_detection_out_tasks_queue"
     HOLE_DETECTION_QUEUE_NAME: Optional[str] = "hole_detection_tasks_queue"
     HOLE_DETECTION_OUT_QUEUE_NAME: Optional[str] = "hole_detection_out_tasks_queue"
+    TOPAZ_PICK_QUEUE_NAME: Optional[str] = "topaz_pick_tasks_queue"
+    TOPAZ_PICK_OUT_QUEUE_NAME: Optional[str] = "topaz_pick_out_tasks_queue"
+    MICROGRAPH_DENOISE_QUEUE_NAME: Optional[str] = "micrograph_denoise_tasks_queue"
+    MICROGRAPH_DENOISE_OUT_QUEUE_NAME: Optional[str] = "micrograph_denoise_out_tasks_queue"
     PORT: Optional[int] = 5672
     USER_NAME: Optional[str] = None
     PASSWORD: Optional[str] = None

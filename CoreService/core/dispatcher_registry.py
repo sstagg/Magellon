@@ -32,15 +32,22 @@ from magellon_sdk.bus.interfaces import MessageBus
 from magellon_sdk.bus.routes import TaskResultRoute, TaskRoute
 from magellon_sdk.categories.contract import (
     CTF,
+    DENOISE,
     FFT,
     HOLE_DETECT,
     MOTIONCOR_CATEGORY,
     SQUARE_DETECT,
+    TOPAZ_PICK,
 )
 from magellon_sdk.dispatcher import TaskDispatcherRegistry
 from magellon_sdk.envelope import Envelope
 from magellon_sdk.models import CTF_TASK, FFT_TASK, MOTIONCOR, TaskDto
-from magellon_sdk.models.tasks import HOLE_DETECTION, SQUARE_DETECTION
+from magellon_sdk.models.tasks import (
+    HOLE_DETECTION,
+    MICROGRAPH_DENOISING,
+    SQUARE_DETECTION,
+    TOPAZ_PARTICLE_PICKING,
+)
 
 from config import app_settings
 
@@ -108,6 +115,8 @@ def _build_legacy_queue_map() -> dict[str, str]:
     _map(FFT, rmq.FFT_QUEUE_NAME, rmq.FFT_OUT_QUEUE_NAME)
     _map(SQUARE_DETECT, rmq.SQUARE_DETECTION_QUEUE_NAME, rmq.SQUARE_DETECTION_OUT_QUEUE_NAME)
     _map(HOLE_DETECT, rmq.HOLE_DETECTION_QUEUE_NAME, rmq.HOLE_DETECTION_OUT_QUEUE_NAME)
+    _map(TOPAZ_PICK, rmq.TOPAZ_PICK_QUEUE_NAME, rmq.TOPAZ_PICK_OUT_QUEUE_NAME)
+    _map(DENOISE, rmq.MICROGRAPH_DENOISE_QUEUE_NAME, rmq.MICROGRAPH_DENOISE_OUT_QUEUE_NAME)
     return mapping
 
 
@@ -164,6 +173,18 @@ def get_task_dispatcher_registry() -> TaskDispatcherRegistry:
         HOLE_DETECTION,
         _BusTaskDispatcher(
             route=TaskRoute.for_category(HOLE_DETECT), name="bus:hole_detection"
+        ),
+    )
+    registry.register(
+        TOPAZ_PARTICLE_PICKING,
+        _BusTaskDispatcher(
+            route=TaskRoute.for_category(TOPAZ_PICK), name="bus:topaz_pick"
+        ),
+    )
+    registry.register(
+        MICROGRAPH_DENOISING,
+        _BusTaskDispatcher(
+            route=TaskRoute.for_category(DENOISE), name="bus:micrograph_denoise"
         ),
     )
     return registry

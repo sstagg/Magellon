@@ -438,6 +438,150 @@ async def ptolemy_hole_dispatch(
     )
 
 
+# ---------------------------------------------------------------------------
+# Topaz (particle picking + denoising) — manual dispatch endpoints
+# ---------------------------------------------------------------------------
+
+class TopazPickDispatchRequest(BaseModel):
+    image_path: str
+    job_id: Optional[UUID] = None
+    image_id: Optional[UUID] = None
+    session_name: Optional[str] = None
+    model: str = "resnet16"
+    radius: int = 14
+    threshold: float = -3.0
+    scale: int = 8
+
+
+class TopazDenoiseDispatchRequest(BaseModel):
+    image_path: str
+    output_file: Optional[str] = None
+    job_id: Optional[UUID] = None
+    image_id: Optional[UUID] = None
+    session_name: Optional[str] = None
+    model: str = "unet"
+    patch_size: int = 1024
+    padding: int = 128
+
+
+class TopazDispatchResponse(BaseModel):
+    job_id: UUID
+    task_id: UUID
+    queue_name: str
+    image_path: str
+    category: str
+    status: str = "dispatched"
+
+
+@image_processing_router.post(
+    "/topaz/pick/dispatch",
+    response_model=TopazDispatchResponse,
+    summary="Dispatch a topaz particle-picking task (high-mag MRC) via RMQ. "
+            "Returns job_id + task_id for step-event subscription.",
+)
+async def topaz_pick_dispatch(
+    request: TopazPickDispatchRequest,
+    _: None = Depends(require_permission('image_processing', 'write')),
+    user_id: UUID = Depends(get_current_user_id),
+):
+    from core.helper import dispatch_topaz_pick_task
+    from services.job_manager import job_manager
+
+    task_id = uuid.uuid4()
+    job_envelope = job_manager.create_job(
+        plugin_id="magellon_topaz_plugin",
+        name=f"Topaz pick {os.path.basename(request.image_path)}",
+        settings={"image_path": request.image_path,
+                  "model": request.model, "radius": request.radius,
+                  "threshold": request.threshold, "scale": request.scale},
+        task_ids=[task_id],
+        user_id=str(user_id) if user_id else None,
+        job_id=request.job_id,
+    )
+    job_id = uuid.UUID(job_envelope["job_id"])
+
+    logger.info(
+        "User %s dispatching topaz pick task %s in job %s for image %s",
+        user_id, task_id, job_id, request.image_path,
+    )
+    ok = dispatch_topaz_pick_task(
+        image_path=request.image_path,
+        model=request.model,
+        radius=request.radius,
+        threshold=request.threshold,
+        scale=request.scale,
+        job_id=job_id,
+        task_id=task_id,
+        image_id=request.image_id,
+        session_name=request.session_name,
+    )
+    if not ok:
+        job_manager.fail_job(str(job_id), error="Failed to publish topaz pick task to RMQ")
+        raise HTTPException(status_code=502, detail="Failed to publish topaz pick task to RMQ")
+
+    return TopazDispatchResponse(
+        job_id=job_id, task_id=task_id,
+        queue_name="topaz_pick_tasks_queue",
+        image_path=request.image_path,
+        category="TopazParticlePicking",
+    )
+
+
+@image_processing_router.post(
+    "/topaz/denoise/dispatch",
+    response_model=TopazDispatchResponse,
+    summary="Dispatch a micrograph-denoise task (Topaz UNet) via RMQ. "
+            "Returns job_id + task_id for step-event subscription.",
+)
+async def topaz_denoise_dispatch(
+    request: TopazDenoiseDispatchRequest,
+    _: None = Depends(require_permission('image_processing', 'write')),
+    user_id: UUID = Depends(get_current_user_id),
+):
+    from core.helper import dispatch_micrograph_denoise_task
+    from services.job_manager import job_manager
+
+    task_id = uuid.uuid4()
+    job_envelope = job_manager.create_job(
+        plugin_id="magellon_topaz_plugin",
+        name=f"Denoise {os.path.basename(request.image_path)}",
+        settings={"image_path": request.image_path,
+                  "output_file": request.output_file,
+                  "model": request.model,
+                  "patch_size": request.patch_size},
+        task_ids=[task_id],
+        user_id=str(user_id) if user_id else None,
+        job_id=request.job_id,
+    )
+    job_id = uuid.UUID(job_envelope["job_id"])
+
+    logger.info(
+        "User %s dispatching denoise task %s in job %s for image %s",
+        user_id, task_id, job_id, request.image_path,
+    )
+    ok = dispatch_micrograph_denoise_task(
+        image_path=request.image_path,
+        output_file=request.output_file,
+        model=request.model,
+        patch_size=request.patch_size,
+        padding=request.padding,
+        job_id=job_id,
+        task_id=task_id,
+        image_id=request.image_id,
+        session_name=request.session_name,
+    )
+    if not ok:
+        job_manager.fail_job(str(job_id), error="Failed to publish denoise task to RMQ")
+        raise HTTPException(status_code=502, detail="Failed to publish denoise task to RMQ")
+
+    return TopazDispatchResponse(
+        job_id=job_id, task_id=task_id,
+        queue_name="micrograph_denoise_tasks_queue",
+        image_path=request.image_path,
+        category="MicrographDenoising",
+    )
+
+
 @image_processing_router.post("/ctf")
 async def calculate_ctf(
     abs_file_path: str,

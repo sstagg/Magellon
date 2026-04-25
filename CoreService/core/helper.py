@@ -10,7 +10,15 @@ from config import app_settings
 from core.task_factory import CtfTaskFactory, FftTaskFactory, MotioncorTaskFactory, TaskFactory
 from models.plugins_models import TaskDto, CtfTaskData, FftTaskData, FFT_TASK, TaskResultDto, CTF_TASK, PENDING, CryoEmMotionCorTaskData, \
     MOTIONCOR_TASK, TaskCategory
-from magellon_sdk.models.tasks import HOLE_DETECTION, PtolemyTaskData, SQUARE_DETECTION
+from magellon_sdk.models.tasks import (
+    HOLE_DETECTION,
+    MICROGRAPH_DENOISING,
+    MicrographDenoiseTaskData,
+    PtolemyTaskData,
+    SQUARE_DETECTION,
+    TOPAZ_PARTICLE_PICKING,
+    TopazPickTaskData,
+)
 from models.pydantic_models import LeginonFrameTransferTaskDto, EPUImportTaskDto, ImportTaskDto
 
 logger = logging.getLogger(__name__)
@@ -104,6 +112,14 @@ def get_queue_name_by_task_type(task_type: TaskCategory, is_result: bool = False
         7: {  # HOLE_DETECTION.code
             'task': app_settings.rabbitmq_settings.HOLE_DETECTION_QUEUE_NAME,
             'result': app_settings.rabbitmq_settings.HOLE_DETECTION_OUT_QUEUE_NAME
+        },
+        8: {  # TOPAZ_PARTICLE_PICKING.code
+            'task': app_settings.rabbitmq_settings.TOPAZ_PICK_QUEUE_NAME,
+            'result': app_settings.rabbitmq_settings.TOPAZ_PICK_OUT_QUEUE_NAME
+        },
+        9: {  # MICROGRAPH_DENOISING.code
+            'task': app_settings.rabbitmq_settings.MICROGRAPH_DENOISE_QUEUE_NAME,
+            'result': app_settings.rabbitmq_settings.MICROGRAPH_DENOISE_OUT_QUEUE_NAME
         },
     }
 
@@ -269,6 +285,84 @@ def dispatch_hole_detection_task(
         image_id=image_id,
         session_name=session_name,
     )
+
+
+def dispatch_topaz_pick_task(
+    image_path: str,
+    *,
+    model: str = "resnet16",
+    radius: int = 14,
+    threshold: float = -3.0,
+    scale: int = 8,
+    job_id=None,
+    task_id=None,
+    image_id=None,
+    session_name=None,
+) -> bool:
+    """Dispatch a high-mag particle-picking task to the topaz plugin."""
+    file_name = os.path.splitext(os.path.basename(image_path))[0]
+    data = TopazPickTaskData(
+        image_id=image_id,
+        image_name=file_name,
+        image_path=image_path,
+        input_file=image_path,
+        engine_opts={
+            "model":     model,
+            "radius":    radius,
+            "threshold": threshold,
+            "scale":     scale,
+        },
+    )
+    task = TaskFactory.create_task(
+        pid=task_id or uuid.uuid4(),
+        instance_id=uuid.uuid4(),
+        job_id=job_id,
+        data=data.model_dump(),
+        ptype=TOPAZ_PARTICLE_PICKING,
+        pstatus=PENDING,
+    )
+    if session_name:
+        task.session_name = session_name
+    return push_task_to_task_queue(task)
+
+
+def dispatch_micrograph_denoise_task(
+    image_path: str,
+    *,
+    output_file: str = None,
+    model: str = "unet",
+    patch_size: int = 1024,
+    padding: int = 128,
+    job_id=None,
+    task_id=None,
+    image_id=None,
+    session_name=None,
+) -> bool:
+    """Dispatch a micrograph-denoise task to the topaz plugin."""
+    file_name = os.path.splitext(os.path.basename(image_path))[0]
+    data = MicrographDenoiseTaskData(
+        image_id=image_id,
+        image_name=file_name,
+        image_path=image_path,
+        input_file=image_path,
+        output_file=output_file,
+        engine_opts={
+            "model":      model,
+            "patch_size": patch_size,
+            "padding":    padding,
+        },
+    )
+    task = TaskFactory.create_task(
+        pid=task_id or uuid.uuid4(),
+        instance_id=uuid.uuid4(),
+        job_id=job_id,
+        data=data.model_dump(),
+        ptype=MICROGRAPH_DENOISING,
+        pstatus=PENDING,
+    )
+    if session_name:
+        task.session_name = session_name
+    return push_task_to_task_queue(task)
 
 
 def dispatch_fft_task(
