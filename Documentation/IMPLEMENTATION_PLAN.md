@@ -339,7 +339,7 @@ Phase-B PR numbering.
 
 **Rollback.** Per-PR `git revert`; none of these touch the bus abstraction boundary.
 
-### Track C — Backends + wire-shape naming (proposed 2026-04-27)
+### Track C — Backends + wire-shape naming (shipped 2026-04-27)
 
 **Goal.** Give the second axis under each `TaskCategory` a first-class
 name (`backend`), one consolidated capabilities endpoint that the UI
@@ -347,24 +347,28 @@ and the dispatcher both read, and a uniform `Envelope` / `Message`
 suffix on every wire-shape class. Detailed design in
 `Documentation/CATEGORIES_AND_BACKENDS.md`.
 
-**Track C status (2026-04-27, end of day).** Drafted, not landed.
-Awaiting review of the design doc before X.1 opens.
+**Track C status (2026-04-27, end of day).** All three PRs landed in
+one session. SDK 1.2.0 → 1.3.0 (additive) → 2.0.0 (alias drop). 76
+files migrated mechanically; zero new test failures across 326
+SDK + 326 CoreService tests vs the pre-X.1 baseline.
 
 PR IDs use the `X` prefix to avoid colliding with Phase-A and Track A/B
 numbering.
 
 | PR  | Title | Status |
 |-----|-------|--------|
-| X.1 | Backend layer + capabilities endpoint | **Drafted.** Adds `backend_id` to `PluginManifest`, `target_backend` to `TaskMessage` (today's `TaskDto`), the `magellon.tasks.<category>.<backend>` subject form, and `GET /plugins/capabilities`. Existing endpoints stay (additive, principle 6). |
-| X.2 | Wire-shape rename — alias + migrate | **Drafted.** `TaskDto`→`TaskMessage`, `TaskResultDto`→`TaskResultMessage`, `JobDto`→`JobMessage`, `*TaskData`→`*Input`, `Step{Started,Progress,Completed,Failed}`→`*Message`. New names land as aliases first; call sites migrate next. Goldens updated. |
-| X.3 | Drop legacy aliases | **Drafted.** Remove `TaskDto = TaskMessage` shims and `models/plugins_models.py` if every CoreService call site is on the new names. Bumps SDK to 0.2.0 and `PluginInfo.schema_version`. |
-
-**Ordering.** X.1 first (no renames, opens the operator A/B story).
-X.2 only after X.1 has soaked one release; it touches every plugin.
-X.3 follows X.2 by another release at minimum.
+| ~~X.1~~ | Backend layer + capabilities endpoint | **Done (`0a3f216`).** Adds `backend_id` to `PluginManifest`, `target_backend` to `TaskMessage`, `_BusTaskDispatcher` honors backend pin via `BackendQueueResolver` (raises `BackendNotLive` on miss), `PluginLivenessRegistry` indexes by `(category, backend_id)` with `DUP_BACKEND_ID` collision warning, `GET /plugins/capabilities` returns one consolidated catalog. 18 SDK + 6 dispatcher + 4 capabilities tests. Envelope golden regenerated for the new `target_backend` field. |
+| ~~X.2~~ | Wire-shape rename — alias + migrate | **Done (`581518f`).** `TaskDto`→`TaskMessage`, `TaskResultDto`→`TaskResultMessage`, `JobDto`→`JobMessage`, `*TaskData`→`*Input`, `Step{Started,Progress,Completed,Failed}`→`*Message`. 76 files / 481 occurrences migrated via word-boundary regex. Old names kept as literal aliases — `isinstance` works against either name. SDK bumped 1.2.0 → 1.3.0. |
+| ~~X.3~~ | Drop legacy aliases | **Done (`4639990`).** Removed legacy aliases from SDK and CoreService shim. SDK bumped 1.3.0 → 2.0.0; `PluginInfo.schema_version` default `"1"` → `"2"` so frontends re-fetch plugin form schemas. CHANGELOG entries for both 1.3.0 and 2.0.0 with full migration table. |
 
 **Rollback.** Per-PR `git revert`. X.3 is the only one that breaks
-plugins that haven't migrated; X.1 and X.2 stay backward compatible.
+out-of-tree plugins that haven't migrated. Revert order if rolling
+back: X.3 → X.2 → X.1.
+
+**Operational follow-ups.** End-to-end smoke against a real RMQ broker
+(target_backend path is unit-tested but not yet exercised against
+pika). Frontend re-fetch of plugin form schemas after the
+schema_version bump (manual click-through pending).
 
 ### Cross-track: documentation (E)
 

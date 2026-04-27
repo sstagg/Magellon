@@ -48,7 +48,7 @@ Magellon separates **metadata** from **bytes**:
 
 1. Read input files from paths provided in the task envelope. Do not re-fetch over the network; the file is already on disk where you can see it.
 2. Write outputs under `$MAGELLON_HOME_DIR/<session>/<category>/<image>/`. This is the layout `TaskOutputProcessor` projects into the database — any other layout breaks the result pipeline.
-3. Return file **paths**, not file bytes, in `TaskResultDto`. The result processor moves files based on the paths you report.
+3. Return file **paths**, not file bytes, in `TaskResultMessage`. The result processor moves files based on the paths you report.
 4. Write atomically: write to a temp name in the session directory, then `os.rename` to the final name. `rename` within one filesystem is atomic on POSIX.
 5. Never use `/tmp` for cross-plugin artifacts — it is not shared between workers.
 

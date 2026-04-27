@@ -11,6 +11,96 @@ Version pattern follows SemVer as defined in `CONTRACT.md` §4.
 
 ---
 
+## 2.0.0 — 2026-04-27
+
+**Major.** Wire-shape rename. Every 1.x plugin needs a one-line import
+update; field shapes on the wire are unchanged.
+
+### Removed (breaking)
+
+The legacy alias names landed in 1.3 are deleted in 2.0. Plugins must
+import the canonical names instead:
+
+| Old name (≤ 1.3)            | New name (2.0+)               |
+|-----------------------------|-------------------------------|
+| `TaskDto`                   | `TaskMessage`                 |
+| `TaskResultDto`             | `TaskResultMessage`           |
+| `JobDto`                    | `JobMessage`                  |
+| `CryoEmImageTaskData`       | `CryoEmImageInput`            |
+| `MrcToPngTaskData`          | `MrcToPngInput`               |
+| `FftTaskData`               | `FftInput`                    |
+| `CtfTaskData`               | `CtfInput`                    |
+| `CryoEmMotionCorTaskData`   | `MotionCorInput`              |
+| `TopazPickTaskData`         | `TopazPickInput`              |
+| `MicrographDenoiseTaskData` | `MicrographDenoiseInput`      |
+| `PtolemyTaskData`           | `PtolemyInput`                |
+| `StepStarted`               | `StepStartedMessage`          |
+| `StepProgress`              | `StepProgressMessage`         |
+| `StepCompleted`             | `StepCompletedMessage`        |
+| `StepFailed`                | `StepFailedMessage`           |
+
+The wire JSON shape is **identical** — only Python class names changed.
+A plugin running on 2.0 talks to a plugin running on 1.3 over the bus
+without issue. Migration for plugin authors is a search-and-replace.
+
+### Changed
+
+- **`PluginInfo.schema_version` default `"1"` → `"2"`.** The frontend
+  refetches plugin form schemas when this changes; the JSON Schema
+  `title` strings differ even though field shapes are unchanged. Plugin
+  authors who pinned their own value (most don't) keep theirs.
+
+---
+
+## 1.3.0 — 2026-04-27
+
+**Minor.** Additive — every 1.2 plugin keeps working.
+
+### Added — backend layer (Track C / X.1)
+
+- **`PluginManifest.backend_id: Optional[str]`.** A plugin's
+  substitutable identity within its category. Two plugins serving the
+  same category (`ctffind4` vs `gctf` under `CTF`) declare distinct
+  `backend_id`s so the dispatcher can address them individually.
+  Defaults to a slug of `info.name` when omitted, so pre-1.3 plugins
+  keep dispatching unchanged.
+- **`PluginManifest.resolved_backend_id()`** helper for hosts that
+  want the effective backend id without caring whether it was
+  declared explicitly or auto-derived.
+- **`PluginBase.backend_id: ClassVar[Optional[str]]`** — declare it
+  as a class field, the default `manifest()` picks it up.
+- **`TaskMessage.target_backend: Optional[str]`** (new field on the
+  wire envelope). When set, the dispatcher routes only to a live
+  plugin whose `backend_id` matches; unset preserves today's
+  category-wide round-robin.
+- **`Announce.backend_id: Optional[str]`** — propagated through the
+  liveness registry so consumers can index by `(category, backend_id)`
+  without unpacking the manifest.
+- **`PluginLivenessEntry.backend_id`** + duplicate-backend collision
+  warning (`DUP_BACKEND_ID`) when two plugin_ids in one category
+  claim the same `backend_id`.
+- **`CategoryContract.task_subject_for_backend(backend_id)`** +
+  module-level `task_subject_for_backend(category, backend)` for
+  symbolic logging of backend-pinned routes.
+
+### Added — wire-shape rename (Track C / X.2)
+
+New canonical names landed alongside the old ones as importable
+aliases. Both names work in 1.3; the old names are removed in 2.0.
+
+- **`TaskMessage`, `TaskResultMessage`, `JobMessage`** alongside
+  `TaskDto`/`TaskResultDto`/`JobDto`.
+- **`*Input`** classes alongside `*TaskData` (every per-category input
+  schema; see the table in 2.0's "Removed" section above).
+- **`Step{Started,Progress,Completed,Failed}Message`** alongside the
+  short names.
+
+`isinstance(x, TaskMessage)` and `isinstance(x, TaskDto)` both succeed
+for any instance built either way — they are the same class object
+under two names.
+
+---
+
 ## 1.2.0 — 2026-04-17
 
 Minor. Additive — every 1.x plugin keeps working.
