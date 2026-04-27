@@ -49,6 +49,15 @@ without issue. Migration for plugin authors is a search-and-replace.
   refetches plugin form schemas when this changes; the JSON Schema
   `title` strings differ even though field shapes are unchanged. Plugin
   authors who pinned their own value (most don't) keep theirs.
+- **`ce-subject` header for backend-pinned dispatches** now carries the
+  symbolic subject ``magellon.tasks.<category>.<backend>`` instead of
+  the destination queue name. Pre-X.7 the dispatcher emitted the
+  queue name (e.g. ``ctf_ctffind4_queue``); post-X.7 it emits
+  ``magellon.tasks.ctf.ctffind4``. Consumers parsing ``ce-subject`` for
+  observability or routing should expect the new shape. The actual
+  AMQP routing target is unchanged — the binder still publishes to
+  the queue declared in ``Announce.task_queue`` via the
+  ``TaskRoute.physical_queue`` override.
 
 ---
 
