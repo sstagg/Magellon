@@ -23,14 +23,15 @@
   "id": "00000000-0000-0000-0000-000000000001",
   "job_id": "00000000-0000-0000-0000-000000000002",
   "result": null,
-  "sesson_id": "00000000-0000-0000-0000-000000000004",
-  "sesson_name": "sample_session",
+  "session_id": "00000000-0000-0000-0000-000000000004",
+  "session_name": "sample_session",
   "start_on": null,
   "status": {
     "code": 0,
     "description": "Task is pending",
     "name": "pending"
   },
+  "target_backend": null,
   "type": {
     "code": 2,
     "description": "Contrast Transfer Function",

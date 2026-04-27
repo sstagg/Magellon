@@ -9,6 +9,11 @@ binder behind the bus, not a direct pika dependency of this module.
 The registry's public API is unchanged: callers still use
 ``get_task_dispatcher_registry().dispatch(task)``.
 
+X.1 (2026-04-27): when ``task.target_backend`` is set, the dispatcher
+asks :func:`_resolve_backend_queue` to map ``(category, backend_id)``
+to a live plugin's task queue and publishes there directly. Unset
+falls back to the category-default route (today's behaviour).
+
 Bus wiring strategy:
 
 - CoreService startup (``main.py``) calls :func:`install_core_bus`
@@ -25,6 +30,7 @@ from __future__ import annotations
 
 import logging
 from functools import lru_cache
+from typing import Callable, Optional
 
 from magellon_sdk.bus import get_bus
 from magellon_sdk.bus.bootstrap import install_rmq_bus
@@ -38,6 +44,7 @@ from magellon_sdk.categories.contract import (
     MOTIONCOR_CATEGORY,
     SQUARE_DETECT,
     TOPAZ_PICK,
+    CategoryContract,
 )
 from magellon_sdk.dispatcher import TaskDispatcherRegistry
 from magellon_sdk.envelope import Envelope
@@ -54,6 +61,26 @@ from config import app_settings
 logger = logging.getLogger(__name__)
 
 
+class BackendNotLive(RuntimeError):
+    """Raised when ``target_backend`` is set but no live plugin matches.
+
+    The dispatch contract: pinning is a hard request, not a hint. The
+    caller asked for a specific backend and got none. Falling back
+    silently to whatever happens to be the category default would
+    bury the configuration mistake (operator pinned a backend that
+    isn't running) inside an unrelated plugin's logs.
+    """
+
+
+BackendQueueResolver = Callable[[CategoryContract, str], Optional[str]]
+"""Maps ``(category, backend_id)`` to the physical queue a live plugin
+consumes from. Returns ``None`` when no live plugin matches.
+
+Production resolver consults :class:`PluginLivenessRegistry`; tests
+inject a stub. Kept as a free function rather than an interface so
+the dispatcher's constructor stays uncoupled from CoreService."""
+
+
 # ---------------------------------------------------------------------------
 # TaskDispatcher Protocol impl: adapts bus.tasks.send → registry call sites
 # ---------------------------------------------------------------------------
@@ -66,28 +93,73 @@ class _BusTaskDispatcher:
     Instances are lightweight — no bus call at construction time.
     Dispatch retrieves the bus lazily via :func:`get_bus`, so the
     registry can be built before the bus is wired.
+
+    When ``task.target_backend`` is set, the dispatcher consults its
+    ``backend_resolver`` to find the live plugin's queue and publishes
+    there. When unset, it routes to the category-default subject.
     """
 
     _ENVELOPE_TYPE = "magellon.task.dispatch"
     _ENVELOPE_SOURCE = "magellon/core_service/dispatcher"
 
-    def __init__(self, *, route: TaskRoute, name: str) -> None:
+    def __init__(
+        self,
+        *,
+        route: TaskRoute,
+        name: str,
+        contract: CategoryContract,
+        backend_resolver: Optional[BackendQueueResolver] = None,
+    ) -> None:
         self.route = route
         self.name = name
+        self.contract = contract
+        self.backend_resolver = backend_resolver
 
     def dispatch(self, task: TaskDto) -> bool:
+        route = self._route_for(task)
         envelope = Envelope.wrap(
             source=self._ENVELOPE_SOURCE,
             type=self._ENVELOPE_TYPE,
-            subject=self.route.subject,
+            subject=route.subject,
             data=task,
         )
-        receipt = get_bus().tasks.send(self.route, envelope)
+        receipt = get_bus().tasks.send(route, envelope)
         if not receipt.ok:
             logger.error(
-                "bus dispatch failed on %s: %s", self.route.subject, receipt.error
+                "bus dispatch failed on %s: %s", route.subject, receipt.error
             )
         return receipt.ok
+
+    def _route_for(self, task: TaskDto) -> TaskRoute:
+        """Choose category-default vs backend-pinned route for ``task``.
+
+        Pinning is binding: a task with ``target_backend`` set MUST go
+        to that backend or fail loudly. Falling back to the default
+        would mask configuration errors and surface as wrong-result
+        bugs hours later.
+        """
+        target = getattr(task, "target_backend", None)
+        if not target:
+            return self.route
+        if self.backend_resolver is None:
+            raise BackendNotLive(
+                f"task {task.id} pinned to backend={target!r} on category "
+                f"{self.contract.category.name!r}, but no backend resolver "
+                f"is wired into the dispatcher; the registry was constructed "
+                f"without one."
+            )
+        queue = self.backend_resolver(self.contract, target)
+        if not queue:
+            raise BackendNotLive(
+                f"task {task.id} pinned to backend={target!r} on category "
+                f"{self.contract.category.name!r}, but no live plugin claims "
+                f"that backend_id; refusing to fall back to the category "
+                f"default to avoid silently mis-routing."
+            )
+        # Use the symbolic backend-pinned subject for logs/audit; the
+        # binder still publishes to the resolved queue via the
+        # legacy_queue_map seam.
+        return TaskRoute.named(queue)
 
 
 # ---------------------------------------------------------------------------
@@ -139,6 +211,34 @@ def install_core_bus() -> MessageBus:
 # Public: TaskDispatcherRegistry wired for the three live categories
 # ---------------------------------------------------------------------------
 
+def _live_backend_queue(contract: CategoryContract, backend_id: str) -> Optional[str]:
+    """Production :data:`BackendQueueResolver`: read the live registry.
+
+    Iterates the live plugins for ``contract.category`` and returns the
+    ``task_queue`` of the first one whose ``backend_id`` matches.
+    ``None`` if no live plugin claims that backend.
+
+    Live = within the heartbeat staleness window. A backend that
+    crashed mid-task is treated as unavailable for new pins; the
+    in-flight task may still complete via its existing consumer.
+    """
+    # Local import avoids a startup-time cycle: this module is imported
+    # by main.py before the liveness module, which lazily imports
+    # bus.services on its own first call.
+    from core.plugin_liveness_registry import get_registry as get_liveness_registry
+
+    target_category = contract.category.name.lower()
+    target_backend = backend_id.lower()
+    for entry in get_liveness_registry().list_live():
+        if (entry.category or "").lower() != target_category:
+            continue
+        if (entry.backend_id or "").lower() != target_backend:
+            continue
+        if entry.task_queue:
+            return entry.task_queue
+    return None
+
+
 @lru_cache(maxsize=1)
 def get_task_dispatcher_registry() -> TaskDispatcherRegistry:
     """Return the process-wide registry, building it on first call.
@@ -147,47 +247,43 @@ def get_task_dispatcher_registry() -> TaskDispatcherRegistry:
     dispatcher objects on each task and keeps the ``name`` field
     stable for log correlation.
     """
+    return _build_registry(backend_resolver=_live_backend_queue)
+
+
+def _build_registry(
+    *, backend_resolver: Optional[BackendQueueResolver]
+) -> TaskDispatcherRegistry:
+    """Pure-function registry builder.
+
+    Tests inject a stub ``backend_resolver`` here without touching the
+    ``lru_cache`` on :func:`get_task_dispatcher_registry`.
+    """
     registry = TaskDispatcherRegistry()
 
-    registry.register(
-        CTF_TASK,
-        _BusTaskDispatcher(route=TaskRoute.for_category(CTF), name="bus:ctf"),
-    )
-    registry.register(
-        MOTIONCOR,
-        _BusTaskDispatcher(
-            route=TaskRoute.for_category(MOTIONCOR_CATEGORY), name="bus:motioncor"
-        ),
-    )
-    registry.register(
-        FFT_TASK,
-        _BusTaskDispatcher(route=TaskRoute.for_category(FFT), name="bus:fft"),
-    )
-    registry.register(
-        SQUARE_DETECTION,
-        _BusTaskDispatcher(
-            route=TaskRoute.for_category(SQUARE_DETECT), name="bus:square_detection"
-        ),
-    )
-    registry.register(
-        HOLE_DETECTION,
-        _BusTaskDispatcher(
-            route=TaskRoute.for_category(HOLE_DETECT), name="bus:hole_detection"
-        ),
-    )
-    registry.register(
-        TOPAZ_PARTICLE_PICKING,
-        _BusTaskDispatcher(
-            route=TaskRoute.for_category(TOPAZ_PICK), name="bus:topaz_pick"
-        ),
-    )
-    registry.register(
-        MICROGRAPH_DENOISING,
-        _BusTaskDispatcher(
-            route=TaskRoute.for_category(DENOISE), name="bus:micrograph_denoise"
-        ),
-    )
+    def _make(category_const, contract: CategoryContract, name: str) -> None:
+        registry.register(
+            category_const,
+            _BusTaskDispatcher(
+                route=TaskRoute.for_category(contract),
+                name=name,
+                contract=contract,
+                backend_resolver=backend_resolver,
+            ),
+        )
+
+    _make(CTF_TASK, CTF, "bus:ctf")
+    _make(MOTIONCOR, MOTIONCOR_CATEGORY, "bus:motioncor")
+    _make(FFT_TASK, FFT, "bus:fft")
+    _make(SQUARE_DETECTION, SQUARE_DETECT, "bus:square_detection")
+    _make(HOLE_DETECTION, HOLE_DETECT, "bus:hole_detection")
+    _make(TOPAZ_PARTICLE_PICKING, TOPAZ_PICK, "bus:topaz_pick")
+    _make(MICROGRAPH_DENOISING, DENOISE, "bus:micrograph_denoise")
     return registry
 
 
-__all__ = ["get_task_dispatcher_registry", "install_core_bus"]
+__all__ = [
+    "BackendNotLive",
+    "BackendQueueResolver",
+    "get_task_dispatcher_registry",
+    "install_core_bus",
+]

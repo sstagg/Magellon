@@ -23,7 +23,12 @@ import io
 import logging
 import uuid
 import zipfile
+from datetime import datetime as _datetime, timezone as _timezone
 from typing import Any, Dict, List, Literal, Optional
+
+# Sentinel for max() over heartbeat datetimes; lets entries without a
+# heartbeat sort below entries with one without raising on None compares.
+_MIN_DT = _datetime.min.replace(tzinfo=_timezone.utc)
 
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel, Field
@@ -117,6 +122,11 @@ class JobSubmitRequest(BaseModel):
     image_id: Optional[str] = None
     user_id: Optional[str] = None
     msession_id: Optional[str] = None
+    target_backend: Optional[str] = None
+    """Pin the dispatch to a specific backend within the plugin's
+    category (X.1). Only meaningful for broker-dispatched plugins;
+    ignored by the in-process path. When set and no live backend
+    matches, the controller returns 503 instead of round-robining."""
 
 
 class BatchSubmitRequest(BaseModel):
@@ -126,6 +136,187 @@ class BatchSubmitRequest(BaseModel):
     image_ids: Optional[List[str]] = None
     user_id: Optional[str] = None
     msession_id: Optional[str] = None
+    target_backend: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Capabilities — one consolidated catalog (X.1)
+# ---------------------------------------------------------------------------
+#
+# UI and dispatcher both need the same picture: which categories exist,
+# which backends serve each, which is default. Today this is split across
+# GET /plugins/, GET /plugins/categories/defaults, and GET
+# /plugins/{id}/manifest — three reads + a join in JS. /capabilities
+# returns one snapshot.
+
+class _BackendSummary(BaseModel):
+    """One backend serving a category. Folds plugin + manifest + state."""
+
+    backend_id: str
+    plugin_id: str
+    """``<category>/<short>`` form to match the rest of the discovery API."""
+    name: str
+    version: str
+    schema_version: str
+    description: str = ""
+    developer: str = ""
+    capabilities: list[Capability] = []
+    isolation: IsolationLevel = IsolationLevel.IN_PROCESS
+    default_transport: Transport = Transport.IN_PROCESS
+    live_replicas: int
+    enabled: bool
+    is_default_for_category: bool
+    task_queue: Optional[str] = None
+
+
+class _CategoryCapabilities(BaseModel):
+    code: int
+    name: str
+    description: str
+    default_backend: Optional[str] = None
+    backends: list[_BackendSummary] = []
+    input_schema: Optional[Dict[str, Any]] = None
+    output_schema: Optional[Dict[str, Any]] = None
+
+
+class _CapabilitiesResponse(BaseModel):
+    sdk_version: str
+    categories: list[_CategoryCapabilities] = []
+
+
+@plugins_router.get(
+    "/capabilities",
+    summary="Consolidated catalog: categories × backends + defaults",
+    response_model=_CapabilitiesResponse,
+)
+async def list_capabilities() -> _CapabilitiesResponse:
+    """Single-shot snapshot for the dispatcher and the UI.
+
+    For each known :class:`CategoryContract` we list every live backend
+    (deduplicated by ``(category, backend_id)``, replicas counted),
+    annotate the operator-pinned default, and embed the category's
+    canonical input/output JSON Schemas. Reads from the same liveness
+    registry + state store the dispatcher consults — no separate
+    cache, no risk of drift.
+    """
+    state = get_state_store()
+    in_process_ids = {entry.plugin_id for entry in registry.list()}
+
+    # Group live entries by (category, backend_id). Replicas (same
+    # plugin_id with different instance_ids) collapse into one summary
+    # row with ``live_replicas`` counted.
+    by_category_backend: Dict[str, Dict[str, list]] = {}
+    for entry in get_liveness_registry().list_live():
+        cat_key = (entry.category or "").lower()
+        backend_key = (entry.backend_id or entry.plugin_id or "").lower() or "unknown"
+        by_category_backend.setdefault(cat_key, {}).setdefault(backend_key, []).append(entry)
+
+    response_categories: list[_CategoryCapabilities] = []
+    for code, contract in sorted(CATEGORIES.items(), key=lambda kv: kv[0]):
+        cat_key = contract.category.name.lower()
+        default_backend = state.get_default(cat_key)
+        backends = []
+        for backend_key, entries in sorted(by_category_backend.get(cat_key, {}).items()):
+            # Pick a representative entry for manifest fields. All
+            # replicas of one backend share manifest/version, so any is
+            # equivalent; we take the most recent heartbeat for stability.
+            rep = max(
+                entries,
+                key=lambda e: e.last_heartbeat or _MIN_DT,
+            )
+            manifest = rep.manifest
+            info = manifest.info if manifest is not None else None
+            short_id = rep.plugin_id
+            composed_id = (
+                short_id if "/" in short_id else f"{cat_key}/{short_id}"
+            )
+            is_default = state.get_default(cat_key) == short_id
+            backends.append(_BackendSummary(
+                backend_id=backend_key,
+                plugin_id=composed_id,
+                name=short_id,
+                version=(info.version if info else rep.plugin_version) or "?",
+                schema_version=(info.schema_version if info else "1") or "1",
+                description=(info.description if info else "") or "",
+                developer=(info.developer if info else "") or "",
+                capabilities=list(manifest.capabilities) if manifest else [],
+                isolation=manifest.isolation if manifest else IsolationLevel.CONTAINER,
+                default_transport=(
+                    manifest.default_transport if manifest else Transport.RMQ
+                ),
+                live_replicas=len(entries),
+                enabled=state.is_enabled(short_id),
+                is_default_for_category=is_default,
+                task_queue=rep.task_queue,
+            ))
+
+        # In-process plugins for this category that haven't shown up in
+        # the liveness registry (e.g. before announce wiring lands or
+        # in tests). They still serve the category, so list them.
+        for in_proc_id in in_process_ids:
+            short = in_proc_id.split("/", 1)[1] if "/" in in_proc_id else in_proc_id
+            already_listed = any(b.name == short for b in backends)
+            entry = registry.get(in_proc_id)
+            if entry is None or already_listed:
+                continue
+            try:
+                entry_category = entry.instance.task_category.name.lower()
+            except Exception:  # noqa: BLE001
+                entry_category = ""
+            if entry_category != cat_key:
+                continue
+            manifest = entry.manifest
+            info = manifest.info
+            backend_key = (manifest.backend_id or short).lower() or "unknown"
+            is_default = state.get_default(cat_key) == short
+            backends.append(_BackendSummary(
+                backend_id=backend_key,
+                plugin_id=in_proc_id if "/" in in_proc_id else f"{cat_key}/{short}",
+                name=short,
+                version=info.version or "?",
+                schema_version=info.schema_version or "1",
+                description=info.description or "",
+                developer=info.developer or "",
+                capabilities=list(manifest.capabilities),
+                isolation=manifest.isolation,
+                default_transport=manifest.default_transport,
+                live_replicas=1,
+                enabled=state.is_enabled(short),
+                is_default_for_category=is_default,
+                task_queue=None,
+            ))
+
+        # Best-effort JSON Schema for the category I/O. Some
+        # CategoryContract.input_model classes may not emit clean
+        # JSON Schema (exotic types); failing here would break the
+        # whole endpoint, so swallow.
+        try:
+            input_schema = (
+                contract.input_model.model_json_schema() if contract.input_model else None
+            )
+        except Exception:  # noqa: BLE001
+            input_schema = None
+        try:
+            output_schema = (
+                contract.output_model.model_json_schema() if contract.output_model else None
+            )
+        except Exception:  # noqa: BLE001
+            output_schema = None
+
+        response_categories.append(_CategoryCapabilities(
+            code=code,
+            name=contract.category.name,
+            description=contract.category.description,
+            default_backend=default_backend,
+            backends=backends,
+            input_schema=input_schema,
+            output_schema=output_schema,
+        ))
+
+    return _CapabilitiesResponse(
+        sdk_version=sdk_version,
+        categories=response_categories,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -332,12 +523,15 @@ def _find_broker_plugin(plugin_id: str) -> Optional[CategoryContract]:
 
 def _resolve_dispatch_target(
     plugin_id: str, contract: CategoryContract,
+    *,
+    target_backend: Optional[str] = None,
 ) -> "PluginLivenessEntry":
     """Pick the live plugin instance that should receive this dispatch.
 
-    Two HTTP-layer failures short-circuit here so callers see a real
+    Three HTTP-layer failures short-circuit here so callers see a real
     error instead of a silently queued task:
 
+    * ``target_backend`` set but no live plugin claims it → 503.
     * No live impl for this category → 503 (H1.c).
     * Named impl is present but disabled → 409.
 
@@ -345,6 +539,11 @@ def _resolve_dispatch_target(
     A disabled default still counts as the default — we don't silently
     fail over to a different impl — so the UI can surface the real
     state to the operator.
+
+    When ``target_backend`` is set, the backend pin wins over the
+    operator-pinned default and over the URL-named impl: the caller
+    asked for a specific implementation and silently routing to a
+    different one would mask their intent.
     """
     from core.plugin_liveness_registry import PluginLivenessEntry  # local: avoid cycle
 
@@ -356,6 +555,30 @@ def _resolve_dispatch_target(
         e for e in get_liveness_registry().list_live()
         if e.category.lower() == contract.category.name.lower()
     ]
+
+    # Backend pin wins. We do not consult the URL-named impl or the
+    # operator default — the pin is a binding directive.
+    if target_backend:
+        wanted = target_backend.lower()
+        for e in live:
+            if (e.backend_id or "").lower() != wanted:
+                continue
+            if not state.is_enabled(e.plugin_id):
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"Backend {wanted!r} for category "
+                        f"{contract.category.name!r} is disabled"
+                    ),
+                )
+            return e
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"No live plugin claims backend_id={target_backend!r} for "
+                f"category {contract.category.name!r}"
+            ),
+        )
 
     # Explicit impl? Must match the URL exactly. Disabled → 409.
     for e in live:
@@ -486,12 +709,19 @@ def _build_task_dto(
     task_id: uuid.UUID,
     job_id: str,
     user_id: Optional[str],
+    target_backend: Optional[str] = None,
 ) -> TaskDto:
     """Wrap a validated input in the TaskDto the bus transports.
 
     ``task_id`` must match the one registered with ``job_manager.create_job``;
     otherwise the step-event projector can't link events back to the
     job row and the row stays ``queued`` forever.
+
+    ``target_backend`` rides on the DTO so the dispatcher can route to
+    a specific backend's queue. The controller path uses the resolved
+    ``target.task_queue`` directly (no round-trip through the
+    dispatcher), but the field is still set so the consuming plugin
+    can confirm it was the intended recipient.
     """
     data = (
         validated_input.model_dump(mode="json")
@@ -505,6 +735,7 @@ def _build_task_dto(
         data=data,
         type=contract.category,
         status=TaskStatus(code=0, name="pending", description="Task is pending"),
+        target_backend=target_backend,
     )
 
 
@@ -549,7 +780,9 @@ async def _submit_broker_job(
     # Resolve the target impl BEFORE creating a job row — that way
     # H1.c's 503 ("no live enabled impl") doesn't leave an orphan
     # queued row behind.
-    target = _resolve_dispatch_target(plugin_id, contract)
+    target = _resolve_dispatch_target(
+        plugin_id, contract, target_backend=request.target_backend,
+    )
 
     # Generate the task_id up front so the same id registered with the
     # job_manager rides inside the TaskDto. The step-event projector
@@ -567,6 +800,7 @@ async def _submit_broker_job(
     )
     task = _build_task_dto(
         contract, validated, task_id, envelope["job_id"], request.user_id,
+        target_backend=request.target_backend,
     )
     if not _publish_to_bus(contract, task, target.task_queue):
         job_manager.fail_job(envelope["job_id"], error="Failed to publish task to bus")
@@ -588,7 +822,9 @@ async def _submit_broker_batch(
     # Resolve the target impl once for the whole batch. Rolls any 503
     # (no live impl) / 409 (disabled) before a single job row is
     # created, so a batch never half-lands.
-    target = _resolve_dispatch_target(plugin_id, contract)
+    target = _resolve_dispatch_target(
+        plugin_id, contract, target_backend=request.target_backend,
+    )
 
     envelopes: List[Dict[str, Any]] = []
     publish_failures: List[str] = []
@@ -611,6 +847,7 @@ async def _submit_broker_batch(
         envelopes.append(env)
         task = _build_task_dto(
             contract, validated, task_id, env["job_id"], request.user_id,
+            target_backend=request.target_backend,
         )
         if not _publish_to_bus(contract, task, target.task_queue):
             job_manager.fail_job(env["job_id"], error="Failed to publish task to bus")

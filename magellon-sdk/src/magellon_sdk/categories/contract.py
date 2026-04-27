@@ -73,6 +73,17 @@ def task_subject(category_name: str) -> str:
     return f"{_PREFIX}.tasks.{category_name.lower()}"
 
 
+def task_subject_for_backend(category_name: str, backend_id: str) -> str:
+    """Subject for backend-pinned dispatch (SDK 1.3+).
+
+    Used as the symbolic route name when a caller pins a task to a
+    specific implementation via :attr:`TaskDto.target_backend`. The
+    binder still maps subjects to physical queues; only the symbolic
+    name carries the second axis.
+    """
+    return f"{_PREFIX}.tasks.{category_name.lower()}.{backend_id.lower()}"
+
+
 def result_subject(category_name: str) -> str:
     """Subject the plugin publishes results on."""
     return f"{_PREFIX}.tasks.{category_name.lower()}.result"
@@ -141,6 +152,10 @@ class CategoryContract(BaseModel):
     @property
     def task_subject(self) -> str:
         return task_subject(self.category.name)
+
+    def task_subject_for_backend(self, backend_id: str) -> str:
+        """Backend-pinned subject; see module-level helper for semantics."""
+        return task_subject_for_backend(self.category.name, backend_id)
 
     @property
     def result_subject(self) -> str:
@@ -269,6 +284,7 @@ __all__ = [
     "CONFIG_BROADCAST_SUBJECT",
     "get_category",
     "task_subject",
+    "task_subject_for_backend",
     "result_subject",
     "heartbeat_subject",
     "announce_subject",

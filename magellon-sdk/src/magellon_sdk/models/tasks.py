@@ -64,6 +64,10 @@ class TaskBase(BaseModel):
     start_on: Optional[datetime] = None
     end_on: Optional[datetime] = None
     result: Optional[TaskOutcome] = None
+    target_backend: Optional[str] = None
+    """When set, the dispatcher routes this task only to a live plugin
+    whose ``PluginManifest.backend_id`` matches. Unset (the default)
+    keeps today's category-wide round-robin. Added in SDK 1.3."""
 
     @classmethod
     def calculate_data_hash(cls, data: Dict[str, Any]) -> str:

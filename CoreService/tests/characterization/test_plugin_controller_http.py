@@ -159,6 +159,164 @@ def test_unknown_plugin_returns_404(client):
     assert "not found" in resp.json()["detail"].lower()
 
 
+# ---------------------------------------------------------------------------
+# X.1 — capabilities endpoint
+# ---------------------------------------------------------------------------
+#
+# These tests inject live entries into the singleton liveness registry
+# directly, then call the endpoint, then clean up. The capabilities
+# endpoint reads the registry + state store at request time, so this
+# is the same shape a real plugin's announce would produce.
+
+import pytest as _pytest
+
+from core.plugin_liveness_registry import PluginLivenessRegistry, get_registry
+from core.plugin_state import get_state_store
+from magellon_sdk.discovery import Announce
+from magellon_sdk.models.manifest import (
+    Capability as _Cap,
+    PluginManifest as _PluginManifest,
+    Transport as _Transport,
+)
+from magellon_sdk.models.plugin import PluginInfo as _PluginInfo
+
+
+def _make_announce(*, plugin_id: str, category: str, backend_id: str,
+                   version: str = "1.0", instance: str = "i-1",
+                   task_queue: str = None) -> Announce:
+    return Announce(
+        plugin_id=plugin_id,
+        plugin_version=version,
+        category=category,
+        instance_id=instance,
+        manifest=_PluginManifest(
+            info=_PluginInfo(name=plugin_id, version=version, description="t"),
+            backend_id=backend_id,
+            capabilities=[_Cap.CPU_INTENSIVE],
+            supported_transports=[_Transport.RMQ],
+            default_transport=_Transport.RMQ,
+        ),
+        backend_id=backend_id,
+        task_queue=task_queue,
+    )
+
+
+@_pytest.fixture
+def isolated_liveness_registry(monkeypatch):
+    """Swap the process-wide liveness registry singleton for a clean
+    per-test instance so tests can inject entries without leaking
+    across tests."""
+    fresh = PluginLivenessRegistry(stale_after_seconds=300)
+    monkeypatch.setattr(
+        "core.plugin_liveness_registry._REGISTRY", fresh, raising=False,
+    )
+    # Mirror in the SDK module — controller.py reads through it.
+    monkeypatch.setattr(
+        "magellon_sdk.bus.services.liveness_registry._REGISTRY", fresh,
+        raising=False,
+    )
+    return fresh
+
+
+@_pytest.mark.characterization
+def test_capabilities_endpoint_returns_categories_with_no_backends(
+    client, isolated_liveness_registry,
+):
+    """With no live broker plugins, every known category still appears
+    — backends list is empty, schemas still embedded. UI uses this to
+    render an empty-state."""
+    resp = client.get("/plugins/capabilities")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert "sdk_version" in body
+    cats = {c["name"] for c in body["categories"]}
+    # All known categories surface, regardless of liveness.
+    assert {"CTF", "MotionCor", "FFT"}.issubset(cats)
+    # Every category embeds its schema for UI form rendering.
+    ctf = next(c for c in body["categories"] if c["name"] == "CTF")
+    assert ctf["input_schema"] is not None
+    assert ctf["output_schema"] is not None
+
+
+@_pytest.mark.characterization
+def test_capabilities_endpoint_groups_replicas_by_backend_id(
+    client, isolated_liveness_registry,
+):
+    """Two announces with the same plugin_id under different
+    instance_ids are scale-out replicas of one backend. The endpoint
+    must collapse them into one ``backends[]`` row with ``live_replicas=2``,
+    not show two duplicate rows."""
+    isolated_liveness_registry.record_announce(_make_announce(
+        plugin_id="ctf-ctffind4", category="ctf", backend_id="ctffind4",
+        instance="i-1", task_queue="ctf_q",
+    ))
+    isolated_liveness_registry.record_announce(_make_announce(
+        plugin_id="ctf-ctffind4", category="ctf", backend_id="ctffind4",
+        instance="i-2", task_queue="ctf_q",
+    ))
+
+    body = client.get("/plugins/capabilities").json()
+    ctf = next(c for c in body["categories"] if c["name"] == "CTF")
+    backends = [b for b in ctf["backends"] if b["backend_id"] == "ctffind4"]
+    assert len(backends) == 1
+    assert backends[0]["live_replicas"] == 2
+    assert backends[0]["task_queue"] == "ctf_q"
+
+
+@_pytest.mark.characterization
+def test_capabilities_endpoint_lists_distinct_backends_separately(
+    client, isolated_liveness_registry,
+):
+    """Two distinct backends (ctffind4, gctf) under one category must
+    both appear, each as its own row, so the UI can render a backend
+    picker."""
+    isolated_liveness_registry.record_announce(_make_announce(
+        plugin_id="ctf-ctffind4", category="ctf", backend_id="ctffind4",
+        task_queue="ctf_ctffind4_q", instance="i-1",
+    ))
+    isolated_liveness_registry.record_announce(_make_announce(
+        plugin_id="ctf-gctf", category="ctf", backend_id="gctf",
+        task_queue="ctf_gctf_q", instance="i-2",
+    ))
+
+    body = client.get("/plugins/capabilities").json()
+    ctf = next(c for c in body["categories"] if c["name"] == "CTF")
+    backend_ids = {b["backend_id"] for b in ctf["backends"]}
+    assert {"ctffind4", "gctf"}.issubset(backend_ids)
+
+
+@_pytest.mark.characterization
+def test_capabilities_endpoint_marks_default_backend(
+    client, isolated_liveness_registry, monkeypatch,
+):
+    """When the operator has pinned a default impl for a category, the
+    endpoint must reflect both ``default_backend`` at the category
+    level and ``is_default_for_category`` on the matching backend row.
+    UI uses this to render the 'Default' badge."""
+    isolated_liveness_registry.record_announce(_make_announce(
+        plugin_id="ctf-ctffind4", category="ctf", backend_id="ctffind4",
+        task_queue="ctf_q", instance="i-1",
+    ))
+    isolated_liveness_registry.record_announce(_make_announce(
+        plugin_id="ctf-gctf", category="ctf", backend_id="gctf",
+        task_queue="ctf_gctf_q", instance="i-2",
+    ))
+    # Pin ctffind4 as the default — the same path
+    # POST /plugins/categories/{cat}/default takes.
+    get_state_store().set_default("ctf", "ctf-ctffind4")
+    try:
+        body = client.get("/plugins/capabilities").json()
+        ctf = next(c for c in body["categories"] if c["name"] == "CTF")
+        assert ctf["default_backend"] == "ctf-ctffind4"
+        ctffind4 = next(b for b in ctf["backends"] if b["backend_id"] == "ctffind4")
+        gctf = next(b for b in ctf["backends"] if b["backend_id"] == "gctf")
+        assert ctffind4["is_default_for_category"] is True
+        assert gctf["is_default_for_category"] is False
+    finally:
+        # Don't leak the pinned default into other tests.
+        get_state_store().set_default("ctf", None)
+
+
 @pytest.mark.characterization
 def test_submit_job_validates_input(client):
     """Bad input → 422 with a helpful detail, not a 500."""

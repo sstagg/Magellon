@@ -480,6 +480,11 @@ provenance stamping, and typed failure routing are inherited.
   non-trivial PR in Magellon is reviewed against. Read this first.
 - **`DATA_PLANE.md`** — the shared-filesystem decision, the deployment
   matrix, and what the platform forecloses on (object-storage-only).
+- **`CATEGORIES_AND_BACKENDS.md`** — proposed (2026-04-27) backend
+  layer under every `TaskCategory`, the consolidated
+  `GET /plugins/capabilities` endpoint, and the
+  `Envelope` / `Message` wire-shape naming rule. Track C in
+  `IMPLEMENTATION_PLAN.md`. Drafted; not landed.
 - **`IMPLEMENTATION_PLAN.md`** — the v1 / v2 / v3 phasing: hardening the
   RMQ system with a `JobManager` seam + SDK + progress bus, then NATS
   additively, then a data-driven decision.

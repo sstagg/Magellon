@@ -224,6 +224,13 @@ class PluginBase(ABC, Generic[InputT, OutputT]):
     replaces: ClassVar[List[str]] = []
     deprecates: ClassVar[List[str]] = []
     tags: ClassVar[List[str]] = []
+    backend_id: ClassVar[Optional[str]] = None
+    """The plugin's substitutable identity within its category.
+
+    Set this when two plugins in the same category will run side-by-side
+    (e.g. ``ctffind4`` vs ``gctf``). When ``None`` the manifest builder
+    derives a slug from :meth:`get_info`'s ``name`` so existing plugins
+    keep dispatching without a code change."""
 
     def manifest(self) -> PluginManifest:
         """Build the manifest the host's plugin manager consumes.
@@ -254,6 +261,7 @@ class PluginBase(ABC, Generic[InputT, OutputT]):
 
         return PluginManifest(
             info=self.get_info(),
+            backend_id=self.backend_id,
             capabilities=list(self.capabilities),
             supported_transports=list(self.supported_transports),
             default_transport=self.default_transport,

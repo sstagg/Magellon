@@ -339,6 +339,33 @@ Phase-B PR numbering.
 
 **Rollback.** Per-PR `git revert`; none of these touch the bus abstraction boundary.
 
+### Track C — Backends + wire-shape naming (proposed 2026-04-27)
+
+**Goal.** Give the second axis under each `TaskCategory` a first-class
+name (`backend`), one consolidated capabilities endpoint that the UI
+and the dispatcher both read, and a uniform `Envelope` / `Message`
+suffix on every wire-shape class. Detailed design in
+`Documentation/CATEGORIES_AND_BACKENDS.md`.
+
+**Track C status (2026-04-27, end of day).** Drafted, not landed.
+Awaiting review of the design doc before X.1 opens.
+
+PR IDs use the `X` prefix to avoid colliding with Phase-A and Track A/B
+numbering.
+
+| PR  | Title | Status |
+|-----|-------|--------|
+| X.1 | Backend layer + capabilities endpoint | **Drafted.** Adds `backend_id` to `PluginManifest`, `target_backend` to `TaskMessage` (today's `TaskDto`), the `magellon.tasks.<category>.<backend>` subject form, and `GET /plugins/capabilities`. Existing endpoints stay (additive, principle 6). |
+| X.2 | Wire-shape rename — alias + migrate | **Drafted.** `TaskDto`→`TaskMessage`, `TaskResultDto`→`TaskResultMessage`, `JobDto`→`JobMessage`, `*TaskData`→`*Input`, `Step{Started,Progress,Completed,Failed}`→`*Message`. New names land as aliases first; call sites migrate next. Goldens updated. |
+| X.3 | Drop legacy aliases | **Drafted.** Remove `TaskDto = TaskMessage` shims and `models/plugins_models.py` if every CoreService call site is on the new names. Bumps SDK to 0.2.0 and `PluginInfo.schema_version`. |
+
+**Ordering.** X.1 first (no renames, opens the operator A/B story).
+X.2 only after X.1 has soaked one release; it touches every plugin.
+X.3 follows X.2 by another release at minimum.
+
+**Rollback.** Per-PR `git revert`. X.3 is the only one that breaks
+plugins that haven't migrated; X.1 and X.2 stay backward compatible.
+
 ### Cross-track: documentation (E)
 
 Landed 2026-04-21:
