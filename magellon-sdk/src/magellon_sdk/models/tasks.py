@@ -345,47 +345,16 @@ class DebugInfo(BaseModel):
     line8: Optional[str] = None
 
 
-# ---------------------------------------------------------------------------
-# Legacy aliases (SDK 1.3 → 2.0)
-# ---------------------------------------------------------------------------
-#
-# Pre-1.3 plugins import ``TaskDto``, ``TaskResultDto``, ``*TaskData``,
-# ``StepStarted`` etc. by name. The names here keep those imports
-# working without a code change. Removed in SDK 2.0; X.3 in
-# ``Documentation/CATEGORIES_AND_BACKENDS.md`` tracks the drop.
-#
-# These are literal name bindings (not subclasses), so:
-#
-#   isinstance(t, TaskMessage) and isinstance(t, TaskDto)
-#
-# both succeed for any instance built either way — same class object
-# under two names.
-
-TaskDto = TaskMessage
-JobDto = JobMessage
-TaskResultDto = TaskResultMessage
-CryoEmImageTaskData = CryoEmImageInput
-MrcToPngTaskData = MrcToPngInput
-FftTaskData = FftInput
-TopazPickTaskData = TopazPickInput
-MicrographDenoiseTaskData = MicrographDenoiseInput
-PtolemyTaskData = PtolemyInput
-CtfTaskData = CtfInput
-CryoEmMotionCorTaskData = MotionCorInput
-
-
 __all__ = [
     # Envelope.
     "TaskBase",
     "TaskCategory",
-    "TaskMessage",  # SDK 1.3+ canonical name
-    "TaskDto",      # legacy alias of TaskMessage
+    "TaskMessage",
     "JobMessage",
-    "JobDto",       # legacy alias of JobMessage
     "TaskOutcome",
     "TaskStatus",
     "TaskStatusEnum",
-    # Per-category input shapes (SDK 1.3+ canonical names).
+    # Per-category input shapes.
     "CryoEmImageInput",
     "MrcToPngInput",
     "FftInput",
@@ -394,15 +363,6 @@ __all__ = [
     "TopazPickInput",
     "MicrographDenoiseInput",
     "PtolemyInput",
-    # Legacy aliases (SDK ≤ 1.2 names).
-    "CryoEmImageTaskData",
-    "MrcToPngTaskData",
-    "FftTaskData",
-    "CtfTaskData",
-    "CryoEmMotionCorTaskData",
-    "TopazPickTaskData",
-    "MicrographDenoiseTaskData",
-    "PtolemyTaskData",
     # Concrete tasks.
     "FftTask",
     "CtfTask",
@@ -421,6 +381,5 @@ __all__ = [
     "ImageMetaData",
     "OutputFile",
     "TaskResultMessage",
-    "TaskResultDto",  # legacy alias of TaskResultMessage
     "DebugInfo",
 ]
