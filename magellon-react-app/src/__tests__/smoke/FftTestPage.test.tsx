@@ -11,7 +11,10 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
-const postMock = vi.fn();
+// vi.mock is hoisted above this file's top-level declarations, so the
+// mock factory can't close over a regular ``const``. Use vi.hoisted to
+// expose the mock to both vi.mock and the test body.
+const { postMock } = vi.hoisted(() => ({ postMock: vi.fn() }));
 
 vi.mock('../../shared/api/AxiosClient.ts', () => ({
     default: () => ({ post: postMock }),
@@ -70,7 +73,7 @@ describe('FftTestPage', () => {
         fireEvent.click(screen.getByRole('button', { name: /Dispatch FFT/i }));
 
         await waitFor(() => {
-            expect(postMock).toHaveBeenCalledWith('/fft/dispatch', {
+            expect(postMock).toHaveBeenCalledWith('/image/fft/dispatch', {
                 image_path: '/data/sample.mrc',
             });
         });
