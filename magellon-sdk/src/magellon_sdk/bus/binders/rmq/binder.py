@@ -173,8 +173,26 @@ class RmqBinder:
 
     # -- queue name resolution --------------------------------------------
 
-    def _resolve_queue(self, subject: str) -> str:
-        return self._queue_map.get(subject, subject)
+    def _resolve_queue(self, route: RouteRef) -> str:
+        """Pick the physical queue for a publish/consume target.
+
+        Resolution order:
+
+        1. ``route.physical_queue`` (X.1+ backend-pinned override) — the
+           dispatcher already knows the destination queue from the
+           liveness registry's announce; honor it verbatim and skip
+           the legacy map.
+        2. ``legacy_queue_map[subject]`` (MB3 production map) —
+           translates symbolic subjects (``magellon.tasks.ctf``) to the
+           legacy queue names plugins still bind on
+           (``ctf_tasks_queue``).
+        3. ``subject`` itself — last resort for ad-hoc / test routes
+           that carry their own queue name as the subject.
+        """
+        physical = getattr(route, "physical_queue", None)
+        if physical:
+            return physical
+        return self._queue_map.get(route.subject, route.subject)
 
     # -- lifecycle ---------------------------------------------------------
 
@@ -209,7 +227,7 @@ class RmqBinder:
 
     def publish_task(self, route: RouteRef, envelope: Envelope) -> PublishReceipt:
         self._require_started()
-        queue_name = self._resolve_queue(route.subject)
+        queue_name = self._resolve_queue(route)
         write_audit_entry(self._audit, route.subject, envelope)
         body = _body_from_envelope(envelope)
         properties = _ce_properties(envelope)
@@ -263,7 +281,7 @@ class RmqBinder:
         policy: TaskConsumerPolicy,
     ) -> ConsumerHandle:
         self._require_started()
-        queue_name = self._resolve_queue(route.subject)
+        queue_name = self._resolve_queue(route)
 
         # New client so start_consuming can block a dedicated thread
         # without freezing the binder's publish channel.
@@ -304,7 +322,7 @@ class RmqBinder:
 
     def purge_tasks(self, route: RouteRef) -> int:
         self._require_started()
-        queue_name = self._resolve_queue(route.subject)
+        queue_name = self._resolve_queue(route)
         # passive=True: fail if the queue doesn't exist (matches today's
         # cancellation_service behavior — intentional safety).
         frame = self._client.channel.queue_declare(queue=queue_name, passive=True)

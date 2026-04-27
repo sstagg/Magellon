@@ -286,6 +286,15 @@ async def list_capabilities() -> _CapabilitiesResponse:
                 task_queue=None,
             ))
 
+        # X.9: deterministic ordering — default backend first, then
+        # alphabetical by backend_id. UIs can render straight from this
+        # without re-sorting, and golden / contract tests get a stable
+        # response shape across runs.
+        backends.sort(key=lambda b: (
+            0 if b.is_default_for_category else 1,
+            b.backend_id,
+        ))
+
         # Best-effort JSON Schema for the category I/O. Some
         # CategoryContract.input_model classes may not emit clean
         # JSON Schema (exotic types); failing here would break the

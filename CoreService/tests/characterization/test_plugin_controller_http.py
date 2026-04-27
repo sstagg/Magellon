@@ -286,6 +286,41 @@ def test_capabilities_endpoint_lists_distinct_backends_separately(
 
 
 @_pytest.mark.characterization
+def test_capabilities_endpoint_sorts_backends_default_first_then_alpha(
+    client, isolated_liveness_registry,
+):
+    """X.9: ``backends[]`` ordering is part of the contract — UI
+    renders the list directly without re-sorting. Default-flagged
+    backend is index 0; remaining backends sort alphabetically by
+    backend_id."""
+    isolated_liveness_registry.record_announce(_make_announce(
+        plugin_id="ctf-zzz-engine", category="ctf", backend_id="zzz",
+        task_queue="ctf_zzz_q", instance="i-1",
+    ))
+    isolated_liveness_registry.record_announce(_make_announce(
+        plugin_id="ctf-aaa-engine", category="ctf", backend_id="aaa",
+        task_queue="ctf_aaa_q", instance="i-2",
+    ))
+    isolated_liveness_registry.record_announce(_make_announce(
+        plugin_id="ctf-mmm-engine", category="ctf", backend_id="mmm",
+        task_queue="ctf_mmm_q", instance="i-3",
+    ))
+    # Pin mmm as the default — it should come first regardless of
+    # alphabetical position.
+    get_state_store().set_default("ctf", "ctf-mmm-engine")
+    try:
+        body = client.get("/plugins/capabilities").json()
+        ctf = next(c for c in body["categories"] if c["name"] == "CTF")
+        backend_ids = [b["backend_id"] for b in ctf["backends"]]
+        # Default first, then the remaining two in alpha order.
+        assert backend_ids[0] == "mmm"
+        assert backend_ids[1:] == ["aaa", "zzz"]
+        assert ctf["backends"][0]["is_default_for_category"] is True
+    finally:
+        get_state_store().set_default("ctf", None)
+
+
+@_pytest.mark.characterization
 def test_capabilities_endpoint_marks_default_backend(
     client, isolated_liveness_registry, monkeypatch,
 ):

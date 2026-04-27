@@ -101,9 +101,13 @@ def test_dispatch_returns_false_when_bus_reports_not_ok(mock_bus):
 
 
 def test_dispatch_routes_to_resolver_queue_when_target_backend_set(mock_bus):
-    """A task with target_backend must reach the queue the resolver
-    returns for that ``(category, backend)`` — not the category default.
-    Pinning is binding."""
+    """A task with target_backend reaches the queue the resolver returns
+    for ``(category, backend)``. Pinning is binding.
+
+    X.7: the *envelope subject* stays symbolic
+    (``magellon.tasks.ctf.ctffind4``) so the audit log + ce-subject
+    header carry the pin signal; the binder publishes to the resolved
+    queue via ``TaskRoute.physical_queue``."""
     _bus, binder = mock_bus
 
     def resolver(contract, backend):
@@ -122,9 +126,32 @@ def test_dispatch_routes_to_resolver_queue_when_target_backend_set(mock_bus):
 
     assert ok is True
     [(subject, envelope)] = binder.published_tasks
-    # Backend pin overrides the category-default route.
-    assert subject == "ctf_ctffind4_queue"
-    assert envelope.subject == "ctf_ctffind4_queue"
+    # Symbolic subject on the envelope — operator-grepable.
+    assert subject == "magellon.tasks.ctf.ctffind4"
+    assert envelope.subject == "magellon.tasks.ctf.ctffind4"
+
+
+def test_dispatch_pinned_route_carries_physical_queue_for_binder(mock_bus):
+    """The TaskRoute returned for a pinned task carries
+    physical_queue=<resolver result>. This is what the binder uses to
+    publish (bypassing legacy_queue_map). Without this the binder
+    would treat the symbolic subject as a literal queue name and
+    publish to a queue nobody consumes."""
+    _bus, binder = mock_bus
+
+    def resolver(contract, backend):
+        return "ctf_gctf_queue"
+
+    disp = _BusTaskDispatcher(
+        route=TaskRoute.for_category(CTF),
+        name="bus:ctf",
+        contract=CTF,
+        backend_resolver=resolver,
+    )
+
+    route = disp._route_for(_task(target_backend="gctf"))
+    assert route.subject == "magellon.tasks.ctf.gctf"
+    assert route.physical_queue == "ctf_gctf_queue"
 
 
 def test_dispatch_unset_target_backend_uses_category_default_route(mock_bus):

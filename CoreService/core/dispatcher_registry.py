@@ -156,10 +156,11 @@ class _BusTaskDispatcher:
                 f"that backend_id; refusing to fall back to the category "
                 f"default to avoid silently mis-routing."
             )
-        # Use the symbolic backend-pinned subject for logs/audit; the
-        # binder still publishes to the resolved queue via the
-        # legacy_queue_map seam.
-        return TaskRoute.named(queue)
+        # X.7: keep the symbolic ``magellon.tasks.<cat>.<backend>``
+        # subject on the envelope (so audit + ce-subject + log lines
+        # carry the pin signal an operator can grep) but route the
+        # binder to the resolver-returned queue directly.
+        return TaskRoute.for_backend(self.contract, target, queue)
 
 
 # ---------------------------------------------------------------------------
