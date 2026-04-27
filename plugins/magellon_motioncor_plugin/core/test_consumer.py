@@ -3,8 +3,8 @@
 
 The test queue carries denormalized task payloads from the frontend
 (image_path + gain_path + ``motioncor_settings`` dict) and expects the
-plugin to translate them into a proper ``CryoEmMotionCorTaskData`` +
-fresh ``TaskDto`` before calling ``do_execute``. That translation
+plugin to translate them into a proper ``MotionCorInput`` +
+fresh ``TaskMessage`` before calling ``do_execute``. That translation
 doesn't fit ``PluginBrokerRunner``'s strict input_schema validation,
 so the test path lives here as its own ``bus.tasks.consumer``
 subscription rather than as a second runner.
@@ -29,10 +29,10 @@ from magellon_sdk.errors import PermanentError
 
 from magellon_sdk.models import (
     FAILED,
-    CryoEmMotionCorTaskData,
+    MotionCorInput,
     TaskCategory,
-    TaskDto,
-    TaskResultDto,
+    TaskMessage,
+    TaskResultMessage,
     TaskStatus,
 )
 
@@ -59,9 +59,9 @@ def _resolve_test_out_queue() -> str:
     )
 
 
-def _normalize_test_task(task_dto: TaskDto) -> TaskDto:
+def _normalize_test_task(task_dto: TaskMessage) -> TaskMessage:
     """Translate the test queue's denormalized shape into a proper
-    TaskDto carrying ``CryoEmMotionCorTaskData``. Mirrors the logic
+    TaskMessage carrying ``MotionCorInput``. Mirrors the logic
     of the legacy ``process_test_message`` callback."""
     task_data = task_dto.data if task_dto.data else {}
     motioncor_settings = task_data.get("motioncor_settings", {}) or {}
@@ -72,7 +72,7 @@ def _normalize_test_task(task_dto: TaskDto) -> TaskDto:
         if image_path else "unknown"
     )
 
-    motioncor_task_data = CryoEmMotionCorTaskData(
+    motioncor_task_data = MotionCorInput(
         image_id=uuid4(),
         image_name=image_name,
         image_path=image_path,
@@ -95,7 +95,7 @@ def _normalize_test_task(task_dto: TaskDto) -> TaskDto:
         Gpu="0",
     )
 
-    return TaskDto(
+    return TaskMessage(
         id=task_dto.id,
         worker_instance_id=uuid4(),
         job_id=uuid4(),
@@ -111,11 +111,11 @@ def _normalize_test_task(task_dto: TaskDto) -> TaskDto:
     )
 
 
-def _build_unexpected_result(task_dto: TaskDto, raw) -> TaskResultDto:
+def _build_unexpected_result(task_dto: TaskMessage, raw) -> TaskResultMessage:
     """Wrap an unexpected ``do_execute`` return shape in a FAILED
-    TaskResultDto so the publish path doesn't crash on ``model_dump``.
+    TaskResultMessage so the publish path doesn't crash on ``model_dump``.
     Defensive: matches the audit fix in the legacy callback."""
-    return TaskResultDto(
+    return TaskResultMessage(
         task_id=task_dto.id,
         status=FAILED,
         message="Motioncor test task returned an unexpected result shape",
@@ -129,10 +129,10 @@ def _on_envelope(envelope: Envelope) -> None:
     """Bus handler for one test-queue delivery."""
     test_out_queue = _resolve_test_out_queue()
     try:
-        task_dto = TaskDto.model_validate(envelope.data)
+        task_dto = TaskMessage.model_validate(envelope.data)
     except Exception as exc:
         # Malformed payload — DLQ via PermanentError.
-        raise PermanentError(f"undecodable TaskDto: {exc}") from exc
+        raise PermanentError(f"undecodable TaskMessage: {exc}") from exc
 
     try:
         normalized = _normalize_test_task(task_dto)
@@ -147,7 +147,7 @@ def _on_envelope(envelope: Envelope) -> None:
     result = future.result()
 
     if isinstance(result, dict) and "error" in result:
-        error_result = TaskResultDto(
+        error_result = TaskResultMessage(
             task_id=task_dto.id,
             status=FAILED,
             message=f"Motioncor test task failed: {result.get('error', 'Unknown error')}",
@@ -162,7 +162,7 @@ def _on_envelope(envelope: Envelope) -> None:
     if hasattr(result, "model_dump"):
         result_dict = result.model_dump()
         result_dict["task_id"] = task_dto.id
-        publish_message_to_queue(TaskResultDto(**result_dict), test_out_queue)
+        publish_message_to_queue(TaskResultMessage(**result_dict), test_out_queue)
         logger.info("motioncor test result published for %s", task_dto.id)
         return
 

@@ -5,7 +5,7 @@ module owns the CoreService-specific glue:
 
 - Resolves which subjects to subscribe to from
   ``app_settings.rabbitmq_settings.OUT_QUEUES``.
-- Decodes each bus :class:`Envelope` into a :class:`TaskResultDto`
+- Decodes each bus :class:`Envelope` into a :class:`TaskResultMessage`
   and projects it through :class:`TaskOutputProcessor`, which writes
   into CoreService's MySQL on a fresh SQLAlchemy session.
 - Classifies failures — malformed payloads and projection errors both
@@ -43,7 +43,7 @@ from magellon_sdk.bus.services.result_consumer import (
 )
 from magellon_sdk.envelope import Envelope
 from magellon_sdk.errors import PermanentError
-from models.plugins_models import TaskResultDto
+from models.plugins_models import TaskResultMessage
 from services.task_output_processor import TaskOutputProcessor
 
 logger = logging.getLogger(__name__)
@@ -60,11 +60,11 @@ def _make_handler(session_factory: sessionmaker):
 
     def _on_envelope(envelope: Envelope) -> None:
         try:
-            task_result = TaskResultDto.model_validate(envelope.data)
+            task_result = TaskResultMessage.model_validate(envelope.data)
         except Exception as exc:
             # Malformed payload will never decode on retry. Raise as
             # PermanentError so classify_exception routes to DLQ.
-            raise PermanentError(f"undecodable TaskResultDto: {exc}") from exc
+            raise PermanentError(f"undecodable TaskResultMessage: {exc}") from exc
 
         db = session_factory()
         out_queues = app_settings.rabbitmq_settings.OUT_QUEUES

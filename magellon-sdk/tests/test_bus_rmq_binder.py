@@ -193,7 +193,7 @@ def test_require_started_raises_when_not_started():
 def test_publish_task_sends_data_only_body_on_default_exchange(binder):
     """CloudEvents binary content mode: body = envelope.data JSON.
 
-    Existing plugins decode ``TaskDto.model_validate_json(body)``; the
+    Existing plugins decode ``TaskMessage.model_validate_json(body)``; the
     bus must preserve that format so MB3 producer migration doesn't
     break pre-MB4 plugins."""
     route = TaskRoute.for_category(CTF)
@@ -335,7 +335,7 @@ def test_consume_callback_acks_on_success(binder):
 
 
 def test_consume_callback_handles_legacy_body_without_ce_headers(binder):
-    """Pre-bus producers (before MB3) publish raw TaskDto JSON with
+    """Pre-bus producers (before MB3) publish raw TaskMessage JSON with
     no ce-* headers. Binder must still reconstruct a usable envelope
     so the handler doesn't care where the message came from."""
     received = []

@@ -5,7 +5,7 @@ import subprocess
 from datetime import datetime
 
 from core.helper import push_info_to_debug_queue
-from magellon_sdk.models import CtfTaskData, OutputFile, TaskDto, TaskResultDto, ImageMetaData, DebugInfo
+from magellon_sdk.models import CtfInput, OutputFile, TaskMessage, TaskResultMessage, ImageMetaData, DebugInfo
 from core.settings import AppSettingsSingleton
 from service.ctfeval import run_ctf_evaluation
 from utils import buildCtfCommand, readLastLine, getFileContents
@@ -52,11 +52,11 @@ def validateInput(params):
 
     return True
 
-async def do_ctf(the_task: TaskDto) -> TaskResultDto:
+async def do_ctf(the_task: TaskMessage) -> TaskResultMessage:
     try:
         d = DebugInfo()
         logger.info(f"Starting task {the_task.id} ")
-        the_task_data = CtfTaskData.model_validate(the_task.data)
+        the_task_data = CtfInput.model_validate(the_task.data)
         # validate the input
         try:
             if not validateInput(the_task_data):
@@ -136,7 +136,7 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
                 if os.path.exists(path):  
                     output_files.append(OutputFile(name=name, path=path, required=True))
 
-            return TaskResultDto(
+            return TaskResultMessage(
                 worker_instance_id=the_task.worker_instance_id,
                 task_id=the_task.id,
                 job_id=the_task.job_id,
@@ -161,7 +161,7 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
 
         except Exception as eval_error:
             logger.warning(f"CTF evaluation failed: {str(eval_error)}")
-            return TaskResultDto(
+            return TaskResultMessage(
                 worker_instance_id=the_task.worker_instance_id,
                 task_id=the_task.id,
                 job_id=the_task.job_id,
@@ -186,7 +186,7 @@ async def do_ctf(the_task: TaskDto) -> TaskResultDto:
 
     except Exception as e:
         logger.error(f"An error occurred: {str(e)}")
-        return TaskResultDto(
+        return TaskResultMessage(
             worker_instance_id=the_task.worker_instance_id,
             task_id=the_task.id,
             job_id=the_task.job_id,

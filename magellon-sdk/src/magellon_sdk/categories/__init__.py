@@ -8,7 +8,7 @@ A CategoryContract defines, for one role (fft, ctf, pp, motioncor):
     announce, and config.
 
 Substitutability is the point: any plugin claiming ``CTF`` speaks
-``CtfTaskData`` in and ``CtfOutput`` out, so a scheduler can replace
+``CtfInput`` in and ``CtfOutput`` out, so a scheduler can replace
 ctffind with gctf without the downstream projector caring.
 
 Usage:
@@ -21,7 +21,7 @@ Usage:
     # Plugin side — subscribe, validate, execute
     data = CTF.validate_input(payload)
 
-    # Generic lookup from a TaskDto's integer type code
+    # Generic lookup from a TaskMessage's integer type code
     contract = get_category(task.type.code)
 """
 from magellon_sdk.categories.contract import (

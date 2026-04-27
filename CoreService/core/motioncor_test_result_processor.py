@@ -10,7 +10,7 @@ from datetime import datetime
 
 from core.rabbitmq_client import RabbitmqClient
 from config import app_settings
-from models.plugins_models import TaskResultDto
+from models.plugins_models import TaskResultMessage
 from services.motioncor_test_service import broadcast_to_task_connections
 
 logger = logging.getLogger(__name__)
@@ -31,7 +31,7 @@ def process_result_message(ch, method, properties, body):
         
         # Parse the result message
         result_dict = json.loads(message_text)
-        # Try to get task_id first (from TaskResultDto), then fall back to id
+        # Try to get task_id first (from TaskResultMessage), then fall back to id
         task_id = result_dict.get("task_id") or result_dict.get("id")
         
         logger.info(f"Processing result for task: {task_id}")

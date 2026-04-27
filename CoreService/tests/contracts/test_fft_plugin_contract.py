@@ -72,7 +72,7 @@ def test_execute_endpoint_echoes_task_identifiers(require_fft_plugin):
 def test_execute_endpoint_returns_task_result_shape(require_fft_plugin):
     import httpx
 
-    from magellon_sdk.models import TaskResultDto
+    from magellon_sdk.models import TaskResultMessage
 
     task = _canned_fft_task()
     url = f"http://127.0.0.1:{require_fft_plugin}/execute"
@@ -85,6 +85,6 @@ def test_execute_endpoint_returns_task_result_shape(require_fft_plugin):
     if "task_id" not in body and "result" in body:
         body = body["result"]
 
-    result = TaskResultDto.model_validate(body)
+    result = TaskResultMessage.model_validate(body)
     assert result.task_id == uuid.UUID(task["id"])
     assert result.job_id == uuid.UUID(task["job_id"])

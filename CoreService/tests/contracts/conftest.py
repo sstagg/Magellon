@@ -1,7 +1,7 @@
 """Shared fixtures for plugin-container contract tests (G.2).
 
 Contract tests verify the wire contract each plugin container
-exposes: "send this TaskDto shape, get this TaskResultDto shape
+exposes: "send this TaskMessage shape, get this TaskResultMessage shape
 back, with provenance stamped". They talk to the live plugin's
 HTTP ``/execute`` endpoint rather than going through RMQ — that
 avoids racing with CoreService's in-process result consumer and

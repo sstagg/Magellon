@@ -25,14 +25,14 @@ from magellon_sdk.categories.outputs import (
     ParticlePickingOutput,
 )
 from magellon_sdk.events import BoundStepReporter
-from magellon_sdk.models import OutputFile, PluginInfo, TaskDto, TaskResultDto
+from magellon_sdk.models import OutputFile, PluginInfo, TaskMessage, TaskResultMessage
 from magellon_sdk.models.manifest import (
     Capability,
     IsolationLevel,
     ResourceHints,
     Transport,
 )
-from magellon_sdk.models.tasks import MicrographDenoiseTaskData, TopazPickTaskData
+from magellon_sdk.models.tasks import MicrographDenoiseInput, TopazPickInput
 from magellon_sdk.progress import NullReporter, ProgressReporter
 from magellon_sdk.runner import PluginBrokerRunner
 
@@ -46,12 +46,12 @@ logger = logging.getLogger(__name__)
 # Active-task ContextVar (one per process — both categories share it)
 # ---------------------------------------------------------------------------
 
-_active_task: ContextVar[Optional[TaskDto]] = ContextVar(
+_active_task: ContextVar[Optional[TaskMessage]] = ContextVar(
     "_topaz_active_task", default=None
 )
 
 
-def get_active_task() -> Optional[TaskDto]:
+def get_active_task() -> Optional[TaskMessage]:
     return _active_task.get()
 
 
@@ -159,7 +159,7 @@ def _denoised_mrc_path(input_file: str, override: Optional[str], session: Option
 # TopazPickPlugin
 # ---------------------------------------------------------------------------
 
-class TopazPickPlugin(PluginBase[TopazPickTaskData, ParticlePickingOutput]):
+class TopazPickPlugin(PluginBase[TopazPickInput, ParticlePickingOutput]):
     capabilities = _CAPABILITIES
     supported_transports = _TRANSPORTS
     default_transport = Transport.RMQ
@@ -179,8 +179,8 @@ class TopazPickPlugin(PluginBase[TopazPickTaskData, ParticlePickingOutput]):
         )
 
     @classmethod
-    def input_schema(cls) -> Type[TopazPickTaskData]:
-        return TopazPickTaskData
+    def input_schema(cls) -> Type[TopazPickInput]:
+        return TopazPickInput
 
     @classmethod
     def output_schema(cls) -> Type[ParticlePickingOutput]:
@@ -188,7 +188,7 @@ class TopazPickPlugin(PluginBase[TopazPickTaskData, ParticlePickingOutput]):
 
     def execute(
         self,
-        input_data: TopazPickTaskData,
+        input_data: TopazPickInput,
         *,
         reporter: ProgressReporter = NullReporter(),
     ) -> ParticlePickingOutput:
@@ -249,7 +249,7 @@ class TopazPickPlugin(PluginBase[TopazPickTaskData, ParticlePickingOutput]):
 # TopazDenoisePlugin
 # ---------------------------------------------------------------------------
 
-class TopazDenoisePlugin(PluginBase[MicrographDenoiseTaskData, MicrographDenoisingOutput]):
+class TopazDenoisePlugin(PluginBase[MicrographDenoiseInput, MicrographDenoisingOutput]):
     capabilities = _CAPABILITIES
     supported_transports = _TRANSPORTS
     default_transport = Transport.RMQ
@@ -269,8 +269,8 @@ class TopazDenoisePlugin(PluginBase[MicrographDenoiseTaskData, MicrographDenoisi
         )
 
     @classmethod
-    def input_schema(cls) -> Type[MicrographDenoiseTaskData]:
-        return MicrographDenoiseTaskData
+    def input_schema(cls) -> Type[MicrographDenoiseInput]:
+        return MicrographDenoiseInput
 
     @classmethod
     def output_schema(cls) -> Type[MicrographDenoisingOutput]:
@@ -278,7 +278,7 @@ class TopazDenoisePlugin(PluginBase[MicrographDenoiseTaskData, MicrographDenoisi
 
     def execute(
         self,
-        input_data: MicrographDenoiseTaskData,
+        input_data: MicrographDenoiseInput,
         *,
         reporter: ProgressReporter = NullReporter(),
     ) -> MicrographDenoisingOutput:
@@ -341,7 +341,7 @@ class TopazBrokerRunner(PluginBrokerRunner):
             _active_task.reset(token)
 
     def _process(self, body: bytes) -> bytes:
-        task = TaskDto.model_validate_json(body.decode("utf-8"))
+        task = TaskMessage.model_validate_json(body.decode("utf-8"))
         token = _active_task.set(task)
         try:
             self._apply_pending_config()
@@ -358,7 +358,7 @@ class TopazBrokerRunner(PluginBrokerRunner):
 # Result factories
 # ---------------------------------------------------------------------------
 
-def build_pick_result(task: TaskDto, output: ParticlePickingOutput) -> TaskResultDto:
+def build_pick_result(task: TaskMessage, output: ParticlePickingOutput) -> TaskResultMessage:
     data = task.data or {}
     input_file = data.get("input_file", "")
     out_files = []
@@ -368,7 +368,7 @@ def build_pick_result(task: TaskDto, output: ParticlePickingOutput) -> TaskResul
             path=output.particles_json_path,
             required=True,
         ))
-    return TaskResultDto(
+    return TaskResultMessage(
         worker_instance_id=task.worker_instance_id,
         job_id=task.job_id,
         task_id=task.id,
@@ -388,10 +388,10 @@ def build_pick_result(task: TaskDto, output: ParticlePickingOutput) -> TaskResul
     )
 
 
-def build_denoise_result(task: TaskDto, output: MicrographDenoisingOutput) -> TaskResultDto:
+def build_denoise_result(task: TaskMessage, output: MicrographDenoisingOutput) -> TaskResultMessage:
     data = task.data or {}
     input_file = data.get("input_file", "")
-    return TaskResultDto(
+    return TaskResultMessage(
         worker_instance_id=task.worker_instance_id,
         job_id=task.job_id,
         task_id=task.id,

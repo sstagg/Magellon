@@ -8,7 +8,7 @@ import mrcfile
 import numpy as np
 import matplotlib.pyplot as plt
 # from loggerSetup import setupLogger
-from magellon_sdk.models import CryoEmMotionCorTaskData
+from magellon_sdk.models import MotionCorInput
 from PIL import Image
 import tifffile
 import cv2
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 def getSubCommand(attribute: str, value: Optional[str] = None) -> List[str]:
     return [attribute, value] if value is not None else [attribute]
     
-def build_motioncor3_command(params: CryoEmMotionCorTaskData) -> str:
+def build_motioncor3_command(params: MotionCorInput) -> str:
     # cmd=[os.environ.get("MOTIONCORFILE")]
     cmd=[os.environ.get("MOTIONCOR_BINARY")]
     # cmd = ['motioncor3']

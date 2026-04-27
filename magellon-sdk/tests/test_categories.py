@@ -38,9 +38,9 @@ from magellon_sdk.categories import (
 )
 from magellon_sdk.models.tasks import (
     CTF_TASK,
-    CtfTaskData,
+    CtfInput,
     FFT_TASK,
-    FftTaskData,
+    FftInput,
     MOTIONCOR,
     PARTICLE_PICKING,
 )
@@ -102,9 +102,9 @@ def test_config_broadcast_subject_is_category_agnostic():
 # ---------------------------------------------------------------------------
 
 def test_each_category_points_at_its_canonical_models():
-    assert CTF.input_model is CtfTaskData
+    assert CTF.input_model is CtfInput
     assert CTF.output_model is CtfOutput
-    assert FFT.input_model is FftTaskData
+    assert FFT.input_model is FftInput
     assert FFT.output_model is FftOutput
     assert MOTIONCOR_CATEGORY.output_model is MotionCorOutput
     assert PARTICLE_PICKER.output_model is ParticlePickingOutput
@@ -118,7 +118,7 @@ def test_validate_input_accepts_canonical_payload():
         "inputFile": "/gpfs/images/mic_0001.mrc",
     }
     obj = CTF.validate_input(payload)
-    assert isinstance(obj, CtfTaskData)
+    assert isinstance(obj, CtfInput)
     assert obj.inputFile == "/gpfs/images/mic_0001.mrc"
 
 
@@ -132,18 +132,18 @@ def test_input_accepts_engine_opts_as_opaque_extras():
     to know about them. An old dispatcher that doesn't populate
     engine_opts must still produce a valid input."""
     # Without engine_opts — default empty.
-    bare = CtfTaskData(inputFile="/gpfs/x.mrc")
+    bare = CtfInput(inputFile="/gpfs/x.mrc")
     assert bare.engine_opts == {}
 
     # With engine-specific knobs — gctf wants a gpu_id.
-    extended = CtfTaskData(
+    extended = CtfInput(
         inputFile="/gpfs/x.mrc",
         engine_opts={"gpu_id": 1, "window_size": 512},
     )
     assert extended.engine_opts["gpu_id"] == 1
 
     # Round-trip preserves engine_opts.
-    round_tripped = CtfTaskData.model_validate(extended.model_dump())
+    round_tripped = CtfInput.model_validate(extended.model_dump())
     assert round_tripped.engine_opts == {"gpu_id": 1, "window_size": 512}
 
 
@@ -152,7 +152,7 @@ def test_plugin_subclassing_input_preserves_canonical_fields():
     subclass the canonical model. The category's validator still
     works because the plugin's type is-a canonical type."""
 
-    class GctfInput(CtfTaskData):
+    class GctfInput(CtfInput):
         # Strongly-typed alternative to engine_opts["gpu_id"].
         gpu_id: int = 0
 

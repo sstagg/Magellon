@@ -24,9 +24,9 @@ from models.plugins_models import (
     CTF_TASK,
     MOTIONCOR_TASK,
     PENDING,
-    CryoEmMotionCorTaskData,
-    CtfTaskData,
-    TaskDto,
+    MotionCorInput,
+    CtfInput,
+    TaskMessage,
 )
 
 GOLDEN_DIR = Path(__file__).parent / "goldens"
@@ -44,7 +44,7 @@ FIXED_DATETIME = datetime(2026, 4, 14, 0, 0, 0)
 
 def _make_ctf_envelope() -> dict:
     """Build a canonical CTF task envelope — every field explicitly set."""
-    data = CtfTaskData(
+    data = CtfInput(
         image_id=FIXED_IMAGE_ID,
         image_name="sample",
         image_path="/data/sample.mrc",
@@ -62,7 +62,7 @@ def _make_ctf_envelope() -> dict:
         defocusSearchStep=100.0,
         binning_x=1,
     )
-    task = TaskDto(
+    task = TaskMessage(
         id=FIXED_TASK_ID,
         job_id=FIXED_JOB_ID,
         session_id=FIXED_SESSION_ID,
@@ -81,7 +81,7 @@ def _make_ctf_envelope() -> dict:
 
 def _make_motioncor_envelope() -> dict:
     """Build a canonical MotionCor task envelope — every field explicitly set."""
-    data = CryoEmMotionCorTaskData(
+    data = MotionCorInput(
         image_id=FIXED_IMAGE_ID,
         image_name="sample",
         image_path="/data/sample.tif",
@@ -109,7 +109,7 @@ def _make_motioncor_envelope() -> dict:
         RotGain=0,
         FlipGain=0,
     )
-    task = TaskDto(
+    task = TaskMessage(
         id=FIXED_TASK_ID,
         job_id=FIXED_JOB_ID,
         session_id=FIXED_SESSION_ID,

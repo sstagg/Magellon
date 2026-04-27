@@ -8,16 +8,16 @@ from pydantic import BaseModel
 
 from config import app_settings
 from core.task_factory import CtfTaskFactory, FftTaskFactory, MotioncorTaskFactory, TaskFactory
-from models.plugins_models import TaskDto, CtfTaskData, FftTaskData, FFT_TASK, TaskResultDto, CTF_TASK, PENDING, CryoEmMotionCorTaskData, \
+from models.plugins_models import TaskMessage, CtfInput, FftInput, FFT_TASK, TaskResultMessage, CTF_TASK, PENDING, MotionCorInput, \
     MOTIONCOR_TASK, TaskCategory
 from magellon_sdk.models.tasks import (
     HOLE_DETECTION,
     MICROGRAPH_DENOISING,
-    MicrographDenoiseTaskData,
-    PtolemyTaskData,
+    MicrographDenoiseInput,
+    PtolemyInput,
     SQUARE_DETECTION,
     TOPAZ_PARTICLE_PICKING,
-    TopazPickTaskData,
+    TopazPickInput,
 )
 from models.pydantic_models import LeginonFrameTransferTaskDto, EPUImportTaskDto, ImportTaskDto
 
@@ -128,7 +128,7 @@ def get_queue_name_by_task_type(task_type: TaskCategory, is_result: bool = False
 
     return queue_mapping[task_type.code]['result' if is_result else 'task']
 
-def push_task_to_task_queue(task: TaskDto) -> bool:
+def push_task_to_task_queue(task: TaskMessage) -> bool:
     """Push a task to its worker via the configured dispatcher.
 
     Delegates to :class:`magellon_sdk.dispatcher.TaskDispatcherRegistry`;
@@ -146,7 +146,7 @@ def push_task_to_task_queue(task: TaskDto) -> bool:
         return False
 
 
-def _audit_outgoing_message(task: TaskDto) -> None:
+def _audit_outgoing_message(task: TaskMessage) -> None:
     """Best-effort on-disk audit log of outgoing tasks.
 
     Writes one JSON line per dispatched task to
@@ -181,7 +181,7 @@ def dispatch_ctf_task(task_id, full_image_path, task_dto: ImportTaskDto):
     else:
         session_name = file_name.split("_")[0]
     out_file_name = f"{file_name}_ctf_output.mrc"
-    ctf_task_data = CtfTaskData(
+    ctf_task_data = CtfInput(
         image_id=task_dto.image_id,
         image_name=file_name,
         image_path=full_image_path,
@@ -225,12 +225,12 @@ def _dispatch_ptolemy_task(
 ) -> bool:
     """Shared body for dispatch_square_detection_task / dispatch_hole_detection_task.
 
-    Both ptolemy categories take the same input shape (``PtolemyTaskData``
+    Both ptolemy categories take the same input shape (``PtolemyInput``
     with an MRC path) and differ only in the category that controls which
     queue + which plugin pipeline runs.
     """
     file_name = os.path.splitext(os.path.basename(image_path))[0]
-    data = PtolemyTaskData(
+    data = PtolemyInput(
         image_id=image_id,
         image_name=file_name,
         image_path=image_path,
@@ -301,7 +301,7 @@ def dispatch_topaz_pick_task(
 ) -> bool:
     """Dispatch a high-mag particle-picking task to the topaz plugin."""
     file_name = os.path.splitext(os.path.basename(image_path))[0]
-    data = TopazPickTaskData(
+    data = TopazPickInput(
         image_id=image_id,
         image_name=file_name,
         image_path=image_path,
@@ -340,7 +340,7 @@ def dispatch_micrograph_denoise_task(
 ) -> bool:
     """Dispatch a micrograph-denoise task to the topaz plugin."""
     file_name = os.path.splitext(os.path.basename(image_path))[0]
-    data = MicrographDenoiseTaskData(
+    data = MicrographDenoiseInput(
         image_id=image_id,
         image_name=file_name,
         image_path=image_path,
@@ -386,7 +386,7 @@ def dispatch_fft_task(
     """
     file_name = os.path.splitext(os.path.basename(image_path))[0]
 
-    fft_data = FftTaskData(
+    fft_data = FftInput(
         image_id=image_id,
         image_name=file_name,
         image_path=image_path,
@@ -418,7 +418,7 @@ def create_motioncor_task_data(image_path, gain_path, defects_path=None, session
             Supported keys: FmDose, PatchesX, PatchesY, SumRangeMinDose, SumRangeMaxDose, Group
 
     Returns:
-        CryoEmMotionCorTaskData: Configured task data object
+        MotionCorInput: Configured task data object
     """
     file_name = os.path.splitext(os.path.basename(image_path))[0]
 
@@ -439,7 +439,7 @@ def create_motioncor_task_data(image_path, gain_path, defects_path=None, session
 
     if session_name is None:
         session_name = file_name.split("_")[0]
-    return CryoEmMotionCorTaskData(
+    return MotionCorInput(
             image_id=task_dto.image_id,
             image_name=os.path.basename(task_dto.image_path),
             image_path=task_dto.image_path,

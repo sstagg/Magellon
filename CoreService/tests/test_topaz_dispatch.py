@@ -13,9 +13,9 @@ import pytest
 from magellon_sdk.bus import get_bus
 from magellon_sdk.models.tasks import (
     MICROGRAPH_DENOISING,
-    MicrographDenoiseTaskData,
+    MicrographDenoiseInput,
     TOPAZ_PARTICLE_PICKING,
-    TopazPickTaskData,
+    TopazPickInput,
 )
 
 
@@ -53,7 +53,7 @@ def test_pick_dispatch_routes_to_topaz_subject(fake_bus):
     task = envelope.data
     assert task.type.code == TOPAZ_PARTICLE_PICKING.code
 
-    parsed = TopazPickTaskData.model_validate(task.data)
+    parsed = TopazPickInput.model_validate(task.data)
     assert parsed.input_file == "/magellon/session/expo.mrc"
     assert parsed.engine_opts["model"] == "resnet16"
     assert parsed.engine_opts["radius"] == 14
@@ -79,7 +79,7 @@ def test_denoise_dispatch_routes_to_denoise_subject(fake_bus):
     assert task.type.code == MICROGRAPH_DENOISING.code
     assert task.session_name == "24mar28a"
 
-    parsed = MicrographDenoiseTaskData.model_validate(task.data)
+    parsed = MicrographDenoiseInput.model_validate(task.data)
     assert parsed.input_file == "/magellon/session/expo.mrc"
     assert parsed.output_file == "/magellon/session/expo_denoised.mrc"
     assert parsed.engine_opts["patch_size"] == 512

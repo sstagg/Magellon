@@ -9,7 +9,7 @@ Verifies:
   - Output files: 5 per task (MRC, plots, powerspec, txt, avrot)
   - CTF estimates: defocus and CC in valid ranges
   - Step events: started + completed (or failed) per task on magellon.events exchange
-  - Result messages: TaskResultDto on ctf_out_tasks_queue per task
+  - Result messages: TaskResultMessage on ctf_out_tasks_queue per task
 
 Prerequisites:
     - Docker Desktop running
@@ -520,7 +520,7 @@ def step_verify_step_events(collector: StepEventCollector, job_id: str, task_ids
 
 
 def step_verify_results(collector: ResultCollector, task_ids: list[str]):
-    """Verify TaskResultDto messages are pushed to ctf_out_tasks_queue.
+    """Verify TaskResultMessage messages are pushed to ctf_out_tasks_queue.
 
     The result queue is point-to-point — if CoreService (or anything
     else) is subscribed, RMQ round-robins between consumers and we'll

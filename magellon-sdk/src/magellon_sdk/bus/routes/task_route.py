@@ -2,7 +2,7 @@
 
 ``TaskRoute`` names the *incoming* side of a category (where tasks are
 dispatched to); ``TaskResultRoute`` names the *outgoing* side (where
-plugins publish their ``TaskResultDto``).
+plugins publish their ``TaskResultMessage``).
 
 Both delegate to ``CategoryContract`` for the subject string — the
 contract is the single source of truth for subject naming (see
@@ -41,7 +41,7 @@ class TaskRoute:
 
 @dataclass(frozen=True)
 class TaskResultRoute:
-    """Where a plugin publishes its ``TaskResultDto``."""
+    """Where a plugin publishes its ``TaskResultMessage``."""
 
     subject: str
 

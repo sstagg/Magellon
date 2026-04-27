@@ -1,6 +1,6 @@
 """In-process smoke test — dispatches dummy tasks to both ptolemy plugins.
 
-Bypasses RMQ completely. Imports the plugin modules, builds a ``TaskDto``
+Bypasses RMQ completely. Imports the plugin modules, builds a ``TaskMessage``
 with the bundled sandbox MRCs, invokes ``plugin.run()``, and asserts:
 
 * Both categories validate their inputs + outputs against the SDK schemas.
@@ -32,11 +32,11 @@ MED_MRC = SANDBOX / "example_images" / "med_mag" / "21feb25a_23139789.mrc"
 
 def test_square_detection_on_bundled_mrc():
     from magellon_sdk.categories.outputs import SquareDetectionOutput
-    from magellon_sdk.models.tasks import PtolemyTaskData
+    from magellon_sdk.models.tasks import PtolemyInput
     from plugin import PtolemySquarePlugin
 
     plug = PtolemySquarePlugin()
-    input_data = PtolemyTaskData(input_file=str(LOW_MRC))
+    input_data = PtolemyInput(input_file=str(LOW_MRC))
     out = plug.run(input_data)
 
     assert isinstance(out, SquareDetectionOutput)
@@ -49,11 +49,11 @@ def test_square_detection_on_bundled_mrc():
 
 def test_hole_detection_on_bundled_mrc():
     from magellon_sdk.categories.outputs import HoleDetectionOutput
-    from magellon_sdk.models.tasks import PtolemyTaskData
+    from magellon_sdk.models.tasks import PtolemyInput
     from plugin import PtolemyHolePlugin
 
     plug = PtolemyHolePlugin()
-    input_data = PtolemyTaskData(input_file=str(MED_MRC))
+    input_data = PtolemyInput(input_file=str(MED_MRC))
     out = plug.run(input_data)
 
     assert isinstance(out, HoleDetectionOutput)

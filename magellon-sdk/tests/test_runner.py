@@ -32,7 +32,7 @@ from magellon_sdk.bus.binders.mock import MockBinder
 from magellon_sdk.bus.routes import TaskResultRoute, TaskRoute
 from magellon_sdk.envelope import Envelope
 from magellon_sdk.errors import PermanentError, RetryableError
-from magellon_sdk.models import CTF_TASK, PluginInfo, TaskDto, TaskResultDto
+from magellon_sdk.models import CTF_TASK, PluginInfo, TaskMessage, TaskResultMessage
 from magellon_sdk.runner import PluginBrokerRunner
 
 
@@ -72,8 +72,8 @@ class _StubPlugin(PluginBase[_StubInput, _StubOutput]):
         return _StubOutput(answer=42)
 
 
-def _result_factory(task: TaskDto, output: _StubOutput) -> TaskResultDto:
-    return TaskResultDto(
+def _result_factory(task: TaskMessage, output: _StubOutput) -> TaskResultMessage:
+    return TaskResultMessage(
         task_id=task.id,
         job_id=task.job_id,
         code=200,
@@ -83,8 +83,8 @@ def _result_factory(task: TaskDto, output: _StubOutput) -> TaskResultDto:
     )
 
 
-def _make_task() -> TaskDto:
-    return TaskDto(
+def _make_task() -> TaskMessage:
+    return TaskMessage(
         id=uuid4(),
         job_id=uuid4(),
         type=CTF_TASK,
@@ -110,14 +110,14 @@ def _make_runner(
 # ---------------------------------------------------------------------------
 
 def test_process_returns_result_with_provenance_stamped():
-    """A clean run produces a TaskResultDto whose plugin_id /
+    """A clean run produces a TaskResultMessage whose plugin_id /
     plugin_version come from the plugin's own get_info()."""
     runner = _make_runner(_StubPlugin())
     body = _make_task().model_dump_json().encode()
 
     out_bytes = runner._process(body)
 
-    out = TaskResultDto.model_validate_json(out_bytes)
+    out = TaskResultMessage.model_validate_json(out_bytes)
     assert out.plugin_id == "stub-plugin"
     assert out.plugin_version == "0.42.0"
     assert out.output_data == {"answer": 42}
@@ -127,7 +127,7 @@ def test_process_preserves_explicit_provenance_set_by_factory():
     """If the result_factory already filled provenance (engine
     wrapper case), the harness must not clobber it."""
     runner = _make_runner(_StubPlugin())
-    runner.result_factory = lambda t, o: TaskResultDto(
+    runner.result_factory = lambda t, o: TaskResultMessage(
         task_id=t.id,
         plugin_id="gctf-2.1",
         plugin_version="2.1.0",
@@ -136,7 +136,7 @@ def test_process_preserves_explicit_provenance_set_by_factory():
 
     out_bytes = runner._process(body)
 
-    out = TaskResultDto.model_validate_json(out_bytes)
+    out = TaskResultMessage.model_validate_json(out_bytes)
     assert out.plugin_id == "gctf-2.1"
     assert out.plugin_version == "2.1.0"
 
@@ -203,7 +203,7 @@ def test_configure_failure_does_not_break_task_processing():
     runner._config_subscriber.take_pending.return_value = {"x": 1}
 
     out_bytes = runner._process(_make_task().model_dump_json().encode())
-    out = TaskResultDto.model_validate_json(out_bytes)
+    out = TaskResultMessage.model_validate_json(out_bytes)
     assert out.output_data == {"answer": 42}
 
 
@@ -232,10 +232,10 @@ def test_handle_task_publishes_result_envelope_via_bus(monkeypatch):
         subject, result_envelope = binder.published_tasks[0]
         assert subject == "ctf_out"
         assert result_envelope.subject == "ctf_out"
-        # The published envelope's data is a TaskResultDto
+        # The published envelope's data is a TaskResultMessage
         result_dto = result_envelope.data
-        if not isinstance(result_dto, TaskResultDto):
-            result_dto = TaskResultDto.model_validate(result_dto)
+        if not isinstance(result_dto, TaskResultMessage):
+            result_dto = TaskResultMessage.model_validate(result_dto)
         assert result_dto.plugin_id == "stub-plugin"
         assert result_dto.output_data == {"answer": 42}
     finally:
@@ -260,7 +260,7 @@ def test_handle_task_propagates_exceptions_to_binder():
 
 def test_handle_task_works_with_dict_shaped_data_from_wire():
     """When the binder reconstructs an envelope from wire bytes, the
-    data field is a plain dict (not a TaskDto instance). The handler
+    data field is a plain dict (not a TaskMessage instance). The handler
     must cope with both shapes."""
     binder = MockBinder()
     bus = DefaultMessageBus(binder)
@@ -327,8 +327,8 @@ def test_end_to_end_task_round_trip_through_inmemory_bus():
         assert len(result_publishes) == 1
         _, result_env = result_publishes[0]
         result_dto = result_env.data
-        if not isinstance(result_dto, TaskResultDto):
-            result_dto = TaskResultDto.model_validate(result_dto)
+        if not isinstance(result_dto, TaskResultMessage):
+            result_dto = TaskResultMessage.model_validate(result_dto)
         assert result_dto.output_data == {"answer": 42}
     finally:
         get_bus.reset()

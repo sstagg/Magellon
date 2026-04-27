@@ -2,9 +2,9 @@
 
 Mirror of ``test_fft_plugin_contract.py``. The Ptolemy plugin is unusual
 in that one container serves two categories (`SquareDetection`, code 6;
-`HoleDetection`, code 7). We pin both by posting a canned TaskDto shape
+`HoleDetection`, code 7). We pin both by posting a canned TaskMessage shape
 to the plugin's ``POST /execute`` endpoint and asserting the
-``TaskResultDto`` round-trip.
+``TaskResultMessage`` round-trip.
 
 Uses a missing input_file so the pin is about the wire shape — we
 expect a 200 with an error result envelope, or a plugin-raised error
@@ -83,9 +83,9 @@ def test_square_execute_returns_task_result_shape(require_ptolemy_plugin):
     body = resp.json()
 
     if resp.status_code == 200:
-        from magellon_sdk.models import TaskResultDto
+        from magellon_sdk.models import TaskResultMessage
 
-        result = TaskResultDto.model_validate(body)
+        result = TaskResultMessage.model_validate(body)
         assert result.task_id == uuid.UUID(task["id"])
         assert result.job_id == uuid.UUID(task["job_id"])
     else:
@@ -103,9 +103,9 @@ def test_hole_execute_returns_task_result_shape(require_ptolemy_plugin):
     body = resp.json()
 
     if resp.status_code == 200:
-        from magellon_sdk.models import TaskResultDto
+        from magellon_sdk.models import TaskResultMessage
 
-        result = TaskResultDto.model_validate(body)
+        result = TaskResultMessage.model_validate(body)
         assert result.task_id == uuid.UUID(task["id"])
         assert result.job_id == uuid.UUID(task["job_id"])
     else:

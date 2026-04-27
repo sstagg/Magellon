@@ -48,7 +48,7 @@ from magellon_sdk.categories.contract import (
 )
 from magellon_sdk.dispatcher import TaskDispatcherRegistry
 from magellon_sdk.envelope import Envelope
-from magellon_sdk.models import CTF_TASK, FFT_TASK, MOTIONCOR, TaskDto
+from magellon_sdk.models import CTF_TASK, FFT_TASK, MOTIONCOR, TaskMessage
 from magellon_sdk.models.tasks import (
     HOLE_DETECTION,
     MICROGRAPH_DENOISING,
@@ -86,7 +86,7 @@ the dispatcher's constructor stays uncoupled from CoreService."""
 # ---------------------------------------------------------------------------
 
 class _BusTaskDispatcher:
-    """Wraps a :class:`TaskDto` in a CloudEvents envelope and sends
+    """Wraps a :class:`TaskMessage` in a CloudEvents envelope and sends
     via ``bus.tasks.send``. Satisfies :class:`TaskDispatcher` Protocol
     structurally.
 
@@ -115,7 +115,7 @@ class _BusTaskDispatcher:
         self.contract = contract
         self.backend_resolver = backend_resolver
 
-    def dispatch(self, task: TaskDto) -> bool:
+    def dispatch(self, task: TaskMessage) -> bool:
         route = self._route_for(task)
         envelope = Envelope.wrap(
             source=self._ENVELOPE_SOURCE,
@@ -130,7 +130,7 @@ class _BusTaskDispatcher:
             )
         return receipt.ok
 
-    def _route_for(self, task: TaskDto) -> TaskRoute:
+    def _route_for(self, task: TaskMessage) -> TaskRoute:
         """Choose category-default vs backend-pinned route for ``task``.
 
         Pinning is binding: a task with ``target_backend`` set MUST go

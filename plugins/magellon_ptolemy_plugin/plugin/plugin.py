@@ -5,7 +5,7 @@ This plugin serves two categories from a single process:
 * ``SQUARE_DETECTION`` — low-mag MRC → ranked squares with pickability scores
 * ``HOLE_DETECTION``   — med-mag MRC → ranked holes with pickability scores
 
-Both categories share the same input shape (``PtolemyTaskData``) and
+Both categories share the same input shape (``PtolemyInput``) and
 compute layer (``plugin.compute``); they differ only in which ONNX models
 run and the output schema. ``main.py`` spins up one ``PluginBrokerRunner``
 per category on its own daemon thread.
@@ -30,14 +30,14 @@ from magellon_sdk.categories.outputs import (
     SquareDetectionOutput,
 )
 from magellon_sdk.events import BoundStepReporter
-from magellon_sdk.models import OutputFile, PluginInfo, TaskDto, TaskResultDto
+from magellon_sdk.models import OutputFile, PluginInfo, TaskMessage, TaskResultMessage
 from magellon_sdk.models.manifest import (
     Capability,
     IsolationLevel,
     ResourceHints,
     Transport,
 )
-from magellon_sdk.models.tasks import PtolemyTaskData
+from magellon_sdk.models.tasks import PtolemyInput
 from magellon_sdk.progress import NullReporter, ProgressReporter
 from magellon_sdk.runner import PluginBrokerRunner
 
@@ -52,12 +52,12 @@ logger = logging.getLogger(__name__)
 # delivery wraps it via the runner's set/reset).
 # ---------------------------------------------------------------------------
 
-_active_task: ContextVar[Optional[TaskDto]] = ContextVar(
+_active_task: ContextVar[Optional[TaskMessage]] = ContextVar(
     "_ptolemy_active_task", default=None
 )
 
 
-def get_active_task() -> Optional[TaskDto]:
+def get_active_task() -> Optional[TaskMessage]:
     return _active_task.get()
 
 
@@ -138,7 +138,7 @@ _RESOURCES = ResourceHints(
 # PtolemySquarePlugin — low-mag category
 # ---------------------------------------------------------------------------
 
-class PtolemySquarePlugin(PluginBase[PtolemyTaskData, SquareDetectionOutput]):
+class PtolemySquarePlugin(PluginBase[PtolemyInput, SquareDetectionOutput]):
     capabilities = _CAPABILITIES
     supported_transports = _TRANSPORTS
     default_transport = Transport.RMQ
@@ -158,8 +158,8 @@ class PtolemySquarePlugin(PluginBase[PtolemyTaskData, SquareDetectionOutput]):
         )
 
     @classmethod
-    def input_schema(cls) -> Type[PtolemyTaskData]:
-        return PtolemyTaskData
+    def input_schema(cls) -> Type[PtolemyInput]:
+        return PtolemyInput
 
     @classmethod
     def output_schema(cls) -> Type[SquareDetectionOutput]:
@@ -167,7 +167,7 @@ class PtolemySquarePlugin(PluginBase[PtolemyTaskData, SquareDetectionOutput]):
 
     def execute(
         self,
-        input_data: PtolemyTaskData,
+        input_data: PtolemyInput,
         *,
         reporter: ProgressReporter = NullReporter(),
     ) -> SquareDetectionOutput:
@@ -194,7 +194,7 @@ class PtolemySquarePlugin(PluginBase[PtolemyTaskData, SquareDetectionOutput]):
 # PtolemyHolePlugin — med-mag category
 # ---------------------------------------------------------------------------
 
-class PtolemyHolePlugin(PluginBase[PtolemyTaskData, HoleDetectionOutput]):
+class PtolemyHolePlugin(PluginBase[PtolemyInput, HoleDetectionOutput]):
     capabilities = _CAPABILITIES
     supported_transports = _TRANSPORTS
     default_transport = Transport.RMQ
@@ -214,8 +214,8 @@ class PtolemyHolePlugin(PluginBase[PtolemyTaskData, HoleDetectionOutput]):
         )
 
     @classmethod
-    def input_schema(cls) -> Type[PtolemyTaskData]:
-        return PtolemyTaskData
+    def input_schema(cls) -> Type[PtolemyInput]:
+        return PtolemyInput
 
     @classmethod
     def output_schema(cls) -> Type[HoleDetectionOutput]:
@@ -223,7 +223,7 @@ class PtolemyHolePlugin(PluginBase[PtolemyTaskData, HoleDetectionOutput]):
 
     def execute(
         self,
-        input_data: PtolemyTaskData,
+        input_data: PtolemyInput,
         *,
         reporter: ProgressReporter = NullReporter(),
     ) -> HoleDetectionOutput:
@@ -251,7 +251,7 @@ class PtolemyHolePlugin(PluginBase[PtolemyTaskData, HoleDetectionOutput]):
 # ---------------------------------------------------------------------------
 
 class PtolemyBrokerRunner(PluginBrokerRunner):
-    """Runner that exposes the active TaskDto via ContextVar.
+    """Runner that exposes the active TaskMessage via ContextVar.
 
     Same shape as ``FftBrokerRunner``; one subclass covers both categories
     because the two plugin instances each get their own runner instance.
@@ -266,7 +266,7 @@ class PtolemyBrokerRunner(PluginBrokerRunner):
             _active_task.reset(token)
 
     def _process(self, body: bytes) -> bytes:
-        task = TaskDto.model_validate_json(body.decode("utf-8"))
+        task = TaskMessage.model_validate_json(body.decode("utf-8"))
         token = _active_task.set(task)
         try:
             self._apply_pending_config()
@@ -284,12 +284,12 @@ class PtolemyBrokerRunner(PluginBrokerRunner):
 # ---------------------------------------------------------------------------
 
 def _wrap_result(
-    task: TaskDto,
+    task: TaskMessage,
     output_dict: dict,
     input_file: str,
     message: str,
-) -> TaskResultDto:
-    return TaskResultDto(
+) -> TaskResultMessage:
+    return TaskResultMessage(
         worker_instance_id=task.worker_instance_id,
         job_id=task.job_id,
         task_id=task.id,
@@ -304,7 +304,7 @@ def _wrap_result(
     )
 
 
-def build_square_result(task: TaskDto, output: SquareDetectionOutput) -> TaskResultDto:
+def build_square_result(task: TaskMessage, output: SquareDetectionOutput) -> TaskResultMessage:
     data = task.data or {}
     input_file = data.get("input_file", "")
     return _wrap_result(
@@ -318,7 +318,7 @@ def build_square_result(task: TaskDto, output: SquareDetectionOutput) -> TaskRes
     )
 
 
-def build_hole_result(task: TaskDto, output: HoleDetectionOutput) -> TaskResultDto:
+def build_hole_result(task: TaskMessage, output: HoleDetectionOutput) -> TaskResultMessage:
     data = task.data or {}
     input_file = data.get("input_file", "")
     return _wrap_result(

@@ -3,7 +3,7 @@
 Pins the runtime contract that characterization tests alone don't
 cover:
 
-  - dispatch(task) wraps the TaskDto in a CloudEvents envelope
+  - dispatch(task) wraps the TaskMessage in a CloudEvents envelope
   - the envelope's ``data`` is the original task
   - the envelope's ``subject`` matches the route
   - ``bus.tasks.send`` is called on the overridden (mock) bus
@@ -25,7 +25,7 @@ from magellon_sdk.bus import DefaultMessageBus, PublishReceipt, get_bus
 from magellon_sdk.bus.binders.mock import MockBinder
 from magellon_sdk.bus.routes import TaskRoute
 from magellon_sdk.categories.contract import CTF
-from magellon_sdk.models import CTF_TASK, TaskDto
+from magellon_sdk.models import CTF_TASK, TaskMessage
 
 
 @pytest.fixture
@@ -43,8 +43,8 @@ def mock_bus():
         bus.close()
 
 
-def _task(*, target_backend=None) -> TaskDto:
-    return TaskDto(
+def _task(*, target_backend=None) -> TaskMessage:
+    return TaskMessage(
         id=uuid4(),
         job_id=uuid4(),
         type=CTF_TASK,

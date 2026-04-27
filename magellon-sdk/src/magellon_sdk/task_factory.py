@@ -17,13 +17,13 @@ from typing import Any, Dict
 from uuid import UUID
 
 from magellon_sdk.models import (
-    CryoEmMotionCorTaskData,
+    CtfInput,
     CtfTask,
-    CtfTaskData,
     FftTask,
+    MotionCorInput,
     MotioncorTask,
     TaskCategory,
-    TaskDto,
+    TaskMessage,
     TaskStatus,
 )
 
@@ -38,8 +38,8 @@ class TaskFactory:
         pstatus: TaskStatus,
         instance_id: UUID,
         data: Dict[str, Any],
-    ) -> TaskDto:
-        return TaskDto.create(pid, job_id, ptype, pstatus, instance_id, data)
+    ) -> TaskMessage:
+        return TaskMessage.create(pid, job_id, ptype, pstatus, instance_id, data)
 
 
 class CtfTaskFactory(TaskFactory):
@@ -54,7 +54,7 @@ class CtfTaskFactory(TaskFactory):
         data: Dict[str, Any],
     ) -> CtfTask:
         if data is None:
-            ctf_data = CtfTaskData(
+            ctf_data = CtfInput(
                 image_id=uuid.uuid4(),
                 image_name="Image1",
                 image_path=os.path.join(
@@ -98,7 +98,7 @@ class MotioncorTaskFactory(TaskFactory):
         data: Dict[str, Any],
     ) -> MotioncorTask:
         if data is None:
-            motioncor_data = CryoEmMotionCorTaskData(
+            motioncor_data = MotionCorInput(
                 image_id=uuid.uuid4(),
                 image_name="Image1",
                 image_path=os.path.join(

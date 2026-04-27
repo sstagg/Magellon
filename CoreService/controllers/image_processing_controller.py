@@ -192,7 +192,7 @@ async def fft_dispatch(
     """Single-image FFT dispatch.
 
     Creates a 1-task ImageJob via JobManager (so the DB has authoritative
-    job state from the moment of dispatch), then publishes one TaskDto
+    job state from the moment of dispatch), then publishes one TaskMessage
     onto ``fft_tasks_queue``. The step-event projector flips that row
     through running → completed/failed as envelopes flow back.
 
@@ -340,7 +340,7 @@ def _ptolemy_dispatch(
     """Shared body for the two ptolemy dispatch endpoints.
 
     Creates a 1-task ImageJob via JobManager (so DB has authoritative
-    state from the moment of dispatch), then publishes the TaskDto
+    state from the moment of dispatch), then publishes the TaskMessage
     onto the category's RMQ queue.
     """
     from core.helper import (

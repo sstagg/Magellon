@@ -24,7 +24,7 @@ import uuid
 from pathlib import Path
 
 from magellon_sdk.messaging import publish_message_to_queue
-from magellon_sdk.models import CTF_TASK, PENDING, CtfTaskData
+from magellon_sdk.models import CTF_TASK, PENDING, CtfInput
 from magellon_sdk.task_factory import CtfTaskFactory
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -46,7 +46,7 @@ def build_task(image_path: str, *, pixel_size: float, voltage: float, cs: float,
                amp_contrast: float) -> object:
     file_name = Path(image_path).stem
     out_file = f"{file_name}_ctf_output.mrc"
-    data = CtfTaskData(
+    data = CtfInput(
         image_id=uuid.uuid4(),
         image_name=file_name,
         image_path=image_path,

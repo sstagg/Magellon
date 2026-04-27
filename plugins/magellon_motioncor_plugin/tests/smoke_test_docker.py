@@ -13,7 +13,7 @@ pod with the actual MotionCor2 binary and one of the example movies.
 Verifies:
   - Output directories: one per task with the DW.mrc + patch logs
   - Step events: started + completed (or failed) per task on magellon.events
-  - Result messages: TaskResultDto on motioncor_out_tasks_queue per task
+  - Result messages: TaskResultMessage on motioncor_out_tasks_queue per task
 
 Prerequisites:
     - Docker Desktop running
@@ -574,7 +574,7 @@ def step_verify_step_events(collector: StepEventCollector, job_id: str, task_ids
 
 
 def step_verify_results(collector: ResultCollector, task_ids: list[str]):
-    """Verify TaskResultDto messages reach motioncor_out_tasks_queue.
+    """Verify TaskResultMessage messages reach motioncor_out_tasks_queue.
 
     Same caveat as the CTF test: the result queue is point-to-point, so
     if CoreService is also subscribed it'll round-robin and we'll only

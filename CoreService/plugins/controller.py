@@ -58,7 +58,7 @@ from magellon_sdk.models import (
     Capability,
     IsolationLevel,
     PluginManifest,
-    TaskDto,
+    TaskMessage,
     TaskStatus,
     Transport,
 )
@@ -690,7 +690,7 @@ def _validate_broker_input(contract: CategoryContract, raw: Dict[str, Any]):
     """Validate input against the category's Pydantic input model.
 
     Contracts like ``CTF``/``FFT``/``MOTIONCOR_CATEGORY`` pin
-    ``input_model`` (e.g. ``CtfTaskData``). ``PARTICLE_PICKER`` doesn't
+    ``input_model`` (e.g. ``CtfInput``). ``PARTICLE_PICKER`` doesn't
     pin one yet (see contract.py) — fall back to round-tripping the
     raw dict so dispatch still works for those.
     """
@@ -710,8 +710,8 @@ def _build_task_dto(
     job_id: str,
     user_id: Optional[str],
     target_backend: Optional[str] = None,
-) -> TaskDto:
-    """Wrap a validated input in the TaskDto the bus transports.
+) -> TaskMessage:
+    """Wrap a validated input in the TaskMessage the bus transports.
 
     ``task_id`` must match the one registered with ``job_manager.create_job``;
     otherwise the step-event projector can't link events back to the
@@ -728,7 +728,7 @@ def _build_task_dto(
         if hasattr(validated_input, "model_dump")
         else validated_input
     )
-    return TaskDto(
+    return TaskMessage(
         id=task_id,
         worker_instance_id=uuid.uuid4(),
         job_id=uuid.UUID(job_id),
@@ -740,7 +740,7 @@ def _build_task_dto(
 
 
 def _publish_to_bus(
-    contract: CategoryContract, task: TaskDto, target_queue: Optional[str] = None,
+    contract: CategoryContract, task: TaskMessage, target_queue: Optional[str] = None,
 ) -> bool:
     """Publish to the target impl's queue (SDK 1.1+) or the legacy
     category-scoped route when no impl-specific queue is known.
@@ -785,7 +785,7 @@ async def _submit_broker_job(
     )
 
     # Generate the task_id up front so the same id registered with the
-    # job_manager rides inside the TaskDto. The step-event projector
+    # job_manager rides inside the TaskMessage. The step-event projector
     # needs this linkage to flip the job row's status.
     task_id = uuid.uuid4()
 

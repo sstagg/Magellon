@@ -1,6 +1,6 @@
 """In-process smoke test for the topaz plugin.
 
-Bypasses RMQ entirely. Builds a TaskDto for the bundled sandbox
+Bypasses RMQ entirely. Builds a TaskMessage for the bundled sandbox
 micrograph, invokes plugin.run(), and asserts the SDK schemas + an
 expected pick count. The reference range comes from running the same
 ONNX pipeline directly via the sandbox's e2e_onnx_pick.py (1713 picks
@@ -34,11 +34,11 @@ TEST_MRC = SANDBOX / "example_images" / "14sep05c_00024sq_00003hl_00002es_c.mrc"
 def test_pick_on_bundled_mrc(tmp_path):
     """End-to-end pick + parity vs the sandbox e2e_onnx_pick.py result."""
     from magellon_sdk.categories.outputs import ParticlePickingOutput
-    from magellon_sdk.models.tasks import TopazPickTaskData
+    from magellon_sdk.models.tasks import TopazPickInput
     from plugin import TopazPickPlugin
 
     plug = TopazPickPlugin()
-    inp = TopazPickTaskData(input_file=str(TEST_MRC))
+    inp = TopazPickInput(input_file=str(TEST_MRC))
     out = plug.run(inp)
 
     assert isinstance(out, ParticlePickingOutput)
@@ -71,7 +71,7 @@ def test_denoise_synthetic(tmp_path):
     + tile-stitch driver wires up. We don't denoise the full bundled MRC
     here because that takes minutes."""
     from magellon_sdk.categories.outputs import MicrographDenoisingOutput
-    from magellon_sdk.models.tasks import MicrographDenoiseTaskData
+    from magellon_sdk.models.tasks import MicrographDenoiseInput
     from plugin import TopazDenoisePlugin
 
     # Create a small synthetic MRC
@@ -84,7 +84,7 @@ def test_denoise_synthetic(tmp_path):
     out_mrc = tmp_path / "fake_denoised.mrc"
 
     plug = TopazDenoisePlugin()
-    inp = MicrographDenoiseTaskData(
+    inp = MicrographDenoiseInput(
         input_file=str(src), output_file=str(out_mrc),
         engine_opts={"patch_size": 256, "padding": 32},
     )

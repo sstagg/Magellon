@@ -74,21 +74,33 @@ class _StepBase(BaseModel):
     ts: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
-class StepStarted(_StepBase):
+class StepStartedMessage(_StepBase):
+    """Emitted when a plugin begins working on a step. SDK 1.3+ name."""
     pass
 
 
-class StepProgress(_StepBase):
+class StepProgressMessage(_StepBase):
+    """Emitted periodically while a step runs. SDK 1.3+ name."""
     percent: float = Field(ge=0.0, le=100.0)
     message: Optional[str] = None
 
 
-class StepCompleted(_StepBase):
+class StepCompletedMessage(_StepBase):
+    """Emitted when a step finishes successfully. SDK 1.3+ name."""
     output_files: Optional[List[str]] = None
 
 
-class StepFailed(_StepBase):
+class StepFailedMessage(_StepBase):
+    """Emitted when a step terminates with an error. SDK 1.3+ name."""
     error: str
+
+
+# Legacy aliases (SDK ≤ 1.2). Removed in 2.0; X.3 in
+# Documentation/CATEGORIES_AND_BACKENDS.md tracks the drop.
+StepStarted = StepStartedMessage
+StepProgress = StepProgressMessage
+StepCompleted = StepCompletedMessage
+StepFailed = StepFailedMessage
 
 
 # ---- Subject helper ----

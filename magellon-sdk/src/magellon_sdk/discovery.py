@@ -111,7 +111,7 @@ class Announce(BaseModel):
     ts: datetime = Field(default_factory=_now_utc)
     manifest: PluginManifest
     task_queue: Optional[str] = None
-    """Routing key (RMQ) / subject the plugin consumes TaskDto deliveries
+    """Routing key (RMQ) / subject the plugin consumes TaskMessage deliveries
     from. Added in SDK 1.1 so a dispatcher can target a specific
     implementation when multiple impls coexist in the same category
     (hub phase H1). ``None`` for older plugins or plugins that don't

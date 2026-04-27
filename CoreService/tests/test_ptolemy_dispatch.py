@@ -1,7 +1,7 @@
 """Unit tests for the ptolemy dispatch helpers.
 
 Mocks the bus so we don't need RabbitMQ. Asserts the task envelope has
-the right category code, carries a PtolemyTaskData shape, and gets
+the right category code, carries a PtolemyInput shape, and gets
 routed to the per-category subject.
 """
 from __future__ import annotations
@@ -12,7 +12,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from magellon_sdk.bus import get_bus
-from magellon_sdk.models.tasks import HOLE_DETECTION, PtolemyTaskData, SQUARE_DETECTION
+from magellon_sdk.models.tasks import HOLE_DETECTION, PtolemyInput, SQUARE_DETECTION
 
 
 @pytest.fixture
@@ -54,8 +54,8 @@ def test_square_dispatch_uses_correct_category_and_subject(fake_bus):
     assert task.type.code == SQUARE_DETECTION.code
     assert task.type.name == SQUARE_DETECTION.name
 
-    # Validate the payload parses as PtolemyTaskData
-    parsed = PtolemyTaskData.model_validate(task.data)
+    # Validate the payload parses as PtolemyInput
+    parsed = PtolemyInput.model_validate(task.data)
     assert parsed.input_file == "/magellon/session/atlas.mrc"
     assert parsed.image_path == "/magellon/session/atlas.mrc"
     assert parsed.image_name == "atlas"
@@ -78,7 +78,7 @@ def test_hole_dispatch_uses_correct_category_and_subject(fake_bus):
     assert task.type.name == HOLE_DETECTION.name
     assert task.session_name == "24mar28a"
 
-    parsed = PtolemyTaskData.model_validate(task.data)
+    parsed = PtolemyInput.model_validate(task.data)
     assert parsed.input_file == "/magellon/session/square17.mrc"
 
 

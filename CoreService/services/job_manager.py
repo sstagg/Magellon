@@ -157,7 +157,7 @@ class JobManager:
           - ``task_ids``: pre-allocated task oids, image_id NULL — used
             by message-driven dispatch flows (FFT/CTF/MotionCor) where
             the caller needs to know the task_id before persistence so
-            it can echo the same id in the outbound RMQ TaskDto.
+            it can echo the same id in the outbound RMQ TaskMessage.
           - both omitted: just the parent ImageJob row.
 
         ``job_id`` lets the caller fix the parent oid in advance — useful

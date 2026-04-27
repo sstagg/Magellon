@@ -1,6 +1,6 @@
 """Dispatch MotionCor test tasks to motioncor_tasks_queue via RabbitMQ.
 
-Sibling of dispatch_ctf_test.py. Publishes TaskDto-shaped messages that the
+Sibling of dispatch_ctf_test.py. Publishes TaskMessage-shaped messages that the
 MotionCor plugin's rabbitmq_consumer_engine will pick up. By default it
 discovers TIF/MRC movies under /gpfs/motioncor_test (the container mount
 point) and references the gain at /gpfs/motioncor_test/<gain>.

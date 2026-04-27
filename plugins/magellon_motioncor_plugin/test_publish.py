@@ -2,7 +2,7 @@ import logging
 import uuid
 import os
 from core.helper import push_task_to_task_queue
-from magellon_sdk.models import FFT_TASK, PENDING, MOTIONCOR, MotioncorTask, CryoEmMotionCorTaskData
+from magellon_sdk.models import FFT_TASK, PENDING, MOTIONCOR, MotioncorTask, MotionCorInput
 from core.settings import AppSettingsSingleton
 from core.task_factory import MotioncorTaskFactory
 logger = logging.getLogger(__name__)
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 #     instance_id1 = uuid.uuid4()  # Replace with your specific worker instance ID
 #     job_id1 = uuid.uuid4()  # Replace with your specific job ID
 #
-#     task1 = TaskDto.create(data1, FFT_TASK, PENDING, instance_id1, job_id1)
+#     task1 = TaskMessage.create(data1, FFT_TASK, PENDING, instance_id1, job_id1)
 #
 #     publish_message(task1.model_dump_json())
 #     return task1.model_dump_json()
@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 #     instance_id1 = uuid.uuid4()  # Replace with your specific worker instance ID
 #     job_id1 = uuid.uuid4()  # Replace with your specific job ID
 #
-#     task1 = TaskDto.create(data1.model_dump(), FFT_TASK, PENDING, instance_id1, job_id1)
+#     task1 = TaskMessage.create(data1.model_dump(), FFT_TASK, PENDING, instance_id1, job_id1)
 #
 #     publish_message(task1.model_dump_json())
 #     return task1.model_dump_json()
@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 def create_task():
     print("Running Publish")
     try:
-        data1 = CryoEmMotionCorTaskData(
+        data1 = MotionCorInput(
             image_id=uuid.uuid4(),
             image_name="Image1",
             image_path=os.path.join("./FoilHole_5455736_Data_5446166_123_20250206_151858_EER.eer"),

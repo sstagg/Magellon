@@ -66,7 +66,7 @@ class Transport(str, Enum):
 
     IN_PROCESS = "in_process"  # call PluginBase.run() in the host's thread pool
     HTTP = "http"              # POST to /plugins/<id>/jobs[/batch] on a sidecar
-    RMQ = "rmq"                # enqueue TaskDto on the plugin's RMQ work queue
+    RMQ = "rmq"                # enqueue TaskMessage on the plugin's RMQ work queue
     NATS = "nats"              # publish task envelope to JetStream subject
 
 

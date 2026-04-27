@@ -27,7 +27,7 @@ from prometheus_client import Info
 from magellon_sdk.bus.bootstrap import install_rmq_bus
 from magellon_sdk.categories.contract import MOTIONCOR_CATEGORY
 
-from magellon_sdk.models import CryoEmMotionCorTaskData, TaskDto
+from magellon_sdk.models import MotionCorInput, TaskMessage
 
 from core.model_dto import CreateFrameAlignRequest
 from core.settings import AppSettingsSingleton
@@ -160,7 +160,7 @@ async def setup():
 
 
 @app.post("/execute", summary="Execute Plugin Operation")
-async def execute_endpoint(request: TaskDto):
+async def execute_endpoint(request: TaskMessage):
     return await do_execute(request)
 
 

@@ -16,7 +16,7 @@ from magellon_sdk.bootstrap import (
     check_python_version,
     check_requirements_txt,
 )
-from magellon_sdk.models import TaskDto, PluginInfoSingleton
+from magellon_sdk.models import TaskMessage, PluginInfoSingleton
 from service.motioncor_service import do_motioncor
 from service.step_events import (
     get_publisher,
@@ -83,7 +83,7 @@ def get_manifest() -> PluginManifest:
     )
 
 
-async def do_execute(params: TaskDto):
+async def do_execute(params: TaskMessage):
     publisher = await get_publisher()
     job_id, task_id = params.job_id, params.id
     await safe_emit_started(publisher, job_id=job_id, task_id=task_id)

@@ -8,7 +8,7 @@ process-boundary bugs that the in-process variant can't see.
 Pipeline exercised
 ------------------
 
-    test publishes TaskDto -> RMQ fft_tasks_queue_subproc
+    test publishes TaskMessage -> RMQ fft_tasks_queue_subproc
        -> FFT plugin SUBPROCESS (uvicorn) FftBrokerRunner picks up
           -> FftPlugin.execute runs FFT, writes PNG
              -> emits started / progress / completed envelopes
@@ -184,7 +184,7 @@ def _generate_input_images(target_dir: Path, count: int) -> List[Path]:
 
 
 def _publish_via_pika(rmq: dict, queue: str, payload: dict) -> None:
-    """Publish one TaskDto JSON onto ``queue`` via a fresh blocking
+    """Publish one TaskMessage JSON onto ``queue`` via a fresh blocking
     connection. Test process publishes directly so it doesn't need to
     share the plugin's settings singleton with the subprocess."""
     creds = pika.PlainCredentials(rmq["username"], rmq["password"])
@@ -207,7 +207,7 @@ def _publish_via_pika(rmq: dict, queue: str, payload: dict) -> None:
 
 def _build_task_payload(*, image_path: Path, target_path: Path,
                         job_id: uuid.UUID, task_id: uuid.UUID) -> dict:
-    """Hand-build the TaskDto JSON the plugin's parser expects.
+    """Hand-build the TaskMessage JSON the plugin's parser expects.
 
     Bypasses the plugin's TaskFactory so the test isn't coupled to its
     Python types — only to the wire schema, which is what the plugin

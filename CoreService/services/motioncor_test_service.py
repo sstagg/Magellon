@@ -12,7 +12,7 @@ from uuid import UUID
 
 from core.rabbitmq_client import RabbitmqClient
 from config import app_settings
-from models.plugins_models import TaskDto, CryoEmMotionCorTaskData, MOTIONCOR_TASK, PENDING, COMPLETED, FAILED
+from models.plugins_models import TaskMessage, MotionCorInput, MOTIONCOR_TASK, PENDING, COMPLETED, FAILED
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +81,7 @@ class MotioncorTestTaskManager:
         session_name: str,
         task_params: dict,
         motioncor_settings: dict
-    ) -> TaskDto:
+    ) -> TaskMessage:
         """
         Create a motioncor test task and prepare it for queueing.
         
@@ -95,7 +95,7 @@ class MotioncorTestTaskManager:
             motioncor_settings: Motioncor-specific settings
         
         Returns:
-            TaskDto: The created task object ready for queueing
+            TaskMessage: The created task object ready for queueing
         """
         try:
             task_data = {
@@ -108,7 +108,7 @@ class MotioncorTestTaskManager:
                 "is_test": True  # Mark as test task
             }
             
-            task = TaskDto(
+            task = TaskMessage(
                 id=task_id,
                 job_id=uuid.uuid4(),
                 worker_instance_id=uuid.uuid4(),
@@ -127,7 +127,7 @@ class MotioncorTestTaskManager:
             raise
     
     @staticmethod
-    def publish_task_to_queue(task: TaskDto) -> bool:
+    def publish_task_to_queue(task: TaskMessage) -> bool:
         """
         Publish a task to the motioncor test input queue.
         

@@ -9,12 +9,12 @@ the existing ``do_ctf`` compute.
 Pragmatic wrapping vs. the cleaner FFT pattern:
 
 The FFT plugin's ``execute()`` returns a typed ``FftOutput`` that
-``build_fft_result`` then wraps in a TaskResultDto. CTF can't follow
+``build_fft_result`` then wraps in a TaskResultMessage. CTF can't follow
 that pattern verbatim without a 200-line refactor of
-``service/ctf_service.py``, which today builds the full TaskResultDto
+``service/ctf_service.py``, which today builds the full TaskResultMessage
 inline (three separate branches for the success / eval-failed / error
 cases). Instead we use ``CtfPluginOutput`` as a thin wrapper around
-the TaskResultDto that ``do_ctf`` already returns; ``build_ctf_result``
+the TaskResultMessage that ``do_ctf`` already returns; ``build_ctf_result``
 unwraps it. The compute logic stays untouched.
 """
 from __future__ import annotations
@@ -30,8 +30,8 @@ from pydantic import BaseModel, ConfigDict
 from magellon_sdk.base import PluginBase
 from magellon_sdk.models import (
     PluginInfo,
-    TaskDto,
-    TaskResultDto,
+    TaskMessage,
+    TaskResultMessage,
 )
 from magellon_sdk.models.manifest import (
     Capability,
@@ -39,7 +39,7 @@ from magellon_sdk.models.manifest import (
     ResourceHints,
     Transport,
 )
-from magellon_sdk.models.tasks import CtfTaskData
+from magellon_sdk.models.tasks import CtfInput
 from magellon_sdk.progress import NullReporter, ProgressReporter
 from magellon_sdk.runner import PluginBrokerRunner
 
@@ -61,12 +61,12 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Same pattern FFT uses. Set by CtfBrokerRunner._handle_task / _process
 # before the inner execute() runs; cleared in finally.
-_active_task: ContextVar[Optional[TaskDto]] = ContextVar(
+_active_task: ContextVar[Optional[TaskMessage]] = ContextVar(
     "_ctf_active_task", default=None
 )
 
 
-def get_active_task() -> Optional[TaskDto]:
+def get_active_task() -> Optional[TaskMessage]:
     return _active_task.get()
 
 
@@ -98,22 +98,22 @@ def _get_loop() -> asyncio.AbstractEventLoop:
 # ---------------------------------------------------------------------------
 
 class CtfPluginOutput(BaseModel):
-    """Pydantic shell carrying the TaskResultDto that ``do_ctf`` builds.
+    """Pydantic shell carrying the TaskResultMessage that ``do_ctf`` builds.
 
     Why a wrapper rather than a typed ``CtfOutput`` from the SDK: see
     the module docstring. ``build_ctf_result`` unwraps this into the
-    TaskResultDto the bus publishes.
+    TaskResultMessage the bus publishes.
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    result_dto: TaskResultDto
+    result_dto: TaskResultMessage
 
 
 # ---------------------------------------------------------------------------
 # CtfPlugin
 # ---------------------------------------------------------------------------
 
-class CtfPlugin(PluginBase[CtfTaskData, CtfPluginOutput]):
+class CtfPlugin(PluginBase[CtfInput, CtfPluginOutput]):
     """Broker-native CTF plugin.
 
     ``execute()`` is sync — invoked from the binder's pika consumer
@@ -147,8 +147,8 @@ class CtfPlugin(PluginBase[CtfTaskData, CtfPluginOutput]):
         )
 
     @classmethod
-    def input_schema(cls) -> Type[CtfTaskData]:
-        return CtfTaskData
+    def input_schema(cls) -> Type[CtfInput]:
+        return CtfInput
 
     @classmethod
     def output_schema(cls) -> Type[CtfPluginOutput]:
@@ -181,7 +181,7 @@ class CtfPlugin(PluginBase[CtfTaskData, CtfPluginOutput]):
 
     def execute(
         self,
-        input_data: CtfTaskData,
+        input_data: CtfInput,
         *,
         reporter: ProgressReporter = NullReporter(),
     ) -> CtfPluginOutput:
@@ -189,7 +189,7 @@ class CtfPlugin(PluginBase[CtfTaskData, CtfPluginOutput]):
         if task is None:
             # Direct call without the runner setting context — happens
             # in unit tests. Fall back to running do_ctf synchronously
-            # against a synthesized TaskDto if needed; for now we raise
+            # against a synthesized TaskMessage if needed; for now we raise
             # since plugin tests always go through the runner.
             raise RuntimeError("CtfPlugin.execute called outside CtfBrokerRunner context")
 
@@ -203,7 +203,7 @@ class CtfPlugin(PluginBase[CtfTaskData, CtfPluginOutput]):
             ))
             # do_ctf is async — bridge via the daemon loop.
             future = asyncio.run_coroutine_threadsafe(do_ctf(task), _get_loop())
-            result_dto: TaskResultDto = future.result()
+            result_dto: TaskResultMessage = future.result()
 
             self._emit(safe_emit_progress(
                 publisher, job_id=job_id, task_id=task_id,
@@ -223,7 +223,7 @@ class CtfPlugin(PluginBase[CtfTaskData, CtfPluginOutput]):
 # ---------------------------------------------------------------------------
 
 class CtfBrokerRunner(PluginBrokerRunner):
-    """Runner subclass that exposes the active TaskDto via ContextVar.
+    """Runner subclass that exposes the active TaskMessage via ContextVar.
 
     Same shape as FftBrokerRunner — overrides ``_handle_task`` (MB4
     bus path) and ``_process`` (legacy bytes path used by tests) to
@@ -240,7 +240,7 @@ class CtfBrokerRunner(PluginBrokerRunner):
 
     def _process(self, body: bytes) -> bytes:
         text = body.decode("utf-8")
-        task = TaskDto.model_validate_json(text)
+        task = TaskMessage.model_validate_json(text)
         token = _active_task.set(task)
         try:
             self._apply_pending_config()
@@ -258,9 +258,9 @@ class CtfBrokerRunner(PluginBrokerRunner):
 # Result factory
 # ---------------------------------------------------------------------------
 
-def build_ctf_result(task: TaskDto, output: CtfPluginOutput) -> TaskResultDto:
+def build_ctf_result(task: TaskMessage, output: CtfPluginOutput) -> TaskResultMessage:
     """Unwrap the CtfPluginOutput shell. ``do_ctf`` already built the
-    full TaskResultDto inside; this just hands it to the runner for
+    full TaskResultMessage inside; this just hands it to the runner for
     publishing."""
     return output.result_dto
 

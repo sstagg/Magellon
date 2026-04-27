@@ -25,13 +25,13 @@ from magellon_sdk.errors import PermanentError
 
 
 def _valid_envelope() -> Envelope:
-    """Smallest envelope whose ``.data`` round-trips into a TaskResultDto.
+    """Smallest envelope whose ``.data`` round-trips into a TaskResultMessage.
 
     The processor is mocked so the contents don't have to satisfy any
     business rule beyond passing Pydantic validation."""
-    from models.plugins_models import TaskResultDto
+    from models.plugins_models import TaskResultMessage
 
-    dto = TaskResultDto(
+    dto = TaskResultMessage(
         task_id=uuid4(),
         image_id=uuid4(),
         code=200,
@@ -73,7 +73,7 @@ def test_handler_raises_permanent_error_on_undecodable_payload():
         data={"task_id": "not-a-uuid", "code": "not-an-int"},
     )
 
-    with pytest.raises(PermanentError, match="undecodable TaskResultDto"):
+    with pytest.raises(PermanentError, match="undecodable TaskResultMessage"):
         handler(bad_envelope)
 
     # No session opened — we failed before reaching the processor.

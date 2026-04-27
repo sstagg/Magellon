@@ -18,11 +18,11 @@ from magellon_sdk.dispatcher import (
     TaskDispatcher,
     TaskDispatcherRegistry,
 )
-from magellon_sdk.models import CTF_TASK, MOTIONCOR, TaskDto
+from magellon_sdk.models import CTF_TASK, MOTIONCOR, TaskMessage
 
 
-def _make_task(task_type=CTF_TASK) -> TaskDto:
-    return TaskDto(data={"inputFile": "x.mrc"}, type=task_type)
+def _make_task(task_type=CTF_TASK) -> TaskMessage:
+    return TaskMessage(data={"inputFile": "x.mrc"}, type=task_type)
 
 
 # --- Protocol satisfaction ---
@@ -55,7 +55,7 @@ def test_in_process_dispatch_sync_handler():
 def test_in_process_dispatch_async_handler():
     calls = []
 
-    async def _handler(task: TaskDto):
+    async def _handler(task: TaskMessage):
         await asyncio.sleep(0)
         calls.append(task)
 
@@ -136,7 +136,7 @@ def test_registry_returns_false_when_task_has_no_type():
     registry = TaskDispatcherRegistry()
     registry.register(CTF_TASK, InProcessTaskDispatcher(handler=lambda t: None))
 
-    task = TaskDto(data={}, type=None)
+    task = TaskMessage(data={}, type=None)
     assert registry.dispatch(task) is False
 
 

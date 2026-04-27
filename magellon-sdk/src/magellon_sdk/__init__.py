@@ -9,11 +9,15 @@ The most common types are re-exported here so plugin authors can write:
     from magellon_sdk import (
         PluginBase, PluginBrokerRunner,       # the runtime
         PluginInfo, PluginManifest,           # identity + capability metadata
-        TaskDto, TaskResultDto,               # wire envelopes
+        TaskMessage, TaskResultMessage,       # wire envelopes (1.3+ names)
         Envelope,                             # CloudEvents wrapper
         install_rmq_bus,                      # bus bootstrap
         NullReporter, ProgressReporter,       # progress reporting
     )
+
+SDK 1.3 renamed ``TaskDto`` → ``TaskMessage`` and ``TaskResultDto`` →
+``TaskResultMessage``. The old names remain importable through 1.x and
+will be removed in 2.0.
 
 Less common types stay under their submodules (``magellon_sdk.models``,
 ``magellon_sdk.categories``, ``magellon_sdk.events``, etc.).
@@ -33,12 +37,14 @@ from magellon_sdk.models import (
     PluginInfo,
     PluginManifest,
     TaskDto,
+    TaskMessage,
     TaskResultDto,
+    TaskResultMessage,
 )
 from magellon_sdk.progress import JobCancelledError, NullReporter, ProgressReporter
 from magellon_sdk.runner import PluginBrokerRunner
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 
 __all__ = [
     # Runtime
@@ -50,8 +56,11 @@ __all__ = [
     "install_rmq_bus",
     "install_inmemory_bus",
     "install_mock_bus",
-    # Wire shapes
+    # Wire shapes (SDK 1.3+ canonical names)
     "Envelope",
+    "TaskMessage",
+    "TaskResultMessage",
+    # Wire shapes (legacy aliases, removed in 2.0)
     "TaskDto",
     "TaskResultDto",
     # Plugin identity + capability

@@ -68,7 +68,7 @@ def test_execute_returns_fft_output_with_paths(monkeypatch, tmp_path):
     the resolved paths. Step events stay off (no active task) so the
     test doesn't need a broker."""
     from magellon_sdk.categories.outputs import FftOutput
-    from magellon_sdk.models.tasks import FftTaskData
+    from magellon_sdk.models.tasks import FftInput
     from plugin import plugin as plugin_mod
 
     captured = {}
@@ -83,7 +83,7 @@ def test_execute_returns_fft_output_with_paths(monkeypatch, tmp_path):
     img = tmp_path / "img.mrc"
     target = tmp_path / "img_FFT.png"
     out = plugin_mod.FftPlugin().execute(
-        FftTaskData(image_path=str(img), target_path=str(target))
+        FftInput(image_path=str(img), target_path=str(target))
     )
 
     assert isinstance(out, FftOutput)
@@ -95,7 +95,7 @@ def test_execute_returns_fft_output_with_paths(monkeypatch, tmp_path):
 def test_execute_resolves_output_path_when_target_omitted(monkeypatch, tmp_path):
     """No target_path → derive ``<stem>_FFT.png`` next to the input. The
     HTTP path's _resolve_output_path has the same rule; both must agree."""
-    from magellon_sdk.models.tasks import FftTaskData
+    from magellon_sdk.models.tasks import FftInput
     from plugin import plugin as plugin_mod
 
     monkeypatch.setattr(
@@ -104,7 +104,7 @@ def test_execute_resolves_output_path_when_target_omitted(monkeypatch, tmp_path)
     )
 
     img = tmp_path / "sample.mrc"
-    out = plugin_mod.FftPlugin().execute(FftTaskData(image_path=str(img)))
+    out = plugin_mod.FftPlugin().execute(FftInput(image_path=str(img)))
     assert out.output_path == str(tmp_path / "sample_FFT.png")
 
 
@@ -112,11 +112,11 @@ def test_execute_raises_when_neither_path_supplied():
     """A task with neither image_path nor target_path can't compute —
     raise so the runner classifies into DLQ via P2's exception taxonomy
     rather than silently producing an empty FftOutput."""
-    from magellon_sdk.models.tasks import FftTaskData
+    from magellon_sdk.models.tasks import FftInput
     from plugin.plugin import FftPlugin
 
     with pytest.raises(ValueError, match="image_path or target_path"):
-        FftPlugin().execute(FftTaskData())
+        FftPlugin().execute(FftInput())
 
 
 # ---------------------------------------------------------------------------
@@ -128,12 +128,12 @@ def test_build_fft_result_carries_envelope_identifiers():
     """The result must echo job_id/task_id from the envelope so
     JobEventWriter can correlate it back to the originating task."""
     from magellon_sdk.categories.outputs import FftOutput
-    from magellon_sdk.models import TaskDto
+    from magellon_sdk.models import TaskMessage
     from plugin.plugin import build_fft_result
 
     job_id = uuid4()
     task_id = uuid4()
-    task = TaskDto(id=task_id, job_id=job_id, data={})
+    task = TaskMessage(id=task_id, job_id=job_id, data={})
     output = FftOutput(output_path="/tmp/out.png", source_image_path="/tmp/in.mrc")
 
     result = build_fft_result(task, output)
@@ -154,10 +154,10 @@ def test_build_fft_result_merges_output_extras_into_output_data():
     """Plugin-specific extras on FftOutput must be preserved on the
     result. Generic consumers ignore them; specialized ones can read."""
     from magellon_sdk.categories.outputs import FftOutput
-    from magellon_sdk.models import TaskDto
+    from magellon_sdk.models import TaskMessage
     from plugin.plugin import build_fft_result
 
-    task = TaskDto(id=uuid4(), job_id=uuid4(), data={})
+    task = TaskMessage(id=uuid4(), job_id=uuid4(), data={})
     output = FftOutput(
         output_path="/tmp/out.png",
         extras={"radial_profile_path": "/tmp/profile.csv"},
@@ -169,7 +169,7 @@ def test_build_fft_result_merges_output_extras_into_output_data():
 
 
 # ---------------------------------------------------------------------------
-# FftBrokerRunner._process — TaskDto exposed via ContextVar
+# FftBrokerRunner._process — TaskMessage exposed via ContextVar
 # ---------------------------------------------------------------------------
 
 
@@ -177,7 +177,7 @@ def test_runner_exposes_active_task_during_plugin_run(monkeypatch, tmp_path):
     """The runner must populate get_active_task() before plugin.run() so
     execute() can recover job_id/task_id for step-event emission. After
     _process returns the var is reset to its prior value."""
-    from magellon_sdk.models import TaskDto
+    from magellon_sdk.models import TaskMessage
     from plugin import plugin as plugin_mod
     from plugin.plugin import (
         FftBrokerRunner,
@@ -211,7 +211,7 @@ def test_runner_exposes_active_task_during_plugin_run(monkeypatch, tmp_path):
 
     job_id = uuid4()
     task_id = uuid4()
-    task = TaskDto(
+    task = TaskMessage(
         id=task_id,
         job_id=job_id,
         data={"image_path": str(tmp_path / "x.mrc"), "target_path": str(tmp_path / "x.png")},
@@ -225,7 +225,7 @@ def test_runner_exposes_active_task_during_plugin_run(monkeypatch, tmp_path):
     # …and reset afterwards so a stray call wouldn't see stale state.
     assert get_active_task() is None
 
-    # The bytes the runner publishes must be the JSON-encoded TaskResultDto.
+    # The bytes the runner publishes must be the JSON-encoded TaskResultMessage.
     import json
     payload = json.loads(out_bytes.decode("utf-8"))
     assert payload["task_id"] == str(task_id)
@@ -238,11 +238,11 @@ def test_runner_exposes_active_task_during_plugin_run(monkeypatch, tmp_path):
 def test_handle_task_exposes_active_task_during_bus_driven_run(monkeypatch, tmp_path):
     """MB4.2: the production path is bus-driven — _handle_task must
     set the ContextVar just like _process does, so step-event
-    emission inside execute() still sees the active TaskDto."""
+    emission inside execute() still sees the active TaskMessage."""
     from magellon_sdk.bus import DefaultMessageBus
     from magellon_sdk.bus.binders.mock import MockBinder
     from magellon_sdk.envelope import Envelope
-    from magellon_sdk.models import TaskDto
+    from magellon_sdk.models import TaskMessage
     from plugin import plugin as plugin_mod
     from plugin.plugin import (
         FftBrokerRunner,
@@ -280,7 +280,7 @@ def test_handle_task_exposes_active_task_during_bus_driven_run(monkeypatch, tmp_
 
         job_id = uuid4()
         task_id = uuid4()
-        task = TaskDto(
+        task = TaskMessage(
             id=task_id,
             job_id=job_id,
             data={"image_path": str(tmp_path / "x.mrc"), "target_path": str(tmp_path / "x.png")},
@@ -310,7 +310,7 @@ def test_execute_emits_started_progress_completed_when_publisher_present(
 ):
     """Sync execute() bridges to the async step-event publisher via the
     daemon loop. Pin the order and the keyword shape."""
-    from magellon_sdk.models import TaskDto
+    from magellon_sdk.models import TaskMessage
     from plugin import plugin as plugin_mod
 
     calls = []
@@ -333,12 +333,12 @@ def test_execute_emits_started_progress_completed_when_publisher_present(
 
     job_id = uuid4()
     task_id = uuid4()
-    task = TaskDto(id=task_id, job_id=job_id, data={})
+    task = TaskMessage(id=task_id, job_id=job_id, data={})
     token = plugin_mod._active_task.set(task)
     try:
-        from magellon_sdk.models.tasks import FftTaskData
+        from magellon_sdk.models.tasks import FftInput
         plugin_mod.FftPlugin().execute(
-            FftTaskData(
+            FftInput(
                 image_path=str(tmp_path / "img.mrc"),
                 target_path=str(tmp_path / "img_FFT.png"),
             )
@@ -362,7 +362,7 @@ def test_execute_emits_started_progress_completed_when_publisher_present(
 def test_execute_emits_failed_on_compute_error(monkeypatch, tmp_path):
     """A crash inside compute_file_fft must produce a failed envelope
     *and* re-raise so the runner can NACK + classify per P2."""
-    from magellon_sdk.models import TaskDto
+    from magellon_sdk.models import TaskMessage
     from plugin import plugin as plugin_mod
 
     calls = []
@@ -381,13 +381,13 @@ def test_execute_emits_failed_on_compute_error(monkeypatch, tmp_path):
     monkeypatch.setattr(plugin_mod, "get_publisher", _get_publisher)
     monkeypatch.setattr(plugin_mod, "compute_file_fft", _boom)
 
-    task = TaskDto(id=uuid4(), job_id=uuid4(), data={})
+    task = TaskMessage(id=uuid4(), job_id=uuid4(), data={})
     token = plugin_mod._active_task.set(task)
     try:
-        from magellon_sdk.models.tasks import FftTaskData
+        from magellon_sdk.models.tasks import FftInput
         with pytest.raises(RuntimeError, match="fft crashed"):
             plugin_mod.FftPlugin().execute(
-                FftTaskData(
+                FftInput(
                     image_path=str(tmp_path / "img.mrc"),
                     target_path=str(tmp_path / "img_FFT.png"),
                 )

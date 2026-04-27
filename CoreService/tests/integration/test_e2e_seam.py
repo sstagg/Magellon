@@ -1,9 +1,9 @@
 """Seam-level E2E smoke test for the CoreService↔plugin pipeline.
 
 Drives the *shape* of the production path without GPU/MotionCor: a
-``TaskDto`` is dispatched via :class:`RabbitmqTaskDispatcher`, a stub
+``TaskMessage`` is dispatched via :class:`RabbitmqTaskDispatcher`, a stub
 worker thread consumes it off the real broker, builds a matching
-``TaskResultDto``, publishes it to the result queue, and the test
+``TaskResultMessage``, publishes it to the result queue, and the test
 thread reads it back. We then run the result through the
 ``_advance_task_state`` logic (imported from the result-processor
 plugin) with a mocked DB to prove the wire format survives and the
@@ -14,7 +14,7 @@ end-to-end:
 
 - dispatcher routing (Phase 6)
 - RMQ publish error-surface (Phase 3)
-- TaskDto/TaskResultDto wire compatibility (Phase 2/3)
+- TaskMessage/TaskResultMessage wire compatibility (Phase 2/3)
 - ImageJobTask state advancement (Phase 4)
 
 Budget: 30s wall clock per test. Skips cleanly if RMQ is down.
@@ -42,7 +42,7 @@ from pika.exceptions import AMQPConnectionError
 
 from magellon_sdk import messaging
 from magellon_sdk.dispatcher import RabbitmqTaskDispatcher, TaskDispatcherRegistry
-from magellon_sdk.models import CTF_TASK, MOTIONCOR, TaskDto, TaskResultDto, TaskStatus
+from magellon_sdk.models import CTF_TASK, MOTIONCOR, TaskMessage, TaskResultMessage, TaskStatus
 
 
 RMQ_HOST = os.environ.get("RABBITMQ_HOST", "127.0.0.1")
@@ -124,8 +124,8 @@ def _unique(tag: str) -> str:
 
 def _start_stub_worker(in_queue: str, out_queue: str, *, output_data: dict, deadline: float) -> threading.Thread:
     """Spin up a background thread that behaves like an external plugin:
-    consume one ``TaskDto`` off ``in_queue``, publish one
-    ``TaskResultDto`` onto ``out_queue``, then exit."""
+    consume one ``TaskMessage`` off ``in_queue``, publish one
+    ``TaskResultMessage`` onto ``out_queue``, then exit."""
 
     def _run() -> None:
         try:
@@ -148,7 +148,7 @@ def _start_stub_worker(in_queue: str, out_queue: str, *, output_data: dict, dead
                     return
 
                 task = messaging.parse_message_to_task_object(body.decode())
-                result = TaskResultDto(
+                result = TaskResultMessage(
                     task_id=task.id,
                     job_id=task.job_id,
                     image_id=uuid.uuid4(),
@@ -175,7 +175,7 @@ def _start_stub_worker(in_queue: str, out_queue: str, *, output_data: dict, dead
     return t
 
 
-def _read_one_result(out_queue: str, *, deadline: float) -> TaskResultDto:
+def _read_one_result(out_queue: str, *, deadline: float) -> TaskResultMessage:
     conn = pika.BlockingConnection(_params())
     try:
         ch = conn.channel()
@@ -228,7 +228,7 @@ def test_seam_round_trip_ctf_completed():
         registry = TaskDispatcherRegistry()
         registry.register(CTF_TASK, RabbitmqTaskDispatcher(queue_name=in_q, rabbitmq_settings=_Settings()))
 
-        task = TaskDto(
+        task = TaskMessage(
             id=uuid.uuid4(),
             job_id=uuid.uuid4(),
             data={"inputFile": "/tmp/in.mrc", "outputFile": "/tmp/out.mrc"},
@@ -276,7 +276,7 @@ def test_seam_round_trip_motioncor_failed():
 
     try:
         disp = RabbitmqTaskDispatcher(queue_name=in_q, rabbitmq_settings=_Settings())
-        task = TaskDto(id=uuid.uuid4(), job_id=uuid.uuid4(), data={"InMrc": "/tmp/f.mrc"}, type=MOTIONCOR)
+        task = TaskMessage(id=uuid.uuid4(), job_id=uuid.uuid4(), data={"InMrc": "/tmp/f.mrc"}, type=MOTIONCOR)
 
         worker = _start_stub_worker(in_q, out_q, output_data={}, deadline=deadline)
 

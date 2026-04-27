@@ -18,7 +18,7 @@ Design choices (matching the existing RMQ code, spec §5):
 
 Wire format: **CloudEvents 1.0 "binary content mode"**. The AMQP body
 carries ``envelope.data`` serialized as JSON (unchanged from today's
-``TaskDto.model_dump_json()`` shape — existing plugins can decode it
+``TaskMessage.model_dump_json()`` shape — existing plugins can decode it
 without any code change). Envelope metadata rides on AMQP
 ``properties.headers`` as ``ce-specversion`` / ``ce-id`` /
 ``ce-source`` / ``ce-type`` / ``ce-subject`` / ``ce-time`` /
@@ -446,7 +446,7 @@ def _body_from_envelope(envelope: Envelope) -> bytes:
     """Serialize ``envelope.data`` as the AMQP body.
 
     Pydantic model → ``model_dump_json()`` (keeps today's wire format
-    for plugins decoding TaskDto.model_validate_json(body)).
+    for plugins decoding TaskMessage.model_validate_json(body)).
     Dict / list / primitive → ``json.dumps``.
     ``None`` → empty bytes.
     """

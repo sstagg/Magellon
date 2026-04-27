@@ -22,7 +22,7 @@ from magellon_sdk.bootstrap import (
     check_python_version,
     check_requirements_txt,
 )
-from magellon_sdk.models import TaskDto, PluginInfoSingleton, TaskResultDto
+from magellon_sdk.models import TaskMessage, PluginInfoSingleton, TaskResultMessage
 
 from core.settings import AppSettingsSingleton
 from core.sqlalchemy_models import Camera, ImageJobTask, ImageMetaData, Msession
@@ -91,7 +91,7 @@ async def get_all_cameras(name: Optional[str] = None, db: Session = Depends(get_
         return db.query(Camera).offset(skip).limit(limit).all()
 
 
-async def do_execute(task_result_param: TaskResultDto):
+async def do_execute(task_result_param: TaskResultMessage):
     try:
         engine = create_engine(get_db_connection())
         session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)

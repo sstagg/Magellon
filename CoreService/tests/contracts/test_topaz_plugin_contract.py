@@ -2,7 +2,7 @@
 
 Mirror of ``test_ptolemy_plugin_contract.py``. The Topaz plugin serves
 two categories from one container (TopazParticlePicking code 8,
-MicrographDenoising code 9). We pin both by posting a canned TaskDto to
+MicrographDenoising code 9). We pin both by posting a canned TaskMessage to
 ``POST /execute`` and asserting the round-trip shape.
 
 Uses missing input_file paths so the contract is about the wire shape,
@@ -75,9 +75,9 @@ def test_pick_execute_returns_task_result_shape(require_topaz_plugin):
 
     body = resp.json()
     if resp.status_code == 200:
-        from magellon_sdk.models import TaskResultDto
+        from magellon_sdk.models import TaskResultMessage
 
-        result = TaskResultDto.model_validate(body)
+        result = TaskResultMessage.model_validate(body)
         assert result.task_id == uuid.UUID(task["id"])
         assert result.job_id == uuid.UUID(task["job_id"])
     else:
@@ -93,9 +93,9 @@ def test_denoise_execute_returns_task_result_shape(require_topaz_plugin):
 
     body = resp.json()
     if resp.status_code == 200:
-        from magellon_sdk.models import TaskResultDto
+        from magellon_sdk.models import TaskResultMessage
 
-        result = TaskResultDto.model_validate(body)
+        result = TaskResultMessage.model_validate(body)
         assert result.task_id == uuid.UUID(task["id"])
         assert result.job_id == uuid.UUID(task["job_id"])
     else:

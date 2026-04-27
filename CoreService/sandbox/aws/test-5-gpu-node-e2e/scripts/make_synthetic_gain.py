@@ -1,7 +1,7 @@
 """Generate an all-ones float32 MRC gain reference matching the example movie shape.
 
 The Magellon-test examples were recorded without a gain file, but the plugin's
-CryoEmMotionCorTaskData requires Gain as a real path (is_mrc_file checks it).
+MotionCorInput requires Gain as a real path (is_mrc_file checks it).
 An all-ones gain is mathematically equivalent to no gain correction — MC2
 multiplies each frame pixel by 1.0, a no-op.
 """

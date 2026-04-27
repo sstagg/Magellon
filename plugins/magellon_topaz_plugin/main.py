@@ -149,11 +149,11 @@ async def health_check() -> dict:
 # Routes by task.type.code; useful for contract tests + debugging.
 # ---------------------------------------------------------------------------
 
-from magellon_sdk.models import TaskDto  # noqa: E402
+from magellon_sdk.models import TaskMessage  # noqa: E402
 
 
 @app.post("/execute", summary="Execute Plugin Operation (sync)")
-async def execute_endpoint(task: TaskDto):
+async def execute_endpoint(task: TaskMessage):
     type_code = task.type.code if task.type else None
     if type_code == TOPAZ_PICK.category.code:
         validated = _pick_plugin.input_schema().model_validate(task.data)

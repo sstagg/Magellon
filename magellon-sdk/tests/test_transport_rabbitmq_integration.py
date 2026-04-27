@@ -20,7 +20,7 @@ pika = pytest.importorskip("pika")
 from pika.exceptions import AMQPConnectionError
 
 from magellon_sdk import messaging
-from magellon_sdk.models import TaskDto
+from magellon_sdk.models import TaskMessage
 from magellon_sdk.bus.binders.rmq._client import RabbitmqClient  # MB6.2: moved here
 
 
@@ -126,11 +126,11 @@ def test_connect_raises_on_bad_host():
 def test_publish_message_to_queue_helper_success():
     q = _unique_queue()
     try:
-        task = TaskDto(data={"k": "v"})
+        task = TaskMessage(data={"k": "v"})
         ok = messaging.publish_message_to_queue(task, q, rabbitmq_settings=_Settings())
         assert ok is True
 
-        # Confirm the body round-trips via TaskDto.
+        # Confirm the body round-trips via TaskMessage.
         params = pika.ConnectionParameters(
             host=RMQ_HOST,
             credentials=pika.PlainCredentials(RMQ_USER, RMQ_PASS),
@@ -216,6 +216,6 @@ def test_publish_message_to_queue_returns_false_on_bad_broker():
         USER_NAME = "x"
         PASSWORD = "x"
 
-    task = TaskDto(data={"k": "v"})
+    task = TaskMessage(data={"k": "v"})
     ok = messaging.publish_message_to_queue(task, "any-queue", rabbitmq_settings=_BadSettings())
     assert ok is False

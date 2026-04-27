@@ -8,7 +8,7 @@ ack/nack/DLQ classification, and reconnection. This module owns:
 * what to subscribe to (each ``OUT_QUEUES.name`` becomes a
   ``TaskRoute.named(...)``),
 * what handler to run on each delivery (decode envelope to
-  :class:`TaskResultDto`, run the existing ``do_execute``).
+  :class:`TaskResultMessage`, run the existing ``do_execute``).
 
 Mirrors :mod:`CoreService.core.result_consumer` (MB4.5) — same shape,
 different container. Kept here so the out-of-tree result_processor
@@ -26,7 +26,7 @@ from magellon_sdk.bus.routes import TaskRoute
 from magellon_sdk.envelope import Envelope
 from magellon_sdk.errors import PermanentError
 
-from magellon_sdk.models import TaskResultDto
+from magellon_sdk.models import TaskResultMessage
 from core.settings import AppSettingsSingleton
 from services.service import do_execute
 
@@ -50,10 +50,10 @@ def _make_handler():
 
     def _on_envelope(envelope: Envelope) -> None:
         try:
-            task_result = TaskResultDto.model_validate(envelope.data)
+            task_result = TaskResultMessage.model_validate(envelope.data)
         except Exception as exc:
             # Malformed payload won't decode on retry — DLQ via PermanentError.
-            raise PermanentError(f"undecodable TaskResultDto: {exc}") from exc
+            raise PermanentError(f"undecodable TaskResultMessage: {exc}") from exc
 
         future = asyncio.run_coroutine_threadsafe(do_execute(task_result), _loop)
         try:

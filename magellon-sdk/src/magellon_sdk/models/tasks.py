@@ -75,7 +75,15 @@ class TaskBase(BaseModel):
         return hashlib.sha256(data_str.encode("utf-8")).hexdigest()
 
 
-class TaskDto(TaskBase):
+class TaskMessage(TaskBase):
+    """The wire envelope a dispatcher publishes. SDK 1.3+ canonical name.
+
+    Wraps a category-shaped ``data`` payload with routing-time metadata
+    (``job_id``, ``type``, ``status``, optional ``target_backend``).
+    Pre-1.3 callers know it as ``TaskDto`` — the alias at the bottom
+    of this module keeps that name working through 1.x.
+    """
+
     job_id: Optional[UUID] = Field(default_factory=uuid4)
 
     @classmethod
@@ -87,7 +95,7 @@ class TaskDto(TaskBase):
         pstatus: TaskStatus,
         instance_id: UUID,
         data: Dict[str, Any],
-    ) -> "TaskDto":
+    ) -> "TaskMessage":
         return cls(
             id=pid,
             job_id=job_id,
@@ -99,11 +107,15 @@ class TaskDto(TaskBase):
         )
 
 
-class JobDto(TaskBase):
-    tasks: List[TaskDto] = []
+class JobMessage(TaskBase):
+    """Bundle of tasks under one logical user-visible unit. SDK 1.3+ name.
+
+    Pre-1.3 callers know it as ``JobDto``."""
+
+    tasks: List[TaskMessage] = []
 
     @classmethod
-    def create(cls, pdata: Dict[str, Any], ptype: TaskCategory) -> "JobDto":
+    def create(cls, pdata: Dict[str, Any], ptype: TaskCategory) -> "JobMessage":
         return cls(
             id=uuid4(),
             data=pdata,
@@ -113,32 +125,38 @@ class JobDto(TaskBase):
         )
 
 
-class CryoEmImageTaskData(BaseModel):
+class CryoEmImageInput(BaseModel):
+    """Base for category input shapes that operate on a single image.
+
+    Renamed from ``CryoEmImageTaskData`` in SDK 1.3 to symmetrize with
+    the existing ``*Output`` naming. The old name aliases the new one
+    at module bottom, so existing plugins keep importing it unchanged."""
+
     image_id: Optional[UUID] = None
     image_name: Optional[str] = None
     image_path: Optional[str] = None
     # Contravariant-input escape hatch: plugin-specific knobs that
     # the category contract doesn't know about. Every subclass
-    # inherits this so CtfTaskData, FftTaskData, etc. all support
+    # inherits this so CtfInput, FftInput, etc. all support
     # engine-specific extras without the category schema growing.
     # Opaque to the backend — round-trips untouched.
     engine_opts: Dict[str, Any] = Field(default_factory=dict)
 
 
-class MrcToPngTaskData(CryoEmImageTaskData):
+class MrcToPngInput(CryoEmImageInput):
     image_target: Optional[str] = None
     frame_name: Optional[str] = None
     frame_path: Optional[str] = None
 
 
-class FftTaskData(CryoEmImageTaskData):
+class FftInput(CryoEmImageInput):
     target_name: Optional[str] = None
     target_path: Optional[str] = None
     frame_name: Optional[str] = None
     frame_path: Optional[str] = None
 
 
-class TopazPickTaskData(CryoEmImageTaskData):
+class TopazPickInput(CryoEmImageInput):
     """Input for the Topaz particle-picking category.
 
     The MRC to pick is at ``input_file``. Engine knobs (model, NMS radius,
@@ -151,7 +169,7 @@ class TopazPickTaskData(CryoEmImageTaskData):
     input_file: str
 
 
-class MicrographDenoiseTaskData(CryoEmImageTaskData):
+class MicrographDenoiseInput(CryoEmImageInput):
     """Input for the Topaz-Denoise category — one MRC in, denoised MRC out.
 
     ``input_file`` is the source. ``output_file`` is where the plugin
@@ -163,7 +181,7 @@ class MicrographDenoiseTaskData(CryoEmImageTaskData):
     output_file: Optional[str] = None
 
 
-class PtolemyTaskData(CryoEmImageTaskData):
+class PtolemyInput(CryoEmImageInput):
     """Input for either ptolemy category — just the MRC to analyze.
 
     The same shape serves both square-detection (low-mag MRC) and
@@ -175,7 +193,7 @@ class PtolemyTaskData(CryoEmImageTaskData):
     input_file: str
 
 
-class CtfTaskData(CryoEmImageTaskData):
+class CtfInput(CryoEmImageInput):
     inputFile: str
     outputFile: str = "output.mrc"
     pixelSize: float = 1.0
@@ -191,7 +209,7 @@ class CtfTaskData(CryoEmImageTaskData):
     binning_x: int = 1
 
 
-class CryoEmMotionCorTaskData(CryoEmImageTaskData):
+class MotionCorInput(CryoEmImageInput):
     InMrc: Optional[str] = None
     InTiff: Optional[str] = None
     InEer: Optional[str] = None
@@ -229,16 +247,16 @@ class CryoEmMotionCorTaskData(CryoEmImageTaskData):
     EerSampling: int = 1
 
 
-class FftTask(TaskDto):
-    data: FftTaskData
+class FftTask(TaskMessage):
+    data: FftInput
 
 
-class CtfTask(TaskDto):
-    data: CtfTaskData
+class CtfTask(TaskMessage):
+    data: CtfInput
 
 
-class MotioncorTask(TaskDto):
-    data: CryoEmMotionCorTaskData
+class MotioncorTask(TaskMessage):
+    data: MotionCorInput
 
 
 class TaskStatusEnum(Enum):
@@ -279,7 +297,11 @@ class OutputFile(BaseModel):
     required: bool
 
 
-class TaskResultDto(BaseModel):
+class TaskResultMessage(BaseModel):
+    """The wire envelope a plugin publishes when a task finishes.
+
+    SDK 1.3+ canonical name; pre-1.3 callers know it as ``TaskResultDto``."""
+
     worker_instance_id: Optional[UUID] = None
     job_id: Optional[UUID] = None
     task_id: Optional[UUID] = None
@@ -323,21 +345,64 @@ class DebugInfo(BaseModel):
     line8: Optional[str] = None
 
 
+# ---------------------------------------------------------------------------
+# Legacy aliases (SDK 1.3 → 2.0)
+# ---------------------------------------------------------------------------
+#
+# Pre-1.3 plugins import ``TaskDto``, ``TaskResultDto``, ``*TaskData``,
+# ``StepStarted`` etc. by name. The names here keep those imports
+# working without a code change. Removed in SDK 2.0; X.3 in
+# ``Documentation/CATEGORIES_AND_BACKENDS.md`` tracks the drop.
+#
+# These are literal name bindings (not subclasses), so:
+#
+#   isinstance(t, TaskMessage) and isinstance(t, TaskDto)
+#
+# both succeed for any instance built either way — same class object
+# under two names.
+
+TaskDto = TaskMessage
+JobDto = JobMessage
+TaskResultDto = TaskResultMessage
+CryoEmImageTaskData = CryoEmImageInput
+MrcToPngTaskData = MrcToPngInput
+FftTaskData = FftInput
+TopazPickTaskData = TopazPickInput
+MicrographDenoiseTaskData = MicrographDenoiseInput
+PtolemyTaskData = PtolemyInput
+CtfTaskData = CtfInput
+CryoEmMotionCorTaskData = MotionCorInput
+
+
 __all__ = [
     # Envelope.
     "TaskBase",
     "TaskCategory",
-    "TaskDto",
-    "JobDto",
+    "TaskMessage",  # SDK 1.3+ canonical name
+    "TaskDto",      # legacy alias of TaskMessage
+    "JobMessage",
+    "JobDto",       # legacy alias of JobMessage
     "TaskOutcome",
     "TaskStatus",
     "TaskStatusEnum",
-    # Task-data shapes.
+    # Per-category input shapes (SDK 1.3+ canonical names).
+    "CryoEmImageInput",
+    "MrcToPngInput",
+    "FftInput",
+    "CtfInput",
+    "MotionCorInput",
+    "TopazPickInput",
+    "MicrographDenoiseInput",
+    "PtolemyInput",
+    # Legacy aliases (SDK ≤ 1.2 names).
     "CryoEmImageTaskData",
     "MrcToPngTaskData",
     "FftTaskData",
     "CtfTaskData",
     "CryoEmMotionCorTaskData",
+    "TopazPickTaskData",
+    "MicrographDenoiseTaskData",
+    "PtolemyTaskData",
     # Concrete tasks.
     "FftTask",
     "CtfTask",
@@ -355,6 +420,7 @@ __all__ = [
     # Result / debug.
     "ImageMetaData",
     "OutputFile",
-    "TaskResultDto",
+    "TaskResultMessage",
+    "TaskResultDto",  # legacy alias of TaskResultMessage
     "DebugInfo",
 ]

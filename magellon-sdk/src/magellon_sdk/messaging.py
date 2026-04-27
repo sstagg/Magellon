@@ -15,7 +15,7 @@ from typing import Optional
 
 from pydantic import BaseModel
 
-from magellon_sdk.models import TaskDto, TaskResultDto
+from magellon_sdk.models import TaskMessage, TaskResultMessage
 
 logger = logging.getLogger(__name__)
 
@@ -61,12 +61,12 @@ def append_json_to_file(file_path: str, json_str: str) -> bool:
         return False
 
 
-def parse_message_to_task_object(message_str: str) -> TaskDto:
-    return TaskDto.model_validate_json(message_str)
+def parse_message_to_task_object(message_str: str) -> TaskMessage:
+    return TaskMessage.model_validate_json(message_str)
 
 
-def parse_message_to_task_result_object(message_str: str) -> TaskResultDto:
-    return TaskResultDto.model_validate_json(message_str)
+def parse_message_to_task_result_object(message_str: str) -> TaskResultMessage:
+    return TaskResultMessage.model_validate_json(message_str)
 
 
 def publish_message_to_queue(
