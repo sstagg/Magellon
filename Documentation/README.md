@@ -34,6 +34,7 @@ The shortest path to "what rules does this codebase live by?"
 |---|---|
 | [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) | You want to know what work is in flight or recently shipped. The "Active tracks" section is the live one; earlier phases are kept above for history. |
 | [`UNIFIED_PLATFORM_PLAN.md`](UNIFIED_PLATFORM_PLAN.md) | You want the longer-arc story: retire the dual plugin architecture, build toward a plugin hub on top of one contract. Forward-looking phases (U, H, S). |
+| [`PLUGIN_INSTALL_PLAN.md`](PLUGIN_INSTALL_PLAN.md) | You are working on the install pipeline: archive creator (`plugin pack`), Installer Protocol, uv vs Docker installer impls, uninstall + upgrade, admin REST + UI. Nine sequential phases (P1–P9). |
 | [`MAGELLON_HUB_SPEC.md`](MAGELLON_HUB_SPEC.md) | You are working on the plugin hub (`magellon-hub` service). MVP spec; phases H1–H3 in progress. |
 
 ---
@@ -48,6 +49,7 @@ Open these to answer a focused question, not as background reading.
 | [`BROKER_PATTERNS.md`](BROKER_PATTERNS.md) | You need to understand the six RMQ patterns Magellon uses (work queues, topic fanout, DLX). Pedagogical. §8 maps the patterns onto candidate alternate transports. |
 | [`MESSAGES_AND_EVENTS.md`](MESSAGES_AND_EVENTS.md) | You need the wire-shape catalogue: every message that crosses a process boundary, which transport carries it, where the schema lives. |
 | [`CATEGORIES_AND_BACKENDS.md`](CATEGORIES_AND_BACKENDS.md) | You are adding a second backend under an existing category (e.g. `gctf` alongside `ctffind4`), or working with `target_backend` / `GET /plugins/capabilities`. |
+| [`PLUGIN_ARCHIVE_FORMAT.md`](PLUGIN_ARCHIVE_FORMAT.md) | You are building a `.mpn` archive: manifest schema, layout, install-method declaration, what does NOT go in (deployment config). |
 | [`DLQ_MIGRATION_RUNBOOK.md`](DLQ_MIGRATION_RUNBOOK.md) | You are running the DLQ-topology migration in ops. Paired with `CoreService/scripts/migrate_dlq_topology.py`. |
 
 ---
