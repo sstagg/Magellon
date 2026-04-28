@@ -107,9 +107,16 @@ class Installer(Protocol):
         self,
         archive_path: Path,
         manifest: PluginArchiveManifest,
+        install_spec: InstallSpec,
         runtime: RuntimeConfig,
     ) -> InstallResult:
         """Install the plugin from a packed ``.mpn`` archive.
+
+        ``install_spec`` is the specific entry from
+        ``manifest.install`` the manager picked — installers like
+        :class:`DockerInstaller` need it to know whether to use
+        ``image:`` or ``dockerfile:``. UvInstaller uses it to honor
+        the manifest's ``pyproject:`` path.
 
         Idempotency: refuse if already installed; the upgrade flow
         (P6) handles version replacement explicitly.

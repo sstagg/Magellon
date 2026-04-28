@@ -68,8 +68,8 @@ class _FakeInstaller:
             return [f"method != {self.method}"]
         return list(self._supports_failures)
 
-    def install(self, archive_path, manifest, runtime):
-        self.install_calls.append((archive_path, manifest, runtime))
+    def install(self, archive_path, manifest, install_spec, runtime):
+        self.install_calls.append((archive_path, manifest, install_spec, runtime))
         if self._install_result is not None:
             return self._install_result
         self._installed.add(manifest.plugin_id)

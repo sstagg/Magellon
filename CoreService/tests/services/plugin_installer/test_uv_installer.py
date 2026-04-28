@@ -170,7 +170,7 @@ def test_install_extracts_archive_to_plugin_dir(tmp_path):
         subprocess_runner=_stub_runner(),
     )
 
-    result = inst.install(archive, manifest, _runtime())
+    result = inst.install(archive, manifest, manifest.install[0], _runtime())
 
     assert result.success, result.error
     assert (plugins_dir / "test-plugin" / "pyproject.toml").exists()
@@ -182,7 +182,7 @@ def test_install_runs_uv_venv_command(tmp_path):
     runner = _stub_runner()
     inst = UvInstaller(plugins_dir=tmp_path / "installed", subprocess_runner=runner)
 
-    inst.install(archive, manifest, _runtime())
+    inst.install(archive, manifest, manifest.install[0], _runtime())
 
     venv_calls = [c for c in runner.calls if "venv" in c["cmd"]]
     assert len(venv_calls) == 1
@@ -201,7 +201,7 @@ def test_install_runs_uv_pip_install_editable(tmp_path):
     runner = _stub_runner()
     inst = UvInstaller(plugins_dir=tmp_path / "installed", subprocess_runner=runner)
 
-    inst.install(archive, manifest, _runtime())
+    inst.install(archive, manifest, manifest.install[0], _runtime())
 
     install_calls = [
         c for c in runner.calls if "pip" in c["cmd"] and "install" in c["cmd"]
@@ -220,7 +220,7 @@ def test_install_sets_virtual_env_for_uv_pip_install(tmp_path):
     runner = _stub_runner()
     inst = UvInstaller(plugins_dir=tmp_path / "installed", subprocess_runner=runner)
 
-    inst.install(archive, manifest, _runtime())
+    inst.install(archive, manifest, manifest.install[0], _runtime())
 
     install_calls = [
         c for c in runner.calls if "pip" in c["cmd"] and "install" in c["cmd"]
@@ -237,7 +237,7 @@ def test_install_writes_runtime_env_with_deployment_values(tmp_path):
         plugins_dir=tmp_path / "installed", subprocess_runner=_stub_runner(),
     )
 
-    inst.install(archive, manifest, _runtime())
+    inst.install(archive, manifest, manifest.install[0], _runtime())
 
     runtime_env = (tmp_path / "installed" / "test-plugin" / "runtime.env").read_text()
     assert "MAGELLON_BROKER_URL=amqp://test:test@broker:5672/" in runtime_env
@@ -256,7 +256,7 @@ def test_install_falls_back_to_requirements_txt_when_no_pyproject(tmp_path):
     runner = _stub_runner()
     inst = UvInstaller(plugins_dir=tmp_path / "installed", subprocess_runner=runner)
 
-    result = inst.install(archive, manifest, _runtime())
+    result = inst.install(archive, manifest, manifest.install[0], _runtime())
 
     assert result.success, result.error
     install_calls = [
@@ -280,7 +280,7 @@ def test_install_refuses_already_installed(tmp_path):
     (plugins_dir / "test-plugin").mkdir()
 
     inst = UvInstaller(plugins_dir=plugins_dir, subprocess_runner=_stub_runner())
-    result = inst.install(archive, manifest, _runtime())
+    result = inst.install(archive, manifest, manifest.install[0], _runtime())
 
     assert not result.success
     assert "already installed" in result.error
@@ -296,7 +296,7 @@ def test_install_cleans_up_on_uv_venv_failure(tmp_path):
         plugins_dir=tmp_path / "installed", subprocess_runner=runner,
     )
 
-    result = inst.install(archive, manifest, _runtime())
+    result = inst.install(archive, manifest, manifest.install[0], _runtime())
 
     assert not result.success
     assert "uv venv" in result.error
@@ -318,7 +318,7 @@ def test_install_cleans_up_on_uv_pip_install_failure(tmp_path):
     inst = UvInstaller(
         plugins_dir=tmp_path / "installed", subprocess_runner=_runner,
     )
-    result = inst.install(archive, manifest, _runtime())
+    result = inst.install(archive, manifest, manifest.install[0], _runtime())
 
     assert not result.success
     assert "uv pip install" in result.error
@@ -341,7 +341,7 @@ def test_install_refuses_zip_slip(tmp_path):
     inst = UvInstaller(
         plugins_dir=tmp_path / "installed", subprocess_runner=_stub_runner(),
     )
-    result = inst.install(archive_path, manifest, _runtime())
+    result = inst.install(archive_path, manifest, manifest.install[0], _runtime())
 
     assert not result.success
     assert "unsafe archive entry" in result.error
@@ -373,7 +373,7 @@ def test_install_refuses_checksum_mismatch(tmp_path):
     inst = UvInstaller(
         plugins_dir=tmp_path / "installed", subprocess_runner=_stub_runner(),
     )
-    result = inst.install(tampered, manifest, _runtime())
+    result = inst.install(tampered, manifest, manifest.install[0], _runtime())
 
     assert not result.success
     assert "checksum mismatch" in result.error
@@ -403,7 +403,7 @@ def test_install_skips_checksum_verification_when_disabled(tmp_path):
         subprocess_runner=_stub_runner(),
         verify_checksums=False,
     )
-    result = inst.install(tampered, manifest, _runtime())
+    result = inst.install(tampered, manifest, manifest.install[0], _runtime())
 
     assert result.success
 
@@ -416,7 +416,7 @@ def test_uninstall_removes_plugin_dir(tmp_path):
     archive, manifest = _build_archive(tmp_path)
     plugins_dir = tmp_path / "installed"
     inst = UvInstaller(plugins_dir=plugins_dir, subprocess_runner=_stub_runner())
-    inst.install(archive, manifest, _runtime())
+    inst.install(archive, manifest, manifest.install[0], _runtime())
     assert inst.is_installed("test-plugin")
 
     result = inst.uninstall("test-plugin")
@@ -449,7 +449,7 @@ def test_venv_python_returns_path_after_install(tmp_path):
     archive, manifest = _build_archive(tmp_path)
     plugins_dir = tmp_path / "installed"
     inst = UvInstaller(plugins_dir=plugins_dir, subprocess_runner=_stub_runner())
-    inst.install(archive, manifest, _runtime())
+    inst.install(archive, manifest, manifest.install[0], _runtime())
 
     venv_python = inst.venv_python("test-plugin")
     assert venv_python is not None

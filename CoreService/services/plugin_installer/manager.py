@@ -118,7 +118,7 @@ class PluginInstallManager:
                 )
 
         # 5. Dispatch.
-        result = installer.install(archive_path, manifest, runtime)
+        result = installer.install(archive_path, manifest, spec, runtime)
         if not result.success:
             return result
 

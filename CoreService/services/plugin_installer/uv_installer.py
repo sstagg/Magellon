@@ -96,6 +96,7 @@ class UvInstaller:
         self,
         archive_path: Path,
         manifest: PluginArchiveManifest,
+        install_spec: InstallSpec,
         runtime: RuntimeConfig,
     ) -> InstallResult:
         plugin_id = manifest.plugin_id
@@ -132,8 +133,10 @@ class UvInstaller:
             venv_dir = target / ".venv"
             self._uv_venv(venv_dir, logs)
 
-            # 4. Install dependencies.
-            self._uv_install_deps(target, venv_dir, logs)
+            # 4. Install dependencies. The manifest's pyproject path
+            # is the canonical source; falls back to common defaults
+            # for v0 plugins that don't declare it explicitly.
+            self._uv_install_deps(target, venv_dir, install_spec.pyproject, logs)
 
             # 5. Write runtime.env so the plugin process / systemd unit
             #    has the deployment values.
@@ -226,29 +229,38 @@ class UvInstaller:
         logs.append((result.stdout or "").rstrip())
 
     def _uv_install_deps(
-        self, target: Path, venv_dir: Path, logs: list[str],
+        self,
+        target: Path,
+        venv_dir: Path,
+        pyproject_rel: Optional[str],
+        logs: list[str],
     ) -> None:
         """Install the plugin's deps into its venv.
 
-        Pick exactly one of pyproject.toml or requirements.txt. The
-        manifest declared ``pyproject:`` so prefer that; fall back
-        to requirements.txt only if pyproject is absent (rare —
-        v0 plugins).
+        ``pyproject_rel`` is the manifest-declared path
+        (``install[i].pyproject``). When that file exists, we
+        editable-install the plugin's own package. Falls back to
+        ``requirements.txt`` for v0 layouts that don't ship a
+        proper pyproject.
         """
-        pyproject = target / "pyproject.toml"
-        requirements = target / "requirements.txt"
-
         env = {**os.environ, "VIRTUAL_ENV": str(venv_dir)}
 
-        if pyproject.exists():
-            # Editable install of the plugin itself.
+        # Prefer the manifest-declared pyproject (relative to target).
+        # If it exists, editable-install the plugin's package — that
+        # makes ``main.py`` able to import siblings correctly.
+        manifest_pyproject = (
+            target / pyproject_rel if pyproject_rel else target / "pyproject.toml"
+        )
+        requirements = target / "requirements.txt"
+
+        if manifest_pyproject.exists():
             cmd = [self.uv_command, "pip", "install", "-e", str(target)]
         elif requirements.exists():
             cmd = [self.uv_command, "pip", "install", "-r", str(requirements)]
         else:
             raise RuntimeError(
-                "neither pyproject.toml nor requirements.txt found — "
-                "uv install has nothing to do"
+                f"neither {pyproject_rel or 'pyproject.toml'} nor requirements.txt "
+                f"found — uv install has nothing to do"
             )
 
         logs.append(f"+ {' '.join(cmd)}")

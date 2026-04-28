@@ -19,6 +19,7 @@ manager. Uninstall + version upgrade (P6) extend the manager API.
 """
 from __future__ import annotations
 
+from services.plugin_installer.docker_installer import DockerInstaller
 from services.plugin_installer.manager import PluginInstallManager
 from services.plugin_installer.predicates import (
     HostInfo,
@@ -34,6 +35,7 @@ from services.plugin_installer.protocol import (
 from services.plugin_installer.uv_installer import UvInstaller
 
 __all__ = [
+    "DockerInstaller",
     "HostInfo",
     "InstallResult",
     "Installer",
