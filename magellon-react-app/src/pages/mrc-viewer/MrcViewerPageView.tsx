@@ -317,22 +317,34 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath = "C:\\Users\\
                 zIndex: 10,
                 flexShrink: 0
             }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
-                    <Stack direction="row" alignItems="center" spacing={2}>
+                <Stack
+                    direction="row"
+                    sx={{
+                        justifyContent: "space-between",
+                        alignItems: "center"
+                    }}>
+                    <Stack direction="row" spacing={2} sx={{
+                        alignItems: "center"
+                    }}>
                         <Typography variant="h6" component="h1" sx={{ fontWeight: 600 }}>
                             MRC Viewer
                         </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{
-                            maxWidth: 300,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap'
-                        }}>
+                        <Typography
+                            variant="body2"
+                            sx={{
+                                color: "text.secondary",
+                                maxWidth: 300,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                            }}>
                             {mrcFilePath}
                         </Typography>
                     </Stack>
 
-                    <Stack direction="row" spacing={1} alignItems="center">
+                    <Stack direction="row" spacing={1} sx={{
+                        alignItems: "center"
+                    }}>
                         <Chip
                             label={`${imageData?.total_images || 0} images`}
                             size="small"
@@ -350,7 +362,6 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath = "C:\\Users\\
                     </Stack>
                 </Stack>
             </Paper>
-
             {/* Main Content */}
             <Box sx={{ flex: 1, overflow: 'hidden' }}>
                 {showSidePanels ? (
@@ -386,7 +397,13 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath = "C:\\Users\\
                                         borderColor: 'divider',
                                         backgroundColor: 'background.paper'
                                     }}>
-                                        <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+                                        <Stack
+                                            direction="row"
+                                            spacing={2}
+                                            sx={{
+                                                alignItems: "center",
+                                                flexWrap: "wrap"
+                                            }}>
                                             <FormControl size="small" sx={{ minWidth: 70 }}>
                                                 <InputLabel sx={{ fontSize: '0.8rem' }}>Per page</InputLabel>
                                                 <Select
@@ -413,7 +430,9 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath = "C:\\Users\\
                                                 />
                                             </Box>
 
-                                            <Stack direction="row" spacing={1} alignItems="center">
+                                            <Stack direction="row" spacing={1} sx={{
+                                                alignItems: "center"
+                                            }}>
                                                 <Typography variant="caption" sx={{ fontSize: '0.7rem', minWidth: 60 }}>
                                                     Scale: {scale?.toFixed(1)}x
                                                 </Typography>
@@ -453,11 +472,12 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath = "C:\\Users\\
                                             </Grid>
                                         ) : (
                                             <Box
-                                                display="flex"
-                                                justifyContent="center"
-                                                alignItems="center"
-                                                height="100%"
-                                            >
+                                                sx={{
+                                                    display: "flex",
+                                                    justifyContent: "center",
+                                                    alignItems: "center",
+                                                    height: "100%"
+                                                }}>
                                                 <Typography variant="h6" color="error">
                                                     Failed to load images
                                                 </Typography>
@@ -489,7 +509,13 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath = "C:\\Users\\
 
                                         <Stack spacing={1.5}>
                                             <Box>
-                                                <Typography variant="caption" display="block" gutterBottom sx={{ fontSize: '0.7rem' }}>
+                                                <Typography
+                                                    variant="caption"
+                                                    gutterBottom
+                                                    sx={{
+                                                        display: "block",
+                                                        fontSize: '0.7rem'
+                                                    }}>
                                                     Brightness: {brightness}
                                                 </Typography>
                                                 <Slider
@@ -503,7 +529,13 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath = "C:\\Users\\
                                             </Box>
 
                                             <Box>
-                                                <Typography variant="caption" display="block" gutterBottom sx={{ fontSize: '0.7rem' }}>
+                                                <Typography
+                                                    variant="caption"
+                                                    gutterBottom
+                                                    sx={{
+                                                        display: "block",
+                                                        fontSize: '0.7rem'
+                                                    }}>
                                                     Contrast: {contrast}
                                                 </Typography>
                                                 <Slider
@@ -584,7 +616,7 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath = "C:\\Users\\
                     </Group>
                 ) : (
                     // Full-width image grid when panels are hidden (~95% screen usage)
-                    <Box sx={{
+                    (<Box sx={{
                         height: '100%',
                         display: 'flex',
                         flexDirection: 'column'
@@ -597,7 +629,13 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath = "C:\\Users\\
                             backgroundColor: 'background.paper',
                             flexShrink: 0
                         }}>
-                            <Stack direction="row" spacing={3} alignItems="center" justifyContent="center">
+                            <Stack
+                                direction="row"
+                                spacing={3}
+                                sx={{
+                                    alignItems: "center",
+                                    justifyContent: "center"
+                                }}>
                                 <FormControl size="small" sx={{ minWidth: 70 }}>
                                     <InputLabel sx={{ fontSize: '0.8rem' }}>Per page</InputLabel>
                                     <Select
@@ -622,7 +660,9 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath = "C:\\Users\\
                                     size="small"
                                 />
 
-                                <Stack direction="row" spacing={2} alignItems="center">
+                                <Stack direction="row" spacing={2} sx={{
+                                    alignItems: "center"
+                                }}>
                                     <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>Scale:</Typography>
                                     <Slider
                                         value={scale}
@@ -638,7 +678,9 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath = "C:\\Users\\
                                     </Typography>
                                 </Stack>
 
-                                <Stack direction="row" spacing={2} alignItems="center">
+                                <Stack direction="row" spacing={2} sx={{
+                                    alignItems: "center"
+                                }}>
                                     <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>Brightness:</Typography>
                                     <Slider
                                         value={brightness}
@@ -662,7 +704,6 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath = "C:\\Users\\
                                 </Stack>
                             </Stack>
                         </Box>
-
                         {/* Full-width images - MAXIMUM SPACE! */}
                         <Box sx={{
                             flex: 1,
@@ -682,18 +723,19 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath = "C:\\Users\\
                                 </Grid>
                             ) : (
                                 <Box
-                                    display="flex"
-                                    justifyContent="center"
-                                    alignItems="center"
-                                    height="100%"
-                                >
+                                    sx={{
+                                        display: "flex",
+                                        justifyContent: "center",
+                                        alignItems: "center",
+                                        height: "100%"
+                                    }}>
                                     <Typography variant="h6" color="error">
                                         Failed to load images
                                     </Typography>
                                 </Box>
                             )}
                         </Box>
-                    </Box>
+                    </Box>)
                 )}
             </Box>
         </Box>

@@ -148,7 +148,12 @@ export default function ChangePasswordDialog({
               {!isOwnPassword && <strong>{username}</strong>}
             </Typography>
             {!isOwnPassword && (
-              <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  display: "block",
+                  mt: 1
+                }}>
                 As an admin, you can set a new password without knowing the current one.
               </Typography>
             )}
@@ -169,17 +174,19 @@ export default function ChangePasswordDialog({
               onChange={(e) => setCurrentPassword(e.target.value)}
               sx={{ mb: 2 }}
               required
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                      edge="end"
-                    >
-                      {showCurrentPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        edge="end"
+                      >
+                        {showCurrentPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }
               }}
             />
           )}
@@ -193,17 +200,19 @@ export default function ChangePasswordDialog({
             sx={{ mb: 2 }}
             required
             helperText="Min 8 characters, 1 uppercase, 1 lowercase, 1 number, 1 special character"
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton
-                    onClick={() => setShowNewPassword(!showNewPassword)}
-                    edge="end"
-                  >
-                    {showNewPassword ? <VisibilityOff /> : <Visibility />}
-                  </IconButton>
-                </InputAdornment>
-              ),
+            slotProps={{
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      edge="end"
+                    >
+                      {showNewPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }
             }}
           />
 
@@ -214,17 +223,19 @@ export default function ChangePasswordDialog({
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             required
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    edge="end"
-                  >
-                    {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
-                  </IconButton>
-                </InputAdornment>
-              ),
+            slotProps={{
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      edge="end"
+                    >
+                      {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }
             }}
           />
 

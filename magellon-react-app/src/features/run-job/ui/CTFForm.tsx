@@ -322,10 +322,12 @@ export const CTFForm: React.FC<CTFFormProps> = ({
                                 type="number"
                                 value={params.PixSize}
                                 onChange={(e) => handleParamChange('PixSize', e.target.value)}
-                                InputProps={{
-                                    endAdornment: <InputAdornment position="end">A</InputAdornment>,
-                                }}
                                 size="small"
+                                slotProps={{
+                                    input: {
+                                        endAdornment: <InputAdornment position="end">A</InputAdornment>,
+                                    }
+                                }}
                             />
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
@@ -336,10 +338,12 @@ export const CTFForm: React.FC<CTFFormProps> = ({
                                 type="number"
                                 value={params.kV}
                                 onChange={(e) => handleParamChange('kV', e.target.value)}
-                                InputProps={{
-                                    endAdornment: <InputAdornment position="end">kV</InputAdornment>,
-                                }}
                                 size="small"
+                                slotProps={{
+                                    input: {
+                                        endAdornment: <InputAdornment position="end">kV</InputAdornment>,
+                                    }
+                                }}
                             />
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
@@ -350,10 +354,12 @@ export const CTFForm: React.FC<CTFFormProps> = ({
                                 type="number"
                                 value={params.Cs}
                                 onChange={(e) => handleParamChange('Cs', e.target.value)}
-                                InputProps={{
-                                    endAdornment: <InputAdornment position="end">mm</InputAdornment>,
-                                }}
                                 size="small"
+                                slotProps={{
+                                    input: {
+                                        endAdornment: <InputAdornment position="end">mm</InputAdornment>,
+                                    }
+                                }}
                             />
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
@@ -383,10 +389,12 @@ export const CTFForm: React.FC<CTFFormProps> = ({
                                 type="number"
                                 value={params.MinDefocus}
                                 onChange={(e) => handleParamChange('MinDefocus', e.target.value)}
-                                InputProps={{
-                                    endAdornment: <InputAdornment position="end">A</InputAdornment>,
-                                }}
                                 size="small"
+                                slotProps={{
+                                    input: {
+                                        endAdornment: <InputAdornment position="end">A</InputAdornment>,
+                                    }
+                                }}
                             />
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
@@ -397,10 +405,12 @@ export const CTFForm: React.FC<CTFFormProps> = ({
                                 type="number"
                                 value={params.MaxDefocus}
                                 onChange={(e) => handleParamChange('MaxDefocus', e.target.value)}
-                                InputProps={{
-                                    endAdornment: <InputAdornment position="end">A</InputAdornment>,
-                                }}
                                 size="small"
+                                slotProps={{
+                                    input: {
+                                        endAdornment: <InputAdornment position="end">A</InputAdornment>,
+                                    }
+                                }}
                             />
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
@@ -411,10 +421,12 @@ export const CTFForm: React.FC<CTFFormProps> = ({
                                 type="number"
                                 value={params.DefocusStep}
                                 onChange={(e) => handleParamChange('DefocusStep', e.target.value)}
-                                InputProps={{
-                                    endAdornment: <InputAdornment position="end">A</InputAdornment>,
-                                }}
                                 size="small"
+                                slotProps={{
+                                    input: {
+                                        endAdornment: <InputAdornment position="end">A</InputAdornment>,
+                                    }
+                                }}
                             />
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
@@ -425,11 +437,13 @@ export const CTFForm: React.FC<CTFFormProps> = ({
                                 type="number"
                                 value={params.Astigmatism}
                                 onChange={(e) => handleParamChange('Astigmatism', e.target.value)}
-                                InputProps={{
-                                    endAdornment: <InputAdornment position="end">A</InputAdornment>,
-                                }}
                                 size="small"
                                 helperText="Expected astigmatism"
+                                slotProps={{
+                                    input: {
+                                        endAdornment: <InputAdornment position="end">A</InputAdornment>,
+                                    }
+                                }}
                             />
                         </Grid>
 
@@ -447,11 +461,13 @@ export const CTFForm: React.FC<CTFFormProps> = ({
                                 type="number"
                                 value={params.MinRes}
                                 onChange={(e) => handleParamChange('MinRes', e.target.value)}
-                                InputProps={{
-                                    endAdornment: <InputAdornment position="end">A</InputAdornment>,
-                                }}
                                 size="small"
                                 helperText="Lower bound"
+                                slotProps={{
+                                    input: {
+                                        endAdornment: <InputAdornment position="end">A</InputAdornment>,
+                                    }
+                                }}
                             />
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
@@ -462,11 +478,13 @@ export const CTFForm: React.FC<CTFFormProps> = ({
                                 type="number"
                                 value={params.MaxRes}
                                 onChange={(e) => handleParamChange('MaxRes', e.target.value)}
-                                InputProps={{
-                                    endAdornment: <InputAdornment position="end">A</InputAdornment>,
-                                }}
                                 size="small"
                                 helperText="Upper bound"
+                                slotProps={{
+                                    input: {
+                                        endAdornment: <InputAdornment position="end">A</InputAdornment>,
+                                    }
+                                }}
                             />
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
@@ -477,11 +495,13 @@ export const CTFForm: React.FC<CTFFormProps> = ({
                                 type="number"
                                 value={params.SpectrumSize}
                                 onChange={(e) => handleParamChange('SpectrumSize', e.target.value)}
-                                InputProps={{
-                                    endAdornment: <InputAdornment position="end">px</InputAdornment>,
-                                }}
                                 size="small"
                                 helperText="Power of 2"
+                                slotProps={{
+                                    input: {
+                                        endAdornment: <InputAdornment position="end">px</InputAdornment>,
+                                    }
+                                }}
                             />
                         </Grid>
                     </Grid>

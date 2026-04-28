@@ -34,9 +34,10 @@ export interface SchemaFormProps {
 export const SchemaForm: React.FC<SchemaFormProps> = ({ schema, value, onChange, disabled, errors }) => {
     if (!schema?.properties) {
         return (
-            <Typography variant="body2" color="text.secondary">
-                Plugin does not expose an input schema.
-            </Typography>
+            <Typography variant="body2" sx={{
+                color: "text.secondary"
+            }}>Plugin does not expose an input schema.
+                            </Typography>
         );
     }
 
@@ -120,7 +121,12 @@ export const SchemaForm: React.FC<SchemaFormProps> = ({ schema, value, onChange,
                             sx={{ minHeight: 40, '& .MuiAccordionSummary-content': { my: 1 } }}
                         >
                             <Typography variant="subtitle2">{name}</Typography>
-                            <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                            <Typography
+                                variant="caption"
+                                sx={{
+                                    color: "text.secondary",
+                                    ml: 1
+                                }}>
                                 {items.length} field{items.length === 1 ? '' : 's'}
                             </Typography>
                         </AccordionSummary>
@@ -222,15 +228,17 @@ function renderField(
                 }}
                 size="small"
                 fullWidth
-                InputProps={unit ? {
-                    endAdornment: <InputAdornment position="end">{unit}</InputAdornment>,
-                } : undefined}
-                inputProps={{
-                    min: prop.minimum,
-                    max: prop.maximum,
-                    step: prop.ui_step ?? (prop.type === 'integer' ? 1 : 'any'),
-                }}
-            />
+                slotProps={{
+                    input: unit ? {
+                        endAdornment: <InputAdornment position="end">{unit}</InputAdornment>,
+                    } : undefined,
+
+                    htmlInput: {
+                        min: prop.minimum,
+                        max: prop.maximum,
+                        step: prop.ui_step ?? (prop.type === 'integer' ? 1 : 'any'),
+                    }
+                }} />
         );
     }
 
@@ -334,9 +342,11 @@ const JsonField: React.FC<JsonFieldProps> = ({ label, help, value, onSet, disabl
                     setParseError('Invalid JSON');
                 }
             }}
-            inputProps={{ 'data-json-field': label, style: { fontFamily: 'monospace' } }}
             size="small"
             fullWidth
+            slotProps={{
+                htmlInput: { 'data-json-field': label, style: { fontFamily: 'monospace' } }
+            }}
         />
     );
 };

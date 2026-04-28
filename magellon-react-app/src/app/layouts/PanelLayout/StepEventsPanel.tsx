@@ -47,7 +47,9 @@ export const StepEventsPanel: React.FC<Props> = ({ jobId }) => {
     if (!jobId) {
         return (
             <Paper sx={{ p: 2 }}>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{
+                    color: "text.secondary"
+                }}>
                     Select a job to see live events.
                 </Typography>
             </Paper>
@@ -56,7 +58,13 @@ export const StepEventsPanel: React.FC<Props> = ({ jobId }) => {
 
     return (
         <Paper sx={{ p: 2 }} data-testid="step-events-panel">
-            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+            <Stack
+                direction="row"
+                spacing={1}
+                sx={{
+                    alignItems: "center",
+                    mb: 1
+                }}>
                 <Typography variant="subtitle1">Live events</Typography>
                 <Chip
                     size="small"
@@ -67,7 +75,9 @@ export const StepEventsPanel: React.FC<Props> = ({ jobId }) => {
             </Stack>
             <Stack spacing={1}>
                 {events.length === 0 ? (
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{
+                        color: "text.secondary"
+                    }}>
                         Waiting for events…
                     </Typography>
                 ) : (
@@ -76,8 +86,10 @@ export const StepEventsPanel: React.FC<Props> = ({ jobId }) => {
                             key={ev.id}
                             direction="row"
                             spacing={1}
-                            alignItems="center"
                             data-testid={`step-event-${shortType(ev.type)}`}
+                            sx={{
+                                alignItems: "center"
+                            }}
                         >
                             <Chip
                                 size="small"

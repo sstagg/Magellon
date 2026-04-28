@@ -14,8 +14,8 @@ interface PagedImagesOptions {
 export function useImageListQuery({ sessionName, parentId, pageSize, level, enabled = true }: PagedImagesOptions) {
     // Auto-enable when we have the required data
     const shouldEnable = enabled && (
-        (level === 0 && sessionName !== '') || // First level needs session
-        (level > 0 && parentId !== null)       // Other levels need parent
+        (// First level needs session
+        ((level === 0 && sessionName !== '') || (level > 0 && parentId !== null)))       // Other levels need parent
     );
 
     return useInfiniteQuery<PagedImageResponse>(

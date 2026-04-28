@@ -133,7 +133,9 @@ export const InstallPluginDialog: React.FC<InstallPluginDialogProps> = ({ open, 
                             style={{ display: 'none' }}
                             onChange={(e) => setArchive(e.target.files?.[0] ?? null)}
                         />
-                        <Stack direction="row" spacing={2} alignItems="center">
+                        <Stack direction="row" spacing={2} sx={{
+                            alignItems: "center"
+                        }}>
                             <Button
                                 variant="outlined"
                                 startIcon={<Upload size={16} />}
@@ -141,7 +143,9 @@ export const InstallPluginDialog: React.FC<InstallPluginDialogProps> = ({ open, 
                             >
                                 Choose archive
                             </Button>
-                            <Typography variant="body2" color="text.secondary">
+                            <Typography variant="body2" sx={{
+                                color: "text.secondary"
+                            }}>
                                 {archive ? archive.name : 'No file selected.'}
                             </Typography>
                         </Stack>
@@ -168,7 +172,12 @@ export const InstallPluginDialog: React.FC<InstallPluginDialogProps> = ({ open, 
                     />
 
                     <Box>
-                        <Stack direction="row" alignItems="center" justifyContent="space-between">
+                        <Stack
+                            direction="row"
+                            sx={{
+                                alignItems: "center",
+                                justifyContent: "space-between"
+                            }}>
                             <Typography variant="subtitle2">Environment variables</Typography>
                             <Button
                                 size="small"
@@ -179,7 +188,9 @@ export const InstallPluginDialog: React.FC<InstallPluginDialogProps> = ({ open, 
                             </Button>
                         </Stack>
                         {envRows.length === 0 && (
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" sx={{
+                                color: "text.secondary"
+                            }}>
                                 None. Add entries if the image needs runtime overrides.
                             </Typography>
                         )}
@@ -221,7 +232,12 @@ export const InstallPluginDialog: React.FC<InstallPluginDialogProps> = ({ open, 
                     </Box>
 
                     <Box>
-                        <Stack direction="row" alignItems="center" justifyContent="space-between">
+                        <Stack
+                            direction="row"
+                            sx={{
+                                alignItems: "center",
+                                justifyContent: "space-between"
+                            }}>
                             <Typography variant="subtitle2">Volume mounts</Typography>
                             <Button
                                 size="small"
@@ -237,7 +253,9 @@ export const InstallPluginDialog: React.FC<InstallPluginDialogProps> = ({ open, 
                             </Button>
                         </Stack>
                         {volumes.length === 0 && (
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" sx={{
+                                color: "text.secondary"
+                            }}>
                                 None. Plugin images typically mount /gpfs and /jobs.
                             </Typography>
                         )}

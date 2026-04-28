@@ -96,11 +96,17 @@ const PanelFooter: React.FC<PanelFooterProps> = ({ drawerOpen, drawerWidth }) =>
             <Stack
                 direction="row"
                 spacing={1}
-                alignItems="center"
                 divider={<Divider orientation="vertical" flexItem />}
+                sx={{
+                    alignItems: "center"
+                }}
             >
                 <Tooltip title={`Session: ${sessionName}`}>
-                    <Box display="flex" alignItems="center">
+                    <Box
+                        sx={{
+                            display: "flex",
+                            alignItems: "center"
+                        }}>
                         <Database size={16} style={{ marginRight: 4 }} />
                         <Typography
                             variant="body2"
@@ -124,7 +130,11 @@ const PanelFooter: React.FC<PanelFooterProps> = ({ drawerOpen, drawerWidth }) =>
                             </Box>
                         }
                     >
-                        <Box display="flex" alignItems="center">
+                        <Box
+                            sx={{
+                                display: "flex",
+                                alignItems: "center"
+                            }}>
                             <ImageIcon size={16} style={{ marginRight: 4 }} />
                             <Typography
                                 variant="body2"
@@ -148,7 +158,6 @@ const PanelFooter: React.FC<PanelFooterProps> = ({ drawerOpen, drawerWidth }) =>
                     </Box>
                 )}
             </Stack>
-
             {/* Center - View Information (only show on tablet and above) */}
             {!isMobile && (
                 <Stack direction="row" spacing={1}>
@@ -182,11 +191,16 @@ const PanelFooter: React.FC<PanelFooterProps> = ({ drawerOpen, drawerWidth }) =>
                     )}
                 </Stack>
             )}
-
             {/* Right side - App Status */}
-            <Stack direction="row" spacing={2} alignItems="center">
+            <Stack direction="row" spacing={2} sx={{
+                alignItems: "center"
+            }}>
                 {!isMobile && (
-                    <Box display="flex" alignItems="center">
+                    <Box
+                        sx={{
+                            display: "flex",
+                            alignItems: "center"
+                        }}>
                         <Server size={16} style={{ marginRight: 4 }} />
                         <Typography variant="body2">
                             Status: <span style={{ color: '#4ade80' }}>{serverStatus}</span>

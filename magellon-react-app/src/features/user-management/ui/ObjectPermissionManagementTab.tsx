@@ -220,17 +220,20 @@ export default function ObjectPermissionManagementTab({
             <Typography variant="h5" gutterBottom>
                 Object Permission Management
             </Typography>
-            <Typography variant="body2" color="text.secondary" paragraph>
+            <Typography
+                variant="body2"
+                sx={{
+                    color: "text.secondary",
+                    marginBottom: "16px"
+                }}>
                 Create row-level permissions using XAF criteria expressions. This is the generic interface
                 for all object permissions - more flexible than the Session Access shortcut.
             </Typography>
-
             {isSuperUser && (
                 <Alert severity="info" sx={{ mb: 3 }}>
                     Super user mode: You can create object permissions for any role and any criteria pattern.
                 </Alert>
             )}
-
             <Alert severity="info" sx={{ mb: 3 }} icon={<Info />}>
                 <Typography variant="subtitle2" gutterBottom>
                     <strong>What are Object Permissions?</strong>
@@ -246,10 +249,9 @@ export default function ObjectPermissionManagementTab({
                     <li><code>[user_id] = CurrentUserId()</code> - Dynamic: user's own data</li>
                 </ul>
             </Alert>
-
             <Grid container spacing={3}>
                 {/* Create Permission Section */}
-                <Grid item xs={12}>
+                <Grid size={12}>
                     <Paper sx={{ p: 3 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                             <Typography variant="h6">Existing Object Permissions</Typography>
@@ -319,7 +321,6 @@ export default function ObjectPermissionManagementTab({
                     </Paper>
                 </Grid>
             </Grid>
-
             {/* Create Dialog */}
             <Dialog open={openCreateDialog} onClose={() => setOpenCreateDialog(false)} maxWidth="md" fullWidth>
                 <DialogTitle>

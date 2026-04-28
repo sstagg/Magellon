@@ -242,7 +242,9 @@ const UserProfilePage: React.FC = () => {
                                 <Typography variant="h4" component="h1" gutterBottom>
                                     {profile.username}
                                 </Typography>
-                                <Stack direction="row" spacing={1} alignItems="center">
+                                <Stack direction="row" spacing={1} sx={{
+                                    alignItems: "center"
+                                }}>
                                     <Chip
                                         label={profile.active ? 'Active' : 'Inactive'}
                                         color={getAccountStatusColor(profile.active)}
@@ -302,7 +304,11 @@ const UserProfilePage: React.FC = () => {
 
                 <Grid container spacing={3}>
                     {/* Profile Information */}
-                    <Grid item xs={12} md={6}>
+                    <Grid
+                        size={{
+                            xs: 12,
+                            md: 6
+                        }}>
                         <Card>
                             <CardContent>
                                 <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -313,7 +319,9 @@ const UserProfilePage: React.FC = () => {
 
                                 <Stack spacing={2}>
                                     <Box>
-                                        <Typography variant="body2" color="text.secondary">Username</Typography>
+                                        <Typography variant="body2" sx={{
+                                            color: "text.secondary"
+                                        }}>Username</Typography>
                                         {isEditing ? (
                                             <TextField
                                                 fullWidth
@@ -328,14 +336,18 @@ const UserProfilePage: React.FC = () => {
                                     </Box>
 
                                     <Box>
-                                        <Typography variant="body2" color="text.secondary">User ID</Typography>
+                                        <Typography variant="body2" sx={{
+                                            color: "text.secondary"
+                                        }}>User ID</Typography>
                                         <Typography variant="body1" sx={{ fontFamily: 'monospace' }}>
                                             {profile.id}
                                         </Typography>
                                     </Box>
 
                                     <Box>
-                                        <Typography variant="body2" color="text.secondary">OUID</Typography>
+                                        <Typography variant="body2" sx={{
+                                            color: "text.secondary"
+                                        }}>OUID</Typography>
                                         {isEditing ? (
                                             <TextField
                                                 fullWidth
@@ -352,7 +364,9 @@ const UserProfilePage: React.FC = () => {
                                     </Box>
 
                                     <Box>
-                                        <Typography variant="body2" color="text.secondary">Version</Typography>
+                                        <Typography variant="body2" sx={{
+                                            color: "text.secondary"
+                                        }}>Version</Typography>
                                         {isEditing ? (
                                             <TextField
                                                 fullWidth
@@ -369,7 +383,9 @@ const UserProfilePage: React.FC = () => {
                                     </Box>
 
                                     <Box>
-                                        <Typography variant="body2" color="text.secondary">Object Type</Typography>
+                                        <Typography variant="body2" sx={{
+                                            color: "text.secondary"
+                                        }}>Object Type</Typography>
                                         <Typography variant="body1">
                                             {profile.object_type || 'Default'}
                                         </Typography>
@@ -380,7 +396,11 @@ const UserProfilePage: React.FC = () => {
                     </Grid>
 
                     {/* Account Security */}
-                    <Grid item xs={12} md={6}>
+                    <Grid
+                        size={{
+                            xs: 12,
+                            md: 6
+                        }}>
                         <Card>
                             <CardContent>
                                 <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -391,7 +411,9 @@ const UserProfilePage: React.FC = () => {
 
                                 <Stack spacing={2}>
                                     <Box>
-                                        <Typography variant="body2" color="text.secondary">Account Status</Typography>
+                                        <Typography variant="body2" sx={{
+                                            color: "text.secondary"
+                                        }}>Account Status</Typography>
                                         <Chip
                                             label={profile.active ? 'Active' : 'Inactive'}
                                             color={getAccountStatusColor(profile.active)}
@@ -401,7 +423,9 @@ const UserProfilePage: React.FC = () => {
                                     </Box>
 
                                     <Box>
-                                        <Typography variant="body2" color="text.secondary">Failed Login Attempts</Typography>
+                                        <Typography variant="body2" sx={{
+                                            color: "text.secondary"
+                                        }}>Failed Login Attempts</Typography>
                                         <Typography variant="body1" color={profile.access_failed_count && profile.access_failed_count > 0 ? 'error.main' : 'text.primary'}>
                                             {profile.access_failed_count || 0}
                                         </Typography>
@@ -409,15 +433,21 @@ const UserProfilePage: React.FC = () => {
 
                                     {profile.lockout_end && (
                                         <Box>
-                                            <Typography variant="body2" color="text.secondary">Lockout Until</Typography>
-                                            <Typography variant="body1" color="error.main">
+                                            <Typography variant="body2" sx={{
+                                                color: "text.secondary"
+                                            }}>Lockout Until</Typography>
+                                            <Typography variant="body1" sx={{
+                                                color: "error.main"
+                                            }}>
                                                 {formatDate(profile.lockout_end)}
                                             </Typography>
                                         </Box>
                                     )}
 
                                     <Box>
-                                        <Typography variant="body2" color="text.secondary">Password Change Required</Typography>
+                                        <Typography variant="body2" sx={{
+                                            color: "text.secondary"
+                                        }}>Password Change Required</Typography>
                                         <Typography variant="body1">
                                             {profile.change_password_on_first_logon ? 'Yes' : 'No'}
                                         </Typography>
@@ -437,7 +467,7 @@ const UserProfilePage: React.FC = () => {
                     </Grid>
 
                     {/* Roles & Permissions */}
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                         <Card>
                             <CardContent>
                                 <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -452,12 +482,24 @@ const UserProfilePage: React.FC = () => {
                                     </Box>
                                 ) : (
                                     <Grid container spacing={3}>
-                                        <Grid item xs={12} md={6}>
+                                        <Grid
+                                            size={{
+                                                xs: 12,
+                                                md: 6
+                                            }}>
                                             <Box>
-                                                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                                                <Typography variant="subtitle2" gutterBottom sx={{
+                                                    color: "text.secondary"
+                                                }}>
                                                     Assigned Roles
                                                 </Typography>
-                                                <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ gap: 1 }}>
+                                                <Stack
+                                                    direction="row"
+                                                    spacing={1}
+                                                    sx={{
+                                                        flexWrap: "wrap",
+                                                        gap: 1
+                                                    }}>
                                                     {userRoles.length > 0 ? (
                                                         userRoles.map((role, idx) => (
                                                             <Chip
@@ -469,7 +511,9 @@ const UserProfilePage: React.FC = () => {
                                                             />
                                                         ))
                                                     ) : (
-                                                        <Typography variant="body2" color="text.secondary">
+                                                        <Typography variant="body2" sx={{
+                                                            color: "text.secondary"
+                                                        }}>
                                                             No roles assigned
                                                         </Typography>
                                                     )}
@@ -477,9 +521,15 @@ const UserProfilePage: React.FC = () => {
                                             </Box>
                                         </Grid>
 
-                                        <Grid item xs={12} md={6}>
+                                        <Grid
+                                            size={{
+                                                xs: 12,
+                                                md: 6
+                                            }}>
                                             <Box>
-                                                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                                                <Typography variant="subtitle2" gutterBottom sx={{
+                                                    color: "text.secondary"
+                                                }}>
                                                     Permission Summary
                                                 </Typography>
                                                 {userPermissions ? (
@@ -507,7 +557,9 @@ const UserProfilePage: React.FC = () => {
                                                         )}
                                                     </Stack>
                                                 ) : (
-                                                    <Typography variant="body2" color="text.secondary">
+                                                    <Typography variant="body2" sx={{
+                                                        color: "text.secondary"
+                                                    }}>
                                                         No permissions available
                                                     </Typography>
                                                 )}
@@ -520,7 +572,7 @@ const UserProfilePage: React.FC = () => {
                     </Grid>
 
                     {/* Account Activity */}
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                         <Card>
                             <CardContent>
                                 <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -530,17 +582,29 @@ const UserProfilePage: React.FC = () => {
                                 <Divider sx={{ mb: 2 }} />
 
                                 <Grid container spacing={3}>
-                                    <Grid item xs={12} sm={6}>
+                                    <Grid
+                                        size={{
+                                            xs: 12,
+                                            sm: 6
+                                        }}>
                                         <Box>
-                                            <Typography variant="body2" color="text.secondary">Account Created</Typography>
+                                            <Typography variant="body2" sx={{
+                                                color: "text.secondary"
+                                            }}>Account Created</Typography>
                                             <Typography variant="body1">
                                                 {formatDate(profile.created_date)}
                                             </Typography>
                                         </Box>
                                     </Grid>
-                                    <Grid item xs={12} sm={6}>
+                                    <Grid
+                                        size={{
+                                            xs: 12,
+                                            sm: 6
+                                        }}>
                                         <Box>
-                                            <Typography variant="body2" color="text.secondary">Last Modified</Typography>
+                                            <Typography variant="body2" sx={{
+                                                color: "text.secondary"
+                                            }}>Last Modified</Typography>
                                             <Typography variant="body1">
                                                 {formatDate(profile.last_modified_date)}
                                             </Typography>

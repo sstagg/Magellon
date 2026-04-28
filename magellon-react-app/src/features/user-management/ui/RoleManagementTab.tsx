@@ -254,7 +254,11 @@ export default function RoleManagementTab({ currentUser, showSnackbar, isSuperUs
       {/* Statistics Cards */}
       {statistics && (
         <Grid container spacing={3} sx={{ mb: 3 }}>
-          <Grid item xs={12} sm={4}>
+          <Grid
+            size={{
+              xs: 12,
+              sm: 4
+            }}>
             <Card>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -263,7 +267,9 @@ export default function RoleManagementTab({ currentUser, showSnackbar, isSuperUs
                   </Avatar>
                   <Box>
                     <Typography variant="h4">{statistics.total_roles}</Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{
+                      color: "text.secondary"
+                    }}>
                       Total Roles
                     </Typography>
                   </Box>
@@ -271,7 +277,11 @@ export default function RoleManagementTab({ currentUser, showSnackbar, isSuperUs
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} sm={4}>
+          <Grid
+            size={{
+              xs: 12,
+              sm: 4
+            }}>
             <Card>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -280,7 +290,9 @@ export default function RoleManagementTab({ currentUser, showSnackbar, isSuperUs
                   </Avatar>
                   <Box>
                     <Typography variant="h4">{statistics.administrative_roles_count}</Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{
+                      color: "text.secondary"
+                    }}>
                       Admin Roles
                     </Typography>
                   </Box>
@@ -288,7 +300,11 @@ export default function RoleManagementTab({ currentUser, showSnackbar, isSuperUs
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} sm={4}>
+          <Grid
+            size={{
+              xs: 12,
+              sm: 4
+            }}>
             <Card>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -302,7 +318,9 @@ export default function RoleManagementTab({ currentUser, showSnackbar, isSuperUs
                         0
                       ) || 0}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{
+                      color: "text.secondary"
+                    }}>
                       Total Assignments
                     </Typography>
                   </Box>
@@ -312,7 +330,6 @@ export default function RoleManagementTab({ currentUser, showSnackbar, isSuperUs
           </Grid>
         </Grid>
       )}
-
       {/* Header with Search and Actions */}
       <Box sx={{ display: 'flex', gap: 2, mb: 3, alignItems: 'center' }}>
         <TextField
@@ -320,12 +337,14 @@ export default function RoleManagementTab({ currentUser, showSnackbar, isSuperUs
           placeholder="Search roles..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <Search />
-              </InputAdornment>
-            ),
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search />
+                </InputAdornment>
+              ),
+            }
           }}
         />
         <Button variant="outlined" startIcon={<Refresh />} onClick={loadRoles}>
@@ -335,7 +354,6 @@ export default function RoleManagementTab({ currentUser, showSnackbar, isSuperUs
           Create Role
         </Button>
       </Box>
-
       {/* Roles Table */}
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
@@ -358,7 +376,12 @@ export default function RoleManagementTab({ currentUser, showSnackbar, isSuperUs
                 {paginatedRoles.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} align="center">
-                      <Typography variant="body1" color="text.secondary" sx={{ p: 3 }}>
+                      <Typography
+                        variant="body1"
+                        sx={{
+                          color: "text.secondary",
+                          p: 3
+                        }}>
                         No roles found
                       </Typography>
                     </TableCell>
@@ -383,7 +406,9 @@ export default function RoleManagementTab({ currentUser, showSnackbar, isSuperUs
                             </Avatar>
                             <Box>
                               <Typography variant="subtitle2">{role.name}</Typography>
-                              <Typography variant="caption" color="text.secondary">
+                              <Typography variant="caption" sx={{
+                                color: "text.secondary"
+                              }}>
                                 ID: {role.oid.substring(0, 8)}...
                               </Typography>
                             </Box>
@@ -457,7 +482,6 @@ export default function RoleManagementTab({ currentUser, showSnackbar, isSuperUs
           />
         </Card>
       )}
-
       {/* Action Menu */}
       <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={handleMenuClose}>
         <MenuItem
@@ -506,7 +530,6 @@ export default function RoleManagementTab({ currentUser, showSnackbar, isSuperUs
           <ListItemText>Delete Role</ListItemText>
         </MenuItem>
       </Menu>
-
       {/* Create Role Dialog */}
       <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Create New Role</DialogTitle>
@@ -548,7 +571,6 @@ export default function RoleManagementTab({ currentUser, showSnackbar, isSuperUs
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Edit Role Dialog - Comprehensive */}
       {selectedRole && (
         <RoleEditDialog
@@ -565,7 +587,6 @@ export default function RoleManagementTab({ currentUser, showSnackbar, isSuperUs
           showSnackbar={showSnackbar}
         />
       )}
-
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} maxWidth="sm">
         <DialogTitle>Delete Role</DialogTitle>
@@ -582,13 +603,17 @@ export default function RoleManagementTab({ currentUser, showSnackbar, isSuperUs
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Role Users Dialog */}
       <Dialog open={usersDialogOpen} onClose={() => setUsersDialogOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>Users in Role: {selectedRole?.name}</DialogTitle>
         <DialogContent>
           {roleUsers.length === 0 ? (
-            <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                p: 2
+              }}>
               No users assigned to this role
             </Typography>
           ) : (
@@ -624,7 +649,6 @@ export default function RoleManagementTab({ currentUser, showSnackbar, isSuperUs
           <Button onClick={() => setUsersDialogOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
-
       {/* Permission Assignment Dialog */}
       {selectedRole && (
         <PermissionAssignmentDialog

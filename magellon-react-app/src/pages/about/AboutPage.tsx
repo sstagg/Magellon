@@ -436,20 +436,20 @@ const AboutPage: React.FC = () => {
                             <Typography
                                 variant={isMobile ? "h3" : "h2"}
                                 component="h1"
-                                fontWeight="bold"
                                 gutterBottom
-                                sx={{ fontSize: { xs: '2rem', sm: '2.5rem', md: '3.75rem' } }}
-                            >
+                                sx={{
+                                    fontWeight: "bold",
+                                    fontSize: { xs: '2rem', sm: '2.5rem', md: '3.75rem' }
+                                }}>
                                 Magellon
                             </Typography>
                             <Typography
                                 variant={isMobile ? "h6" : "h5"}
-                                color="text.secondary"
                                 sx={{
+                                    color: "text.secondary",
                                     mb: 3,
                                     fontSize: { xs: '1.1rem', sm: '1.25rem', md: '1.5rem' }
-                                }}
-                            >
+                                }}>
                                 Advanced Scientific Image Analysis Platform
                             </Typography>
                             <Typography
@@ -468,9 +468,10 @@ const AboutPage: React.FC = () => {
                             <Stack
                                 direction={{ xs: 'column', sm: 'row' }}
                                 spacing={2}
-                                justifyContent="center"
-                                sx={{ px: { xs: 2, sm: 0 } }}
-                            >
+                                sx={{
+                                    justifyContent: "center",
+                                    px: { xs: 2, sm: 0 }
+                                }}>
                                 <Button
                                     variant="contained"
                                     size={isMobile ? "medium" : "large"}
@@ -507,9 +508,10 @@ const AboutPage: React.FC = () => {
                     <Typography
                         variant={isMobile ? "h5" : "h4"}
                         gutterBottom
-                        textAlign="center"
-                        sx={{ fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' } }}
-                    >
+                        sx={{
+                            textAlign: "center",
+                            fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' }
+                        }}>
                         Our Vision
                     </Typography>
                     <Typography
@@ -535,14 +537,17 @@ const AboutPage: React.FC = () => {
                     <Typography
                         variant={isMobile ? "h5" : "h4"}
                         gutterBottom
-                        textAlign="center"
-                        sx={{ fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' } }}
-                    >
+                        sx={{
+                            textAlign: "center",
+                            fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' }
+                        }}>
                         Why Choose Magellon?
                     </Typography>
                     <Grid container spacing={4} sx={{ mt: 2 }}>
                         <Grid size={{ xs: 12, md: 4 }}>
-                            <Box textAlign="center">
+                            <Box sx={{
+                                textAlign: "center"
+                            }}>
                                 <Avatar sx={{
                                     width: { xs: 60, sm: 80 },
                                     height: { xs: 60, sm: 80 },
@@ -555,13 +560,20 @@ const AboutPage: React.FC = () => {
                                 <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
                                     Scientific Precision
                                 </Typography>
-                                <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.85rem', sm: '0.875rem' } }}>
+                                <Typography
+                                    variant="body2"
+                                    sx={{
+                                        color: "text.secondary",
+                                        fontSize: { xs: '0.85rem', sm: '0.875rem' }
+                                    }}>
                                     Built specifically for cryo-EM workflows with accuracy and reproducibility at its core
                                 </Typography>
                             </Box>
                         </Grid>
                         <Grid size={{ xs: 12, md: 4 }}>
-                            <Box textAlign="center">
+                            <Box sx={{
+                                textAlign: "center"
+                            }}>
                                 <Avatar sx={{
                                     width: { xs: 60, sm: 80 },
                                     height: { xs: 60, sm: 80 },
@@ -574,13 +586,20 @@ const AboutPage: React.FC = () => {
                                 <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
                                     High Performance
                                 </Typography>
-                                <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.85rem', sm: '0.875rem' } }}>
+                                <Typography
+                                    variant="body2"
+                                    sx={{
+                                        color: "text.secondary",
+                                        fontSize: { xs: '0.85rem', sm: '0.875rem' }
+                                    }}>
                                     Optimized for large datasets with virtual scrolling and efficient memory management
                                 </Typography>
                             </Box>
                         </Grid>
                         <Grid size={{ xs: 12, md: 4 }}>
-                            <Box textAlign="center">
+                            <Box sx={{
+                                textAlign: "center"
+                            }}>
                                 <Avatar sx={{
                                     width: { xs: 60, sm: 80 },
                                     height: { xs: 60, sm: 80 },
@@ -593,7 +612,12 @@ const AboutPage: React.FC = () => {
                                 <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
                                     User-Centric Design
                                 </Typography>
-                                <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.85rem', sm: '0.875rem' } }}>
+                                <Typography
+                                    variant="body2"
+                                    sx={{
+                                        color: "text.secondary",
+                                        fontSize: { xs: '0.85rem', sm: '0.875rem' }
+                                    }}>
                                     Intuitive interface designed by researchers who understand scientific workflows
                                 </Typography>
                             </Box>
@@ -606,9 +630,10 @@ const AboutPage: React.FC = () => {
                     <Typography
                         variant={isMobile ? "h5" : "h4"}
                         gutterBottom
-                        textAlign="center"
-                        sx={{ fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' } }}
-                    >
+                        sx={{
+                            textAlign: "center",
+                            fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' }
+                        }}>
                         Features
                     </Typography>
 
@@ -672,9 +697,10 @@ const AboutPage: React.FC = () => {
                                             </Box>
                                             <Typography
                                                 variant="body2"
-                                                color="text.secondary"
-                                                sx={{ fontSize: { xs: '0.85rem', sm: '0.875rem' } }}
-                                            >
+                                                sx={{
+                                                    color: "text.secondary",
+                                                    fontSize: { xs: '0.85rem', sm: '0.875rem' }
+                                                }}>
                                                 {feature.description}
                                             </Typography>
                                         </CardContent>
@@ -690,9 +716,10 @@ const AboutPage: React.FC = () => {
                     <Typography
                         variant={isMobile ? "h5" : "h4"}
                         gutterBottom
-                        textAlign="center"
-                        sx={{ fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' } }}
-                    >
+                        sx={{
+                            textAlign: "center",
+                            fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' }
+                        }}>
                         Technology Stack
                     </Typography>
                     <Grid container spacing={3} sx={{ mt: 2 }}>
@@ -711,16 +738,19 @@ const AboutPage: React.FC = () => {
                                                 >
                                                     {tech.name}
                                                 </Typography>
-                                                <Typography variant="caption" color="text.secondary">
+                                                <Typography variant="caption" sx={{
+                                                    color: "text.secondary"
+                                                }}>
                                                     v{tech.version}
                                                 </Typography>
                                             </Box>
                                         </Box>
                                         <Typography
                                             variant="body2"
-                                            color="text.secondary"
-                                            sx={{ fontSize: { xs: '0.85rem', sm: '0.875rem' } }}
-                                        >
+                                            sx={{
+                                                color: "text.secondary",
+                                                fontSize: { xs: '0.85rem', sm: '0.875rem' }
+                                            }}>
                                             {tech.description}
                                         </Typography>
                                         <Chip
@@ -741,9 +771,10 @@ const AboutPage: React.FC = () => {
                     <Typography
                         variant={isMobile ? "h5" : "h4"}
                         gutterBottom
-                        textAlign="center"
-                        sx={{ fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' } }}
-                    >
+                        sx={{
+                            textAlign: "center",
+                            fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' }
+                        }}>
                         Meet the Team
                     </Typography>
                     <Grid container spacing={4} sx={{ mt: 2 }}>
@@ -781,12 +812,11 @@ const AboutPage: React.FC = () => {
                                             </Typography>
                                             <Typography
                                                 variant="body2"
-                                                color="text.secondary"
                                                 sx={{
+                                                    color: "text.secondary",
                                                     mb: 2,
                                                     fontSize: { xs: '0.8rem', sm: '0.875rem' }
-                                                }}
-                                            >
+                                                }}>
                                                 {member.bio}
                                             </Typography>
                                             <Stack
@@ -809,7 +839,9 @@ const AboutPage: React.FC = () => {
                                                     />
                                                 ))}
                                             </Stack>
-                                            <Stack direction="row" spacing={1} justifyContent="center">
+                                            <Stack direction="row" spacing={1} sx={{
+                                                justifyContent: "center"
+                                            }}>
                                                 {member.social?.github && (
                                                     <IconButton size="small" href={member.social.github} target="_blank">
                                                         <GitHub />
@@ -844,9 +876,10 @@ const AboutPage: React.FC = () => {
                     <Typography
                         variant={isMobile ? "h5" : "h4"}
                         gutterBottom
-                        textAlign="center"
-                        sx={{ fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' } }}
-                    >
+                        sx={{
+                            textAlign: "center",
+                            fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' }
+                        }}>
                         Version History
                     </Typography>
                     <Paper elevation={1} sx={{ p: { xs: 2, sm: 3 } }}>
@@ -867,7 +900,12 @@ const AboutPage: React.FC = () => {
                                         >
                                             Version {version.version}
                                         </Typography>
-                                        <Typography variant="caption" display="block" color="text.secondary">
+                                        <Typography
+                                            variant="caption"
+                                            sx={{
+                                                display: "block",
+                                                color: "text.secondary"
+                                            }}>
                                             {version.date}
                                         </Typography>
                                         <Typography
@@ -888,8 +926,10 @@ const AboutPage: React.FC = () => {
                                                     </ListItemIcon>
                                                     <ListItemText
                                                         primary={feature}
-                                                        primaryTypographyProps={{
-                                                            fontSize: { xs: '0.85rem', sm: '0.875rem' }
+                                                        slotProps={{
+                                                            primary: {
+                                                                sx: { fontSize: { xs: '0.85rem', sm: '0.875rem' } }
+                                                            }
                                                         }}
                                                     />
                                                 </ListItem>
@@ -907,9 +947,10 @@ const AboutPage: React.FC = () => {
                     <Typography
                         variant={isMobile ? "h5" : "h4"}
                         gutterBottom
-                        textAlign="center"
-                        sx={{ fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' } }}
-                    >
+                        sx={{
+                            textAlign: "center",
+                            fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' }
+                        }}>
                         System Requirements
                     </Typography>
                     <Grid container spacing={3}>
@@ -917,8 +958,10 @@ const AboutPage: React.FC = () => {
                             <Card>
                                 <CardHeader
                                     title="Minimum Requirements"
-                                    titleTypographyProps={{
-                                        fontSize: { xs: '1.1rem', sm: '1.25rem' }
+                                    slotProps={{
+                                        title: {
+                                            fontSize: { xs: '1.1rem', sm: '1.25rem' }
+                                        }
                                     }}
                                 />
                                 <CardContent>
@@ -935,13 +978,15 @@ const AboutPage: React.FC = () => {
                                                 <ListItemText
                                                     primary={key.charAt(0).toUpperCase() + key.slice(1)}
                                                     secondary={value}
-                                                    primaryTypographyProps={{
-                                                        fontSize: { xs: '0.9rem', sm: '1rem' }
-                                                    }}
-                                                    secondaryTypographyProps={{
-                                                        fontSize: { xs: '0.8rem', sm: '0.875rem' }
-                                                    }}
-                                                />
+                                                    slotProps={{
+                                                        primary: {
+                                                            sx: { fontSize: { xs: '0.9rem', sm: '1rem' } }
+                                                        },
+
+                                                        secondary: {
+                                                            sx: { fontSize: { xs: '0.8rem', sm: '0.875rem' } }
+                                                        }
+                                                    }} />
                                             </ListItem>
                                         ))}
                                     </List>
@@ -952,8 +997,10 @@ const AboutPage: React.FC = () => {
                             <Card>
                                 <CardHeader
                                     title="Recommended Requirements"
-                                    titleTypographyProps={{
-                                        fontSize: { xs: '1.1rem', sm: '1.25rem' }
+                                    slotProps={{
+                                        title: {
+                                            fontSize: { xs: '1.1rem', sm: '1.25rem' }
+                                        }
                                     }}
                                 />
                                 <CardContent>
@@ -970,13 +1017,15 @@ const AboutPage: React.FC = () => {
                                                 <ListItemText
                                                     primary={key.charAt(0).toUpperCase() + key.slice(1)}
                                                     secondary={value}
-                                                    primaryTypographyProps={{
-                                                        fontSize: { xs: '0.9rem', sm: '1rem' }
-                                                    }}
-                                                    secondaryTypographyProps={{
-                                                        fontSize: { xs: '0.8rem', sm: '0.875rem' }
-                                                    }}
-                                                />
+                                                    slotProps={{
+                                                        primary: {
+                                                            sx: { fontSize: { xs: '0.9rem', sm: '1rem' } }
+                                                        },
+
+                                                        secondary: {
+                                                            sx: { fontSize: { xs: '0.8rem', sm: '0.875rem' } }
+                                                        }
+                                                    }} />
                                             </ListItem>
                                         ))}
                                     </List>
@@ -991,9 +1040,10 @@ const AboutPage: React.FC = () => {
                     <Typography
                         variant={isMobile ? "h5" : "h4"}
                         gutterBottom
-                        textAlign="center"
-                        sx={{ fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' } }}
-                    >
+                        sx={{
+                            textAlign: "center",
+                            fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' }
+                        }}>
                         Frequently Asked Questions
                     </Typography>
                     <Box sx={{ mt: 3 }}>
@@ -1065,7 +1115,9 @@ const AboutPage: React.FC = () => {
                     >
                         Magellon is a community-driven project. Whether you're a researcher, developer, or just interested in scientific computing, there are many ways to contribute!
                     </Typography>
-                    <Grid container spacing={3} justifyContent="center">
+                    <Grid container spacing={3} sx={{
+                        justifyContent: "center"
+                    }}>
                         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                             <Button
                                 variant="outlined"
@@ -1126,17 +1178,19 @@ const AboutPage: React.FC = () => {
                     }}>
                         <Typography
                             variant="body2"
-                            color="text.secondary"
-                            sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}
-                        >
+                            sx={{
+                                color: "text.secondary",
+                                fontSize: { xs: '0.8rem', sm: '0.875rem' }
+                            }}>
                             Made with
                         </Typography>
                         <Heart size={16} color={theme.palette.error.main} />
                         <Typography
                             variant="body2"
-                            color="text.secondary"
-                            sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}
-                        >
+                            sx={{
+                                color: "text.secondary",
+                                fontSize: { xs: '0.8rem', sm: '0.875rem' }
+                            }}>
                             by scientists, for science
                         </Typography>
                         <Coffee size={16} color={theme.palette.warning.main} />

@@ -48,9 +48,7 @@ export default function ScalarApiDocs() {
     <Box sx={{ height: 'calc(100vh - 64px - 56px)', width: '100%' }}>
       <ApiReferenceReact
         configuration={{
-          spec: {
-            content: spec,
-          },
+          content: spec,
         }}
       />
     </Box>

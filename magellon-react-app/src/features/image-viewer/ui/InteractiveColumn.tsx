@@ -206,7 +206,7 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
         }}>
             {showSearch ? (
                 /* ── Search mode: inline input replaces label ── */
-                <>
+                (<>
                     <Box sx={{
                         position: 'relative',
                         flex: 1,
@@ -242,10 +242,10 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                     >
                         <Clear sx={{ fontSize: 12 }} />
                     </IconButton>
-                </>
+                </>)
             ) : (
                 /* ── Normal mode: label + count + sort + search icons ── */
-                <>
+                (<>
                     {collapsible && (
                         <IconButton
                             size="small"
@@ -255,7 +255,6 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                             {isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
                         </IconButton>
                     )}
-
                     <Typography
                         variant="caption"
                         sx={{
@@ -270,7 +269,6 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                     >
                         {caption}
                     </Typography>
-
                     {filteredImages.length > 0 && (
                         <Chip
                             label={filteredImages.length}
@@ -285,9 +283,7 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                             }}
                         />
                     )}
-
                     <Box sx={{ flex: 1 }} />
-
                     <IconButton
                         size="small"
                         onClick={handleSortToggle}
@@ -303,7 +299,6 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                             : <ArrowDownAZ size={14} />
                         }
                     </IconButton>
-
                     <IconButton
                         size="small"
                         onClick={() => setShowSearch(true)}
@@ -315,7 +310,7 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                     >
                         <Search size={14} />
                     </IconButton>
-                </>
+                </>)
             )}
         </Box>
     );
@@ -505,7 +500,13 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                     borderRadius: 1
                 }}>
                     <Folder size={24} color={theme.palette.text.secondary} />
-                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1, textAlign: 'center' }}>
+                    <Typography
+                        variant="caption"
+                        sx={{
+                            color: "text.secondary",
+                            mt: 1,
+                            textAlign: 'center'
+                        }}>
                         {level === 0 ? "No images" : "Select parent"}
                     </Typography>
                 </Box>
@@ -565,8 +566,8 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                 open={Boolean(menuAnchor)}
                 onClose={handleMenuClose}
                 dense
-                PaperProps={{
-                    sx: { minWidth: 160 }
+                slotProps={{
+                    paper: { sx: { minWidth: 160 } }
                 }}
             >
                 <MenuItem onClick={() => {

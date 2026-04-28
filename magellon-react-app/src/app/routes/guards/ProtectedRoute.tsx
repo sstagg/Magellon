@@ -30,7 +30,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
                     }}
                 >
                     <CircularProgress size={40} />
-                    <Typography variant="body1" color="text.secondary">
+                    <Typography variant="body1" sx={{
+                        color: "text.secondary"
+                    }}>
                         Verifying authentication...
                     </Typography>
                 </Box>

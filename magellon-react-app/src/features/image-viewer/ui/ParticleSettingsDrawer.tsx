@@ -19,7 +19,7 @@ import {
 import {
     Visibility as PreviewIcon,
     PlayArrow as RunIcon,
-    ErrorOutline as ErrorIcon,
+    ErrorOutlined as ErrorIcon,
     CheckCircle as ValidIcon,
     ArrowBack as BackIcon,
     Check as AcceptIcon,
@@ -265,7 +265,6 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
 
     return (
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-
             {/* ============ TOOLBAR ============ */}
             <Box sx={{
                 px: 1.5, py: 1,
@@ -280,7 +279,12 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                             <BackIcon fontSize="small" />
                         </IconButton>
                     )}
-                    <Typography variant="caption" fontWeight={600} sx={{ flex: 1 }}>
+                    <Typography
+                        variant="caption"
+                        sx={{
+                            fontWeight: 600,
+                            flex: 1
+                        }}>
                         {{
                             configure: 'Algorithm Settings',
                             previewing: 'Computing Preview...',
@@ -329,12 +333,23 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                         </Box>
                         <Box sx={{ mt: 0.75, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                             {isValid ? (
-                                <><ValidIcon sx={{ fontSize: 12, color: 'success.main' }} /><Typography variant="caption" color="success.main" sx={{ fontSize: '0.7rem' }}>Ready</Typography></>
+                                <><ValidIcon sx={{ fontSize: 12, color: 'success.main' }} /><Typography
+                                    variant="caption"
+                                    sx={{
+                                        color: "success.main",
+                                        fontSize: '0.7rem'
+                                    }}>Ready</Typography></>
                             ) : (
                                 <><ErrorIcon sx={{ fontSize: 12, color: 'warning.main' }} />
-                                <Typography variant="caption" color="warning.main"
-                                    sx={{ cursor: 'pointer', textDecoration: 'underline', fontSize: '0.7rem' }}
-                                    onClick={() => setShowErrors(!showErrors)}>
+                                <Typography
+                                    variant="caption"
+                                    onClick={() => setShowErrors(!showErrors)}
+                                    sx={{
+                                        color: "warning.main",
+                                        cursor: 'pointer',
+                                        textDecoration: 'underline',
+                                        fontSize: '0.7rem'
+                                    }}>
                                     {validationErrors.length} issue{validationErrors.length !== 1 ? 's' : ''}
                                 </Typography></>
                             )}
@@ -372,7 +387,14 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                 {drawerState === 'running' && (
                     <Box sx={{ mt: 0.5 }}>
                         <LinearProgress sx={{ height: 4, borderRadius: 1 }} />
-                        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
+                        <Typography
+                            variant="caption"
+                            sx={{
+                                color: "text.secondary",
+                                mt: 0.5,
+                                display: 'block',
+                                fontSize: '0.7rem'
+                            }}>
                             Running...
                         </Typography>
                     </Box>
@@ -405,33 +427,50 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                     </Box>
                 )}
             </Box>
-
             {/* ============ VALIDATION ERRORS ============ */}
             <Collapse in={showErrors && validationErrors.length > 0 && drawerState === 'configure'}>
                 <Box sx={{ px: 1.5, pt: 1 }}>
                     <Alert severity="warning" sx={{ py: 0.25, '& .MuiAlert-message': { fontSize: '0.7rem' } }}>
                         <AlertTitle sx={{ fontSize: '0.75rem', mb: 0.25 }}>Fix before running</AlertTitle>
                         {validationErrors.map((err, i) => (
-                            <Typography key={i} variant="caption" display="block" sx={{ lineHeight: 1.5, fontSize: '0.7rem' }}>• {err}</Typography>
+                            <Typography
+                                key={i}
+                                variant="caption"
+                                sx={{
+                                    display: "block",
+                                    lineHeight: 1.5,
+                                    fontSize: '0.7rem'
+                                }}>• {err}</Typography>
                         ))}
                     </Alert>
                 </Box>
             </Collapse>
-
             {/* ============ BODY (scrollable) ============ */}
             <Box sx={{ flex: 1, overflow: 'auto', px: 1.5, py: 1 }}>
 
                 {schemaLoading && (
                     <Box sx={{ textAlign: 'center', py: 4 }}>
                         <CircularProgress size={24} />
-                        <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 1 }}>Loading...</Typography>
+                        <Typography
+                            variant="caption"
+                            sx={{
+                                display: "block",
+                                color: "text.secondary",
+                                mt: 1
+                            }}>Loading...</Typography>
                     </Box>
                 )}
 
                 {schemaError && (
                     <Box sx={{ p: 1.5, borderRadius: 1, mb: 1, backgroundColor: alpha(theme.palette.error.main, 0.08) }}>
                         <Typography variant="caption" color="error">{schemaError}</Typography>
-                        <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
+                        <Typography
+                            variant="caption"
+                            sx={{
+                                display: "block",
+                                color: "text.secondary",
+                                mt: 0.5
+                            }}>
                             Backend: {API_URL}
                         </Typography>
                     </Box>
@@ -459,12 +498,27 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                         {scoreMapPng && (
                             <Box sx={{ mb: 1.5, borderRadius: 1, overflow: 'hidden', border: `1px solid ${theme.palette.divider}` }}>
                                 <img src={`data:image/png;base64,${scoreMapPng}`} alt="Score map" style={{ width: '100%', display: 'block' }} />
-                                <Typography variant="caption" color="text.secondary" sx={{ px: 1, py: 0.25, display: 'block', fontSize: '0.65rem' }}>
+                                <Typography
+                                    variant="caption"
+                                    sx={{
+                                        color: "text.secondary",
+                                        px: 1,
+                                        py: 0.25,
+                                        display: 'block',
+                                        fontSize: '0.65rem'
+                                    }}>
                                     Correlation map — brighter = higher match
                                 </Typography>
                             </Box>
                         )}
-                        <Typography variant="caption" fontWeight={600} sx={{ display: 'block', mb: 0.5, fontSize: '0.7rem' }}>
+                        <Typography
+                            variant="caption"
+                            sx={{
+                                fontWeight: 600,
+                                display: 'block',
+                                mb: 0.5,
+                                fontSize: '0.7rem'
+                            }}>
                             Tune parameters:
                         </Typography>
                         <SchemaForm schema={schema} values={pickerParams} onChange={handleRetune}
@@ -476,7 +530,13 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                 {drawerState === 'running' && (
                     <Box sx={{ textAlign: 'center', py: 3 }}>
                         <CircularProgress size={32} />
-                        <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block' }}>
+                        <Typography
+                            variant="caption"
+                            sx={{
+                                color: "text.secondary",
+                                mt: 1.5,
+                                display: 'block'
+                            }}>
                             Running template matching...
                         </Typography>
                     </Box>
@@ -485,7 +545,9 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                 {/* RESULTS */}
                 {drawerState === 'results' && (
                     <Box sx={{ py: 1 }}>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{
+                            color: "text.secondary"
+                        }}>
                             {resultCount} particles detected. Click <strong>Accept</strong> to keep or <strong>Discard</strong> to remove.
                         </Typography>
                     </Box>

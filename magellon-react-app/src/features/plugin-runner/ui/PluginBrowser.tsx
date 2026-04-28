@@ -88,7 +88,13 @@ export const PluginBrowser: React.FC<PluginBrowserProps> = ({ onSelect }) => {
 
     return (
         <Box>
-            <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 3 }}>
+            <Stack
+                direction="row"
+                spacing={2}
+                sx={{
+                    alignItems: "center",
+                    mb: 3
+                }}>
                 <Puzzle size={22} />
                 <Typography variant="h5" sx={{ flex: 1 }}>Plugins</Typography>
                 <TextField
@@ -106,7 +112,6 @@ export const PluginBrowser: React.FC<PluginBrowserProps> = ({ onSelect }) => {
                     Browse plugins
                 </Button>
             </Stack>
-
             {installed.length > 0 && (
                 <Box sx={{ mb: 3 }}>
                     <Typography variant="subtitle1" sx={{ mb: 1 }}>
@@ -164,7 +169,6 @@ export const PluginBrowser: React.FC<PluginBrowserProps> = ({ onSelect }) => {
                     </Stack>
                 </Box>
             )}
-
             {filtered.length === 0 ? (
                 <Alert severity="info">No plugins match the current filter.</Alert>
             ) : (
@@ -182,7 +186,13 @@ export const PluginBrowser: React.FC<PluginBrowserProps> = ({ onSelect }) => {
                                         sx={{ height: '100%', alignItems: 'flex-start' }}
                                     >
                                         <CardContent>
-                                            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                                            <Stack
+                                                direction="row"
+                                                spacing={1}
+                                                sx={{
+                                                    alignItems: "center",
+                                                    mb: 1
+                                                }}>
                                                 <Typography variant="h6">{plugin.name}</Typography>
                                                 <Chip size="small" label={`v${plugin.version}`} />
                                                 {isDefault && (
@@ -205,10 +215,18 @@ export const PluginBrowser: React.FC<PluginBrowserProps> = ({ onSelect }) => {
                                                     color={plugin.kind === 'broker' ? 'primary' : 'default'}
                                                 />
                                             </Stack>
-                                            <Typography variant="body2" color="text.secondary">
+                                            <Typography variant="body2" sx={{
+                                                color: "text.secondary"
+                                            }}>
                                                 {plugin.description}
                                             </Typography>
-                                            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                                            <Typography
+                                                variant="caption"
+                                                sx={{
+                                                    color: "text.secondary",
+                                                    mt: 1,
+                                                    display: 'block'
+                                                }}>
                                                 {plugin.developer}
                                             </Typography>
                                         </CardContent>
@@ -216,12 +234,16 @@ export const PluginBrowser: React.FC<PluginBrowserProps> = ({ onSelect }) => {
                                     <Stack
                                         direction="row"
                                         spacing={1}
-                                        alignItems="center"
-                                        sx={{ px: 2, py: 1, borderTop: '1px solid', borderColor: 'divider' }}
                                         // MUI nests the CardActionArea's ripple above siblings; stopping
                                         // propagation lets the switch fire without also selecting the card.
                                         onClick={(e) => e.stopPropagation()}
-                                    >
+                                        sx={{
+                                            alignItems: "center",
+                                            px: 2,
+                                            py: 1,
+                                            borderTop: '1px solid',
+                                            borderColor: 'divider'
+                                        }}>
                                         <FormControlLabel
                                             control={
                                                 <Switch

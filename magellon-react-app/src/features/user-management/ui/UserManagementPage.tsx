@@ -405,7 +405,9 @@ const UserManagementPage: React.FC = () => {
                             <Typography variant="h4" component="h1" gutterBottom>
                                 User Management
                             </Typography>
-                            <Typography variant="body1" color="text.secondary">
+                            <Typography variant="body1" sx={{
+                                color: "text.secondary"
+                            }}>
                                 Manage user accounts and permissions for Magellon
                             </Typography>
                         </Box>
@@ -422,7 +424,12 @@ const UserManagementPage: React.FC = () => {
 
                 {/* Statistics Cards */}
                 <Grid container spacing={3} sx={{ mb: 3 }}>
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid
+                        size={{
+                            xs: 12,
+                            sm: 6,
+                            md: 3
+                        }}>
                         <Card>
                             <CardContent>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -431,13 +438,20 @@ const UserManagementPage: React.FC = () => {
                                     </Avatar>
                                     <Box>
                                         <Typography variant="h4">{totalUsers}</Typography>
-                                        <Typography variant="body2" color="text.secondary">Total Users</Typography>
+                                        <Typography variant="body2" sx={{
+                                            color: "text.secondary"
+                                        }}>Total Users</Typography>
                                     </Box>
                                 </Box>
                             </CardContent>
                         </Card>
                     </Grid>
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid
+                        size={{
+                            xs: 12,
+                            sm: 6,
+                            md: 3
+                        }}>
                         <Card>
                             <CardContent>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -446,13 +460,20 @@ const UserManagementPage: React.FC = () => {
                                     </Avatar>
                                     <Box>
                                         <Typography variant="h4">{activeUsers.length}</Typography>
-                                        <Typography variant="body2" color="text.secondary">Active Users</Typography>
+                                        <Typography variant="body2" sx={{
+                                            color: "text.secondary"
+                                        }}>Active Users</Typography>
                                     </Box>
                                 </Box>
                             </CardContent>
                         </Card>
                     </Grid>
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid
+                        size={{
+                            xs: 12,
+                            sm: 6,
+                            md: 3
+                        }}>
                         <Card>
                             <CardContent>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -461,13 +482,20 @@ const UserManagementPage: React.FC = () => {
                                     </Avatar>
                                     <Box>
                                         <Typography variant="h4">{inactiveUsers.length}</Typography>
-                                        <Typography variant="body2" color="text.secondary">Inactive Users</Typography>
+                                        <Typography variant="body2" sx={{
+                                            color: "text.secondary"
+                                        }}>Inactive Users</Typography>
                                     </Box>
                                 </Box>
                             </CardContent>
                         </Card>
                     </Grid>
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid
+                        size={{
+                            xs: 12,
+                            sm: 6,
+                            md: 3
+                        }}>
                         <Card>
                             <CardContent>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -476,7 +504,9 @@ const UserManagementPage: React.FC = () => {
                                     </Avatar>
                                     <Box>
                                         <Typography variant="h4">{users.filter(u => u.access_failed_count && u.access_failed_count > 0).length}</Typography>
-                                        <Typography variant="body2" color="text.secondary">Users with Failed Logins</Typography>
+                                        <Typography variant="body2" sx={{
+                                            color: "text.secondary"
+                                        }}>Users with Failed Logins</Typography>
                                     </Box>
                                 </Box>
                             </CardContent>
@@ -486,23 +516,36 @@ const UserManagementPage: React.FC = () => {
 
                 {/* Filters and Search */}
                 <Paper sx={{ p: 2, mb: 3 }}>
-                    <Grid container spacing={2} alignItems="center">
-                        <Grid item xs={12} md={6}>
+                    <Grid container spacing={2} sx={{
+                        alignItems: "center"
+                    }}>
+                        <Grid
+                            size={{
+                                xs: 12,
+                                md: 6
+                            }}>
                             <TextField
                                 fullWidth
                                 placeholder="Search users..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                InputProps={{
-                                    startAdornment: (
-                                        <InputAdornment position="start">
-                                            <Search />
-                                        </InputAdornment>
-                                    )
+                                slotProps={{
+                                    input: {
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                                <Search />
+                                            </InputAdornment>
+                                        )
+                                    }
                                 }}
                             />
                         </Grid>
-                        <Grid item xs={12} sm={6} md={3}>
+                        <Grid
+                            size={{
+                                xs: 12,
+                                sm: 6,
+                                md: 3
+                            }}>
                             <FormControl fullWidth>
                                 <InputLabel>Status</InputLabel>
                                 <Select
@@ -516,7 +559,11 @@ const UserManagementPage: React.FC = () => {
                                 </Select>
                             </FormControl>
                         </Grid>
-                        <Grid item xs={12} md={3}>
+                        <Grid
+                            size={{
+                                xs: 12,
+                                md: 3
+                            }}>
                             <Button
                                 startIcon={<Refresh />}
                                 onClick={loadUsers}
@@ -555,7 +602,12 @@ const UserManagementPage: React.FC = () => {
                                 ) : filteredUsers.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={6} align="center">
-                                            <Typography variant="body1" color="text.secondary" sx={{ p: 3 }}>
+                                            <Typography
+                                                variant="body1"
+                                                sx={{
+                                                    color: "text.secondary",
+                                                    p: 3
+                                                }}>
                                                 No users found
                                             </Typography>
                                         </TableCell>
@@ -573,12 +625,16 @@ const UserManagementPage: React.FC = () => {
                                                             {user.username}
                                                         </Typography>
                                                         {user.ouid && (
-                                                            <Typography variant="body2" color="text.secondary">
+                                                            <Typography variant="body2" sx={{
+                                                                color: "text.secondary"
+                                                            }}>
                                                                 ID: {user.ouid}
                                                             </Typography>
                                                         )}
                                                         {user.version && (
-                                                            <Typography variant="caption" color="text.secondary">
+                                                            <Typography variant="caption" sx={{
+                                                                color: "text.secondary"
+                                                            }}>
                                                                 v{user.version}
                                                             </Typography>
                                                         )}
@@ -700,7 +756,11 @@ const UserManagementPage: React.FC = () => {
                     <DialogTitle>Create New User</DialogTitle>
                     <DialogContent>
                         <Grid container spacing={2} sx={{ mt: 1 }}>
-                            <Grid item xs={12} sm={6}>
+                            <Grid
+                                size={{
+                                    xs: 12,
+                                    sm: 6
+                                }}>
                                 <TextField
                                     fullWidth
                                     label="Username"
@@ -709,7 +769,11 @@ const UserManagementPage: React.FC = () => {
                                     required
                                 />
                             </Grid>
-                            <Grid item xs={12} sm={6}>
+                            <Grid
+                                size={{
+                                    xs: 12,
+                                    sm: 6
+                                }}>
                                 <TextField
                                     fullWidth
                                     label="User ID (OUID)"
@@ -717,7 +781,11 @@ const UserManagementPage: React.FC = () => {
                                     onChange={(e) => setFormData({ ...formData, ouid: e.target.value })}
                                 />
                             </Grid>
-                            <Grid item xs={12} sm={6}>
+                            <Grid
+                                size={{
+                                    xs: 12,
+                                    sm: 6
+                                }}>
                                 <TextField
                                     fullWidth
                                     label="Password"
@@ -725,18 +793,24 @@ const UserManagementPage: React.FC = () => {
                                     value={formData.password}
                                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                                     required
-                                    InputProps={{
-                                        endAdornment: (
-                                            <InputAdornment position="end">
-                                                <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
-                                                    {showPassword ? <VisibilityOff /> : <Visibility />}
-                                                </IconButton>
-                                            </InputAdornment>
-                                        )
+                                    slotProps={{
+                                        input: {
+                                            endAdornment: (
+                                                <InputAdornment position="end">
+                                                    <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
+                                                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                                                    </IconButton>
+                                                </InputAdornment>
+                                            )
+                                        }
                                     }}
                                 />
                             </Grid>
-                            <Grid item xs={12} sm={6}>
+                            <Grid
+                                size={{
+                                    xs: 12,
+                                    sm: 6
+                                }}>
                                 <TextField
                                     fullWidth
                                     label="Confirm Password"
@@ -744,18 +818,24 @@ const UserManagementPage: React.FC = () => {
                                     value={formData.confirmPassword}
                                     onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                                     required
-                                    InputProps={{
-                                        endAdornment: (
-                                            <InputAdornment position="end">
-                                                <IconButton onClick={() => setShowConfirmPassword(!showConfirmPassword)} edge="end">
-                                                    {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
-                                                </IconButton>
-                                            </InputAdornment>
-                                        )
+                                    slotProps={{
+                                        input: {
+                                            endAdornment: (
+                                                <InputAdornment position="end">
+                                                    <IconButton onClick={() => setShowConfirmPassword(!showConfirmPassword)} edge="end">
+                                                        {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                                                    </IconButton>
+                                                </InputAdornment>
+                                            )
+                                        }
                                     }}
                                 />
                             </Grid>
-                            <Grid item xs={12} sm={6}>
+                            <Grid
+                                size={{
+                                    xs: 12,
+                                    sm: 6
+                                }}>
                                 <TextField
                                     fullWidth
                                     label="Version"
@@ -763,7 +843,11 @@ const UserManagementPage: React.FC = () => {
                                     onChange={(e) => setFormData({ ...formData, version: e.target.value })}
                                 />
                             </Grid>
-                            <Grid item xs={12} sm={6}>
+                            <Grid
+                                size={{
+                                    xs: 12,
+                                    sm: 6
+                                }}>
                                 <TextField
                                     fullWidth
                                     label="Object Type"
@@ -772,7 +856,7 @@ const UserManagementPage: React.FC = () => {
                                     onChange={(e) => setFormData({ ...formData, object_type: e.target.value ? parseInt(e.target.value) : undefined })}
                                 />
                             </Grid>
-                            <Grid item xs={12}>
+                            <Grid size={12}>
                                 <FormControlLabel
                                     control={
                                         <Switch
@@ -783,7 +867,7 @@ const UserManagementPage: React.FC = () => {
                                     label="Active User"
                                 />
                             </Grid>
-                            <Grid item xs={12}>
+                            <Grid size={12}>
                                 <FormControlLabel
                                     control={
                                         <Switch
@@ -807,7 +891,11 @@ const UserManagementPage: React.FC = () => {
                     <DialogTitle>Edit User</DialogTitle>
                     <DialogContent>
                         <Grid container spacing={2} sx={{ mt: 1 }}>
-                            <Grid item xs={12} sm={6}>
+                            <Grid
+                                size={{
+                                    xs: 12,
+                                    sm: 6
+                                }}>
                                 <TextField
                                     fullWidth
                                     label="Username"
@@ -816,7 +904,11 @@ const UserManagementPage: React.FC = () => {
                                     required
                                 />
                             </Grid>
-                            <Grid item xs={12} sm={6}>
+                            <Grid
+                                size={{
+                                    xs: 12,
+                                    sm: 6
+                                }}>
                                 <TextField
                                     fullWidth
                                     label="User ID (OUID)"
@@ -824,43 +916,59 @@ const UserManagementPage: React.FC = () => {
                                     onChange={(e) => setFormData({ ...formData, ouid: e.target.value })}
                                 />
                             </Grid>
-                            <Grid item xs={12} sm={6}>
+                            <Grid
+                                size={{
+                                    xs: 12,
+                                    sm: 6
+                                }}>
                                 <TextField
                                     fullWidth
                                     label="New Password (leave empty to keep current)"
                                     type={showPassword ? 'text' : 'password'}
                                     value={formData.password}
                                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                    InputProps={{
-                                        endAdornment: (
-                                            <InputAdornment position="end">
-                                                <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
-                                                    {showPassword ? <VisibilityOff /> : <Visibility />}
-                                                </IconButton>
-                                            </InputAdornment>
-                                        )
+                                    slotProps={{
+                                        input: {
+                                            endAdornment: (
+                                                <InputAdornment position="end">
+                                                    <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
+                                                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                                                    </IconButton>
+                                                </InputAdornment>
+                                            )
+                                        }
                                     }}
                                 />
                             </Grid>
-                            <Grid item xs={12} sm={6}>
+                            <Grid
+                                size={{
+                                    xs: 12,
+                                    sm: 6
+                                }}>
                                 <TextField
                                     fullWidth
                                     label="Confirm New Password"
                                     type={showConfirmPassword ? 'text' : 'password'}
                                     value={formData.confirmPassword}
                                     onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                                    InputProps={{
-                                        endAdornment: (
-                                            <InputAdornment position="end">
-                                                <IconButton onClick={() => setShowConfirmPassword(!showConfirmPassword)} edge="end">
-                                                    {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
-                                                </IconButton>
-                                            </InputAdornment>
-                                        )
+                                    slotProps={{
+                                        input: {
+                                            endAdornment: (
+                                                <InputAdornment position="end">
+                                                    <IconButton onClick={() => setShowConfirmPassword(!showConfirmPassword)} edge="end">
+                                                        {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                                                    </IconButton>
+                                                </InputAdornment>
+                                            )
+                                        }
                                     }}
                                 />
                             </Grid>
-                            <Grid item xs={12} sm={6}>
+                            <Grid
+                                size={{
+                                    xs: 12,
+                                    sm: 6
+                                }}>
                                 <TextField
                                     fullWidth
                                     label="Version"
@@ -868,7 +976,11 @@ const UserManagementPage: React.FC = () => {
                                     onChange={(e) => setFormData({ ...formData, version: e.target.value })}
                                 />
                             </Grid>
-                            <Grid item xs={12} sm={6}>
+                            <Grid
+                                size={{
+                                    xs: 12,
+                                    sm: 6
+                                }}>
                                 <TextField
                                     fullWidth
                                     label="Object Type"
@@ -877,7 +989,7 @@ const UserManagementPage: React.FC = () => {
                                     onChange={(e) => setFormData({ ...formData, object_type: e.target.value ? parseInt(e.target.value) : undefined })}
                                 />
                             </Grid>
-                            <Grid item xs={12}>
+                            <Grid size={12}>
                                 <FormControlLabel
                                     control={
                                         <Switch
@@ -888,7 +1000,7 @@ const UserManagementPage: React.FC = () => {
                                     label="Active User"
                                 />
                             </Grid>
-                            <Grid item xs={12}>
+                            <Grid size={12}>
                                 <FormControlLabel
                                     control={
                                         <Switch
@@ -917,7 +1029,12 @@ const UserManagementPage: React.FC = () => {
                         <Typography>
                             Are you sure you want to delete user <strong>{selectedUser?.username}</strong>?
                         </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                        <Typography
+                            variant="body2"
+                            sx={{
+                                color: "text.secondary",
+                                mt: 1
+                            }}>
                             User ID: {selectedUser?.id}
                         </Typography>
                     </DialogContent>

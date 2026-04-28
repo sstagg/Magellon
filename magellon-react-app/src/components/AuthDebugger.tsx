@@ -85,7 +85,6 @@ export const AuthDebugger: React.FC = () => {
             <Typography variant="h6" gutterBottom>
                 🔍 Auth Debugger
             </Typography>
-
             {/* Authentication Status */}
             <Box sx={{ mb: 2 }}>
                 <Typography variant="subtitle2" gutterBottom>Status:</Typography>
@@ -103,7 +102,6 @@ export const AuthDebugger: React.FC = () => {
                     />
                 )}
             </Box>
-
             {/* LocalStorage Status */}
             <Box sx={{ mb: 2 }}>
                 <Typography variant="subtitle2" gutterBottom>LocalStorage:</Typography>
@@ -119,7 +117,6 @@ export const AuthDebugger: React.FC = () => {
                     currentUser: {currentUser ? '✅ Exists' : '❌ Missing'}
                 </Typography>
             </Box>
-
             {/* Login Form */}
             {!isAuthenticated && (
                 <Box sx={{ mb: 2 }}>
@@ -151,14 +148,12 @@ export const AuthDebugger: React.FC = () => {
                     </Button>
                 </Box>
             )}
-
             {/* Error Display */}
             {error && (
                 <Alert severity="error" sx={{ mb: 2, fontSize: '0.75rem' }}>
                     {error}
                 </Alert>
             )}
-
             {/* Action Buttons */}
             <Box sx={{ display: 'flex', gap: 1, flexDirection: 'column' }}>
                 {isAuthenticated && (
@@ -196,8 +191,13 @@ export const AuthDebugger: React.FC = () => {
                     Log Diagnostic to Console
                 </Button>
             </Box>
-
-            <Typography variant="caption" display="block" sx={{ mt: 2, opacity: 0.7 }}>
+            <Typography
+                variant="caption"
+                sx={{
+                    display: "block",
+                    mt: 2,
+                    opacity: 0.7
+                }}>
                 Remove this component in production
             </Typography>
         </Paper>

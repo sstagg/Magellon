@@ -53,7 +53,7 @@ const ImageGrid: React.FC<ImageGridProps> = ({ selectedImages, onRowClick, getCo
             <h1>Hello</h1>
             <Grid container direction="row">
                 {selectedImages.map((_, index) => (
-                    <Grid item xs={3} key={index}>
+                    <Grid key={index} size={3}>
                         <h1>Column {index}</h1>
                         <ImageTable data={getColumnData(index)} onRowClick={(image) => onRowClick(image, index)} />
                     </Grid>
@@ -89,13 +89,6 @@ export const TestPageView = () => {
 
 
     return (
-
-        <ImageGrid
-            selectedImages={selectedImages}
-            onRowClick={handleRowClick}
-            getColumnData={getColumnData}
-        />
-
         // <Container style={{ width: '100vw' }}>
         //     <h1>Hello</h1>
         //     <Grid container direction="row">
@@ -117,5 +110,10 @@ export const TestPageView = () => {
         //         </Grid>
         //     </Grid>
         // </Container>
+        <ImageGrid
+            selectedImages={selectedImages}
+            onRowClick={handleRowClick}
+            getColumnData={getColumnData}
+        />
     );
 };

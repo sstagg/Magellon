@@ -24,7 +24,7 @@ import {
 import {
     Close as CloseIcon,
     CheckCircle as CheckIcon,
-    ErrorOutline as ErrorIcon,
+    ErrorOutlined as ErrorIcon,
     SkipNext as SkipIcon,
 } from '@mui/icons-material';
 import { settings } from '../../../shared/config/settings.ts';
@@ -268,7 +268,9 @@ export const BatchRunDialog: React.FC<BatchRunDialogProps> = ({
             <DialogContent dividers>
                 <Stack spacing={2}>
                     <Box>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{
+                            color: "text.secondary"
+                        }}>
                             Session
                         </Typography>
                         <Typography variant="body2">{sessionName || '—'}</Typography>
@@ -307,8 +309,19 @@ export const BatchRunDialog: React.FC<BatchRunDialogProps> = ({
                     {listError && <Alert severity="error">{listError}</Alert>}
 
                     <Box>
-                        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
-                            <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+                        <Stack
+                            direction="row"
+                            spacing={1}
+                            sx={{
+                                alignItems: "center",
+                                mb: 0.5
+                            }}>
+                            <Typography
+                                variant="caption"
+                                sx={{
+                                    color: "text.secondary",
+                                    flex: 1
+                                }}>
                                 {loadingList ? 'Loading matching images…'
                                     : `${candidates.length} matching image${candidates.length === 1 ? '' : 's'} · ${selected.size} selected`}
                             </Typography>
@@ -326,7 +339,9 @@ export const BatchRunDialog: React.FC<BatchRunDialogProps> = ({
                                 </Box>
                             ) : candidates.length === 0 ? (
                                 <Box sx={{ py: 3, textAlign: 'center' }}>
-                                    <Typography variant="caption" color="text.secondary">
+                                    <Typography variant="caption" sx={{
+                                        color: "text.secondary"
+                                    }}>
                                         No matching images found in this session.
                                     </Typography>
                                 </Box>
@@ -367,13 +382,17 @@ export const BatchRunDialog: React.FC<BatchRunDialogProps> = ({
                                                 </ListItemIcon>
                                                 <ListItemText
                                                     primary={
-                                                        <Stack direction="row" spacing={1} alignItems="center">
+                                                        <Stack direction="row" spacing={1} sx={{
+                                                            alignItems: "center"
+                                                        }}>
                                                             <Typography variant="body2" noWrap>{img.name}</Typography>
                                                             {isCurrent && <Chip size="small" label="current" variant="outlined" sx={{ height: 18, fontSize: 10 }} />}
                                                         </Stack>
                                                     }
                                                     secondary={
-                                                        <Typography variant="caption" color="text.secondary">
+                                                        <Typography variant="caption" sx={{
+                                                            color: "text.secondary"
+                                                        }}>
                                                             mag {img.magnification ?? '—'}
                                                             {img.pixel_size != null ? ` · ${img.pixel_size.toFixed(3)} Å/px` : ''}
                                                             {img.dimension_x && img.dimension_y ? ` · ${img.dimension_x}×${img.dimension_y}` : ''}
@@ -392,7 +411,9 @@ export const BatchRunDialog: React.FC<BatchRunDialogProps> = ({
                         <>
                             <Divider />
                             <Box>
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography variant="caption" sx={{
+                                    color: "text.secondary"
+                                }}>
                                     {running ? progressMessage || 'Running…' :
                                         finalResult ? `Done — ${finalResult.succeeded} succeeded, ${finalResult.failed} failed` :
                                         progressMessage}

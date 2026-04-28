@@ -360,7 +360,9 @@ export const HierarchyBrowser: React.FC<TreeViewerProps> = ({
         return (
             <Paper elevation={1} sx={{ p: 3, textAlign: 'center' }}>
                 <Typography variant="h6" gutterBottom>{title}</Typography>
-                <Typography color="text.secondary">No images available</Typography>
+                <Typography sx={{
+                    color: "text.secondary"
+                }}>No images available</Typography>
             </Paper>
         );
     }
@@ -370,7 +372,6 @@ export const HierarchyBrowser: React.FC<TreeViewerProps> = ({
             <Typography variant="h6" gutterBottom sx={{ px: 2, pt: 2 }}>
                 {title}
             </Typography>
-
             {/* Search field */}
             <Box sx={{ px: 2, pb: 2 }}>
                 <TextField
@@ -379,16 +380,17 @@ export const HierarchyBrowser: React.FC<TreeViewerProps> = ({
                     placeholder="Search images..."
                     value={searchText}
                     onChange={(e) => setSearchText(e.target.value)}
-                    InputProps={{
-                        startAdornment: (
-                            <InputAdornment position="start">
-                                <Search fontSize="small" />
-                            </InputAdornment>
-                        )
+                    slotProps={{
+                        input: {
+                            startAdornment: (
+                                <InputAdornment position="start">
+                                    <Search fontSize="small" />
+                                </InputAdornment>
+                            )
+                        }
                     }}
                 />
             </Box>
-
             {/* Statistics */}
             <Box sx={{ px: 2, pb: 2 }}>
                 <Stack direction="row" spacing={1}>
@@ -414,7 +416,6 @@ export const HierarchyBrowser: React.FC<TreeViewerProps> = ({
                     )}
                 </Stack>
             </Box>
-
             {/* Tree view */}
             <Paper
                 elevation={1}

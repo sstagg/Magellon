@@ -366,16 +366,20 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                 >
                     <SpeedDialAction
                         icon={<SaveIcon />}
-                        tooltipTitle="Save (Ctrl+S)"
-                        onClick={() => {
-                            handleSave();
-                            showSnackbar('Particles saved', 'success');
+                        title="Save (Ctrl+S)"
+                        slotProps={{
+                            fab: {
+                                onClick: () => {
+                                    handleSave();
+                                    showSnackbar('Particles saved', 'success');
+                                },
+                            },
                         }}
                     />
                     <SpeedDialAction
                         icon={<DownloadIcon />}
-                        tooltipTitle="Export Particles"
-                        onClick={exportParticles}
+                        title="Export Particles"
+                        slotProps={{ fab: { onClick: exportParticles } }}
                     />
                     <SpeedDialAction
                         icon={
@@ -392,13 +396,17 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                                 </label>
                             </>
                         }
-                        tooltipTitle="Import Particles"
-                        onClick={() => document.getElementById('import-particles')?.click()}
+                        title="Import Particles"
+                        slotProps={{
+                            fab: {
+                                onClick: () => document.getElementById('import-particles')?.click(),
+                            },
+                        }}
                     />
                     <SpeedDialAction
                         icon={<AutoFixHighIcon />}
-                        tooltipTitle="Run Auto-picking"
-                        onClick={runAutoPicking}
+                        title="Run Auto-picking"
+                        slotProps={{ fab: { onClick: runAutoPicking } }}
                     />
                 </SpeedDial>
             </Paper>

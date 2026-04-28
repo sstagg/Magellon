@@ -164,7 +164,6 @@ const LoginPageView: React.FC = () => {
                     zIndex: 0
                 }}
             />
-
             {/* Home Button */}
             <Box sx={{ position: 'absolute', top: 24, left: 24, zIndex: 10 }}>
                 <Button
@@ -181,7 +180,6 @@ const LoginPageView: React.FC = () => {
                     Back to Home
                 </Button>
             </Box>
-
             <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     {/* Left Side - Branding and Features */}
@@ -272,7 +270,9 @@ const LoginPageView: React.FC = () => {
                                                             <Typography variant="h6" sx={{ mb: 1, fontWeight: 600 }}>
                                                                 {feature.title}
                                                             </Typography>
-                                                            <Typography variant="body2" color="text.secondary">
+                                                            <Typography variant="body2" sx={{
+                                                                color: "text.secondary"
+                                                            }}>
                                                                 {feature.description}
                                                             </Typography>
                                                         </Box>
@@ -327,7 +327,12 @@ const LoginPageView: React.FC = () => {
                                         <Typography variant="h4" sx={{ mb: 1, fontWeight: 600 }}>
                                             Welcome back
                                         </Typography>
-                                        <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+                                        <Typography
+                                            variant="body2"
+                                            sx={{
+                                                color: "text.secondary",
+                                                mb: 4
+                                            }}>
                                             Sign in to your CryoEM analysis platform
                                         </Typography>
 
@@ -353,13 +358,6 @@ const LoginPageView: React.FC = () => {
                                                     error={!!errors.username}
                                                     helperText={errors.username?.message}
                                                     disabled={isLoadingState}
-                                                    InputProps={{
-                                                        startAdornment: (
-                                                            <InputAdornment position="start">
-                                                                <User size={20} />
-                                                            </InputAdornment>
-                                                        )
-                                                    }}
                                                     sx={{
                                                         '& .MuiOutlinedInput-root': {
                                                             borderRadius: 2,
@@ -375,6 +373,15 @@ const LoginPageView: React.FC = () => {
                                                                     borderWidth: 2,
                                                                 }
                                                             }
+                                                        }
+                                                    }}
+                                                    slotProps={{
+                                                        input: {
+                                                            startAdornment: (
+                                                                <InputAdornment position="start">
+                                                                    <User size={20} />
+                                                                </InputAdornment>
+                                                            )
                                                         }
                                                     }}
                                                 />
@@ -394,24 +401,6 @@ const LoginPageView: React.FC = () => {
                                                     error={!!errors.password}
                                                     helperText={errors.password?.message}
                                                     disabled={isLoadingState}
-                                                    InputProps={{
-                                                        startAdornment: (
-                                                            <InputAdornment position="start">
-                                                                <Lock />
-                                                            </InputAdornment>
-                                                        ),
-                                                        endAdornment: (
-                                                            <InputAdornment position="end">
-                                                                <IconButton
-                                                                    onClick={() => setShowPassword(!showPassword)}
-                                                                    edge="end"
-                                                                    disabled={isLoadingState}
-                                                                >
-                                                                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                                                                </IconButton>
-                                                            </InputAdornment>
-                                                        )
-                                                    }}
                                                     sx={{
                                                         '& .MuiOutlinedInput-root': {
                                                             borderRadius: 2,
@@ -427,6 +416,26 @@ const LoginPageView: React.FC = () => {
                                                                     borderWidth: 2,
                                                                 }
                                                             }
+                                                        }
+                                                    }}
+                                                    slotProps={{
+                                                        input: {
+                                                            startAdornment: (
+                                                                <InputAdornment position="start">
+                                                                    <Lock />
+                                                                </InputAdornment>
+                                                            ),
+                                                            endAdornment: (
+                                                                <InputAdornment position="end">
+                                                                    <IconButton
+                                                                        onClick={() => setShowPassword(!showPassword)}
+                                                                        edge="end"
+                                                                        disabled={isLoadingState}
+                                                                    >
+                                                                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                                                    </IconButton>
+                                                                </InputAdornment>
+                                                            )
                                                         }
                                                     }}
                                                 />
@@ -493,13 +502,20 @@ const LoginPageView: React.FC = () => {
                                         </form>
 
                                         <Divider sx={{ my: 3 }}>
-                                            <Typography variant="body2" color="text.secondary">
+                                            <Typography variant="body2" sx={{
+                                                color: "text.secondary"
+                                            }}>
                                                 Need access?
                                             </Typography>
                                         </Divider>
 
                                         <Box sx={{ textAlign: 'center' }}>
-                                            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                                            <Typography
+                                                variant="body2"
+                                                sx={{
+                                                    color: "text.secondary",
+                                                    mb: 2
+                                                }}>
                                                 Don't have an account? Contact your administrator.
                                             </Typography>
 
@@ -520,7 +536,9 @@ const LoginPageView: React.FC = () => {
                                                 >
                                                     Contact Support
                                                 </Link>
-                                                <Typography variant="body2" color="text.disabled">•</Typography>
+                                                <Typography variant="body2" sx={{
+                                                    color: "text.disabled"
+                                                }}>•</Typography>
                                                 <Link
                                                     href="mailto:admin@magellon.org"
                                                     sx={{
@@ -542,7 +560,12 @@ const LoginPageView: React.FC = () => {
                                         <Typography variant="h4" sx={{ mb: 1, fontWeight: 600 }}>
                                             Reset Password
                                         </Typography>
-                                        <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+                                        <Typography
+                                            variant="body2"
+                                            sx={{
+                                                color: "text.secondary",
+                                                mb: 4
+                                            }}>
                                             Enter your email address and we'll send you reset instructions
                                         </Typography>
 
@@ -567,16 +590,18 @@ const LoginPageView: React.FC = () => {
                                                     variant="outlined"
                                                     required
                                                     disabled={isLoadingState}
-                                                    InputProps={{
-                                                        startAdornment: (
-                                                            <InputAdornment position="start">
-                                                                <Email />
-                                                            </InputAdornment>
-                                                        )
-                                                    }}
                                                     sx={{
                                                         '& .MuiOutlinedInput-root': {
                                                             borderRadius: 2,
+                                                        }
+                                                    }}
+                                                    slotProps={{
+                                                        input: {
+                                                            startAdornment: (
+                                                                <InputAdornment position="start">
+                                                                    <Email />
+                                                                </InputAdornment>
+                                                            )
                                                         }
                                                     }}
                                                 />

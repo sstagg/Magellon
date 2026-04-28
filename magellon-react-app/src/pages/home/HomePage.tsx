@@ -130,8 +130,14 @@ export const Home = () => {
                 />
 
                 <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 2 }}>
-                    <Grid container spacing={4} alignItems="center">
-                        <Grid item xs={12} md={6}>
+                    <Grid container spacing={4} sx={{
+                        alignItems: "center"
+                    }}>
+                        <Grid
+                            size={{
+                                xs: 12,
+                                md: 6
+                            }}>
                             <Box sx={{ mb: 3 }}>
                                 <Chip
                                     label="Next-Gen CryoEM Platform"
@@ -224,7 +230,11 @@ export const Home = () => {
                             </Box>
                         </Grid>
 
-                        <Grid item xs={12} md={6}>
+                        <Grid
+                            size={{
+                                xs: 12,
+                                md: 6
+                            }}>
                             <Box
                                 sx={{
                                     position: 'relative',
@@ -288,12 +298,16 @@ export const Home = () => {
                     </Grid>
                 </Container>
             </Box>
-
             {/* Stats Section */}
             <Container maxWidth="lg" sx={{ py: { xs: 4, md: 6 } }}>
                 <Grid container spacing={4}>
                     {stats.map((stat, index) => (
-                        <Grid item xs={6} md={3} key={index}>
+                        <Grid
+                            key={index}
+                            size={{
+                                xs: 6,
+                                md: 3
+                            }}>
                             <Box sx={{ textAlign: 'center' }}>
                                 <Typography
                                     variant="h3"
@@ -308,7 +322,12 @@ export const Home = () => {
                                 >
                                     {stat.value}
                                 </Typography>
-                                <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>
+                                <Typography
+                                    variant="body1"
+                                    sx={{
+                                        color: "text.secondary",
+                                        fontWeight: 500
+                                    }}>
                                     {stat.label}
                                 </Typography>
                             </Box>
@@ -316,7 +335,6 @@ export const Home = () => {
                     ))}
                 </Grid>
             </Container>
-
             {/* Features Section */}
             <Box sx={{ py: { xs: 8, md: 12 }, backgroundColor: alpha(theme.palette.primary.main, 0.02) }}>
                 <Container maxWidth="lg">
@@ -350,15 +368,14 @@ export const Home = () => {
                         </Typography>
                         <Typography
                             variant="h6"
-                            color="text.secondary"
                             sx={{
+                                color: "text.secondary",
                                 maxWidth: '650px',
                                 mx: 'auto',
                                 fontSize: { xs: '1rem', md: '1.15rem' },
                                 lineHeight: 1.7,
                                 fontWeight: 400
-                            }}
-                        >
+                            }}>
                             Comprehensive tools designed to accelerate your research workflow
                         </Typography>
                     </Box>
@@ -439,12 +456,11 @@ export const Home = () => {
                                     </Typography>
                                     <Typography
                                         variant="body2"
-                                        color="text.secondary"
                                         sx={{
+                                            color: "text.secondary",
                                             lineHeight: 1.7,
                                             fontSize: '0.95rem'
-                                        }}
-                                    >
+                                        }}>
                                         {feature.description}
                                     </Typography>
                                 </CardContent>
@@ -453,7 +469,6 @@ export const Home = () => {
                     </Box>
                 </Container>
             </Box>
-
             {/* CTA Section */}
             <Box sx={{ py: { xs: 10, md: 14 } }}>
                 <Container maxWidth="md">
@@ -510,15 +525,14 @@ export const Home = () => {
                             </Typography>
                             <Typography
                                 variant="body1"
-                                color="text.secondary"
                                 sx={{
+                                    color: "text.secondary",
                                     mb: 4,
                                     maxWidth: '550px',
                                     mx: 'auto',
                                     fontSize: { xs: '1rem', md: '1.1rem' },
-                                    lineHeight: 1.7,
-                                }}
-                            >
+                                    lineHeight: 1.7
+                                }}>
                                 Join leading research institutions worldwide and accelerate your discoveries
                                 with Magellon's advanced CryoEM platform.
                             </Typography>

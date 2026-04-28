@@ -311,8 +311,14 @@ export default function PermissionManagementTab({
       {/* Role Selection */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Grid container spacing={2} alignItems="center">
-            <Grid xs={12} md={6}>
+          <Grid container spacing={2} sx={{
+            alignItems: "center"
+          }}>
+            <Grid
+              size={{
+                xs: 12,
+                md: 6
+              }}>
               <FormControl fullWidth>
                 <InputLabel>Select Role</InputLabel>
                 <Select
@@ -328,7 +334,11 @@ export default function PermissionManagementTab({
                 </Select>
               </FormControl>
             </Grid>
-            <Grid xs={12} md={6}>
+            <Grid
+              size={{
+                xs: 12,
+                md: 6
+              }}>
               <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
                 <Button startIcon={<Refresh />} onClick={loadPermissions} disabled={loading}>
                   Refresh
@@ -344,7 +354,6 @@ export default function PermissionManagementTab({
           )}
         </CardContent>
       </Card>
-
       {/* Tabs */}
       <Card>
         <Tabs
@@ -361,7 +370,12 @@ export default function PermissionManagementTab({
         {/* Action Permissions Tab */}
         <TabPanel value={tabValue} index={0}>
           <Box sx={{ p: 2 }}>
-            <Typography variant="body2" color="text.secondary" paragraph>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                marginBottom: "16px"
+              }}>
               Action permissions control specific operations that users with this role can perform.
             </Typography>
 
@@ -391,7 +405,13 @@ export default function PermissionManagementTab({
                 <CircularProgress />
               </Box>
             ) : actionPermissions.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" align="center" sx={{ p: 2 }}>
+              <Typography
+                variant="body2"
+                align="center"
+                sx={{
+                  color: "text.secondary",
+                  p: 2
+                }}>
                 No action permissions assigned
               </Typography>
             ) : (
@@ -416,7 +436,12 @@ export default function PermissionManagementTab({
         {/* Navigation Permissions Tab */}
         <TabPanel value={tabValue} index={1}>
           <Box sx={{ p: 2 }}>
-            <Typography variant="body2" color="text.secondary" paragraph>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                marginBottom: "16px"
+              }}>
               Navigation permissions control which pages and menu items users with this role can access.
             </Typography>
 
@@ -452,7 +477,13 @@ export default function PermissionManagementTab({
                 <CircularProgress />
               </Box>
             ) : navigationPermissions.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" align="center" sx={{ p: 2 }}>
+              <Typography
+                variant="body2"
+                align="center"
+                sx={{
+                  color: "text.secondary",
+                  p: 2
+                }}>
                 No navigation permissions assigned
               </Typography>
             ) : (
@@ -487,7 +518,12 @@ export default function PermissionManagementTab({
         {/* Type Permissions Tab */}
         <TabPanel value={tabValue} index={2}>
           <Box sx={{ p: 2 }}>
-            <Typography variant="body2" color="text.secondary" paragraph>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                marginBottom: "16px"
+              }}>
               Type permissions control CRUD operations on entity types (like Property, Invoice, etc.)
             </Typography>
 
@@ -558,7 +594,9 @@ export default function PermissionManagementTab({
                 <li {...props} key={option.name}>
                   <Box>
                     <Typography variant="body2">{option.caption}</Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>
                       {option.name} - {option.description}
                     </Typography>
                   </Box>
@@ -568,7 +606,12 @@ export default function PermissionManagementTab({
             />
 
             <Grid container spacing={2} sx={{ mb: 2 }}>
-              <Grid xs={6} sm={4} md={2}>
+              <Grid
+                size={{
+                  xs: 6,
+                  sm: 4,
+                  md: 2
+                }}>
                 <FormControlLabel
                   control={
                     <Switch
@@ -579,7 +622,12 @@ export default function PermissionManagementTab({
                   label="Read"
                 />
               </Grid>
-              <Grid xs={6} sm={4} md={2}>
+              <Grid
+                size={{
+                  xs: 6,
+                  sm: 4,
+                  md: 2
+                }}>
                 <FormControlLabel
                   control={
                     <Switch
@@ -590,7 +638,12 @@ export default function PermissionManagementTab({
                   label="Write"
                 />
               </Grid>
-              <Grid xs={6} sm={4} md={2}>
+              <Grid
+                size={{
+                  xs: 6,
+                  sm: 4,
+                  md: 2
+                }}>
                 <FormControlLabel
                   control={
                     <Switch
@@ -601,7 +654,12 @@ export default function PermissionManagementTab({
                   label="Create"
                 />
               </Grid>
-              <Grid xs={6} sm={4} md={2}>
+              <Grid
+                size={{
+                  xs: 6,
+                  sm: 4,
+                  md: 2
+                }}>
                 <FormControlLabel
                   control={
                     <Switch
@@ -612,7 +670,12 @@ export default function PermissionManagementTab({
                   label="Delete"
                 />
               </Grid>
-              <Grid xs={6} sm={4} md={2}>
+              <Grid
+                size={{
+                  xs: 6,
+                  sm: 4,
+                  md: 2
+                }}>
                 <FormControlLabel
                   control={
                     <Switch
@@ -643,7 +706,13 @@ export default function PermissionManagementTab({
                 <CircularProgress />
               </Box>
             ) : typePermissions.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" align="center" sx={{ p: 2 }}>
+              <Typography
+                variant="body2"
+                align="center"
+                sx={{
+                  color: "text.secondary",
+                  p: 2
+                }}>
                 No type permissions assigned
               </Typography>
             ) : (
@@ -728,7 +797,6 @@ export default function PermissionManagementTab({
           </Box>
         </TabPanel>
       </Card>
-
       {/* Quick Action Dialog */}
       <Dialog open={quickActionDialogOpen} onClose={() => setQuickActionDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>
@@ -753,7 +821,9 @@ export default function PermissionManagementTab({
               <li {...props} key={option.name}>
                 <Box>
                   <Typography variant="body2">{option.caption}</Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>
                     {option.name}
                   </Typography>
                 </Box>

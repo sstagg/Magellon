@@ -201,11 +201,9 @@ export default function ObjectPermissionManagement({
                     Add Object Permission
                 </Button>
             </Box>
-
             <Alert severity="info" sx={{ mb: 2 }}>
                 Object permissions control instance-level access. Use criteria to define which specific objects users can access. Example: "Users can only edit their own records"
             </Alert>
-
             {loading ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
                     <CircularProgress />
@@ -227,7 +225,12 @@ export default function ObjectPermissionManagement({
                             {permissions.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={6} align="center">
-                                        <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                                        <Typography
+                                            variant="body2"
+                                            sx={{
+                                                color: "text.secondary",
+                                                py: 2
+                                            }}>
                                             No object permissions defined
                                         </Typography>
                                     </TableCell>
@@ -282,7 +285,6 @@ export default function ObjectPermissionManagement({
                     </Table>
                 </TableContainer>
             )}
-
             {/* Create/Edit Dialog */}
             <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
                 <DialogTitle>
@@ -318,13 +320,15 @@ export default function ObjectPermissionManagement({
                             placeholder="owner_id = CurrentUserId()"
                             required
                             helperText="Click examples above to use them, or write your own expression"
-                            InputProps={{
-                                sx: { fontFamily: 'monospace' },
+                            slotProps={{
+                                input: {
+                                    sx: { fontFamily: 'monospace' },
+                                }
                             }}
                         />
 
                         <Grid container spacing={2}>
-                            <Grid item xs={6}>
+                            <Grid size={6}>
                                 <FormControl fullWidth>
                                     <FormLabel>Read Permission</FormLabel>
                                     <RadioGroup
@@ -337,7 +341,7 @@ export default function ObjectPermissionManagement({
                                     </RadioGroup>
                                 </FormControl>
                             </Grid>
-                            <Grid item xs={6}>
+                            <Grid size={6}>
                                 <FormControl fullWidth>
                                     <FormLabel>Write Permission</FormLabel>
                                     <RadioGroup
@@ -350,7 +354,7 @@ export default function ObjectPermissionManagement({
                                     </RadioGroup>
                                 </FormControl>
                             </Grid>
-                            <Grid item xs={6}>
+                            <Grid size={6}>
                                 <FormControl fullWidth>
                                     <FormLabel>Delete Permission</FormLabel>
                                     <RadioGroup
@@ -363,7 +367,7 @@ export default function ObjectPermissionManagement({
                                     </RadioGroup>
                                 </FormControl>
                             </Grid>
-                            <Grid item xs={6}>
+                            <Grid size={6}>
                                 <FormControl fullWidth>
                                     <FormLabel>Navigate Permission</FormLabel>
                                     <RadioGroup

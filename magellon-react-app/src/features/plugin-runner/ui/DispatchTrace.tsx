@@ -139,7 +139,9 @@ const TaskRow: React.FC<{ task: DispatchedTask; rollup: TaskRollup }> = ({ task,
                 bgcolor: 'background.paper',
             }}
         >
-            <Stack direction="row" alignItems="center" spacing={1}>
+            <Stack direction="row" spacing={1} sx={{
+                alignItems: "center"
+            }}>
                 <IconButton size="small" onClick={() => setExpanded((v) => !v)}>
                     {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                 </IconButton>
@@ -147,7 +149,9 @@ const TaskRow: React.FC<{ task: DispatchedTask; rollup: TaskRollup }> = ({ task,
                     <Typography variant="body2" sx={{ fontWeight: 600, wordBreak: 'break-all' }}>
                         {task.label}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                        color: "text.secondary"
+                    }}>
                         task {task.task_id.slice(0, 8)}… · {rollup.events.length} event{rollup.events.length === 1 ? '' : 's'}
                         {' · '}{fmtDuration(rollup.startedAt, rollup.completedAt)}
                     </Typography>
@@ -159,32 +163,35 @@ const TaskRow: React.FC<{ task: DispatchedTask; rollup: TaskRollup }> = ({ task,
                     variant={rollup.latestType ? 'filled' : 'outlined'}
                 />
             </Stack>
-
             {inProgress && rollup.progressPercent != null && (
                 <Box sx={{ mt: 1 }}>
                     <LinearProgress variant="determinate" value={rollup.progressPercent} />
                     {rollup.progressMessage && (
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{
+                            color: "text.secondary"
+                        }}>
                             {rollup.progressPercent.toFixed(0)}% · {rollup.progressMessage}
                         </Typography>
                     )}
                 </Box>
             )}
-
             {rollup.error && (
                 <Alert severity="error" sx={{ mt: 1, py: 0.5 }}>{rollup.error}</Alert>
             )}
-
             <Collapse in={expanded} unmountOnExit>
                 <Divider sx={{ my: 1 }} />
                 {task.subtitle && (
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                        color: "text.secondary"
+                    }}>
                         {task.subtitle}
                     </Typography>
                 )}
                 {rollup.outputFiles && rollup.outputFiles.length > 0 && (
                     <Box sx={{ mt: 0.5 }}>
-                        <Typography variant="caption" color="text.secondary">output_files:</Typography>
+                        <Typography variant="caption" sx={{
+                            color: "text.secondary"
+                        }}>output_files:</Typography>
                         <Box component="pre" sx={{ fontSize: 11, m: 0 }}>
                             {rollup.outputFiles.join('\n')}
                         </Box>
@@ -192,7 +199,9 @@ const TaskRow: React.FC<{ task: DispatchedTask; rollup: TaskRollup }> = ({ task,
                 )}
                 <Box sx={{ mt: 1 }}>
                     {rollup.events.length === 0 ? (
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{
+                            color: "text.secondary"
+                        }}>
                             No events yet — task is queued{task.queueName ? ` in ${task.queueName}` : ''}, waiting for the plugin to consume it.
                         </Typography>
                     ) : (
@@ -240,7 +249,13 @@ export const DispatchTrace: React.FC<{ tasks: DispatchedTask[]; events: StepEven
 
     return (
         <Paper sx={{ p: 2 }} variant="outlined">
-            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
+            <Stack
+                direction="row"
+                sx={{
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    mb: 1
+                }}>
                 <Typography variant="h6" sx={{ fontWeight: 700 }}>Tasks</Typography>
                 <Stack direction="row" spacing={0.5}>
                     {counts.queued > 0 && <Chip size="small" label={`queued ${counts.queued}`} variant="outlined" />}
@@ -249,7 +264,6 @@ export const DispatchTrace: React.FC<{ tasks: DispatchedTask[]; events: StepEven
                     {counts.failed > 0 && <Chip size="small" label={`failed ${counts.failed}`} color="error" />}
                 </Stack>
             </Stack>
-
             {rollups.map(({ task, rollup }) => (
                 <TaskRow key={task.task_id} task={task} rollup={rollup} />
             ))}

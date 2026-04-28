@@ -44,12 +44,23 @@ export const MotionCorResultView: React.FC<{ result: MotionCorOutput }> = ({ res
                         <Stat label="Total drift (px)" value={(summary?.total_drift_pixels ?? 0).toFixed(2)} />
                         <Stat label="Peak frame drift (px)" value={(summary?.max_frame_drift_pixels ?? 0).toFixed(2)} />
                         {result.aligned_mrc_path && (
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                            <Typography
+                                variant="caption"
+                                sx={{
+                                    color: "text.secondary",
+                                    display: 'block',
+                                    mt: 1
+                                }}>
                                 Output: {result.aligned_mrc_path}
                             </Typography>
                         )}
                         {result.log_path && (
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            <Typography
+                                variant="caption"
+                                sx={{
+                                    color: "text.secondary",
+                                    display: 'block'
+                                }}>
                                 Log: {result.log_path}
                             </Typography>
                         )}
@@ -92,7 +103,9 @@ export const MotionCorResultView: React.FC<{ result: MotionCorOutput }> = ({ res
                             )}
                         </svg>
                         {drift.length === 0 && (
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" sx={{
+                                color: "text.secondary"
+                            }}>
                                 No drift samples parsed from the log.
                             </Typography>
                         )}
@@ -104,9 +117,18 @@ export const MotionCorResultView: React.FC<{ result: MotionCorOutput }> = ({ res
 };
 
 const Stat: React.FC<{ label: string; value: string }> = ({ label, value }) => (
-    <Stack direction="row" justifyContent="space-between" sx={{ py: 0.5 }}>
-        <Typography variant="body2" color="text.secondary">{label}</Typography>
-        <Typography variant="body2" fontFamily="monospace">{value}</Typography>
+    <Stack
+        direction="row"
+        sx={{
+            justifyContent: "space-between",
+            py: 0.5
+        }}>
+        <Typography variant="body2" sx={{
+            color: "text.secondary"
+        }}>{label}</Typography>
+        <Typography variant="body2" sx={{
+            fontFamily: "monospace"
+        }}>{value}</Typography>
     </Stack>
 );
 

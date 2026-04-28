@@ -66,7 +66,13 @@ export const CTFAnalysisPanel: React.FC<CTFAnalysisPanelProps> = ({
                     {/* Loading skeleton for metrics */}
                     <Grid container spacing={3}>
                         {[1, 2, 3, 4].map((item) => (
-                            <Grid item xs={12} sm={6} md={3} key={item}>
+                            <Grid
+                                key={item}
+                                size={{
+                                    xs: 12,
+                                    sm: 6,
+                                    md: 3
+                                }}>
                                 <Skeleton
                                     variant="rounded"
                                     height={160}
@@ -81,10 +87,18 @@ export const CTFAnalysisPanel: React.FC<CTFAnalysisPanelProps> = ({
 
                     {/* Loading skeleton for images */}
                     <Grid container spacing={3}>
-                        <Grid item xs={12} lg={6}>
+                        <Grid
+                            size={{
+                                xs: 12,
+                                lg: 6
+                            }}>
                             <Skeleton variant="rounded" height={450} sx={{ borderRadius: 3 }} />
                         </Grid>
-                        <Grid item xs={12} lg={6}>
+                        <Grid
+                            size={{
+                                xs: 12,
+                                lg: 6
+                            }}>
                             <Skeleton variant="rounded" height={450} sx={{ borderRadius: 3 }} />
                         </Grid>
                     </Grid>
@@ -112,7 +126,9 @@ export const CTFAnalysisPanel: React.FC<CTFAnalysisPanelProps> = ({
                     <Typography variant="body1" sx={{ fontWeight: 500 }}>
                         Error loading CTF data
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{
+                        color: "text.secondary"
+                    }}>
                         {isCtfInfoError.message || 'Unable to fetch CTF analysis results'}
                     </Typography>
                 </Alert>
@@ -141,7 +157,9 @@ export const CTFAnalysisPanel: React.FC<CTFAnalysisPanelProps> = ({
                                     <Typography variant="h5" sx={{ fontWeight: 700, color: 'text.primary' }}>
                                         CTF Analysis Results
                                     </Typography>
-                                    <Typography variant="body2" color="text.secondary">
+                                    <Typography variant="body2" sx={{
+                                        color: "text.secondary"
+                                    }}>
                                         Contrast Transfer Function parameters
                                     </Typography>
                                 </Box>
@@ -165,7 +183,12 @@ export const CTFAnalysisPanel: React.FC<CTFAnalysisPanelProps> = ({
                     {/* Metrics Cards with modern design */}
                     <Grid container spacing={3}>
                         {/* Defocus 1 Card */}
-                        <Grid item xs={12} sm={6} md={3}>
+                        <Grid
+                            size={{
+                                xs: 12,
+                                sm: 6,
+                                md: 3
+                            }}>
                             <Card
                                 elevation={0}
                                 sx={{
@@ -229,9 +252,10 @@ export const CTFAnalysisPanel: React.FC<CTFAnalysisPanelProps> = ({
 
                                     <Typography
                                         variant="body2"
-                                        color="text.secondary"
-                                        sx={{ fontWeight: 600 }}
-                                    >
+                                        sx={{
+                                            color: "text.secondary",
+                                            fontWeight: 600
+                                        }}>
                                         Defocus 1
                                     </Typography>
                                 </CardContent>
@@ -252,7 +276,12 @@ export const CTFAnalysisPanel: React.FC<CTFAnalysisPanelProps> = ({
                         </Grid>
 
                         {/* Defocus 2 Card */}
-                        <Grid item xs={12} sm={6} md={3}>
+                        <Grid
+                            size={{
+                                xs: 12,
+                                sm: 6,
+                                md: 3
+                            }}>
                             <Card
                                 elevation={0}
                                 sx={{
@@ -316,9 +345,10 @@ export const CTFAnalysisPanel: React.FC<CTFAnalysisPanelProps> = ({
 
                                     <Typography
                                         variant="body2"
-                                        color="text.secondary"
-                                        sx={{ fontWeight: 600 }}
-                                    >
+                                        sx={{
+                                            color: "text.secondary",
+                                            fontWeight: 600
+                                        }}>
                                         Defocus 2
                                     </Typography>
                                 </CardContent>
@@ -338,7 +368,12 @@ export const CTFAnalysisPanel: React.FC<CTFAnalysisPanelProps> = ({
                         </Grid>
 
                         {/* Angle Astigmatism Card */}
-                        <Grid item xs={12} sm={6} md={3}>
+                        <Grid
+                            size={{
+                                xs: 12,
+                                sm: 6,
+                                md: 3
+                            }}>
                             <Card
                                 elevation={0}
                                 sx={{
@@ -399,9 +434,10 @@ export const CTFAnalysisPanel: React.FC<CTFAnalysisPanelProps> = ({
 
                                     <Typography
                                         variant="body2"
-                                        color="text.secondary"
-                                        sx={{ fontWeight: 600 }}
-                                    >
+                                        sx={{
+                                            color: "text.secondary",
+                                            fontWeight: 600
+                                        }}>
                                         Angle Astigmatism
                                     </Typography>
                                 </CardContent>
@@ -421,7 +457,12 @@ export const CTFAnalysisPanel: React.FC<CTFAnalysisPanelProps> = ({
                         </Grid>
 
                         {/* Resolution Card */}
-                        <Grid item xs={12} sm={6} md={3}>
+                        <Grid
+                            size={{
+                                xs: 12,
+                                sm: 6,
+                                md: 3
+                            }}>
                             <Card
                                 elevation={0}
                                 sx={{
@@ -485,9 +526,10 @@ export const CTFAnalysisPanel: React.FC<CTFAnalysisPanelProps> = ({
 
                                     <Typography
                                         variant="body2"
-                                        color="text.secondary"
-                                        sx={{ fontWeight: 600 }}
-                                    >
+                                        sx={{
+                                            color: "text.secondary",
+                                            fontWeight: 600
+                                        }}>
                                         Resolution 50%
                                     </Typography>
                                 </CardContent>
@@ -510,7 +552,11 @@ export const CTFAnalysisPanel: React.FC<CTFAnalysisPanelProps> = ({
                     {/* CTF Images Section */}
                     <Grid container spacing={3}>
                         {/* Power Spectrum */}
-                        <Grid item xs={12} lg={6}>
+                        <Grid
+                            size={{
+                                xs: 12,
+                                lg: 6
+                            }}>
                             <Paper
                                 elevation={0}
                                 sx={{
@@ -570,14 +616,20 @@ export const CTFAnalysisPanel: React.FC<CTFAnalysisPanelProps> = ({
                                             }}
                                         />
                                     ) : (
-                                        <Typography color="text.secondary">Image not available</Typography>
+                                        <Typography sx={{
+                                            color: "text.secondary"
+                                        }}>Image not available</Typography>
                                     )}
                                 </Box>
                             </Paper>
                         </Grid>
 
                         {/* CTF Plots */}
-                        <Grid item xs={12} lg={6}>
+                        <Grid
+                            size={{
+                                xs: 12,
+                                lg: 6
+                            }}>
                             <Paper
                                 elevation={0}
                                 sx={{
@@ -637,7 +689,9 @@ export const CTFAnalysisPanel: React.FC<CTFAnalysisPanelProps> = ({
                                             }}
                                         />
                                     ) : (
-                                        <Typography color="text.secondary">Image not available</Typography>
+                                        <Typography sx={{
+                                            color: "text.secondary"
+                                        }}>Image not available</Typography>
                                     )}
                                 </Box>
                             </Paper>
@@ -676,9 +730,20 @@ export const CTFAnalysisPanel: React.FC<CTFAnalysisPanelProps> = ({
                             </Box>
 
                             <Grid container spacing={3}>
-                                <Grid item xs={12} sm={6} md={3}>
+                                <Grid
+                                    size={{
+                                        xs: 12,
+                                        sm: 6,
+                                        md: 3
+                                    }}>
                                     <Box>
-                                        <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                        <Typography
+                                            variant="caption"
+                                            sx={{
+                                                color: "text.secondary",
+                                                textTransform: 'uppercase',
+                                                letterSpacing: 0.5
+                                            }}>
                                             Defocus Difference
                                         </Typography>
                                         <Typography variant="body1" sx={{ fontWeight: 600, mt: 0.5 }}>
@@ -686,9 +751,20 @@ export const CTFAnalysisPanel: React.FC<CTFAnalysisPanelProps> = ({
                                         </Typography>
                                     </Box>
                                 </Grid>
-                                <Grid item xs={12} sm={6} md={3}>
+                                <Grid
+                                    size={{
+                                        xs: 12,
+                                        sm: 6,
+                                        md: 3
+                                    }}>
                                     <Box>
-                                        <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                        <Typography
+                                            variant="caption"
+                                            sx={{
+                                                color: "text.secondary",
+                                                textTransform: 'uppercase',
+                                                letterSpacing: 0.5
+                                            }}>
                                             Average Defocus
                                         </Typography>
                                         <Typography variant="body1" sx={{ fontWeight: 600, mt: 0.5 }}>
@@ -696,9 +772,20 @@ export const CTFAnalysisPanel: React.FC<CTFAnalysisPanelProps> = ({
                                         </Typography>
                                     </Box>
                                 </Grid>
-                                <Grid item xs={12} sm={6} md={3}>
+                                <Grid
+                                    size={{
+                                        xs: 12,
+                                        sm: 6,
+                                        md: 3
+                                    }}>
                                     <Box>
-                                        <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                        <Typography
+                                            variant="caption"
+                                            sx={{
+                                                color: "text.secondary",
+                                                textTransform: 'uppercase',
+                                                letterSpacing: 0.5
+                                            }}>
                                             Astigmatism Ratio
                                         </Typography>
                                         <Typography variant="body1" sx={{ fontWeight: 600, mt: 0.5 }}>
@@ -707,9 +794,20 @@ export const CTFAnalysisPanel: React.FC<CTFAnalysisPanelProps> = ({
                                         </Typography>
                                     </Box>
                                 </Grid>
-                                <Grid item xs={12} sm={6} md={3}>
+                                <Grid
+                                    size={{
+                                        xs: 12,
+                                        sm: 6,
+                                        md: 3
+                                    }}>
                                     <Box>
-                                        <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                        <Typography
+                                            variant="caption"
+                                            sx={{
+                                                color: "text.secondary",
+                                                textTransform: 'uppercase',
+                                                letterSpacing: 0.5
+                                            }}>
                                             Quality Assessment
                                         </Typography>
                                         <Box sx={{ mt: 0.5 }}>
@@ -743,7 +841,9 @@ export const CTFAnalysisPanel: React.FC<CTFAnalysisPanelProps> = ({
                     <Typography variant="body1" sx={{ fontWeight: 600, mb: 1 }}>
                         No CTF data available
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{
+                        color: "text.secondary"
+                    }}>
                         CTF analysis has not been performed for this image yet. Please run CTF estimation to view results.
                     </Typography>
                 </Alert>

@@ -57,14 +57,27 @@ export const CtfResultView: React.FC<{ result: CtfOutput }> = ({ result }) => {
                 <Card variant="outlined" sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <CardContent>
                         <ThonRingSketch defocusU={defocusU} defocusV={defocusV} angleDeg={astigDeg} />
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, textAlign: 'center' }}>
+                        <Typography
+                            variant="caption"
+                            sx={{
+                                color: "text.secondary",
+                                display: 'block',
+                                mt: 1,
+                                textAlign: 'center'
+                            }}>
                             Schematic — ellipse eccentricity follows astigmatism
                         </Typography>
                     </CardContent>
                 </Card>
             </Stack>
             {result.diagnostic_image_path && (
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                <Typography
+                    variant="caption"
+                    sx={{
+                        color: "text.secondary",
+                        mt: 1,
+                        display: 'block'
+                    }}>
                     Diagnostic image: {result.diagnostic_image_path}
                 </Typography>
             )}
@@ -73,9 +86,18 @@ export const CtfResultView: React.FC<{ result: CtfOutput }> = ({ result }) => {
 };
 
 const Stat: React.FC<{ label: string; value: string }> = ({ label, value }) => (
-    <Stack direction="row" justifyContent="space-between" sx={{ py: 0.5 }}>
-        <Typography variant="body2" color="text.secondary">{label}</Typography>
-        <Typography variant="body2" fontFamily="monospace">{value}</Typography>
+    <Stack
+        direction="row"
+        sx={{
+            justifyContent: "space-between",
+            py: 0.5
+        }}>
+        <Typography variant="body2" sx={{
+            color: "text.secondary"
+        }}>{label}</Typography>
+        <Typography variant="body2" sx={{
+            fontFamily: "monospace"
+        }}>{value}</Typography>
     </Stack>
 );
 

@@ -66,7 +66,9 @@ export const JobsPanel: React.FC = () => {
             }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Cpu size={14} />
-                    <Typography variant="caption" fontWeight={600}>Jobs</Typography>
+                    <Typography variant="caption" sx={{
+                        fontWeight: 600
+                    }}>Jobs</Typography>
                     <Chip label={jobs.length} size="small" sx={{ height: 18, fontSize: '0.65rem' }} />
                 </Box>
                 <Tooltip title="Refresh">
@@ -75,12 +77,13 @@ export const JobsPanel: React.FC = () => {
                     </IconButton>
                 </Tooltip>
             </Box>
-
             {/* Job list */}
             <Box sx={{ flex: 1, overflow: 'auto' }}>
                 {jobs.length === 0 && (
                     <Box sx={{ p: 2, textAlign: 'center' }}>
-                        <Typography variant="caption" color="text.secondary">No jobs yet</Typography>
+                        <Typography variant="caption" sx={{
+                            color: "text.secondary"
+                        }}>No jobs yet</Typography>
                     </Box>
                 )}
                 {jobs.map((job) => {
@@ -103,11 +106,24 @@ export const JobsPanel: React.FC = () => {
                                 {config.icon}
                             </Box>
                             <Box sx={{ flex: 1, minWidth: 0 }}>
-                                <Typography variant="caption" fontWeight={500} noWrap display="block">
+                                <Typography
+                                    variant="caption"
+                                    noWrap
+                                    sx={{
+                                        fontWeight: 500,
+                                        display: "block"
+                                    }}>
                                     {job.name}
                                 </Typography>
                                 {job.plugin_id && (
-                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }} noWrap display="block">
+                                    <Typography
+                                        variant="caption"
+                                        noWrap
+                                        sx={{
+                                            color: "text.secondary",
+                                            display: "block",
+                                            fontSize: '0.6rem'
+                                        }}>
                                         {job.plugin_id}
                                     </Typography>
                                 )}
@@ -119,14 +135,24 @@ export const JobsPanel: React.FC = () => {
                                     />
                                 )}
                                 {job.status === 'completed' && job.num_items !== undefined && job.num_items > 0 && (
-                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
+                                    <Typography
+                                        variant="caption"
+                                        sx={{
+                                            color: "text.secondary",
+                                            fontSize: '0.6rem'
+                                        }}>
                                         {job.num_items} items
                                     </Typography>
                                 )}
                             </Box>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
                                 {job.started_at && (
-                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                                    <Typography
+                                        variant="caption"
+                                        sx={{
+                                            color: "text.secondary",
+                                            fontSize: '0.65rem'
+                                        }}>
                                         {new Date(job.started_at).toLocaleTimeString('en-US', { hour12: false })}
                                     </Typography>
                                 )}

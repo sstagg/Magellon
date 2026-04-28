@@ -204,16 +204,13 @@ export const EpuImportComponent = () => {
             <Typography variant="h6" gutterBottom>
                 Import Data from EPU Sessions
             </Typography>
-
             <Typography variant="body2" color="textSecondary" gutterBottom>
                 If you are using Docker, please select a directory from the MAGELLON_GPFS_PATH that was configured during installation in the .env file.
                 Select an EPU directory and fill in the required information.
             </Typography>
-
             <Typography variant="body2" color="textSecondary" gutterBottom>
                 Current path: {currentPath}
             </Typography>
-
             {currentPath !== "/gpfs" && (
                 <Typography
                     variant="body2"
@@ -230,44 +227,43 @@ export const EpuImportComponent = () => {
                     ← Go back to parent directory
                 </Typography>
             )}
-
             {error && (
                 <Typography color="error" sx={{ mt: 1 }} gutterBottom>
                     Error: {error}
                 </Typography>
             )}
-                        <Box
-  sx={{
-    p: 2,
-    mb: 3,
-    borderRadius: 2,
-    bgcolor: 'background.paper',
-    boxShadow: 1,
-  }}
+            <Box
+sx={{
+p: 2,
+mb: 3,
+borderRadius: 2,
+bgcolor: 'background.paper',
+boxShadow: 1,
+}}
 >
-  <Typography variant="h6" gutterBottom>
-    Required Folder Structure
-  </Typography>
+<Typography variant="h6" gutterBottom>
+Required Folder Structure
+</Typography>
 <Box sx={{ fontSize: 14, color: '#374151', ml: 1, '& .row': { display: 'flex', alignItems: 'center', gap: 1 }, '& .indent': { ml: 3, mt: 0.5, borderLeft: '1px solid', borderColor: '#e5e7eb', pl: 1.5 }, '& .indent-main': { ml: 3, mt: 0.5, borderLeft: '1px solid', borderColor: '#d1d5db', pl: 1.5 } }}>
-  <Box className="row"><span>📁</span><Box component="span" sx={{ fontWeight: 500 }}>Main Folder (Upload this)</Box></Box>
-  <Box className="indent-main">
-    <Box className="row" sx={{ mt: 0.5 }}><span>📁</span><span>gains</span></Box>
-    <Box className="indent"><Box className="row"><span>📄</span><span>gain.mrc</span></Box></Box>
-    <Box className="row" sx={{ mt: 0.5 }}><span>📁</span><span>defects(Optional)</span></Box>
-    <Box className="indent"><Box className="row"><span>📄</span><span>defects.txt</span></Box></Box>
-  </Box>
+<Box className="row"><span>📁</span><Box component="span" sx={{ fontWeight: 500 }}>Main Folder (Upload this)</Box></Box>
+<Box className="indent-main">
+<Box className="row" sx={{ mt: 0.5 }}><span>📁</span><span>gains</span></Box>
+<Box className="indent"><Box className="row"><span>📄</span><span>gain.mrc</span></Box></Box>
+<Box className="row" sx={{ mt: 0.5 }}><span>📁</span><span>defects(Optional)</span></Box>
+<Box className="indent"><Box className="row"><span>📄</span><span>defects.txt</span></Box></Box>
+</Box>
 </Box>
 
-  <Typography
+<Typography
     variant="caption"
-    color="text.secondary"
-    sx={{ mt: 2, display: 'block' }}
-  >
-    ⚠️ Ensure all required subfolders exist before uploading.
-  </Typography>
+    sx={{
+        color: "text.secondary",
+        mt: 2,
+        display: 'block'
+    }}>
+⚠️ Ensure all required subfolders exist before uploading.
+</Typography>
 </Box>
-
-
             <Box sx={{
                 border: 1,
                 borderColor: 'divider',
@@ -308,7 +304,6 @@ export const EpuImportComponent = () => {
                     </List>
                 )}
             </Box>
-
             {selectedDirectory && (
                 <Paper sx={{ p: 3, mt: 3 }}>
                     <Typography variant="h6" gutterBottom>
@@ -316,7 +311,7 @@ export const EpuImportComponent = () => {
                     </Typography>
 
                     <Grid container spacing={3}>
-                        <Grid item xs={12}>
+                        <Grid size={12}>
                             <TextField
                                 fullWidth
                                 label="Selected Directory (Target)"
@@ -327,7 +322,7 @@ export const EpuImportComponent = () => {
                             />
                         </Grid>
 
-                        <Grid item xs={12}>
+                        <Grid size={12}>
                             <TextField
                                 fullWidth
                                 required
@@ -340,7 +335,11 @@ export const EpuImportComponent = () => {
                             />
                         </Grid>
 
-                        <Grid item xs={12} md={6}>
+                        <Grid
+                            size={{
+                                xs: 12,
+                                md: 6
+                            }}>
                             <TextField
                                 fullWidth
                                 required
@@ -352,7 +351,11 @@ export const EpuImportComponent = () => {
                             />
                         </Grid>
 
-                        <Grid item xs={12} md={6}>
+                        <Grid
+                            size={{
+                                xs: 12,
+                                md: 6
+                            }}>
                             <TextField
                                 fullWidth
                                 required
@@ -364,13 +367,17 @@ export const EpuImportComponent = () => {
                             />
                         </Grid>
 
-                        <Grid item xs={12}>
+                        <Grid size={12}>
                             <Typography variant="subtitle1" sx={{ mt: 2 }}>
                                 Default Data
                             </Typography>
                         </Grid>
 
-                        <Grid item xs={12} md={4}>
+                        <Grid
+                            size={{
+                                xs: 12,
+                                md: 4
+                            }}>
                             <TextField
                                 fullWidth
                                 required
@@ -380,11 +387,17 @@ export const EpuImportComponent = () => {
                                 onChange={(e) => handleDefaultDataChange('pixel_size', e.target.value)}
                                 variant="outlined"
                                 margin="normal"
-                                inputProps={{ step: 0.01, min: 0.01 }}
+                                slotProps={{
+                                    htmlInput: { step: 0.01, min: 0.01 }
+                                }}
                             />
                         </Grid>
 
-                        <Grid item xs={12} md={4}>
+                        <Grid
+                            size={{
+                                xs: 12,
+                                md: 4
+                            }}>
                             <TextField
                                 fullWidth
                                 required
@@ -394,11 +407,17 @@ export const EpuImportComponent = () => {
                                 onChange={(e) => handleDefaultDataChange('acceleration_voltage', e.target.value)}
                                 variant="outlined"
                                 margin="normal"
-                                inputProps={{ step: 10, min: 100 }}
+                                slotProps={{
+                                    htmlInput: { step: 10, min: 100 }
+                                }}
                             />
                         </Grid>
 
-                        <Grid item xs={12} md={4}>
+                        <Grid
+                            size={{
+                                xs: 12,
+                                md: 4
+                            }}>
                             <TextField
                                 fullWidth
                                 required
@@ -408,10 +427,16 @@ export const EpuImportComponent = () => {
                                 onChange={(e) => handleDefaultDataChange('spherical_aberration', e.target.value)}
                                 variant="outlined"
                                 margin="normal"
-                                inputProps={{ step: 0.1, min: 0 }}
+                                slotProps={{
+                                    htmlInput: { step: 0.1, min: 0 }
+                                }}
                             />
                         </Grid>
-                      <Grid item xs={12} md={4}>
+                      <Grid
+                          size={{
+                              xs: 12,
+                              md: 4
+                          }}>
                         <TextField
                           fullWidth
                           required
@@ -433,7 +458,11 @@ export const EpuImportComponent = () => {
                       </Grid>
                       
                       
-                      <Grid item xs={12} md={4}>
+                      <Grid
+                          size={{
+                              xs: 12,
+                              md: 4
+                          }}>
                         <TextField
                           fullWidth
                           required
@@ -454,7 +483,7 @@ export const EpuImportComponent = () => {
                         </TextField>
                       </Grid>
 
-                        <Grid item xs={12} sx={{ mt: 2 }}>
+                        <Grid sx={{ mt: 2 }} size={12}>
                             <Button
                                 variant="contained"
                                 color="primary"
@@ -468,7 +497,6 @@ export const EpuImportComponent = () => {
                     </Grid>
                 </Paper>
             )}
-
             <Dialog
                 open={importStatus !== 'idle'}
                 onClose={importStatus !== 'processing' ? handleCloseDialog : undefined}

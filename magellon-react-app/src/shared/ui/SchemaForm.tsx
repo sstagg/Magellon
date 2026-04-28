@@ -177,13 +177,15 @@ const NumberField: React.FC<{
                     onChange(v === '' ? null : parseFloat(v));
                 }}
                 placeholder={field.ui_placeholder}
-                inputProps={{
-                    step: field.ui_step ?? 1,
-                    min: getMin(field),
-                    max: getMax(field),
-                }}
                 fullWidth
                 helperText={field.description}
+                slotProps={{
+                    htmlInput: {
+                        step: field.ui_step ?? 1,
+                        min: getMin(field),
+                        max: getMax(field),
+                    }
+                }}
             />
         </Tooltip>
     );
@@ -263,7 +265,12 @@ const FilePathListField: React.FC<{
                 }}
             >
                 <CloudUploadIcon sx={{ fontSize: 28, color: isDragOver ? 'primary.main' : 'text.secondary', mb: 0.5 }} />
-                <Typography variant="caption" color="text.secondary" display="block">
+                <Typography
+                    variant="caption"
+                    sx={{
+                        color: "text.secondary",
+                        display: "block"
+                    }}>
                     Drop {exts.join(' / ')} files here
                 </Typography>
             </Box>
@@ -274,15 +281,17 @@ const FilePathListField: React.FC<{
                 onChange={(e) => setNewPath(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addPath(newPath); setNewPath(''); } }}
                 fullWidth
-                InputProps={{
-                    endAdornment: (
-                        <InputAdornment position="end">
-                            <IconButton size="small" onClick={() => { addPath(newPath); setNewPath(''); }} disabled={!newPath.trim()}>
-                                <AddIcon fontSize="small" />
-                            </IconButton>
-                        </InputAdornment>
-                    ),
-                    sx: { fontSize: '0.8rem' },
+                slotProps={{
+                    input: {
+                        endAdornment: (
+                            <InputAdornment position="end">
+                                <IconButton size="small" onClick={() => { addPath(newPath); setNewPath(''); }} disabled={!newPath.trim()}>
+                                    <AddIcon fontSize="small" />
+                                </IconButton>
+                            </InputAdornment>
+                        ),
+                        sx: { fontSize: '0.8rem' },
+                    }
                 }}
             />
             {paths.length > 0 && (
@@ -293,7 +302,9 @@ const FilePathListField: React.FC<{
                                 <FileIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
                             </ListItemIcon>
                             <Tooltip title={p} placement="left">
-                                <ListItemText primary={getFileName(p)} primaryTypographyProps={{ variant: 'caption', noWrap: true, fontFamily: 'monospace' }} />
+                                <ListItemText primary={getFileName(p)} slotProps={{
+                                    primary: { variant: 'caption', noWrap: true, sx: { fontFamily: 'monospace' } }
+                                }} />
                             </Tooltip>
                             <ListItemSecondaryAction>
                                 <IconButton edge="end" size="small" onClick={() => onChange(paths.filter((_, j) => j !== i))}>
@@ -305,7 +316,12 @@ const FilePathListField: React.FC<{
                 </List>
             )}
             {paths.length === 0 && (
-                <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                <Typography
+                    variant="caption"
+                    sx={{
+                        color: "text.secondary",
+                        fontStyle: 'italic'
+                    }}>
                     {field.description || 'No files added.'}
                 </Typography>
             )}

@@ -200,7 +200,12 @@ export const FftTestPage: React.FC = () => {
                 <Typography variant="h4" gutterBottom>
                     FFT plugin test bed
                 </Typography>
-                <Typography variant="body2" color="text.secondary" paragraph>
+                <Typography
+                    variant="body2"
+                    sx={{
+                        color: "text.secondary",
+                        marginBottom: "16px"
+                    }}>
                     Dispatch one or many FFT tasks, watch live step events stream back over
                     Socket.IO, poll the persisted <code>image_job</code> row, and cancel
                     cooperatively. Use this to verify the full RMQ → projector → DB → UI path
@@ -253,7 +258,9 @@ export const FftTestPage: React.FC = () => {
                             </>
                         ) : (
                             <Stack spacing={1}>
-                                <Stack direction="row" spacing={1} alignItems="center">
+                                <Stack direction="row" spacing={1} sx={{
+                                    alignItems: "center"
+                                }}>
                                     <Button
                                         variant="outlined"
                                         startIcon={<Folder size={16} />}
@@ -262,7 +269,9 @@ export const FftTestPage: React.FC = () => {
                                     >
                                         Pick images
                                     </Button>
-                                    <Typography variant="body2" color="text.secondary">
+                                    <Typography variant="body2" sx={{
+                                        color: "text.secondary"
+                                    }}>
                                         {batchSelected.length === 0
                                             ? 'No images selected.'
                                             : `${batchSelected.length} image${batchSelected.length === 1 ? '' : 's'} selected.`}
@@ -344,7 +353,13 @@ export const FftTestPage: React.FC = () => {
 
                 {dispatch && (
                     <Paper sx={{ p: 2, mb: 2 }} variant="outlined">
-                        <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
+                        <Stack
+                            direction="row"
+                            spacing={1}
+                            sx={{
+                                alignItems: "center",
+                                flexWrap: "wrap"
+                            }}>
                             <Typography variant="subtitle2">
                                 Job {dispatch.job_id.slice(0, 8)}…
                             </Typography>
@@ -374,7 +389,6 @@ export const FftTestPage: React.FC = () => {
                     <DispatchTrace tasks={dispatch.tasks} events={stepEvents} />
                 )}
             </Box>
-
             <ImagePickerDialog
                 open={pickerOpen}
                 onClose={() => setPickerOpen(false)}
@@ -385,7 +399,6 @@ export const FftTestPage: React.FC = () => {
                 initialPath={lastPickedDir}
                 storageKey="fftTestPage:lastPath"
             />
-
             <ImagePickerDialog
                 open={singlePickerOpen}
                 onClose={() => setSinglePickerOpen(false)}

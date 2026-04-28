@@ -135,7 +135,9 @@ export const AtlasSection: React.FC<AtlasSectionProps> = ({
                 }}
             >
                 <CircularProgress size={24} />
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{
+                    color: "text.secondary"
+                }}>
                     Loading atlas data...
                 </Typography>
             </Paper>
@@ -161,7 +163,9 @@ export const AtlasSection: React.FC<AtlasSectionProps> = ({
                 }}
             >
                 <ImageOff size={32} color={theme.palette.text.disabled} />
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{
+                    color: "text.secondary"
+                }}>
                     No atlas images available for this session.
                 </Typography>
             </Paper>
@@ -273,7 +277,6 @@ export const AtlasSection: React.FC<AtlasSectionProps> = ({
                     </IconButton>
                 </Box>
             </Box>
-
             {/* ===== BODY ===== */}
             <Collapse in={expanded && !atlasHidden}>
                 <Box
@@ -526,7 +529,7 @@ export const AtlasSection: React.FC<AtlasSectionProps> = ({
                             </>
                         ) : (
                             /* No atlas selected state */
-                            <Box
+                            (<Box
                                 sx={{
                                     display: 'flex',
                                     flexDirection: 'column',
@@ -536,10 +539,12 @@ export const AtlasSection: React.FC<AtlasSectionProps> = ({
                                 }}
                             >
                                 <Map size={28} />
-                                <Typography variant="caption" color="text.disabled">
+                                <Typography variant="caption" sx={{
+                                    color: "text.disabled"
+                                }}>
                                     Select an atlas from the panel
                                 </Typography>
-                            </Box>
+                            </Box>)
                         )}
                     </Box>
                 </Box>

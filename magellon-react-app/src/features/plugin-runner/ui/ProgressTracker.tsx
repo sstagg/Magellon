@@ -82,13 +82,23 @@ export const ProgressTracker: React.FC<{ jobId: string | null | undefined }> = (
 
     return (
         <Box sx={{ mt: 1 }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={0.5}>
-                <Typography variant="caption" color="text.secondary">
+            <Stack
+                direction="row"
+                sx={{
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    mb: 0.5
+                }}>
+                <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                }}>
                     Step <strong>{rollup.latestStep ?? '—'}</strong>
                     {rollup.progressMessage ? ` · ${rollup.progressMessage}` : ''}
                 </Typography>
                 {rollup.progressPercent != null && (
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                        color: "text.secondary"
+                    }}>
                         {rollup.progressPercent.toFixed(0)}%
                     </Typography>
                 )}

@@ -302,21 +302,40 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
                 <Stack
                     direction={{ xs: 'column', sm: 'row' }}
                     spacing={2}
-                    alignItems={{ xs: 'flex-start', sm: 'center' }}
-                    justifyContent="space-between"
-                    sx={{ mb: 1 }}
-                >
+                    sx={{
+                        alignItems: { xs: 'flex-start', sm: 'center' },
+                        justifyContent: "space-between",
+                        mb: 1
+                    }}>
                     <Box sx={{ minWidth: 0 }}>
-                        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ rowGap: 0.5 }}>
+                        <Stack
+                            direction="row"
+                            spacing={1}
+                            sx={{
+                                alignItems: "center",
+                                flexWrap: "wrap",
+                                rowGap: 0.5
+                            }}>
                             <Typography variant="h6" sx={{ lineHeight: 1.2 }}>{plugin.name}</Typography>
                             <Chip size="small" label={`v${plugin.version}`} />
                             <Chip size="small" variant="outlined" label={plugin.category} />
                         </Stack>
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                        <Typography
+                            variant="body2"
+                            sx={{
+                                color: "text.secondary",
+                                mt: 0.5
+                            }}>
                             {plugin.description}
                         </Typography>
                     </Box>
-                    <Stack direction="row" spacing={1} alignItems="center" flexShrink={0}>
+                    <Stack
+                        direction="row"
+                        spacing={1}
+                        sx={{
+                            alignItems: "center",
+                            flexShrink: 0
+                        }}>
                         <Button
                             size="small"
                             variant="text"
@@ -357,10 +376,24 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
 
                 <Grid container spacing={3}>
                     <Grid size={{ xs: 12, md: 7 }}>
-                        <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 0.5 }}>
+                        <Typography
+                            variant="overline"
+                            sx={{
+                                color: "text.secondary",
+                                letterSpacing: 0.5
+                            }}>
                             Inputs
                         </Typography>
-                        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ mt: 0.5, mb: 1.5, rowGap: 1 }}>
+                        <Stack
+                            direction="row"
+                            spacing={1}
+                            sx={{
+                                alignItems: "center",
+                                flexWrap: "wrap",
+                                mt: 0.5,
+                                mb: 1.5,
+                                rowGap: 1
+                            }}>
                             {pickedName ? (
                                 <Chip
                                     size="small"
@@ -457,7 +490,13 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
                                     overflowX: 'auto',
                                 }}
                             >
-                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                                <Typography
+                                    variant="caption"
+                                    sx={{
+                                        color: "text.secondary",
+                                        display: 'block',
+                                        mb: 0.5
+                                    }}>
                                     POST {requestPreview.url}
                                 </Typography>
                                 <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
@@ -490,7 +529,9 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
                                         <Chip size="small" color="warning" label="Preview stale — re-run Preview" />
                                     )}
                                     {!retuning && !previewStale && tunableKeys.size > 0 && (
-                                        <Typography variant="caption" color="text.secondary">
+                                        <Typography variant="caption" sx={{
+                                            color: "text.secondary"
+                                        }}>
                                             Live tune: {tunableKeys.size} field{tunableKeys.size === 1 ? '' : 's'}
                                         </Typography>
                                     )}
@@ -502,7 +543,14 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
                             {!usePreviewMode && currentJobId && (
                                 <ProgressTracker jobId={currentJobId} />
                             )}
-                            <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 0.5, display: 'block', mb: 0.5 }}>
+                            <Typography
+                                variant="overline"
+                                sx={{
+                                    color: "text.secondary",
+                                    letterSpacing: 0.5,
+                                    display: 'block',
+                                    mb: 0.5
+                                }}>
                                 Preview
                             </Typography>
                             {previewError ? (
@@ -561,7 +609,6 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
                     </Grid>
                 </Grid>
             </CardContent>
-
             <ImagePickerDialog
                 open={imagePickerOpen}
                 onClose={() => setImagePickerOpen(false)}
@@ -736,16 +783,20 @@ const ZoomablePreview: React.FC<ZoomablePreviewProps> = ({ src, overlay }) => {
             <Stack
                 direction="row"
                 spacing={0.5}
-                alignItems="center"
                 onMouseDown={(e) => e.stopPropagation()}
                 onDoubleClick={(e) => e.stopPropagation()}
                 sx={{
-                    position: 'absolute', top: 6, right: 6,
-                    bgcolor: 'rgba(0,0,0,0.55)', color: '#fff',
-                    px: 0.5, py: 0.25, borderRadius: 1,
-                    backdropFilter: 'blur(2px)',
-                }}
-            >
+                    alignItems: "center",
+                    position: 'absolute',
+                    top: 6,
+                    right: 6,
+                    bgcolor: 'rgba(0,0,0,0.55)',
+                    color: '#fff',
+                    px: 0.5,
+                    py: 0.25,
+                    borderRadius: 1,
+                    backdropFilter: 'blur(2px)'
+                }}>
                 <Tooltip title="Zoom in">
                     <span>
                         <IconButton
@@ -884,10 +935,23 @@ const RunStatusBanner: React.FC<RunStatusBannerProps> = ({ job }) => {
                 bgcolor: (t) => t.palette.mode === 'dark' ? 'background.paper' : 'grey.50',
             }}
         >
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: active ? 1 : 0, flexWrap: 'wrap', rowGap: 0.5 }}>
+            <Stack
+                direction="row"
+                spacing={1}
+                sx={{
+                    alignItems: "center",
+                    mb: active ? 1 : 0,
+                    flexWrap: 'wrap',
+                    rowGap: 0.5
+                }}>
                 <Chip size="small" color={statusColor as any} label={job.status} sx={{ textTransform: 'capitalize' }} />
                 {elapsedMs != null && (
-                    <Typography variant="caption" color="text.secondary" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                    <Typography
+                        variant="caption"
+                        sx={{
+                            color: "text.secondary",
+                            fontVariantNumeric: 'tabular-nums'
+                        }}>
                         {formatDuration(elapsedMs)}
                     </Typography>
                 )}
@@ -895,7 +959,12 @@ const RunStatusBanner: React.FC<RunStatusBannerProps> = ({ job }) => {
                     <Chip size="small" variant="outlined" color="success" label={`${particles} particle${particles === 1 ? '' : 's'}`} />
                 )}
                 <Box sx={{ flex: 1 }} />
-                <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+                <Typography
+                    variant="caption"
+                    sx={{
+                        color: "text.secondary",
+                        fontFamily: 'monospace'
+                    }}>
                     {String(job.job_id).slice(0, 8)}
                 </Typography>
             </Stack>

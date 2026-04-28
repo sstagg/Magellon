@@ -275,10 +275,21 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
             }}>
                 <CardContent sx={{ textAlign: 'center', py: 8 }}>
                     <FileImage size={80} color={theme.palette.text.secondary} />
-                    <Typography variant="h5" color="text.secondary" sx={{ mt: 2, mb: 1 }}>
+                    <Typography
+                        variant="h5"
+                        sx={{
+                            color: "text.secondary",
+                            mt: 2,
+                            mb: 1
+                        }}>
                         No Image Selected
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                    <Typography
+                        variant="body2"
+                        sx={{
+                            color: "text.secondary",
+                            mb: 3
+                        }}>
                         Select an image from the navigation panel to view details
                     </Typography>
                     <Button variant="outlined" startIcon={<Eye />}>

@@ -152,7 +152,7 @@ export const ParticleToolbar: React.FC<ParticleToolbarProps> = ({
                     anchorEl={actionsAnchor}
                     open={Boolean(actionsAnchor)}
                     onClose={() => setActionsAnchor(null)}
-                    PaperProps={{ sx: { minWidth: 180 } }}
+                    slotProps={{ paper: { sx: { minWidth: 180 } } }}
                 >
                     <MenuItem onClick={() => { onRefresh(); setActionsAnchor(null); }}>
                         <RefreshIcon sx={{ fontSize: 18, mr: 1 }} /> Refresh

@@ -25,7 +25,9 @@ export const ParticleHelpDialog: React.FC<ParticleHelpDialogProps> = ({
     return (
         <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
             <DialogTitle>
-                <Stack direction="row" alignItems="center" spacing={1}>
+                <Stack direction="row" spacing={1} sx={{
+                    alignItems: "center"
+                }}>
                     <HelpCircle />
                     <Typography variant="h6">Particle Picking Help</Typography>
                 </Stack>

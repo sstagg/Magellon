@@ -71,7 +71,9 @@ const SettingsPanel: React.FC<{
                 </Box>
 
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                        color: "text.secondary"
+                    }}>
                         {statistics.visibleCount}/{statistics.totalColumns} columns • {statistics.totalImages} images • {isHorizontal ? 'H' : 'V'}
                     </Typography>
 
@@ -80,7 +82,6 @@ const SettingsPanel: React.FC<{
                     </IconButton>
                 </Box>
             </Box>
-
             <Collapse in={!collapsed}>
                 <Box sx={{ p: 1.5 }}>
                     <ColumnPreferences

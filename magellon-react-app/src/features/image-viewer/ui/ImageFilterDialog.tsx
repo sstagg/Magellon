@@ -109,7 +109,11 @@ export const ImageFilterDialog: React.FC<ImageFilterDialogProps> = ({
     return (
         <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
             <DialogTitle>
-                <Box display="flex" alignItems="center">
+                <Box
+                    sx={{
+                        display: "flex",
+                        alignItems: "center"
+                    }}>
                     <FilterList sx={{ mr: 1 }} />
                     Filter Images
                     <Box sx={{ ml: 'auto' }}>
@@ -124,9 +128,7 @@ export const ImageFilterDialog: React.FC<ImageFilterDialogProps> = ({
                     </Box>
                 </Box>
             </DialogTitle>
-
             <Divider />
-
             <DialogContent>
                 <Stack spacing={3}>
                     {/* Name filter */}
@@ -153,7 +155,11 @@ export const ImageFilterDialog: React.FC<ImageFilterDialogProps> = ({
                                 max={ranges.defocusMax}
                                 step={(ranges.defocusMax - ranges.defocusMin) / 100}
                             />
-                            <Box display="flex" justifyContent="space-between">
+                            <Box
+                                sx={{
+                                    display: "flex",
+                                    justifyContent: "space-between"
+                                }}>
                                 <Typography variant="caption">{ranges.defocusMin?.toFixed(2)}</Typography>
                                 <Typography variant="caption">{ranges.defocusMax?.toFixed(2)}</Typography>
                             </Box>
@@ -196,7 +202,11 @@ export const ImageFilterDialog: React.FC<ImageFilterDialogProps> = ({
                                 max={ranges.pixelSizeMax}
                                 step={(ranges.pixelSizeMax - ranges.pixelSizeMin) / 100}
                             />
-                            <Box display="flex" justifyContent="space-between">
+                            <Box
+                                sx={{
+                                    display: "flex",
+                                    justifyContent: "space-between"
+                                }}>
                                 <Typography variant="caption">{ranges.pixelSizeMin?.toFixed(2)}</Typography>
                                 <Typography variant="caption">{ranges.pixelSizeMax?.toFixed(2)}</Typography>
                             </Box>
@@ -222,7 +232,9 @@ export const ImageFilterDialog: React.FC<ImageFilterDialogProps> = ({
                 {Object.keys(filter).length > 0 && (
                     <Box sx={{ mt: 3 }}>
                         <Typography variant="subtitle2" gutterBottom>Active Filters:</Typography>
-                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                        <Stack direction="row" spacing={1} useFlexGap sx={{
+                            flexWrap: "wrap"
+                        }}>
                             {filter.name && (
                                 <Chip
                                     label={`Name: ${filter.name}`}
@@ -268,9 +280,7 @@ export const ImageFilterDialog: React.FC<ImageFilterDialogProps> = ({
                     </Box>
                 )}
             </DialogContent>
-
             <Divider />
-
             <DialogActions>
                 <Button onClick={resetFilter} color="inherit">
                     Reset All

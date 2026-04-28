@@ -284,20 +284,23 @@ export default function SessionAccessManagementTab({
             <Typography variant="h5" gutterBottom>
                 Session Access Management
             </Typography>
-            <Typography variant="body2" color="text.secondary" paragraph>
+            <Typography
+                variant="body2"
+                sx={{
+                    color: "text.secondary",
+                    marginBottom: "16px"
+                }}>
                 Grant or revoke user access to specific imaging sessions. This implements row-level security
                 using Casbin policies.
             </Typography>
-
             {isSuperUser && (
                 <Alert severity="info" sx={{ mb: 3 }}>
                     Super user mode: You can manage session access for all users and sessions.
                 </Alert>
             )}
-
             <Grid container spacing={3}>
                 {/* Session Selection */}
-                <Grid item xs={12}>
+                <Grid size={12}>
                     <Paper sx={{ p: 3 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                             <Typography variant="h6">1. Select Session</Typography>
@@ -345,7 +348,7 @@ export default function SessionAccessManagementTab({
 
                 {/* Users with Access */}
                 {selectedSession && (
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                         <Paper sx={{ p: 3 }}>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                                 <Typography variant="h6">
@@ -430,7 +433,6 @@ export default function SessionAccessManagementTab({
                     </Grid>
                 )}
             </Grid>
-
             {/* Grant Access Dialog */}
             <Dialog open={openGrantDialog} onClose={() => setOpenGrantDialog(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Grant Session Access</DialogTitle>
@@ -470,11 +472,11 @@ export default function SessionAccessManagementTab({
                                     placeholder="Select sessions..."
                                 />
                             )}
-                            renderTags={(value, getTagProps) =>
+                            renderValue={(value, getItemProps) =>
                                 value.map((option, index) => (
                                     <Chip
                                         label={option.name || option.oid}
-                                        {...getTagProps({ index })}
+                                        {...getItemProps({ index })}
                                         size="small"
                                     />
                                 ))

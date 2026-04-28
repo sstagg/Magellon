@@ -395,9 +395,7 @@ export default function RoleEditDialog({
                     </IconButton>
                 </Box>
             </DialogTitle>
-
             <Divider />
-
             <DialogContent>
                 {loading ? (
                     <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
@@ -547,7 +545,12 @@ export default function RoleEditDialog({
                                             {safeActionPermissions.length === 0 ? (
                                                 <TableRow>
                                                     <TableCell colSpan={2} align="center">
-                                                        <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                                                        <Typography
+                                                            variant="body2"
+                                                            sx={{
+                                                                color: "text.secondary",
+                                                                py: 2
+                                                            }}>
                                                             No action permissions defined
                                                         </Typography>
                                                     </TableCell>
@@ -584,7 +587,11 @@ export default function RoleEditDialog({
                                 </Alert>
 
                                 <Grid container spacing={2}>
-                                    <Grid item xs={12} md={7}>
+                                    <Grid
+                                        size={{
+                                            xs: 12,
+                                            md: 7
+                                        }}>
                                         <TextField
                                             fullWidth
                                             label="Navigation Path"
@@ -593,7 +600,11 @@ export default function RoleEditDialog({
                                             placeholder="/admin/users"
                                         />
                                     </Grid>
-                                    <Grid item xs={12} md={3}>
+                                    <Grid
+                                        size={{
+                                            xs: 12,
+                                            md: 3
+                                        }}>
                                         <FormControl fullWidth>
                                             <InputLabel>Access</InputLabel>
                                             <Select
@@ -606,7 +617,11 @@ export default function RoleEditDialog({
                                             </Select>
                                         </FormControl>
                                     </Grid>
-                                    <Grid item xs={12} md={2}>
+                                    <Grid
+                                        size={{
+                                            xs: 12,
+                                            md: 2
+                                        }}>
                                         <Button
                                             fullWidth
                                             variant="contained"
@@ -646,7 +661,12 @@ export default function RoleEditDialog({
                                             {safeNavigationPermissions.length === 0 ? (
                                                 <TableRow>
                                                     <TableCell colSpan={3} align="center">
-                                                        <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                                                        <Typography
+                                                            variant="body2"
+                                                            sx={{
+                                                                color: "text.secondary",
+                                                                py: 2
+                                                            }}>
                                                             No navigation permissions defined
                                                         </Typography>
                                                     </TableCell>
@@ -706,7 +726,11 @@ export default function RoleEditDialog({
                                 </Box>
 
                                 <Grid container spacing={2}>
-                                    <Grid item xs={6} md={2.4}>
+                                    <Grid
+                                        size={{
+                                            xs: 6,
+                                            md: 2.4
+                                        }}>
                                         <FormControlLabel
                                             control={
                                                 <Switch
@@ -722,7 +746,11 @@ export default function RoleEditDialog({
                                             label="Read"
                                         />
                                     </Grid>
-                                    <Grid item xs={6} md={2.4}>
+                                    <Grid
+                                        size={{
+                                            xs: 6,
+                                            md: 2.4
+                                        }}>
                                         <FormControlLabel
                                             control={
                                                 <Switch
@@ -738,7 +766,11 @@ export default function RoleEditDialog({
                                             label="Write"
                                         />
                                     </Grid>
-                                    <Grid item xs={6} md={2.4}>
+                                    <Grid
+                                        size={{
+                                            xs: 6,
+                                            md: 2.4
+                                        }}>
                                         <FormControlLabel
                                             control={
                                                 <Switch
@@ -754,7 +786,11 @@ export default function RoleEditDialog({
                                             label="Create"
                                         />
                                     </Grid>
-                                    <Grid item xs={6} md={2.4}>
+                                    <Grid
+                                        size={{
+                                            xs: 6,
+                                            md: 2.4
+                                        }}>
                                         <FormControlLabel
                                             control={
                                                 <Switch
@@ -770,7 +806,11 @@ export default function RoleEditDialog({
                                             label="Delete"
                                         />
                                     </Grid>
-                                    <Grid item xs={6} md={2.4}>
+                                    <Grid
+                                        size={{
+                                            xs: 6,
+                                            md: 2.4
+                                        }}>
                                         <FormControlLabel
                                             control={
                                                 <Switch
@@ -815,7 +855,12 @@ export default function RoleEditDialog({
                                             {safeTypePermissions.length === 0 ? (
                                                 <TableRow>
                                                     <TableCell colSpan={7} align="center">
-                                                        <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                                                        <Typography
+                                                            variant="body2"
+                                                            sx={{
+                                                                color: "text.secondary",
+                                                                py: 2
+                                                            }}>
                                                             No type permissions defined
                                                         </Typography>
                                                     </TableCell>
@@ -861,9 +906,7 @@ export default function RoleEditDialog({
                     </Box>
                 )}
             </DialogContent>
-
             <Divider />
-
             <DialogActions>
                 <Button onClick={onClose} disabled={saving}>
                     Close

@@ -184,11 +184,9 @@ export default function MemberPermissionManagement({
                     Add Member Permission
                 </Button>
             </Box>
-
             <Alert severity="info" sx={{ mb: 2 }}>
                 Member permissions control field-level access. Use them to hide sensitive fields like salary or SSN from certain roles.
             </Alert>
-
             {loading ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
                     <CircularProgress />
@@ -209,7 +207,12 @@ export default function MemberPermissionManagement({
                             {permissions.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={5} align="center">
-                                        <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                                        <Typography
+                                            variant="body2"
+                                            sx={{
+                                                color: "text.secondary",
+                                                py: 2
+                                            }}>
                                             No member permissions defined
                                         </Typography>
                                     </TableCell>
@@ -241,7 +244,9 @@ export default function MemberPermissionManagement({
                                                     {permission.criteria}
                                                 </Typography>
                                             ) : (
-                                                <Typography variant="caption" color="text.secondary">
+                                                <Typography variant="caption" sx={{
+                                                    color: "text.secondary"
+                                                }}>
                                                     None
                                                 </Typography>
                                             )}
@@ -268,7 +273,6 @@ export default function MemberPermissionManagement({
                     </Table>
                 </TableContainer>
             )}
-
             {/* Create/Edit Dialog */}
             <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
                 <DialogTitle>

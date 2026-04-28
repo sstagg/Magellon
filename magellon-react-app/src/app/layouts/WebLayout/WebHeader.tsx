@@ -59,172 +59,173 @@ export default function WebHeader() {
                     : '0 2px 8px rgba(0, 0, 0, 0.05)',
             }}
         >
-                <Toolbar sx={{ px: { xs: 2, sm: 4 }, minHeight: '72px !important' }}>
-                    {/* Logo with Tagline */}
+            <Toolbar sx={{ px: { xs: 2, sm: 4 }, minHeight: '72px !important' }}>
+                {/* Logo with Tagline */}
+                <Box
+                    sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                            opacity: 0.85,
+                        }
+                    }}
+                    onClick={() => navigate('/en/web/home')}
+                >
                     <Box
+                        component="img"
+                        src={magellanLogo}
+                        alt="Magellon Logo"
                         sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s ease',
-                            '&:hover': {
-                                opacity: 0.85,
-                            }
+                            height: 42,
+                            width: 42,
+                            mr: 1.5,
                         }}
-                        onClick={() => navigate('/en/web/home')}
-                    >
-                        <Box
-                            component="img"
-                            src={magellanLogo}
-                            alt="Magellon Logo"
+                    />
+                    <Box>
+                        <Typography
+                            variant="h6"
+                            component="div"
                             sx={{
-                                height: 42,
-                                width: 42,
-                                mr: 1.5,
-                            }}
-                        />
-                        <Box>
-                            <Typography
-                                variant="h6"
-                                component="div"
-                                sx={{
-                                    fontWeight: 700,
-                                    fontSize: '1.4rem',
-                                    color: 'text.primary',
-                                    fontFamily: 'Exo 2, sans-serif',
-                                    letterSpacing: '-0.3px',
-                                    lineHeight: 1.2,
-                                }}
-                            >
-                                Magellon
-                            </Typography>
-                            <Typography
-                                variant="caption"
-                                sx={{
-                                    color: 'text.secondary',
-                                    fontSize: '0.7rem',
-                                    fontWeight: 500,
-                                    letterSpacing: '0.8px',
-                                    textTransform: 'uppercase',
-                                    display: { xs: 'none', sm: 'block' }
-                                }}
-                            >
-                                CryoEM Data Platform
-                            </Typography>
-                        </Box>
-                    </Box>
-
-                    <Box sx={{ flexGrow: 1 }} />
-
-                    {/* Desktop Navigation */}
-                    <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 0.5 }}>
-                        {navItems.map((item) => (
-                            <Button
-                                key={item.label}
-                                onClick={() => navigate(item.path)}
-                                sx={{
-                                    px: 2.5,
-                                    py: 1,
-                                    textTransform: 'none',
-                                    fontWeight: 500,
-                                    fontSize: '0.95rem',
-                                    color: 'text.secondary',
-                                    transition: 'all 0.2s ease',
-                                    '&:hover': {
-                                        color: 'primary.main',
-                                        backgroundColor: alpha(theme.palette.primary.main, 0.08),
-                                    }
-                                }}
-                            >
-                                {item.label}
-                            </Button>
-                        ))}
-
-                        {/* Divider */}
-                        <Box sx={{
-                            width: '1px',
-                            height: '24px',
-                            backgroundColor: alpha(theme.palette.divider, 0.2),
-                            mx: 2
-                        }} />
-
-                        {/* Theme Toggle */}
-                        <IconButton
-                            onClick={toggleTheme}
-                            size="small"
-                            sx={{
-                                color: 'text.secondary',
-                                transition: 'all 0.2s ease',
-                                '&:hover': {
-                                    color: 'primary.main',
-                                    backgroundColor: alpha(theme.palette.primary.main, 0.08),
-                                }
+                                fontWeight: 700,
+                                fontSize: '1.4rem',
+                                color: 'text.primary',
+                                fontFamily: 'Exo 2, sans-serif',
+                                letterSpacing: '-0.3px',
+                                lineHeight: 1.2,
                             }}
                         >
-                            {themeName === 'dark' ? <LightMode fontSize="small" /> : <DarkMode fontSize="small" />}
-                        </IconButton>
-
-                        {/* Panel Access */}
-                        <Button
-                            variant="contained"
-                            startIcon={<Dashboard />}
-                            onClick={() => navigate("/en/panel")}
+                            Magellon
+                        </Typography>
+                        <Typography
+                            variant="caption"
                             sx={{
-                                ml: 2,
-                                px: 3,
+                                color: 'text.secondary',
+                                fontSize: '0.7rem',
+                                fontWeight: 500,
+                                letterSpacing: '0.8px',
+                                textTransform: 'uppercase',
+                                display: { xs: 'none', sm: 'block' }
+                            }}
+                        >
+                            CryoEM Data Platform
+                        </Typography>
+                    </Box>
+                </Box>
+
+                <Box sx={{ flexGrow: 1 }} />
+
+                {/* Desktop Navigation */}
+                <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 0.5 }}>
+                    {navItems.map((item) => (
+                        <Button
+                            key={item.label}
+                            onClick={() => navigate(item.path)}
+                            sx={{
+                                px: 2.5,
                                 py: 1,
                                 textTransform: 'none',
-                                fontWeight: 600,
+                                fontWeight: 500,
                                 fontSize: '0.95rem',
-                                backgroundColor: 'primary.main',
-                                color: '#ffffff',
-                                boxShadow: 'none',
+                                color: 'text.secondary',
                                 transition: 'all 0.2s ease',
                                 '&:hover': {
-                                    backgroundColor: 'primary.dark',
-                                    boxShadow: 'none',
+                                    color: 'primary.main',
+                                    backgroundColor: alpha(theme.palette.primary.main, 0.08),
                                 }
                             }}
                         >
-                            Access Platform
+                            {item.label}
                         </Button>
-                    </Box>
+                    ))}
 
-                    {/* Mobile Menu Button */}
-                    <Box sx={{ display: { xs: 'flex', md: 'none' }, gap: 1 }}>
-                        <IconButton
-                            onClick={toggleTheme}
-                            size="small"
-                            sx={{
-                                color: 'text.secondary',
-                                '&:hover': {
-                                    color: 'primary.main',
-                                    backgroundColor: alpha(theme.palette.primary.main, 0.08),
-                                }
-                            }}
-                        >
-                            {themeName === 'dark' ? <LightMode fontSize="small" /> : <DarkMode fontSize="small" />}
-                        </IconButton>
-                        <IconButton
-                            onClick={handleMobileMenuOpen}
-                            sx={{
-                                color: 'text.secondary',
-                                '&:hover': {
-                                    color: 'primary.main',
-                                    backgroundColor: alpha(theme.palette.primary.main, 0.08),
-                                }
-                            }}
-                        >
-                            <MenuIcon />
-                        </IconButton>
-                    </Box>
+                    {/* Divider */}
+                    <Box sx={{
+                        width: '1px',
+                        height: '24px',
+                        backgroundColor: alpha(theme.palette.divider, 0.2),
+                        mx: 2
+                    }} />
 
-                    {/* Mobile Menu */}
-                    <Menu
-                        anchorEl={mobileMenuAnchor}
-                        open={Boolean(mobileMenuAnchor)}
-                        onClose={handleMobileMenuClose}
-                        PaperProps={{
+                    {/* Theme Toggle */}
+                    <IconButton
+                        onClick={toggleTheme}
+                        size="small"
+                        sx={{
+                            color: 'text.secondary',
+                            transition: 'all 0.2s ease',
+                            '&:hover': {
+                                color: 'primary.main',
+                                backgroundColor: alpha(theme.palette.primary.main, 0.08),
+                            }
+                        }}
+                    >
+                        {themeName === 'dark' ? <LightMode fontSize="small" /> : <DarkMode fontSize="small" />}
+                    </IconButton>
+
+                    {/* Panel Access */}
+                    <Button
+                        variant="contained"
+                        startIcon={<Dashboard />}
+                        onClick={() => navigate("/en/panel")}
+                        sx={{
+                            ml: 2,
+                            px: 3,
+                            py: 1,
+                            textTransform: 'none',
+                            fontWeight: 600,
+                            fontSize: '0.95rem',
+                            backgroundColor: 'primary.main',
+                            color: '#ffffff',
+                            boxShadow: 'none',
+                            transition: 'all 0.2s ease',
+                            '&:hover': {
+                                backgroundColor: 'primary.dark',
+                                boxShadow: 'none',
+                            }
+                        }}
+                    >
+                        Access Platform
+                    </Button>
+                </Box>
+
+                {/* Mobile Menu Button */}
+                <Box sx={{ display: { xs: 'flex', md: 'none' }, gap: 1 }}>
+                    <IconButton
+                        onClick={toggleTheme}
+                        size="small"
+                        sx={{
+                            color: 'text.secondary',
+                            '&:hover': {
+                                color: 'primary.main',
+                                backgroundColor: alpha(theme.palette.primary.main, 0.08),
+                            }
+                        }}
+                    >
+                        {themeName === 'dark' ? <LightMode fontSize="small" /> : <DarkMode fontSize="small" />}
+                    </IconButton>
+                    <IconButton
+                        onClick={handleMobileMenuOpen}
+                        sx={{
+                            color: 'text.secondary',
+                            '&:hover': {
+                                color: 'primary.main',
+                                backgroundColor: alpha(theme.palette.primary.main, 0.08),
+                            }
+                        }}
+                    >
+                        <MenuIcon />
+                    </IconButton>
+                </Box>
+
+                {/* Mobile Menu */}
+                <Menu
+                    anchorEl={mobileMenuAnchor}
+                    open={Boolean(mobileMenuAnchor)}
+                    onClose={handleMobileMenuClose}
+                    slotProps={{
+                        paper: {
                             sx: {
                                 mt: 1,
                                 minWidth: 200,
@@ -234,36 +235,14 @@ export default function WebHeader() {
                                 border: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
                                 boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
                             }
-                        }}
-                    >
-                        {navItems.map((item) => (
-                            <MenuItem
-                                key={item.label}
-                                onClick={() => {
-                                    navigate(item.path);
-                                    handleMobileMenuClose();
-                                }}
-                                sx={{
-                                    py: 1.5,
-                                    borderRadius: 2,
-                                    mx: 1,
-                                    my: 0.5,
-                                    transition: 'all 0.2s ease',
-                                    '&:hover': {
-                                        background: alpha(theme.palette.primary.main, 0.1),
-                                        color: 'primary.main',
-                                    }
-                                }}
-                            >
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                    {item.icon}
-                                    <Typography fontWeight={500}>{item.label}</Typography>
-                                </Box>
-                            </MenuItem>
-                        ))}
+                        }
+                    }}
+                >
+                    {navItems.map((item) => (
                         <MenuItem
+                            key={item.label}
                             onClick={() => {
-                                navigate("/en/panel");
+                                navigate(item.path);
                                 handleMobileMenuClose();
                             }}
                             sx={{
@@ -271,21 +250,50 @@ export default function WebHeader() {
                                 borderRadius: 2,
                                 mx: 1,
                                 my: 0.5,
-                                mt: 1,
-                                background: alpha(theme.palette.primary.main, 0.1),
                                 transition: 'all 0.2s ease',
                                 '&:hover': {
-                                    background: alpha(theme.palette.primary.main, 0.2),
+                                    background: alpha(theme.palette.primary.main, 0.1),
+                                    color: 'primary.main',
                                 }
                             }}
                         >
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                <Dashboard />
-                                <Typography fontWeight={600} color="primary.main">Access Platform</Typography>
+                                {item.icon}
+                                <Typography sx={{
+                                    fontWeight: 500
+                                }}>{item.label}</Typography>
                             </Box>
                         </MenuItem>
-                    </Menu>
-                </Toolbar>
+                    ))}
+                    <MenuItem
+                        onClick={() => {
+                            navigate("/en/panel");
+                            handleMobileMenuClose();
+                        }}
+                        sx={{
+                            py: 1.5,
+                            borderRadius: 2,
+                            mx: 1,
+                            my: 0.5,
+                            mt: 1,
+                            background: alpha(theme.palette.primary.main, 0.1),
+                            transition: 'all 0.2s ease',
+                            '&:hover': {
+                                background: alpha(theme.palette.primary.main, 0.2),
+                            }
+                        }}
+                    >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                            <Dashboard />
+                            <Typography
+                                sx={{
+                                    fontWeight: 600,
+                                    color: "primary.main"
+                                }}>Access Platform</Typography>
+                        </Box>
+                    </MenuItem>
+                </Menu>
+            </Toolbar>
         </AppBar>
     );
 }

@@ -260,16 +260,28 @@ export default function CriteriaBuilder({
 
     return (
       <Paper key={condition.id} sx={{ p: 2, mb: 2, bgcolor: 'background.default' }}>
-        <Grid container spacing={2} alignItems="center">
+        <Grid container spacing={2} sx={{
+          alignItems: "center"
+        }}>
           {/* Condition Number */}
-          <Grid item xs={12} sm={0.5}>
-            <Typography variant="body2" color="text.secondary">
+          <Grid
+            size={{
+              xs: 12,
+              sm: 0.5
+            }}>
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               {index + 1}.
             </Typography>
           </Grid>
 
           {/* Field Selector */}
-          <Grid item xs={12} sm={3}>
+          <Grid
+            size={{
+              xs: 12,
+              sm: 3
+            }}>
             <Autocomplete
               options={entity?.fields || []}
               getOptionLabel={(option) => option.caption || option.name}
@@ -297,7 +309,9 @@ export default function CriteriaBuilder({
                 <li {...props} key={option.name}>
                   <Box>
                     <Typography variant="body2">{option.caption}</Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>
                       {option.name} ({option.type})
                     </Typography>
                   </Box>
@@ -307,7 +321,11 @@ export default function CriteriaBuilder({
           </Grid>
 
           {/* Operator Selector */}
-          <Grid item xs={12} sm={2.5}>
+          <Grid
+            size={{
+              xs: 12,
+              sm: 2.5
+            }}>
             <FormControl fullWidth size="small">
               <InputLabel>Operator</InputLabel>
               <Select
@@ -332,7 +350,11 @@ export default function CriteriaBuilder({
 
           {/* Value Input */}
           {selectedOp && selectedOp.requires_value && (
-            <Grid item xs={12} sm={5}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 5
+              }}>
               <Autocomplete
                 freeSolo
                 options={suggestions}
@@ -372,7 +394,9 @@ export default function CriteriaBuilder({
                           )}
                         </Typography>
                         {description && (
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" sx={{
+                            color: "text.secondary"
+                          }}>
                             {description}
                           </Typography>
                         )}
@@ -400,16 +424,20 @@ export default function CriteriaBuilder({
                         ? `${suggestions.length} suggestion(s) available`
                         : 'Type a value or use a function'
                     }
-                    InputProps={{
-                      ...params.InputProps,
-                      endAdornment: (
-                        <>
-                          {loadingOptions[condition.field] ? (
-                            <CircularProgress color="inherit" size={20} />
-                          ) : null}
-                          {params.InputProps.endAdornment}
-                        </>
-                      ),
+                    slotProps={{
+                      ...params.slotProps,
+
+                      input: {
+                        ...params.slotProps.input,
+                        endAdornment: (
+                          <>
+                            {loadingOptions[condition.field] ? (
+                              <CircularProgress color="inherit" size={20} />
+                            ) : null}
+                            {params.slotProps.input.endAdornment}
+                          </>
+                        ),
+                      }
                     }}
                   />
                 )}
@@ -418,7 +446,11 @@ export default function CriteriaBuilder({
           )}
 
           {/* Delete Button */}
-          <Grid item xs={12} sm={1}>
+          <Grid
+            size={{
+              xs: 12,
+              sm: 1
+            }}>
             <Tooltip title="Remove condition">
               <IconButton
                 onClick={() => removeCondition(condition.id)}

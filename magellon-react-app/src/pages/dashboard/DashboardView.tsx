@@ -111,7 +111,12 @@ const StatCard = ({ title, value, subtitle, icon, color, chartData = [] }) => {
                 }
             }}
         >
-            <Box display="flex" justifyContent="space-between" alignItems="flex-start">
+            <Box
+                sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start"
+                }}>
                 <Box>
                     <Typography
                         variant="body2"
@@ -167,7 +172,6 @@ const StatCard = ({ title, value, subtitle, icon, color, chartData = [] }) => {
                     })}
                 </Box>
             </Box>
-
             {chartData.length > 0 && (
                 <Box sx={{ mt: 'auto', pt: 1 }}>
                     <MetricChart data={chartData} color={color} />
@@ -421,11 +425,14 @@ const ProjectCard = ({ name, progress, status, lastUpdated, onClick }) => {
                     }}
                 />
             </Box>
-
             <Box sx={{ mt: 2, mb: 1 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                    <Typography variant="caption" color="text.secondary">Progress</Typography>
-                    <Typography variant="caption" fontWeight={500}>{progress}%</Typography>
+                    <Typography variant="caption" sx={{
+                        color: "text.secondary"
+                    }}>Progress</Typography>
+                    <Typography variant="caption" sx={{
+                        fontWeight: 500
+                    }}>{progress}%</Typography>
                 </Box>
                 <LinearProgress
                     variant="determinate"
@@ -440,7 +447,6 @@ const ProjectCard = ({ name, progress, status, lastUpdated, onClick }) => {
                     }}
                 />
             </Box>
-
             <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 1 }}>
                 Last updated: {lastUpdated}
             </Typography>
@@ -681,7 +687,9 @@ const DashboardView = () => {
                             </Typography>
 
                             <Box sx={{ display: 'flex', alignItems: 'center', ml: 2 }}>
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography variant="caption" sx={{
+                                    color: "text.secondary"
+                                }}>
                                     Last updated: {lastRefresh}
                                 </Typography>
                                 <IconButton size="small" onClick={handleRefresh} sx={{ ml: 0.5 }}>
@@ -925,7 +933,13 @@ const DashboardView = () => {
                                     </Typography>
                                     <Calendar size={18} color={theme.palette.primary.main} />
                                 </Box>
-                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                                <Typography
+                                    variant="caption"
+                                    sx={{
+                                        color: "text.secondary",
+                                        display: 'block',
+                                        mt: 0.5
+                                    }}>
                                     Wednesday, May 21, 2025
                                 </Typography>
                             </Box>
@@ -947,7 +961,9 @@ const DashboardView = () => {
                                         <Typography variant="body2" sx={{ fontWeight: 500 }}>
                                             Team Progress Meeting
                                         </Typography>
-                                        <Typography variant="caption" color="text.secondary">
+                                        <Typography variant="caption" sx={{
+                                            color: "text.secondary"
+                                        }}>
                                             11:00 AM - 12:00 PM
                                         </Typography>
                                     </Box>
@@ -969,7 +985,9 @@ const DashboardView = () => {
                                         <Typography variant="body2" sx={{ fontWeight: 500 }}>
                                             Data Processing Review
                                         </Typography>
-                                        <Typography variant="caption" color="text.secondary">
+                                        <Typography variant="caption" sx={{
+                                            color: "text.secondary"
+                                        }}>
                                             3:30 PM - 4:30 PM
                                         </Typography>
                                     </Box>

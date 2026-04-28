@@ -157,13 +157,11 @@ export const RelionExportComponent = () => {
             <Typography variant="h6" gutterBottom>
                 Export RELION Star File
             </Typography>
-
             <Typography variant="body2" color="textSecondary" gutterBottom>
                 Generate a RELION star file from database session data. This will query the database for session and image data,
                 apply filters for magnification and movie presence, extract CTF parameters from metadata, and generate a
                 RELION-compatible star file with optional MRC file copying/symlinking.
             </Typography>
-
             <Paper sx={{ p: 3, mt: 3 }}>
                 <Typography variant="h6" gutterBottom>
                     Export Configuration
@@ -171,7 +169,11 @@ export const RelionExportComponent = () => {
 
                 <Grid container spacing={3}>
                     {/* Session Selection */}
-                    <Grid item xs={12} md={6}>
+                    <Grid
+                        size={{
+                            xs: 12,
+                            md: 6
+                        }}>
                         <FormControl fullWidth variant="outlined" error={!!errors.session_name}>
                             <InputLabel>Session *</InputLabel>
                             <Select
@@ -199,7 +201,11 @@ export const RelionExportComponent = () => {
                     </Grid>
 
                     {/* Output Directory */}
-                    <Grid item xs={12} md={6}>
+                    <Grid
+                        size={{
+                            xs: 12,
+                            md: 6
+                        }}>
                         <TextField
                             fullWidth
                             required
@@ -213,7 +219,11 @@ export const RelionExportComponent = () => {
                     </Grid>
 
                     {/* Magnification */}
-                    <Grid item xs={12} md={6}>
+                    <Grid
+                        size={{
+                            xs: 12,
+                            md: 6
+                        }}>
                         <TextField
                             fullWidth
                             type="number"
@@ -223,12 +233,18 @@ export const RelionExportComponent = () => {
                             variant="outlined"
                             error={!!errors.magnification}
                             helperText={errors.magnification || "Filter images by magnification (0 = no filter)"}
-                            inputProps={{ min: 0 }}
+                            slotProps={{
+                                htmlInput: { min: 0 }
+                            }}
                         />
                     </Grid>
 
                     {/* Source MRC Directory */}
-                    <Grid item xs={12} md={6}>
+                    <Grid
+                        size={{
+                            xs: 12,
+                            md: 6
+                        }}>
                         <TextField
                             fullWidth
                             required
@@ -242,7 +258,11 @@ export const RelionExportComponent = () => {
                     </Grid>
 
                     {/* File Copy Mode */}
-                    <Grid item xs={12} md={6}>
+                    <Grid
+                        size={{
+                            xs: 12,
+                            md: 6
+                        }}>
                         <FormControl fullWidth variant="outlined">
                             <InputLabel>File Copy Mode</InputLabel>
                             <Select
@@ -258,7 +278,11 @@ export const RelionExportComponent = () => {
                     </Grid>
 
                     {/* Has Movie Filter */}
-                    <Grid item xs={12} md={6}>
+                    <Grid
+                        size={{
+                            xs: 12,
+                            md: 6
+                        }}>
                         <FormControlLabel
                             control={
                                 <Switch
@@ -271,7 +295,7 @@ export const RelionExportComponent = () => {
                     </Grid>
 
                     {/* Export Button */}
-                    <Grid item xs={12} sx={{ mt: 2 }}>
+                    <Grid sx={{ mt: 2 }} size={12}>
                         <Button
                             variant="contained"
                             color="primary"
@@ -296,7 +320,6 @@ export const RelionExportComponent = () => {
                     </Alert>
                 </Box>
             </Paper>
-
             {/* Export Status Dialog */}
             <Dialog
                 open={exportStatus !== 'idle'}

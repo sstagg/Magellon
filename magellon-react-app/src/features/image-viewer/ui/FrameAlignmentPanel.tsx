@@ -23,7 +23,9 @@ export const FrameAlignmentPanel: React.FC<FrameAlignmentPanelProps> = ({
     isMobile,
 }) => {
     return (
-        <Stack spacing={2} alignItems="center">
+        <Stack spacing={2} sx={{
+            alignItems: "center"
+        }}>
             {isFaoOneLoading ? (
                 <Skeleton variant="rectangular" width={isMobile ? 300 : 900} height={400} />
             ) : faoOneUrl ? (

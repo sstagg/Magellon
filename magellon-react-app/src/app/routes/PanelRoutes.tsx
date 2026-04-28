@@ -40,7 +40,9 @@ const TestView = () => (
             <Typography variant="h4" component="h1" gutterBottom>
                 Test Environment
             </Typography>
-            <Typography variant="body1" paragraph>
+            <Typography variant="body1" sx={{
+                marginBottom: "16px"
+            }}>
                 This area is for testing and development purposes.
             </Typography>
         </Box>

@@ -127,7 +127,9 @@ export default function RoleAssignmentDialog({
           </Box>
         ) : (
           <>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
+            <Typography variant="body2" gutterBottom sx={{
+              color: "text.secondary"
+            }}>
               Assign or remove roles for this user. Changes are applied immediately.
             </Typography>
             <Divider sx={{ my: 2 }} />
@@ -163,7 +165,13 @@ export default function RoleAssignmentDialog({
               })}
             </FormGroup>
             {allRoles.length === 0 && (
-              <Typography variant="body2" color="text.secondary" align="center" sx={{ p: 2 }}>
+              <Typography
+                variant="body2"
+                align="center"
+                sx={{
+                  color: "text.secondary",
+                  p: 2
+                }}>
                 No roles available
               </Typography>
             )}

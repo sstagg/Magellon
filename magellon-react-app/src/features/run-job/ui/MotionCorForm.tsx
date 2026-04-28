@@ -491,7 +491,9 @@ export const MotionCorForm: React.FC<MotionCorFormProps> = ({
                 <Box sx={{ mb: 3, p: 2, backgroundColor: 'action.hover', borderRadius: 1, border: '1px solid', borderColor: 'info.main' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                         <CircularProgress size={24} />
-                        <Typography variant="subtitle1" color="info.main">
+                        <Typography variant="subtitle1" sx={{
+                            color: "info.main"
+                        }}>
                             {processingState.statusMessage || 'Processing...'}
                         </Typography>
                     </Box>
@@ -783,10 +785,12 @@ export const MotionCorForm: React.FC<MotionCorFormProps> = ({
                                 type="number"
                                 value={params.PixSize}
                                 onChange={(e) => handleParamChange('PixSize', e.target.value)}
-                                InputProps={{
-                                    endAdornment: <InputAdornment position="end">A</InputAdornment>,
-                                }}
                                 size="small"
+                                slotProps={{
+                                    input: {
+                                        endAdornment: <InputAdornment position="end">A</InputAdornment>,
+                                    }
+                                }}
                             />
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
@@ -796,10 +800,12 @@ export const MotionCorForm: React.FC<MotionCorFormProps> = ({
                                 type="number"
                                 value={params.FmDose}
                                 onChange={(e) => handleParamChange('FmDose', e.target.value)}
-                                InputProps={{
-                                    endAdornment: <InputAdornment position="end">e/A^2</InputAdornment>,
-                                }}
                                 size="small"
+                                slotProps={{
+                                    input: {
+                                        endAdornment: <InputAdornment position="end">e/A^2</InputAdornment>,
+                                    }
+                                }}
                             />
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
@@ -809,10 +815,12 @@ export const MotionCorForm: React.FC<MotionCorFormProps> = ({
                                 type="number"
                                 value={params.kV}
                                 onChange={(e) => handleParamChange('kV', e.target.value)}
-                                InputProps={{
-                                    endAdornment: <InputAdornment position="end">kV</InputAdornment>,
-                                }}
                                 size="small"
+                                slotProps={{
+                                    input: {
+                                        endAdornment: <InputAdornment position="end">kV</InputAdornment>,
+                                    }
+                                }}
                             />
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
@@ -873,10 +881,12 @@ export const MotionCorForm: React.FC<MotionCorFormProps> = ({
                                 type="number"
                                 value={params.Tol}
                                 onChange={(e) => handleParamChange('Tol', e.target.value)}
-                                InputProps={{
-                                    endAdornment: <InputAdornment position="end">px</InputAdornment>,
-                                }}
                                 size="small"
+                                slotProps={{
+                                    input: {
+                                        endAdornment: <InputAdornment position="end">px</InputAdornment>,
+                                    }
+                                }}
                             />
                         </Grid>
 

@@ -264,7 +264,12 @@ export default function UserManagementTab({
             <Box>
                 {/* Statistics Cards */}
                 <Grid container spacing={3} sx={{ mb: 3 }}>
-                    <Grid xs={12} sm={6} md={3}>
+                    <Grid
+                        size={{
+                            xs: 12,
+                            sm: 6,
+                            md: 3
+                        }}>
                         <Card>
                             <CardContent>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -273,13 +278,20 @@ export default function UserManagementTab({
                                     </Avatar>
                                     <Box>
                                         <Typography variant="h4">{totalUsers}</Typography>
-                                        <Typography variant="body2" color="text.secondary">Total Users</Typography>
+                                        <Typography variant="body2" sx={{
+                                            color: "text.secondary"
+                                        }}>Total Users</Typography>
                                     </Box>
                                 </Box>
                             </CardContent>
                         </Card>
                     </Grid>
-                    <Grid xs={12} sm={6} md={3}>
+                    <Grid
+                        size={{
+                            xs: 12,
+                            sm: 6,
+                            md: 3
+                        }}>
                         <Card>
                             <CardContent>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -288,13 +300,20 @@ export default function UserManagementTab({
                                     </Avatar>
                                     <Box>
                                         <Typography variant="h4">{users.filter(u => u.active).length}</Typography>
-                                        <Typography variant="body2" color="text.secondary">Active Users</Typography>
+                                        <Typography variant="body2" sx={{
+                                            color: "text.secondary"
+                                        }}>Active Users</Typography>
                                     </Box>
                                 </Box>
                             </CardContent>
                         </Card>
                     </Grid>
-                    <Grid xs={12} sm={6} md={3}>
+                    <Grid
+                        size={{
+                            xs: 12,
+                            sm: 6,
+                            md: 3
+                        }}>
                         <Card>
                             <CardContent>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -303,13 +322,20 @@ export default function UserManagementTab({
                                     </Avatar>
                                     <Box>
                                         <Typography variant="h4">{users.filter(u => !u.active).length}</Typography>
-                                        <Typography variant="body2" color="text.secondary">Inactive Users</Typography>
+                                        <Typography variant="body2" sx={{
+                                            color: "text.secondary"
+                                        }}>Inactive Users</Typography>
                                     </Box>
                                 </Box>
                             </CardContent>
                         </Card>
                     </Grid>
-                    <Grid xs={12} sm={6} md={3}>
+                    <Grid
+                        size={{
+                            xs: 12,
+                            sm: 6,
+                            md: 3
+                        }}>
                         <Card>
                             <CardContent>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -318,14 +344,15 @@ export default function UserManagementTab({
                                     </Avatar>
                                     <Box>
                                         <Typography variant="h4">{users.filter(u => u.roles && u.roles.some((r: any) => r.is_administrative)).length}</Typography>
-                                        <Typography variant="body2" color="text.secondary">Admin Users</Typography>
+                                        <Typography variant="body2" sx={{
+                                            color: "text.secondary"
+                                        }}>Admin Users</Typography>
                                     </Box>
                                 </Box>
                             </CardContent>
                         </Card>
                     </Grid>
                 </Grid>
-
                 {/* Filters, Search and Add */}
                 <Box sx={{ display: 'flex', gap: 2, mb: 3, alignItems: 'center' }}>
                     <TextField
@@ -333,12 +360,14 @@ export default function UserManagementTab({
                         placeholder="Search users..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <Search />
-                                </InputAdornment>
-                            ),
+                        slotProps={{
+                            input: {
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <Search />
+                                    </InputAdornment>
+                                ),
+                            }
                         }}
                     />
                     <FormControl sx={{ minWidth: 150 }}>
@@ -368,7 +397,6 @@ export default function UserManagementTab({
                         Add User
                     </Button>
                 </Box>
-
                 {/* Users Table */}
                 {loading ? (
                     <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
@@ -391,7 +419,6 @@ export default function UserManagementTab({
                         onDeleteUser={handleDeleteUser}
                     />
                 )}
-
                 {/* Create User Dialog */}
                 <CreateUserDialog
                     open={createUserDialogOpen}
@@ -399,7 +426,6 @@ export default function UserManagementTab({
                     onClose={() => setCreateUserDialogOpen(false)}
                     onCreateUser={handleCreateUser}
                 />
-
                 {/* Role Assignment Dialog */}
                 {selectedUser && (
                     <RoleAssignmentDialog
@@ -415,7 +441,6 @@ export default function UserManagementTab({
                         }}
                     />
                 )}
-
                 {/* Change Password Dialog (Admin changing other users' passwords) */}
                 {userToChangePassword && (
                     <ChangePasswordDialog
@@ -443,7 +468,7 @@ export default function UserManagementTab({
         <Box>
             <Grid container spacing={3}>
                 {/* Profile Header Card */}
-                <Grid xs={12}>
+                <Grid size={12}>
                     <Card sx={{
                         background: 'linear-gradient(135deg, rgba(33, 150, 243, 0.1) 0%, rgba(33, 150, 243, 0.05) 100%)',
                         border: '1px solid',
@@ -504,24 +529,42 @@ export default function UserManagementTab({
                             </Box>
                             <Divider sx={{ my: 2 }} />
                             <Grid container spacing={2}>
-                                <Grid xs={12} sm={4}>
-                                    <Typography variant="caption" color="text.secondary">
+                                <Grid
+                                    size={{
+                                        xs: 12,
+                                        sm: 4
+                                    }}>
+                                    <Typography variant="caption" sx={{
+                                        color: "text.secondary"
+                                    }}>
                                         User ID
                                     </Typography>
                                     <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
                                         {currentUser?.id || currentUser?.oid || 'N/A'}
                                     </Typography>
                                 </Grid>
-                                <Grid xs={12} sm={4}>
-                                    <Typography variant="caption" color="text.secondary">
+                                <Grid
+                                    size={{
+                                        xs: 12,
+                                        sm: 4
+                                    }}>
+                                    <Typography variant="caption" sx={{
+                                        color: "text.secondary"
+                                    }}>
                                         Account Status
                                     </Typography>
                                     <Typography variant="body2">
                                         {currentUser?.active ? '✓ Active' : '✗ Inactive'}
                                     </Typography>
                                 </Grid>
-                                <Grid xs={12} sm={4}>
-                                    <Typography variant="caption" color="text.secondary">
+                                <Grid
+                                    size={{
+                                        xs: 12,
+                                        sm: 4
+                                    }}>
+                                    <Typography variant="caption" sx={{
+                                        color: "text.secondary"
+                                    }}>
                                         Member Since
                                     </Typography>
                                     <Typography variant="body2">
@@ -536,7 +579,11 @@ export default function UserManagementTab({
                 </Grid>
 
                 {/* Profile Information Card */}
-                <Grid xs={12} md={6}>
+                <Grid
+                    size={{
+                        xs: 12,
+                        md: 6
+                    }}>
                     <Card sx={{ height: '100%' }}>
                         <CardContent>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -588,12 +635,14 @@ export default function UserManagementTab({
                                     value={formData.username}
                                     onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                                     disabled={!editMode}
-                                    InputProps={{
-                                        startAdornment: (
-                                            <InputAdornment position="start">
-                                                <Person />
-                                            </InputAdornment>
-                                        ),
+                                    slotProps={{
+                                        input: {
+                                            startAdornment: (
+                                                <InputAdornment position="start">
+                                                    <Person />
+                                                </InputAdornment>
+                                            ),
+                                        }
                                     }}
                                 />
                                 <TextField
@@ -602,12 +651,14 @@ export default function UserManagementTab({
                                     value={formData.email}
                                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                     disabled={!editMode}
-                                    InputProps={{
-                                        startAdornment: (
-                                            <InputAdornment position="start">
-                                                <Email />
-                                            </InputAdornment>
-                                        ),
+                                    slotProps={{
+                                        input: {
+                                            startAdornment: (
+                                                <InputAdornment position="start">
+                                                    <Email />
+                                                </InputAdornment>
+                                            ),
+                                        }
                                     }}
                                 />
                             </Box>
@@ -616,7 +667,11 @@ export default function UserManagementTab({
                 </Grid>
 
                 {/* Security Card */}
-                <Grid xs={12} md={6}>
+                <Grid
+                    size={{
+                        xs: 12,
+                        md: 6
+                    }}>
                     <Card sx={{ height: '100%' }}>
                         <CardContent>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
@@ -634,7 +689,12 @@ export default function UserManagementTab({
                                             variant="outlined"
                                         />
                                     </Box>
-                                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                                    <Typography
+                                        variant="body2"
+                                        sx={{
+                                            color: "text.secondary",
+                                            mb: 2
+                                        }}>
                                         Last changed: {currentUser?.last_password_change
                                             ? new Date(currentUser.last_password_change).toLocaleDateString()
                                             : 'Never'}
@@ -655,7 +715,9 @@ export default function UserManagementTab({
                                     </Typography>
                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                            <Typography variant="body2" color="text.secondary">
+                                            <Typography variant="body2" sx={{
+                                                color: "text.secondary"
+                                            }}>
                                                 Failed Login Attempts
                                             </Typography>
                                             <Typography variant="body2">
@@ -663,7 +725,9 @@ export default function UserManagementTab({
                                             </Typography>
                                         </Box>
                                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                            <Typography variant="body2" color="text.secondary">
+                                            <Typography variant="body2" sx={{
+                                                color: "text.secondary"
+                                            }}>
                                                 Account Locked
                                             </Typography>
                                             <Typography variant="body2">
@@ -680,7 +744,7 @@ export default function UserManagementTab({
                 </Grid>
 
                 {/* Roles & Permissions Card */}
-                <Grid xs={12}>
+                <Grid size={12}>
                     <Card>
                         <CardContent>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
@@ -695,7 +759,11 @@ export default function UserManagementTab({
                             ) : (
                                 <Grid container spacing={3}>
                                     {/* Roles Section */}
-                                    <Grid xs={12} md={4}>
+                                    <Grid
+                                        size={{
+                                            xs: 12,
+                                            md: 4
+                                        }}>
                                         <Box
                                             sx={{
                                                 p: 2,
@@ -730,9 +798,11 @@ export default function UserManagementTab({
                                                 {(!userPermissions?.roles || userPermissions.roles.length === 0) && (
                                                     <Typography
                                                         variant="body2"
-                                                        color="text.secondary"
-                                                        sx={{ textAlign: 'center', py: 2 }}
-                                                    >
+                                                        sx={{
+                                                            color: "text.secondary",
+                                                            textAlign: 'center',
+                                                            py: 2
+                                                        }}>
                                                         No roles assigned
                                                     </Typography>
                                                 )}
@@ -741,7 +811,11 @@ export default function UserManagementTab({
                                     </Grid>
 
                                     {/* Action Permissions Section */}
-                                    <Grid xs={12} md={4}>
+                                    <Grid
+                                        size={{
+                                            xs: 12,
+                                            md: 4
+                                        }}>
                                         <Box
                                             sx={{
                                                 p: 2,
@@ -777,9 +851,12 @@ export default function UserManagementTab({
                                                     userPermissions.action_permissions.length === 0) && (
                                                     <Typography
                                                         variant="body2"
-                                                        color="text.secondary"
-                                                        sx={{ textAlign: 'center', py: 2, width: '100%' }}
-                                                    >
+                                                        sx={{
+                                                            color: "text.secondary",
+                                                            textAlign: 'center',
+                                                            py: 2,
+                                                            width: '100%'
+                                                        }}>
                                                         No action permissions
                                                     </Typography>
                                                 )}
@@ -788,7 +865,11 @@ export default function UserManagementTab({
                                     </Grid>
 
                                     {/* Navigation Permissions Section */}
-                                    <Grid xs={12} md={4}>
+                                    <Grid
+                                        size={{
+                                            xs: 12,
+                                            md: 4
+                                        }}>
                                         <Box
                                             sx={{
                                                 p: 2,
@@ -818,9 +899,11 @@ export default function UserManagementTab({
                                                         </ListItemIcon>
                                                         <ListItemText
                                                             primary={perm.path || perm.item_path || perm}
-                                                            primaryTypographyProps={{
-                                                                variant: 'body2',
-                                                                sx: { fontFamily: 'monospace', fontSize: '0.75rem' },
+                                                            slotProps={{
+                                                                primary: {
+                                                                    variant: 'body2',
+                                                                    sx: { fontFamily: 'monospace', fontSize: '0.75rem' },
+                                                                }
                                                             }}
                                                         />
                                                     </ListItem>
@@ -829,9 +912,11 @@ export default function UserManagementTab({
                                                     userPermissions.navigation_permissions.length === 0) && (
                                                     <Typography
                                                         variant="body2"
-                                                        color="text.secondary"
-                                                        sx={{ textAlign: 'center', py: 2 }}
-                                                    >
+                                                        sx={{
+                                                            color: "text.secondary",
+                                                            textAlign: 'center',
+                                                            py: 2
+                                                        }}>
                                                         No navigation permissions
                                                     </Typography>
                                                 )}
@@ -844,7 +929,6 @@ export default function UserManagementTab({
                     </Card>
                 </Grid>
             </Grid>
-
             {/* Change Password Dialog (User changing own password) */}
             <ChangePasswordDialog
                 open={passwordDialogOpen}

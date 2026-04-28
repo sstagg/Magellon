@@ -21,7 +21,13 @@ export const PluginRunnerPageView: React.FC = () => {
 
     return (
         <Container maxWidth="lg" sx={{ py: 3 }}>
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+            <Stack
+                direction="row"
+                spacing={1}
+                sx={{
+                    alignItems: "center",
+                    mb: 2
+                }}>
                 <Button
                     size="small"
                     startIcon={<ArrowLeft size={16} />}
@@ -30,17 +36,14 @@ export const PluginRunnerPageView: React.FC = () => {
                     All plugins
                 </Button>
             </Stack>
-
             {isLoading && (
                 <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
                     <CircularProgress />
                 </Box>
             )}
-
             {!isLoading && !plugin && (
                 <Alert severity="warning">Plugin "{pluginId}" was not found.</Alert>
             )}
-
             {plugin && <PluginRunner plugin={plugin} />}
         </Container>
     );

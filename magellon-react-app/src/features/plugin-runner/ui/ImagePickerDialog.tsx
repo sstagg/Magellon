@@ -213,7 +213,12 @@ export const ImagePickerDialog: React.FC<ImagePickerDialogProps> = (props) => {
                 ) : (
                     <List dense sx={{ maxHeight: 360, overflowY: 'auto' }}>
                         {visible.length === 0 && !error && (
-                            <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
+                            <Typography
+                                variant="body2"
+                                sx={{
+                                    color: "text.secondary",
+                                    p: 2
+                                }}>
                                 No folders or images here.
                             </Typography>
                         )}
@@ -248,7 +253,13 @@ export const ImagePickerDialog: React.FC<ImagePickerDialogProps> = (props) => {
                 )}
 
                 {selected.length > 0 && (
-                    <Typography variant="caption" color="success.main" sx={{ mt: 1, display: 'block' }}>
+                    <Typography
+                        variant="caption"
+                        sx={{
+                            color: "success.main",
+                            mt: 1,
+                            display: 'block'
+                        }}>
                         {multiple ? `${selected.length} file(s) selected` : `Selected: ${selected[0]}`}
                     </Typography>
                 )}

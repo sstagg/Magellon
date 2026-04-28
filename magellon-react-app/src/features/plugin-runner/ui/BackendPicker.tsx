@@ -52,9 +52,13 @@ export const BackendPicker: React.FC<BackendPickerProps> = ({
 
     if (isLoading) {
         return (
-            <Stack direction="row" spacing={1} alignItems="center">
+            <Stack direction="row" spacing={1} sx={{
+                alignItems: "center"
+            }}>
                 <CircularProgress size={14} />
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                }}>
                     Loading backends…
                 </Typography>
             </Stack>
@@ -73,9 +77,20 @@ export const BackendPicker: React.FC<BackendPickerProps> = ({
 
     return (
         <Box sx={{ mb: 2 }}>
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+            <Stack
+                direction="row"
+                spacing={1}
+                sx={{
+                    alignItems: "center",
+                    mb: 0.5
+                }}>
                 <Server size={14} />
-                <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 0.5 }}>
+                <Typography
+                    variant="overline"
+                    sx={{
+                        color: "text.secondary",
+                        letterSpacing: 0.5
+                    }}>
                     Backend
                 </Typography>
                 {defaultBackend && (
@@ -106,10 +121,18 @@ export const BackendPicker: React.FC<BackendPickerProps> = ({
                     )}
                 >
                     <MenuItem value="__auto__">
-                        <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
+                        <Stack
+                            direction="row"
+                            spacing={1}
+                            sx={{
+                                alignItems: "center",
+                                width: '100%'
+                            }}>
                             <Box sx={{ flex: 1 }}>
                                 <Typography variant="body2">Auto</Typography>
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography variant="caption" sx={{
+                                    color: "text.secondary"
+                                }}>
                                     Use category default {defaultBackend ? `(${defaultBackend.backend_id})` : ''}
                                 </Typography>
                             </Box>
@@ -123,7 +146,13 @@ export const BackendPicker: React.FC<BackendPickerProps> = ({
                 </Select>
             </FormControl>
             {value && (
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                <Typography
+                    variant="caption"
+                    sx={{
+                        color: "text.secondary",
+                        mt: 0.5,
+                        display: 'block'
+                    }}>
                     Pinned. Dispatch will fail (503) if backend{' '}
                     <code>{value}</code> isn't live — no silent fallback.
                 </Typography>
@@ -137,9 +166,17 @@ interface BackendOptionProps {
 }
 
 const BackendOption: React.FC<BackendOptionProps> = ({ backend }) => (
-    <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
+    <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+            alignItems: "center",
+            width: '100%'
+        }}>
         <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Stack direction="row" spacing={0.5} alignItems="center">
+            <Stack direction="row" spacing={0.5} sx={{
+                alignItems: "center"
+            }}>
                 <Typography variant="body2">{backend.backend_id}</Typography>
                 {backend.is_default_for_category && (
                     <Chip
@@ -163,7 +200,12 @@ const BackendOption: React.FC<BackendOptionProps> = ({ backend }) => (
                     />
                 )}
             </Stack>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+            <Typography
+                variant="caption"
+                sx={{
+                    color: "text.secondary",
+                    display: 'block'
+                }}>
                 {backend.name} v{backend.version}
                 {backend.capabilities.length > 0 && ` · ${backend.capabilities.join(', ')}`}
             </Typography>

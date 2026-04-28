@@ -103,23 +103,29 @@ export const BrowseCatalogDialog: React.FC<BrowseCatalogDialogProps> = ({
     return (
         <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
             <DialogTitle>
-                <Stack direction="row" spacing={1} alignItems="center">
+                <Stack direction="row" spacing={1} sx={{
+                    alignItems: "center"
+                }}>
                     <Package size={22} />
                     <span>Browse plugins</span>
                 </Stack>
             </DialogTitle>
             <DialogContent dividers>
                 <Stack spacing={2}>
-                    <Stack direction="row" spacing={1} alignItems="center">
+                    <Stack direction="row" spacing={1} sx={{
+                        alignItems: "center"
+                    }}>
                         <TextField
                             size="small"
                             placeholder="Search name, description, developer…"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            InputProps={{
-                                startAdornment: <Search size={16} style={{ marginRight: 8, opacity: 0.6 }} />,
-                            }}
                             fullWidth
+                            slotProps={{
+                                input: {
+                                    startAdornment: <Search size={16} style={{ marginRight: 8, opacity: 0.6 }} />,
+                                }
+                            }}
                         />
                         <input
                             ref={uploadInputRef}
@@ -143,7 +149,13 @@ export const BrowseCatalogDialog: React.FC<BrowseCatalogDialogProps> = ({
                         </Button>
                     </Stack>
 
-                    <Stack direction="row" spacing={1} flexWrap="wrap" rowGap={1}>
+                    <Stack
+                        direction="row"
+                        spacing={1}
+                        sx={{
+                            flexWrap: "wrap",
+                            rowGap: 1
+                        }}>
                         <Chip
                             label="All"
                             size="small"
@@ -194,7 +206,13 @@ export const BrowseCatalogDialog: React.FC<BrowseCatalogDialogProps> = ({
                                         borderRadius: 1,
                                     }}
                                 >
-                                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+                                    <Stack
+                                        direction="row"
+                                        spacing={1}
+                                        sx={{
+                                            alignItems: "center",
+                                            mb: 0.5
+                                        }}>
                                         <Typography variant="subtitle1">{entry.name}</Typography>
                                         <Chip size="small" label={`v${entry.version}`} />
                                         <Chip size="small" variant="outlined" label={entry.category} />
@@ -225,10 +243,14 @@ export const BrowseCatalogDialog: React.FC<BrowseCatalogDialogProps> = ({
                                             <Trash2 size={16} />
                                         </IconButton>
                                     </Stack>
-                                    <Typography variant="body2" color="text.secondary">
+                                    <Typography variant="body2" sx={{
+                                        color: "text.secondary"
+                                    }}>
                                         {entry.description || <em>(no description)</em>}
                                     </Typography>
-                                    <Typography variant="caption" color="text.secondary">
+                                    <Typography variant="caption" sx={{
+                                        color: "text.secondary"
+                                    }}>
                                         {entry.developer} · image: <code>{entry.image_ref}</code>
                                     </Typography>
                                 </Box>

@@ -180,7 +180,12 @@ export const TopazTestPage: React.FC = () => {
                 <Typography variant="h4" gutterBottom>
                     Topaz plugin test bed
                 </Typography>
-                <Typography variant="body2" color="text.secondary" paragraph>
+                <Typography
+                    variant="body2"
+                    sx={{
+                        color: "text.secondary",
+                        marginBottom: "16px"
+                    }}>
                     Dispatch a topaz particle-picking or denoising task against one
                     high-mag MRC on the CoreService host. Watches step events over
                     Socket.IO and polls the persisted <code>image_job</code> row.
@@ -203,7 +208,9 @@ export const TopazTestPage: React.FC = () => {
                                 <MenuItem value="denoise">{MODE_CONFIG.denoise.label}</MenuItem>
                             </Select>
                         </FormControl>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{
+                            color: "text.secondary"
+                        }}>
                             {MODE_CONFIG[mode].blurb}
                         </Typography>
 
@@ -262,7 +269,13 @@ export const TopazTestPage: React.FC = () => {
 
                 {dispatch && (
                     <Paper sx={{ p: 2, mb: 2 }} variant="outlined">
-                        <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
+                        <Stack
+                            direction="row"
+                            spacing={1}
+                            sx={{
+                                alignItems: "center",
+                                flexWrap: "wrap"
+                            }}>
                             <Typography variant="subtitle2">
                                 Job {dispatch.job_id.slice(0, 8)}…
                             </Typography>
@@ -298,7 +311,6 @@ export const TopazTestPage: React.FC = () => {
                     <DispatchTrace tasks={[dispatch.task]} events={stepEvents} />
                 )}
             </Box>
-
             <ImagePickerDialog
                 open={pickerOpen}
                 onClose={() => setPickerOpen(false)}

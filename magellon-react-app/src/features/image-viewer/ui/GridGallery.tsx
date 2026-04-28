@@ -160,165 +160,172 @@ export const GridGallery: React.FC<FlatImageViewerProps> = ({
 
   if (allImages.length === 0) {
     return (
-        <Box sx={{ p: 2 }}>
-          <Typography variant="h6" gutterBottom>{title}</Typography>
-          <Typography color="text.secondary">No images available</Typography>
-        </Box>
+      <Box sx={{ p: 2 }}>
+        <Typography variant="h6" gutterBottom>{title}</Typography>
+        <Typography sx={{
+          color: "text.secondary"
+        }}>No images available</Typography>
+      </Box>
     );
   }
 
   return (
-      <Box sx={{ p: 2 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6">{title}</Typography>
+    <Box sx={{ p: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h6">{title}</Typography>
 
-          <Button
-              variant="outlined"
-              size="small"
-              onClick={handleOpenFilter}
-              startIcon={
-                <Badge badgeContent={activeFilterCount} color="primary">
-                  <FilterList />
-                </Badge>
-              }
-          >
-            Filter
-          </Button>
-        </Box>
-
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="body2" color="text.secondary">
-            Showing {currentPageImages.length} of {filteredImages.length} images
-            {filteredImages.length !== allImages.length && ` (filtered from ${allImages.length})`}
-          </Typography>
-
-          {activeFilterCount > 0 && (
-              <Button
-                  size="small"
-                  color="primary"
-                  onClick={handleClearFilters}
-              >
-                Clear Filters
-              </Button>
-          )}
-        </Box>
-
-        {/* Active filters display */}
-        {activeFilterCount > 0 && (
-            <Stack direction="row" spacing={1} sx={{ mb: 2 }} flexWrap="wrap" useFlexGap>
-              {filter.name && (
-                  <Chip
-                      label={`Name: ${filter.name}`}
-                      onDelete={() => setFilter({...filter, name: undefined})}
-                      size="small"
-                      color="primary"
-                      variant="outlined"
-                  />
-              )}
-              {(filter.defocusMin !== undefined || filter.defocusMax !== undefined) && (
-                  <Chip
-                      label={`Defocus: ${filter.defocusMin?.toFixed(2) || 'min'} - ${filter.defocusMax?.toFixed(2) || 'max'} μm`}
-                      onDelete={() => setFilter({...filter, defocusMin: undefined, defocusMax: undefined})}
-                      size="small"
-                      color="primary"
-                      variant="outlined"
-                  />
-              )}
-              {filter.magnification && (
-                  <Chip
-                      label={`Mag: ${filter.magnification}x`}
-                      onDelete={() => setFilter({...filter, magnification: undefined})}
-                      size="small"
-                      color="primary"
-                      variant="outlined"
-                  />
-              )}
-              {(filter.pixelSizeMin !== undefined || filter.pixelSizeMax !== undefined) && (
-                  <Chip
-                      label={`Pixel Size: ${filter.pixelSizeMin?.toFixed(2) || 'min'} - ${filter.pixelSizeMax?.toFixed(2) || 'max'} Å`}
-                      onDelete={() => setFilter({...filter, pixelSizeMin: undefined, pixelSizeMax: undefined})}
-                      size="small"
-                      color="primary"
-                      variant="outlined"
-                  />
-              )}
-              {filter.hasChildren !== undefined && (
-                  <Chip
-                      label={`Has Children: ${filter.hasChildren ? 'Yes' : 'No'}`}
-                      onDelete={() => setFilter({...filter, hasChildren: undefined})}
-                      size="small"
-                      color="primary"
-                      variant="outlined"
-                  />
-              )}
-            </Stack>
-        )}
-
-        <ImageGridControls
-            zoom={zoom}
-            onZoomChange={setZoom}
-            onFilterClick={handleOpenFilter}
-            filterCount={activeFilterCount}
-        />
-
-        {currentPageImages.length === 0 ? (
-            <Box sx={{ p: 4, textAlign: 'center' }}>
-              <Typography color="text.secondary">No images match the current filters</Typography>
-              <Button onClick={handleClearFilters} sx={{ mt: 2 }}>Clear Filters</Button>
-            </Box>
-        ) : (
-            <Grid container spacing={2}>
-              {currentPageImages.map((image, index) => (
-                  <Grid
-                      item
-                      xs={gridSize.xs}
-                      sm={gridSize.sm}
-                      md={gridSize.md}
-                      lg={gridSize.lg}
-                      key={image.oid || index}
-                      sx={{
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        aspectRatio: '1/1'
-                      }}
-                  >
-                    <ImageThumbnail
-                        image={image}
-                        onImageClick={handleImageClick}
-                        level={0}
-                        isSelected={selectedImage?.oid === image.oid}
-                        fixedHeight={true}
-                        size={thumbnailSize}
-                    />
-                  </Grid>
-              ))}
-            </Grid>
-        )}
-
-        {totalPages > 1 && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-              <Pagination
-                  count={totalPages}
-                  page={page}
-                  onChange={handlePageChange}
-                  color="primary"
-                  size="medium"
-                  siblingCount={1}
-                  boundaryCount={1}
-              />
-            </Box>
-        )}
-
-        {/* Filter dialog */}
-        <ImageFilterDialog
-            open={showFilterDialog}
-            onClose={handleCloseFilter}
-            onApplyFilter={handleApplyFilter}
-            currentFilter={filter}
-            images={allImages}
-        />
+        <Button
+            variant="outlined"
+            size="small"
+            onClick={handleOpenFilter}
+            startIcon={
+              <Badge badgeContent={activeFilterCount} color="primary">
+                <FilterList />
+              </Badge>
+            }
+        >
+          Filter
+        </Button>
       </Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
+          Showing {currentPageImages.length} of {filteredImages.length} images
+          {filteredImages.length !== allImages.length && ` (filtered from ${allImages.length})`}
+        </Typography>
+
+        {activeFilterCount > 0 && (
+            <Button
+                size="small"
+                color="primary"
+                onClick={handleClearFilters}
+            >
+              Clear Filters
+            </Button>
+        )}
+      </Box>
+      {/* Active filters display */}
+      {activeFilterCount > 0 && (
+          <Stack
+            direction="row"
+            spacing={1}
+            useFlexGap
+            sx={{
+              flexWrap: "wrap",
+              mb: 2
+            }}>
+            {filter.name && (
+                <Chip
+                    label={`Name: ${filter.name}`}
+                    onDelete={() => setFilter({...filter, name: undefined})}
+                    size="small"
+                    color="primary"
+                    variant="outlined"
+                />
+            )}
+            {(filter.defocusMin !== undefined || filter.defocusMax !== undefined) && (
+                <Chip
+                    label={`Defocus: ${filter.defocusMin?.toFixed(2) || 'min'} - ${filter.defocusMax?.toFixed(2) || 'max'} μm`}
+                    onDelete={() => setFilter({...filter, defocusMin: undefined, defocusMax: undefined})}
+                    size="small"
+                    color="primary"
+                    variant="outlined"
+                />
+            )}
+            {filter.magnification && (
+                <Chip
+                    label={`Mag: ${filter.magnification}x`}
+                    onDelete={() => setFilter({...filter, magnification: undefined})}
+                    size="small"
+                    color="primary"
+                    variant="outlined"
+                />
+            )}
+            {(filter.pixelSizeMin !== undefined || filter.pixelSizeMax !== undefined) && (
+                <Chip
+                    label={`Pixel Size: ${filter.pixelSizeMin?.toFixed(2) || 'min'} - ${filter.pixelSizeMax?.toFixed(2) || 'max'} Å`}
+                    onDelete={() => setFilter({...filter, pixelSizeMin: undefined, pixelSizeMax: undefined})}
+                    size="small"
+                    color="primary"
+                    variant="outlined"
+                />
+            )}
+            {filter.hasChildren !== undefined && (
+                <Chip
+                    label={`Has Children: ${filter.hasChildren ? 'Yes' : 'No'}`}
+                    onDelete={() => setFilter({...filter, hasChildren: undefined})}
+                    size="small"
+                    color="primary"
+                    variant="outlined"
+                />
+            )}
+          </Stack>
+      )}
+      <ImageGridControls
+          zoom={zoom}
+          onZoomChange={setZoom}
+          onFilterClick={handleOpenFilter}
+          filterCount={activeFilterCount}
+      />
+      {currentPageImages.length === 0 ? (
+          <Box sx={{ p: 4, textAlign: 'center' }}>
+            <Typography sx={{
+              color: "text.secondary"
+            }}>No images match the current filters</Typography>
+            <Button onClick={handleClearFilters} sx={{ mt: 2 }}>Clear Filters</Button>
+          </Box>
+      ) : (
+          <Grid container spacing={2}>
+            {currentPageImages.map((image, index) => (
+                <Grid
+                  key={image.oid || index}
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    aspectRatio: '1/1'
+                  }}
+                  size={{
+                    xs: gridSize.xs,
+                    sm: gridSize.sm,
+                    md: gridSize.md,
+                    lg: gridSize.lg
+                  }}>
+                  <ImageThumbnail
+                      image={image}
+                      onImageClick={handleImageClick}
+                      level={0}
+                      isSelected={selectedImage?.oid === image.oid}
+                      fixedHeight={true}
+                      size={thumbnailSize}
+                  />
+                </Grid>
+            ))}
+          </Grid>
+      )}
+      {totalPages > 1 && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+            <Pagination
+                count={totalPages}
+                page={page}
+                onChange={handlePageChange}
+                color="primary"
+                size="medium"
+                siblingCount={1}
+                boundaryCount={1}
+            />
+          </Box>
+      )}
+      {/* Filter dialog */}
+      <ImageFilterDialog
+          open={showFilterDialog}
+          onClose={handleCloseFilter}
+          onApplyFilter={handleApplyFilter}
+          currentFilter={filter}
+          images={allImages}
+      />
+    </Box>
   );
 };
 

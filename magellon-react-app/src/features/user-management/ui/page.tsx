@@ -196,7 +196,9 @@ export default function AccountPage() {
                                     />
                                 )}
                             </Box>
-                            <Typography variant="body1" color="text.secondary">
+                            <Typography variant="body1" sx={{
+                                color: "text.secondary"
+                            }}>
                                 {isSuperUser
                                     ? '🔐 Super user mode - Full system access with all permissions'
                                     : isAdmin

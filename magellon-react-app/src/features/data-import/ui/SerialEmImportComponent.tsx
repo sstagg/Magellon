@@ -253,16 +253,13 @@ export const SerialEMImportComponent = () => {
             <Typography variant="h6" gutterBottom>
                 Import Data from SerialEM Sessions
             </Typography>
-
             <Typography variant="body2" color="textSecondary" gutterBottom>
                 If you are using Docker, please select a directory from the MAGELLON_GPFS_PATH that was configured during installation in the .env file.
                 Select a SerialEM data directory containing MRC/ST files and their metadata.
             </Typography>
-
             <Typography variant="body2" color="textSecondary" gutterBottom>
                 Current path: {currentPath}
             </Typography>
-
             {currentPath !== "/gpfs" && (
                 <Typography
                     variant="body2"
@@ -279,7 +276,6 @@ export const SerialEMImportComponent = () => {
                     ← Go back to parent directory
                 </Typography>
             )}
-
             {error && (
                 <Typography color="error" sx={{ mt: 1 }} gutterBottom>
                     Error: {error}
@@ -317,14 +313,15 @@ export const SerialEMImportComponent = () => {
 </Box>
 
   <Typography
-    variant="caption"
-    color="text.secondary"
-    sx={{ mt: 2, display: 'block' }}
-  >
+      variant="caption"
+      sx={{
+          color: "text.secondary",
+          mt: 2,
+          display: 'block'
+      }}>
     ⚠️ Ensure all required subfolders exist before uploading.
   </Typography>
 </Box>
-
             <Box sx={{
                 border: 1,
                 borderColor: 'divider',
@@ -365,7 +362,6 @@ export const SerialEMImportComponent = () => {
                     </List>
                 )}
             </Box>
-
             {selectedDirectory && (
                 <Paper sx={{ p: 3, mt: 3 }}>
                     <Typography variant="h6" gutterBottom>
@@ -395,7 +391,7 @@ export const SerialEMImportComponent = () => {
                     {/* )} */}
 
                     <Grid container spacing={3}>
-                        <Grid item xs={12}>
+                        <Grid size={12}>
                             <TextField
                                 fullWidth
                                 label="Selected Directory (Target)"
@@ -406,7 +402,7 @@ export const SerialEMImportComponent = () => {
                             />
                         </Grid>
 
-                        <Grid item xs={12}>
+                        <Grid size={12}>
                             <TextField
                                 fullWidth
                                 required
@@ -419,7 +415,11 @@ export const SerialEMImportComponent = () => {
                             />
                         </Grid>
 
-                        <Grid item xs={12} md={6}>
+                        <Grid
+                            size={{
+                                xs: 12,
+                                md: 6
+                            }}>
                             <TextField
                                 fullWidth
                                 required
@@ -431,7 +431,11 @@ export const SerialEMImportComponent = () => {
                             />
                         </Grid>
 
-                        <Grid item xs={12} md={6}>
+                        <Grid
+                            size={{
+                                xs: 12,
+                                md: 6
+                            }}>
                             <TextField
                                 fullWidth
                                 required
@@ -443,7 +447,11 @@ export const SerialEMImportComponent = () => {
                             />
                         </Grid>
 
-                        <Grid item xs={12} md={6}>
+                        <Grid
+                            size={{
+                                xs: 12,
+                                md: 6
+                            }}>
                             <FormControl fullWidth margin="normal">
                                 <InputLabel>Data Type</InputLabel>
                                 <Select
@@ -457,7 +465,11 @@ export const SerialEMImportComponent = () => {
                             </FormControl>
                         </Grid>
 
-                        <Grid item xs={12} md={6}>
+                        <Grid
+                            size={{
+                                xs: 12,
+                                md: 6
+                            }}>
                             <FormControl fullWidth margin="normal">
                                 <InputLabel>Frame Type</InputLabel>
                                 <Select
@@ -471,13 +483,17 @@ export const SerialEMImportComponent = () => {
                             </FormControl>
                         </Grid>
 
-                        <Grid item xs={12}>
+                        <Grid size={12}>
                             <Typography variant="subtitle1" sx={{ mt: 2 }}>
                                 Microscope Parameters
                             </Typography>
                         </Grid>
 
-                        <Grid item xs={12} md={4}>
+                        <Grid
+                            size={{
+                                xs: 12,
+                                md: 4
+                            }}>
                             <TextField
                                 fullWidth
                                 required
@@ -487,12 +503,18 @@ export const SerialEMImportComponent = () => {
                                 onChange={(e) => handleDefaultsChange('pixel_size', e.target.value)}
                                 variant="outlined"
                                 margin="normal"
-                                inputProps={{ step: 0.01, min: 0.01 }}
                                 helperText="Calibrated pixel size at specimen level"
+                                slotProps={{
+                                    htmlInput: { step: 0.01, min: 0.01 }
+                                }}
                             />
                         </Grid>
 
-                        <Grid item xs={12} md={4}>
+                        <Grid
+                            size={{
+                                xs: 12,
+                                md: 4
+                            }}>
                             <TextField
                                 fullWidth
                                 required
@@ -502,11 +524,17 @@ export const SerialEMImportComponent = () => {
                                 onChange={(e) => handleDefaultsChange('acceleration_voltage', e.target.value)}
                                 variant="outlined"
                                 margin="normal"
-                                inputProps={{ step: 10, min: 100 }}
+                                slotProps={{
+                                    htmlInput: { step: 10, min: 100 }
+                                }}
                             />
                         </Grid>
 
-                        <Grid item xs={12} md={4}>
+                        <Grid
+                            size={{
+                                xs: 12,
+                                md: 4
+                            }}>
                             <TextField
                                 fullWidth
                                 required
@@ -516,11 +544,17 @@ export const SerialEMImportComponent = () => {
                                 onChange={(e) => handleDefaultsChange('spherical_aberration', e.target.value)}
                                 variant="outlined"
                                 margin="normal"
-                                inputProps={{ step: 0.1, min: 0 }}
+                                slotProps={{
+                                    htmlInput: { step: 0.1, min: 0 }
+                                }}
                             />
                         </Grid>
 
-                        <Grid item xs={12} md={4}>
+                        <Grid
+                            size={{
+                                xs: 12,
+                                md: 4
+                            }}>
                             <TextField
                                 fullWidth
                                 required
@@ -530,12 +564,18 @@ export const SerialEMImportComponent = () => {
                                 onChange={(e) => handleDefaultsChange('amplitude_contrast', e.target.value)}
                                 variant="outlined"
                                 margin="normal"
-                                inputProps={{ step: 0.01, min: 0, max: 1 }}
                                 helperText="Typical: 0.07-0.1 for cryo-EM"
+                                slotProps={{
+                                    htmlInput: { step: 0.01, min: 0, max: 1 }
+                                }}
                             />
                         </Grid>
 
-                        <Grid item xs={12} md={4}>
+                        <Grid
+                            size={{
+                                xs: 12,
+                                md: 4
+                            }}>
                             <TextField
                                 fullWidth
                                 required
@@ -545,12 +585,18 @@ export const SerialEMImportComponent = () => {
                                 onChange={(e) => handleDefaultsChange('magnification', e.target.value)}
                                 variant="outlined"
                                 margin="normal"
-                                inputProps={{ step: 1000, min: 1000 }}
                                 helperText="Nominal magnification"
+                                slotProps={{
+                                    htmlInput: { step: 1000, min: 1000 }
+                                }}
                             />
                         </Grid>
 
-                        <Grid item xs={12} md={4}>
+                        <Grid
+                            size={{
+                                xs: 12,
+                                md: 4
+                            }}>
                             <TextField
                                 fullWidth
                                 required
@@ -560,11 +606,17 @@ export const SerialEMImportComponent = () => {
                                 onChange={(e) => handleDefaultsChange('detector_pixel_size', e.target.value)}
                                 variant="outlined"
                                 margin="normal"
-                                inputProps={{ step: 0.1, min: 0.1 }}
                                 helperText="Physical detector pixel size"
+                                slotProps={{
+                                    htmlInput: { step: 0.1, min: 0.1 }
+                                }}
                             />
                         </Grid>
-<Grid item xs={12} md={4}>
+<Grid
+    size={{
+        xs: 12,
+        md: 4
+    }}>
   <TextField
     fullWidth
     required
@@ -586,7 +638,11 @@ export const SerialEMImportComponent = () => {
 </Grid>
 
 
-<Grid item xs={12} md={4}>
+<Grid
+    size={{
+        xs: 12,
+        md: 4
+    }}>
   <TextField
     fullWidth
     required
@@ -609,7 +665,7 @@ export const SerialEMImportComponent = () => {
 
              
 
-                        <Grid item xs={12} sx={{ mt: 2 }}>
+                        <Grid sx={{ mt: 2 }} size={12}>
                             <Button
                                 variant="contained"
                                 color="primary"
@@ -628,7 +684,6 @@ export const SerialEMImportComponent = () => {
                     </Grid>
                 </Paper>
             )}
-
             <Dialog
                 open={importStatus !== 'idle'}
                 onClose={importStatus !== 'processing' ? handleCloseDialog : undefined}

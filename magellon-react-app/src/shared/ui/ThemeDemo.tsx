@@ -30,9 +30,12 @@ const ThemeDemo = () => {
                 Theme Preview - {themeName.charAt(0).toUpperCase() + themeName.slice(1)} Mode
             </Typography>
             <Divider sx={{ mb: 3 }} />
-
             <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
+                <Grid
+                    size={{
+                        xs: 12,
+                        md: 6
+                    }}>
                     <Typography variant="h6" gutterBottom>Typography</Typography>
                     <Box sx={{ mb: 3 }}>
                         <Typography variant="h1">Heading 1</Typography>
@@ -46,12 +49,20 @@ const ThemeDemo = () => {
                         <Typography variant="body1">Body 1: Standard text appears like this</Typography>
                         <Typography variant="body2">Body 2: Smaller text appears like this</Typography>
                         <Typography variant="button">BUTTON TEXT</Typography>
-                        <Typography variant="caption" display="block">Caption text</Typography>
-                        <Typography variant="overline" display="block">OVERLINE TEXT</Typography>
+                        <Typography variant="caption" sx={{
+                            display: "block"
+                        }}>Caption text</Typography>
+                        <Typography variant="overline" sx={{
+                            display: "block"
+                        }}>OVERLINE TEXT</Typography>
                     </Box>
                 </Grid>
 
-                <Grid item xs={12} md={6}>
+                <Grid
+                    size={{
+                        xs: 12,
+                        md: 6
+                    }}>
                     <Typography variant="h6" gutterBottom>Colors & Surfaces</Typography>
 
                     <Stack spacing={2} sx={{ mb: 3 }}>
@@ -76,7 +87,11 @@ const ThemeDemo = () => {
                     </Stack>
                 </Grid>
 
-                <Grid item xs={12} md={6}>
+                <Grid
+                    size={{
+                        xs: 12,
+                        md: 6
+                    }}>
                     <Typography variant="h6" gutterBottom>Components</Typography>
 
                     <Box sx={{ mb: 3 }}>
@@ -102,7 +117,11 @@ const ThemeDemo = () => {
                     </Box>
                 </Grid>
 
-                <Grid item xs={12} md={6}>
+                <Grid
+                    size={{
+                        xs: 12,
+                        md: 6
+                    }}>
                     <Typography variant="h6" gutterBottom>Compound Components</Typography>
 
                     <Card sx={{ mb: 2 }}>
@@ -110,7 +129,11 @@ const ThemeDemo = () => {
                             <Typography variant="h5" component="div">
                                 Card Title
                             </Typography>
-                            <Typography sx={{ mb: 1.5 }} color="text.secondary">
+                            <Typography
+                                sx={{
+                                    color: "text.secondary",
+                                    mb: 1.5
+                                }}>
                                 Subtitle
                             </Typography>
                             <Typography variant="body2">

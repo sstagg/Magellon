@@ -30,7 +30,9 @@ export const PublicRoute: React.FC<PublicRouteProps> = ({
                     }}
                 >
                     <CircularProgress size={40} />
-                    <Typography variant="body1" color="text.secondary">
+                    <Typography variant="body1" sx={{
+                        color: "text.secondary"
+                    }}>
                         Loading...
                     </Typography>
                 </Box>

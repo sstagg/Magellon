@@ -138,7 +138,9 @@ const DataLoadingProgress: React.FC<{
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                 <Typography variant="body2" sx={{ mr: 1 }}>{label}</Typography>
                 {progress !== undefined && (
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{
+                        color: "text.secondary"
+                    }}>
                         {Math.round(progress)}%
                     </Typography>
                 )}

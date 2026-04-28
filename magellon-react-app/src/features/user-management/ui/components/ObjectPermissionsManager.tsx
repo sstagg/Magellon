@@ -213,7 +213,12 @@ export default function ObjectPermissionsManager({
 
   if (schemaLoading) {
     return (
-      <Box display="flex" justifyContent="center" p={3}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          p: 3
+        }}>
         <CircularProgress />
       </Box>
     );
@@ -242,7 +247,6 @@ export default function ObjectPermissionsManager({
           Add Object Permission
         </Button>
       </Box>
-
       {/* Info */}
       <Alert severity="info" icon={<FilterList />} sx={{ mb: 2 }}>
         <strong>Object Permissions for: {targetTypeName}</strong>
@@ -253,20 +257,31 @@ export default function ObjectPermissionsManager({
         <br />
         <strong>Debug Info:</strong> Loaded {objectPermissions.length} object permission(s)
       </Alert>
-
       {/* Permissions List */}
       {loading ? (
-        <Box display="flex" justifyContent="center" p={3}>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "center",
+            p: 3
+          }}>
           <CircularProgress />
         </Box>
       ) : objectPermissions.length === 0 ? (
         <Card sx={{ bgcolor: 'background.default', border: '2px dashed #ccc' }}>
           <CardContent sx={{ textAlign: 'center', py: 6 }}>
             <FilterList sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
-            <Typography variant="h6" color="text.secondary" gutterBottom>
+            <Typography variant="h6" gutterBottom sx={{
+              color: "text.secondary"
+            }}>
               No Object Permissions Yet
             </Typography>
-            <Typography variant="body2" color="text.secondary" paragraph>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                marginBottom: "16px"
+              }}>
               This type permission has no record-level filters defined.
               <br />
               Users will have access to ALL records of type <strong>{targetTypeName}</strong>
@@ -283,10 +298,18 @@ export default function ObjectPermissionsManager({
               Create Your First Object Permission
             </Button>
             <Box sx={{ mt: 3, textAlign: 'left', maxWidth: 500, mx: 'auto' }}>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{
+                color: "text.secondary"
+              }}>
                 <strong>Examples you can create:</strong>
               </Typography>
-              <Typography variant="caption" component="div" color="text.secondary" sx={{ mt: 1 }}>
+              <Typography
+                variant="caption"
+                component="div"
+                sx={{
+                  color: "text.secondary",
+                  mt: 1
+                }}>
                 • Users can only see their own records: <code>[user_id] = CurrentUserId()</code>
                 <br />
                 • Users can see active records: <code>[status] = 'active'</code>
@@ -303,8 +326,10 @@ export default function ObjectPermissionsManager({
               <CardContent>
                 <Grid container spacing={2}>
                   {/* Criteria */}
-                  <Grid item xs={12}>
-                    <Typography variant="subtitle2" color="text.secondary">
+                  <Grid size={12}>
+                    <Typography variant="subtitle2" sx={{
+                      color: "text.secondary"
+                    }}>
                       Criteria #{index + 1}
                     </Typography>
                     <Typography
@@ -323,7 +348,7 @@ export default function ObjectPermissionsManager({
                   </Grid>
 
                   {/* Permissions */}
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                       <Chip
                         icon={renderPermissionIcon(perm.read_state)}
@@ -353,7 +378,7 @@ export default function ObjectPermissionsManager({
                   </Grid>
 
                   {/* Actions */}
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <Box sx={{ display: 'flex', gap: 1 }}>
                       <Tooltip title="Edit">
                         <IconButton
@@ -380,7 +405,6 @@ export default function ObjectPermissionsManager({
           ))}
         </List>
       )}
-
       {/* Create/Edit Dialog */}
       <Dialog
         open={dialogOpen}
@@ -433,7 +457,11 @@ export default function ObjectPermissionsManager({
               Allowed Operations
             </Typography>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  sm: 6
+                }}>
                 <FormControlLabel
                   control={
                     <Switch
@@ -444,7 +472,11 @@ export default function ObjectPermissionsManager({
                   label="Read (View records)"
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  sm: 6
+                }}>
                 <FormControlLabel
                   control={
                     <Switch
@@ -455,7 +487,11 @@ export default function ObjectPermissionsManager({
                   label="Write (Edit records)"
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  sm: 6
+                }}>
                 <FormControlLabel
                   control={
                     <Switch
@@ -466,7 +502,11 @@ export default function ObjectPermissionsManager({
                   label="Delete (Remove records)"
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  sm: 6
+                }}>
                 <FormControlLabel
                   control={
                     <Switch

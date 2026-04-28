@@ -163,7 +163,9 @@ const SettingsView = () => {
                 <Typography variant="h4" component="h1" gutterBottom>
                     Application Settings
                 </Typography>
-                <Typography variant="body1" paragraph>
+                <Typography variant="body1" sx={{
+                    marginBottom: "16px"
+                }}>
                     Configure Magellon to match your workflow and preferences
                 </Typography>
 
@@ -231,7 +233,9 @@ const SettingsView = () => {
                                                     value="light"
                                                     control={<Radio />}
                                                     label={
-                                                        <Stack direction="row" spacing={1} alignItems="center">
+                                                        <Stack direction="row" spacing={1} sx={{
+                                                            alignItems: "center"
+                                                        }}>
                                                             <Sun size={16} />
                                                             <Typography>Light Mode</Typography>
                                                         </Stack>
@@ -258,7 +262,9 @@ const SettingsView = () => {
                                                     value="dark"
                                                     control={<Radio />}
                                                     label={
-                                                        <Stack direction="row" spacing={1} alignItems="center">
+                                                        <Stack direction="row" spacing={1} sx={{
+                                                            alignItems: "center"
+                                                        }}>
                                                             <Moon size={16} />
                                                             <Typography>Dark Mode</Typography>
                                                         </Stack>
@@ -295,7 +301,7 @@ const SettingsView = () => {
                                 <CardHeader title="Display Settings" />
                                 <CardContent>
                                     <Grid container spacing={2}>
-                                        <Grid item xs={12}>
+                                        <Grid size={12}>
                                             <Typography gutterBottom>Thumbnail Size: {settings.thumbnailSize}px</Typography>
                                             <Slider
                                                 value={settings.thumbnailSize}
@@ -307,7 +313,11 @@ const SettingsView = () => {
                                                 valueLabelDisplay="auto"
                                             />
                                         </Grid>
-                                        <Grid item xs={12} md={6}>
+                                        <Grid
+                                            size={{
+                                                xs: 12,
+                                                md: 6
+                                            }}>
                                             <TextField
                                                 fullWidth
                                                 label="Cache Size (MB)"
@@ -316,7 +326,11 @@ const SettingsView = () => {
                                                 onChange={(e) => handleSettingChange('cacheSize', parseInt(e.target.value))}
                                             />
                                         </Grid>
-                                        <Grid item xs={12} md={6}>
+                                        <Grid
+                                            size={{
+                                                xs: 12,
+                                                md: 6
+                                            }}>
                                             <TextField
                                                 fullWidth
                                                 label="Max Concurrent Image Loads"
@@ -325,7 +339,7 @@ const SettingsView = () => {
                                                 onChange={(e) => handleSettingChange('maxConcurrentLoads', parseInt(e.target.value))}
                                             />
                                         </Grid>
-                                        <Grid item xs={12}>
+                                        <Grid size={12}>
                                             <FormControlLabel
                                                 control={
                                                     <Switch
@@ -347,24 +361,26 @@ const SettingsView = () => {
                                 <CardHeader title="Data Storage & Backup" />
                                 <CardContent>
                                     <Grid container spacing={2}>
-                                        <Grid item xs={12}>
+                                        <Grid size={12}>
                                             <TextField
                                                 fullWidth
                                                 label="Default Import Path"
                                                 value={settings.defaultImportPath}
                                                 onChange={(e) => handleSettingChange('defaultImportPath', e.target.value)}
-                                                InputProps={{
-                                                    endAdornment: (
-                                                        <InputAdornment position="end">
-                                                            <IconButton>
-                                                                <FolderOpen />
-                                                            </IconButton>
-                                                        </InputAdornment>
-                                                    )
+                                                slotProps={{
+                                                    input: {
+                                                        endAdornment: (
+                                                            <InputAdornment position="end">
+                                                                <IconButton>
+                                                                    <FolderOpen />
+                                                                </IconButton>
+                                                            </InputAdornment>
+                                                        )
+                                                    }
                                                 }}
                                             />
                                         </Grid>
-                                        <Grid item xs={12}>
+                                        <Grid size={12}>
                                             <FormControlLabel
                                                 control={
                                                     <Switch
@@ -375,7 +391,11 @@ const SettingsView = () => {
                                                 label="Enable Automatic Backups"
                                             />
                                         </Grid>
-                                        <Grid item xs={12} md={6}>
+                                        <Grid
+                                            size={{
+                                                xs: 12,
+                                                md: 6
+                                            }}>
                                             <TextField
                                                 fullWidth
                                                 label="Backup Interval (hours)"
@@ -385,7 +405,11 @@ const SettingsView = () => {
                                                 disabled={!settings.autoBackup}
                                             />
                                         </Grid>
-                                        <Grid item xs={12} md={6}>
+                                        <Grid
+                                            size={{
+                                                xs: 12,
+                                                md: 6
+                                            }}>
                                             <TextField
                                                 fullWidth
                                                 label="Data Retention (days)"
@@ -405,7 +429,7 @@ const SettingsView = () => {
                                 <CardHeader title="Import/Export Settings" />
                                 <CardContent>
                                     <Grid container spacing={2}>
-                                        <Grid item xs={12}>
+                                        <Grid size={12}>
                                             <FormControlLabel
                                                 control={
                                                     <Switch
@@ -416,7 +440,7 @@ const SettingsView = () => {
                                                 label="Copy Images on Import (vs. Reference)"
                                             />
                                         </Grid>
-                                        <Grid item xs={12}>
+                                        <Grid size={12}>
                                             <FormControlLabel
                                                 control={
                                                     <Switch
@@ -427,7 +451,11 @@ const SettingsView = () => {
                                                 label="Validate Imports on Load"
                                             />
                                         </Grid>
-                                        <Grid item xs={12} md={6}>
+                                        <Grid
+                                            size={{
+                                                xs: 12,
+                                                md: 6
+                                            }}>
                                             <FormControl fullWidth>
                                                 <InputLabel>Default Session Naming</InputLabel>
                                                 <Select
@@ -440,7 +468,11 @@ const SettingsView = () => {
                                                 </Select>
                                             </FormControl>
                                         </Grid>
-                                        <Grid item xs={12} md={6}>
+                                        <Grid
+                                            size={{
+                                                xs: 12,
+                                                md: 6
+                                            }}>
                                             <TextField
                                                 fullWidth
                                                 label="Max Import Retries"
@@ -460,7 +492,11 @@ const SettingsView = () => {
                                 <CardHeader title="Processing Configuration" />
                                 <CardContent>
                                     <Grid container spacing={2}>
-                                        <Grid item xs={12} md={6}>
+                                        <Grid
+                                            size={{
+                                                xs: 12,
+                                                md: 6
+                                            }}>
                                             <FormControl fullWidth>
                                                 <InputLabel>Default Processing Pipeline</InputLabel>
                                                 <Select
@@ -474,7 +510,11 @@ const SettingsView = () => {
                                                 </Select>
                                             </FormControl>
                                         </Grid>
-                                        <Grid item xs={12} md={6}>
+                                        <Grid
+                                            size={{
+                                                xs: 12,
+                                                md: 6
+                                            }}>
                                             <TextField
                                                 fullWidth
                                                 label="Max Parallel Jobs"
@@ -483,7 +523,7 @@ const SettingsView = () => {
                                                 onChange={(e) => handleSettingChange('maxParallelJobs', parseInt(e.target.value))}
                                             />
                                         </Grid>
-                                        <Grid item xs={12}>
+                                        <Grid size={12}>
                                             <FormControlLabel
                                                 control={
                                                     <Switch
@@ -505,7 +545,11 @@ const SettingsView = () => {
                                 <CardHeader title="Security & Privacy" />
                                 <CardContent>
                                     <Grid container spacing={2}>
-                                        <Grid item xs={12} md={6}>
+                                        <Grid
+                                            size={{
+                                                xs: 12,
+                                                md: 6
+                                            }}>
                                             <TextField
                                                 fullWidth
                                                 label="Session Timeout (minutes)"
@@ -514,7 +558,7 @@ const SettingsView = () => {
                                                 onChange={(e) => handleSettingChange('sessionTimeout', parseInt(e.target.value))}
                                             />
                                         </Grid>
-                                        <Grid item xs={12}>
+                                        <Grid size={12}>
                                             <FormControlLabel
                                                 control={
                                                     <Switch
@@ -525,7 +569,7 @@ const SettingsView = () => {
                                                 label="Enable Audit Logging"
                                             />
                                         </Grid>
-                                        <Grid item xs={12}>
+                                        <Grid size={12}>
                                             <FormControlLabel
                                                 control={
                                                     <Switch
@@ -547,7 +591,7 @@ const SettingsView = () => {
                                 <CardHeader title="Notification Preferences" />
                                 <CardContent>
                                     <Grid container spacing={2}>
-                                        <Grid item xs={12}>
+                                        <Grid size={12}>
                                             <FormControlLabel
                                                 control={
                                                     <Switch
@@ -558,7 +602,7 @@ const SettingsView = () => {
                                                 label="Enable Notifications"
                                             />
                                         </Grid>
-                                        <Grid item xs={12}>
+                                        <Grid size={12}>
                                             <FormControlLabel
                                                 control={
                                                     <Switch
@@ -570,7 +614,7 @@ const SettingsView = () => {
                                                 label="Notify on Import Completion"
                                             />
                                         </Grid>
-                                        <Grid item xs={12}>
+                                        <Grid size={12}>
                                             <FormControlLabel
                                                 control={
                                                     <Switch
@@ -582,7 +626,7 @@ const SettingsView = () => {
                                                 label="Notify on Errors"
                                             />
                                         </Grid>
-                                        <Grid item xs={12}>
+                                        <Grid size={12}>
                                             <FormControlLabel
                                                 control={
                                                     <Switch
@@ -609,7 +653,7 @@ const SettingsView = () => {
                                 <CardHeader title="Advanced Configuration" />
                                 <CardContent>
                                     <Grid container spacing={2}>
-                                        <Grid item xs={12}>
+                                        <Grid size={12}>
                                             <FormControlLabel
                                                 control={
                                                     <Switch
@@ -620,7 +664,7 @@ const SettingsView = () => {
                                                 label="Enable Debug Mode"
                                             />
                                         </Grid>
-                                        <Grid item xs={12}>
+                                        <Grid size={12}>
                                             <FormControlLabel
                                                 control={
                                                     <Switch
@@ -631,7 +675,11 @@ const SettingsView = () => {
                                                 label="Enable Beta Features"
                                             />
                                         </Grid>
-                                        <Grid item xs={12} md={6}>
+                                        <Grid
+                                            size={{
+                                                xs: 12,
+                                                md: 6
+                                            }}>
                                             <FormControl fullWidth>
                                                 <InputLabel>Log Level</InputLabel>
                                                 <Select
@@ -645,7 +693,11 @@ const SettingsView = () => {
                                                 </Select>
                                             </FormControl>
                                         </Grid>
-                                        <Grid item xs={12} md={6}>
+                                        <Grid
+                                            size={{
+                                                xs: 12,
+                                                md: 6
+                                            }}>
                                             <TextField
                                                 fullWidth
                                                 label="API Timeout (seconds)"

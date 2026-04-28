@@ -203,18 +203,35 @@ const PipelineCard: React.FC<{ p: PipelineEntry } & QueueActions> = ({ p, onBrow
             }}
         >
             <CardContent>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1.5}>
+                <Stack
+                    direction="row"
+                    sx={{
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        mb: 1.5
+                    }}>
                     <Typography variant="h6" sx={{ fontWeight: 700 }}>{p.name}</Typography>
                     <StatusChip tone={status.tone} label={status.label} />
                 </Stack>
 
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Stack
+                    direction="row"
+                    sx={{
+                        justifyContent: "space-between",
+                        alignItems: "center"
+                    }}>
                     <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                         Task queue · {p.task_queue.name ?? '—'}
                     </Typography>
                     <QueueActionButtons name={p.task_queue.name} depth={p.task_queue.depth} onBrowse={onBrowse} onPurge={onPurge} />
                 </Stack>
-                <Stack direction="row" spacing={3} mt={0.5} mb={2}>
+                <Stack
+                    direction="row"
+                    spacing={3}
+                    sx={{
+                        mt: 0.5,
+                        mb: 2
+                    }}>
                     <Stat label="Depth" value={p.task_queue.depth} accent={p.task_queue.depth > 0} />
                     <Stat label="Consumers" value={p.task_queue.consumers} accent={p.task_queue.consumers === 0} bad />
                     <Stat label="In/s" value={formatRate(p.task_queue.publish_rate)} />
@@ -223,13 +240,20 @@ const PipelineCard: React.FC<{ p: PipelineEntry } & QueueActions> = ({ p, onBrow
 
                 <Divider sx={{ borderColor: 'divider', mb: 1.5 }} />
 
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Stack
+                    direction="row"
+                    sx={{
+                        justifyContent: "space-between",
+                        alignItems: "center"
+                    }}>
                     <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                         Result queue · {p.result_queue.name ?? '—'}
                     </Typography>
                     <QueueActionButtons name={p.result_queue.name} depth={p.result_queue.depth} onBrowse={onBrowse} onPurge={onPurge} />
                 </Stack>
-                <Stack direction="row" spacing={3} mt={0.5}>
+                <Stack direction="row" spacing={3} sx={{
+                    mt: 0.5
+                }}>
                     <Stat label="Depth" value={p.result_queue.depth} accent={p.result_queue.depth > 0} />
                     <Stat label="Consumers" value={p.result_queue.consumers} />
                     <Stat label="In/s" value={formatRate(p.result_queue.publish_rate)} />
@@ -243,21 +267,26 @@ const PipelineCard: React.FC<{ p: PipelineEntry } & QueueActions> = ({ p, onBrow
 const InfraQueueRow: React.FC<{ q: QueueTile } & QueueActions> = ({ q, onBrowse, onPurge }) => (
     <Stack
         direction="row"
-        justifyContent="space-between"
-        alignItems="center"
         sx={{
+            justifyContent: "space-between",
+            alignItems: "center",
             py: 1,
             borderBottom: '1px solid',
             borderColor: 'divider',
-            '&:last-child': { borderBottom: 'none' },
-        }}
-    >
+            '&:last-child': { borderBottom: 'none' }
+        }}>
         <Box sx={{ flexGrow: 1, minWidth: 0 }}>
             <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 600, color: 'text.primary' }}>
                 {q.name}
             </Typography>
         </Box>
-        <Stack direction="row" spacing={3} alignItems="center" mr={1}>
+        <Stack
+            direction="row"
+            spacing={3}
+            sx={{
+                alignItems: "center",
+                mr: 1
+            }}>
             <Stat label="Depth" value={q.depth} accent={q.depth > 0} />
             <Stat label="Consumers" value={q.consumers} />
             <Stat label="In/s" value={formatRate(q.publish_rate)} />
@@ -385,7 +414,13 @@ export const PipelineHealthPage: React.FC = () => {
 
     return (
         <Container maxWidth="xl" sx={{ py: 3 }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+            <Stack
+                direction="row"
+                sx={{
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    mb: 2
+                }}>
                 <Box>
                     <Typography variant="h4" sx={{ fontWeight: 700, color: 'text.primary' }}>Pipeline Health</Typography>
                     <Typography variant="body2" sx={{ color: 'text.secondary' }}>
@@ -398,7 +433,9 @@ export const PipelineHealthPage: React.FC = () => {
                         ) : 'open the RabbitMQ Management UI'}.
                     </Typography>
                 </Box>
-                <Stack direction="row" spacing={1} alignItems="center">
+                <Stack direction="row" spacing={1} sx={{
+                    alignItems: "center"
+                }}>
                     <FormControlLabel
                         control={<Switch checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} size="small" />}
                         label={<Typography variant="body2">Auto-refresh 5s</Typography>}
@@ -412,9 +449,7 @@ export const PipelineHealthPage: React.FC = () => {
                     </Tooltip>
                 </Stack>
             </Stack>
-
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-
             {data && !data.broker.reachable && (
                 <Alert severity="warning" sx={{ mb: 2 }}>
                     Broker management API unreachable at <code>{data.broker.host}:{data.broker.management_port}</code>
@@ -422,7 +457,6 @@ export const PipelineHealthPage: React.FC = () => {
                     Pipeline tiles below show last-known shape only. Plugin liveness is unaffected (in-process registry).
                 </Alert>
             )}
-
             {/* Pipeline tiles — answers "is my pipeline healthy?" at a glance. */}
             {data && (
                 <Box
@@ -438,7 +472,6 @@ export const PipelineHealthPage: React.FC = () => {
                     ))}
                 </Box>
             )}
-
             {/* Infrastructure queues — events bus, plugin liveness, ad-hoc with activity. */}
             {data && data.infrastructure.length > 0 && (
                 <Paper variant="outlined" sx={{ bgcolor: 'background.paper', borderColor: 'divider', p: 2, mb: 2 }}>
@@ -453,11 +486,16 @@ export const PipelineHealthPage: React.FC = () => {
                     </Box>
                 </Paper>
             )}
-
             {/* Plugin liveness — Magellon-specific, not in built-in RMQ UI. */}
             {data && (
                 <Paper variant="outlined" sx={{ bgcolor: 'background.paper', borderColor: 'divider', p: 2, mb: 2 }}>
-                    <Stack direction="row" alignItems="center" spacing={1} mb={1}>
+                    <Stack
+                        direction="row"
+                        spacing={1}
+                        sx={{
+                            alignItems: "center",
+                            mb: 1
+                        }}>
                         <Activity size={18} color="currentColor" style={{ color: 'inherit' }} />
                         <Typography variant="h6" sx={{ fontWeight: 700, color: 'primary.main' }}>Plugin Liveness</Typography>
                         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
@@ -501,14 +539,12 @@ export const PipelineHealthPage: React.FC = () => {
                     )}
                 </Paper>
             )}
-
             {data && (
                 <Typography variant="caption" sx={{ color: 'text.disabled' }}>
                     Last updated {new Date(data.as_of).toLocaleTimeString()} ·
                     polling every {POLL_INTERVAL_MS / 1000}s
                 </Typography>
             )}
-
             <BrowseDrawer
                 queue={browseQueue}
                 data={peek}
@@ -517,7 +553,6 @@ export const PipelineHealthPage: React.FC = () => {
                 onClose={closeBrowse}
                 onRefresh={() => browseQueue && openBrowse(browseQueue)}
             />
-
             <Dialog open={purgeQueue !== null} onClose={closePurge} maxWidth="xs" fullWidth>
                 <DialogTitle sx={{ color: 'error.main', fontWeight: 700 }}>
                     Purge queue?
@@ -542,7 +577,6 @@ export const PipelineHealthPage: React.FC = () => {
                     </Button>
                 </DialogActions>
             </Dialog>
-
             <Snackbar
                 open={snack !== null}
                 autoHideDuration={4000}
@@ -585,16 +619,24 @@ const BrowseDrawer: React.FC<{
             anchor="right"
             open={queue !== null}
             onClose={onClose}
-            PaperProps={{
-                sx: {
-                    width: { xs: '100%', sm: 600, md: 720 },
-                    bgcolor: 'background.default',
-                    color: 'text.primary',
-                },
+            slotProps={{
+                paper: {
+                    sx: {
+                        width: { xs: '100%', sm: 600, md: 720 },
+                        bgcolor: 'background.default',
+                        color: 'text.primary',
+                    },
+                }
             }}
         >
             <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
+                <Stack
+                    direction="row"
+                    sx={{
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        mb: 1
+                    }}>
                     <Box>
                         <Typography variant="caption" sx={{ color: 'text.secondary' }}>Peek queue</Typography>
                         <Typography variant="h6" sx={{ fontFamily: 'monospace', fontWeight: 700 }}>{queue}</Typography>
@@ -614,7 +656,6 @@ const BrowseDrawer: React.FC<{
                     Messages are auto-requeued after this peek — may briefly affect FIFO ordering.
                 </Alert>
             </Box>
-
             <Box sx={{ p: 2, overflow: 'auto', flexGrow: 1 }}>
                 {error && <Alert severity="error">{error}</Alert>}
                 {!error && data && data.error && <Alert severity="warning">{data.error}</Alert>}
@@ -629,7 +670,13 @@ const BrowseDrawer: React.FC<{
                         variant="outlined"
                         sx={{ bgcolor: 'background.paper', borderColor: 'divider', mb: 2, p: 1.5 }}
                     >
-                        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1}>
+                        <Stack
+                            direction="row"
+                            sx={{
+                                justifyContent: "space-between",
+                                alignItems: "flex-start",
+                                mb: 1
+                            }}>
                             <Box sx={{ minWidth: 0, flexGrow: 1 }}>
                                 <Typography variant="caption" sx={{ color: 'text.secondary' }}>routing key</Typography>
                                 <Typography variant="body2" sx={{ fontFamily: 'monospace', mb: 0.5, wordBreak: 'break-all' }}>

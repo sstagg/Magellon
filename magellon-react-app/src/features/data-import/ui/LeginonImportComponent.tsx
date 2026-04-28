@@ -159,15 +159,16 @@ export const LeginonImportComponent = () => {
                             label={t('leginon-importer.form.magellonSessionName', { ns: 'leginon-import' })}
                             variant="filled"
                             margin="dense"
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <CalendarMonthOutlined />
-                                    </InputAdornment>
-                                ),
-                            }}
                             {...register('magellon_session_name')}
-                        />
+                            slotProps={{
+                                input: {
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <CalendarMonthOutlined />
+                                        </InputAdornment>
+                                    ),
+                                }
+                            }} />
                     </FormControl>
                 </Grid>
 
@@ -200,15 +201,16 @@ export const LeginonImportComponent = () => {
                             variant="filled"
                             margin="dense"
                             type="number"
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <Cached />
-                                    </InputAdornment>
-                                ),
-                            }}
                             {...register('retries')}
-                        />
+                            slotProps={{
+                                input: {
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <Cached />
+                                        </InputAdornment>
+                                    ),
+                                }
+                            }} />
                     </FormControl>
                 </Grid>
 
@@ -355,11 +357,12 @@ export const LeginonImportComponent = () => {
 
                     {defectsFile && (
                     <Box
-                        display="flex"
-                        alignItems="center"
-                        justifyContent="space-between"
-                        mt={1}
-                    >
+                        sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            mt: 1
+                        }}>
                         <Typography variant="caption" color="textSecondary">
                         Selected: {defectsFile.name}
                         </Typography>
@@ -405,11 +408,12 @@ export const LeginonImportComponent = () => {
 
                     {gainsFile && (
                     <Box
-                        display="flex"
-                        alignItems="center"
-                        justifyContent="space-between"
-                        mt={1}
-                    >
+                        sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            mt: 1
+                        }}>
                         <Typography variant="caption" color="textSecondary">
                         Selected: {gainsFile.name}
                         </Typography>

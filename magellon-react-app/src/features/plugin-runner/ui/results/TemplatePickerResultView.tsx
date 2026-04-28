@@ -56,8 +56,17 @@ export const TemplatePickerResultView: React.FC<{ result: TemplatePickerOutput }
 };
 
 const Stat: React.FC<{ label: string; value: string }> = ({ label, value }) => (
-    <Stack direction="row" justifyContent="space-between" sx={{ py: 0.5 }}>
-        <Typography variant="body2" color="text.secondary">{label}</Typography>
-        <Typography variant="body2" fontFamily="monospace">{value}</Typography>
+    <Stack
+        direction="row"
+        sx={{
+            justifyContent: "space-between",
+            py: 0.5
+        }}>
+        <Typography variant="body2" sx={{
+            color: "text.secondary"
+        }}>{label}</Typography>
+        <Typography variant="body2" sx={{
+            fontFamily: "monospace"
+        }}>{value}</Typography>
     </Stack>
 );

@@ -9,10 +9,17 @@ const InfoCards = ({ defocus1Micrometers, defocus2Micrometers, angleAstigmatismD
     // const resolutionAngstroms = resolution50Percent.toFixed(2); // Resolution 50% in Å
     return (
         <div style={{  display: "flex", justifyContent: "center", alignItems: "center" ,padding:"15px" }}>
-
-            <Grid container spacing={4} justifyContent="center" style={{ width: '100%' }}>
+            <Grid container spacing={4} style={{ width: '100%' }} sx={{
+                justifyContent: "center"
+            }}>
                 {/* Defocus 1 */}
-                <Grid item xs={12} sm={6} md={3} style={{ flexBasis: '25%', height: '25%' }}>
+                <Grid
+                    style={{ flexBasis: '25%', height: '25%' }}
+                    size={{
+                        xs: 12,
+                        sm: 6,
+                        md: 3
+                    }}>
                     <Card style={{ height: '100%' }}>
                         <CardContent style={{ textAlign: "center" }}>
                             <Typography variant="h4" component="div" color="primary" style={{ fontWeight: 'bold' }}>
@@ -26,7 +33,13 @@ const InfoCards = ({ defocus1Micrometers, defocus2Micrometers, angleAstigmatismD
                 </Grid>
 
                 {/* Defocus 2 */}
-                <Grid item xs={12} sm={6} md={3} style={{ flexBasis: '25%', height: '25%' }}>
+                <Grid
+                    style={{ flexBasis: '25%', height: '25%' }}
+                    size={{
+                        xs: 12,
+                        sm: 6,
+                        md: 3
+                    }}>
                     <Card style={{ height: '100%' }}>
                         <CardContent style={{ textAlign: "center" }}>
                             <Typography variant="h4" component="div" color="primary" style={{ fontWeight: 'bold' }}>
@@ -40,7 +53,13 @@ const InfoCards = ({ defocus1Micrometers, defocus2Micrometers, angleAstigmatismD
                 </Grid>
 
                 {/* Angle Astigmatism */}
-                <Grid item xs={12} sm={6} md={3} style={{ flexBasis: '25%', height: '25%' }}>
+                <Grid
+                    style={{ flexBasis: '25%', height: '25%' }}
+                    size={{
+                        xs: 12,
+                        sm: 6,
+                        md: 3
+                    }}>
                     <Card style={{ height: '100%' }}>
                         <CardContent style={{ textAlign: "center" }}>
                             <Typography variant="h4" component="div" color="primary" style={{ fontWeight: 'bold' }}>
@@ -54,7 +73,13 @@ const InfoCards = ({ defocus1Micrometers, defocus2Micrometers, angleAstigmatismD
                 </Grid>
 
                 {/* Resolution */}
-                <Grid item xs={12} sm={6} md={3} style={{ flexBasis: '25%', height: '25%' }}>
+                <Grid
+                    style={{ flexBasis: '25%', height: '25%' }}
+                    size={{
+                        xs: 12,
+                        sm: 6,
+                        md: 3
+                    }}>
                     <Card style={{ height: '100%' }}>
                         <CardContent style={{ textAlign: "center" }}>
                             <Typography variant="h4" component="div" color="primary" style={{ fontWeight: 'bold' }}>

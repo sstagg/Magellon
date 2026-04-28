@@ -179,9 +179,13 @@ const MetadataExplorer: React.FC<MetadataExplorerProps> = ({ categories, isLoadi
                         <ListItemText
                             primary={category.name}
                             secondary={`${metadataCount} items`}
-                            primaryTypographyProps={{
-                                fontWeight: isSelected ? 600 : 400,
-                                fontSize: '0.875rem'
+                            slotProps={{
+                                primary: {
+                                    sx: {
+                                        fontWeight: isSelected ? 600 : 400,
+                                        fontSize: '0.875rem'
+                                    }
+                                }
                             }}
                         />
 
@@ -197,7 +201,6 @@ const MetadataExplorer: React.FC<MetadataExplorerProps> = ({ categories, isLoadi
                             />
                         )}
                     </ListItemButton>
-
                     {hasChildren && (
                         <MuiCollapse in={isExpanded}>
                             {renderCategoryTree(category.children, level + 1, [...parents, category])}
@@ -251,10 +254,14 @@ const MetadataExplorer: React.FC<MetadataExplorerProps> = ({ categories, isLoadi
                 gap: 2
             }}>
                 <Database size={64} color={theme.palette.text.secondary} />
-                <Typography variant="h6" color="text.secondary">
+                <Typography variant="h6" sx={{
+                    color: "text.secondary"
+                }}>
                     No metadata available
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{
+                    color: "text.secondary"
+                }}>
                     Select an image to view its metadata
                 </Typography>
             </Box>
@@ -328,7 +335,6 @@ const MetadataExplorer: React.FC<MetadataExplorerProps> = ({ categories, isLoadi
                     </ButtonGroup>
                 </Box>
             </Paper>
-
             {/* Main content area */}
             <Box sx={{ flex: 1, display: 'flex', gap: 2, overflow: 'hidden' }}>
                 {/* Left panel - Category tree */}
@@ -350,19 +356,21 @@ const MetadataExplorer: React.FC<MetadataExplorerProps> = ({ categories, isLoadi
                             placeholder="Search metadata..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <Search fontSize="small" />
-                                    </InputAdornment>
-                                ),
-                                endAdornment: searchQuery && (
-                                    <InputAdornment position="end">
-                                        <IconButton size="small" onClick={() => setSearchQuery('')}>
-                                            <Clear fontSize="small" />
-                                        </IconButton>
-                                    </InputAdornment>
-                                )
+                            slotProps={{
+                                input: {
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <Search fontSize="small" />
+                                        </InputAdornment>
+                                    ),
+                                    endAdornment: searchQuery && (
+                                        <InputAdornment position="end">
+                                            <IconButton size="small" onClick={() => setSearchQuery('')}>
+                                                <Clear fontSize="small" />
+                                            </IconButton>
+                                        </InputAdornment>
+                                    )
+                                }
                             }}
                         />
                     </Box>
@@ -467,7 +475,9 @@ const MetadataExplorer: React.FC<MetadataExplorerProps> = ({ categories, isLoadi
                                         justifyContent: 'center',
                                         p: 3
                                     }}>
-                                        <Typography variant="body2" color="text.secondary">
+                                        <Typography variant="body2" sx={{
+                                            color: "text.secondary"
+                                        }}>
                                             No metadata in this category
                                         </Typography>
                                     </Box>
@@ -484,7 +494,9 @@ const MetadataExplorer: React.FC<MetadataExplorerProps> = ({ categories, isLoadi
                                 p: 3
                             }}>
                                 <Folder size={48} color={theme.palette.text.secondary} />
-                                <Typography variant="body1" color="text.secondary">
+                                <Typography variant="body1" sx={{
+                                    color: "text.secondary"
+                                }}>
                                     Select a category to view metadata
                                 </Typography>
                             </Box>
@@ -492,7 +504,6 @@ const MetadataExplorer: React.FC<MetadataExplorerProps> = ({ categories, isLoadi
                     </Paper>
                 )}
             </Box>
-
             {/* Bottom panel - Selected metadata details */}
             {selectedMeta && (
                 <Zoom in={true}>
@@ -576,9 +587,11 @@ const MetadataExplorer: React.FC<MetadataExplorerProps> = ({ categories, isLoadi
                                     multiline
                                     rows={10}
                                     value={selectedMeta.data_json ? JSON.stringify(selectedMeta.data_json, null, 2) : selectedMeta.data}
-                                    InputProps={{
-                                        readOnly: true,
-                                        sx: { fontFamily: 'monospace', fontSize: '0.875rem' }
+                                    slotProps={{
+                                        input: {
+                                            readOnly: true,
+                                            sx: { fontFamily: 'monospace', fontSize: '0.875rem' }
+                                        }
                                     }}
                                 />
                             )}

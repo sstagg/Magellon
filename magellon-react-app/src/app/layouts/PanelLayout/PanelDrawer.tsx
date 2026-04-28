@@ -305,14 +305,11 @@ export const PanelDrawer: React.FC<PanelDrawerProps> = ({ open, handleDrawerClos
                     </Typography>
                 </Box>
             </DrawerHeader>
-
             <Divider />
-
             {/* Main navigation list */}
             <List sx={{ p: 1 }}>
                 {renderNavItems(navLinks)}
             </List>
-
             {/* App version at bottom of drawer */}
             <Box sx={{
                 mt: 'auto',
@@ -320,7 +317,9 @@ export const PanelDrawer: React.FC<PanelDrawerProps> = ({ open, handleDrawerClos
                 borderTop: '1px solid rgba(0, 0, 0, 0.12)',
                 textAlign: 'center'
             }}>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                }}>
                     Magellon v0.1.0
                 </Typography>
             </Box>

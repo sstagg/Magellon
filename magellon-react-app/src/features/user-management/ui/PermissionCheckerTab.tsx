@@ -137,7 +137,11 @@ export default function PermissionCheckerTab({
                     </Alert>
 
                     <Grid container spacing={3}>
-                        <Grid item xs={12} md={6}>
+                        <Grid
+                            size={{
+                                xs: 12,
+                                md: 6
+                            }}>
                             <FormControl fullWidth>
                                 <InputLabel>Select User</InputLabel>
                                 <Select
@@ -154,7 +158,11 @@ export default function PermissionCheckerTab({
                             </FormControl>
                         </Grid>
 
-                        <Grid item xs={12} md={6}>
+                        <Grid
+                            size={{
+                                xs: 12,
+                                md: 6
+                            }}>
                             <FormControl fullWidth>
                                 <InputLabel>Permission Type</InputLabel>
                                 <Select
@@ -172,7 +180,11 @@ export default function PermissionCheckerTab({
                             </FormControl>
                         </Grid>
 
-                        <Grid item xs={12} md={formData.permission_type === 'type' ? 6 : 12}>
+                        <Grid
+                            size={{
+                                xs: 12,
+                                md: formData.permission_type === 'type' ? 6 : 12
+                            }}>
                             <TextField
                                 fullWidth
                                 label="Resource"
@@ -184,7 +196,11 @@ export default function PermissionCheckerTab({
                         </Grid>
 
                         {formData.permission_type === 'type' && (
-                            <Grid item xs={12} md={6}>
+                            <Grid
+                                size={{
+                                    xs: 12,
+                                    md: 6
+                                }}>
                                 <FormControl fullWidth>
                                     <InputLabel>Operation</InputLabel>
                                     <Select
@@ -202,7 +218,7 @@ export default function PermissionCheckerTab({
                             </Grid>
                         )}
 
-                        <Grid item xs={12}>
+                        <Grid size={12}>
                             <Button
                                 variant="contained"
                                 startIcon={checking ? <CircularProgress size={20} /> : <Search />}
@@ -239,7 +255,9 @@ export default function PermissionCheckerTab({
                                     <AccordionDetails>
                                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                             <Box>
-                                                <Typography variant="caption" color="text.secondary">
+                                                <Typography variant="caption" sx={{
+                                                    color: "text.secondary"
+                                                }}>
                                                     User
                                                 </Typography>
                                                 <Typography variant="body2">
@@ -248,7 +266,9 @@ export default function PermissionCheckerTab({
                                             </Box>
 
                                             <Box>
-                                                <Typography variant="caption" color="text.secondary">
+                                                <Typography variant="caption" sx={{
+                                                    color: "text.secondary"
+                                                }}>
                                                     Roles
                                                 </Typography>
                                                 <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
@@ -256,7 +276,9 @@ export default function PermissionCheckerTab({
                                                         <Chip key={idx} label={role} size="small" />
                                                     ))}
                                                     {result.user_info.roles.length === 0 && (
-                                                        <Typography variant="body2" color="text.secondary">
+                                                        <Typography variant="body2" sx={{
+                                                            color: "text.secondary"
+                                                        }}>
                                                             No roles assigned
                                                         </Typography>
                                                     )}
@@ -264,7 +286,9 @@ export default function PermissionCheckerTab({
                                             </Box>
 
                                             <Box>
-                                                <Typography variant="caption" color="text.secondary">
+                                                <Typography variant="caption" sx={{
+                                                    color: "text.secondary"
+                                                }}>
                                                     Is Administrator
                                                 </Typography>
                                                 <Typography variant="body2">
@@ -282,7 +306,9 @@ export default function PermissionCheckerTab({
                                             </Box>
 
                                             <Box>
-                                                <Typography variant="caption" color="text.secondary">
+                                                <Typography variant="caption" sx={{
+                                                    color: "text.secondary"
+                                                }}>
                                                     Checked Permission
                                                 </Typography>
                                                 <Box
@@ -310,7 +336,6 @@ export default function PermissionCheckerTab({
                     )}
                 </CardContent>
             </Card>
-
             {selectedUser && (
                 <Card sx={{ mt: 3 }}>
                     <CardContent>

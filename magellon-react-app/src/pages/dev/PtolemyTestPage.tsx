@@ -183,7 +183,12 @@ export const PtolemyTestPage: React.FC = () => {
                 <Typography variant="h4" gutterBottom>
                     Ptolemy plugin test bed
                 </Typography>
-                <Typography variant="body2" color="text.secondary" paragraph>
+                <Typography
+                    variant="body2"
+                    sx={{
+                        color: "text.secondary",
+                        marginBottom: "16px"
+                    }}>
                     Dispatch a ptolemy square- or hole-detection task against one MRC on
                     the CoreService host, watch live step events stream back over
                     Socket.IO, poll the persisted <code>image_job</code> row, and cancel
@@ -206,7 +211,9 @@ export const PtolemyTestPage: React.FC = () => {
                                 <MenuItem value="hole">{MODE_CONFIG.hole.label}</MenuItem>
                             </Select>
                         </FormControl>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{
+                            color: "text.secondary"
+                        }}>
                             {MODE_CONFIG[mode].blurb}
                         </Typography>
 
@@ -265,7 +272,13 @@ export const PtolemyTestPage: React.FC = () => {
 
                 {dispatch && (
                     <Paper sx={{ p: 2, mb: 2 }} variant="outlined">
-                        <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
+                        <Stack
+                            direction="row"
+                            spacing={1}
+                            sx={{
+                                alignItems: "center",
+                                flexWrap: "wrap"
+                            }}>
                             <Typography variant="subtitle2">
                                 Job {dispatch.job_id.slice(0, 8)}…
                             </Typography>
@@ -301,7 +314,6 @@ export const PtolemyTestPage: React.FC = () => {
                     <DispatchTrace tasks={[dispatch.task]} events={stepEvents} />
                 )}
             </Box>
-
             <ImagePickerDialog
                 open={pickerOpen}
                 onClose={() => setPickerOpen(false)}

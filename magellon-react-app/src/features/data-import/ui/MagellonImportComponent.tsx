@@ -134,7 +134,6 @@ export const MagellonImportComponent = () => {
             <Typography variant="h6" gutterBottom>
                 Import Data from Magellon Microscope Sessions
             </Typography>
-
             <Typography variant="body2" color="textSecondary" gutterBottom>
                 If you are using Docker, please select a directory from the MAGELLON_GPFS_PATH that was configured during installation in the .env file.
                 Select a session file (session.json) and click the import button
@@ -142,7 +141,6 @@ export const MagellonImportComponent = () => {
             <Typography variant="body2" color="textSecondary" gutterBottom>
                 Current path: {currentPath}
             </Typography>
-
             {currentPath !== "/gpfs" && (
                 <Typography
                     variant="body2"
@@ -159,7 +157,6 @@ export const MagellonImportComponent = () => {
                     ← Go back to parent directory
                 </Typography>
             )}
-
             {error && (
                 <Typography color="error" sx={{ mt: 1 }} gutterBottom>
                     Error: {error}
@@ -197,14 +194,15 @@ export const MagellonImportComponent = () => {
   </Box>
 
   <Typography
-    variant="caption"
-    color="text.secondary"
-    sx={{ mt: 2, display: 'block' }}
-  >
+      variant="caption"
+      sx={{
+          color: "text.secondary",
+          mt: 2,
+          display: 'block'
+      }}>
     ⚠️ Ensure all required subfolders exist before uploading.
   </Typography>
 </Box>
-
             <Box sx={{
                 border: 1,
                 borderColor: 'divider',
@@ -245,7 +243,6 @@ export const MagellonImportComponent = () => {
                     </List>
                 )}
             </Box>
-
             {selectedFile && (
                 <>
                     <Typography sx={{ mt: 2 }} color="primary">

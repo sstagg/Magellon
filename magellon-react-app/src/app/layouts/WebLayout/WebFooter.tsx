@@ -37,7 +37,9 @@ export default function ModernFooter() {
                         <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
                             Magellon
                         </Typography>
-                        <Typography variant="body2" color="text.secondary">
+                        <Typography variant="body2" sx={{
+                            color: "text.secondary"
+                        }}>
                             © {new Date().getFullYear()} All rights reserved.
                         </Typography>
                     </Box>
@@ -45,41 +47,41 @@ export default function ModernFooter() {
                     <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', justifyContent: 'center' }}>
                         <Link
                             href="/privacy"
-                            color="text.secondary"
                             sx={{
+                                color: "text.secondary",
                                 textDecoration: 'none',
+
                                 '&:hover': {
                                     color: 'primary.main',
                                     textDecoration: 'underline'
                                 }
-                            }}
-                        >
+                            }}>
                             Privacy Policy
                         </Link>
                         <Link
                             href="/terms"
-                            color="text.secondary"
                             sx={{
+                                color: "text.secondary",
                                 textDecoration: 'none',
+
                                 '&:hover': {
                                     color: 'primary.main',
                                     textDecoration: 'underline'
                                 }
-                            }}
-                        >
+                            }}>
                             Terms of Service
                         </Link>
                         <Link
                             href="/en/web/contact"
-                            color="text.secondary"
                             sx={{
+                                color: "text.secondary",
                                 textDecoration: 'none',
+
                                 '&:hover': {
                                     color: 'primary.main',
                                     textDecoration: 'underline'
                                 }
-                            }}
-                        >
+                            }}>
                             Contact
                         </Link>
                     </Box>

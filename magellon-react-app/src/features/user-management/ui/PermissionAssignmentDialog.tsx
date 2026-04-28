@@ -91,7 +91,9 @@ export default function PermissionAssignmentDialog({
           </Box>
         ) : (
           <>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
+            <Typography variant="body2" gutterBottom sx={{
+              color: "text.secondary"
+            }}>
               View and manage permissions assigned to this role. Use the Permission Management tab
               to add or remove permissions.
             </Typography>
@@ -106,7 +108,9 @@ export default function PermissionAssignmentDialog({
 
             {/* Action Permissions */}
             <TabPanel value={tabValue} index={0}>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
+              <Typography variant="body2" gutterBottom sx={{
+                color: "text.secondary"
+              }}>
                 Action permissions control what specific operations this role can perform.
               </Typography>
               <Divider sx={{ my: 2 }} />
@@ -117,7 +121,13 @@ export default function PermissionAssignmentDialog({
                   ))}
                 </Box>
               ) : (
-                <Typography variant="body2" color="text.secondary" align="center" sx={{ p: 2 }}>
+                <Typography
+                  variant="body2"
+                  align="center"
+                  sx={{
+                    color: "text.secondary",
+                    p: 2
+                  }}>
                   No action permissions assigned
                 </Typography>
               )}
@@ -125,7 +135,9 @@ export default function PermissionAssignmentDialog({
 
             {/* Navigation Permissions */}
             <TabPanel value={tabValue} index={1}>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
+              <Typography variant="body2" gutterBottom sx={{
+                color: "text.secondary"
+              }}>
                 Navigation permissions control which pages and menu items this role can access.
               </Typography>
               <Divider sx={{ my: 2 }} />
@@ -143,7 +155,13 @@ export default function PermissionAssignmentDialog({
                   ))}
                 </List>
               ) : (
-                <Typography variant="body2" color="text.secondary" align="center" sx={{ p: 2 }}>
+                <Typography
+                  variant="body2"
+                  align="center"
+                  sx={{
+                    color: "text.secondary",
+                    p: 2
+                  }}>
                   No navigation permissions assigned
                 </Typography>
               )}
@@ -151,7 +169,9 @@ export default function PermissionAssignmentDialog({
 
             {/* Type Permissions */}
             <TabPanel value={tabValue} index={2}>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
+              <Typography variant="body2" gutterBottom sx={{
+                color: "text.secondary"
+              }}>
                 Type permissions control CRUD operations on entity types.
               </Typography>
               <Divider sx={{ my: 2 }} />
@@ -175,7 +195,13 @@ export default function PermissionAssignmentDialog({
                   ))}
                 </List>
               ) : (
-                <Typography variant="body2" color="text.secondary" align="center" sx={{ p: 2 }}>
+                <Typography
+                  variant="body2"
+                  align="center"
+                  sx={{
+                    color: "text.secondary",
+                    p: 2
+                  }}>
                   No type permissions assigned
                 </Typography>
               )}

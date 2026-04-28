@@ -176,15 +176,14 @@ export const MrcViewer: React.FC<MrcViewerProps> = ({ open, onClose, fileUrl, fi
                             }
                         }}
                         sx={{
+                            width: canvas.width,
+                            height: canvas.height,
                             maxWidth: '100%',
                             maxHeight: 400,
                             border: '1px solid #ccc',
                             borderRadius: 1,
                             objectFit: 'contain'
-                        }}
-                        width={canvas.width}
-                        height={canvas.height}
-                    />
+                        }} />
                 )}
             </DialogContent>
             <DialogActions>

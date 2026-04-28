@@ -45,7 +45,9 @@ export const LogsPanel: React.FC = () => {
             }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Terminal size={14} />
-                    <Typography variant="caption" fontWeight={600}>Logs</Typography>
+                    <Typography variant="caption" sx={{
+                        fontWeight: 600
+                    }}>Logs</Typography>
                     <Chip label={logs.length} size="small" sx={{ height: 18, fontSize: '0.65rem' }} />
                 </Box>
                 <Box sx={{ display: 'flex', gap: 0.25 }}>
@@ -63,7 +65,6 @@ export const LogsPanel: React.FC = () => {
                     </Tooltip>
                 </Box>
             </Box>
-
             {/* Log entries */}
             <Box
                 ref={scrollRef}
@@ -79,7 +80,12 @@ export const LogsPanel: React.FC = () => {
             >
                 {logs.length === 0 && (
                     <Box sx={{ p: 2, textAlign: 'center' }}>
-                        <Typography variant="caption" color="text.secondary" fontFamily="monospace">
+                        <Typography
+                            variant="caption"
+                            sx={{
+                                color: "text.secondary",
+                                fontFamily: "monospace"
+                            }}>
                             Waiting for events...
                         </Typography>
                     </Box>
