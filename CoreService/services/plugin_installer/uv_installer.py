@@ -56,6 +56,17 @@ def _default_subprocess_runner(*args, **kwargs) -> subprocess.CompletedProcess:
     return subprocess.run(*args, **kwargs)
 
 
+def _replace_existing(path: Path) -> None:
+    """Remove a path (file or dir) if it exists. Used before
+    renaming a .bak target so we don't accumulate stale backups
+    across upgrade cycles."""
+    if path.exists():
+        if path.is_dir():
+            shutil.rmtree(path, ignore_errors=True)
+        else:
+            path.unlink(missing_ok=True)
+
+
 def _venv_python_path(venv_dir: Path) -> Path:
     """Cross-platform path to the venv's Python interpreter."""
     if sys.platform == "win32":
@@ -165,7 +176,9 @@ class UvInstaller:
                 logs="\n".join(logs),
             )
 
-    def uninstall(self, plugin_id: str) -> UninstallResult:
+    def uninstall(
+        self, plugin_id: str, *, preserve_as_backup: bool = False,
+    ) -> UninstallResult:
         target = self.plugins_dir / plugin_id
         if not target.is_dir():
             return UninstallResult(
@@ -173,6 +186,25 @@ class UvInstaller:
                 plugin_id=plugin_id,
                 error=f"plugin {plugin_id} not installed under {self.plugins_dir}",
             )
+
+        # uv installs are pure filesystem (we don't currently spawn a
+        # process at install time). For preserve_as_backup we rename
+        # rather than delete so the upgrade flow can restore on
+        # failure. The version comes from the installed manifest so
+        # the .bak name carries it.
+        if preserve_as_backup:
+            try:
+                version = self._read_installed_version(target)
+                backup = self.plugins_dir / f"{plugin_id}.{version}.bak"
+                _replace_existing(backup)  # GC any prior .bak with same version
+                target.rename(backup)
+                return UninstallResult(success=True, plugin_id=plugin_id)
+            except Exception as exc:  # noqa: BLE001
+                return UninstallResult(
+                    success=False, plugin_id=plugin_id,
+                    error=f"backup rename failed: {exc}",
+                )
+
         try:
             shutil.rmtree(target)
             return UninstallResult(success=True, plugin_id=plugin_id)
@@ -180,6 +212,20 @@ class UvInstaller:
             return UninstallResult(
                 success=False, plugin_id=plugin_id, error=str(exc),
             )
+
+    def _read_installed_version(self, target: Path) -> str:
+        """Look up the installed plugin's version by reading its
+        manifest. Used by uninstall(preserve_as_backup=True) so the
+        .bak directory name carries the version."""
+        from magellon_sdk.archive.manifest import load_manifest_bytes
+        for name in ("manifest.yaml", "plugin.yaml"):
+            path = target / name
+            if path.is_file():
+                manifest = load_manifest_bytes(path.read_bytes())
+                return manifest.version
+        # Defensive fallback — bare directory with no manifest
+        # (shouldn't happen, but if it does we don't crash uninstall).
+        return "unknown"
 
     def is_installed(self, plugin_id: str) -> bool:
         return (self.plugins_dir / plugin_id).is_dir()

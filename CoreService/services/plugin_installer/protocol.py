@@ -123,11 +123,21 @@ class Installer(Protocol):
         """
         ...
 
-    def uninstall(self, plugin_id: str) -> UninstallResult:
-        """Remove a previously-installed plugin. Best-effort: a
-        partial uninstall (e.g. process killed but directory still
-        on disk) returns ``success=False`` with the residue
-        described in ``error``."""
+    def uninstall(
+        self, plugin_id: str, *, preserve_as_backup: bool = False,
+    ) -> UninstallResult:
+        """Remove a previously-installed plugin.
+
+        When ``preserve_as_backup=True`` (used by the upgrade flow
+        in :class:`PluginInstallManager`), the install dir is RENAMED
+        to ``<plugin_id>.<version>.bak/`` instead of being deleted,
+        and any built/pulled image is preserved so a rollback can
+        re-run it. The plugin's process / container is still stopped.
+
+        Best-effort: a partial uninstall (e.g. process killed but
+        directory still on disk) returns ``success=False`` with the
+        residue described in ``error``.
+        """
         ...
 
     def is_installed(self, plugin_id: str) -> bool:

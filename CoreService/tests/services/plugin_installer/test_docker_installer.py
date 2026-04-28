@@ -624,3 +624,84 @@ def test_is_installed_false_when_dir_absent(tmp_path):
         plugins_dir=tmp_path / "installed", subprocess_runner=_stub_runner(),
     )
     assert not inst.is_installed("anything")
+
+
+# ---------------------------------------------------------------------------
+# uninstall(preserve_as_backup=True) — P6 upgrade rollback surface
+# ---------------------------------------------------------------------------
+
+def test_preserve_as_backup_renames_to_versioned_dir(tmp_path):
+    archive, manifest = _build_archive(tmp_path, [
+        {"method": "docker", "image": "ghcr.io/x:1"},
+    ])
+    plugins_dir = tmp_path / "installed"
+    inst = DockerInstaller(plugins_dir=plugins_dir, subprocess_runner=_stub_runner())
+    inst.install(archive, manifest, manifest.install[0], _runtime())
+
+    inst._run = _stub_runner()
+    result = inst.uninstall("ctf-plugin", preserve_as_backup=True)
+
+    assert result.success
+    assert not (plugins_dir / "ctf-plugin").exists()
+    assert (plugins_dir / "ctf-plugin.1.2.3.bak").is_dir()
+
+
+def test_preserve_as_backup_stops_and_removes_container(tmp_path):
+    """Container must still be torn down — backup mode preserves
+    on-disk state, NOT a running container. Otherwise the new
+    version's container can't be created (name collision)."""
+    archive, manifest = _build_archive(tmp_path, [
+        {"method": "docker", "image": "ghcr.io/x:1"},
+    ])
+    inst = DockerInstaller(
+        plugins_dir=tmp_path / "installed", subprocess_runner=_stub_runner(),
+    )
+    inst.install(archive, manifest, manifest.install[0], _runtime())
+
+    runner = _stub_runner()
+    inst._run = runner
+    inst.uninstall("ctf-plugin", preserve_as_backup=True)
+
+    subcommands = _docker_subcommands(runner.calls)
+    assert "stop" in subcommands
+    assert "rm" in subcommands
+
+
+def test_preserve_as_backup_keeps_built_image(tmp_path):
+    """Built images must be preserved during backup so a rollback
+    can re-run the same one. Regular uninstall would rmi them; backup
+    mode must NOT."""
+    archive, manifest = _build_archive(tmp_path, [
+        {"method": "docker", "dockerfile": "Dockerfile"},
+    ])
+    inst = DockerInstaller(
+        plugins_dir=tmp_path / "installed", subprocess_runner=_stub_runner(),
+    )
+    inst.install(archive, manifest, manifest.install[0], _runtime())
+
+    runner = _stub_runner()
+    inst._run = runner
+    inst.uninstall("ctf-plugin", preserve_as_backup=True)
+
+    subcommands = _docker_subcommands(runner.calls)
+    assert "rmi" not in subcommands  # built image preserved
+
+
+def test_preserve_as_backup_keeps_pulled_image(tmp_path):
+    """Pulled images aren't rmi'd by regular uninstall either, but
+    confirm explicitly that backup mode doesn't accidentally start
+    rmi'ing them."""
+    archive, manifest = _build_archive(tmp_path, [
+        {"method": "docker", "image": "ghcr.io/x:1"},
+    ])
+    inst = DockerInstaller(
+        plugins_dir=tmp_path / "installed", subprocess_runner=_stub_runner(),
+    )
+    inst.install(archive, manifest, manifest.install[0], _runtime())
+
+    runner = _stub_runner()
+    inst._run = runner
+    inst.uninstall("ctf-plugin", preserve_as_backup=True)
+
+    subcommands = _docker_subcommands(runner.calls)
+    assert "rmi" not in subcommands

@@ -61,6 +61,17 @@ def _default_subprocess_runner(*args, **kwargs) -> subprocess.CompletedProcess:
     return subprocess.run(*args, **kwargs)
 
 
+def _replace_existing(path: Path) -> None:
+    """Remove a path (file or dir) if it exists. Used before
+    renaming a .bak target so we don't accumulate stale backups
+    across upgrade cycles."""
+    if path.exists():
+        if path.is_dir():
+            shutil.rmtree(path, ignore_errors=True)
+        else:
+            path.unlink(missing_ok=True)
+
+
 class DockerInstaller:
     """Installer impl for the ``docker`` install method."""
 
@@ -176,7 +187,9 @@ class DockerInstaller:
                 logs="\n".join(logs),
             )
 
-    def uninstall(self, plugin_id: str) -> UninstallResult:
+    def uninstall(
+        self, plugin_id: str, *, preserve_as_backup: bool = False,
+    ) -> UninstallResult:
         target = self.plugins_dir / plugin_id
         if not target.is_dir():
             return UninstallResult(
@@ -189,7 +202,9 @@ class DockerInstaller:
             state = self._read_state(target)
         except FileNotFoundError:
             # Half-uninstalled previously. Best effort: remove the
-            # directory and report what we couldn't clean up.
+            # directory and report what we couldn't clean up. Backup
+            # mode can't preserve a state-less install — the rollback
+            # would have nothing to read.
             shutil.rmtree(target, ignore_errors=True)
             return UninstallResult(
                 success=False,
@@ -198,7 +213,7 @@ class DockerInstaller:
                       f"docker container/image cleanup may be incomplete",
             )
 
-        # 1. Stop + remove container (always, even if it's already stopped).
+        # 1. Stop + remove container (always, even if already stopped).
         try:
             self._docker_stop_rm(state["container_name"], swallow=False)
         except Exception as exc:  # noqa: BLE001
@@ -208,7 +223,23 @@ class DockerInstaller:
                 error=f"docker stop/rm failed: {exc}",
             )
 
-        # 2. Remove built images; preserve pulled ones (may be shared).
+        # 2. Backup mode: preserve image (rollback re-runs the same
+        # one) and rename the dir. Don't rmi anything.
+        if preserve_as_backup:
+            try:
+                version = state.get("version", "unknown")
+                backup = self.plugins_dir / f"{plugin_id}.{version}.bak"
+                _replace_existing(backup)
+                target.rename(backup)
+                return UninstallResult(success=True, plugin_id=plugin_id)
+            except Exception as exc:  # noqa: BLE001
+                return UninstallResult(
+                    success=False, plugin_id=plugin_id,
+                    error=f"backup rename failed: {exc}",
+                )
+
+        # 3. Regular uninstall: remove built images; preserve pulled
+        # ones (may be shared).
         if state.get("image_was_built") and state.get("image_ref"):
             try:
                 self._docker_rmi(state["image_ref"], swallow=False)
@@ -218,7 +249,7 @@ class DockerInstaller:
                     state["image_ref"], exc,
                 )
 
-        # 3. Remove the install dir last so a docker failure leaves
+        # 4. Remove the install dir last so a docker failure leaves
         # the state file for diagnostics.
         try:
             shutil.rmtree(target)

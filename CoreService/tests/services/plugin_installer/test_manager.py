@@ -79,8 +79,8 @@ class _FakeInstaller:
             install_method=self.method,
         )
 
-    def uninstall(self, plugin_id):
-        self.uninstall_calls.append(plugin_id)
+    def uninstall(self, plugin_id, *, preserve_as_backup=False):
+        self.uninstall_calls.append((plugin_id, preserve_as_backup))
         if self._uninstall_result is not None:
             return self._uninstall_result
         self._installed.discard(plugin_id)
@@ -285,7 +285,8 @@ def test_install_rolls_back_when_health_check_fails(tmp_path):
 
     assert not result.success
     assert "did not announce" in result.error
-    assert "tp" in uv.uninstall_calls  # rolled back
+    # rolled back — health-check failure issues a non-backup uninstall
+    assert ("tp", False) in uv.uninstall_calls
 
 
 def test_install_skips_health_check_when_manifest_opts_out(tmp_path):
@@ -381,7 +382,7 @@ def test_uninstall_finds_owning_installer(tmp_path):
     result = mgr.uninstall("tp")
 
     assert result.success
-    assert uv.uninstall_calls == ["tp"]
+    assert uv.uninstall_calls == [("tp", False)]
     assert docker.uninstall_calls == []
 
 

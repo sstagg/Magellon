@@ -466,3 +466,61 @@ def test_venv_python_returns_none_when_not_installed(tmp_path):
         plugins_dir=tmp_path / "installed", subprocess_runner=_stub_runner(),
     )
     assert inst.venv_python("nothing") is None
+
+
+# ---------------------------------------------------------------------------
+# uninstall(preserve_as_backup=True) — P6 upgrade rollback surface
+# ---------------------------------------------------------------------------
+
+def test_preserve_as_backup_renames_to_versioned_dir(tmp_path):
+    """The upgrade flow needs the old install preserved so a failed
+    new-version install can be rolled back. Backup mode renames the
+    install dir to ``<plugin_id>.<version>.bak/`` instead of deleting."""
+    archive, manifest = _build_archive(tmp_path)
+    plugins_dir = tmp_path / "installed"
+    inst = UvInstaller(plugins_dir=plugins_dir, subprocess_runner=_stub_runner())
+    inst.install(archive, manifest, manifest.install[0], _runtime())
+
+    result = inst.uninstall("test-plugin", preserve_as_backup=True)
+
+    assert result.success
+    # Original gone, .bak in its place.
+    assert not (plugins_dir / "test-plugin").exists()
+    assert (plugins_dir / "test-plugin.0.1.0.bak").is_dir()
+
+
+def test_preserve_as_backup_reads_version_from_installed_manifest(tmp_path):
+    """The .bak name carries the version so multiple upgrade cycles
+    don't collide. We get that version by reading the installed
+    plugin's manifest.yaml — NOT from in-memory state, because state
+    might be stale."""
+    archive, manifest = _build_archive(tmp_path)
+    plugins_dir = tmp_path / "installed"
+    inst = UvInstaller(plugins_dir=plugins_dir, subprocess_runner=_stub_runner())
+    inst.install(archive, manifest, manifest.install[0], _runtime())
+
+    inst.uninstall("test-plugin", preserve_as_backup=True)
+
+    # The .bak content matches what was installed.
+    saved_manifest = (plugins_dir / "test-plugin.0.1.0.bak" / "manifest.yaml").read_text()
+    assert "test-plugin" in saved_manifest
+
+
+def test_preserve_as_backup_overwrites_pre_existing_backup(tmp_path):
+    """Two upgrades back-to-back of the same version (rare, but
+    possible if upgrade is retried). The new .bak must replace the
+    old one — accumulating duplicates would be operator-confusing."""
+    archive, manifest = _build_archive(tmp_path)
+    plugins_dir = tmp_path / "installed"
+    inst = UvInstaller(plugins_dir=plugins_dir, subprocess_runner=_stub_runner())
+    inst.install(archive, manifest, manifest.install[0], _runtime())
+    # Pre-existing stale .bak that this uninstall must replace.
+    stale_bak = plugins_dir / "test-plugin.0.1.0.bak"
+    stale_bak.mkdir()
+    (stale_bak / "stale.txt").write_text("old leftover")
+
+    inst.uninstall("test-plugin", preserve_as_backup=True)
+
+    bak = plugins_dir / "test-plugin.0.1.0.bak"
+    assert bak.is_dir()
+    assert not (bak / "stale.txt").exists()  # old contents replaced
