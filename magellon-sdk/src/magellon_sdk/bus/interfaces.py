@@ -7,7 +7,7 @@ This module defines shape, not behavior. Concrete classes land in:
 - ``magellon_sdk/bus/binders/mock.py`` — MB1.3 (in-memory test binder)
 - ``magellon_sdk/bus/binders/rmq/`` — MB2 (the RabbitMQ binder)
 
-Design reference: ``Documentation/MESSAGE_BUS_SPEC_AND_PLAN.md`` §3
+Design reference: ``Documentation/MESSAGE_BUS_SPEC.md`` §3
 (four-layer architecture), §4 (bus API), §5 (binder SPI).
 """
 from __future__ import annotations

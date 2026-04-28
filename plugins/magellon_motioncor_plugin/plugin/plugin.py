@@ -7,7 +7,7 @@ its input schema, and the wrapper that calls the existing
 ``do_motioncor`` compute.
 
 Same pragmatic wrapper pattern as CTF — ``MotioncorPluginOutput`` is
-a thin Pydantic shell carrying the ``TaskResultDto`` that
+a thin Pydantic shell carrying the ``TaskResultMessage`` that
 ``do_motioncor`` already builds inline; refactoring the 200-line
 async compute to return a typed ``MotionCorOutput`` would be a
 separate, larger PR.
@@ -32,8 +32,8 @@ from pydantic import BaseModel, ConfigDict
 from magellon_sdk.base import PluginBase
 from magellon_sdk.models import (
     PluginInfo,
-    TaskDto,
-    TaskResultDto,
+    TaskMessage,
+    TaskResultMessage,
 )
 from magellon_sdk.models.manifest import (
     Capability,
@@ -41,7 +41,7 @@ from magellon_sdk.models.manifest import (
     ResourceHints,
     Transport,
 )
-from magellon_sdk.models.tasks import CryoEmMotionCorTaskData
+from magellon_sdk.models.tasks import MotionCorInput
 from magellon_sdk.progress import NullReporter, ProgressReporter
 from magellon_sdk.runner import PluginBrokerRunner
 
@@ -61,12 +61,12 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Active-task context (mirror of FFT/CTF pattern).
 # ---------------------------------------------------------------------------
-_active_task: ContextVar[Optional[TaskDto]] = ContextVar(
+_active_task: ContextVar[Optional[TaskMessage]] = ContextVar(
     "_motioncor_active_task", default=None
 )
 
 
-def get_active_task() -> Optional[TaskDto]:
+def get_active_task() -> Optional[TaskMessage]:
     return _active_task.get()
 
 
@@ -99,17 +99,17 @@ def _get_loop() -> asyncio.AbstractEventLoop:
 # ---------------------------------------------------------------------------
 
 class MotioncorPluginOutput(BaseModel):
-    """Pydantic shell carrying the TaskResultDto that ``do_motioncor`` builds."""
+    """Pydantic shell carrying the TaskResultMessage that ``do_motioncor`` builds."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    result_dto: TaskResultDto
+    result_dto: TaskResultMessage
 
 
 # ---------------------------------------------------------------------------
 # MotioncorPlugin
 # ---------------------------------------------------------------------------
 
-class MotioncorPlugin(PluginBase[CryoEmMotionCorTaskData, MotioncorPluginOutput]):
+class MotioncorPlugin(PluginBase[MotionCorInput, MotioncorPluginOutput]):
     """Broker-native MotionCor plugin.
 
     ``execute()`` is sync — invoked from the binder's consumer thread.
@@ -145,8 +145,8 @@ class MotioncorPlugin(PluginBase[CryoEmMotionCorTaskData, MotioncorPluginOutput]
         )
 
     @classmethod
-    def input_schema(cls) -> Type[CryoEmMotionCorTaskData]:
-        return CryoEmMotionCorTaskData
+    def input_schema(cls) -> Type[MotionCorInput]:
+        return MotionCorInput
 
     @classmethod
     def output_schema(cls) -> Type[MotioncorPluginOutput]:
@@ -179,7 +179,7 @@ class MotioncorPlugin(PluginBase[CryoEmMotionCorTaskData, MotioncorPluginOutput]
 
     def execute(
         self,
-        input_data: CryoEmMotionCorTaskData,
+        input_data: MotionCorInput,
         *,
         reporter: ProgressReporter = NullReporter(),
     ) -> MotioncorPluginOutput:
@@ -198,7 +198,7 @@ class MotioncorPlugin(PluginBase[CryoEmMotionCorTaskData, MotioncorPluginOutput]
                 percent=10.0, message="running motioncor3",
             ))
             future = asyncio.run_coroutine_threadsafe(do_motioncor(task), _get_loop())
-            result_dto: TaskResultDto = future.result()
+            result_dto: TaskResultMessage = future.result()
 
             self._emit(safe_emit_progress(
                 publisher, job_id=job_id, task_id=task_id,
@@ -218,7 +218,7 @@ class MotioncorPlugin(PluginBase[CryoEmMotionCorTaskData, MotioncorPluginOutput]
 # ---------------------------------------------------------------------------
 
 class MotioncorBrokerRunner(PluginBrokerRunner):
-    """Runner subclass that exposes the active TaskDto via ContextVar.
+    """Runner subclass that exposes the active TaskMessage via ContextVar.
     Same shape as FftBrokerRunner / CtfBrokerRunner."""
 
     def _handle_task(self, envelope) -> None:
@@ -231,7 +231,7 @@ class MotioncorBrokerRunner(PluginBrokerRunner):
 
     def _process(self, body: bytes) -> bytes:
         text = body.decode("utf-8")
-        task = TaskDto.model_validate_json(text)
+        task = TaskMessage.model_validate_json(text)
         token = _active_task.set(task)
         try:
             self._apply_pending_config()
@@ -249,7 +249,7 @@ class MotioncorBrokerRunner(PluginBrokerRunner):
 # Result factory
 # ---------------------------------------------------------------------------
 
-def build_motioncor_result(task: TaskDto, output: MotioncorPluginOutput) -> TaskResultDto:
+def build_motioncor_result(task: TaskMessage, output: MotioncorPluginOutput) -> TaskResultMessage:
     """Unwrap MotioncorPluginOutput. Same shape as build_ctf_result."""
     return output.result_dto
 

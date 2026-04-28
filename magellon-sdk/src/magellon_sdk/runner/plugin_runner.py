@@ -54,7 +54,7 @@ from magellon_sdk.categories.contract import CategoryContract
 from magellon_sdk.config_broker import ConfigSubscriber
 from magellon_sdk.discovery import DiscoveryPublisher, HeartbeatLoop
 from magellon_sdk.envelope import Envelope
-from magellon_sdk.models import FAILED, TaskDto, TaskResultDto
+from magellon_sdk.models import FAILED, TaskMessage, TaskResultMessage
 from magellon_sdk.progress import JobCancelledError
 from magellon_sdk.runner.lifecycle import start_config_subscriber, start_discovery
 
@@ -65,7 +65,7 @@ logger = logging.getLogger(__name__)
 # fills in different output_data / meta_data / output_files). The
 # harness only requires this signature; provenance is auto-injected
 # from the plugin's manifest after the factory returns.
-ResultFactory = Callable[[TaskDto, Any], TaskResultDto]
+ResultFactory = Callable[[TaskMessage, Any], TaskResultMessage]
 
 
 class PluginBrokerRunner:
@@ -83,14 +83,14 @@ class PluginBrokerRunner:
         Used by discovery + config subscriber, which still run
         against a direct pika connection (MB5 migrates them to the bus).
     in_queue :
-        Queue name / subject the plugin consumes ``TaskDto`` deliveries
+        Queue name / subject the plugin consumes ``TaskMessage`` deliveries
         from. Becomes ``TaskRoute.named(in_queue)`` on the bus.
     out_queue :
-        Queue name / subject the harness publishes ``TaskResultDto``
+        Queue name / subject the harness publishes ``TaskResultMessage``
         results to. Becomes ``TaskResultRoute.named(out_queue)``.
     result_factory :
         Plugin-supplied callable that turns ``(task, plugin_output)``
-        into a ``TaskResultDto``. The plugin owns its wire shape;
+        into a ``TaskResultMessage``. The plugin owns its wire shape;
         the harness only stamps provenance afterwards.
     bus :
         Optional. If omitted, :func:`get_bus` is called lazily on
@@ -149,7 +149,7 @@ class PluginBrokerRunner:
         :class:`JobCancelledError` is handled specially (G.1): the
         plugin's progress reporter raised because an operator
         cancelled the job mid-flight. We convert that into a
-        CANCELLED-flavoured :class:`TaskResultDto`, publish it so
+        CANCELLED-flavoured :class:`TaskResultMessage`, publish it so
         the result processor + UI see the transition, and return
         normally so the binder acks. Re-raising would push the task
         to the DLQ, which confuses operators ("why is my cancelled
@@ -179,7 +179,7 @@ class PluginBrokerRunner:
         self._stamp_provenance(result)
         self._publish_result(result)
 
-    def _publish_result(self, result: TaskResultDto) -> None:
+    def _publish_result(self, result: TaskResultMessage) -> None:
         """Publish the result envelope, logging a failed send."""
         result_envelope = Envelope.wrap(
             source=f"magellon/plugins/{self.plugin.get_info().name}",
@@ -196,7 +196,7 @@ class PluginBrokerRunner:
                 receipt.error,
             )
 
-    def _build_cancelled_result(self, task: TaskDto, reason: str) -> TaskResultDto:
+    def _build_cancelled_result(self, task: TaskMessage, reason: str) -> TaskResultMessage:
         """Minimal cancelled-status result. Uses ``FAILED`` as the wire
         status because the TaskStatus enum doesn't have a CANCELLED
         code today; the ``message`` field carries the human-readable
@@ -206,14 +206,14 @@ class PluginBrokerRunner:
         polish (touches TaskOutputProcessor status mapping).
 
         ``image_id`` lives inside ``task.data`` on every category's
-        TaskDto — the top-level TaskDto is category-agnostic. Pulling
+        TaskMessage — the top-level TaskMessage is category-agnostic. Pulling
         it out lets the result processor project against the right
         image row; without it the cancelled status floats without
         anchor."""
         image_id = None
         if isinstance(task.data, dict):
             image_id = task.data.get("image_id")
-        return TaskResultDto(
+        return TaskResultMessage(
             task_id=task.id,
             image_id=image_id,
             type=task.type,
@@ -225,35 +225,35 @@ class PluginBrokerRunner:
         )
 
     @staticmethod
-    def _task_from_envelope(envelope: Envelope) -> TaskDto:
-        """Pull the ``TaskDto`` out of the envelope's ``data``.
+    def _task_from_envelope(envelope: Envelope) -> TaskMessage:
+        """Pull the ``TaskMessage`` out of the envelope's ``data``.
 
         Binder reconstructs envelopes with ``data`` as a dict (JSON
-        on the wire was a raw TaskDto shape); we validate back into
+        on the wire was a raw TaskMessage shape); we validate back into
         the typed model here. If someone publishes with
         ``Envelope.wrap(data=task_dto)`` on the producer side, data
-        will already be a TaskDto instance — model_validate handles
+        will already be a TaskMessage instance — model_validate handles
         both shapes.
         """
         data = envelope.data
-        if isinstance(data, TaskDto):
+        if isinstance(data, TaskMessage):
             return data
-        return TaskDto.model_validate(data)
+        return TaskMessage.model_validate(data)
 
     # Legacy pure-function shape used by pre-MB4.1 tests. Accepts raw
-    # TaskDto JSON bytes, returns raw TaskResultDto JSON bytes — the
+    # TaskMessage JSON bytes, returns raw TaskResultMessage JSON bytes — the
     # shape the old pika callback had. Useful for plugin-level tests
     # that want to exercise the transformation without the bus.
     def _process(self, body: bytes) -> bytes:
         self._apply_pending_config()
-        task = TaskDto.model_validate_json(body.decode("utf-8"))
+        task = TaskMessage.model_validate_json(body.decode("utf-8"))
         validated = self.plugin.input_schema().model_validate(task.data)
         plugin_output = self.plugin.run(validated)
         result = self.result_factory(task, plugin_output)
         self._stamp_provenance(result)
         return result.model_dump_json().encode("utf-8")
 
-    def _stamp_provenance(self, result: TaskResultDto) -> None:
+    def _stamp_provenance(self, result: TaskResultMessage) -> None:
         """Fill in plugin_id / plugin_version from the manifest if the
         plugin's result_factory didn't already set them.
 

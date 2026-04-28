@@ -74,20 +74,24 @@ class _StepBase(BaseModel):
     ts: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
-class StepStarted(_StepBase):
+class StepStartedMessage(_StepBase):
+    """Emitted when a plugin begins working on a step. SDK 1.3+ name."""
     pass
 
 
-class StepProgress(_StepBase):
+class StepProgressMessage(_StepBase):
+    """Emitted periodically while a step runs. SDK 1.3+ name."""
     percent: float = Field(ge=0.0, le=100.0)
     message: Optional[str] = None
 
 
-class StepCompleted(_StepBase):
+class StepCompletedMessage(_StepBase):
+    """Emitted when a step finishes successfully. SDK 1.3+ name."""
     output_files: Optional[List[str]] = None
 
 
-class StepFailed(_StepBase):
+class StepFailedMessage(_StepBase):
+    """Emitted when a step terminates with an error."""
     error: str
 
 
@@ -129,7 +133,7 @@ class StepEventPublisher:
         self._source = f"magellon/plugins/{plugin_name}"
 
     async def started(self, *, job_id: UUID, step: str, task_id: Optional[UUID] = None) -> None:
-        await self._emit(STEP_STARTED, StepStarted(job_id=job_id, task_id=task_id, step=step))
+        await self._emit(STEP_STARTED, StepStartedMessage(job_id=job_id, task_id=task_id, step=step))
 
     async def progress(
         self,
@@ -142,7 +146,7 @@ class StepEventPublisher:
     ) -> None:
         await self._emit(
             STEP_PROGRESS,
-            StepProgress(job_id=job_id, task_id=task_id, step=step, percent=percent, message=message),
+            StepProgressMessage(job_id=job_id, task_id=task_id, step=step, percent=percent, message=message),
         )
 
     async def completed(
@@ -155,7 +159,7 @@ class StepEventPublisher:
     ) -> None:
         await self._emit(
             STEP_COMPLETED,
-            StepCompleted(job_id=job_id, task_id=task_id, step=step, output_files=output_files),
+            StepCompletedMessage(job_id=job_id, task_id=task_id, step=step, output_files=output_files),
         )
 
     async def failed(
@@ -168,7 +172,7 @@ class StepEventPublisher:
     ) -> None:
         await self._emit(
             STEP_FAILED,
-            StepFailed(job_id=job_id, task_id=task_id, step=step, error=error),
+            StepFailedMessage(job_id=job_id, task_id=task_id, step=step, error=error),
         )
 
     async def _emit(self, event_type: str, data: _StepBase) -> None:

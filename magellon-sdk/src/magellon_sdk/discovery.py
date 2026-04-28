@@ -111,12 +111,20 @@ class Announce(BaseModel):
     ts: datetime = Field(default_factory=_now_utc)
     manifest: PluginManifest
     task_queue: Optional[str] = None
-    """Routing key (RMQ) / subject the plugin consumes TaskDto deliveries
+    """Routing key (RMQ) / subject the plugin consumes TaskMessage deliveries
     from. Added in SDK 1.1 so a dispatcher can target a specific
     implementation when multiple impls coexist in the same category
     (hub phase H1). ``None`` for older plugins or plugins that don't
     consume tasks; in that case the dispatcher falls back to the legacy
     category-scoped queue."""
+    backend_id: Optional[str] = None
+    """Substitutable identity within the category (SDK 1.3+).
+
+    Mirrors :attr:`PluginManifest.backend_id` so the liveness registry
+    can index by ``(category, backend_id)`` without unpacking the
+    manifest. Two announces with the same ``(category, backend_id)``
+    but different ``plugin_version`` are flagged as a duplicate-backend
+    conflict; pick a different id or upgrade in lockstep."""
 
 
 # ---------------------------------------------------------------------------

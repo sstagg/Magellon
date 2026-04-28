@@ -13,7 +13,14 @@ from models.sqlalchemy_models import Project, Msession, ImageJob, ImageJobTask, 
 
 import logging
 
-from core.helper import dispatch_ctf_task, dispatch_motioncor_task, custom_replace, create_directory
+from core.helper import (
+    custom_replace,
+    create_directory,
+    dispatch_ctf_task,
+    dispatch_micrograph_denoise_task,
+    dispatch_motioncor_task,
+    dispatch_topaz_pick_task,
+)
 
 from services.importers.import_database_service import ImportDatabaseService
 from services.importers.import_file_service import ImportFileService, TaskError, FileError
@@ -475,6 +482,67 @@ class BaseImporter(ABC):
             logger.error(f"Error dispatching CTF computation: {str(e)}")
             return {"error": str(e)}
 
+    def compute_topaz_pick(self, abs_file_path: str, task_dto: Any) -> dict:
+        """Dispatch topaz particle-picking task for a high-mag exposure.
+
+        Skip envelope mirrors :meth:`compute_ctf` — both run only on
+        exposures with pixel size <= 5 A/px. Defaults match the topaz
+        tutorial (resnet16, radius=14, threshold=-3, scale=8); session
+        operators can override via the REST endpoint instead of the
+        import path.
+        """
+        try:
+            pixel_size = getattr(task_dto, 'pixel_size', None)
+            if not pixel_size:
+                return {"message": "Skipping topaz pick (no pixel size)"}
+            if pixel_size * 10 ** 10 > 5:
+                return {"message": "Skipping topaz pick (pixel size too large)"}
+
+            task_id = getattr(task_dto, 'task_id', uuid.uuid4())
+            session_name = self._extract_session_name(task_dto)
+            dispatch_topaz_pick_task(
+                image_path=abs_file_path,
+                task_id=task_id,
+                image_id=getattr(task_dto, 'image_id', None),
+                session_name=session_name,
+            )
+            return {"message": f"Topaz pick dispatched for {abs_file_path}"}
+        except Exception as e:
+            logger.error(f"Error dispatching topaz pick: {str(e)}")
+            return {"error": str(e)}
+
+    def compute_topaz_denoise(self, abs_file_path: str, task_dto: Any) -> dict:
+        """Dispatch topaz-denoise task for a high-mag exposure."""
+        try:
+            pixel_size = getattr(task_dto, 'pixel_size', None)
+            if not pixel_size:
+                return {"message": "Skipping denoise (no pixel size)"}
+            if pixel_size * 10 ** 10 > 5:
+                return {"message": "Skipping denoise (pixel size too large)"}
+
+            task_id = getattr(task_dto, 'task_id', uuid.uuid4())
+            session_name = self._extract_session_name(task_dto)
+            dispatch_micrograph_denoise_task(
+                image_path=abs_file_path,
+                task_id=task_id,
+                image_id=getattr(task_dto, 'image_id', None),
+                session_name=session_name,
+            )
+            return {"message": f"Topaz denoise dispatched for {abs_file_path}"}
+        except Exception as e:
+            logger.error(f"Error dispatching topaz denoise: {str(e)}")
+            return {"error": str(e)}
+
+    @staticmethod
+    def _extract_session_name(task_dto: Any) -> Optional[str]:
+        """Best-effort session_name extraction; falls back to image-name prefix."""
+        if hasattr(task_dto, 'job_dto') and task_dto.job_dto:
+            jn = getattr(task_dto.job_dto, 'session_name', None)
+            if jn:
+                return jn
+        image_name = getattr(task_dto, 'image_name', None) or ''
+        return image_name.split('_')[0] if image_name else None
+
     def compute_motioncor(self, abs_file_path: str, task_dto: Any, gain_path: str = None) -> dict:
         """
         Dispatch motion correction task
@@ -633,6 +701,15 @@ class BaseImporter(ABC):
             # 6. Compute motion correction if frame exists
             if hasattr(task_dto, 'frame_name') and task_dto.frame_name:
                 self.compute_motioncor(image_path, task_dto)
+
+            # 7. Topaz particle picking (opt-in via AUTO_DISPATCH_TOPAZ_PICK).
+            #    High-mag only — same pixel-size envelope as CTF.
+            if getattr(app_settings, 'AUTO_DISPATCH_TOPAZ_PICK', False):
+                self.compute_topaz_pick(image_path, task_dto)
+
+            # 8. Topaz denoise (opt-in via AUTO_DISPATCH_TOPAZ_DENOISE).
+            if getattr(app_settings, 'AUTO_DISPATCH_TOPAZ_DENOISE', False):
+                self.compute_topaz_denoise(image_path, task_dto)
 
             return {'status': 'success', 'message': 'Task completed successfully.'}
 

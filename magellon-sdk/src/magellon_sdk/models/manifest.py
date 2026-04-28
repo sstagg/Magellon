@@ -66,7 +66,7 @@ class Transport(str, Enum):
 
     IN_PROCESS = "in_process"  # call PluginBase.run() in the host's thread pool
     HTTP = "http"              # POST to /plugins/<id>/jobs[/batch] on a sidecar
-    RMQ = "rmq"                # enqueue TaskDto on the plugin's RMQ work queue
+    RMQ = "rmq"                # enqueue TaskMessage on the plugin's RMQ work queue
     NATS = "nats"              # publish task envelope to JetStream subject
 
 
@@ -130,6 +130,16 @@ class PluginManifest(BaseModel):
     """
 
     info: PluginInfo
+    backend_id: Optional[str] = Field(
+        default=None,
+        description="The plugin's substitutable identity within its category. "
+                    "Two plugins in the same category MUST declare distinct "
+                    "backend_ids; the dispatcher uses this to honor "
+                    "TaskMessage.target_backend pinning. Defaults to a "
+                    "slug derived from PluginInfo.name when omitted (lowercase, "
+                    "spaces→hyphens) so pre-1.3 plugins keep working without "
+                    "manifest edits.",
+    )
     capabilities: List[Capability] = Field(default_factory=list)
     supported_transports: List[Transport] = Field(
         default_factory=lambda: [Transport.IN_PROCESS],
@@ -185,6 +195,19 @@ class PluginManifest(BaseModel):
         execution. The host still has to *want* in-process and the
         plugin has to *support* the IN_PROCESS transport."""
         return self.isolation == IsolationLevel.IN_PROCESS
+
+    def resolved_backend_id(self) -> str:
+        """Backend identity, falling back to a slug of ``info.name``.
+
+        Pre-1.3 plugins did not declare ``backend_id``; auto-deriving
+        from the human-readable plugin name keeps the second-axis
+        wiring functional without forcing every plugin to ship a
+        manifest update before the dispatcher can route to it.
+        """
+        if self.backend_id:
+            return self.backend_id
+        name = (self.info.name or "unknown").strip().lower()
+        return "-".join(name.split()) or "unknown"
 
 
 __all__ = [

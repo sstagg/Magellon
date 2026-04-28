@@ -7,18 +7,18 @@ from core.helper import push_info_to_debug_queue
 from utils import get_dw_file, save_gain_file,convertToMRC,is_mrc_file,getImageSize,validateInput,build_motioncor3_command,getFrameAlignment,getPatchFrameAlignment,createframealignImage,isFilePresent,createframealignCenterImage,getFilecontentsfromThread
 from datetime import datetime
 from core.settings import AppSettingsSingleton
-from magellon_sdk.models import CryoEmMotionCorTaskData, OutputFile, TaskDto, TaskResultDto, DebugInfo, ImageMetaData
+from magellon_sdk.models import MotionCorInput, OutputFile, TaskMessage, TaskResultMessage, DebugInfo, ImageMetaData
 
 logger = logging.getLogger(__name__)
 
 
-async def do_motioncor(params: TaskDto)->TaskResultDto:
+async def do_motioncor(params: TaskMessage)->TaskResultMessage:
     
     try:
         
         d = DebugInfo()
         logger.info(f"Starting task {params.id} ")
-        the_task_data = CryoEmMotionCorTaskData.model_validate(params.data)
+        the_task_data = MotionCorInput.model_validate(params.data)
         print(the_task_data)
         if not validateInput(the_task_data):
             raise Exception("Validation failed.")
@@ -91,7 +91,7 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
         print(error_output)
         if return_code != 0:
             logger.error(f"MotionCor3 error: {process.stderr.strip()}")
-            return TaskResultDto(
+            return TaskResultMessage(
                 worker_instance_id=params.worker_instance_id, task_id=params.id,
                 job_id=params.job_id, image_id=params.data["image_id"],
                 image_path=params.data["image_path"], session_name=params.session_name,
@@ -160,7 +160,7 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
                     output_files.append(OutputFile(name="frameAlignment_Image",
                                                 path=createframealignCenterImage(dw_file, output_data["fullAlignment"], directory_path, [x_size, y_size], os.path.splitext(the_task_data.image_name)[0]),
                                                 required=True))
-        return TaskResultDto(
+        return TaskResultMessage(
                 worker_instance_id=params.worker_instance_id,
                 task_id=params.id,
                 job_id=params.job_id,
@@ -180,7 +180,7 @@ async def do_motioncor(params: TaskDto)->TaskResultDto:
             )
     except Exception as e:
         logger.error(f"An error occurred in Motioncor processing: {str(e)}")
-        return TaskResultDto(
+        return TaskResultMessage(
             worker_instance_id=params.worker_instance_id,
             task_id=params.id,
             job_id=params.job_id,

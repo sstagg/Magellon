@@ -145,6 +145,6 @@ async def test_emitter_failure_does_not_break_do_execute(monkeypatch):
 
 def _task_dto():
     # Import inside to avoid pulling SDK at collection time if unavailable.
-    from magellon_sdk.models.tasks import TaskDto
+    from magellon_sdk.models.tasks import TaskMessage
 
-    return TaskDto(id=uuid4(), job_id=uuid4(), data={})
+    return TaskMessage(id=uuid4(), job_id=uuid4(), data={})

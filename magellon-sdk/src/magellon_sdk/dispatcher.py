@@ -39,21 +39,21 @@ import inspect
 import logging
 from typing import Any, Awaitable, Callable, Dict, Optional, Protocol, runtime_checkable
 
-from magellon_sdk.models import TaskCategory, TaskDto
+from magellon_sdk.models import TaskCategory, TaskMessage
 
 logger = logging.getLogger(__name__)
 
-TaskHandler = Callable[[TaskDto], Awaitable[bool]]
+TaskHandler = Callable[[TaskMessage], Awaitable[bool]]
 
 
 @runtime_checkable
 class TaskDispatcher(Protocol):
-    """Anything that can hand a :class:`TaskDto` to its worker."""
+    """Anything that can hand a :class:`TaskMessage` to its worker."""
 
     name: str
     """Short identifier for logs / introspection (e.g. ``"rabbitmq-ctf"``)."""
 
-    def dispatch(self, task: TaskDto) -> bool:
+    def dispatch(self, task: TaskMessage) -> bool:
         """Synchronously dispatch ``task``.
 
         Returns ``True`` if the task was accepted (queued, executed,
@@ -77,7 +77,7 @@ class RabbitmqTaskDispatcher:
         self.rabbitmq_settings = rabbitmq_settings
         self.name = name or f"rabbitmq:{queue_name}"
 
-    def dispatch(self, task: TaskDto) -> bool:
+    def dispatch(self, task: TaskMessage) -> bool:
         # Imported lazily so this module doesn't force pika onto every
         # caller — dispatch.py is imported by callers that may never
         # touch RabbitMQ.
@@ -99,11 +99,11 @@ class InProcessTaskDispatcher:
     :mod:`magellon_sdk.executor.base`).
     """
 
-    def __init__(self, *, handler: Callable[[TaskDto], Any], name: str = "in-process") -> None:
+    def __init__(self, *, handler: Callable[[TaskMessage], Any], name: str = "in-process") -> None:
         self.handler = handler
         self.name = name
 
-    def dispatch(self, task: TaskDto) -> bool:
+    def dispatch(self, task: TaskMessage) -> bool:
         try:
             result = self.handler(task)
             if inspect.isawaitable(result):
@@ -148,7 +148,7 @@ class TaskDispatcherRegistry:
     def get(self, task_type: TaskCategory) -> Optional[TaskDispatcher]:
         return self._by_code.get(task_type.code)
 
-    def dispatch(self, task: TaskDto) -> bool:
+    def dispatch(self, task: TaskMessage) -> bool:
         if task.type is None:
             logger.error("Task %s has no type — cannot dispatch", task.id)
             return False

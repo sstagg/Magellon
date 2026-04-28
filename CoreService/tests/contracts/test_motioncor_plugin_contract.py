@@ -2,7 +2,7 @@
 
 Mirror of ``test_ctf_plugin_contract.py`` against the MotionCor
 plugin's ``POST /execute`` endpoint. Same contract: plugin accepts
-TaskDto, returns TaskResultDto, echoes task_id / job_id, and
+TaskMessage, returns TaskResultMessage, echoes task_id / job_id, and
 populates provenance where available.
 
 MotionCor is GPU-bound in real execution; the canned task here
@@ -42,7 +42,7 @@ def _canned_motioncor_task() -> Dict[str, Any]:
             "description": "Task is pending",
         },
         "data": {
-            # CryoEmMotionCorTaskData shape. Missing input → clean fail.
+            # MotionCorInput shape. Missing input → clean fail.
             "image_id": str(image_id),
             "image_name": "contract_test_missing",
             "image_path": "/magellon/does-not-exist/contract_test_frames.eer",
@@ -83,7 +83,7 @@ def test_execute_endpoint_echoes_task_identifiers(require_motioncor_plugin):
 def test_execute_endpoint_returns_task_result_shape(require_motioncor_plugin):
     import httpx
 
-    from magellon_sdk.models import TaskResultDto
+    from magellon_sdk.models import TaskResultMessage
 
     task = _canned_motioncor_task()
     url = f"http://127.0.0.1:{require_motioncor_plugin}/execute"
@@ -96,6 +96,6 @@ def test_execute_endpoint_returns_task_result_shape(require_motioncor_plugin):
     if "task_id" not in body and "result" in body:
         body = body["result"]
 
-    result = TaskResultDto.model_validate(body)
+    result = TaskResultMessage.model_validate(body)
     assert result.task_id == uuid.UUID(task["id"])
     assert result.job_id == uuid.UUID(task["job_id"])

@@ -2,7 +2,7 @@
 
 **Status:** Canonical architectural decision as of 2026-04-21.
 **Audience:** Operators, plugin developers, deployment engineers.
-**Companion docs:** `ARCHITECTURE_PRINCIPLES.md` §1, `CURRENT_ARCHITECTURE.md`, `MESSAGE_BUS_SPEC_AND_PLAN.md`.
+**Companion docs:** `ARCHITECTURE_PRINCIPLES.md` §1, `CURRENT_ARCHITECTURE.md`, `MESSAGE_BUS_SPEC.md`.
 
 ---
 

@@ -281,6 +281,68 @@ services:
       - rabbitmq
       - nats
 
+  magellon_ptolemy_plugin:
+    build:
+      # Repo root as context for the editable SDK install.
+      context: ..
+      dockerfile: plugins/magellon_ptolemy_plugin/Dockerfile
+    image: magellon_ptolemy_plugin_image
+    container_name: magellon_ptolemy_plugin_container
+    environment:
+      - APP_ENV=production
+      - RUN_ENV=docker
+      - GPFS_ROOT=${MAGELLON_GPFS_PATH}
+      - JOBS_PATH=${MAGELLON_JOBS_PATH}
+      # Step-event publishing — plugin emits started/progress/completed
+      # onto RMQ + NATS; CoreService's step-event forwarder projects them
+      # into job_event rows and fans out on Socket.IO.
+      - MAGELLON_STEP_EVENTS_ENABLED=1
+      - MAGELLON_STEP_EVENTS_RMQ=1
+      - NATS_URL=nats://nats:4222
+    volumes:
+      - ${MAGELLON_HOME_PATH}:/magellon
+      - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_JOBS_PATH}:/jobs
+    ports:
+      - "127.0.0.1:${MAGELLON_PTOLEMY_PLUGIN_PORT:-8038}:80"
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.24
+    depends_on:
+      - rabbitmq
+      - nats
+
+  magellon_topaz_plugin:
+    build:
+      # Repo root as context for the editable SDK install.
+      context: ..
+      dockerfile: plugins/magellon_topaz_plugin/Dockerfile
+    image: magellon_topaz_plugin_image
+    container_name: magellon_topaz_plugin_container
+    environment:
+      - APP_ENV=production
+      - RUN_ENV=docker
+      - GPFS_ROOT=${MAGELLON_GPFS_PATH}
+      - JOBS_PATH=${MAGELLON_JOBS_PATH}
+      # Step-event publishing — plugin emits started/progress/completed
+      # onto RMQ + NATS; CoreService's step-event forwarder projects them
+      # into job_event rows and fans out on Socket.IO.
+      - MAGELLON_STEP_EVENTS_ENABLED=1
+      - MAGELLON_STEP_EVENTS_RMQ=1
+      - NATS_URL=nats://nats:4222
+    volumes:
+      - ${MAGELLON_HOME_PATH}:/magellon
+      - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_JOBS_PATH}:/jobs
+    ports:
+      - "127.0.0.1:${MAGELLON_TOPAZ_PLUGIN_PORT:-8039}:80"
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.25
+    depends_on:
+      - rabbitmq
+      - nats
+
 volumes:
   # Named volumes for all services
   rabbitmq-data: { }

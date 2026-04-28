@@ -2,7 +2,7 @@ import logging
 import uuid
 import os
 from core.helper import push_task_to_task_queue
-from magellon_sdk.models import FFT_TASK, PENDING, TaskDto, CtfTaskData, CTF_TASK
+from magellon_sdk.models import FFT_TASK, PENDING, TaskMessage, CtfInput, CTF_TASK
 from core.task_factory import CtfTaskFactory
 
 logger = logging.getLogger(__name__)
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 #     instance_id1 = uuid.uuid4()  # Replace with your specific worker instance ID
 #     job_id1 = uuid.uuid4()  # Replace with your specific job ID
 #
-#     task1 = TaskDto.create(data1, FFT_TASK, PENDING, instance_id1, job_id1)
+#     task1 = TaskMessage.create(data1, FFT_TASK, PENDING, instance_id1, job_id1)
 #
 #     publish_message(task1.model_dump_json())
 #     return task1.model_dump_json()
@@ -32,13 +32,13 @@ logger = logging.getLogger(__name__)
 #     instance_id1 = uuid.uuid4()  # Replace with your specific worker instance ID
 #     job_id1 = uuid.uuid4()  # Replace with your specific job ID
 #
-#     task1 = TaskDto.create(data1.model_dump(), FFT_TASK, PENDING, instance_id1, job_id1)
+#     task1 = TaskMessage.create(data1.model_dump(), FFT_TASK, PENDING, instance_id1, job_id1)
 #
 #     publish_message(task1.model_dump_json())
 #     return task1.model_dump_json()
 
 def create_task():
-    ctf_task_data = CtfTaskData(
+    ctf_task_data = CtfInput(
         image_id=uuid.uuid4(),
         image_name="Image1",
         # image_path=os.path.join( "/app/gpfs/24jun28a/rawdata", "24jun28a_Valle001-04_00011gr_00002sq_v01_00002hl_00001fc.mrc"),
@@ -73,7 +73,7 @@ def create_task():
                                       data=ctf_task_data.model_dump(), ptype=CTF_TASK, pstatus=PENDING)
     ctf_task.session_name="24jun28a"
     return ctf_task
-    # return TaskDto.create(ctf_task_data.model_dump(), FFT_TASK, PENDING, instance_id1, job_id1)
+    # return TaskMessage.create(ctf_task_data.model_dump(), FFT_TASK, PENDING, instance_id1, job_id1)
 
 
 def create_push_task_to_task_queue():

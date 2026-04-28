@@ -9,7 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from core.helper import move_file_to_directory
-from magellon_sdk.models import TaskResultDto
+from magellon_sdk.models import TaskResultMessage
 from core.settings import AppSettingsSingleton, QueueType
 from core.sqlalchemy_models import ImageJobTask, ImageMetaData
 
@@ -68,7 +68,7 @@ class TaskOutputProcessor:
         queue_config = self._queue_type_output_config.get(queue_type, {})
         return queue_config.get("category")
 
-    def _get_destination_dir(self, task_result: TaskResultDto) -> str:
+    def _get_destination_dir(self, task_result: TaskResultMessage) -> str:
         """Get the appropriate destination directory based on task type."""
         task_type = task_result.type.name.lower()
         # Try to get directory from queue type first
@@ -83,7 +83,7 @@ class TaskOutputProcessor:
             file_name
         )
 
-    # def _save_debug_info(self, task_result: TaskResultDto, destination_dir: str):
+    # def _save_debug_info(self, task_result: TaskResultMessage, destination_dir: str):
     #     """Save debug information if needed."""
     #     try:
     #         if not os.path.exists(destination_dir):
@@ -94,12 +94,12 @@ class TaskOutputProcessor:
     #     except Exception as e:
     #         print(f"Debug info save error: {e}")
 
-    def _process_output_files(self, task_result: TaskResultDto, destination_dir: str):
+    def _process_output_files(self, task_result: TaskResultMessage, destination_dir: str):
         """Process and move output files."""
         for output_file in task_result.output_files:
             move_file_to_directory(output_file.path, destination_dir)
 
-    def _save_output_data(self, task_result: TaskResultDto):
+    def _save_output_data(self, task_result: TaskResultMessage):
         """Save task output data to database."""
         if task_result.output_data:
             output_meta = ImageMetaData(
@@ -110,7 +110,7 @@ class TaskOutputProcessor:
             )
             self.db.add(output_meta)
 
-    def _save_metadata(self, task_result: TaskResultDto):
+    def _save_metadata(self, task_result: TaskResultMessage):
         """Save task metadata to database."""
         try:
             if task_result.meta_data:
@@ -144,7 +144,7 @@ class TaskOutputProcessor:
 
     def _advance_task_state(
         self,
-        task_result: TaskResultDto,
+        task_result: TaskResultMessage,
         *,
         status_id: int,
     ) -> None:
@@ -159,7 +159,7 @@ class TaskOutputProcessor:
         ``ImageMetaData``.
         """
         if task_result.task_id is None:
-            logger.warning("TaskResultDto has no task_id — skipping ImageJobTask advance")
+            logger.warning("TaskResultMessage has no task_id — skipping ImageJobTask advance")
             return
 
         db_task = (
@@ -175,7 +175,7 @@ class TaskOutputProcessor:
         type_code = task_result.type.code if task_result.type else None
         db_task.stage = _TASK_TYPE_TO_STAGE.get(type_code, _DEFAULT_STAGE)
 
-    def process(self, task_result: TaskResultDto) -> Dict[str, Any]:
+    def process(self, task_result: TaskResultMessage) -> Dict[str, Any]:
         """
         Process task output based on its type and save results.
         """
@@ -227,6 +227,6 @@ class TaskOutputProcessor:
                 logger.error(f"Error closing the database connection: {db_close_err}", exc_info=True)
 
 # Updated do_execute function
-# async def do_execute(task_result_param: TaskResultDto, db: Session):
+# async def do_execute(task_result_param: TaskResultMessage, db: Session):
 #     processor = TaskOutputProcessor(db)
 #     return processor.process(task_result_param)

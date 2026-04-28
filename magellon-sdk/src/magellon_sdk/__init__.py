@@ -9,7 +9,7 @@ The most common types are re-exported here so plugin authors can write:
     from magellon_sdk import (
         PluginBase, PluginBrokerRunner,       # the runtime
         PluginInfo, PluginManifest,           # identity + capability metadata
-        TaskDto, TaskResultDto,               # wire envelopes
+        TaskMessage, TaskResultMessage,       # wire envelopes
         Envelope,                             # CloudEvents wrapper
         install_rmq_bus,                      # bus bootstrap
         NullReporter, ProgressReporter,       # progress reporting
@@ -32,13 +32,13 @@ from magellon_sdk.envelope import Envelope
 from magellon_sdk.models import (
     PluginInfo,
     PluginManifest,
-    TaskDto,
-    TaskResultDto,
+    TaskMessage,
+    TaskResultMessage,
 )
 from magellon_sdk.progress import JobCancelledError, NullReporter, ProgressReporter
 from magellon_sdk.runner import PluginBrokerRunner
 
-__version__ = "1.2.0"
+__version__ = "2.0.0"
 
 __all__ = [
     # Runtime
@@ -52,8 +52,8 @@ __all__ = [
     "install_mock_bus",
     # Wire shapes
     "Envelope",
-    "TaskDto",
-    "TaskResultDto",
+    "TaskMessage",
+    "TaskResultMessage",
     # Plugin identity + capability
     "PluginInfo",
     "PluginManifest",

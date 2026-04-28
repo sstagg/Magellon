@@ -19,6 +19,10 @@ class OutQueueType(str, Enum):
     MOTIONCOR = "motioncor"
     FFT = "fft"
     PARTICLE_PICKING = "particle_picking"
+    SQUARE_DETECTION = "square_detection"
+    HOLE_DETECTION = "hole_detection"
+    TOPAZ_PICK = "topaz_pick"
+    MICROGRAPH_DENOISE = "micrograph_denoise"
 
 
 class OutQueueConfig(BaseModel):
@@ -46,6 +50,14 @@ class RabbitMQSettings(BaseModel):
     MOTIONCOR_TEST_OUT_QUEUE_NAME: Optional[str] = None
     FFT_QUEUE_NAME: Optional[str] = "fft_tasks_queue"
     FFT_OUT_QUEUE_NAME: Optional[str] = "fft_out_tasks_queue"
+    SQUARE_DETECTION_QUEUE_NAME: Optional[str] = "square_detection_tasks_queue"
+    SQUARE_DETECTION_OUT_QUEUE_NAME: Optional[str] = "square_detection_out_tasks_queue"
+    HOLE_DETECTION_QUEUE_NAME: Optional[str] = "hole_detection_tasks_queue"
+    HOLE_DETECTION_OUT_QUEUE_NAME: Optional[str] = "hole_detection_out_tasks_queue"
+    TOPAZ_PICK_QUEUE_NAME: Optional[str] = "topaz_pick_tasks_queue"
+    TOPAZ_PICK_OUT_QUEUE_NAME: Optional[str] = "topaz_pick_out_tasks_queue"
+    MICROGRAPH_DENOISE_QUEUE_NAME: Optional[str] = "micrograph_denoise_tasks_queue"
+    MICROGRAPH_DENOISE_OUT_QUEUE_NAME: Optional[str] = "micrograph_denoise_out_tasks_queue"
     PORT: Optional[int] = 5672
     USER_NAME: Optional[str] = None
     PASSWORD: Optional[str] = None
@@ -153,6 +165,14 @@ class AppSettings(BaseModel):
     DEBUG_CTF: Optional[bool] = None
     DEBUG_CTF_PATH: Optional[str] = None
     DEBUG_CTF_REPLACE: Optional[str] = None
+
+    # Auto-dispatch topaz tasks during the import pipeline. Off by default —
+    # topaz applies only to high-mag exposures (pixel size <= 5 A/px) and
+    # producing picks for every exposure may not be desired in every session.
+    # Operators can flip these on per-environment via YAML to enable
+    # automatic per-image picking / denoising alongside CTF + MotionCor.
+    AUTO_DISPATCH_TOPAZ_PICK: Optional[bool] = False
+    AUTO_DISPATCH_TOPAZ_DENOISE: Optional[bool] = False
 
     ENV_TYPE: Optional[str] = None
 

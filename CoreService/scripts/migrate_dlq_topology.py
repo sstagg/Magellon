@@ -1,7 +1,8 @@
 """MB6.4 — DLQ topology migration runbook as an executable script.
 
-Implements ``MESSAGE_BUS_SPEC_AND_PLAN.md`` §9.6.1 and the extracted
-ops doc at ``Documentation/DLQ_MIGRATION_RUNBOOK.md``. The spec calls
+Implements the runbook at ``Documentation/DLQ_MIGRATION_RUNBOOK.md``
+(originally specified inline in ``MESSAGE_BUS_SPEC.md`` §7.2 / former
+§9.6.1). The spec calls
 this out as the single highest-risk operation in the MB plan because
 RabbitMQ refuses to redeclare a queue with different ``x-*`` args —
 the only way to retrofit DLQ on an existing queue is
@@ -71,8 +72,9 @@ logger = logging.getLogger("migrate_dlq_topology")
 
 
 # ---------------------------------------------------------------------------
-# Queue catalog — the five task queues + two result queues from
-# MESSAGE_BUS_SPEC_AND_PLAN.md §1.2. New queues created via the SDK's
+# Queue catalog — the five task queues + two result queues that
+# predated MB6.4 (the historical "current leaks" list from the bus
+# spec's pre-migration §1.2). New queues created via the SDK's
 # declare_queue_with_dlq helper don't need this script; this list is
 # the pre-MB6.4 legacy set.
 # ---------------------------------------------------------------------------

@@ -8,7 +8,7 @@ schemas, and the compute itself.
 
 What the FFT plugin specifically had to add on top of the SDK:
 
-* A ``ContextVar`` to recover the active :class:`TaskDto` inside
+* A ``ContextVar`` to recover the active :class:`TaskMessage` inside
   ``execute()`` — needed for step events, which key on ``job_id``.
   The base runner deliberately doesn't pass the envelope to
   ``plugin.run()`` (input-only signature, see runner.py); the
@@ -34,8 +34,8 @@ from magellon_sdk.events import BoundStepReporter
 from magellon_sdk.models import (
     OutputFile,
     PluginInfo,
-    TaskDto,
-    TaskResultDto,
+    TaskMessage,
+    TaskResultMessage,
 )
 from magellon_sdk.models.manifest import (
     Capability,
@@ -43,7 +43,7 @@ from magellon_sdk.models.manifest import (
     ResourceHints,
     Transport,
 )
-from magellon_sdk.models.tasks import FftTaskData
+from magellon_sdk.models.tasks import FftInput
 from magellon_sdk.categories.outputs import FftOutput
 from magellon_sdk.progress import NullReporter, ProgressReporter
 from magellon_sdk.runner import PluginBrokerRunner
@@ -60,12 +60,12 @@ logger = logging.getLogger(__name__)
 # Populated by FftBrokerRunner._process before plugin.run(); cleared in a
 # finally. ContextVar (rather than thread-local) so the value follows the
 # logical task even if a future async refactor moves work around.
-_active_task: ContextVar[Optional[TaskDto]] = ContextVar(
+_active_task: ContextVar[Optional[TaskMessage]] = ContextVar(
     "_fft_active_task", default=None
 )
 
 
-def get_active_task() -> Optional[TaskDto]:
+def get_active_task() -> Optional[TaskMessage]:
     """Public accessor — used by tests and by execute()."""
     return _active_task.get()
 
@@ -96,7 +96,7 @@ def _get_loop() -> asyncio.AbstractEventLoop:
     return _loop
 
 
-def _resolve_output_path(data: FftTaskData) -> str:
+def _resolve_output_path(data: FftInput) -> str:
     """Pick the FFT PNG output path: explicit ``target_path`` if given,
     otherwise ``<image_stem>_FFT.png`` next to the input image."""
     if data.target_path:
@@ -111,7 +111,7 @@ def _resolve_output_path(data: FftTaskData) -> str:
 # FftPlugin
 # ---------------------------------------------------------------------------
 
-class FftPlugin(PluginBase[FftTaskData, FftOutput]):
+class FftPlugin(PluginBase[FftInput, FftOutput]):
     """In-house FFT plugin built on the SDK contract.
 
     ``execute()`` is sync — runs inside ``PluginBrokerRunner``'s pika
@@ -145,8 +145,8 @@ class FftPlugin(PluginBase[FftTaskData, FftOutput]):
         )
 
     @classmethod
-    def input_schema(cls) -> Type[FftTaskData]:
-        return FftTaskData
+    def input_schema(cls) -> Type[FftInput]:
+        return FftInput
 
     @classmethod
     def output_schema(cls) -> Type[FftOutput]:
@@ -199,7 +199,7 @@ class FftPlugin(PluginBase[FftTaskData, FftOutput]):
 
     def execute(
         self,
-        input_data: FftTaskData,
+        input_data: FftInput,
         *,
         reporter: ProgressReporter = NullReporter(),
     ) -> FftOutput:
@@ -232,7 +232,7 @@ class FftPlugin(PluginBase[FftTaskData, FftOutput]):
 # ---------------------------------------------------------------------------
 
 class FftBrokerRunner(PluginBrokerRunner):
-    """Runner subclass that exposes the active TaskDto via ContextVar.
+    """Runner subclass that exposes the active TaskMessage via ContextVar.
 
     The base runner keeps ``plugin.run()`` input-only so PluginBase's
     signature is shared across every plugin. FFT needs the envelope to
@@ -259,9 +259,9 @@ class FftBrokerRunner(PluginBrokerRunner):
 
     def _process(self, body: bytes) -> bytes:
         """Legacy pure-function path — kept so existing plugin tests
-        that feed raw TaskDto JSON still set the ContextVar."""
+        that feed raw TaskMessage JSON still set the ContextVar."""
         text = body.decode("utf-8")
-        task = TaskDto.model_validate_json(text)
+        task = TaskMessage.model_validate_json(text)
         token = _active_task.set(task)
         try:
             self._apply_pending_config()
@@ -279,14 +279,14 @@ class FftBrokerRunner(PluginBrokerRunner):
 # Result factory
 # ---------------------------------------------------------------------------
 
-def build_fft_result(task: TaskDto, output: FftOutput) -> TaskResultDto:
-    """Wrap an FftOutput in a TaskResultDto for the result queue."""
+def build_fft_result(task: TaskMessage, output: FftOutput) -> TaskResultMessage:
+    """Wrap an FftOutput in a TaskResultMessage for the result queue."""
     out_file = OutputFile(
         name=os.path.basename(output.output_path),
         path=output.output_path,
         required=True,
     )
-    return TaskResultDto(
+    return TaskResultMessage(
         worker_instance_id=task.worker_instance_id,
         job_id=task.job_id,
         task_id=task.id,

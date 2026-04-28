@@ -211,6 +211,15 @@ class InMemoryBinder:
     # -- Work queue --------------------------------------------------------
 
     def publish_task(self, route: RouteRef, envelope: Envelope) -> PublishReceipt:
+        # X.7+: backend-pinned routes carry a physical_queue override.
+        # Mirror the RMQ binder's _resolve_queue so test doubles are
+        # faithful — a backend-pinned task lands on the resolver's
+        # queue, not the symbolic subject.
+        physical_queue = getattr(route, "physical_queue", None)
+        queue_key = physical_queue or route.subject
+        # Audit & inspection still keep the symbolic subject so test
+        # assertions can grep for it; tests that want the physical
+        # destination read it off the queue dict keys.
         subject = route.subject
         self.published_tasks.append((subject, envelope))
         delivery = _delivery_from_envelope(envelope, subject)
@@ -220,10 +229,10 @@ class InMemoryBinder:
         # that want to inspect un-consumed publishes assert on
         # ``published_tasks`` directly.
         with self._in_flight_cond:
-            has_consumer = bool(self._task_consumers.get(subject))
+            has_consumer = bool(self._task_consumers.get(queue_key))
             if has_consumer:
                 self._in_flight += 1
-        self._task_queues[subject].put(delivery)
+        self._task_queues[queue_key].put(delivery)
         if not has_consumer:
             # Tag delivery so the consumer loop knows not to decrement
             # if it shows up later. Simplest: mark on the delivery.

@@ -7,9 +7,18 @@ import glob
 from pydantic import BaseModel
 
 from config import app_settings
-from core.task_factory import CtfTaskFactory, FftTaskFactory, MotioncorTaskFactory
-from models.plugins_models import TaskDto, CtfTaskData, FftTaskData, FFT_TASK, TaskResultDto, CTF_TASK, PENDING, CryoEmMotionCorTaskData, \
+from core.task_factory import CtfTaskFactory, FftTaskFactory, MotioncorTaskFactory, TaskFactory
+from models.plugins_models import TaskMessage, CtfInput, FftInput, FFT_TASK, TaskResultMessage, CTF_TASK, PENDING, MotionCorInput, \
     MOTIONCOR_TASK, TaskCategory
+from magellon_sdk.models.tasks import (
+    HOLE_DETECTION,
+    MICROGRAPH_DENOISING,
+    MicrographDenoiseInput,
+    PtolemyInput,
+    SQUARE_DETECTION,
+    TOPAZ_PARTICLE_PICKING,
+    TopazPickInput,
+)
 from models.pydantic_models import LeginonFrameTransferTaskDto, EPUImportTaskDto, ImportTaskDto
 
 logger = logging.getLogger(__name__)
@@ -96,6 +105,22 @@ def get_queue_name_by_task_type(task_type: TaskCategory, is_result: bool = False
             'task': app_settings.rabbitmq_settings.FFT_QUEUE_NAME,
             'result': app_settings.rabbitmq_settings.FFT_OUT_QUEUE_NAME
         },
+        6: {  # SQUARE_DETECTION.code
+            'task': app_settings.rabbitmq_settings.SQUARE_DETECTION_QUEUE_NAME,
+            'result': app_settings.rabbitmq_settings.SQUARE_DETECTION_OUT_QUEUE_NAME
+        },
+        7: {  # HOLE_DETECTION.code
+            'task': app_settings.rabbitmq_settings.HOLE_DETECTION_QUEUE_NAME,
+            'result': app_settings.rabbitmq_settings.HOLE_DETECTION_OUT_QUEUE_NAME
+        },
+        8: {  # TOPAZ_PARTICLE_PICKING.code
+            'task': app_settings.rabbitmq_settings.TOPAZ_PICK_QUEUE_NAME,
+            'result': app_settings.rabbitmq_settings.TOPAZ_PICK_OUT_QUEUE_NAME
+        },
+        9: {  # MICROGRAPH_DENOISING.code
+            'task': app_settings.rabbitmq_settings.MICROGRAPH_DENOISE_QUEUE_NAME,
+            'result': app_settings.rabbitmq_settings.MICROGRAPH_DENOISE_OUT_QUEUE_NAME
+        },
     }
 
     if task_type.code not in queue_mapping:
@@ -103,7 +128,7 @@ def get_queue_name_by_task_type(task_type: TaskCategory, is_result: bool = False
 
     return queue_mapping[task_type.code]['result' if is_result else 'task']
 
-def push_task_to_task_queue(task: TaskDto) -> bool:
+def push_task_to_task_queue(task: TaskMessage) -> bool:
     """Push a task to its worker via the configured dispatcher.
 
     Delegates to :class:`magellon_sdk.dispatcher.TaskDispatcherRegistry`;
@@ -121,7 +146,7 @@ def push_task_to_task_queue(task: TaskDto) -> bool:
         return False
 
 
-def _audit_outgoing_message(task: TaskDto) -> None:
+def _audit_outgoing_message(task: TaskMessage) -> None:
     """Best-effort on-disk audit log of outgoing tasks.
 
     Writes one JSON line per dispatched task to
@@ -156,7 +181,7 @@ def dispatch_ctf_task(task_id, full_image_path, task_dto: ImportTaskDto):
     else:
         session_name = file_name.split("_")[0]
     out_file_name = f"{file_name}_ctf_output.mrc"
-    ctf_task_data = CtfTaskData(
+    ctf_task_data = CtfInput(
         image_id=task_dto.image_id,
         image_name=file_name,
         image_path=full_image_path,
@@ -189,6 +214,157 @@ def dispatch_ctf_task(task_id, full_image_path, task_dto: ImportTaskDto):
     return push_task_to_task_queue(ctf_task)
 
 
+def _dispatch_ptolemy_task(
+    *,
+    category: TaskCategory,
+    image_path: str,
+    job_id=None,
+    task_id=None,
+    image_id=None,
+    session_name=None,
+) -> bool:
+    """Shared body for dispatch_square_detection_task / dispatch_hole_detection_task.
+
+    Both ptolemy categories take the same input shape (``PtolemyInput``
+    with an MRC path) and differ only in the category that controls which
+    queue + which plugin pipeline runs.
+    """
+    file_name = os.path.splitext(os.path.basename(image_path))[0]
+    data = PtolemyInput(
+        image_id=image_id,
+        image_name=file_name,
+        image_path=image_path,
+        input_file=image_path,
+    )
+    ptolemy_task = TaskFactory.create_task(
+        pid=task_id or uuid.uuid4(),
+        instance_id=uuid.uuid4(),
+        job_id=job_id,
+        data=data.model_dump(),
+        ptype=category,
+        pstatus=PENDING,
+    )
+    if session_name:
+        ptolemy_task.session_name = session_name
+    return push_task_to_task_queue(ptolemy_task)
+
+
+def dispatch_square_detection_task(
+    image_path: str,
+    *,
+    job_id=None,
+    task_id=None,
+    image_id=None,
+    session_name=None,
+) -> bool:
+    """Dispatch a low-mag square-detection task to the ptolemy plugin."""
+    return _dispatch_ptolemy_task(
+        category=SQUARE_DETECTION,
+        image_path=image_path,
+        job_id=job_id,
+        task_id=task_id,
+        image_id=image_id,
+        session_name=session_name,
+    )
+
+
+def dispatch_hole_detection_task(
+    image_path: str,
+    *,
+    job_id=None,
+    task_id=None,
+    image_id=None,
+    session_name=None,
+) -> bool:
+    """Dispatch a med-mag hole-detection task to the ptolemy plugin."""
+    return _dispatch_ptolemy_task(
+        category=HOLE_DETECTION,
+        image_path=image_path,
+        job_id=job_id,
+        task_id=task_id,
+        image_id=image_id,
+        session_name=session_name,
+    )
+
+
+def dispatch_topaz_pick_task(
+    image_path: str,
+    *,
+    model: str = "resnet16",
+    radius: int = 14,
+    threshold: float = -3.0,
+    scale: int = 8,
+    job_id=None,
+    task_id=None,
+    image_id=None,
+    session_name=None,
+) -> bool:
+    """Dispatch a high-mag particle-picking task to the topaz plugin."""
+    file_name = os.path.splitext(os.path.basename(image_path))[0]
+    data = TopazPickInput(
+        image_id=image_id,
+        image_name=file_name,
+        image_path=image_path,
+        input_file=image_path,
+        engine_opts={
+            "model":     model,
+            "radius":    radius,
+            "threshold": threshold,
+            "scale":     scale,
+        },
+    )
+    task = TaskFactory.create_task(
+        pid=task_id or uuid.uuid4(),
+        instance_id=uuid.uuid4(),
+        job_id=job_id,
+        data=data.model_dump(),
+        ptype=TOPAZ_PARTICLE_PICKING,
+        pstatus=PENDING,
+    )
+    if session_name:
+        task.session_name = session_name
+    return push_task_to_task_queue(task)
+
+
+def dispatch_micrograph_denoise_task(
+    image_path: str,
+    *,
+    output_file: str = None,
+    model: str = "unet",
+    patch_size: int = 1024,
+    padding: int = 128,
+    job_id=None,
+    task_id=None,
+    image_id=None,
+    session_name=None,
+) -> bool:
+    """Dispatch a micrograph-denoise task to the topaz plugin."""
+    file_name = os.path.splitext(os.path.basename(image_path))[0]
+    data = MicrographDenoiseInput(
+        image_id=image_id,
+        image_name=file_name,
+        image_path=image_path,
+        input_file=image_path,
+        output_file=output_file,
+        engine_opts={
+            "model":      model,
+            "patch_size": patch_size,
+            "padding":    padding,
+        },
+    )
+    task = TaskFactory.create_task(
+        pid=task_id or uuid.uuid4(),
+        instance_id=uuid.uuid4(),
+        job_id=job_id,
+        data=data.model_dump(),
+        ptype=MICROGRAPH_DENOISING,
+        pstatus=PENDING,
+    )
+    if session_name:
+        task.session_name = session_name
+    return push_task_to_task_queue(task)
+
+
 def dispatch_fft_task(
     image_path: str,
     target_path: str,
@@ -210,7 +386,7 @@ def dispatch_fft_task(
     """
     file_name = os.path.splitext(os.path.basename(image_path))[0]
 
-    fft_data = FftTaskData(
+    fft_data = FftInput(
         image_id=image_id,
         image_name=file_name,
         image_path=image_path,
@@ -242,7 +418,7 @@ def create_motioncor_task_data(image_path, gain_path, defects_path=None, session
             Supported keys: FmDose, PatchesX, PatchesY, SumRangeMinDose, SumRangeMaxDose, Group
 
     Returns:
-        CryoEmMotionCorTaskData: Configured task data object
+        MotionCorInput: Configured task data object
     """
     file_name = os.path.splitext(os.path.basename(image_path))[0]
 
@@ -263,7 +439,7 @@ def create_motioncor_task_data(image_path, gain_path, defects_path=None, session
 
     if session_name is None:
         session_name = file_name.split("_")[0]
-    return CryoEmMotionCorTaskData(
+    return MotionCorInput(
             image_id=task_dto.image_id,
             image_name=os.path.basename(task_dto.image_path),
             image_path=task_dto.image_path,

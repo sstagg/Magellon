@@ -1,6 +1,6 @@
 """One-shot MotionCor task publisher for end-to-end Docker testing.
 
-Mirror of ``ctf_smoke_publish.py``. Publishes one CryoEmMotionCorTaskData
+Mirror of ``ctf_smoke_publish.py``. Publishes one MotionCorInput
 per ``.mrc`` in --image-dir to ``motioncor_tasks_queue``.
 
 The Docker.test image's mock_motioncor binary doesn't care about the
@@ -23,7 +23,7 @@ import uuid
 from pathlib import Path
 
 from magellon_sdk.messaging import publish_message_to_queue
-from magellon_sdk.models import CryoEmMotionCorTaskData, MOTIONCOR, PENDING
+from magellon_sdk.models import MotionCorInput, MOTIONCOR, PENDING
 from magellon_sdk.task_factory import MotioncorTaskFactory
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -43,7 +43,7 @@ class _RmqShim:
 def build_task(image_path: str, *, gain: str, fm_dose: float, pix_size: float) -> object:
     file_name = Path(image_path).stem
     out_file = f"{file_name}_motioncor_output.mrc"
-    data = CryoEmMotionCorTaskData(
+    data = MotionCorInput(
         image_id=uuid.uuid4(),
         image_name=file_name,
         image_path=image_path,

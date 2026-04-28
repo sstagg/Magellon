@@ -1,14 +1,14 @@
 """Contract test for the CTF plugin container (G.2).
 
 The plugin exposes ``POST /execute`` as a synchronous HTTP RPC into
-``do_execute(TaskDto) -> TaskResultDto``. Hitting that endpoint lets
+``do_execute(TaskMessage) -> TaskResultMessage``. Hitting that endpoint lets
 us verify the wire contract without racing CoreService's in-process
 result consumer or touching RMQ.
 
 What this test pins:
 
-- The plugin accepts a :class:`TaskDto` with the CTF category and
-  replies with a :class:`TaskResultDto`.
+- The plugin accepts a :class:`TaskMessage` with the CTF category and
+  replies with a :class:`TaskResultMessage`.
 - ``task_id`` and ``job_id`` round-trip (plugin echoes the caller's
   identifiers so the result writer can key off them).
 - Provenance is stamped (``plugin_id`` and ``plugin_version``
@@ -35,8 +35,8 @@ pytest.importorskip("httpx")  # lighter than requests for the test-time client
 
 
 def _canned_ctf_task() -> Dict[str, Any]:
-    """Shape matches ``TaskDto`` with a CTF-category ``data`` payload
-    (``CtfTaskData``) pointing at a non-existent file. The plugin's
+    """Shape matches ``TaskMessage`` with a CTF-category ``data`` payload
+    (``CtfInput``) pointing at a non-existent file. The plugin's
     execute() will hit FileNotFoundError and publish a failure-status
     result — both the happy-path wire shape and the failure wire
     shape are contracts worth pinning, but the failure path is
@@ -59,7 +59,7 @@ def _canned_ctf_task() -> Dict[str, Any]:
             "description": "Task is pending",
         },
         "data": {
-            # CtfTaskData shape. The file path is deliberately absent
+            # CtfInput shape. The file path is deliberately absent
             # on disk so ctffind4 can't run; plugin must fail gracefully.
             "image_id": str(image_id),
             "image_name": "contract_test_missing",
@@ -151,12 +151,12 @@ def test_execute_endpoint_stamps_provenance(require_ctf_plugin):
 
 
 def test_execute_endpoint_returns_task_result_shape(require_ctf_plugin):
-    """The reply JSON must deserialize into a TaskResultDto so the
+    """The reply JSON must deserialize into a TaskResultMessage so the
     result processor can write it. We pin the minimum-viable fields —
     anything more specific belongs in plugin-level tests."""
     import httpx
 
-    from magellon_sdk.models import TaskResultDto
+    from magellon_sdk.models import TaskResultMessage
 
     task = _canned_ctf_task()
     url = f"http://127.0.0.1:{require_ctf_plugin}/execute"
@@ -172,7 +172,7 @@ def test_execute_endpoint_returns_task_result_shape(require_ctf_plugin):
     # Soft validation — if the plugin returns extra fields the SDK
     # doesn't know about, model_validate drops them (ignore extras).
     # What we care about is that the core fields pass Pydantic.
-    result = TaskResultDto.model_validate(body)
+    result = TaskResultMessage.model_validate(body)
     assert result.task_id == uuid.UUID(task["id"])
     assert result.job_id == uuid.UUID(task["job_id"])
     # status / code may be either success (the plugin found some way

@@ -10,7 +10,7 @@ Exercises the full bus-driven task flow using the InMemoryBinder:
      architecturally the "plugin process" -- it consumes task
      deliveries from the bus.
   4. From the main thread, simulate the CoreService dispatcher:
-     wrap each image's ``TaskDto`` in a CloudEvents envelope and
+     wrap each image's ``TaskMessage`` in a CloudEvents envelope and
      call ``bus.tasks.send(...)``.
   5. Wait for the binder to drain (all handlers returned, all result
      publishes enqueued).
@@ -62,8 +62,8 @@ if str(FFT_PLUGIN_DIR) not in sys.path:
 from magellon_sdk.bus.bootstrap import install_inmemory_bus  # noqa: E402
 from magellon_sdk.bus.routes import TaskRoute  # noqa: E402
 from magellon_sdk.envelope import Envelope  # noqa: E402
-from magellon_sdk.models import FFT_TASK, TaskDto  # noqa: E402
-from magellon_sdk.models.tasks import FftTaskData  # noqa: E402
+from magellon_sdk.models import FFT_TASK, TaskMessage  # noqa: E402
+from magellon_sdk.models.tasks import FftInput  # noqa: E402
 
 # Plugin-side pieces -- live inside plugins/magellon_fft_plugin.
 from plugin.plugin import (  # noqa: E402
@@ -190,18 +190,18 @@ def build_plugin_runner(bus) -> FftBrokerRunner:
     return runner
 
 
-def dispatch_fft_tasks(bus, image_paths: List[Path]) -> List[TaskDto]:
+def dispatch_fft_tasks(bus, image_paths: List[Path]) -> List[TaskMessage]:
     """CoreService's role: build TaskDtos and publish via the bus."""
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    tasks: List[TaskDto] = []
+    tasks: List[TaskMessage] = []
     in_route = TaskRoute.named(IN_SUBJECT)
     for image_path in image_paths:
         output_path = OUTPUT_DIR / f"{image_path.stem}_FFT.png"
-        task = TaskDto(
+        task = TaskMessage(
             id=uuid4(),
             job_id=uuid4(),
             type=FFT_TASK,
-            data=FftTaskData(
+            data=FftInput(
                 image_path=str(image_path),
                 target_path=str(output_path),
             ).model_dump(),
@@ -223,7 +223,7 @@ def dispatch_fft_tasks(bus, image_paths: List[Path]) -> List[TaskDto]:
 # Summary reporting
 # ---------------------------------------------------------------------------
 
-def summarize(tasks: List[TaskDto], binder) -> None:
+def summarize(tasks: List[TaskMessage], binder) -> None:
     """Print a one-line-per-task summary from the binder's capture."""
     # Result envelopes land on OUT_SUBJECT -- InMemoryBinder stores them
     # in published_tasks regardless of whether a consumer exists.

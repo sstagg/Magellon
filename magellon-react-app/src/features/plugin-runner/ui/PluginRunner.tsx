@@ -25,6 +25,7 @@ import {
     useSubmitPluginJob,
     PluginSummary,
 } from '../api/PluginApi.ts';
+import { BackendPicker } from './BackendPicker.tsx';
 import { SchemaForm } from './SchemaForm.tsx';
 import { ResultRenderer } from './results/ResultRenderers.tsx';
 import { ImagePickerDialog } from './ImagePickerDialog.tsx';
@@ -75,6 +76,11 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
     const [retuning, setRetuning] = useState(false);
     const [previewStale, setPreviewStale] = useState(false);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+    // X.1: backend pin within the category. ``null`` = use the
+    // category default (today's round-robin). Only meaningful for
+    // broker plugins; the in-process path ignores it server-side.
+    const [targetBackend, setTargetBackend] = useState<string | null>(null);
 
     // Tunable keys — fields whose changes can be re-applied via /retune without
     // redoing the expensive FFT. Derived from the plugin's own schema metadata.
@@ -149,9 +155,10 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
             };
         }
         const body: JobSubmitRequest = { input: values, name: `${plugin.name} run` };
+        if (targetBackend) body.target_backend = targetBackend;
         const url = `${base}/plugins/${plugin.plugin_id}/jobs${sid ? `?sid=${sid}` : ''}`;
         return { url, body };
-    }, [plugin.plugin_id, plugin.name, values, sid, usePreviewMode]);
+    }, [plugin.plugin_id, plugin.name, values, sid, usePreviewMode, targetBackend]);
 
     React.useEffect(() => {
         if (schema && Object.keys(values).length === 0) {
@@ -170,6 +177,7 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
                 input: values,
                 name: `${plugin.name} run`,
                 user_id: user?.id,
+                target_backend: targetBackend ?? undefined,
                 sid,
             });
             setCurrentJobId(job.job_id);
@@ -400,6 +408,23 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
                                 )
                             )}
                         </Stack>
+
+                        {/*
+                         * Backend picker (X.1) — self-hides when the
+                         * category has fewer than 2 live backends, so
+                         * single-impl categories see no UI noise. Pinning
+                         * a backend forces dispatch to that specific
+                         * implementation; "Auto" preserves today's
+                         * category-default routing.
+                         */}
+                        {!usePreviewMode && (
+                            <BackendPicker
+                                category={plugin.category}
+                                value={targetBackend}
+                                onChange={setTargetBackend}
+                                disabled={isRunning}
+                            />
+                        )}
 
                         <SchemaForm
                             schema={schema}

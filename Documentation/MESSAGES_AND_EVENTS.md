@@ -18,8 +18,8 @@ when a new queue, subject, or Socket.IO event is added, append it here.
 
 ## 1. RabbitMQ: task dispatch / task results
 
-The live, production path. CoreService publishes `TaskDto` bodies onto
-a per-plugin **task** queue; each plugin publishes `TaskResultDto`
+The live, production path. CoreService publishes `TaskMessage` bodies onto
+a per-plugin **task** queue; each plugin publishes `TaskResultMessage`
 bodies onto a per-plugin **result** queue that CoreService consumes
 (`result_processor` plugin).
 
@@ -27,12 +27,12 @@ bodies onto a per-plugin **result** queue that CoreService consumes
 
 | Queue name (default) | Direction | Carries | Consumer |
 |----------------------|-----------|---------|----------|
-| `ctf_tasks_queue`         | CoreService → CTF plugin         | `TaskDto[CtfTaskData]`              | `magellon_ctf_plugin` |
-| `ctf_out_tasks_queue`     | CTF plugin → CoreService          | `TaskResultDto`                      | `magellon_result_processor` |
-| `motioncor_tasks_queue`   | CoreService → MotionCor plugin    | `TaskDto[CryoEmMotionCorTaskData]`   | `magellon_motioncor_plugin` |
-| `motioncor_out_tasks_queue` | MotionCor plugin → CoreService  | `TaskResultDto`                      | `magellon_result_processor` |
-| `motioncor_test_inqueue`  | (dev) CoreService → MotionCor      | `TaskDto`                            | test harness only |
-| `motioncor_test_outqueue` | (dev) MotionCor → CoreService      | `TaskResultDto`                      | test harness only |
+| `ctf_tasks_queue`         | CoreService → CTF plugin         | `TaskMessage[CtfInput]`              | `magellon_ctf_plugin` |
+| `ctf_out_tasks_queue`     | CTF plugin → CoreService          | `TaskResultMessage`                      | `magellon_result_processor` |
+| `motioncor_tasks_queue`   | CoreService → MotionCor plugin    | `TaskMessage[MotionCorInput]`   | `magellon_motioncor_plugin` |
+| `motioncor_out_tasks_queue` | MotionCor plugin → CoreService  | `TaskResultMessage`                      | `magellon_result_processor` |
+| `motioncor_test_inqueue`  | (dev) CoreService → MotionCor      | `TaskMessage`                            | test harness only |
+| `motioncor_test_outqueue` | (dev) MotionCor → CoreService      | `TaskResultMessage`                      | test harness only |
 
 Queue names come from `RabbitMQSettings` (`models/pydantic_models_settings.py`)
 and are mapped from task-type code in `core/helper.py::get_queue_name_by_task_type`.
@@ -43,9 +43,9 @@ and are mapped from task-type code in `core/helper.py::get_queue_name_by_task_ty
 > in-process) and routes by `TaskCategory.code`. `get_queue_name_by_task_type`
 > remains for now; call-site migration is a follow-up.
 
-### 1.2 Envelope: `TaskDto`
+### 1.2 Envelope: `TaskMessage`
 
-Schema: `magellon_sdk.models.tasks.TaskDto` (Pydantic v2). Serialized as
+Schema: `magellon_sdk.models.tasks.TaskMessage` (Pydantic v2). Serialized as
 JSON with `model_dump_json()`.
 
 ```python
@@ -62,14 +62,14 @@ class TaskBase(BaseModel):
     end_on: Optional[datetime] = None
     result: Optional[TaskOutcome] = None
 
-class TaskDto(TaskBase):
+class TaskMessage(TaskBase):
     job_id: Optional[UUID] = default uuid4()
 ```
 
 **Per-plugin `data` shapes** (also in `magellon_sdk.models.tasks`):
 
-- `CtfTaskData` — `inputFile`, `outputFile`, `pixelSize`, `accelerationVoltage`, `sphericalAberration`, `amplitudeContrast`, `sizeOfAmplitudeSpectrum`, `minimumResolution`, `maximumResolution`, `minimumDefocus`, `maximumDefocus`, `defocusSearchStep`, `binning_x`
-- `CryoEmMotionCorTaskData` — MotionCor2 CLI flags (`InMrc`/`InTiff`/`InEer`, `Gain`, `Dark`, `PatchesX/Y`, `Iter`, `Bft`, `FtBin`, `PixSize`, `kV`, …). Full list: see source.
+- `CtfInput` — `inputFile`, `outputFile`, `pixelSize`, `accelerationVoltage`, `sphericalAberration`, `amplitudeContrast`, `sizeOfAmplitudeSpectrum`, `minimumResolution`, `maximumResolution`, `minimumDefocus`, `maximumDefocus`, `defocusSearchStep`, `binning_x`
+- `MotionCorInput` — MotionCor2 CLI flags (`InMrc`/`InTiff`/`InEer`, `Gain`, `Dark`, `PatchesX/Y`, `Iter`, `Bft`, `FtBin`, `PixSize`, `kV`, …). Full list: see source.
 
 **Task-type constants** (`TaskCategory(code, name, description)`):
 
@@ -90,12 +90,12 @@ class TaskDto(TaskBase):
 | 2    | `COMPLETED`    | completed     |
 | 3    | `FAILED`       | failed        |
 
-### 1.3 Envelope: `TaskResultDto`
+### 1.3 Envelope: `TaskResultMessage`
 
-Schema: `magellon_sdk.models.tasks.TaskResultDto`. Serialized JSON.
+Schema: `magellon_sdk.models.tasks.TaskResultMessage`. Serialized JSON.
 
 ```python
-class TaskResultDto(BaseModel):
+class TaskResultMessage(BaseModel):
     worker_instance_id: Optional[UUID] = None
     job_id: Optional[UUID] = None
     task_id: Optional[UUID] = None
@@ -123,7 +123,7 @@ class TaskResultDto(BaseModel):
 
 | Direction | Publisher | Consumer |
 |-----------|-----------|----------|
-| Task dispatch | `core/helper.py::publish_message_to_queue` via `TaskDto.model_dump_json()` | plugin's `core/rabbitmq_consumer_engine.py` |
+| Task dispatch | `core/helper.py::publish_message_to_queue` via `TaskMessage.model_dump_json()` | plugin's `core/rabbitmq_consumer_engine.py` |
 | Task result | plugin's `core/result_publisher.py` | `magellon_result_processor/services/task_output_processor.py` |
 
 ---
@@ -207,7 +207,7 @@ the React UI.
 | `server_broadcast` | `{from_sid: str, message: str}`          | `/broadcast` REST endpoint |
 | `log_entry`      | `{level, source, message, ts}`             | `emit_log()` — called from `JobReporter.log` and plugin-in-process code paths |
 | `job_progress`   | `{job_id, percent, message, ts}`           | `JobReporter.progress` (in-process plugins) |
-| `job_update`     | Full `JobDto`-like dict (status, progress, …) | `JobManager.*` via `emit_job_update()` |
+| `job_update`     | Full `JobMessage`-like dict (status, progress, …) | `JobManager.*` via `emit_job_update()` |
 
 **Rooms:** all events are either broadcast (no `room`) or addressed to
 a specific `sid`. No per-job rooms yet — Phase 4 should introduce
@@ -218,7 +218,7 @@ every update.
 `plugins/progress.py`) writes directly to `JobManager` and forwards to
 Socket.IO via `asyncio.run_coroutine_threadsafe`. External plugins
 (dispatched via RabbitMQ) do **not** reach this emitter — their
-progress is invisible to the UI until a final `TaskResultDto` lands.
+progress is invisible to the UI until a final `TaskResultMessage` lands.
 Closing this gap is Phase 4.
 
 ---
@@ -230,7 +230,7 @@ Closing this gap is Phase 4.
 | ~~Hardcoded task-type → queue switch~~ | 6 (done) | `magellon_sdk.dispatcher` ships `TaskDispatcher` Protocol + `RabbitmqTaskDispatcher` + `InProcessTaskDispatcher` + `TaskDispatcherRegistry`. 11 unit tests. CoreService migration of `get_queue_name_by_task_type` call sites is a follow-up. |
 | External plugin progress invisible to UI | 4 (partial) | Plumbing deferred — see Phase 4.5 below. Today's step: at least final state lands in DB so UI moves past "pending". |
 | ~~`TaskOutputProcessor` never advances `ImageJobTask.status_id/stage`~~ | 4 (done) | Result processor now writes `status_id` (COMPLETED / FAILED) and `stage` (MotionCor=1, CTF=2, unknown=99) on the `image_job_task` row keyed by `task_result.task_id`. 5 mocked-DB unit tests. |
-| Plugin-progress pipe to UI | 4.5 (publisher half done) | SDK ships `magellon_sdk.events.StepEventPublisher` + `StepStarted`/`StepProgress`/`StepCompleted`/`StepFailed` payloads + subject helper. Plugins can now emit `magellon.step.*` CloudEvents. CoreService Socket.IO forwarder is still TODO. |
+| Plugin-progress pipe to UI | 4.5 (publisher half done) | SDK ships `magellon_sdk.events.StepEventPublisher` + `StepStartedMessage`/`StepProgressMessage`/`StepCompletedMessage`/`StepFailedMessage` payloads + subject helper. Plugins can now emit `magellon.step.*` CloudEvents. CoreService Socket.IO forwarder is still TODO. |
 | `support/events/publisher.py` + `subscriber.py` still importable as FastAPI apps | 2 | Keep as thin shims around `magellon_sdk.transport.nats` — migration in this phase. |
 | DLQ on task queues | 3 (capability landed) | `RabbitmqClient.declare_queue_with_dlq(name)` now declares a queue + matching `<name>_dlq` with `x-dead-letter-exchange`/`x-dead-letter-routing-key` set. Rejected/expired messages land on the DLQ instead of the floor. New plugin queues should opt in; existing queues (`ctf_tasks_queue`, `motioncor_tasks_queue`) need a broker-policy migration because re-declaring them with new `x-*` args is a `PRECONDITION_FAILED`. |
 | ~~`asyncio.run()` inside pika blocking callback~~ | 3 (done) | Fixed in all 4 plugin consumer engines: one daemon-thread event loop per process, callbacks use `run_coroutine_threadsafe(...).result()`. |

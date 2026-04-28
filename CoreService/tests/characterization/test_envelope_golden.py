@@ -24,9 +24,9 @@ from models.plugins_models import (
     CTF_TASK,
     MOTIONCOR_TASK,
     PENDING,
-    CryoEmMotionCorTaskData,
-    CtfTaskData,
-    TaskDto,
+    MotionCorInput,
+    CtfInput,
+    TaskMessage,
 )
 
 GOLDEN_DIR = Path(__file__).parent / "goldens"
@@ -44,7 +44,7 @@ FIXED_DATETIME = datetime(2026, 4, 14, 0, 0, 0)
 
 def _make_ctf_envelope() -> dict:
     """Build a canonical CTF task envelope — every field explicitly set."""
-    data = CtfTaskData(
+    data = CtfInput(
         image_id=FIXED_IMAGE_ID,
         image_name="sample",
         image_path="/data/sample.mrc",
@@ -62,7 +62,7 @@ def _make_ctf_envelope() -> dict:
         defocusSearchStep=100.0,
         binning_x=1,
     )
-    task = TaskDto(
+    task = TaskMessage(
         id=FIXED_TASK_ID,
         job_id=FIXED_JOB_ID,
         session_id=FIXED_SESSION_ID,
@@ -81,7 +81,7 @@ def _make_ctf_envelope() -> dict:
 
 def _make_motioncor_envelope() -> dict:
     """Build a canonical MotionCor task envelope — every field explicitly set."""
-    data = CryoEmMotionCorTaskData(
+    data = MotionCorInput(
         image_id=FIXED_IMAGE_ID,
         image_name="sample",
         image_path="/data/sample.tif",
@@ -109,7 +109,7 @@ def _make_motioncor_envelope() -> dict:
         RotGain=0,
         FlipGain=0,
     )
-    task = TaskDto(
+    task = TaskMessage(
         id=FIXED_TASK_ID,
         job_id=FIXED_JOB_ID,
         session_id=FIXED_SESSION_ID,
@@ -155,11 +155,14 @@ def test_ctf_envelope_top_level_keys():
     """Independent assertion: the envelope's top-level keys don't drift.
 
     Catches additions/removals even if the golden is regenerated carelessly.
+    ``target_backend`` was added in SDK 1.3 (Track C / X.1) for backend
+    pinning; pre-1.3 plugins decoding the wire ignore the field.
     """
     envelope = _make_ctf_envelope()
     assert set(envelope.keys()) == {
         "id", "job_id", "session_id", "session_name", "worker_instance_id",
         "data", "status", "type", "created_date", "start_on", "end_on", "result",
+        "target_backend",
     }
 
 
@@ -169,6 +172,7 @@ def test_motioncor_envelope_top_level_keys():
     assert set(envelope.keys()) == {
         "id", "job_id", "session_id", "session_name", "worker_instance_id",
         "data", "status", "type", "created_date", "start_on", "end_on", "result",
+        "target_backend",
     }
 
 

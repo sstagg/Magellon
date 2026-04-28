@@ -1,7 +1,7 @@
 """Shared fixtures for plugin-container contract tests (G.2).
 
 Contract tests verify the wire contract each plugin container
-exposes: "send this TaskDto shape, get this TaskResultDto shape
+exposes: "send this TaskMessage shape, get this TaskResultMessage shape
 back, with provenance stamped". They talk to the live plugin's
 HTTP ``/execute`` endpoint rather than going through RMQ — that
 avoids racing with CoreService's in-process result consumer and
@@ -90,6 +90,16 @@ def fft_plugin_port() -> int:
     return _port_from_env("MAGELLON_FFT_PLUGIN_PORT", 8037)
 
 
+@pytest.fixture(scope="module")
+def ptolemy_plugin_port() -> int:
+    return _port_from_env("MAGELLON_PTOLEMY_PLUGIN_PORT", 8038)
+
+
+@pytest.fixture(scope="module")
+def topaz_plugin_port() -> int:
+    return _port_from_env("MAGELLON_TOPAZ_PLUGIN_PORT", 8039)
+
+
 @pytest.fixture(scope="module", autouse=False)
 def require_ctf_plugin(ctf_plugin_port: int) -> int:
     """Skip unless the CTF plugin container is reachable on its
@@ -122,8 +132,32 @@ def require_fft_plugin(fft_plugin_port: int) -> int:
     return fft_plugin_port
 
 
+@pytest.fixture(scope="module", autouse=False)
+def require_ptolemy_plugin(ptolemy_plugin_port: int) -> int:
+    if not _plugin_reachable(ptolemy_plugin_port):
+        pytest.skip(
+            f"Ptolemy plugin not reachable on {_plugin_host()}:{ptolemy_plugin_port}"
+            f" — `docker compose up magellon_ptolemy_plugin` to run this test, "
+            f"or set MAGELLON_PTOLEMY_PLUGIN_PORT."
+        )
+    return ptolemy_plugin_port
+
+
+@pytest.fixture(scope="module", autouse=False)
+def require_topaz_plugin(topaz_plugin_port: int) -> int:
+    if not _plugin_reachable(topaz_plugin_port):
+        pytest.skip(
+            f"Topaz plugin not reachable on {_plugin_host()}:{topaz_plugin_port}"
+            f" — `docker compose up magellon_topaz_plugin` to run this test, "
+            f"or set MAGELLON_TOPAZ_PLUGIN_PORT."
+        )
+    return topaz_plugin_port
+
+
 __all__ = [
     "require_ctf_plugin",
     "require_fft_plugin",
     "require_motioncor_plugin",
+    "require_ptolemy_plugin",
+    "require_topaz_plugin",
 ]

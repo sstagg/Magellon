@@ -9,7 +9,7 @@ into CoreService gives us:
 
   - One process owning the per-task DB write (status_id + stage),
     same session that records the metadata.
-  - A clear contract for plugins: publish ``TaskResultDto`` to your
+  - A clear contract for plugins: publish ``TaskResultMessage`` to your
     out-queue and stop. The platform projects it.
 
 Shape and behaviour are kept identical to the old plugin so the
@@ -29,7 +29,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from config import MAGELLON_HOME_DIR
-from models.plugins_models import TaskResultDto
+from models.plugins_models import TaskResultMessage
 from models.pydantic_models_settings import OutQueueConfig, OutQueueType
 from models.sqlalchemy_models import ImageJobTask, ImageMetaData
 
@@ -43,10 +43,14 @@ STATUS_FAILED = 3
 
 # ImageJobTask.stage values — per task-type code. The stage is the
 # position of that step in the per-image pipeline:
-#   1 = MotionCor (TaskCategory.code == 5)
-#   2 = CTF       (TaskCategory.code == 2)
+#   1 = MotionCor              (TaskCategory.code == 5)
+#   2 = CTF                    (TaskCategory.code == 2)
+#   3 = SquareDetection        (TaskCategory.code == 6)
+#   4 = HoleDetection          (TaskCategory.code == 7)
+#   5 = TopazParticlePicking   (TaskCategory.code == 8)
+#   6 = MicrographDenoising    (TaskCategory.code == 9)
 # Unknown task types land at 99 so operators can spot them in the UI.
-_TASK_TYPE_TO_STAGE = {5: 1, 2: 2}
+_TASK_TYPE_TO_STAGE = {5: 1, 2: 2, 6: 3, 7: 4, 8: 5, 9: 6}
 _DEFAULT_STAGE = 99
 
 # Default category id when no OutQueueConfig matches — preserves the
@@ -71,7 +75,7 @@ def _move_file_to_directory(file_path: str, destination_dir: str) -> None:
 
 
 class TaskOutputProcessor:
-    """Project a ``TaskResultDto`` into the Magellon DB + on-disk layout.
+    """Project a ``TaskResultMessage`` into the Magellon DB + on-disk layout.
 
     One instance is built per delivered message. It owns the SQLAlchemy
     session for the duration of ``process()`` and closes it in the
@@ -110,7 +114,7 @@ class TaskOutputProcessor:
     def _get_queue_type_category(self, queue_type: str) -> Optional[int]:
         return self._queue_type_output_config.get(queue_type, {}).get("category")
 
-    def _get_destination_dir(self, task_result: TaskResultDto) -> str:
+    def _get_destination_dir(self, task_result: TaskResultMessage) -> str:
         task_type = task_result.type.name.lower() if task_result.type else "unknown"
         dir_name = self._get_queue_type_output_dir(task_type) or task_type
         file_name = os.path.splitext(os.path.basename(task_result.image_path or ""))[0]
@@ -122,12 +126,12 @@ class TaskOutputProcessor:
         )
 
     def _process_output_files(
-        self, task_result: TaskResultDto, destination_dir: str
+        self, task_result: TaskResultMessage, destination_dir: str
     ) -> None:
         for output_file in task_result.output_files or []:
             _move_file_to_directory(output_file.path, destination_dir)
 
-    def _save_output_data(self, task_result: TaskResultDto) -> None:
+    def _save_output_data(self, task_result: TaskResultMessage) -> None:
         if task_result.output_data:
             self.db.add(
                 ImageMetaData(
@@ -138,7 +142,7 @@ class TaskOutputProcessor:
                 )
             )
 
-    def _save_metadata(self, task_result: TaskResultDto) -> None:
+    def _save_metadata(self, task_result: TaskResultMessage) -> None:
         if not task_result.meta_data:
             return
         try:
@@ -164,7 +168,7 @@ class TaskOutputProcessor:
 
     def _advance_task_state(
         self,
-        task_result: TaskResultDto,
+        task_result: TaskResultMessage,
         *,
         status_id: int,
     ) -> None:
@@ -175,7 +179,7 @@ class TaskOutputProcessor:
         stalls at "pending" regardless of actual outcome.
         """
         if task_result.task_id is None:
-            logger.warning("TaskResultDto has no task_id — skipping ImageJobTask advance")
+            logger.warning("TaskResultMessage has no task_id — skipping ImageJobTask advance")
             return
 
         db_task = (
@@ -201,7 +205,7 @@ class TaskOutputProcessor:
         if task_result.plugin_version is not None:
             db_task.plugin_version = task_result.plugin_version
 
-    def process(self, task_result: TaskResultDto) -> Dict[str, Any]:
+    def process(self, task_result: TaskResultMessage) -> Dict[str, Any]:
         """Project the result. Returns a small dict for caller logging."""
         try:
             destination_dir = self._get_destination_dir(task_result)

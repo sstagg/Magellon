@@ -42,7 +42,11 @@ class PluginInfo(BaseModel):
     # Bumped by the plugin author whenever the input or output JSON
     # Schema changes in a breaking way. The frontend compares against
     # its cached value and re-fetches the form when they diverge.
-    schema_version: Optional[str] = "1"
+    # Bumped to "2" for SDK 2.0: the wire-shape rename (TaskDto →
+    # TaskMessage, *TaskData → *Input) is observable via class-name
+    # changes in JSON Schema titles, even though field shapes are
+    # unchanged.
+    schema_version: Optional[str] = "2"
     created_date: Optional[datetime] = Field(default_factory=_now_utc)
     last_updated: Optional[datetime] = Field(default_factory=_now_utc)
 

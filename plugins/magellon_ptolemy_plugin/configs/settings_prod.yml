@@ -1,0 +1,35 @@
+ENV_TYPE: production
+LOCAL_IP_ADDRESS: host.docker.internal
+PORT_NUMBER: 8038
+
+REPLACE_TYPE: none
+REPLACE_PATTERN: C:\temp\magellon
+REPLACE_WITH: /gpfs
+
+JOBS_DIR: /jobs
+HOST_JOBS_DIR: C:\temp\magellon\jobs
+
+SQUARE_QUEUE_NAME: square_detection_tasks_queue
+SQUARE_OUT_QUEUE_NAME: square_detection_out_tasks_queue
+HOLE_QUEUE_NAME: hole_detection_tasks_queue
+HOLE_OUT_QUEUE_NAME: hole_detection_out_tasks_queue
+
+database_settings:
+  DB_Driver: mysql+pymysql
+  DB_HOST: mysql
+  DB_NAME: magellon01
+  DB_PASSWORD: behd1d2
+  DB_Port: 3306
+  DB_USER: root
+
+rabbitmq_settings:
+  HOST_NAME: rabbitmq
+  PORT: 5672
+  USER_NAME: rabbit
+  PASSWORD: behd1d2
+  VIRTUAL_HOST: /
+  SSL_ENABLED: false
+  CONNECTION_TIMEOUT: 30
+  PREFETCH_COUNT: 4
+  QUEUE_NAME: square_detection_tasks_queue
+  OUT_QUEUE_NAME: square_detection_out_tasks_queue

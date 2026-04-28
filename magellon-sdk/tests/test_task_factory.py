@@ -16,7 +16,7 @@ from magellon_sdk.models import (
     CtfTask,
     FftTask,
     MotioncorTask,
-    TaskDto,
+    TaskMessage,
 )
 from magellon_sdk.task_factory import (
     CtfTaskFactory,
@@ -34,7 +34,7 @@ def test_base_task_factory_produces_task_dto():
     pid, job_id, instance = _ids()
     task = TaskFactory.create_task(pid, job_id, CTF_TASK, PENDING, instance, {"k": "v"})
 
-    assert isinstance(task, TaskDto)
+    assert isinstance(task, TaskMessage)
     assert task.id == pid
     assert task.job_id == job_id
     assert task.worker_instance_id == instance

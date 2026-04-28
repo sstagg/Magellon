@@ -1,7 +1,7 @@
 """MotionCor-only DTO shapes.
 
-Everything else this plugin needs (TaskDto, TaskResultDto,
-CryoEmMotionCorTaskData, etc.) lives in :mod:`magellon_sdk.models` —
+Everything else this plugin needs (TaskMessage, TaskResultMessage,
+MotionCorInput, etc.) lives in :mod:`magellon_sdk.models` —
 import from there directly.
 """
 from typing import List

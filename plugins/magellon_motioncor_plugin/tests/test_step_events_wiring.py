@@ -131,6 +131,6 @@ async def test_no_emits_when_publisher_disabled(monkeypatch):
 
 
 def _task_dto():
-    from magellon_sdk.models.tasks import TaskDto
+    from magellon_sdk.models.tasks import TaskMessage
 
-    return TaskDto(id=uuid4(), job_id=uuid4(), data={})
+    return TaskMessage(id=uuid4(), job_id=uuid4(), data={})

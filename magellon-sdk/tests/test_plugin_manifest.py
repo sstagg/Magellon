@@ -169,3 +169,59 @@ def test_replaces_field_supports_drop_in_substitution():
     m = _V2Plugin().manifest()
     assert m.replaces == ["minimal-v1", "minimal-legacy"]
     assert m.info.version == "2.0.0"
+
+
+def test_backend_id_defaults_to_slug_of_name_for_pre_1_3_plugins():
+    """A plugin that doesn't declare backend_id must still be reachable
+    via target_backend pinning. The manifest derives a slug from the
+    info name so the dispatcher has a stable handle even without an
+    explicit declaration."""
+    m = _MinimalPlugin().manifest()
+    assert m.backend_id is None  # not declared at the manifest field
+    assert m.resolved_backend_id() == "minimal"
+
+    # Multi-word names slugify with hyphens.
+    class _SpacedNamePlugin(_MinimalPlugin):
+        def get_info(self) -> PluginInfo:
+            return PluginInfo(name="CTF Plugin", version="0.1.0")
+
+    spaced = _SpacedNamePlugin().manifest()
+    assert spaced.resolved_backend_id() == "ctf-plugin"
+
+
+def test_backend_id_class_var_overrides_default():
+    """When the plugin declares backend_id explicitly, that wins over
+    any name-derived slug. Lets two plugins share a human name without
+    colliding in the dispatcher (e.g. 'CTF Plugin' from two vendors)."""
+
+    class _CtfFind4(_MinimalPlugin):
+        backend_id = "ctffind4"
+
+        def get_info(self) -> PluginInfo:
+            return PluginInfo(name="CTF Plugin", version="0.4.1")
+
+    class _Gctf(_MinimalPlugin):
+        backend_id = "gctf"
+
+        def get_info(self) -> PluginInfo:
+            return PluginInfo(name="CTF Plugin", version="1.0.0")
+
+    a = _CtfFind4().manifest()
+    b = _Gctf().manifest()
+    assert a.backend_id == "ctffind4"
+    assert b.backend_id == "gctf"
+    assert a.resolved_backend_id() == "ctffind4"
+    assert b.resolved_backend_id() == "gctf"
+
+
+def test_backend_id_round_trips_through_manifest_json():
+    """The Hub publishes manifests over JSON and operators read them
+    on install. ``backend_id`` must survive the round-trip."""
+
+    class _Backend(_MinimalPlugin):
+        backend_id = "ctffind4"
+
+    original = _Backend().manifest()
+    restored = PluginManifest.model_validate_json(original.model_dump_json())
+    assert restored.backend_id == "ctffind4"
+    assert restored.resolved_backend_id() == "ctffind4"

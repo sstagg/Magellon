@@ -58,6 +58,13 @@ export interface JobSubmitRequest {
     image_id?: string;
     user_id?: string;
     msession_id?: string;
+    /**
+     * Pin the dispatch to a specific backend within the plugin's
+     * category (X.1, magellon-sdk 1.3+). Only meaningful for broker
+     * plugins; ignored on the in-process path. ``null`` / ``undefined``
+     * keeps the category-default round-robin behaviour.
+     */
+    target_backend?: string | null;
 }
 
 export interface BatchSubmitRequest {
@@ -66,6 +73,7 @@ export interface BatchSubmitRequest {
     image_ids?: string[];
     user_id?: string;
     msession_id?: string;
+    target_backend?: string | null;
 }
 
 export interface BatchSubmitResponse {
@@ -373,6 +381,64 @@ export const useRemoveInstalled = () => {
             qc.invalidateQueries(['plugins']);
         },
     });
+};
+
+// ---------------------------------------------------------------------------
+// Capabilities (X.1) — consolidated catalog of categories × backends.
+// One snapshot the dispatcher AND this UI both read.
+// ---------------------------------------------------------------------------
+
+export interface CapabilitiesBackend {
+    backend_id: string;
+    plugin_id: string;
+    name: string;
+    version: string;
+    schema_version: string;
+    description?: string;
+    developer?: string;
+    capabilities: string[];
+    isolation: string;
+    default_transport: string;
+    live_replicas: number;
+    enabled: boolean;
+    is_default_for_category: boolean;
+    task_queue?: string | null;
+}
+
+export interface CapabilitiesCategory {
+    code: number;
+    name: string;
+    description: string;
+    /** Plugin_id of the operator-pinned default; null when none is pinned. */
+    default_backend?: string | null;
+    /** Sorted: default-flagged backend first, then alphabetical by backend_id. */
+    backends: CapabilitiesBackend[];
+    input_schema?: Record<string, any> | null;
+    output_schema?: Record<string, any> | null;
+}
+
+export interface CapabilitiesResponse {
+    sdk_version: string;
+    categories: CapabilitiesCategory[];
+}
+
+export const fetchCapabilities = async (): Promise<CapabilitiesResponse> => {
+    const res = await api.get('/plugins/capabilities');
+    return res.data;
+};
+
+export const useCapabilities = () =>
+    useQuery(['plugin-capabilities'], fetchCapabilities, { staleTime: 30_000 });
+
+/** Find the capabilities row for a plugin, by case-insensitive category name match.
+ *  Returns ``null`` when no live broker backends exist for the category.
+ */
+export const useCategoryCapabilities = (categoryName: string | undefined) => {
+    const q = useCapabilities();
+    const cat = q.data?.categories.find(
+        (c) => c.name.toLowerCase() === (categoryName ?? '').toLowerCase(),
+    );
+    return { ...q, data: cat ?? null };
 };
 
 export const usePluginInputSchema = (pluginId: string | null) =>

@@ -16,7 +16,7 @@ from prometheus_client import Info
 
 from magellon_sdk.bus.bootstrap import install_rmq_bus
 
-from magellon_sdk.models import TaskResultDto
+from magellon_sdk.models import TaskResultMessage
 
 from core.bus_consumer import start_result_consumers
 from core.settings import AppSettingsSingleton
@@ -135,9 +135,9 @@ async def setup():
 
 
 @app.post("/execute", summary="Execute Plugin Operation")
-async def execute_endpoint(request: TaskResultDto):
+async def execute_endpoint(request: TaskResultMessage):
     # The HTTP /execute path mirrors what the RMQ consumer does on each
-    # incoming result envelope — it expects a TaskResultDto, not a TaskDto.
+    # incoming result envelope — it expects a TaskResultMessage, not a TaskMessage.
     # do_execute opens its own DB session via TaskOutputProcessor, so
     # there's no db dependency to pass through.
     return await do_execute(request)

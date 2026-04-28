@@ -1,6 +1,6 @@
 """Dispatch 10 CTF test tasks to ctf_tasks_queue via RabbitMQ.
 
-Publishes TaskDto-shaped JSON messages that the CTF plugin's
+Publishes TaskMessage-shaped JSON messages that the CTF plugin's
 rabbitmq_consumer_engine will pick up and process. Each task
 references an MRC file at /gpfs/ctf_test/<name>.mrc (the container
 mount point).

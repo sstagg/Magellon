@@ -95,10 +95,13 @@ The split between a **job** (user-visible unit of work) and a **task**
   `processed_json`. Status enum from `controllers/import_controller.py:151`:
   1=pending, 2=running, 3=processing, 4=completed, 5=failed, 6=cancelled.
 
-- **Pydantic DTOs (wire):** `TaskBase`, `TaskDto`, `JobDto`, `TaskResultDto`
-  in `models/plugins_models.py` (around line 49–312). `data: Dict[str, Any]`
-  is the per-task-type payload; concrete shapes are `CtfTaskData`,
-  `CryoEmMotionCorTaskData`, etc. This is the envelope RabbitMQ carries.
+- **Pydantic wire shapes:** `TaskBase`, `TaskMessage`, `JobMessage`,
+  `TaskResultMessage` in `models/plugins_models.py` (re-exported from
+  `magellon_sdk.models`). `data: Dict[str, Any]` is the per-task-type
+  payload; concrete shapes are `CtfInput`, `MotionCorInput`, `FftInput`,
+  etc. This is the envelope RabbitMQ carries. (Renamed from `*Dto` /
+  `*TaskData` in SDK 2.0; see `Documentation/CATEGORIES_AND_BACKENDS.md`
+  §4 and `magellon-sdk/CHANGELOG.md`.)
 
 The envelope is a homegrown shape — no `specversion`, `source`, or
 `datacontenttype` — functionally similar to CloudEvents but not standards-
@@ -176,18 +179,23 @@ task type is one `registry.register(...)` call. The legacy switch in
 lookup helper for the on-disk audit log.
 
 **Dispatch path.** Importers (`services/importers/{MagellonImporter,EPUImporter,SerialEmImporter,BaseImporter}.py`)
-and the Leginon frame-transfer service build a `TaskDto` and call
+and the Leginon frame-transfer service build a `TaskMessage` and call
 `dispatch_ctf_task` / `dispatch_motioncor_task` (`core/helper.py:147`
 and `:349`). Both end at `push_task_to_task_queue` (`core/helper.py:106`)
 which delegates to `get_task_dispatcher_registry().dispatch(task)`
-(`core/dispatcher_registry.py:124`). The registry wraps the `TaskDto`
+(`core/dispatcher_registry.py`). The registry wraps the `TaskMessage`
 in a CloudEvents `Envelope` and publishes via `bus.tasks.send` on the
 RMQ-backed `MessageBus` (installed once at startup by
-`install_core_bus()`, called from `main.py:367`). The on-disk audit
-log is still written to `/magellon/messages/<queue>/messages.json`
-via `_audit_outgoing_message` (`core/helper.py:124`), now decoupled
-from the publish path. (Updated 2026-04-21: MB3 producer migration
-landed; `RabbitmqClient` is no longer on the dispatch path.)
+`install_core_bus()`, called from `main.py:367`). When the message
+sets `target_backend`, the dispatcher's `BackendQueueResolver`
+(`_live_backend_queue` in production) consults the
+`PluginLivenessRegistry` and routes to the named backend's task
+queue; missing backend raises `BackendNotLive` rather than falling
+back. The on-disk audit log is still written to
+`/magellon/messages/<queue>/messages.json` via `_audit_outgoing_message`
+(`core/helper.py`), decoupled from the publish path. (Updated 2026-04-27:
+X.1 added the backend-pin path. MB3 producer migration landed
+2026-04-21; `RabbitmqClient` is no longer on the dispatch path.)
 
 **Consumer pattern** (P5 — `magellon_sdk.runner.plugin_runner.PluginBrokerRunner`):
 each plugin's `main.py` installs the RMQ bus (`install_rmq_bus(rmq)`)
@@ -398,9 +406,9 @@ gone — see §3.3 (deleted in the A.1 follow-up, `7d1f657`).
 | 1 | ~~`ImageJobTask` state not advanced after RMQ task completion~~ | **Resolved (Phase 4).** `task_output_processor._advance_task_state` writes `status_id` + `stage` (MotionCor=1, CTF=2, unknown=99). 5 unit tests. |
 | 2 | ~~No failure path from external plugin crashes~~ | **Resolved (P2 + P5).** `magellon_sdk.errors.classify_exception` returns `AckAction.{ACK,NACK_REQUEUE,DLQ}` per a typed taxonomy; `PluginBrokerRunner` honours it (DLQ for poison, requeue for transient, ack-with-failure-result for plugin-domain errors). |
 | 3 | ~~No mid-flight progress for external plugins~~ | **Fully resolved (MB5.3 + MB5.4b).** `StepEventPublisher` publishes via `bus.events.publish(StepEventRoute, env)`; `magellon_sdk.bus.services.step_event_forwarder.StepEventForwarder` subscribes via `bus.events.subscribe(StepEventRoute.all(), handler)` and emits `emit_step_event` onto Socket.IO. React app consumes one stream regardless of plugin location. |
-| 4 | Two plugin architectures | Same split (`plugins/` RMQ vs `CoreService/plugins/` in-process). The `TaskDispatcher` Protocol is the shared seam, and **`CategoryContract` (P1)** is the canonical input/output schema both halves resolve against — substitutability is now contract-pinned, not convention-pinned. |
+| 4 | Two plugin architectures | Same split (`plugins/` RMQ vs `CoreService/plugins/` in-process). The `TaskDispatcher` Protocol is the shared seam, and **`CategoryContract` (P1)** is the canonical input/output schema both halves resolve against — substitutability is now contract-pinned, not convention-pinned. **X.1 (2026-04-27)** added a `backend_id` axis under each category so two plugins serving one category (e.g. ctffind4 + gctf) are individually addressable via `TaskMessage.target_backend`. |
 | 5 | ~~Temporal-era dead-code island (~2K lines)~~ | **Resolved (A.1 follow-up, `7d1f657`).** |
-| 6 | ~~SDK scaffolded, thin~~ | **Filled in.** `magellon-sdk 0.1.0` now ships `PluginBase`, `Envelope`, `Executor` Protocol, `ProgressReporter`, **`TaskDispatcher` + `TaskDispatcherRegistry` (Phase 6)**, **NATS transport** (`NatsPublisher`/`NatsConsumer`), **RMQ transport** (`RabbitmqClient` with `declare_queue_with_dlq`), and **`events.StepEventPublisher`**. |
+| 6 | ~~SDK scaffolded, thin~~ | **Filled in.** `magellon-sdk 2.0.0` now ships `PluginBase`, `Envelope`, `Executor` Protocol, `ProgressReporter`, **`TaskDispatcher` + `TaskDispatcherRegistry` (Phase 6)**, **NATS transport** (`NatsPublisher`/`NatsConsumer`), **RMQ transport** (`RabbitmqClient` with `declare_queue_with_dlq`), **`events.StepEventPublisher`**, and **per-category backend axis** (`PluginManifest.backend_id`, `TaskMessage.target_backend`, X.1). |
 | 7 | ~~Duplicated `core/` across external plugins~~ | **Resolved (Phases B.1/B.2/B.3, `c90eefb`/`eda4933`/`f9a4511`).** |
 | 8 | ~~Queue mapping hardcoded~~ | **Resolved (Phase 6 + wiring).** `core.dispatcher_registry.get_task_dispatcher_registry()` owns the `TaskCategory.code` → dispatcher mapping. `push_task_to_task_queue` delegates. `get_queue_name_by_task_type` remains for the audit helper. |
 | 9 | ~~`asyncio.run` inside blocking pika callback~~ | **Resolved (Phase 3).** All 4 plugin consumer engines use one daemon-thread event loop + `asyncio.run_coroutine_threadsafe(...).result()`. |
@@ -480,6 +488,11 @@ provenance stamping, and typed failure routing are inherited.
   non-trivial PR in Magellon is reviewed against. Read this first.
 - **`DATA_PLANE.md`** — the shared-filesystem decision, the deployment
   matrix, and what the platform forecloses on (object-storage-only).
+- **`CATEGORIES_AND_BACKENDS.md`** — proposed (2026-04-27) backend
+  layer under every `TaskCategory`, the consolidated
+  `GET /plugins/capabilities` endpoint, and the
+  `Envelope` / `Message` wire-shape naming rule. Track C in
+  `IMPLEMENTATION_PLAN.md`. Drafted; not landed.
 - **`IMPLEMENTATION_PLAN.md`** — the v1 / v2 / v3 phasing: hardening the
   RMQ system with a `JobManager` seam + SDK + progress bus, then NATS
   additively, then a data-driven decision.

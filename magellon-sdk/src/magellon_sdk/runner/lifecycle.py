@@ -58,6 +58,7 @@ def start_discovery(
         category=contract.category.name.lower(),
         manifest=manifest,
         task_queue=task_queue,
+        backend_id=manifest.resolved_backend_id(),
     )
     try:
         publisher.announce(contract, announce)

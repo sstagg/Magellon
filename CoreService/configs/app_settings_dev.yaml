@@ -59,6 +59,14 @@ rabbitmq_settings:
   MOTIONCOR_TEST_OUT_QUEUE_NAME: motioncor_test_outqueue
   FFT_QUEUE_NAME: fft_tasks_queue
   FFT_OUT_QUEUE_NAME: fft_out_tasks_queue
+  SQUARE_DETECTION_QUEUE_NAME: square_detection_tasks_queue
+  SQUARE_DETECTION_OUT_QUEUE_NAME: square_detection_out_tasks_queue
+  HOLE_DETECTION_QUEUE_NAME: hole_detection_tasks_queue
+  HOLE_DETECTION_OUT_QUEUE_NAME: hole_detection_out_tasks_queue
+  TOPAZ_PICK_QUEUE_NAME: topaz_pick_tasks_queue
+  TOPAZ_PICK_OUT_QUEUE_NAME: topaz_pick_out_tasks_queue
+  MICROGRAPH_DENOISE_QUEUE_NAME: micrograph_denoise_tasks_queue
+  MICROGRAPH_DENOISE_OUT_QUEUE_NAME: micrograph_denoise_out_tasks_queue
   # In-process result-processor (P3). Each entry binds one out-queue
   # to a category for ImageMetaData stamping + on-disk file routing.
   OUT_QUEUES:
@@ -74,6 +82,22 @@ rabbitmq_settings:
       queue_type: fft
       dir_name: ffts
       category: 1
+    - name: square_detection_out_tasks_queue
+      queue_type: square_detection
+      dir_name: squares
+      category: 6
+    - name: hole_detection_out_tasks_queue
+      queue_type: hole_detection
+      dir_name: holes
+      category: 7
+    - name: topaz_pick_out_tasks_queue
+      queue_type: topaz_pick
+      dir_name: topaz_picks
+      category: 8
+    - name: micrograph_denoise_out_tasks_queue
+      queue_type: micrograph_denoise
+      dir_name: topaz_denoised
+      category: 9
 
 directory_settings:
   MAGELLON_HOME_DIR: C:/magellon/home

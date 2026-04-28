@@ -17,9 +17,9 @@ from magellon_sdk.events import (
     STEP_PROGRESS,
     STEP_STARTED,
     BoundStepReporter,
-    StepCompleted,
+    StepCompletedMessage,
     StepEventPublisher,
-    StepProgress,
+    StepProgressMessage,
     step_subject,
 )
 
@@ -51,16 +51,16 @@ def test_step_subject_accepts_string_id():
 
 def test_step_progress_percent_range_enforced():
     with pytest.raises(ValueError):
-        StepProgress(job_id=uuid4(), step="ctf", percent=101.0)
+        StepProgressMessage(job_id=uuid4(), step="ctf", percent=101.0)
     with pytest.raises(ValueError):
-        StepProgress(job_id=uuid4(), step="ctf", percent=-1.0)
+        StepProgressMessage(job_id=uuid4(), step="ctf", percent=-1.0)
 
 
 def test_step_completed_output_files_optional():
     # None is fine (step produced no files)
-    ev = StepCompleted(job_id=uuid4(), step="ctf")
+    ev = StepCompletedMessage(job_id=uuid4(), step="ctf")
     assert ev.output_files is None
-    ev2 = StepCompleted(job_id=uuid4(), step="ctf", output_files=["/tmp/a.png"])
+    ev2 = StepCompletedMessage(job_id=uuid4(), step="ctf", output_files=["/tmp/a.png"])
     assert ev2.output_files == ["/tmp/a.png"]
 
 

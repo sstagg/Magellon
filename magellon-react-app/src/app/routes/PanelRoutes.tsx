@@ -11,6 +11,8 @@ import DashboardView from "../../pages/dashboard/DashboardView.tsx";
 import { Box, CircularProgress, Container, Typography } from "@mui/material";
 import AboutPage from "../../pages/about/AboutPage.tsx";
 import { FftTestPage } from "../../pages/dev/FftTestPage.tsx";
+import { PtolemyTestPage } from "../../pages/dev/PtolemyTestPage.tsx";
+import { TopazTestPage } from "../../pages/dev/TopazTestPage.tsx";
 
 import {ExportPageView} from "../../pages/export/ExportPageView.tsx";
 import PluginsPageView from "../../pages/plugins/PluginsPageView.tsx";
@@ -59,6 +61,8 @@ export const PanelRoutes = () => {
                 <Route path="/plugins/*" element={<PluginRunnerPageView />} />
                 <Route path="/test" element={<TestView />} />
                 <Route path="/dev/fft-test" element={<FftTestPage />} />
+                <Route path="/dev/ptolemy-test" element={<PtolemyTestPage />} />
+                <Route path="/dev/topaz-test" element={<TopazTestPage />} />
                 <Route path="/admin/pipeline-health" element={<PipelineHealthPage />} />
                 <Route path="/settings" element={<SettingsView />} />
 

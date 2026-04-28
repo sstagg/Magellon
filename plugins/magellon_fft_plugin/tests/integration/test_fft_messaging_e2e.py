@@ -3,7 +3,7 @@
 Pipeline exercised
 ------------------
 
-    test publishes TaskDto -> RMQ fft_tasks_queue
+    test publishes TaskMessage -> RMQ fft_tasks_queue
        -> FftBrokerRunner consumer thread picks up
           -> FftPlugin.execute runs FFT, writes PNG to disk
              -> emits started / progress / completed envelopes
@@ -90,18 +90,18 @@ def _generate_input_images(target_dir: Path, count: int) -> List[Path]:
 
 def _publish_task_dto(rmq_settings, queue_name: str, image_path: Path, target_path: Path,
                       job_id: uuid.UUID, task_id: uuid.UUID) -> None:
-    """Publish one FFT TaskDto onto fft_tasks_queue.
+    """Publish one FFT TaskMessage onto fft_tasks_queue.
 
     Uses the plugin's own helper module so we exercise the same
     publish path the plugin uses for outbound messages. The plugin
     side reads the same singleton, so credentials match.
     """
     from core.helper import publish_message_to_queue
-    from magellon_sdk.models import FftTaskData
+    from magellon_sdk.models import FftInput
     from magellon_sdk.models.tasks import PENDING, FFT_TASK
     from magellon_sdk.task_factory import FftTaskFactory
 
-    data = FftTaskData(
+    data = FftInput(
         image_id=None,
         image_name=image_path.stem,
         image_path=str(image_path),

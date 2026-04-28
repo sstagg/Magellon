@@ -11,7 +11,7 @@ import pytest
 from pydantic import BaseModel
 
 from magellon_sdk import messaging
-from magellon_sdk.models import TaskDto, TaskResultDto
+from magellon_sdk.models import TaskMessage, TaskResultMessage
 
 
 class _DummyPayload(BaseModel):
@@ -65,13 +65,13 @@ def test_append_json_to_file_returns_false_on_error(tmp_path):
 
 
 def test_parse_message_to_task_object_round_trip():
-    task = TaskDto(data={"k": "v"})
+    task = TaskMessage(data={"k": "v"})
     parsed = messaging.parse_message_to_task_object(task.model_dump_json())
     assert parsed.data == {"k": "v"}
 
 
 def test_parse_message_to_task_result_object_round_trip():
-    result = TaskResultDto(code=200, message="ok")
+    result = TaskResultMessage(code=200, message="ok")
     parsed = messaging.parse_message_to_task_result_object(result.model_dump_json())
     assert parsed.code == 200
     assert parsed.message == "ok"
