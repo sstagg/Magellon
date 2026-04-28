@@ -5,7 +5,7 @@ and the dual-form ``consumer`` / ``subscribe`` sugar. The facade adds
 no behavior — it's a thin Protocol-satisfying layer so the binder can
 stay focused on transport and the caller API stays uniform.
 
-See ``MESSAGE_BUS_SPEC_AND_PLAN.md`` §4.1.
+See ``MESSAGE_BUS_SPEC.md`` §4.1.
 """
 from __future__ import annotations
 

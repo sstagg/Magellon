@@ -10,8 +10,9 @@ of nuance, it belongs in its own doc (like `DATA_PLANE.md`), not here.
 
 The principles are derived from operational experience of the P1–P9
 plugin platform refactor (2026-04-15) and the MessageBus migration
-planned in `MESSAGE_BUS_SPEC_AND_PLAN.md` v2.1. Each rule below names
-a live call site or a past incident that motivated it.
+specified in `MESSAGE_BUS_SPEC.md` (Track A, shipped 2026-04-21).
+Each rule below names a live call site or a past incident that
+motivated it.
 
 ---
 
@@ -40,12 +41,12 @@ needs a design doc. See `DATA_PLANE.md`.
 bus API (`magellon_sdk.bus`). One envelope (`Envelope[T]`). One
 progress seam (`ProgressReporter`). No shadow implementations.
 
-**Why.** The three-job-manager split critiqued in
-`TARGET_ARCHITECTURE_AND_PLAN.md` §3.1 (Dragonfly `job_manager.py`,
+**Why.** The three-job-manager split (Dragonfly `job_manager.py`,
 Temporal `temporal_job_manager.py`, live `job_service.py`) was the
 single worst class of bug Magellon has shipped: races between
 writers, conflicting status enums, lost progress. The platform
-refactor collapsed it to one live path.
+refactor collapsed it to one live path; the dead managers were
+deleted in A.1 (`7d1f657`).
 
 **How to apply.** Before introducing a new class, check whether an
 existing one owns the concept. If two classes exist and you can't
@@ -136,7 +137,7 @@ can land atomically.
 observe it, how do I drain it, how do I recover it?
 
 **Why.** P9 (queue purge + container kill) and the DLQ migration
-runbook (`MESSAGE_BUS_SPEC_AND_PLAN.md` §9.6.1) set the bar.
+runbook (`DLQ_MIGRATION_RUNBOOK.md`) set the bar.
 Subsystems without this surface are the ones that page operators at
 3 AM with no tools.
 

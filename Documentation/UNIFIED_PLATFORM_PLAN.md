@@ -1,6 +1,6 @@
 # Magellon — Unified Platform Plan
 
-**Status:** Proposal, 2026-04-17. Companion to `MESSAGE_BUS_SPEC_AND_PLAN.md` (MB0–MB6, bus foundations) and `MESSAGE_BUS_EXECUTION_PLAN.md` (MB migration PR sequencing).
+**Status:** Proposal, 2026-04-17. Companion to `MESSAGE_BUS_SPEC.md` (the bus foundations the unified architecture composes over).
 **Scope:** Retire the dual plugin architecture, then build toward a plugin hub on top of one coherent contract.
 **Not in scope:** MB7 (second binder), orchestration engines, UI redesigns outside the plugins page.
 

@@ -1,9 +1,12 @@
 # Magellon — Categories, Backends, and Wire-Shape Naming
 
-**Status:** Draft 2026-04-27. Awaiting review before any PR is opened.
-**Audience:** Architects, plugin developers, reviewers of the rename PRs.
+**Status:** Canonical. Track C shipped 2026-04-27 (X.1 `0a3f216`,
+X.2 `581518f`, X.3 `4639990`). SDK 1.2 → 1.3 → 2.0. See
+`IMPLEMENTATION_PLAN.md` "Track C" for the PR breakdown.
+**Audience:** Architects, plugin developers adding a second backend
+under an existing category, callers using `target_backend`.
 **Companion:** `ARCHITECTURE_PRINCIPLES.md`, `CURRENT_ARCHITECTURE.md`,
-`MESSAGE_BUS_SPEC_AND_PLAN.md`.
+`MESSAGE_BUS_SPEC.md`.
 
 This doc proposes three additions on top of the live plugin platform:
 

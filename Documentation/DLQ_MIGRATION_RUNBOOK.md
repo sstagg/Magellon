@@ -4,8 +4,9 @@
 `CoreService/scripts/migrate_dlq_topology.py`.
 **Risk:** High. This is the single non-revertible-by-`git revert`
 operation in the MessageBus migration plan.
-**Companion:** `MESSAGE_BUS_SPEC_AND_PLAN.md` §9.6.1 (origin of this
-runbook).
+**Companion:** `MESSAGE_BUS_SPEC.md` §7.2 (DLQ design); this runbook
+was originally inline in the spec's §9.6.1 and extracted here
+2026-04-21 alongside the MB6.4 script.
 
 ---
 

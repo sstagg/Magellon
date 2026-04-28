@@ -1,7 +1,7 @@
-"""RabbitMQ binder — the L4 implementation behind the bus (MB2).
+"""RabbitMQ binder — the L4 implementation behind the bus.
 
-See ``Documentation/MESSAGE_BUS_SPEC_AND_PLAN.md`` §3 (architecture)
-and ``Documentation/MESSAGE_BUS_EXECUTION_PLAN.md`` §3 MB2 for scope.
+See ``Documentation/MESSAGE_BUS_SPEC.md`` §3 (architecture) and §5
+(binder SPI).
 """
 from magellon_sdk.bus.binders.rmq.binder import RmqBinder
 from magellon_sdk.bus.binders.rmq.topology import (

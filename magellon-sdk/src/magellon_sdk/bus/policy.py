@@ -4,7 +4,7 @@ Kept intentionally plain (dataclasses, no broker imports) so this
 module can be imported by routes, binders, and callers without
 pulling in ``pika`` or ``nats-py``.
 
-See ``Documentation/MESSAGE_BUS_SPEC_AND_PLAN.md`` §4 (Bus API) and
+See ``Documentation/MESSAGE_BUS_SPEC.md`` §4 (Bus API) and
 §7 (Audit, observability, DLQ) for the motivating design.
 """
 from __future__ import annotations

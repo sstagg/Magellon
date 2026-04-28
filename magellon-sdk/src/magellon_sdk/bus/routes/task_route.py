@@ -6,7 +6,7 @@ plugins publish their ``TaskResultMessage``).
 
 Both delegate to ``CategoryContract`` for the subject string — the
 contract is the single source of truth for subject naming (see
-``Documentation/MESSAGE_BUS_SPEC_AND_PLAN.md`` §1.3, §4.3).
+``Documentation/MESSAGE_BUS_SPEC.md`` §1, §4.3).
 """
 from __future__ import annotations
 

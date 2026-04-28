@@ -6,7 +6,7 @@ translates to its native form (RMQ routing key, NATS subject). For
 category-scoped routes, the subject comes from
 :class:`CategoryContract` — the single source of truth.
 
-See ``Documentation/MESSAGE_BUS_SPEC_AND_PLAN.md`` §4.3.
+See ``Documentation/MESSAGE_BUS_SPEC.md`` §4.3.
 """
 from magellon_sdk.bus.routes.event_route import (
     AnnounceRoute,

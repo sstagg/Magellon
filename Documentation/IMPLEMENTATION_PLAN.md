@@ -1,24 +1,23 @@
 # Magellon — Implementation Plan
 
-**Status:** Revised 2026-04-14; **partially superseded 2026-04-15** by the
-plugin-platform refactor (P1–P9, see §"Plugin platform refactor" below).
-Original revision superseded the Temporal-centric plan — Phases 0–1 landed,
-Phase 2 reverted in commit `86fe9cc`.
+**Status:** Living document. Revised 2026-04-14, refreshed 2026-04-28.
+Tracks A (MB4–MB6), B (G.1–G.4), C (X.1–X.3) all shipped 2026-04-21 /
+2026-04-27. Phase A largely done (A.1–A.5 landed or cancelled).
+Phases B / C / D / E / F retained for partially-open work; see status
+notes per phase.
 
-> **⚠ Direction change vs. this plan as written.** Guiding rule #5 said
-> "RabbitMQ goes" and Phase A.4/A.5 described retiring the RMQ dispatch
-> helpers and dropping RMQ from compose. **That direction was reversed.**
-> RabbitMQ is now load-bearing for *more* than tasks: discovery (P6),
-> dynamic config (P7), and cancellation (P9) all ride a `magellon.plugins`
-> topic exchange. Consul was deleted instead (P8). The remainder of this
-> plan still applies for Phases B / D / E / F.
+> **Historical note.** The original Phase A plan (rule #5: "RabbitMQ
+> goes"; A.4/A.5: retire RMQ helpers, drop RMQ from compose) was
+> reversed by the P1–P9 plugin-platform refactor (2026-04-15). RMQ is
+> now load-bearing for tasks, discovery (P6), dynamic config (P7), and
+> cancellation (P9) — all riding the `magellon.plugins` topic exchange.
+> Consul was deleted instead (P8). Phases B / D / E / F still apply.
 >
 > **Governing docs (2026-04-21).** `ARCHITECTURE_PRINCIPLES.md` is the
 > canonical rule-set every PR in this plan is reviewed against.
-> `DATA_PLANE.md` closes the "artifact transport" open question by
+> `DATA_PLANE.md` closes the "artifact transport" question by
 > committing to a shared POSIX filesystem; object-storage-only
-> deployments are an explicit non-goal. The currently active work is
-> under "Active tracks — 2026-04-21" below.
+> deployments are an explicit non-goal.
 
 **Context:** The earlier plan assumed Temporal would become the workflow engine
 and NATS the event backbone. The actual workload is **one plugin, one call,
@@ -119,7 +118,7 @@ new.
 | A.3 | Pick ONE job manager as canonical | Decide: is `job_service.py` (the live plugin dispatch) or `magellon_job_manager.py` (domain/import) the survivor? Merge the other into it. One lifecycle, one state store, one progress path. |
 | A.4 | Retire the RabbitMQ dispatch helpers | `core/helper.py` — `publish_message_to_queue`, `get_queue_name_by_task_type`, `push_task_to_task_queue`, `dispatch_ctf_task`, `dispatch_motioncor_task` — all dead now that plugins dispatch in-process. Delete along with `core/rabbitmq_client.py`. |
 | A.5 | Drop RabbitMQ from `docker-compose.yml` | Remove the service and its volume. If any importer still writes to `/magellon/messages/*/messages.json` as an audit trail, replace with structured log lines. |
-| A.6 | Finalize the Phase 0 dead-code audit sweep | Walk `Documentation/PHASE_0_DEAD_CODE_AUDIT.md`, execute the "SAFE TO DELETE" rows that are still safe, re-verify each before removal. |
+| A.6 | Finalize the Phase 0 dead-code audit sweep | Walk the original audit (retired from `Documentation/`; see git log for `PHASE_0_DEAD_CODE_AUDIT.md`), execute remaining "SAFE TO DELETE" rows, re-verify each before removal. |
 
 **Exit criterion:** `grep -ri "temporal\|rabbitmq"` returns hits only in history,
 docs, or settings-file examples. One `JobService`. One dispatch path.
@@ -290,9 +289,11 @@ chain; Track B PRs are independent and can be picked up one at a time.
 DLQ-wired. Half-migrated is the worst state to sit in — new call sites
 drift onto whichever pattern the author copied from. Non-negotiable.
 
-Follows `MESSAGE_BUS_EXECUTION_PLAN.md` with this PR ordering. PR IDs
-use the `MB` prefix to match the execution plan and to avoid colliding
-with Phase-A PR numbering.
+PR IDs use the `MB` prefix to avoid colliding with Phase-A PR
+numbering. The original execution plan (PR-by-PR ordering, file lists,
+acceptance criteria) lived in `Documentation/MESSAGE_BUS_EXECUTION_PLAN.md`,
+retired from the directory now that all 13 PRs shipped — see git log.
+Architecture details remain in `MESSAGE_BUS_SPEC.md`.
 
 **Track A status (2026-04-21, end of day).** All 13 Track A PRs
 shipped in one session. Exit gate met: `rg '^import pika|^from pika'`
@@ -377,8 +378,8 @@ Landed 2026-04-21:
 - `ARCHITECTURE_PRINCIPLES.md` (new) — canonical rule-set.
 - `DATA_PLANE.md` (new) — shared-filesystem decision + deployment matrix.
 - `CURRENT_ARCHITECTURE.md` §4.1, §8 #12, §11 — corrected and reframed.
-- `TARGET_ARCHITECTURE_AND_PLAN.md` — superseded-banner now points at the new canon.
 - `CoreService/docs/plugin-developer-guide.md` — new "Data Plane" section.
+- `TARGET_ARCHITECTURE_AND_PLAN.md` was superseded and retired from `Documentation/` 2026-04-28; see git log.
 
 These are governance; they gate the review of every PR in Track A and Track B.
 
