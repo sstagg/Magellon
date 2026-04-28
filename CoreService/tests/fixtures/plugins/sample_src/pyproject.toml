@@ -1,0 +1,12 @@
+[project]
+name = "sample-plugin"
+version = "0.1.0"
+description = "Test fixture plugin for CoreService install pipeline tests."
+requires-python = ">=3.11"
+# Intentionally zero deps — we want install tests to be fast and not
+# pull in numpy/scipy. A real plugin's pyproject lists its actual deps.
+dependencies = []
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"

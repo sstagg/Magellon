@@ -1,0 +1,47 @@
+manifest_version: "1"
+plugin_id: sample-plugin
+archive_id: 00000000-0000-7000-8000-000000000000
+
+name: "Sample Plugin"
+version: 0.1.0
+requires_sdk: ">=2.0,<3.0"
+
+author: "Magellon Test Suite"
+license: MIT
+description: >
+  Synthetic test fixture for CoreService install-pipeline tests.
+  Pure Python, no external binaries — packs cheap, installs cheap,
+  uninstalls cheap. Intentionally minimal so a regression in
+  manifest validation or pack output surfaces immediately.
+
+category: fft
+backend_id: sample-plugin
+
+requires:
+  - broker
+  - gpfs
+
+resources:
+  cpu_cores: 1
+  memory_mb: 64
+  gpu_count: 0
+  typical_duration_seconds: 1
+
+input_schema: schemas/input.json
+output_schema: schemas/output.json
+
+install:
+  - method: uv
+    pyproject: pyproject.toml
+    requires:
+      - python: ">=3.11"
+
+health_check:
+  timeout_seconds: 5
+  expected_announce: true
+
+ui: null
+
+tags:
+  - test-fixture
+  - sample
