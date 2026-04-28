@@ -19,6 +19,7 @@ from configs.production_test import production_intilization
 from config import app_settings
 from controllers.camera_controller import camera_router
 from controllers.admin_broker_controller import admin_broker_router
+from controllers.admin_plugin_install_controller import admin_plugin_install_router
 from controllers.cancellation_controller import cancellation_router
 from controllers.db_controller import db_router
 from controllers.deployment_docker_controller import deployment_docker_router
@@ -311,6 +312,13 @@ app.include_router(cancellation_router, tags=["Cancellation"], prefix="/cancella
 
 # Pipeline-health page backend (Magellon-domain projection of RMQ state).
 app.include_router(admin_broker_router, tags=["Admin - Broker"], prefix="/admin/broker")
+
+# v1 plugin install pipeline (P7) — upload .mpn, upgrade, uninstall, list.
+app.include_router(
+    admin_plugin_install_router,
+    tags=["Admin - Plugin Install"],
+    prefix="/admin/plugins",
+)
 
 
 Instrumentator().instrument(app).expose(app)
