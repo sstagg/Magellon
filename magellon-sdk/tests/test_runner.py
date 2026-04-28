@@ -363,6 +363,255 @@ def test_runner_uses_get_bus_when_no_explicit_bus_passed():
         bus.close()
 
 
+# ---------------------------------------------------------------------------
+# Cancelled-result path (G.1) — closes runner gap #3 from coverage audit
+# ---------------------------------------------------------------------------
+
+def test_handle_task_publishes_cancelled_result_on_jobcancelled():
+    """JobCancelledError raised by the plugin's reporter (operator
+    cancelled the job mid-flight) must NOT propagate up to the binder
+    — that would route the message to the DLQ, which confuses
+    operators ("why is my cancelled task in the DLQ?"). The runner
+    catches the raise, builds a FAILED-status result with
+    output_data.cancelled=True, and acks normally."""
+    from magellon_sdk.progress import JobCancelledError
+
+    binder = MockBinder()
+    bus = DefaultMessageBus(binder)
+    bus.start()
+    try:
+        runner = _make_runner(_StubPlugin(raise_on_run=JobCancelledError("user clicked cancel")), bus=bus)
+        env = Envelope.wrap(
+            source="test", type="t", subject="ctf_in", data=_make_task(),
+        )
+
+        result = runner._handle_task(env)
+
+        assert result is None  # binder acks
+        assert len(binder.published_tasks) == 1
+        _, result_env = binder.published_tasks[0]
+        result_dto = result_env.data
+        if not isinstance(result_dto, TaskResultMessage):
+            result_dto = TaskResultMessage.model_validate(result_dto)
+        # The cancelled result wears FAILED status (the wire enum has
+        # no CANCELLED code today) but the cancelled flag distinguishes
+        # it from a real failure.
+        assert result_dto.output_data == {"cancelled": True, "reason": "user clicked cancel"}
+        assert "cancelled" in (result_dto.message or "")
+    finally:
+        bus.close()
+
+
+def test_cancelled_result_carries_task_and_job_ids():
+    """The result processor projects against the task row by id; the
+    UI shows the job's cancelled state via job_id. Both must travel."""
+    from magellon_sdk.progress import JobCancelledError
+
+    binder = MockBinder()
+    bus = DefaultMessageBus(binder)
+    bus.start()
+    try:
+        runner = _make_runner(_StubPlugin(raise_on_run=JobCancelledError("x")), bus=bus)
+        task = _make_task()
+        env = Envelope.wrap(source="t", type="t", subject="ctf_in", data=task)
+
+        runner._handle_task(env)
+
+        result_dto = binder.published_tasks[0][1].data
+        if not isinstance(result_dto, TaskResultMessage):
+            result_dto = TaskResultMessage.model_validate(result_dto)
+        assert result_dto.task_id == task.id
+        assert result_dto.job_id == task.job_id
+    finally:
+        bus.close()
+
+
+def test_cancelled_result_extracts_image_id_from_task_data():
+    """``image_id`` lives inside ``task.data`` (per-category payload),
+    not at the top level. The cancelled-result helper has to dig it
+    out so the result projector can anchor the cancelled status to
+    the right image row."""
+    from magellon_sdk.progress import JobCancelledError
+    from uuid import uuid4
+
+    binder = MockBinder()
+    bus = DefaultMessageBus(binder)
+    bus.start()
+    try:
+        runner = _make_runner(_StubPlugin(raise_on_run=JobCancelledError("x")), bus=bus)
+        image_id = uuid4()
+        task = TaskMessage(
+            id=uuid4(), job_id=uuid4(), type=CTF_TASK,
+            data={"image_path": "/x.mrc", "image_id": str(image_id)},
+        )
+        env = Envelope.wrap(source="t", type="t", subject="ctf_in", data=task)
+
+        runner._handle_task(env)
+
+        result_dto = binder.published_tasks[0][1].data
+        if not isinstance(result_dto, TaskResultMessage):
+            result_dto = TaskResultMessage.model_validate(result_dto)
+        assert str(result_dto.image_id) == str(image_id)
+    finally:
+        bus.close()
+
+
+def test_cancelled_result_handles_missing_image_id():
+    """Some categories don't carry ``image_id`` in their payload at
+    all; the cancelled-result builder must not crash when it's
+    absent. The result still ships, just without an image anchor."""
+    from magellon_sdk.progress import JobCancelledError
+
+    binder = MockBinder()
+    bus = DefaultMessageBus(binder)
+    bus.start()
+    try:
+        runner = _make_runner(_StubPlugin(raise_on_run=JobCancelledError("x")), bus=bus)
+        # task.data without image_id key
+        task = _make_task()  # data={"image_path": "/gpfs/x.mrc"}, no image_id
+        env = Envelope.wrap(source="t", type="t", subject="ctf_in", data=task)
+
+        runner._handle_task(env)
+
+        # No crash; result still published.
+        assert len(binder.published_tasks) == 1
+
+
+    finally:
+        bus.close()
+
+
+# ---------------------------------------------------------------------------
+# Shutdown / lifecycle (gap #3 part B) — stop() must close every resource
+# ---------------------------------------------------------------------------
+
+def test_stop_is_idempotent():
+    """Operator scripts and finally-blocks both call stop(); calling
+    twice must not raise. Otherwise the second call masks the first
+    error."""
+    runner = _make_runner(_StubPlugin())
+    runner.stop()  # nothing started yet
+    runner.stop()  # second call
+
+
+def test_stop_closes_task_handle():
+    """The bus consumer handle holds the consumer thread + cancel
+    flag — leaking it on shutdown leaves the thread alive after the
+    runner exits, which can race with subsequent tests or a process
+    restart."""
+    runner = _make_runner(_StubPlugin())
+    handle = MagicMock()
+    runner._task_handle = handle
+
+    runner.stop()
+
+    handle.close.assert_called_once()
+    assert runner._task_handle is None  # cleared so a second stop() is safe
+
+
+def test_stop_closes_heartbeat_loop():
+    """The heartbeat thread keeps the plugin in the liveness
+    registry. If we don't stop it on shutdown, the registry shows a
+    dead replica as live — dispatcher would route work to a queue
+    nobody's consuming."""
+    runner = _make_runner(_StubPlugin())
+    heartbeat = MagicMock()
+    runner._heartbeat_loop = heartbeat
+
+    runner.stop()
+
+    heartbeat.stop.assert_called_once()
+
+
+def test_stop_closes_discovery_publisher():
+    """Discovery publisher owns its own broker connection (pre-MB5)
+    — leaking it pins broker resources after process exit."""
+    runner = _make_runner(_StubPlugin())
+    pub = MagicMock()
+    runner._discovery_publisher = pub
+
+    runner.stop()
+
+    pub.close.assert_called_once()
+
+
+def test_stop_closes_config_subscriber():
+    """The config subscriber owns its own subscription handle on the
+    bus. Leaking it is observable as a dangling subscriber count on
+    the broker UI."""
+    runner = _make_runner(_StubPlugin())
+    sub = MagicMock()
+    runner._config_subscriber = sub
+
+    runner.stop()
+
+    sub.stop.assert_called_once()
+
+
+def test_stop_closes_cancel_listener():
+    """G.1 cancel listener also has a subscription that must be
+    released; symmetric with config subscriber."""
+    runner = _make_runner(_StubPlugin())
+    listener = MagicMock()
+    runner._cancel_listener = listener
+
+    runner.stop()
+
+    listener.stop.assert_called_once()
+    assert runner._cancel_listener is None
+
+
+def test_stop_does_not_raise_when_resource_close_fails():
+    """A flaky resource (broker disconnected mid-stop) raising must
+    not abort cleanup of the OTHER resources. Operator pressed Ctrl-C
+    and we'd rather close as much as we can."""
+    runner = _make_runner(_StubPlugin())
+    handle = MagicMock()
+    handle.close.side_effect = RuntimeError("broker gone")
+    heartbeat = MagicMock()
+    runner._task_handle = handle
+    runner._heartbeat_loop = heartbeat
+
+    # Should not raise.
+    runner.stop()
+
+    # Despite handle.close() blowing up, heartbeat still got stopped.
+    heartbeat.stop.assert_called_once()
+
+
+def test_start_cancel_listener_failure_is_logged_not_raised(caplog):
+    """If the cancel listener fails to subscribe (network blip,
+    permission issue), the plugin should still come up — task
+    processing without cooperative cancel is degraded, not broken.
+    The plugin author cares more about the plugin running than about
+    cancel working."""
+    from magellon_sdk.bus._facade import get_bus
+
+    binder = MockBinder()
+    bus = DefaultMessageBus(binder)
+    bus.start()
+    try:
+        runner = _make_runner(_StubPlugin(), bus=bus)
+
+        with caplog.at_level("ERROR"):
+            # Patch the imported function inside the runner module so the
+            # lazy import inside _start_cancel_listener picks up the patched
+            # version rather than the real one.
+            from magellon_sdk.bus.services import cancel_registry as _cr_mod
+            original = _cr_mod.start_cancel_listener
+            _cr_mod.start_cancel_listener = MagicMock(side_effect=RuntimeError("subscribe failed"))
+            try:
+                runner._start_cancel_listener(bus)
+            finally:
+                _cr_mod.start_cancel_listener = original
+
+        # Listener slot stays None (degraded mode); the runner did not crash.
+        assert runner._cancel_listener is None
+        assert any("cancel listener failed" in r.message for r in caplog.records)
+    finally:
+        bus.close()
+
+
 def test_runner_auto_installs_rmq_bus_when_no_factory_registered(monkeypatch):
     """Pre-MB4.2 compat: a plugin main.py that hasn't been migrated to
     call install_rmq_bus() still works — the runner falls back to
