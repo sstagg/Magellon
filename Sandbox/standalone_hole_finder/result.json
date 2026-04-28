@@ -1,0 +1,102 @@
+{
+  "holes": [
+    {
+      "center": [
+        148.82467532467533,
+        969.2142857142857
+      ],
+      "stats": {
+        "center": [
+          148.82467532467533,
+          969.2142857142857
+        ],
+        "convolved": false,
+        "hole_number": 1,
+        "hole_stat_radius": 20,
+        "hole_n": 1257,
+        "hole_mean": 109.9443130493164,
+        "hole_std": 42.555015563964844
+      }
+    }
+  ],
+  "good_holes": [
+    {
+      "center": [
+        148.82467532467533,
+        969.2142857142857
+      ],
+      "stats": {
+        "center": [
+          148.82467532467533,
+          969.2142857142857
+        ],
+        "convolved": false,
+        "hole_number": 1,
+        "hole_stat_radius": 20,
+        "hole_n": 1257,
+        "hole_mean": 109.9443130493164,
+        "hole_std": 42.555015563964844
+      }
+    }
+  ],
+  "convolved_holes": [],
+  "sampled_holes": [
+    {
+      "center": [
+        148.82467532467533,
+        969.2142857142857
+      ],
+      "stats": {
+        "center": [
+          148.82467532467533,
+          969.2142857142857
+        ],
+        "convolved": false,
+        "hole_number": 1,
+        "hole_stat_radius": 20,
+        "hole_n": 1257,
+        "hole_mean": 109.9443130493164,
+        "hole_std": 42.555015563964844
+      }
+    }
+  ],
+  "blobs": [
+    {
+      "center": [
+        148.82467532467533,
+        969.2142857142857
+      ],
+      "size": 154,
+      "mean": 682415.5625,
+      "stddev": 21967.412109375,
+      "roundness": 0.4442656277803748,
+      "maximum_position": [
+        147,
+        967
+      ],
+      "label_index": 1
+    }
+  ],
+  "lattice": {
+    "spacing": 100.0,
+    "angle": null,
+    "points": [
+      [
+        148.82467532467533,
+        969.2142857142857
+      ]
+    ]
+  },
+  "correlation_stats": {
+    "correlation_shape": [
+      1024,
+      1024
+    ],
+    "threshold_mask_shape": [
+      1024,
+      1024
+    ]
+  },
+  "hole_count": 1,
+  "good_hole_count": 1
+}
