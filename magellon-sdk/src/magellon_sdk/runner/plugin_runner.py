@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from pathlib import Path
 from typing import Any, Callable, Optional
 
 from magellon_sdk.base import PluginBase
@@ -111,6 +112,7 @@ class PluginBrokerRunner:
         enable_discovery: bool = True,
         enable_config: bool = True,
         bus: Optional[MessageBus] = None,
+        config_persisted_path: Optional[Path] = None,
     ) -> None:
         self.plugin = plugin
         self.settings = settings
@@ -122,6 +124,10 @@ class PluginBrokerRunner:
         self.enable_discovery = enable_discovery and contract is not None
         self.enable_config = enable_config and contract is not None
         self._bus = bus
+        # Optional path where ConfigUpdate.persistent=True pushes are
+        # cached so they survive a plugin restart. ``None`` keeps the
+        # pre-existing behavior (in-memory only).
+        self._config_persisted_path = config_persisted_path
         # Routes derived from the legacy string params — callers pass
         # physical queue names today; MB5+ can migrate to contract-based
         # routes (TaskRoute.for_category(...)) when plugin configs update.
@@ -298,6 +304,7 @@ class PluginBrokerRunner:
             settings=self.settings,
             contract=self.contract,
             existing=self._config_subscriber,
+            persisted_path=self._config_persisted_path,
         )
 
     def _apply_pending_config(self) -> None:

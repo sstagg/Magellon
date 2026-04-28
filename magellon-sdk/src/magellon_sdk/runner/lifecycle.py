@@ -15,6 +15,7 @@ seam the bus migration will slot under.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any, Optional, Tuple
 
 from magellon_sdk.base import PluginBase
@@ -84,6 +85,7 @@ def start_config_subscriber(
     settings: Any,
     contract: CategoryContract,
     existing: Optional[ConfigSubscriber] = None,
+    persisted_path: Optional[Path] = None,
 ) -> ConfigSubscriber:
     """Start a :class:`ConfigSubscriber` once per process.
 
@@ -91,10 +93,17 @@ def start_config_subscriber(
     reconnect. The subscriber buffers updates on its own daemon thread;
     the runner drains the buffer between deliveries via
     :meth:`ConfigSubscriber.take_pending`.
+
+    ``persisted_path``: if set, the subscriber writes settings tagged
+    ``ConfigUpdate.persistent=True`` to that file and loads them back
+    on next boot. Default ``None`` keeps the pre-existing behavior
+    (in-memory only; settings lost on restart).
     """
     if existing is not None:
         return existing
-    subscriber = ConfigSubscriber(settings, contract=contract)
+    subscriber = ConfigSubscriber(
+        settings, contract=contract, persisted_path=persisted_path,
+    )
     subscriber.start()
     return subscriber
 

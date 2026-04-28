@@ -271,7 +271,160 @@ binding, you have four of the six.
 
 ---
 
-## 8. Implications for alternate transports
+## 8. Pattern internals — who actually decides what?
+
+A common misconception: "RabbitMQ knows about my jobs / poison
+messages / config." It doesn't. RabbitMQ moves opaque byte-blobs along
+queues per the topology you declared. Every interesting decision in
+the six patterns above is made by Python code in `magellon-sdk` that
+*uses* RMQ as plumbing.
+
+This section walks the three patterns where the dumb-broker /
+smart-worker split most often confuses readers.
+
+### 8.1 DLQ — the worker classifies poison; RMQ just routes
+
+Two layers, often conflated:
+
+| Layer | Owns | Where it lives |
+|---|---|---|
+| **Plumbing** — "if this message is nack'd-without-requeue, route it to *this* DLQ" | RabbitMQ | Queue declaration arguments: `x-dead-letter-exchange` + `x-dead-letter-routing-key` |
+| **Decision** — "this exception means poison, not transient failure" | Python (the worker) | `magellon_sdk/errors.py::classify_exception` |
+
+Per-message flow:
+
+1. Binder hands the envelope to `PluginBrokerRunner._handle_task`
+   (`runner/plugin_runner.py:142`).
+2. Plugin's `execute()` runs. Returns → ack. Raises → propagates back
+   to the binder.
+3. Binder calls `classify_exception(exc, redelivery_count=N)`. Returns
+   one of `ACK` / `REQUEUE` / `DLQ`. Rules in priority order:
+   - `PermanentError` → `DLQ` immediately.
+   - `RetryableError` → `REQUEUE` (with the plugin's optional
+     `retry_after_seconds` hint).
+   - Untyped exception → `REQUEUE` until `redelivery_count >= 3`,
+     then `DLQ`. Tracked via the `x-magellon-redelivery` header the
+     binder increments per nack-requeue.
+4. Binder translates the action: `ACK` → `basic_ack`; `REQUEUE` →
+   `basic_nack(requeue=True)`; `DLQ` → `basic_nack(requeue=False)`.
+
+The fourth step is where RMQ's DLX involvement begins and ends. It
+sees `requeue=False`, looks at the queue's `x-dead-letter-exchange`
+arg, routes the bytes accordingly. RMQ at no point inspected the
+exception, the message body, or the redelivery count.
+
+A plugin opts into fast DLQ routing by raising `PermanentError`
+explicitly. Otherwise the runner gives it three retries before giving
+up — protects against poison loops when a plugin raises an untyped
+exception.
+
+### 8.2 Cancellation — RMQ doesn't know what a job is
+
+A queue is an opaque list of byte-blobs. RMQ has no knowledge that
+delivery #1 and delivery #5 both belong to "job 1234". It can't
+filter "drop everything for job 1234" because it never parsed your
+envelope. So you need code that *does* understand the envelope.
+
+Magellon has two mechanisms, both Python:
+
+**Mechanism A — cooperative cancel (G.1, default).** Operator clicks
+"Cancel" → CoreService publishes `CancelMessage(job_id=1234)` on
+`magellon.plugins.cancel.1234` → every plugin replica's bus
+subscription catches it (`bus/services/cancel_registry.py:153`) and
+adds `"1234"` to a `Set[str]` in process memory. When a replica next
+pulls a task from `ctf_tasks_queue` whose `job_id` is 1234, the first
+`reporter.started()` checkpoint inside `plugin.run()` looks at the
+registry and raises `JobCancelledError`. The runner catches the
+raise (`runner/plugin_runner.py:168`), publishes a FAILED-with-
+`output_data["cancelled"]=True` result, and acks. The task drains in
+milliseconds.
+
+The queued tasks for job 1234 are **not** removed from the queue.
+They get delivered normally, and each replica short-circuits on
+arrival. No queue mutation needed.
+
+**Mechanism B — queue purge (P9, hard-stop).**
+`POST /cancellation/queues/purge` calls
+`bus.tasks.purge(TaskRoute.named(...))`, which is the one place RMQ
+*does* drop messages — `channel.queue_purge(queue_name)`. But this is
+category-wide ("drop ALL pending CTF work"), not per-job. Use it for
+runaway plugins or queues full of stale work, not for normal
+cancellation.
+
+So "RMQ should handle it, right?" — no, by design. Per-job filtering
+needs envelope inspection, which is a Python concern.
+
+### 8.3 Dynamic config — broker is the delivery mechanism, not the store
+
+A `ConfigUpdate` push is just an `Envelope` published on
+`magellon.plugins.config.<category>` (or `.broadcast`). Each plugin
+replica subscribes to `magellon.plugins.config.>` and filters by
+`update.target` in Python (`config_broker.py:278`). Filtering on the
+client side — RMQ doesn't know which `target` field this replica
+cares about; it just delivers every wildcard-matching message and
+lets Python decide.
+
+The non-obvious part is **when** the config is applied:
+
+```python
+# config_broker.py:259
+def deliver(self, message: ConfigUpdate) -> None:
+    with self._lock:
+        # version check, then:
+        self._pending.update(message.settings)   # buffer only
+```
+
+```python
+# runner/plugin_runner.py:303
+def _apply_pending_config(self) -> None:
+    pending = self._config_subscriber.take_pending()  # atomic drain
+    if pending:
+        self.plugin.configure(pending)
+```
+
+`_apply_pending_config()` runs at the **start of each task** delivery
+(`_handle_task:161`), never during one. A config update arriving
+mid-execute lands in the buffer immediately, but the plugin doesn't
+see it until the current task finishes. Trade: one task's worth of
+latency on a config rollout in exchange for never racing a running
+`execute()`. Worth it.
+
+**Persistence — the `persistent` flag.** A push marked
+`ConfigUpdate.persistent=True` is also written to a per-replica local
+file by the subscriber (when constructed with a `persisted_path`).
+On boot the subscriber loads the file and primes its buffer, so the
+first `configure()` call after restart sees the operator's last
+persistent push. Non-persistent pushes (the default) stay in-memory
+only — same as before. This solves the "operator pushed
+`max_defocus=5.0` last week, plugin restarted, lost it" gap.
+
+**What it does NOT solve — cross-replica consistency.** Each replica
+writes its own local file. A replica that was offline during the
+push has stale state; a new replica added later starts empty. The
+production-grade fix is a centralized store fronting the bus
+(Spring Cloud Config / Consul KV pattern): CoreService persists
+config in MySQL, plugins fetch on boot, the bus message becomes a
+"refetch" notification rather than carrying the value itself.
+Tracked as a Phase 2 follow-up.
+
+**What belongs where.** Credentials and infrastructure config (broker
+host, DB URL) belong in env vars and YAML — managed by the deploy
+system. Operator-tuned runtime values (algorithm knobs, log levels)
+belong in the bus push path. The `persistent` flag is the marker
+that says "this is the kind of value that should survive restart."
+
+### The thread
+
+> RMQ moves bytes; Python interprets them.
+
+Every "smart" feature in the patterns above lives in `magellon-sdk`,
+not in the broker. That's why the same patterns transfer to NATS or
+the in-memory binder — the decision-making code doesn't change, only
+the transport plumbing underneath does.
+
+---
+
+## 9. Implications for alternate transports
 
 This is the lens the message-bus abstraction was designed for. Mapping
 the three shapes onto candidate transports:
@@ -295,7 +448,7 @@ block, RMQ is a finished product.
 
 ---
 
-## 9. Where to read next
+## 10. Where to read next
 
 - **`MESSAGE_BUS_SPEC.md`** — the abstraction that lets us swap
   transports without rewriting plugins.

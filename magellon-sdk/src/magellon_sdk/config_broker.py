@@ -1,4 +1,4 @@
-"""Broker-based dynamic configuration (P7 + MB5.2).
+"""Broker-based dynamic configuration (P7 + MB5.2 + persistent flag).
 
 Replaces Consul KV. The premise: configuration that needs to reach a
 fleet of plugin replicas should ride the same broker the tasks do.
@@ -27,6 +27,19 @@ plugins inside a category can have wildly different knobs (CTFFind's
 search range vs. gctf's iteration count). A schema would force the
 category to know things only the plugin should know.
 
+**Persistence (``ConfigUpdate.persistent``).** A push marked
+``persistent=True`` is also written to a per-replica local file by
+the subscriber so the value survives a plugin restart. On boot the
+subscriber loads the file and primes its buffer — the very first
+``configure()`` call sees the persisted state. This solves the
+"operator pushed max_defocus=5.0 last week, plugin restarted, lost
+it" gap. It does NOT solve cross-replica consistency: a replica
+that was offline during the push has a stale local copy, and a new
+replica added later starts empty. The full fix is a centralized
+config store fronting the bus (Spring Cloud Config / Consul KV
+pattern) — tracked separately. See ``Documentation/BROKER_PATTERNS.md``
+§8.3 for the gap discussion.
+
 MB5.2 re-routed publisher + subscriber through the MessageBus
 (``bus.events.publish`` / ``bus.events.subscribe``). The binder owns
 the pika connection lifecycle; this module contains no transport
@@ -35,9 +48,11 @@ body is ``ConfigUpdate.model_dump_json()`` exactly as before.
 """
 from __future__ import annotations
 
+import json
 import logging
 import threading
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 from uuid import uuid4
 
@@ -83,6 +98,17 @@ class ConfigUpdate(BaseModel):
     settings: Dict[str, Any]
     ts: datetime = Field(default_factory=_now_utc)
     version: Optional[int] = None
+    persistent: bool = False
+    """When True, subscribers configured with a persisted-config path
+    write these settings to disk so they survive a plugin restart.
+    Subscribers without a path silently ignore the flag — they apply
+    the settings in-memory like any other push.
+
+    Use for operator-tuned runtime values that should hold across
+    restarts (e.g., ``max_defocus`` adjusted during a session).
+    Don't use for credentials or infrastructure config — those
+    belong in env vars or YAML, where the deploy system can manage
+    them. See ``Documentation/BROKER_PATTERNS.md`` §8.3."""
 
 
 _ENVELOPE_SOURCE = "magellon/plugin/config"
@@ -125,9 +151,15 @@ class ConfigPublisher:
         settings: Dict[str, Any],
         *,
         version: Optional[int] = None,
+        persistent: bool = False,
     ) -> None:
         target = contract.category.name.lower()
-        msg = ConfigUpdate(target=target, settings=settings, version=version)
+        msg = ConfigUpdate(
+            target=target,
+            settings=settings,
+            version=version,
+            persistent=persistent,
+        )
         self._publish(ConfigRoute.for_category(contract), msg)
 
     def publish_broadcast(
@@ -135,8 +167,14 @@ class ConfigPublisher:
         settings: Dict[str, Any],
         *,
         version: Optional[int] = None,
+        persistent: bool = False,
     ) -> None:
-        msg = ConfigUpdate(target="broadcast", settings=settings, version=version)
+        msg = ConfigUpdate(
+            target="broadcast",
+            settings=settings,
+            version=version,
+            persistent=persistent,
+        )
         self._publish(ConfigRoute.broadcast(), msg)
 
     def _publish(self, route: ConfigRoute, message: ConfigUpdate) -> None:
@@ -194,19 +232,29 @@ class ConfigSubscriber:
         exchange: str = "magellon.plugins",
         queue_name: Optional[str] = None,
         bus: Optional[MessageBus] = None,
+        persisted_path: Optional[Path] = None,
     ) -> None:
         self._settings = settings
         self.contract = contract
         self.exchange = exchange  # Legacy; binder owns exchange naming now.
         self.queue_name = queue_name  # Legacy; binder picks a per-subscription queue.
         self._bus = bus
+        self._persisted_path = persisted_path
 
         self._target = contract.category.name.lower()
         self._pending: Dict[str, Any] = {}
+        # Cumulative state of persistent pushes only — written to disk on each
+        # persistent delivery, loaded from disk on boot. Independent from
+        # _pending (which is the runner's drain buffer): a non-persistent push
+        # lands in _pending but not in _persisted_state.
+        self._persisted_state: Dict[str, Any] = {}
         self._last_version: Optional[int] = None
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._handle: Optional[SubscriptionHandle] = None
+
+        if self._persisted_path is not None:
+            self._load_persisted()
 
     def _resolve_bus(self) -> MessageBus:
         return self._bus if self._bus is not None else get_bus()
@@ -259,6 +307,7 @@ class ConfigSubscriber:
     def deliver(self, message: ConfigUpdate) -> None:
         """Inject a config update directly. Public for tests + for any
         in-process publisher that wants to skip the broker round-trip."""
+        snapshot_to_write: Optional[Dict[str, Any]] = None
         with self._lock:
             if (
                 message.version is not None
@@ -270,6 +319,99 @@ class ConfigSubscriber:
             if message.version is not None:
                 self._last_version = message.version
             self._pending.update(message.settings)
+            if message.persistent and self._persisted_path is not None:
+                self._persisted_state.update(message.settings)
+                snapshot_to_write = dict(self._persisted_state)
+        # File I/O happens outside the lock — never hold the buffer
+        # lock across a disk write. Best-effort: failure is logged
+        # but doesn't disturb the in-memory apply path.
+        if snapshot_to_write is not None:
+            self._write_persisted(snapshot_to_write)
+
+    def _load_persisted(self) -> None:
+        """Read persisted settings from disk and prime the buffer.
+
+        Called once at construction when a path is configured. The
+        loaded state goes into both ``_persisted_state`` (so the next
+        persistent push merges with it instead of overwriting) and
+        ``_pending`` (so the first ``take_pending()`` after boot
+        returns the persisted values for the runner to apply via
+        ``plugin.configure(...)``).
+
+        A missing file or malformed JSON is logged and treated as
+        "no persisted state" — the plugin boots from YAML defaults
+        as before. We never raise from here; failing to load
+        persisted state must not prevent the plugin from starting.
+        """
+        assert self._persisted_path is not None  # narrow Optional for mypy
+        try:
+            if not self._persisted_path.exists():
+                return
+            text = self._persisted_path.read_text(encoding="utf-8")
+        except OSError as exc:
+            logger.warning(
+                "ConfigSubscriber: cannot read persisted config %s: %s — "
+                "starting with no persisted state",
+                self._persisted_path, exc,
+            )
+            return
+
+        try:
+            loaded = json.loads(text)
+        except ValueError as exc:
+            logger.warning(
+                "ConfigSubscriber: persisted config %s is not valid JSON: %s — "
+                "starting with no persisted state",
+                self._persisted_path, exc,
+            )
+            return
+
+        if not isinstance(loaded, dict):
+            logger.warning(
+                "ConfigSubscriber: persisted config %s is not a JSON object — "
+                "starting with no persisted state",
+                self._persisted_path,
+            )
+            return
+
+        with self._lock:
+            self._persisted_state = dict(loaded)
+            self._pending.update(loaded)
+        logger.info(
+            "ConfigSubscriber: loaded %d persisted setting(s) from %s",
+            len(loaded), self._persisted_path,
+        )
+
+    def _write_persisted(self, state: Dict[str, Any]) -> None:
+        """Atomic write via temp file + rename.
+
+        ``Path.replace`` is atomic on POSIX and on Windows (since
+        Python 3.3 it maps to ``MoveFileExW(REPLACE_EXISTING)``), so
+        a crash mid-write leaves either the old file or the new
+        file — never a half-written one. Failure to write is logged
+        but never raises; persistence is best-effort, not part of
+        the task correctness path.
+        """
+        assert self._persisted_path is not None
+        try:
+            self._persisted_path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = self._persisted_path.with_suffix(
+                self._persisted_path.suffix + ".tmp"
+            )
+            tmp.write_text(
+                json.dumps(state, indent=2, sort_keys=True),
+                encoding="utf-8",
+            )
+            tmp.replace(self._persisted_path)
+            logger.info(
+                "ConfigSubscriber: persisted %d setting(s) to %s",
+                len(state), self._persisted_path,
+            )
+        except OSError as exc:
+            logger.warning(
+                "ConfigSubscriber: failed to persist config to %s: %s",
+                self._persisted_path, exc,
+            )
 
     # ------------------------------------------------------------------
     # Bus handler
