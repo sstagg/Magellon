@@ -1,46 +1,66 @@
-"""CLI skeleton tests.
+"""CLI surface tests.
 
-Pin the subcommand surface — plugin authors see these names. Renames
-here become documentation breakage downstream.
+Pins the public subcommand surface — plugin authors learn these
+names from docs; renames here become breaking changes downstream.
+The CLI ships ``magellon-sdk plugin {init, pack, validate}`` today;
+hub commands land later under their own group.
 """
 from __future__ import annotations
 
 import pytest
 
+from magellon_sdk import __version__
 from magellon_sdk.cli.main import build_parser, main
 
 
 def test_version_flag(capsys):
+    """``--version`` prints the SDK version and exits 0."""
     with pytest.raises(SystemExit) as exc:
         main(["--version"])
     assert exc.value.code == 0
-    captured = capsys.readouterr()
-    assert "magellon-plugin" in captured.out
+    assert f"magellon-sdk {__version__}" in capsys.readouterr().out
 
 
-def test_no_args_prints_help(capsys):
+def test_no_args_prints_help_and_exits_zero(capsys):
+    """Bare ``magellon-sdk`` prints help — the operator may be
+    discovering the tool and shouldn't be punished with an error."""
     rc = main([])
     assert rc == 0
-    assert "Build, test, and publish" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "plugin" in out  # the subcommand name
 
 
-@pytest.mark.parametrize("cmd", ["new", "test", "package", "publish"])
-def test_stub_subcommands_exit_nonzero(cmd, capsys):
-    """Until they're implemented, subcommands must not silently succeed."""
-    rc = main([cmd])
-    assert rc == 2
-    assert "not yet implemented" in capsys.readouterr().err
-
-
-def test_parser_surface_pinned():
-    """The public subcommand names the docs reference must not change."""
+def test_plugin_group_subcommands_pinned():
+    """``plugin {init, pack, validate}`` is the surface plugin authors
+    write code against. Adding a new subcommand is fine; renaming or
+    removing one breaks every tutorial that mentions it."""
     parser = build_parser()
-    subparsers_action = next(
-        a for a in parser._actions if getattr(a, "choices", None) is not None
+    # Find the top-level subparsers action, then drill into the
+    # plugin group's subparsers.
+    top = next(a for a in parser._actions if getattr(a, "choices", None) is not None)
+    plugin_parser = top.choices["plugin"]
+    plugin_sub = next(
+        a for a in plugin_parser._actions if getattr(a, "choices", None) is not None
     )
-    assert set(subparsers_action.choices.keys()) == {
-        "new",
-        "test",
-        "package",
-        "publish",
-    }
+    assert {"init", "pack", "validate"} <= set(plugin_sub.choices.keys())
+
+
+def test_plugin_init_no_name_errors(capsys):
+    """Missing positional must print the parser error, not pretend
+    init succeeded."""
+    with pytest.raises(SystemExit):
+        main(["plugin", "init"])
+
+
+def test_plugin_pack_no_dir_errors(capsys):
+    with pytest.raises(SystemExit):
+        main(["plugin", "pack"])
+
+
+def test_plugin_validate_missing_path_errors(capsys, tmp_path):
+    """``validate`` on a nonexistent path returns 1 with a clear
+    error, NOT a stack trace and NOT silent success."""
+    rc = main(["plugin", "validate", str(tmp_path / "does-not-exist")])
+    assert rc == 1
+    assert "not found" in capsys.readouterr().err.lower() or \
+           "invalid" in capsys.readouterr().err.lower()
