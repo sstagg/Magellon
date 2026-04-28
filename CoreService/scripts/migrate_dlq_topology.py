@@ -168,12 +168,25 @@ def _redeclare_with_dlq(
     *,
     dry_run: bool,
 ) -> None:
-    """Delete + redeclare one queue with DLQ args. Also declares the DLQ."""
+    """Declare the DLQ, then delete + redeclare the main queue with
+    DLQ args.
+
+    Order matters for failure safety: if we deleted the main queue
+    before declaring the DLQ and the DLQ declare then failed (broker
+    hiccup, permission issue), the main queue would be gone with no
+    way to roll back. Declaring the DLQ FIRST means a failure leaves
+    the main queue intact — operator can investigate without an
+    outage.
+
+    DLQ ``queue_declare`` is idempotent on a queue that already
+    exists with matching args, so re-running this script after a
+    partial failure is safe.
+    """
     dlq_name = f"{spec.name}{_DLQ_SUFFIX}"
 
     if dry_run:
-        logger.info("  [DRY-RUN] would queue_delete(%s, if_empty=True, if_unused=True)", spec.name)
         logger.info("  [DRY-RUN] would queue_declare(%s, durable=True)", dlq_name)
+        logger.info("  [DRY-RUN] would queue_delete(%s, if_empty=True, if_unused=True)", spec.name)
         logger.info(
             "  [DRY-RUN] would queue_declare(%s, durable=True, args=%s)",
             spec.name, _dlq_args(spec.name),
@@ -186,12 +199,17 @@ def _redeclare_with_dlq(
                 )
         return
 
-    # Actual execution.
-    logger.info("  deleting %s (if_empty, if_unused)", spec.name)
-    channel.queue_delete(queue=spec.name, if_empty=True, if_unused=True)
-
+    # Step 1: ensure the DLQ exists BEFORE touching the main queue.
+    # If this raises, the main queue is untouched and the operator
+    # can rerun once they fix the DLQ declare cause.
     logger.info("  declaring DLQ %s", dlq_name)
     channel.queue_declare(queue=dlq_name, durable=True)
+
+    # Step 2 + 3: now the destructive part. DLQ already exists, so
+    # even if step 3 fails the operator's recovery is "redeclare
+    # main without DLQ args", not "rebuild DLQ from scratch".
+    logger.info("  deleting %s (if_empty, if_unused)", spec.name)
+    channel.queue_delete(queue=spec.name, if_empty=True, if_unused=True)
 
     logger.info("  redeclaring %s with DLQ args", spec.name)
     channel.queue_declare(

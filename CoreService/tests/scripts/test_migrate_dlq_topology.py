@@ -266,18 +266,42 @@ def test_drain_passes_when_empty_and_unused(mig):
 # ---------------------------------------------------------------------------
 
 def test_redeclare_calls_in_correct_order(mig):
-    """Order matters: delete first (releases the name), then declare
-    DLQ (so the dead-letter target exists when the main queue starts
-    routing to it), then declare main with DLQ args. Reversing
-    declare-DLQ + declare-main means the first DLQ-bound message
-    can hit a non-existent target."""
+    """Order: declare DLQ first (idempotent, non-destructive), THEN
+    delete the main queue, THEN redeclare the main queue with DLQ
+    args. Declaring the DLQ first means a partial failure (e.g. DLQ
+    declare raises) leaves the main queue untouched — operator can
+    fix the cause and rerun without losing the queue."""
     ch = MagicMock()
     spec = mig._QueueSpec("ctf_tasks_queue")
 
     mig._redeclare_with_dlq(ch, spec, dry_run=False)
 
     call_seq = [c[0] for c in ch.method_calls]
-    assert call_seq == ["queue_delete", "queue_declare", "queue_declare"]
+    assert call_seq == ["queue_declare", "queue_delete", "queue_declare"]
+
+
+def test_redeclare_failure_safety_dlq_declare_failure_leaves_main_intact(mig):
+    """The safety invariant the new ordering protects: if the DLQ
+    declare fails for any reason (broker hiccup, permission, network
+    blip), the main queue must NOT have been deleted. Otherwise an
+    ops-window failure converts to an outage.
+
+    Earlier ordering deleted main first, so this test would fail —
+    exactly why the order was changed."""
+    ch = MagicMock()
+    spec = mig._QueueSpec("ctf_tasks_queue")
+
+    # Simulate the DLQ declare raising. The exact exception class
+    # matters less than the order in which destructive ops happened.
+    ch.queue_declare.side_effect = RuntimeError("DLQ declare failed")
+
+    with pytest.raises(RuntimeError):
+        mig._redeclare_with_dlq(ch, spec, dry_run=False)
+
+    # The critical assertion: queue_delete on the main queue was NOT
+    # called. If the DLQ declare fails, the operator's main queue
+    # must still exist.
+    ch.queue_delete.assert_not_called()
 
 
 def test_redeclare_passes_dlq_args_on_main_queue(mig):

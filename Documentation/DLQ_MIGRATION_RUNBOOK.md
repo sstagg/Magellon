@@ -63,9 +63,26 @@ Check all of these before executing in production.
 
 Run in a scheduled ops window. The window needs to cover:
 
-- ~30 seconds of actual migration (per queue: delete + redeclare +
-  rebind, all sub-second; script loops sequentially).
+- ~30 seconds of actual migration (per queue: declare DLQ + delete
+  main + redeclare main + rebind, all sub-second; script loops
+  sequentially).
 - Time to scale consumers/producers back up after verify.
+
+### Per-queue step order (failure-safe)
+
+The script applies operations in this order so a partial failure
+leaves the system recoverable:
+
+1. **Declare the DLQ** (`<queue>_dlq`). Idempotent if it already
+   exists. If this step fails, the main queue is still untouched —
+   operator fixes the cause and reruns.
+2. **Delete the main queue** (`if_empty=True, if_unused=True`). Now
+   the destructive part begins; the DLQ already exists so the
+   recovery surface is "redeclare main", not "rebuild DLQ + main".
+3. **Redeclare the main queue with DLQ args**.
+4. **Rebind** the main queue to its exchange / routing keys (only
+   `core_step_events_queue` has bindings; the task / out queues use
+   the default exchange).
 
 Live run for all production queues:
 
@@ -122,8 +139,8 @@ python scripts/migrate_dlq_topology.py \
 
 ## Rollback
 
-The destructive steps (3–5 in §9.6.1 — delete, redeclare, rebind)
-are not reversible by `git revert`. Rollback options:
+The destructive steps (delete + redeclare + rebind) are not
+reversible by `git revert`. Rollback options:
 
 1. **Redeclare without DLQ args.** Run the script with a `--no-dlq`
    flag (TODO: add if rollback ever becomes likely — current script
