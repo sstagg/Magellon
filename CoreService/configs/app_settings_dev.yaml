@@ -132,3 +132,19 @@ directory_settings:
 
   ATLAS_SUB_URL: atlases/
   ATLAS_SUFFIX: _atlas.png
+
+
+# Plugin Hub (read-only static catalog hosted on the Magellon
+# website). The install pipeline (P9 — see PLUGIN_INSTALL_PLAN.md)
+# fetches `<HUB_URL>/v1/index.json` to populate the "Browse remote"
+# tab in the plugin manager and downloads `.mpn` archives from URLs
+# listed there. dev points at the public demo deploy until a
+# private hub is provisioned; production points at magellon.org.
+# Override either via env var ``MAGELLON_HUB_URL``.
+hub_settings:
+  HUB_URL: https://demo.magellon.org
+  HUB_TIMEOUT_SECONDS: 30
+  # Tier filter — when set, the install controller only lists
+  # plugins whose hub-side tier matches. Leave blank to allow both
+  # ``verified`` and ``community``. Operator policy.
+  HUB_TIER: ""

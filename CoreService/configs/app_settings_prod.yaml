@@ -124,3 +124,14 @@ directory_settings:
 
   ATLAS_SUB_URL: atlases/
   ATLAS_SUFFIX: _atlas.png
+
+
+# Plugin Hub. Production deployments point at magellon.org (the
+# canonical public catalog). Override via ``MAGELLON_HUB_URL`` for
+# air-gapped sites that mirror the catalog internally.
+hub_settings:
+  HUB_URL: https://magellon.org
+  HUB_TIMEOUT_SECONDS: 30
+  # Stricter default for production — prefer verified plugins.
+  # Set to "" to allow community-tier installs as well.
+  HUB_TIER: verified
