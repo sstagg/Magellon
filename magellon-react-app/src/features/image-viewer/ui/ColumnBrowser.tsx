@@ -17,6 +17,7 @@ import ColumnPreferences, {
     defaultColumnSettings
 } from './ColumnPreferences.tsx';
 import { useVisibleColumns, useColumnStatistics } from '../model/useVisibleColumns.ts';
+import { DRAWER_BACKGROUND } from '../../../app/providers/theme/shared.ts';
 
 interface StackedViewProps {
     imageColumns: ImageColumnState[];
@@ -57,8 +58,12 @@ const SettingsPanel: React.FC<{
                     justifyContent: 'space-between',
                     px: 1.5,
                     py: 0.75,
+                    // Dark mode matches the sidebar/header chrome
+                    // (DRAWER_BACKGROUND from theme/shared.ts).
                     backgroundColor: (theme) =>
-                        theme.palette.mode === 'dark' ? theme.palette.grey[900] : theme.palette.grey[50],
+                        theme.palette.mode === 'dark' ? DRAWER_BACKGROUND : theme.palette.grey[50],
+                    color: (theme) =>
+                        theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.85)' : undefined,
                     cursor: 'pointer',
                     minHeight: 36
                 }}
