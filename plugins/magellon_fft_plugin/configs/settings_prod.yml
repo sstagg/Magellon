@@ -8,8 +8,10 @@ REPLACE_TYPE: none
 REPLACE_PATTERN: C:\temp\magellon
 REPLACE_WITH: /gpfs
 
-JOBS_DIR: /jobs
-HOST_JOBS_DIR: C:\temp\magellon\jobs
+MAGELLON_GPFS_PATH: /gpfs
+HOST_GPFS_PATH: /gpfs
+JOBS_DIR: jobs
+HOST_JOBS_DIR: jobs
 
 
 database_settings:

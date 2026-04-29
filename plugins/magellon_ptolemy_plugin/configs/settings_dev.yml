@@ -6,8 +6,10 @@ REPLACE_TYPE: none
 REPLACE_PATTERN:
 REPLACE_WITH:
 
-JOBS_DIR:
-HOST_JOBS_DIR:
+MAGELLON_GPFS_PATH: C:/magellon/gpfs
+HOST_GPFS_PATH: C:/magellon/gpfs
+JOBS_DIR: jobs
+HOST_JOBS_DIR: jobs
 
 SQUARE_QUEUE_NAME: square_detection_tasks_queue
 SQUARE_OUT_QUEUE_NAME: square_detection_out_tasks_queue

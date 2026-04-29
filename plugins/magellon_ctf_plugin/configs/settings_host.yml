@@ -7,7 +7,7 @@ REPLACE_PATTERN: ""
 REPLACE_WITH: ""
 
 MAGELLON_GPFS_PATH: /gpfs
-HOST_GPFS_PATH: /gpfs
+HOST_GPFS_PATH: C:/magellon/gpfs
 JOBS_DIR: jobs
 HOST_JOBS_DIR: jobs
 
@@ -28,5 +28,5 @@ rabbitmq_settings:
   SSL_ENABLED: false
   CONNECTION_TIMEOUT: 30
   PREFETCH_COUNT: 10
-  QUEUE_NAME: motioncor_tasks_queue
-  OUT_QUEUE_NAME: motioncor_out_tasks_queue
+  QUEUE_NAME: ctf_tasks_queue
+  OUT_QUEUE_NAME: ctf_out_tasks_queue

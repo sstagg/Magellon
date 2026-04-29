@@ -6,8 +6,10 @@ REPLACE_TYPE: none
 REPLACE_PATTERN: ""
 REPLACE_WITH: ""
 
-JOBS_DIR: /jobs
-HOST_JOBS_DIR: /jobs
+MAGELLON_GPFS_PATH: /gpfs
+HOST_GPFS_PATH: /gpfs
+JOBS_DIR: jobs
+HOST_JOBS_DIR: jobs
 
 database_settings:
   DB_Driver: mysql+pymysql

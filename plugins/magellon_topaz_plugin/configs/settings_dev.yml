@@ -6,8 +6,10 @@ REPLACE_TYPE: none
 REPLACE_PATTERN:
 REPLACE_WITH:
 
-JOBS_DIR:
-HOST_JOBS_DIR:
+MAGELLON_GPFS_PATH: C:/magellon/gpfs
+HOST_GPFS_PATH: C:/magellon/gpfs
+JOBS_DIR: jobs
+HOST_JOBS_DIR: jobs
 
 PICK_QUEUE_NAME: topaz_pick_tasks_queue
 PICK_OUT_QUEUE_NAME: topaz_pick_out_tasks_queue

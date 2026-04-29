@@ -12,7 +12,7 @@ from typing import Any, ClassVar, Dict, Optional, Type
 
 import pydantic_core
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 ValidationError = pydantic_core.ValidationError
 
@@ -61,6 +61,42 @@ class BaseAppSettings(BaseModel):
     REPLACE_WITH: Optional[str] = None
     BASE_DIRECTORY: Optional[str] = os.path.abspath(os.path.dirname(__file__))
     ENV_TYPE: Optional[str] = None
+
+    # Data-plane roots — express the gpfs convention from inside the
+    # plugin process. MAGELLON_GPFS_PATH is the container-side mount
+    # (typically ``/gpfs``); HOST_GPFS_PATH is the same root as the host
+    # filesystem sees it (used when constructing paths that get sent
+    # back to systems outside the container's mount namespace, e.g.
+    # ``HOST_JOBS_DIR``). Defaults assume a Linux deployment where the
+    # plugin runs in a container that bind-mounts the host's gpfs at
+    # ``/gpfs``; Windows direct-run dev configs override both.
+    MAGELLON_GPFS_PATH: Optional[str] = "/gpfs"
+    HOST_GPFS_PATH: Optional[str] = "/gpfs"
+    MAGELLON_HOME_DIR: Optional[str] = None
+    JOBS_DIR: Optional[str] = None
+    HOST_JOBS_DIR: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _resolve_relative_under_gpfs(self):
+        # Relative ``MAGELLON_HOME_DIR`` and ``JOBS_DIR`` resolve against
+        # ``MAGELLON_GPFS_PATH``; relative ``HOST_JOBS_DIR`` resolves
+        # against ``HOST_GPFS_PATH``. Lets configs say ``JOBS_DIR: jobs``
+        # instead of repeating the gpfs root in three places. Absolute
+        # values (POSIX or Windows-drive) pass through untouched.
+        def _is_absolute(v: str) -> bool:
+            return os.path.isabs(v) or (len(v) > 1 and v[1] == ":")
+
+        gpfs = self.MAGELLON_GPFS_PATH
+        host_gpfs = self.HOST_GPFS_PATH
+        for attr, root in (
+            ("MAGELLON_HOME_DIR", gpfs),
+            ("JOBS_DIR", gpfs),
+            ("HOST_JOBS_DIR", host_gpfs),
+        ):
+            value = getattr(self, attr)
+            if value and root and not _is_absolute(value):
+                object.__setattr__(self, attr, os.path.join(root, value).replace("\\", "/"))
+        return self
 
     @classmethod
     def load_yaml_file_settings(cls, file_path: str):

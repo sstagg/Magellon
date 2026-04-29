@@ -178,13 +178,18 @@ async def browse_directory(
     logger.warning(f"SECURITY: User {user_id} browsing filesystem path: {path}")
 
     try:
-        development = False
-        if development and path.startswith("/gpfs"):
-            path = path.replace("/gpfs", "C:/magellon/gpfs", 1)
+        # /gpfs is the canonical data-plane root in URLs/UI. Resolve it to
+        # the active deployment's actual filesystem root: in Docker that's
+        # the /gpfs bind mount (no-op rewrite), on Windows direct-run it's
+        # MAGELLON_GPFS_PATH (e.g. C:/magellon/gpfs — the input data root,
+        # not MAGELLON_HOME_DIR which is the results dir).
+        gpfs = app_settings.directory_settings.MAGELLON_GPFS_PATH
+        if gpfs and (path == "/gpfs" or path.startswith("/gpfs/")):
+            path = path.replace("/gpfs", gpfs, 1)
 
         directory = Path(path)
         if not directory.exists():
-            raise HTTPException(status_code=404, detail="Directory not found")
+            raise HTTPException(status_code=404, detail=f"Directory not found: {path}")
 
         items = []
         for item in directory.iterdir():
@@ -194,7 +199,7 @@ async def browse_directory(
                 name=item.name,
                 is_directory=item.is_dir(),
                 path=str(item),
-                parent_id=hash(str(item.parent).replace("C:/magellon/gpfs", "/gpfs", 1) if development else str(item.parent)) if str(item.parent) != path else None,
+                parent_id=hash(str(item.parent)) if str(item.parent) != path else None,
                 size=stat.st_size if not item.is_dir() else None,
                 mime_type=mimetypes.guess_type(item.name)[0] if not item.is_dir() else None,
                 created_at=datetime.fromtimestamp(stat.st_ctime),

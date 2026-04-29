@@ -2,7 +2,9 @@ ENV_TYPE: production
 LOCAL_IP_ADDRESS: host.docker.internal
 PORT_NUMBER: 8030
 
-MAGELLON_HOME_DIR: /magellon
+MAGELLON_GPFS_PATH: /gpfs
+HOST_GPFS_PATH: /gpfs
+MAGELLON_HOME_DIR: home
 
 REPLACE_TYPE: none
 REPLACE_PATTERN: /gpfs/

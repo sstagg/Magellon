@@ -100,15 +100,16 @@ rabbitmq_settings:
       category: 9
 
 directory_settings:
-  MAGELLON_HOME_DIR: C:/magellon/home
-  MAGELLON_JOBS_DIR: C:/magellon/jobs
+  MAGELLON_GPFS_PATH: C:/magellon/gpfs
+  # Relative — resolved against MAGELLON_GPFS_PATH at config load.
+  MAGELLON_HOME_DIR: home
+  MAGELLON_JOBS_DIR: jobs
   JOBS_DIR: null
   JOBS_PROCESSING_SUB_URL: processing/
   ORIGINAL_IMAGES_SUB_URL: original/
 
   IMAGE_ROOT_URL: http://localhost/cdn/
   NFS_ROOT_DIR: /gpfs
-  MAGELLON_GPFS_PATH: C:/magellon/gpfs
 
   FFT_DIR: null
   FFT_SUB_URL: ffts/

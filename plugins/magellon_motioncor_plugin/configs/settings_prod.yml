@@ -12,8 +12,10 @@ REPLACE_TYPE: standard
 REPLACE_PATTERN: /gpfs/
 REPLACE_WITH: /app/gpfs/
 
-JOBS_DIR: /jobs
-HOST_JOBS_DIR: C:\temp\outputs
+MAGELLON_GPFS_PATH: /gpfs
+HOST_GPFS_PATH: /gpfs
+JOBS_DIR: jobs
+HOST_JOBS_DIR: jobs
 
 
 database_settings:

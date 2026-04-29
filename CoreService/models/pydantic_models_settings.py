@@ -4,7 +4,7 @@ from enum import Enum
 from typing import List, Optional
 
 import yaml
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ValidationError, model_validator
 
 
 class OutQueueType(str, Enum):
@@ -97,6 +97,20 @@ class DirectorySettings(BaseModel):
     GAIN_SUB_URL: Optional[str] = None
     DEFECTS_SUB_URL: Optional[str] = None
     ATLAS_SUFFIX: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _resolve_relative_under_gpfs(self):
+        # Relative MAGELLON_HOME_DIR / MAGELLON_JOBS_DIR resolve against
+        # MAGELLON_GPFS_PATH so configs can express the convention
+        # "home and jobs live inside gpfs" without hard-coding the
+        # gpfs root in three places. Absolute values pass through.
+        gpfs = self.MAGELLON_GPFS_PATH
+        if gpfs:
+            for attr in ("MAGELLON_HOME_DIR", "MAGELLON_JOBS_DIR"):
+                value = getattr(self, attr)
+                if value and not os.path.isabs(value) and not (len(value) > 1 and value[1] == ":"):
+                    object.__setattr__(self, attr, os.path.join(gpfs, value).replace("\\", "/"))
+        return self
 
 
 class DatabaseSettings(BaseModel):
