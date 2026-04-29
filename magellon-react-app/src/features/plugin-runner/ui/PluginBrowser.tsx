@@ -16,7 +16,7 @@ import {
     Alert,
     Grid,
 } from '@mui/material';
-import { Package, Puzzle, Square, Star, Trash2 } from 'lucide-react';
+import { Puzzle, Square, Star, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
     usePlugins,
@@ -27,9 +27,6 @@ import {
     useRemoveInstalled,
     PluginSummary,
 } from '../api/PluginApi.ts';
-import { BrowseCatalogDialog } from './BrowseCatalogDialog.tsx';
-import { InstallPluginDialog } from './InstallPluginDialog.tsx';
-
 interface PluginBrowserProps {
     onSelect?: (plugin: PluginSummary) => void;
 }
@@ -43,8 +40,6 @@ export const PluginBrowser: React.FC<PluginBrowserProps> = ({ onSelect }) => {
     const stopInstalled = useStopInstalled();
     const removeInstalled = useRemoveInstalled();
     const [query, setQuery] = useState('');
-    const [installOpen, setInstallOpen] = useState(false);
-    const [browseOpen, setBrowseOpen] = useState(false);
 
     // Count per-category impls — a "Set as default" action only makes
     // sense when ≥2 impls exist for the category. For solo impls the
@@ -96,7 +91,12 @@ export const PluginBrowser: React.FC<PluginBrowserProps> = ({ onSelect }) => {
                     mb: 3
                 }}>
                 <Puzzle size={22} />
-                <Typography variant="h5" sx={{ flex: 1 }}>Plugins</Typography>
+                <Box sx={{ flex: 1 }}>
+                    <Typography variant="h6">Runtime plugins</Typography>
+                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                        Discovered on the bus — what's actually reachable for dispatch right now
+                    </Typography>
+                </Box>
                 <TextField
                     size="small"
                     placeholder="Search plugins…"
@@ -104,13 +104,6 @@ export const PluginBrowser: React.FC<PluginBrowserProps> = ({ onSelect }) => {
                     onChange={(e) => setQuery(e.target.value)}
                     sx={{ width: 280 }}
                 />
-                <Button
-                    variant="contained"
-                    startIcon={<Package size={18} />}
-                    onClick={() => setBrowseOpen(true)}
-                >
-                    Browse plugins
-                </Button>
             </Stack>
             {installed.length > 0 && (
                 <Box sx={{ mb: 3 }}>
@@ -283,12 +276,6 @@ export const PluginBrowser: React.FC<PluginBrowserProps> = ({ onSelect }) => {
                     })}
                 </Grid>
             )}
-            <BrowseCatalogDialog
-                open={browseOpen}
-                onClose={() => setBrowseOpen(false)}
-                onOpenInstallDialog={() => setInstallOpen(true)}
-            />
-            <InstallPluginDialog open={installOpen} onClose={() => setInstallOpen(false)} />
         </Box>
     );
 };

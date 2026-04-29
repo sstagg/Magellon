@@ -12,7 +12,6 @@
 export { AdminInstalledPanel } from './ui/AdminInstalledPanel.tsx';
 export { HubCatalogBrowser } from './ui/HubCatalogBrowser.tsx';
 export { HubInstallDialog } from './ui/HubInstallDialog.tsx';
-export { InstallMpnDialog } from './ui/InstallMpnDialog.tsx';
 export { UpgradeMpnDialog } from './ui/UpgradeMpnDialog.tsx';
 export {
     useAdminInstalledPlugins,
