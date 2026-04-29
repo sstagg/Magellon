@@ -67,16 +67,19 @@ const QK_ADMIN_INSTALLED = ['admin', 'plugins', 'installed'] as const;
  * GET /admin/plugins/installed — list of installed plugins via the
  * v1 pipeline. Returned list is server-sorted (controller sorts on
  * the way out so the UI doesn't have to).
+ *
+ * Positional-args form for react-query v3 — same shape as the
+ * project's other hooks (e.g. `usePlugins` in plugin-runner/api).
+ * v4's object form silently no-ops here.
  */
 export const useAdminInstalledPlugins = () =>
-    useQuery({
-        queryKey: QK_ADMIN_INSTALLED,
-        queryFn: async () => {
+    useQuery(
+        QK_ADMIN_INSTALLED,
+        async () => {
             const res = await api.get<InstalledListResponse>('/admin/plugins/installed');
             return res.data.installed;
         },
-        // Plugins don't change often; default 5s stale is fine.
-    });
+    );
 
 /**
  * POST /admin/plugins/install — multipart upload of a `.mpn`.
