@@ -152,12 +152,17 @@ export const ImageThumbnail = ({
                     </Box>
                 )}
 
-                {/* Image */}
+                {/* Image. The src is a blob URL produced by
+                    useAuthenticatedImage — the bytes are already in
+                    memory, so no loading="lazy" (Chromium's lazy
+                    intersection observer treats display:none images as
+                    out-of-viewport and defers the load forever, which
+                    leaves onLoad unfired and the img permanently
+                    hidden). */}
                 {!hasError && imageUrl && (
                     <img
                         src={imageUrl}
                         alt={imageName}
-                        loading="lazy"
                         onLoad={() => setLoaded(true)}
                         style={{
                             width: '100%',
