@@ -350,8 +350,9 @@ class LeginonFrameTransferJobService:
                     source_image_path, self.params.replace_type,
                     self.params.replace_pattern, self.params.replace_with)
 
+            task_oid = uuid.uuid4()
             db_job_task = ImageJobTask(
-                oid=uuid.uuid4(),
+                oid=task_oid,
                 job_id=job.oid,
                 frame_name=image["frame_names"] if image.get("frame_names") else None,
                 frame_path=source_frame_path if image.get("frame_names") else None,
@@ -362,15 +363,18 @@ class LeginonFrameTransferJobService:
             )
             db_job_item_list.append(db_job_task)
 
+            # task_id MUST equal db_job_task.oid (FK target on
+            # job_event.task_id), and job_id MUST be the actual ImageJob
+            # oid — not db_job_task.oid as it was historically.
             task_dto = LeginonFrameTransferTaskDto(
-                task_id=uuid.uuid4(),
-                task_alias=f"lftj_{filename}_{db_job_task.oid}",
+                task_id=task_oid,
+                task_alias=f"lftj_{filename}_{task_oid}",
                 file_name=filename,
                 image_id=db_image.oid,
                 image_name=image["image_name"],
                 frame_name=image["frame_names"],
                 image_path=source_image_path,
-                job_id=db_job_task.oid,
+                job_id=job.oid,
                 frame_path=source_frame_path,
                 job_dto=self.params,
                 status=1,

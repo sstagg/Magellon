@@ -125,11 +125,14 @@ class MagellonImporter(BaseImporter):
             #     shutil.copytree( source_frames, os.path.join(session_dir, FRAMES_SUB_URL), dirs_exist_ok=True)
 
             # Process each image
-            for image, file_path in images_to_process:
+            for image, file_path, task_oid in images_to_process:
                 base_name = os.path.splitext(image.name)[0]
 
+                # task_id MUST match the persisted ImageJobTask.oid —
+                # plugin step events come back with this id and write
+                # to job_event, which has FK(task_id → image_job_task.oid).
                 task_dto = ImportTaskDto(
-                    task_id=uuid.uuid4(),
+                    task_id=task_oid,
                     job_id=self.db_job.oid,
                     task_alias=f"lftj_{image.path}_{self.db_job.oid}",
                     file_name=f"{image.name}",
@@ -421,7 +424,7 @@ class MagellonImporter(BaseImporter):
 
 
         # Process images recursively and create job tasks
-    def process_images(self,db_session: Session,images_data: List[Dict[str, Any]], parent_id: Optional[uuid.UUID] = None) -> List[Tuple[Image, str]]:
+    def process_images(self,db_session: Session,images_data: List[Dict[str, Any]], parent_id: Optional[uuid.UUID] = None) -> List[Tuple[Image, str, uuid.UUID]]:
             results = []
             for image_data in images_data:
                 # Convert string UUID to UUID object or generate new one
@@ -484,8 +487,9 @@ class MagellonImporter(BaseImporter):
 
                 # Create job task record
                 if os.path.exists(original_file):
+                    task_oid = uuid.uuid4()
                     task = ImageJobTask(
-                        oid=uuid.uuid4(),
+                        oid=task_oid,
                         job_id=self.db_job.oid,
                         image_id=image.oid,
                         status_id=1,  # Pending
@@ -496,7 +500,7 @@ class MagellonImporter(BaseImporter):
                         # frame_path=frame_file
                     )
                     db_session.add(task)
-                    results.append((image, original_file))
+                    results.append((image, original_file, task_oid))
 
                 # Process children recursively
                 if image_data.get("children"):
