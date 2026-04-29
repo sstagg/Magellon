@@ -10,6 +10,8 @@
  * runtime/dispatch surface (forms, schemas, browse-and-run).
  */
 export { AdminInstalledPanel } from './ui/AdminInstalledPanel.tsx';
+export { HubCatalogBrowser } from './ui/HubCatalogBrowser.tsx';
+export { HubInstallDialog } from './ui/HubInstallDialog.tsx';
 export { InstallMpnDialog } from './ui/InstallMpnDialog.tsx';
 export { UpgradeMpnDialog } from './ui/UpgradeMpnDialog.tsx';
 export {
@@ -18,9 +20,20 @@ export {
     useUninstallMpn,
     useUpgradeMpn,
 } from './api/installerApi.ts';
+export {
+    archiveUrl,
+    downloadArchiveAsFile,
+    hubUrl,
+    useHubIndex,
+} from './api/hubApi.ts';
 export type {
     InstallResponse,
     InstalledListResponse,
     InstalledPlugin,
     UninstallResponse,
 } from './api/installerApi.ts';
+export type {
+    HubIndex,
+    HubPlugin,
+    HubVersion,
+} from './api/hubApi.ts';
