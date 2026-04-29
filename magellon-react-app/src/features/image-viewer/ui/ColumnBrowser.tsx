@@ -57,7 +57,8 @@ const SettingsPanel: React.FC<{
                     justifyContent: 'space-between',
                     px: 1.5,
                     py: 0.75,
-                    backgroundColor: 'grey.50',
+                    backgroundColor: (theme) =>
+                        theme.palette.mode === 'dark' ? theme.palette.grey[900] : theme.palette.grey[50],
                     cursor: 'pointer',
                     minHeight: 36
                 }}
