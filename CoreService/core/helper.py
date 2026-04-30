@@ -23,6 +23,35 @@ from models.pydantic_models import LeginonFrameTransferTaskDto, EPUImportTaskDto
 
 logger = logging.getLogger(__name__)
 
+
+def to_canonical_gpfs_path(path):
+    """Translate a host-absolute path under MAGELLON_GPFS_PATH to its
+    canonical ``/gpfs/...`` form for transport across realms (bus payloads,
+    plugin task DTOs).
+
+    The hybrid Windows-host + Docker-plugin topology has different paths
+    on each side of the bus: CoreService sees ``C:/magellon/gpfs/...``,
+    the plugin container sees ``/gpfs/...`` (single bind mount). Wire
+    paths are always canonical ``/gpfs/...`` and each side resolves them
+    locally (the ``/web/files/browse`` endpoint does the inverse rewrite
+    on inbound paths). On Linux deployments where MAGELLON_GPFS_PATH is
+    already ``/gpfs`` this is a no-op; ``None`` and falsy paths pass
+    through.
+    """
+    if not path:
+        return path
+    gpfs = app_settings.directory_settings.MAGELLON_GPFS_PATH
+    if not gpfs or gpfs == "/gpfs":
+        return path
+    norm = path.replace("\\", "/")
+    gpfs_norm = gpfs.replace("\\", "/").rstrip("/")
+    if norm.lower().startswith(gpfs_norm.lower() + "/"):
+        return "/gpfs/" + norm[len(gpfs_norm) + 1:]
+    if norm.lower() == gpfs_norm.lower():
+        return "/gpfs"
+    return path
+
+
 def append_json_to_file(file_path, json_str):
     try:
         # Append the JSON string as a new line to the file
@@ -173,6 +202,7 @@ def dispatch_ctf_task(task_id, full_image_path, task_dto: ImportTaskDto):
     if app_settings.DEBUG_CTF:
         full_image_path = full_image_path.replace(app_settings.DEBUG_CTF_PATH, app_settings.DEBUG_CTF_REPLACE)
 
+    full_image_path = to_canonical_gpfs_path(full_image_path)
     file_name = os.path.splitext(os.path.basename(full_image_path))[0]
 
     #converting LeginonFrameTransferTaskDto to ctf task
@@ -229,6 +259,7 @@ def _dispatch_ptolemy_task(
     with an MRC path) and differ only in the category that controls which
     queue + which plugin pipeline runs.
     """
+    image_path = to_canonical_gpfs_path(image_path)
     file_name = os.path.splitext(os.path.basename(image_path))[0]
     data = PtolemyInput(
         image_id=image_id,
@@ -300,6 +331,7 @@ def dispatch_topaz_pick_task(
     session_name=None,
 ) -> bool:
     """Dispatch a high-mag particle-picking task to the topaz plugin."""
+    image_path = to_canonical_gpfs_path(image_path)
     file_name = os.path.splitext(os.path.basename(image_path))[0]
     data = TopazPickInput(
         image_id=image_id,
@@ -339,6 +371,8 @@ def dispatch_micrograph_denoise_task(
     session_name=None,
 ) -> bool:
     """Dispatch a micrograph-denoise task to the topaz plugin."""
+    image_path = to_canonical_gpfs_path(image_path)
+    output_file = to_canonical_gpfs_path(output_file)
     file_name = os.path.splitext(os.path.basename(image_path))[0]
     data = MicrographDenoiseInput(
         image_id=image_id,
@@ -384,6 +418,8 @@ def dispatch_fft_task(
     they're explicit here because the plugin has no knowledge of
     CoreService's FFT_SUB_URL conventions.
     """
+    image_path = to_canonical_gpfs_path(image_path)
+    target_path = to_canonical_gpfs_path(target_path)
     file_name = os.path.splitext(os.path.basename(image_path))[0]
 
     fft_data = FftInput(
@@ -556,6 +592,9 @@ def dispatch_motioncor_task(task_id,
             app_settings.DEBUG_CTF_PATH,
             app_settings.DEBUG_CTF_REPLACE
         )
+    full_image_path = to_canonical_gpfs_path(full_image_path)
+    gain_path = to_canonical_gpfs_path(gain_path)
+    defects_path = to_canonical_gpfs_path(defects_path)
     if hasattr(task_dto, 'job_dto') and task_dto.job_dto and hasattr(task_dto.job_dto, 'session_name') and task_dto.job_dto.session_name:
         session_name = task_dto.job_dto.session_name
     motioncor_task = create_motioncor_task(
