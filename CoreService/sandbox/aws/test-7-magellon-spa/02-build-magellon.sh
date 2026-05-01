@@ -24,14 +24,20 @@ if [ ! -d "$LOCAL_REPO" ]; then
   exit 1
 fi
 
-# Tar + scp the source. Exclude target/ + .git so we don't ship a
-# multi-GB build cache + history. The instance starts fresh.
+# Tar + scp the source. We ship ONLY the directories the build
+# actually needs. An exclude-list is too easy to under-specify (we've
+# burned $0.40 on AWS twice when target-test/ + training/ + sandbox/
+# leaked into the tarball, blowing past instance + local /tmp). Use
+# an explicit include-list instead.
 echo "=== bundling source from $LOCAL_REPO ==="
 TMP_TAR=$(mktemp --suffix=.tar.gz)
 trap 'rm -f "$TMP_TAR"' EXIT
-tar --exclude='target' --exclude='.git' --exclude='node_modules' \
-    --exclude='*.mrc' --exclude='*.mrcs' \
-    -C "$LOCAL_REPO" -czf "$TMP_TAR" .
+tar -C "$LOCAL_REPO" -czf "$TMP_TAR" \
+    Cargo.toml Cargo.lock \
+    src tests benches examples \
+    docs/relion-port-roadmap.md 2>/dev/null || \
+  tar -C "$LOCAL_REPO" -czf "$TMP_TAR" \
+      Cargo.toml Cargo.lock src tests benches examples
 du -h "$TMP_TAR"
 
 echo "=== shipping to instance ==="
