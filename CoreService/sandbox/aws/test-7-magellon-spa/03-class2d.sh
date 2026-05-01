@@ -21,14 +21,19 @@ cd /data/Tutorial5.0
 #   --output-dir
 #   -K 25 --iters 5
 # Box size auto-detected from the first particle stack.
-echo "=== magellon-spa class2d ==="
-time magellon-spa class2d \
-  --particles "$PARTICLES" \
-  --particle-stacks-root /data/Tutorial5.0 \
-  --output-dir /work/Class2D \
-  -K 25 \
-  --iters 5 \
+echo "=== magellon-spa class2d (release mode, performance-instrumented) ==="
+# /usr/bin/time -v gives wall-clock + peak RSS + context switches.
+/usr/bin/time -v -o /work/Class2D/timing.txt \
+  magellon-spa class2d \
+    --particles "$PARTICLES" \
+    --particle-stacks-root /data/Tutorial5.0 \
+    --output-dir /work/Class2D \
+    -K 25 \
+    --iters 5 \
   2>&1 | tee /work/Class2D/run.out | tail -40
+echo
+echo "=== Class2D performance ==="
+cat /work/Class2D/timing.txt
 
 echo
 echo "=== outputs in /work/Class2D ==="

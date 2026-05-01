@@ -28,15 +28,19 @@ cd /data/Tutorial5.0
 
 # Pixel size from the tutorial dataset header (3.54 Å/px on the
 # downsampled extracted particles).
-echo "=== magellon-spa refine3d ==="
-time magellon-spa refine3d \
-  --particles "$PARTICLES" \
-  --particle-stacks-root /data/Tutorial5.0 \
-  --reference "$REF" \
-  --pixel-size 3.54 \
-  --output-dir /work/Refine3D \
-  --max-iters 10 \
+echo "=== magellon-spa refine3d (release mode, performance-instrumented) ==="
+/usr/bin/time -v -o /work/Refine3D/timing.txt \
+  magellon-spa refine3d \
+    --particles "$PARTICLES" \
+    --particle-stacks-root /data/Tutorial5.0 \
+    --reference "$REF" \
+    --pixel-size 3.54 \
+    --output-dir /work/Refine3D \
+    --max-iters 10 \
   2>&1 | tee /work/Refine3D/run.out | tail -50
+echo
+echo "=== Refine3D performance ==="
+cat /work/Refine3D/timing.txt
 
 echo
 echo "=== Refine3D outputs ==="

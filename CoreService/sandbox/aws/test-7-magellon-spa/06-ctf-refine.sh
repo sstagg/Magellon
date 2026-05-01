@@ -28,13 +28,17 @@ echo "Reference map: $MAP"
 mkdir -p /work/CtfRefine
 cd /data/Tutorial5.0
 
-echo "=== magellon-spa ctf-refine ==="
-time magellon-spa ctf-refine \
-  --particles "$PARTICLES" \
-  --particle-stacks-root /data/Tutorial5.0 \
-  --map "$MAP" \
-  --output-dir /work/CtfRefine \
+echo "=== magellon-spa ctf-refine (release mode, performance-instrumented) ==="
+/usr/bin/time -v -o /work/CtfRefine/timing.txt \
+  magellon-spa ctf-refine \
+    --particles "$PARTICLES" \
+    --particle-stacks-root /data/Tutorial5.0 \
+    --map "$MAP" \
+    --output-dir /work/CtfRefine \
   2>&1 | tee /work/CtfRefine/run.out | tail -40
+echo
+echo "=== CtfRefine performance ==="
+cat /work/CtfRefine/timing.txt
 
 echo
 echo "=== CtfRefine outputs ==="

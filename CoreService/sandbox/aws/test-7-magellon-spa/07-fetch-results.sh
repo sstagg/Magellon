@@ -52,6 +52,14 @@ ls /data/Tutorial5.0/Extract/job012/Movies/*.mrcs 2>/dev/null \
   echo
   echo "=== build host ==="
   uname -a
+  echo
+  echo "=== per-stage performance (wall, peak RSS) ==="
+  for stage in Class2D Class3D Refine3D CtfRefine; do
+    if [ -f /work/$stage/timing.txt ]; then
+      echo "--- $stage ---"
+      grep -E "Elapsed|Maximum resident set|Percent of CPU" /work/$stage/timing.txt | head -3
+    fi
+  done
 } > /tmp/results-bundle/PROVENANCE.txt
 
 du -sh /tmp/results-bundle/ 2>/dev/null

@@ -18,15 +18,19 @@ echo "Reference: $REF"
 mkdir -p /work/Class3D
 cd /data/Tutorial5.0
 
-echo "=== magellon-spa class3d ==="
-time magellon-spa class3d \
-  --particles "$PARTICLES" \
-  --particle-stacks-root /data/Tutorial5.0 \
-  --reference "$REF" \
-  --output-dir /work/Class3D \
-  -K 4 \
-  --iters 5 \
+echo "=== magellon-spa class3d (release mode, performance-instrumented) ==="
+/usr/bin/time -v -o /work/Class3D/timing.txt \
+  magellon-spa class3d \
+    --particles "$PARTICLES" \
+    --particle-stacks-root /data/Tutorial5.0 \
+    --reference "$REF" \
+    --output-dir /work/Class3D \
+    -K 4 \
+    --iters 5 \
   2>&1 | tee /work/Class3D/run.out | tail -40
+echo
+echo "=== Class3D performance ==="
+cat /work/Class3D/timing.txt
 
 echo
 echo "=== outputs in /work/Class3D ==="
