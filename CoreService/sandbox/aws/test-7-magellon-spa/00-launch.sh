@@ -68,17 +68,18 @@ apt-get install -y --no-install-recommends \
   build-essential pkg-config curl wget unzip git \
   libssl-dev libfftw3-dev
 
-echo "=== installing Rust toolchain (system-wide) ==="
-# Install rustup non-interactively under root, then symlink into PATH.
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
-  | sh -s -- -y --default-toolchain stable --no-modify-path
-ln -sf /root/.cargo/bin/* /usr/local/bin/
-
-# Also install for the ubuntu user so interactive SSH sessions work.
+echo "=== installing Rust toolchain for ubuntu user ==="
+# Install only as the ubuntu user — non-interactive SSH sessions log
+# in as ubuntu, and /root/.cargo/bin is unreadable to non-root because
+# /root has mode 700. Symlink ubuntu's install into /usr/local/bin so
+# every ssh session can find cargo without a PATH dance.
 sudo -u ubuntu bash -c "
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
     | sh -s -- -y --default-toolchain stable --no-modify-path
 "
+ln -sf /home/ubuntu/.cargo/bin/cargo  /usr/local/bin/cargo
+ln -sf /home/ubuntu/.cargo/bin/rustc  /usr/local/bin/rustc
+ln -sf /home/ubuntu/.cargo/bin/rustup /usr/local/bin/rustup
 
 echo "=== rust toolchain ==="
 /usr/local/bin/rustc --version
