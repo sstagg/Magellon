@@ -143,6 +143,70 @@ directory.
 - `us-east-2` is blocked by the FSU org SCP entirely. Stay in
   `us-east-1`.
 
+### 7. (May 2026 re-run) `00-launch.sh` polling exits before compile is done
+
+The "wait for user-data to finish" loop in `00-launch.sh` greps for
+`"user-data done"` in `/var/log/user-data.log`. On the second run the
+loop exited after a single iteration even though `apt install` was
+still chewing through its package list and `relion_refine` didn't
+exist. Suspect: `set -x` echoes user-data lines as `+ echo ... done`
+into other paths, or the grep race-conditioned with log writes.
+
+**Workaround we shipped**: `10-run-full-pipeline.sh` is a resilient
+driver that polls `if [ -x /opt/relion/bin/relion_refine ]; then echo
+READY ...` instead. Either run it directly, or use `11-resume-pipeline.sh`
+to resume from `02-class2d` if launch returned prematurely but the
+instance is still up.
+
+### 8. (May 2026 re-run) `01-fetch-data.sh` SIGPIPE on `find | head`
+
+With `set -euo pipefail` the script aborted with exit 141 (SIGPIPE)
+after the diagnostic `find /data -name '*.mrc' -size +500k -size -50M | head -10`
+ran. `find` kept producing matches after `head -10` closed the pipe →
+SIGPIPE → pipefail propagated. The diagnostic data was already
+captured, but the wrapper aborted before invoking `02-class2d`.
+
+**Workaround**: same `11-resume-pipeline.sh` — re-run from `02` if
+`01` exits with the data on disk. A proper fix is to drop `pipefail`
+just for the diagnostic block, or use `find ... 2>/dev/null | head -10 || true`.
+
+## Re-run with the resilient driver
+
+```bash
+cd C:/projects/Magellon/CoreService/sandbox/aws/test-6-relion
+# Refresh SSO creds in ../.env first.
+bash 00-launch.sh                 # prepares the instance (may exit early — that's OK)
+bash 10-run-full-pipeline.sh      # waits for compile, runs 01–06, tears down
+```
+
+Or, if `00-launch.sh` returned early but the instance is up:
+
+```bash
+bash 11-resume-pipeline.sh        # 02–06 + 99-teardown
+```
+
+## What the May 2026 re-run validated for the Rust port
+
+- **Class2D iter4→iter5 oracle**: 800-particle subset, 19 populated
+  classes (out of K=25), 18/19 match RELION at correlation > 0.4,
+  mean 0.53. Greedy bipartite match preserves RELION class indices
+  for every populated class — strong evidence the Rust E-step routes
+  particles correctly.
+- **Class3D iter4→iter5 oracle**: K=4, 200 particles, all 4 classes
+  preserve their RELION index, all-positive correlation, mean 0.10.
+  Ceiling reflects unity-CTF + saved-vs-internal scale differences;
+  CTF correction is the bounded follow-up.
+- **Refine3D half-map averaging**: low-pass-filtered ours-vs-RELION-
+  joined-map correlation 0.9998 at `≤ N/4` cutoff (where FSC weighting
+  ≈ 1 so the joined map ≈ a plain mean).
+- **Phase H InitialModel**: real β-galactosidase particles → finite,
+  non-degenerate volume; τ² decays monotonically across mini-batches.
+
+The fftshift convention bug found and fixed for the projector also
+applies to the Class3D oracle: input refs + particles need shifting
+before FFT, output volume needs shifting after IFFT, to match
+RELION's box-centred MRC convention.
+
 ## Cost breakdown
 
 | Item | Charge |
