@@ -13,6 +13,7 @@ import AboutPage from "../../pages/about/AboutPage.tsx";
 import { FftTestPage } from "../../pages/dev/FftTestPage.tsx";
 import { PtolemyTestPage } from "../../pages/dev/PtolemyTestPage.tsx";
 import { TopazTestPage } from "../../pages/dev/TopazTestPage.tsx";
+import { RealtimeMockPage } from "../../pages/dev/RealtimeMockPage.tsx";
 
 import {ExportPageView} from "../../pages/export/ExportPageView.tsx";
 import PluginsPageView from "../../pages/plugins/PluginsPageView.tsx";
@@ -65,6 +66,7 @@ export const PanelRoutes = () => {
                 <Route path="/dev/fft-test" element={<FftTestPage />} />
                 <Route path="/dev/ptolemy-test" element={<PtolemyTestPage />} />
                 <Route path="/dev/topaz-test" element={<TopazTestPage />} />
+                <Route path="/dev/realtime-mock" element={<RealtimeMockPage />} />
                 <Route path="/admin/pipeline-health" element={<PipelineHealthPage />} />
                 <Route path="/settings" element={<SettingsView />} />
 
