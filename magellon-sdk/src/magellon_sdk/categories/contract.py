@@ -155,6 +155,20 @@ class CategoryContract(BaseModel):
     """Canonical output. Plugins must produce at least these fields;
     may populate ``extras`` with more."""
 
+    subject_kind: str = "image"
+    """Phase 3d (2026-05-03). The kind of entity tasks of this
+    category operate on. Most categories are image-keyed (CTF,
+    MotionCor, FFT, PARTICLE_PICKING, PARTICLE_EXTRACTION) so the
+    default is ``'image'``. Aggregate categories override —
+    ``TWO_D_CLASSIFICATION`` operates on a ``'particle_stack'``.
+
+    Used by :class:`magellon_sdk.runner.PluginBrokerRunner` as the
+    fallback when neither the dispatch (``TaskMessage.subject_kind``)
+    nor the plugin (``TaskResultMessage.subject_kind`` from the
+    factory) set the field. The DDL default on
+    ``image_job_task.subject_kind`` is also ``'image'``, so this
+    aligns the in-memory and on-disk defaults."""
+
     @property
     def task_subject(self) -> str:
         return task_subject(self.category.name)
@@ -255,6 +269,9 @@ TWO_D_CLASSIFICATION_CATEGORY = CategoryContract(
     category=TWO_D_CLASSIFICATION,
     input_model=TwoDClassificationInput,
     output_model=TwoDClassificationOutput,
+    # 2D classification operates on a particle stack (an aggregate),
+    # not a single image. Per ratified rule 7 (one task per stack).
+    subject_kind="particle_stack",
 )
 
 

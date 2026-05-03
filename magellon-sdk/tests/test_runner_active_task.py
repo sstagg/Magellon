@@ -463,10 +463,12 @@ def test_runner_preserves_plugin_set_subject_when_provided():
     assert payload["subject_id"] == str(plugin_subject_id)
 
 
-def test_runner_does_not_set_subject_when_task_has_none():
-    """Pre-Phase-3 callers leave both fields None on the task. The
-    result must also stay None — fall-through behavior."""
+def test_runner_does_not_set_subject_when_task_has_none_and_no_contract():
+    """Pre-Phase-3 callers leave both fields None on the task; if
+    there's no CategoryContract registered with the runner (e.g. some
+    test harnesses), the result must stay None — fall-through behavior."""
     runner = _build_runner_for_subject_tests()
+    # _build_runner_for_subject_tests already passes contract=None.
 
     task = TaskMessage(
         id=uuid4(),
@@ -480,3 +482,174 @@ def test_runner_does_not_set_subject_when_task_has_none():
 
     assert payload["subject_kind"] is None
     assert payload["subject_id"] is None
+
+
+# ---------------------------------------------------------------------------
+# Phase 3d: contract subject_kind fallback
+# ---------------------------------------------------------------------------
+
+
+def test_category_contract_default_subject_kind_is_image():
+    """Most categories operate on a single image — the default keeps
+    every existing contract image-keyed without explicit declaration."""
+    from magellon_sdk.categories.contract import (
+        CTF, FFT, MOTIONCOR_CATEGORY, PARTICLE_EXTRACTION_CATEGORY,
+        PARTICLE_PICKER, SQUARE_DETECT, HOLE_DETECT, TOPAZ_PICK, DENOISE,
+    )
+
+    for c in (CTF, FFT, MOTIONCOR_CATEGORY, PARTICLE_EXTRACTION_CATEGORY,
+              PARTICLE_PICKER, SQUARE_DETECT, HOLE_DETECT, TOPAZ_PICK, DENOISE):
+        assert c.subject_kind == "image", c.category.name
+
+
+def test_two_d_classification_contract_overrides_to_particle_stack():
+    """The aggregate category — Phase 3d's named consumer of the
+    declarative seam. Operators / dispatchers reading
+    ``CATEGORIES[code].subject_kind`` see ``'particle_stack'`` and
+    can populate ImageJobTask.subject_kind correctly without
+    hardcoding the rule."""
+    from magellon_sdk.categories.contract import TWO_D_CLASSIFICATION_CATEGORY
+
+    assert TWO_D_CLASSIFICATION_CATEGORY.subject_kind == "particle_stack"
+
+
+def test_runner_falls_back_to_contract_subject_kind_when_task_omits():
+    """Pre-Phase-3 dispatcher leaves task.subject_kind=None. With a
+    CategoryContract registered on the runner, _stamp_subject should
+    populate the result with the contract's declared subject_kind so
+    Phase 3c's projector backfill sees the right value."""
+    from magellon_sdk.base import PluginBase
+    from magellon_sdk.categories.contract import CategoryContract
+    from magellon_sdk.models.manifest import (
+        Capability,
+        IsolationLevel,
+        ResourceHints,
+        Transport,
+    )
+    from magellon_sdk.models import OutputFile, PluginInfo, TaskResultMessage
+    from magellon_sdk.models.tasks import (
+        FftInput,
+        TWO_D_CLASSIFICATION,
+        TwoDClassificationInput,
+    )
+    from magellon_sdk.categories.outputs import (
+        FftOutput,
+        TwoDClassificationOutput,
+    )
+    from magellon_sdk.progress import NullReporter
+
+    # Use a synthesized contract so the test pins the runner's
+    # contract-fallback wiring without coupling to whichever real
+    # contract has subject_kind set.
+    aggregate_contract = CategoryContract(
+        category=TWO_D_CLASSIFICATION,
+        input_model=TwoDClassificationInput,
+        output_model=TwoDClassificationOutput,
+        subject_kind="particle_stack",
+    )
+
+    class _ContractAwarePlugin(PluginBase[FftInput, FftOutput]):
+        capabilities = [Capability.CPU_INTENSIVE]
+        supported_transports = [Transport.RMQ]
+        default_transport = Transport.RMQ
+        isolation = IsolationLevel.CONTAINER
+        resource_hints = ResourceHints(
+            memory_mb=10, cpu_cores=1, typical_duration_seconds=1
+        )
+
+        def get_info(self):
+            return PluginInfo(name="caw", version="0.0.1", description="t")
+
+        @classmethod
+        def input_schema(cls):
+            return FftInput
+
+        @classmethod
+        def output_schema(cls):
+            return FftOutput
+
+        def execute(self, input_data, *, reporter=NullReporter()):
+            return FftOutput(output_path="/tmp/out.png")
+
+    def _factory(task, output):
+        return TaskResultMessage(
+            job_id=task.job_id,
+            task_id=task.id,
+            type=task.type,
+            code=200,
+            message="ok",
+            output_data={"output_path": output.output_path},
+            output_files=[OutputFile(name="out.png", path=output.output_path, required=True)],
+        )
+
+    class _FakeSettings:
+        HOST_NAME = "localhost"
+        PORT = 5672
+        USER_NAME = "guest"
+        PASSWORD = "guest"
+        VIRTUAL_HOST = "/"
+
+    runner = PluginBrokerRunner(
+        plugin=_ContractAwarePlugin(),
+        settings=_FakeSettings(),
+        in_queue="caw_in",
+        out_queue="caw_out",
+        result_factory=_factory,
+        contract=aggregate_contract,
+        enable_discovery=False,
+        enable_config=False,
+    )
+
+    # Pre-Phase-3 dispatcher: subject_kind / subject_id both None.
+    task = TaskMessage(
+        id=uuid4(),
+        job_id=uuid4(),
+        data={"image_path": "/tmp/x.mrc"},
+    )
+    raw = runner._process(task.model_dump_json().encode("utf-8"))
+    import json
+    payload = json.loads(raw.decode("utf-8"))
+
+    # Contract subject_kind 'particle_stack' surfaced to the result.
+    assert payload["subject_kind"] == "particle_stack"
+    # subject_id stays None (no contract fallback for the id — that's
+    # task-specific).
+    assert payload["subject_id"] is None
+
+
+def test_runner_task_subject_wins_over_contract_default():
+    """When the task asserts a subject_kind, the contract default must
+    NOT win — the dispatch is authoritative for the task at hand."""
+    from magellon_sdk.categories.contract import CategoryContract
+    from magellon_sdk.models.tasks import (
+        FftInput,
+        TWO_D_CLASSIFICATION,
+        TwoDClassificationInput,
+    )
+    from magellon_sdk.categories.outputs import (
+        FftOutput,
+        TwoDClassificationOutput,
+    )
+
+    aggregate_contract = CategoryContract(
+        category=TWO_D_CLASSIFICATION,
+        input_model=TwoDClassificationInput,
+        output_model=TwoDClassificationOutput,
+        subject_kind="particle_stack",
+    )
+
+    runner = _build_runner_for_subject_tests()
+    runner.contract = aggregate_contract
+
+    # Task overrides — runner publishes whatever the dispatcher said.
+    task = TaskMessage(
+        id=uuid4(),
+        job_id=uuid4(),
+        data={"image_path": "/tmp/x.mrc"},
+        subject_kind="session",
+    )
+    raw = runner._process(task.model_dump_json().encode("utf-8"))
+    import json
+    payload = json.loads(raw.decode("utf-8"))
+
+    assert payload["subject_kind"] == "session"

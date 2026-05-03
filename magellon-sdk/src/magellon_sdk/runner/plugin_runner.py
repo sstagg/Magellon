@@ -301,12 +301,23 @@ class PluginBrokerRunner:
         wrap an inline-built TaskResultMessage (CTF, MotionCor) also
         get it free — the wrap path doesn't touch these fields.
 
+        Phase 3d (2026-05-03): when neither the task nor the plugin
+        set ``subject_kind``, fall back to the registered
+        :attr:`CategoryContract.subject_kind` (default ``'image'``,
+        overridden to ``'particle_stack'`` for TWO_D_CLASSIFICATION).
+        This means the projector's Phase 3c backfill will see the
+        right value for aggregate-category tasks even when the
+        dispatcher hasn't been migrated to the new column yet.
+
         ``image_id`` is part of the existing back-compat path —
         plugins still populate it for image-keyed tasks; the new
         fields are additive and only override None.
         """
-        if result.subject_kind is None and task.subject_kind is not None:
-            result.subject_kind = task.subject_kind
+        if result.subject_kind is None:
+            if task.subject_kind is not None:
+                result.subject_kind = task.subject_kind
+            elif self.contract is not None:
+                result.subject_kind = self.contract.subject_kind
         if result.subject_id is None and task.subject_id is not None:
             result.subject_id = task.subject_id
 
