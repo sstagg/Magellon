@@ -69,6 +69,20 @@ class TaskBase(BaseModel):
     whose ``PluginManifest.backend_id`` matches. Unset (the default)
     keeps today's category-wide round-robin. Added in SDK 1.3."""
 
+    subject_kind: Optional[str] = None
+    """The kind of thing this task operates on. One of:
+    ``'image' | 'particle_stack' | 'session' | 'run' | 'artifact'``.
+    Pre-Phase-3 callers leave this ``None`` and rely on
+    ``data['image_id']`` — the runner falls back to that on subject
+    extraction. Per ratified rule 4 this is a string, not a
+    typed enum, so adding a kind doesn't churn the contract."""
+
+    subject_id: Optional[UUID] = None
+    """The id of the entity ``subject_kind`` names. For
+    ``subject_kind='image'`` this mirrors ``data['image_id']`` for
+    back-compat; for ``subject_kind='particle_stack'`` this is the
+    artifact UUID. Pre-Phase-3 callers leave it ``None``."""
+
     @classmethod
     def calculate_data_hash(cls, data: Dict[str, Any]) -> str:
         data_str = str(data)
@@ -247,6 +261,74 @@ class MotionCorInput(CryoEmImageInput):
     EerSampling: int = 1
 
 
+class ParticleExtractionInput(CryoEmImageInput):
+    """Input for the PARTICLE_EXTRACTION (stack maker) category.
+
+    Subject is the source micrograph (carried in the inherited
+    ``image_*`` fields) — extraction is per-mic by default per ratified
+    rule 7 (see project_artifact_bus_invariants.md, 2026-05-03). The
+    extractor reads the picker's particle coordinates from
+    ``particles_path`` (a path on the data plane — never inline JSON
+    per ratified rule 1), boxes each particle out of ``micrograph_path``,
+    edge-normalises, and writes one ``.mrcs`` + one ``.star`` to disk.
+
+    ``ctf_path`` is optional CTF metadata (e.g. ``ctffind_results.txt``
+    or a CTF JSON) that the extractor copies into per-particle STAR
+    columns. Engine-specific knobs (allow_partial, write_aligned_stack,
+    etc.) ride on the inherited ``engine_opts`` dict.
+    """
+
+    micrograph_path: str
+    particles_path: str
+    ctf_path: Optional[str] = None
+    box_size: int
+    edge_width: int = 2
+    apix: Optional[float] = None
+    output_dir: Optional[str] = None
+    """Where ``.mrcs`` + ``.star`` land. Defaults to a sibling directory
+    of the micrograph; the runner overrides via session-keyed paths
+    when called inside a job."""
+
+
+class TwoDClassificationInput(BaseModel):
+    """Input for the TWO_D_CLASSIFICATION (CAN classifier) category.
+
+    The subject of this task is a particle stack, not an image — see
+    ratified rule 5 (subject axis) and rule 7 (one task per stack).
+    Today the runtime is image-keyed (``ImageJobTask.image_id`` / the
+    inherited ``CryoEmImageInput`` fields); once Phase 3 lands the
+    runner will read ``subject_kind='particle_stack'`` /
+    ``subject_id=<artifact.oid>`` from :class:`TaskMessage` instead of
+    these explicit fields. Until then the plugin reads paths directly.
+
+    Outputs (class averages, assignments, FRC) are written under
+    ``output_dir`` and surfaced as paths on the
+    :class:`TwoDClassificationOutput` — not inlined, per rule 1.
+    """
+
+    particle_stack_id: Optional[UUID] = None
+    mrcs_path: str
+    star_path: str
+    output_dir: str
+    apix: Optional[float] = None
+
+    # Core CAN topology / training knobs — promoted because every
+    # caller sets them. Long-tail engine controls (learn, ilearn,
+    # max_age, lowpass_resolution, phase_flip_ctf, fft_scale, …) ride
+    # on engine_opts so the contract stays narrow.
+    num_classes: int = 50
+    num_presentations: int = 200_000
+    align_iters: int = 3
+    threads: int = 8
+    can_threads: int = 8
+    compute_backend: str = "torch-auto"
+    """One of: cpu, torch-auto, torch-cuda, torch-mps, torch-cpu."""
+    max_particles: Optional[int] = None
+    invert: bool = False
+    write_aligned_stack: bool = False
+    engine_opts: Dict[str, Any] = Field(default_factory=dict)
+
+
 class FftTask(TaskMessage):
     data: FftInput
 
@@ -276,6 +358,7 @@ SQUARE_DETECTION = TaskCategory(code=6, name="SquareDetection", description="Low
 HOLE_DETECTION = TaskCategory(code=7, name="HoleDetection", description="Medium-mag hole detection and pickability scoring")
 TOPAZ_PARTICLE_PICKING = TaskCategory(code=8, name="TopazParticlePicking", description="High-mag particle picking via Topaz CNN")
 MICROGRAPH_DENOISING = TaskCategory(code=9, name="MicrographDenoising", description="Topaz-Denoise UNet on a single MRC")
+PARTICLE_EXTRACTION = TaskCategory(code=10, name="ParticleExtraction", description="Box particles from a micrograph given coordinates (RELION-style stack)")
 
 # Task-status constants.
 PENDING = TaskStatus(code=0, name="pending", description="Task is pending")
@@ -363,6 +446,8 @@ __all__ = [
     "TopazPickInput",
     "MicrographDenoiseInput",
     "PtolemyInput",
+    "ParticleExtractionInput",
+    "TwoDClassificationInput",
     # Concrete tasks.
     "FftTask",
     "CtfTask",
@@ -373,6 +458,11 @@ __all__ = [
     "PARTICLE_PICKING",
     "TWO_D_CLASSIFICATION",
     "MOTIONCOR",
+    "SQUARE_DETECTION",
+    "HOLE_DETECTION",
+    "TOPAZ_PARTICLE_PICKING",
+    "MICROGRAPH_DENOISING",
+    "PARTICLE_EXTRACTION",
     "PENDING",
     "IN_PROGRESS",
     "COMPLETED",

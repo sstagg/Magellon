@@ -145,6 +145,52 @@ class MicrographDenoisingOutput(CategoryOutput):
     pixel_std: Optional[float] = None
 
 
+class ParticleExtractionOutput(CategoryOutput):
+    """Stack-maker result.
+
+    All file fields are paths on the data plane (rule 1: bus carries
+    refs and summaries only — never inline ``.mrcs``/``.star``
+    content). ``particle_count``, ``apix``, ``box_size`` are scalar
+    summaries safe on the bus.
+
+    ``particle_stack_id`` is filled in by ``TaskOutputProcessor`` after
+    it writes the artifact row — plugins leave it ``None`` (the
+    artifact is the projector's record-of-truth, not the plugin's).
+    """
+
+    mrcs_path: str
+    star_path: str
+    particle_count: int
+    apix: Optional[float] = None
+    box_size: Optional[int] = None
+    edge_width: Optional[int] = None
+    micrograph_name: Optional[str] = None
+    source_micrograph_path: Optional[str] = None
+    particle_stack_id: Optional[str] = None
+
+
+class TwoDClassificationOutput(CategoryOutput):
+    """CAN classifier result.
+
+    Class averages, assignments, FRC summaries, and per-iteration
+    artifacts all live as files under ``output_dir``; the bus carries
+    only the paths. Class counts and the final num-classes-emitted
+    are scalar summaries.
+    """
+
+    class_averages_path: str
+    assignments_csv_path: str
+    class_counts_csv_path: str
+    run_summary_path: Optional[str] = None
+    iteration_history_path: Optional[str] = None
+    aligned_stack_path: Optional[str] = None
+    num_classes_emitted: int
+    num_particles_classified: int
+    apix: Optional[float] = None
+    output_dir: Optional[str] = None
+    source_particle_stack_id: Optional[str] = None
+
+
 __all__ = [
     "CategoryOutput",
     "FftOutput",
@@ -156,4 +202,6 @@ __all__ = [
     "HoleDetectionOutput",
     "Particle",
     "MicrographDenoisingOutput",
+    "ParticleExtractionOutput",
+    "TwoDClassificationOutput",
 ]

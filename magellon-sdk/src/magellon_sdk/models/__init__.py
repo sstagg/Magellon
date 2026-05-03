@@ -8,6 +8,7 @@ Organized into submodules so the surface area stays navigable:
 Everything exported from either submodule is re-exported here, so
 ``from magellon_sdk.models import PluginInfo, TaskDto`` keeps working.
 """
+from magellon_sdk.models.artifact import Artifact, ArtifactKind
 from magellon_sdk.models.manifest import (
     Capability,
     IsolationLevel,
@@ -34,6 +35,7 @@ from magellon_sdk.models.tasks import (
     FFT_TASK,
     FftInput,
     FftTask,
+    HOLE_DETECTION,
     IN_PROGRESS,
     ImageMetaData,
     JobMessage,
@@ -44,9 +46,13 @@ from magellon_sdk.models.tasks import (
     MotioncorTask,
     MrcToPngInput,
     OutputFile,
+    PARTICLE_EXTRACTION,
     PARTICLE_PICKING,
+    ParticleExtractionInput,
     PENDING,
     PtolemyInput,
+    SQUARE_DETECTION,
+    TOPAZ_PARTICLE_PICKING,
     TWO_D_CLASSIFICATION,
     TaskBase,
     TaskCategory,
@@ -56,9 +62,13 @@ from magellon_sdk.models.tasks import (
     TaskStatus,
     TaskStatusEnum,
     TopazPickInput,
+    TwoDClassificationInput,
 )
 
 __all__ = [
+    # artifact.py — typed bridge between jobs (Phase 4).
+    "Artifact",
+    "ArtifactKind",
     # manifest.py — capability-aware plugin description.
     "Capability",
     "IsolationLevel",
@@ -89,6 +99,8 @@ __all__ = [
     "TopazPickInput",
     "MicrographDenoiseInput",
     "PtolemyInput",
+    "ParticleExtractionInput",
+    "TwoDClassificationInput",
     # tasks.py — concrete tasks.
     "FftTask",
     "CtfTask",
@@ -99,7 +111,11 @@ __all__ = [
     "PARTICLE_PICKING",
     "TWO_D_CLASSIFICATION",
     "MOTIONCOR",
+    "SQUARE_DETECTION",
+    "HOLE_DETECTION",
+    "TOPAZ_PARTICLE_PICKING",
     "MICROGRAPH_DENOISING",
+    "PARTICLE_EXTRACTION",
     "PENDING",
     "IN_PROGRESS",
     "COMPLETED",

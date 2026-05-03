@@ -36,8 +36,10 @@ from magellon_sdk.categories.outputs import (
     HoleDetectionOutput,
     MicrographDenoisingOutput,
     MotionCorOutput,
+    ParticleExtractionOutput,
     ParticlePickingOutput,
     SquareDetectionOutput,
+    TwoDClassificationOutput,
 )
 from magellon_sdk.models.tasks import (
     CTF_TASK,
@@ -50,12 +52,16 @@ from magellon_sdk.models.tasks import (
     MICROGRAPH_DENOISING,
     MOTIONCOR,
     MicrographDenoiseInput,
+    PARTICLE_EXTRACTION,
     PARTICLE_PICKING,
+    ParticleExtractionInput,
     PtolemyInput,
     SQUARE_DETECTION,
     TOPAZ_PARTICLE_PICKING,
+    TWO_D_CLASSIFICATION,
     TaskCategory,
     TopazPickInput,
+    TwoDClassificationInput,
 )
 
 
@@ -239,6 +245,18 @@ DENOISE = CategoryContract(
     output_model=MicrographDenoisingOutput,
 )
 
+PARTICLE_EXTRACTION_CATEGORY = CategoryContract(
+    category=PARTICLE_EXTRACTION,
+    input_model=ParticleExtractionInput,
+    output_model=ParticleExtractionOutput,
+)
+
+TWO_D_CLASSIFICATION_CATEGORY = CategoryContract(
+    category=TWO_D_CLASSIFICATION,
+    input_model=TwoDClassificationInput,
+    output_model=TwoDClassificationOutput,
+)
+
 
 # ---------------------------------------------------------------------------
 # Registry
@@ -255,6 +273,8 @@ CATEGORIES: Dict[int, CategoryContract] = {
     HOLE_DETECT.category.code: HOLE_DETECT,
     TOPAZ_PICK.category.code: TOPAZ_PICK,
     DENOISE.category.code: DENOISE,
+    PARTICLE_EXTRACTION_CATEGORY.category.code: PARTICLE_EXTRACTION_CATEGORY,
+    TWO_D_CLASSIFICATION_CATEGORY.category.code: TWO_D_CLASSIFICATION_CATEGORY,
 }
 
 
@@ -280,6 +300,8 @@ __all__ = [
     "HOLE_DETECT",
     "TOPAZ_PICK",
     "DENOISE",
+    "PARTICLE_EXTRACTION_CATEGORY",
+    "TWO_D_CLASSIFICATION_CATEGORY",
     "CATEGORIES",
     "CONFIG_BROADCAST_SUBJECT",
     "get_category",
