@@ -23,7 +23,7 @@ import io
 import logging
 import uuid
 import zipfile
-from datetime import datetime as _datetime, timezone as _timezone
+from datetime import datetime, datetime as _datetime, timezone as _timezone
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
 # Sentinel for max() over heartbeat datetimes; lets entries without a
@@ -56,6 +56,7 @@ from magellon_sdk.categories.contract import CATEGORIES, CategoryContract
 from magellon_sdk.envelope import Envelope
 from magellon_sdk.models import (
     Capability,
+    Condition,
     IsolationLevel,
     PluginManifest,
     TaskMessage,
@@ -428,6 +429,59 @@ async def list_plugins() -> List[PluginSummary]:
         seen_ids.add(plugin_id)
 
     return summaries
+
+
+@plugins_router.get(
+    "/{plugin_id:path}/status",
+    response_model=List[Condition],
+    summary="Plugin status — Conditions[] (PM2)",
+)
+def plugin_status(plugin_id: str) -> List[Condition]:
+    """Kubernetes-style multi-axis status for one plugin (PM2).
+
+    Returns ``Conditions[]`` covering Installed / Enabled / Live /
+    Healthy / Default. Cheaper than re-fetching the full ``GET
+    /plugins/`` join when the UI only needs to refresh the chip
+    cluster on a status pulse.
+
+    Liveness data comes from the in-memory ``PluginLivenessRegistry``
+    (registry already keys on ``(plugin_id, instance_id)`` per
+    reviewer-flagged High #3 of the plan revision — this endpoint
+    aggregates across replicas for the headline ``Live`` axis).
+    """
+    from database import session_local
+    from services.plugin_conditions import compute_conditions
+    from core.plugin_liveness_registry import (
+        get_registry as get_liveness_registry,
+    )
+
+    # Aggregate per-replica heartbeats — pick the most recent across
+    # any replica matching this plugin_id. Pre-PM5 the UI sees one
+    # row per plugin_id; PM5's /replicas endpoint exposes the per-
+    # replica view explicitly.
+    last_heartbeat: Optional[datetime] = None
+    for entry in get_liveness_registry().list_live():
+        if entry.plugin_id == plugin_id or (
+            "/" in plugin_id and plugin_id.endswith(entry.plugin_id)
+        ):
+            ts = getattr(entry, "last_heartbeat_at", None) or getattr(
+                entry, "last_seen_at", None
+            )
+            if ts is not None and (last_heartbeat is None or ts > last_heartbeat):
+                last_heartbeat = ts
+    is_live = last_heartbeat is not None
+
+    # Strip the optional "category/" prefix the controller composes
+    # at list-time so the DB lookup matches stored Plugin.name.
+    plain_id = plugin_id.split("/", 1)[1] if "/" in plugin_id else plugin_id
+
+    with session_local() as db:
+        return compute_conditions(
+            db,
+            plugin_name=plain_id,
+            is_live=is_live,
+            last_heartbeat_at=last_heartbeat,
+        )
 
 
 @plugins_router.get("/{plugin_id:path}/manifest", summary="Plugin capability manifest")

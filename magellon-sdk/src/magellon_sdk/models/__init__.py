@@ -9,6 +9,7 @@ Everything exported from either submodule is re-exported here, so
 ``from magellon_sdk.models import PluginInfo, TaskDto`` keeps working.
 """
 from magellon_sdk.models.artifact import Artifact, ArtifactKind
+from magellon_sdk.models.conditions import Condition, ConditionStatus, ConditionType
 from magellon_sdk.models.manifest import (
     Capability,
     IsolationLevel,
@@ -69,6 +70,10 @@ __all__ = [
     # artifact.py — typed bridge between jobs (Phase 4).
     "Artifact",
     "ArtifactKind",
+    # conditions.py — Kubernetes-style multi-axis status (PM2).
+    "Condition",
+    "ConditionStatus",
+    "ConditionType",
     # manifest.py — capability-aware plugin description.
     "Capability",
     "IsolationLevel",
