@@ -389,6 +389,25 @@ def plugin_status(plugin_id: str) -> List[Condition]:
         return get_plugin_manager(db).status(db, plugin_id)
 
 
+@plugins_router.get(
+    "/{plugin_id:path}/replicas",
+    summary="Per-replica health for one plugin (PM5)",
+)
+def plugin_replicas(plugin_id: str):
+    """Per-replica view (PM5) — one row per ``instance_id`` for the plugin.
+
+    The liveness registry already keys on ``(plugin_id, instance_id)``;
+    this endpoint surfaces the per-instance rows. Status classifies
+    each replica as ``Healthy`` / ``Stale`` / ``Lost`` from heartbeat
+    age — see :meth:`PluginManagerService.replicas` for thresholds.
+    """
+    from database import session_local
+    from services.plugin_manager import get_plugin_manager
+
+    with session_local() as db:
+        return get_plugin_manager(db).replicas(plugin_id)
+
+
 @plugins_router.get("/{plugin_id:path}/manifest", summary="Plugin capability manifest")
 async def plugin_manifest(plugin_id: str) -> PluginManifest:
     """Full capability description — what the plugin needs (resources,

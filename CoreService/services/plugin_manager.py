@@ -24,7 +24,7 @@ without monkey-patching anything.
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import List, Literal, Optional, Protocol
 
 from pydantic import BaseModel
@@ -72,6 +72,26 @@ class PluginView(BaseModel):
     enabled: bool = True
     is_default_for_category: bool = False
     task_queue: Optional[str] = None
+
+
+class ReplicaInfo(BaseModel):
+    """Per-replica health for one plugin (PM5).
+
+    The liveness registry already keys on ``(plugin_id, instance_id)``
+    (`magellon-sdk/.../bus/services/liveness_registry.py:137`), so
+    PM5 surfaces what the registry already tracks — no schema change,
+    no re-key. ``host`` and ``container_id`` are nullable: the
+    Announce envelope doesn't carry them today; the field exists so
+    a future SDK rev can populate without a wire-shape change.
+    """
+
+    instance_id: str
+    host: Optional[str] = None
+    container_id: Optional[str] = None
+    last_heartbeat_at: Optional[datetime] = None
+    last_task_completed_at: Optional[datetime] = None
+    in_flight_task_count: int = 0
+    status: Literal["Healthy", "Stale", "Lost"]
 
 
 # ---------------------------------------------------------------------------
@@ -182,6 +202,60 @@ class PluginManagerService:
             is_live=latest is not None,
             last_heartbeat_at=latest,
         )
+
+    def replicas(
+        self,
+        plugin_id: str,
+        *,
+        now: Optional[datetime] = None,
+        healthy_window: timedelta = timedelta(seconds=30),
+        stale_window: timedelta = timedelta(seconds=60),
+    ) -> List[ReplicaInfo]:
+        """Per-replica health view (PM5).
+
+        ``Healthy`` = heartbeat ≤ ``healthy_window`` (default 2× the
+        15s heartbeat interval). ``Stale`` = heartbeat between
+        ``healthy_window`` and ``stale_window`` (the registry's reap
+        cutoff). ``Lost`` = entries past ``healthy_window`` and inside
+        ``stale_window`` but with no heartbeat in 2× the interval —
+        in practice ``Lost`` and ``Stale`` collapse to the same
+        registry-tracked state, but the rendition lets the UI show
+        "presumed dead" without losing the row entirely.
+
+        Replicas reaped by the registry's own stale cutoff (60s by
+        default) drop out of the list — there's no per-replica
+        memory beyond the live window. PM5 deliberately does not
+        introduce one; if a replica vanishes for >60s it's treated
+        the same as a replica that never existed.
+        """
+        short = _strip_category(plugin_id)
+        ref_now = now or datetime.now(timezone.utc)
+
+        out: List[ReplicaInfo] = []
+        for entry in self._liveness.list_live(now=ref_now):
+            if entry.plugin_id != short:
+                continue
+            ts = getattr(entry, "last_heartbeat", None)
+            age = ref_now - ts if ts is not None else stale_window * 2
+            if age <= healthy_window:
+                status: Literal["Healthy", "Stale", "Lost"] = "Healthy"
+            elif age <= stale_window:
+                # 1×–2× interval: registry still tracks, but pulses are
+                # missed — call it Lost so the UI's red-amber-green is
+                # decisive.
+                status = "Lost"
+            else:
+                status = "Stale"
+            out.append(ReplicaInfo(
+                instance_id=entry.instance_id,
+                host=None,
+                container_id=None,
+                last_heartbeat_at=ts,
+                last_task_completed_at=None,
+                in_flight_task_count=0,
+                status=status,
+            ))
+        return out
 
     # ------------------------------------------------------------------
     # Mutations — write through the state store (in-memory + DB)
@@ -321,5 +395,6 @@ def get_plugin_manager(db: Session) -> PluginManagerService:
 __all__ = [
     "PluginManagerService",
     "PluginView",
+    "ReplicaInfo",
     "get_plugin_manager",
 ]

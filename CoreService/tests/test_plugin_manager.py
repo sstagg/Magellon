@@ -7,7 +7,7 @@ method (the plan requires 6) plus mutation pass-through tests.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -334,6 +334,71 @@ def test_set_default_writes_through_state_store():
 
 # ---------------------------------------------------------------------------
 # PluginView wire shape — pins the contract with the legacy PluginSummary
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# replicas (PM5) — per-replica health
+# ---------------------------------------------------------------------------
+
+
+def test_replicas_classifies_recent_heartbeat_as_healthy():
+    now = datetime(2026, 5, 3, 12, 0, 0, tzinfo=timezone.utc)
+    fresh = _make_liveness_entry(
+        "ctffind4", instance_id="i-1",
+        last_heartbeat=now - timedelta(seconds=5),
+    )
+    manager = _build_manager(live=[fresh])
+    [replica] = manager.replicas("ctf/ctffind4", now=now)
+    assert replica.instance_id == "i-1"
+    assert replica.status == "Healthy"
+
+
+def test_replicas_classifies_aged_heartbeat_as_lost():
+    """Heartbeat age between healthy_window (30s) and stale_window (60s)
+    means the replica missed >2× pulses but hasn't been reaped — call
+    it ``Lost`` so the UI's red/amber/green is decisive."""
+    now = datetime(2026, 5, 3, 12, 0, 0, tzinfo=timezone.utc)
+    aged = _make_liveness_entry(
+        "ctffind4", instance_id="i-2",
+        last_heartbeat=now - timedelta(seconds=45),
+    )
+    manager = _build_manager(live=[aged])
+    [replica] = manager.replicas("ctf/ctffind4", now=now)
+    assert replica.status == "Lost"
+
+
+def test_replicas_returns_one_row_per_instance_id():
+    """Three live replicas of the same plugin → three rows. Pinned
+    because PM5's whole point is exposing per-instance keying — one
+    row per ``(plugin_id, instance_id)`` from the registry."""
+    now = datetime(2026, 5, 3, 12, 0, 0, tzinfo=timezone.utc)
+    replicas = [
+        _make_liveness_entry("ctffind4", instance_id=f"i-{i}",
+                             last_heartbeat=now - timedelta(seconds=2))
+        for i in range(3)
+    ]
+    manager = _build_manager(live=replicas)
+    rows = manager.replicas("ctf/ctffind4", now=now)
+    assert len(rows) == 3
+    assert {r.instance_id for r in rows} == {"i-0", "i-1", "i-2"}
+    assert all(r.status == "Healthy" for r in rows)
+
+
+def test_replicas_filters_to_requested_plugin_only():
+    now = datetime(2026, 5, 3, 12, 0, 0, tzinfo=timezone.utc)
+    target = _make_liveness_entry("ctffind4", instance_id="i-1",
+                                  last_heartbeat=now)
+    other = _make_liveness_entry("topaz", instance_id="i-1", category="pp",
+                                 last_heartbeat=now)
+    manager = _build_manager(live=[target, other])
+    rows = manager.replicas("ctffind4", now=now)
+    assert len(rows) == 1
+    assert rows[0].instance_id == "i-1"
+
+
+# ---------------------------------------------------------------------------
+# Wire shape pin
 # ---------------------------------------------------------------------------
 
 
