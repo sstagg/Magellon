@@ -311,7 +311,13 @@ class ImageJob(Base):
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)
 
+    # Phase 8 (migration 0006): a job may belong to a PipelineRun
+    # rollup. Nullable so pre-Phase-8 jobs remain valid as
+    # standalone runs.
+    parent_run_id = Column(ForeignKey('pipeline_run.oid'), index=True, nullable=True)
+
     pipeline = relationship('Pipeline')
+    parent_run = relationship('PipelineRun', back_populates='jobs')
 
 
 class Msession(Base):
@@ -557,6 +563,44 @@ class ImageJobTask(Base):
     image = relationship('Image')
     job = relationship('ImageJob')
     pipeline_item = relationship('PipelineItem')
+
+
+class PipelineRun(Base):
+    """User-visible rollup over a sequence of ImageJobs.
+
+    Phase 8 (migration 0006). Each algorithm step (motioncor, ctf,
+    picker, extraction, classification) is its own ImageJob;
+    PipelineRun groups them so the UI can show "I ran the picker →
+    extractor → classifier on session X" as a single thing.
+
+    Status enum mirrors ImageJob.status_id: 1=pending, 2=running,
+    3=processing, 4=completed, 5=failed, 6=cancelled. ``settings``
+    is free-form workflow parameters (cryoSPARC's analogue is
+    Workflow inputs). ``deleted_at`` is the only mutable field on a
+    completed run — soft-delete only, mirrors the artifact pattern.
+    """
+
+    __tablename__ = 'pipeline_run'
+
+    oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
+    name = Column(String(200))
+    description = Column(Text)
+    msession_id = Column(String(100), index=True)
+    status_id = Column(SMALLINT(5), nullable=False, server_default="1")
+    created_date = Column(DateTime, nullable=False, default=lambda: datetime.utcnow())
+    started_date = Column(DateTime)
+    ended_date = Column(DateTime)
+    settings = Column(JSON)
+    user_id = Column(String(100))
+    deleted_at = Column(DateTime)
+    OptimisticLockField = Column(INTEGER(11))
+    GCRecord = Column(INTEGER(11), index=True)
+
+    jobs = relationship(
+        'ImageJob',
+        back_populates='parent_run',
+        order_by='ImageJob.created_date',
+    )
 
 
 class Artifact(Base):
