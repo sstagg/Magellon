@@ -1,6 +1,7 @@
 # coding: utf-8
 import re
 import uuid
+from datetime import datetime
 from sqlalchemy_utils import UUIDType
 from sqlalchemy.orm import relationship
 from lib.sqlalchemy_uuid_type import SqlalchemyUuidType
@@ -541,9 +542,64 @@ class ImageJobTask(Base):
     plugin_id = Column(String(100), index=True)
     plugin_version = Column(String(50))
 
+    # Subject axis (Phase 3 / migration 0004). Pre-Phase-3 every task
+    # was image-keyed via ``image_id``. The CAN classifier doesn't fit
+    # — its subject is a ``particle_stack``, not an image — so we
+    # generalise. ``subject_kind`` is VARCHAR per ratified rule 4
+    # (project_artifact_bus_invariants.md, 2026-05-03): MySQL ENUM
+    # ALTER on a tens-of-millions-row table is multi-hour; VARCHAR is
+    # a code-only change to add a new kind. The migration backfills
+    # subject_id = image_id for every existing row, so image-keyed
+    # plugins keep working unchanged.
+    subject_kind = Column(String(32), nullable=False, server_default='image')
+    subject_id = Column(SqlalchemyUuidType, nullable=True)
+
     image = relationship('Image')
     job = relationship('ImageJob')
     pipeline_item = relationship('PipelineItem')
+
+
+class Artifact(Base):
+    """Typed bridge between a producing job/task and its consumers.
+
+    Phase 4 (migration 0005). Single-table inheritance: queryable hot
+    fields promoted to columns (``kind``, ``producing_*``,
+    ``mrcs_path``, ``star_path``, ``particle_count``, ``apix``,
+    ``box_size``); long-tail per-kind metadata in ``data_json``.
+
+    Per ratified rule 6 (project_artifact_bus_invariants.md): artifacts
+    are immutable once written. A re-run produces a *new* row pointing
+    at the same source. ``deleted_at`` is the only mutable field on a
+    written artifact.
+    """
+
+    __tablename__ = 'artifact'
+
+    oid = Column(SqlalchemyUuidType, primary_key=True, default=uuid.uuid4, unique=True)
+    kind = Column(String(32), nullable=False, index=True)
+
+    producing_job_id = Column(ForeignKey('image_job.oid'), index=True)
+    producing_task_id = Column(ForeignKey('image_job_task.oid'), index=True)
+    msession_id = Column(String(100))
+
+    # Promoted hot columns — queryable scalars / paths.
+    mrcs_path = Column(String(500))
+    star_path = Column(String(500))
+    particle_count = Column(INTEGER(11))
+    apix = Column(DECIMAL(asdecimal=False))
+    box_size = Column(INTEGER(11))
+
+    # Long-tail per-kind metadata.
+    data_json = Column(JSON)
+
+    created_date = Column(DateTime, nullable=False, default=lambda: datetime.utcnow())
+    deleted_at = Column(DateTime, nullable=True)
+
+    OptimisticLockField = Column(INTEGER(11))
+    GCRecord = Column(INTEGER(11), index=True)
+
+    producing_job = relationship('ImageJob')
+    producing_task = relationship('ImageJobTask')
 
 
 class ImageMetaData(Base):

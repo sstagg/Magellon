@@ -31,7 +31,7 @@ from sqlalchemy.orm import Session
 from config import MAGELLON_HOME_DIR
 from models.plugins_models import TaskResultMessage
 from models.pydantic_models_settings import OutQueueConfig, OutQueueType
-from models.sqlalchemy_models import ImageJobTask, ImageMetaData
+from models.sqlalchemy_models import Artifact, ImageJobTask, ImageMetaData
 
 logger = logging.getLogger(__name__)
 
@@ -42,16 +42,29 @@ STATUS_COMPLETED = 2
 STATUS_FAILED = 3
 
 # ImageJobTask.stage values — per task-type code. The stage is the
-# position of that step in the per-image pipeline:
+# position of that step in the per-image (or aggregate) pipeline:
 #   1 = MotionCor              (TaskCategory.code == 5)
 #   2 = CTF                    (TaskCategory.code == 2)
 #   3 = SquareDetection        (TaskCategory.code == 6)
 #   4 = HoleDetection          (TaskCategory.code == 7)
 #   5 = TopazParticlePicking   (TaskCategory.code == 8)
 #   6 = MicrographDenoising    (TaskCategory.code == 9)
+#   7 = ParticleExtraction     (TaskCategory.code == 10)  Phase 5
+#   8 = TwoDClassification     (TaskCategory.code == 4)   Phase 7
 # Unknown task types land at 99 so operators can spot them in the UI.
-_TASK_TYPE_TO_STAGE = {5: 1, 2: 2, 6: 3, 7: 4, 8: 5, 9: 6}
+_TASK_TYPE_TO_STAGE = {5: 1, 2: 2, 6: 3, 7: 4, 8: 5, 9: 6, 10: 7, 4: 8}
 _DEFAULT_STAGE = 99
+
+# TaskCategory codes for the artifact-producing categories handled below.
+# Kept as bare ints (matching the SDK constants) so we don't pull a
+# magellon_sdk import into this hot path just for two switch-cases.
+_TASK_TYPE_PARTICLE_EXTRACTION = 10  # PARTICLE_EXTRACTION
+_TASK_TYPE_TWO_D_CLASSIFICATION = 4  # TWO_D_CLASSIFICATION
+
+# Artifact.kind discriminator values. Mirrors magellon_sdk.models.artifact.ArtifactKind
+# but kept local to avoid a cross-package coupling on the enum string.
+_ARTIFACT_KIND_PARTICLE_STACK = "particle_stack"
+_ARTIFACT_KIND_CLASS_AVERAGES = "class_averages"
 
 # Default category id when no OutQueueConfig matches — preserves the
 # old plugin's fallback so existing rows keep their lineage.
@@ -166,6 +179,84 @@ class TaskOutputProcessor:
         except (ValueError, TypeError, json.JSONDecodeError) as json_err:
             logger.error("JSON error saving metadata: %s", json_err)
 
+    def _maybe_write_artifact(self, task_result: TaskResultMessage) -> Optional[uuid.UUID]:
+        """If this result belongs to an artifact-producing category,
+        write a new ``artifact`` row and return its id.
+
+        Per ratified rule 6 (project_artifact_bus_invariants.md):
+        artifacts are immutable. A re-run produces a *new* row; we
+        never UPDATE an existing one. Per rule 1: only refs and
+        scalar summaries cross from ``output_data`` into the row —
+        the file content stays on disk.
+
+        Categories handled today:
+
+          * PARTICLE_EXTRACTION (code 10) → kind=``particle_stack``
+            with ``mrcs_path`` / ``star_path`` / ``particle_count`` /
+            ``apix`` / ``box_size`` populated.
+          * TWO_D_CLASSIFICATION (code 4) → kind=``class_averages``
+            with ``mrcs_path`` set to the class-averages stack;
+            ``data_json`` carries the assignments / counts paths and
+            ``source_particle_stack_id`` for lineage.
+
+        Anything else returns ``None`` — the rest of the projection
+        runs unchanged (status_id, stage, ImageMetaData, etc.).
+        """
+        if task_result.type is None:
+            return None
+
+        type_code = task_result.type.code
+        out = task_result.output_data or {}
+        artifact_id = uuid.uuid4()
+
+        if type_code == _TASK_TYPE_PARTICLE_EXTRACTION:
+            row = Artifact(
+                oid=artifact_id,
+                kind=_ARTIFACT_KIND_PARTICLE_STACK,
+                producing_job_id=task_result.job_id,
+                producing_task_id=task_result.task_id,
+                msession_id=task_result.session_name,
+                mrcs_path=out.get("mrcs_path"),
+                star_path=out.get("star_path"),
+                particle_count=out.get("particle_count"),
+                apix=out.get("apix"),
+                box_size=out.get("box_size"),
+                data_json={
+                    "json_path": out.get("json_path"),
+                    "source_micrograph_path": task_result.image_path,
+                    "edge_width": out.get("edge_width"),
+                },
+            )
+            self.db.add(row)
+            return artifact_id
+
+        if type_code == _TASK_TYPE_TWO_D_CLASSIFICATION:
+            row = Artifact(
+                oid=artifact_id,
+                kind=_ARTIFACT_KIND_CLASS_AVERAGES,
+                producing_job_id=task_result.job_id,
+                producing_task_id=task_result.task_id,
+                msession_id=task_result.session_name,
+                mrcs_path=out.get("class_averages_path"),
+                # No star_path — class averages don't carry STAR
+                # metadata, only assignments + counts CSV.
+                particle_count=out.get("num_particles_classified"),
+                apix=out.get("apix"),
+                data_json={
+                    "assignments_csv_path": out.get("assignments_csv_path"),
+                    "class_counts_csv_path": out.get("class_counts_csv_path"),
+                    "run_summary_path": out.get("run_summary_path"),
+                    "iteration_history_path": out.get("iteration_history_path"),
+                    "aligned_stack_path": out.get("aligned_stack_path"),
+                    "num_classes_emitted": out.get("num_classes_emitted"),
+                    "source_particle_stack_id": out.get("source_particle_stack_id"),
+                },
+            )
+            self.db.add(row)
+            return artifact_id
+
+        return None
+
     def _advance_task_state(
         self,
         task_result: TaskResultMessage,
@@ -206,14 +297,41 @@ class TaskOutputProcessor:
             db_task.plugin_version = task_result.plugin_version
 
     def process(self, task_result: TaskResultMessage) -> Dict[str, Any]:
-        """Project the result. Returns a small dict for caller logging."""
+        """Project the result. Returns a small dict for caller logging.
+
+        For artifact-producing categories (PARTICLE_EXTRACTION,
+        TWO_D_CLASSIFICATION) we also write one ``artifact`` row per
+        result and project its id back into ``output_data`` under a
+        category-specific key (``particle_stack_id`` for extraction,
+        ``class_averages_id`` for classification) so downstream
+        consumers can address by id without joining through the
+        producing task.
+        """
         try:
             destination_dir = self._get_destination_dir(task_result)
             self._process_output_files(task_result, destination_dir)
+
+            # Artifact write must happen BEFORE _save_output_data so the
+            # projected id rides into the ImageMetaData blob the latter
+            # serialises. Failed (status=FAILED) tasks don't produce an
+            # artifact — there's no ``mrcs_path`` to record — so guard
+            # on the reported status.
+            reported_code = task_result.status.code if task_result.status else None
+            artifact_id = None
+            if reported_code != STATUS_FAILED:
+                artifact_id = self._maybe_write_artifact(task_result)
+                if artifact_id is not None:
+                    type_code = task_result.type.code if task_result.type else None
+                    out = task_result.output_data or {}
+                    if type_code == _TASK_TYPE_PARTICLE_EXTRACTION:
+                        out["particle_stack_id"] = str(artifact_id)
+                    elif type_code == _TASK_TYPE_TWO_D_CLASSIFICATION:
+                        out["class_averages_id"] = str(artifact_id)
+                    task_result.output_data = out
+
             self._save_output_data(task_result)
             self._save_metadata(task_result)
 
-            reported_code = task_result.status.code if task_result.status else None
             final_status = (
                 STATUS_FAILED if reported_code == STATUS_FAILED else STATUS_COMPLETED
             )
@@ -222,7 +340,10 @@ class TaskOutputProcessor:
             self.db.commit()
             type_name = task_result.type.name if task_result.type else "unknown"
             logger.info("TaskOutputProcessor: %s projected", type_name)
-            return {"message": f"{type_name} successfully processed"}
+            return {
+                "message": f"{type_name} successfully processed",
+                "artifact_id": str(artifact_id) if artifact_id else None,
+            }
 
         except Exception as exc:
             type_name = task_result.type.name if task_result.type else "unknown"

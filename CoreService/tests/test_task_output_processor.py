@@ -196,3 +196,253 @@ def test_destination_dir_falls_back_to_type_name_when_no_config():
     parts = dest.replace("\\", "/").split("/")
     assert parts[-1] == "img"
     assert parts[-2] == "motioncor"
+
+
+# ---------------------------------------------------------------------------
+# Phase 5+7: artifact projection for PARTICLE_EXTRACTION + TWO_D_CLASSIFICATION
+# ---------------------------------------------------------------------------
+# Tests below target the artifact-row write that closes the loop on
+# ratified rules 1, 2, 6 (project_artifact_bus_invariants.md):
+#   * rule 1 — only refs and scalar summaries land on the row
+#   * rule 2 — STI table; promoted hot columns + data_json long tail
+#   * rule 6 — every call writes a NEW row (never UPDATE)
+
+
+def _extraction_result(task_id=None, status_code=None, **out_overrides):
+    """Synthetic PARTICLE_EXTRACTION (code 10) result for test cases."""
+    out = {
+        "mrcs_path": "/work/sess/extract/m_particles.mrcs",
+        "star_path": "/work/sess/extract/m_particles.star",
+        "json_path": "/work/sess/extract/m_particles.json",
+        "particle_count": 42,
+        "apix": 1.23,
+        "box_size": 256,
+        "edge_width": 2,
+    }
+    out.update(out_overrides)
+    result = _StubResult(
+        task_id=task_id or uuid4(),
+        type_code=10,
+        type_name="ParticleExtraction",
+        status_code=status_code,
+    )
+    result.output_data = out
+    result.job_id = uuid4()
+    return result
+
+
+def _classification_result(task_id=None, status_code=None, **out_overrides):
+    """Synthetic TWO_D_CLASSIFICATION (code 4) result for test cases."""
+    stack_id = str(uuid4())
+    out = {
+        "class_averages_path": "/work/sess/can/class_averages.mrcs",
+        "assignments_csv_path": "/work/sess/can/assignments.csv",
+        "class_counts_csv_path": "/work/sess/can/class_counts.csv",
+        "run_summary_path": "/work/sess/can/run_summary.json",
+        "iteration_history_path": None,
+        "aligned_stack_path": None,
+        "num_classes_emitted": 50,
+        "num_particles_classified": 20000,
+        "source_particle_stack_id": stack_id,
+        "apix": 1.23,
+    }
+    out.update(out_overrides)
+    result = _StubResult(
+        task_id=task_id or uuid4(),
+        type_code=4,
+        type_name="TwoDClassification",
+        status_code=status_code,
+    )
+    result.output_data = out
+    result.job_id = uuid4()
+    return result
+
+
+def test_extraction_writes_particle_stack_artifact_with_promoted_columns():
+    """Rule 2: hot columns (mrcs_path, star_path, particle_count, apix,
+    box_size) land as real attributes; long-tail (json_path, edge_width,
+    source_micrograph_path) goes in data_json."""
+    from models.sqlalchemy_models import Artifact
+
+    proc, db = _make_processor()
+    result = _extraction_result()
+
+    artifact_id = proc._maybe_write_artifact(result)
+
+    assert artifact_id is not None
+    assert db.add.call_count == 1
+    written = db.add.call_args[0][0]
+    assert isinstance(written, Artifact)
+    assert written.kind == "particle_stack"
+    assert written.producing_job_id == result.job_id
+    assert written.producing_task_id == result.task_id
+    assert written.msession_id == "sess1"
+    assert written.mrcs_path == "/work/sess/extract/m_particles.mrcs"
+    assert written.star_path == "/work/sess/extract/m_particles.star"
+    assert written.particle_count == 42
+    assert written.apix == 1.23
+    assert written.box_size == 256
+    # data_json carries the long-tail metadata.
+    assert written.data_json["json_path"] == "/work/sess/extract/m_particles.json"
+    assert written.data_json["edge_width"] == 2
+
+
+def test_classification_writes_class_averages_artifact_with_lineage():
+    """Rule 6: classifier output preserves source_particle_stack_id in
+    data_json so the lineage graph stays traversable from class
+    averages back to the source stack."""
+    from models.sqlalchemy_models import Artifact
+
+    proc, db = _make_processor()
+    result = _classification_result()
+    expected_source = result.output_data["source_particle_stack_id"]
+
+    artifact_id = proc._maybe_write_artifact(result)
+
+    assert artifact_id is not None
+    written = db.add.call_args[0][0]
+    assert isinstance(written, Artifact)
+    assert written.kind == "class_averages"
+    assert written.mrcs_path == "/work/sess/can/class_averages.mrcs"
+    assert written.particle_count == 20000  # # of particles classified
+    assert written.apix == 1.23
+    assert written.star_path is None  # class averages have no STAR
+    # Lineage + the long-tail outputs ride in data_json.
+    assert written.data_json["assignments_csv_path"] == "/work/sess/can/assignments.csv"
+    assert written.data_json["class_counts_csv_path"] == "/work/sess/can/class_counts.csv"
+    assert written.data_json["num_classes_emitted"] == 50
+    assert written.data_json["source_particle_stack_id"] == expected_source
+
+
+def test_artifact_writer_skips_unrelated_categories():
+    """CTF/MotionCor/etc. don't produce artifacts — the writer must
+    return None and not call db.add. Otherwise we'd litter the table
+    with single-image artifact rows that nothing references."""
+    proc, db = _make_processor()
+    result = _StubResult(task_id=uuid4(), type_code=2)  # CTF
+    result.output_data = {"defocus_u": 12000, "defocus_v": 12100}
+
+    assert proc._maybe_write_artifact(result) is None
+    db.add.assert_not_called()
+
+
+def test_artifact_writer_handles_missing_type():
+    """A result with no ``type`` (rare; legacy plugins) must not crash
+    the writer — return None and let downstream projection skip."""
+    proc, db = _make_processor()
+    result = _StubResult(task_id=uuid4(), type_code=10)
+    result.type = None
+    result.output_data = {"mrcs_path": "/x"}
+
+    assert proc._maybe_write_artifact(result) is None
+    db.add.assert_not_called()
+
+
+def test_repeated_extraction_results_each_get_a_fresh_artifact_id():
+    """Ratified rule 6 — re-runs produce NEW rows. Two consecutive
+    calls with the same task_id must yield two distinct artifact ids
+    (no UPDATE semantics on the writer path)."""
+    proc, _ = _make_processor()
+    result_a = _extraction_result()
+    result_b = _extraction_result(task_id=result_a.task_id)  # same task
+
+    id_a = proc._maybe_write_artifact(result_a)
+    id_b = proc._maybe_write_artifact(result_b)
+
+    assert id_a is not None and id_b is not None
+    assert id_a != id_b
+
+
+def test_extraction_stage_is_7():
+    """Phase 5: PARTICLE_EXTRACTION (code 10) → stage 7."""
+    db_task = MagicMock(status_id=0, stage=0)
+    proc, _ = _make_processor(db_task)
+    result = _extraction_result()
+    proc._advance_task_state(result, status_id=STATUS_COMPLETED)
+    assert db_task.stage == 7
+
+
+def test_classification_stage_is_8():
+    """Phase 7: TWO_D_CLASSIFICATION (code 4) → stage 8."""
+    db_task = MagicMock(status_id=0, stage=0)
+    proc, _ = _make_processor(db_task)
+    result = _classification_result()
+    proc._advance_task_state(result, status_id=STATUS_COMPLETED)
+    assert db_task.stage == 8
+
+
+# ---------------------------------------------------------------------------
+# process(): full projection for the new categories
+# ---------------------------------------------------------------------------
+
+
+def _make_processor_for_full_process(db_task=None, out_queues=None):
+    """Like _make_processor but wires the bits process() touches:
+    ``commit``, ``rollback``, ``close`` are MagicMocks, ``query``
+    returns the supplied db_task. magellon_home_dir set so
+    _get_destination_dir doesn't blow up."""
+    db = MagicMock()
+    db.query.return_value.filter.return_value.first.return_value = db_task
+    proc = TaskOutputProcessor.__new__(TaskOutputProcessor)
+    proc.db = db
+    proc.magellon_home_dir = "/tmp/magellon"
+    proc._queue_type_output_config = (
+        TaskOutputProcessor._build_queue_type_output_config(out_queues or [])
+    )
+    return proc, db
+
+
+def test_process_extraction_projects_particle_stack_id_back_to_output_data():
+    """End-to-end through process(): the artifact row is written, its
+    id is projected back into output_data['particle_stack_id'] BEFORE
+    _save_output_data serialises the blob, so downstream consumers can
+    address by id without re-querying."""
+    db_task = MagicMock(status_id=0, stage=0, plugin_id=None, plugin_version=None)
+    proc, db = _make_processor_for_full_process(db_task)
+    result = _extraction_result(status_code=STATUS_COMPLETED)
+
+    out = proc.process(result)
+
+    # Artifact id surfaced in the return for caller logging.
+    assert out["artifact_id"] is not None
+    # Same id roundtripped into the result's output_data so the
+    # ImageMetaData blob captures it.
+    assert result.output_data["particle_stack_id"] == out["artifact_id"]
+    # Stage advanced to 7, status to COMPLETED.
+    assert db_task.stage == 7
+    assert db_task.status_id == STATUS_COMPLETED
+
+
+def test_process_classification_projects_class_averages_id():
+    db_task = MagicMock(status_id=0, stage=0, plugin_id=None, plugin_version=None)
+    proc, db = _make_processor_for_full_process(db_task)
+    result = _classification_result(status_code=STATUS_COMPLETED)
+
+    out = proc.process(result)
+
+    assert out["artifact_id"] is not None
+    assert result.output_data["class_averages_id"] == out["artifact_id"]
+    assert db_task.stage == 8
+    assert db_task.status_id == STATUS_COMPLETED
+
+
+def test_process_failed_extraction_does_not_write_artifact():
+    """A FAILED result has no ``mrcs_path`` (the algorithm crashed
+    before writing). Skip the artifact write — otherwise we'd land
+    rows with NULL hot columns that no consumer can use."""
+    from models.sqlalchemy_models import Artifact
+
+    db_task = MagicMock(status_id=0, stage=0, plugin_id=None, plugin_version=None)
+    proc, db = _make_processor_for_full_process(db_task)
+    result = _extraction_result(status_code=STATUS_FAILED)
+    # Wipe the output paths to model a real crash.
+    result.output_data = {}
+
+    out = proc.process(result)
+
+    assert out["artifact_id"] is None
+    artifact_adds = [
+        c for c in db.add.call_args_list if isinstance(c[0][0], Artifact)
+    ]
+    assert artifact_adds == []
+    assert db_task.status_id == STATUS_FAILED
