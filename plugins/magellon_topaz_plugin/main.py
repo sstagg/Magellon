@@ -5,7 +5,10 @@ One container serves both ``TOPAZ_PARTICLE_PICKING`` and
 its own daemon thread; the three ONNX models cache per-process so the
 two runners share InferenceSession objects.
 
-Mirror of magellon_ptolemy_plugin/main.py.
+Phase 1b (2026-05-03): use the SDK :class:`PluginBrokerRunner` directly
+(no ``TopazBrokerRunner`` subclass — the SDK now owns the active-task
+ContextVar). Phase 2: lifespan replaces deprecated ``on_event``;
+exception handler returns 500 not 400.
 """
 from __future__ import annotations
 
@@ -13,6 +16,7 @@ import asyncio
 import logging
 import os
 import threading
+from contextlib import asynccontextmanager
 
 os.environ.setdefault("MAGELLON_STEP_EVENTS_ENABLED", "1")
 os.environ.setdefault("MAGELLON_STEP_EVENTS_RMQ", "1")
@@ -29,8 +33,8 @@ from core.settings import AppSettingsSingleton
 from magellon_sdk.bus.bootstrap import install_rmq_bus
 from magellon_sdk.categories.contract import DENOISE, TOPAZ_PICK
 from magellon_sdk.logging_config import setup_logging
+from magellon_sdk.runner import PluginBrokerRunner
 from plugin import (
-    TopazBrokerRunner,
     TopazDenoisePlugin,
     TopazPickPlugin,
     build_denoise_result,
@@ -49,36 +53,13 @@ logger = logging.getLogger(__name__)
 traceback.install()
 load_dotenv()
 
-app = FastAPI(
-    debug=False,
-    title="Magellon Topaz Plugin",
-    description="Particle picking + denoising via topaz (ONNX backed).",
-    version=_pick_info.version,
-)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-    allow_credentials=True,
-)
-
-Info("plugin", "topaz plugin information").info({
-    "pick_name":     _pick_info.name,
-    "denoise_name":  _denoise_info.name,
-    "version":       _pick_info.version,
-    "pick_instance":    str(_pick_info.instance_id),
-    "denoise_instance": str(_denoise_info.instance_id),
-})
+_pick_runner:    PluginBrokerRunner | None = None
+_denoise_runner: PluginBrokerRunner | None = None
 
 
-_pick_runner:    TopazBrokerRunner | None = None
-_denoise_runner: TopazBrokerRunner | None = None
-
-
-@app.on_event("startup")
-async def startup_event() -> None:
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     global _pick_runner, _denoise_runner
     try:
         settings = AppSettingsSingleton.get_instance()
@@ -86,14 +67,14 @@ async def startup_event() -> None:
         install_rmq_bus(rmq)
 
         try:
+            from magellon_sdk.runner import get_step_event_loop
             from plugin.events import get_publisher
-            from plugin.plugin import _get_loop
-            asyncio.run_coroutine_threadsafe(get_publisher(), _get_loop())
+            asyncio.run_coroutine_threadsafe(get_publisher(), get_step_event_loop())
             logger.info("step-event publisher pre-warm scheduled")
         except Exception:
             logger.exception("step-event publisher pre-warm failed (non-fatal)")
 
-        _pick_runner = TopazBrokerRunner(
+        _pick_runner = PluginBrokerRunner(
             plugin=_pick_plugin,
             settings=rmq,
             in_queue=settings.PICK_QUEUE_NAME,
@@ -107,7 +88,7 @@ async def startup_event() -> None:
             daemon=True,
         ).start()
 
-        _denoise_runner = TopazBrokerRunner(
+        _denoise_runner = PluginBrokerRunner(
             plugin=_denoise_plugin,
             settings=rmq,
             in_queue=settings.DENOISE_QUEUE_NAME,
@@ -125,15 +106,39 @@ async def startup_event() -> None:
     except Exception:
         logger.exception("topaz plugin: startup failed")
 
+    yield
 
-@app.on_event("shutdown")
-async def shutdown_event() -> None:
     for runner, name in ((_pick_runner, "pick"), (_denoise_runner, "denoise")):
         if runner is not None:
             try:
                 runner.stop()
             except Exception:
                 logger.exception("topaz %s runner: stop() raised", name)
+
+
+app = FastAPI(
+    debug=False,
+    title="Magellon Topaz Plugin",
+    description="Particle picking + denoising via topaz (ONNX backed).",
+    version=_pick_info.version,
+    lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+    allow_credentials=True,
+)
+
+Info("plugin", "topaz plugin information").info({
+    "pick_name":     _pick_info.name,
+    "denoise_name":  _denoise_info.name,
+    "version":       _pick_info.version,
+    "pick_instance":    str(_pick_info.instance_id),
+    "denoise_instance": str(_denoise_info.instance_id),
+})
 
 
 Instrumentator().instrument(app).expose(app)
@@ -176,7 +181,7 @@ async def execute_endpoint(task: TaskMessage):
 @app.exception_handler(Exception)
 def app_exception_handler(request, err):
     return JSONResponse(
-        status_code=400,
+        status_code=500,
         content={
             "message": f"Failed to execute: {request.method}: {request.url}. Detail: {err}"
         },

@@ -10,19 +10,19 @@ Two operations:
 The three .onnx files load lazily and cache for the process lifetime.
 ORT sessions are thread-safe so two PluginBrokerRunners sharing one
 cached session is fine.
+
+onnxruntime / mrcfile / topaz_lib imports are lazy (deferred to first
+call) so unit tests that mock ``run_pick`` / ``run_denoise`` don't
+have to install the heavyweight runtime. Production startup pays the
+import cost on the first task — same total cost, just relocated.
 """
 from __future__ import annotations
 
 import os
-from typing import Dict, List
+from typing import Any, Dict, List
 
-import mrcfile
 import numpy as np
-import onnxruntime as ort
 
-from plugin.topaz_lib.denoise_io import denoise_in_patches
-from plugin.topaz_lib.nms import non_maximum_suppression
-from plugin.topaz_lib.preprocess import preprocess
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _WEIGHTS = os.path.join(_HERE, "weights")
@@ -38,10 +38,15 @@ DENOISER_FILES = {
     "unet_l2": "topaz_unet_l2.onnx",
 }
 
-_SESSION_CACHE: Dict[str, ort.InferenceSession] = {}
+# ``Any`` here keeps the type-hint without forcing onnxruntime to be
+# importable at module load. The runtime type is
+# onnxruntime.InferenceSession.
+_SESSION_CACHE: Dict[str, Any] = {}
 
 
-def _session(filename: str) -> ort.InferenceSession:
+def _session(filename: str) -> Any:
+    import onnxruntime as ort  # lazy
+
     path = os.path.join(_WEIGHTS, filename)
     sess = _SESSION_CACHE.get(path)
     if sess is None:
@@ -51,6 +56,8 @@ def _session(filename: str) -> ort.InferenceSession:
 
 
 def _load_mrc(path: str) -> np.ndarray:
+    import mrcfile  # lazy
+
     with mrcfile.open(path, permissive=True) as m:
         arr = np.asarray(m.data)
         if arr.ndim == 3:
@@ -66,6 +73,9 @@ def run_pick(input_file: str, *, model: str = "resnet16",
              radius: int = 14, threshold: float = -3.0,
              scale: int = 8) -> List[dict]:
     """Pick particles. Coordinates returned in ORIGINAL image space."""
+    from plugin.topaz_lib.nms import non_maximum_suppression  # lazy
+    from plugin.topaz_lib.preprocess import preprocess  # lazy
+
     onnx_name = DETECTOR_FILES.get(model)
     if onnx_name is None:
         raise ValueError(f"Unknown detector '{model}'. "
@@ -105,6 +115,9 @@ def run_denoise(input_file: str, output_file: str, *,
     max, mean, std) — same shape the sandbox's denoise_algorithm.py
     emits, so the JSON contract is stable across paths.
     """
+    import mrcfile  # lazy
+    from plugin.topaz_lib.denoise_io import denoise_in_patches  # lazy
+
     onnx_name = DENOISER_FILES.get(model)
     if onnx_name is None:
         raise ValueError(f"Unknown denoiser '{model}'. "
