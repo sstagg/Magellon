@@ -165,7 +165,9 @@ class Plugin(Base):
     deleted_date = Column(DateTime)
     deleted_by = Column(ForeignKey('sys_sec_user.oid'), index=True)
     sync_status = Column(INTEGER(11))
-    version = Column(String(10))
+    # Phase PM1 (alembic 0008) widens VARCHAR(10) → (64) for SemVer
+    # with prerelease tags (1.2.3-rc.1+build.42).
+    version = Column(String(64))
     name = Column(String(100))
     author = Column(String(100))
     copyright = Column(Text)
@@ -178,10 +180,89 @@ class Plugin(Base):
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)
 
+    # PM1 (alembic 0008) — promoted catalog hot fields. NOTE the
+    # name: ``manifest_plugin_id`` (NOT ``plugin_id``). The latter
+    # would collide with image_meta_data.plugin_id which is already
+    # a FK to plugin.oid (reviewer-flagged High #2 from
+    # PLUGIN_MANAGER_PLAN.md revision 1).
+    manifest_plugin_id = Column(String(200), index=True)
+    backend_id = Column(String(64))
+    category = Column(String(64))
+    schema_version = Column(String(16))
+    install_method = Column(String(16))   # 'uv' | 'docker'
+    install_dir = Column(String(500))
+    image_ref = Column(String(500))
+    container_ref = Column(String(200))
+    archive_id = Column(String(64))
+    manifest_json = Column(JSON)
+    installed_date = Column(DateTime)
+
     sys_sec_user = relationship('SysSecUser', primaryjoin='Plugin.created_by == SysSecUser.oid')
     sys_sec_user1 = relationship('SysSecUser', primaryjoin='Plugin.deleted_by == SysSecUser.oid')
     sys_sec_user2 = relationship('SysSecUser', primaryjoin='Plugin.last_modified_by == SysSecUser.oid')
     type = relationship('PluginType')
+    state = relationship(
+        'PluginState',
+        uselist=False,
+        back_populates='plugin',
+        cascade='all, delete-orphan',
+    )
+
+
+class PluginState(Base):
+    """Per-plugin operator-mutable runtime state (PM1, alembic 0008).
+
+    Lives separate from ``Plugin`` so toggling ``enabled`` (and the
+    PM4 ``paused``/etc. fields when those land in alembic 0009)
+    doesn't churn the XAF audit columns on the catalog row. PK is
+    plugin_oid + FK to plugin.oid — keeps identity tied to the DB
+    row, not to the string slug (reviewer-flagged High #2).
+
+    PM1 ships only the ``enabled`` flag + heartbeat mirror. PM4 will
+    extend with ``paused`` / ``paused_reason_code`` / ``paused_at`` /
+    ``paused_until`` once pause semantics are designed
+    (reviewer-flagged Medium #5).
+    """
+
+    __tablename__ = 'plugin_state'
+
+    plugin_oid = Column(
+        SqlalchemyUuidType,
+        ForeignKey('plugin.oid', ondelete='CASCADE'),
+        primary_key=True,
+    )
+    enabled = Column(Boolean, nullable=False, server_default='1')
+    last_seen_at = Column(DateTime)
+    last_heartbeat_at = Column(DateTime)
+    OptimisticLockField = Column(INTEGER(11))
+
+    plugin = relationship('Plugin', back_populates='state')
+
+
+class PluginCategoryDefault(Base):
+    """Default routing policy per task category (PM1, alembic 0008).
+
+    PK is ``category`` — at most one default per category. Multi-
+    category plugins (e.g. topaz: TOPAZ_PARTICLE_PICKING +
+    MICROGRAPH_DENOISING) have multiple rows pointing at them, one
+    per category they're default for. A single boolean on the plugin
+    row couldn't express that — reviewer-flagged High #1 from the
+    revision-1 plan.
+    """
+
+    __tablename__ = 'plugin_category_default'
+
+    category = Column(String(64), primary_key=True)
+    plugin_oid = Column(
+        SqlalchemyUuidType,
+        ForeignKey('plugin.oid', ondelete='CASCADE'),
+        nullable=False,
+        index=True,
+    )
+    set_at = Column(DateTime, nullable=False)
+    set_by_user_id = Column(String(100))
+
+    plugin = relationship('Plugin')
 
 
 class Project(Base):
