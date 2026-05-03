@@ -7,7 +7,9 @@ import {
     CardContent,
     Chip,
     CircularProgress,
+    Collapse,
     FormControlLabel,
+    IconButton,
     Stack,
     Switch,
     TextField,
@@ -16,7 +18,7 @@ import {
     Alert,
     Grid,
 } from '@mui/material';
-import { Puzzle, Square, Star, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Puzzle, Square, Star, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
     usePlugins,
@@ -29,6 +31,7 @@ import {
     PluginSummary,
 } from '../api/PluginApi.ts';
 import { PluginConditions } from './PluginConditions.tsx';
+import { PluginReplicas } from './PluginReplicas.tsx';
 
 /** Per-card Conditions cluster — fetches its own status (PM7a). */
 const PluginConditionsForCard: React.FC<{ pluginId: string }> = ({ pluginId }) => {
@@ -48,6 +51,11 @@ export const PluginBrowser: React.FC<PluginBrowserProps> = ({ onSelect }) => {
     const stopInstalled = useStopInstalled();
     const removeInstalled = useRemoveInstalled();
     const [query, setQuery] = useState('');
+    // PM7c: which cards have their replica drawer open. Keyed by
+    // plugin_id so the open state persists across re-renders.
+    const [expandedReplicas, setExpandedReplicas] = useState<Record<string, boolean>>({});
+    const toggleReplicas = (pluginId: string) =>
+        setExpandedReplicas((s) => ({ ...s, [pluginId]: !s[pluginId] }));
 
     // Count per-category impls — a "Set as default" action only makes
     // sense when ≥2 impls exist for the category. For solo impls the
@@ -278,7 +286,35 @@ export const PluginBrowser: React.FC<PluginBrowserProps> = ({ onSelect }) => {
                                                 Set as default
                                             </Button>
                                         )}
+                                        <Tooltip
+                                            title={
+                                                expandedReplicas[plugin.plugin_id]
+                                                    ? 'Hide replicas'
+                                                    : 'Show replicas'
+                                            }
+                                        >
+                                            <IconButton
+                                                size="small"
+                                                onClick={() => toggleReplicas(plugin.plugin_id)}
+                                                aria-label="toggle replicas"
+                                                aria-expanded={!!expandedReplicas[plugin.plugin_id]}
+                                            >
+                                                {expandedReplicas[plugin.plugin_id] ? (
+                                                    <ChevronUp size={16} />
+                                                ) : (
+                                                    <ChevronDown size={16} />
+                                                )}
+                                            </IconButton>
+                                        </Tooltip>
                                     </Stack>
+                                    <Collapse in={!!expandedReplicas[plugin.plugin_id]} unmountOnExit>
+                                        <Box sx={{ px: 2, py: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+                                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                                                Replicas
+                                            </Typography>
+                                            <PluginReplicas pluginId={plugin.plugin_id} />
+                                        </Box>
+                                    </Collapse>
                                 </Card>
                             </Grid>
                         );

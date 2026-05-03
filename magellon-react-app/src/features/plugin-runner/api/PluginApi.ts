@@ -192,6 +192,38 @@ export const usePluginStatus = (pluginId: string | null) =>
     );
 
 // ---------------------------------------------------------------------------
+// PM5 — Per-replica health for one plugin
+// ---------------------------------------------------------------------------
+
+export type ReplicaStatus = 'Healthy' | 'Stale' | 'Lost';
+
+export interface ReplicaInfo {
+    instance_id: string;
+    host?: string | null;
+    container_id?: string | null;
+    last_heartbeat_at?: string | null;
+    last_task_completed_at?: string | null;
+    in_flight_task_count: number;
+    status: ReplicaStatus;
+}
+
+export const fetchPluginReplicas = async (pluginId: string): Promise<ReplicaInfo[]> => {
+    const res = await api.get(`/plugins/${pluginId}/replicas`);
+    return res.data;
+};
+
+export const usePluginReplicas = (pluginId: string | null) =>
+    useQuery(
+        ['plugin-replicas', pluginId],
+        () => fetchPluginReplicas(pluginId!),
+        {
+            enabled: !!pluginId,
+            refetchInterval: 10_000,
+            staleTime: 5_000,
+        },
+    );
+
+// ---------------------------------------------------------------------------
 // Hub operator actions (H1): enable/disable + set-default-for-category
 // ---------------------------------------------------------------------------
 
