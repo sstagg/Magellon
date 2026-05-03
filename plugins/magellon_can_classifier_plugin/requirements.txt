@@ -14,9 +14,19 @@ python-dotenv
 
 pika==1.3.2
 
-# Algorithm runtime — Phase 7b will add the vendored algorithm and
-# its full deps (torch, scikit-image, scikit-learn). Today's scaffold
-# only exercises the SDK contract layer; deps below are the minimum
-# needed to import the plugin and run the contract tests.
 mrcfile==1.5.0
 numpy==1.26.4
+scipy==1.12.0
+
+# Phase 7b runtime deps (2026-05-03 vendor). Required to run the
+# vendored algorithm in plugin/algorithm/classifier.py end-to-end.
+# Plugin contract tests don't need them — compute.py loads them lazily
+# via ``from plugin.algorithm import ...`` inside classify_stack.
+#
+# torch is the heavyweight: ~2 GB CPU wheel, much larger CUDA wheels
+# from the PyTorch index (https://download.pytorch.org/whl/cu121).
+# Use the CUDA Dockerfile for production GPU deployments; the CPU
+# wheel is fine for small synthetic test runs.
+torch>=2.0,<3.0
+scikit-image>=0.22,<0.25
+scikit-learn>=1.4,<2.0

@@ -1,6 +1,13 @@
-# Phase 7 scaffold: CPU-only python:3.11-slim base. Phase 7b will
-# replace with a CUDA-runtime base (e.g. nvidia/cuda:12.1-runtime) and
-# install torch with the matching CUDA wheels.
+# Phase 7b (2026-05-03) — CUDA-capable build. The CAN algorithm uses
+# torch on CUDA when available (compute_backend='torch-auto' or
+# 'torch-cuda'); falls back to CPU torch for smaller stacks. Switch
+# the base image to nvidia/cuda:12.1-runtime-ubuntu22.04 for GPU
+# deployments — the line below stays python:3.11-slim so CI without
+# a GPU can still build + run contract tests.
+#
+# To enable GPU: change the FROM line and install torch via:
+#   pip install --extra-index-url https://download.pytorch.org/whl/cu121 \
+#       torch>=2.0,<3.0
 #
 # Build context MUST be the repo root (compose: `context: ..` from
 # Docker/, `dockerfile: plugins/magellon_can_classifier_plugin/Dockerfile`).

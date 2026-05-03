@@ -23,11 +23,17 @@ dependencies = [
 
     "pika==1.3.2",
 
-    # Phase 7b: add `torch`, `scikit-image`, `scikit-learn` once the
-    # algorithm is vendored. Today's scaffold runs contract tests
-    # against mocked ``classify_stack`` and doesn't need them.
     "mrcfile==1.5.0",
     "numpy==1.26.4",
+    "scipy==1.12.0",
+
+    # Phase 7b runtime deps (2026-05-03). Required for the vendored
+    # CAN algorithm in plugin/algorithm/classifier.py. Plugin contract
+    # tests don't need them — compute.py loads them lazily via
+    # ``from plugin.algorithm import ...`` inside classify_stack.
+    "torch>=2.0,<3.0",
+    "scikit-image>=0.22,<0.25",
+    "scikit-learn>=1.4,<2.0",
 ]
 
 [dependency-groups]

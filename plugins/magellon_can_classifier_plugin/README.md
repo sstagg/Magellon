@@ -13,44 +13,44 @@ Cardinality: **1 task per stack** — the classifier consumes an
 aggregate, so it does NOT fan out N image-tasks like the pre-pipeline
 plugins do.
 
-## Phase 7 status — scaffold only
+## Status
 
-This commit ships:
+**Phase 7 (scaffold)**: SDK contract + plugin shell + contract tests.
+**Phase 7b (vendor)** *(2026-05-03)*: algorithm vendored from
+`Sandbox/magellon_can_classifier/classifier.py` into
+`plugin/algorithm/`. `compute.classify_stack` now does the full
+orchestration: STAR parsing → per-particle MRC reads → preprocess →
+align+CAN → output writing.
 
-- The SDK contract: `TWO_D_CLASSIFICATION_CATEGORY`,
-  `TwoDClassificationInput`, `TwoDClassificationOutput`.
-- The plugin shell (`PluginBrokerRunner` glue, manifest, configs,
-  Dockerfile, requirements).
-- Contract pin tests against the SDK.
+### What ships now
 
-It does **not** ship:
+- 1714-line algorithm at `plugin/algorithm/classifier.py` (numpy +
+  scipy + lazy torch / scikit-image / scikit-learn for the GPU paths).
+- `plugin/compute.py` — STAR parser, RELION `NNNNNN@stack.mrcs` token
+  resolver, output writers, and the public `classify_stack` entry
+  point used by `plugin/plugin.py`.
+- `requirements.txt` / `pyproject.toml` carry torch + scikit-image +
+  scikit-learn pins.
+- Dockerfile carries a runbook comment for switching the base to
+  `nvidia/cuda:12.1-runtime` for production GPU deployments.
+- 9 contract pin tests (mocked compute path stays valid; new tests
+  pin the vendored algorithm subpackage exists with the right
+  public API).
 
-- The 1714-line CAN algorithm — vendor target is `plugin/algorithm.py`,
-  source is `Sandbox/magellon_can_classifier/{classifier,cli}.py`.
-  `compute.classify_stack` raises `NotImplementedError` until Phase 7b
-  vendors it.
-- Torch / GPU runtime in the Docker image. Phase 7b switches the base
-  to `nvidia/cuda:12.1-runtime` and adds the algorithm deps.
-- Phase 3 / Phase 4 wiring: subject_id is still passed via
-  `TwoDClassificationInput.particle_stack_id` (not via
-  `TaskMessage.subject_id` yet); `TaskOutputProcessor` doesn't yet
-  write a `class_averages` artifact.
+### What's still deferred
 
-Plugin contract tests (`tests/test_can_classifier_plugin.py`) mock
-`compute.classify_stack` and verify the SDK plumbing — they pass
-without the algorithm vendored.
-
-## Phase 7b checklist
-
-1. Copy `Sandbox/magellon_can_classifier/{classifier,cli}.py` into
-   `plugin/algorithm.py` (split into a subpackage if size warrants).
-2. Update `compute.classify_stack` to delegate to
-   `algorithm.run_align_and_can(...)`.
-3. Add `torch`, `scikit-image`, `scikit-learn`, `pandas`, `mrcfile` to
-   `requirements.txt` / `pyproject.toml`.
-4. Switch the Dockerfile base to a CUDA runtime image.
-5. Add an integration test that runs a tiny `(N=20, num_classes=2)`
-   stack through the full path on CPU.
+- **Production CUDA build.** The Dockerfile keeps `python:3.11-slim`
+  so CI without a GPU can still build + run contract tests. Switch
+  the FROM line + add `--extra-index-url https://download.pytorch.org/whl/cu121`
+  to the pip install in deploys with a real GPU.
+- **End-to-end integration test on a synthetic 20-particle stack**.
+  Lands when the test environment has torch installed (CI runner
+  swap or a dedicated GPU job).
+- **Subject axis dispatch wiring**. The classifier reads paths
+  directly from `TwoDClassificationInput.mrcs_path` / `.star_path`;
+  Phase 3d's `TaskMessage.subject_id` is propagated through the
+  result envelope but the dispatch HTTP endpoint that resolves a
+  `particle_stack_id` artifact → input paths is still to-do.
 
 See `Documentation/CATEGORIES_AND_BACKENDS.md` and
 `memory/project_artifact_bus_invariants.md` for the architectural

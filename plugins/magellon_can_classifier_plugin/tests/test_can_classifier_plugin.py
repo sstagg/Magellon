@@ -137,19 +137,66 @@ def test_execute_propagates_compute_failure(monkeypatch, tmp_path):
         plugin_mod.CanClassifierPlugin().execute(inp)
 
 
-def test_execute_raises_until_algorithm_is_vendored(tmp_path):
-    """Phase 7 ships the contract scaffold; the algorithm is Phase 7b.
-    The error message points at the vendoring runbook so a developer
-    who runs the plugin without mocking gets a useful pointer."""
+def test_compute_classify_stack_no_longer_raises_not_implemented():
+    """Phase 7b (2026-05-03) vendored the algorithm into
+    ``plugin/algorithm/classifier.py`` (1714 lines from
+    Sandbox/magellon_can_classifier). compute.classify_stack now
+    delegates instead of raising NotImplementedError. Pin so a future
+    refactor doesn't accidentally re-stub it."""
+    import inspect
+
+    from plugin import compute as compute_mod
+
+    # The function's body must reference the vendored module — pin
+    # via inspect to catch a regression that re-stubs the body.
+    src = inspect.getsource(compute_mod.classify_stack)
+    assert "NotImplementedError" not in src or "raise NotImplementedError" not in src
+    assert "from plugin.algorithm import" in src or "plugin.algorithm" in src
+
+
+def test_algorithm_subpackage_exposes_run_align_and_can():
+    """Pin the public API surface the plugin's compute layer depends
+    on. If the vendored ``classifier.py`` reorganises and a name
+    drops, this fails loudly here rather than at task-time."""
+    from plugin.algorithm import (  # noqa: F401
+        CanParams,
+        class_half_averages,
+        frc_curve,
+        frc_resolution,
+        preprocess_stack,
+        run_align_and_can,
+    )
+
+    # CanParams is a dataclass; constructible with the documented
+    # core kwargs (primary_learn/secondary_learn mirror the Sandbox
+    # CLI's --learn / --ilearn).
+    p = CanParams(
+        num_classes=10,
+        num_presentations=1000,
+        primary_learn=0.01,
+        secondary_learn=0.0005,
+        max_age=200,
+    )
+    assert p.num_classes == 10
+    assert p.num_presentations == 1000
+    assert p.primary_learn == 0.01
+
+
+def test_execute_propagates_filesystem_error_from_missing_star(tmp_path):
+    """End-to-end smoke against a missing STAR — the algorithm's
+    file I/O surfaces a clear error rather than silently succeeding.
+    Regression guard: pre-Phase-7b this raised NotImplementedError
+    BEFORE touching the disk; post-vendor it must hit the FS layer
+    and report a usable diagnostic."""
     from magellon_sdk.models.tasks import TwoDClassificationInput
     from plugin import plugin as plugin_mod
 
     inp = TwoDClassificationInput(
         mrcs_path=str(tmp_path / "stack.mrcs"),
-        star_path=str(tmp_path / "stack.star"),
+        star_path=str(tmp_path / "missing.star"),
         output_dir=str(tmp_path / "out"),
     )
-    with pytest.raises(NotImplementedError, match="Phase 7b"):
+    with pytest.raises((FileNotFoundError, RuntimeError, OSError)):
         plugin_mod.CanClassifierPlugin().execute(inp)
 
 
