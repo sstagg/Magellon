@@ -1,0 +1,57 @@
+manifest_version: "1"
+
+plugin_id: template-picker
+archive_id: 00000000-0000-7000-8000-000000000000
+
+name: "Template Picker — particle picking"
+version: 0.1.0
+requires_sdk: ">=2.0,<3.0"
+
+author: "Magellon Team"
+license: MIT
+description: >
+  FFT-correlation template-matching particle picker. Mirrors the
+  in-process pp/template_picker; deploy this external version when
+  picker scaling is needed.
+
+# Classification — PARTICLE_PICKING (code 3) was reserved in SDK 1.0.
+# Two backends now serve it: the in-process pp/template_picker plus
+# this external broker version. The dispatcher routes via
+# TaskMessage.target_backend.
+category: particle_picking
+backend_id: template-picker
+
+requires:
+  - broker
+  - gpfs
+
+resources:
+  cpu_cores: 2
+  memory_mb: 1500
+  gpu_count: 0
+  typical_duration_seconds: 15
+
+input_schema: schemas/input.json
+output_schema: schemas/output.json
+
+install:
+  - method: uv
+    pyproject: pyproject.toml
+    requires:
+      - python: ">=3.11"
+  - method: docker
+    dockerfile: Dockerfile
+    build_context: .
+    requires:
+      - docker_daemon: true
+
+health_check:
+  timeout_seconds: 30
+  expected_announce: true
+
+ui: null
+
+tags:
+  - template-picker
+  - particle-picking
+  - cryo-em
