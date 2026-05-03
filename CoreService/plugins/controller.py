@@ -344,91 +344,24 @@ async def list_capabilities() -> _CapabilitiesResponse:
 async def list_plugins() -> List[PluginSummary]:
     """List every plugin the liveness registry has seen.
 
-    Post-U1.1, in-process plugins announce themselves at CoreService
-    startup (see ``plugins.in_process_announce``), so the liveness
-    registry is the single source of truth — no more separate static
-    walk. The ``kind`` field is derived by cross-referencing with the
-    in-process registry: plugins that also appear there ran inside
-    this Python process; the rest are broker plugins (Docker containers
-    or separate processes).
-
-    Plugins that announced with ``plugin_id = "CTF Plugin"`` (no
-    category prefix) get a composed id ``"{category}/{plugin_id}"`` so
-    the UI's plugin-id scheme is uniform. Plugins that already use the
-    composed form (the in-process ones) pass through unchanged.
+    Post-PM3 the four-way join (in-process registry × liveness × state
+    store × catalog) lives in :class:`PluginManagerService`. This route
+    delegates; the wire shape is byte-identical to the pre-PM3
+    response since :class:`services.plugin_manager.PluginView` and
+    :class:`PluginSummary` carry the same fields.
     """
-    # Set of plugin_ids known to run in-process — used to label the
-    # summary's ``kind`` field. Populated once per request.
-    in_process_ids = {entry.plugin_id for entry in registry.list()}
+    from database import session_local
+    from services.plugin_manager import get_plugin_manager
 
-    state = get_state_store()
-    summaries: List[PluginSummary] = []
-    seen_ids: set[str] = set()
-
-    live_entries = get_liveness_registry().list_live()
-
-    # Auto-seed the per-category default impl: the first live plugin
-    # seen for a category becomes its default. Operators can override
-    # later via POST /plugins/categories/{category}/default.
-    for entry in live_entries:
-        if entry.category and state.get_default(entry.category) is None:
-            state.set_default(entry.category, entry.plugin_id)
-
-    for entry in live_entries:
-        plugin_id = entry.plugin_id
-        if "/" not in plugin_id and entry.category:
-            plugin_id = f"{entry.category}/{plugin_id}"
-        if plugin_id in seen_ids:
-            continue
-        kind = "in-process" if plugin_id in in_process_ids else "broker"
-        enabled = state.is_enabled(entry.plugin_id)
-        is_default = state.get_default(entry.category) == entry.plugin_id
-
-        manifest = entry.manifest
-        if manifest is not None:
-            info = manifest.info
-            summaries.append(PluginSummary(
-                plugin_id=plugin_id,
-                category=entry.category,
-                name=entry.plugin_id,
-                version=info.version,
-                schema_version=info.schema_version or "1",
-                description=info.description,
-                developer=info.developer,
-                capabilities=list(manifest.capabilities),
-                supported_transports=list(manifest.supported_transports),
-                default_transport=manifest.default_transport,
-                isolation=manifest.isolation,
-                kind=kind,
-                enabled=enabled,
-                is_default_for_category=is_default,
-                task_queue=entry.task_queue,
-            ))
-        else:
-            # Heartbeat arrived but we missed the Announce (CoreService
-            # started after the plugin). Synthesise placeholder metadata
-            # — the plugin still shows up, with a hint to re-announce.
-            summaries.append(PluginSummary(
-                plugin_id=plugin_id,
-                category=entry.category,
-                name=entry.plugin_id,
-                version=entry.plugin_version or "?",
-                schema_version="1",
-                description="(manifest pending — restart the plugin "
-                            "or wait for the next announce)",
-                developer="",
-                capabilities=[],
-                supported_transports=[Transport.RMQ],
-                default_transport=Transport.RMQ,
-                isolation=IsolationLevel.CONTAINER,
-                kind=kind,
-                enabled=enabled,
-                is_default_for_category=is_default,
-                task_queue=entry.task_queue,
-            ))
-        seen_ids.add(plugin_id)
-
-    return summaries
+    with session_local() as db:
+        manager = get_plugin_manager(db)
+        views = manager.list_all()
+        # Mutations inside list_all() (auto-seed of default impl) write
+        # through the state store, which owns its own DB commit. We
+        # still commit the session in case any future read picks up
+        # work — cheap and avoids a "no commit" footgun later.
+        db.commit()
+    return [PluginSummary(**v.model_dump()) for v in views]
 
 
 @plugins_router.get(
@@ -446,42 +379,14 @@ def plugin_status(plugin_id: str) -> List[Condition]:
 
     Liveness data comes from the in-memory ``PluginLivenessRegistry``
     (registry already keys on ``(plugin_id, instance_id)`` per
-    reviewer-flagged High #3 of the plan revision — this endpoint
+    reviewer-flagged High #3 of the plan revision — the manager
     aggregates across replicas for the headline ``Live`` axis).
     """
     from database import session_local
-    from services.plugin_conditions import compute_conditions
-    from core.plugin_liveness_registry import (
-        get_registry as get_liveness_registry,
-    )
-
-    # Aggregate per-replica heartbeats — pick the most recent across
-    # any replica matching this plugin_id. Pre-PM5 the UI sees one
-    # row per plugin_id; PM5's /replicas endpoint exposes the per-
-    # replica view explicitly.
-    last_heartbeat: Optional[datetime] = None
-    for entry in get_liveness_registry().list_live():
-        if entry.plugin_id == plugin_id or (
-            "/" in plugin_id and plugin_id.endswith(entry.plugin_id)
-        ):
-            ts = getattr(entry, "last_heartbeat_at", None) or getattr(
-                entry, "last_seen_at", None
-            )
-            if ts is not None and (last_heartbeat is None or ts > last_heartbeat):
-                last_heartbeat = ts
-    is_live = last_heartbeat is not None
-
-    # Strip the optional "category/" prefix the controller composes
-    # at list-time so the DB lookup matches stored Plugin.name.
-    plain_id = plugin_id.split("/", 1)[1] if "/" in plugin_id else plugin_id
+    from services.plugin_manager import get_plugin_manager
 
     with session_local() as db:
-        return compute_conditions(
-            db,
-            plugin_name=plain_id,
-            is_live=is_live,
-            last_heartbeat_at=last_heartbeat,
-        )
+        return get_plugin_manager(db).status(db, plugin_id)
 
 
 @plugins_router.get("/{plugin_id:path}/manifest", summary="Plugin capability manifest")
