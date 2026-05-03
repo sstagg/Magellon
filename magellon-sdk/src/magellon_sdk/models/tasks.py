@@ -392,6 +392,16 @@ class TaskResultMessage(BaseModel):
     image_path: Optional[str] = None
     session_id: Optional[UUID] = None
     session_name: Optional[str] = None
+    # Subject axis (Phase 3b, 2026-05-03). The runner echoes these
+    # from the incoming TaskMessage into the result so downstream
+    # consumers (TaskOutputProcessor, artifact writer, UI) can read
+    # the subject without re-querying the originating task. Plugins
+    # that build TaskResultMessage manually (CTF / MotionCor wrap a
+    # do_*-built result) leave them None and the runner fills them
+    # from the task in ``_stamp_provenance``. ``image_id`` stays
+    # populated for back-compat when subject_kind == 'image'.
+    subject_kind: Optional[str] = None
+    subject_id: Optional[UUID] = None
     code: Optional[int] = None
     message: Optional[str] = None
     description: Optional[str] = None

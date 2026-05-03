@@ -188,11 +188,13 @@ class PluginBrokerRunner:
                 )
                 result = self._build_cancelled_result(task, str(exc))
                 self._stamp_provenance(result)
+                self._stamp_subject(task, result)
                 self._publish_result(result)
                 return
 
             result = self.result_factory(task, plugin_output)
             self._stamp_provenance(result)
+            self._stamp_subject(task, result)
             self._publish_result(result)
         finally:
             reset_active_task(token)
@@ -271,6 +273,7 @@ class PluginBrokerRunner:
             plugin_output = self.plugin.run(validated)
             result = self.result_factory(task, plugin_output)
             self._stamp_provenance(result)
+            self._stamp_subject(task, result)
             return result.model_dump_json().encode("utf-8")
         finally:
             reset_active_task(token)
@@ -287,6 +290,25 @@ class PluginBrokerRunner:
             result.plugin_id = info.name
         if result.plugin_version is None:
             result.plugin_version = info.version
+
+    def _stamp_subject(self, task: TaskMessage, result: TaskResultMessage) -> None:
+        """Phase 3b (2026-05-03). Copy subject_kind / subject_id from
+        the incoming task to the outgoing result if the plugin's
+        result_factory didn't set them.
+
+        Plugins that build their own typed result (FFT, topaz,
+        extractor, classifier) get the round-trip free. Plugins that
+        wrap an inline-built TaskResultMessage (CTF, MotionCor) also
+        get it free — the wrap path doesn't touch these fields.
+
+        ``image_id`` is part of the existing back-compat path —
+        plugins still populate it for image-keyed tasks; the new
+        fields are additive and only override None.
+        """
+        if result.subject_kind is None and task.subject_kind is not None:
+            result.subject_kind = task.subject_kind
+        if result.subject_id is None and task.subject_id is not None:
+            result.subject_id = task.subject_id
 
     # ------------------------------------------------------------------
     # Discovery + config (still on direct pika — MB5 migrates)

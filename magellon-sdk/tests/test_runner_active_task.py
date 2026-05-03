@@ -257,3 +257,226 @@ def test_plugin_broker_runner_sets_active_task_during_process(monkeypatch):
     assert seen["task"].job_id == job_id
     # ContextVar reset to None after _process returned.
     assert current_task() is None
+
+
+# ---------------------------------------------------------------------------
+# Phase 3b: subject_kind / subject_id round-trip from task to result
+# ---------------------------------------------------------------------------
+
+
+def _build_runner_for_subject_tests():
+    """Compact harness for the subject-stamping tests below."""
+    from magellon_sdk.base import PluginBase
+    from magellon_sdk.models.manifest import (
+        Capability,
+        IsolationLevel,
+        ResourceHints,
+        Transport,
+    )
+    from magellon_sdk.models import OutputFile, PluginInfo, TaskResultMessage
+    from magellon_sdk.models.tasks import FftInput
+    from magellon_sdk.categories.outputs import FftOutput
+    from magellon_sdk.progress import NullReporter
+
+    class _SubjectPlugin(PluginBase[FftInput, FftOutput]):
+        capabilities = [Capability.CPU_INTENSIVE]
+        supported_transports = [Transport.RMQ]
+        default_transport = Transport.RMQ
+        isolation = IsolationLevel.CONTAINER
+        resource_hints = ResourceHints(
+            memory_mb=10, cpu_cores=1, typical_duration_seconds=1
+        )
+
+        def get_info(self):
+            return PluginInfo(name="subj", version="0.0.1", description="t")
+
+        @classmethod
+        def input_schema(cls):
+            return FftInput
+
+        @classmethod
+        def output_schema(cls):
+            return FftOutput
+
+        def execute(self, input_data, *, reporter=NullReporter()):
+            return FftOutput(output_path="/tmp/out.png")
+
+    def _factory(task, output):
+        return TaskResultMessage(
+            job_id=task.job_id,
+            task_id=task.id,
+            type=task.type,
+            code=200,
+            message="ok",
+            output_data={"output_path": output.output_path},
+            output_files=[OutputFile(name="out.png", path=output.output_path, required=True)],
+        )
+
+    class _FakeSettings:
+        HOST_NAME = "localhost"
+        PORT = 5672
+        USER_NAME = "guest"
+        PASSWORD = "guest"
+        VIRTUAL_HOST = "/"
+
+    return PluginBrokerRunner(
+        plugin=_SubjectPlugin(),
+        settings=_FakeSettings(),
+        in_queue="subj_in",
+        out_queue="subj_out",
+        result_factory=_factory,
+        contract=None,
+        enable_discovery=False,
+        enable_config=False,
+    )
+
+
+def test_task_result_message_carries_subject_axis_fields():
+    """TaskResultMessage gained subject_kind / subject_id in Phase 3b
+    so the round-trip preserves the dispatch-time subject across the
+    result publish."""
+    from magellon_sdk.models import TaskResultMessage
+
+    fields = TaskResultMessage.model_fields
+    assert "subject_kind" in fields
+    assert "subject_id" in fields
+    # Both nullable so pre-Phase-3 plugins keep working unchanged.
+    assert fields["subject_kind"].default is None
+    assert fields["subject_id"].default is None
+
+
+def test_runner_stamps_subject_from_task_when_result_omits_it():
+    """Plugins that don't thread subject through their result_factory
+    (most of them) should still see the round-trip — the runner's
+    _stamp_subject fills it from the incoming task."""
+    runner = _build_runner_for_subject_tests()
+
+    job_id = uuid4()
+    task_id = uuid4()
+    stack_id = uuid4()
+    task = TaskMessage(
+        id=task_id,
+        job_id=job_id,
+        data={"image_path": "/tmp/x.mrc"},
+        subject_kind="particle_stack",
+        subject_id=stack_id,
+    )
+
+    raw = runner._process(task.model_dump_json().encode("utf-8"))
+    import json
+    payload = json.loads(raw.decode("utf-8"))
+
+    assert payload["subject_kind"] == "particle_stack"
+    assert payload["subject_id"] == str(stack_id)
+
+
+def test_runner_preserves_plugin_set_subject_when_provided():
+    """If a plugin explicitly stamps subject_kind/subject_id on the
+    result (e.g. an extractor that emits a particle_stack artifact and
+    sets subject to the new artifact), the runner must NOT overwrite
+    it. _stamp_subject only fills None."""
+    from magellon_sdk.base import PluginBase
+    from magellon_sdk.models.manifest import (
+        Capability,
+        IsolationLevel,
+        ResourceHints,
+        Transport,
+    )
+    from magellon_sdk.models import OutputFile, PluginInfo, TaskResultMessage
+    from magellon_sdk.models.tasks import FftInput
+    from magellon_sdk.categories.outputs import FftOutput
+    from magellon_sdk.progress import NullReporter
+
+    class _AssertivePlugin(PluginBase[FftInput, FftOutput]):
+        capabilities = [Capability.CPU_INTENSIVE]
+        supported_transports = [Transport.RMQ]
+        default_transport = Transport.RMQ
+        isolation = IsolationLevel.CONTAINER
+        resource_hints = ResourceHints(
+            memory_mb=10, cpu_cores=1, typical_duration_seconds=1
+        )
+
+        def get_info(self):
+            return PluginInfo(name="assert", version="0.0.1", description="t")
+
+        @classmethod
+        def input_schema(cls):
+            return FftInput
+
+        @classmethod
+        def output_schema(cls):
+            return FftOutput
+
+        def execute(self, input_data, *, reporter=NullReporter()):
+            return FftOutput(output_path="/tmp/out.png")
+
+    plugin_subject_id = uuid4()
+
+    def _factory(task, output):
+        return TaskResultMessage(
+            job_id=task.job_id,
+            task_id=task.id,
+            type=task.type,
+            code=200,
+            message="ok",
+            # Plugin asserts a different subject — e.g. extractor
+            # produces a new artifact and points the result at it.
+            subject_kind="particle_stack",
+            subject_id=plugin_subject_id,
+            output_data={"output_path": output.output_path},
+            output_files=[OutputFile(name="out.png", path=output.output_path, required=True)],
+        )
+
+    class _FakeSettings:
+        HOST_NAME = "localhost"
+        PORT = 5672
+        USER_NAME = "guest"
+        PASSWORD = "guest"
+        VIRTUAL_HOST = "/"
+
+    runner = PluginBrokerRunner(
+        plugin=_AssertivePlugin(),
+        settings=_FakeSettings(),
+        in_queue="a_in",
+        out_queue="a_out",
+        result_factory=_factory,
+        contract=None,
+        enable_discovery=False,
+        enable_config=False,
+    )
+
+    # Incoming task has DIFFERENT subject — runner should NOT overwrite
+    # the plugin's value.
+    incoming_subject_id = uuid4()
+    task = TaskMessage(
+        id=uuid4(),
+        job_id=uuid4(),
+        data={"image_path": "/tmp/x.mrc"},
+        subject_kind="image",
+        subject_id=incoming_subject_id,
+    )
+    raw = runner._process(task.model_dump_json().encode("utf-8"))
+    import json
+    payload = json.loads(raw.decode("utf-8"))
+
+    assert payload["subject_kind"] == "particle_stack"
+    assert payload["subject_id"] == str(plugin_subject_id)
+
+
+def test_runner_does_not_set_subject_when_task_has_none():
+    """Pre-Phase-3 callers leave both fields None on the task. The
+    result must also stay None — fall-through behavior."""
+    runner = _build_runner_for_subject_tests()
+
+    task = TaskMessage(
+        id=uuid4(),
+        job_id=uuid4(),
+        data={"image_path": "/tmp/x.mrc"},
+        # subject_kind, subject_id default None
+    )
+    raw = runner._process(task.model_dump_json().encode("utf-8"))
+    import json
+    payload = json.loads(raw.decode("utf-8"))
+
+    assert payload["subject_kind"] is None
+    assert payload["subject_id"] is None
