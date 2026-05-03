@@ -20,6 +20,7 @@ from config import app_settings
 from controllers.camera_controller import camera_router
 from controllers.admin_broker_controller import admin_broker_router
 from controllers.admin_plugin_install_controller import admin_plugin_install_router
+from controllers.artifacts_controller import artifacts_router
 from controllers.cancellation_controller import cancellation_router
 from controllers.pipelines_controller import pipelines_router
 from controllers.db_controller import db_router
