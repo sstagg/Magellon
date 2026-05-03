@@ -205,6 +205,118 @@ def test_execute_propagates_filesystem_error_from_missing_star(tmp_path):
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Phase 7c: synthetic-stack end-to-end (skipif torch unavailable)
+# ---------------------------------------------------------------------------
+# Validates the Phase 7b vendor end-to-end on a tiny CPU run. The
+# vendored classifier loads torch lazily inside the GPU paths; on CPU
+# scipy + numpy carry the load. Skipped when torch isn't installed
+# so contract tests stay fast in lean environments.
+
+
+def _torch_is_available() -> bool:
+    try:
+        import torch  # noqa: F401
+
+        return True
+    except Exception:
+        return False
+
+
+@pytest.mark.skipif(
+    not _torch_is_available(),
+    reason="torch required for the vendored CAN algorithm; install torch + scikit-image",
+)
+def test_classify_stack_runs_on_synthetic_4_particle_stack(tmp_path):
+    """End-to-end: write a 4-particle synthetic stack + a hand-rolled
+    STAR pointing at it, run classify_stack with N=2 classes / 1
+    iteration, and verify the four output files materialise plus the
+    summary scalars look sane.
+
+    Tiny problem size (4 particles, 32x32 box, 2 classes, 1 iter,
+    1000 presentations) so it lands in <30s on CPU. Larger CI
+    integration runs land separately when a GPU runner exists.
+    """
+    import mrcfile
+    import numpy as np
+
+    from plugin.compute import classify_stack
+
+    rng = np.random.default_rng(0)
+    box = 32
+    n_particles = 4
+    # Build two synthetic class signatures so the classifier has
+    # something nonrandom to find.
+    template_a = np.zeros((box, box), dtype=np.float32)
+    template_b = np.zeros((box, box), dtype=np.float32)
+    yy, xx = np.indices((box, box))
+    template_a[(yy - box // 2) ** 2 + (xx - box // 2) ** 2 < 6 ** 2] = 1.0
+    template_b[(yy - box // 2) ** 2 + (xx - box // 2) ** 2 < 10 ** 2] = 1.0
+
+    stack = np.empty((n_particles, box, box), dtype=np.float32)
+    for i in range(n_particles):
+        base = template_a if i % 2 == 0 else template_b
+        stack[i] = base + 0.1 * rng.standard_normal((box, box)).astype(np.float32)
+
+    mrcs_path = tmp_path / "stack.mrcs"
+    with mrcfile.new(str(mrcs_path), overwrite=True) as f:
+        f.set_data(stack)
+
+    # Hand-rolled minimal STAR — no optics block needed; classifier
+    # falls back to the supplied apix when _rlnImagePixelSize is
+    # absent.
+    star_path = tmp_path / "stack.star"
+    star_lines = ["data_particles\n", "\n", "loop_\n", "_rlnImageName #1\n"]
+    for i in range(1, n_particles + 1):
+        star_lines.append(f"{i:06d}@stack.mrcs\n")
+    star_path.write_text("".join(star_lines))
+
+    out_dir = tmp_path / "out"
+
+    # Skip the torch-cuda fast paths even on a CUDA machine — keep
+    # the run deterministic for CI.
+    summary = classify_stack(
+        mrcs_path=str(mrcs_path),
+        star_path=str(star_path),
+        output_dir=str(out_dir),
+        apix=1.0,
+        num_classes=2,
+        num_presentations=1000,
+        align_iters=1,
+        threads=1,
+        can_threads=1,
+        compute_backend="cpu",
+        max_particles=None,
+        invert=False,
+        write_aligned_stack=False,
+        engine_opts={
+            "learn": 0.05,
+            "ilearn": 0.001,
+            "max_age": 50,
+            "center_particles": False,
+        },
+    )
+
+    # All four required outputs land on disk.
+    for key in ("class_averages_path", "assignments_csv_path",
+                "class_counts_csv_path", "run_summary_path"):
+        assert Path(summary[key]).exists(), key
+
+    # Class averages MRCS shape: [num_classes, box, box]. CAN may
+    # emit fewer when classes go empty during a 1-iter run.
+    with mrcfile.open(summary["class_averages_path"], permissive=True) as f:
+        ca = np.asarray(f.data, dtype=np.float32)
+    assert ca.ndim == 3
+    assert 1 <= ca.shape[0] <= 2
+    assert ca.shape[1] == box
+    assert ca.shape[2] == box
+
+    # Scalar summaries.
+    assert summary["num_particles_classified"] == n_particles
+    assert summary["num_classes_emitted"] == ca.shape[0]
+    assert summary["apix"] == 1.0
+
+
 def test_build_classification_result_carries_refs_only():
     from magellon_sdk.categories.outputs import TwoDClassificationOutput
     from magellon_sdk.models import TaskMessage
