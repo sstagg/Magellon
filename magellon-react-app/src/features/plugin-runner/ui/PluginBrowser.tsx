@@ -28,10 +28,12 @@ import {
     useStopInstalled,
     useRemoveInstalled,
     usePluginStatus,
+    usePluginUpdates,
     PluginSummary,
 } from '../api/PluginApi.ts';
 import { PluginConditions } from './PluginConditions.tsx';
 import { PluginReplicas } from './PluginReplicas.tsx';
+import { PluginUpdateChip } from './PluginUpdateChip.tsx';
 
 /** Per-card Conditions cluster — fetches its own status (PM7a). */
 const PluginConditionsForCard: React.FC<{ pluginId: string }> = ({ pluginId }) => {
@@ -56,6 +58,15 @@ export const PluginBrowser: React.FC<PluginBrowserProps> = ({ onSelect }) => {
     const [expandedReplicas, setExpandedReplicas] = useState<Record<string, boolean>>({});
     const toggleReplicas = (pluginId: string) =>
         setExpandedReplicas((s) => ({ ...s, [pluginId]: !s[pluginId] }));
+
+    // PM7d: one HTTP call for the whole grid; lookup by plugin_id when
+    // rendering each card.
+    const { data: updates = [] } = usePluginUpdates();
+    const updatesByPluginId = useMemo(() => {
+        const m = new Map<string, typeof updates[number]>();
+        updates.forEach((u) => m.set(u.plugin_id, u));
+        return m;
+    }, [updates]);
 
     // Count per-category impls — a "Set as default" action only makes
     // sense when ≥2 impls exist for the category. For solo impls the
@@ -204,6 +215,7 @@ export const PluginBrowser: React.FC<PluginBrowserProps> = ({ onSelect }) => {
                                                 }}>
                                                 <Typography variant="h6">{plugin.name}</Typography>
                                                 <Chip size="small" label={`v${plugin.version}`} />
+                                                <PluginUpdateChip update={updatesByPluginId.get(plugin.plugin_id)} />
                                                 {isDefault && (
                                                     <Tooltip title="Default impl for this category">
                                                         <Chip

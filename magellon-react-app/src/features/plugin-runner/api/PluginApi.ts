@@ -224,6 +224,34 @@ export const usePluginReplicas = (pluginId: string | null) =>
     );
 
 // ---------------------------------------------------------------------------
+// PM6 — Available updates for installed plugins
+// ---------------------------------------------------------------------------
+
+export type UpdateSeverity = 'patch' | 'minor' | 'major';
+
+export interface UpdateInfo {
+    plugin_id: string;
+    current_version: string;
+    latest_version: string;
+    channel: string;
+    severity: UpdateSeverity;
+    release_notes_url?: string | null;
+    archive_url?: string | null;
+}
+
+export const fetchPluginUpdates = async (): Promise<UpdateInfo[]> => {
+    const res = await api.get('/plugins/updates');
+    return res.data;
+};
+
+export const usePluginUpdates = () =>
+    useQuery(['plugin-updates'], fetchPluginUpdates, {
+        // Updates change at the cadence of catalog uploads / hub
+        // refreshes — minute-scale is fine.
+        staleTime: 60_000,
+    });
+
+// ---------------------------------------------------------------------------
 // Hub operator actions (H1): enable/disable + set-default-for-category
 // ---------------------------------------------------------------------------
 
