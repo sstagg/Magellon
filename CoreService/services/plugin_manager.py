@@ -24,9 +24,11 @@ without monkey-patching anything.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import List, Literal, Optional, Protocol
 
+from packaging.version import InvalidVersion, Version
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -72,6 +74,39 @@ class PluginView(BaseModel):
     enabled: bool = True
     is_default_for_category: bool = False
     task_queue: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class CatalogVersionInfo:
+    """One catalog row, normalized to the fields PM6's reducer needs.
+
+    Decouples the version comparison from the catalog source's
+    concrete shape: PluginCatalog returns CatalogEntry objects with a
+    rich manifest; a future hub adapter would yield JSON. Both
+    flatten through this dataclass.
+    """
+
+    version: str
+    archive_url: Optional[str] = None
+    release_notes_url: Optional[str] = None
+
+
+class _CatalogSource(Protocol):
+    """Catalog adapter the manager queries for "latest known version"."""
+
+    def latest_for(self, slug: str) -> Optional[CatalogVersionInfo]: ...
+
+
+class UpdateInfo(BaseModel):
+    """One installed plugin × catalog row pair where catalog > installed (PM6)."""
+
+    plugin_id: str
+    current_version: str
+    latest_version: str
+    channel: Literal["stable"] = "stable"
+    severity: Literal["patch", "minor", "major"]
+    release_notes_url: Optional[str] = None
+    archive_url: Optional[str] = None
 
 
 class ReplicaInfo(BaseModel):
@@ -202,6 +237,46 @@ class PluginManagerService:
             is_live=latest is not None,
             last_heartbeat_at=latest,
         )
+
+    def list_updates(
+        self,
+        catalog_source: Optional[_CatalogSource] = None,
+    ) -> List[UpdateInfo]:
+        """Cross-reference installed catalog against a version source (PM6).
+
+        ``catalog_source`` defaults to :class:`LocalCatalogSource`
+        (the filesystem-backed ``core.plugin_catalog`` — populated by
+        operator uploads or a future hub-fetch flow). Returns one row
+        per installed plugin where the source advertises a newer
+        version. Plugins absent from the source, or with versions
+        equal-to-or-older than installed, do not appear.
+        """
+        source = catalog_source or LocalCatalogSource()
+        out: List[UpdateInfo] = []
+        for installed in self._plugin_repo.list_installed():
+            current = installed.version
+            slug = installed.manifest_plugin_id or installed.name
+            if not current or not slug:
+                continue
+            latest = source.latest_for(slug)
+            if latest is None:
+                continue
+            severity = _semver_severity(current, latest.version)
+            if severity is None:
+                continue
+            composed_id = (
+                f"{installed.category.lower()}/{installed.name}"
+                if installed.category else installed.name
+            )
+            out.append(UpdateInfo(
+                plugin_id=composed_id,
+                current_version=current,
+                latest_version=latest.version,
+                severity=severity,
+                release_notes_url=latest.release_notes_url,
+                archive_url=latest.archive_url,
+            ))
+        return out
 
     def replicas(
         self,
@@ -372,6 +447,69 @@ def _strip_category(plugin_id: str) -> str:
     return plugin_id.split("/", 1)[1] if "/" in plugin_id else plugin_id
 
 
+def _semver_severity(
+    current: str, latest: str,
+) -> Optional[Literal["patch", "minor", "major"]]:
+    """Severity bucket for ``latest`` over ``current`` (PM6 reducer).
+
+    Uses :class:`packaging.version.Version` so SemVer prerelease tags
+    sort correctly (``1.2.3-rc.1 < 1.2.3``). Returns ``None`` when
+    ``latest`` is not strictly greater than ``current`` — including
+    the unparseable / equal cases — so the caller can treat ``None``
+    as "no update available."
+    """
+    try:
+        cur = Version(current)
+        lat = Version(latest)
+    except InvalidVersion:
+        return None
+    if lat <= cur:
+        return None
+    if lat.major != cur.major:
+        return "major"
+    if lat.minor != cur.minor:
+        return "minor"
+    return "patch"
+
+
+class LocalCatalogSource:
+    """Catalog source backed by the filesystem catalog (``core.plugin_catalog``).
+
+    Reads the local catalog populated by operator uploads. For
+    air-gapped deployments this IS the source of truth; for hub-
+    aware deployments, a future PR will define ``HubCatalogSource``
+    that mirrors the same Protocol — the manager doesn't change.
+    """
+
+    def __init__(self, catalog=None) -> None:
+        if catalog is None:
+            from core.plugin_catalog import get_catalog
+            catalog = get_catalog()
+        self._catalog = catalog
+
+    def latest_for(self, slug: str) -> Optional[CatalogVersionInfo]:
+        # Walk all entries for this plugin_id; pick the one with the
+        # highest version. The catalog isn't per-plugin keyed
+        # (catalog_id is ``<plugin_id>-<version>``), so we have to scan.
+        latest: Optional[CatalogVersionInfo] = None
+        latest_v: Optional[Version] = None
+        for entry in self._catalog.search(query=None, category=None):
+            if entry.manifest.plugin_id != slug:
+                continue
+            try:
+                v = Version(entry.manifest.version)
+            except InvalidVersion:
+                continue
+            if latest_v is None or v > latest_v:
+                latest_v = v
+                latest = CatalogVersionInfo(
+                    version=entry.manifest.version,
+                    archive_url=str(entry.archive_path),
+                    release_notes_url=None,
+                )
+        return latest
+
+
 def get_plugin_manager(db: Session) -> PluginManagerService:
     """Build the facade with the real production collaborators.
 
@@ -393,8 +531,11 @@ def get_plugin_manager(db: Session) -> PluginManagerService:
 
 
 __all__ = [
+    "CatalogVersionInfo",
+    "LocalCatalogSource",
     "PluginManagerService",
     "PluginView",
     "ReplicaInfo",
+    "UpdateInfo",
     "get_plugin_manager",
 ]

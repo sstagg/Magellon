@@ -390,6 +390,30 @@ def plugin_status(plugin_id: str) -> List[Condition]:
 
 
 @plugins_router.get(
+    "/updates",
+    summary="Available updates for installed plugins (PM6)",
+)
+def plugin_updates():
+    """Cross-reference installed catalog × local plugin catalog.
+
+    For each installed plugin, returns one row when the local catalog
+    advertises a strictly-newer version. Severity is bucketed by
+    SemVer (``patch`` / ``minor`` / ``major``) so the UI can colour
+    the upgrade chip without re-comparing client-side.
+
+    Per the plan §9, server-side reads from the LOCAL catalog only —
+    there's no server-side hub fetch. Hub-fed updates land in the
+    local catalog via uploads (today) or via a future hub-fetch flow
+    that is intentionally out of PM6's scope.
+    """
+    from database import session_local
+    from services.plugin_manager import get_plugin_manager
+
+    with session_local() as db:
+        return get_plugin_manager(db).list_updates()
+
+
+@plugins_router.get(
     "/{plugin_id:path}/replicas",
     summary="Per-replica health for one plugin (PM5)",
 )

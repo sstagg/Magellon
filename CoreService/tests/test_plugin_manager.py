@@ -18,7 +18,12 @@ from magellon_sdk.models import (
     IsolationLevel,
     Transport,
 )
-from services.plugin_manager import PluginManagerService, PluginView
+from services.plugin_manager import (
+    CatalogVersionInfo,
+    PluginManagerService,
+    PluginView,
+    _semver_severity,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -395,6 +400,80 @@ def test_replicas_filters_to_requested_plugin_only():
     rows = manager.replicas("ctffind4", now=now)
     assert len(rows) == 1
     assert rows[0].instance_id == "i-1"
+
+
+# ---------------------------------------------------------------------------
+# list_updates (PM6) — version comparison + cross-reference
+# ---------------------------------------------------------------------------
+
+
+class _FakeCatalogSource:
+    def __init__(self, by_slug):
+        self._by_slug = by_slug
+
+    def latest_for(self, slug):
+        return self._by_slug.get(slug)
+
+
+def _installed_plugin(name, manifest_plugin_id, version, category="ctf"):
+    return SimpleNamespace(
+        name=name,
+        manifest_plugin_id=manifest_plugin_id,
+        version=version,
+        category=category,
+    )
+
+
+def test_semver_severity_patch():
+    assert _semver_severity("1.0.2", "1.0.5") == "patch"
+
+
+def test_semver_severity_minor():
+    assert _semver_severity("1.0.2", "1.1.0") == "minor"
+
+
+def test_semver_severity_major():
+    assert _semver_severity("1.0.2", "2.0.0") == "major"
+
+
+def test_semver_severity_returns_none_when_not_newer():
+    assert _semver_severity("1.0.2", "1.0.2") is None
+    assert _semver_severity("1.0.5", "1.0.2") is None
+
+
+def test_semver_severity_handles_prerelease_tags():
+    """Reviewer-flagged PM6 acceptance: prerelease tags must compare
+    as "older than the same version final". 1.2.3-rc.1 < 1.2.3."""
+    assert _semver_severity("1.2.3-rc.1", "1.2.3") == "patch"
+
+
+def test_list_updates_returns_one_row_per_outdated_plugin():
+    """End-to-end: PM1's installed catalog × PM6's catalog source."""
+    installed = [
+        _installed_plugin("CTF Plugin", "ctf", "1.0.2"),
+        _installed_plugin("FFT Plugin", "fft", "2.1.0", category="fft"),  # up to date
+    ]
+    catalog = _FakeCatalogSource({
+        "ctf": CatalogVersionInfo(version="1.0.5", archive_url="/cat/ctf-1.0.5.mpn"),
+        "fft": CatalogVersionInfo(version="2.1.0"),
+    })
+    manager = _build_manager(catalog=installed)
+    rows = manager.list_updates(catalog_source=catalog)
+    assert len(rows) == 1
+    assert rows[0].plugin_id == "ctf/CTF Plugin"
+    assert rows[0].current_version == "1.0.2"
+    assert rows[0].latest_version == "1.0.5"
+    assert rows[0].severity == "patch"
+    assert rows[0].archive_url == "/cat/ctf-1.0.5.mpn"
+
+
+def test_list_updates_skips_plugins_missing_from_catalog():
+    """A plugin that's installed but the catalog never heard of —
+    don't list as updateable. The UI shows it as "no update info."""
+    installed = [_installed_plugin("Custom", "custom-impl", "0.1.0")]
+    catalog = _FakeCatalogSource({})
+    manager = _build_manager(catalog=installed)
+    assert manager.list_updates(catalog_source=catalog) == []
 
 
 # ---------------------------------------------------------------------------
