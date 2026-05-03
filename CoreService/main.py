@@ -21,6 +21,7 @@ from controllers.camera_controller import camera_router
 from controllers.admin_broker_controller import admin_broker_router
 from controllers.admin_plugin_install_controller import admin_plugin_install_router
 from controllers.cancellation_controller import cancellation_router
+from controllers.pipelines_controller import pipelines_router
 from controllers.db_controller import db_router
 from controllers.deployment_docker_controller import deployment_docker_router
 from controllers.graph_controller import graph_router
@@ -288,6 +289,8 @@ app.include_router(atlas_router, tags=['Atlas'], prefix="/web")
 app.include_router(particles_router, tags=['Particle Picking'], prefix="/web")
 app.include_router(graph_router, tags=['Graphs'], prefix="/graphs")
 app.include_router(slack_router, tags=['Communication'], prefix='/io')
+# Phase 8 (2026-05-03) — PipelineRun rollup over child ImageJobs.
+app.include_router(pipelines_router, tags=['Pipeline Runs'], prefix='/pipelines')
 
 # Authentication - must be registered before protected endpoints
 app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
