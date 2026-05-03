@@ -1,29 +1,28 @@
-"""Broker-native CTF plugin built on the SDK ``PluginBrokerRunner`` (MB4.2).
+"""Broker-native CTF plugin built on the SDK ``PluginBrokerRunner``.
 
-Replaces ``core/rabbitmq_consumer_engine.py``. The runner now owns the
-pika loop, ack/nack/DLQ classification, discovery, heartbeat, dynamic
-config, provenance stamping, and reconnection — this module declares
-the plugin's identity, its input schema, and the wrapper that calls
-the existing ``do_ctf`` compute.
+Phase 1b (2026-05-03): the per-plugin ContextVar + daemon-loop +
+``CtfBrokerRunner`` subclass are gone — :class:`PluginBrokerRunner`
+now sets the active-task ContextVar on every delivery, and
+:func:`magellon_sdk.runner.get_step_event_loop` is the shared
+sync-from-async bridge. Back-compat shims at the bottom preserve the
+old import names for one release.
 
 Pragmatic wrapping vs. the cleaner FFT pattern:
 
 The FFT plugin's ``execute()`` returns a typed ``FftOutput`` that
-``build_fft_result`` then wraps in a TaskResultMessage. CTF can't follow
-that pattern verbatim without a 200-line refactor of
-``service/ctf_service.py``, which today builds the full TaskResultMessage
-inline (three separate branches for the success / eval-failed / error
-cases). Instead we use ``CtfPluginOutput`` as a thin wrapper around
-the TaskResultMessage that ``do_ctf`` already returns; ``build_ctf_result``
-unwraps it. The compute logic stays untouched.
+``build_fft_result`` then wraps in a TaskResultMessage. CTF can't
+follow that pattern verbatim without a 200-line refactor of
+``service/ctf_service.py``, which builds the full TaskResultMessage
+inline (three branches: success / eval-failed / error). Instead
+``CtfPluginOutput`` is a thin shell around the TaskResultMessage that
+``do_ctf`` already returns; ``build_ctf_result`` unwraps it. The
+compute logic stays untouched.
 """
 from __future__ import annotations
 
 import asyncio
 import logging
-import threading
-from contextvars import ContextVar
-from typing import Optional, Type
+from typing import Type
 
 from pydantic import BaseModel, ConfigDict
 
@@ -41,7 +40,7 @@ from magellon_sdk.models.manifest import (
 )
 from magellon_sdk.models.tasks import CtfInput
 from magellon_sdk.progress import NullReporter, ProgressReporter
-from magellon_sdk.runner import PluginBrokerRunner
+from magellon_sdk.runner import current_task, emit_step, get_step_event_loop
 
 from service.ctf_service import do_ctf
 from service.step_events import (
@@ -57,53 +56,11 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Active-task context
-# ---------------------------------------------------------------------------
-# Same pattern FFT uses. Set by CtfBrokerRunner._handle_task / _process
-# before the inner execute() runs; cleared in finally.
-_active_task: ContextVar[Optional[TaskMessage]] = ContextVar(
-    "_ctf_active_task", default=None
-)
-
-
-def get_active_task() -> Optional[TaskMessage]:
-    return _active_task.get()
-
-
-# ---------------------------------------------------------------------------
-# Daemon-thread asyncio loop for ``do_ctf`` (async) + step-event emits.
-# One per process — see plugin/plugin.py in the FFT plugin for the rationale.
-# ---------------------------------------------------------------------------
-
-_loop: Optional[asyncio.AbstractEventLoop] = None
-_loop_lock = threading.Lock()
-
-
-def _get_loop() -> asyncio.AbstractEventLoop:
-    global _loop
-    if _loop is not None:
-        return _loop
-    with _loop_lock:
-        if _loop is None:
-            _loop = asyncio.new_event_loop()
-            t = threading.Thread(
-                target=_loop.run_forever, name="ctf-runner-loop", daemon=True,
-            )
-            t.start()
-    return _loop
-
-
-# ---------------------------------------------------------------------------
 # Output wrapper
 # ---------------------------------------------------------------------------
 
 class CtfPluginOutput(BaseModel):
-    """Pydantic shell carrying the TaskResultMessage that ``do_ctf`` builds.
-
-    Why a wrapper rather than a typed ``CtfOutput`` from the SDK: see
-    the module docstring. ``build_ctf_result`` unwraps this into the
-    TaskResultMessage the bus publishes.
-    """
+    """Pydantic shell carrying the TaskResultMessage that ``do_ctf`` builds."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
     result_dto: TaskResultMessage
@@ -117,9 +74,9 @@ class CtfPlugin(PluginBase[CtfInput, CtfPluginOutput]):
     """Broker-native CTF plugin.
 
     ``execute()`` is sync — invoked from the binder's pika consumer
-    thread. ``do_ctf`` is async, so we bridge via the daemon loop.
-    Step events follow the same best-effort pattern as the rest of the
-    plugin: a failed emit must never abort the CTF compute.
+    thread. ``do_ctf`` is async, so we bridge via the SDK's daemon
+    loop. Step events follow the same best-effort pattern as the rest
+    of the plugin: a failed emit must never abort the CTF compute.
     """
 
     capabilities = [
@@ -155,19 +112,11 @@ class CtfPlugin(PluginBase[CtfInput, CtfPluginOutput]):
         return CtfPluginOutput
 
     # ------------------------------------------------------------------
-    # Step-event helpers (sync wrappers around the async safe_emit_*)
+    # Step-event helper — resolves publisher off the SDK daemon loop.
     # ------------------------------------------------------------------
 
-    def _emit(self, coro) -> None:
-        loop = _get_loop()
-        try:
-            future = asyncio.run_coroutine_threadsafe(coro, loop)
-            future.result(timeout=15.0)
-        except Exception:
-            logger.exception("step-event emit failed (non-fatal)")
-
     def _publisher(self):
-        loop = _get_loop()
+        loop = get_step_event_loop()
         try:
             future = asyncio.run_coroutine_threadsafe(get_publisher(), loop)
             return future.result(timeout=15.0)
@@ -185,73 +134,40 @@ class CtfPlugin(PluginBase[CtfInput, CtfPluginOutput]):
         *,
         reporter: ProgressReporter = NullReporter(),
     ) -> CtfPluginOutput:
-        task = _active_task.get()
+        task = current_task()
         if task is None:
             # Direct call without the runner setting context — happens
-            # in unit tests. Fall back to running do_ctf synchronously
-            # against a synthesized TaskMessage if needed; for now we raise
-            # since plugin tests always go through the runner.
-            raise RuntimeError("CtfPlugin.execute called outside CtfBrokerRunner context")
+            # in unit tests. Plugin tests that want execute() should
+            # use ``magellon_sdk.runner.set_active_task`` to populate
+            # the var first.
+            raise RuntimeError(
+                "CtfPlugin.execute called outside PluginBrokerRunner context. "
+                "Use magellon_sdk.runner.set_active_task in tests."
+            )
 
         publisher = self._publisher()
         job_id, task_id = task.job_id, task.id
-        self._emit(safe_emit_started(publisher, job_id=job_id, task_id=task_id))
+        emit_step(safe_emit_started(publisher, job_id=job_id, task_id=task_id))
         try:
-            self._emit(safe_emit_progress(
+            emit_step(safe_emit_progress(
                 publisher, job_id=job_id, task_id=task_id,
                 percent=10.0, message="running ctffind",
             ))
-            # do_ctf is async — bridge via the daemon loop.
-            future = asyncio.run_coroutine_threadsafe(do_ctf(task), _get_loop())
+            # do_ctf is async — bridge via the SDK daemon loop.
+            future = asyncio.run_coroutine_threadsafe(do_ctf(task), get_step_event_loop())
             result_dto: TaskResultMessage = future.result()
 
-            self._emit(safe_emit_progress(
+            emit_step(safe_emit_progress(
                 publisher, job_id=job_id, task_id=task_id,
                 percent=85.0, message="publishing result",
             ))
-            self._emit(safe_emit_completed(publisher, job_id=job_id, task_id=task_id))
+            emit_step(safe_emit_completed(publisher, job_id=job_id, task_id=task_id))
             return CtfPluginOutput(result_dto=result_dto)
         except Exception as exc:
-            self._emit(safe_emit_failed(
+            emit_step(safe_emit_failed(
                 publisher, job_id=job_id, task_id=task_id, error=str(exc),
             ))
             raise
-
-
-# ---------------------------------------------------------------------------
-# CtfBrokerRunner
-# ---------------------------------------------------------------------------
-
-class CtfBrokerRunner(PluginBrokerRunner):
-    """Runner subclass that exposes the active TaskMessage via ContextVar.
-
-    Same shape as FftBrokerRunner — overrides ``_handle_task`` (MB4
-    bus path) and ``_process`` (legacy bytes path used by tests) to
-    wrap the inner execution in a ContextVar set/reset.
-    """
-
-    def _handle_task(self, envelope) -> None:
-        task = self._task_from_envelope(envelope)
-        token = _active_task.set(task)
-        try:
-            super()._handle_task(envelope)
-        finally:
-            _active_task.reset(token)
-
-    def _process(self, body: bytes) -> bytes:
-        text = body.decode("utf-8")
-        task = TaskMessage.model_validate_json(text)
-        token = _active_task.set(task)
-        try:
-            self._apply_pending_config()
-            input_schema = self.plugin.input_schema()
-            validated = input_schema.model_validate(task.data)
-            plugin_output = self.plugin.run(validated)
-            result = self.result_factory(task, plugin_output)
-            self._stamp_provenance(result)
-            return result.model_dump_json().encode("utf-8")
-        finally:
-            _active_task.reset(token)
 
 
 # ---------------------------------------------------------------------------
@@ -260,9 +176,22 @@ class CtfBrokerRunner(PluginBrokerRunner):
 
 def build_ctf_result(task: TaskMessage, output: CtfPluginOutput) -> TaskResultMessage:
     """Unwrap the CtfPluginOutput shell. ``do_ctf`` already built the
-    full TaskResultMessage inside; this just hands it to the runner for
-    publishing."""
+    full TaskResultMessage inside; this hands it to the runner."""
     return output.result_dto
+
+
+# ---------------------------------------------------------------------------
+# Back-compat shims — Phase 1b absorbed these into the SDK runner.
+# Remove in 2026-Q3 when downstream callers (main.py, tests) have
+# migrated.
+# ---------------------------------------------------------------------------
+
+from magellon_sdk.runner import PluginBrokerRunner as CtfBrokerRunner  # noqa: E402
+from magellon_sdk.runner.active_task import current_task as get_active_task  # noqa: E402
+from magellon_sdk.runner.active_task import (  # noqa: E402,F401
+    _active_task,
+    get_step_event_loop as _get_loop,
+)
 
 
 __all__ = [

@@ -1,27 +1,24 @@
 """Broker-native ptolemy plugin — two PluginBase classes, one container.
 
-This plugin serves two categories from a single process:
+Serves two categories from a single process:
 
 * ``SQUARE_DETECTION`` — low-mag MRC → ranked squares with pickability scores
 * ``HOLE_DETECTION``   — med-mag MRC → ranked holes with pickability scores
 
-Both categories share the same input shape (``PtolemyInput``) and
-compute layer (``plugin.compute``); they differ only in which ONNX models
-run and the output schema. ``main.py`` spins up one ``PluginBrokerRunner``
-per category on its own daemon thread.
+Both share ``PtolemyInput`` and ``plugin.compute``; they differ only
+in which ONNX models run and the output schema. ``main.py`` spins up
+one ``PluginBrokerRunner`` per category on its own daemon thread.
 
-Architecture mirrors ``magellon_fft_plugin``: ContextVar for active-task
-recovery, daemon asyncio loop for step events, runner subclasses for
-plugin-local bookkeeping.
+Phase 1b (2026-05-03): the per-plugin ``_active_task`` ContextVar,
+daemon-loop, ``_emit`` / ``_make_reporter``, and ``PtolemyBrokerRunner``
+subclass are gone. Now uses :func:`magellon_sdk.runner.current_task`,
+:func:`emit_step`, :func:`make_step_reporter`. Back-compat shims
+preserve old import names.
 """
 from __future__ import annotations
 
-import asyncio
 import logging
-import os
-import threading
-from contextvars import ContextVar
-from typing import Callable, List, Optional, Type
+from typing import Type
 
 from magellon_sdk.base import PluginBase
 from magellon_sdk.categories.outputs import (
@@ -29,7 +26,6 @@ from magellon_sdk.categories.outputs import (
     HoleDetectionOutput,
     SquareDetectionOutput,
 )
-from magellon_sdk.events import BoundStepReporter
 from magellon_sdk.models import OutputFile, PluginInfo, TaskMessage, TaskResultMessage
 from magellon_sdk.models.manifest import (
     Capability,
@@ -39,75 +35,12 @@ from magellon_sdk.models.manifest import (
 )
 from magellon_sdk.models.tasks import PtolemyInput
 from magellon_sdk.progress import NullReporter, ProgressReporter
-from magellon_sdk.runner import PluginBrokerRunner
+from magellon_sdk.runner import emit_step, make_step_reporter
 
 from plugin.compute import run_hole_detection, run_square_detection
 from plugin.events import STEP_NAME, get_publisher
 
 logger = logging.getLogger(__name__)
-
-
-# ---------------------------------------------------------------------------
-# Active-task ContextVar (one per process — both categories share it, each
-# delivery wraps it via the runner's set/reset).
-# ---------------------------------------------------------------------------
-
-_active_task: ContextVar[Optional[TaskMessage]] = ContextVar(
-    "_ptolemy_active_task", default=None
-)
-
-
-def get_active_task() -> Optional[TaskMessage]:
-    return _active_task.get()
-
-
-# ---------------------------------------------------------------------------
-# Daemon-thread asyncio loop for step-event emission
-# ---------------------------------------------------------------------------
-
-_loop: Optional[asyncio.AbstractEventLoop] = None
-_loop_lock = threading.Lock()
-
-
-def _get_loop() -> asyncio.AbstractEventLoop:
-    global _loop
-    if _loop is not None:
-        return _loop
-    with _loop_lock:
-        if _loop is None:
-            _loop = asyncio.new_event_loop()
-            threading.Thread(
-                target=_loop.run_forever, name="ptolemy-step-events", daemon=True
-            ).start()
-    return _loop
-
-
-def _emit(coro) -> None:
-    try:
-        fut = asyncio.run_coroutine_threadsafe(coro, _get_loop())
-        fut.result(timeout=5.0)
-    except Exception:
-        logger.exception("step-event emit failed (non-fatal)")
-
-
-def _make_reporter(step_suffix: str) -> Optional[BoundStepReporter]:
-    task = _active_task.get()
-    if task is None:
-        return None
-    try:
-        fut = asyncio.run_coroutine_threadsafe(get_publisher(), _get_loop())
-        publisher = fut.result(timeout=15.0)
-    except Exception:
-        logger.exception("step-event publisher init failed (non-fatal)")
-        return None
-    if publisher is None:
-        return None
-    return BoundStepReporter(
-        publisher,
-        job_id=task.job_id,
-        task_id=task.id,
-        step=f"{STEP_NAME}.{step_suffix}",
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -171,22 +104,22 @@ class PtolemySquarePlugin(PluginBase[PtolemyInput, SquareDetectionOutput]):
         *,
         reporter: ProgressReporter = NullReporter(),
     ) -> SquareDetectionOutput:
-        step = _make_reporter("square")
+        step = make_step_reporter(f"{STEP_NAME}.square", get_publisher)
         if step is not None:
-            _emit(step.started())
+            emit_step(step.started())
         try:
             if step is not None:
-                _emit(step.progress(10.0, "loading MRC"))
+                emit_step(step.progress(10.0, "loading MRC"))
             dets = run_square_detection(input_data.input_file)
             if step is not None:
-                _emit(step.progress(95.0, f"found {len(dets)} squares"))
-                _emit(step.completed())
+                emit_step(step.progress(95.0, f"found {len(dets)} squares"))
+                emit_step(step.completed())
             return SquareDetectionOutput(
                 detections=[Detection(**d) for d in dets],
             )
         except Exception as exc:
             if step is not None:
-                _emit(step.failed(error=str(exc)))
+                emit_step(step.failed(error=str(exc)))
             raise
 
 
@@ -227,56 +160,23 @@ class PtolemyHolePlugin(PluginBase[PtolemyInput, HoleDetectionOutput]):
         *,
         reporter: ProgressReporter = NullReporter(),
     ) -> HoleDetectionOutput:
-        step = _make_reporter("hole")
+        step = make_step_reporter(f"{STEP_NAME}.hole", get_publisher)
         if step is not None:
-            _emit(step.started())
+            emit_step(step.started())
         try:
             if step is not None:
-                _emit(step.progress(10.0, "loading MRC"))
+                emit_step(step.progress(10.0, "loading MRC"))
             dets = run_hole_detection(input_data.input_file)
             if step is not None:
-                _emit(step.progress(95.0, f"found {len(dets)} holes"))
-                _emit(step.completed())
+                emit_step(step.progress(95.0, f"found {len(dets)} holes"))
+                emit_step(step.completed())
             return HoleDetectionOutput(
                 detections=[Detection(**d) for d in dets],
             )
         except Exception as exc:
             if step is not None:
-                _emit(step.failed(error=str(exc)))
+                emit_step(step.failed(error=str(exc)))
             raise
-
-
-# ---------------------------------------------------------------------------
-# Runners — share the ContextVar so step events can key on the active task
-# ---------------------------------------------------------------------------
-
-class PtolemyBrokerRunner(PluginBrokerRunner):
-    """Runner that exposes the active TaskMessage via ContextVar.
-
-    Same shape as ``FftBrokerRunner``; one subclass covers both categories
-    because the two plugin instances each get their own runner instance.
-    """
-
-    def _handle_task(self, envelope) -> None:
-        task = self._task_from_envelope(envelope)
-        token = _active_task.set(task)
-        try:
-            super()._handle_task(envelope)
-        finally:
-            _active_task.reset(token)
-
-    def _process(self, body: bytes) -> bytes:
-        task = TaskMessage.model_validate_json(body.decode("utf-8"))
-        token = _active_task.set(task)
-        try:
-            self._apply_pending_config()
-            validated = self.plugin.input_schema().model_validate(task.data)
-            plugin_output = self.plugin.run(validated)
-            result = self.result_factory(task, plugin_output)
-            self._stamp_provenance(result)
-            return result.model_dump_json().encode("utf-8")
-        finally:
-            _active_task.reset(token)
 
 
 # ---------------------------------------------------------------------------
@@ -330,6 +230,18 @@ def build_hole_result(task: TaskMessage, output: HoleDetectionOutput) -> TaskRes
         input_file,
         f"Ptolemy hole-detection found {len(output.detections)} holes",
     )
+
+
+# ---------------------------------------------------------------------------
+# Back-compat shims — Phase 1b absorbed these into the SDK runner.
+# ---------------------------------------------------------------------------
+
+from magellon_sdk.runner import PluginBrokerRunner as PtolemyBrokerRunner  # noqa: E402
+from magellon_sdk.runner.active_task import current_task as get_active_task  # noqa: E402
+from magellon_sdk.runner.active_task import (  # noqa: E402,F401
+    _active_task,
+    get_step_event_loop as _get_loop,
+)
 
 
 __all__ = [
