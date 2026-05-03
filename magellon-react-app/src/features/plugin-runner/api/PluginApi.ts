@@ -152,6 +152,46 @@ export const usePlugins = () =>
     useQuery(['plugins'], fetchPlugins, { staleTime: 60_000 });
 
 // ---------------------------------------------------------------------------
+// PM2 — Conditions[] (Kubernetes-style multi-axis status per plugin)
+// ---------------------------------------------------------------------------
+
+export type ConditionType =
+    | 'Installed'
+    | 'Enabled'
+    | 'Live'
+    | 'Healthy'
+    | 'Default'
+    | 'Paused';
+
+export type ConditionStatus = 'True' | 'False' | 'Unknown';
+
+export interface Condition {
+    type: ConditionType;
+    status: ConditionStatus;
+    reason?: string | null;
+    message?: string | null;
+    last_transition_time?: string | null;
+}
+
+export const fetchPluginStatus = async (pluginId: string): Promise<Condition[]> => {
+    const res = await api.get(`/plugins/${pluginId}/status`);
+    return res.data;
+};
+
+export const usePluginStatus = (pluginId: string | null) =>
+    useQuery(
+        ['plugin-status', pluginId],
+        () => fetchPluginStatus(pluginId!),
+        {
+            enabled: !!pluginId,
+            // Status moves on heartbeat (~15s); refresh every 10s to
+            // keep chips lively without hammering the backend.
+            refetchInterval: 10_000,
+            staleTime: 5_000,
+        },
+    );
+
+// ---------------------------------------------------------------------------
 // Hub operator actions (H1): enable/disable + set-default-for-category
 // ---------------------------------------------------------------------------
 

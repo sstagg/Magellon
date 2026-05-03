@@ -25,8 +25,16 @@ import {
     useInstalledPlugins,
     useStopInstalled,
     useRemoveInstalled,
+    usePluginStatus,
     PluginSummary,
 } from '../api/PluginApi.ts';
+import { PluginConditions } from './PluginConditions.tsx';
+
+/** Per-card Conditions cluster — fetches its own status (PM7a). */
+const PluginConditionsForCard: React.FC<{ pluginId: string }> = ({ pluginId }) => {
+    const { data } = usePluginStatus(pluginId);
+    return <PluginConditions conditions={data} />;
+};
 interface PluginBrowserProps {
     onSelect?: (plugin: PluginSummary) => void;
 }
@@ -222,6 +230,7 @@ export const PluginBrowser: React.FC<PluginBrowserProps> = ({ onSelect }) => {
                                                 }}>
                                                 {plugin.developer}
                                             </Typography>
+                                            <PluginConditionsForCard pluginId={plugin.plugin_id} />
                                         </CardContent>
                                     </CardActionArea>
                                     <Stack
