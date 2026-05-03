@@ -48,6 +48,8 @@ class _StubResult:
         status_code=None,
         plugin_id=None,
         plugin_version=None,
+        subject_kind=None,
+        subject_id=None,
     ):
         self.task_id = task_id
         self.type = _StubType(type_code, type_name)
@@ -60,6 +62,9 @@ class _StubResult:
         self.meta_data = None
         self.plugin_id = plugin_id
         self.plugin_version = plugin_version
+        # Phase 3b — runner stamps these onto every result.
+        self.subject_kind = subject_kind
+        self.subject_id = subject_id
 
 
 def _make_processor(db_task=None, out_queues=None):
@@ -424,6 +429,106 @@ def test_process_classification_projects_class_averages_id():
     assert result.output_data["class_averages_id"] == out["artifact_id"]
     assert db_task.stage == 8
     assert db_task.status_id == STATUS_COMPLETED
+
+
+# ---------------------------------------------------------------------------
+# Phase 3c: subject axis backfill from TaskResultMessage to ImageJobTask
+# ---------------------------------------------------------------------------
+# When the runner echoes subject_kind/subject_id (Phase 3b) onto a
+# result, the projector backfills the row IF dispatch left the column
+# at its DDL default ('image' for kind, NULL for id). Authoritative
+# writes still come from dispatch — this is a back-compat seam for
+# pre-Phase-3 importers that don't know about the new columns.
+
+
+def test_subject_kind_backfilled_when_row_was_default_image():
+    """A pre-Phase-3 importer leaves subject_kind at the DDL default
+    'image'. If the result asserts something richer (particle_stack
+    for a classifier task), the projector accepts the upgrade so the
+    row's subject reflects reality."""
+    db_task = MagicMock(
+        status_id=0, stage=0, plugin_id=None, plugin_version=None,
+        subject_kind="image", subject_id=None,
+    )
+    proc, _ = _make_processor(db_task)
+    stack_id = uuid4()
+    result = _StubResult(
+        task_id=uuid4(), type_code=4, type_name="TwoDClassification",
+        subject_kind="particle_stack", subject_id=stack_id,
+    )
+
+    proc._advance_task_state(result, status_id=STATUS_COMPLETED)
+
+    assert db_task.subject_kind == "particle_stack"
+    assert db_task.subject_id == stack_id
+
+
+def test_subject_kind_not_overwritten_when_dispatch_already_set_it():
+    """If the importer (post-Phase-3) already set subject_kind to a
+    non-default value, the projector must NOT overwrite — dispatch is
+    authoritative for the dispatch-time subject."""
+    pinned_id = uuid4()
+    db_task = MagicMock(
+        status_id=0, stage=0, plugin_id=None, plugin_version=None,
+        subject_kind="particle_stack", subject_id=pinned_id,
+    )
+    proc, _ = _make_processor(db_task)
+    other_id = uuid4()
+    result = _StubResult(
+        task_id=uuid4(), type_code=4, type_name="TwoDClassification",
+        subject_kind="session", subject_id=other_id,
+    )
+
+    proc._advance_task_state(result, status_id=STATUS_COMPLETED)
+
+    # Dispatch wins.
+    assert db_task.subject_kind == "particle_stack"
+    assert db_task.subject_id == pinned_id
+
+
+def test_subject_id_backfilled_when_dispatch_left_it_null():
+    """The DDL default for subject_id is NULL — pre-Phase-3 dispatch
+    leaves it that way. If the result carries the same kind ('image')
+    plus a subject_id, the projector populates."""
+    image_oid = uuid4()
+    db_task = MagicMock(
+        status_id=0, stage=0, plugin_id=None, plugin_version=None,
+        subject_kind="image", subject_id=None,
+    )
+    proc, _ = _make_processor(db_task)
+    result = _StubResult(
+        task_id=uuid4(), type_code=2, type_name="CTF",
+        subject_kind="image", subject_id=image_oid,
+    )
+
+    proc._advance_task_state(result, status_id=STATUS_COMPLETED)
+
+    # subject_kind doesn't escalate (image → image is a no-op) but
+    # subject_id is populated since the row had None.
+    assert db_task.subject_kind == "image"
+    assert db_task.subject_id == image_oid
+
+
+def test_subject_backfill_skipped_when_result_omits_fields():
+    """A pre-Phase-3b plugin (or one whose result_factory drops the
+    fields) returns subject_kind/subject_id as None on the result.
+    The projector must NOT clobber the row with None — leave it
+    alone, the row keeps whatever dispatch set."""
+    pinned_id = uuid4()
+    db_task = MagicMock(
+        status_id=0, stage=0, plugin_id=None, plugin_version=None,
+        subject_kind="particle_stack", subject_id=pinned_id,
+    )
+    proc, _ = _make_processor(db_task)
+    result = _StubResult(
+        task_id=uuid4(), type_code=4, type_name="TwoDClassification",
+        subject_kind=None, subject_id=None,
+    )
+
+    proc._advance_task_state(result, status_id=STATUS_COMPLETED)
+
+    assert db_task.subject_kind == "particle_stack"
+    assert db_task.subject_id == pinned_id
 
 
 def test_process_failed_extraction_does_not_write_artifact():

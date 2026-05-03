@@ -296,6 +296,30 @@ class TaskOutputProcessor:
         if task_result.plugin_version is not None:
             db_task.plugin_version = task_result.plugin_version
 
+        # Subject axis backfill (Phase 3c, 2026-05-03). The runner
+        # echoes subject_kind/subject_id from TaskMessage onto every
+        # TaskResultMessage (Phase 3b). Use those values to backfill
+        # the ``image_job_task`` row when dispatch left them unset —
+        # specifically for tasks created before the importer was
+        # taught the subject axis. We do not OVERWRITE a non-default
+        # subject because dispatch is the authoritative writer.
+        if (
+            getattr(task_result, "subject_kind", None) is not None
+            and getattr(db_task, "subject_kind", None) in (None, "image")
+            and task_result.subject_kind != "image"
+        ):
+            # Only escalate beyond the DDL default ('image') when the
+            # result asserts a richer subject. This protects the
+            # back-compat path where importers haven't been migrated
+            # yet — they leave subject_kind at its 'image' default
+            # and we accept the result's stronger claim.
+            db_task.subject_kind = task_result.subject_kind
+        if (
+            getattr(task_result, "subject_id", None) is not None
+            and getattr(db_task, "subject_id", None) is None
+        ):
+            db_task.subject_id = task_result.subject_id
+
     def process(self, task_result: TaskResultMessage) -> Dict[str, Any]:
         """Project the result. Returns a small dict for caller logging.
 
