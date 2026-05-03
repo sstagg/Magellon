@@ -1,0 +1,55 @@
+manifest_version: "1"
+
+plugin_id: stack-maker
+archive_id: 00000000-0000-7000-8000-000000000000
+
+name: "Stack Maker — particle extraction"
+version: 0.1.0
+requires_sdk: ">=2.0,<3.0"
+
+author: "Magellon Team"
+license: MIT
+description: >
+  Extracts boxed particles from a micrograph given picker coordinates;
+  emits RELION-style .mrcs + .star + companion .json. Pure-numpy
+  compute; no external binaries.
+
+# Classification — PARTICLE_EXTRACTION (code 10) was added in SDK 2.1
+# (Phase 5, 2026-05-03). Backend id matches the algorithm crate name.
+category: particle_extraction
+backend_id: stack-maker
+
+requires:
+  - broker
+  - gpfs
+
+resources:
+  cpu_cores: 2
+  memory_mb: 2048
+  gpu_count: 0
+  typical_duration_seconds: 10
+
+input_schema: schemas/input.json
+output_schema: schemas/output.json
+
+install:
+  - method: uv
+    pyproject: pyproject.toml
+    requires:
+      - python: ">=3.11"
+  - method: docker
+    dockerfile: Dockerfile
+    build_context: .
+    requires:
+      - docker_daemon: true
+
+health_check:
+  timeout_seconds: 30
+  expected_announce: true
+
+ui: null
+
+tags:
+  - particle-extraction
+  - stack-maker
+  - cryo-em

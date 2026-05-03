@@ -1,0 +1,34 @@
+
+ENV_TYPE: production
+LOCAL_IP_ADDRESS: 0.0.0.0
+PORT_NUMBER: 80
+
+REPLACE_TYPE: none
+REPLACE_PATTERN: /gpfs/
+REPLACE_WITH: /gpfs/
+
+MAGELLON_GPFS_PATH: /gpfs
+HOST_GPFS_PATH: /gpfs
+JOBS_DIR: jobs
+HOST_JOBS_DIR: jobs
+
+
+database_settings:
+  DB_Driver: mysql+pymysql
+  DB_HOST: mysql
+  DB_NAME: magellon02
+  DB_PASSWORD: behd1d#3454!2
+  DB_Port: 3306
+  DB_USER: behdad
+
+rabbitmq_settings:
+  HOST_NAME: rabbitmq
+  PORT: 5672
+  USER_NAME: rabbit
+  PASSWORD: behd1d2
+  VIRTUAL_HOST: /
+  SSL_ENABLED: false
+  CONNECTION_TIMEOUT: 30
+  PREFETCH_COUNT: 4
+  QUEUE_NAME: particle_extraction_tasks_queue
+  OUT_QUEUE_NAME: particle_extraction_out_tasks_queue

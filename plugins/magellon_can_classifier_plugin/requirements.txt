@@ -1,0 +1,22 @@
+# Magellon Plugin SDK — shared rabbitmq / logging / bootstrap / events helpers.
+-e ../../magellon-sdk[rabbitmq,nats,logging,config]
+
+fastapi
+uvicorn
+pydantic
+rich
+pyyaml
+
+python-json-logger
+
+prometheus_client
+python-dotenv
+
+pika==1.3.2
+
+# Algorithm runtime — Phase 7b will add the vendored algorithm and
+# its full deps (torch, scikit-image, scikit-learn). Today's scaffold
+# only exercises the SDK contract layer; deps below are the minimum
+# needed to import the plugin and run the contract tests.
+mrcfile==1.5.0
+numpy==1.26.4

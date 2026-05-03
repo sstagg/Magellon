@@ -1,0 +1,62 @@
+manifest_version: "1"
+
+plugin_id: can-classifier
+archive_id: 00000000-0000-7000-8000-000000000000
+
+name: "CAN Classifier — 2D classification"
+version: 0.1.0
+requires_sdk: ">=2.0,<3.0"
+
+author: "Magellon Team"
+license: MIT
+description: >
+  Competitive-Hebbian topology + MRA 2D classification on a RELION
+  particle stack. Emits class averages, particle assignments, FRC
+  summaries.
+
+# Classification — TWO_D_CLASSIFICATION (code 4) was reserved in SDK
+# 1.0; the contract pairing landed in SDK 2.1 (Phase 7, 2026-05-03).
+category: two_d_classification
+backend_id: can-classifier
+
+requires:
+  - broker
+  - gpfs
+  # Phase 7b vendor + GPU — declared but not yet enforced by the
+  # plugin runtime. Operators running CPU-only should set
+  # ``compute_backend=cpu`` on the input.
+  - gpu
+
+resources:
+  cpu_cores: 4
+  memory_mb: 8192
+  gpu_count: 1
+  typical_duration_seconds: 600
+
+input_schema: schemas/input.json
+output_schema: schemas/output.json
+
+install:
+  # Phase 7b will add a CUDA-base docker variant. Until then the uv
+  # path lets a developer run the plugin against a local Python with
+  # torch already installed.
+  - method: uv
+    pyproject: pyproject.toml
+    requires:
+      - python: ">=3.11"
+  - method: docker
+    dockerfile: Dockerfile
+    build_context: .
+    requires:
+      - docker_daemon: true
+
+health_check:
+  timeout_seconds: 30
+  expected_announce: true
+
+ui: null
+
+tags:
+  - 2d-classification
+  - can-classifier
+  - cryo-em

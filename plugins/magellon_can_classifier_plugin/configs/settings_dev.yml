@@ -1,0 +1,37 @@
+
+ENV_TYPE: development
+LOCAL_IP_ADDRESS: localhost
+PORT_NUMBER: 8012
+
+REPLACE_TYPE: none
+REPLACE_PATTERN: /gpfs/
+REPLACE_WITH: Y:/
+
+MAGELLON_GPFS_PATH: C:/magellon/gpfs
+HOST_GPFS_PATH: C:/magellon/gpfs
+JOBS_DIR: jobs
+HOST_JOBS_DIR: jobs
+
+
+database_settings:
+  DB_Driver: mysql+pymysql
+  DB_HOST: localhost
+  DB_NAME: magellon02
+  DB_PASSWORD: behd1d#3454!2
+  DB_Port: 3306
+  DB_USER: behdad
+
+rabbitmq_settings:
+  HOST_NAME: localhost
+  PORT: 5672
+  USER_NAME: rabbit
+  PASSWORD: behd1d2
+  VIRTUAL_HOST: /
+  SSL_ENABLED: false
+  CONNECTION_TIMEOUT: 30
+  # Classifier is intrinsically batch — one slow task per delivery.
+  # Low prefetch keeps a single replica from holding multiple stacks
+  # in queue while one is grinding through GPU work.
+  PREFETCH_COUNT: 1
+  QUEUE_NAME: two_d_classification_tasks_queue
+  OUT_QUEUE_NAME: two_d_classification_out_tasks_queue
