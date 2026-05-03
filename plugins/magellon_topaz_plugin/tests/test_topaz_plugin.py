@@ -196,8 +196,14 @@ def test_pick_execute_emits_failed_on_compute_error(monkeypatch, tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_build_pick_result_carries_envelope_ids_and_picks():
-    from magellon_sdk.categories.outputs import Particle, ParticlePickingOutput
+def test_build_pick_result_carries_envelope_ids_and_path_only():
+    """Rule 1 (project_artifact_bus_invariants.md, ratified
+    2026-05-03): bus carries refs and summaries only. The pre-fix
+    topaz path inlined picks up to a 5000-cap then flipped to
+    path-only — the consultant flagged that size cliff as the
+    canonical rule-1 violation. Pinned: build_pick_result must NOT
+    include the picks list in output_data."""
+    from magellon_sdk.categories.outputs import ParticlePickingOutput
     from magellon_sdk.models import TaskMessage
     from plugin.plugin import build_pick_result
 
@@ -207,10 +213,7 @@ def test_build_pick_result_carries_envelope_ids_and_picks():
     output = ParticlePickingOutput(
         num_particles=2,
         particles_json_path="/tmp/picks.json",
-        picks=[
-            Particle(center=[10, 10], radius=14, score=5.5),
-            Particle(center=[20, 20], radius=14, score=4.2),
-        ],
+        picks=None,  # plugin no longer populates this
     )
 
     result = build_pick_result(task, output)
@@ -220,10 +223,8 @@ def test_build_pick_result_carries_envelope_ids_and_picks():
     assert result.image_path == "/tmp/in.mrc"
     assert result.output_data["num_particles"] == 2
     assert result.output_data["particles_json_path"] == "/tmp/picks.json"
-    # Picks are inlined for small result sets — same pattern as
-    # before Phase 1b. Rule 1 (refs only on bus) applies to
-    # *content*; small structured Particle dicts are summaries here.
-    assert len(result.output_data["picks"]) == 2
+    # Rule 1 enforcement: picks NOT inlined into the bus payload.
+    assert "picks" not in result.output_data
     assert {f.path for f in result.output_files} == {"/tmp/picks.json"}
 
 

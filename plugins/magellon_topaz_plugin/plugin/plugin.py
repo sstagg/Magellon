@@ -163,19 +163,16 @@ class TopazPickPlugin(PluginBase[TopazPickInput, ParticlePickingOutput]):
                 emit_step(step.progress(95.0, f"found {len(picks)} particles"))
                 emit_step(step.completed(output_files=[json_path]))
 
-            # Inline picks for small result sets (saves a downstream fetch);
-            # cap to avoid blowing up the bus envelope.
-            INLINE_LIMIT = 5000
-            inline = (
-                [Particle(**p) for p in picks]
-                if len(picks) <= INLINE_LIMIT
-                else None
-            )
-
+            # Per ratified rule 1 (project_artifact_bus_invariants.md,
+            # 2026-05-03): bus carries refs and summaries only. The
+            # pre-Phase-1c inline-picks path was a size cliff (≤5000
+            # inline, then path-only) — the consultant flagged it as
+            # the canonical example of the rule we ratified against.
+            # Consumers read ``particles_json_path`` for the picks.
             return ParticlePickingOutput(
                 num_particles=len(picks),
                 particles_json_path=json_path,
-                picks=inline,
+                picks=None,
             )
         except Exception as exc:
             if step is not None:
@@ -280,6 +277,9 @@ def build_pick_result(task: TaskMessage, output: ParticlePickingOutput) -> TaskR
             path=output.particles_json_path,
             required=True,
         ))
+    # Per rule 1: result envelope carries the path + scalar summary
+    # (num_particles). Picks themselves stay on disk; consumers read
+    # the JSON file to materialise the per-particle records.
     return TaskResultMessage(
         worker_instance_id=task.worker_instance_id,
         job_id=task.job_id,
@@ -293,7 +293,6 @@ def build_pick_result(task: TaskMessage, output: ParticlePickingOutput) -> TaskR
         output_data={
             "num_particles":       output.num_particles,
             "particles_json_path": output.particles_json_path,
-            "picks":               [p.model_dump() for p in (output.picks or [])],
             **output.extras,
         },
         output_files=out_files,

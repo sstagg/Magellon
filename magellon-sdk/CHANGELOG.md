@@ -7,7 +7,47 @@ Version pattern follows SemVer as defined in `CONTRACT.md` §4.
 
 ## [Unreleased]
 
-(no changes yet)
+### Added
+
+- **`PluginBrokerRunner` absorbs the active-task ContextVar +
+  daemon-loop + step-reporter helpers.** Every external plugin (FFT,
+  topaz, CTF, MotionCor, ptolemy) used to hand-roll the same
+  ~80-line block. New module `magellon_sdk.runner.active_task`
+  exposes `current_task()`, `set_active_task()`, `reset_active_task()`,
+  `get_step_event_loop()`, `emit_step()`, `make_step_reporter()`.
+  Per-plugin `*BrokerRunner` subclasses are no longer needed; back-
+  compat shims preserve the old import names for one release.
+- **Subject axis** on `TaskMessage` and `TaskResultMessage` —
+  `subject_kind: Optional[str]` (`'image' | 'particle_stack' |
+  'session' | 'run' | 'artifact'` per ratified rule 4 — VARCHAR not
+  ENUM) and `subject_id: Optional[UUID]`. `PluginBrokerRunner._stamp_subject`
+  echoes them from incoming task to outgoing result; falls back to
+  `CategoryContract.subject_kind` when the dispatcher / plugin both
+  leave it unset. Closes the dispatch→completion loop for non-image-
+  keyed categories.
+- **`CategoryContract.subject_kind`** (default `'image'`,
+  `TWO_D_CLASSIFICATION_CATEGORY` overrides to `'particle_stack'`).
+  Declarative seam that lets pre-Phase-3 dispatchers automatically
+  populate the right subject for aggregate categories.
+- **New categories**: `PARTICLE_EXTRACTION` (code 10, contract
+  `PARTICLE_EXTRACTION_CATEGORY`, input `ParticleExtractionInput`,
+  output `ParticleExtractionOutput`). `TWO_D_CLASSIFICATION` was
+  reserved at code 4 in 1.0; the contract pairing now lands as
+  `TWO_D_CLASSIFICATION_CATEGORY` with `TwoDClassificationInput` /
+  `TwoDClassificationOutput`.
+- **`Artifact` / `ArtifactKind` Pydantic models** in
+  `magellon_sdk.models.artifact`. The typed bridge between a producing
+  job/task and downstream consumers. Mirrors the alembic-0005
+  `artifact` table 1:1 — promoted hot columns (mrcs_path, star_path,
+  particle_count, apix, box_size) + long-tail `data_json`. Per
+  ratified rule 6: artifacts are immutable; only `deleted_at` mutates.
+
+### Notes
+
+Pyproject version bumped from 1.2.0 → 2.0.0 to match the existing
+`magellon_sdk.__version__` constant — pre-existing drift between the
+two locations (the 2.0 wire-shape rename had landed in source but
+the build metadata wasn't bumped).
 
 ---
 
