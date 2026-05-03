@@ -1,7 +1,14 @@
 # Plugin Manager — Phased Plan
 
-**Status:** Proposal, 2026-05-03.
+**Status:** Proposal, 2026-05-03 (revised 2026-05-04 per reviewer feedback).
 **Audience:** Reviewers, ops + frontend team, operators.
+
+**Revision 2026-05-04** — fixes nine reviewer-flagged issues from the
+first pass: identity layering, multi-category default routing,
+liveness re-keying (current state was misread), Healthy reducer's
+data source, pause-vs-disable semantics, alembic split, installed
+inventory accuracy, PM7 sub-phasing, PM6 severity example. Each
+finding is annotated inline below where it applies.
 **Companion docs:**
 - `PLUGIN_INSTALL_PLAN.md` (P1–P9 — the **authoring + install** pipeline; complement, not overlap)
 - `MAGELLON_HUB_SPEC.md` (the **distribution** registry server)
@@ -13,7 +20,43 @@ This plan is the **runtime / operational** surface — observe, enable / disable
 
 ---
 
-## 0. Why this plan
+## 0. Identity layers (read first)
+
+Plugin "identity" lives at five distinct layers in this codebase.
+Conflating them is the first mistake reviewers found in revision 1;
+fixing it shapes every PM phase below. Each layer has one
+authoritative carrier:
+
+| Layer | Identifier | Owner | Lifetime |
+|---|---|---|---|
+| **DB row identity** | `plugin.oid` (UUID) | DB; FK target for `ImageMetaData.plugin_id` and the new `plugin_state.plugin_oid` | Forever; soft-delete via `deleted_date`/`GCRecord` |
+| **Install package identity** | `manifest_plugin_id` (string slug from `manifest.yaml`, e.g. `"ctf"`, `"can-classifier"`, `"stack-maker"`) | Plugin author; declared in the archive | Per archive |
+| **Dispatch identity** | `(category, backend_id)` — e.g. `(CTF, "ctffind4")`, `(MICROGRAPH_DENOISING, "topaz-denoise")` | The plugin's `PluginManifest`; stamped on every announce | Per announce |
+| **Live replica identity** | `instance_id` (UUID per process) | The plugin runner at boot; rotates on restart | Per process |
+| **Default routing policy** | `(category, plugin_oid)` row in `plugin_category_default` | Operator decision; survives restart | Persistent, mutable |
+
+Why this matters:
+
+- A plugin can serve **multiple categories** (e.g. topaz serves
+  `TOPAZ_PARTICLE_PICKING` AND `MICROGRAPH_DENOISING`). One boolean on
+  the plugin row can't say "default for picking, not for denoising".
+  → Default policy lives on a separate `plugin_category_default`
+  table keyed by `(category, plugin_oid)`. Reviewer-flagged High #1.
+- The new `plugin` extensions must NOT add a column called
+  `plugin_id` — that name conflicts with `ImageMetaData.plugin_id`
+  which is already a FK to `plugin.oid`. The new column is
+  `manifest_plugin_id`; FK relationships continue to use
+  `plugin.oid`. Reviewer-flagged High #2.
+- The SDK's liveness registry is already keyed on `(plugin_id,
+  instance_id)` (`magellon-sdk/.../bus/services/liveness_registry.py:137`)
+  — replica granularity exists today. Announce + heartbeat use
+  `instance_id`, not `worker_instance_id`
+  (`magellon-sdk/.../discovery.py:88`). PM5 exposes the data, doesn't
+  re-key. Reviewer-flagged High #3.
+
+---
+
+## 0a. Why this plan
 
 Three driving observations:
 
@@ -64,7 +107,7 @@ The XAF audit columns on `plugin` (`created_by` FK, `last_modified_by` FK, `Opti
 - `POST   /admin/plugins/install` — multipart `.mpn` upload
 - `POST   /admin/plugins/{id}/upgrade` — multipart upload, optional `force_downgrade`
 - `DELETE /admin/plugins/{id}` — uninstall (stop + remove dir)
-- `GET    /admin/plugins/installed` — list installed (reads R2)
+- `GET    /admin/plugins/installed` — calls `PluginInstallManager.list_installed()` which **scans the installer's directory tree on disk** (`services/plugin_installer/manager.py:399`); does NOT read R2. Reviewer-flagged Medium #7. R2 is a separate H2-era container registry consumed by the docker runner; the two surfaces co-exist and PM1 consolidates them onto the persisted `plugin` table.
 - `GET    /admin/plugins/{id}` — describe one installed plugin
 
 #### Pipeline rollup — `pipelines_router` (`pipelines_controller.py`, Phase 8b 2026-05-03)
@@ -109,15 +152,21 @@ PR ordering. Each PR is `git revert`-safe. Days assume one engineer, sequential.
 
 | # | Phase | Closes gap | Days | Reversible |
 |---|---|---|---|---|
-| **PM1** | `plugin` + `plugin_state` schema + repository (alembic 0007) | G1, G2, G8 | 2 | yes (drop columns + tables) |
-| **PM2** | Conditions[] on `PluginSummary`; `GET /plugins/{id}/status` | G3 | 1–2 | yes |
+| **PM1** | `plugin` extensions + `plugin_state` + `plugin_category_default` (alembic 0007) — **enabled flag only**, no paused | G1, G2, G8 | 2 | yes (drop columns + 2 tables) |
+| **PM2** | `Conditions[]` on `PluginSummary` + `GET /plugins/{id}/status`; Healthy reducer reads `job_event.ts` | G3 | 1–2 | yes |
 | **PM3** | `PluginManagerService` facade — server-side join | G7 | 1 | yes |
-| **PM4** | Pause / resume verbs + dispatcher gate | G4 | 2 | yes (delete columns + verbs) |
-| **PM5** | Per-replica health — keyed by `worker_instance_id` | G5 | 3–4 | yes (additive) |
+| **PM4** | Pause / resume / restart — **DEFERRED** until pause semantics are meaningfully distinct from disable (TTL + reason taxonomy) | G4 | TBD | yes (own alembic 0008) |
+| **PM5** | Per-replica health — expose existing `(plugin_id, instance_id)` keying via `GET /plugins/{id}/replicas`; no re-key | G5 | 2 | yes (additive) |
 | **PM6** | Updates view — installed × hub catalog cross-reference | G6 | 2 | yes |
-| **PM7** | UI delta — augment existing panels (NOT a rewrite) | — | 2–3 | yes (UI-only) |
+| **PM7a** | UI: Conditions chips (after PM2) | — | 1 | yes (UI-only) |
+| **PM7b** | UI: pause/resume/restart (after PM4) | — | 1 | yes (UI-only) |
+| **PM7c** | UI: replica drilldown (after PM5) | — | 1 | yes (UI-only) |
+| **PM7d** | UI: update chips (after PM6) | — | 1 | yes (UI-only) |
 
-Critical path: PM1 → PM2 → PM3 → PM7 (≈ 7 days). PM4 / PM5 / PM6 are parallel branches off PM3.
+Revised critical path: **PM1 → PM2 → PM3 → PM7a** (≈ 5–6 days) ships
+the user-visible "yes, we have a Plugin Manager" answer with chips
+and durable state. PM5/6 are parallel after PM3; PM7c/7d follow each.
+PM4 + PM7b ship together when pause's design lands.
 
 ---
 
@@ -125,9 +174,17 @@ Critical path: PM1 → PM2 → PM3 → PM7 (≈ 7 days). PM4 / PM5 / PM6 are par
 
 ### 4.1 Schema decision
 
-**Reuse the existing `plugin` table for catalog identity. Add a focused `plugin_state` table for operator-mutable runtime state.**
+**Reuse the existing `plugin` table for catalog identity. Add a `plugin_state` companion for operator-mutable runtime state. Add a separate `plugin_category_default` table for default routing policy.**
 
-Rationale: the `plugin` table's existing fields (`name`, `version`, `author`, `type_id`, `status_id`, `input_json`) match what the install pipeline already produces. Mutations (`enabled`, `paused`, `default_for_category`) belong on a separate row so toggling them doesn't trigger XAF audit-column writes that need a full user FK every time the dispatcher flips a flag.
+Rationale: the `plugin` table's existing fields (`name`, `version`,
+`author`, `type_id`, `status_id`, `input_json`) match what the
+install pipeline already produces. Mutations (`enabled`) belong on a
+separate row so toggling them doesn't trigger XAF audit-column
+writes. **Default routing is per-category, not per-plugin** —
+topaz serves both `TOPAZ_PARTICLE_PICKING` and `MICROGRAPH_DENOISING`,
+and an operator can pick it as default for one but not the other.
+That can't fit on a boolean on the plugin row, so it lives on its
+own table (reviewer-flagged High #1).
 
 ### 4.2 alembic migration 0007
 
@@ -142,7 +199,10 @@ def upgrade():
     )
 
     # Promoted catalog hot fields (currently buried in input_json).
-    op.add_column("plugin", sa.Column("plugin_id", sa.String(200), nullable=True))
+    # NOTE: ``manifest_plugin_id`` (NOT ``plugin_id``). The latter
+    # would collide with the existing image_meta_data.plugin_id FK
+    # to plugin.oid. Reviewer-flagged High #2.
+    op.add_column("plugin", sa.Column("manifest_plugin_id", sa.String(200), nullable=True))
     op.add_column("plugin", sa.Column("backend_id", sa.String(64), nullable=True))
     op.add_column("plugin", sa.Column("category", sa.String(64), nullable=True))
     op.add_column("plugin", sa.Column("schema_version", sa.String(16), nullable=True))
@@ -153,34 +213,51 @@ def upgrade():
     op.add_column("plugin", sa.Column("archive_id", sa.String(64), nullable=True))
     op.add_column("plugin", sa.Column("manifest_json", sa.dialects.mysql.JSON, nullable=True))
     op.add_column("plugin", sa.Column("installed_date", sa.DateTime, nullable=True))
-    op.create_index("ix_plugin_plugin_id", "plugin", ["plugin_id"], unique=False)
+    op.create_index("ix_plugin_manifest_plugin_id", "plugin", ["manifest_plugin_id"], unique=False)
     op.create_index("ix_plugin_category_backend", "plugin", ["category", "backend_id"])
 
-    # plugin_state — mutable operator state, no audit churn.
+    # plugin_state — mutable operator state, no audit churn. FK to
+    # plugin.oid (NOT a string copy — High #2). Per reviewer-flagged
+    # Medium #6: PM4's paused* columns live in alembic 0008, NOT
+    # here. PM1 ships ONLY the enabled flag.
     op.create_table(
         "plugin_state",
-        sa.Column("plugin_id", sa.String(200), primary_key=True),
+        sa.Column("plugin_oid", sa.BINARY(length=16), primary_key=True),
         sa.Column("enabled", sa.Boolean, nullable=False, server_default=sa.text("1")),
-        sa.Column("paused", sa.Boolean, nullable=False, server_default=sa.text("0")),
-        sa.Column("paused_reason", sa.String(500), nullable=True),
-        sa.Column("paused_at", sa.DateTime, nullable=True),
-        # Per-category default — denormalised to plugin_state for the
-        # one-row-per-plugin shape, NOT a separate plugin_category_default
-        # table (saves a join). 'is_default_for_category' is true on at
-        # most one plugin per category; enforced in the repository.
-        sa.Column("is_default_for_category", sa.Boolean, nullable=False, server_default=sa.text("0")),
         sa.Column("last_seen_at", sa.DateTime, nullable=True),
         sa.Column("last_heartbeat_at", sa.DateTime, nullable=True),
         sa.Column("OptimisticLockField", sa.Integer, nullable=True),
+        sa.ForeignKeyConstraint(
+            ["plugin_oid"], ["plugin.oid"], name="fk_plugin_state_plugin",
+        ),
     )
 
+    # plugin_category_default — default routing policy; PK=category,
+    # FK to plugin.oid. Multi-category plugins have one row per
+    # category they're default for (reviewer-flagged High #1).
+    op.create_table(
+        "plugin_category_default",
+        sa.Column("category", sa.String(64), primary_key=True),
+        sa.Column("plugin_oid", sa.BINARY(length=16), nullable=False),
+        sa.Column("set_at", sa.DateTime, nullable=False),
+        sa.Column("set_by_user_id", sa.String(100), nullable=True),
+        sa.ForeignKeyConstraint(
+            ["plugin_oid"], ["plugin.oid"],
+            name="fk_pcd_plugin",
+            ondelete="CASCADE",
+        ),
+    )
+    op.create_index("ix_pcd_plugin_oid", "plugin_category_default", ["plugin_oid"])
+
 def downgrade():
+    op.drop_index("ix_pcd_plugin_oid", "plugin_category_default")
+    op.drop_table("plugin_category_default")
     op.drop_table("plugin_state")
     op.drop_index("ix_plugin_category_backend", "plugin")
-    op.drop_index("ix_plugin_plugin_id", "plugin")
+    op.drop_index("ix_plugin_manifest_plugin_id", "plugin")
     for col in ("installed_date", "manifest_json", "archive_id", "container_ref",
                 "image_ref", "install_dir", "install_method", "schema_version",
-                "category", "backend_id", "plugin_id"):
+                "category", "backend_id", "manifest_plugin_id"):
         op.drop_column("plugin", col)
     op.alter_column("plugin", "version",
         existing_type=sa.String(64), type_=sa.String(10),
@@ -190,26 +267,34 @@ def downgrade():
 ### 4.3 ORM additions
 
 - Extend `Plugin` ORM class (`models/sqlalchemy_models.py:155`) with the new columns. Keep existing audit columns + relationships; the install path threads the user_id from Casbin.
-- New `PluginState` ORM class — PK `plugin_id`, FK to `Plugin.plugin_id`. Bypasses XAF audit; updates are bulk-mutation-safe.
+- New `PluginState` ORM class — PK `plugin_oid` BINARY(16), FK to `Plugin.oid`. Bypasses XAF audit; updates are bulk-mutation-safe.
+- New `PluginCategoryDefault` ORM class — PK `category` (one row per category at most), `plugin_oid` FK to `Plugin.oid`.
 
 ### 4.4 Repository additions (`repositories/plugin_repository.py`)
 
 ```python
 class PluginRepository:
-    def upsert_catalog(plugin_id, manifest, install_result, *, user_id) -> Plugin
+    def upsert_catalog(manifest_plugin_id, manifest, install_result, *, user_id) -> Plugin
     def list_installed() -> list[Plugin]
-    def get_by_plugin_id(plugin_id) -> Optional[Plugin]
-    def soft_delete(plugin_id) -> None                  # sets deleted_date, GCRecord
+    def get_by_oid(oid: UUID) -> Optional[Plugin]
+    def get_by_manifest_plugin_id(manifest_plugin_id: str) -> Optional[Plugin]
+    def soft_delete(oid: UUID) -> None                  # sets deleted_date, GCRecord
 
 class PluginStateRepository:
-    def enabled(plugin_id) -> bool                       # default True
-    def set_enabled(plugin_id, enabled: bool) -> None
-    def paused(plugin_id) -> bool                        # default False
-    def set_paused(plugin_id, paused: bool, reason: str | None) -> None
-    def get_default_for_category(category) -> Optional[str]
-    def set_default_for_category(category, plugin_id) -> None  # clears prior default in same tx
-    def touch_heartbeat(plugin_id, when: datetime) -> None
+    def enabled(plugin_oid: UUID) -> bool                # default True
+    def set_enabled(plugin_oid: UUID, enabled: bool) -> None
+    def touch_heartbeat(plugin_oid: UUID, when: datetime) -> None
     def snapshot() -> dict
+    # PM4 (deferred) extends this with paused/set_paused/paused_until
+
+class PluginCategoryDefaultRepository:
+    """One row per category. Multi-category plugins have multiple
+    rows pointing at them — or rows pointing elsewhere. That's the
+    whole point of separating this from plugin_state."""
+    def get_default(category: str) -> Optional[UUID]            # → plugin.oid
+    def set_default(category: str, plugin_oid: UUID, user_id) -> None
+    def clear_default(category: str) -> None
+    def list_all() -> dict[str, UUID]
 ```
 
 ### 4.5 Swap-in plan (one PR, atomic)
@@ -253,9 +338,10 @@ OLM-style. Multiple conditions can be true at once — that's the point. A plugi
 
 `PluginManagerService.compute_conditions(plugin_id) -> list[Condition]` joins:
 - `Plugin` row → `Installed`
-- `PluginState` row → `Enabled`, `Paused`, `Default`
+- `PluginState` row → `Enabled` (PM1) / `Paused` (PM4 — deferred)
+- `PluginCategoryDefault` row → `Default` (per-category, not boolean per plugin — multi-category plugins can be default for one category but not another)
 - `PluginLivenessRegistry` → `Live` (heartbeat within window)
-- Recent `image_job_task` results (last 10 min, by `plugin_id`) → `Healthy` (≥1 success, no all-failures-in-row pattern)
+- Recent `job_event` rows (`event_type IN ('completed','failed')`, last N min) → `Healthy`. **Reviewer-flagged High #4 fix**: revision 1 claimed an `(plugin_id, ended_on DESC)` index existed on `image_job_task`. It doesn't, and there's no `ended_on` column. The right source is `job_event.ts` (already indexed via `(event_id UNIQUE, task_id)` from migration 0002). Reducer joins `image_job_task` (for `plugin_id`) to `job_event` (for terminal events + ts). PM2 may add `(task_id, ts DESC)` if benchmarks warrant.
 
 ### 5.3 Wire-shape additions
 
@@ -312,61 +398,83 @@ class PluginManagerService:
 
 ## 7. PM4 — Pause / resume verbs
 
-### 7.1 Semantics
+### 7.1 Why this is deferred (reviewer-flagged Medium #5)
 
-Three operator levels of "stop":
+The first revision defined `pause` and `disable` as operationally
+identical (both refuse new dispatches; plugin stays running;
+in-flight tasks drain). Two verbs that do the same thing don't pay
+their way (principle 4). PM4 is deferred until pause has semantics
+meaningfully different from disable. Three candidate semantic
+differences worth designing toward:
 
-| Verb | What changes | Plugin process | Use case |
-|---|---|---|---|
-| `disable` (existing) | Dispatcher refuses new dispatches | Stays running, keeps heartbeating, ready to re-enable | Quiesce while debugging downstream |
-| **`pause` (NEW)** | Dispatcher refuses new dispatches **AND** existing in-flight tasks drain to completion. Plugin keeps running. | Stays running | Operator wants the plugin to finish current work, accept no more, without container-kill |
-| `restart` (NEW; uses P9 primitive) | Hard kill + relaunch | Container restarts | Hung plugin |
-| `uninstall` (existing) | Stop + remove from disk | Container removed | Done with this plugin |
+1. **TTL / auto-resume** — `pause` carries `paused_until: DateTime`;
+   the dispatcher's gate auto-clears the flag on expiry. `disable`
+   stays indefinite.
+2. **Reason taxonomy** — `paused_reason_code: enum`
+   (`'maintenance' | 'circuit-breaker' | 'awaiting-investigation' |
+   'manual'`). Combined with TTL, ops dashboards can surface "5
+   plugins paused for circuit-breaker, all auto-clear in <2 min".
+3. **Origin distinction** — `disable` is operator policy
+   (durable, manual revert); `pause` is system policy
+   (a circuit breaker, a deploy fence — system can clear without
+   human action).
 
-Today only `disable` and `uninstall` exist. `pause` is the missing operator-friendly middle ground.
+### 7.2 What this means for PM1 (reviewer-flagged Medium #6)
 
-### 7.2 Implementation
+PM1 ships **only** the `enabled` flag. **No `paused` columns** until
+PM4's design lands. PM4 owns its own alembic 0008 with the full set:
+`paused`, `paused_reason_code`, `paused_at`, `paused_until`, plus a
+polymorphic `paused_by_user_id` / `paused_by_system_actor`. Two
+phases fully independent.
 
-- `POST /plugins/{id}/pause?reason=...` — sets `plugin_state.paused=true`, `paused_reason`, `paused_at`. Dispatcher consults `paused` before publishing (alongside the existing `enabled` check).
-- `POST /plugins/{id}/resume` — clears `paused`.
-- `POST /plugins/{id}/restart` — issues `docker kill` (existing P9 endpoint) then waits for the container to be re-spawned by the orchestrator. No-op for in-process plugins; returns 422 with explanation.
+### 7.3 Restart verb
 
-Compatibility: `paused` and `enabled` are both consulted in dispatcher; either being false refuses new dispatches. Backward-compat for the existing UI's enable/disable button — it doesn't see `paused`, just stays as-is until PM7.
-
-### 7.3 Acceptance
-
-- Pause a plugin mid-task; in-flight task completes; new dispatches return 503 with `reason=PluginPaused`.
-- Resume; new dispatches succeed.
-- Restart on an in-process plugin returns 422 with the explanation.
-- 4 unit tests on the dispatcher gate; 1 contract test on the pause+resume HTTP round-trip.
+Mostly orthogonal to the pause/disable question — it's the missing
+"kill + relaunch" hard-stop. P9's container-kill endpoint already
+covers the operational gap; `restart` ships with PM4 once
+soft-stop ("drain in-flight then restart") has somewhere to live.
 
 ---
 
-## 8. PM5 — Per-replica health
+## 8. PM5 — Per-replica health (revised: expose, don't re-key)
 
-### 8.1 Why
+### 8.1 Reviewer correction (High #3)
 
-`PluginLivenessRegistry` keys on `(category, backend_id)`. Three ctffind4 replicas appear as one row; if one silently stops heartbeating but the other two cover, the count drops from 3 → 2 with no UI surface saying which.
+The first revision claimed `PluginLivenessRegistry` keyed on
+`(category, backend_id)` and proposed widening the key. **That was
+wrong**: the registry already keys on `(plugin_id, instance_id)`
+(`magellon-sdk/.../bus/services/liveness_registry.py:137`). Replica
+granularity exists today. Announce + heartbeat envelopes carry
+`instance_id`, NOT `worker_instance_id`
+(`magellon-sdk/.../discovery.py:88`).
 
-### 8.2 Schema change
+PM5's actual scope is therefore:
 
-The announce + heartbeat envelopes already carry `worker_instance_id` (it's on `TaskMessage` and `TaskResultMessage` from the SDK). `PluginLivenessRegistry` ignores it today; PM5 keys by `(category, backend_id, worker_instance_id)`. Storage stays in-memory (rebuilds on reconnect like all liveness data).
+1. **Expose replica snapshots** via `GET /plugins/{id}/replicas` —
+   the data exists; the controller doesn't surface it yet.
+2. **Provide aggregate views** — "1 of 3 replicas of ctffind4 is
+   stale" — derived from the existing keying.
+3. **Add per-replica health derivation** — combine the registry's
+   `last_heartbeat_at` with task-completion timestamps from
+   `job_event.ts` (per PM2's reducer) to compute Healthy / Stale / Lost.
 
-New API:
+No registry re-keying needed. No SDK schema change.
+
+### 8.2 New API
 
 ```
 GET /plugins/{id}/replicas
 
 [
   {
-    "worker_instance_id": "uuid",
+    "instance_id": "uuid",                         // SDK uses ``instance_id``
     "host": "topaz-2.cluster.internal",
     "container_id": "abc123" | null,
     "first_seen_at": "...",
     "last_heartbeat_at": "...",
-    "last_task_completed_at": "..." | null,
+    "last_task_completed_at": "..." | null,        // from job_event.ts
     "in_flight_task_count": 2,
-    "status": "Healthy" | "Unhealthy" | "Stale" | "Lost"
+    "status": "Healthy" | "Stale" | "Lost"
   },
   ...
 ]
@@ -374,9 +482,9 @@ GET /plugins/{id}/replicas
 
 ### 8.3 Acceptance
 
-- Spin up 3 replicas of FFT in docker-compose; `GET /plugins/fft/replicas` returns 3 rows.
+- Spin up 3 replicas of FFT in compose; `GET /plugins/fft/replicas` returns 3 rows (the registry's existing per-instance entries).
 - Kill one container; within 2× heartbeat interval that replica's `status="Lost"`.
-- 3 integration tests in `magellon-sdk/tests/test_bus_services_liveness_registry.py` covering the new key.
+- 2 unit tests on the controller's reducer over a fake `PluginLivenessRegistry`. Re-keying tests are NOT needed — the registry is already replica-keyed.
 
 ---
 
@@ -398,7 +506,7 @@ Returns:
     "current_version": "1.0.2",
     "latest_version": "1.0.5",
     "channel": "stable",
-    "severity": "minor",                    // 'patch' | 'minor' | 'major'
+    "severity": "patch",                    // 'patch' | 'minor' | 'major'
     "release_notes_url": "..." | null,
     "archive_url": "<HUB_URL>/.../1.0.5.mpn"
   }
@@ -412,35 +520,40 @@ Returns:
 
 ---
 
-## 10. PM7 — UI delta
+## 10. PM7 — UI delta (revised: split into 7a/7b/7c/7d)
 
 **Augment, don't rewrite.** The three-panel composition stays.
+Reviewer-flagged Medium #8: PM7 was monolithic and depended on APIs
+from phases the critical path called optional. Split by upstream
+phase so each landing-PR pins to one dependency.
 
-### 10.1 PluginBrowser (runtime panel)
+### 10.1 PM7a — Conditions UI *(after PM2)*
 
-- Render Conditions[] as chip cluster instead of the implicit `enabled` flag.
-- Add per-row "Pause" / "Resume" / "Restart" buttons (next to existing enable / disable / set-default).
-- Click on a row → expand to per-replica drilldown (PM5 data).
-- New empty-state copy when the plugin is `Installed=True, Live=False`: "Installed but not announcing — check the container logs."
+- `PluginBrowser` renders `Conditions[]` as chip cluster instead of the implicit `enabled` flag.
+- Empty-state when `Installed=True, Live=False`: "Installed but not announcing — check the container logs."
+- 1 component test pinning chip rendering.
 
-### 10.2 AdminInstalledPanel
+### 10.2 PM7b — Pause / resume / restart UI *(after PM4 — deferred)*
 
-- Add per-row "1 update available" chip when PM6 says so. Click → opens `UpgradeMpnDialog` pre-populated with the hub archive URL.
-- Show `installed_date` per row (now we have it persisted).
+- Per-row "Pause" / "Resume" / "Restart" buttons.
+- "Pause for ___ minutes" affordance to set `paused_until`.
+- Reason picker dropdown when pausing.
+- Restart confirmation dialog (not idempotent for hung plugins).
 
-### 10.3 HubCatalogBrowser
+### 10.3 PM7c — Per-replica drilldown *(after PM5)*
 
-- Mark "already installed" rows with a chip showing the installed version side-by-side with the catalog version.
-- "Install" button changes to "Upgrade to X" / "Downgrade to X" depending on direction.
+- Click on a runtime-panel row → expand to per-replica list rendered from `GET /plugins/{id}/replicas`.
+- Per-replica `status` chip; "Force-stop replica" button (post-P9 hook).
 
-### 10.4 No new pages
+### 10.4 PM7d — Update chips *(after PM6)*
 
-The existing `PluginsPageView.tsx` composition is the manager. PM7 enhances the three panels in place. ~150–250 lines of TSX changes, mostly chips + dialogs + an expand handler.
+- AdminInstalledPanel: per-row "1 update available" chip; click → `UpgradeMpnDialog` pre-populated with the hub archive URL.
+- HubCatalogBrowser: "already installed" rows show installed-version + latest-version side by side; "Install" button becomes "Upgrade to X" / "Downgrade to X".
+- AdminInstalledPanel: show `installed_date` per row (now persisted via PM1).
 
-### 10.5 Acceptance
+### 10.5 No new pages
 
-- Playwright test: load `/panel/plugins`, verify three panels render, conditions chips visible, click pause, conditions update.
-- Visual review: chips color-coded; expand-replica works.
+The existing `PluginsPageView.tsx` composition is the manager. PM7a–7d enhance the three panels in place. Total ~150–250 lines of TSX changes spread across four PRs, each gated on its own backend phase.
 
 ---
 
@@ -528,36 +641,47 @@ Phase-by-phase items reviewers should confirm before approving:
 
 | Phase | Rollback |
 |---|---|
-| PM1 | `alembic downgrade 0006`. Back-compat shims auto-restore in-memory behaviour. |
-| PM2 | `git revert` the SDK + controller commits. UI ignores unknown `conditions` field gracefully. |
+| PM1 | `alembic downgrade 0006`. Drops `manifest_plugin_id` + the new columns + `plugin_state` + `plugin_category_default`. Back-compat shims auto-restore in-memory behaviour. |
+| PM2 | `git revert`. UI ignores unknown `conditions` field gracefully. |
 | PM3 | `git revert`. The inline join in `list_plugins` is un-deleted; surface unchanged. |
-| PM4 | `git revert` + `alembic downgrade -1` (drops `paused`/`paused_reason`/`paused_at` columns added in 0007 — note: those are part of 0007, so PM4 rollback happens together with PM1 unless we split). **Decision:** if PM1 has soaked one release, the `paused` column can land in alembic 0008 separately; keep PM4 fully revertible. |
-| PM5 | `git revert`. Liveness registry falls back to the older `(category, backend_id)` key. |
+| PM4 | `alembic downgrade` to undo 0008 (drops `paused*` columns); `git revert` for the verbs. **Fully separate** from PM1 per Medium #6. |
+| PM5 | `git revert`. No schema change — registry was already replica-keyed. |
 | PM6 | `git revert`. UI hides the chip; no schema change. |
-| PM7 | `git revert`. UI returns to current shape. |
+| PM7a/b/c/d | Each is `git revert`-safe independently. UI returns to current shape per sub-phase. |
 
-PM1 is the only phase with a schema change; PM4's `paused` columns ride along with it, so the split between PM1 and PM4's schema is intentional in §4.2. If a reviewer prefers PM1 truly minimal (no `paused` column until PM4), move those four columns to a future migration 0008 in PM4 — adds one migration, removes coupling.
+**Decision per reviewer-flagged Medium #6**: PM4's pause columns live in alembic 0008, owned by PM4. PM1 ships ONLY the `enabled` flag. PM1 minimal, PM4 self-contained, no coupling.
 
 ---
 
-## 15. Sequencing
+## 15. Sequencing (revised)
 
 ```
-PM1  (alembic 0007 + repos, persistence)             ← lands first; everything else depends on the schema
-  ├── PM2  (Conditions[] reducer)
+PM1  (alembic 0007: plugin ext + plugin_state + plugin_category_default)
+  ├── PM2  (Conditions[] reducer; reads job_event.ts for Healthy)
   │     └── PM3  (PluginManagerService facade)
-  │            ├── PM4  (pause/resume verbs)
-  │            ├── PM5  (per-replica health)
+  │            ├── PM5  (replicas controller; no re-key)
   │            └── PM6  (updates view)
   │
-  └── PM7  (UI delta)                                ← after PM2+PM3 minimum; PM4/5/6 feed in incrementally
+  ├── PM7a (Conditions chips UI)                      ← after PM2
+  ├── PM7c (replicas drilldown UI)                    ← after PM5
+  ├── PM7d (update chips UI)                          ← after PM6
+  │
+  └── PM4  (pause + alembic 0008: paused/paused_until/paused_reason_code)
+        DEFERRED until pause semantics are designed
+        └── PM7b (pause/resume UI)                    ← after PM4
 ```
 
-Smallest-valuable-cut: **PM1 alone** kills the silent-state-loss bug. Two days of work; touches 1 migration + 2 repos + 2 shim files + 4 tests; no UI change; no API change. Reviewer effort under an hour.
+Smallest-valuable-cut: **PM1 alone** kills the silent-state-loss
+bug (2 days; 1 migration + 3 repos + 2 shim files + 4 tests).
 
-If picking two: **PM1 + PM2** — the UI gets durable toggles AND a clear status surface in ~4 days.
+Two-phase cut: **PM1 + PM2** — durable toggles + clear status
+surface in ~4 days.
 
-If picking the full path: **PM1 → PM2 → PM3 → PM7** in ≈ 7 days for the user-visible "yes, we have a Plugin Manager" answer; PM4/5/6 fold in over the following week.
+Full minimum-viable cut: **PM1 → PM2 → PM3 → PM7a** in ≈ 5–6 days
+ships the "yes, we have a Plugin Manager" answer with chips and
+durable state. PM5 + PM6 + PM7c/d add the following week.
+
+PM4 + PM7b ship later as one unit, gated on pause-design.
 
 ---
 
