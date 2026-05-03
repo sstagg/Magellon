@@ -35,7 +35,10 @@ from magellon_sdk.models.tasks import MotionCorInput
 from magellon_sdk.progress import NullReporter, ProgressReporter
 from magellon_sdk.runner import current_task, emit_step, get_step_event_loop
 
-from service.motioncor_service import do_motioncor
+# ``service.motioncor_service`` is imported lazily inside ``execute`` so
+# the SDK contract layer is testable without ``cv2`` / ``mrcfile`` /
+# ``matplotlib`` (utils.py drags those in at module load). Production
+# pays the import cost once on the first task — same total cost.
 from service.step_events import (
     STEP_NAME,
     get_publisher,
@@ -129,12 +132,19 @@ class MotioncorPlugin(PluginBase[MotionCorInput, MotioncorPluginOutput]):
         *,
         reporter: ProgressReporter = NullReporter(),
     ) -> MotioncorPluginOutput:
+        # Active-task check BEFORE the lazy compute import so the
+        # outside-runner error path stays testable without cv2.
         task = current_task()
         if task is None:
             raise RuntimeError(
                 "MotioncorPlugin.execute called outside PluginBrokerRunner context. "
                 "Use magellon_sdk.runner.set_active_task in tests."
             )
+
+        # Lazy import — see top of file. Tests that mock ``do_motioncor``
+        # via sys.modules win the import race; production pays the
+        # cost on the first task.
+        from service.motioncor_service import do_motioncor
 
         publisher = self._publisher()
         job_id, task_id = task.job_id, task.id

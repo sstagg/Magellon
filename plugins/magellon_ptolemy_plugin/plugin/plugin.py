@@ -37,7 +37,9 @@ from magellon_sdk.models.tasks import PtolemyInput
 from magellon_sdk.progress import NullReporter, ProgressReporter
 from magellon_sdk.runner import emit_step, make_step_reporter
 
-from plugin.compute import run_hole_detection, run_square_detection
+# ``plugin.compute`` is imported lazily inside ``execute`` so the SDK
+# contract layer is testable without ``onnxruntime`` (the
+# ``plugin.ptolemy.models`` chain drags it in at module load).
 from plugin.events import STEP_NAME, get_publisher
 
 logger = logging.getLogger(__name__)
@@ -104,6 +106,8 @@ class PtolemySquarePlugin(PluginBase[PtolemyInput, SquareDetectionOutput]):
         *,
         reporter: ProgressReporter = NullReporter(),
     ) -> SquareDetectionOutput:
+        from plugin.compute import run_square_detection  # lazy
+
         step = make_step_reporter(f"{STEP_NAME}.square", get_publisher)
         if step is not None:
             emit_step(step.started())
@@ -160,6 +164,8 @@ class PtolemyHolePlugin(PluginBase[PtolemyInput, HoleDetectionOutput]):
         *,
         reporter: ProgressReporter = NullReporter(),
     ) -> HoleDetectionOutput:
+        from plugin.compute import run_hole_detection  # lazy
+
         step = make_step_reporter(f"{STEP_NAME}.hole", get_publisher)
         if step is not None:
             emit_step(step.started())
