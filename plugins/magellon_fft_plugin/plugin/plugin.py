@@ -1,36 +1,19 @@
 """Broker-native FFT plugin built on the SDK ``PluginBrokerRunner``.
 
-This module is the migration target for the hand-rolled
-``core/rabbitmq_consumer_engine.py``. The runner harness now owns the
-pika loop, discovery, heartbeat, dynamic config, provenance stamping,
-and typed failure routing — the plugin only declares its identity,
-schemas, and the compute itself.
-
-What the FFT plugin specifically had to add on top of the SDK:
-
-* A ``ContextVar`` to recover the active :class:`TaskMessage` inside
-  ``execute()`` — needed for step events, which key on ``job_id``.
-  The base runner deliberately doesn't pass the envelope to
-  ``plugin.run()`` (input-only signature, see runner.py); the
-  ``FftBrokerRunner`` subclass below stashes it instead, which keeps
-  ``PluginBase.execute()`` unchanged for every other plugin.
-
-* A daemon-thread asyncio loop so ``execute()`` (sync, called from
-  pika's consumer thread) can submit the existing async step-event
-  publisher coroutines without recreating an event loop per task.
-  Same pattern the old consumer_engine used.
+Phase 1 (2026-05-03): the per-plugin ``FftBrokerRunner`` subclass is
+gone. The active-task ContextVar, daemon-thread asyncio loop, and the
+sync-from-async ``_emit`` / ``_make_reporter`` helpers are now in
+:mod:`magellon_sdk.runner.active_task` — every plugin gets them for
+free. This file is the new, minimal shape: input/output schemas,
+manifest metadata, and the algorithm wiring.
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
-import threading
-from contextvars import ContextVar
 from typing import Optional, Type
 
 from magellon_sdk.base import PluginBase
-from magellon_sdk.events import BoundStepReporter
 from magellon_sdk.models import (
     OutputFile,
     PluginInfo,
@@ -46,54 +29,12 @@ from magellon_sdk.models.manifest import (
 from magellon_sdk.models.tasks import FftInput
 from magellon_sdk.categories.outputs import FftOutput
 from magellon_sdk.progress import NullReporter, ProgressReporter
-from magellon_sdk.runner import PluginBrokerRunner
+from magellon_sdk.runner import current_task, emit_step, make_step_reporter
 
 from plugin.compute import compute_file_fft
 from plugin.events import STEP_NAME, get_publisher
 
 logger = logging.getLogger(__name__)
-
-
-# ---------------------------------------------------------------------------
-# Active-task context
-# ---------------------------------------------------------------------------
-# Populated by FftBrokerRunner._process before plugin.run(); cleared in a
-# finally. ContextVar (rather than thread-local) so the value follows the
-# logical task even if a future async refactor moves work around.
-_active_task: ContextVar[Optional[TaskMessage]] = ContextVar(
-    "_fft_active_task", default=None
-)
-
-
-def get_active_task() -> Optional[TaskMessage]:
-    """Public accessor — used by tests and by execute()."""
-    return _active_task.get()
-
-
-# ---------------------------------------------------------------------------
-# Daemon-thread asyncio loop for step-event emission
-# ---------------------------------------------------------------------------
-# One long-lived loop per process. asyncio.run() per emit would spin up
-# and tear down a loop for every task and stall pika's heartbeat long
-# enough for the broker to drop the connection — same gotcha the old
-# consumer_engine had.
-
-_loop: Optional[asyncio.AbstractEventLoop] = None
-_loop_lock = threading.Lock()
-
-
-def _get_loop() -> asyncio.AbstractEventLoop:
-    global _loop
-    if _loop is not None:
-        return _loop
-    with _loop_lock:
-        if _loop is None:
-            _loop = asyncio.new_event_loop()
-            t = threading.Thread(
-                target=_loop.run_forever, name="fft-step-events", daemon=True
-            )
-            t.start()
-    return _loop
 
 
 def _resolve_output_path(data: FftInput) -> str:
@@ -107,6 +48,20 @@ def _resolve_output_path(data: FftInput) -> str:
     return os.path.join(os.path.dirname(data.image_path), base)
 
 
+def _resolve_height(data: FftInput) -> int:
+    """Render height (px) for the downsampled magnitude spectrum.
+    Read from ``engine_opts['height']`` so callers can override per-task
+    without a schema change. Defaults to 1024 — the historical value."""
+    raw = (data.engine_opts or {}).get("height", 1024)
+    try:
+        h = int(raw)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"engine_opts.height must be an integer; got {raw!r}") from exc
+    if h <= 0:
+        raise ValueError(f"engine_opts.height must be > 0; got {h}")
+    return h
+
+
 # ---------------------------------------------------------------------------
 # FftPlugin
 # ---------------------------------------------------------------------------
@@ -114,8 +69,9 @@ def _resolve_output_path(data: FftInput) -> str:
 class FftPlugin(PluginBase[FftInput, FftOutput]):
     """In-house FFT plugin built on the SDK contract.
 
-    ``execute()`` is sync — runs inside ``PluginBrokerRunner``'s pika
-    consumer thread. Step events bridge to async via the daemon loop.
+    ``execute()`` is sync — runs inside :class:`PluginBrokerRunner`'s
+    pika consumer thread. Step events bridge to async via
+    :func:`magellon_sdk.runner.emit_step` (daemon-loop singleton).
     """
 
     capabilities = [
@@ -152,127 +108,36 @@ class FftPlugin(PluginBase[FftInput, FftOutput]):
     def output_schema(cls) -> Type[FftOutput]:
         return FftOutput
 
-    # ------------------------------------------------------------------
-    # Step-event helpers
-    # ------------------------------------------------------------------
-
-    def _emit(self, coro) -> None:
-        """Run a step-event coroutine on the daemon loop, sync-style.
-
-        A failed emit must never abort an otherwise-successful FFT
-        compute — we log and continue, same as the old async _safe_emit.
-        """
-        loop = _get_loop()
-        try:
-            future = asyncio.run_coroutine_threadsafe(coro, loop)
-            future.result(timeout=5.0)
-        except Exception:
-            logger.exception("step-event emit failed (non-fatal)")
-
-    def _make_reporter(self) -> Optional[BoundStepReporter]:
-        """Build a BoundStepReporter for the active task — or None if
-        step events are disabled or the publisher couldn't initialize.
-        """
-        task = _active_task.get()
-        if task is None:
-            return None
-        loop = _get_loop()
-        try:
-            future = asyncio.run_coroutine_threadsafe(get_publisher(), loop)
-            # Was 5s — too tight for the cold-start path that pays for
-            # NATS JetStream add_stream (capped at 3s in the SDK now)
-            # plus RMQ exchange declare. After the singleton is built
-            # (first task), the cache hits in microseconds.
-            publisher = future.result(timeout=15.0)
-        except Exception:
-            logger.exception("step-event publisher init failed (non-fatal)")
-            return None
-        if publisher is None:
-            return None
-        return BoundStepReporter(
-            publisher, job_id=task.job_id, task_id=task.id, step=STEP_NAME
-        )
-
-    # ------------------------------------------------------------------
-    # Core compute
-    # ------------------------------------------------------------------
-
     def execute(
         self,
         input_data: FftInput,
         *,
         reporter: ProgressReporter = NullReporter(),
     ) -> FftOutput:
-        step = self._make_reporter()
+        step = make_step_reporter(STEP_NAME, get_publisher)
         if step is not None:
-            self._emit(step.started())
+            emit_step(step.started())
         try:
             out_path = _resolve_output_path(input_data)
+            height = _resolve_height(input_data)
             if step is not None:
-                self._emit(step.progress(25.0, "loading image"))
+                emit_step(step.progress(25.0, "loading image"))
             compute_file_fft(
                 image_path=input_data.image_path,
                 abs_out_file_name=out_path,
+                height=height,
             )
             if step is not None:
-                self._emit(step.progress(90.0, "writing PNG"))
-                self._emit(step.completed(output_files=[out_path]))
+                emit_step(step.progress(90.0, "writing PNG"))
+                emit_step(step.completed(output_files=[out_path]))
             return FftOutput(
                 output_path=out_path,
                 source_image_path=input_data.image_path,
             )
         except Exception as exc:
             if step is not None:
-                self._emit(step.failed(error=str(exc)))
+                emit_step(step.failed(error=str(exc)))
             raise
-
-
-# ---------------------------------------------------------------------------
-# FftBrokerRunner
-# ---------------------------------------------------------------------------
-
-class FftBrokerRunner(PluginBrokerRunner):
-    """Runner subclass that exposes the active TaskMessage via ContextVar.
-
-    The base runner keeps ``plugin.run()`` input-only so PluginBase's
-    signature is shared across every plugin. FFT needs the envelope to
-    emit step events keyed on ``job_id`` — overriding the per-message
-    hooks is the smallest surface; alternatives (changing PluginBase
-    or threading a context kwarg through ``run()``) would touch every
-    plugin.
-
-    Two hooks overridden: ``_process`` (legacy bytes→bytes path used
-    by plugin-level tests) and ``_handle_task`` (MB4.1+ production
-    path driven by ``bus.tasks.consumer``). Both wrap the inner
-    execution in a ContextVar set/reset.
-    """
-
-    def _handle_task(self, envelope) -> None:
-        """Production path: set the ContextVar for the span of one
-        bus-driven delivery, then delegate to the base handler."""
-        task = self._task_from_envelope(envelope)
-        token = _active_task.set(task)
-        try:
-            super()._handle_task(envelope)
-        finally:
-            _active_task.reset(token)
-
-    def _process(self, body: bytes) -> bytes:
-        """Legacy pure-function path — kept so existing plugin tests
-        that feed raw TaskMessage JSON still set the ContextVar."""
-        text = body.decode("utf-8")
-        task = TaskMessage.model_validate_json(text)
-        token = _active_task.set(task)
-        try:
-            self._apply_pending_config()
-            input_schema = self.plugin.input_schema()
-            validated = input_schema.model_validate(task.data)
-            plugin_output = self.plugin.run(validated)
-            result = self.result_factory(task, plugin_output)
-            self._stamp_provenance(result)
-            return result.model_dump_json().encode("utf-8")
-        finally:
-            _active_task.reset(token)
 
 
 # ---------------------------------------------------------------------------
@@ -299,6 +164,22 @@ def build_fft_result(task: TaskMessage, output: FftOutput) -> TaskResultMessage:
         output_data={"output_path": output.output_path, **output.extras},
         output_files=[out_file],
     )
+
+
+# ---------------------------------------------------------------------------
+# Back-compat shims for plugin-level tests + callers that imported the
+# old subclass + helpers. Phase 1 deleted ``FftBrokerRunner`` /
+# ``get_active_task`` / ``_active_task`` / ``_get_loop`` from this module
+# in favor of the SDK helpers; the names below preserve import
+# compatibility for one release. Remove in 2026-Q3.
+# ---------------------------------------------------------------------------
+
+from magellon_sdk.runner import PluginBrokerRunner as FftBrokerRunner  # noqa: E402
+from magellon_sdk.runner.active_task import current_task as get_active_task  # noqa: E402
+from magellon_sdk.runner.active_task import (  # noqa: E402,F401
+    _active_task,
+    get_step_event_loop as _get_loop,
+)
 
 
 __all__ = [

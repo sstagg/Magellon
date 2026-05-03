@@ -57,6 +57,7 @@ from magellon_sdk.discovery import DiscoveryPublisher, HeartbeatLoop
 from magellon_sdk.envelope import Envelope
 from magellon_sdk.models import FAILED, TaskMessage, TaskResultMessage
 from magellon_sdk.progress import JobCancelledError
+from magellon_sdk.runner.active_task import reset_active_task, set_active_task
 from magellon_sdk.runner.lifecycle import start_config_subscriber, start_discovery
 
 logger = logging.getLogger(__name__)
@@ -160,6 +161,13 @@ class PluginBrokerRunner:
         normally so the binder acks. Re-raising would push the task
         to the DLQ, which confuses operators ("why is my cancelled
         task in the DLQ?").
+
+        Sets the active-task ContextVar for the span of one delivery
+        so :meth:`PluginBase.execute` can recover the envelope's
+        ``job_id`` / ``task_id`` via :func:`current_task` for
+        step-event emission. Phase 1 (2026-05-03) — replaces the
+        per-plugin ``FftBrokerRunner`` / ``TopazBrokerRunner`` etc.
+        subclass pattern.
         """
         # Drain any pending config between deliveries so the plugin
         # sees the new settings on the very next run. A bad configure()
@@ -169,21 +177,25 @@ class PluginBrokerRunner:
         task = self._task_from_envelope(envelope)
         validated = self.plugin.input_schema().model_validate(task.data)
 
+        token = set_active_task(task)
         try:
-            plugin_output = self.plugin.run(validated)
-        except JobCancelledError as exc:
-            logger.info(
-                "PluginBrokerRunner[%s]: task %s cancelled (%s); publishing cancelled result",
-                self.plugin.get_info().name, task.id, exc,
-            )
-            result = self._build_cancelled_result(task, str(exc))
+            try:
+                plugin_output = self.plugin.run(validated)
+            except JobCancelledError as exc:
+                logger.info(
+                    "PluginBrokerRunner[%s]: task %s cancelled (%s); publishing cancelled result",
+                    self.plugin.get_info().name, task.id, exc,
+                )
+                result = self._build_cancelled_result(task, str(exc))
+                self._stamp_provenance(result)
+                self._publish_result(result)
+                return
+
+            result = self.result_factory(task, plugin_output)
             self._stamp_provenance(result)
             self._publish_result(result)
-            return
-
-        result = self.result_factory(task, plugin_output)
-        self._stamp_provenance(result)
-        self._publish_result(result)
+        finally:
+            reset_active_task(token)
 
     def _publish_result(self, result: TaskResultMessage) -> None:
         """Publish the result envelope, logging a failed send."""
@@ -254,10 +266,14 @@ class PluginBrokerRunner:
         self._apply_pending_config()
         task = TaskMessage.model_validate_json(body.decode("utf-8"))
         validated = self.plugin.input_schema().model_validate(task.data)
-        plugin_output = self.plugin.run(validated)
-        result = self.result_factory(task, plugin_output)
-        self._stamp_provenance(result)
-        return result.model_dump_json().encode("utf-8")
+        token = set_active_task(task)
+        try:
+            plugin_output = self.plugin.run(validated)
+            result = self.result_factory(task, plugin_output)
+            self._stamp_provenance(result)
+            return result.model_dump_json().encode("utf-8")
+        finally:
+            reset_active_task(token)
 
     def _stamp_provenance(self, result: TaskResultMessage) -> None:
         """Fill in plugin_id / plugin_version from the manifest if the

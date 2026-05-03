@@ -23,4 +23,3 @@ tifffile
 numpy==1.26.4
 scipy==1.12.0
 Pillow==10.2.0
-matplotlib==3.9.2

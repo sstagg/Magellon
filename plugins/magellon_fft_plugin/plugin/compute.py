@@ -12,9 +12,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Optional
 
-import matplotlib.pyplot as plt
 import mrcfile
 import numpy as np
 import scipy
@@ -62,8 +60,14 @@ def compute_file_fft(
     new_img = np.log(1 + np.abs(F2))
 
     f = down_sample(new_img, height)
-    pil = Image.fromarray(np.abs(f))
+    # Normalize to 0-255 uint8 for greyscale PNG; sidesteps matplotlib.
+    f = np.abs(f)
+    f_min, f_max = float(f.min()), float(f.max())
+    if f_max - f_min < 1e-12:
+        scaled = np.zeros_like(f, dtype=np.uint8)
+    else:
+        scaled = ((f - f_min) / (f_max - f_min) * 255.0).astype(np.uint8)
 
     os.makedirs(os.path.dirname(abs_out_file_name) or ".", exist_ok=True)
-    plt.imsave(abs_out_file_name, pil, cmap="gray")
+    Image.fromarray(scaled, mode="L").save(abs_out_file_name)
     return abs_out_file_name

@@ -1,0 +1,10 @@
+# Runtime artifacts produced by the plugin / its tests
+output_file.json
+app.log
+app.log.*
+__pycache__/
+*.pyc
+
+# Stale bundled SDK wheels — rebuild and copy in fresh per
+# project_plugin_sdk_wheel_drift.md when shipping a Docker image.
+magellon_sdk-*.whl

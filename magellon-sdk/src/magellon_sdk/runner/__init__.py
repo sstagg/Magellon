@@ -16,6 +16,25 @@ to make the composition seam visible before the MessageBus lands:
 External callers keep importing from ``magellon_sdk.runner`` — this
 package re-exports everything the old single-file module exposed.
 """
+from magellon_sdk.runner.active_task import (
+    PublisherFactory,
+    current_task,
+    emit_step,
+    get_step_event_loop,
+    make_step_reporter,
+    reset_active_task,
+    set_active_task,
+)
 from magellon_sdk.runner.plugin_runner import PluginBrokerRunner, ResultFactory
 
-__all__ = ["PluginBrokerRunner", "ResultFactory"]
+__all__ = [
+    "PluginBrokerRunner",
+    "PublisherFactory",
+    "ResultFactory",
+    "current_task",
+    "emit_step",
+    "get_step_event_loop",
+    "make_step_reporter",
+    "reset_active_task",
+    "set_active_task",
+]
