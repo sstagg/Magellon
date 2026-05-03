@@ -1,12 +1,18 @@
 # Magellon — Categories, Backends, and Wire-Shape Naming
 
 **Status:** Canonical. Track C shipped 2026-04-27 (X.1 `0a3f216`,
-X.2 `581518f`, X.3 `4639990`). SDK 1.2 → 1.3 → 2.0. See
-`IMPLEMENTATION_PLAN.md` "Track C" for the PR breakdown.
+X.2 `581518f`, X.3 `4639990`). SDK 1.2 → 1.3 → 2.0. Updated
+2026-05-03 with the new aggregate-category seam (subject_kind on
+CategoryContract + TaskMessage) and the two new categories
+`PARTICLE_EXTRACTION` (code 10) + `TWO_D_CLASSIFICATION` (code 4)
+landed end-to-end. See `IMPLEMENTATION_PLAN.md` "Track C" + the
+2026-05-03 rollout in `CURRENT_ARCHITECTURE.md` §12.
 **Audience:** Architects, plugin developers adding a second backend
 under an existing category, callers using `target_backend`.
 **Companion:** `ARCHITECTURE_PRINCIPLES.md`, `CURRENT_ARCHITECTURE.md`,
-`MESSAGE_BUS_SPEC.md`.
+`MESSAGE_BUS_SPEC.md`,
+`memory/project_artifact_bus_invariants.md` (the five ratified
+rules driving the new aggregate-category work).
 
 This doc proposes three additions on top of the live plugin platform:
 
@@ -106,6 +112,13 @@ class CategoryContract(BaseModel):
     input_model: Type[BaseModel]
     output_model: Type[CategoryOutput]
 
+    # 2026-05-03 (Phase 3d): the kind of entity tasks of this
+    # category operate on. Default 'image'; aggregate categories
+    # override (TWO_D_CLASSIFICATION_CATEGORY → 'particle_stack').
+    # PluginBrokerRunner._stamp_subject falls back to this when
+    # neither dispatch nor plugin set TaskMessage.subject_kind.
+    subject_kind: str = "image"
+
     # NEW — populated by the liveness registry, not hand-coded.
     @property
     def known_backends(self) -> list[str]: ...
@@ -121,6 +134,25 @@ The contract object stays immutable; the live `known_backends` /
 `default_backend` views read from `PluginLivenessRegistry` and
 `PluginStateStore`. The contract is still the single source of truth
 for I/O shape.
+
+### 2.2a Subject axis (Phase 3, 2026-05-03)
+
+Pre-Phase-3 every task was image-keyed: `image_job_task.image_id`
+FK + `CryoEmImageInput.image_id` field. The CAN classifier doesn't
+fit — its input is a particle stack drawn from M micrographs, not
+a single image. The subject axis generalises the model:
+
+| Surface | Field added | Notes |
+|---|---|---|
+| `TaskMessage` / `TaskResultMessage` | `subject_kind: Optional[str]` + `subject_id: Optional[UUID]` | None defaults; pre-Phase-3 callers unchanged. |
+| `image_job_task` (alembic 0004) | `subject_kind` VARCHAR(32) NOT NULL DEFAULT `'image'` + `subject_id` UUID nullable | Per ratified rule 4: VARCHAR + app validation, never MySQL ENUM (the table is tens-of-millions of rows; ENUM ALTER is a multi-hour migration). Migration backfills `subject_id = image_id`. |
+| `CategoryContract` | `subject_kind: str = "image"` | Declarative seam — `TWO_D_CLASSIFICATION_CATEGORY` overrides to `'particle_stack'`. |
+
+Allowed values: `image | particle_stack | session | run | artifact`.
+The runner's `_stamp_subject` precedence is **plugin-set on result >
+task-set on dispatch > contract default**. Authoritative writes
+still come from dispatch; the projector backfills only when dispatch
+left columns at their DDL default (back-compat seam).
 
 ### 2.3 TaskMessage gains `target_backend`
 
@@ -431,6 +463,29 @@ import for one release before the rename hits.
   `output_model` are unchanged; `*Input` / `*Output` rename is a
   type rename, not a schema change.
 - **NATS / RMQ binder split.** Bus binders are unaffected.
+
+---
+
+## 7a. Live category catalogue (2026-05-03)
+
+| Category | Code | Subject kind | Input model | Output model | Live backends (`backend_id`) |
+|---|---|---|---|---|---|
+| `FFT` | 1 | `image` | `FftInput` | `FftOutput` | `fft` (magellon_fft_plugin) |
+| `CTF` | 2 | `image` | `CtfInput` | `CtfOutput` | `ctf` (magellon_ctf_plugin) |
+| `PARTICLE_PICKING` | 3 | `image` | `CryoEmImageInput` (no canonical input model yet) | `ParticlePickingOutput` | `pp/template-picker` (in-process) + `template-picker` (external, Phase 6 / 2026-05-03) |
+| `TWO_D_CLASSIFICATION` | 4 | **`particle_stack`** | `TwoDClassificationInput` | `TwoDClassificationOutput` | `can-classifier` (Phase 7 / 2026-05-03) |
+| `MOTIONCOR` | 5 | `image` | `MotionCorInput` | `MotionCorOutput` | `motioncor` (magellon_motioncor_plugin) |
+| `SQUARE_DETECTION` | 6 | `image` | `PtolemyInput` | `SquareDetectionOutput` | `ptolemy/square` (magellon_ptolemy_plugin) |
+| `HOLE_DETECTION` | 7 | `image` | `PtolemyInput` | `HoleDetectionOutput` | `ptolemy/hole` (magellon_ptolemy_plugin) |
+| `TOPAZ_PARTICLE_PICKING` | 8 | `image` | `TopazPickInput` | `ParticlePickingOutput` | `topaz` (magellon_topaz_plugin) |
+| `MICROGRAPH_DENOISING` | 9 | `image` | `MicrographDenoiseInput` | `MicrographDenoisingOutput` | `topaz-denoise` (magellon_topaz_plugin) |
+| `PARTICLE_EXTRACTION` | 10 | `image` | `ParticleExtractionInput` | `ParticleExtractionOutput` | `stack-maker` (Phase 5 / 2026-05-03) |
+
+Subject-kind column distinguishes the only aggregate-input category
+(`TWO_D_CLASSIFICATION`) from the rest. Per ratified rule 7
+(extraction is per-mic, not session-merged), `PARTICLE_EXTRACTION`
+stays image-keyed even though its OUTPUT is a `particle_stack`
+artifact.
 
 ---
 

@@ -1,6 +1,6 @@
 # Magellon — Current Architecture (as-is)
 
-**Status:** Reference manual of the system as it exists on `main` (2026-04-15).
+**Status:** Reference manual of the system as it exists on `main` (2026-05-03).
 **Audience:** Architects, new plugin developers, reviewers of the v1 plan.
 **Companion:** `IMPLEMENTATION_PLAN.md` (where we are going and how).
 
@@ -10,6 +10,15 @@ RabbitMQ-based external plugin fleet coexists with an in-process plugin
 registry. A previous direction (Temporal as the workflow engine) was
 reverted on 2026-04-14 (`86fe9cc`); residual scaffolding from that era
 still exists in the repo and is called out below.
+
+The 2026-05-03 rollout (17 commits, see §12) added two new categories
+end-to-end (`PARTICLE_EXTRACTION` + `TWO_D_CLASSIFICATION`), the
+**subject axis** that lets non-image-keyed tasks live alongside the
+image-keyed ones, the typed **`Artifact`** entity that bridges
+producing/consuming jobs, the **`PipelineRun`** rollup, and an
+external **template-picker plugin** that coexists with the in-process
+one. The architectural decisions behind those additions are ratified
+in `memory/project_artifact_bus_invariants.md`.
 
 ---
 
@@ -31,16 +40,22 @@ and processing (Khoshbin et al., *IUCrJ* 12, 637–646, 2025; bioRxiv
   removed in P8 (2026-04-15)** — discovery and dynamic configuration both
   ride the RabbitMQ broker now.
 
-Repo layout:
+Repo layout (post 2026-05-03 rollout):
 
 ```
 Magellon/
-├── CoreService/          # FastAPI, routers, plugin registry, job service
-├── plugins/              # External plugins (RabbitMQ consumers)
+├── CoreService/                          # FastAPI, routers, plugin registry, job service
+├── plugins/                              # External plugins (RabbitMQ consumers)
 │   ├── magellon_ctf_plugin/
 │   ├── magellon_motioncor_plugin/
-│   └── magellon_result_processor/
-├── magellon-sdk/         # magellon-sdk 0.1.0 — scaffolded, editable install
+│   ├── magellon_fft_plugin/              # reference / blueprint
+│   ├── magellon_topaz_plugin/            # picking + denoise
+│   ├── magellon_ptolemy_plugin/          # square + hole detection
+│   ├── magellon_result_processor/        # legacy result writer (dormant; see §4.1 #19)
+│   ├── magellon_stack_maker_plugin/      # NEW (Phase 5): PARTICLE_EXTRACTION
+│   ├── magellon_can_classifier_plugin/   # NEW (Phase 7): TWO_D_CLASSIFICATION
+│   └── magellon_template_picker_plugin/  # NEW (Phase 6): external PARTICLE_PICKING
+├── magellon-sdk/         # magellon-sdk 2.0.0
 ├── magellon-react-app/   # Frontend
 ├── Docker/               # docker-compose deployment topology
 ├── Documentation/        # This file, IMPLEMENTATION_PLAN, etc.
@@ -85,23 +100,51 @@ commit `fc0f325` so that progress frames share the HTTP server/event loop
 ### 3.2 Domain model
 
 The split between a **job** (user-visible unit of work) and a **task**
-(single processing step against one image) exists in two places:
+exists in two places. Pre-2026-05-03 every task was image-keyed; the
+**subject axis** (Phase 3) generalises that so aggregate-input tasks
+(2D classification, future 3D refine) can live alongside.
 
-- **SQLAlchemy (persistent):** `ImageJob` at `models/sqlalchemy_models.py:287`
-  — columns include `oid`, `name`, `msession_id`, `status_id`, `type_id`,
-  `settings` (JSON), `processed_json` (JSON). `ImageJobTask` at
-  `sqlalchemy_models.py:520` — `oid`, `job_id` (FK), `image_id` (FK),
-  `status_id`, `type_id`, `stage`, `image_path`, `data_json`,
-  `processed_json`. Status enum from `controllers/import_controller.py:151`:
-  1=pending, 2=running, 3=processing, 4=completed, 5=failed, 6=cancelled.
+- **SQLAlchemy (persistent):** `ImageJob`, `ImageJobTask`, plus three
+  new tables added 2026-05-03 (alembic migrations 0004 / 0005 / 0006,
+  not yet applied at the time of writing — see §11):
+  - `image_job_task.subject_kind` (VARCHAR(32) NOT NULL DEFAULT
+    `'image'`, per ratified rule 4 — VARCHAR not ENUM since the
+    table is tens-of-millions of rows) and `subject_id` (UUID
+    nullable). Allowed kinds:
+    `image | particle_stack | session | run | artifact`. The
+    migration backfills `subject_id = image_id` for every existing
+    row, so image-keyed plugins keep working unchanged.
+  - `artifact` table — typed bridge between a producing job/task
+    and downstream consumers. STI shape: hot columns (`kind`,
+    `producing_job_id`, `producing_task_id`, `msession_id`,
+    `mrcs_path`, `star_path`, `particle_count`, `apix`, `box_size`)
+    + long-tail `data_json`. Per ratified rule 6: immutable
+    post-write; only `deleted_at` mutates. Two kinds today:
+    `particle_stack` (extractor output) and `class_averages`
+    (classifier output).
+  - `pipeline_run` table — user-visible rollup over a sequence of
+    `ImageJob`s (each algorithm step is its own job; PipelineRun
+    groups them). `image_job.parent_run_id` FK is nullable so
+    pre-Phase-8 jobs remain valid as standalone runs. Status enum
+    mirrors `ImageJob.status_id`.
+
+  Status enum from `controllers/import_controller.py:151`:
+  1=pending, 2=running, 3=processing, 4=completed, 5=failed,
+  6=cancelled.
 
 - **Pydantic wire shapes:** `TaskBase`, `TaskMessage`, `JobMessage`,
   `TaskResultMessage` in `models/plugins_models.py` (re-exported from
   `magellon_sdk.models`). `data: Dict[str, Any]` is the per-task-type
   payload; concrete shapes are `CtfInput`, `MotionCorInput`, `FftInput`,
-  etc. This is the envelope RabbitMQ carries. (Renamed from `*Dto` /
-  `*TaskData` in SDK 2.0; see `Documentation/CATEGORIES_AND_BACKENDS.md`
-  §4 and `magellon-sdk/CHANGELOG.md`.)
+  `ParticleExtractionInput`, `TwoDClassificationInput`, etc. (Renamed
+  from `*Dto` / `*TaskData` in SDK 2.0; see
+  `Documentation/CATEGORIES_AND_BACKENDS.md` §4 and
+  `magellon-sdk/CHANGELOG.md`.)
+
+  Both `TaskMessage` and `TaskResultMessage` carry the **subject
+  axis** (`subject_kind`, `subject_id`); see Phase 3b SDK round-trip.
+  `magellon_sdk.models.artifact.Artifact` mirrors the `artifact`
+  table 1:1 for the SDK-side (also Phase 4).
 
 The envelope is a homegrown shape — no `specversion`, `source`, or
 `datacontenttype` — functionally similar to CloudEvents but not standards-
@@ -163,13 +206,19 @@ and provenance-stamped result publishing (P4) for free.
 
 **Queue topology** (from `CoreService/core/helper.py` + plugin configs):
 
-| Direction       | Queue                         | Producer     | Consumer                      |
-|-----------------|-------------------------------|--------------|-------------------------------|
-| Dispatch CTF    | `ctf_tasks_queue`             | CoreService  | `magellon_ctf_plugin`         |
-| Dispatch MC     | `motioncor_tasks_queue`       | CoreService  | `magellon_motioncor_plugin`   |
-| Results CTF     | `ctf_out_tasks_queue`         | CTF plugin   | `magellon_result_processor`   |
-| Results MC      | `motioncor_out_tasks_queue`   | MC plugin    | `magellon_result_processor`   |
-| Test bridge     | `motioncor_test_inqueue/out`  | Frontend     | MC plugin (test harness only) |
+| Direction       | Queue                                       | Producer     | Consumer                            |
+|-----------------|---------------------------------------------|--------------|-------------------------------------|
+| Dispatch CTF    | `ctf_tasks_queue`                           | CoreService  | `magellon_ctf_plugin`               |
+| Dispatch MC     | `motioncor_tasks_queue`                     | CoreService  | `magellon_motioncor_plugin`         |
+| Dispatch FFT    | `fft_tasks_queue`                           | CoreService  | `magellon_fft_plugin`               |
+| Dispatch Topaz pick   | `topaz_pick_tasks_queue`              | CoreService  | `magellon_topaz_plugin`             |
+| Dispatch denoise      | `micrograph_denoise_tasks_queue`      | CoreService  | `magellon_topaz_plugin`             |
+| Dispatch ptolemy      | `square_detection_tasks_queue` / `hole_detection_tasks_queue` | CoreService | `magellon_ptolemy_plugin` |
+| **Dispatch extract**  | `particle_extraction_tasks_queue`     | CoreService  | `magellon_stack_maker_plugin` (NEW Phase 5) |
+| **Dispatch 2D-class** | `two_d_classification_tasks_queue`    | CoreService  | `magellon_can_classifier_plugin` (NEW Phase 7) |
+| **Dispatch picker (external)** | `particle_picking_tasks_queue` | CoreService | `magellon_template_picker_plugin` (NEW Phase 6) |
+| Results (all)         | `<category>_out_tasks_queue`          | each plugin  | CoreService in-process consumer (P3) |
+| Test bridge           | `motioncor_test_inqueue/out`          | Frontend     | MC plugin (test harness only)       |
 
 Routing is now owned by `core/dispatcher_registry.py::get_task_dispatcher_registry()`
 (MB3): `_BusTaskDispatcher` instances keyed by `TaskCategory` wrap each
@@ -219,9 +268,23 @@ On each result it:
 2. Writes `ImageMetaData` rows keyed by `image_id`, with `category_id`
    distinguishing CTF (2) vs MotionCor (3).
 3. Calls `_advance_task_state(...)` (P4) to set `ImageJobTask.status_id`
-   (COMPLETED=2 / FAILED=3) and `stage` (MotionCor=1, CTF=2, unknown=99).
-   Failures route through the same helper inside the error handler, so
-   a plugin crash surfaces as `status_id=3` instead of a hung row.
+   (COMPLETED=2 / FAILED=3) and `stage` (MotionCor=1, CTF=2, square=3,
+   hole=4, topaz=5, denoise=6, **extraction=7, classification=8**,
+   unknown=99). Failures route through the same helper inside the
+   error handler, so a plugin crash surfaces as `status_id=3` instead
+   of a hung row.
+4. **Phase 3c (2026-05-03):** `_advance_task_state` also backfills
+   `ImageJobTask.subject_kind` / `subject_id` from the result when
+   dispatch left them at the DDL default. Authoritative writes still
+   come from dispatch — this is the back-compat seam for pre-Phase-3
+   importers.
+5. **Phase 5b/5c (2026-05-03):** for `PARTICLE_EXTRACTION` (code 10)
+   results, `_maybe_write_artifact` writes a new `artifact` row of
+   kind `'particle_stack'` and projects its id back into
+   `output_data['particle_stack_id']`. For `TWO_D_CLASSIFICATION`
+   (code 4) results, same shape with kind `'class_averages'` and
+   `output_data['class_averages_id']`. Per ratified rule 6:
+   re-runs always create a NEW row (no UPDATE).
 
 The out-of-tree `magellon_result_processor` plugin **is still built
 and started by default** (`Docker/docker-compose.yml:167`). Its
@@ -403,12 +466,12 @@ gone — see §3.3 (deleted in the A.1 follow-up, `7d1f657`).
 
 | # | Problem | Evidence |
 |---|---------|----------|
-| 1 | ~~`ImageJobTask` state not advanced after RMQ task completion~~ | **Resolved (Phase 4).** `task_output_processor._advance_task_state` writes `status_id` + `stage` (MotionCor=1, CTF=2, unknown=99). 5 unit tests. |
+| 1 | ~~`ImageJobTask` state not advanced after RMQ task completion~~ | **Resolved (Phase 4).** `task_output_processor._advance_task_state` writes `status_id` + `stage` (MotionCor=1, CTF=2, square=3, hole=4, topaz=5, denoise=6, **extraction=7, classification=8** added 2026-05-03, unknown=99). 24 unit tests. |
 | 2 | ~~No failure path from external plugin crashes~~ | **Resolved (P2 + P5).** `magellon_sdk.errors.classify_exception` returns `AckAction.{ACK,NACK_REQUEUE,DLQ}` per a typed taxonomy; `PluginBrokerRunner` honours it (DLQ for poison, requeue for transient, ack-with-failure-result for plugin-domain errors). |
 | 3 | ~~No mid-flight progress for external plugins~~ | **Fully resolved (MB5.3 + MB5.4b).** `StepEventPublisher` publishes via `bus.events.publish(StepEventRoute, env)`; `magellon_sdk.bus.services.step_event_forwarder.StepEventForwarder` subscribes via `bus.events.subscribe(StepEventRoute.all(), handler)` and emits `emit_step_event` onto Socket.IO. React app consumes one stream regardless of plugin location. |
-| 4 | Two plugin architectures | Same split (`plugins/` RMQ vs `CoreService/plugins/` in-process). The `TaskDispatcher` Protocol is the shared seam, and **`CategoryContract` (P1)** is the canonical input/output schema both halves resolve against — substitutability is now contract-pinned, not convention-pinned. **X.1 (2026-04-27)** added a `backend_id` axis under each category so two plugins serving one category (e.g. ctffind4 + gctf) are individually addressable via `TaskMessage.target_backend`. |
+| 4 | Two plugin architectures | Same split (`plugins/` RMQ vs `CoreService/plugins/` in-process). The `TaskDispatcher` Protocol is the shared seam, and **`CategoryContract` (P1)** is the canonical input/output schema both halves resolve against — substitutability is now contract-pinned, not convention-pinned. **X.1 (2026-04-27)** added a `backend_id` axis under each category so two plugins serving one category (e.g. ctffind4 + gctf) are individually addressable via `TaskMessage.target_backend`. **2026-05-03 (Phase 6)** ships an external `template-picker` backend alongside the in-process `pp/template_picker`; both register against `PARTICLE_PICKING` and the dispatcher routes via `target_backend`. |
 | 5 | ~~Temporal-era dead-code island (~2K lines)~~ | **Resolved (A.1 follow-up, `7d1f657`).** |
-| 6 | ~~SDK scaffolded, thin~~ | **Filled in.** `magellon-sdk 2.0.0` now ships `PluginBase`, `Envelope`, `Executor` Protocol, `ProgressReporter`, **`TaskDispatcher` + `TaskDispatcherRegistry` (Phase 6)**, **NATS transport** (`NatsPublisher`/`NatsConsumer`), **RMQ transport** (`RabbitmqClient` with `declare_queue_with_dlq`), **`events.StepEventPublisher`**, and **per-category backend axis** (`PluginManifest.backend_id`, `TaskMessage.target_backend`, X.1). |
+| 6 | ~~SDK scaffolded, thin~~ | **Filled in.** `magellon-sdk 2.0.0` (pyproject 1.2.0→2.0.0 fix landed 2026-05-03) ships `PluginBase`, `Envelope`, `Executor` Protocol, `ProgressReporter`, **`TaskDispatcher` + `TaskDispatcherRegistry` (Phase 6)**, **NATS transport** (`NatsPublisher`/`NatsConsumer`), **RMQ transport** (`RabbitmqClient` with `declare_queue_with_dlq`), **`events.StepEventPublisher`**, **per-category backend axis** (`PluginManifest.backend_id`, `TaskMessage.target_backend`, X.1), and (2026-05-03) the **active-task ContextVar + daemon-loop + step-reporter helpers** (`magellon_sdk.runner.active_task`) that every plugin used to hand-roll, plus the **subject axis** (`TaskMessage.subject_kind/subject_id`, `CategoryContract.subject_kind`), the **`Artifact`/`ArtifactKind`** Pydantic models, and the **`PARTICLE_EXTRACTION` + `TWO_D_CLASSIFICATION` contracts**. |
 | 7 | ~~Duplicated `core/` across external plugins~~ | **Resolved (Phases B.1/B.2/B.3, `c90eefb`/`eda4933`/`f9a4511`).** |
 | 8 | ~~Queue mapping hardcoded~~ | **Resolved (Phase 6 + wiring).** `core.dispatcher_registry.get_task_dispatcher_registry()` owns the `TaskCategory.code` → dispatcher mapping. `push_task_to_task_queue` delegates. `get_queue_name_by_task_type` remains for the audit helper. |
 | 9 | ~~`asyncio.run` inside blocking pika callback~~ | **Resolved (Phase 3).** All 4 plugin consumer engines use one daemon-thread event loop + `asyncio.run_coroutine_threadsafe(...).result()`. |
@@ -426,6 +489,10 @@ gone — see §3.3 (deleted in the A.1 follow-up, `7d1f657`).
 | 21 | ~~No contract test between CoreService and external plugin containers~~ | **Resolved (G.2, `59b420c`).** `CoreService/tests/contracts/` package with per-plugin test modules for CTF, MotionCor, FFT. Each hits the plugin's HTTP `/execute` endpoint with a canned `TaskDto` (missing-file input → clean failure) and asserts `task_id`/`job_id` echo + `TaskResultDto` shape round-trip. Bypasses RMQ to avoid racing CoreService's in-process result consumer. Tests skip cleanly with an actionable message when the plugin container isn't up. Closes the §9 "no contract test" gap. |
 | 22 | ~~Fragmented plugin config surface (YAML + env + bus push + CategoryContract defaults)~~ | **Resolved (G.3, `50deb25`).** `magellon_sdk.config.PluginConfigResolver` layers the four surfaces under one `get(key)` API with documented precedence (runtime overrides > env > YAML > defaults). Typed accessors (`get_bool`/`get_int`/`get_float`/`get_str`) log-and-default on garbage. Per-plugin migration to use the resolver is per-plugin follow-up; the class contract is frozen by 26 unit tests. |
 | 23 | ~~Synchronous import handler ties up HTTP worker on large sessions~~ | **Resolved (G.4, `2de2449`).** `POST /magellon-import` returns a scheduled `job_id` immediately; `MagellonImporter.process()` runs in FastAPI `BackgroundTasks` with its own DB session. `BaseImporter.pre_assigned_job_id` attribute threads the id so the endpoint's response matches the row the BG task eventually inserts. |
+| 24 | ~~ContextVar / daemon-loop / step-reporter helpers duplicated across every external plugin~~ | **Resolved (Phase 1, `c89b1cd` + `8336793` + `611ae98`, 2026-05-03).** Promoted into `magellon_sdk.runner.active_task` (`current_task`, `set_active_task`, `reset_active_task`, `get_step_event_loop`, `emit_step`, `make_step_reporter`). `PluginBrokerRunner` sets the ContextVar in `_handle_task` / `_process` for every plugin. ~280 lines of duplication deleted across FFT/topaz/CTF/MotionCor/ptolemy. Back-compat shims (`<Plugin>BrokerRunner` aliased to `PluginBrokerRunner`, `get_active_task` to `current_task`) preserve old import paths for one release. |
+| 25 | ~~Tasks cannot represent aggregate-input work (2D classification, 3D refine)~~ | **Resolved (Phase 3 + 3b + 3c + 3d, 2026-05-03).** Subject axis added end-to-end: `image_job_task.subject_kind` (VARCHAR(32) DEFAULT `'image'`) + `subject_id` (UUID nullable) via alembic 0004; `TaskMessage` + `TaskResultMessage` carry both fields; `PluginBrokerRunner._stamp_subject` echoes them onto results; `TaskOutputProcessor` backfills the row when dispatch left them at the DDL default; `CategoryContract.subject_kind` (default `'image'`, `TWO_D_CLASSIFICATION_CATEGORY` overrides to `'particle_stack'`) provides the declarative seam so pre-Phase-3 dispatchers automatically pick up the right subject. Authoritative writes still come from dispatch — backfill is the back-compat seam. |
+| 26 | ~~No typed bridge between producing and consuming jobs~~ | **Resolved (Phase 4 + 5b, 2026-05-03).** New `artifact` table (alembic 0005) with promoted hot columns + `data_json` long-tail. Per ratified rule 6: immutable; only `deleted_at` mutates. SDK ships `Artifact`/`ArtifactKind` Pydantic models. `TaskOutputProcessor._maybe_write_artifact` writes `particle_stack` rows for `PARTICLE_EXTRACTION` results and `class_averages` rows for `TWO_D_CLASSIFICATION` results, projecting the new id back into `output_data` for downstream addressability. 9 unit tests pin the writer + lineage shape. |
+| 27 | ~~No user-visible rollup over the picker → extractor → classifier pipeline~~ | **Resolved (Phase 8 + 8b, 2026-05-03).** New `pipeline_run` table (alembic 0006) with `image_job.parent_run_id` FK. Each algorithm step stays its own `ImageJob`; `PipelineRun` groups them. ORM `PipelineRun` class + 10 ORM tests. HTTP CRUD at `/pipelines/runs` (POST create / GET detail / GET list with bulk job-count / DELETE soft-delete) + 11 controller tests. Per rule 6 no PUT — runs are immutable; status flips authoritatively when child jobs transition. |
 
 ---
 
@@ -458,6 +525,42 @@ Gaps (relevant to the v1 plan):
 
 ---
 
+## 12. Extraction + classification rollout (2026-05-03)
+
+17 commits added two new categories end-to-end plus the architectural
+plumbing they need (subject axis, Artifact entity, PipelineRun
+rollup), absorbed five plugins' duplicated runner glue into the SDK,
+and shipped HTTP CRUD for the rollup. ~610 tests passing across
+SDK + 8 plugins + CoreService. Each row is one or two commits; full
+narrative in `memory/project_extraction_classification_rollout.md`.
+
+| Phase | Commits          | What it delivered                                                                 |
+|-------|------------------|-----------------------------------------------------------------------------------|
+| 0/1/2 | `c89b1cd`        | SDK 1.2.0 → 2.0.0 pyproject; `PluginBrokerRunner` absorbs ContextVar + daemon-loop + step-reporter; FFT plugin migrated as proof + tidied (lifespan, drop matplotlib, 500-not-400, height in engine_opts). |
+| 1b    | `8336793` `611ae98` | Topaz / CTF / MotionCor / ptolemy migrated off per-plugin boilerplate. Lazy compute imports for topaz/motioncor/ptolemy so contract tests run without onnxruntime / cv2. |
+| 1c    | `8c1fd66`        | Plugin contract tests for CTF / MotionCor / ptolemy mirroring FFT/topaz pattern. |
+| 3     | `5fb2af0`        | Subject axis SDK side: `TaskMessage.subject_kind/subject_id` + alembic 0004 (`image_job_task.subject_kind` VARCHAR(32) DEFAULT `'image'` + `subject_id` UUID, backfill `subject_id = image_id`). |
+| 3b    | `99f885c`        | `TaskResultMessage` carries the same fields; `PluginBrokerRunner._stamp_subject` echoes from task to result. |
+| 3c    | `cc2631e`        | `TaskOutputProcessor._advance_task_state` backfills the row when dispatch left columns at default. |
+| 3d    | `deb0ca8`        | `CategoryContract.subject_kind` (default `'image'`; TWO_D_CLASSIFICATION → `'particle_stack'`); runner falls back to it when neither task nor plugin specified. |
+| 4     | `5fb2af0`        | `Artifact` entity SDK side + alembic 0005. STI shape per rule 2.                  |
+| 4b/5b | `11f5465`        | `Artifact` ORM class + `TaskOutputProcessor._maybe_write_artifact` for both new categories. |
+| 5     | `d07d27c`        | `magellon_stack_maker_plugin` (PARTICLE_EXTRACTION code 10, backend_id `stack-maker`); algorithm vendored from Sandbox with the two RELION integration bugs fixed. |
+| 6     | `8513666`        | `magellon_template_picker_plugin` (PARTICLE_PICKING external backend `template-picker`); coexists with the in-process picker. |
+| 7     | `d07d27c`        | `magellon_can_classifier_plugin` scaffold (TWO_D_CLASSIFICATION code 4, backend_id `can-classifier`). |
+| 7b    | `f8e84fa`        | Vendored 1714-line CAN algorithm into `plugin/algorithm/`; full STAR-aware orchestration in `compute.py`. Lazy torch import keeps contract tests fast. |
+| 7c    | `6d50ca6`        | Synthetic-stack e2e test (skipif-torch). 4-particle / 32px box / 2 classes / 1 iter, runs in <30s on CPU torch. |
+| 8     | `66e101f`        | `pipeline_run` table (alembic 0006) + ORM `PipelineRun` + `image_job.parent_run_id` FK. |
+| 8b    | `c50a3c6`        | HTTP CRUD at `/pipelines/runs`. 11 controller tests with mocked SQLAlchemy session. |
+| polish| `9f1ca8b`        | Drop topaz inline picks (rule 1 enforcement); remove stale 1.2.0 wheels + leftover `output_file.json`s; add `.gitignore` to 5 plugins; CHANGELOG entry. |
+
+Net effect for users: the picker → extractor → classifier pipeline
+is deployable end-to-end. The frontend caller and the
+dispatch-side glue (POST endpoints that target the new categories
+and chain them via PipelineRun) are the next deliverables.
+
+---
+
 ## 10. Plugin platform refactor (P1–P9, 2026-04-15)
 
 Nine sequential phases that landed the broker-native plugin platform.
@@ -484,15 +587,27 @@ provenance stamping, and typed failure routing are inherited.
 
 ## 11. What to read next
 
+(see also §12 below — the 2026-05-03 rollout adds three plugins, the
+subject axis, Artifact entity, and PipelineRun rollup.)
+
+
 - **`ARCHITECTURE_PRINCIPLES.md`** — the canonical rule-set every
   non-trivial PR in Magellon is reviewed against. Read this first.
 - **`DATA_PLANE.md`** — the shared-filesystem decision, the deployment
   matrix, and what the platform forecloses on (object-storage-only).
-- **`CATEGORIES_AND_BACKENDS.md`** — proposed (2026-04-27) backend
-  layer under every `TaskCategory`, the consolidated
-  `GET /plugins/capabilities` endpoint, and the
-  `Envelope` / `Message` wire-shape naming rule. Track C in
-  `IMPLEMENTATION_PLAN.md`. Drafted; not landed.
+- **`CATEGORIES_AND_BACKENDS.md`** — backend layer under every
+  `TaskCategory`, the consolidated `GET /plugins/capabilities`
+  endpoint, and the `Envelope` / `Message` wire-shape naming rule.
+  Track C shipped 2026-04-27. Updated 2026-05-03 with the new
+  categories (PARTICLE_EXTRACTION, TWO_D_CLASSIFICATION) and the
+  `subject_kind` field.
+- **`memory/project_artifact_bus_invariants.md`** — five ratified
+  rules + two refinements driving the 2026-05-03 rollout: bus
+  carries refs + summaries only; Artifact STI with hot columns;
+  artifact lineage is the DAG; VARCHAR not ENUM; immutability;
+  per-mic extraction default.
+- **`memory/project_extraction_classification_rollout.md`** —
+  full 17-commit narrative.
 - **`IMPLEMENTATION_PLAN.md`** — the v1 / v2 / v3 phasing: hardening the
   RMQ system with a `JobManager` seam + SDK + progress bus, then NATS
   additively, then a data-driven decision.
