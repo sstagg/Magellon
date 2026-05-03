@@ -34,8 +34,9 @@ The shortest path to "what rules does this codebase live by?"
 |---|---|
 | [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) | You want to know what work is in flight or recently shipped. The "Active tracks" section is the live one; earlier phases are kept above for history. |
 | [`UNIFIED_PLATFORM_PLAN.md`](UNIFIED_PLATFORM_PLAN.md) | You want the longer-arc story: retire the dual plugin architecture, build toward a plugin hub on top of one contract. Forward-looking phases (U, H, S). |
-| [`PLUGIN_INSTALL_PLAN.md`](PLUGIN_INSTALL_PLAN.md) | You are working on the install pipeline: archive creator (`plugin pack`), Installer Protocol, uv vs Docker installer impls, uninstall + upgrade, admin REST + UI. Nine sequential phases (P1–P9). |
-| [`MAGELLON_HUB_SPEC.md`](MAGELLON_HUB_SPEC.md) | You are working on the plugin hub (`magellon-hub` service). MVP spec; phases H1–H3 in progress. |
+| [`PLUGIN_INSTALL_PLAN.md`](PLUGIN_INSTALL_PLAN.md) | You are working on the **authoring + install pipeline**: archive creator (`plugin pack`), Installer Protocol, uv vs Docker installer impls, uninstall + upgrade, admin REST + UI. Nine sequential phases (P1–P9; P1–P8 shipped, P9 hub-fetch deferred). |
+| [`PLUGIN_MANAGER_PLAN.md`](PLUGIN_MANAGER_PLAN.md) | You are working on the **runtime + operational** surface: persistence for plugin state (the silent-state-loss-on-restart bug), Conditions[] status, pause / resume verbs, per-replica health, updates badge. Seven phases (PM1–PM7). Complement to PLUGIN_INSTALL_PLAN, not overlap. |
+| [`MAGELLON_HUB_SPEC.md`](MAGELLON_HUB_SPEC.md) | You are working on the **distribution registry** (`magellon-hub` service). MVP spec; phases H1–H3 in progress. |
 
 ---
 
