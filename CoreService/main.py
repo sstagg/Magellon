@@ -291,6 +291,10 @@ app.include_router(graph_router, tags=['Graphs'], prefix="/graphs")
 app.include_router(slack_router, tags=['Communication'], prefix='/io')
 # Phase 8 (2026-05-03) — PipelineRun rollup over child ImageJobs.
 app.include_router(pipelines_router, tags=['Pipeline Runs'], prefix='/pipelines')
+# Reviewer-flagged Medium #7 (2026-05-04) — read surface for the
+# Artifact entity (particle_stack, class_averages, ...) so UI and
+# orchestrators can resolve lineage over HTTP.
+app.include_router(artifacts_router, tags=['Artifacts'], prefix='/artifacts')
 
 # Authentication - must be registered before protected endpoints
 app.include_router(auth_router, prefix="/auth", tags=["Authentication"])

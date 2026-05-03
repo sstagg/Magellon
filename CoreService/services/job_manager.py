@@ -149,24 +149,51 @@ class JobManager:
         user_id: Optional[str] = None,
         msession_id: Optional[str] = None,
         job_id: Optional[uuid.UUID] = None,
+        parent_run_id: Optional[uuid.UUID] = None,
+        subject_kind: Optional[str] = None,
+        subject_id: Optional[uuid.UUID] = None,
     ) -> Dict[str, Any]:
         """Insert a new job row and optional per-image / per-task rows.
 
-        Three task-creation modes:
-          - ``image_ids``: one ImageJobTask per image (FK to image.oid).
-          - ``task_ids``: pre-allocated task oids, image_id NULL — used
-            by message-driven dispatch flows (FFT/CTF/MotionCor) where
-            the caller needs to know the task_id before persistence so
-            it can echo the same id in the outbound RMQ TaskMessage.
+        Four task-creation modes:
+          - ``task_ids`` AND ``image_ids`` (zipped 1:1): broker dispatch
+            mode — caller minted the task_id up front so the outbound
+            TaskMessage carries the same id that lands in the DB. Each
+            ImageJobTask gets the supplied (oid, image_id) pair.
+            **Critical**: pre-2026-05-04 fix this branch silently
+            discarded ``task_ids`` and minted random oids; results
+            referenced ids that didn't exist. Reviewer-flagged blocker.
+          - ``image_ids`` alone: one ImageJobTask per image with a fresh
+            random oid (FK to image.oid). Used by importers that fan
+            out per-image work without a pre-minted task id.
+          - ``task_ids`` alone: pre-allocated task oids, image_id NULL —
+            aggregate-input flows (TWO_D_CLASSIFICATION) where there
+            is no per-image fan-out.
           - both omitted: just the parent ImageJob row.
 
         ``job_id`` lets the caller fix the parent oid in advance — useful
         when an upstream UUID has already been minted (e.g. echoed in
         the response so the client can subscribe to ``job:<uuid>`` before
         any events fire).
+
+        ``parent_run_id`` (Phase 8 / 2026-05-03) links the new job to a
+        PipelineRun. Nullable; pre-PipelineRun callers continue working
+        as standalone runs. ``subject_kind`` / ``subject_id`` (Phase 3)
+        seed the per-task subject for non-image-keyed dispatches; the
+        runner's `_stamp_subject` provides the contract-default
+        fallback if dispatch leaves them None.
         """
         job_oid = job_id or uuid.uuid4()
         now = datetime.utcnow()
+
+        # The zipped mode needs both lists at the same length. Validate
+        # eagerly — a length mismatch silently dropping work is the
+        # exact bug the broker-dispatch fix is closing.
+        if task_ids and image_ids and len(task_ids) != len(image_ids):
+            raise ValueError(
+                f"task_ids and image_ids must zip 1:1 when both supplied "
+                f"(got {len(task_ids)} task_ids vs {len(image_ids)} image_ids)"
+            )
 
         expected_tasks = 0
         if task_ids:
@@ -185,6 +212,7 @@ class JobManager:
                 created_date=now,
                 user_id=user_id,
                 msession_id=msession_id,
+                parent_run_id=parent_run_id,
                 # `expected_tasks` lets the projector know when the job
                 # is fully done without scanning ImageJobTask rows.
                 processed_json={
@@ -196,13 +224,38 @@ class JobManager:
             )
             db.add(job)
 
-            if image_ids:
+            # Resolve subject_kind default — image when not supplied,
+            # except aggregate-input case (task_ids alone) where the
+            # caller is responsible for setting it explicitly.
+            row_subject_kind = subject_kind if subject_kind is not None else "image"
+
+            if task_ids and image_ids:
+                # Broker dispatch — zip 1:1 so the TaskMessage's task_id
+                # references a real ImageJobTask.oid.
+                for tid, image_id in zip(task_ids, image_ids):
+                    iid = (
+                        uuid.UUID(image_id) if isinstance(image_id, str) else image_id
+                    )
+                    db.add(ImageJobTask(
+                        oid=tid,
+                        job_id=job_oid,
+                        image_id=iid,
+                        status_id=STATUS_QUEUED,
+                        subject_kind=row_subject_kind,
+                        subject_id=subject_id if subject_id else iid,
+                    ))
+            elif image_ids:
                 for image_id in image_ids:
+                    iid = (
+                        uuid.UUID(image_id) if isinstance(image_id, str) else image_id
+                    )
                     db.add(ImageJobTask(
                         oid=uuid.uuid4(),
                         job_id=job_oid,
-                        image_id=uuid.UUID(image_id) if isinstance(image_id, str) else image_id,
+                        image_id=iid,
                         status_id=STATUS_QUEUED,
+                        subject_kind=row_subject_kind,
+                        subject_id=subject_id if subject_id else iid,
                     ))
             elif task_ids:
                 for tid in task_ids:
@@ -211,6 +264,8 @@ class JobManager:
                         job_id=job_oid,
                         image_id=None,
                         status_id=STATUS_QUEUED,
+                        subject_kind=row_subject_kind,
+                        subject_id=subject_id,
                     ))
 
             db.commit()

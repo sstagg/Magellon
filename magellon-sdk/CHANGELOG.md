@@ -7,6 +7,21 @@ Version pattern follows SemVer as defined in `CONTRACT.md` §4.
 
 ## [Unreleased]
 
+(no changes yet)
+
+---
+
+## 2.1.0 — 2026-05-04
+
+**Minor.** Additive contracts from the 2026-05-03 extraction +
+classification rollout. Pre-fix these landed in source under the
+`[Unreleased]` heading against `version = "2.0.0"`; the version was
+not bumped, so plugin manifests pinning `requires_sdk: ">=2.0,<3.0"`
+could resolve against an actual 2.0.x release that lacked the new
+shapes — reviewer-flagged Medium #9. This release explicitly tags
+the contracts as 2.1.0 so plugin manifests can pin
+`requires_sdk: ">=2.1,<3.0"` and fail-fast on too-old SDKs.
+
 ### Added
 
 - **`PluginBrokerRunner` absorbs the active-task ContextVar +

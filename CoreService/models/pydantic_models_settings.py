@@ -23,6 +23,12 @@ class OutQueueType(str, Enum):
     HOLE_DETECTION = "hole_detection"
     TOPAZ_PICK = "topaz_pick"
     MICROGRAPH_DENOISE = "micrograph_denoise"
+    # 2026-05-04 fix: extraction + classification result queues were
+    # missing from this enum and the YAML configs, which meant the
+    # in-process result consumer never subscribed → results never
+    # advanced tasks or wrote artifacts. Reviewer-flagged blocker.
+    PARTICLE_EXTRACTION = "particle_extraction"
+    TWO_D_CLASSIFICATION = "two_d_classification"
 
 
 class OutQueueConfig(BaseModel):
@@ -58,6 +64,12 @@ class RabbitMQSettings(BaseModel):
     TOPAZ_PICK_OUT_QUEUE_NAME: Optional[str] = "topaz_pick_out_tasks_queue"
     MICROGRAPH_DENOISE_QUEUE_NAME: Optional[str] = "micrograph_denoise_tasks_queue"
     MICROGRAPH_DENOISE_OUT_QUEUE_NAME: Optional[str] = "micrograph_denoise_out_tasks_queue"
+    PARTICLE_EXTRACTION_QUEUE_NAME: Optional[str] = "particle_extraction_tasks_queue"
+    PARTICLE_EXTRACTION_OUT_QUEUE_NAME: Optional[str] = "particle_extraction_out_tasks_queue"
+    TWO_D_CLASSIFICATION_QUEUE_NAME: Optional[str] = "two_d_classification_tasks_queue"
+    TWO_D_CLASSIFICATION_OUT_QUEUE_NAME: Optional[str] = "two_d_classification_out_tasks_queue"
+    PARTICLE_PICKING_QUEUE_NAME: Optional[str] = "particle_picking_tasks_queue"
+    PARTICLE_PICKING_OUT_QUEUE_NAME: Optional[str] = "particle_picking_out_tasks_queue"
     PORT: Optional[int] = 5672
     USER_NAME: Optional[str] = None
     PASSWORD: Optional[str] = None

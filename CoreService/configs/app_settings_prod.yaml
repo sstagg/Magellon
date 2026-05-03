@@ -95,6 +95,19 @@ rabbitmq_settings:
       queue_type: micrograph_denoise
       dir_name: topaz_denoised
       category: 9
+    # 2026-05-04 fix: extraction + classification result queues.
+    - name: particle_extraction_out_tasks_queue
+      queue_type: particle_extraction
+      dir_name: particles
+      category: 10
+    - name: two_d_classification_out_tasks_queue
+      queue_type: two_d_classification
+      dir_name: classes
+      category: 4
+    - name: particle_picking_out_tasks_queue
+      queue_type: particle_picking
+      dir_name: picks
+      category: 3
 
 directory_settings:
   FFT_DIR: null

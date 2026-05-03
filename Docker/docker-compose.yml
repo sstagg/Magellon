@@ -343,6 +343,107 @@ services:
       - rabbitmq
       - nats
 
+  # ------------------------------------------------------------------------
+  # 2026-05-04 reviewer-flagged Medium #8: extraction / classification /
+  # external picker plugins were missing from the compose stack so they
+  # never announced. Three new plugin services below; same env / volume
+  # / network pattern as the four existing ones.
+  # ------------------------------------------------------------------------
+
+  magellon_stack_maker_plugin:
+    # Phase 5 (2026-05-03): PARTICLE_EXTRACTION (code 10), backend_id
+    # ``stack-maker``. Boxes particles from a micrograph given picker
+    # coordinates; emits .mrcs + .star + companion .json. CPU-only.
+    build:
+      context: ..
+      dockerfile: plugins/magellon_stack_maker_plugin/Dockerfile
+    image: magellon_stack_maker_plugin_image
+    container_name: magellon_stack_maker_plugin_container
+    environment:
+      - APP_ENV=production
+      - RUN_ENV=docker
+      - GPFS_ROOT=${MAGELLON_GPFS_PATH}
+      - JOBS_PATH=${MAGELLON_JOBS_PATH}
+      - MAGELLON_STEP_EVENTS_ENABLED=1
+      - MAGELLON_STEP_EVENTS_RMQ=1
+      - NATS_URL=nats://nats:4222
+    volumes:
+      - ${MAGELLON_HOME_PATH}:/magellon
+      - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_JOBS_PATH}:/jobs
+    ports:
+      - "127.0.0.1:${MAGELLON_STACK_MAKER_PLUGIN_PORT:-8040}:80"
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.26
+    depends_on:
+      - rabbitmq
+      - nats
+
+  magellon_can_classifier_plugin:
+    # Phase 7 (2026-05-03 + Phase 7b vendor): TWO_D_CLASSIFICATION
+    # (code 4), backend_id ``can-classifier``. CAN topology + MRA on a
+    # particle stack; emits class averages + assignments + FRC.
+    # Uses CPU torch by default (compute_backend=cpu in engine_opts);
+    # switch the FROM line in the Dockerfile to nvidia/cuda:12.1-runtime
+    # for production GPU deployments.
+    build:
+      context: ..
+      dockerfile: plugins/magellon_can_classifier_plugin/Dockerfile
+    image: magellon_can_classifier_plugin_image
+    container_name: magellon_can_classifier_plugin_container
+    environment:
+      - APP_ENV=production
+      - RUN_ENV=docker
+      - GPFS_ROOT=${MAGELLON_GPFS_PATH}
+      - JOBS_PATH=${MAGELLON_JOBS_PATH}
+      - MAGELLON_STEP_EVENTS_ENABLED=1
+      - MAGELLON_STEP_EVENTS_RMQ=1
+      - NATS_URL=nats://nats:4222
+    volumes:
+      - ${MAGELLON_HOME_PATH}:/magellon
+      - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_JOBS_PATH}:/jobs
+    ports:
+      - "127.0.0.1:${MAGELLON_CAN_CLASSIFIER_PLUGIN_PORT:-8041}:80"
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.27
+    depends_on:
+      - rabbitmq
+      - nats
+
+  magellon_template_picker_plugin:
+    # Phase 6 (2026-05-03): external broker-resident PARTICLE_PICKING
+    # (code 3), backend_id ``template-picker``. Coexists with the
+    # in-process pp/template_picker; dispatcher routes via
+    # TaskMessage.target_backend.
+    build:
+      context: ..
+      dockerfile: plugins/magellon_template_picker_plugin/Dockerfile
+    image: magellon_template_picker_plugin_image
+    container_name: magellon_template_picker_plugin_container
+    environment:
+      - APP_ENV=production
+      - RUN_ENV=docker
+      - GPFS_ROOT=${MAGELLON_GPFS_PATH}
+      - JOBS_PATH=${MAGELLON_JOBS_PATH}
+      - MAGELLON_STEP_EVENTS_ENABLED=1
+      - MAGELLON_STEP_EVENTS_RMQ=1
+      - NATS_URL=nats://nats:4222
+    volumes:
+      - ${MAGELLON_HOME_PATH}:/magellon
+      - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_JOBS_PATH}:/jobs
+    ports:
+      - "127.0.0.1:${MAGELLON_TEMPLATE_PICKER_PLUGIN_PORT:-8042}:80"
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.28
+    depends_on:
+      - rabbitmq
+      - nats
+
 volumes:
   # Named volumes for all services
   rabbitmq-data: { }

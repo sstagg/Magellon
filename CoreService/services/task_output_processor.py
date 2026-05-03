@@ -140,9 +140,73 @@ class TaskOutputProcessor:
 
     def _process_output_files(
         self, task_result: TaskResultMessage, destination_dir: str
-    ) -> None:
+    ) -> Dict[str, str]:
+        """Move every plugin-emitted output file under ``destination_dir``.
+
+        Returns a ``{original_path: final_path}`` map so the caller can
+        rewrite path-shaped fields on ``output_data`` before the
+        artifact writer reads them (2026-05-04 reviewer-flagged High #3).
+        Files that fail to move keep their original path in the map so
+        downstream code at least surfaces something (the warning is
+        logged in ``_move_file_to_directory``).
+        """
+        remap: Dict[str, str] = {}
         for output_file in task_result.output_files or []:
-            _move_file_to_directory(output_file.path, destination_dir)
+            src = output_file.path
+            if not src:
+                continue
+            new_path = os.path.join(destination_dir, os.path.basename(src))
+            _move_file_to_directory(src, destination_dir)
+            # Update the OutputFile in place so the result's
+            # ``output_files`` list also points at the post-move path.
+            output_file.path = new_path
+            remap[src] = new_path
+        return remap
+
+    # Path-shaped output_data keys whose values get rewritten when
+    # _process_output_files moves their target. Listed explicitly so
+    # we never accidentally rewrite scalar/non-path fields. New
+    # artifact-producing categories should add their canonical path
+    # keys here (or the artifact row will store stale paths).
+    _PATH_KEYS_FOR_REWRITE = (
+        # extraction
+        "mrcs_path",
+        "star_path",
+        "json_path",
+        # 2D classification
+        "class_averages_path",
+        "assignments_csv_path",
+        "class_counts_csv_path",
+        "run_summary_path",
+        "iteration_history_path",
+        "aligned_stack_path",
+        # generic
+        "output_path",
+        "particles_json_path",
+        "diagnostic_image_path",
+        "artifact_path",
+        "log_path",
+        "aligned_mrc_path",
+    )
+
+    def _rewrite_output_paths(
+        self,
+        task_result: TaskResultMessage,
+        remap: Dict[str, str],
+    ) -> None:
+        """Apply the file-move remap to ``task_result.output_data`` so
+        the artifact writer (and any downstream consumer) sees the
+        post-move paths. Only path-shaped keys are touched (see
+        :attr:`_PATH_KEYS_FOR_REWRITE`); scalars round-trip untouched.
+        """
+        out = task_result.output_data
+        if not out or not remap:
+            return
+        for key in self._PATH_KEYS_FOR_REWRITE:
+            v = out.get(key)
+            if isinstance(v, str) and v in remap:
+                out[key] = remap[v]
+        task_result.output_data = out
 
     def _save_output_data(self, task_result: TaskResultMessage) -> None:
         if task_result.output_data:
@@ -231,12 +295,29 @@ class TaskOutputProcessor:
             return artifact_id
 
         if type_code == _TASK_TYPE_TWO_D_CLASSIFICATION:
+            # 2026-05-04 reviewer-flagged High #5: lineage as a real
+            # FK column. Pre-fix this lived only in data_json; "all
+            # classifications of stack X" was a JSON scan with no
+            # integrity. data_json keeps the same key as a back-compat
+            # copy for one release.
+            source_id = out.get("source_particle_stack_id")
+            source_artifact_id = None
+            if source_id:
+                if isinstance(source_id, str):
+                    try:
+                        source_artifact_id = uuid.UUID(source_id)
+                    except ValueError:
+                        source_artifact_id = None
+                else:
+                    source_artifact_id = source_id
+
             row = Artifact(
                 oid=artifact_id,
                 kind=_ARTIFACT_KIND_CLASS_AVERAGES,
                 producing_job_id=task_result.job_id,
                 producing_task_id=task_result.task_id,
                 msession_id=task_result.session_name,
+                source_artifact_id=source_artifact_id,
                 mrcs_path=out.get("class_averages_path"),
                 # No star_path — class averages don't carry STAR
                 # metadata, only assignments + counts CSV.
@@ -249,6 +330,8 @@ class TaskOutputProcessor:
                     "iteration_history_path": out.get("iteration_history_path"),
                     "aligned_stack_path": out.get("aligned_stack_path"),
                     "num_classes_emitted": out.get("num_classes_emitted"),
+                    # Back-compat copy; downstream readers should
+                    # prefer artifact.source_artifact_id.
                     "source_particle_stack_id": out.get("source_particle_stack_id"),
                 },
             )
@@ -333,7 +416,20 @@ class TaskOutputProcessor:
         """
         try:
             destination_dir = self._get_destination_dir(task_result)
-            self._process_output_files(task_result, destination_dir)
+
+            # 2026-05-04 fix (reviewer-flagged High #3). Pre-fix order
+            # was: move files → write artifact rows pointing at the
+            # ORIGINAL paths. The artifact rows then advertised paths
+            # that no longer existed, so downstream consumers (CAN
+            # classifier reading a ``particle_stack`` artifact)
+            # 404'd. Fix: rewrite ``output_data`` paths to their
+            # post-move destinations BEFORE the artifact write reads
+            # them. ``_process_output_files`` returns the source→dest
+            # map; we apply it to the path-shaped fields the artifact
+            # writer cares about.
+            path_remap = self._process_output_files(task_result, destination_dir)
+            if path_remap:
+                self._rewrite_output_paths(task_result, path_remap)
 
             # Artifact write must happen BEFORE _save_output_data so the
             # projected id rides into the ImageMetaData blob the latter

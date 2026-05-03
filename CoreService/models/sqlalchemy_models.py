@@ -626,6 +626,16 @@ class Artifact(Base):
     producing_task_id = Column(ForeignKey('image_job_task.oid'), index=True)
     msession_id = Column(String(100))
 
+    # Lineage (alembic 0007, reviewer-flagged High #5). Self-FK to
+    # the artifact this one was derived from. Nullable for
+    # top-of-pipeline outputs (extraction). ON DELETE SET NULL keeps
+    # soft-delete on the source clean.
+    source_artifact_id = Column(
+        ForeignKey('artifact.oid', ondelete='SET NULL'),
+        index=True,
+        nullable=True,
+    )
+
     # Promoted hot columns — queryable scalars / paths.
     mrcs_path = Column(String(500))
     star_path = Column(String(500))
@@ -644,6 +654,9 @@ class Artifact(Base):
 
     producing_job = relationship('ImageJob')
     producing_task = relationship('ImageJobTask')
+    source_artifact = relationship(
+        'Artifact', remote_side=[oid], foreign_keys=[source_artifact_id],
+    )
 
 
 class ImageMetaData(Base):

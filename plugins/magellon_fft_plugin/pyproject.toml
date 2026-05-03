@@ -9,7 +9,7 @@ authors = [
 ]
 
 dependencies = [
-    "magellon-sdk[rabbitmq,nats,logging,config]>=2.0,<3.0",
+    "magellon-sdk[rabbitmq,nats,logging,config]>=2.1,<3.0",
 
     "fastapi",
     "uvicorn",

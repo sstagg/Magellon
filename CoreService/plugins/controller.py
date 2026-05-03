@@ -24,7 +24,7 @@ import logging
 import uuid
 import zipfile
 from datetime import datetime as _datetime, timezone as _timezone
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 # Sentinel for max() over heartbeat datetimes; lets entries without a
 # heartbeat sort below entries with one without raising on None compares.
@@ -127,6 +127,12 @@ class JobSubmitRequest(BaseModel):
     category (X.1). Only meaningful for broker-dispatched plugins;
     ignored by the in-process path. When set and no live backend
     matches, the controller returns 503 instead of round-robining."""
+    parent_run_id: Optional[uuid.UUID] = None
+    """Optional PipelineRun rollup the new job belongs to (Phase 8 /
+    2026-05-04 reviewer-flagged Medium #6). Pre-Phase-8 callers leave
+    None → job lands as a standalone run; UI rollup view shows it
+    alone. Pipeline orchestrators set this so children link back to
+    the parent rollup via ImageJob.parent_run_id."""
 
 
 class BatchSubmitRequest(BaseModel):
@@ -137,6 +143,7 @@ class BatchSubmitRequest(BaseModel):
     user_id: Optional[str] = None
     msession_id: Optional[str] = None
     target_backend: Optional[str] = None
+    parent_run_id: Optional[uuid.UUID] = None
 
 
 # ---------------------------------------------------------------------------
@@ -712,6 +719,45 @@ def _validate_broker_input(contract: CategoryContract, raw: Dict[str, Any]):
         raise HTTPException(status_code=422, detail=f"Invalid input: {exc}")
 
 
+def _derive_subject(
+    contract: CategoryContract,
+    validated_input,
+) -> Tuple[Optional[str], Optional[uuid.UUID]]:
+    """Derive (subject_kind, subject_id) for dispatch (Phase 3 / 2026-05-04 fix).
+
+    Authoritative resolution at dispatch time so the runner's
+    contract-default fallback isn't load-bearing. Three cases:
+
+      * Aggregate-input categories (TWO_D_CLASSIFICATION → input has
+        ``particle_stack_id``): subject is the source artifact.
+      * Image-keyed categories (everything else): subject_kind comes
+        from the contract (default ``'image'``); subject_id stays
+        None here — the dispatch layer at ``_submit_broker_job``
+        threads ``request.image_id`` into ImageJobTask.subject_id
+        directly via ``create_job``.
+
+    Returns (subject_kind, subject_id). Either may be None.
+    """
+    subject_kind: Optional[str] = (
+        contract.subject_kind if contract is not None else None
+    )
+    subject_id: Optional[uuid.UUID] = None
+
+    # Aggregate categories carry the subject id explicitly on the
+    # input model. Read it without coupling to the concrete class.
+    candidate_id = getattr(validated_input, "particle_stack_id", None)
+    if candidate_id is not None:
+        if isinstance(candidate_id, str):
+            try:
+                subject_id = uuid.UUID(candidate_id)
+            except ValueError:
+                subject_id = None
+        else:
+            subject_id = candidate_id
+
+    return subject_kind, subject_id
+
+
 def _build_task_dto(
     contract: CategoryContract,
     validated_input,
@@ -719,6 +765,8 @@ def _build_task_dto(
     job_id: str,
     user_id: Optional[str],
     target_backend: Optional[str] = None,
+    subject_kind: Optional[str] = None,
+    subject_id: Optional[uuid.UUID] = None,
 ) -> TaskMessage:
     """Wrap a validated input in the TaskMessage the bus transports.
 
@@ -731,6 +779,12 @@ def _build_task_dto(
     ``target.task_queue`` directly (no round-trip through the
     dispatcher), but the field is still set so the consuming plugin
     can confirm it was the intended recipient.
+
+    ``subject_kind`` / ``subject_id`` (Phase 3, reviewer-flagged High #4
+    in 2026-05-04 fix) are stamped explicitly here. The runner's
+    contract-default fallback (Phase 3d) covers ``subject_kind`` even
+    when None; ``subject_id`` MUST be set here for aggregate-input
+    categories or the projector loses the lineage link.
     """
     data = (
         validated_input.model_dump(mode="json")
@@ -745,6 +799,8 @@ def _build_task_dto(
         type=contract.category,
         status=TaskStatus(code=0, name="pending", description="Task is pending"),
         target_backend=target_backend,
+        subject_kind=subject_kind,
+        subject_id=subject_id,
     )
 
 
@@ -798,6 +854,12 @@ async def _submit_broker_job(
     # needs this linkage to flip the job row's status.
     task_id = uuid.uuid4()
 
+    # Phase 3 / 2026-05-04 reviewer-flagged High #4: derive subject
+    # axis at dispatch time so it lands on both the ImageJobTask row
+    # and the TaskMessage. The classifier's particle_stack_id flows
+    # from the input dict here straight onto the persistent row.
+    subject_kind, subject_id = _derive_subject(contract, validated)
+
     envelope = job_manager.create_job(
         plugin_id=plugin_id,
         name=request.name or f"{plugin_id} job",
@@ -806,10 +868,15 @@ async def _submit_broker_job(
         image_ids=[request.image_id] if request.image_id else None,
         user_id=request.user_id,
         msession_id=request.msession_id,
+        parent_run_id=getattr(request, "parent_run_id", None),
+        subject_kind=subject_kind,
+        subject_id=subject_id,
     )
     task = _build_task_dto(
         contract, validated, task_id, envelope["job_id"], request.user_id,
         target_backend=request.target_backend,
+        subject_kind=subject_kind,
+        subject_id=subject_id,
     )
     if not _publish_to_bus(contract, task, target.task_queue):
         job_manager.fail_job(envelope["job_id"], error="Failed to publish task to bus")
@@ -844,6 +911,8 @@ async def _submit_broker_batch(
             if hasattr(validated, "model_dump") else validated
         )
         task_id = uuid.uuid4()
+        # Same Phase-3 / Medium-#6 wiring as _submit_broker_job.
+        subject_kind, subject_id = _derive_subject(contract, validated)
         env = job_manager.create_job(
             plugin_id=plugin_id,
             name=request.name or f"{plugin_id} batch [{idx + 1}/{len(validated_inputs)}]",
@@ -852,11 +921,16 @@ async def _submit_broker_batch(
             image_ids=[image_id] if image_id else None,
             user_id=request.user_id,
             msession_id=request.msession_id,
+            parent_run_id=getattr(request, "parent_run_id", None),
+            subject_kind=subject_kind,
+            subject_id=subject_id,
         )
         envelopes.append(env)
         task = _build_task_dto(
             contract, validated, task_id, env["job_id"], request.user_id,
             target_backend=request.target_backend,
+            subject_kind=subject_kind,
+            subject_id=subject_id,
         )
         if not _publish_to_bus(contract, task, target.task_queue):
             job_manager.fail_job(env["job_id"], error="Failed to publish task to bus")

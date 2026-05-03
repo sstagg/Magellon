@@ -531,6 +531,103 @@ def test_subject_backfill_skipped_when_result_omits_fields():
     assert db_task.subject_id == pinned_id
 
 
+# ---------------------------------------------------------------------------
+# 2026-05-04 reviewer fixes — Blocker / High / Medium regression guards
+# ---------------------------------------------------------------------------
+
+
+def test_high3_process_output_files_returns_path_remap(tmp_path):
+    """Reviewer-flagged High #3: artifact paths went stale because the
+    file-move ran BEFORE _maybe_write_artifact read paths from
+    output_data. Fix: _process_output_files returns {src: dst} so the
+    caller rewrites output_data first. Pin the contract."""
+    from magellon_sdk.models import OutputFile
+
+    proc, _ = _make_processor()
+
+    src = tmp_path / "stack.mrcs"
+    src.write_bytes(b"\x00" * 16)
+    dest_dir = tmp_path / "dest"
+
+    result = _StubResult(task_id=uuid4(), type_code=10, type_name="ParticleExtraction")
+    result.output_files = [OutputFile(name="stack.mrcs", path=str(src), required=True)]
+
+    remap = proc._process_output_files(result, str(dest_dir))
+
+    assert str(src) in remap
+    assert remap[str(src)] == str(dest_dir / "stack.mrcs")
+    # The OutputFile in place was updated to the post-move path so
+    # downstream consumers see the same value the artifact row will.
+    assert result.output_files[0].path == str(dest_dir / "stack.mrcs")
+
+
+def test_high3_rewrite_output_paths_updates_path_shaped_keys():
+    """Path-shaped keys in output_data get rewritten to post-move
+    destinations; scalar fields (counts, apix) are untouched."""
+    proc, _ = _make_processor()
+    result = _extraction_result()
+    remap = {
+        result.output_data["mrcs_path"]: "/moved/m_particles.mrcs",
+        result.output_data["star_path"]: "/moved/m_particles.star",
+        result.output_data["json_path"]: "/moved/m_particles.json",
+    }
+    pre_count = result.output_data["particle_count"]
+
+    proc._rewrite_output_paths(result, remap)
+
+    assert result.output_data["mrcs_path"] == "/moved/m_particles.mrcs"
+    assert result.output_data["star_path"] == "/moved/m_particles.star"
+    assert result.output_data["json_path"] == "/moved/m_particles.json"
+    assert result.output_data["particle_count"] == pre_count
+    assert result.output_data["apix"] == 1.23
+
+
+def test_high5_classification_writes_source_artifact_id_fk():
+    """Reviewer-flagged High #5: lineage as a real FK column.
+    output_data['source_particle_stack_id'] becomes
+    artifact.source_artifact_id (real FK) — the data_json copy stays
+    as a back-compat key for one release."""
+    from models.sqlalchemy_models import Artifact
+
+    proc, db = _make_processor()
+    stack_uuid = uuid4()
+    result = _classification_result(source_particle_stack_id=str(stack_uuid))
+
+    proc._maybe_write_artifact(result)
+
+    written = db.add.call_args[0][0]
+    assert isinstance(written, Artifact)
+    assert written.source_artifact_id == stack_uuid
+    # Back-compat copy still in data_json.
+    assert written.data_json["source_particle_stack_id"] == str(stack_uuid)
+
+
+def test_high5_classification_handles_invalid_source_id():
+    """Defensive: non-UUID source_particle_stack_id leaves the FK as
+    NULL rather than crashing the writer."""
+    from models.sqlalchemy_models import Artifact
+
+    proc, db = _make_processor()
+    result = _classification_result()
+    result.output_data["source_particle_stack_id"] = "not-a-uuid"
+
+    proc._maybe_write_artifact(result)
+    written = db.add.call_args[0][0]
+    assert isinstance(written, Artifact)
+    assert written.source_artifact_id is None
+
+
+def test_blocker2_out_queue_type_includes_extraction_and_classification():
+    """Reviewer-flagged Blocker #2: extraction + classification result
+    queues had no enum entry, so the in-process consumer never
+    subscribed → tasks never advanced and artifacts never wrote.
+    Pin the enum so a regression here fails fast."""
+    from models.pydantic_models_settings import OutQueueType
+
+    assert OutQueueType.PARTICLE_EXTRACTION.value == "particle_extraction"
+    assert OutQueueType.TWO_D_CLASSIFICATION.value == "two_d_classification"
+
+
 def test_process_failed_extraction_does_not_write_artifact():
     """A FAILED result has no ``mrcs_path`` (the algorithm crashed
     before writing). Skip the artifact write — otherwise we'd land

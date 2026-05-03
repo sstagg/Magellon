@@ -98,6 +98,26 @@ rabbitmq_settings:
       queue_type: micrograph_denoise
       dir_name: topaz_denoised
       category: 9
+    # 2026-05-04 fix: blocker — extraction + classification results
+    # had no consumer and tasks never advanced. Stack maker writes
+    # particle_stack artifacts; CAN classifier writes class_averages
+    # artifacts (TaskOutputProcessor handlers in P5b/7b 2026-05-03).
+    - name: particle_extraction_out_tasks_queue
+      queue_type: particle_extraction
+      dir_name: particles
+      category: 10
+    - name: two_d_classification_out_tasks_queue
+      queue_type: two_d_classification
+      dir_name: classes
+      category: 4
+    # Phase 6 (2026-05-03) external template-picker output queue;
+    # in-process picker (CoreService/plugins/pp/template_picker)
+    # writes via JobService directly so this only fires for the
+    # external backend.
+    - name: particle_picking_out_tasks_queue
+      queue_type: particle_picking
+      dir_name: picks
+      category: 3
 
 directory_settings:
   MAGELLON_GPFS_PATH: C:/magellon/gpfs
