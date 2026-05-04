@@ -62,7 +62,7 @@ export const PluginConditions: React.FC<PluginConditionsProps> = ({ conditions }
                 direction="row"
                 spacing={0.5}
                 useFlexGap
-                flexWrap="wrap"
+                sx={{ flexWrap: 'wrap' }}
                 data-testid="plugin-conditions"
             >
                 {sorted.map((c) => {

@@ -224,6 +224,42 @@ export const usePluginReplicas = (pluginId: string | null) =>
     );
 
 // ---------------------------------------------------------------------------
+// Installed catalog (DB-backed) — what's installed on this server, where it
+// lives physically. Distinct from the live /plugins/ list which only sees
+// currently-announcing plugins.
+// ---------------------------------------------------------------------------
+
+export type InstallMethod = 'docker' | 'uv' | 'archive';
+
+export interface InstalledPluginRow {
+    plugin_id: string;
+    manifest_plugin_id?: string | null;
+    name: string;
+    version?: string | null;
+    category?: string | null;
+    description: string;
+    developer?: string | null;
+    install_method?: InstallMethod | null;
+    install_dir?: string | null;
+    image_ref?: string | null;
+    container_ref?: string | null;
+    archive_id?: string | null;
+    installed_date?: string | null;
+    enabled: boolean;
+    is_default_for_category: boolean;
+}
+
+export const fetchInstalledFromDb = async (): Promise<InstalledPluginRow[]> => {
+    const res = await api.get('/plugins/db');
+    return res.data;
+};
+
+export const useInstalledFromDb = () =>
+    useQuery(['plugins-db'], fetchInstalledFromDb, {
+        staleTime: 30_000,
+    });
+
+// ---------------------------------------------------------------------------
 // PM6 — Available updates for installed plugins
 // ---------------------------------------------------------------------------
 

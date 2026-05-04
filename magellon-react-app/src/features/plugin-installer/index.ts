@@ -10,8 +10,10 @@
  * runtime/dispatch surface (forms, schemas, browse-and-run).
  */
 export { AdminInstalledPanel } from './ui/AdminInstalledPanel.tsx';
+export { BrowseHubDialog } from './ui/BrowseHubDialog.tsx';
 export { HubCatalogBrowser } from './ui/HubCatalogBrowser.tsx';
 export { HubInstallDialog } from './ui/HubInstallDialog.tsx';
+export { UploadArchiveDialog } from './ui/UploadArchiveDialog.tsx';
 export { UpgradeMpnDialog } from './ui/UpgradeMpnDialog.tsx';
 export {
     useAdminInstalledPlugins,

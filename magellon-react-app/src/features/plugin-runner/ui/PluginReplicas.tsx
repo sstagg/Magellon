@@ -80,8 +80,8 @@ export const PluginReplicas: React.FC<PluginReplicasProps> = ({ pluginId }) => {
                     key={replica.instance_id}
                     direction="row"
                     spacing={1}
-                    alignItems="center"
                     sx={{
+                        alignItems: 'center',
                         px: 1,
                         py: 0.5,
                         borderRadius: 1,
