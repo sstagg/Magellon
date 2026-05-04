@@ -144,6 +144,12 @@ class InstalledPluginView(BaseModel):
     container_ref: Optional[str] = None
     archive_id: Optional[str] = None
     installed_date: Optional[datetime] = None
+    http_endpoint: Optional[str] = None
+    """FastAPI base URL the supervisor allocated at install time
+    (e.g. ``http://127.0.0.1:18000``). Populated for uv installs;
+    docker installs derive from the published container port."""
+    port: Optional[int] = None
+    """Numeric port from ``http_endpoint`` for at-a-glance display."""
     enabled: bool = True
     is_default_for_category: bool = False
 
@@ -534,6 +540,8 @@ class PluginManagerService:
             container_ref=plugin.container_ref,
             archive_id=str(plugin.archive_id) if plugin.archive_id else None,
             installed_date=plugin.installed_date,
+            http_endpoint=getattr(plugin, "http_endpoint", None),
+            port=getattr(plugin, "port", None),
             enabled=self._state.is_enabled(plugin.name),
             is_default_for_category=(
                 self._state.get_default(category) == plugin.name

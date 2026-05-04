@@ -163,7 +163,73 @@ export const useUninstallMpn = () => {
             onSuccess: () => {
                 qc.invalidateQueries(QK_ADMIN_INSTALLED);
                 qc.invalidateQueries(['plugins']);
+                qc.invalidateQueries(['admin-plugin-process-status']);
             },
         },
     );
 };
+
+// ---------------------------------------------------------------------------
+// Process control — start / stop / restart
+// ---------------------------------------------------------------------------
+//
+// Backed by the supervisor admin endpoints. On Linux these run
+// systemctl; on Windows they Popen the plugin's main.py via uvicorn
+// inside the install_dir's venv.
+
+export interface ProcessStatusResponse {
+    plugin_id: string;
+    installed: boolean;
+    running: boolean;
+}
+
+export interface ProcessActionResponse {
+    success: boolean;
+    plugin_id: string;
+    logs?: string | null;
+    running: boolean;
+}
+
+const QK_PROCESS_STATUS = 'admin-plugin-process-status';
+
+export const useAdminPluginProcessStatus = (
+    pluginId: string | null | undefined,
+) =>
+    useQuery(
+        [QK_PROCESS_STATUS, pluginId],
+        async () => {
+            const res = await api.get<ProcessStatusResponse>(
+                `/admin/plugins/${encodeURIComponent(pluginId!)}/status`,
+            );
+            return res.data;
+        },
+        {
+            enabled: !!pluginId,
+            // Lightweight + frequent so the UI reflects start/stop quickly.
+            refetchInterval: 5000,
+        },
+    );
+
+const makeProcessControlMutation = (verb: 'start' | 'stop' | 'restart') => {
+    return () => {
+        const qc = useQueryClient();
+        return useMutation(
+            async (pluginId: string) => {
+                const res = await api.post<ProcessActionResponse>(
+                    `/admin/plugins/${encodeURIComponent(pluginId)}/${verb}`,
+                );
+                return res.data;
+            },
+            {
+                onSuccess: () => {
+                    qc.invalidateQueries(QK_PROCESS_STATUS);
+                    qc.invalidateQueries(['plugins']);
+                },
+            },
+        );
+    };
+};
+
+export const useStartPlugin = makeProcessControlMutation('start');
+export const useStopPlugin = makeProcessControlMutation('stop');
+export const useRestartPlugin = makeProcessControlMutation('restart');

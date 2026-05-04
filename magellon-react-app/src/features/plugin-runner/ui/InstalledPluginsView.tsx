@@ -39,12 +39,17 @@ import {
     ChevronUp,
     Cloud,
     Container as ContainerIcon,
+    Eye,
     FolderOpen,
     PackageOpen,
+    Play,
+    RotateCcw,
+    Square,
     Star,
     Trash2,
     Upload,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import {
     useInstalledFromDb,
     usePluginStatus,
@@ -53,7 +58,13 @@ import {
     useSetCategoryDefault,
     type InstalledPluginRow,
 } from '../api/PluginApi.ts';
-import { useUninstallMpn } from '../../plugin-installer/api/installerApi.ts';
+import {
+    useAdminPluginProcessStatus,
+    useRestartPlugin,
+    useStartPlugin,
+    useStopPlugin,
+    useUninstallMpn,
+} from '../../plugin-installer/api/installerApi.ts';
 import { PluginConditions } from './PluginConditions.tsx';
 import { PluginReplicas } from './PluginReplicas.tsx';
 import { PluginUpdateChip } from './PluginUpdateChip.tsx';
@@ -62,6 +73,75 @@ import { PluginUpdateChip } from './PluginUpdateChip.tsx';
 const ConditionsForCard: React.FC<{ pluginId: string }> = ({ pluginId }) => {
     const { data } = usePluginStatus(pluginId);
     return <PluginConditions conditions={data} />;
+};
+
+/** Run / Stop / Restart icon group — driven by the supervisor's
+ *  ``GET /admin/plugins/{id}/status`` (5s refetch). All three buttons
+ *  are always rendered; the irrelevant one is disabled, so layout
+ *  doesn't shift when state flips. */
+const ProcessControls: React.FC<{
+    manifestPluginId: string;
+    onError: (msg: string) => void;
+}> = ({ manifestPluginId, onError }) => {
+    const { data: procStatus } = useAdminPluginProcessStatus(manifestPluginId);
+    const start = useStartPlugin();
+    const stop = useStopPlugin();
+    const restart = useRestartPlugin();
+    const running = !!procStatus?.running;
+    const busy = start.isLoading || stop.isLoading || restart.isLoading;
+
+    const handle = async (
+        verb: 'start' | 'stop' | 'restart',
+        mut: typeof start,
+    ) => {
+        try {
+            await mut.mutateAsync(manifestPluginId);
+        } catch (err: unknown) {
+            onError(errorText(err, `${verb} failed`));
+        }
+    };
+
+    return (
+        <Stack direction="row" spacing={0.25}>
+            <Tooltip title={running ? 'Already running' : 'Start plugin process'}>
+                <span>
+                    <IconButton
+                        size="small"
+                        color="success"
+                        aria-label="start"
+                        disabled={busy || running}
+                        onClick={() => handle('start', start)}
+                    >
+                        <Play size={16} />
+                    </IconButton>
+                </span>
+            </Tooltip>
+            <Tooltip title={running ? 'Stop plugin process' : 'Already stopped'}>
+                <span>
+                    <IconButton
+                        size="small"
+                        aria-label="stop"
+                        disabled={busy || !running}
+                        onClick={() => handle('stop', stop)}
+                    >
+                        <Square size={16} />
+                    </IconButton>
+                </span>
+            </Tooltip>
+            <Tooltip title="Restart plugin process">
+                <span>
+                    <IconButton
+                        size="small"
+                        aria-label="restart"
+                        disabled={busy}
+                        onClick={() => handle('restart', restart)}
+                    >
+                        <RotateCcw size={16} />
+                    </IconButton>
+                </span>
+            </Tooltip>
+        </Stack>
+    );
 };
 
 const errorText = (err: unknown, fallback: string): string => {
@@ -127,6 +207,7 @@ export const InstalledPluginsView: React.FC<InstalledPluginsViewProps> = ({
     onUploadArchive,
     onBrowseHub,
 }) => {
+    const navigate = useNavigate();
     const { data: rows, isLoading, error } = useInstalledFromDb();
     const toggle = useTogglePlugin();
     const setDefault = useSetCategoryDefault();
@@ -408,6 +489,32 @@ export const InstalledPluginsView: React.FC<InstalledPluginsViewProps> = ({
                                                 Set as default
                                             </Button>
                                         )}
+                                        {plugin.manifest_plugin_id && (
+                                            <ProcessControls
+                                                manifestPluginId={plugin.manifest_plugin_id}
+                                                onError={(text) =>
+                                                    setActionMessage({
+                                                        severity: 'error',
+                                                        text,
+                                                    })
+                                                }
+                                            />
+                                        )}
+                                        <Tooltip title="Open plugin detail / runner">
+                                            <span>
+                                                <IconButton
+                                                    size="small"
+                                                    aria-label="open detail"
+                                                    onClick={() =>
+                                                        navigate(
+                                                            `/en/panel/plugins/${encodeURIComponent(plugin.plugin_id)}`,
+                                                        )
+                                                    }
+                                                >
+                                                    <Eye size={16} />
+                                                </IconButton>
+                                            </span>
+                                        </Tooltip>
                                         <Tooltip
                                             title={
                                                 expanded

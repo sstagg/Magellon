@@ -245,6 +245,10 @@ export interface InstalledPluginRow {
     container_ref?: string | null;
     archive_id?: string | null;
     installed_date?: string | null;
+    /** Supervisor-allocated FastAPI URL (e.g. ``http://127.0.0.1:18000``). */
+    http_endpoint?: string | null;
+    /** Numeric port portion of ``http_endpoint``. */
+    port?: number | null;
     enabled: boolean;
     is_default_for_category: boolean;
 }
