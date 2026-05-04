@@ -96,7 +96,7 @@ class PluginInstallManager:
         self,
         installers: List[Installer],
         *,
-        host_info_provider: Optional[Callable[[List[str]], HostInfo]] = None,
+        host_info_provider: Optional[Callable[..., HostInfo]] = None,
         health_check: HealthCheck = _no_health_check,
     ) -> None:
         # Index by method for quick lookup. If two installers claim
@@ -131,7 +131,7 @@ class PluginInstallManager:
         required_binaries = collect_required_binaries(
             [s.requires for s in manifest.install]
         )
-        host = self._host_info_provider(required_binaries)
+        host = self._host_info_provider(probe_binaries=required_binaries)
 
         # 3. Pick the first install method whose predicates pass.
         chosen = self._pick_installer(manifest, host)

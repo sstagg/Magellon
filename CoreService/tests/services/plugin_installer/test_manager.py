@@ -115,12 +115,12 @@ def _runtime() -> RuntimeConfig:
     return RuntimeConfig(broker_url="amqp://x", gpfs_root="/g")
 
 
-def _no_failures_host(_required_binaries):
+def _no_failures_host(*, probe_binaries=None):
     """Default host_info_provider: every probe pretends to succeed.
     Tests override per-test for the failure cases."""
     return HostInfo(
         docker_daemon=True,
-        binaries_on_path=["ctffind4", "MotionCor2"],
+        binaries_on_path=list(probe_binaries or ["ctffind4", "MotionCor2"]),
         python_version="3.12.0",
         gpu_count=4,
         os="linux",
@@ -161,7 +161,7 @@ def test_falls_through_to_next_install_method_when_first_fails_predicates(tmp_pa
     docker = _FakeInstaller("docker", supports_failures=["docker_daemon: want True, got False"])
     uv = _FakeInstaller("uv")
 
-    def host_no_docker(_):
+    def host_no_docker(**_kw):
         return HostInfo(docker_daemon=False, python_version="3.12.0")
 
     mgr = PluginInstallManager(
@@ -200,7 +200,7 @@ def test_install_refused_when_no_method_matches(tmp_path):
     ])
     docker = _FakeInstaller("docker", supports_failures=["docker_daemon: want True, got False"])
 
-    def host_no_docker(_):
+    def host_no_docker(**_kw):
         return HostInfo(docker_daemon=False)
 
     mgr = PluginInstallManager([docker], host_info_provider=host_no_docker)

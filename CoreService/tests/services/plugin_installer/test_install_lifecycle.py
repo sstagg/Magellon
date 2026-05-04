@@ -111,7 +111,7 @@ def _make_manager(plugins_dir: Path):
     inst = UvInstaller(plugins_dir=plugins_dir, subprocess_runner=_stub_runner())
     return PluginInstallManager(
         [inst],
-        host_info_provider=lambda _: HostInfo(python_version="3.12.0"),
+        host_info_provider=lambda **_kw: HostInfo(python_version="3.12.0"),
     ), inst
 
 
@@ -247,7 +247,7 @@ def test_upgrade_rolls_back_on_new_install_failure(tmp_path):
     inst = UvInstaller(plugins_dir=plugins_dir, subprocess_runner=_stub_runner())
     mgr = PluginInstallManager(
         [inst],
-        host_info_provider=lambda _: HostInfo(python_version="3.12.0"),
+        host_info_provider=lambda **_kw: HostInfo(python_version="3.12.0"),
     )
 
     mgr.install(_build_archive(tmp_path, version="0.1.0"), _runtime())
