@@ -36,45 +36,78 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
-def upgrade() -> None:
-    op.create_table(
-        "pipeline_run",
-        sa.Column("oid", sa.BINARY(length=16), primary_key=True, nullable=False),
-        sa.Column("name", sa.String(length=200), nullable=True),
-        sa.Column("description", sa.Text(), nullable=True),
-        sa.Column("msession_id", sa.String(length=100), nullable=True, index=True),
-        sa.Column("status_id", sa.SmallInteger(), nullable=False, server_default="1"),
-        sa.Column("created_date", sa.DateTime(), nullable=False),
-        sa.Column("started_date", sa.DateTime(), nullable=True),
-        sa.Column("ended_date", sa.DateTime(), nullable=True),
-        # Free-form workflow parameters: pickers, box sizes, classifier
-        # hyperparameters, etc. Read by the UI rollup; not authoritative
-        # for the per-job runtime (those settings live on image_job).
-        sa.Column("settings", JSON(), nullable=True),
-        sa.Column("user_id", sa.String(length=100), nullable=True),
-        # Lifecycle.
-        sa.Column("deleted_at", sa.DateTime(), nullable=True),
-        sa.Column("OptimisticLockField", sa.Integer(), nullable=True),
-        sa.Column("GCRecord", sa.Integer(), nullable=True, index=True),
-    )
+def _columns(table_name: str) -> set[str]:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if not inspector.has_table(table_name):
+        return set()
+    return {c["name"] for c in inspector.get_columns(table_name)}
 
-    op.create_index("ix_pipeline_run_msession_id", "pipeline_run", ["msession_id"])
-    op.create_index("ix_pipeline_run_status_id", "pipeline_run", ["status_id"])
+
+def _indexes(table_name: str) -> set[str]:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if not inspector.has_table(table_name):
+        return set()
+    return {i["name"] for i in inspector.get_indexes(table_name)}
+
+
+def _foreign_keys(table_name: str) -> set[str]:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if not inspector.has_table(table_name):
+        return set()
+    return {fk["name"] for fk in inspector.get_foreign_keys(table_name)}
+
+
+def upgrade() -> None:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if not inspector.has_table("pipeline_run"):
+        op.create_table(
+            "pipeline_run",
+            sa.Column("oid", sa.BINARY(length=16), primary_key=True, nullable=False),
+            sa.Column("name", sa.String(length=200), nullable=True),
+            sa.Column("description", sa.Text(), nullable=True),
+            sa.Column("msession_id", sa.String(length=100), nullable=True),
+            sa.Column("status_id", sa.SmallInteger(), nullable=False, server_default="1"),
+            sa.Column("created_date", sa.DateTime(), nullable=False),
+            sa.Column("started_date", sa.DateTime(), nullable=True),
+            sa.Column("ended_date", sa.DateTime(), nullable=True),
+            # Free-form workflow parameters: pickers, box sizes, classifier
+            # hyperparameters, etc. Read by the UI rollup; not authoritative
+            # for the per-job runtime (those settings live on image_job).
+            sa.Column("settings", JSON(), nullable=True),
+            sa.Column("user_id", sa.String(length=100), nullable=True),
+            # Lifecycle.
+            sa.Column("deleted_at", sa.DateTime(), nullable=True),
+            sa.Column("OptimisticLockField", sa.Integer(), nullable=True),
+            sa.Column("GCRecord", sa.Integer(), nullable=True),
+        )
+
+    existing_indexes = _indexes("pipeline_run")
+    if "ix_pipeline_run_msession_id" not in existing_indexes:
+        op.create_index("ix_pipeline_run_msession_id", "pipeline_run", ["msession_id"])
+    if "ix_pipeline_run_status_id" not in existing_indexes:
+        op.create_index("ix_pipeline_run_status_id", "pipeline_run", ["status_id"])
 
     # ImageJob FK to pipeline_run. Nullable so pre-Phase-8 jobs
     # remain valid; new dispatches link explicitly.
-    op.add_column(
-        "image_job",
-        sa.Column("parent_run_id", sa.BINARY(length=16), nullable=True),
-    )
-    op.create_foreign_key(
-        "fk_image_job_parent_run",
-        "image_job",
-        "pipeline_run",
-        ["parent_run_id"],
-        ["oid"],
-    )
-    op.create_index("ix_image_job_parent_run_id", "image_job", ["parent_run_id"])
+    if "parent_run_id" not in _columns("image_job"):
+        op.add_column(
+            "image_job",
+            sa.Column("parent_run_id", sa.BINARY(length=16), nullable=True),
+        )
+    if "fk_image_job_parent_run" not in _foreign_keys("image_job"):
+        op.create_foreign_key(
+            "fk_image_job_parent_run",
+            "image_job",
+            "pipeline_run",
+            ["parent_run_id"],
+            ["oid"],
+        )
+    if "ix_image_job_parent_run_id" not in _indexes("image_job"):
+        op.create_index("ix_image_job_parent_run_id", "image_job", ["parent_run_id"])
 
 
 def downgrade() -> None:
