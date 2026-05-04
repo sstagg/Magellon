@@ -48,6 +48,10 @@ from services.plugin_installer.protocol import (
     RuntimeConfig,
     UninstallResult,
 )
+from services.plugin_catalog_persistence import (
+    PluginCatalogPersistence,
+    get_plugin_catalog_persistence,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -172,12 +176,36 @@ def _result_to_http(result: InstallResult, *, success_status: int) -> InstallRes
 async def install_plugin(
     file: UploadFile = File(..., description="The .mpn archive to install."),
     manager: PluginInstallManager = Depends(get_install_manager),
+    catalog: PluginCatalogPersistence = Depends(get_plugin_catalog_persistence),
     runtime: RuntimeConfig = Depends(get_runtime_config),
     _: None = Depends(require_role("Administrator")),
 ) -> InstallResponse:
     archive_path = await _save_upload_to_temp(file)
     try:
         result = manager.install(archive_path, runtime)
+        if result.success:
+            try:
+                catalog.record_install(archive_path, result)
+            except Exception as exc:
+                logger.exception(
+                    "plugin install succeeded but DB persistence failed; "
+                    "rolling back plugin_id=%s",
+                    result.plugin_id,
+                )
+                try:
+                    manager.uninstall(result.plugin_id)
+                except Exception:
+                    logger.exception(
+                        "rollback uninstall failed for plugin_id=%s",
+                        result.plugin_id,
+                    )
+                raise HTTPException(
+                    status_code=500,
+                    detail=(
+                        "plugin installed but could not be recorded in the "
+                        f"database: {exc}"
+                    ),
+                ) from exc
     finally:
         archive_path.unlink(missing_ok=True)
     return _result_to_http(result, success_status=201)
@@ -201,6 +229,7 @@ async def upgrade_plugin(
                     "Used for emergency rollback across plugin boundaries.",
     ),
     manager: PluginInstallManager = Depends(get_install_manager),
+    catalog: PluginCatalogPersistence = Depends(get_plugin_catalog_persistence),
     runtime: RuntimeConfig = Depends(get_runtime_config),
     _: None = Depends(require_role("Administrator")),
 ) -> InstallResponse:
@@ -209,6 +238,21 @@ async def upgrade_plugin(
         result = manager.upgrade(
             plugin_id, archive_path, runtime, force_downgrade=force_downgrade,
         )
+        if result.success:
+            try:
+                catalog.record_install(archive_path, result)
+            except Exception as exc:
+                logger.exception(
+                    "plugin upgrade succeeded but DB persistence failed: %s",
+                    plugin_id,
+                )
+                raise HTTPException(
+                    status_code=500,
+                    detail=(
+                        "plugin upgraded but could not be recorded in the "
+                        f"database: {exc}"
+                    ),
+                ) from exc
     finally:
         archive_path.unlink(missing_ok=True)
     return _result_to_http(result, success_status=200)
@@ -226,6 +270,7 @@ async def upgrade_plugin(
 def uninstall_plugin(
     plugin_id: str,
     manager: PluginInstallManager = Depends(get_install_manager),
+    catalog: PluginCatalogPersistence = Depends(get_plugin_catalog_persistence),
     _: None = Depends(require_role("Administrator")),
 ) -> UninstallResponse:
     result = manager.uninstall(plugin_id)
@@ -234,6 +279,17 @@ def uninstall_plugin(
         if "not installed" in err:
             raise HTTPException(status_code=404, detail=result.error)
         raise HTTPException(status_code=500, detail=result.error)
+    try:
+        catalog.record_uninstall(plugin_id)
+    except Exception as exc:
+        logger.exception("plugin uninstalled but DB soft-delete failed: %s", plugin_id)
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "plugin uninstalled but could not be marked removed in the "
+                f"database: {exc}"
+            ),
+        ) from exc
     return UninstallResponse.from_result(result)
 
 
@@ -247,13 +303,13 @@ def uninstall_plugin(
     summary="List every installed plugin",
 )
 def list_installed(
-    manager: PluginInstallManager = Depends(get_install_manager),
+    catalog: PluginCatalogPersistence = Depends(get_plugin_catalog_persistence),
     _: None = Depends(require_role("Administrator")),
 ) -> InstalledListResponse:
     return InstalledListResponse(
         installed=[
             InstalledPlugin(plugin_id=plugin_id, install_method=method)
-            for plugin_id, method in sorted(manager.list_installed().items())
+            for plugin_id, method in sorted(catalog.list_installed().items())
         ]
     )
 

@@ -254,6 +254,31 @@ def test_list_installed_full_handles_uv_install_with_dir():
     assert view.image_ref is None
 
 
+def test_list_installed_full_handles_discovered_remote_plugin():
+    """Heartbeat-discovered plugins are durable catalog rows too, but
+    CoreService may not know how to start/stop their host yet."""
+    plugin_row = SimpleNamespace(
+        oid=uuid.uuid4(),
+        name="remote-ctf",
+        manifest_plugin_id="remote-ctf",
+        author="Remote Team",
+        category="ctf",
+        version="1.0.0",
+        schema_version="1",
+        manifest_json={"description": "Remote CTF worker"},
+        install_method="discovered",
+        install_dir=None,
+        image_ref=None,
+        container_ref="magellon.tasks.ctf.remote-ctf",
+        archive_id=None,
+        installed_date=None,
+    )
+    manager = _build_manager(catalog=[plugin_row])
+    [view] = manager.list_installed_full()
+    assert view.install_method == "discovered"
+    assert view.container_ref == "magellon.tasks.ctf.remote-ctf"
+
+
 def test_list_installed_returns_catalog_rows_even_when_offline():
     """Cataloged-but-not-running rows are how the operator UI shows
     "installed but not announcing" without joining client-side."""

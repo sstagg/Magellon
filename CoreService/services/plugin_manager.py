@@ -133,7 +133,7 @@ class InstalledPluginView(BaseModel):
     category: Optional[str] = None
     description: str = ""
     developer: Optional[str] = None
-    install_method: Optional[Literal["docker", "uv", "archive"]] = None
+    install_method: Optional[Literal["docker", "uv", "archive", "discovered"]] = None
     install_dir: Optional[str] = None
     image_ref: Optional[str] = None
     container_ref: Optional[str] = None

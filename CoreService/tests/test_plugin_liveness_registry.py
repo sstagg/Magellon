@@ -16,7 +16,9 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from core import plugin_liveness_registry as liveness_mod
 from core.plugin_liveness_registry import PluginLivenessRegistry
+from magellon_sdk.envelope import Envelope
 from magellon_sdk.discovery import Announce, Heartbeat
 from magellon_sdk.models.manifest import (
     Capability,
@@ -127,3 +129,50 @@ def test_reap_stale_removes_old_entries_and_returns_count():
     snapshot = reg.snapshot()
     assert len(snapshot) == 1
     assert snapshot[0]["instance_id"] == "new"
+
+
+class _Handle:
+    def close(self):
+        return None
+
+
+class _Events:
+    def __init__(self):
+        self.handlers = []
+
+    def subscribe(self, route, handler):
+        self.handlers.append(handler)
+        return _Handle()
+
+
+class _Bus:
+    def __init__(self):
+        self.events = _Events()
+
+
+def test_liveness_listener_persists_announce_and_heartbeat(monkeypatch):
+    """CoreService's wrapper keeps the SDK in-memory registry behavior
+    and also mirrors discovery into the DB-backed catalog."""
+    persisted_announces = []
+    persisted_heartbeats = []
+    monkeypatch.setattr(liveness_mod, "persist_announce", persisted_announces.append)
+    monkeypatch.setattr(liveness_mod, "persist_heartbeat", persisted_heartbeats.append)
+
+    bus = _Bus()
+    reg = PluginLivenessRegistry()
+    liveness_mod.start_liveness_listener(registry=reg, bus=bus)
+
+    announce = _announce()
+    heartbeat = _heartbeat(status="busy")
+    bus.events.handlers[0](
+        Envelope.wrap(source="test", type="a", subject="announce", data=announce)
+    )
+    bus.events.handlers[1](
+        Envelope.wrap(source="test", type="h", subject="heartbeat", data=heartbeat)
+    )
+
+    assert persisted_announces == [announce]
+    assert persisted_heartbeats == [heartbeat]
+    live = reg.list_live()
+    assert len(live) == 1
+    assert live[0].status == "busy"

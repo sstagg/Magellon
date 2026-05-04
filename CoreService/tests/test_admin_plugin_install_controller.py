@@ -38,6 +38,7 @@ from services.plugin_installer.protocol import (
     RuntimeConfig,
     UninstallResult,
 )
+from services.plugin_catalog_persistence import get_plugin_catalog_persistence
 
 
 # ---------------------------------------------------------------------------
@@ -50,15 +51,21 @@ def fake_manager():
 
 
 @pytest.fixture
+def fake_catalog():
+    return MagicMock()
+
+
+@pytest.fixture
 def fake_runtime():
     return RuntimeConfig(broker_url="amqp://x", gpfs_root="/g")
 
 
 @pytest.fixture
-def client(fake_manager, fake_runtime):
+def client(fake_manager, fake_catalog, fake_runtime):
     app = FastAPI()
     app.include_router(ctl.admin_plugin_install_router, prefix="/admin/plugins")
     app.dependency_overrides[get_install_manager] = lambda: fake_manager
+    app.dependency_overrides[get_plugin_catalog_persistence] = lambda: fake_catalog
     app.dependency_overrides[get_runtime_config] = lambda: fake_runtime
     # require_role returns a fresh callable per call, so override by
     # name as well — FastAPI keys overrides by the resolved callable
@@ -95,7 +102,7 @@ def _success_install(plugin_id: str = "ctf") -> InstallResult:
 # POST /install
 # ---------------------------------------------------------------------------
 
-def test_install_success_returns_201(client, fake_manager, fake_runtime):
+def test_install_success_returns_201(client, fake_manager, fake_catalog, fake_runtime):
     fake_manager.install.return_value = _success_install("ctf")
 
     resp = client.post(
@@ -113,6 +120,10 @@ def test_install_success_returns_201(client, fake_manager, fake_runtime):
     # Manager received a real path that the controller wrote bytes to.
     assert isinstance(archive_arg, Path)
     assert runtime_arg is fake_runtime
+    fake_catalog.record_install.assert_called_once()
+    catalog_archive_arg, result_arg = fake_catalog.record_install.call_args.args
+    assert catalog_archive_arg == archive_arg
+    assert result_arg is fake_manager.install.return_value
 
 
 def test_install_cleans_up_temp_file_on_success(client, fake_manager):
@@ -336,7 +347,7 @@ def test_upgrade_downgrade_refused_returns_400(client, fake_manager):
 # DELETE /{plugin_id}
 # ---------------------------------------------------------------------------
 
-def test_uninstall_success_returns_200(client, fake_manager):
+def test_uninstall_success_returns_200(client, fake_manager, fake_catalog):
     fake_manager.uninstall.return_value = UninstallResult(
         success=True, plugin_id="ctf",
     )
@@ -346,6 +357,7 @@ def test_uninstall_success_returns_200(client, fake_manager):
     assert resp.status_code == 200
     assert resp.json() == {"success": True, "plugin_id": "ctf", "error": None}
     fake_manager.uninstall.assert_called_once_with("ctf")
+    fake_catalog.record_uninstall.assert_called_once_with("ctf")
 
 
 def test_uninstall_not_installed_returns_404(client, fake_manager):
@@ -376,11 +388,11 @@ def test_uninstall_unknown_failure_returns_500(client, fake_manager):
 # GET /installed
 # ---------------------------------------------------------------------------
 
-def test_list_installed_returns_sorted_list(client, fake_manager):
+def test_list_installed_returns_sorted_list(client, fake_manager, fake_catalog):
     """Sorted output keeps the React UI's list deterministic
     between renders. Whatever Python dict iteration order is at the
     moment isn't a contract."""
-    fake_manager.list_installed.return_value = {
+    fake_catalog.list_installed.return_value = {
         "motioncor": "docker",
         "ctf": "docker",
         "fft": "uv",
@@ -395,10 +407,11 @@ def test_list_installed_returns_sorted_list(client, fake_manager):
         {"plugin_id": "fft", "install_method": "uv"},
         {"plugin_id": "motioncor", "install_method": "docker"},
     ]
+    fake_manager.list_installed.assert_not_called()
 
 
-def test_list_installed_empty(client, fake_manager):
-    fake_manager.list_installed.return_value = {}
+def test_list_installed_empty(client, fake_catalog):
+    fake_catalog.list_installed.return_value = {}
 
     resp = client.get("/admin/plugins/installed")
 
