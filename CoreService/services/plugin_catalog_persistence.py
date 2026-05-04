@@ -166,9 +166,26 @@ class PluginCatalogPersistence:
         try:
             repo = PluginRepository(db)
             state_repo = PluginStateRepository(db)
+            # Look up by manifest_plugin_id first (exact slug match),
+            # then fall back to (category, backend_id). The heartbeat
+            # path uses the runtime plugin_id ("FFT Plugin") which
+            # doesn't match the install-time slug ("fft"); without
+            # the fallback we'd create a parallel "discovered" row
+            # for every installed plugin that's currently announcing.
             existing = repo.get_by_manifest_plugin_id(plugin_id)
+            if existing is None:
+                existing = repo.get_by_category_backend(
+                    manifest.get("category") or "",
+                    manifest.get("backend_id") or "",
+                )
             created = existing is None
-            row = repo.upsert_catalog(plugin_id, manifest, install_result)
+            if existing is None:
+                row = repo.upsert_catalog(plugin_id, manifest, install_result)
+            else:
+                # An install-time row already represents this plugin;
+                # don't overwrite its install_dir / port / endpoint
+                # with discovery-time nulls. Just update the heartbeat.
+                row = existing
             state_repo.touch_heartbeat(row.oid, seen_at)
             if created:
                 state_repo.set_enabled(row.oid, False)

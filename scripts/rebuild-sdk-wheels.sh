@@ -35,6 +35,7 @@ BUNDLED_PLUGINS=(
     "plugins/magellon_ctf_plugin"
     "plugins/magellon_motioncor_plugin"
     "plugins/magellon_fft_plugin:wheels"
+    "plugins/magellon_template_picker_plugin:wheels"
 )
 
 echo "→ building magellon-sdk wheel from ${SDK_DIR}..."

@@ -151,6 +151,37 @@ class PluginRepository:
             .first()
         )
 
+    def get_by_category_backend(
+        self, category: str, backend_id: str,
+    ) -> Optional[Plugin]:
+        """Find a row by ``(category, backend_id)`` — the dispatch
+        identity. Used by the heartbeat persistence path so a
+        runtime-form announce (``"FFT Plugin"`` for category ``fft``)
+        unifies with an install-time slug row (``manifest_plugin_id="fft"``).
+
+        Backend_id substring tolerance handles the archive-vs-runtime
+        drift case (archive ``backend_id: fft`` vs runtime SDK-default
+        ``"fft-plugin"``). Same logic the conditions reducer uses.
+        """
+        cat_lower = (category or "").lower()
+        bk_lower = (backend_id or "").lower()
+        if not cat_lower or not bk_lower:
+            return None
+        rows = (
+            self.db.query(Plugin)
+            .filter(Plugin.deleted_date.is_(None))
+            .filter(Plugin.category == cat_lower)
+            .all()
+        )
+        for r in rows:
+            if (r.backend_id or "").lower() == bk_lower:
+                return r
+        for r in rows:
+            rb = (r.backend_id or "").lower()
+            if rb and (rb in bk_lower or bk_lower in rb):
+                return r
+        return None
+
     def soft_delete(self, oid: UUID) -> None:
         row = self.get_by_oid(oid)
         if row is None:
@@ -174,6 +205,15 @@ class PluginStateRepository:
         self.db = db
 
     def _get_or_create(self, plugin_oid: UUID) -> PluginState:
+        # Check session.new for an in-flight INSERT first. Without
+        # this, a caller doing two state writes in the same un-flushed
+        # transaction (e.g. ``touch_heartbeat`` + ``set_enabled`` in
+        # _upsert_discovered) would .query() twice, see no row both
+        # times, .add() twice, and IntegrityError on commit with
+        # duplicate plugin_oid PKs.
+        for pending in self.db.new:
+            if isinstance(pending, PluginState) and pending.plugin_oid == plugin_oid:
+                return pending
         row = (
             self.db.query(PluginState)
             .filter(PluginState.plugin_oid == plugin_oid)
