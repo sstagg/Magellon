@@ -75,19 +75,62 @@ const ConditionsForCard: React.FC<{ pluginId: string }> = ({ pluginId }) => {
     return <PluginConditions conditions={data} />;
 };
 
-/** Run / Stop / Restart icon group — driven by the supervisor's
- *  ``GET /admin/plugins/{id}/status`` (5s refetch). All three buttons
- *  are always rendered; the irrelevant one is disabled, so layout
- *  doesn't shift when state flips. */
-const ProcessControls: React.FC<{
+/** Read the bus-Live signal from the same usePluginStatus query the
+ *  conditions chip cluster reads — react-query dedupes the request,
+ *  so this is free. Returns ``null`` while loading so callers can
+ *  distinguish "we don't know yet" from "definitely not live". */
+const useLiveOnBus = (pluginId: string): boolean | null => {
+    const { data } = usePluginStatus(pluginId);
+    if (!data) return null;
+    const live = data.find((c) => c.type === 'Live');
+    if (!live) return null;
+    return live.status === 'True';
+};
+
+/** Adapter so the row can hand BOTH the runtime plugin_id (for the
+ *  bus-Live lookup, which keys on the announce form) AND the
+ *  manifest_plugin_id (which the supervisor admin endpoints key on)
+ *  to ProcessControls. Keeps the parent card minimal. */
+const ProcessControlsForRow: React.FC<{
+    pluginId: string;
     manifestPluginId: string;
     onError: (msg: string) => void;
-}> = ({ manifestPluginId, onError }) => {
+}> = ({ pluginId, manifestPluginId, onError }) => {
+    const liveOnBus = useLiveOnBus(pluginId);
+    return (
+        <ProcessControls
+            manifestPluginId={manifestPluginId}
+            liveOnBus={!!liveOnBus}
+            onError={onError}
+        />
+    );
+};
+
+/** Run / Stop / Restart icon group.
+ *
+ * Two independent signals decide button state:
+ *   - ``liveOnBus``: the plugin is announcing on the bus (anyone, not
+ *     just supervisor-spawned). Sourced from the card's existing
+ *     Conditions[] reducer (PM2). Run disables when liveOnBus is true,
+ *     because starting another instance would race the existing one
+ *     for the port + queue.
+ *   - ``supervisorRunning``: the supervisor has a tracked PID. Stop
+ *     enables only when this is true, because we can't kill a process
+ *     we didn't start (manually-launched dev plugins fall here —
+ *     operator stops them in their own terminal).
+ *
+ * Restart enables when supervisorRunning (we need a PID to stop), or
+ * (for dev convenience) when not liveOnBus (acts as a plain start). */
+const ProcessControls: React.FC<{
+    manifestPluginId: string;
+    liveOnBus: boolean;
+    onError: (msg: string) => void;
+}> = ({ manifestPluginId, liveOnBus, onError }) => {
     const { data: procStatus } = useAdminPluginProcessStatus(manifestPluginId);
     const start = useStartPlugin();
     const stop = useStopPlugin();
     const restart = useRestartPlugin();
-    const running = !!procStatus?.running;
+    const supervisorRunning = !!procStatus?.running;
     const busy = start.isLoading || stop.isLoading || restart.isLoading;
 
     const handle = async (
@@ -103,25 +146,39 @@ const ProcessControls: React.FC<{
 
     return (
         <Stack direction="row" spacing={0.25}>
-            <Tooltip title={running ? 'Already running' : 'Start plugin process'}>
+            <Tooltip
+                title={
+                    liveOnBus
+                        ? 'Already announcing on the bus'
+                        : 'Start plugin process'
+                }
+            >
                 <span>
                     <IconButton
                         size="small"
                         color="success"
                         aria-label="start"
-                        disabled={busy || running}
+                        disabled={busy || liveOnBus}
                         onClick={() => handle('start', start)}
                     >
                         <Play size={16} />
                     </IconButton>
                 </span>
             </Tooltip>
-            <Tooltip title={running ? 'Stop plugin process' : 'Already stopped'}>
+            <Tooltip
+                title={
+                    supervisorRunning
+                        ? 'Stop plugin process'
+                        : liveOnBus
+                          ? 'Running outside the supervisor — stop it where you launched it'
+                          : 'Not running'
+                }
+            >
                 <span>
                     <IconButton
                         size="small"
                         aria-label="stop"
-                        disabled={busy || !running}
+                        disabled={busy || !supervisorRunning}
                         onClick={() => handle('stop', stop)}
                     >
                         <Square size={16} />
@@ -133,7 +190,7 @@ const ProcessControls: React.FC<{
                     <IconButton
                         size="small"
                         aria-label="restart"
-                        disabled={busy}
+                        disabled={busy || (liveOnBus && !supervisorRunning)}
                         onClick={() => handle('restart', restart)}
                     >
                         <RotateCcw size={16} />
@@ -490,7 +547,8 @@ export const InstalledPluginsView: React.FC<InstalledPluginsViewProps> = ({
                                             </Button>
                                         )}
                                         {plugin.manifest_plugin_id && (
-                                            <ProcessControls
+                                            <ProcessControlsForRow
+                                                pluginId={plugin.plugin_id}
                                                 manifestPluginId={plugin.manifest_plugin_id}
                                                 onError={(text) =>
                                                     setActionMessage({

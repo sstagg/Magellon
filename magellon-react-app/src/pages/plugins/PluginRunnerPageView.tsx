@@ -199,17 +199,27 @@ export const PluginRunnerPageView: React.FC = () => {
     const { data: livePlugins, isLoading: liveLoading } = usePlugins();
     const { data: installedRows, isLoading: dbLoading } = useInstalledFromDb();
 
-    const livePlugin = livePlugins?.find((p) => p.plugin_id === pluginId);
-
-    // Detail-page lookup falls back to the DB catalog so installed-but-
-    // stopped plugins still get a page (with Run / Stop / Restart
-    // controls). Match by plugin_id (composed cat/manifest_plugin_id)
-    // OR by manifest_plugin_id directly.
+    // Find the catalog row first; we use its identity fields to
+    // resolve the live entry too (the announce form's plugin_id
+    // doesn't always match the catalog's, e.g. catalog
+    // ``"fft/FFT — magnitude spectrum"`` vs announce
+    // ``"fft/FFT Plugin"``).
     const installedRow = installedRows?.find(
         (r) =>
             r.plugin_id === pluginId ||
             r.manifest_plugin_id === pluginId,
     );
+
+    const livePlugin = livePlugins?.find((p) => {
+        if (p.plugin_id === pluginId) return true;
+        if (!installedRow?.manifest_plugin_id) return false;
+        const slug = installedRow.manifest_plugin_id.toLowerCase();
+        const liveId = p.plugin_id.toLowerCase();
+        // Live form is "<category>/<display-name>" — the slug appears
+        // as the category prefix when slug == category (the common
+        // case for FFT, CTF, MotionCor) and as a substring otherwise.
+        return liveId === slug || liveId.startsWith(`${slug}/`);
+    });
 
     const isLoading = liveLoading || dbLoading;
     const found = livePlugin || installedRow;
