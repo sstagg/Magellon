@@ -89,6 +89,27 @@ async def lifespan(app: FastAPI):
         except Exception:
             logger.exception("step-event publisher pre-warm scheduling failed (non-fatal)")
 
+        # Reviewer I: surface a misconfigured deploy at boot, not at
+        # the first preview call. Plugin advertises SYNC + PREVIEW
+        # but if no http_endpoint is set, CoreService's sync_dispatcher
+        # will refuse with BackendNotLive on first call — operator
+        # only sees the failure once the React UI tries to use it.
+        # Log a clear warning instead so the misconfig shows up in
+        # plugin boot logs.
+        http_endpoint = _resolve_http_endpoint()
+        sync_caps = {Capability.SYNC, Capability.PREVIEW}
+        plugin_caps = set(_plugin.capabilities or [])
+        advertised_sync = sync_caps & plugin_caps
+        if advertised_sync and not http_endpoint:
+            advertised = sorted(c.value for c in advertised_sync)
+            logger.warning(
+                "Plugin advertises %s but no http_endpoint resolved — set "
+                "MAGELLON_PLUGIN_HTTP_ENDPOINT (or MAGELLON_PLUGIN_HOST + "
+                "MAGELLON_PLUGIN_PORT) at deploy time. "
+                "CoreService sync calls will 503 with BackendNotLive.",
+                advertised,
+            )
+
         _runner = PluginBrokerRunner(
             plugin=_plugin,
             settings=rmq,
@@ -96,7 +117,7 @@ async def lifespan(app: FastAPI):
             out_queue=rmq.OUT_QUEUE_NAME,
             result_factory=build_pick_result,
             contract=PARTICLE_PICKER,
-            http_endpoint=_resolve_http_endpoint(),
+            http_endpoint=http_endpoint,
         )
         threading.Thread(
             target=_runner.start_blocking,

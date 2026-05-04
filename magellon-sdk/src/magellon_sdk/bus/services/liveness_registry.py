@@ -200,7 +200,13 @@ class PluginLivenessRegistry:
                 # plugins that re-announce without the field.
                 if task_queue is not None:
                     entry.task_queue = task_queue
-                if http_endpoint is not None:
+                # Reviewer J: ``http_endpoint`` accepts explicit None
+                # as "clear" — a plugin upgrade that drops sync support
+                # (had endpoint → no endpoint) MUST flush the cached URL
+                # so sync_dispatcher stops routing to a dead address.
+                # Distinguish None (clear) from missing (pre-PT-1
+                # plugin that never carried the field).
+                if "http_endpoint" in msg.model_fields_set:
                     entry.http_endpoint = http_endpoint
                 if backend_id is not None:
                     entry.backend_id = backend_id

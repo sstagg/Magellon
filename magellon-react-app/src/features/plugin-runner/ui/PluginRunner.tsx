@@ -52,10 +52,16 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
     const submit = useSubmitPluginJob(plugin.plugin_id);
     const cancel = useCancelJob();
 
-    // pp/template-picker uses the preview endpoint on this page — test images
-    // typically don't exist in the DB, so saving to image-metadata or creating
-    // job rows isn't useful. Other plugins keep the job-submit flow.
-    const usePreviewMode = plugin.plugin_id === 'pp/template-picker';
+    // Plugins that advertise Capability.PREVIEW use the preview /
+    // retune endpoint on this page — test images typically don't
+    // exist in the DB, so saving to image-metadata or creating job
+    // rows isn't useful. Pre-fix this branch hard-coded
+    // ``plugin.plugin_id === 'pp/template-picker'``, which silently
+    // disabled preview mode after PI-5 (the broker plugin announces
+    // as ``particle_picking/Template Picker``). Switch to capability
+    // detection so any future plugin that opts into PREVIEW gets
+    // the right UX.
+    const usePreviewMode = (plugin.capabilities ?? []).includes('preview');
 
     const defaults = useMemo(() => buildDefaults(schema), [schema]);
     const [values, setValues] = useState<Record<string, any>>({});

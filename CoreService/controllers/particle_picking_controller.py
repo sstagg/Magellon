@@ -491,7 +491,7 @@ async def template_pick_run_and_save(
         for idx, p in enumerate(raw_particles)
     ]
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     row = await loop.run_in_executor(
         None, _save_particle_picking, db, image_oid, req.ipp_name, points,
     )
@@ -569,32 +569,68 @@ def _resolve_mrc_path(session_name: str, image_name: str) -> str | None:
 
 
 _PP_PLUGIN_OID: UUID | None = None
-_PP_PLUGIN_NAME = "pp"
+_PP_PLUGIN_LEGACY_NAME = "pp"
+# PM1's catalog rows for the picker plugin live under this slug
+# (set by the install pipeline's PluginRepository.upsert_catalog).
+_PP_MANIFEST_PLUGIN_ID = "template-picker"
 
 
 def _get_pp_plugin_oid(db: Session) -> UUID:
-    """Return the Plugin.oid for the 'pp' plugin row, creating if needed.
+    """Return the Plugin.oid that owns ImageMetaData particle-picking rows.
 
-    ``ImageMetaData.plugin_id`` is a FK to ``Plugin.oid`` (UUID). Name
-    kept as 'pp' for back-compat with already-saved rows; rename
-    requires a data migration.
+    Reviewer G — PM1 reconciliation. Resolution order:
+
+      1. PM1 catalog row by ``manifest_plugin_id='template-picker'``
+         (written by the install pipeline; canonical post-PM1).
+      2. Legacy ``name='pp'`` sentinel row (pre-PM1; still in
+         databases that haven't re-installed the picker through
+         the new pipeline).
+      3. Create a new sentinel row if neither exists. New rows use
+         the legacy name='pp' for back-compat with already-saved
+         ImageMetaData rows whose plugin_id FK points there; a
+         future data migration can re-FK to the catalog row and
+         drop this fallback.
+
+    ``ImageMetaData.plugin_id`` is a FK to ``Plugin.oid`` (UUID).
     """
     global _PP_PLUGIN_OID
     if _PP_PLUGIN_OID is not None:
         return _PP_PLUGIN_OID
 
-    existing = (
+    # 1. PM1 catalog row (canonical).
+    catalog_row = (
         db.query(Plugin)
-        .filter(Plugin.name == _PP_PLUGIN_NAME, Plugin.GCRecord.is_(None))
+        .filter(
+            Plugin.manifest_plugin_id == _PP_MANIFEST_PLUGIN_ID,
+            Plugin.GCRecord.is_(None),
+        )
         .first()
     )
-    if existing:
-        _PP_PLUGIN_OID = existing.oid
+    if catalog_row is not None:
+        _PP_PLUGIN_OID = catalog_row.oid
         return _PP_PLUGIN_OID
 
+    # 2. Legacy sentinel row.
+    legacy_row = (
+        db.query(Plugin)
+        .filter(
+            Plugin.name == _PP_PLUGIN_LEGACY_NAME,
+            Plugin.GCRecord.is_(None),
+        )
+        .first()
+    )
+    if legacy_row is not None:
+        _PP_PLUGIN_OID = legacy_row.oid
+        return _PP_PLUGIN_OID
+
+    # 3. Create the legacy sentinel — keeps already-saved
+    # ImageMetaData rows pointing somewhere stable. The install
+    # pipeline will write the canonical catalog row separately
+    # when the picker is re-installed; a follow-up migration can
+    # consolidate.
     row = Plugin(
         oid=uuid.uuid4(),
-        name=_PP_PLUGIN_NAME,
+        name=_PP_PLUGIN_LEGACY_NAME,
         created_date=datetime.now(),
         version="1.0",
     )
@@ -717,7 +753,7 @@ async def _run_batch_job(
                         for idx, p in enumerate(raw_particles)
                     ]
 
-                    loop = asyncio.get_event_loop()
+                    loop = asyncio.get_running_loop()
                     await loop.run_in_executor(
                         None, _save_particle_picking, db, image_oid, req.ipp_name, points,
                     )

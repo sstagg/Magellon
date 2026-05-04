@@ -5,22 +5,35 @@ import { MotionCorResultView } from './MotionCorResultView.tsx';
 import { TemplatePickerResultView } from './TemplatePickerResultView.tsx';
 
 /**
- * Plugin-specific result renderers. The registry is keyed by `plugin_id`
- * (e.g. "ctf/ctffind"). Plugins without a custom renderer fall back to a
- * JSON dump so nothing is ever invisible.
+ * Plugin-specific result renderers, keyed by category. Pre-fix this
+ * was keyed by ``plugin_id`` ("pp/template-picker") which silently
+ * 404'd into the JSON fallback after PI-5 — the broker picker
+ * announces as ``particle_picking/Template Picker``. Categories are
+ * stable across plugin renames; renderer registration is per category.
+ *
+ * Plugins without a custom renderer fall back to a JSON dump so
+ * nothing is ever invisible.
  */
 
 export type ResultRendererProps = { result: any };
 
-const registry: Record<string, React.FC<ResultRendererProps>> = {
-    'ctf/ctffind': CtfResultView,
-    'motioncor/motioncor2': MotionCorResultView,
-    'pp/template-picker': TemplatePickerResultView,
+const _byCategory: Record<string, React.FC<ResultRendererProps>> = {
+    ctf: CtfResultView,
+    motioncor: MotionCorResultView,
+    particle_picking: TemplatePickerResultView,
 };
 
+function _normalizeCategoryKey(s: string | undefined | null): string {
+    return (s ?? '').toLowerCase().replace(/[\s-]+/g, '_');
+}
+
 export const ResultRenderer: React.FC<{ pluginId: string; result: any }> = ({ pluginId, result }) => {
-    const Renderer = registry[pluginId];
     if (!result) return null;
+    // plugin_id is "<category>/<name>" — pull the category prefix.
+    // Normalize so "Particle Picking" / "particle-picking" /
+    // "particle_picking" all resolve to the same key.
+    const [rawCategory] = (pluginId ?? '').split('/', 1);
+    const Renderer = _byCategory[_normalizeCategoryKey(rawCategory)];
     if (Renderer) return <Renderer result={result} />;
     return <JsonFallback result={result} />;
 };

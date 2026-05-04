@@ -142,6 +142,13 @@ class SystemdUserSupervisor:
     drive enable/start/stop/disable transitions.
 
     Subprocess runner is injectable so tests don't shell out.
+
+    Reviewer K: ``systemctl --user`` requires either an active login
+    session OR ``loginctl enable-linger <user>``. Containerized
+    CoreService running as a non-interactive service account has
+    neither — operations fail with "Failed to connect to bus" and
+    the operator's left guessing. :meth:`check_preconditions`
+    surfaces the misconfig with an actionable error.
     """
 
     name = "systemd-user"
@@ -151,6 +158,7 @@ class SystemdUserSupervisor:
         *,
         units_dir: Optional[Path] = None,
         systemctl: str = "systemctl",
+        loginctl: str = "loginctl",
         subprocess_runner: SubprocessRunner = _default_subprocess_runner,
     ) -> None:
         if units_dir is None:
@@ -159,7 +167,77 @@ class SystemdUserSupervisor:
             units_dir = home_config / "systemd" / "user"
         self.units_dir = Path(units_dir)
         self.systemctl = systemctl
+        self.loginctl = loginctl
         self._run = subprocess_runner
+
+    # ------------------------------------------------------------------
+    # Reviewer K: linger precondition probe
+    # ------------------------------------------------------------------
+
+    def check_preconditions(self) -> SupervisorResult:
+        """Verify ``systemctl --user`` is reachable for the current user.
+
+        Returns ``success=False`` with an actionable error when the
+        user has no active session and linger is disabled — the
+        configuration that would later cause every install to fail
+        with an opaque "Failed to connect to bus" message. Callers
+        (the install pipeline factory) call this once at startup.
+        """
+        # ``systemctl --user is-system-running`` is the standard probe;
+        # it returns 0 with ``running``/``degraded`` stdout when the
+        # user manager is alive, non-0 otherwise.
+        probe = self._systemctl("is-system-running")
+        if probe.success:
+            return SupervisorResult(
+                success=True, plugin_id="",
+                logs=f"systemctl --user reachable: {probe.logs}",
+            )
+
+        # Probe failed. Distinguish "user manager not running" from
+        # "user lacks linger" — both surface the same downstream
+        # symptom but the fix differs.
+        username = os.environ.get("USER") or os.environ.get("LOGNAME") or ""
+        linger = self._linger_status(username)
+        if linger is False:
+            return SupervisorResult(
+                success=False, plugin_id="",
+                error=(
+                    "systemctl --user is unreachable AND user "
+                    f"{username!r} has linger disabled. Run "
+                    f"`sudo loginctl enable-linger {username}` so the "
+                    "user manager survives without an active session — "
+                    "required for non-interactive deploys "
+                    "(containerized CoreService, systemd service "
+                    "running as a service account)."
+                ),
+            )
+        return SupervisorResult(
+            success=False, plugin_id="",
+            error=(
+                "systemctl --user is unreachable. Verify the user "
+                f"manager is running (loginctl show-user {username!r}) "
+                "and the deployment has either an active login session "
+                "or linger enabled."
+            ),
+        )
+
+    def _linger_status(self, username: str) -> Optional[bool]:
+        """Return True/False if linger state is determinable, None on
+        loginctl failure."""
+        if not username:
+            return None
+        cmd = [self.loginctl, "show-user", username, "--property=Linger"]
+        try:
+            result = self._run(cmd, capture_output=True, text=True)
+        except Exception:  # noqa: BLE001
+            return None
+        if result.returncode != 0:
+            return None
+        # stdout is "Linger=yes\n" or "Linger=no\n".
+        for line in (result.stdout or "").splitlines():
+            if line.startswith("Linger="):
+                return line.split("=", 1)[1].strip().lower() == "yes"
+        return None
 
     def _unit_path(self, plugin_id: str) -> Path:
         return self.units_dir / _unit_name(plugin_id)

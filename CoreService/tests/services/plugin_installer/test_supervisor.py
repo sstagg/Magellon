@@ -186,3 +186,73 @@ def test_default_supervisor_returns_noop_on_linux_without_systemctl(monkeypatch)
     monkeypatch.setattr("shutil.which", lambda name: None)
     sup = default_supervisor()
     assert isinstance(sup, NoOpSupervisor)
+
+
+# ---------------------------------------------------------------------------
+# Reviewer K: linger precondition
+# ---------------------------------------------------------------------------
+
+
+def _stub_runner_with_responses(responses):
+    """Subprocess runner that returns responses by command-prefix match."""
+    calls: list[list[str]] = []
+
+    def _run(cmd, **_kwargs):
+        calls.append(list(cmd))
+        for prefix, (rc, stdout, stderr) in responses.items():
+            if all(p in cmd for p in prefix):
+                return subprocess.CompletedProcess(
+                    args=cmd, returncode=rc, stdout=stdout, stderr=stderr,
+                )
+        return subprocess.CompletedProcess(
+            args=cmd, returncode=1, stdout="", stderr="no canned response",
+        )
+
+    _run.calls = calls  # type: ignore[attr-defined]
+    return _run
+
+
+def test_check_preconditions_returns_success_when_systemctl_reachable(tmp_path):
+    """Happy path: systemctl --user is-system-running returns 0."""
+    runner = _stub_runner_with_responses({
+        ("is-system-running",): (0, "running\n", ""),
+    })
+    sup = SystemdUserSupervisor(units_dir=tmp_path, subprocess_runner=runner)
+    result = sup.check_preconditions()
+    assert result.success
+    assert "running" in (result.logs or "")
+
+
+def test_check_preconditions_flags_missing_linger_with_actionable_message(
+    tmp_path, monkeypatch,
+):
+    """systemctl probe fails AND linger is disabled → return a
+    success=False with the loginctl enable-linger fix in the
+    error message. Pinned because operators reading the install
+    log shouldn't have to grep for the right command."""
+    monkeypatch.setenv("USER", "magellon")
+    runner = _stub_runner_with_responses({
+        ("is-system-running",): (1, "", "Failed to connect to bus"),
+        ("show-user", "magellon"): (0, "Linger=no\n", ""),
+    })
+    sup = SystemdUserSupervisor(units_dir=tmp_path, subprocess_runner=runner)
+    result = sup.check_preconditions()
+    assert not result.success
+    assert "linger" in (result.error or "").lower()
+    assert "enable-linger magellon" in (result.error or "")
+
+
+def test_check_preconditions_flags_unreachable_systemctl_when_linger_unknown(
+    tmp_path, monkeypatch,
+):
+    """systemctl unreachable + loginctl can't determine linger →
+    actionable but generic error (don't recommend the wrong fix)."""
+    monkeypatch.setenv("USER", "magellon")
+    runner = _stub_runner_with_responses({
+        ("is-system-running",): (1, "", "Failed to connect"),
+        ("show-user", "magellon"): (1, "", "no such user"),
+    })
+    sup = SystemdUserSupervisor(units_dir=tmp_path, subprocess_runner=runner)
+    result = sup.check_preconditions()
+    assert not result.success
+    assert "is unreachable" in (result.error or "")

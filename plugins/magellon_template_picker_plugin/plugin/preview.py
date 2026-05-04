@@ -67,7 +67,9 @@ def _required_field(opts: Dict[str, Any], name: str) -> Any:
 def run_preview(input_data: CryoEmImageInput) -> PickingPreviewResult:
     """Compute correlation maps; cache them; return preview payload."""
     from plugin.algorithm import pick_particles
-    from plugin.compute import _load_mrc, _resolve_template_paths
+    from plugin.compute import (
+        _load_mrc, _load_template_cached, _resolve_template_paths,
+    )
 
     opts = _engine_opts(input_data)
     if not input_data.image_path:
@@ -81,7 +83,10 @@ def run_preview(input_data: CryoEmImageInput) -> PickingPreviewResult:
 
     template_paths = _resolve_template_paths(_required_field(opts, "templates"))
     image = _load_mrc(input_data.image_path)
-    templates = [_load_mrc(p) for p in template_paths]
+    # Templates use the (path, mtime)-keyed cache so a slider tick
+    # that triggers a fresh /preview doesn't re-read template files
+    # off GPFS. Image stays uncached.
+    templates = [_load_template_cached(p) for p in template_paths]
 
     params: Dict[str, Any] = {
         "diameter_angstrom": diameter,

@@ -17,9 +17,11 @@ The plugin's PluginBase subclass must declare ``execute_sync(input)``::
         capabilities = [Capability.SYNC, ...]
 
         def execute_sync(self, input_data: MyInput) -> MyOutput:
-            # Same compute as run() but without the bus runner's
+            # Same compute as execute() but without the bus runner's
             # step-event machinery. For most plugins this is a
-            # one-liner: ``return self.run(input_data)``.
+            # one-liner: ``return self.execute(input_data, reporter=NullReporter())``.
+            # Don't call ``self.run(...)`` — run() re-validates input
+            # against the schema, which the SDK router already did.
             ...
 
 The plugin's ``main.py`` mounts the router::

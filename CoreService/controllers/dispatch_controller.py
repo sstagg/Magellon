@@ -73,7 +73,16 @@ def _resolve_category(name: str) -> CategoryContract:
 
 def _validate_input(contract: CategoryContract, body: Dict[str, Any]) -> None:
     """Validate the body against the category's input_model. Raises
-    422 on invalid input rather than letting Pydantic 500 us."""
+    422 on invalid input rather than letting Pydantic 500 us.
+
+    Note: the plugin's SDK router (``make_sync_router`` /
+    ``make_preview_router``) re-validates against the same model
+    on its side via the patched ``__annotations__`` body parser.
+    The double validation is intentional — CoreService validates
+    early so a bad body never traverses the network; the plugin's
+    router validates so a misbehaving caller (curl, a different
+    CoreService) can't bypass our check. Don't "fix" the duplication.
+    """
     if contract.input_model is None:
         return
     try:
