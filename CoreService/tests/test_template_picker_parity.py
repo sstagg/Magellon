@@ -97,7 +97,7 @@ def test_external_picker_matches_in_process_picker_on_synthetic_micrograph():
     Drift here means the algorithms diverged. Either fix the diff or
     update this test consciously; do not silently relax the assertion.
     """
-    from plugins.pp.template_picker.algorithm import pick_particles as in_process_pick
+    from services.particle_picking.algorithm import pick_particles as in_process_pick
 
     external_pick = _load_external_pick_particles()
 
@@ -131,7 +131,7 @@ def test_external_picker_score_map_matches_in_process_picker():
     bitwise-equivalent. The preview UX (Move 1) depends on the score
     map — drift here would mean preview pixels don't match the actual
     pick output."""
-    from plugins.pp.template_picker.algorithm import pick_particles as in_process_pick
+    from services.particle_picking.algorithm import pick_particles as in_process_pick
 
     external_pick = _load_external_pick_particles()
 

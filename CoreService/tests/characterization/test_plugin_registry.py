@@ -1,8 +1,15 @@
-"""Characterization tests for the plugin registry.
+"""Characterization tests for the in-process plugin registry.
 
-Pins which plugins auto-register and key bits of their PluginInfo so that
-accidental reshuffling of the `plugins/` folder or a breaking PluginInfo
-schema change is caught in CI.
+Post-PI-5 the registry walks ``plugins/`` and finds nothing —
+template-picker moved to ``services/particle_picking/`` (it was the
+only live in-process plugin). Old ``ctf/ctffind`` /
+``motioncor/motioncor2`` stub directories never actually existed in
+the filesystem (CURRENT_ARCHITECTURE.md §3.4 was stale on that
+point).
+
+PI-6 deletes the registry module entirely; this test moves with it.
+Until then it pins the empty-registry state so a stray PluginBase
+subclass doesn't quietly land back in the walk.
 """
 from __future__ import annotations
 
@@ -11,57 +18,14 @@ import pytest
 from plugins.registry import registry
 
 
-EXPECTED_PLUGIN_IDS = {
-    "ctf/ctffind",
-    "motioncor/motioncor2",
-    "pp/template-picker",
-}
-
-
 @pytest.mark.characterization
-def test_registered_plugin_ids():
-    """The exact set of plugin IDs the registry exposes today."""
+def test_registry_is_empty_after_pi5():
+    """Post-PI-5 the in-process registry has no live plugins."""
     ids = {entry.plugin_id for entry in registry.list()}
-    assert ids == EXPECTED_PLUGIN_IDS, (
-        f"Plugin registry drift: got {ids}, expected {EXPECTED_PLUGIN_IDS}. "
-        f"If a plugin was added or removed intentionally, update this test."
+    assert ids == set(), (
+        f"Plugin registry should be empty post-PI-5; found {ids}. "
+        f"If you want to re-enable in-process plugins, revert PI-6 first."
     )
-
-
-@pytest.mark.characterization
-@pytest.mark.parametrize("plugin_id,expected_category,expected_name", [
-    ("ctf/ctffind", "ctf", "ctffind"),
-    ("motioncor/motioncor2", "motioncor", "motioncor2"),
-    ("pp/template-picker", "pp", "template-picker"),
-])
-def test_plugin_entry_category_and_name(plugin_id, expected_category, expected_name):
-    entry = registry.get(plugin_id)
-    assert entry is not None
-    assert entry.category == expected_category
-    assert entry.name == expected_name
-
-
-@pytest.mark.characterization
-@pytest.mark.parametrize("plugin_id", sorted(EXPECTED_PLUGIN_IDS))
-def test_plugin_info_contract(plugin_id):
-    """PluginInfo must expose the fields downstream code relies on."""
-    entry = registry.get(plugin_id)
-    info = entry.instance.get_info()
-    assert info.name == entry.name
-    assert info.version is not None
-    # schema_version is how the frontend decides whether to re-fetch the input
-    # form — it must always be present, even if just "1".
-    assert info.schema_version is not None
-
-
-@pytest.mark.characterization
-@pytest.mark.parametrize("plugin_id", sorted(EXPECTED_PLUGIN_IDS))
-def test_plugin_schemas_are_pydantic_classes(plugin_id):
-    """input_schema() and output_schema() return Pydantic models, not instances."""
-    entry = registry.get(plugin_id)
-    from pydantic import BaseModel
-    assert issubclass(entry.instance.input_schema(), BaseModel)
-    assert issubclass(entry.instance.output_schema(), BaseModel)
 
 
 @pytest.mark.characterization

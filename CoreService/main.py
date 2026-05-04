@@ -53,7 +53,6 @@ from controllers.webapp_controller import webapp_router
 from controllers.webapp_motioncor_controller import motioncor_router
 from controllers.webapp_atlas_controller import atlas_router
 from controllers.webapp_particles_controller import particles_router
-from plugins.pp.controller import pp_router
 from plugins.controller import plugins_router
 
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -313,9 +312,6 @@ app.include_router(schema_router, tags=["Database Schema"])
 # Plugins — simple direct HTTP (no RabbitMQ)
 # Plugin-specific routes (template-pick, preview, retune) registered first so
 # their literal paths match before the generic {plugin_id:path} catch-all.
-app.include_router(pp_router, tags=["Particle Picking"], prefix="/plugins/pp")
-# PI-4: same handlers re-registered at the feature-named prefix. The
-# ``/plugins/pp`` mount stays for back-compat until PI-5 unmounts it.
 app.include_router(
     particle_picking_router,
     tags=["Particle Picking"],

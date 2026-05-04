@@ -18,13 +18,13 @@ import numpy as np
 import pytest
 
 from models.plugins_models import PluginStatus, RecuirementResultEnum
-from plugins.pp.models import (
+from services.particle_picking.models import (
     AngleRange,
     ParticlePick,
     TemplatePickerInput,
     TemplatePickerOutput,
 )
-from plugins.pp.template_picker.algorithm import pick_particles
+from services.particle_picking.algorithm import pick_particles
 
 
 # ---------------------------------------------------------------------------
@@ -301,218 +301,6 @@ class TestAlgorithm:
         assert result["merged_score_map"].dtype == np.float32
 
 
-# ---------------------------------------------------------------------------
-# 3. Plugin lifecycle tests
-# ---------------------------------------------------------------------------
-
-class TestPluginLifecycle:
-    """Test the PluginBase contract via TemplatePickerPlugin."""
-
-    @pytest.fixture()
-    def plugin(self):
-        from plugins.pp.template_picker.service import TemplatePickerPlugin
-        return TemplatePickerPlugin()
-
-    # -- metadata --
-
-    def test_get_info(self, plugin):
-        info = plugin.get_info()
-        assert info.name == "template-picker"
-        assert info.version == "1.0.0"
-        assert info.developer == "Magellon"
-
-    def test_input_schema(self, plugin):
-        assert plugin.input_schema() is TemplatePickerInput
-
-    def test_output_schema(self, plugin):
-        assert plugin.output_schema() is TemplatePickerOutput
-
-    def test_task_category(self, plugin):
-        from models.plugins_models import PARTICLE_PICKING
-        assert plugin.task_category == PARTICLE_PICKING
-
-    # -- initial state --
-
-    def test_initial_status_is_discovered(self, plugin):
-        assert plugin.status == PluginStatus.DISCOVERED
-
-    # -- check_requirements --
-
-    def test_check_requirements_passes(self, plugin):
-        results = plugin.check_requirements()
-        assert len(results) >= 2  # mrcfile + scipy
-        assert all(r.result == RecuirementResultEnum.SUCCESS for r in results)
-        assert plugin.status == PluginStatus.INSTALLED
-
-    def test_check_requirements_reports_conditions(self, plugin):
-        results = plugin.check_requirements()
-        conditions = {r.condition for r in results}
-        assert "mrcfile" in conditions
-        assert "scipy" in conditions
-
-    # -- configure --
-
-    def test_configure_sets_status(self, plugin):
-        plugin.check_requirements()
-        plugin.configure()
-        assert plugin.status == PluginStatus.CONFIGURED
-
-    def test_configure_with_settings(self, plugin):
-        plugin.check_requirements()
-        plugin.configure({"some_key": "some_value"})
-        assert plugin._config["some_key"] == "some_value"
-        assert plugin.status == PluginStatus.CONFIGURED
-
-    # -- setup --
-
-    def test_setup_sets_ready(self, plugin):
-        plugin.check_requirements()
-        plugin.configure()
-        plugin.setup()
-        assert plugin.status == PluginStatus.READY
-
-    # -- teardown --
-
-    def test_teardown_sets_disabled(self, plugin):
-        plugin.check_requirements()
-        plugin.configure()
-        plugin.setup()
-        plugin.teardown()
-        assert plugin.status == PluginStatus.DISABLED
-
-    # -- health_check --
-
-    def test_health_check(self, plugin):
-        health = plugin.health_check()
-        assert health["plugin"] == "template-picker"
-        assert health["version"] == "1.0.0"
-        assert health["status"] == PluginStatus.DISCOVERED.value
-
-    def test_health_check_reflects_status_changes(self, plugin):
-        plugin.check_requirements()
-        plugin.configure()
-        plugin.setup()
-        health = plugin.health_check()
-        assert health["status"] == PluginStatus.READY.value
-
-    # -- full lifecycle with execution --
-
-    @pytest.fixture()
-    def mrc_fixtures(self, tmp_path):
-        pytest.importorskip("mrcfile")
-        image = _make_micrograph_with_particles(size=256, positions=[(128, 128)])
-        template = _make_template(size=64, sigma=8.0)
-        img_path = str(tmp_path / "micrograph.mrc")
-        tmpl_path = str(tmp_path / "template.mrc")
-        _write_mrc(img_path, image)
-        _write_mrc(tmpl_path, template)
-        return img_path, tmpl_path
-
-    def test_full_lifecycle(self, plugin, mrc_fixtures):
-        img_path, tmpl_path = mrc_fixtures
-
-        # 1. check_requirements
-        reqs = plugin.check_requirements()
-        assert plugin.status == PluginStatus.INSTALLED
-
-        # 2. configure
-        plugin.configure()
-        assert plugin.status == PluginStatus.CONFIGURED
-
-        # 3. setup
-        plugin.setup()
-        assert plugin.status == PluginStatus.READY
-
-        # 4. run (pre_execute + execute + post_execute)
-        result = plugin.run(TemplatePickerInput(
-            image_path=img_path,
-            template_paths=[tmpl_path],
-            image_pixel_size=1.0,
-            template_pixel_size=1.0,
-            diameter_angstrom=64.0,
-            threshold=0.1,
-        ))
-        assert isinstance(result, TemplatePickerOutput)
-        assert plugin.status == PluginStatus.COMPLETED
-
-        # 5. teardown
-        plugin.teardown()
-        assert plugin.status == PluginStatus.DISABLED
-
-    def test_run_accepts_raw_dict(self, plugin, mrc_fixtures):
-        img_path, tmpl_path = mrc_fixtures
-        plugin.check_requirements()
-        plugin.configure()
-        plugin.setup()
-
-        result = plugin.run({
-            "image_path": img_path,
-            "template_paths": [tmpl_path],
-            "image_pixel_size": 1.0,
-            "template_pixel_size": 1.0,
-            "diameter_angstrom": 64.0,
-            "threshold": 0.1,
-        })
-        assert isinstance(result, TemplatePickerOutput)
-
-    def test_run_sets_error_on_failure(self, plugin):
-        plugin.check_requirements()
-        plugin.configure()
-        plugin.setup()
-
-        with pytest.raises(Exception):
-            plugin.run(TemplatePickerInput(
-                image_path="/nonexistent/image.mrc",
-                template_paths=["/nonexistent/template.mrc"],
-                image_pixel_size=1.0,
-                template_pixel_size=1.0,
-                diameter_angstrom=64.0,
-            ))
-        assert plugin.status == PluginStatus.ERROR
-
-    def test_run_validates_input_dict(self, plugin):
-        plugin.check_requirements()
-        plugin.configure()
-        plugin.setup()
-
-        with pytest.raises(Exception):
-            plugin.run({"image_path": "x.mrc"})  # missing required fields
-
-    def test_run_recovers_after_error(self, plugin, mrc_fixtures):
-        """After an error, the plugin can still accept new work."""
-        img_path, tmpl_path = mrc_fixtures
-        plugin.check_requirements()
-        plugin.configure()
-        plugin.setup()
-
-        # First run fails
-        with pytest.raises(Exception):
-            plugin.run(TemplatePickerInput(
-                image_path="/nonexistent.mrc",
-                template_paths=["/nonexistent.mrc"],
-                image_pixel_size=1.0,
-                template_pixel_size=1.0,
-                diameter_angstrom=64.0,
-            ))
-        assert plugin.status == PluginStatus.ERROR
-
-        # Second run succeeds
-        result = plugin.run(TemplatePickerInput(
-            image_path=img_path,
-            template_paths=[tmpl_path],
-            image_pixel_size=1.0,
-            template_pixel_size=1.0,
-            diameter_angstrom=64.0,
-            threshold=0.1,
-        ))
-        assert plugin.status == PluginStatus.COMPLETED
-        assert isinstance(result, TemplatePickerOutput)
-
-
-# ---------------------------------------------------------------------------
-# 4. Service layer tests (with real MRC files on disk)
-# ---------------------------------------------------------------------------
-
 class TestService:
     """Integration tests using temp MRC files."""
 
@@ -532,7 +320,7 @@ class TestService:
         return img_path, tmpl_path, tmp_path
 
     def test_run_template_picker(self, mrc_fixtures):
-        from plugins.pp.template_picker.service import run_template_picker
+        from services.particle_picking.compute import run_template_picker
 
         img_path, tmpl_path, tmp_path = mrc_fixtures
         out_dir = str(tmp_path / "output")
@@ -562,7 +350,7 @@ class TestService:
         assert os.path.isfile(os.path.join(out_dir, "run_summary.json"))
 
     def test_run_with_binning(self, mrc_fixtures):
-        from plugins.pp.template_picker.service import run_template_picker
+        from services.particle_picking.compute import run_template_picker
 
         img_path, tmpl_path, _ = mrc_fixtures
 
@@ -581,7 +369,7 @@ class TestService:
         assert result.target_pixel_size == 2.0
 
     def test_run_with_invert(self, mrc_fixtures):
-        from plugins.pp.template_picker.service import run_template_picker
+        from services.particle_picking.compute import run_template_picker
 
         img_path, tmpl_path, _ = mrc_fixtures
 
@@ -599,7 +387,7 @@ class TestService:
         assert isinstance(result, TemplatePickerOutput)
 
     def test_file_not_found(self):
-        from plugins.pp.template_picker.service import run_template_picker
+        from services.particle_picking.compute import run_template_picker
 
         inp = TemplatePickerInput(
             image_path="/nonexistent/image.mrc",
@@ -613,7 +401,7 @@ class TestService:
             run_template_picker(inp)
 
     def test_output_particles_are_valid_pydantic(self, mrc_fixtures):
-        from plugins.pp.template_picker.service import run_template_picker
+        from services.particle_picking.compute import run_template_picker
 
         img_path, tmpl_path, _ = mrc_fixtures
 
@@ -675,7 +463,7 @@ class TestEndpoint:
             "threshold": 0.1,
         }
 
-        response = client.post("/plugins/pp/template-pick", json=payload)
+        response = client.post("/particle-picking/", json=payload)
         assert response.status_code == 200
 
         data = response.json()
@@ -693,7 +481,7 @@ class TestEndpoint:
             "diameter_angstrom": 100.0,
         }
 
-        response = client.post("/plugins/pp/template-pick", json=payload)
+        response = client.post("/particle-picking/", json=payload)
         assert response.status_code == 422
 
     def test_endpoint_rejects_extra_fields(self, client):
@@ -706,7 +494,7 @@ class TestEndpoint:
             "unknown_field": "should fail",
         }
 
-        response = client.post("/plugins/pp/template-pick", json=payload)
+        response = client.post("/particle-picking/", json=payload)
         assert response.status_code == 422
 
     def test_endpoint_file_not_found(self, client):
@@ -718,27 +506,28 @@ class TestEndpoint:
             "diameter_angstrom": 100.0,
         }
 
-        response = client.post("/plugins/pp/template-pick", json=payload)
+        response = client.post("/particle-picking/", json=payload)
         assert response.status_code in (404, 500)
 
     # -- lifecycle endpoints --
 
     def test_info_endpoint(self, client):
-        response = client.get("/plugins/pp/template-pick/info")
+        response = client.get("/particle-picking/info")
         assert response.status_code == 200
         data = response.json()
         assert data["name"] == "template-picker"
         assert data["version"] == "1.0.0"
 
     def test_health_endpoint(self, client):
-        response = client.get("/plugins/pp/template-pick/health")
+        response = client.get("/particle-picking/health")
         assert response.status_code == 200
         data = response.json()
-        assert data["plugin"] == "template-picker"
-        assert "status" in data
+        # Post-PI-5 health is a flat ``{"status": "ok"}``: there's no
+        # PluginBase shell to ask for plugin name.
+        assert data["status"] == "ok"
 
     def test_requirements_endpoint(self, client):
-        response = client.get("/plugins/pp/template-pick/requirements")
+        response = client.get("/particle-picking/requirements")
         assert response.status_code == 200
         data = response.json()
         assert len(data) >= 2
@@ -747,7 +536,7 @@ class TestEndpoint:
         assert "scipy" in conditions
 
     def test_input_schema_endpoint(self, client):
-        response = client.get("/plugins/pp/template-pick/schema/input")
+        response = client.get("/particle-picking/schema/input")
         assert response.status_code == 200
         schema = response.json()
         assert schema["type"] == "object"
@@ -755,7 +544,7 @@ class TestEndpoint:
         assert "template_paths" in schema["properties"]
 
     def test_output_schema_endpoint(self, client):
-        response = client.get("/plugins/pp/template-pick/schema/output")
+        response = client.get("/particle-picking/schema/output")
         assert response.status_code == 200
         schema = response.json()
         assert schema["type"] == "object"
@@ -797,20 +586,20 @@ class TestAsyncEndpoint:
             "threshold": 0.1,
         }
 
-        response = client.post("/plugins/pp/template-pick-async", json=payload)
+        response = client.post("/particle-picking/async", json=payload)
         assert response.status_code == 200
         data = response.json()
         assert "job_id" in data
         assert data["status"] == "queued"
 
     def test_jobs_list_endpoint(self, client):
-        response = client.get("/plugins/pp/jobs")
+        response = client.get("/particle-picking/jobs")
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)
 
     def test_job_detail_not_found(self, client):
-        response = client.get("/plugins/pp/jobs/nonexistent-id")
+        response = client.get("/particle-picking/jobs/nonexistent-id")
         assert response.status_code == 404
 
     def test_async_pick_creates_job_in_store(self, client, mrc_files):
@@ -825,18 +614,19 @@ class TestAsyncEndpoint:
             "threshold": 0.1,
         }
 
-        resp = client.post("/plugins/pp/template-pick-async", json=payload)
+        resp = client.post("/particle-picking/async", json=payload)
         job_id = resp.json()["job_id"]
 
         # The job should exist in the jobs list
-        detail = client.get(f"/plugins/pp/jobs/{job_id}")
+        detail = client.get(f"/particle-picking/jobs/{job_id}")
         assert detail.status_code == 200
         job = detail.json()
-        assert job["id"] == job_id
+        # JobManager envelope uses job_id (not id) and doesn't carry a
+        # type field. Status: pending/queued/running/completed depending
+        # on timing.
+        assert job["job_id"] == job_id
         assert job["name"] == "Particle Picking"
-        assert job["type"] == "picking"
-        # Status may be queued or running depending on timing
-        assert job["status"] in ("queued", "running", "completed")
+        assert job["status"] in ("pending", "queued", "running", "completed")
 
 
 # ---------------------------------------------------------------------------
@@ -869,7 +659,7 @@ class TestPreviewRetune:
 
     def test_preview_returns_preview_id_and_particles(self, client, mrc_files):
         img_path, tmpl_path = mrc_files
-        resp = client.post("/plugins/pp/template-pick/preview", json={
+        resp = client.post("/particle-picking/preview", json={
             "image_path": img_path,
             "template_paths": [tmpl_path],
             "image_pixel_size": 1.0,
@@ -889,7 +679,7 @@ class TestPreviewRetune:
         img_path, tmpl_path = mrc_files
 
         # Get preview
-        resp = client.post("/plugins/pp/template-pick/preview", json={
+        resp = client.post("/particle-picking/preview", json={
             "image_path": img_path,
             "template_paths": [tmpl_path],
             "image_pixel_size": 1.0,
@@ -901,21 +691,21 @@ class TestPreviewRetune:
         initial_count = resp.json()["num_particles"]
 
         # Retune with very high threshold — should find fewer particles
-        resp2 = client.post(f"/plugins/pp/template-pick/preview/{preview_id}/retune", json={
+        resp2 = client.post(f"/particle-picking/preview/{preview_id}/retune", json={
             "threshold": 0.99,
         })
         assert resp2.status_code == 200
         assert resp2.json()["num_particles"] <= initial_count
 
         # Retune with very low threshold — should find more particles
-        resp3 = client.post(f"/plugins/pp/template-pick/preview/{preview_id}/retune", json={
+        resp3 = client.post(f"/particle-picking/preview/{preview_id}/retune", json={
             "threshold": 0.01,
         })
         assert resp3.status_code == 200
         assert resp3.json()["num_particles"] >= resp2.json()["num_particles"]
 
     def test_retune_not_found(self, client):
-        resp = client.post("/plugins/pp/template-pick/preview/nonexistent/retune", json={
+        resp = client.post("/particle-picking/preview/nonexistent/retune", json={
             "threshold": 0.5,
         })
         assert resp.status_code == 404
@@ -923,7 +713,7 @@ class TestPreviewRetune:
     def test_preview_delete(self, client, mrc_files):
         img_path, tmpl_path = mrc_files
 
-        resp = client.post("/plugins/pp/template-pick/preview", json={
+        resp = client.post("/particle-picking/preview", json={
             "image_path": img_path,
             "template_paths": [tmpl_path],
             "image_pixel_size": 1.0,
@@ -934,18 +724,18 @@ class TestPreviewRetune:
         preview_id = resp.json()["preview_id"]
 
         # Delete
-        del_resp = client.delete(f"/plugins/pp/template-pick/preview/{preview_id}")
+        del_resp = client.delete(f"/particle-picking/preview/{preview_id}")
         assert del_resp.status_code == 200
 
         # Retune should now 404
-        resp2 = client.post(f"/plugins/pp/template-pick/preview/{preview_id}/retune", json={
+        resp2 = client.post(f"/particle-picking/preview/{preview_id}/retune", json={
             "threshold": 0.5,
         })
         assert resp2.status_code == 404
 
     def test_score_map_is_valid_base64_png(self, client, mrc_files):
         img_path, tmpl_path = mrc_files
-        resp = client.post("/plugins/pp/template-pick/preview", json={
+        resp = client.post("/particle-picking/preview", json={
             "image_path": img_path,
             "template_paths": [tmpl_path],
             "image_pixel_size": 1.0,
