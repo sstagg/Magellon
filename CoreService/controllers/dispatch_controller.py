@@ -91,6 +91,15 @@ def _http_from_dispatch_error(exc: Exception) -> HTTPException:
     return HTTPException(status_code=500, detail=str(exc))
 
 
+# Per-verb timeouts. Interactive retune is sub-100ms typical; cap at
+# 5s so a hung plugin surfaces fast. Preview is the cold-start
+# computation (load image, FFT correlation) — needs more headroom.
+# Run/sync is the full job; keep the dispatcher's general default.
+_TIMEOUT_RETUNE_S = 5.0
+_TIMEOUT_PREVIEW_S = 30.0
+_TIMEOUT_RUN_S = 60.0
+
+
 async def _dispatch_off_thread(
     category: str,
     capability: Capability,
@@ -99,6 +108,7 @@ async def _dispatch_off_thread(
     *,
     body: Optional[Dict[str, Any]] = None,
     target_backend: Optional[str] = None,
+    timeout_seconds: float = _TIMEOUT_RUN_S,
 ) -> Dict[str, Any]:
     """sync_dispatcher uses blocking httpx; run in the executor so we
     don't stall the event loop on a slow plugin."""
@@ -109,6 +119,7 @@ async def _dispatch_off_thread(
             lambda: dispatch_capability(
                 category, capability, method, path,
                 body=body, target_backend=target_backend,
+                timeout_seconds=timeout_seconds,
             ),
         )
     except (BackendNotLive, CapabilityMissing, PluginCallFailed) as exc:
@@ -156,6 +167,7 @@ async def dispatch_preview(
     return await _dispatch_off_thread(
         _normalize_name(contract.category.name), Capability.PREVIEW,
         "POST", "/preview", body=body, target_backend=target_backend,
+        timeout_seconds=_TIMEOUT_PREVIEW_S,
     )
 
 
@@ -174,6 +186,7 @@ async def dispatch_retune(
         _normalize_name(contract.category.name), Capability.PREVIEW,
         "POST", f"/preview/{preview_id}/retune",
         body=body, target_backend=target_backend,
+        timeout_seconds=_TIMEOUT_RETUNE_S,
     )
 
 
@@ -191,7 +204,85 @@ async def dispatch_preview_delete(
         _normalize_name(contract.category.name), Capability.PREVIEW,
         "DELETE", f"/preview/{preview_id}",
         target_backend=target_backend,
+        timeout_seconds=_TIMEOUT_RETUNE_S,
     )
+
+
+# ---------------------------------------------------------------------------
+# Capability introspection
+# ---------------------------------------------------------------------------
+
+
+@dispatch_router.get(
+    "/capabilities",
+    summary="Per-category live capability map",
+)
+async def list_dispatch_capabilities():
+    """For each known category, list the capabilities its
+    operator-pinned default plugin currently advertises plus whether
+    the plugin announced an ``http_endpoint`` (sync calls won't reach
+    it without one).
+
+    Used by the React UI to decide which controls to render: show
+    the preview slider only when the default plugin advertises
+    ``Capability.PREVIEW`` AND has an ``http_endpoint``; hide the
+    sync run button when neither ``Capability.SYNC`` nor a bus
+    consumer is reachable.
+    """
+    from core.plugin_liveness_registry import get_registry as get_liveness_registry
+    from core.plugin_state import get_state_store
+
+    state = get_state_store()
+    live_by_category: Dict[str, list] = {}
+    for entry in get_liveness_registry().list_live():
+        cat = _normalize_name(entry.category or "")
+        live_by_category.setdefault(cat, []).append(entry)
+
+    out = []
+    for contract in CATEGORIES.values():
+        cat_key = _normalize_name(contract.category.name)
+        default_id = state.get_default(cat_key)
+        live = live_by_category.get(cat_key, [])
+
+        # Pick the operator-pinned default if it's live; otherwise the
+        # first live candidate in the category. Same priority sync_dispatcher
+        # uses for resolution (matches what an actual call would do).
+        chosen = None
+        if default_id:
+            for entry in live:
+                if entry.plugin_id == default_id:
+                    chosen = entry
+                    break
+        if chosen is None and live:
+            chosen = live[0]
+
+        capabilities: list = []
+        http_endpoint = None
+        plugin_id = None
+        if chosen is not None:
+            plugin_id = chosen.plugin_id
+            http_endpoint = chosen.http_endpoint
+            if chosen.manifest is not None:
+                capabilities = [
+                    c.value for c in (chosen.manifest.capabilities or [])
+                ]
+
+        out.append({
+            "category": cat_key,
+            "category_display_name": contract.category.name,
+            "default_plugin_id": default_id,
+            "live_plugin_id": plugin_id,
+            "live_plugin_count": len(live),
+            "capabilities": capabilities,
+            "http_endpoint": http_endpoint,
+            "supports_sync": (
+                Capability.SYNC.value in capabilities and bool(http_endpoint)
+            ),
+            "supports_preview": (
+                Capability.PREVIEW.value in capabilities and bool(http_endpoint)
+            ),
+        })
+    return {"categories": out}
 
 
 __all__ = ["dispatch_router"]

@@ -187,3 +187,137 @@ def test_dispatch_preserves_upstream_status_on_plugin_call_failed(client):
         )
     assert resp.status_code == 404
     assert resp.json()["detail"] == {"detail": "preview expired"}
+
+
+# ---------------------------------------------------------------------------
+# Per-call timeouts
+# ---------------------------------------------------------------------------
+
+
+def test_retune_uses_short_timeout(client):
+    """Retune is interactive (sub-100ms typical). 60s default would
+    let a hung plugin block a UI tick. Pin the short timeout."""
+    with patch(
+        "controllers.dispatch_controller.dispatch_capability",
+        return_value={"particles": [], "num_particles": 0},
+    ) as mock_dispatch:
+        client.post(
+            "/dispatch/particle_picking/preview/p-1/retune",
+            json={"threshold": 0.5},
+        )
+    assert mock_dispatch.call_args.kwargs["timeout_seconds"] == 5.0
+
+
+def test_preview_uses_medium_timeout(client):
+    with patch(
+        "controllers.dispatch_controller.dispatch_capability",
+        return_value={
+            "preview_id": "p-1", "particles": [], "num_particles": 0,
+            "num_templates": 1, "target_pixel_size": 1.0, "image_binning": 1,
+        },
+    ) as mock_dispatch:
+        client.post("/dispatch/particle_picking/preview", json=_VALID_BODY)
+    assert mock_dispatch.call_args.kwargs["timeout_seconds"] == 30.0
+
+
+def test_run_uses_full_timeout(client):
+    with patch(
+        "controllers.dispatch_controller.dispatch_capability",
+        return_value={},
+    ) as mock_dispatch:
+        client.post("/dispatch/particle_picking/run", json=_VALID_BODY)
+    assert mock_dispatch.call_args.kwargs["timeout_seconds"] == 60.0
+
+
+# ---------------------------------------------------------------------------
+# /dispatch/capabilities introspection
+# ---------------------------------------------------------------------------
+
+
+def test_capabilities_lists_every_known_category(client):
+    """Every CategoryContract is exposed, even ones without a live
+    plugin (so the React UI can render a "no backend" state)."""
+    with patch(
+        "core.plugin_liveness_registry.get_registry",
+        return_value=type("R", (), {"list_live": lambda self: []})(),
+    ), patch(
+        "core.plugin_state.get_state_store",
+        return_value=type("S", (), {"get_default": lambda self, c: None})(),
+    ):
+        resp = client.get("/dispatch/capabilities")
+    assert resp.status_code == 200
+    cats = {c["category"] for c in resp.json()["categories"]}
+    # PARTICLE_PICKING + the rest of the canonical catalog.
+    assert "particle_picking" in cats
+
+
+def test_capabilities_reports_supports_flags_from_live_plugin():
+    """A category's supports_sync / supports_preview flips True only
+    when the default plugin both advertises the capability AND
+    announced an http_endpoint. Pinned because either alone isn't
+    actionable from CoreService."""
+    from controllers.dispatch_controller import dispatch_router
+
+    # Synthetic live entry advertising SYNC + PREVIEW.
+    live_entry = type("E", (), {
+        "plugin_id": "Template Picker",
+        "category": "particle_picking",
+        "http_endpoint": "http://plugin.test:8000",
+        "manifest": type("M", (), {
+            "capabilities": [Capability.SYNC, Capability.PREVIEW],
+        })(),
+    })()
+
+    fake_registry = type("R", (), {"list_live": lambda self: [live_entry]})()
+    fake_state = type("S", (), {
+        "get_default": lambda self, c: "Template Picker" if c == "particle_picking" else None,
+    })()
+
+    app = FastAPI()
+    app.include_router(dispatch_router, prefix="/dispatch")
+    test_client = TestClient(app)
+
+    with patch(
+        "core.plugin_liveness_registry.get_registry",
+        return_value=fake_registry,
+    ), patch(
+        "core.plugin_state.get_state_store",
+        return_value=fake_state,
+    ):
+        body = test_client.get("/dispatch/capabilities").json()
+
+    pp = next(c for c in body["categories"] if c["category"] == "particle_picking")
+    assert pp["supports_sync"] is True
+    assert pp["supports_preview"] is True
+    assert pp["http_endpoint"] == "http://plugin.test:8000"
+    assert pp["live_plugin_id"] == "Template Picker"
+
+
+def test_capabilities_supports_flags_false_when_http_endpoint_missing():
+    """A plugin that advertises PREVIEW but didn't announce
+    http_endpoint can't be reached over HTTP — supports_preview must
+    report False so the UI doesn't render preview controls that 503."""
+    from controllers.dispatch_controller import dispatch_router
+
+    live_entry = type("E", (), {
+        "plugin_id": "p",
+        "category": "particle_picking",
+        "http_endpoint": None,  # plugin advertises PREVIEW but no HTTP
+        "manifest": type("M", (), {"capabilities": [Capability.PREVIEW]})(),
+    })()
+
+    app = FastAPI()
+    app.include_router(dispatch_router, prefix="/dispatch")
+    test_client = TestClient(app)
+
+    with patch(
+        "core.plugin_liveness_registry.get_registry",
+        return_value=type("R", (), {"list_live": lambda self: [live_entry]})(),
+    ), patch(
+        "core.plugin_state.get_state_store",
+        return_value=type("S", (), {"get_default": lambda self, c: None})(),
+    ):
+        body = test_client.get("/dispatch/capabilities").json()
+
+    pp = next(c for c in body["categories"] if c["category"] == "particle_picking")
+    assert pp["supports_preview"] is False

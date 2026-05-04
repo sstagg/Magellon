@@ -191,7 +191,53 @@ plugin HTTP surface (see §4.2).
 
 ---
 
-## 4. Two parallel plugin architectures
+## 4. Plugin architecture
+
+**2026-05-04 update (PI-5/PI-6 + PT-1..PT-6).** Architecture B (in-process
+`PluginBase` + registry inside CoreService) is **retired**. Every plugin
+in the system is now an external broker plugin under `Magellon/plugins/`,
+running as its own FastAPI host with a `PluginBrokerRunner` consuming
+from RMQ. Each plugin can opt into a sync HTTP surface via
+**capabilities**:
+
+- `Capability.SYNC` — plugin exposes `POST /execute` (the SDK's
+  `make_sync_router(plugin)` mounts it from the same FastAPI app
+  that hosts the bus consumer).
+- `Capability.PREVIEW` — plugin exposes `POST /preview`,
+  `POST /preview/{id}/retune`, `DELETE /preview/{id}` for the
+  interactive preview-and-retune loop. Useful when a UI feature
+  needs sub-second response (the picker's threshold slider) and
+  RMQ round-trip is too expensive.
+
+CoreService routes sync calls via `services/sync_dispatcher.py`.
+Resolution priority:
+
+1. `target_backend` pin (caller asked for a specific backend).
+2. Operator-pinned per-category default (`PluginCategoryDefault`
+   table from PM1).
+3. First live plugin in the category advertising the capability.
+
+Two HTTP surfaces consume the dispatcher:
+
+- **Feature-named** routes for categories that need CoreService-side
+  orchestration (DB persistence, batch loops, COCO export):
+  `/particle-picking/preview`, `/particle-picking/run-and-save`, etc.
+  Particle picking is the canonical example.
+- **Generic** `/dispatch/{category}/{run|preview|preview/{id}/retune}`
+  for any category with a sync-capable default plugin. New
+  categories adopting SYNC/PREVIEW reach the generic shape with zero
+  CoreService code.
+
+The plugin's announce envelope carries an `http_endpoint` (PT-1) so
+sync_dispatcher can reach the plugin's FastAPI without bus
+round-trip. Plugins that don't advertise SYNC/PREVIEW announce
+`http_endpoint=None`; sync_dispatcher refuses to route to them
+(correct: don't pretend a plugin reachable only on localhost is
+reachable from CoreService).
+
+`GET /dispatch/capabilities` returns a per-category map of
+`{supports_sync, supports_preview, live_plugin_id, http_endpoint}`
+so the React UI can show/hide controls without round-tripping.
 
 ### 4.1 Architecture A — external RabbitMQ plugins (`Magellon/plugins/`)
 
@@ -319,57 +365,49 @@ wiring (broker host, credentials); unification of that layer is
 tracked as Track B PR G.3 (`PluginConfigResolver`) in
 `IMPLEMENTATION_PLAN.md`.
 
-### 4.2 Architecture B — in-process `PluginBase` + registry (`CoreService/plugins/`)
+### 4.2 ~~Architecture B — in-process `PluginBase` + registry~~ — RETIRED
 
-The newer architecture runs plugins inside the CoreService process.
+**Removed 2026-05-04 (PI-5/PI-6 + PI-6.1).** The in-process plugin
+runtime that lived under `CoreService/plugins/` (PluginBase, the
+filesystem walk that auto-discovered service.py files, the
+`/plugins/{id}/jobs` HTTP surface that ran `plugin.run()` in an
+executor) is gone. The last in-process plugin
+(`pp/template-picker`) became a plain particle-picking feature
+controller that delegates compute to the external
+`magellon_template_picker_plugin` over the sync transport. See
+the rollout narrative in
+`memory/project_extraction_classification_rollout.md` and the
+PI-* / PT-* commits 2026-05-03..05-04.
 
-- **`plugins/base.py`** — `PluginBase(ABC, Generic[InputT, OutputT])`. Every
-  plugin declares typed Pydantic input/output schemas and implements
-  `execute()`. The class enforces a lifecycle
-  `DISCOVERED → INSTALLED → CONFIGURED → READY → RUNNING → COMPLETED/ERROR/DISABLED`.
-  `run()` is the non-virtual entry: validate input → `pre_execute` →
-  `execute` → `post_execute` → validate output. Plugins expose
-  `task_category: ClassVar[TaskCategory]` for routing.
-- **`plugins/progress.py`** — `ProgressReporter` Protocol + `NullReporter`
-  (out-of-job) and `JobReporter` (in-job). `JobReporter.report()` persists
-  progress via `JobService`, emits `emit_job_update` / `emit_log` onto
-  Socket.IO via `asyncio.run_coroutine_threadsafe`, deduplicates identical
-  percents, and raises `JobCancelledError` at the next checkpoint when the
-  job has been marked cancelled. This is the **only** cooperative-cancel
-  path in the repo.
-- **`plugins/controller.py`** — generic HTTP router:
-  ```
-  GET    /plugins/                        list plugins
-  GET    /plugins/{id}/info|health|requirements
-  GET    /plugins/{id}/schema/input|output
-  POST   /plugins/{id}/jobs               submit one
-  POST   /plugins/{id}/jobs/batch         fan out over N inputs
-  GET    /plugins/jobs                    list (optional filter)
-  GET    /plugins/jobs/{job_id}           detail
-  DELETE /plugins/jobs/{job_id}           cooperative cancel
-  ```
-  `_run_generic_job` runs `plugin.run()` in `loop.run_in_executor`, pushes
-  progress frames over Socket.IO, and catches `JobCancelledError` to emit
-  a cancelled envelope.
+What survived from the old `plugins/` namespace:
+- `plugins/progress.py` — `JobReporter` + `JobCancelledError` are
+  used by the particle-picking controller and any future feature
+  controller for the Socket.IO progress path. Not plugin-runtime
+  code anymore; just CoreService progress utilities that happen
+  to live there.
+- `plugins/controller.py` — the plugin-manager HTTP surface
+  (`/plugins/`, `/plugins/db`, `/plugins/{id}/status`, etc.).
+  The `/plugins/{id}/jobs` route now dispatches purely via the
+  bus (no in-process branch).
 
-**Client visibility.** This path streams progress. The UI renders it for
-particle-picking today.
+### 4.3 Capability layer (PT-1..PT-6)
 
-### 4.3 Why both exist
+The single architecture is **Architecture A** with a capability-
+based opt-in for sync HTTP. CoreService's `services/sync_dispatcher.py`
+routes calls to a plugin's `http_endpoint` based on what the plugin
+declared. Because the SDK's `make_sync_router` / `make_preview_router`
+helpers wire the contract endpoints, the plugin author writes
+`execute_sync()` / `preview()` / `retune()` once and gets the right
+URLs for free.
 
-Architecture A predates the decision to put Magellon on a single control
-plane. Architecture B is the newer design where the next wave of plugins
-will land. Neither is going away today because:
+Categories that need richer feature controllers (DB persistence,
+batch loops, etc.) keep their feature-named URLs
+(`/particle-picking/*`); the rest reach the generic
+`/dispatch/{category}/*`. Both share one dispatcher.
 
-- A handles GPU-heavy steps (MotionCor, eventually Topaz/DeepPicker)
-  where out-of-process isolation is convenient.
-- B handles CPU/IO-bound steps and anything that benefits from living in
-  the same process as the ORM and Socket.IO.
-
-The v1 plan in `IMPLEMENTATION_PLAN.md` introduces a `JobManager` seam
-such that both architectures call the same state writer, and a plugin
-SDK (`magellon-sdk`) with shared `TaskDispatcher` / `ProgressReporter`
-contracts that work in either location.
+The bus path (RMQ for batch / async / step-event-emitting work)
+stays the canonical transport. Sync is purely additive — a plugin
+can serve both transports from one FastAPI app.
 
 ---
 
