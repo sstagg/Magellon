@@ -103,6 +103,12 @@ class DirectorySettings(BaseModel):
     THUMBNAILS_DIR: Optional[str] = None
     MAGELLON_JOBS_DIR: Optional[str] = None
     JOBS_DIR: Optional[str] = None
+    PLUGINS_DIR: Optional[str] = None
+    """Where the install pipeline lays out per-plugin uv venvs and
+    docker container state files. Each plugin gets a
+    ``<PLUGINS_DIR>/<plugin_id>/`` subdirectory. Relative paths
+    resolve under MAGELLON_GPFS_PATH (same convention as
+    MAGELLON_HOME_DIR / MAGELLON_JOBS_DIR)."""
     ATLAS_SUB_URL: Optional[str] = None
     CTF_SUB_URL: Optional[str] = None
     FAO_SUB_URL: Optional[str] = None
@@ -118,7 +124,7 @@ class DirectorySettings(BaseModel):
         # gpfs root in three places. Absolute values pass through.
         gpfs = self.MAGELLON_GPFS_PATH
         if gpfs:
-            for attr in ("MAGELLON_HOME_DIR", "MAGELLON_JOBS_DIR"):
+            for attr in ("MAGELLON_HOME_DIR", "MAGELLON_JOBS_DIR", "PLUGINS_DIR"):
                 value = getattr(self, attr)
                 if value and not os.path.isabs(value) and not (len(value) > 1 and value[1] == ":"):
                     object.__setattr__(self, attr, os.path.join(gpfs, value).replace("\\", "/"))

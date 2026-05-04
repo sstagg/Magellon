@@ -30,12 +30,27 @@ _RUNTIME: Optional[RuntimeConfig] = None
 
 
 def _default_plugins_dir() -> Path:
-    """Where installed plugins live on disk. Operator-overridable
-    via env / settings later (TODO when settings shape is fluent)."""
+    """Where installed plugins live on disk.
+
+    Resolution order (first non-empty wins):
+      1. ``MAGELLON_PLUGINS_INSTALL_DIR`` env var — operational override.
+      2. ``app_settings.directory_settings.PLUGINS_DIR`` — fluent config
+         (configs/app_settings_*.yaml). Relative paths resolve under
+         MAGELLON_GPFS_PATH at load time.
+      3. ``/var/magellon/plugins/installed`` — last-resort default.
+    """
     import os
-    return Path(
-        os.environ.get("MAGELLON_PLUGINS_INSTALL_DIR", "/var/magellon/plugins/installed")
-    )
+    env_override = os.environ.get("MAGELLON_PLUGINS_INSTALL_DIR")
+    if env_override:
+        return Path(env_override)
+    try:
+        from config import app_settings
+        configured = getattr(app_settings.directory_settings, "PLUGINS_DIR", None)
+        if configured:
+            return Path(configured)
+    except Exception:  # noqa: BLE001 — settings unavailable in some test paths
+        pass
+    return Path("/var/magellon/plugins/installed")
 
 
 def _default_docker_network() -> Optional[str]:

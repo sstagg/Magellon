@@ -125,6 +125,9 @@ directory_settings:
   # Relative — resolved against MAGELLON_GPFS_PATH at config load.
   MAGELLON_HOME_DIR: home
   MAGELLON_JOBS_DIR: jobs
+  # Where the v1 install pipeline lays out per-plugin uv venvs / docker
+  # container state. Relative resolves under MAGELLON_GPFS_PATH.
+  PLUGINS_DIR: plugins
   NFS_ROOT_DIR: /gpfs
   IMAGE_ROOT_URL: http://localhost/cdn/
   IMAGE_SUB_URL: images/
