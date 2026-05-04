@@ -1,30 +1,38 @@
-"""Particle-picking HTTP surface (PI-4 created; PI-5 cut over).
+"""Particle-picking HTTP surface — thin facade over the plugin (PT-5).
 
-Lifted from the deleted ``plugins.pp.controller`` module. Same
-handler bodies, same TTL cache, same DB writes — re-rooted at
-``/particle-picking/*`` with all imports flipped to
-``services.particle_picking.*``.
+Pre-PT-5 this controller carried 600+ lines of compute logic — the
+FFT correlation algorithm + the TTLCache + every per-image
+preprocessing step. Post-PT-5 the algorithm and cache live in the
+plugin (the external ``magellon_template_picker_plugin``); this
+controller is a thin proxy that:
 
-The /info / /health / /requirements metadata routes are kept for
-back-compat with the React form schema; their bodies no longer
-need a ``PluginBase`` instance — they read from module-level
-constants instead.
+  1. Translates the React UI's ``TemplatePickerInput`` shape into
+     the SDK's category-input shape (``CryoEmImageInput``).
+  2. Calls ``dispatch_capability(...)`` to route to the plugin's
+     SYNC or PREVIEW endpoints over HTTP.
+  3. Maps the plugin's response back into the wire shapes the
+     React UI already expects (so the UI doesn't change).
+  4. Owns the DB-side concerns (run-and-save persists picks via
+     ``ImageMetaData``; batch orchestration loops over a session;
+     COCO export reads the saved record).
+
+Compute lives entirely in the plugin. Swapping the picker
+(template-matching → topaz → custom CNN) is now a plugin-side
+change: register a new plugin, declare ``Capability.SYNC`` /
+``Capability.PREVIEW``, set it as the per-category default. This
+controller doesn't move.
 """
 from __future__ import annotations
 
 import asyncio
-import base64
-import io
-import json
 import logging
 import math
 import os
 import uuid
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-import numpy as np
-from cachetools import TTLCache
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
@@ -33,51 +41,98 @@ from config import ORIGINAL_IMAGES_SUB_URL, app_settings
 from core.sqlalchemy_row_level_security import check_session_access
 from database import get_db
 from dependencies.auth import get_current_user_id
+from magellon_sdk.models.manifest import Capability
 from models.sqlalchemy_models import Image, ImageMetaData, Msession, Plugin
-from services.particle_picking.algorithm import (
-    _extract_particles_from_map,
-    _merge_particles,
-    _remove_border_particles,
-    pick_particles,
-)
-from services.particle_picking.compute import (
-    _bin_image,
-    _lowpass_gaussian,
-    _read_mrc,
-    _rescale_template,
-    pick_in_image,
-    preprocess_templates,
-    run_template_picker,
-)
+from services.job_manager import job_manager
 from services.particle_picking.models import (
     BatchItemResult,
     BatchPickRequest,
     BatchPickResult,
-    ParticlePick,
     PreviewResult,
     RetuneRequest,
     RetuneResult,
     TemplatePickerInput,
     TemplatePickerOutput,
 )
-from services.job_manager import job_manager
+from services.sync_dispatcher import (
+    BackendNotLive,
+    CapabilityMissing,
+    PluginCallFailed,
+    dispatch_capability,
+)
 
 logger = logging.getLogger(__name__)
 
 particle_picking_router = APIRouter()
 
-# Preview cache: 10-minute TTL, capped at 50 entries so concurrent
-# users don't balloon memory. Abandoned previews self-evict.
-_PREVIEW_TTL_SECONDS = 600
-_PREVIEW_MAX_ENTRIES = 50
-_previews: TTLCache[str, dict] = TTLCache(maxsize=_PREVIEW_MAX_ENTRIES, ttl=_PREVIEW_TTL_SECONDS)
 
 # Stable plugin_id used by JobManager rows.
 _PLUGIN_ID = "particle-picking/template-picker"
 
+# Category the dispatcher routes to. The operator-pinned default
+# under this category receives every sync call.
+_CATEGORY = "particle_picking"
+
 
 # ---------------------------------------------------------------------------
-# Synchronous pick
+# Translation: React's TemplatePickerInput → SDK's CryoEmImageInput shape
+# ---------------------------------------------------------------------------
+
+
+def _engine_opts_from_input(req: TemplatePickerInput) -> Dict[str, Any]:
+    """Pack the React-side TemplatePickerInput fields into ``engine_opts``
+    keys the plugin reads. Unset fields are omitted so the plugin's own
+    defaults apply."""
+    opts: Dict[str, Any] = {
+        "templates": list(req.template_paths),
+        "diameter_angstrom": req.diameter_angstrom,
+        "pixel_size_angstrom": req.image_pixel_size,
+        "template_pixel_size_angstrom": req.template_pixel_size,
+        "threshold": req.threshold,
+        "max_peaks": req.max_peaks,
+        "overlap_multiplier": req.overlap_multiplier,
+        "max_blob_size_multiplier": req.max_blob_size_multiplier,
+        "min_blob_roundness": req.min_blob_roundness,
+        "peak_position": req.peak_position,
+        "bin": req.bin_factor,
+        "invert_templates": req.invert_templates,
+    }
+    if req.max_threshold is not None:
+        opts["max_threshold"] = req.max_threshold
+    if req.lowpass_resolution is not None:
+        opts["lowpass_resolution"] = req.lowpass_resolution
+    if req.angle_ranges is not None:
+        opts["angle_ranges"] = [
+            {"start": ar.start, "end": ar.end, "step": ar.step}
+            for ar in req.angle_ranges
+        ]
+    if req.output_dir:
+        opts["output_dir"] = req.output_dir
+    return opts
+
+
+def _plugin_payload(req: TemplatePickerInput) -> Dict[str, Any]:
+    """Build the full POST body for the plugin's SYNC /execute and
+    PREVIEW /preview endpoints — both accept ``CryoEmImageInput``."""
+    return {
+        "image_path": req.image_path,
+        "engine_opts": _engine_opts_from_input(req),
+    }
+
+
+def _http_from_dispatch_error(exc: Exception) -> HTTPException:
+    """Map sync_dispatcher errors to HTTP statuses for this controller."""
+    if isinstance(exc, BackendNotLive):
+        return HTTPException(status_code=503, detail=str(exc))
+    if isinstance(exc, CapabilityMissing):
+        return HTTPException(status_code=503, detail=str(exc))
+    if isinstance(exc, PluginCallFailed):
+        return HTTPException(status_code=exc.status_code, detail=exc.detail)
+    return HTTPException(status_code=500, detail=str(exc))
+
+
+# ---------------------------------------------------------------------------
+# Synchronous pick (sync /execute)
 # ---------------------------------------------------------------------------
 
 
@@ -87,19 +142,50 @@ _PLUGIN_ID = "particle-picking/template-picker"
     summary="Run template-based particle picking (synchronous)",
 )
 async def template_pick(input_data: TemplatePickerInput) -> TemplatePickerOutput:
+    """Single-image pick. Routes to the operator-pinned default
+    plugin's ``POST /execute`` (SYNC capability).
+    """
     try:
-        return run_template_picker(input_data)
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc))
-    except Exception as exc:
-        logger.exception("Template picker failed")
-        raise HTTPException(status_code=500, detail=str(exc))
+        body = await _run_plugin_execute(input_data)
+    except (BackendNotLive, CapabilityMissing, PluginCallFailed) as exc:
+        raise _http_from_dispatch_error(exc)
+    return _output_from_plugin(body, input_data)
+
+
+async def _run_plugin_execute(req: TemplatePickerInput) -> Dict[str, Any]:
+    """Off-thread dispatch — sync_dispatcher uses blocking httpx.
+    Run in the executor so we don't block the event loop."""
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(
+        None,
+        lambda: dispatch_capability(
+            _CATEGORY, Capability.SYNC, "POST", "/execute",
+            body=_plugin_payload(req),
+        ),
+    )
+
+
+def _output_from_plugin(
+    body: Dict[str, Any], req: TemplatePickerInput,
+) -> TemplatePickerOutput:
+    """Map the plugin's ``ParticlePickingOutput`` JSON onto the
+    legacy ``TemplatePickerOutput`` shape the React UI expects."""
+    target_apix = req.image_pixel_size * req.bin_factor
+    return TemplatePickerOutput(
+        particles=[],  # plugin doesn't inline picks (rule 1)
+        num_particles=int(body.get("num_particles", 0)),
+        num_templates=len(req.template_paths),
+        target_pixel_size=target_apix,
+        image_binning=req.bin_factor,
+        image_shape=body.get("image_shape"),
+        particles_csv_path=body.get("particles_csv_path"),
+        particles_json_path=body.get("particles_json_path"),
+        summary=body.get("summary"),
+    )
 
 
 # ---------------------------------------------------------------------------
-# Preview / retune flow
+# Preview / retune flow (PREVIEW capability)
 # ---------------------------------------------------------------------------
 
 
@@ -108,87 +194,19 @@ async def template_pick(input_data: TemplatePickerInput) -> TemplatePickerOutput
     response_model=PreviewResult,
     summary="Compute correlation maps and return initial picks + score map",
 )
-async def template_pick_preview(input_data: TemplatePickerInput):
-    """Phase 1: run the expensive FFT correlation once, cache score maps."""
+async def template_pick_preview(input_data: TemplatePickerInput) -> PreviewResult:
     try:
-        image = _read_mrc(input_data.image_path)
-        binned = _bin_image(image, input_data.bin_factor)
-        target_apix = input_data.image_pixel_size * input_data.bin_factor
-        filtered_image = _lowpass_gaussian(binned, target_apix, input_data.lowpass_resolution)
-
-        processed_templates = []
-        for path in input_data.template_paths:
-            tmpl = _read_mrc(path)
-            if input_data.invert_templates:
-                tmpl = -1.0 * tmpl
-            scaled = _rescale_template(tmpl, input_data.template_pixel_size, target_apix)
-            filtered = _lowpass_gaussian(scaled, target_apix, input_data.lowpass_resolution)
-            processed_templates.append(filtered.astype(np.float32))
-
-        if input_data.angle_ranges is not None:
-            if len(input_data.angle_ranges) == 1 and len(processed_templates) > 1:
-                ar = input_data.angle_ranges[0]
-                angle_ranges = [(ar.start, ar.end, ar.step)] * len(processed_templates)
-            elif len(input_data.angle_ranges) == len(processed_templates):
-                angle_ranges = [(ar.start, ar.end, ar.step) for ar in input_data.angle_ranges]
-            else:
-                raise ValueError("angle_ranges must have 1 entry or one per template")
-        else:
-            angle_ranges = [(0.0, 360.0, 10.0)] * len(processed_templates)
-
-        result = pick_particles(
-            image=filtered_image,
-            templates=processed_templates,
-            params={
-                "diameter_angstrom": input_data.diameter_angstrom,
-                "pixel_size_angstrom": target_apix,
-                "bin": 1.0,
-                "threshold": input_data.threshold,
-                "max_threshold": input_data.max_threshold,
-                "max_peaks": input_data.max_peaks,
-                "overlap_multiplier": input_data.overlap_multiplier,
-                "max_blob_size_multiplier": input_data.max_blob_size_multiplier,
-                "min_blob_roundness": input_data.min_blob_roundness,
-                "peak_position": input_data.peak_position,
-                "angle_ranges": angle_ranges,
-            },
+        loop = asyncio.get_running_loop()
+        body = await loop.run_in_executor(
+            None,
+            lambda: dispatch_capability(
+                _CATEGORY, Capability.PREVIEW, "POST", "/preview",
+                body=_plugin_payload(input_data),
+            ),
         )
-
-        preview_id = str(uuid.uuid4())
-        radius_pixels = input_data.diameter_angstrom / target_apix / 2.0
-        _previews[preview_id] = {
-            "template_results": result["template_results"],
-            "image_shape": filtered_image.shape,
-            "radius_pixels": radius_pixels,
-            "created_at": datetime.now(),
-        }
-
-        merged_map = result["merged_score_map"]
-        score_min = float(np.min(merged_map))
-        score_max = float(np.max(merged_map))
-        score_map_b64 = _score_map_to_base64_png(merged_map)
-
-        particles = [ParticlePick(**p) for p in result["particles"]]
-
-        return PreviewResult(
-            preview_id=preview_id,
-            particles=particles,
-            num_particles=len(particles),
-            num_templates=len(processed_templates),
-            target_pixel_size=target_apix,
-            image_binning=input_data.bin_factor,
-            image_shape=[int(filtered_image.shape[0]), int(filtered_image.shape[1])],
-            score_map_png_base64=score_map_b64,
-            score_range=[score_min, score_max],
-        )
-
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc))
-    except Exception as exc:
-        logger.exception("Preview failed")
-        raise HTTPException(status_code=500, detail=str(exc))
+    except (BackendNotLive, CapabilityMissing, PluginCallFailed) as exc:
+        raise _http_from_dispatch_error(exc)
+    return PreviewResult.model_validate(body)
 
 
 @particle_picking_router.post(
@@ -196,47 +214,22 @@ async def template_pick_preview(input_data: TemplatePickerInput):
     response_model=RetuneResult,
     summary="Re-extract particles with new tunable params (no recompute)",
 )
-async def template_pick_retune(preview_id: str, params: RetuneRequest):
-    """Phase 2: re-threshold the cached score maps with new params. Instant."""
-    preview = _previews.get(preview_id)
-    if preview is None:
-        raise HTTPException(status_code=404, detail="Preview not found or expired")
-
-    radius_pixels = preview["radius_pixels"]
-    image_shape = preview["image_shape"]
-
-    all_particles = []
-    for item in preview["template_results"]:
-        particles = _extract_particles_from_map(
-            score_map=item["score_map"],
-            angle_map=item["angle_map"],
-            template_index=int(item["template_index"]),
-            threshold=params.threshold,
-            radius_pixels=radius_pixels,
-            max_peaks=params.max_peaks,
-            overlap_multiplier=params.overlap_multiplier,
-            max_blob_size_multiplier=params.max_blob_size_multiplier,
-            min_blob_roundness=params.min_blob_roundness,
-            peak_position=params.peak_position,
+async def template_pick_retune(
+    preview_id: str, params: RetuneRequest,
+) -> RetuneResult:
+    try:
+        loop = asyncio.get_running_loop()
+        body = await loop.run_in_executor(
+            None,
+            lambda: dispatch_capability(
+                _CATEGORY, Capability.PREVIEW, "POST",
+                f"/preview/{preview_id}/retune",
+                body=params.model_dump(),
+            ),
         )
-        particles = _remove_border_particles(
-            particles=particles,
-            diameter_pixels=radius_pixels * 2.0,
-            image_width=image_shape[1],
-            image_height=image_shape[0],
-        )
-        all_particles.extend(particles)
-
-    merged = _merge_particles(
-        particles=all_particles,
-        radius_pixels=radius_pixels,
-        overlap_multiplier=params.overlap_multiplier,
-        max_peaks=params.max_peaks,
-        max_threshold=params.max_threshold,
-    )
-
-    picks = [ParticlePick(**p) for p in merged]
-    return RetuneResult(particles=picks, num_particles=len(picks))
+    except (BackendNotLive, CapabilityMissing, PluginCallFailed) as exc:
+        raise _http_from_dispatch_error(exc)
+    return RetuneResult.model_validate(body)
 
 
 @particle_picking_router.delete(
@@ -244,13 +237,22 @@ async def template_pick_retune(preview_id: str, params: RetuneRequest):
     summary="Discard a preview and free memory",
 )
 async def template_pick_preview_delete(preview_id: str):
-    if _previews.pop(preview_id, None) is not None:
-        return {"status": "deleted"}
-    raise HTTPException(status_code=404, detail="Preview not found")
+    try:
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(
+            None,
+            lambda: dispatch_capability(
+                _CATEGORY, Capability.PREVIEW, "DELETE",
+                f"/preview/{preview_id}",
+            ),
+        )
+    except (BackendNotLive, CapabilityMissing, PluginCallFailed) as exc:
+        raise _http_from_dispatch_error(exc)
+    return {"status": "deleted"}
 
 
 # ---------------------------------------------------------------------------
-# Async job flow
+# Async job flow — fire-and-forget wrapper over the SYNC dispatch
 # ---------------------------------------------------------------------------
 
 
@@ -271,34 +273,30 @@ async def template_pick_async(input_data: TemplatePickerInput, sid: str | None =
 
 
 async def _run_picking_job(job_id: str, input_data: TemplatePickerInput, sid: str | None):
+    """Run the pick via the plugin's sync /execute endpoint, push
+    job-state transitions over Socket.IO. The plugin emits its own
+    step events via the bus (PROGRESS_REPORTING capability)."""
     from core.socketio_server import emit_job_update, emit_log
-    from plugins.progress import JobCancelledError, JobReporter
-
-    loop = asyncio.get_running_loop()
-    reporter = JobReporter(job_id=job_id, sid=sid, plugin_label='picking', loop=loop)
 
     try:
         running = job_manager.mark_running(job_id, progress=0)
         await emit_job_update(sid, running)
         await emit_log('info', 'picking', f"Particle picking started: {input_data.image_path}")
 
-        result = await loop.run_in_executor(
-            None, lambda: run_template_picker(input_data, reporter=reporter)
-        )
+        body = await _run_plugin_execute(input_data)
+        result = _output_from_plugin(body, input_data)
 
         completed = job_manager.complete_job(
-            job_id,
-            result=result.model_dump(),
-            num_items=result.num_particles,
+            job_id, result=result.model_dump(), num_items=result.num_particles,
         )
         await emit_job_update(sid, completed)
         await emit_log('info', 'picking',
                         f"Particle picking completed — {result.num_particles} particles found")
-    except JobCancelledError:
-        cancelled = job_manager.cancel_job(job_id)
-        await emit_job_update(sid, cancelled)
-        await emit_log('info', 'picking', f"Particle picking cancelled (job {job_id})")
-    except Exception as exc:
+    except (BackendNotLive, CapabilityMissing, PluginCallFailed) as exc:
+        failed = job_manager.fail_job(job_id, error=str(exc))
+        await emit_job_update(sid, failed)
+        await emit_log('error', 'picking', f"Particle picking failed: {exc}")
+    except Exception as exc:  # noqa: BLE001
         failed = job_manager.fail_job(job_id, error=str(exc))
         await emit_job_update(sid, failed)
         await emit_log('error', 'picking', f"Particle picking failed: {exc}")
@@ -306,7 +304,7 @@ async def _run_picking_job(job_id: str, input_data: TemplatePickerInput, sid: st
 
 
 # ---------------------------------------------------------------------------
-# Job management
+# Job management — feature-scoped convenience endpoints
 # ---------------------------------------------------------------------------
 
 
@@ -320,13 +318,12 @@ async def get_job(job_id: str):
     try:
         return job_manager.get_job(job_id)
     except (LookupError, ValueError):
-        # ValueError: job_manager validates id as UUID and raises on
-        # malformed strings — surface as 404 rather than 500.
         raise HTTPException(status_code=404, detail="Job not found")
 
 
 # ---------------------------------------------------------------------------
-# Metadata — module-level constants now (no PluginBase shell to ask)
+# Metadata — flat constants. The /capabilities endpoint and the React
+# form reader use these for the picker's metadata pane.
 # ---------------------------------------------------------------------------
 
 
@@ -350,31 +347,14 @@ async def template_pick_health():
 
 @particle_picking_router.get("/requirements", summary="Particle-picking dependency check")
 async def template_pick_requirements():
-    """Probe optional libs whose presence determines whether the
-    feature works. Same shape (list of dicts with result/condition/
-    message) as the legacy PluginBase output so the React form
-    doesn't have to special-case."""
-    results = []
-    for name, install_hint in (
-        ("mrcfile", "pip install mrcfile"),
-        ("scipy", "pip install scipy"),
-        ("PIL", "pip install pillow"),
-    ):
-        try:
-            __import__(name)
-            results.append({
-                "result": "success",
-                "condition": name,
-                "message": f"{name} is available",
-            })
-        except ImportError:
-            results.append({
-                "result": "failure",
-                "condition": name,
-                "message": f"{name} is not installed",
-                "instructions": install_hint,
-            })
-    return results
+    """Post-PT-5 the compute lives in the plugin; CoreService doesn't
+    need scipy / mrcfile / PIL anymore. Always reports OK; if the
+    plugin's actual deps are missing the operator sees that on the
+    plugin's own ``/health`` endpoint."""
+    return [
+        {"result": "success", "condition": "dispatcher",
+         "message": "compute delegates to plugin via sync_dispatcher"},
+    ]
 
 
 @particle_picking_router.get("/schema/input", summary="Particle-picking input JSON schema")
@@ -388,7 +368,7 @@ async def template_pick_output_schema():
 
 
 # ---------------------------------------------------------------------------
-# Session image listing — drives the "Run Batch" dialog
+# Session image listing — DB-only, no plugin involvement
 # ---------------------------------------------------------------------------
 
 
@@ -439,7 +419,7 @@ async def list_session_images(
 
 
 # ---------------------------------------------------------------------------
-# Run-on-image with persistence
+# Run-on-image with persistence — sync /execute + DB save
 # ---------------------------------------------------------------------------
 
 
@@ -484,18 +464,18 @@ async def template_pick_run_and_save(
         raise HTTPException(status_code=404, detail="MRC file not found on disk")
 
     picker = req.picker_params.model_copy(update={"image_path": mrc_path})
-    target_apix = picker.image_pixel_size * picker.bin_factor
 
-    loop = asyncio.get_event_loop()
-    processed_templates, angle_ranges = await loop.run_in_executor(
-        None, preprocess_templates, picker, target_apix,
-    )
-    raw_particles, img_shape = await loop.run_in_executor(
-        None,
-        pick_in_image,
-        mrc_path, processed_templates, angle_ranges, picker, target_apix,
-    )
+    # Plugin /execute writes the picks to disk if engine_opts.output_dir
+    # is set; for run-and-save we don't need disk artifacts — just the
+    # particle list to drop into ImageMetaData.data_json. Plugin's
+    # particles_json_path is read after the call.
+    try:
+        body = await _run_plugin_execute(picker)
+    except (BackendNotLive, CapabilityMissing, PluginCallFailed) as exc:
+        raise _http_from_dispatch_error(exc)
 
+    # Plugin returns particles_json_path; load and translate to UI shape.
+    raw_particles = _load_particles_from_plugin_output(body)
     threshold = picker.threshold
     now_ts = int(datetime.now().timestamp() * 1000)
     points = [
@@ -511,6 +491,7 @@ async def template_pick_run_and_save(
         for idx, p in enumerate(raw_particles)
     ]
 
+    loop = asyncio.get_event_loop()
     row = await loop.run_in_executor(
         None, _save_particle_picking, db, image_oid, req.ipp_name, points,
     )
@@ -520,8 +501,32 @@ async def template_pick_run_and_save(
         ipp_name=row.name,
         image_oid=str(image_oid),
         num_particles=len(points),
-        image_shape=list(img_shape),
+        image_shape=body.get("image_shape"),
     )
+
+
+def _load_particles_from_plugin_output(body: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """The plugin writes picks to ``particles_json_path``; read them
+    back. Falls back to an empty list when the path is absent (the
+    plugin was called without ``output_dir`` set)."""
+    import json
+
+    path = body.get("particles_json_path")
+    if not path or not os.path.exists(path):
+        return []
+    try:
+        with open(path, "r") as f:
+            data = json.load(f)
+        if isinstance(data, list):
+            return data
+    except Exception:  # noqa: BLE001
+        logger.exception("failed to read particles_json_path=%r", path)
+    return []
+
+
+# ---------------------------------------------------------------------------
+# Batch picking — orchestration in CoreService, compute via plugin /execute
+# ---------------------------------------------------------------------------
 
 
 @particle_picking_router.post(
@@ -570,10 +575,9 @@ _PP_PLUGIN_NAME = "pp"
 def _get_pp_plugin_oid(db: Session) -> UUID:
     """Return the Plugin.oid for the 'pp' plugin row, creating if needed.
 
-    ``ImageMetaData.plugin_id`` is a FK to ``Plugin.oid`` (UUID). We
-    keep one Plugin row with name='pp' to satisfy the FK and tag every
-    particle-picking record with it. Name kept as 'pp' for back-compat
-    with already-saved rows.
+    ``ImageMetaData.plugin_id`` is a FK to ``Plugin.oid`` (UUID). Name
+    kept as 'pp' for back-compat with already-saved rows; rename
+    requires a data migration.
     """
     global _PP_PLUGIN_OID
     if _PP_PLUGIN_OID is not None:
@@ -639,21 +643,20 @@ async def _run_batch_job(
     user_id: str,
     sid: str | None,
 ):
+    """Loop over images; per-image dispatch via plugin's sync /execute.
+
+    Templates aren't preprocessed-once-then-reused like pre-PT-5;
+    the plugin handles each image independently. Per-call HTTP
+    overhead is ~5ms vs ~100ms+ FFT compute, so the difference
+    is negligible. A future plugin-side template cache (keyed by
+    file hash) eliminates even that.
+    """
     from core.socketio_server import emit_job_update, emit_log
 
     try:
         running = job_manager.mark_running(job_id, progress=1)
         await emit_job_update(sid, running)
         await emit_log('info', 'batch-picking', f"Batch started: {len(req.images)} images")
-
-        loop = asyncio.get_event_loop()
-
-        picker = req.picker_params
-        target_apix = picker.image_pixel_size * picker.bin_factor
-        processed_templates, angle_ranges = await loop.run_in_executor(
-            None, preprocess_templates, picker, target_apix,
-        )
-        await emit_log('info', 'batch-picking', f"Preprocessed {len(processed_templates)} template(s)")
 
         items: list[BatchItemResult] = []
         total = len(req.images)
@@ -696,12 +699,9 @@ async def _run_batch_job(
                     continue
 
                 try:
-                    raw_particles, img_shape = await loop.run_in_executor(
-                        None,
-                        pick_in_image,
-                        mrc_path, processed_templates, angle_ranges, picker, target_apix,
-                    )
-
+                    picker = req.picker_params.model_copy(update={"image_path": mrc_path})
+                    body = await _run_plugin_execute(picker)
+                    raw_particles = _load_particles_from_plugin_output(body)
                     threshold = picker.threshold
                     now_ts = int(datetime.now().timestamp() * 1000)
                     points = [
@@ -717,6 +717,7 @@ async def _run_batch_job(
                         for idx, p in enumerate(raw_particles)
                     ]
 
+                    loop = asyncio.get_event_loop()
                     await loop.run_in_executor(
                         None, _save_particle_picking, db, image_oid, req.ipp_name, points,
                     )
@@ -725,7 +726,7 @@ async def _run_batch_job(
                         image_oid=entry.oid,
                         image_name=entry.name,
                         num_particles=len(points),
-                        image_shape=list(img_shape),
+                        image_shape=body.get("image_shape"),
                         status="done",
                     ))
                     succeeded += 1
@@ -769,7 +770,7 @@ async def _run_batch_job(
 
 
 # ---------------------------------------------------------------------------
-# COCO export
+# COCO export — DB-only
 # ---------------------------------------------------------------------------
 
 
@@ -864,39 +865,6 @@ async def template_pick_record_coco(
         "categories": _COCO_CATEGORIES,
         "annotations": annotations,
     }
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _score_map_to_base64_png(score_map: np.ndarray) -> str:
-    """Convert a 2D float score map to a base64-encoded PNG."""
-    from PIL import Image as PILImage
-
-    data = score_map.astype(np.float32)
-    finite = np.isfinite(data)
-    if finite.any():
-        lo = float(np.percentile(data[finite], 1.0))
-        hi = float(np.percentile(data[finite], 99.0))
-    else:
-        lo, hi = 0.0, 1.0
-    if hi <= lo:
-        hi = lo + 1e-6
-
-    clipped = np.clip(data, lo, hi)
-    normalized = ((clipped - lo) / (hi - lo) * 255).astype(np.uint8)
-
-    img = PILImage.fromarray(normalized, mode="L")
-    max_dim = 1024
-    if max(img.size) > max_dim:
-        ratio = max_dim / max(img.size)
-        img = img.resize((int(img.width * ratio), int(img.height * ratio)), PILImage.BILINEAR)
-
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    return base64.b64encode(buf.getvalue()).decode("ascii")
 
 
 __all__ = ["particle_picking_router"]

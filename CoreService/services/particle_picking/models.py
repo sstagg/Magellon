@@ -54,18 +54,20 @@ from pydantic import BaseModel, ConfigDict, Field
 # ---------------------------------------------------------------------------
 
 class ParticlePick(BaseModel):
-    """Single detected particle — common across all pp backends."""
-    model_config = ConfigDict(extra="forbid")
+    """Single detected particle — wire shape returned by the picker plugin.
+
+    PT-5 (2026-05-04): ``extra="allow"`` so picker-engine-specific
+    fields (template_index, angle, etc.) round-trip through the
+    controller without being stripped. Pre-PT-5 the in-process picker
+    populated all the optional fields explicitly; the new model
+    delegates that to whatever the plugin emits.
+    """
+
+    model_config = ConfigDict(extra="allow")
 
     x: int
     y: int
     score: float
-    stddev: float = 0.0
-    area: int = 0
-    roundness: float = 0.0
-    template_index: int = 1
-    angle: float = 0.0
-    label: str = ""
 
 
 # ---------------------------------------------------------------------------
