@@ -434,14 +434,34 @@ class PluginManagerService:
         latest: Optional[datetime] = None
         for e in self._liveness.list_live():
             ep = e.plugin_id or ""
+            ep_lower = ep.lower()
             id_match = (
                 ep in candidates
+                # Slug as the category prefix in the runtime form
+                # ``category/display-name`` (``fft/FFT Plugin`` vs
+                # catalog slug ``fft``).
+                or any(
+                    ep_lower.startswith(c.lower() + "/") for c in candidates
+                )
                 or any(ep.endswith("/" + c) for c in candidates)
             )
+            # Dispatch identity match: same category AND backend_ids
+            # are equal OR one is a substring of the other. The
+            # substring tolerance covers the common drift case where
+            # the archive manifest has ``backend_id: fft`` while the
+            # runtime PluginManifest's ``resolved_backend_id()``
+            # returns ``"fft-plugin"``. Aligning these is plugin-side
+            # work; the matcher gets us out of the broken-warning
+            # state in the meantime.
+            ent_backend = (e.backend_id or "").lower()
             cb_match = (
                 cat_backend is not None
                 and (e.category or "").lower() == cat_backend[0]
-                and (e.backend_id or "").lower() == cat_backend[1]
+                and (
+                    ent_backend == cat_backend[1]
+                    or (cat_backend[1] and cat_backend[1] in ent_backend)
+                    or (ent_backend and ent_backend in cat_backend[1])
+                )
             )
             if not (id_match or cb_match):
                 continue
