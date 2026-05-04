@@ -30,6 +30,7 @@ from controllers.home_controller import home_router
 from controllers.image_meta_data_category_controller import image_meta_data_category_router
 from controllers.image_meta_data_controller import image_meta_data_router
 from controllers.image_processing_controller import image_processing_router
+from controllers.dispatch_controller import dispatch_router
 from controllers.import_export_controller import export_router
 from controllers.import_controller import import_router
 from controllers.particle_picking_controller import particle_picking_router
@@ -316,6 +317,17 @@ app.include_router(
     particle_picking_router,
     tags=["Particle Picking"],
     prefix="/particle-picking",
+)
+# PT-6 (2026-05-04): generic dispatch surface — every category that
+# pins a default plugin advertising Capability.SYNC / PREVIEW gets
+# /dispatch/{category}/run, /preview, /preview/{id}/retune,
+# /preview/{id}. Particle-picking keeps its feature-named URLs above
+# for back-compat with the React UI; new categories adopt the
+# generic shape automatically.
+app.include_router(
+    dispatch_router,
+    tags=["Dispatch"],
+    prefix="/dispatch",
 )
 app.include_router(plugins_router, tags=["Plugins"], prefix="/plugins")
 
