@@ -242,7 +242,10 @@ def test_capabilities_lists_every_known_category(client):
         return_value=type("R", (), {"list_live": lambda self: []})(),
     ), patch(
         "core.plugin_state.get_state_store",
-        return_value=type("S", (), {"get_default": lambda self, c: None})(),
+        return_value=type("S", (), {
+            "get_default": lambda self, c: None,
+            "is_enabled": lambda self, p: True,
+        })(),
     ):
         resp = client.get("/dispatch/capabilities")
     assert resp.status_code == 200
@@ -271,6 +274,7 @@ def test_capabilities_reports_supports_flags_from_live_plugin():
     fake_registry = type("R", (), {"list_live": lambda self: [live_entry]})()
     fake_state = type("S", (), {
         "get_default": lambda self, c: "Template Picker" if c == "particle_picking" else None,
+        "is_enabled": lambda self, p: True,
     })()
 
     app = FastAPI()
@@ -289,6 +293,7 @@ def test_capabilities_reports_supports_flags_from_live_plugin():
     pp = next(c for c in body["categories"] if c["category"] == "particle_picking")
     assert pp["supports_sync"] is True
     assert pp["supports_preview"] is True
+    assert pp["enabled"] is True
     assert pp["http_endpoint"] == "http://plugin.test:8000"
     assert pp["live_plugin_id"] == "Template Picker"
 
@@ -315,9 +320,49 @@ def test_capabilities_supports_flags_false_when_http_endpoint_missing():
         return_value=type("R", (), {"list_live": lambda self: [live_entry]})(),
     ), patch(
         "core.plugin_state.get_state_store",
-        return_value=type("S", (), {"get_default": lambda self, c: None})(),
+        return_value=type("S", (), {
+            "get_default": lambda self, c: None,
+            "is_enabled": lambda self, p: True,
+        })(),
     ):
         body = test_client.get("/dispatch/capabilities").json()
 
     pp = next(c for c in body["categories"] if c["category"] == "particle_picking")
+    assert pp["supports_preview"] is False
+
+
+def test_capabilities_supports_flags_false_when_disabled():
+    """Reviewer B: a disabled plugin can be live + capable + reachable
+    on HTTP, but supports_* must report False because the dispatcher
+    will refuse the call."""
+    from controllers.dispatch_controller import dispatch_router
+
+    live_entry = type("E", (), {
+        "plugin_id": "p",
+        "category": "particle_picking",
+        "http_endpoint": "http://plugin:8000",
+        "manifest": type("M", (), {
+            "capabilities": [Capability.SYNC, Capability.PREVIEW],
+        })(),
+    })()
+
+    app = FastAPI()
+    app.include_router(dispatch_router, prefix="/dispatch")
+    test_client = TestClient(app)
+
+    with patch(
+        "core.plugin_liveness_registry.get_registry",
+        return_value=type("R", (), {"list_live": lambda self: [live_entry]})(),
+    ), patch(
+        "core.plugin_state.get_state_store",
+        return_value=type("S", (), {
+            "get_default": lambda self, c: None,
+            "is_enabled": lambda self, p: False,
+        })(),
+    ):
+        body = test_client.get("/dispatch/capabilities").json()
+
+    pp = next(c for c in body["categories"] if c["category"] == "particle_picking")
+    assert pp["enabled"] is False
+    assert pp["supports_sync"] is False
     assert pp["supports_preview"] is False

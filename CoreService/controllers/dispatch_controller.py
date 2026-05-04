@@ -43,6 +43,8 @@ from services.sync_dispatcher import (
     CapabilityMissing,
     PluginCallFailed,
     dispatch_capability,
+    forget_preview_route,
+    lookup_preview_route,
 )
 
 logger = logging.getLogger(__name__)
@@ -108,6 +110,7 @@ async def _dispatch_off_thread(
     *,
     body: Optional[Dict[str, Any]] = None,
     target_backend: Optional[str] = None,
+    instance_id: Optional[str] = None,
     timeout_seconds: float = _TIMEOUT_RUN_S,
 ) -> Dict[str, Any]:
     """sync_dispatcher uses blocking httpx; run in the executor so we
@@ -119,6 +122,7 @@ async def _dispatch_off_thread(
             lambda: dispatch_capability(
                 category, capability, method, path,
                 body=body, target_backend=target_backend,
+                instance_id=instance_id,
                 timeout_seconds=timeout_seconds,
             ),
         )
@@ -182,10 +186,16 @@ async def dispatch_retune(
     target_backend: Optional[str] = None,
 ):
     contract = _resolve_category(category)
+    # Sticky preview routing: pin to the replica that owns the
+    # cached score maps. Without this, multi-replica deployments
+    # see retune slider ticks land on a different replica → 404
+    # (preview_id doesn't exist there).
+    pinned_instance = lookup_preview_route(preview_id)
     return await _dispatch_off_thread(
         _normalize_name(contract.category.name), Capability.PREVIEW,
         "POST", f"/preview/{preview_id}/retune",
         body=body, target_backend=target_backend,
+        instance_id=pinned_instance,
         timeout_seconds=_TIMEOUT_RETUNE_S,
     )
 
@@ -200,12 +210,21 @@ async def dispatch_preview_delete(
     target_backend: Optional[str] = None,
 ):
     contract = _resolve_category(category)
-    return await _dispatch_off_thread(
-        _normalize_name(contract.category.name), Capability.PREVIEW,
-        "DELETE", f"/preview/{preview_id}",
-        target_backend=target_backend,
-        timeout_seconds=_TIMEOUT_RETUNE_S,
-    )
+    pinned_instance = lookup_preview_route(preview_id)
+    try:
+        result = await _dispatch_off_thread(
+            _normalize_name(contract.category.name), Capability.PREVIEW,
+            "DELETE", f"/preview/{preview_id}",
+            target_backend=target_backend,
+            instance_id=pinned_instance,
+            timeout_seconds=_TIMEOUT_RETUNE_S,
+        )
+    finally:
+        # Clear the mapping regardless of plugin success — stale
+        # entries waste memory and can leak preview_id collisions
+        # if a future plugin reuses the same id.
+        forget_preview_route(preview_id)
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -245,8 +264,7 @@ async def list_dispatch_capabilities():
         live = live_by_category.get(cat_key, [])
 
         # Pick the operator-pinned default if it's live; otherwise the
-        # first live candidate in the category. Same priority sync_dispatcher
-        # uses for resolution (matches what an actual call would do).
+        # first live candidate. Same priority sync_dispatcher uses.
         chosen = None
         if default_id:
             for entry in live:
@@ -259,14 +277,20 @@ async def list_dispatch_capabilities():
         capabilities: list = []
         http_endpoint = None
         plugin_id = None
+        enabled = True
         if chosen is not None:
             plugin_id = chosen.plugin_id
             http_endpoint = chosen.http_endpoint
+            enabled = state.is_enabled(chosen.plugin_id)
             if chosen.manifest is not None:
                 capabilities = [
                     c.value for c in (chosen.manifest.capabilities or [])
                 ]
 
+        # supports_sync / supports_preview report what the React UI
+        # can actually call — capability advertised + http_endpoint
+        # set + plugin enabled. Disabled plugins silently fail the
+        # 503 check at dispatch time, so the UI must hide controls.
         out.append({
             "category": cat_key,
             "category_display_name": contract.category.name,
@@ -275,11 +299,16 @@ async def list_dispatch_capabilities():
             "live_plugin_count": len(live),
             "capabilities": capabilities,
             "http_endpoint": http_endpoint,
+            "enabled": enabled,
             "supports_sync": (
-                Capability.SYNC.value in capabilities and bool(http_endpoint)
+                Capability.SYNC.value in capabilities
+                and bool(http_endpoint)
+                and enabled
             ),
             "supports_preview": (
-                Capability.PREVIEW.value in capabilities and bool(http_endpoint)
+                Capability.PREVIEW.value in capabilities
+                and bool(http_endpoint)
+                and enabled
             ),
         })
     return {"categories": out}
