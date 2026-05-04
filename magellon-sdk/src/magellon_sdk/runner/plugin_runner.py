@@ -114,6 +114,7 @@ class PluginBrokerRunner:
         enable_config: bool = True,
         bus: Optional[MessageBus] = None,
         config_persisted_path: Optional[Path] = None,
+        http_endpoint: Optional[str] = None,
     ) -> None:
         self.plugin = plugin
         self.settings = settings
@@ -125,6 +126,12 @@ class PluginBrokerRunner:
         self.enable_discovery = enable_discovery and contract is not None
         self.enable_config = enable_config and contract is not None
         self._bus = bus
+        # PT-4 (2026-05-04): forwarded into the announce envelope so
+        # CoreService's sync_dispatcher can reach the plugin's FastAPI
+        # over HTTP for SYNC / PREVIEW capability calls. ``None`` for
+        # pure broker-only plugins (those declare neither SYNC nor
+        # PREVIEW).
+        self.http_endpoint = http_endpoint
         # Optional path where ConfigUpdate.persistent=True pushes are
         # cached so they survive a plugin restart. ``None`` keeps the
         # pre-existing behavior (in-memory only).
@@ -340,6 +347,7 @@ class PluginBrokerRunner:
             contract=self.contract,
             heartbeat_interval_seconds=self.heartbeat_interval_seconds,
             task_queue=self.in_queue,
+            http_endpoint=self.http_endpoint,
             existing_publisher=self._discovery_publisher,
             existing_heartbeat=self._heartbeat_loop,
         )

@@ -33,6 +33,7 @@ def start_discovery(
     contract: CategoryContract,
     heartbeat_interval_seconds: float,
     task_queue: Optional[str] = None,
+    http_endpoint: Optional[str] = None,
     existing_publisher: Optional[DiscoveryPublisher] = None,
     existing_heartbeat: Optional[HeartbeatLoop] = None,
 ) -> Tuple[DiscoveryPublisher, HeartbeatLoop, Announce]:
@@ -47,6 +48,12 @@ def start_discovery(
     :class:`Announce` so a dispatcher can route to this specific
     implementation's queue when multiple impls coexist.
 
+    ``http_endpoint`` (PT-1, 2026-05-04): plugins advertising
+    :class:`Capability.SYNC` or :class:`Capability.PREVIEW` set this
+    to their FastAPI base URL so CoreService's sync_dispatcher can
+    route low-latency interactive calls without going through the
+    broker.
+
     A broker hiccup at announce time is logged and swallowed — the
     heartbeat will eventually carry the manager over.
     """
@@ -60,6 +67,7 @@ def start_discovery(
         manifest=manifest,
         task_queue=task_queue,
         backend_id=manifest.resolved_backend_id(),
+        http_endpoint=http_endpoint,
     )
     try:
         publisher.announce(contract, announce)

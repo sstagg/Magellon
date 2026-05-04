@@ -25,8 +25,13 @@ from starlette.responses import JSONResponse
 
 from core.settings import AppSettingsSingleton
 from magellon_sdk.bus.bootstrap import install_rmq_bus
+from magellon_sdk.capabilities import (
+    make_preview_router,
+    make_sync_router,
+)
 from magellon_sdk.categories.contract import PARTICLE_PICKER
 from magellon_sdk.logging_config import setup_logging
+from magellon_sdk.models.manifest import Capability
 from magellon_sdk.runner import PluginBrokerRunner
 from plugin import TemplatePickerPlugin, build_pick_result
 
@@ -41,6 +46,32 @@ load_dotenv()
 
 
 _runner: PluginBrokerRunner | None = None
+
+
+def _resolve_http_endpoint() -> str | None:
+    """Build the URL CoreService should use to reach this plugin's
+    FastAPI over the network.
+
+    PT-4 (2026-05-04). Resolution order:
+      1. ``MAGELLON_PLUGIN_HTTP_ENDPOINT`` — set by the install
+         pipeline (systemd unit / docker-compose) at launch time
+         when the deployment knows the right host:port.
+      2. ``http://<MAGELLON_PLUGIN_HOST>:<MAGELLON_PLUGIN_PORT>``
+         — convention for docker-compose deployments where the
+         plugin's container hostname is stable.
+      3. ``None`` — sync_dispatcher will refuse to route to this
+         plugin (which is correct: don't pretend a plugin reachable
+         only for the operator's localhost is reachable from
+         CoreService).
+    """
+    explicit = os.environ.get("MAGELLON_PLUGIN_HTTP_ENDPOINT")
+    if explicit:
+        return explicit
+    host = os.environ.get("MAGELLON_PLUGIN_HOST")
+    port = os.environ.get("MAGELLON_PLUGIN_PORT")
+    if host and port:
+        return f"http://{host}:{port}"
+    return None
 
 
 @asynccontextmanager
@@ -65,6 +96,7 @@ async def lifespan(app: FastAPI):
             out_queue=rmq.OUT_QUEUE_NAME,
             result_factory=build_pick_result,
             contract=PARTICLE_PICKER,
+            http_endpoint=_resolve_http_endpoint(),
         )
         threading.Thread(
             target=_runner.start_blocking,
@@ -109,6 +141,17 @@ Info("plugin", "information about magellons plugin").info(
 
 
 Instrumentator().instrument(app).expose(app)
+
+
+# PT-4 (2026-05-04): mount the SDK's capability routers based on what
+# the plugin declared. ``make_*_router`` raises TypeError at import
+# time if the plugin's PluginBase subclass doesn't implement the
+# required methods, so a misconfigured plugin fails to start instead
+# of silently 404-ing on the contract endpoints.
+if Capability.SYNC in _plugin.capabilities:
+    app.include_router(make_sync_router(_plugin))
+if Capability.PREVIEW in _plugin.capabilities:
+    app.include_router(make_preview_router(_plugin))
 
 
 @app.get("/health")

@@ -66,6 +66,13 @@ class TemplatePickerPlugin(PluginBase[CryoEmImageInput, ParticlePickingOutput]):
         Capability.CPU_INTENSIVE,
         Capability.IDEMPOTENT,
         Capability.PROGRESS_REPORTING,
+        # PT-4 (2026-05-04): expose sync HTTP endpoints alongside the
+        # bus consumer. Plugin manager / particle-picking UI calls
+        # SYNC for the "run-on-one-image" feature; PREVIEW for the
+        # interactive threshold-slider loop. Same compute as bus path
+        # — different transport.
+        Capability.SYNC,
+        Capability.PREVIEW,
     ]
     supported_transports = [
         Transport.RMQ,
@@ -166,6 +173,36 @@ class TemplatePickerPlugin(PluginBase[CryoEmImageInput, ParticlePickingOutput]):
             if step is not None:
                 emit_step(step.failed(error=str(exc)))
             raise
+
+    # ------------------------------------------------------------------
+    # PT-4: SYNC capability — sync alternative to bus dispatch.
+    # Same compute as ``execute()`` minus the step-event machinery,
+    # since sync calls don't ride the bus and the host is awaiting
+    # the response directly.
+    # ------------------------------------------------------------------
+
+    def execute_sync(
+        self, input_data: CryoEmImageInput,
+    ) -> ParticlePickingOutput:
+        return self.execute(input_data, reporter=NullReporter())
+
+    # ------------------------------------------------------------------
+    # PT-4: PREVIEW capability — interactive preview-and-retune flow.
+    # Delegates to ``plugin.preview`` which owns the TTLCache + the
+    # algorithm-level retune helpers.
+    # ------------------------------------------------------------------
+
+    def preview(self, input_data: CryoEmImageInput):
+        from plugin.preview import run_preview
+        return run_preview(input_data)
+
+    def retune(self, preview_id, params):
+        from plugin.preview import run_retune
+        return run_retune(preview_id, params)
+
+    def discard_preview(self, preview_id) -> bool:
+        from plugin.preview import discard_preview
+        return discard_preview(preview_id)
 
 
 def build_pick_result(
