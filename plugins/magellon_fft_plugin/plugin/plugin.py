@@ -78,6 +78,7 @@ class FftPlugin(PluginBase[FftInput, FftOutput]):
         Capability.CPU_INTENSIVE,
         Capability.IDEMPOTENT,
         Capability.PROGRESS_REPORTING,
+        Capability.SYNC,
     ]
     supported_transports = [
         Transport.RMQ,
@@ -138,6 +139,9 @@ class FftPlugin(PluginBase[FftInput, FftOutput]):
             if step is not None:
                 emit_step(step.failed(error=str(exc)))
             raise
+
+    def execute_sync(self, input_data: FftInput) -> FftOutput:
+        return self.execute(input_data, reporter=NullReporter())
 
 
 # ---------------------------------------------------------------------------

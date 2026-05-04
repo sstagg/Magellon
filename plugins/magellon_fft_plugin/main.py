@@ -39,8 +39,10 @@ from starlette.responses import JSONResponse
 
 from core.settings import AppSettingsSingleton
 from magellon_sdk.bus.bootstrap import install_rmq_bus
+from magellon_sdk.capabilities import make_sync_router
 from magellon_sdk.categories.contract import FFT
 from magellon_sdk.logging_config import setup_logging
+from magellon_sdk.models.manifest import Capability
 from magellon_sdk.runner import PluginBrokerRunner
 from plugin import FftPlugin, build_fft_result
 
@@ -55,6 +57,26 @@ load_dotenv()
 
 
 _runner: PluginBrokerRunner | None = None
+
+
+def _resolve_http_endpoint() -> str | None:
+    """Pick the URL CoreService's sync_dispatcher should call for SYNC.
+
+    1. ``MAGELLON_PLUGIN_HTTP_ENDPOINT`` — explicit override from the
+       install pipeline / systemd unit.
+    2. ``http://<MAGELLON_PLUGIN_HOST>:<MAGELLON_PLUGIN_PORT>`` — the
+       compose convention.
+    3. ``None`` — sync_dispatcher refuses to route here, which is
+       correct (don't pretend localhost is reachable from CoreService).
+    """
+    explicit = os.environ.get("MAGELLON_PLUGIN_HTTP_ENDPOINT")
+    if explicit:
+        return explicit
+    host = os.environ.get("MAGELLON_PLUGIN_HOST")
+    port = os.environ.get("MAGELLON_PLUGIN_PORT")
+    if host and port:
+        return f"http://{host}:{port}"
+    return None
 
 
 @asynccontextmanager
@@ -85,6 +107,12 @@ async def lifespan(app: FastAPI):
         except Exception:
             logger.exception("step-event publisher pre-warm scheduling failed (non-fatal)")
 
+        endpoint = _resolve_http_endpoint()
+        if Capability.SYNC in _plugin.capabilities and not endpoint:
+            logger.warning(
+                "FFT advertises Capability.SYNC but no MAGELLON_PLUGIN_HTTP_ENDPOINT "
+                "(or HOST/PORT) is set — sync_dispatcher will refuse to route here."
+            )
         _runner = PluginBrokerRunner(
             plugin=_plugin,
             settings=rmq,
@@ -92,6 +120,7 @@ async def lifespan(app: FastAPI):
             out_queue=rmq.OUT_QUEUE_NAME,
             result_factory=build_fft_result,
             contract=FFT,
+            http_endpoint=endpoint,
         )
         threading.Thread(
             target=_runner.start_blocking, name="fft-broker-runner", daemon=True
@@ -134,6 +163,12 @@ Info("plugin", "information about magellons plugin").info(
 
 
 Instrumentator().instrument(app).expose(app)
+
+
+# Mount SDK capability routers conditionally — fails fast at import
+# if the plugin claims a capability without implementing it.
+if Capability.SYNC in _plugin.capabilities:
+    app.include_router(make_sync_router(_plugin))
 
 
 @app.get("/health")
