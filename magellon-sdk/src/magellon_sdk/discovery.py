@@ -125,6 +125,17 @@ class Announce(BaseModel):
     manifest. Two announces with the same ``(category, backend_id)``
     but different ``plugin_version`` are flagged as a duplicate-backend
     conflict; pick a different id or upgrade in lockstep."""
+    http_endpoint: Optional[str] = None
+    """Base URL of the plugin's FastAPI host (PT-1, 2026-05-04).
+
+    Format: ``http://<host>:<port>``. When ``None`` the plugin doesn't
+    expose synchronous HTTP — bus dispatch (RMQ / NATS) is the only
+    way to reach it. Plugins that advertise :attr:`Capability.SYNC`
+    or :attr:`Capability.PREVIEW` MUST set this.
+
+    CoreService's sync_dispatcher reads this to route low-latency
+    interactive calls (preview, retune, sync /execute) directly to
+    the plugin process without round-tripping through the broker."""
 
 
 # ---------------------------------------------------------------------------

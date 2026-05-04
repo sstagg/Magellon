@@ -55,6 +55,13 @@ class Capability(str, Enum):
     IDEMPOTENT = "idempotent"              # safe to retry; manager may auto-retry
     PROGRESS_REPORTING = "progress_reporting"
     CANCELLABLE = "cancellable"            # honors JobCancelledError checkpoint
+    # Sync-RPC contract endpoints (PT-1, 2026-05-04). When advertised,
+    # the plugin exposes the contract endpoints listed in
+    # ``magellon_sdk.capabilities``. CoreService's sync_dispatcher
+    # routes there for low-latency interactive calls. RMQ stays the
+    # default for batch / long-running.
+    SYNC = "sync"                          # POST /execute (sync) accepts category input, returns category output
+    PREVIEW = "preview"                    # POST /preview + /preview/{id}/retune + DELETE /preview/{id}
 
 
 class Transport(str, Enum):

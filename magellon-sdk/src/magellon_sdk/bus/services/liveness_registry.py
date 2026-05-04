@@ -75,6 +75,7 @@ class PluginLivenessEntry:
         "status",
         "task_queue",
         "backend_id",
+        "http_endpoint",
     )
 
     def __init__(
@@ -89,6 +90,7 @@ class PluginLivenessEntry:
         status: str = "ready",
         task_queue: Optional[str] = None,
         backend_id: Optional[str] = None,
+        http_endpoint: Optional[str] = None,
     ) -> None:
         self.plugin_id = plugin_id
         self.plugin_version = plugin_version
@@ -107,6 +109,11 @@ class PluginLivenessEntry:
         # legacy plugins remain reachable for category-wide dispatch
         # (just not for ``target_backend`` pinning).
         self.backend_id = backend_id
+        # Plugin's FastAPI base URL (PT-1, 2026-05-04). Set when the
+        # plugin advertises Capability.SYNC or Capability.PREVIEW; the
+        # sync_dispatcher in CoreService reads this to route low-
+        # latency interactive calls without going through the broker.
+        self.http_endpoint = http_endpoint
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -119,6 +126,7 @@ class PluginLivenessEntry:
             "status": self.status,
             "task_queue": self.task_queue,
             "backend_id": self.backend_id,
+            "http_endpoint": self.http_endpoint,
         }
 
 
@@ -145,6 +153,7 @@ class PluginLivenessRegistry:
         with self._lock:
             key = self._key(msg.plugin_id, msg.instance_id)
             task_queue = getattr(msg, "task_queue", None)
+            http_endpoint = getattr(msg, "http_endpoint", None)
             # Pre-1.3 announces won't carry backend_id directly; fall
             # back to the manifest helper so the dispatcher's pinning
             # path still has something to match against. Hidden third
@@ -178,6 +187,7 @@ class PluginLivenessRegistry:
                     last_heartbeat=msg.ts,
                     task_queue=task_queue,
                     backend_id=backend_id,
+                    http_endpoint=http_endpoint,
                 )
                 self._entries[key] = entry
             else:
@@ -190,6 +200,8 @@ class PluginLivenessRegistry:
                 # plugins that re-announce without the field.
                 if task_queue is not None:
                     entry.task_queue = task_queue
+                if http_endpoint is not None:
+                    entry.http_endpoint = http_endpoint
                 if backend_id is not None:
                     entry.backend_id = backend_id
 
