@@ -1,25 +1,29 @@
-"""PluginManagerService — server-side facade across the five plugin sources (PM3).
+"""PluginManagerService — server-side facade across the plugin sources (PM3).
 
 Joins:
 
-  * **R1** :class:`PluginRegistry` — in-process plugins discovered at boot
-  * **R2** :class:`PluginRepository` — durable catalog (alembic 0008, PM1)
-  * **R3** :class:`PluginStateRepository` — operator ``enabled`` flag (PM1),
+  * **R1** :class:`PluginRepository` — durable catalog (alembic 0008, PM1)
+  * **R2** :class:`PluginStateRepository` — operator ``enabled`` flag (PM1),
     surfaced via the in-memory :class:`PluginStateStore` shim for the
     dispatch hot path
-  * **R4** :class:`PluginCategoryDefaultRepository` — per-category default
+  * **R3** :class:`PluginCategoryDefaultRepository` — per-category default
     impl (PM1), same shim
-  * **R5** :class:`PluginLivenessRegistry` — broker-fed in-memory liveness
+  * **R4** :class:`PluginLivenessRegistry` — broker-fed in-memory liveness
 
 Pre-PM3 every caller (the ``GET /plugins/`` route, the dispatcher's
 target resolver, the install pipeline's "is this plugin live yet?"
-check) re-implemented the same four-way join inline. PM3 lifts that
-into one place — server-side code now asks the manager
-"who's running ctffind4?" instead of joining R1–R5 by hand.
+check) re-implemented the same join inline. PM3 lifts that into one
+place — server-side code now asks the manager
+"who's running ctffind4?" instead of joining the sources by hand.
 
 Constructor-injected (reviewer-flagged PM3 acceptance criterion): no
-module-level singleton, so tests pass fakes for the five collaborators
+module-level singleton, so tests pass fakes for every collaborator
 without monkey-patching anything.
+
+PI-6 (2026-05-04): the in-process plugin registry collaborator was
+dropped — no live PluginBase subclass exists in CoreService anymore;
+all plugins are external broker plugins. ``kind`` always reports
+``"broker"``.
 """
 from __future__ import annotations
 
@@ -193,12 +197,10 @@ class PluginManagerService:
 
     def __init__(
         self,
-        in_process,                       # PluginRegistry
         liveness: PluginLivenessRegistry,
         state_store: _StateStoreLike,
         plugin_repo,                      # PluginRepository
     ) -> None:
-        self._in_process = in_process
         self._liveness = liveness
         self._state = state_store
         self._plugin_repo = plugin_repo
@@ -208,14 +210,13 @@ class PluginManagerService:
     # ------------------------------------------------------------------
 
     def list_all(self) -> List[PluginView]:
-        """Discovery view — every live plugin (in-process + broker).
+        """Discovery view — every live plugin announcing on the bus.
 
         Auto-seeds the per-category default impl: the first live plugin
         seen for a category becomes its default. Operators can override
-        later via ``set_default``. Preserves the byte-for-byte legacy
-        behaviour of ``GET /plugins/``.
+        later via ``set_default``. Post-PI-6 every plugin is a broker
+        plugin — no in-process classification.
         """
-        in_proc_ids = {entry.plugin_id for entry in self._in_process.list()}
         live_entries = self._liveness.list_live()
 
         for entry in live_entries:
@@ -225,7 +226,7 @@ class PluginManagerService:
         seen: set[str] = set()
         out: List[PluginView] = []
         for entry in live_entries:
-            view = self._view_from_liveness(entry, in_proc_ids)
+            view = self._view_from_liveness(entry)
             if view.plugin_id in seen:
                 continue
             seen.add(view.plugin_id)
@@ -254,19 +255,14 @@ class PluginManagerService:
 
     def list_running(self) -> List[PluginView]:
         """Liveness view — only plugins currently announcing on the bus."""
-        in_proc_ids = {entry.plugin_id for entry in self._in_process.list()}
-        return [
-            self._view_from_liveness(e, in_proc_ids)
-            for e in self._liveness.list_live()
-        ]
+        return [self._view_from_liveness(e) for e in self._liveness.list_live()]
 
     def get(self, plugin_id: str) -> Optional[PluginView]:
         """Lookup one plugin by id (accepts both bare and ``cat/id`` forms)."""
         short = _strip_category(plugin_id)
-        in_proc_ids = {entry.plugin_id for entry in self._in_process.list()}
         for entry in self._liveness.list_live():
             if entry.plugin_id == short or entry.plugin_id == plugin_id:
-                return self._view_from_liveness(entry, in_proc_ids)
+                return self._view_from_liveness(entry)
         return None
 
     def status(self, db: Session, plugin_id: str) -> List[Condition]:
@@ -403,17 +399,10 @@ class PluginManagerService:
                 latest = ts
         return latest
 
-    def _view_from_liveness(
-        self,
-        entry: PluginLivenessEntry,
-        in_proc_ids: set[str],
-    ) -> PluginView:
+    def _view_from_liveness(self, entry: PluginLivenessEntry) -> PluginView:
         plugin_id = entry.plugin_id
         if "/" not in plugin_id and entry.category:
             plugin_id = f"{entry.category}/{plugin_id}"
-        kind: Literal["in-process", "broker"] = (
-            "in-process" if plugin_id in in_proc_ids else "broker"
-        )
         enabled = self._state.is_enabled(entry.plugin_id)
         is_default = self._state.get_default(entry.category) == entry.plugin_id
 
@@ -432,7 +421,7 @@ class PluginManagerService:
                 supported_transports=list(manifest.supported_transports),
                 default_transport=manifest.default_transport,
                 isolation=manifest.isolation,
-                kind=kind,
+                kind="broker",
                 enabled=enabled,
                 is_default_for_category=is_default,
                 task_queue=entry.task_queue,
@@ -450,7 +439,7 @@ class PluginManagerService:
             supported_transports=[Transport.RMQ],
             default_transport=Transport.RMQ,
             isolation=IsolationLevel.CONTAINER,
-            kind=kind,
+            kind="broker",
             enabled=enabled,
             is_default_for_category=is_default,
             task_queue=entry.task_queue,
@@ -587,11 +576,9 @@ def get_plugin_manager(db: Session) -> PluginManagerService:
     """
     from core.plugin_liveness_registry import get_registry as get_liveness_registry
     from core.plugin_state import get_state_store
-    from plugins.registry import registry as in_process_registry
     from repositories.plugin_repository import PluginRepository
 
     return PluginManagerService(
-        in_process=in_process_registry,
         liveness=get_liveness_registry(),
         state_store=get_state_store(),
         plugin_repo=PluginRepository(db),

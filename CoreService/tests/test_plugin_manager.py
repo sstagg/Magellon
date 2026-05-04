@@ -99,14 +99,6 @@ def _make_manifest(name="ctffind4", version="1.0.0", category="ctf"):
     )
 
 
-def _make_in_process_registry(plugin_ids=()):
-    reg = MagicMock()
-    reg.list.return_value = [
-        SimpleNamespace(plugin_id=pid) for pid in plugin_ids
-    ]
-    return reg
-
-
 def _make_liveness_registry(entries=()):
     reg = MagicMock()
     reg.list_live.return_value = list(entries)
@@ -119,9 +111,8 @@ def _make_plugin_repo(rows=()):
     return repo
 
 
-def _build_manager(*, in_proc=(), live=(), catalog=(), state=None):
+def _build_manager(*, live=(), catalog=(), state=None):
     return PluginManagerService(
-        in_process=_make_in_process_registry(in_proc),
         liveness=_make_liveness_registry(live),
         state_store=state or _FakeStateStore(),
         plugin_repo=_make_plugin_repo(catalog),
@@ -133,25 +124,19 @@ def _build_manager(*, in_proc=(), live=(), catalog=(), state=None):
 # ---------------------------------------------------------------------------
 
 
-def test_list_all_joins_in_process_and_broker_kinds():
-    """``kind`` is derived from cross-referencing the in-process
-    registry — a plugin in both shows up as in-process; otherwise
-    broker. Pinned because the controller's UI relies on this label
-    to decide whether the /jobs path or the bus path applies."""
-    in_proc = _make_liveness_entry("template-picker", category="pp",
-                                   manifest=_make_manifest(name="template-picker"))
-    broker = _make_liveness_entry("ctffind4", category="ctf",
-                                  manifest=_make_manifest(name="ctffind4"))
+def test_list_all_classifies_every_plugin_as_broker():
+    """Post-PI-6 there are no in-process plugins. Pin that the kind
+    field is always ``"broker"`` regardless of plugin_id shape — the
+    React UI's old in-process-vs-broker branch is dead."""
+    a = _make_liveness_entry("template-picker", category="pp",
+                             manifest=_make_manifest(name="template-picker"))
+    b = _make_liveness_entry("ctffind4", category="ctf",
+                             manifest=_make_manifest(name="ctffind4"))
 
-    manager = _build_manager(
-        in_proc=["pp/template-picker"],
-        live=[in_proc, broker],
-    )
+    manager = _build_manager(live=[a, b])
 
     views = manager.list_all()
-    by_id = {v.plugin_id: v for v in views}
-    assert by_id["pp/template-picker"].kind == "in-process"
-    assert by_id["ctf/ctffind4"].kind == "broker"
+    assert {v.kind for v in views} == {"broker"}
 
 
 def test_list_all_auto_seeds_default_impl_for_first_live_per_category():
@@ -303,12 +288,10 @@ def test_list_installed_returns_catalog_rows_even_when_offline():
 # ---------------------------------------------------------------------------
 
 
-def test_list_running_skips_in_process_only_plugins():
-    """If a plugin is in the in-process registry but never showed up
-    in liveness, it shouldn't appear in ``list_running`` — running
-    means "currently announcing on the bus"."""
+def test_list_running_returns_only_currently_announcing_plugins():
+    """``list_running`` reflects the bus liveness window — only
+    plugins that have heartbeat-ed within ``stale_after`` show up."""
     manager = _build_manager(
-        in_proc=["pp/template-picker"],
         live=[_make_liveness_entry("ctffind4",
                                    manifest=_make_manifest(name="ctffind4"))],
     )

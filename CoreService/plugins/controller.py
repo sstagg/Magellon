@@ -63,7 +63,6 @@ from magellon_sdk.models import (
     TaskStatus,
     Transport,
 )
-from plugins.registry import registry
 from services.job_manager import job_manager
 
 logger = logging.getLogger(__name__)
@@ -208,7 +207,6 @@ async def list_capabilities() -> _CapabilitiesResponse:
     cache, no risk of drift.
     """
     state = get_state_store()
-    in_process_ids = {entry.plugin_id for entry in registry.list()}
 
     # Group live entries by (category, backend_id). Replicas (same
     # plugin_id with different instance_ids) collapse into one summary
@@ -258,41 +256,6 @@ async def list_capabilities() -> _CapabilitiesResponse:
                 task_queue=rep.task_queue,
             ))
 
-        # In-process plugins for this category that haven't shown up in
-        # the liveness registry (e.g. before announce wiring lands or
-        # in tests). They still serve the category, so list them.
-        for in_proc_id in in_process_ids:
-            short = in_proc_id.split("/", 1)[1] if "/" in in_proc_id else in_proc_id
-            already_listed = any(b.name == short for b in backends)
-            entry = registry.get(in_proc_id)
-            if entry is None or already_listed:
-                continue
-            try:
-                entry_category = entry.instance.task_category.name.lower()
-            except Exception:  # noqa: BLE001
-                entry_category = ""
-            if entry_category != cat_key:
-                continue
-            manifest = entry.manifest
-            info = manifest.info
-            backend_key = (manifest.backend_id or short).lower() or "unknown"
-            is_default = state.get_default(cat_key) == short
-            backends.append(_BackendSummary(
-                backend_id=backend_key,
-                plugin_id=in_proc_id if "/" in in_proc_id else f"{cat_key}/{short}",
-                name=short,
-                version=info.version or "?",
-                schema_version=info.schema_version or "1",
-                description=info.description or "",
-                developer=info.developer or "",
-                capabilities=list(manifest.capabilities),
-                isolation=manifest.isolation,
-                default_transport=manifest.default_transport,
-                live_replicas=1,
-                enabled=state.is_enabled(short),
-                is_default_for_category=is_default,
-                task_queue=None,
-            ))
 
         # X.9: deterministic ordering — default backend first, then
         # alphabetical by backend_id. UIs can render straight from this
@@ -455,43 +418,84 @@ def plugin_replicas(plugin_id: str):
 @plugins_router.get("/{plugin_id:path}/manifest", summary="Plugin capability manifest")
 async def plugin_manifest(plugin_id: str) -> PluginManifest:
     """Full capability description — what the plugin needs (resources,
-    isolation) and how it can be reached (transports). Remote plugins
-    will eventually serve this same shape from their own /manifest, so
-    a future PluginManager can consume in-house and remote plugins
-    through one model."""
-    return _require_plugin(plugin_id).manifest
+    isolation) and how it can be reached (transports). Sourced from
+    the broker's announce envelope (cached in the liveness registry).
+    """
+    short = _strip_category_prefix(plugin_id)
+    for entry in get_liveness_registry().list_live():
+        if entry.plugin_id in (short, plugin_id) and entry.manifest is not None:
+            return entry.manifest
+    raise HTTPException(status_code=404, detail=f"Plugin {plugin_id} not found")
 
 
-def _require_plugin(plugin_id: str):
-    entry = registry.get(plugin_id)
-    if entry is None:
-        raise HTTPException(status_code=404, detail=f"Plugin {plugin_id} not found")
-    return entry
+def _live_entry(plugin_id: str):
+    """Find the liveness entry for a plugin or 404. Replaces the
+    pre-PI-6 ``_require_plugin`` which read from the in-process
+    registry — now everything is a broker plugin."""
+    short = _strip_category_prefix(plugin_id)
+    for entry in get_liveness_registry().list_live():
+        if entry.plugin_id in (short, plugin_id):
+            return entry
+    raise HTTPException(status_code=404, detail=f"Plugin {plugin_id} not found")
 
 
 @plugins_router.get("/{plugin_id:path}/info", summary="Plugin metadata")
 async def plugin_info(plugin_id: str):
-    return _require_plugin(plugin_id).instance.get_info()
+    """Read identity from the announce manifest. Pre-PI-6 this called
+    PluginBase.get_info() on an in-process instance; now it's a flat
+    projection of manifest.info."""
+    entry = _live_entry(plugin_id)
+    if entry.manifest is None:
+        raise HTTPException(status_code=503, detail="Plugin manifest pending")
+    info = entry.manifest.info
+    return {
+        "name": info.name,
+        "developer": info.developer,
+        "description": info.description,
+        "version": info.version,
+        "schema_version": getattr(info, "schema_version", "1") or "1",
+    }
 
 
 @plugins_router.get("/{plugin_id:path}/health", summary="Plugin liveness probe")
 async def plugin_health(plugin_id: str):
-    return _require_plugin(plugin_id).instance.health_check()
+    """A plugin in the live registry is heartbeating; if it's not in
+    the registry, ``_live_entry`` 404s."""
+    entry = _live_entry(plugin_id)
+    return {
+        "status": "ok",
+        "last_heartbeat_at": (
+            entry.last_heartbeat.isoformat() if entry.last_heartbeat else None
+        ),
+    }
 
 
-@plugins_router.get("/{plugin_id:path}/requirements", summary="Plugin requirement check")
-async def plugin_requirements(plugin_id: str):
-    return _require_plugin(plugin_id).instance.check_requirements()
+def _category_for_live_plugin(plugin_id: str) -> Optional[CategoryContract]:
+    short = _strip_category_prefix(plugin_id)
+    for entry in get_liveness_registry().list_live():
+        if entry.plugin_id in (short, plugin_id):
+            return _category_contract_by_name(entry.category)
+    return None
 
 
 @plugins_router.get("/{plugin_id:path}/schema/input", summary="Plugin input JSON schema")
 async def plugin_input_schema(plugin_id: str):
-    return _require_plugin(plugin_id).instance.input_schema().model_json_schema()
+    """Schema comes from the plugin's category contract — every backend
+    in a category shares the same input/output shape (the whole point
+    of CategoryContract). The React form reader uses this to render
+    the per-plugin form."""
+    contract = _category_for_live_plugin(plugin_id)
+    if contract is None or contract.input_model is None:
+        raise HTTPException(status_code=404, detail=f"No input schema for {plugin_id}")
+    return contract.input_model.model_json_schema()
 
 
 @plugins_router.get("/{plugin_id:path}/schema/output", summary="Plugin output JSON schema")
 async def plugin_output_schema(plugin_id: str):
-    return _require_plugin(plugin_id).instance.output_schema().model_json_schema()
+    contract = _category_for_live_plugin(plugin_id)
+    if contract is None or contract.output_model is None:
+        raise HTTPException(status_code=404, detail=f"No output schema for {plugin_id}")
+    return contract.output_model.model_json_schema()
 
 
 # ---------------------------------------------------------------------------
@@ -500,17 +504,13 @@ async def plugin_output_schema(plugin_id: str):
 
 @plugins_router.post("/{plugin_id:path}/jobs", summary="Submit one plugin job (async)")
 async def submit_job(plugin_id: str, request: JobSubmitRequest, sid: str | None = None):
-    """Dispatch one job.
+    """Dispatch one job to a broker plugin via ``bus.tasks.send``.
 
-    U1.3: in-process plugins still run via ``plugin.run()`` in an executor
-    (existing code path). Broker plugins dispatch via ``bus.tasks.send`` —
-    the plugin's runner (Docker container or separate process) consumes
-    the task and publishes the result + step events back. ``job_manager``
-    row is the same shape either way; callers don't need to care.
+    Post-PI-6 there are no in-process plugins; every dispatch flows
+    through the bus. The plugin's runner consumes the task and
+    publishes the result + step events back. ``job_manager`` rows
+    track lifecycle the same way regardless of where the plugin runs.
     """
-    in_process = _find_in_process_plugin(plugin_id)
-    if in_process is not None:
-        return await _submit_in_process_job(in_process, request, sid)
     broker = _find_broker_plugin(plugin_id)
     if broker is not None:
         return await _submit_broker_job(plugin_id, broker, request)
@@ -525,9 +525,6 @@ async def submit_batch(plugin_id: str, request: BatchSubmitRequest, sid: str | N
             detail="image_ids length must match inputs length when provided",
         )
 
-    in_process = _find_in_process_plugin(plugin_id)
-    if in_process is not None:
-        return await _submit_in_process_batch(in_process, request, sid)
     broker = _find_broker_plugin(plugin_id)
     if broker is not None:
         return await _submit_broker_batch(plugin_id, broker, request)
@@ -537,11 +534,6 @@ async def submit_batch(plugin_id: str, request: BatchSubmitRequest, sid: str | N
 # ---------------------------------------------------------------------------
 # Lookup helpers
 # ---------------------------------------------------------------------------
-
-def _find_in_process_plugin(plugin_id: str):
-    """Static registry lookup. Returns the ``PluginEntry`` or ``None``."""
-    return registry.get(plugin_id)
-
 
 def _find_broker_plugin(plugin_id: str) -> Optional[CategoryContract]:
     """Look up a broker plugin by plugin_id, resolve its category contract.
@@ -668,53 +660,6 @@ def _category_contract_by_name(category_name: str) -> Optional[CategoryContract]
         if contract.category.name.lower() == category_name.lower():
             return contract
     return None
-
-
-# ---------------------------------------------------------------------------
-# In-process dispatch — existing path
-# ---------------------------------------------------------------------------
-
-async def _submit_in_process_job(entry, request: JobSubmitRequest, sid: str | None):
-    try:
-        validated = entry.instance.input_schema().model_validate(request.input)
-    except Exception as exc:
-        raise HTTPException(status_code=422, detail=f"Invalid input: {exc}")
-
-    envelope = job_manager.create_job(
-        plugin_id=entry.plugin_id,
-        name=request.name or f"{entry.name} job",
-        settings=validated.model_dump(mode="json"),
-        image_ids=[request.image_id] if request.image_id else None,
-        user_id=request.user_id,
-        msession_id=request.msession_id,
-    )
-    asyncio.create_task(_run_generic_job(entry, envelope["job_id"], validated, sid))
-    return envelope
-
-
-async def _submit_in_process_batch(entry, request: BatchSubmitRequest, sid: str | None):
-    validated_inputs = []
-    for idx, raw in enumerate(request.inputs):
-        try:
-            validated_inputs.append(entry.instance.input_schema().model_validate(raw))
-        except Exception as exc:
-            raise HTTPException(status_code=422, detail=f"Invalid input at index {idx}: {exc}")
-
-    envelopes: List[Dict[str, Any]] = []
-    for idx, validated in enumerate(validated_inputs):
-        image_id = request.image_ids[idx] if request.image_ids else None
-        envelope = job_manager.create_job(
-            plugin_id=entry.plugin_id,
-            name=request.name or f"{entry.name} batch [{idx + 1}/{len(validated_inputs)}]",
-            settings=validated.model_dump(mode="json"),
-            image_ids=[image_id] if image_id else None,
-            user_id=request.user_id,
-            msession_id=request.msession_id,
-        )
-        envelopes.append(envelope)
-        asyncio.create_task(_run_generic_job(entry, envelope["job_id"], validated, sid))
-
-    return {"jobs": envelopes, "count": len(envelopes)}
 
 
 # ---------------------------------------------------------------------------
@@ -1416,53 +1361,3 @@ async def cancel_any_job(job_id: str):
     return {**envelope, "cancel_requested": True}
 
 
-# ---------------------------------------------------------------------------
-# Internals
-# ---------------------------------------------------------------------------
-
-async def _run_generic_job(entry, job_id: str, validated_input, sid: str | None) -> None:
-    """Execute plugin.run() in a worker thread, stream progress over Socket.IO."""
-    from core.socketio_server import emit_job_update, emit_log
-    from plugins.progress import JobCancelledError, JobReporter
-
-    plugin = entry.instance
-    plugin_label = entry.plugin_id
-    loop = asyncio.get_running_loop()
-    reporter = JobReporter(job_id=job_id, sid=sid, plugin_label=plugin_label, loop=loop)
-
-    try:
-        running = job_manager.mark_running(job_id, progress=0)
-        await emit_job_update(sid, running)
-        await emit_log('info', plugin_label, f"{plugin_label} started (job {job_id})")
-
-        output = await loop.run_in_executor(
-            None, lambda: plugin.run(validated_input, reporter=reporter)
-        )
-
-        # Plugins return a Pydantic model; downstream code reads from dict.
-        result_dict = output.model_dump() if hasattr(output, "model_dump") else output
-        num_items = _infer_num_items(result_dict)
-
-        completed = job_manager.complete_job(job_id, result=result_dict, num_items=num_items)
-        await emit_job_update(sid, completed)
-        await emit_log('info', plugin_label, f"{plugin_label} completed (job {job_id})")
-    except JobCancelledError:
-        cancelled = job_manager.cancel_job(job_id)
-        await emit_job_update(sid, cancelled)
-        await emit_log('info', plugin_label, f"{plugin_label} cancelled (job {job_id})")
-    except Exception as exc:
-        failed = job_manager.fail_job(job_id, error=str(exc))
-        await emit_job_update(sid, failed)
-        await emit_log('error', plugin_label, f"{plugin_label} failed: {exc}")
-        logger.exception("Plugin job failed: %s", plugin_label)
-
-
-def _infer_num_items(result: Any) -> int:
-    """Best-effort item count — plugins expose this under different keys."""
-    if not isinstance(result, dict):
-        return 0
-    for key in ("num_particles", "num_items", "count"):
-        value = result.get(key)
-        if isinstance(value, int):
-            return value
-    return 0
