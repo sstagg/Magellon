@@ -392,22 +392,10 @@ async def startup_event():
         logger.error(f"[ERROR] MessageBus install failed: {e}")
         logger.warning("[WARNING] Bus consumers will fail to start")
 
-    # U1.1: announce in-process plugins on the liveness bus so they
-    # appear in the same /plugins/ list as broker plugins. One unified
-    # registry, one source of truth for "what plugins exist."
-    try:
-        from plugins.in_process_announce import (
-            announce_in_process_plugins,
-            start_in_process_heartbeat,
-        )
-        count = announce_in_process_plugins(app_settings.rabbitmq_settings)
-        if count:
-            start_in_process_heartbeat(app_settings.rabbitmq_settings)
-            logger.info(
-                "[OK] Announced %d in-process plugin(s); heartbeat loop started", count,
-            )
-    except Exception:
-        logger.exception("[WARNING] In-process plugin announce failed")
+    # PI-6: the in-process announce loop is gone. Architecture B is
+    # retired — no PluginBase subclasses live inside CoreService
+    # anymore; the registry walks an empty filesystem. All plugins
+    # are external broker plugins, announcing themselves directly.
 
     # Start motioncor test result processor thread
     try:

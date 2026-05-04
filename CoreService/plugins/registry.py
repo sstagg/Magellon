@@ -4,9 +4,14 @@ Plugins live under ``plugins/<category>/<name>/service.py``. Each
 ``service.py`` is imported once; any ``PluginBase`` subclass it defines is
 instantiated, identified by ``{category}/{get_info().name}``, and cached.
 
-The registry is the source of truth for plugin discovery endpoints and
-for dispatching ``POST /plugins/{plugin_id}/jobs/batch`` to the right
-plugin instance.
+**PI-6 (2026-05-04): VESTIGIAL.** The walk now finds nothing — the
+``plugins/`` filesystem holds no service.py files. The last in-process
+plugin (``pp/template-picker``) moved to plain functions in
+``services/particle_picking/`` in PI-5. This module stays as
+backstop scaffolding for any straggler imports
+(``services/plugin_manager.py``, ``plugins/controller.py``); it's
+harmless because the walk is now a no-op. Removable in a follow-up
+PR that prunes those callers.
 """
 from __future__ import annotations
 
