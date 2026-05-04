@@ -109,6 +109,40 @@ class UpdateInfo(BaseModel):
     archive_url: Optional[str] = None
 
 
+class InstalledPluginView(BaseModel):
+    """Catalog row with physical-location info — what the operator UI's
+    "Installed" tab needs to render the where-does-this-plugin-live
+    column.
+
+    Distinct from :class:`PluginView` (the join across the five live
+    sources): this DTO speaks ONLY to the persistent ``plugin`` table
+    (PM1's alembic 0008). A plugin shows up here whether or not it's
+    currently announcing on the bus — the UI cross-references with the
+    liveness registry to decide which rows are "installed but not
+    running" vs. "installed and live".
+    """
+
+    plugin_id: str
+    """Composed ``<category>/<name>`` for UI consistency with PluginView."""
+    manifest_plugin_id: Optional[str] = None
+    """The install-package slug (manifest's plugin_id) — what the
+    install pipeline keys on. ``None`` for legacy rows that pre-date
+    PM1's alembic 0008 column."""
+    name: str
+    version: Optional[str] = None
+    category: Optional[str] = None
+    description: str = ""
+    developer: Optional[str] = None
+    install_method: Optional[Literal["docker", "uv", "archive"]] = None
+    install_dir: Optional[str] = None
+    image_ref: Optional[str] = None
+    container_ref: Optional[str] = None
+    archive_id: Optional[str] = None
+    installed_date: Optional[datetime] = None
+    enabled: bool = True
+    is_default_for_category: bool = False
+
+
 class ReplicaInfo(BaseModel):
     """Per-replica health for one plugin (PM5).
 
@@ -207,6 +241,16 @@ class PluginManagerService:
         """
         rows = self._plugin_repo.list_installed()
         return [self._view_from_plugin_row(p) for p in rows]
+
+    def list_installed_full(self) -> List[InstalledPluginView]:
+        """Same scope as :meth:`list_installed` but exposes the
+        physical-location columns (``install_method``, ``install_dir``,
+        ``image_ref``, ``container_ref``) the manager UI's "Installed"
+        tab renders so operators can see where each plugin lives —
+        a directory, a Docker image, or a running container.
+        """
+        rows = self._plugin_repo.list_installed()
+        return [self._installed_view_from_plugin_row(p) for p in rows]
 
     def list_running(self) -> List[PluginView]:
         """Liveness view — only plugins currently announcing on the bus."""
@@ -412,6 +456,30 @@ class PluginManagerService:
             task_queue=entry.task_queue,
         )
 
+    def _installed_view_from_plugin_row(self, plugin) -> InstalledPluginView:
+        manifest = plugin.manifest_json or {}
+        category = (plugin.category or "").lower()
+        plugin_id = f"{category}/{plugin.name}" if category else plugin.name
+        return InstalledPluginView(
+            plugin_id=plugin_id,
+            manifest_plugin_id=plugin.manifest_plugin_id,
+            name=plugin.name,
+            version=plugin.version,
+            category=category or None,
+            description=manifest.get("description") or "",
+            developer=plugin.author,
+            install_method=plugin.install_method,
+            install_dir=plugin.install_dir,
+            image_ref=plugin.image_ref,
+            container_ref=plugin.container_ref,
+            archive_id=str(plugin.archive_id) if plugin.archive_id else None,
+            installed_date=plugin.installed_date,
+            enabled=self._state.is_enabled(plugin.name),
+            is_default_for_category=(
+                self._state.get_default(category) == plugin.name
+            ),
+        )
+
     def _view_from_plugin_row(self, plugin) -> PluginView:
         manifest = plugin.manifest_json or {}
         category = (plugin.category or "").lower()
@@ -532,6 +600,7 @@ def get_plugin_manager(db: Session) -> PluginManagerService:
 
 __all__ = [
     "CatalogVersionInfo",
+    "InstalledPluginView",
     "LocalCatalogSource",
     "PluginManagerService",
     "PluginView",

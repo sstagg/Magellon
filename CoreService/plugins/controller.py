@@ -390,6 +390,26 @@ def plugin_status(plugin_id: str) -> List[Condition]:
 
 
 @plugins_router.get(
+    "/db",
+    summary="All cataloged plugins with physical-install location",
+)
+def plugins_db():
+    """Every plugin row in the DB catalog, including offline ones.
+
+    Distinct from ``GET /plugins/`` (which lists currently-announcing
+    plugins from the in-memory liveness registry). This endpoint
+    answers "what's installed on this server, where do they live, and
+    how were they installed" — needed by the operator UI's "Installed"
+    tab to render the where-does-this-plugin-live column.
+    """
+    from database import session_local
+    from services.plugin_manager import get_plugin_manager
+
+    with session_local() as db:
+        return get_plugin_manager(db).list_installed_full()
+
+
+@plugins_router.get(
     "/updates",
     summary="Available updates for installed plugins (PM6)",
 )

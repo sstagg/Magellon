@@ -20,6 +20,7 @@ from magellon_sdk.models import (
 )
 from services.plugin_manager import (
     CatalogVersionInfo,
+    InstalledPluginView,
     PluginManagerService,
     PluginView,
     _semver_severity,
@@ -191,6 +192,66 @@ def test_list_all_falls_back_for_announceless_heartbeat():
 # ---------------------------------------------------------------------------
 # list_installed
 # ---------------------------------------------------------------------------
+
+
+def test_list_installed_full_surfaces_physical_location_columns():
+    """The Installed-tab UI needs to show install_method / install_dir
+    / image_ref / container_ref so operators can see where each plugin
+    actually lives. Pinned because a future install pipeline could
+    plumb a new install method (e.g. wheel) and the UI must keep
+    rendering its location even if image_ref is null."""
+    plugin_row = SimpleNamespace(
+        oid=uuid.uuid4(),
+        name="ctffind4",
+        manifest_plugin_id="ctf",
+        author="Magellon Team",
+        category="ctf",
+        version="1.0.2",
+        schema_version="1",
+        manifest_json={"description": "CTF estimator"},
+        install_method="docker",
+        install_dir=None,
+        image_ref="magellon/ctf:1.0.2",
+        container_ref="abc123def",
+        archive_id=None,
+        installed_date=datetime(2026, 5, 1, tzinfo=timezone.utc),
+    )
+    manager = _build_manager(catalog=[plugin_row])
+    [view] = manager.list_installed_full()
+    assert isinstance(view, InstalledPluginView)
+    assert view.install_method == "docker"
+    assert view.image_ref == "magellon/ctf:1.0.2"
+    assert view.container_ref == "abc123def"
+    assert view.install_dir is None
+    assert view.manifest_plugin_id == "ctf"
+
+
+def test_list_installed_full_handles_uv_install_with_dir():
+    """A uv-installed plugin lives at a filesystem path, not a Docker
+    image. The view must surface install_dir and leave image_ref/
+    container_ref None — the chip in the UI keys off whichever
+    physical-location field is set."""
+    plugin_row = SimpleNamespace(
+        oid=uuid.uuid4(),
+        name="my-tool",
+        manifest_plugin_id="my-tool",
+        author=None,
+        category="utility",
+        version="0.1.0",
+        schema_version="1",
+        manifest_json={},
+        install_method="uv",
+        install_dir="/opt/magellon/plugins/my-tool",
+        image_ref=None,
+        container_ref=None,
+        archive_id=None,
+        installed_date=None,
+    )
+    manager = _build_manager(catalog=[plugin_row])
+    [view] = manager.list_installed_full()
+    assert view.install_method == "uv"
+    assert view.install_dir == "/opt/magellon/plugins/my-tool"
+    assert view.image_ref is None
 
 
 def test_list_installed_returns_catalog_rows_even_when_offline():
