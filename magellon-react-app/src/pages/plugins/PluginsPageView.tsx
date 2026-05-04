@@ -75,7 +75,12 @@ export const PluginsPageView: React.FC = () => {
                 <Tab value="catalog" label="Catalog" />
             </Tabs>
 
-            {tab === 'installed' && <InstalledPluginsView />}
+            {tab === 'installed' && (
+                <InstalledPluginsView
+                    onUploadArchive={() => setUploadOpen(true)}
+                    onBrowseHub={() => setHubOpen(true)}
+                />
+            )}
             {tab === 'catalog' && <CatalogView />}
 
             <UploadArchiveDialog

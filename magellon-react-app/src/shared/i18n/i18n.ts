@@ -35,7 +35,7 @@ i18n
             // Modify the loadPath to match your new directory structure
             loadPath: '/locales/{{lng}}/{{ns}}.json', // {{ns}} will be replaced with the namespace (e.g., global, home, error, activate)
         },
-        // ns: ['global', 'home',  'activate'], // Define the namespaces used in your application
+        ns: ['global'],
         defaultNS: 'global', // Set the default namespace
     });
 

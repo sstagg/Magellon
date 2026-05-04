@@ -50,10 +50,10 @@ export interface PluginInfo {
     version: string;
 }
 
-export type JsonSchema = Record<string, any>;
+export type JsonSchema = Record<string, unknown>;
 
 export interface JobSubmitRequest {
-    input: Record<string, any>;
+    input: Record<string, unknown>;
     name?: string;
     image_id?: string;
     user_id?: string;
@@ -68,7 +68,7 @@ export interface JobSubmitRequest {
 }
 
 export interface BatchSubmitRequest {
-    inputs: Record<string, any>[];
+    inputs: Record<string, unknown>[];
     name?: string;
     image_ids?: string[];
     user_id?: string;
@@ -229,7 +229,7 @@ export const usePluginReplicas = (pluginId: string | null) =>
 // currently-announcing plugins.
 // ---------------------------------------------------------------------------
 
-export type InstallMethod = 'docker' | 'uv' | 'archive';
+export type InstallMethod = 'docker' | 'uv' | 'archive' | 'discovered';
 
 export interface InstalledPluginRow {
     plugin_id: string;
@@ -549,8 +549,8 @@ export interface CapabilitiesCategory {
     default_backend?: string | null;
     /** Sorted: default-flagged backend first, then alphabetical by backend_id. */
     backends: CapabilitiesBackend[];
-    input_schema?: Record<string, any> | null;
-    output_schema?: Record<string, any> | null;
+    input_schema?: Record<string, unknown> | null;
+    output_schema?: Record<string, unknown> | null;
 }
 
 export interface CapabilitiesResponse {

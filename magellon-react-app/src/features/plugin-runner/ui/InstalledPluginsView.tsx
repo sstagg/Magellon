@@ -35,13 +35,15 @@ import {
     Typography,
 } from '@mui/material';
 import {
-    Boxes,
     ChevronDown,
     ChevronUp,
+    Cloud,
     Container as ContainerIcon,
     FolderOpen,
+    PackageOpen,
     Star,
     Trash2,
+    Upload,
 } from 'lucide-react';
 import {
     useInstalledFromDb,
@@ -61,6 +63,24 @@ const ConditionsForCard: React.FC<{ pluginId: string }> = ({ pluginId }) => {
     const { data } = usePluginStatus(pluginId);
     return <PluginConditions conditions={data} />;
 };
+
+const errorText = (err: unknown, fallback: string): string => {
+    if (typeof err === 'object' && err !== null) {
+        const maybeResponse = err as {
+            response?: { data?: { detail?: unknown } };
+            message?: unknown;
+        };
+        const detail = maybeResponse.response?.data?.detail;
+        if (typeof detail === 'string') return detail;
+        if (typeof maybeResponse.message === 'string') return maybeResponse.message;
+    }
+    return fallback;
+};
+
+interface InstalledPluginsViewProps {
+    onUploadArchive?: () => void;
+    onBrowseHub?: () => void;
+}
 
 /** Render the physical-location chip(s) appropriate for this plugin. */
 const InstallLocationChip: React.FC<{ row: InstalledPluginRow }> = ({ row }) => {
@@ -103,7 +123,10 @@ const InstallLocationChip: React.FC<{ row: InstalledPluginRow }> = ({ row }) => 
     return null;
 };
 
-export const InstalledPluginsView: React.FC = () => {
+export const InstalledPluginsView: React.FC<InstalledPluginsViewProps> = ({
+    onUploadArchive,
+    onBrowseHub,
+}) => {
     const { data: rows, isLoading, error } = useInstalledFromDb();
     const toggle = useTogglePlugin();
     const setDefault = useSetCategoryDefault();
@@ -160,10 +183,10 @@ export const InstalledPluginsView: React.FC = () => {
         try {
             await uninstall.mutateAsync(manifestPluginId);
             setActionMessage({ severity: 'success', text: `Uninstalled ${label}` });
-        } catch (err: any) {
+        } catch (err: unknown) {
             setActionMessage({
                 severity: 'error',
-                text: err?.response?.data?.detail ?? err?.message ?? 'Uninstall failed.',
+                text: errorText(err, 'Uninstall failed.'),
             });
         } finally {
             setPendingUninstall(null);
@@ -184,12 +207,9 @@ export const InstalledPluginsView: React.FC = () => {
     return (
         <Box>
             <Stack direction="row" spacing={2} sx={{ alignItems: 'center', mb: 3 }}>
-                <Boxes size={22} />
                 <Box sx={{ flex: 1 }}>
-                    <Typography variant="h6">Installed plugins</Typography>
                     <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                        Registered in the database — running on the bus or
-                        ready to start. {(rows ?? []).length} total.
+                        {(rows ?? []).length} registered in the database
                     </Typography>
                 </Box>
                 <TextField
@@ -212,10 +232,63 @@ export const InstalledPluginsView: React.FC = () => {
             )}
 
             {filtered.length === 0 ? (
-                <Alert severity="info">
-                    No installed plugins. Use <strong>Upload archive</strong> or{' '}
-                    <strong>Browse hub</strong> above to install one.
-                </Alert>
+                <Card variant="outlined">
+                    <CardContent
+                        sx={{
+                            minHeight: 220,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            textAlign: 'center',
+                            gap: 1.5,
+                        }}
+                    >
+                        <Box
+                            sx={{
+                                width: 56,
+                                height: 56,
+                                borderRadius: '50%',
+                                display: 'grid',
+                                placeItems: 'center',
+                                bgcolor: 'action.hover',
+                                color: 'text.secondary',
+                            }}
+                        >
+                            <PackageOpen size={28} />
+                        </Box>
+                        <Box>
+                            <Typography variant="h6">No plugin inventory yet</Typography>
+                            <Typography
+                                variant="body2"
+                                sx={{ color: 'text.secondary', maxWidth: 520 }}
+                            >
+                                Installed plugins will appear here with their database
+                                record, runtime status, and install location.
+                            </Typography>
+                        </Box>
+                        <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                            {onUploadArchive && (
+                                <Button
+                                    variant="contained"
+                                    startIcon={<Upload size={16} />}
+                                    onClick={onUploadArchive}
+                                >
+                                    Upload archive
+                                </Button>
+                            )}
+                            {onBrowseHub && (
+                                <Button
+                                    variant="outlined"
+                                    startIcon={<Cloud size={16} />}
+                                    onClick={onBrowseHub}
+                                >
+                                    Browse hub
+                                </Button>
+                            )}
+                        </Stack>
+                    </CardContent>
+                </Card>
             ) : (
                 <Grid container spacing={2}>
                     {filtered.map((plugin) => {
