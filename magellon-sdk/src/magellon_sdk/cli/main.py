@@ -12,9 +12,9 @@ land later under the ``hub`` group when the hub itself is deployed.
 Naming notes
 ============
 
-- Canonical archive extension: ``.mpn`` ("Magellon plugin"). The
-  legacy ``.magplugin`` extension is still accepted by ``validate``
-  and ``install`` paths during the transition.
+- Canonical archive extension: ``.mpn`` ("Magellon plugin"). ``.zip``
+  is also accepted on read paths since the underlying archive is a
+  zip; ``pack`` only emits ``.mpn``.
 - Canonical manifest filename inside the archive: ``manifest.yaml``.
   ``pack`` also writes a copy at the legacy name ``plugin.yaml``
   so the existing CoreService install controller (which hard-codes
@@ -45,7 +45,7 @@ from magellon_sdk.archive.manifest import (
 CANONICAL_MANIFEST = "manifest.yaml"
 LEGACY_MANIFEST = "plugin.yaml"
 ARCHIVE_EXT = ".mpn"
-LEGACY_ARCHIVE_EXTS = (".magplugin", ".zip")
+LEGACY_ARCHIVE_EXTS = (".zip",)
 SKIP_DIRS = {"__pycache__", ".git", ".venv", "venv", "node_modules", ".pytest_cache"}
 SKIP_FILE_PATTERNS = (".pyc",)
 
@@ -74,7 +74,7 @@ def _read_source_manifest(source_dir: Path) -> tuple[PluginArchiveManifest, Path
 
 def _load_manifest_from_path(path: Path) -> PluginArchiveManifest:
     """Used by ``validate`` — accepts a directory, a manifest file, or
-    an archive (``.mpn`` / ``.magplugin`` / ``.zip``)."""
+    an archive (``.mpn`` / ``.zip``)."""
     if path.is_dir():
         return _read_source_manifest(path)[0]
     if path.suffix in (ARCHIVE_EXT,) + LEGACY_ARCHIVE_EXTS:

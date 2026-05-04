@@ -1229,12 +1229,12 @@ def _install_from_manifest(manifest) -> Dict[str, Any]:
 
 @plugins_router.post(
     "/install/archive",
-    summary="Install a plugin from a .magplugin archive upload",
+    summary="Install a plugin from a .mpn archive upload",
 )
 async def install_plugin_archive(
-    archive: UploadFile = File(..., description="A .magplugin zip archive."),
+    archive: UploadFile = File(..., description="A .mpn zip archive."),
 ) -> Dict[str, Any]:
-    """Accept a ``.magplugin`` archive, validate its manifest, spawn
+    """Accept a ``.mpn`` archive, validate its manifest, spawn
     the container using manifest defaults.
 
     The archive is what ``magellon-sdk plugin pack`` produces: a zip
@@ -1283,9 +1283,9 @@ async def browse_catalog(
 
 @plugins_router.post("/catalog", summary="Upload a plugin archive to the catalog")
 async def upload_catalog_entry(
-    archive: UploadFile = File(..., description="A .magplugin zip archive."),
+    archive: UploadFile = File(..., description="A .mpn zip archive."),
 ) -> Dict[str, Any]:
-    """Publish a ``.magplugin`` archive to the catalog.
+    """Publish a ``.mpn`` archive to the catalog.
 
     Validates the manifest up front; SDK-compat mismatch is a warning
     here, not a hard fail — the catalog may host archives targeting

@@ -6,9 +6,9 @@
  * in a modal" feedback, we put it behind an explicit "Upload archive"
  * button so the page surface stays focused on what's installed.
  *
- * Accepts ``.mpn`` (v1) and ``.magplugin`` (v0 legacy). On successful
- * install, calls ``onInstalled`` so the parent can refresh its lists
- * and close the dialog.
+ * Accepts ``.mpn`` archives. On successful install, calls
+ * ``onInstalled`` so the parent can refresh its lists and close the
+ * dialog.
  */
 import React, { useRef, useState } from 'react';
 import {
@@ -38,7 +38,7 @@ interface UploadArchiveDialogProps {
     onInstalled?: (result: InstallResponse) => void;
 }
 
-const ACCEPT_EXTENSIONS = ['.mpn', '.magplugin', '.zip'];
+const ACCEPT_EXTENSIONS = ['.mpn', '.zip'];
 
 export const UploadArchiveDialog: React.FC<UploadArchiveDialogProps> = ({
     open,
@@ -76,7 +76,7 @@ export const UploadArchiveDialog: React.FC<UploadArchiveDialogProps> = ({
         const ok = ACCEPT_EXTENSIONS.some((ext) => file.name.endsWith(ext));
         if (!ok) {
             setInstallError(
-                `Expected a .mpn (or legacy .magplugin) archive; got ${file.name}.`,
+                `Expected a .mpn archive; got ${file.name}.`,
             );
             setPendingFile(null);
             return;
@@ -147,7 +147,7 @@ export const UploadArchiveDialog: React.FC<UploadArchiveDialogProps> = ({
                     <input
                         ref={fileInput}
                         type="file"
-                        accept=".mpn,.magplugin,.zip"
+                        accept=".mpn,.zip"
                         style={{ display: 'none' }}
                         onChange={(e) => acceptFile(e.target.files?.[0] ?? null)}
                     />

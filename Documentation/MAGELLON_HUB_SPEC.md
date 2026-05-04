@@ -8,7 +8,7 @@
 
 ## 1. Purpose
 
-`magellon-hub` is a central service that hosts Magellon plugin archives (`.magplugin`) and exposes a read/write HTTP API so plugin authors can publish their work and CoreService deployments can discover and install it.
+`magellon-hub` is a central service that hosts Magellon plugin archives (`.mpn`) and exposes a read/write HTTP API so plugin authors can publish their work and CoreService deployments can discover and install it.
 
 It plays the same role PyPI plays for Python or npmjs.com plays for Node — a registry of named, versioned, reviewable artifacts with a public discovery surface. It is **not** an alternative to per-deployment catalogs: the CoreService-local catalog (see `CoreService/core/plugin_catalog.py`) remains for private and air-gapped deployments. The hub is where the public ecosystem lives.
 
@@ -58,7 +58,7 @@ It plays the same role PyPI plays for Python or npmjs.com plays for Node — a r
 
 - **FastAPI app** — HTTP surface. Async where it pays (archive upload / download). Sync where it doesn't (simple CRUD).
 - **PostgreSQL** — all metadata (users, plugins, versions, reviews, audit log). Same engine as CoreService, shared ops knowledge.
-- **Object store** — the `.magplugin` archive bytes. Abstracted behind a `StorageBackend` interface; default filesystem, S3/R2/GCS pluggable. Content-addressed by SHA256 for dedup.
+- **Object store** — the `.mpn` archive bytes. Abstracted behind a `StorageBackend` interface; default filesystem, S3/R2/GCS pluggable. Content-addressed by SHA256 for dedup.
 - **Background jobs** — rebuild the public `/v1/index.json` on publish/yank, garbage-collect orphan archives, cron-nudge stale pending reviews. Run under APScheduler or `arq` — something lightweight, same process or a sidecar. Pick one at implementation time.
 - **Admin UI** — optional thin page (HTMX / Starlette templates / or a handful of FastAPI routes rendering HTML). MVP can be API-only; reviewers hit endpoints via a CLI or Postman.
 
@@ -224,7 +224,7 @@ Content-addressed storage metadata. Deduplicates uploads with the same bytes.
 | `id` | BIGSERIAL | PK | |
 | `sha256` | CHAR(64) | NOT NULL, UNIQUE | Hex digest of the archive bytes. |
 | `size_bytes` | BIGINT | NOT NULL, CHECK ≥ 0 | |
-| `storage_key` | VARCHAR(500) | NOT NULL | Opaque handle the storage backend uses. FS: `ar/ab/<sha256>.magplugin`. S3: `s3://<bucket>/archives/ar/ab/<sha256>.magplugin`. |
+| `storage_key` | VARCHAR(500) | NOT NULL | Opaque handle the storage backend uses. FS: `ar/ab/<sha256>.mpn`. S3: `s3://<bucket>/archives/ar/ab/<sha256>.mpn`. |
 | `content_type` | VARCHAR(64) | NOT NULL, default `'application/zip'` | |
 | `uploaded_at` | TIMESTAMPTZ | NOT NULL, default `now()` | |
 
@@ -292,7 +292,7 @@ HTTP status codes follow the usual contract: `200` success, `201` created, `204`
 | 2 | GET | `/v1/plugins/{slug}` | none | Plugin detail (metadata + latest published version). |
 | 3 | GET | `/v1/plugins/{slug}/versions` | none | Version history for one plugin. |
 | 4 | GET | `/v1/plugins/{slug}/versions/{version}` | none | One version's metadata. |
-| 5 | GET | `/v1/plugins/{slug}/versions/{version}/archive` | none | Download the `.magplugin` archive. |
+| 5 | GET | `/v1/plugins/{slug}/versions/{version}/archive` | none | Download the `.mpn` archive. |
 | 6 | GET | `/v1/categories` | none | Category list with plugin counts. |
 | 7 | GET | `/v1/index.json` | none | Full index (CoreService polls this). |
 | 8 | GET | `/v1/healthz` | none | Liveness. |
@@ -535,7 +535,7 @@ Response `200` → plugin detail. Errors: `403` if not owner; `404` if disabled 
 **12. `POST /v1/plugins/{slug}/versions`** — Upload a new version.
 
 **Multipart form** with one field:
-- `archive`: a `.magplugin` file.
+- `archive`: a `.mpn` file.
 
 Server extracts `plugin.yaml` from the archive and:
 1. Parses the manifest (422 on invalid YAML / unknown schema version / field violations).
@@ -735,12 +735,12 @@ Two backends at MVP:
 
 **Filesystem** — default for dev and single-node deployments.
 - Root: `HUB_STORAGE_FS_ROOT`, default `/var/lib/magellon-hub/archives/`.
-- Key scheme: `archives/<sha256[0:2]>/<sha256[2:4]>/<sha256>.magplugin`.
+- Key scheme: `archives/<sha256[0:2]>/<sha256[2:4]>/<sha256>.mpn`.
 - Serving: stream via FastAPI's `FileResponse` with `Cache-Control: public, max-age=31536000, immutable` and `ETag: <sha256>`. Behind nginx in prod, use X-Accel-Redirect.
 
 **S3-compatible** — for prod with R2 / S3 / MinIO.
 - Env: `HUB_STORAGE_S3_BUCKET`, `HUB_STORAGE_S3_ENDPOINT`, `HUB_STORAGE_S3_ACCESS_KEY_ID`, `HUB_STORAGE_S3_SECRET_ACCESS_KEY`, `HUB_STORAGE_S3_REGION`.
-- Key scheme: `archives/<sha256[0:2]>/<sha256[2:4]>/<sha256>.magplugin` (same sharding as FS).
+- Key scheme: `archives/<sha256[0:2]>/<sha256[2:4]>/<sha256>.mpn` (same sharding as FS).
 - Download: serve via pre-signed URL (redirect `302` to a 5-minute-lived URL) or proxy through the hub app. Redirect is preferred for bandwidth; proxy may be needed if clients need the download counted server-side.
 
 ### 6.2 Deduplication

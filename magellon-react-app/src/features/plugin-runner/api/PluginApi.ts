@@ -366,7 +366,7 @@ export const installPlugin = async (body: InstallPluginRequest): Promise<Install
     return res.data;
 };
 
-/** Install a plugin from a .magplugin archive upload (H3a). */
+/** Install a plugin from a .mpn archive upload (H3a). */
 export const installPluginArchive = async (
     archive: File,
 ): Promise<InstalledPlugin & { archive?: { plugin_id: string; name: string; version: string; category: string } }> => {

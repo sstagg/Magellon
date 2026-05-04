@@ -71,7 +71,7 @@ from magellon_sdk.config import BaseAppSettings, BaseAppSettingsSingleton, Rabbi
 # Logging setup (optional)
 from magellon_sdk.logging_config import setup_logging
 
-# Plugin archive format (1.2+) — manifest shape for .magplugin archives
+# Plugin archive format (1.2+) — manifest shape for .mpn archives
 from magellon_sdk.archive import (
     PluginArchiveManifest, ArchiveImage, ArchiveInstallDefaults,
     ArchiveVolumeSpec, load_manifest_bytes, load_manifest_yaml,
@@ -184,7 +184,7 @@ Kept the names un-prefixed (`DiscoveryPublisher`, `HeartbeatLoop`, `ConfigSubscr
 
 ---
 
-## 7. Plugin archive format (`.magplugin`, added 1.2)
+## 7. Plugin archive format (`.mpn`, added 1.2)
 
 Authored via the `magellon-sdk plugin` CLI. Zip with a top-level `plugin.yaml` (required) and optional `README.md`. Field shapes are versioned separately via `schema_version` — bump on breaking changes. `schema_version: 1` readers are promised stable within 1.x.
 

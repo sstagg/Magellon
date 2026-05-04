@@ -23,10 +23,9 @@ Status code mapping:
   200 — uninstall, upgrade, list, describe succeeded
 
 The legacy ``plugins/controller.py`` endpoint (``POST
-/plugins/install/archive``) handles v0 ``.magplugin`` archives via
-the older ``plugin_catalog``. v1 ``.mpn`` archives flow through
-this admin surface instead — the two paths coexist during the
-transition.
+/plugins/install/archive``) is the older ``plugin_catalog`` v0
+upload path. v1 ``.mpn`` archives flow through this admin surface
+instead.
 """
 from __future__ import annotations
 
@@ -115,11 +114,10 @@ async def _save_upload_to_temp(upload: UploadFile) -> Path:
     can read it as a path. Caller is responsible for unlinking."""
     if not upload.filename:
         raise HTTPException(status_code=400, detail="upload missing filename")
-    if not (upload.filename.endswith(".mpn") or upload.filename.endswith(".magplugin")):
+    if not upload.filename.endswith(".mpn"):
         raise HTTPException(
             status_code=400,
-            detail=f"upload must be a .mpn (or legacy .magplugin) archive; "
-                   f"got {upload.filename!r}",
+            detail=f"upload must be a .mpn archive; got {upload.filename!r}",
         )
     fd, name = tempfile.mkstemp(suffix=".mpn", prefix="upload-")
     try:

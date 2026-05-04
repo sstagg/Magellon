@@ -1,10 +1,10 @@
 """Filesystem-backed plugin catalog (H3b).
 
-Stores ``.magplugin`` archives uploaded via ``POST /plugins/catalog``
+Stores ``.mpn`` archives uploaded via ``POST /plugins/catalog``
 under ``CoreService/data/plugin_catalog/``. Each catalog entry is:
 
-- ``<catalog_id>.magplugin`` — the archive bytes as uploaded.
-- ``<catalog_id>.json``     — parsed manifest + upload metadata. Kept
+- ``<catalog_id>.mpn``  — the archive bytes as uploaded.
+- ``<catalog_id>.json`` — parsed manifest + upload metadata. Kept
   alongside so a read-only scan of the directory at boot is enough
   to reconstruct the index without re-unzipping every archive.
 
@@ -60,7 +60,7 @@ class CatalogEntry:
     """One plugin published to the catalog.
 
     ``manifest`` is the parsed ``plugin.yaml``. ``archive_path`` points
-    to the on-disk ``.magplugin`` — the install flow needs it to hand
+    to the on-disk ``.mpn`` — the install flow needs it to hand
     to the existing /install/archive bytes handler without re-fetching
     anything.
     """
@@ -118,7 +118,7 @@ class PluginCatalog:
         return self.dir / f"{catalog_id}.json"
 
     def _archive_path(self, catalog_id: str) -> Path:
-        return self.dir / f"{catalog_id}.magplugin"
+        return self.dir / f"{catalog_id}.mpn"
 
     def _rescan(self) -> None:
         """Load every sidecar+archive pair in the catalog dir.

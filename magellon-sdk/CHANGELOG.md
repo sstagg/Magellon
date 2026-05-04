@@ -182,9 +182,9 @@ Minor. Additive — every 1.x plugin keeps working.
   - `magellon-sdk plugin init <name>` — scaffolds a directory with a
     ready-to-edit `plugin.yaml` and a README.
   - `magellon-sdk plugin pack <dir>` — validates the manifest and
-    zips to `<plugin_id>-<version>.magplugin`.
+    zips to `<plugin_id>-<version>.mpn`.
   - `magellon-sdk plugin validate <path>` — accepts a directory, a
-    `plugin.yaml` file, or a `.magplugin` zip. SDK compat mismatch
+    `plugin.yaml` file, or a `.mpn` zip. SDK compat mismatch
     is a warning here; `/plugins/install/archive` hard-fails.
 - **`pyyaml` promoted to a core dependency** (was an optional extra).
   `archive.manifest` needs it unconditionally; plugins already pulled

@@ -230,18 +230,17 @@ def test_install_rejects_non_mpn_extension(client, fake_manager):
     fake_manager.install.assert_not_called()
 
 
-def test_install_accepts_legacy_magplugin_extension(client, fake_manager):
-    """v0 archives have ``.magplugin`` extension. The pack CLI
-    writes both yaml aliases inside; the controller must accept
-    both extensions during the transition."""
-    fake_manager.install.return_value = _success_install()
-
+def test_install_rejects_legacy_magplugin_extension(client, fake_manager):
+    """The v0 ``.magplugin`` extension is no longer accepted —
+    operators must repack as ``.mpn``. Pin the rejection so a future
+    PR can't quietly re-add the legacy back-compat path."""
     resp = client.post(
         "/admin/plugins/install",
         files={"file": ("legacy.magplugin", _fake_mpn_bytes())},
     )
 
-    assert resp.status_code == 201
+    assert resp.status_code == 400
+    fake_manager.install.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

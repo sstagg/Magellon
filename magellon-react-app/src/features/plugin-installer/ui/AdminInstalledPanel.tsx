@@ -76,9 +76,7 @@ export const AdminInstalledPanel: React.FC = () => {
             setPendingFile(null);
             return;
         }
-        const ok = file.name.endsWith('.mpn') ||
-                   file.name.endsWith('.magplugin') ||
-                   file.name.endsWith('.zip');
+        const ok = file.name.endsWith('.mpn') || file.name.endsWith('.zip');
         if (!ok) {
             setInstallError(`Expected a .mpn archive; got ${file.name}.`);
             setPendingFile(null);
@@ -184,7 +182,7 @@ export const AdminInstalledPanel: React.FC = () => {
                 <input
                     ref={fileInput}
                     type="file"
-                    accept=".mpn,.magplugin,.zip"
+                    accept=".mpn,.zip"
                     style={{ display: 'none' }}
                     onChange={(e) => acceptFile(e.target.files?.[0] ?? null)}
                 />

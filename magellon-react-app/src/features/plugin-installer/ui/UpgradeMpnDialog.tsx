@@ -101,7 +101,7 @@ export const UpgradeMpnDialog: React.FC<UpgradeMpnDialogProps> = ({
                     <input
                         ref={fileInput}
                         type="file"
-                        accept=".mpn,.magplugin,.zip"
+                        accept=".mpn,.zip"
                         style={{ display: 'none' }}
                         onChange={(e) => {
                             setFile(e.target.files?.[0] ?? null);
