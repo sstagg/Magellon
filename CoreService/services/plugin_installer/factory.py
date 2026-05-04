@@ -20,6 +20,7 @@ from typing import Optional
 from services.plugin_installer.docker_installer import DockerInstaller
 from services.plugin_installer.manager import PluginInstallManager
 from services.plugin_installer.protocol import RuntimeConfig
+from services.plugin_installer.supervisor import default_supervisor
 from services.plugin_installer.uv_installer import UvInstaller
 
 logger = logging.getLogger(__name__)
@@ -91,7 +92,7 @@ def _build_manager() -> PluginInstallManager:
         UvInstaller(plugins_dir=plugins_dir),
         DockerInstaller(plugins_dir=plugins_dir, network=network),
     ]
-    return PluginInstallManager(installers)
+    return PluginInstallManager(installers, supervisor=default_supervisor())
 
 
 def get_install_manager() -> PluginInstallManager:

@@ -61,6 +61,10 @@ from services.plugin_installer.protocol import (
     RuntimeConfig,
     UninstallResult,
 )
+from services.plugin_installer.supervisor import (
+    NoOpSupervisor,
+    Supervisor,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +102,7 @@ class PluginInstallManager:
         *,
         host_info_provider: Optional[Callable[..., HostInfo]] = None,
         health_check: HealthCheck = _no_health_check,
+        supervisor: Optional[Supervisor] = None,
     ) -> None:
         # Index by method for quick lookup. If two installers claim
         # the same method, the LAST wins (lets a deployment override
@@ -107,6 +112,10 @@ class PluginInstallManager:
             self._installers[inst.method] = inst
         self._host_info_provider = host_info_provider or detect_host_info
         self._health_check = health_check
+        # Supervisor is optional and defaults to NoOp so manager unit
+        # tests don't shell out. Production wires SystemdUserSupervisor
+        # via the factory.
+        self._supervisor: Supervisor = supervisor or NoOpSupervisor()
 
     # ------------------------------------------------------------------
     # Install
@@ -160,13 +169,47 @@ class PluginInstallManager:
         if not result.success:
             return result
 
-        # 6. Health check — wait for announce, or skip if no-op.
+        # 6. Supervisor: write systemd unit + start the plugin (PI-2).
+        # Only relevant for installers that materialize a directory
+        # (uv); docker installers manage their own container lifecycle
+        # and skip supervision.
+        if installer.method == "uv" and result.install_dir is not None:
+            sup_install = self._supervisor.install_unit(
+                manifest.plugin_id, result.install_dir,
+            )
+            if not sup_install.success:
+                # Best-effort rollback — leaving a half-supervised
+                # install is worse than rolling back.
+                installer.uninstall(manifest.plugin_id)
+                return InstallResult(
+                    success=False,
+                    plugin_id=manifest.plugin_id,
+                    install_method=installer.method,
+                    error=f"supervisor install_unit failed: {sup_install.error}",
+                    logs=result.logs,
+                )
+            sup_start = self._supervisor.start(manifest.plugin_id)
+            if not sup_start.success:
+                self._supervisor.remove_unit(manifest.plugin_id)
+                installer.uninstall(manifest.plugin_id)
+                return InstallResult(
+                    success=False,
+                    plugin_id=manifest.plugin_id,
+                    install_method=installer.method,
+                    error=f"supervisor start failed: {sup_start.error}",
+                    logs=result.logs,
+                )
+
+        # 7. Health check — wait for announce, or skip if no-op.
         timeout = float(manifest.health_check.timeout_seconds)
         if manifest.health_check.expected_announce:
             announced = self._health_check(manifest.plugin_id, timeout)
             if not announced:
                 # Roll back — an installed-but-dead plugin is worse
                 # than no plugin (operators see stale state).
+                if installer.method == "uv":
+                    self._supervisor.stop(manifest.plugin_id)
+                    self._supervisor.remove_unit(manifest.plugin_id)
                 installer.uninstall(manifest.plugin_id)
                 return InstallResult(
                     success=False,
@@ -192,6 +235,12 @@ class PluginInstallManager:
         (CoreService restart between install and uninstall)."""
         for installer in self._installers.values():
             if installer.is_installed(plugin_id):
+                # Stop + remove the supervisor unit before reclaiming
+                # the install dir — otherwise systemd holds open file
+                # descriptors and the rmtree fails on Linux.
+                if installer.method == "uv":
+                    self._supervisor.stop(plugin_id)
+                    self._supervisor.remove_unit(plugin_id)
                 return installer.uninstall(plugin_id)
         return UninstallResult(
             success=False,
