@@ -28,9 +28,10 @@ import os
 import platform
 import shutil
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional, Protocol, runtime_checkable
+from typing import Any, Callable, Dict, Optional, Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
 
@@ -374,24 +375,288 @@ class SystemdUserSupervisor:
 
 
 # ---------------------------------------------------------------------------
+# Windows / cross-platform Popen supervisor
+# ---------------------------------------------------------------------------
+#
+# Manages the plugin process directly via ``subprocess.Popen`` and
+# persists the PID under ``<install_dir>/.pid``. Used on Windows
+# (where systemd doesn't exist) and as a portable fallback on macOS.
+# Linux production deployments still prefer ``SystemdUserSupervisor``
+# because user units survive ssh-disconnect / reboot via lingering;
+# Popen plugins die with the parent CoreService.
+
+
+def _read_runtime_env(install_dir: Path) -> Dict[str, str]:
+    """Parse the plugin's ``runtime.env`` (KEY=VALUE per line) so the
+    spawned process inherits the install-time deployment values."""
+    env: Dict[str, str] = {}
+    runtime_env = install_dir / "runtime.env"
+    if not runtime_env.is_file():
+        return env
+    for line in runtime_env.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        env[key.strip()] = value.strip()
+    return env
+
+
+class PopenSupervisor:
+    """Direct ``subprocess.Popen`` supervisor — Windows-friendly.
+
+    Launches the plugin's ``main.py`` via ``uvicorn`` inside the
+    plugin's own ``.venv``. Stdout/stderr are appended to
+    ``<install_dir>/app.log`` so operators have something to inspect.
+
+    Liveness model: the PID is persisted to
+    ``<install_dir>/.pid`` at start and removed on stop. Liveness
+    check uses ``psutil.pid_exists`` plus a name verification (the
+    PID could have been recycled by an unrelated process after a
+    crash).
+    """
+
+    name = "popen"
+
+    def __init__(
+        self,
+        *,
+        plugins_dir: Path,
+        subprocess_runner: SubprocessRunner = _default_subprocess_runner,
+    ) -> None:
+        self.plugins_dir = Path(plugins_dir)
+        self._run = subprocess_runner
+
+    def _install_dir(self, plugin_id: str) -> Path:
+        return self.plugins_dir / plugin_id
+
+    def _pid_file(self, plugin_id: str) -> Path:
+        return self._install_dir(plugin_id) / ".pid"
+
+    def _venv_python(self, install_dir: Path) -> Path:
+        # Windows + uv venv layout. ``Scripts/`` on Windows,
+        # ``bin/`` on POSIX.
+        win = install_dir / ".venv" / "Scripts" / "python.exe"
+        if win.exists():
+            return win
+        return install_dir / ".venv" / "bin" / "python"
+
+    def install_unit(self, plugin_id: str, install_dir: Path) -> SupervisorResult:
+        # Popen has no install step — start() is direct. Always succeeds.
+        return SupervisorResult(success=True, plugin_id=plugin_id, logs="popen: no unit needed")
+
+    def remove_unit(self, plugin_id: str) -> SupervisorResult:
+        pid_file = self._pid_file(plugin_id)
+        try:
+            if pid_file.exists():
+                pid_file.unlink()
+        except Exception as exc:  # noqa: BLE001
+            return SupervisorResult(
+                success=False, plugin_id=plugin_id,
+                error=f"failed to remove pid file: {exc}",
+            )
+        return SupervisorResult(success=True, plugin_id=plugin_id)
+
+    def is_running(self, plugin_id: str) -> bool:
+        pid = self._read_live_pid(plugin_id)
+        return pid is not None
+
+    def _read_live_pid(self, plugin_id: str) -> Optional[int]:
+        """Return the persisted PID iff the process is still alive.
+        Stale PID files (process gone) are cleaned up as a side effect."""
+        pid_file = self._pid_file(plugin_id)
+        if not pid_file.exists():
+            return None
+        try:
+            pid = int(pid_file.read_text(encoding="utf-8").strip())
+        except Exception:  # noqa: BLE001
+            pid_file.unlink(missing_ok=True)
+            return None
+        if not _pid_alive(pid):
+            pid_file.unlink(missing_ok=True)
+            return None
+        return pid
+
+    def start(self, plugin_id: str) -> SupervisorResult:
+        existing = self._read_live_pid(plugin_id)
+        if existing is not None:
+            return SupervisorResult(
+                success=True, plugin_id=plugin_id,
+                logs=f"already running (PID {existing})",
+            )
+
+        install_dir = self._install_dir(plugin_id)
+        if not install_dir.is_dir():
+            return SupervisorResult(
+                success=False, plugin_id=plugin_id,
+                error=f"plugin not installed at {install_dir}",
+            )
+
+        venv_python = self._venv_python(install_dir)
+        if not venv_python.exists():
+            return SupervisorResult(
+                success=False, plugin_id=plugin_id,
+                error=f"venv python missing: {venv_python}",
+            )
+
+        env = {**os.environ, **_read_runtime_env(install_dir)}
+        port = env.get("MAGELLON_PLUGIN_PORT", "8000")
+        host = env.get("MAGELLON_PLUGIN_HOST", "0.0.0.0")
+
+        log_path = install_dir / "app.log"
+        try:
+            log_fh = open(log_path, "ab")
+        except Exception as exc:  # noqa: BLE001
+            return SupervisorResult(
+                success=False, plugin_id=plugin_id,
+                error=f"cannot open log {log_path}: {exc}",
+            )
+
+        cmd = [
+            str(venv_python), "-m", "uvicorn", "main:app",
+            "--host", host, "--port", str(port),
+        ]
+        # Detach from CoreService's process group so an operator
+        # restarting CoreService doesn't take the plugin down with it.
+        # Windows: CREATE_NEW_PROCESS_GROUP. POSIX: start_new_session.
+        popen_kwargs: Dict[str, Any] = dict(
+            cwd=str(install_dir),
+            env=env,
+            stdout=log_fh,
+            stderr=subprocess.STDOUT,
+            stdin=subprocess.DEVNULL,
+        )
+        if hasattr(subprocess, "CREATE_NEW_PROCESS_GROUP"):
+            popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+        else:
+            popen_kwargs["start_new_session"] = True
+
+        try:
+            proc = subprocess.Popen(cmd, **popen_kwargs)
+        except Exception as exc:  # noqa: BLE001
+            log_fh.close()
+            return SupervisorResult(
+                success=False, plugin_id=plugin_id,
+                error=f"Popen failed: {exc}",
+            )
+
+        # We persist the PID immediately and let the file handle
+        # detach when our reference drops; uvicorn will keep writing
+        # to the OS-level fd. Closing too eagerly truncates output.
+        try:
+            self._pid_file(plugin_id).write_text(
+                str(proc.pid), encoding="utf-8",
+            )
+        except Exception as exc:  # noqa: BLE001
+            return SupervisorResult(
+                success=False, plugin_id=plugin_id,
+                error=f"started PID {proc.pid} but failed to persist: {exc}",
+            )
+
+        return SupervisorResult(
+            success=True, plugin_id=plugin_id,
+            logs=f"started PID {proc.pid} on {host}:{port} (logs -> {log_path.name})",
+        )
+
+    def stop(self, plugin_id: str) -> SupervisorResult:
+        pid = self._read_live_pid(plugin_id)
+        if pid is None:
+            # Idempotent: stopping a stopped plugin is success.
+            return SupervisorResult(
+                success=True, plugin_id=plugin_id, logs="not running",
+            )
+
+        try:
+            _terminate_pid(pid)
+        except Exception as exc:  # noqa: BLE001
+            return SupervisorResult(
+                success=False, plugin_id=plugin_id,
+                error=f"terminate failed for PID {pid}: {exc}",
+            )
+
+        # Wait briefly for graceful shutdown; force-kill if it lingers.
+        deadline = time.time() + 5.0
+        while time.time() < deadline:
+            if not _pid_alive(pid):
+                break
+            time.sleep(0.2)
+        if _pid_alive(pid):
+            try:
+                _kill_pid(pid)
+            except Exception:  # noqa: BLE001
+                pass
+
+        self._pid_file(plugin_id).unlink(missing_ok=True)
+        return SupervisorResult(
+            success=True, plugin_id=plugin_id, logs=f"stopped PID {pid}",
+        )
+
+
+def _pid_alive(pid: int) -> bool:
+    """Cross-platform 'is this PID a live process?' check."""
+    try:
+        import psutil
+        if not psutil.pid_exists(pid):
+            return False
+        # Defensive: zombie check
+        proc = psutil.Process(pid)
+        return proc.status() != psutil.STATUS_ZOMBIE
+    except Exception:  # noqa: BLE001
+        # Without psutil, fall back to os.kill(pid, 0).
+        try:
+            os.kill(pid, 0)
+            return True
+        except OSError:
+            return False
+
+
+def _terminate_pid(pid: int) -> None:
+    """Send SIGTERM on POSIX; on Windows, taskkill without /F first."""
+    if platform.system() == "Windows":
+        # /T = also terminate child processes (uvicorn workers).
+        subprocess.run(
+            ["taskkill", "/PID", str(pid), "/T"],
+            capture_output=True, timeout=5,
+        )
+    else:
+        import signal
+        os.kill(pid, signal.SIGTERM)
+
+
+def _kill_pid(pid: int) -> None:
+    """Force-kill — Windows /F or SIGKILL."""
+    if platform.system() == "Windows":
+        subprocess.run(
+            ["taskkill", "/F", "/PID", str(pid), "/T"],
+            capture_output=True, timeout=5,
+        )
+    else:
+        import signal
+        os.kill(pid, signal.SIGKILL)
+
+
+# ---------------------------------------------------------------------------
 # Factory — picks the right impl per host
 # ---------------------------------------------------------------------------
 
 
-def default_supervisor() -> Supervisor:
+def default_supervisor(plugins_dir: Optional[Path] = None) -> Supervisor:
     """Return a supervisor appropriate for the current host.
 
-    Linux with systemctl on PATH → :class:`SystemdUserSupervisor`.
-    Anything else → :class:`NoOpSupervisor` (dev fallback; install
-    pipeline still works, the operator just runs the plugin manually).
+    - Linux with systemctl on PATH → :class:`SystemdUserSupervisor`
+    - Other (Windows / macOS) when ``plugins_dir`` is provided → :class:`PopenSupervisor`
+    - Fallback → :class:`NoOpSupervisor`
     """
     if platform.system() == "Linux" and shutil.which("systemctl"):
         return SystemdUserSupervisor()
+    if plugins_dir is not None:
+        return PopenSupervisor(plugins_dir=plugins_dir)
     return NoOpSupervisor()
 
 
 __all__ = [
     "NoOpSupervisor",
+    "PopenSupervisor",
     "Supervisor",
     "SupervisorResult",
     "SystemdUserSupervisor",

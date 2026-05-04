@@ -1,6 +1,6 @@
 [project]
 name = "magellon-fft-plugin"
-version = "0.1.0"
+version = "0.2.0"
 description = "FFT reference plugin for Magellon: computes 2D FFT magnitude spectrum of a micrograph."
 readme = "README.md"
 requires-python = ">=3.10"

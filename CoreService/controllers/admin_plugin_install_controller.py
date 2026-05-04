@@ -314,4 +314,98 @@ def list_installed(
     )
 
 
+# ---------------------------------------------------------------------------
+# Lifecycle endpoints — start / stop / restart / status
+# ---------------------------------------------------------------------------
+#
+# The supervisor implements the actual process control (Popen on
+# Windows, systemctl on Linux). These endpoints expose it through
+# the same admin surface as install/uninstall so the React plugin
+# manager UI can offer Run / Stop / Restart buttons next to each
+# installed plugin.
+
+
+@admin_plugin_install_router.post(
+    "/{plugin_id}/start",
+    summary="Start an installed plugin's process",
+)
+def start_plugin(
+    plugin_id: str,
+    manager: PluginInstallManager = Depends(get_install_manager),
+    _: None = Depends(require_role("Administrator")),
+):
+    result = manager.start(plugin_id)
+    if result.success:
+        return {
+            "success": True,
+            "plugin_id": result.plugin_id,
+            "logs": result.logs,
+            "running": manager.is_running(plugin_id),
+        }
+    err = (result.error or "").lower()
+    if "not installed" in err:
+        raise HTTPException(status_code=404, detail=result.error)
+    raise HTTPException(status_code=500, detail=result.error or "start failed")
+
+
+@admin_plugin_install_router.post(
+    "/{plugin_id}/stop",
+    summary="Stop an installed plugin's process (idempotent)",
+)
+def stop_plugin(
+    plugin_id: str,
+    manager: PluginInstallManager = Depends(get_install_manager),
+    _: None = Depends(require_role("Administrator")),
+):
+    result = manager.stop(plugin_id)
+    if result.success:
+        return {
+            "success": True,
+            "plugin_id": result.plugin_id,
+            "logs": result.logs,
+            "running": manager.is_running(plugin_id),
+        }
+    raise HTTPException(status_code=500, detail=result.error or "stop failed")
+
+
+@admin_plugin_install_router.post(
+    "/{plugin_id}/restart",
+    summary="Stop then start the plugin's process",
+)
+def restart_plugin(
+    plugin_id: str,
+    manager: PluginInstallManager = Depends(get_install_manager),
+    _: None = Depends(require_role("Administrator")),
+):
+    result = manager.restart(plugin_id)
+    if result.success:
+        return {
+            "success": True,
+            "plugin_id": result.plugin_id,
+            "logs": result.logs,
+            "running": manager.is_running(plugin_id),
+        }
+    raise HTTPException(status_code=500, detail=result.error or "restart failed")
+
+
+@admin_plugin_install_router.get(
+    "/{plugin_id}/status",
+    summary="Process-level status from the supervisor",
+)
+def plugin_process_status(
+    plugin_id: str,
+    manager: PluginInstallManager = Depends(get_install_manager),
+    _: None = Depends(require_role("Administrator")),
+):
+    """Lightweight check — does the supervisor see a live PID for
+    this plugin? Distinct from ``GET /plugins/{id}/status`` which
+    returns the broader Conditions[] (announce-based liveness).
+    """
+    return {
+        "plugin_id": plugin_id,
+        "installed": manager.is_installed(plugin_id),
+        "running": manager.is_running(plugin_id),
+    }
+
+
 __all__ = ["admin_plugin_install_router"]

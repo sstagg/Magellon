@@ -254,6 +254,48 @@ class PluginInstallManager:
         )
 
     # ------------------------------------------------------------------
+    # Lifecycle (run / pause / stop) — delegate to supervisor
+    # ------------------------------------------------------------------
+
+    def start(self, plugin_id: str):
+        """Launch the installed plugin's process.
+
+        On Windows + uv installs this Popens the plugin's
+        ``main.py`` via uvicorn; on Linux production it runs
+        ``systemctl --user start``. Idempotent: starting a running
+        plugin returns success.
+        """
+        from services.plugin_installer.supervisor import SupervisorResult
+        if not self.is_installed(plugin_id):
+            return SupervisorResult(
+                success=False, plugin_id=plugin_id,
+                error=f"plugin {plugin_id} not installed",
+            )
+        return self._supervisor.start(plugin_id)
+
+    def stop(self, plugin_id: str):
+        """Terminate the plugin's process. Idempotent: stopping a
+        stopped plugin returns success."""
+        return self._supervisor.stop(plugin_id)
+
+    def restart(self, plugin_id: str):
+        """Stop + start. Returns the start result; stop errors are
+        swallowed (a stop failure usually means 'already stopped')."""
+        self._supervisor.stop(plugin_id)
+        return self.start(plugin_id)
+
+    def is_running(self, plugin_id: str) -> bool:
+        """Best-effort liveness check. Returns False if the supervisor
+        doesn't track running state (e.g. NoOpSupervisor)."""
+        check = getattr(self._supervisor, "is_running", None)
+        if check is None:
+            return False
+        try:
+            return bool(check(plugin_id))
+        except Exception:  # noqa: BLE001
+            return False
+
+    # ------------------------------------------------------------------
     # Upgrade (P6)
     # ------------------------------------------------------------------
 

@@ -92,7 +92,12 @@ def _build_manager() -> PluginInstallManager:
         UvInstaller(plugins_dir=plugins_dir),
         DockerInstaller(plugins_dir=plugins_dir, network=network),
     ]
-    return PluginInstallManager(installers, supervisor=default_supervisor())
+    # Pass plugins_dir so the Popen supervisor (Windows / macOS dev)
+    # can find install dirs + persist PID files. Linux production
+    # still resolves to SystemdUserSupervisor, which doesn't need it.
+    return PluginInstallManager(
+        installers, supervisor=default_supervisor(plugins_dir=plugins_dir),
+    )
 
 
 def get_install_manager() -> PluginInstallManager:
