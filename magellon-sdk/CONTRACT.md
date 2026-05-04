@@ -77,6 +77,12 @@ from magellon_sdk.archive import (
     ArchiveVolumeSpec, load_manifest_bytes, load_manifest_yaml,
     check_sdk_compat, SchemaVersionError, SdkCompatError,
 )
+
+# Capability layer (2.2+) — sync-RPC contracts plugins opt into
+from magellon_sdk.capabilities import (
+    make_sync_router, make_preview_router,
+    PickingPreviewResult, PickingRetuneRequest, PickingRetuneResult,
+)
 ```
 
 ### 2.2 Pydantic field guarantees

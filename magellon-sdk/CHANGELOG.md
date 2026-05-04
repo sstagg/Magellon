@@ -11,6 +11,60 @@ Version pattern follows SemVer as defined in `CONTRACT.md` §4.
 
 ---
 
+## 2.2.0 — 2026-05-04
+
+**Minor.** Additive contracts for the sync-RPC capability layer
+(PT-1..PT-6 in CoreService). Plugins can opt into HTTP-side calls
+alongside the bus consumer; CoreService's sync_dispatcher routes
+low-latency interactive flows (preview, retune, sync /execute)
+without RMQ round-trip. Plugins that don't opt in are unaffected.
+
+### Added
+
+- **`Capability.SYNC`** — plugin advertises a `POST /execute`
+  endpoint accepting the category's `input_model` and returning
+  the category's `output_model`. Same compute as `run()` minus
+  the bus runner's step-event machinery.
+- **`Capability.PREVIEW`** — plugin advertises the interactive
+  preview-and-retune flow:
+  - `POST /preview` → :class:`PickingPreviewResult`
+  - `POST /preview/{id}/retune` → :class:`PickingRetuneResult`
+  - `DELETE /preview/{id}`
+  Wire shapes today are picker-specific
+  (`PickingPreviewResult`, `PickingRetuneRequest`,
+  `PickingRetuneResult` in
+  :mod:`magellon_sdk.capabilities.preview_models`); other
+  categories that adopt PREVIEW define their own analogues.
+- **`Announce.http_endpoint: Optional[str]`** — plugins
+  advertising SYNC/PREVIEW set this to their FastAPI base URL
+  (`AnyHttpUrl`-validated). CoreService's sync_dispatcher
+  reads it to route. Re-announces with explicit `None` clear
+  the cached URL (R1 J fix).
+- **`magellon_sdk.capabilities`** package — `make_sync_router`,
+  `make_preview_router`. Plugin authors implement
+  `execute_sync` / `preview` / `retune` / `discard_preview`;
+  the routers wire FastAPI routes with the right Pydantic
+  validation and error mapping (FileNotFoundError → 404,
+  ValueError → 422, JobCancelledError → 499, anything else →
+  500).
+- **`PluginBrokerRunner.http_endpoint` ctor arg** + plumbed
+  through `start_discovery` so plugins set the announce
+  envelope's URL from one place.
+- **`PluginLivenessEntry.http_endpoint`** slot + propagation
+  from `record_announce`.
+
+### Notes
+
+- Architecture B (in-process PluginBase + registry inside
+  CoreService) is retired; CoreService no longer hosts plugins
+  directly. The capability layer is the supported way to expose
+  HTTP-side plugin features. See
+  `Documentation/CURRENT_ARCHITECTURE.md` §4.
+- No SDK-side breaking changes. Plugins that don't declare
+  SYNC/PREVIEW continue to work as broker-only.
+
+---
+
 ## 2.1.0 — 2026-05-04
 
 **Minor.** Additive contracts from the 2026-05-03 extraction +

@@ -127,27 +127,40 @@ docs, or settings-file examples. One `JobService`. One dispatch path.
 
 ---
 
-## Phase B — Plugin execution taxonomy
+## Phase B — Plugin execution taxonomy ~~(planned)~~ — SUPERSEDED by PI/PT
 
-**Goal:** Make the "plugins without containers" story first-class and
-documented. Today it is implicit — `template_picker` is in-process; CTF and
-MotionCor run in dedicated containers — but the developer guide doesn't
-spell out the choice. New plugin authors should pick the right mode on day
-one, not after their first refactor.
+**Status (2026-05-04):** This phase planned three deployment modes
+(in-process / subprocess / containerized) and an `HttpContainerExecutor`.
+PI-5/PI-6 + PT-1..PT-6 collapsed the taxonomy: there is now one
+deployment mode (external broker plugin = standalone FastAPI host)
+with an opt-in **capability layer** that supports sync HTTP for
+sub-second interactive flows.
 
-| PR  | Title | DoD |
-|-----|-------|-----|
-| B.1 | Taxonomy in the developer guide | `plugin-developer-guide.md` gets a new top section: **Deployment modes**. Three rows — in-process (default), subprocess (local binary wrapper), containerized (separate image + HTTP). Decision matrix: "when to pick each". |
-| B.2 | FFT as the canonical simple-plugin exemplar | The empty `plugins/fft/` stub becomes a complete working plugin: `algorithm.py` (numpy FFT), `service.py` (PluginBase), `models.py` (Pydantic I/O with full `ui_*` metadata), `controller.py` route, full test suite. Target under 200 LOC total. This is the template for FFT-grade plugins. |
-| B.3 | Audit current CTF / MotionCor deployment | One-page report: are they truly containerized (HTTP-over-network), or packaged containers that call in-process? What would it take to run CTF in-process on a host that has `ctffind4` installed? Informs B.4. |
-| B.4 | `SubprocessExecutor` in the SDK (*if earned*) | Only land if B.3 shows it is worthwhile. Wraps a local binary from a PluginBase — same plugin contract, different runtime. Implements the Executor Protocol stub. |
-| B.5 | `HttpContainerExecutor` doc-only (*if earned*) | Document the existing CTF/MotionCor container pattern as a third deployment mode. Probably no new code; just formalize the pattern they already follow. |
+What replaced this phase:
 
-**Exit criterion:** A new plugin author reading the guide can answer "do I need
-a container?" in under 2 minutes. FFT is merged and shipping.
+- **In-process plugins gone.** Architecture B (`PluginBase` registry
+  walk inside CoreService) was retired in PI-5/PI-6.1. The last
+  in-process plugin (`pp/template-picker`) became a feature
+  controller that delegates compute to the external
+  `magellon_template_picker_plugin` over the sync transport.
+- **Container vs subprocess** is now an *install method* concern,
+  not a runtime concern. The install pipeline picks
+  `UvInstaller` (uv venv + systemd unit) or `DockerInstaller`
+  (image + container) per the manifest's `install:` list. Both
+  produce a plugin process that talks RMQ. Operators don't need
+  to read a deployment-mode taxonomy to choose; the manifest's
+  predicates pick.
+- **Sync transport** is opt-in via capabilities. A plugin
+  declares `Capability.SYNC` and/or `Capability.PREVIEW`; the SDK
+  mounts the contract endpoints via `make_sync_router(plugin)` /
+  `make_preview_router(plugin)`; CoreService routes via
+  `services/sync_dispatcher.py`. See
+  `CURRENT_ARCHITECTURE.md` §4.
 
-**Rollback:** PR B.2 is additive (new plugin); others are docs or optional
-extension points.
+The developer guide that B.1 would have written exists in essence
+in `plugin-developer-guide.md` plus the SDK's
+`magellon_sdk/capabilities/__init__.py` docstring; a future PR can
+consolidate.
 
 ---
 

@@ -7,7 +7,7 @@ packages = ["src/magellon_sdk"]
 
 [project]
 name = "magellon-sdk"
-version = "2.1.0"
+version = "2.2.0"
 description = "SDK for building Magellon plugins: PluginBase, ProgressReporter, CloudEvents envelope, and executor contracts."
 readme = "README.md"
 requires-python = ">=3.9"

@@ -210,12 +210,30 @@ from RMQ. Each plugin can opt into a sync HTTP surface via
   RMQ round-trip is too expensive.
 
 CoreService routes sync calls via `services/sync_dispatcher.py`.
-Resolution priority:
+Resolution priority (mirrors the bus dispatcher):
 
-1. `target_backend` pin (caller asked for a specific backend).
-2. Operator-pinned per-category default (`PluginCategoryDefault`
-   table from PM1).
-3. First live plugin in the category advertising the capability.
+1. `instance_id` pin — sticky preview routing (R1 #1, R2 #3 fix).
+   `POST /preview` remembers which replica answered; subsequent
+   `retune`/`delete` for the same `preview_id` go to the same
+   replica because the score-map cache lives there. With one
+   replica everything works; with N replicas, this prevents
+   slider ticks from 404-ing on cache miss.
+2. `target_backend` pin (caller asked for a specific backend).
+3. Operator-pinned per-category default (`PluginCategoryDefault`
+   from PM1) — *iff* the default advertises the capability AND
+   is enabled. Fall through to step 4 otherwise. (R1 #2 fix:
+   pre-fix this was a hard return that raised
+   `CapabilityMissing` on a default-with-SYNC-but-not-PREVIEW
+   instead of trying a sibling backend.)
+4. First live, **enabled** plugin advertising the capability.
+   Disabled plugins (operator hit `/disable`) are skipped — same
+   behaviour the bus dispatcher has long had; the sync path used
+   to silently route to them. (R2 #1 fix.)
+
+Connection management (R1 #3): a module-level pooled `httpx.Client`
+with `max_keepalive_connections=20` keeps TCP connections warm
+across calls. Per-call timeouts via `request(timeout=...)`:
+retune ≤5s, preview ≤30s, run ≤60s.
 
 Two HTTP surfaces consume the dispatcher:
 
@@ -223,21 +241,37 @@ Two HTTP surfaces consume the dispatcher:
   orchestration (DB persistence, batch loops, COCO export):
   `/particle-picking/preview`, `/particle-picking/run-and-save`, etc.
   Particle picking is the canonical example.
-- **Generic** `/dispatch/{category}/{run|preview|preview/{id}/retune}`
-  for any category with a sync-capable default plugin. New
-  categories adopting SYNC/PREVIEW reach the generic shape with zero
-  CoreService code.
-
-The plugin's announce envelope carries an `http_endpoint` (PT-1) so
-sync_dispatcher can reach the plugin's FastAPI without bus
-round-trip. Plugins that don't advertise SYNC/PREVIEW announce
-`http_endpoint=None`; sync_dispatcher refuses to route to them
-(correct: don't pretend a plugin reachable only on localhost is
-reachable from CoreService).
+- **Generic** `/dispatch/{category}/...`. Two flavours:
+  - `/dispatch/{category}/run` accepts `Dict[str, Any]` — works
+    for any category, including ones that haven't pinned a
+    Pydantic input model yet.
+  - `/dispatch/v1/{category_slug}/run` is per-CategoryContract,
+    typed by the category's `input_model` so OpenAPI / `/docs`
+    shows real schemas. Registered at app import by walking
+    `CATEGORIES`.
 
 `GET /dispatch/capabilities` returns a per-category map of
-`{supports_sync, supports_preview, live_plugin_id, http_endpoint}`
-so the React UI can show/hide controls without round-tripping.
+`{supports_sync, supports_preview, live_plugin_id, http_endpoint,
+enabled}` so the React UI can show/hide controls without
+round-tripping. `supports_*` flips False when the default plugin
+is disabled even if it's live + capable + has an endpoint.
+
+The plugin's announce envelope carries an `http_endpoint`
+(`AnyHttpUrl`-validated, R1 minor 2). The install pipeline
+allocates the port at install time (R2 #4):
+
+- Range defaults to `[18000, 18999]`; override via
+  `MAGELLON_PLUGIN_PORT_MIN/MAX` env.
+- Persistent assignment file at
+  `<plugins_dir>/.port_assignments.json` survives CoreService
+  restarts. The plugin's URL is stable across the lifetime of
+  the install.
+- `UvInstaller` writes `MAGELLON_PLUGIN_HTTP_ENDPOINT/_HOST/_PORT`
+  into `runtime.env` (loaded by the systemd unit's
+  `EnvironmentFile=`).
+- `DockerInstaller` passes `-p <host_port>:<container_port>`
+  plus the matching `-e` env vars.
+- Both installers release the port on uninstall.
 
 ### 4.1 Architecture A — external RabbitMQ plugins (`Magellon/plugins/`)
 
