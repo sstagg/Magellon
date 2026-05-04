@@ -179,6 +179,8 @@ class UvInstaller:
                 plugin_id=plugin_id,
                 install_method=self.method,
                 install_dir=target,
+                http_endpoint=http_endpoint,
+                port=port,
                 logs="\n".join(logs),
             )
 
@@ -323,7 +325,19 @@ class UvInstaller:
         requirements = target / "requirements.txt"
 
         if manifest_pyproject.exists():
-            cmd = [self.uv_command, "pip", "install", "-e", str(target)]
+            # ``uv sync`` honors ``[tool.uv] package = false`` natively,
+            # so plugins that aren't proper installable packages don't
+            # need to add a setuptools shim. ``--project`` plus
+            # ``UV_PROJECT_ENVIRONMENT`` directs uv at the venv we
+            # already built (target/.venv) instead of creating a new
+            # one. ``--no-dev`` skips dev-only deps in production
+            # installs.
+            env["UV_PROJECT_ENVIRONMENT"] = str(venv_dir)
+            cmd = [
+                self.uv_command, "sync",
+                "--project", str(target),
+                "--no-dev",
+            ]
         elif requirements.exists():
             cmd = [self.uv_command, "pip", "install", "-r", str(requirements)]
         else:

@@ -69,6 +69,18 @@ class InstallResult:
     """Plugin process PID, if the installer launched one. ``None``
     means 'install completed but did not spawn'."""
 
+    http_endpoint: Optional[str] = None
+    """Where the plugin's FastAPI host is reachable
+    (e.g. ``http://127.0.0.1:18000``). The uv installer allocates a
+    port at install time; docker installs derive from the published
+    container port. Mirrored into the catalog row so a single SELECT
+    answers 'where is plugin X reachable'."""
+
+    port: Optional[int] = None
+    """Numeric port portion of ``http_endpoint`` — broken out as a
+    separate column so operators / dashboards can group / sort by
+    port without parsing the URL."""
+
     error: Optional[str] = None
     logs: Optional[str] = None
     """Captured stdout+stderr from the install pipeline. Long but

@@ -27,11 +27,11 @@ dependencies = [
     "sqlalchemy-utils",
     "PyMySQL==1.1.0",
 
-    "mrcfile==1.5.0",
+    "mrcfile>=1.5.0",
     "tifffile",
-    "numpy==1.26.4",
-    "scipy==1.12.0",
-    "Pillow==10.2.0",
+    "numpy>=1.26.4",
+    "scipy>=1.13.0",
+    "Pillow>=10.4.0",
 ]
 
 [dependency-groups]
@@ -45,4 +45,8 @@ dev = [
 package = false
 
 [tool.uv.sources]
-magellon-sdk = { path = "../../magellon-sdk", editable = true }
+# Bundled wheel — survives archive extraction (path is relative to
+# the plugin root, which is the archive root after unzip). Dev in
+# source tree uses the same wheel; refresh it via
+# ``scripts/rebuild-sdk-wheels.sh`` after editing the SDK.
+magellon-sdk = { path = "wheels/magellon_sdk-2.2.0-py3-none-any.whl" }

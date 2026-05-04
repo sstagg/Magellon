@@ -50,6 +50,16 @@ except ImportError:  # pragma: no cover
     print("urllib required", file=sys.stderr)
     sys.exit(1)
 
+# Force UTF-8 on stdout/stderr so the script's status output (which
+# may contain em-dashes / ellipsis / check marks) doesn't blow up on
+# the Windows cp1252 console. Python 3.7+.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        try:
+            _stream.reconfigure(encoding="utf-8")
+        except Exception:  # noqa: BLE001
+            pass
+
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_PLUGIN_DIR = REPO_ROOT / "plugins" / "magellon_fft_plugin"
@@ -174,30 +184,41 @@ def step_install(base_url: str, token: str, archive: Path) -> Dict[str, Any]:
 def step_wait_live(
     base_url: str, token: str, plugin_id: str, timeout_s: float = 60.0,
 ) -> None:
-    print(f">>> waiting up to {timeout_s:.0f}s for {plugin_id} to announce")
+    """Wait for at least one backend to be live in the FFT category.
+
+    Resolves liveness via ``/plugins/capabilities`` (category-level)
+    rather than ``/plugins/{id}/health`` because the plugin announces
+    with its display-name plugin_id (``"fft/FFT Plugin"``), not the
+    archive slug ``plugin_id`` field.
+    """
+    print(f">>> waiting up to {timeout_s:.0f}s for FFT category to have a live backend")
     deadline = time.time() + timeout_s
     last_err = ""
     while time.time() < deadline:
         try:
             r = _request(
-                "GET", f"{base_url}/plugins/{plugin_id}/health",
+                "GET", f"{base_url}/plugins/capabilities",
                 headers={"Authorization": f"Bearer {token}"},
             )
-            if r.get("status") == "ok":
-                print(f"    {plugin_id} live (last_heartbeat={r.get('last_heartbeat_at')})")
-                return
+            for cat in r.get("categories", []):
+                if cat.get("name") == "FFT" and cat.get("backends"):
+                    bk = cat["backends"][0]
+                    print(f"    live: backend_id={bk.get('backend_id')!r} "
+                          f"plugin_id={bk.get('plugin_id')!r} "
+                          f"caps={bk.get('capabilities')}")
+                    return
         except HttpError as e:
             last_err = f"{e.status}"
         time.sleep(2)
-    raise SystemExit(f"{plugin_id} did not announce within {timeout_s}s (last={last_err})")
+    raise SystemExit(f"no live FFT backend within {timeout_s}s (last={last_err})")
 
 
 def step_bus_dispatch(
     base_url: str, token: str, image_path: Path, target_path: Path,
 ) -> Path:
-    print(f">>> bus dispatch — POST /image-processing/fft/dispatch")
+    print(f">>> bus dispatch — POST /image/fft/dispatch")
     resp = _request(
-        "POST", f"{base_url}/image-processing/fft/dispatch",
+        "POST", f"{base_url}/image/fft/dispatch",
         headers={"Authorization": f"Bearer {token}"},
         json_body={
             "image_path": str(image_path),

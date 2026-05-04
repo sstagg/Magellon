@@ -257,6 +257,8 @@ def _install_result_payload(result: InstallResult) -> Dict[str, Any]:
         "install_dir": str(result.install_dir) if result.install_dir else None,
         "image_ref": None,
         "container_ref": None,
+        "http_endpoint": result.http_endpoint,
+        "port": result.port,
     }
 
 

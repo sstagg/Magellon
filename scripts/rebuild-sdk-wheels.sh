@@ -22,11 +22,19 @@ SDK_DIR="${REPO_ROOT}/magellon-sdk"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-# Plugins with a bundled wheel referenced from requirements.docker.txt.
-# Add new plugins here as they migrate to the wheel-bundled Docker pattern.
+# Plugins with a bundled wheel.
+#
+# Two destination layouts are supported per-plugin:
+#   * Default: wheel goes at the plugin root next to requirements.docker.txt
+#     (the original Docker-bundle pattern: CTF, MotionCor).
+#   * "wheels/" subdir: wheel goes under <plugin>/wheels/ for plugins
+#     whose pyproject.toml uses ``[tool.uv.sources] magellon-sdk =
+#     { path = "wheels/<wheel>" }`` (the .mpn install pipeline pattern:
+#     FFT). Append ``:wheels`` to the plugin path to opt in.
 BUNDLED_PLUGINS=(
     "plugins/magellon_ctf_plugin"
     "plugins/magellon_motioncor_plugin"
+    "plugins/magellon_fft_plugin:wheels"
 )
 
 echo "→ building magellon-sdk wheel from ${SDK_DIR}..."
@@ -39,14 +47,26 @@ fi
 WHEEL_NAME="$(basename "$NEW_WHEEL")"
 echo "  built: $WHEEL_NAME"
 
-for plugin in "${BUNDLED_PLUGINS[@]}"; do
-    dst_dir="${REPO_ROOT}/${plugin}"
-    if [[ ! -d "$dst_dir" ]]; then
+for entry in "${BUNDLED_PLUGINS[@]}"; do
+    plugin="${entry%%:*}"
+    layout="${entry#*:}"
+    [[ "$layout" == "$entry" ]] && layout=""
+    plugin_root="${REPO_ROOT}/${plugin}"
+    if [[ ! -d "$plugin_root" ]]; then
         echo "  skip ${plugin} — directory not found"
         continue
     fi
+    if [[ "$layout" == "wheels" ]]; then
+        dst_dir="${plugin_root}/wheels"
+        mkdir -p "$dst_dir"
+        # Wipe any prior wheels in this dir so a stale version doesn't
+        # silently linger if the SDK version was bumped.
+        rm -f "${dst_dir}"/magellon_sdk-*.whl
+    else
+        dst_dir="$plugin_root"
+    fi
     cp "$NEW_WHEEL" "${dst_dir}/${WHEEL_NAME}"
-    echo "  ${plugin}: refreshed → ${WHEEL_NAME}"
+    echo "  ${plugin}: refreshed → ${dst_dir#${REPO_ROOT}/}/${WHEEL_NAME}"
 done
 
 echo "done. Remember to ${0##*/}-then-rebuild Docker images and commit"

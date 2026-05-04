@@ -196,6 +196,10 @@ class Plugin(Base):
     archive_id = Column(String(64))
     manifest_json = Column(JSON)
     installed_date = Column(DateTime)
+    # 0009 — endpoint mirror. Liveness registry is the live truth;
+    # these are the install-time facts the operator pinned.
+    http_endpoint = Column(String(500))
+    port = Column(INTEGER(11))
 
     sys_sec_user = relationship('SysSecUser', primaryjoin='Plugin.created_by == SysSecUser.oid')
     sys_sec_user1 = relationship('SysSecUser', primaryjoin='Plugin.deleted_by == SysSecUser.oid')

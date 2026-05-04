@@ -81,6 +81,8 @@ class PluginRepository:
         install_dir = install_result.get("install_dir")
         image_ref = install_result.get("image_ref")
         container_ref = install_result.get("container_ref")
+        http_endpoint = install_result.get("http_endpoint")
+        port = install_result.get("port")
 
         if existing is not None:
             existing.last_modified_date = now
@@ -97,6 +99,8 @@ class PluginRepository:
             existing.archive_id = archive_id
             existing.manifest_json = manifest
             existing.installed_date = now
+            existing.http_endpoint = http_endpoint
+            existing.port = port
             # Clear soft-delete on re-install — operator wants this
             # plugin back; honor that without making them undelete
             # via a separate API.
@@ -120,6 +124,8 @@ class PluginRepository:
             archive_id=archive_id,
             manifest_json=manifest,
             installed_date=now,
+            http_endpoint=http_endpoint,
+            port=port,
             created_date=now,
             created_by=user_id,
         )

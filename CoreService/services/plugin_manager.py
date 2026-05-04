@@ -46,6 +46,7 @@ from magellon_sdk.models import (
     IsolationLevel,
     Transport,
 )
+from models.sqlalchemy_models import Plugin
 
 logger = logging.getLogger(__name__)
 
@@ -266,11 +267,30 @@ class PluginManagerService:
         return None
 
     def status(self, db: Session, plugin_id: str) -> List[Condition]:
-        """Conditions[] (PM2) for one plugin — aggregates per-replica heartbeats."""
+        """Conditions[] (PM2) for one plugin — aggregates per-replica heartbeats.
+
+        Resolves identity across all known forms before joining to the
+        liveness registry. The catalog uses ``manifest.plugin_id``
+        (slug) while the runtime announce uses
+        ``f"{category}/{plugin_info.name}"`` (display form). An exact
+        plugin_id match would split the row into "Installed but not
+        Live" and "Live but Uncatalogued" halves; instead we look up
+        the catalog row first and then match live entries by
+        ``(category, backend_id)`` too — the dispatch identity both
+        sides agree on.
+        """
         from services.plugin_conditions import compute_conditions
 
         short = _strip_category(plugin_id)
-        latest = self._aggregate_heartbeat(short)
+        plugin = (
+            db.query(Plugin)
+            .filter(Plugin.deleted_date.is_(None))
+            .filter(
+                (Plugin.manifest_plugin_id == short) | (Plugin.name == short)
+            )
+            .first()
+        )
+        latest = self._aggregate_heartbeat(short, plugin)
         return compute_conditions(
             db,
             plugin_name=short,
@@ -389,10 +409,41 @@ class PluginManagerService:
     # Internals
     # ------------------------------------------------------------------
 
-    def _aggregate_heartbeat(self, short_id: str) -> Optional[datetime]:
+    def _aggregate_heartbeat(
+        self, short_id: str, plugin: Optional[Plugin] = None,
+    ) -> Optional[datetime]:
+        """Most-recent heartbeat across all entries matching this plugin.
+
+        Match across multiple identifier forms because the catalog
+        (slug) and the runtime announce (``cat/display-name``) don't
+        agree on plugin_id. When we have a catalog row we also accept
+        ``(category, backend_id)`` matches — the dispatch identity is
+        the cleanest join.
+        """
+        candidates: list[str] = [short_id]
+        cat_backend: Optional[tuple[str, str]] = None
+        if plugin is not None:
+            for extra in (plugin.manifest_plugin_id, plugin.name):
+                if extra and extra not in candidates:
+                    candidates.append(extra)
+            if plugin.category and plugin.backend_id:
+                cat_backend = (
+                    plugin.category.lower(), plugin.backend_id.lower(),
+                )
+
         latest: Optional[datetime] = None
         for e in self._liveness.list_live():
-            if e.plugin_id != short_id:
+            ep = e.plugin_id or ""
+            id_match = (
+                ep in candidates
+                or any(ep.endswith("/" + c) for c in candidates)
+            )
+            cb_match = (
+                cat_backend is not None
+                and (e.category or "").lower() == cat_backend[0]
+                and (e.backend_id or "").lower() == cat_backend[1]
+            )
+            if not (id_match or cb_match):
                 continue
             ts = getattr(e, "last_heartbeat", None)
             if ts is not None and (latest is None or ts > latest):

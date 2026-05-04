@@ -245,6 +245,59 @@ def _sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+def _warn_external_uv_sources(src: Path) -> None:
+    """Warn if pyproject.toml's ``[tool.uv.sources]`` references paths
+    that resolve outside the source directory.
+
+    Such paths (e.g. ``path = "../../magellon-sdk"``) are common in
+    workspace dev setups but break at install time because the
+    archive is extracted into a different location. The bundled-wheel
+    pattern (``path = "wheels/foo.whl"``) is the cross-host fix.
+
+    Read-only via stdlib ``tomllib`` (Python 3.11+); on older Pythons
+    or on parse errors we silently skip — the lint is a hint, not a
+    gate.
+    """
+    pyproject = src / "pyproject.toml"
+    if not pyproject.exists():
+        return
+    try:
+        import tomllib  # type: ignore[import-not-found]
+    except ImportError:
+        return
+    try:
+        data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        return
+    sources = (
+        data.get("tool", {}).get("uv", {}).get("sources", {})
+    )
+    if not isinstance(sources, dict):
+        return
+    bad: list[str] = []
+    for name, spec in sources.items():
+        if not isinstance(spec, dict):
+            continue
+        path_value = spec.get("path")
+        if not path_value:
+            continue
+        # Resolve relative to the plugin source dir.
+        resolved = (src / path_value).resolve()
+        try:
+            resolved.relative_to(src.resolve())
+        except ValueError:
+            bad.append(f"  {name} -> {path_value}  (resolves to {resolved})")
+    if bad:
+        sys.stdout.write(
+            "warning: pyproject.toml has [tool.uv.sources] entries that "
+            "resolve outside the plugin dir:\n"
+            + "\n".join(bad) + "\n"
+            + "  These paths will not exist after archive extraction. "
+            "Bundle a wheel under wheels/ or pin via PyPI version "
+            "instead.\n"
+        )
+
+
 def _stamp_manifest(
     manifest: PluginArchiveManifest, file_checksums: dict[str, str],
 ) -> PluginArchiveManifest:
@@ -277,6 +330,14 @@ def cmd_plugin_pack(args: argparse.Namespace) -> int:
     except Exception as exc:  # noqa: BLE001
         sys.stderr.write(f"error: {exc}\n")
         return 1
+
+    # Lint pyproject.toml for [tool.uv.sources] paths that escape the
+    # plugin dir. Such paths are common in dev (e.g. SDK at
+    # ``../../magellon-sdk``) but break at install time because the
+    # archive is unpacked into a different location. Warn loudly so
+    # the author either bundles a wheel under ``wheels/`` or uses a
+    # PyPI-style version pin.
+    _warn_external_uv_sources(src)
 
     # Collect files to pack + their checksums. Paths in the archive
     # are POSIX-relative to the package root (which itself is the
