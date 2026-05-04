@@ -44,12 +44,21 @@ def _default_subprocess_runner(*args, **kwargs) -> subprocess.CompletedProcess:
 
 @dataclass(frozen=True)
 class SupervisorResult:
-    """Outcome of one supervisor operation."""
+    """Outcome of one supervisor operation.
+
+    ``intent_only`` (R1 C, 2026-05-04): True when the supervisor
+    recorded the intent without actually doing the work — the
+    NoOpSupervisor returns this so callers don't conflate "install
+    succeeded" with "plugin is running." The install pipeline can
+    surface a hint in the response ("manual launch required on
+    Windows / macOS dev").
+    """
 
     success: bool
     plugin_id: str
     error: Optional[str] = None
     logs: Optional[str] = None
+    intent_only: bool = False
 
 
 @runtime_checkable
@@ -83,19 +92,33 @@ class NoOpSupervisor:
 
     def install_unit(self, plugin_id: str, install_dir: Path) -> SupervisorResult:
         logger.info("noop supervisor: install_unit(%s, %s) — no-op", plugin_id, install_dir)
-        return SupervisorResult(success=True, plugin_id=plugin_id)
+        return SupervisorResult(
+            success=True, plugin_id=plugin_id, intent_only=True,
+            logs="noop: no unit file written; manual launch required",
+        )
 
     def remove_unit(self, plugin_id: str) -> SupervisorResult:
         logger.info("noop supervisor: remove_unit(%s) — no-op", plugin_id)
-        return SupervisorResult(success=True, plugin_id=plugin_id)
+        return SupervisorResult(
+            success=True, plugin_id=plugin_id, intent_only=True,
+        )
 
     def start(self, plugin_id: str) -> SupervisorResult:
         logger.info("noop supervisor: start(%s) — no-op", plugin_id)
-        return SupervisorResult(success=True, plugin_id=plugin_id)
+        return SupervisorResult(
+            success=True, plugin_id=plugin_id, intent_only=True,
+            logs=(
+                "noop: plugin process not started. Launch manually "
+                f"(e.g. ``python <plugins_dir>/{plugin_id}/main.py``) "
+                "or deploy on Linux with systemd."
+            ),
+        )
 
     def stop(self, plugin_id: str) -> SupervisorResult:
         logger.info("noop supervisor: stop(%s) — no-op", plugin_id)
-        return SupervisorResult(success=True, plugin_id=plugin_id)
+        return SupervisorResult(
+            success=True, plugin_id=plugin_id, intent_only=True,
+        )
 
 
 # ---------------------------------------------------------------------------

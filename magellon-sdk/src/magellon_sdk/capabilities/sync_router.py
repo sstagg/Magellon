@@ -67,12 +67,23 @@ def make_sync_router(plugin: Any) -> APIRouter:
     # would fail because Pydantic can't resolve closure variables as
     # forward refs.
     async def execute(input_data):
+        # Lazy import — JobCancelledError lives in
+        # ``magellon_sdk.progress`` and pulls a few extra modules.
+        # Plugins that don't use cooperative cancel never hit this.
+        from magellon_sdk.progress import JobCancelledError
+
         try:
             return plugin.execute_sync(input_data)
         except FileNotFoundError as exc:
             raise HTTPException(status_code=404, detail=str(exc))
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc))
+        except JobCancelledError as exc:
+            # R1 minor 4: distinguish cancellation from crash —
+            # 499 Client Closed Request is the de facto status
+            # for caller-initiated cancel; preserves traceability
+            # for operators reading logs.
+            raise HTTPException(status_code=499, detail=str(exc))
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(status_code=500, detail=str(exc))
 

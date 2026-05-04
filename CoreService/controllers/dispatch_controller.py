@@ -323,4 +323,64 @@ async def list_dispatch_capabilities():
     return {"categories": out}
 
 
+# ---------------------------------------------------------------------------
+# Typed per-category routes (R1 A)
+#
+# Generates one route per category at import time, keyed by the
+# canonical normalized slug (``/dispatch/v1/particle_picking/run``,
+# ``/dispatch/v1/ctf/run``, ...). Each handler accepts the category's
+# own ``input_model`` so OpenAPI / /docs shows real schemas, not
+# ``Dict[str, Any]``.
+#
+# The generic ``/dispatch/{category}/run`` above stays as a fallback
+# for unknown / dynamic categories. New categories adopt the typed
+# shape automatically by registering a CategoryContract.
+# ---------------------------------------------------------------------------
+
+
+def _make_typed_run_handler(contract: CategoryContract):
+    """Build a handler closure with the right Pydantic body type
+    patched onto its annotations. Mirrors the pattern the SDK's
+    capability routers use (Pydantic can't resolve closure-captured
+    types as forward refs, so we set ``__annotations__`` post-hoc).
+    """
+    input_model = contract.input_model
+    cat_slug = _normalize_name(contract.category.name)
+
+    async def run(input_data, target_backend: Optional[str] = None):
+        return await _dispatch_off_thread(
+            cat_slug, Capability.SYNC, "POST", "/execute",
+            body=input_data.model_dump(mode="json")
+            if hasattr(input_data, "model_dump") else input_data,
+            target_backend=target_backend,
+            timeout_seconds=_TIMEOUT_RUN_S,
+        )
+
+    if input_model is not None:
+        run.__annotations__ = {
+            "input_data": input_model,
+            "target_backend": Optional[str],
+        }
+    return run
+
+
+def _register_typed_routes() -> None:
+    """One ``POST /v1/{category_slug}/run`` per CategoryContract."""
+    for contract in CATEGORIES.values():
+        if contract.input_model is None:
+            # No typed input shape yet — generic surface still works.
+            continue
+        cat_slug = _normalize_name(contract.category.name)
+        dispatch_router.add_api_route(
+            f"/v1/{cat_slug}/run",
+            _make_typed_run_handler(contract),
+            methods=["POST"],
+            summary=f"Synchronous dispatch — {contract.category.name} (typed)",
+            tags=[f"dispatch:{cat_slug}"],
+        )
+
+
+_register_typed_routes()
+
+
 __all__ = ["dispatch_router"]

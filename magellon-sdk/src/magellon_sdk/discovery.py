@@ -52,7 +52,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import AnyHttpUrl, BaseModel, Field, field_validator
 
 from magellon_sdk.bus import get_bus
 from magellon_sdk.bus.interfaces import MessageBus
@@ -133,9 +133,23 @@ class Announce(BaseModel):
     way to reach it. Plugins that advertise :attr:`Capability.SYNC`
     or :attr:`Capability.PREVIEW` MUST set this.
 
+    Validated as an HTTP URL when present (R1 minor 2): catches
+    typos at announce time instead of at dispatch time. Stored as
+    ``str`` on the wire so legacy consumers don't need a
+    ``HttpUrl`` alias.
+
     CoreService's sync_dispatcher reads this to route low-latency
     interactive calls (preview, retune, sync /execute) directly to
     the plugin process without round-tripping through the broker."""
+
+    @field_validator("http_endpoint")
+    @classmethod
+    def _validate_http_endpoint(cls, v: Optional[str]) -> Optional[str]:
+        if v is None or v == "":
+            return None
+        # Pydantic's AnyHttpUrl raises ValidationError on garbage.
+        # Round-trip back to str to keep the wire shape stable.
+        return str(AnyHttpUrl(v))
 
 
 # ---------------------------------------------------------------------------

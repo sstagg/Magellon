@@ -341,10 +341,15 @@ def test_run_mounts_gpfs_root(tmp_path):
     assert run_call["cmd"][v_idx + 1] == "/gpfs/test:/gpfs/test"
 
 
-def test_run_passes_broker_url_and_gpfs_env(tmp_path):
+def test_run_passes_broker_url_and_gpfs_env(tmp_path, monkeypatch):
     archive, manifest = _build_archive(tmp_path, [
         {"method": "docker", "image": "ghcr.io/x:1"},
     ])
+    # Bypass port-bind probe so the test runs offline.
+    monkeypatch.setattr(
+        "services.plugin_installer.port_allocator._is_port_free",
+        lambda port: True,
+    )
     runner = _stub_runner()
     inst = DockerInstaller(plugins_dir=tmp_path / "installed", subprocess_runner=runner)
 
@@ -357,6 +362,37 @@ def test_run_passes_broker_url_and_gpfs_env(tmp_path):
     assert "MAGELLON_BROKER_URL=amqp://r:p@host:5672/" in env_args
     assert "MAGELLON_HOME_DIR=/gpfs/test" in env_args
     assert "LOG_LEVEL=INFO" in env_args
+    # R2 #4: docker run also injects the http_endpoint env vars.
+    assert any(a.startswith("MAGELLON_PLUGIN_HTTP_ENDPOINT=") for a in env_args)
+    assert "MAGELLON_PLUGIN_HOST=0.0.0.0" in env_args
+    assert any(a.startswith("MAGELLON_PLUGIN_PORT=") for a in env_args)
+
+
+def test_run_publishes_allocated_host_port_to_container_port(tmp_path, monkeypatch):
+    """``-p <host>:<container>`` flag wires the allocated host port
+    through to the plugin's FastAPI inside the container."""
+    archive, manifest = _build_archive(tmp_path, [
+        {"method": "docker", "image": "ghcr.io/x:1"},
+    ])
+    monkeypatch.setattr(
+        "services.plugin_installer.port_allocator._is_port_free",
+        lambda port: True,
+    )
+    runner = _stub_runner()
+    inst = DockerInstaller(
+        plugins_dir=tmp_path / "installed",
+        subprocess_runner=runner,
+        container_port=8000,
+    )
+    inst.install(archive, manifest, manifest.install[0], _runtime())
+
+    run_call = next(c for c in runner.calls if c["cmd"][1] == "run")
+    cmd = run_call["cmd"]
+    assert "-p" in cmd
+    p_idx = cmd.index("-p")
+    host_to_container = cmd[p_idx + 1]
+    # Format is "<host_port>:8000".
+    assert host_to_container.endswith(":8000")
 
 
 def test_run_includes_network_when_set(tmp_path):

@@ -231,8 +231,13 @@ def test_install_sets_virtual_env_for_uv_pip_install(tmp_path):
     assert ".venv" in env["VIRTUAL_ENV"]
 
 
-def test_install_writes_runtime_env_with_deployment_values(tmp_path):
+def test_install_writes_runtime_env_with_deployment_values(tmp_path, monkeypatch):
     archive, manifest = _build_archive(tmp_path)
+    # Bypass real port-bind probe so the test runs without a network.
+    monkeypatch.setattr(
+        "services.plugin_installer.port_allocator._is_port_free",
+        lambda port: True,
+    )
     inst = UvInstaller(
         plugins_dir=tmp_path / "installed", subprocess_runner=_stub_runner(),
     )
@@ -243,6 +248,11 @@ def test_install_writes_runtime_env_with_deployment_values(tmp_path):
     assert "MAGELLON_BROKER_URL=amqp://test:test@broker:5672/" in runtime_env
     assert "MAGELLON_HOME_DIR=/gpfs/test" in runtime_env
     assert "LOG_LEVEL=DEBUG" in runtime_env
+    # R2 #4: runtime.env carries the allocated http endpoint so the
+    # plugin process announces a reachable URL.
+    assert "MAGELLON_PLUGIN_HTTP_ENDPOINT=http://127.0.0.1:" in runtime_env
+    assert "MAGELLON_PLUGIN_HOST=127.0.0.1" in runtime_env
+    assert "MAGELLON_PLUGIN_PORT=" in runtime_env
 
 
 def test_install_falls_back_to_requirements_txt_when_no_pyproject(tmp_path):

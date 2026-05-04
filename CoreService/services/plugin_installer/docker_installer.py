@@ -43,6 +43,7 @@ from typing import Callable, Dict, List, Optional
 
 from magellon_sdk.archive.manifest import InstallSpec, PluginArchiveManifest
 
+from services.plugin_installer.port_allocator import PluginPortAllocator
 from services.plugin_installer.predicates import HostInfo, evaluate_predicates
 from services.plugin_installer.protocol import (
     InstallResult,
@@ -84,11 +85,20 @@ class DockerInstaller:
         docker_command: str = "docker",
         network: Optional[str] = None,
         subprocess_runner: SubprocessRunner = _default_subprocess_runner,
+        port_allocator: Optional[PluginPortAllocator] = None,
+        container_port: int = 8000,
     ) -> None:
         self.plugins_dir = Path(plugins_dir)
         self.docker_command = docker_command
         self.network = network
         self._run = subprocess_runner
+        # R2 #4: same allocator the UvInstaller uses (shared
+        # plugins_dir → shared assignment file → no port collisions
+        # across install methods on the same host).
+        self._port_allocator = port_allocator or PluginPortAllocator(self.plugins_dir)
+        # FastAPI plugins listen on port 8000 inside the container by
+        # convention; published to the allocated host port via -p.
+        self.container_port = container_port
 
     # ------------------------------------------------------------------
     # Installer Protocol
@@ -148,8 +158,14 @@ class DockerInstaller:
                 # supports() should have caught this, but defense in depth.
                 raise RuntimeError("docker install spec has neither image nor dockerfile")
 
-            # 3. Run the container.
-            self._docker_run(container_name, image_ref, runtime, logs)
+            # 3. Allocate a host port + run the container.
+            host_port = self._port_allocator.allocate(plugin_id)
+            http_endpoint = f"http://127.0.0.1:{host_port}"
+            logs.append(f"allocated host port {host_port} → {http_endpoint}")
+            self._docker_run(
+                container_name, image_ref, runtime, logs,
+                host_port=host_port, http_endpoint=http_endpoint,
+            )
             container_started = True
 
             # 4. Write state for uninstall to find later.
@@ -260,6 +276,9 @@ class DockerInstaller:
                 error=f"directory removal failed: {exc}",
             )
 
+        # Release the port — a future install of any plugin can
+        # reuse it.
+        self._port_allocator.release(plugin_id)
         return UninstallResult(success=True, plugin_id=plugin_id)
 
     def is_installed(self, plugin_id: str) -> bool:
@@ -313,6 +332,9 @@ class DockerInstaller:
         image_ref: str,
         runtime: RuntimeConfig,
         logs: list[str],
+        *,
+        host_port: Optional[int] = None,
+        http_endpoint: Optional[str] = None,
     ) -> None:
         cmd = [
             self.docker_command, "run",
@@ -321,6 +343,12 @@ class DockerInstaller:
         ]
         if self.network:
             cmd.extend(["--network", self.network])
+        # R2 #4: publish the host's allocated port → container's
+        # FastAPI port. CoreService reaches the plugin at
+        # ``http://127.0.0.1:<host_port>``; the container itself
+        # binds the conventional 8000.
+        if host_port is not None:
+            cmd.extend(["-p", f"{host_port}:{self.container_port}"])
         # Mount the GPFS root at the same path inside the container —
         # plugins read/write there per DATA_PLANE.md, and the same
         # absolute path being valid inside and out is what makes
@@ -329,6 +357,10 @@ class DockerInstaller:
         # Deployment-supplied env vars.
         cmd.extend(["-e", f"MAGELLON_BROKER_URL={runtime.broker_url}"])
         cmd.extend(["-e", f"MAGELLON_HOME_DIR={runtime.gpfs_root}"])
+        if http_endpoint:
+            cmd.extend(["-e", f"MAGELLON_PLUGIN_HTTP_ENDPOINT={http_endpoint}"])
+            cmd.extend(["-e", "MAGELLON_PLUGIN_HOST=0.0.0.0"])
+            cmd.extend(["-e", f"MAGELLON_PLUGIN_PORT={self.container_port}"])
         for k, v in sorted(runtime.extra_env.items()):
             cmd.extend(["-e", f"{k}={v}"])
         cmd.append(image_ref)

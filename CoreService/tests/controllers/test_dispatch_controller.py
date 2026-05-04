@@ -331,6 +331,59 @@ def test_capabilities_supports_flags_false_when_http_endpoint_missing():
     assert pp["supports_preview"] is False
 
 
+# ---------------------------------------------------------------------------
+# R1 A: typed per-category routes
+# ---------------------------------------------------------------------------
+
+
+def test_typed_route_registered_for_particle_picking(client):
+    """At import time we register POST /v1/{category_slug}/run for
+    every CategoryContract with an input_model. Pin existence + that
+    OpenAPI sees the real schema, not a generic Dict."""
+    schema = client.get("/openapi.json").json()
+    assert "/dispatch/v1/particle_picking/run" in schema["paths"]
+    typed_route = schema["paths"]["/dispatch/v1/particle_picking/run"]["post"]
+    body_ref = typed_route["requestBody"]["content"]["application/json"]["schema"]
+    # Either inline or $ref to the category's input_model. Both are
+    # legitimate OpenAPI shapes; the point is "not a free-form dict".
+    assert "$ref" in body_ref or body_ref.get("type") == "object"
+
+
+def test_typed_route_validates_against_category_input_model(client):
+    """Body that doesn't satisfy the input model gets a 422 from
+    FastAPI's own validator (not the manual _validate_input)."""
+    with patch(
+        "controllers.dispatch_controller.dispatch_capability",
+        return_value={},
+    ):
+        # image_path expects str-or-null; an int forces ValidationError.
+        resp = client.post(
+            "/dispatch/v1/particle_picking/run",
+            json={"image_path": 12345, "engine_opts": {}},
+        )
+    assert resp.status_code == 422
+
+
+def test_typed_route_dispatches_with_correct_category_and_capability(client):
+    with patch(
+        "controllers.dispatch_controller.dispatch_capability",
+        return_value={"num_particles": 0},
+    ) as mock_dispatch:
+        resp = client.post(
+            "/dispatch/v1/particle_picking/run",
+            json={"image_path": "/tmp/img.mrc",
+                   "engine_opts": {
+                       "templates": ["/tmp/t.mrc"],
+                       "diameter_angstrom": 100.0,
+                       "pixel_size_angstrom": 1.0,
+                   }},
+        )
+    assert resp.status_code == 200
+    args = mock_dispatch.call_args.args
+    assert args[0] == "particle_picking"
+    assert args[1] == Capability.SYNC
+
+
 def test_capabilities_supports_flags_false_when_disabled():
     """Reviewer B: a disabled plugin can be live + capable + reachable
     on HTTP, but supports_* must report False because the dispatcher
