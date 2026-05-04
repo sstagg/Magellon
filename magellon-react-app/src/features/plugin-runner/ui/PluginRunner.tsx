@@ -150,7 +150,7 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
         const base = settings.ConfigData.SERVER_API_URL.replace(/\/$/, '');
         if (usePreviewMode) {
             return {
-                url: `${base}/plugins/pp/template-pick/preview`,
+                url: `${base}/particle-picking/preview`,
                 body: values,
             };
         }
@@ -200,7 +200,7 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
             Object.keys(payload).forEach((k) => {
                 if (payload[k] === null || payload[k] === undefined) delete payload[k];
             });
-            const res = await api.post('/plugins/pp/template-pick/preview', payload);
+            const res = await api.post('/particle-picking/preview', payload);
             setPreviewResult(res.data);
             lastRetunedValuesRef.current = pickTunable(values, tunableKeys);
         } catch (err: any) {
@@ -248,7 +248,7 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
                     if (values[k] !== undefined && values[k] !== null) retunePayload[k] = values[k];
                 }
                 const res = await api.post(
-                    `/plugins/pp/template-pick/preview/${previewId}/retune`,
+                    `/particle-picking/preview/${previewId}/retune`,
                     retunePayload,
                 );
                 setPreviewResult((prev: any) => prev ? {

@@ -32,6 +32,7 @@ from controllers.image_meta_data_controller import image_meta_data_router
 from controllers.image_processing_controller import image_processing_router
 from controllers.import_export_controller import export_router
 from controllers.import_controller import import_router
+from controllers.particle_picking_controller import particle_picking_router
 from controllers.relion_controller import relion_router
 from controllers.slack_controller import slack_router
 
@@ -313,6 +314,13 @@ app.include_router(schema_router, tags=["Database Schema"])
 # Plugin-specific routes (template-pick, preview, retune) registered first so
 # their literal paths match before the generic {plugin_id:path} catch-all.
 app.include_router(pp_router, tags=["Particle Picking"], prefix="/plugins/pp")
+# PI-4: same handlers re-registered at the feature-named prefix. The
+# ``/plugins/pp`` mount stays for back-compat until PI-5 unmounts it.
+app.include_router(
+    particle_picking_router,
+    tags=["Particle Picking"],
+    prefix="/particle-picking",
+)
 app.include_router(plugins_router, tags=["Plugins"], prefix="/plugins")
 
 # P9 — operator hard-stop levers (queue purge + container kill).

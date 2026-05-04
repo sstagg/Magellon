@@ -3,9 +3,11 @@ import { ParticlePickingDto } from '../../../entities/particle-picking/types.ts'
 import ImageInfoDto from '../../../entities/image/types.ts';
 import { settings } from '../../../shared/config/settings.ts';
 
-// API path for the template-picker plugin. Centralized here so that renames
-// or plugin-id changes don't require hunting through the feature.
-export const TEMPLATE_PICKER_PATH = '/plugins/pp/template-pick';
+// API path for the particle-picking feature endpoints. Lifted from
+// the legacy ``/plugins/pp/template-pick`` URL in PI-4 — these aren't
+// "plugin" endpoints, they're particle-picking features that happen
+// to use template matching today.
+export const TEMPLATE_PICKER_PATH = '/particle-picking';
 
 export interface Point {
     x: number;
@@ -257,7 +259,7 @@ export function useParticleOperations({
                 savedIpp = { oid: result.ipp_oid, name: result.ipp_name };
 
                 // Fetch the saved data_json to render the newly-saved points.
-                const fetchUrl = `${API_URL}/plugins/pp/template-pick`; // unused; we load via /web below
+                const fetchUrl = `${API_URL}${TEMPLATE_PICKER_PATH}`; // unused; we load via /web below
                 // The saved Point objects live in data_json — reload so the
                 // state matches what's in the DB and the dropdown entry.
                 void fetchUrl;

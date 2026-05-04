@@ -229,7 +229,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
         try {
             const token = localStorage.getItem('access_token');
             const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-            const url = `${settings.ConfigData.SERVER_API_URL}/plugins/pp/template-pick/records/${selectedParticlePicking.oid}/coco?radius=${PARTICLE_RADIUS}`;
+            const url = `${settings.ConfigData.SERVER_API_URL}/particle-picking/records/${selectedParticlePicking.oid}/coco?radius=${PARTICLE_RADIUS}`;
             const res = await fetch(url, { headers });
             if (!res.ok) {
                 const err = await res.json().catch(() => ({ detail: res.statusText }));

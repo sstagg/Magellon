@@ -1,7 +1,7 @@
 /**
  * Dynamic form renderer driven by a Pydantic JSON Schema with ui_* extensions.
  *
- * Reads the schema from  GET /plugins/pp/template-pick/schema/input
+ * Reads the schema from  GET /particle-picking/schema/input
  * and renders grouped, ordered form controls automatically.
  *
  * Supported ui_widget values:
