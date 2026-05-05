@@ -1,5 +1,8 @@
-# Build context MUST be the repo root (compose: `context: ..` from
-# Docker/, `dockerfile: plugins/magellon_template_picker_plugin/Dockerfile`).
+# Build context = the unpacked .mpn archive (the v1 install pipeline's
+# DockerInstaller hands us the archive root, not the parent repo).
+# Everything we COPY must live INSIDE this archive — no parent-relative
+# paths. The SDK comes from a wheel bundled under ./wheels/ rather than
+# the source tree.
 FROM python:3.11-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -11,20 +14,25 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-COPY magellon-sdk /app/magellon-sdk
+WORKDIR /app
 
-WORKDIR /app/plugins/magellon_template_picker_plugin
-COPY plugins/magellon_template_picker_plugin/requirements.txt ./
+# Wheel + requirements first so the Docker layer cache survives a
+# code-only edit. ``./wheels/`` carries the magellon_sdk wheel that
+# requirements.txt references.
+COPY requirements.txt ./
+COPY wheels ./wheels
 RUN pip install --upgrade pip setuptools wheel \
     && pip install -r requirements.txt \
     && pip install prometheus-fastapi-instrumentator
 
-COPY plugins/magellon_template_picker_plugin/configs ./configs
-COPY plugins/magellon_template_picker_plugin/core ./core
-COPY plugins/magellon_template_picker_plugin/plugin ./plugin
-COPY plugins/magellon_template_picker_plugin/main.py ./main.py
+# Plugin source. configs/ holds the YAML settings; core/, plugin/,
+# main.py are the FastAPI + bus runtime entry points.
+COPY configs ./configs
+COPY core ./core
+COPY plugin ./plugin
+COPY main.py ./main.py
 
-ENV PYTHONPATH=/app/plugins/magellon_template_picker_plugin \
+ENV PYTHONPATH=/app \
     APP_ENV=production
 
 VOLUME /gpfs

@@ -1,9 +1,12 @@
-# Build context MUST be the repo root, not the plugin directory.
-# requirements.txt pins `-e ../../magellon-sdk[...]`, which only resolves
-# if we lay the project out in-image the same way it lives on disk:
-#   /app/magellon-sdk
-#   /app/plugins/magellon_fft_plugin
-# (compose: `context: ..` from Docker/, `dockerfile: plugins/magellon_fft_plugin/Dockerfile`)
+# Build context = the unpacked .mpn archive (the v1 install pipeline's
+# DockerInstaller hands us the archive root, not the parent repo).
+# Everything we COPY must live INSIDE this archive — no parent-relative
+# paths. The SDK comes from a wheel bundled under ./wheels/ rather than
+# the source tree.
+#
+# For local dev with the docker-compose setup, build via:
+#   docker build -f Dockerfile.dev -t magellon_fft_plugin .
+# (a separate Dockerfile.dev can keep the parent-relative shape if needed).
 FROM python:3.11-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -17,22 +20,25 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# SDK source — pip's editable install in requirements.txt points at this
-# via the relative path `../../magellon-sdk`.
-COPY magellon-sdk /app/magellon-sdk
+WORKDIR /app
 
-WORKDIR /app/plugins/magellon_fft_plugin
-COPY plugins/magellon_fft_plugin/requirements.txt ./
+# Wheel + requirements first so the Docker layer cache survives a
+# code-only edit. ``./wheels/`` carries the magellon_sdk wheel that
+# requirements.txt references.
+COPY requirements.txt ./
+COPY wheels ./wheels
 RUN pip install --upgrade pip setuptools wheel \
     && pip install -r requirements.txt \
     && pip install prometheus-fastapi-instrumentator
 
-COPY plugins/magellon_fft_plugin/configs ./configs
-COPY plugins/magellon_fft_plugin/core ./core
-COPY plugins/magellon_fft_plugin/plugin ./plugin
-COPY plugins/magellon_fft_plugin/main.py ./main.py
+# Plugin source. configs/ holds the YAML settings; core/, plugin/,
+# main.py are the FastAPI + bus runtime entry points.
+COPY configs ./configs
+COPY core ./core
+COPY plugin ./plugin
+COPY main.py ./main.py
 
-ENV PYTHONPATH=/app/plugins/magellon_fft_plugin \
+ENV PYTHONPATH=/app \
     APP_ENV=production
 
 VOLUME /gpfs
