@@ -636,14 +636,30 @@ def _find_broker_plugin(plugin_id: str) -> Optional[CategoryContract]:
     """Look up a broker plugin by plugin_id, resolve its category contract.
 
     Plugins in the liveness registry use whatever ``plugin_id`` they
-    announced; the ``/plugins/`` list prepends the category (e.g.
-    "fft/FFT Plugin"). Accept both forms here. Returns the
-    :class:`CategoryContract` — that's what we need for dispatch
-    (category-scoped TaskRoute + input_model for validation).
+    announced (typically ``info.name``, e.g. ``"FFT — magnitude spectrum"``);
+    the ``/plugins/`` list prepends the category (e.g.
+    ``"fft/FFT — magnitude spectrum"``); the manifest's bare slug
+    (e.g. ``"fft"``) is a third valid form an operator might type.
+    Accept all three; returns the :class:`CategoryContract` — that's
+    what we need for dispatch (category-scoped TaskRoute + input_model
+    for validation).
+
+    Match order:
+      1. ``entry.plugin_id == plugin_id`` (composed or runtime form match)
+      2. ``entry.plugin_id == short_id`` (composed form stripped to runtime)
+      3. ``entry.backend_id == short_id`` (manifest slug match — covers
+         e.g. ``/plugins/fft/jobs`` where the runtime form differs)
     """
     short_id = _strip_category_prefix(plugin_id)
     for entry in get_liveness_registry().list_live():
         if entry.plugin_id == short_id or entry.plugin_id == plugin_id:
+            return _category_contract_by_name(entry.category)
+    # Slug fallback — matches the install-time backend_id rather than
+    # the announce-time plugin_id. Covers the common case where the
+    # plugin announces under its display name but the URL/UI refers
+    # to it by its manifest slug.
+    for entry in get_liveness_registry().list_live():
+        if entry.backend_id and entry.backend_id == short_id:
             return _category_contract_by_name(entry.category)
     return None
 
