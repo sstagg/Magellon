@@ -58,6 +58,7 @@ import {
     Delete as DeleteIcon,
     CloudUpload as CloudUploadIcon,
     InsertDriveFile as FileIcon,
+    FolderOpen as FolderOpenIcon,
 } from '@mui/icons-material';
 
 // ---------------------------------------------------------------------------
@@ -96,6 +97,22 @@ interface FieldSchema {
     ui_tunable?: boolean;
 }
 
+/** Callback signature for the GPFS file picker bridge. */
+export interface BrowseFileRequest {
+    /** Schema property key (e.g. ``image_path``). */
+    fieldKey: string;
+    /** Field title from the schema, for the dialog header. */
+    fieldTitle: string;
+    /** Current value, if any. Useful for seeding the picker's path. */
+    current: string | string[] | null;
+    /** ``true`` when the field is an array of paths (file_path_list). */
+    multiple: boolean;
+    /** Optional allowed extensions, e.g. ``['.mrc', '.tif']``. */
+    allowedExts?: string[];
+    /** Caller invokes this with the picked path(s) to update the form. */
+    onPick: (picked: string | string[]) => void;
+}
+
 interface SchemaFormProps {
     schema: {
         properties?: Record<string, FieldSchema>;
@@ -116,6 +133,37 @@ interface SchemaFormProps {
     disabled?: boolean;
     /** Per-field validation errors keyed by property name */
     errors?: Record<string, string>;
+    /**
+     * Bridge to a GPFS file picker. When provided, file-path fields
+     * render a "Browse" button that calls this; the consumer pops a
+     * dialog and invokes ``onPick(...)`` with the chosen path(s).
+     *
+     * Without this prop, file-path fields are still editable as text —
+     * the picker is purely additive.
+     */
+    onBrowseFile?: (request: BrowseFileRequest) => void;
+}
+
+// Heuristic: when ui_widget is unset, these are common patterns for
+// "input file" fields across Magellon plugins. Output paths (e.g.
+// ``output_path``, ``target_path``) are intentionally excluded —
+// authors should mark those with ``ui_widget: 'output'`` or similar
+// once a need arises. Until then the user types/edits them as plain text.
+const FILE_PATH_FIELD_NAMES = new Set([
+    'image_path', 'image_paths',
+    'template_path', 'template_paths',
+    'input_path', 'input_paths',
+    'source_path', 'source_paths',
+    'frame_path', 'frame_paths',
+    'gain_path', 'defects_path',
+    'mrcs_path', 'star_path',
+]);
+
+function looksLikeFilePathField(key: string, field: FieldSchema): 'single' | 'list' | null {
+    if (!FILE_PATH_FIELD_NAMES.has(key)) return null;
+    if (key.endsWith('_paths')) return 'list';
+    if (field.type === 'array' && field.items?.type === 'string') return 'list';
+    return 'single';
 }
 
 // ---------------------------------------------------------------------------
@@ -294,7 +342,9 @@ const FilePathListField: React.FC<{
     value: string[];
     onChange: (v: string[]) => void;
     disabled?: boolean;
-}> = ({ field, value, onChange, disabled }) => {
+    /** Optional GPFS-browse trigger rendered next to the manual-add box. */
+    browseButton?: React.ReactNode;
+}> = ({ field, value, onChange, disabled, browseButton }) => {
     const theme = useTheme();
     const [newPath, setNewPath] = useState('');
     const [isDragOver, setIsDragOver] = useState(false);
@@ -349,27 +399,30 @@ const FilePathListField: React.FC<{
                     Drop {exts.join(' / ')} files here
                 </Typography>
             </Box>
-            <TextField
-                size="small"
-                placeholder={`/path/to/template${exts[0]}`}
-                value={newPath}
-                onChange={(e) => setNewPath(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addPath(newPath); setNewPath(''); } }}
-                fullWidth
-                disabled={disabled}
-                slotProps={{
-                    input: {
-                        endAdornment: (
-                            <InputAdornment position="end">
-                                <IconButton size="small" onClick={() => { addPath(newPath); setNewPath(''); }} disabled={disabled || !newPath.trim()}>
-                                    <AddIcon fontSize="small" />
-                                </IconButton>
-                            </InputAdornment>
-                        ),
-                        sx: { fontSize: '0.8rem' },
-                    }
-                }}
-            />
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                <TextField
+                    size="small"
+                    placeholder={`/path/to/template${exts[0]}`}
+                    value={newPath}
+                    onChange={(e) => setNewPath(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addPath(newPath); setNewPath(''); } }}
+                    fullWidth
+                    disabled={disabled}
+                    slotProps={{
+                        input: {
+                            endAdornment: (
+                                <InputAdornment position="end">
+                                    <IconButton size="small" onClick={() => { addPath(newPath); setNewPath(''); }} disabled={disabled || !newPath.trim()}>
+                                        <AddIcon fontSize="small" />
+                                    </IconButton>
+                                </InputAdornment>
+                            ),
+                            sx: { fontSize: '0.8rem' },
+                        }
+                    }}
+                />
+                {browseButton}
+            </Stack>
             {paths.length > 0 && (
                 <List dense sx={{ py: 0 }}>
                     {paths.map((p, i) => (
@@ -479,6 +532,7 @@ export const SchemaForm: React.FC<SchemaFormProps> = ({
     tunableOnly,
     disabled,
     errors,
+    onBrowseFile,
 }) => {
     if (!schema?.properties) {
         return (
@@ -530,11 +584,55 @@ export const SchemaForm: React.FC<SchemaFormProps> = ({
         return true;
     };
 
+    const browseButton = (
+        kind: 'single' | 'list',
+        key: string,
+        field: FieldSchema,
+        currentValue: any,
+    ) => {
+        if (!onBrowseFile) return null;
+        const handleClick = () => {
+            onBrowseFile({
+                fieldKey: key,
+                fieldTitle: field.title || humanize(key),
+                current: currentValue ?? null,
+                multiple: kind === 'list',
+                allowedExts: field.ui_file_ext,
+                onPick: (picked) => handleFieldChange(key, picked),
+            });
+        };
+        return (
+            <Tooltip title={`Browse GPFS for ${field.title || humanize(key)}`} placement="top">
+                <span>
+                    <IconButton
+                        size="small"
+                        onClick={handleClick}
+                        disabled={disabled}
+                        aria-label={`browse ${key}`}
+                    >
+                        <FolderOpenIcon sx={{ fontSize: 18 }} />
+                    </IconButton>
+                </span>
+            </Tooltip>
+        );
+    };
+
     const renderField = (key: string, field: FieldSchema) => {
-        const widget = field.ui_widget;
+        let widget = field.ui_widget;
         const val = values[key];
         const fieldError = errors?.[key];
         const isRequired = required.includes(key);
+
+        // Heuristic: when the schema doesn't declare ui_widget AND the
+        // field name matches a well-known input-path pattern (image_path,
+        // template_paths, etc.), treat it as a file_path / file_path_list
+        // so the GPFS picker shows up. Output paths aren't whitelisted —
+        // see FILE_PATH_FIELD_NAMES.
+        if (!widget) {
+            const guess = looksLikeFilePathField(key, field);
+            if (guess === 'single') widget = 'file_path';
+            else if (guess === 'list') widget = 'file_path_list';
+        }
 
         // Widget-driven path
         if (widget) {
@@ -566,10 +664,30 @@ export const SchemaForm: React.FC<SchemaFormProps> = ({
                             error={!!fieldError}
                             disabled={disabled}
                             required={isRequired}
+                            slotProps={{
+                                input: onBrowseFile
+                                    ? {
+                                        endAdornment: (
+                                            <InputAdornment position="end">
+                                                {browseButton('single', key, field, val)}
+                                            </InputAdornment>
+                                        ),
+                                    }
+                                    : undefined,
+                            }}
                         />
                     );
                 case 'file_path_list':
-                    return <FilePathListField key={key} field={field} value={val || []} onChange={(v) => handleFieldChange(key, v)} disabled={disabled} />;
+                    return (
+                        <FilePathListField
+                            key={key}
+                            field={field}
+                            value={val || []}
+                            onChange={(v) => handleFieldChange(key, v)}
+                            disabled={disabled}
+                            browseButton={browseButton('list', key, field, val)}
+                        />
+                    );
             }
         }
 

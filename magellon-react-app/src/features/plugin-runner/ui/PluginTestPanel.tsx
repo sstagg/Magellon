@@ -47,7 +47,7 @@ import {
     Zap,
 } from 'lucide-react';
 
-import { SchemaForm } from '../../../shared/ui/SchemaForm.tsx';
+import { SchemaForm, type BrowseFileRequest } from '../../../shared/ui/SchemaForm.tsx';
 import {
     PluginSummary,
     useCategoryCapabilities,
@@ -56,6 +56,7 @@ import {
     usePluginOutputSchema,
     useSubmitPluginJob,
 } from '../api/PluginApi.ts';
+import { ImagePickerDialog } from './ImagePickerDialog.tsx';
 import { ProgressTracker } from './ProgressTracker.tsx';
 import { useSocket } from '../../../shared/lib/useSocket.ts';
 
@@ -217,6 +218,13 @@ export const PluginTestPanel: React.FC<PluginTestPanelProps> = ({
     const [syncResult, setSyncResult] = useState<unknown | null>(null);
     const [syncError, setSyncError] = useState<string | null>(null);
 
+    // GPFS picker bridge — opens for any SchemaForm field that asks
+    // (file_path / file_path_list ui_widget, or a heuristic match like
+    // image_path / template_paths). The dialog stays mounted but only
+    // renders when ``pickerRequest`` is set.
+    const [pickerRequest, setPickerRequest] = useState<BrowseFileRequest | null>(null);
+    const handleBrowseFile = (request: BrowseFileRequest) => setPickerRequest(request);
+
     // Subscribe to Socket.IO envelope tap for the current job. Same room
     // as step_event — joined once we have a job_id.
     useEffect(() => {
@@ -347,6 +355,7 @@ export const PluginTestPanel: React.FC<PluginTestPanelProps> = ({
                         values={values}
                         onChange={setValues}
                         disabled={!runEnabled || isBusy}
+                        onBrowseFile={handleBrowseFile}
                     />
                 )}
             </Box>
@@ -468,8 +477,55 @@ export const PluginTestPanel: React.FC<PluginTestPanelProps> = ({
                 </Card>
             </Box>
             <Box>{activityColumn}</Box>
+
+            {/* GPFS browser dialog — driven by SchemaForm's onBrowseFile.
+                We always render the component but gate ``open`` on the
+                pickerRequest so opening/closing is cheap. */}
+            {pickerRequest && (
+                pickerRequest.multiple ? (
+                    <ImagePickerDialog
+                        open
+                        multiple
+                        title={`Pick ${pickerRequest.fieldTitle}`}
+                        allowedExts={pickerRequest.allowedExts}
+                        onClose={() => setPickerRequest(null)}
+                        onPick={(paths) => {
+                            pickerRequest.onPick(paths);
+                            setPickerRequest(null);
+                        }}
+                        initialPath={
+                            Array.isArray(pickerRequest.current) && pickerRequest.current[0]
+                                ? parentDir(pickerRequest.current[0])
+                                : undefined
+                        }
+                    />
+                ) : (
+                    <ImagePickerDialog
+                        open
+                        title={`Pick ${pickerRequest.fieldTitle}`}
+                        allowedExts={pickerRequest.allowedExts}
+                        onClose={() => setPickerRequest(null)}
+                        onPick={(path) => {
+                            pickerRequest.onPick(path);
+                            setPickerRequest(null);
+                        }}
+                        initialPath={
+                            typeof pickerRequest.current === 'string'
+                                ? parentDir(pickerRequest.current)
+                                : undefined
+                        }
+                    />
+                )
+            )}
         </Box>
     );
 };
+
+function parentDir(p: string | null): string | undefined {
+    if (!p) return undefined;
+    const idx = p.replace(/\\/g, '/').lastIndexOf('/');
+    if (idx <= 0) return undefined;
+    return p.slice(0, idx);
+}
 
 export default PluginTestPanel;
