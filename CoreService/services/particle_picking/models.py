@@ -105,7 +105,15 @@ class TemplatePickerInput(BaseModel):
     )
 
     template_paths: List[str] = Field(
-        ...,
+        # Defaults to the three reference templates that ship in
+        # /gpfs/templates/ so the side panel is testable with a single
+        # click. Production deployments override these by typing or
+        # browsing GPFS.
+        default_factory=lambda: [
+            "/gpfs/templates/origTemplate1.mrc",
+            "/gpfs/templates/origTemplate2.mrc",
+            "/gpfs/templates/origTemplate3.mrc",
+        ],
         min_length=1,
         description="2D class-average or projection templates for cross-correlation matching",
         json_schema_extra={
@@ -123,7 +131,7 @@ class TemplatePickerInput(BaseModel):
     # --- Core picking parameters (group: Auto-picking Settings) ---
 
     diameter_angstrom: float = Field(
-        ...,
+        default=220.0,  # Sandbox README example value — usable test fixture
         gt=0,
         description="Expected particle diameter",
         json_schema_extra={
@@ -143,7 +151,7 @@ class TemplatePickerInput(BaseModel):
     )
 
     threshold: float = Field(
-        default=0.4,
+        default=0.35,
         ge=0.0,
         le=1.0,
         description="Normalized cross-correlation score cutoff",
@@ -193,7 +201,11 @@ class TemplatePickerInput(BaseModel):
     # --- Pixel sizes (group: Auto-picking Settings) ---
 
     image_pixel_size: float = Field(
-        ...,
+        # Default = pixel size of the bundled 24dec03a sample image, so
+        # the side panel is one-click testable. Real micrographs come
+        # in with a per-image apix; the React UI may overwrite this on
+        # image select, but a reasonable fallback keeps the form valid.
+        default=3.16,
         gt=0,
         description="Micrograph pixel size",
         json_schema_extra={
@@ -207,7 +219,7 @@ class TemplatePickerInput(BaseModel):
     )
 
     template_pixel_size: float = Field(
-        ...,
+        default=2.646,  # matches the bundled origTemplate*.mrc reference set
         gt=0,
         description="Template pixel size",
         json_schema_extra={
@@ -238,7 +250,12 @@ class TemplatePickerInput(BaseModel):
     )
 
     invert_templates: bool = Field(
-        default=False,
+        # Cryo-EM micrographs are dark particles on bright background;
+        # raw templates from class-averaging tend to be the opposite
+        # (bright particle, dark background), so multiplying by -1 is
+        # the common case. Default true matches the README's reference
+        # CLI command and avoids "preview returned 0 picks" confusion.
+        default=True,
         description="Multiply templates by -1 before matching",
         json_schema_extra={
             "ui_widget": "toggle",
