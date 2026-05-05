@@ -106,8 +106,15 @@ export const useInstallMpn = () => {
             onSuccess: () => {
                 // The new install adds a row to /installed; also nudges
                 // the runtime plugin list once the new plugin announces.
+                // ['plugins-db'] is what InstalledPluginsView binds to;
+                // ['plugins-installed'] mirrors /admin/plugins/installed
+                // through the legacy hook; ['plugin-updates'] holds
+                // version-diff state that depends on the inventory.
                 qc.invalidateQueries(QK_ADMIN_INSTALLED);
                 qc.invalidateQueries(['plugins']);
+                qc.invalidateQueries(['plugins-db']);
+                qc.invalidateQueries(['plugins-installed']);
+                qc.invalidateQueries(['plugin-updates']);
             },
         },
     );
@@ -138,6 +145,9 @@ export const useUpgradeMpn = () => {
             onSuccess: () => {
                 qc.invalidateQueries(QK_ADMIN_INSTALLED);
                 qc.invalidateQueries(['plugins']);
+                qc.invalidateQueries(['plugins-db']);
+                qc.invalidateQueries(['plugins-installed']);
+                qc.invalidateQueries(['plugin-updates']);
             },
         },
     );
@@ -163,6 +173,9 @@ export const useUninstallMpn = () => {
             onSuccess: () => {
                 qc.invalidateQueries(QK_ADMIN_INSTALLED);
                 qc.invalidateQueries(['plugins']);
+                qc.invalidateQueries(['plugins-db']);
+                qc.invalidateQueries(['plugins-installed']);
+                qc.invalidateQueries(['plugin-updates']);
                 qc.invalidateQueries(['admin-plugin-process-status']);
             },
         },
