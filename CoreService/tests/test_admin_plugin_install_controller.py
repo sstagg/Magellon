@@ -360,16 +360,42 @@ def test_uninstall_success_returns_200(client, fake_manager, fake_catalog):
     fake_catalog.record_uninstall.assert_called_once_with("ctf")
 
 
-def test_uninstall_not_installed_returns_404(client, fake_manager):
+def test_uninstall_not_installed_and_no_catalog_row_returns_404(
+    client, fake_manager, fake_catalog,
+):
     fake_manager.uninstall.return_value = UninstallResult(
         success=False,
         plugin_id="ctf",
         error="plugin 'ctf' not installed",
     )
+    fake_catalog.record_uninstall.return_value = False
 
     resp = client.delete("/admin/plugins/ctf")
 
     assert resp.status_code == 404
+
+
+def test_uninstall_discovered_only_soft_deletes_and_returns_200(
+    client, fake_manager, fake_catalog,
+):
+    """A plugin known via broker announce/heartbeat has a catalog row
+    but no on-disk install — uninstall should still succeed by
+    soft-deleting the row so the operator can clear it from the UI."""
+    fake_manager.uninstall.return_value = UninstallResult(
+        success=False,
+        plugin_id="ctf",
+        error="plugin 'ctf' not installed",
+    )
+    fake_catalog.record_uninstall.return_value = True
+
+    resp = client.delete("/admin/plugins/ctf")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["success"] is True
+    assert body["plugin_id"] == "ctf"
+    assert "catalog only" in (body["error"] or "")
+    fake_catalog.record_uninstall.assert_called_once_with("ctf")
 
 
 def test_uninstall_unknown_failure_returns_500(client, fake_manager):

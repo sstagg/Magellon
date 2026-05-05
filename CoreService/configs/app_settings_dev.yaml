@@ -127,6 +127,9 @@ directory_settings:
   # Where the v1 install pipeline lays out per-plugin uv venvs / docker
   # container state. Relative resolves under MAGELLON_GPFS_PATH.
   PLUGINS_DIR: plugins
+  # Where uploaded/downloaded .mpn archives live before install
+  # (the "Downloaded" tab of the plugin manager UI).
+  PLUGIN_PACKAGES_DIR: plugin_packages
   JOBS_DIR: null
   JOBS_PROCESSING_SUB_URL: processing/
   ORIGINAL_IMAGES_SUB_URL: original/

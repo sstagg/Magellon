@@ -274,23 +274,41 @@ def uninstall_plugin(
     _: None = Depends(require_role("Administrator")),
 ) -> UninstallResponse:
     result = manager.uninstall(plugin_id)
+    physically_uninstalled = result.success
     if not result.success:
         err = (result.error or "").lower()
-        if "not installed" in err:
-            raise HTTPException(status_code=404, detail=result.error)
-        raise HTTPException(status_code=500, detail=result.error)
+        if "not installed" not in err:
+            raise HTTPException(status_code=500, detail=result.error)
+        # Manager owns no install dir for this plugin. That's the
+        # common case for broker-discovered plugins (announce/heartbeat
+        # creates a catalog row with install_method='discovered' and
+        # no on-disk venv/container) — the operator clicking Uninstall
+        # in the UI expects the row to vanish either way. Fall through
+        # to the catalog soft-delete; if that also finds nothing, the
+        # plugin truly doesn't exist anywhere and we 404.
     try:
-        catalog.record_uninstall(plugin_id)
+        had_row = catalog.record_uninstall(plugin_id)
     except Exception as exc:
-        logger.exception("plugin uninstalled but DB soft-delete failed: %s", plugin_id)
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                "plugin uninstalled but could not be marked removed in the "
-                f"database: {exc}"
-            ),
-        ) from exc
-    return UninstallResponse.from_result(result)
+        logger.exception("plugin uninstall: DB soft-delete failed: %s", plugin_id)
+        if physically_uninstalled:
+            raise HTTPException(
+                status_code=500,
+                detail=(
+                    "plugin uninstalled but could not be marked removed in the "
+                    f"database: {exc}"
+                ),
+            ) from exc
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    if not physically_uninstalled and not had_row:
+        raise HTTPException(status_code=404, detail=result.error)
+    return UninstallResponse(
+        success=True,
+        plugin_id=plugin_id,
+        error=None if physically_uninstalled else (
+            "plugin had no on-disk install (likely discovered via broker); "
+            "removed from catalog only"
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------

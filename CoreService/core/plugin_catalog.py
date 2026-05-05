@@ -44,11 +44,36 @@ from magellon_sdk.archive import (
 logger = logging.getLogger(__name__)
 
 
-# Default catalog directory. Overridable by the endpoint layer if an
-# operator sets MAGELLON_CATALOG_DIR; keeping a module-level default
-# means tests can bypass the env var by calling set_catalog_dir()
-# before constructing PluginCatalog.
-_DEFAULT_CATALOG_DIR = Path("data") / "plugin_catalog"
+# Legacy default catalog directory — used only when the configured
+# PLUGIN_PACKAGES_DIR is unavailable (e.g. tests that bypass settings).
+# Production should always go through the resolver below.
+_LEGACY_DEFAULT_CATALOG_DIR = Path("data") / "plugin_catalog"
+
+
+def _resolve_default_catalog_dir() -> Path:
+    """Where uploaded ``.mpn`` archives live before install.
+
+    Resolution order (first non-empty wins):
+      1. ``MAGELLON_PLUGIN_PACKAGES_DIR`` env var — operational override.
+      2. ``app_settings.directory_settings.PLUGIN_PACKAGES_DIR`` — fluent
+         config (configs/app_settings_*.yaml). Relative paths are
+         resolved under MAGELLON_GPFS_PATH at settings load time.
+      3. Legacy ``CoreService/data/plugin_catalog/``.
+    """
+    import os
+    env_override = os.environ.get("MAGELLON_PLUGIN_PACKAGES_DIR")
+    if env_override:
+        return Path(env_override)
+    try:
+        from config import app_settings
+        configured = getattr(
+            app_settings.directory_settings, "PLUGIN_PACKAGES_DIR", None,
+        )
+        if configured:
+            return Path(configured)
+    except Exception:  # noqa: BLE001 — settings unavailable in some test paths
+        pass
+    return _LEGACY_DEFAULT_CATALOG_DIR
 
 
 # ---------------------------------------------------------------------------
@@ -96,7 +121,7 @@ class PluginCatalog:
     """Thread-safe filesystem-backed catalog."""
 
     def __init__(self, catalog_dir: Optional[Path] = None) -> None:
-        self.dir = Path(catalog_dir) if catalog_dir else _DEFAULT_CATALOG_DIR
+        self.dir = Path(catalog_dir) if catalog_dir else _resolve_default_catalog_dir()
         self.dir.mkdir(parents=True, exist_ok=True)
         self._entries: Dict[str, CatalogEntry] = {}
         self._lock = threading.Lock()
