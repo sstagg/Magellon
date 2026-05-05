@@ -20,6 +20,7 @@ from config import app_settings
 from controllers.camera_controller import camera_router
 from controllers.admin_broker_controller import admin_broker_router
 from controllers.admin_plugin_install_controller import admin_plugin_install_router
+from controllers.system_stats_controller import system_stats_router
 from controllers.artifacts_controller import artifacts_router
 from controllers.cancellation_controller import cancellation_router
 from controllers.pipelines_controller import pipelines_router
@@ -342,6 +343,14 @@ app.include_router(
     admin_plugin_install_router,
     tags=["Admin - Plugin Install"],
     prefix="/admin/plugins",
+)
+
+# Live host metrics for the plugins dashboard. Administrator-gated;
+# polled by the React UI every 1-2 s.
+app.include_router(
+    system_stats_router,
+    tags=["System Stats"],
+    prefix="/system",
 )
 
 
