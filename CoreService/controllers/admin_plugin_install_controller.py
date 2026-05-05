@@ -37,6 +37,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
+from magellon_sdk.archive import load_manifest_bytes
 from dependencies.permissions import require_role
 from services.plugin_installer.factory import (
     get_install_manager,
@@ -181,6 +182,56 @@ async def _save_upload_to_temp(upload: UploadFile) -> Path:
         Path(name).unlink(missing_ok=True)
         raise
     return Path(name)
+
+
+def _persist_to_packages_dir(archive_path: Path) -> None:
+    """Side-record an installed/upgrading archive under
+    ``PLUGIN_PACKAGES_DIR`` so it surfaces in the React "Downloaded"
+    tab. Best-effort: a write failure here logs but never fails the
+    install — physical install correctness wins over catalog UX.
+
+    Why save here instead of letting the operator upload twice (once
+    to ``/plugins/catalog`` for visibility + once to ``/admin/plugins/install``
+    for the actual install): the v1 modern install path was bypassing
+    the filesystem catalog entirely, so hub installs and dialog uploads
+    landed nowhere visible. The catalog is the right place for both —
+    it lets the operator re-install / re-share / inspect the archive
+    after install completes, even after uninstall.
+
+    Uses :class:`magellon_sdk.archive.PluginArchiveManifest` to parse
+    so the catalog's per-version naming convention
+    (``{plugin_id}-{version}.mpn``) stays consistent regardless of what
+    the upload's original filename was.
+    """
+    try:
+        from core.plugin_catalog import get_catalog
+        archive_bytes = archive_path.read_bytes()
+        # Re-parse the manifest from the archive itself rather than
+        # trusting the install manager's view; same defensive parse the
+        # manager does. Catalog only stores well-formed archives.
+        with __import__("zipfile").ZipFile(archive_path) as z:
+            for name in ("manifest.yaml", "plugin.yaml"):
+                try:
+                    raw = z.read(name)
+                    break
+                except KeyError:
+                    continue
+            else:
+                logger.warning(
+                    "catalog persist skipped — neither manifest.yaml nor "
+                    "plugin.yaml in %s",
+                    archive_path,
+                )
+                return
+        manifest = load_manifest_bytes(raw)
+        get_catalog().upload(archive_bytes=archive_bytes, manifest=manifest)
+    except Exception:  # noqa: BLE001 — catalog is non-load-bearing for install
+        logger.warning(
+            "failed to mirror install archive into PLUGIN_PACKAGES_DIR; "
+            "the plugin still installs correctly but won't appear in the "
+            "Downloaded tab.",
+            exc_info=True,
+        )
 
 
 def _result_to_http(result: InstallResult, *, success_status: int) -> InstallResponse:
@@ -353,6 +404,9 @@ async def install_plugin(
     _: None = Depends(require_role("Administrator")),
 ) -> InstallResponse:
     archive_path = await _save_upload_to_temp(file)
+    # Mirror into PLUGIN_PACKAGES_DIR before install so the Downloaded
+    # tab reflects what was uploaded even if install fails partway.
+    _persist_to_packages_dir(archive_path)
     try:
         result = manager.install(
             archive_path, runtime, preferred_method=install_method,
@@ -408,6 +462,7 @@ async def upgrade_plugin(
     _: None = Depends(require_role("Administrator")),
 ) -> InstallResponse:
     archive_path = await _save_upload_to_temp(file)
+    _persist_to_packages_dir(archive_path)
     try:
         result = manager.upgrade(
             plugin_id, archive_path, runtime, force_downgrade=force_downgrade,
