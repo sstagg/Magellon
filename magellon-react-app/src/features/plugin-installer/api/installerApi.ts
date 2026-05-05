@@ -168,6 +168,10 @@ export const useInstallMpn = () => {
                 qc.invalidateQueries(['plugins-db']);
                 qc.invalidateQueries(['plugins-installed']);
                 qc.invalidateQueries(['plugin-updates']);
+                // Install pipeline now mirrors the .mpn into
+                // PLUGIN_PACKAGES_DIR (the catalog), so the Downloaded
+                // tab needs to know there's a fresh entry to show.
+                qc.invalidateQueries(['plugin-catalog']);
             },
         },
     );
@@ -201,6 +205,10 @@ export const useUpgradeMpn = () => {
                 qc.invalidateQueries(['plugins-db']);
                 qc.invalidateQueries(['plugins-installed']);
                 qc.invalidateQueries(['plugin-updates']);
+                // Install pipeline now mirrors the .mpn into
+                // PLUGIN_PACKAGES_DIR (the catalog), so the Downloaded
+                // tab needs to know there's a fresh entry to show.
+                qc.invalidateQueries(['plugin-catalog']);
             },
         },
     );
@@ -229,6 +237,10 @@ export const useUninstallMpn = () => {
                 qc.invalidateQueries(['plugins-db']);
                 qc.invalidateQueries(['plugins-installed']);
                 qc.invalidateQueries(['plugin-updates']);
+                // Install pipeline now mirrors the .mpn into
+                // PLUGIN_PACKAGES_DIR (the catalog), so the Downloaded
+                // tab needs to know there's a fresh entry to show.
+                qc.invalidateQueries(['plugin-catalog']);
                 qc.invalidateQueries(['admin-plugin-process-status']);
             },
         },
