@@ -122,8 +122,23 @@ class PluginInstallManager:
     # ------------------------------------------------------------------
 
     def install(
-        self, archive_path: Path, runtime: RuntimeConfig,
+        self,
+        archive_path: Path,
+        runtime: RuntimeConfig,
+        *,
+        preferred_method: Optional[str] = None,
     ) -> InstallResult:
+        """Install a plugin from a ``.mpn`` archive.
+
+        ``preferred_method`` (e.g. ``"uv"`` / ``"docker"``) lets the
+        operator pin a specific install method instead of letting the
+        manager auto-pick. When set, the manager only considers that
+        method's spec; if its predicates fail or no spec for that
+        method exists, the install fails with an actionable error
+        instead of falling back to a different method silently. When
+        ``None`` (the default + back-compat path) the manager picks
+        the first method whose predicates pass.
+        """
         # 1. Read + validate manifest.
         try:
             manifest = self._load_manifest(archive_path)
@@ -142,15 +157,29 @@ class PluginInstallManager:
         )
         host = self._host_info_provider(probe_binaries=required_binaries)
 
-        # 3. Pick the first install method whose predicates pass.
-        chosen = self._pick_installer(manifest, host)
-        if chosen is None:
-            return InstallResult(
-                success=False,
-                plugin_id=manifest.plugin_id,
-                install_method="",
-                error=self._explain_no_match(manifest, host),
+        # 3. Pick the install method.
+        if preferred_method:
+            chosen = self._pick_installer(
+                manifest, host, only_method=preferred_method,
             )
+            if chosen is None:
+                return InstallResult(
+                    success=False,
+                    plugin_id=manifest.plugin_id,
+                    install_method=preferred_method,
+                    error=self._explain_preferred_unmatched(
+                        manifest, host, preferred_method,
+                    ),
+                )
+        else:
+            chosen = self._pick_installer(manifest, host)
+            if chosen is None:
+                return InstallResult(
+                    success=False,
+                    plugin_id=manifest.plugin_id,
+                    install_method="",
+                    error=self._explain_no_match(manifest, host),
+                )
         spec, installer = chosen
 
         # 4. Refuse if already installed under this or any installer.
@@ -306,9 +335,16 @@ class PluginInstallManager:
         runtime: RuntimeConfig,
         *,
         force_downgrade: bool = False,
+        preferred_method: Optional[str] = None,
     ) -> InstallResult:
         """Replace an installed plugin with a different-versioned
         archive.
+
+        ``preferred_method`` is forwarded to the underlying install
+        step and follows the same rules as :meth:`install`. When
+        omitted, the manager auto-picks. (Note: this is independent
+        of the *old* install's method — an upgrade is free to switch
+        from ``uv`` to ``docker`` if the operator pins it.)
 
         Returns the install-side ``InstallResult``: ``.success=True``
         means the new version is live; on ``False`` the old version
@@ -387,7 +423,9 @@ class PluginInstallManager:
             )
 
         # 6. Install the new version.
-        install_result = self.install(new_archive_path, runtime)
+        install_result = self.install(
+            new_archive_path, runtime, preferred_method=preferred_method,
+        )
         if install_result.success:
             return install_result
 
@@ -521,9 +559,21 @@ class PluginInstallManager:
         )
 
     def _pick_installer(
-        self, manifest: PluginArchiveManifest, host: HostInfo,
+        self,
+        manifest: PluginArchiveManifest,
+        host: HostInfo,
+        *,
+        only_method: Optional[str] = None,
     ) -> Optional[Tuple[InstallSpec, Installer]]:
+        """Find the first ``(spec, installer)`` pair whose predicates pass.
+
+        ``only_method`` restricts the scan to one method (e.g. ``"uv"``)
+        — used when the operator pinned a method via the install endpoint.
+        Without it, the first matching method wins (manifest order).
+        """
         for spec in manifest.install:
+            if only_method and spec.method != only_method:
+                continue
             installer = self._installers.get(spec.method)
             if installer is None:
                 continue
@@ -552,3 +602,37 @@ class PluginInstallManager:
             joined = "; ".join(failures) if failures else "(no failures)"
             lines.append(f"  [{i}] method={spec.method!r}: {joined}")
         return "\n".join(lines)
+
+    def _explain_preferred_unmatched(
+        self,
+        manifest: PluginArchiveManifest,
+        host: HostInfo,
+        preferred_method: str,
+    ) -> str:
+        """Tell the operator *why* their pinned method didn't take.
+
+        Three cases worth distinguishing: the manifest doesn't declare
+        that method at all; the host has no installer registered for
+        it; or the installer's predicates failed. Each gets a different
+        actionable hint."""
+        manifest_methods = [s.method for s in manifest.install]
+        if preferred_method not in manifest_methods:
+            return (
+                f"plugin {manifest.plugin_id!r} doesn't declare an install "
+                f"method {preferred_method!r}. Available methods in the "
+                f"manifest: {manifest_methods or '(none)'}."
+            )
+        installer = self._installers.get(preferred_method)
+        if installer is None:
+            return (
+                f"this CoreService has no installer registered for "
+                f"method {preferred_method!r}. Available installers: "
+                f"{sorted(self._installers.keys()) or '(none)'}."
+            )
+        spec = next(s for s in manifest.install if s.method == preferred_method)
+        failures = installer.supports(spec, host)
+        joined = "; ".join(failures) if failures else "(unknown)"
+        return (
+            f"install method {preferred_method!r} not supported by this host: "
+            f"{joined}."
+        )

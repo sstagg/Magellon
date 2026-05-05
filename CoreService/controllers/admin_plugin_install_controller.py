@@ -110,6 +110,55 @@ class InstalledListResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Inspect — surface manifest details + per-method host compatibility so
+# the React install dialog can show a method dropdown with a sensible
+# default before the operator commits to installing.
+# ---------------------------------------------------------------------------
+
+
+class InstallMethodOption(BaseModel):
+    """One installable method as the operator should see it in the UI."""
+
+    method: str
+    """e.g. ``"uv"``, ``"docker"``."""
+
+    supported: bool
+    """True when this CoreService host satisfies the method's predicates
+    (registered installer + every requires entry passes). False methods
+    can still be selected but the install will fail with the reasons
+    below — useful for "I'll fix the docker daemon and retry" flows."""
+
+    failures: list[str] = []
+    """Human-readable reasons the method failed predicates (empty when
+    ``supported=True``)."""
+
+    notes: Optional[str] = None
+    """Free-form description (e.g. ``"image: ghcr.io/.../foo:1.2.3"``)
+    so the operator knows what they're picking."""
+
+
+class InspectResponse(BaseModel):
+    plugin_id: str
+    name: str
+    version: str
+    category: str
+    sdk_compat: str
+    description: Optional[str] = None
+    developer: Optional[str] = None
+    methods: list[InstallMethodOption]
+    """In manifest order — first one the plugin author preferred."""
+    default_method: Optional[str] = None
+    """Method the install endpoint would auto-pick if no install_method
+    were specified. Same first-supported-wins logic the manager uses.
+    May be ``None`` when none of the methods are supported on this host
+    (the dialog should still let the operator pick something and see
+    the per-method failure reasons)."""
+    already_installed: bool = False
+    """``True`` when an existing install owns this plugin_id — UI can
+    nudge the operator toward upgrade instead of install."""
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -148,6 +197,16 @@ def _result_to_http(result: InstallResult, *, success_status: int) -> InstallRes
         raise HTTPException(status_code=409, detail=result.error)
     if "not installed" in err:
         raise HTTPException(status_code=404, detail=result.error)
+    # 422 — archive is well-formed, request is the issue. Order matters:
+    # the "not supported / doesn't declare" messages mention "manifest"
+    # which would trip the 400 branch below if checked second.
+    if (
+        "no install method matched" in err
+        or "not supported by this host" in err
+        or "doesn't declare an install method" in err
+        or "no installer registered for method" in err
+    ):
+        raise HTTPException(status_code=422, detail=result.error)
     if (
         "manifest" in err
         or "plugin_id" in err
@@ -156,11 +215,114 @@ def _result_to_http(result: InstallResult, *, success_status: int) -> InstallRes
         or "not newer" in err
     ):
         raise HTTPException(status_code=400, detail=result.error)
-    if "no install method matched" in err:
-        # 422 Unprocessable Entity — archive is well-formed, but the
-        # host doesn't satisfy any of its install methods' predicates.
-        raise HTTPException(status_code=422, detail=result.error)
     raise HTTPException(status_code=500, detail=result.error or "install failed")
+
+
+# ---------------------------------------------------------------------------
+# POST /inspect — parse manifest, list install methods, compute default
+# ---------------------------------------------------------------------------
+
+
+@admin_plugin_install_router.post(
+    "/inspect",
+    response_model=InspectResponse,
+    summary="Parse a .mpn archive and report which install methods this host supports",
+)
+async def inspect_plugin_archive(
+    file: UploadFile = File(..., description="The .mpn archive to inspect."),
+    manager: PluginInstallManager = Depends(get_install_manager),
+    _: None = Depends(require_role("Administrator")),
+) -> InspectResponse:
+    """Read-only counterpart to ``/install``. Stream the upload to a
+    temp file, parse the manifest, and return:
+
+      * the plugin's identity (plugin_id, name, version, category)
+      * every install method the manifest declares, with this host's
+        per-method support verdict and failure reasons
+      * the method the install endpoint would auto-pick — useful as
+        the dropdown's default selection
+      * whether the plugin is already installed (UI hint to upgrade)
+
+    No DB write, no install side-effect. Designed for the React upload
+    dialog: user picks a file, we call this, the dropdown populates,
+    user (optionally) overrides the default and clicks Install.
+    """
+    archive_path = await _save_upload_to_temp(file)
+    try:
+        # Re-use the manager's helpers so the verdict here matches what
+        # the install endpoint would actually decide. Importing inside
+        # the function keeps the module's import surface unchanged.
+        from services.plugin_installer.predicates import collect_required_binaries
+
+        try:
+            manifest = manager._load_manifest(archive_path)  # noqa: SLF001
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(
+                status_code=400,
+                detail=f"manifest load/validate failed: {exc}",
+            )
+
+        required_binaries = collect_required_binaries(
+            [s.requires for s in manifest.install]
+        )
+        host = manager._host_info_provider(  # noqa: SLF001
+            probe_binaries=required_binaries,
+        )
+
+        methods: list[InstallMethodOption] = []
+        for spec in manifest.install:
+            installer = manager._installers.get(spec.method)  # noqa: SLF001
+            if installer is None:
+                failures = [
+                    f"no installer registered for method {spec.method!r} on this host"
+                ]
+                supported = False
+            else:
+                failures = installer.supports(spec, host)
+                supported = not failures
+            methods.append(InstallMethodOption(
+                method=spec.method,
+                supported=supported,
+                failures=failures,
+                notes=_describe_install_spec(spec),
+            ))
+
+        # Default = first supported method in manifest order (mirrors
+        # the manager's _pick_installer logic exactly).
+        default_method = next(
+            (m.method for m in methods if m.supported), None,
+        )
+
+        already_installed = manager.is_installed(manifest.plugin_id)
+
+        return InspectResponse(
+            plugin_id=manifest.plugin_id,
+            name=manifest.name,
+            version=manifest.version,
+            category=manifest.category,
+            sdk_compat=manifest.requires_sdk,
+            description=manifest.description or None,
+            developer=getattr(manifest, "author", None) or None,
+            methods=methods,
+            default_method=default_method,
+            already_installed=already_installed,
+        )
+    finally:
+        archive_path.unlink(missing_ok=True)
+
+
+def _describe_install_spec(spec) -> Optional[str]:
+    """Tiny one-liner the dropdown can show next to each method so the
+    operator knows what's behind the choice (e.g. "image: ghcr.io/...:1.2"
+    vs "pyproject: pyproject.toml")."""
+    if spec.method == "docker":
+        if spec.image:
+            return f"image: {spec.image}"
+        if spec.dockerfile:
+            return f"dockerfile: {spec.dockerfile}"
+    if spec.method == "uv" and spec.pyproject:
+        return f"pyproject: {spec.pyproject}"
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -175,6 +337,16 @@ def _result_to_http(result: InstallResult, *, success_status: int) -> InstallRes
 )
 async def install_plugin(
     file: UploadFile = File(..., description="The .mpn archive to install."),
+    install_method: Optional[str] = Form(
+        None,
+        description=(
+            "Optional install method to pin (e.g. 'uv', 'docker'). "
+            "When omitted, the manager auto-picks the first method "
+            "from the manifest whose host predicates pass. When set, "
+            "the manager uses that method exclusively and refuses if "
+            "its predicates don't match (no silent fallback)."
+        ),
+    ),
     manager: PluginInstallManager = Depends(get_install_manager),
     catalog: PluginCatalogPersistence = Depends(get_plugin_catalog_persistence),
     runtime: RuntimeConfig = Depends(get_runtime_config),
@@ -182,7 +354,9 @@ async def install_plugin(
 ) -> InstallResponse:
     archive_path = await _save_upload_to_temp(file)
     try:
-        result = manager.install(archive_path, runtime)
+        result = manager.install(
+            archive_path, runtime, preferred_method=install_method,
+        )
         if result.success:
             try:
                 catalog.record_install(archive_path, result)

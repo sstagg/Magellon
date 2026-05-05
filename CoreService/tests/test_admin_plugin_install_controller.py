@@ -133,7 +133,7 @@ def test_install_cleans_up_temp_file_on_success(client, fake_manager):
     fill /tmp on a busy install controller."""
     captured: list[Path] = []
 
-    def _capture(archive_path, runtime):
+    def _capture(archive_path, runtime, *, preferred_method=None):
         captured.append(archive_path)
         return _success_install()
 
@@ -205,6 +205,197 @@ def test_install_no_method_matches_returns_422(client, fake_manager):
     )
 
     assert resp.status_code == 422
+
+
+def test_install_threads_install_method_through_to_manager(
+    client, fake_manager, fake_catalog,
+):
+    """When the upload form sets ``install_method=uv`` we should pass
+    that as ``preferred_method`` to the manager. Critical for the new
+    "let user pick deployment type" UX — silently dropping the form
+    field would make the dropdown a lie."""
+    fake_manager.install.return_value = _success_install("ctf")
+
+    resp = client.post(
+        "/admin/plugins/install",
+        files={"file": ("ctf.mpn", _fake_mpn_bytes())},
+        data={"install_method": "uv"},
+    )
+
+    assert resp.status_code == 201
+    fake_manager.install.assert_called_once()
+    _, kwargs = fake_manager.install.call_args
+    assert kwargs.get("preferred_method") == "uv"
+
+
+def test_install_default_install_method_omitted(client, fake_manager, fake_catalog):
+    """No install_method field in the form ⇒ preferred_method=None,
+    keeping the auto-pick path the manager has had since P4."""
+    fake_manager.install.return_value = _success_install("ctf")
+
+    client.post(
+        "/admin/plugins/install",
+        files={"file": ("ctf.mpn", _fake_mpn_bytes())},
+    )
+
+    fake_manager.install.assert_called_once()
+    _, kwargs = fake_manager.install.call_args
+    assert kwargs.get("preferred_method") is None
+
+
+def test_install_pinned_method_unsupported_returns_422(client, fake_manager):
+    """Operator pinned ``install_method=docker`` but the host has no
+    daemon → manager returns "not supported by this host"; controller
+    maps that to 422 (request is the issue, not the archive). Same
+    bucket as the auto-pick "no match" case."""
+    fake_manager.install.return_value = InstallResult(
+        success=False,
+        plugin_id="ctf",
+        install_method="docker",
+        error=(
+            "install method 'docker' not supported by this host: "
+            "docker_daemon: want True, got False."
+        ),
+    )
+
+    resp = client.post(
+        "/admin/plugins/install",
+        files={"file": ("ctf.mpn", _fake_mpn_bytes())},
+        data={"install_method": "docker"},
+    )
+
+    assert resp.status_code == 422
+    assert "not supported by this host" in resp.json()["detail"]
+
+
+def test_install_pinned_method_not_in_manifest_returns_422(client, fake_manager):
+    """Operator picked a method the manifest doesn't declare. Same
+    bucket — 422 — but the message names what IS available so the
+    operator can correct."""
+    fake_manager.install.return_value = InstallResult(
+        success=False,
+        plugin_id="ctf",
+        install_method="subprocess",
+        error=(
+            "plugin 'ctf' doesn't declare an install method "
+            "'subprocess'. Available methods in the manifest: ['uv', 'docker']."
+        ),
+    )
+
+    resp = client.post(
+        "/admin/plugins/install",
+        files={"file": ("ctf.mpn", _fake_mpn_bytes())},
+        data={"install_method": "subprocess"},
+    )
+
+    assert resp.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# POST /inspect — manifest-driven UI hint
+# ---------------------------------------------------------------------------
+
+
+def test_inspect_returns_methods_with_host_verdict(client, fake_manager, monkeypatch):
+    """The endpoint reports per-method support so the React dropdown
+    can render disabled/with-reasons for unavailable methods."""
+    from magellon_sdk.archive.manifest import (
+        InstallSpec, PluginArchiveManifest, uuid7,
+    )
+
+    manifest = PluginArchiveManifest.model_validate({
+        "manifest_version": "1",
+        "plugin_id": "tp",
+        "archive_id": str(uuid7()),
+        "name": "Template Picker",
+        "version": "0.1.0",
+        "category": "particle_picking",
+        "requires_sdk": ">=2.0,<3.0",
+        "description": "Template-based picker",
+        "author": "Magellon",
+        "install": [
+            {"method": "docker", "image": "ghcr.io/magellon/tp:0.1.0",
+             "requires": [{"docker_daemon": True}]},
+            {"method": "uv", "pyproject": "pyproject.toml"},
+        ],
+    })
+
+    fake_manager._load_manifest = MagicMock(return_value=manifest)
+    fake_manager.is_installed = MagicMock(return_value=False)
+
+    # Two fake installers — docker fails predicates, uv passes.
+    docker_inst = MagicMock()
+    docker_inst.supports.return_value = ["docker_daemon: want True, got False"]
+    uv_inst = MagicMock()
+    uv_inst.supports.return_value = []
+    fake_manager._installers = {"docker": docker_inst, "uv": uv_inst}
+
+    # Stub host probe to return a HostInfo-shaped MagicMock; the spec
+    # objects' .requires only matters in the installer's supports() call,
+    # which we've mocked above.
+    fake_manager._host_info_provider = MagicMock(return_value=MagicMock())
+
+    resp = client.post(
+        "/admin/plugins/inspect",
+        files={"file": ("tp.mpn", _fake_mpn_bytes())},
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["plugin_id"] == "tp"
+    assert body["name"] == "Template Picker"
+    assert body["version"] == "0.1.0"
+    assert body["category"] == "particle_picking"
+    assert body["already_installed"] is False
+    # Methods preserved in manifest order (docker first, uv second).
+    assert [m["method"] for m in body["methods"]] == ["docker", "uv"]
+    docker_method = body["methods"][0]
+    assert docker_method["supported"] is False
+    assert "docker_daemon" in docker_method["failures"][0]
+    assert docker_method["notes"].startswith("image: ")
+    uv_method = body["methods"][1]
+    assert uv_method["supported"] is True
+    assert uv_method["failures"] == []
+    # Default = first supported method = uv (skips docker because failed).
+    assert body["default_method"] == "uv"
+
+
+def test_inspect_already_installed_flag(client, fake_manager):
+    from magellon_sdk.archive.manifest import (
+        PluginArchiveManifest, uuid7,
+    )
+
+    manifest = PluginArchiveManifest.model_validate({
+        "manifest_version": "1",
+        "plugin_id": "tp",
+        "archive_id": str(uuid7()),
+        "name": "tp", "version": "0.1.0", "category": "fft",
+        "requires_sdk": ">=2.0,<3.0",
+        "install": [{"method": "uv", "pyproject": "pyproject.toml"}],
+    })
+    fake_manager._load_manifest = MagicMock(return_value=manifest)
+    fake_manager.is_installed = MagicMock(return_value=True)
+    uv_inst = MagicMock()
+    uv_inst.supports.return_value = []
+    fake_manager._installers = {"uv": uv_inst}
+    fake_manager._host_info_provider = MagicMock(return_value=MagicMock())
+
+    resp = client.post(
+        "/admin/plugins/inspect",
+        files={"file": ("tp.mpn", _fake_mpn_bytes())},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["already_installed"] is True
+
+
+def test_inspect_invalid_manifest_returns_400(client, fake_manager):
+    fake_manager._load_manifest = MagicMock(side_effect=ValueError("not yaml"))
+    resp = client.post(
+        "/admin/plugins/inspect",
+        files={"file": ("oops.mpn", _fake_mpn_bytes())},
+    )
+    assert resp.status_code == 400
+    assert "manifest load/validate failed" in resp.json()["detail"]
 
 
 def test_install_unknown_failure_returns_500(client, fake_manager):

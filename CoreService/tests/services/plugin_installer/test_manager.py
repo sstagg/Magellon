@@ -395,3 +395,93 @@ def test_uninstall_reports_not_installed(tmp_path):
 
     assert not result.success
     assert "not installed" in result.error
+
+
+# ---------------------------------------------------------------------------
+# preferred_method — operator pins a specific install method
+# ---------------------------------------------------------------------------
+
+
+def test_preferred_method_overrides_manifest_order(tmp_path):
+    """Manifest prefers docker (it's listed first), but operator pins
+    uv via preferred_method='uv' — uv must be the one used."""
+    archive = _build_archive(tmp_path, [
+        {"method": "docker", "image": "x:1"},
+        {"method": "uv", "pyproject": "pyproject.toml"},
+    ])
+    docker = _FakeInstaller("docker")
+    uv = _FakeInstaller("uv")
+    mgr = PluginInstallManager(
+        [docker, uv], host_info_provider=_no_failures_host,
+    )
+
+    result = mgr.install(archive, _runtime(), preferred_method="uv")
+
+    assert result.success
+    assert result.install_method == "uv"
+    assert len(docker.install_calls) == 0
+    assert len(uv.install_calls) == 1
+
+
+def test_preferred_method_unknown_to_manifest_returns_actionable_error(tmp_path):
+    """Operator pins a method the plugin doesn't declare — refuse with
+    a message that names what IS available."""
+    archive = _build_archive(tmp_path, [
+        {"method": "uv", "pyproject": "pyproject.toml"},
+    ])
+    uv = _FakeInstaller("uv")
+    mgr = PluginInstallManager([uv], host_info_provider=_no_failures_host)
+
+    result = mgr.install(archive, _runtime(), preferred_method="docker")
+
+    assert not result.success
+    assert result.install_method == "docker"
+    assert "doesn't declare" in result.error
+    assert "['uv']" in result.error
+    assert len(uv.install_calls) == 0
+
+
+def test_preferred_method_predicates_fail_returns_actionable_error(tmp_path):
+    """Operator pins docker but host has no daemon — refuse instead of
+    silently falling back to uv. The operator asked for docker."""
+    archive = _build_archive(tmp_path, [
+        {"method": "docker", "image": "x:1", "requires": [{"docker_daemon": True}]},
+        {"method": "uv", "pyproject": "pyproject.toml"},
+    ])
+    docker = _FakeInstaller(
+        "docker",
+        supports_failures=["docker_daemon: want True, got False"],
+    )
+    uv = _FakeInstaller("uv")
+
+    def host_no_docker(**_kw):
+        return HostInfo(docker_daemon=False, python_version="3.12.0")
+
+    mgr = PluginInstallManager(
+        [docker, uv], host_info_provider=host_no_docker,
+    )
+    result = mgr.install(archive, _runtime(), preferred_method="docker")
+
+    assert not result.success
+    assert "not supported by this host" in result.error
+    # Critical: did NOT silently fall through to uv.
+    assert len(uv.install_calls) == 0
+
+
+def test_preferred_method_none_keeps_auto_pick_behavior(tmp_path):
+    """Back-compat: preferred_method=None reproduces the pre-change path."""
+    archive = _build_archive(tmp_path, [
+        {"method": "docker", "image": "x:1"},
+        {"method": "uv", "pyproject": "pyproject.toml"},
+    ])
+    docker = _FakeInstaller("docker")
+    uv = _FakeInstaller("uv")
+    mgr = PluginInstallManager(
+        [docker, uv], host_info_provider=_no_failures_host,
+    )
+
+    mgr.install(archive, _runtime())  # no preferred_method
+
+    # First-match-wins: docker is first in the manifest and supported.
+    assert len(docker.install_calls) == 1
+    assert len(uv.install_calls) == 0
