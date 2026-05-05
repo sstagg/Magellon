@@ -7,6 +7,15 @@
  * Last-seen path is persisted in localStorage so re-opening the picker
  * lands the operator in the same place they left off.
  *
+ * **Path contract.** The picker only ever traffics in canonical
+ * ``/gpfs/...`` paths — that's what the backend accepts and returns,
+ * and that's what flows through plugin task DTOs. Host-absolute paths
+ * (``C:/magellon/gpfs/...`` on Windows direct-run) never appear in the
+ * UI; all entry points (``initialPath``, the path text input, the "Up"
+ * button, breadcrumbs) clamp to ``/gpfs``. A stale localStorage entry
+ * left over from before this contract migrates back to ``/gpfs``
+ * automatically on read.
+ *
  * Future iterations could grow this into a generic GPFS explorer (rename
  * / delete / mkdir, drag-rearrange between dirs). For now the surface is:
  * browse, multi-select, drop-to-upload.
@@ -74,6 +83,7 @@ type ImagePickerDialogProps =
           onPick: (absolutePath: string) => void;
           onPathChange?: (path: string) => void;
           title?: string;
+          /** Canonical /gpfs/... initial path. Anything else is clamped. */
           initialPath?: string;
           storageKey?: string;
           /** Override the file-extension filter; default = IMAGE_EXTS. */
@@ -96,18 +106,38 @@ type ImagePickerDialogProps =
 
 const api = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
+const GPFS_ROOT = '/gpfs';
+
+/** Coerce any input to a canonical ``/gpfs/...`` path. Anything that
+ *  already looks canonical passes through; anything else collapses to
+ *  the GPFS root. Keeps stale localStorage values (host-absolute paths
+ *  from before the canonical migration) from breaking the picker. */
+const clampToGpfs = (raw: string | undefined | null): string => {
+    if (!raw) return GPFS_ROOT;
+    const norm = raw.replace(/\\/g, '/');
+    if (norm === GPFS_ROOT) return GPFS_ROOT;
+    if (norm.startsWith(`${GPFS_ROOT}/`)) {
+        // Strip a trailing slash for tidiness, except at the root.
+        return norm.replace(/\/+$/, '') || GPFS_ROOT;
+    }
+    return GPFS_ROOT;
+};
+
 const splitPath = (p: string): string[] => {
-    const normalized = p.replace(/\\/g, '/');
-    return normalized.split('/').filter(Boolean);
+    const normalized = clampToGpfs(p);
+    if (normalized === GPFS_ROOT) return [];
+    // Trim the leading "/gpfs/" so breadcrumb segments are the
+    // sub-directory names, with the root rendered separately.
+    return normalized.slice(GPFS_ROOT.length + 1).split('/').filter(Boolean);
 };
 
 const parentOf = (p: string): string | null => {
-    const normalized = p.replace(/\\/g, '/');
+    const normalized = clampToGpfs(p);
+    if (normalized === GPFS_ROOT) return null;
     const idx = normalized.lastIndexOf('/');
     if (idx <= 0) return null;
     const parent = normalized.slice(0, idx);
-    if (/^[A-Za-z]:$/.test(parent)) return parent + '/';
-    return parent || '/';
+    return clampToGpfs(parent);
 };
 
 const formatBytes = (bytes: number | null): string => {
@@ -126,7 +156,7 @@ const formatBytes = (bytes: number | null): string => {
 export const ImagePickerDialog: React.FC<ImagePickerDialogProps> = (props) => {
     const theme = useTheme();
     const {
-        open, onClose, title, initialPath = 'C:/', onPathChange, storageKey,
+        open, onClose, title, initialPath = GPFS_ROOT, onPathChange, storageKey,
         allowedExts, disableUpload,
     } = props;
     const multiple = 'multiple' in props && props.multiple === true;
@@ -139,10 +169,12 @@ export const ImagePickerDialog: React.FC<ImagePickerDialogProps> = (props) => {
 
     const effectiveKey = storageKey ?? `imagePicker:lastPath:${title ?? (multiple ? 'multi' : 'single')}`;
     const readStoredPath = () => {
+        // Always clamp to canonical /gpfs/...; localStorage may still
+        // hold a host-absolute path from the pre-canonical era.
         try {
-            return localStorage.getItem(effectiveKey) || initialPath;
+            return clampToGpfs(localStorage.getItem(effectiveKey) || initialPath);
         } catch {
-            return initialPath;
+            return clampToGpfs(initialPath);
         }
     };
 
@@ -164,16 +196,17 @@ export const ImagePickerDialog: React.FC<ImagePickerDialogProps> = (props) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const fetchDir = async (path: string) => {
+        const canonical = clampToGpfs(path);
         setLoading(true);
         setError(null);
         try {
-            const res = await api.get('/web/files/browse', { params: { path } });
+            const res = await api.get('/web/files/browse', { params: { path: canonical } });
             setItems(res.data ?? []);
-            setCurrentPath(path);
-            setPathInput(path);
+            setCurrentPath(canonical);
+            setPathInput(canonical);
             setSelected([]);
-            try { localStorage.setItem(effectiveKey, path); } catch { /* noop */ }
-            onPathChange?.(path);
+            try { localStorage.setItem(effectiveKey, canonical); } catch { /* noop */ }
+            onPathChange?.(canonical);
         } catch (err: any) {
             setError(err.response?.data?.detail || err.message || 'Failed to browse');
         } finally {
@@ -368,8 +401,9 @@ export const ImagePickerDialog: React.FC<ImagePickerDialogProps> = (props) => {
                             key={i}
                             component="button"
                             onClick={() => {
-                                const prefix = /^[A-Za-z]:$/.test(parts[0]) ? '' : '/';
-                                fetchDir(prefix + parts.slice(0, i + 1).join('/'));
+                                // Walk back into a sub-directory of /gpfs.
+                                // ``parts`` excludes the /gpfs prefix; rebuild it.
+                                fetchDir(`${GPFS_ROOT}/${parts.slice(0, i + 1).join('/')}`);
                             }}
                         >
                             {p}
