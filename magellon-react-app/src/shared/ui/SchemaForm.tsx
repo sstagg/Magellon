@@ -1,8 +1,24 @@
 /**
- * Dynamic form renderer driven by a Pydantic JSON Schema with ui_* extensions.
+ * Dynamic form renderer driven by a Pydantic JSON Schema.
  *
- * Reads the schema from  GET /particle-picking/schema/input
- * and renders grouped, ordered form controls automatically.
+ * Two rendering paths share the same component:
+ *
+ *   1. **Widget-driven** — fields annotated with ``ui_widget`` use the
+ *      explicit MUI widget set (slider / number / toggle / select /
+ *      file_path / file_path_list / hidden). Particle picking + most
+ *      Magellon-side schemas use this path.
+ *
+ *   2. **Type-driven fallback** — when ``ui_widget`` is absent, the
+ *      renderer infers controls from JSON-Schema ``type`` (boolean →
+ *      Checkbox, integer/number → numeric TextField, array of
+ *      primitives → comma-separated TextField, array/object → JSON
+ *      editor, enum → Select). This means a stock Pydantic
+ *      ``model_json_schema()`` from any plugin renders without
+ *      schema authors having to add ``ui_*`` decorations first.
+ *
+ * Pydantic-specific shapes handled transparently:
+ *   - ``$ref`` / ``$defs`` / ``definitions`` for nested model refs
+ *   - ``anyOf`` with a single non-null branch (Pydantic's ``Optional[T]``)
  *
  * Supported ui_widget values:
  *   slider, number, text, toggle, select,
@@ -17,6 +33,7 @@ import {
     TextField,
     FormControlLabel,
     Switch,
+    Checkbox,
     Select,
     MenuItem,
     Accordion,
@@ -59,6 +76,8 @@ interface FieldSchema {
     enum?: any[];
     items?: any;
     anyOf?: any[];
+    $ref?: string;
+    units?: string;
     // UI extensions — rendering
     ui_widget?: string;
     ui_group?: string;
@@ -81,6 +100,8 @@ interface SchemaFormProps {
     schema: {
         properties?: Record<string, FieldSchema>;
         required?: string[];
+        $defs?: Record<string, any>;
+        definitions?: Record<string, any>;
         [key: string]: any;
     };
     values: Record<string, any>;
@@ -91,6 +112,10 @@ interface SchemaFormProps {
     collapseAdvanced?: boolean;
     /** If set, only show fields where ui_tunable matches this value */
     tunableOnly?: boolean;
+    /** Disable every field in the form */
+    disabled?: boolean;
+    /** Per-field validation errors keyed by property name */
+    errors?: Record<string, string>;
 }
 
 // ---------------------------------------------------------------------------
@@ -99,7 +124,6 @@ interface SchemaFormProps {
 
 function resolveType(field: FieldSchema): string {
     if (field.type) return field.type;
-    // Handle anyOf (nullable types)
     if (field.anyOf) {
         const nonNull = field.anyOf.find((t: any) => t.type !== 'null');
         return nonNull?.type || 'string';
@@ -123,15 +147,46 @@ function getFileName(path: string): string {
     return path.replace(/\\/g, '/').split('/').pop() || path;
 }
 
+function humanize(key: string): string {
+    return key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/**
+ * Resolve ``$ref`` and collapse ``Optional[T]``/``Union[T, None]``.
+ *
+ * Pydantic's ``model_json_schema()`` emits nested models as
+ * ``{"$ref": "#/$defs/Foo"}`` and nullable fields as
+ * ``{"anyOf": [{"$ref": ...}, {"type": "null"}]}``. We dereference
+ * both so downstream renderers see a flat field shape with a usable
+ * ``type``.
+ */
+function resolveField(field: FieldSchema, defs: Record<string, any>): FieldSchema {
+    if (field?.$ref && typeof field.$ref === 'string') {
+        const name = field.$ref.split('/').pop();
+        if (name && defs[name]) {
+            return resolveField({ ...defs[name], ...field, $ref: undefined }, defs);
+        }
+    }
+    if (Array.isArray(field?.anyOf)) {
+        const nonNull = field.anyOf.filter((v: any) => v?.type !== 'null');
+        if (nonNull.length === 1) {
+            const inner = resolveField(nonNull[0], defs);
+            return { ...inner, ...field, anyOf: undefined, type: inner.type ?? field.type };
+        }
+    }
+    return field;
+}
+
 // ---------------------------------------------------------------------------
-// Field renderers
+// Field renderers (widget-driven)
 // ---------------------------------------------------------------------------
 
 const SliderField: React.FC<{
     field: FieldSchema;
     value: any;
     onChange: (v: any) => void;
-}> = ({ field, value, onChange }) => {
+    disabled?: boolean;
+}> = ({ field, value, onChange, disabled }) => {
     const min = getMin(field) ?? 0;
     const max = getMax(field) ?? 1;
     const step = field.ui_step ?? (max - min) / 20;
@@ -153,6 +208,7 @@ const SliderField: React.FC<{
                 step={step}
                 valueLabelDisplay="auto"
                 marks={field.ui_marks}
+                disabled={disabled}
             />
         </Box>
     );
@@ -163,28 +219,38 @@ const NumberField: React.FC<{
     name: string;
     value: any;
     onChange: (v: any) => void;
-}> = ({ field, name, value, onChange }) => {
-    const unit = field.ui_unit || '';
+    disabled?: boolean;
+    error?: string;
+    required?: boolean;
+}> = ({ field, name, value, onChange, disabled, error, required }) => {
+    const unit = field.ui_unit || field.units || '';
+    const help = error || field.description || field.ui_help;
+    const isInt = field.type === 'integer';
     return (
         <Tooltip title={field.ui_help || ''} placement="left" arrow disableHoverListener={!field.ui_help}>
             <TextField
                 size="small"
-                label={`${field.title || name}${unit ? ` (${unit})` : ''}`}
+                label={`${field.title || humanize(name)}${unit ? ` (${unit})` : ''}`}
                 type="number"
                 value={value ?? field.default ?? ''}
                 onChange={(e) => {
-                    const v = e.target.value;
-                    onChange(v === '' ? null : parseFloat(v));
+                    const raw = e.target.value;
+                    if (raw === '') return onChange(null);
+                    const parsed = isInt ? parseInt(raw, 10) : parseFloat(raw);
+                    onChange(Number.isNaN(parsed) ? raw : parsed);
                 }}
                 placeholder={field.ui_placeholder}
                 fullWidth
-                helperText={field.description}
+                helperText={help}
+                error={!!error}
+                disabled={disabled}
+                required={required}
                 slotProps={{
                     htmlInput: {
-                        step: field.ui_step ?? 1,
+                        step: field.ui_step ?? (isInt ? 1 : 'any'),
                         min: getMin(field),
                         max: getMax(field),
-                    }
+                    },
                 }}
             />
         </Tooltip>
@@ -196,17 +262,23 @@ const SelectField: React.FC<{
     name: string;
     value: any;
     onChange: (v: any) => void;
-}> = ({ field, name, value, onChange }) => {
+    disabled?: boolean;
+    error?: string;
+    required?: boolean;
+}> = ({ field, name, value, onChange, disabled, error, required }) => {
     const options = field.enum || field.ui_options || [];
     return (
         <TextField
             size="small"
-            label={field.title || name}
+            label={field.title || humanize(name)}
             select
             value={value ?? field.default ?? ''}
             onChange={(e) => onChange(e.target.value)}
             fullWidth
-            helperText={field.description}
+            helperText={error || field.description}
+            error={!!error}
+            disabled={disabled}
+            required={required}
         >
             {options.map((opt: any) => (
                 <MenuItem key={String(opt)} value={opt}>
@@ -221,7 +293,8 @@ const FilePathListField: React.FC<{
     field: FieldSchema;
     value: string[];
     onChange: (v: string[]) => void;
-}> = ({ field, value, onChange }) => {
+    disabled?: boolean;
+}> = ({ field, value, onChange, disabled }) => {
     const theme = useTheme();
     const [newPath, setNewPath] = useState('');
     const [isDragOver, setIsDragOver] = useState(false);
@@ -238,6 +311,7 @@ const FilePathListField: React.FC<{
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
         setIsDragOver(false);
+        if (disabled) return;
         const files = e.dataTransfer.files;
         const newPaths: string[] = [];
         for (let i = 0; i < files.length; i++) {
@@ -254,7 +328,7 @@ const FilePathListField: React.FC<{
     return (
         <Stack spacing={1.5}>
             <Box
-                onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+                onDragOver={(e) => { e.preventDefault(); if (!disabled) setIsDragOver(true); }}
                 onDragLeave={() => setIsDragOver(false)}
                 onDrop={handleDrop}
                 sx={{
@@ -262,6 +336,7 @@ const FilePathListField: React.FC<{
                     borderRadius: 2, p: 1.5, textAlign: 'center',
                     backgroundColor: isDragOver ? alpha(theme.palette.primary.main, 0.08) : 'transparent',
                     transition: 'all 0.2s',
+                    opacity: disabled ? 0.5 : 1,
                 }}
             >
                 <CloudUploadIcon sx={{ fontSize: 28, color: isDragOver ? 'primary.main' : 'text.secondary', mb: 0.5 }} />
@@ -281,11 +356,12 @@ const FilePathListField: React.FC<{
                 onChange={(e) => setNewPath(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addPath(newPath); setNewPath(''); } }}
                 fullWidth
+                disabled={disabled}
                 slotProps={{
                     input: {
                         endAdornment: (
                             <InputAdornment position="end">
-                                <IconButton size="small" onClick={() => { addPath(newPath); setNewPath(''); }} disabled={!newPath.trim()}>
+                                <IconButton size="small" onClick={() => { addPath(newPath); setNewPath(''); }} disabled={disabled || !newPath.trim()}>
                                     <AddIcon fontSize="small" />
                                 </IconButton>
                             </InputAdornment>
@@ -307,7 +383,7 @@ const FilePathListField: React.FC<{
                                 }} />
                             </Tooltip>
                             <ListItemSecondaryAction>
-                                <IconButton edge="end" size="small" onClick={() => onChange(paths.filter((_, j) => j !== i))}>
+                                <IconButton edge="end" size="small" onClick={() => onChange(paths.filter((_, j) => j !== i))} disabled={disabled}>
                                     <DeleteIcon sx={{ fontSize: 14 }} />
                                 </IconButton>
                             </ListItemSecondaryAction>
@@ -330,6 +406,67 @@ const FilePathListField: React.FC<{
 };
 
 // ---------------------------------------------------------------------------
+// JSON fallback for object / mixed-array values
+// ---------------------------------------------------------------------------
+
+const JsonField: React.FC<{
+    label: string;
+    help?: string;
+    value: any;
+    onChange: (v: any) => void;
+    disabled?: boolean;
+    required?: boolean;
+    error?: string;
+}> = ({ label, help, value, onChange, disabled, required, error: externalError }) => {
+    const [text, setText] = useState(() =>
+        value === undefined ? '' : JSON.stringify(value, null, 2),
+    );
+    const [parseError, setParseError] = useState<string | null>(null);
+    const error = parseError ?? externalError ?? null;
+
+    React.useEffect(() => {
+        const incoming = value === undefined ? '' : JSON.stringify(value, null, 2);
+        if (incoming !== text && document.activeElement?.getAttribute('data-json-field') !== label) {
+            setText(incoming);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [value, label]);
+
+    return (
+        <TextField
+            label={label}
+            required={required}
+            helperText={error ?? help ?? 'JSON value'}
+            error={!!error}
+            disabled={disabled}
+            multiline
+            minRows={3}
+            value={text}
+            onChange={(e) => {
+                const next = e.target.value;
+                setText(next);
+                if (next.trim() === '') {
+                    setParseError(null);
+                    onChange(undefined);
+                    return;
+                }
+                try {
+                    onChange(JSON.parse(next));
+                    setParseError(null);
+                } catch {
+                    setParseError('Invalid JSON');
+                }
+            }}
+            size="small"
+            fullWidth
+            slotProps={{
+                htmlInput: { 'data-json-field': label, style: { fontFamily: 'monospace' } } as any,
+            }}
+        />
+    );
+};
+
+// ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
@@ -340,14 +477,29 @@ export const SchemaForm: React.FC<SchemaFormProps> = ({
     defaultExpanded,
     collapseAdvanced = true,
     tunableOnly,
+    disabled,
+    errors,
 }) => {
-    const properties = schema.properties || {};
+    if (!schema?.properties) {
+        return (
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                Plugin does not expose an input schema.
+            </Typography>
+        );
+    }
 
-    // Build grouped, ordered field list
+    const properties = schema.properties || {};
+    const defs = schema.$defs ?? schema.definitions ?? {};
+    const required: string[] = schema.required ?? [];
+
+    // Build grouped, ordered field list. $ref / anyOf are resolved
+    // up-front so the rest of the renderer treats every field as a
+    // flat shape with usable ``type``.
     const groups = useMemo(() => {
         const map = new Map<string, { name: string; fields: { key: string; field: FieldSchema }[]; isAdvanced: boolean }>();
 
-        Object.entries(properties).forEach(([key, field]) => {
+        Object.entries(properties).forEach(([key, raw]) => {
+            const field = resolveField(raw as FieldSchema, defs);
             if (field.ui_hidden || field.ui_widget === 'hidden') return;
             if (tunableOnly !== undefined && !!field.ui_tunable !== tunableOnly) return;
 
@@ -365,7 +517,8 @@ export const SchemaForm: React.FC<SchemaFormProps> = ({
         });
 
         return Array.from(map.values());
-    }, [properties]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [properties, tunableOnly]);
 
     const handleFieldChange = (key: string, value: any) => {
         onChange({ ...values, [key]: value });
@@ -378,57 +531,137 @@ export const SchemaForm: React.FC<SchemaFormProps> = ({
     };
 
     const renderField = (key: string, field: FieldSchema) => {
-        const widget = field.ui_widget || 'text';
+        const widget = field.ui_widget;
         const val = values[key];
+        const fieldError = errors?.[key];
+        const isRequired = required.includes(key);
 
-        switch (widget) {
-            case 'slider':
-                return <SliderField key={key} field={field} value={val} onChange={(v) => handleFieldChange(key, v)} />;
-
-            case 'number':
-                return <NumberField key={key} field={field} name={key} value={val} onChange={(v) => handleFieldChange(key, v)} />;
-
-            case 'toggle':
-                return (
-                    <FormControlLabel
-                        key={key}
-                        control={<Switch checked={!!val} onChange={(e) => handleFieldChange(key, e.target.checked)} />}
-                        label={field.title || key}
-                    />
-                );
-
-            case 'select':
-                return <SelectField key={key} field={field} name={key} value={val} onChange={(v) => handleFieldChange(key, v)} />;
-
-            case 'file_path':
-                return (
-                    <TextField
-                        key={key}
-                        size="small"
-                        label={field.title || key}
-                        value={val ?? ''}
-                        onChange={(e) => handleFieldChange(key, e.target.value)}
-                        fullWidth
-                        helperText={field.description}
-                    />
-                );
-
-            case 'file_path_list':
-                return <FilePathListField key={key} field={field} value={val || []} onChange={(v) => handleFieldChange(key, v)} />;
-
-            default:
-                return (
-                    <TextField
-                        key={key}
-                        size="small"
-                        label={field.title || key}
-                        value={val ?? field.default ?? ''}
-                        onChange={(e) => handleFieldChange(key, e.target.value)}
-                        fullWidth
-                        helperText={field.description}
-                    />
-                );
+        // Widget-driven path
+        if (widget) {
+            switch (widget) {
+                case 'slider':
+                    return <SliderField key={key} field={field} value={val} onChange={(v) => handleFieldChange(key, v)} disabled={disabled} />;
+                case 'number':
+                    return <NumberField key={key} field={field} name={key} value={val} onChange={(v) => handleFieldChange(key, v)} disabled={disabled} error={fieldError} required={isRequired} />;
+                case 'toggle':
+                    return (
+                        <FormControlLabel
+                            key={key}
+                            control={<Switch checked={!!val} onChange={(e) => handleFieldChange(key, e.target.checked)} disabled={disabled} />}
+                            label={field.title || humanize(key)}
+                        />
+                    );
+                case 'select':
+                    return <SelectField key={key} field={field} name={key} value={val} onChange={(v) => handleFieldChange(key, v)} disabled={disabled} error={fieldError} required={isRequired} />;
+                case 'file_path':
+                    return (
+                        <TextField
+                            key={key}
+                            size="small"
+                            label={field.title || humanize(key)}
+                            value={val ?? ''}
+                            onChange={(e) => handleFieldChange(key, e.target.value)}
+                            fullWidth
+                            helperText={fieldError || field.description}
+                            error={!!fieldError}
+                            disabled={disabled}
+                            required={isRequired}
+                        />
+                    );
+                case 'file_path_list':
+                    return <FilePathListField key={key} field={field} value={val || []} onChange={(v) => handleFieldChange(key, v)} disabled={disabled} />;
+            }
         }
+
+        // Type-driven fallback — for bare Pydantic schemas without
+        // ui_* decorations. Mirrors the old plugin-runner SchemaForm.
+        const label = field.title || humanize(key);
+        const help = fieldError || field.description || field.ui_help;
+        const type = resolveType(field);
+
+        if (Array.isArray(field.enum)) {
+            return <SelectField key={key} field={field} name={key} value={val} onChange={(v) => handleFieldChange(key, v)} disabled={disabled} error={fieldError} required={isRequired} />;
+        }
+
+        if (type === 'boolean') {
+            return (
+                <Box key={key}>
+                    <FormControlLabel
+                        control={
+                            <Checkbox
+                                checked={!!(val ?? field.default ?? false)}
+                                onChange={(e) => handleFieldChange(key, e.target.checked)}
+                                disabled={disabled}
+                            />
+                        }
+                        label={
+                            <Tooltip title={field.ui_help || field.description || ''} placement="right">
+                                <span>{label}{isRequired ? ' *' : ''}</span>
+                            </Tooltip>
+                        }
+                    />
+                    {fieldError && (
+                        <Typography variant="caption" color="error" sx={{ display: 'block', ml: 4, mt: -0.5 }}>
+                            {fieldError}
+                        </Typography>
+                    )}
+                </Box>
+            );
+        }
+
+        if (type === 'number' || type === 'integer') {
+            return <NumberField key={key} field={field} name={key} value={val} onChange={(v) => handleFieldChange(key, v)} disabled={disabled} error={fieldError} required={isRequired} />;
+        }
+
+        if (type === 'array') {
+            const itemType = field.items?.type;
+            const isPrimitiveArray = itemType === 'string' || itemType === 'number' || itemType === 'integer';
+            if (isPrimitiveArray) {
+                const asText = Array.isArray(val) ? val.join(',') : (val ?? '');
+                return (
+                    <TextField
+                        key={key}
+                        label={label}
+                        required={isRequired}
+                        helperText={fieldError || help || 'Comma-separated values'}
+                        error={!!fieldError}
+                        disabled={disabled}
+                        value={asText}
+                        onChange={(e) => {
+                            const parts = e.target.value.split(',').map((s) => s.trim()).filter(Boolean);
+                            if (itemType === 'string') {
+                                handleFieldChange(key, parts);
+                            } else {
+                                handleFieldChange(key, parts.map((p) => Number(p)).filter((n) => !Number.isNaN(n)));
+                            }
+                        }}
+                        size="small"
+                        fullWidth
+                    />
+                );
+            }
+            return <JsonField key={key} label={label} help={help} value={val} onChange={(v) => handleFieldChange(key, v)} disabled={disabled} required={isRequired} error={fieldError} />;
+        }
+
+        if (type === 'object') {
+            return <JsonField key={key} label={label} help={help} value={val} onChange={(v) => handleFieldChange(key, v)} disabled={disabled} required={isRequired} error={fieldError} />;
+        }
+
+        // Default: text
+        return (
+            <TextField
+                key={key}
+                size="small"
+                label={label}
+                value={val ?? field.default ?? ''}
+                onChange={(e) => handleFieldChange(key, e.target.value)}
+                fullWidth
+                helperText={help}
+                error={!!fieldError}
+                disabled={disabled}
+                required={isRequired}
+            />
+        );
     };
 
     return (

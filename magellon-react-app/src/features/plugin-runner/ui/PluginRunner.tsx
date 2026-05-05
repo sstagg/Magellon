@@ -26,7 +26,7 @@ import {
     PluginSummary,
 } from '../api/PluginApi.ts';
 import { BackendPicker } from './BackendPicker.tsx';
-import { SchemaForm } from './SchemaForm.tsx';
+import { SchemaForm } from '../../../shared/ui/SchemaForm.tsx';
 import { ResultRenderer } from './results/ResultRenderers.tsx';
 import { ImagePickerDialog } from './ImagePickerDialog.tsx';
 import { ProgressTracker } from './ProgressTracker.tsx';
@@ -467,7 +467,7 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
 
                         <SchemaForm
                             schema={schema}
-                            value={values}
+                            values={values}
                             onChange={(next) => {
                                 setValues(next);
                                 if (Object.keys(fieldErrors).length > 0) {
