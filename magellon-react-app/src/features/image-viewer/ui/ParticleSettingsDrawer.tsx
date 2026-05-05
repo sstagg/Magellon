@@ -27,7 +27,8 @@ import {
     Tune as TuneIcon,
     Layers as BatchIcon,
 } from '@mui/icons-material';
-import { SchemaForm } from '../../../shared/ui/SchemaForm.tsx';
+import { SchemaForm, type BrowseFileRequest } from '../../../shared/ui/SchemaForm.tsx';
+import { ImagePickerDialog } from '../../plugin-runner/ui/ImagePickerDialog.tsx';
 import { settings as appSettings } from '../../../shared/config/settings.ts';
 import { Point, TEMPLATE_PICKER_PATH } from '../lib/useParticleOperations.ts';
 
@@ -126,6 +127,16 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
     const [previewCount, setPreviewCount] = useState(0);
     const [scoreMapPng, setScoreMapPng] = useState<string | null>(null);
     const [retuning, setRetuning] = useState(false);
+
+    // GPFS picker state — driven by the SchemaForm's onBrowseFile
+    // callback. Same pattern the plugin test panel uses; templates
+    // path field gets the picker for free since template_paths is in
+    // the schema's file_path heuristic whitelist.
+    const [pickerRequest, setPickerRequest] = useState<BrowseFileRequest | null>(null);
+    const handleBrowseFile = useCallback(
+        (req: BrowseFileRequest) => setPickerRequest(req),
+        [],
+    );
     const retuneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Sync external running state
@@ -489,7 +500,8 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                 {/* CONFIGURE: full form */}
                 {drawerState === 'configure' && schema && (
                     <SchemaForm schema={schema} values={pickerParams} onChange={onPickerParamsChange}
-                        defaultExpanded={['Templates', 'Auto-picking Settings']} collapseAdvanced />
+                        defaultExpanded={['Templates', 'Auto-picking Settings']} collapseAdvanced
+                        onBrowseFile={handleBrowseFile} />
                 )}
 
                 {/* PREVIEW: score map + tunable sliders */}
@@ -522,7 +534,8 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                             Tune parameters:
                         </Typography>
                         <SchemaForm schema={schema} values={pickerParams} onChange={handleRetune}
-                            tunableOnly={true} defaultExpanded={['Auto-picking Settings', 'Advanced']} />
+                            tunableOnly={true} defaultExpanded={['Auto-picking Settings', 'Advanced']}
+                            onBrowseFile={handleBrowseFile} />
                     </>
                 )}
 
@@ -553,6 +566,37 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                     </Box>
                 )}
             </Box>
+
+            {/* GPFS browser dialog — opens when SchemaForm's file_path /
+                file_path_list widgets request a browse. Templates path
+                field qualifies via the heuristic in the shared SchemaForm
+                (template_paths in FILE_PATH_FIELD_NAMES). */}
+            {pickerRequest && (
+                pickerRequest.multiple ? (
+                    <ImagePickerDialog
+                        open
+                        multiple
+                        title={`Pick ${pickerRequest.fieldTitle}`}
+                        allowedExts={pickerRequest.allowedExts}
+                        onClose={() => setPickerRequest(null)}
+                        onPick={(paths) => {
+                            pickerRequest.onPick(paths);
+                            setPickerRequest(null);
+                        }}
+                    />
+                ) : (
+                    <ImagePickerDialog
+                        open
+                        title={`Pick ${pickerRequest.fieldTitle}`}
+                        allowedExts={pickerRequest.allowedExts}
+                        onClose={() => setPickerRequest(null)}
+                        onPick={(path) => {
+                            pickerRequest.onPick(path);
+                            setPickerRequest(null);
+                        }}
+                    />
+                )
+            )}
         </Box>
     );
 };
