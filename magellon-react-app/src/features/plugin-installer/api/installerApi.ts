@@ -82,19 +82,72 @@ export const useAdminInstalledPlugins = () =>
     );
 
 /**
+ * POST /admin/plugins/inspect — parse a `.mpn` without installing it.
+ *
+ * Returns the plugin's identity + the install methods the manifest
+ * declares, each annotated with a per-host support verdict. The
+ * upload dialog uses this to populate its method dropdown before
+ * the operator commits to installing.
+ */
+export interface InstallMethodOption {
+    method: string;
+    supported: boolean;
+    failures: string[];
+    notes: string | null;
+}
+
+export interface InspectResponse {
+    plugin_id: string;
+    name: string;
+    version: string;
+    category: string;
+    sdk_compat: string;
+    description: string | null;
+    developer: string | null;
+    methods: InstallMethodOption[];
+    default_method: string | null;
+    already_installed: boolean;
+}
+
+export const useInspectArchive = () =>
+    useMutation(async (file: File) => {
+        const form = new FormData();
+        form.append('file', file);
+        const res = await api.post<InspectResponse>(
+            '/admin/plugins/inspect',
+            form,
+            { headers: { 'Content-Type': 'multipart/form-data' } },
+        );
+        return res.data;
+    });
+
+/**
  * POST /admin/plugins/install — multipart upload of a `.mpn`.
  *
  * The mutation rejects on any non-2xx response so the UI can render
  * `error.response?.data?.detail` directly. 409 = already installed
  * (suggest upgrade), 400 = archive invalid, 422 = host can't run it,
  * 500 = unexpected — the controller maps each consistently.
+ *
+ * ``installMethod`` (optional): pin a specific install method instead
+ * of letting the manager auto-pick. When set, the backend uses only
+ * that method's spec and refuses (422) if the host doesn't satisfy it.
  */
+export interface InstallArchiveArgs {
+    file: File;
+    installMethod?: string | null;
+}
+
 export const useInstallMpn = () => {
     const qc = useQueryClient();
     return useMutation(
-        async (file: File) => {
+        async (args: File | InstallArchiveArgs) => {
+            // Back-compat: callers that pass a bare File still work.
+            const file = args instanceof File ? args : args.file;
+            const installMethod = args instanceof File ? undefined : args.installMethod;
             const form = new FormData();
             form.append('file', file);
+            if (installMethod) form.append('install_method', installMethod);
             const res = await api.post<InstallResponse>(
                 '/admin/plugins/install',
                 form,
