@@ -368,10 +368,20 @@ app.mount('/socket.io', socketio.ASGIApp(sio, socketio_path=''))
 async def startup_event():
     """Initialize services on application startup"""
     import threading
-    
+
     logger.info("=" * 60)
     logger.info("Starting Magellon Core Service...")
     logger.info("=" * 60)
+
+    # Capture the asgi event loop so sync callers (RMQ result consumer,
+    # outgoing dispatch audit) can schedule Socket.IO emits via
+    # run_coroutine_threadsafe. Same trick the RMQ step-event forwarder
+    # already uses (loop=asyncio.get_running_loop() at :474).
+    try:
+        from core.socketio_server import set_asgi_loop
+        set_asgi_loop(asyncio.get_running_loop())
+    except Exception:
+        logger.exception("failed to capture asgi loop for socketio")
 
     # Initialize Casbin Authorization
     try:

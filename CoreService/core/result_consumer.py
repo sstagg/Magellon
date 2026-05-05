@@ -66,6 +66,20 @@ def _make_handler(session_factory: sessionmaker):
             # PermanentError so classify_exception routes to DLQ.
             raise PermanentError(f"undecodable TaskResultMessage: {exc}") from exc
 
+        # Live tap for the plugin test panel — emit the raw result
+        # envelope onto its job room before processing. Best-effort;
+        # never blocks the writer or DLQ classification.
+        try:
+            from core.socketio_server import schedule_test_envelope
+            schedule_test_envelope(
+                "in", "result",
+                str(task_result.job_id) if task_result.job_id else None,
+                task_result.model_dump(mode="json"),
+                transport="bus",
+            )
+        except Exception:
+            logger.debug("envelope tap (in) failed", exc_info=True)
+
         db = session_factory()
         out_queues = app_settings.rabbitmq_settings.OUT_QUEUES
         processor = TaskOutputProcessor(db=db, out_queues=out_queues)

@@ -169,10 +169,31 @@ def push_task_to_task_queue(task: TaskMessage) -> bool:
         from core.dispatcher_registry import get_task_dispatcher_registry
 
         _audit_outgoing_message(task)
+        _emit_outgoing_envelope(task)
         return get_task_dispatcher_registry().dispatch(task)
     except Exception as e:
         logger.error(f"Error pushing task to queue: {e}")
         return False
+
+
+def _emit_outgoing_envelope(task: TaskMessage) -> None:
+    """Live tap for the test panel — emits the dispatched TaskMessage to
+    its job's Socket.IO room. Same shape the React side renders for
+    incoming results, so the panel sees both halves of the round-trip.
+    Best-effort — never blocks dispatch.
+    """
+    try:
+        from core.socketio_server import schedule_test_envelope
+        queue_name = get_queue_name_by_task_type(task.type, is_result=False)
+        schedule_test_envelope(
+            "out", "task",
+            str(task.job_id) if task.job_id else None,
+            task.model_dump(mode="json"),
+            transport="bus",
+            queue=queue_name,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("envelope tap (out) failed (non-fatal): %s", exc)
 
 
 def _audit_outgoing_message(task: TaskMessage) -> None:

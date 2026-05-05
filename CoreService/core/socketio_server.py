@@ -1,8 +1,30 @@
 import logging
 import asyncio
+from typing import Any, Optional
+
 import socketio
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Asgi loop capture — needed by sync callers (RMQ result consumer, dispatch
+# audit) that want to emit Socket.IO events. Set once at startup.
+# ---------------------------------------------------------------------------
+
+_asgi_loop: Optional[asyncio.AbstractEventLoop] = None
+
+
+def set_asgi_loop(loop: asyncio.AbstractEventLoop) -> None:
+    """Capture the asgi event loop so :func:`schedule_test_envelope` and
+    similar sync wrappers can dispatch coroutines via
+    ``run_coroutine_threadsafe``. Called from the FastAPI startup hook."""
+    global _asgi_loop
+    _asgi_loop = loop
+
+
+def get_asgi_loop() -> Optional[asyncio.AbstractEventLoop]:
+    return _asgi_loop
 
 # Create the Socket.IO async server
 # Using in-memory adapter (sufficient for < 100 users)
@@ -230,3 +252,76 @@ async def emit_step_event(envelope) -> None:
         await sio.emit("step_event", payload, room=_job_room(job_id))
     except Exception:
         logger.exception("emit_step_event failed (non-fatal)")
+
+
+# ---------------------------------------------------------------------------
+# Plugin test envelope — live tap of bus traffic for the test panel.
+# Emits both outgoing TaskMessage and incoming TaskResultMessage onto
+# the job room so the React side sees the wire shapes in real time.
+# Step events still flow through ``step_event`` independently.
+# ---------------------------------------------------------------------------
+
+
+async def emit_test_envelope(
+    direction: str,
+    kind: str,
+    job_id: Optional[str],
+    payload: Any,
+    *,
+    transport: str = "bus",
+    queue: Optional[str] = None,
+) -> None:
+    """Emit one test-envelope frame to ``job:{job_id}`` room.
+
+    ``direction``: ``"out"`` (CoreService → plugin) or ``"in"``
+    (plugin → CoreService).
+    ``kind``: ``"task"`` for outgoing dispatch; ``"result"`` for
+    incoming results. The React panel renders task vs result with
+    different framing.
+    ``job_id``: filters which clients see it. Without a job id we
+    cannot route, so we drop silently — production traffic is always
+    keyed to a job.
+    ``payload``: the wire-shape dict (already ``model_dump(mode='json')``).
+    ``transport``: ``"bus"`` (RMQ) or ``"sync"`` (HTTP). Sync envelopes
+    are normally rendered client-side from the HTTP response, but a
+    shared shape lets us mix them in the same panel if we ever want to.
+    ``queue``: optional queue name for the audit row's debug context.
+    """
+    if not job_id:
+        return
+    frame = {
+        "direction": direction,
+        "kind": kind,
+        "transport": transport,
+        "queue": queue,
+        "payload": payload,
+    }
+    try:
+        await sio.emit("plugin_test_envelope", frame, room=_job_room(str(job_id)))
+    except Exception:
+        logger.exception("emit_test_envelope failed (non-fatal)")
+
+
+def schedule_test_envelope(
+    direction: str,
+    kind: str,
+    job_id: Optional[str],
+    payload: Any,
+    *,
+    transport: str = "bus",
+    queue: Optional[str] = None,
+) -> None:
+    """Sync wrapper — schedule :func:`emit_test_envelope` onto the
+    captured asgi loop. Safe to call from any thread, no-ops cleanly
+    when the loop hasn't been captured (early boot, tests).
+    """
+    if _asgi_loop is None:
+        return
+    coro = emit_test_envelope(
+        direction, kind, job_id, payload,
+        transport=transport, queue=queue,
+    )
+    try:
+        asyncio.run_coroutine_threadsafe(coro, _asgi_loop)
+    except Exception:
+        logger.debug("schedule_test_envelope: scheduling failed", exc_info=True)
