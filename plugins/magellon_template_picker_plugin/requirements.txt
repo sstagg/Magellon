@@ -19,3 +19,6 @@ mrcfile>=1.5.0
 numpy>=1.26.4
 scipy>=1.13.0
 Pillow>=10.4.0
+
+# Used by plugin/compute.py for the preview-cache TTLCache + LRUCache.
+cachetools>=5.3
