@@ -44,8 +44,10 @@ import {
 import {
     useInstalledFromDb,
     usePlugins,
+    InstallMethod,
     PluginSummary,
 } from '../../features/plugin-runner/api/PluginApi.ts';
+import { DeploymentMethodChip } from '../../features/plugin-runner/ui/DeploymentMethodChip.tsx';
 import { PluginTestPanel } from '../../features/plugin-runner/ui/PluginTestPanel.tsx';
 import {
     useAdminPluginProcessStatus,
@@ -75,6 +77,8 @@ interface HeaderStripProps {
     description?: string | null;
     installDir?: string | null;
     httpEndpoint?: string | null;
+    installMethod?: InstallMethod | null;
+    imageRef?: string | null;
     running: boolean;
     /** When set, renders Start/Stop/Restart controls. */
     manifestPluginId?: string | null;
@@ -87,6 +91,8 @@ const HeaderStrip: React.FC<HeaderStripProps> = ({
     description,
     installDir,
     httpEndpoint,
+    installMethod,
+    imageRef,
     running,
     manifestPluginId,
 }) => {
@@ -122,6 +128,7 @@ const HeaderStrip: React.FC<HeaderStripProps> = ({
                             <Typography variant="h5">{name}</Typography>
                             {version && <Chip size="small" label={`v${version}`} />}
                             {category && <Chip size="small" variant="outlined" label={category} />}
+                            <DeploymentMethodChip method={installMethod} />
                             <Chip
                                 size="small"
                                 color={running ? 'success' : 'default'}
@@ -135,12 +142,19 @@ const HeaderStrip: React.FC<HeaderStripProps> = ({
                         )}
                         <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap' }}>
                             {installDir && (
-                                <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-                                    <FolderOpen size={14} />
-                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                        {installDir}
-                                    </Typography>
-                                </Stack>
+                                <Tooltip title={installDir}>
+                                    <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                                        <FolderOpen size={14} />
+                                        <Typography variant="caption" sx={{ color: 'text.secondary', fontFamily: 'monospace' }}>
+                                            {installDir}
+                                        </Typography>
+                                    </Stack>
+                                </Tooltip>
+                            )}
+                            {imageRef && (
+                                <Typography variant="caption" sx={{ color: 'text.secondary', fontFamily: 'monospace' }}>
+                                    {imageRef}
+                                </Typography>
                             )}
                             {httpEndpoint && (
                                 <Typography variant="caption" sx={{ color: 'text.secondary', fontFamily: 'monospace' }}>
@@ -287,7 +301,9 @@ export const PluginRunnerPageView: React.FC = () => {
                         category={panelPlugin.category}
                         description={panelPlugin.description}
                         installDir={installedRow?.install_dir ?? null}
+                        imageRef={installedRow?.image_ref ?? null}
                         httpEndpoint={installedRow?.http_endpoint ?? null}
+                        installMethod={installedRow?.install_method ?? null}
                         running={running}
                         manifestPluginId={installedRow?.manifest_plugin_id ?? null}
                     />

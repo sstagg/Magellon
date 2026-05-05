@@ -65,6 +65,7 @@ import {
     useStopPlugin,
     useUninstallMpn,
 } from '../../plugin-installer/api/installerApi.ts';
+import { DeploymentMethodChip } from './DeploymentMethodChip.tsx';
 import { PluginConditions } from './PluginConditions.tsx';
 import { PluginReplicas } from './PluginReplicas.tsx';
 import { PluginUpdateChip } from './PluginUpdateChip.tsx';
@@ -478,6 +479,7 @@ export const InstalledPluginsView: React.FC<InstalledPluginsViewProps> = ({
                                                     label={plugin.category}
                                                 />
                                             )}
+                                            <DeploymentMethodChip method={plugin.install_method} />
                                             <InstallLocationChip row={plugin} />
                                         </Stack>
                                         {plugin.description && (

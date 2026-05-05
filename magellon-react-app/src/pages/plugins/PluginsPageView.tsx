@@ -31,6 +31,7 @@ import {
     BrowseHubDialog,
     UploadArchiveDialog,
 } from '../../features/plugin-installer';
+import { SystemStatsCards } from '../../features/system-stats/ui/SystemStatsCards.tsx';
 
 type TabKey = 'installed' | 'catalog';
 
@@ -65,6 +66,8 @@ export const PluginsPageView: React.FC = () => {
                     Browse hub
                 </Button>
             </Stack>
+
+            <SystemStatsCards />
 
             <Tabs
                 value={tab}
