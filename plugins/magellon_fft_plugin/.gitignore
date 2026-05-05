@@ -2,6 +2,9 @@
 output_file.json
 app.log
 app.log.*
+.pid
+.service.json
+runtime.env
 __pycache__/
 *.pyc
 

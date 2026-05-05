@@ -63,6 +63,32 @@ exposes `/health` and Prometheus `/metrics`.
 
 ---
 
+## Local service control
+
+On Windows, run the plugin from this directory with the root-level
+PowerShell control script:
+
+```powershell
+cd C:\projects\Magellon\plugins\magellon_fft_plugin
+.\service.ps1 start
+.\service.ps1 status
+.\restart.ps1
+.\service.ps1 stop
+```
+
+The script starts `uvicorn main:app` through `.venv`, writes the wrapper
+PID to `.pid`, appends output to `app.log`, and waits for `/health`.
+It honors installer-generated `runtime.env` values when present.
+
+Override the bind address or port when needed:
+
+```powershell
+.\service.ps1 start -HostName 127.0.0.1 -Port 8010
+.\service.ps1 restart -Port 8010
+```
+
+---
+
 ## Forking checklist
 
 1. Copy the directory, rename it to `magellon_<your_thing>_plugin`.
