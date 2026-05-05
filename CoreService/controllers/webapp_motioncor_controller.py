@@ -279,6 +279,147 @@ async def preview_file(
     raise HTTPException(status_code=415, detail="Unsupported file type for preview")
 
 
+class UploadedFileInfo(BaseModel):
+    """One row per uploaded file in the upload response."""
+    name: str
+    path: str
+    size: int
+    mime_type: Optional[str] = None
+    overwritten: bool = False
+
+
+def _resolve_upload_dir(target_path: str) -> Path:
+    """Translate the wire-form ``target_path`` to an absolute filesystem
+    path under the configured GPFS root, refusing anything outside it.
+
+    Same wire convention as :func:`browse_directory`: ``"/gpfs"`` /
+    ``"/gpfs/..."`` are rewritten to the deployment's actual GPFS path
+    (``MAGELLON_GPFS_PATH`` env / config). Anything that resolves
+    outside that root is rejected — protects against ``../`` escapes
+    or absolute paths pointing at host-system locations the operator
+    didn't authorize.
+    """
+    gpfs = app_settings.directory_settings.MAGELLON_GPFS_PATH
+    if not gpfs:
+        raise HTTPException(
+            status_code=503,
+            detail="MAGELLON_GPFS_PATH not configured — refusing to write.",
+        )
+    gpfs_root = Path(gpfs).resolve()
+
+    requested = target_path or "/gpfs"
+    if requested == "/gpfs" or requested.startswith("/gpfs/"):
+        requested = requested.replace("/gpfs", str(gpfs_root), 1)
+    target = Path(requested).resolve()
+
+    # Refuse anything outside MAGELLON_GPFS_PATH. This is the only
+    # boundary the operator has authorized writes against.
+    try:
+        target.relative_to(gpfs_root)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Target {target_path!r} is outside the configured GPFS root.",
+        )
+
+    if not target.exists():
+        raise HTTPException(status_code=404, detail=f"Directory not found: {target_path}")
+    if not target.is_dir():
+        raise HTTPException(status_code=400, detail=f"Path is not a directory: {target_path}")
+
+    return target
+
+
+@motioncor_router.post("/files/upload", response_model=List[UploadedFileInfo])
+async def upload_files(
+    path: str = Form(..., description="Target directory under the GPFS root."),
+    files: List[UploadFile] = File(..., description="One or more files to upload."),
+    overwrite: bool = Form(
+        False,
+        description="When False (default), existing files cause 409. "
+                    "When True, existing files are overwritten in place.",
+    ),
+    user_id: UUID = Depends(get_current_user_id),
+) -> List[UploadedFileInfo]:
+    """Stream uploaded files into a directory under the GPFS root.
+
+    Used by the React file picker's drop zone so an operator can drag
+    a local file onto the picker dialog and have it land in the
+    currently-browsed directory. The listing in the dialog refreshes
+    after the upload returns.
+
+    **Requires:** Authentication.
+    **Security notes:**
+
+    * Target path is resolved and confirmed to live under
+      ``MAGELLON_GPFS_PATH``; arbitrary destinations are refused
+      (path traversal, absolute paths to ``/etc``, etc).
+    * Filenames are stripped of any directory components — the upload
+      is always written as a leaf file in the resolved target directory.
+    * Existing files cause a 409 by default; pass ``overwrite=true``
+      explicitly to replace.
+    """
+    target = _resolve_upload_dir(path)
+
+    logger.warning(
+        "SECURITY: User %s uploading %d file(s) to %s", user_id, len(files), target,
+    )
+
+    out: List[UploadedFileInfo] = []
+    for upload in files:
+        if not upload.filename:
+            raise HTTPException(status_code=400, detail="Upload missing filename.")
+        # Strip any parent-dir components in the client's filename.
+        # Multi-file drops on Windows can send "subdir\file.mrc"; we
+        # treat that as just "file.mrc" since we don't yet support
+        # creating subdirectories on upload.
+        base_name = Path(upload.filename).name
+        if not base_name:
+            raise HTTPException(status_code=400, detail=f"Invalid filename: {upload.filename}")
+        dest = target / base_name
+        # Re-check after join — defense in depth against odd filenames
+        # that could resolve elsewhere.
+        try:
+            dest.resolve().relative_to(target)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Refusing to write outside target: {base_name!r}")
+
+        existed = dest.exists()
+        if existed and not overwrite:
+            raise HTTPException(
+                status_code=409,
+                detail=f"File already exists: {base_name}. Pass overwrite=true to replace.",
+            )
+
+        # Stream in 1 MB chunks so a large MRC doesn't load fully into RAM.
+        size = 0
+        try:
+            with open(dest, "wb") as out_fh:
+                while True:
+                    chunk = await upload.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    out_fh.write(chunk)
+                    size += len(chunk)
+        except Exception as exc:
+            # On partial write, remove the half-written file so we
+            # don't leave corrupted state for the operator to puzzle over.
+            dest.unlink(missing_ok=True)
+            logger.exception("upload failed for %s", base_name)
+            raise HTTPException(status_code=500, detail=f"Upload failed: {exc}")
+
+        mime, _ = mimetypes.guess_type(dest.name)
+        out.append(UploadedFileInfo(
+            name=dest.name,
+            path=str(dest),
+            size=size,
+            mime_type=mime,
+            overwritten=existed,
+        ))
+
+    return out
+
+
 @motioncor_router.post("/test-motioncor")
 async def test_motioncor(
         image_file: UploadFile = File(...),

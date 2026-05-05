@@ -470,12 +470,103 @@ async def plugin_health(plugin_id: str):
     }
 
 
-def _category_for_live_plugin(plugin_id: str) -> Optional[CategoryContract]:
+def _category_contract_for_plugin(plugin_id: str) -> Optional[CategoryContract]:
+    """Resolve ``plugin_id`` → :class:`CategoryContract` tolerantly.
+
+    Schema is a property of the **category**, not the running instance,
+    so we should be able to answer ``GET /plugins/{id}/schema/input``
+    on a stopped or never-started plugin too. Resolution order:
+
+      1. Live registry — bare or composed runtime form
+         ("template-picker" or "particle_picking/template-picker").
+         Covers running plugins; fastest path.
+      2. DB catalog — match against ``manifest_plugin_id`` (the slug
+         the operator typed when installing) or ``oid`` (the stable
+         UUID). Covers installed-but-stopped plugins, and accepts
+         the oid form as a stable alternative for free.
+
+    Returns ``None`` only when no resolver matched — the endpoint then
+    400s/404s as appropriate. Production rollouts should never see
+    None for a plugin that's actually installed.
+
+    Distinct from :func:`_category_for_plugin` (further down) which
+    returns just the category-name string for the live registry only.
+    Different concerns, different return shapes — keep them separate.
+    """
     short = _strip_category_prefix(plugin_id)
+    # 1. Live registry
     for entry in get_liveness_registry().list_live():
         if entry.plugin_id in (short, plugin_id):
             return _category_contract_by_name(entry.category)
+    # 2. DB catalog — covers installed-but-stopped + oid form
+    category = _category_for_plugin_from_db(plugin_id, short)
+    if category:
+        return _category_contract_by_name(category)
     return None
+
+
+# Back-compat alias — the pre-2026-05 helper was named ``_category_for_live_plugin``
+# (live-registry only). The new resolver is strictly a superset: it
+# covers the same live path plus a DB fallback. Aliasing keeps any
+# callers that imported the old name working without churn.
+_category_for_live_plugin = _category_contract_for_plugin
+
+
+def _category_for_plugin_from_db(plugin_id: str, short: str) -> Optional[str]:
+    """DB-backed identifier → category name resolver.
+
+    Tries (in order): ``manifest_plugin_id == short``,
+    ``manifest_plugin_id == plugin_id``, ``oid == plugin_id`` (parsed
+    as UUID), ``name == short``. Returns ``None`` when none match.
+    Reads on a short-lived session so this stays cheap to call from
+    request handlers.
+    """
+    from sqlalchemy.orm import Session as _Session
+    from database import session_local
+    from models.sqlalchemy_models import Plugin
+
+    db: _Session = session_local()
+    try:
+        for candidate in (short, plugin_id):
+            row = (
+                db.query(Plugin)
+                .filter(Plugin.manifest_plugin_id == candidate)
+                .filter(Plugin.deleted_date.is_(None))
+                .first()
+            )
+            if row and row.category:
+                return row.category
+        # oid path — only attempt if the input parses as UUID; cheap
+        # to skip otherwise so we don't try a UUID query for every
+        # slug request.
+        try:
+            oid = uuid.UUID(plugin_id)
+        except (ValueError, AttributeError):
+            oid = None
+        if oid is not None:
+            row = (
+                db.query(Plugin)
+                .filter(Plugin.oid == oid)
+                .filter(Plugin.deleted_date.is_(None))
+                .first()
+            )
+            if row and row.category:
+                return row.category
+        # Last-ditch fallback: match by display ``name`` (the announce
+        # form before P5 used the human name). Bounded scan; tens of
+        # rows in production. Skip if short is empty.
+        if short:
+            row = (
+                db.query(Plugin)
+                .filter(Plugin.name == short)
+                .filter(Plugin.deleted_date.is_(None))
+                .first()
+            )
+            if row and row.category:
+                return row.category
+        return None
+    finally:
+        db.close()
 
 
 @plugins_router.get("/{plugin_id:path}/schema/input", summary="Plugin input JSON schema")
@@ -483,8 +574,14 @@ async def plugin_input_schema(plugin_id: str):
     """Schema comes from the plugin's category contract — every backend
     in a category shares the same input/output shape (the whole point
     of CategoryContract). The React form reader uses this to render
-    the per-plugin form."""
-    contract = _category_for_live_plugin(plugin_id)
+    the per-plugin form.
+
+    The plugin does NOT have to be live: schema is per-category, so
+    ``_category_contract_for_plugin`` falls back to the DB catalog
+    (matching ``manifest_plugin_id`` or ``oid``) so a stopped plugin's
+    form still renders on the detail page.
+    """
+    contract = _category_contract_for_plugin(plugin_id)
     if contract is None or contract.input_model is None:
         raise HTTPException(status_code=404, detail=f"No input schema for {plugin_id}")
     return contract.input_model.model_json_schema()
@@ -492,7 +589,7 @@ async def plugin_input_schema(plugin_id: str):
 
 @plugins_router.get("/{plugin_id:path}/schema/output", summary="Plugin output JSON schema")
 async def plugin_output_schema(plugin_id: str):
-    contract = _category_for_live_plugin(plugin_id)
+    contract = _category_contract_for_plugin(plugin_id)
     if contract is None or contract.output_model is None:
         raise HTTPException(status_code=404, detail=f"No output schema for {plugin_id}")
     return contract.output_model.model_json_schema()
@@ -650,14 +747,28 @@ def _resolve_dispatch_target(
     )
 
 
+def _normalize_category_key(s: str) -> str:
+    """Collapse spaces / underscores / case so display-form names
+    (``"Particle Picking"``) and slug-form names (``"particle_picking"``)
+    compare equal. Plugin manifests use the slug form; ``CategoryContract``
+    declares the display form. Without this, the DB-fallback resolver
+    can't bridge the two."""
+    return "".join(s.lower().split()).replace("_", "").replace("-", "")
+
+
 def _category_contract_by_name(category_name: str) -> Optional[CategoryContract]:
     """Find a :class:`CategoryContract` by its category name.
 
     :data:`CATEGORIES` is keyed by code; brokers announce by name. Scan
-    once — there are only a handful of categories in practice.
+    once — there are only a handful of categories in practice. The
+    matcher is space/underscore/case insensitive so plugin manifests
+    can use the slug form (``"particle_picking"``) and the contract
+    side can use the display form (``"Particle Picking"``) without
+    coordination.
     """
+    target = _normalize_category_key(category_name)
     for contract in CATEGORIES.values():
-        if contract.category.name.lower() == category_name.lower():
+        if _normalize_category_key(contract.category.name) == target:
             return contract
     return None
 
