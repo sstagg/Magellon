@@ -1,18 +1,22 @@
 /**
- * /panel/plugins/<plugin_id> — per-plugin detail + runner page.
+ * /panel/plugins/<plugin_id> — per-plugin detail + test workspace.
  *
- * Lookup order:
+ * Layout (no tabs, both halves always visible):
+ *
+ *   ┌── Header strip ────────────────────────────────┐
+ *   │  name · version · category · live/stopped     │
+ *   │  description · install location               │
+ *   │  [Run/Stop/Restart]  [back]                   │
+ *   ├── Settings ──────┬── Activity ─────────────────┤
+ *   │  Transport pick   │  ProgressTracker (bus)     │
+ *   │  SchemaForm       │  Wire envelopes (live)     │
+ *   │  [Run]            │  Result (output schema)    │
+ *   └───────────────────┴────────────────────────────┘
+ *
+ * Lookup order for plugin identity:
  *   1. Live plugins (``GET /plugins/``) — heartbeating right now.
- *      Renders the full ``PluginRunner`` component (input form,
- *      submit, results).
  *   2. DB catalog (``GET /plugins/db``) — installed but not currently
- *      announcing. Renders an "installed but stopped" panel with the
- *      same Run / Stop / Restart controls that live on each card,
- *      so the operator can launch the plugin from the detail page.
- *
- * Pre-PI-6.1 step 2 didn't exist — installed-but-stopped plugins
- * 404'd on the detail route. The detail page now matches operator
- * expectations: every installed plugin has a page.
+ *      announcing. Test panel renders disabled with a hint.
  */
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -40,8 +44,9 @@ import {
 import {
     useInstalledFromDb,
     usePlugins,
+    PluginSummary,
 } from '../../features/plugin-runner/api/PluginApi.ts';
-import { PluginRunner } from '../../features/plugin-runner/ui/PluginRunner.tsx';
+import { PluginTestPanel } from '../../features/plugin-runner/ui/PluginTestPanel.tsx';
 import {
     useAdminPluginProcessStatus,
     useRestartPlugin,
@@ -59,36 +64,45 @@ const errorText = (err: unknown, fallback: string): string => {
     return fallback;
 };
 
-const InstalledNotRunningPanel: React.FC<{
-    manifestPluginId: string;
+// ---------------------------------------------------------------------------
+// Header strip — identity + lifecycle controls
+// ---------------------------------------------------------------------------
+
+interface HeaderStripProps {
     name: string;
     version?: string;
     category?: string | null;
+    description?: string | null;
     installDir?: string | null;
     httpEndpoint?: string | null;
-    description?: string | null;
-}> = ({
-    manifestPluginId,
+    running: boolean;
+    /** When set, renders Start/Stop/Restart controls. */
+    manifestPluginId?: string | null;
+}
+
+const HeaderStrip: React.FC<HeaderStripProps> = ({
     name,
     version,
     category,
+    description,
     installDir,
     httpEndpoint,
-    description,
+    running,
+    manifestPluginId,
 }) => {
-    const { data: status } = useAdminPluginProcessStatus(manifestPluginId);
     const start = useStartPlugin();
     const stop = useStopPlugin();
     const restart = useRestartPlugin();
     const [actionLog, setActionLog] = React.useState<string | null>(null);
     const [actionError, setActionError] = React.useState<string | null>(null);
-    const running = !!status?.running;
+
     const busy = start.isLoading || stop.isLoading || restart.isLoading;
 
     const run = async (
         verb: 'start' | 'stop' | 'restart',
         mut: typeof start,
     ) => {
+        if (!manifestPluginId) return;
         setActionError(null);
         setActionLog(null);
         try {
@@ -100,92 +114,92 @@ const InstalledNotRunningPanel: React.FC<{
     };
 
     return (
-        <Card variant="outlined">
+        <Card variant="outlined" sx={{ mb: 2 }}>
             <CardContent>
-                <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1, flexWrap: 'wrap' }}>
-                    <Typography variant="h5">{name}</Typography>
-                    {version && <Chip size="small" label={`v${version}`} />}
-                    {category && (
-                        <Chip size="small" variant="outlined" label={category} />
-                    )}
-                    <Chip
-                        size="small"
-                        color={running ? 'success' : 'default'}
-                        label={running ? 'Running' : 'Stopped'}
-                    />
-                </Stack>
-                {description && (
-                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}>
-                        {description}
-                    </Typography>
-                )}
-                {installDir && (
-                    <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', mb: 1 }}>
-                        <FolderOpen size={14} />
-                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                            {installDir}
-                        </Typography>
-                    </Stack>
-                )}
-                {httpEndpoint && (
-                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 2 }}>
-                        Endpoint: {httpEndpoint}
-                    </Typography>
-                )}
+                <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                    <Box sx={{ flex: 1, minWidth: 300 }}>
+                        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 0.5, flexWrap: 'wrap' }}>
+                            <Typography variant="h5">{name}</Typography>
+                            {version && <Chip size="small" label={`v${version}`} />}
+                            {category && <Chip size="small" variant="outlined" label={category} />}
+                            <Chip
+                                size="small"
+                                color={running ? 'success' : 'default'}
+                                label={running ? 'Live' : 'Stopped'}
+                            />
+                        </Stack>
+                        {description && (
+                            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.75 }}>
+                                {description}
+                            </Typography>
+                        )}
+                        <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap' }}>
+                            {installDir && (
+                                <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                                    <FolderOpen size={14} />
+                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                        {installDir}
+                                    </Typography>
+                                </Stack>
+                            )}
+                            {httpEndpoint && (
+                                <Typography variant="caption" sx={{ color: 'text.secondary', fontFamily: 'monospace' }}>
+                                    {httpEndpoint}
+                                </Typography>
+                            )}
+                        </Stack>
+                    </Box>
 
-                <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
-                    <Tooltip title={running ? 'Already running' : 'Start plugin process'}>
-                        <span>
-                            <IconButton
-                                color="success"
-                                aria-label="start"
-                                disabled={busy || running}
-                                onClick={() => run('start', start)}
-                            >
-                                <Play size={20} />
-                            </IconButton>
-                        </span>
-                    </Tooltip>
-                    <Tooltip title={running ? 'Stop plugin process' : 'Already stopped'}>
-                        <span>
-                            <IconButton
-                                aria-label="stop"
-                                disabled={busy || !running}
-                                onClick={() => run('stop', stop)}
-                            >
-                                <Square size={20} />
-                            </IconButton>
-                        </span>
-                    </Tooltip>
-                    <Tooltip title="Restart plugin process">
-                        <span>
-                            <IconButton
-                                aria-label="restart"
-                                disabled={busy}
-                                onClick={() => run('restart', restart)}
-                            >
-                                <RotateCcw size={20} />
-                            </IconButton>
-                        </span>
-                    </Tooltip>
+                    {manifestPluginId && (
+                        <Stack direction="row" spacing={1}>
+                            <Tooltip title={running ? 'Already running' : 'Start plugin'}>
+                                <span>
+                                    <IconButton
+                                        color="success"
+                                        aria-label="start"
+                                        disabled={busy || running}
+                                        onClick={() => run('start', start)}
+                                    >
+                                        <Play size={18} />
+                                    </IconButton>
+                                </span>
+                            </Tooltip>
+                            <Tooltip title={running ? 'Stop plugin' : 'Already stopped'}>
+                                <span>
+                                    <IconButton
+                                        aria-label="stop"
+                                        disabled={busy || !running}
+                                        onClick={() => run('stop', stop)}
+                                    >
+                                        <Square size={18} />
+                                    </IconButton>
+                                </span>
+                            </Tooltip>
+                            <Tooltip title="Restart plugin">
+                                <span>
+                                    <IconButton
+                                        aria-label="restart"
+                                        disabled={busy}
+                                        onClick={() => run('restart', restart)}
+                                    >
+                                        <RotateCcw size={18} />
+                                    </IconButton>
+                                </span>
+                            </Tooltip>
+                        </Stack>
+                    )}
                 </Stack>
 
                 {actionError && (
-                    <Alert severity="error" sx={{ mt: 2 }} onClose={() => setActionError(null)}>
+                    <Alert severity="error" sx={{ mt: 1.5 }} onClose={() => setActionError(null)}>
                         {actionError}
                     </Alert>
                 )}
                 {actionLog && (
-                    <Alert severity="success" sx={{ mt: 2 }} onClose={() => setActionLog(null)}>
+                    <Alert severity="success" sx={{ mt: 1.5 }} onClose={() => setActionLog(null)}>
                         <pre style={{ whiteSpace: 'pre-wrap', margin: 0, fontFamily: 'inherit' }}>
                             {actionLog}
                         </pre>
-                    </Alert>
-                )}
-
-                {!running && (
-                    <Alert severity="info" sx={{ mt: 2 }}>
-                        Start the plugin to dispatch tasks against it.
                     </Alert>
                 )}
             </CardContent>
@@ -193,21 +207,23 @@ const InstalledNotRunningPanel: React.FC<{
     );
 };
 
+// ---------------------------------------------------------------------------
+// Page view
+// ---------------------------------------------------------------------------
+
 export const PluginRunnerPageView: React.FC = () => {
     const { '*': pluginId } = useParams();
     const navigate = useNavigate();
     const { data: livePlugins, isLoading: liveLoading } = usePlugins();
     const { data: installedRows, isLoading: dbLoading } = useInstalledFromDb();
 
-    // Find the catalog row first; we use its identity fields to
-    // resolve the live entry too (the announce form's plugin_id
-    // doesn't always match the catalog's, e.g. catalog
-    // ``"fft/FFT — magnitude spectrum"`` vs announce
-    // ``"fft/FFT Plugin"``).
+    // Resolve identity: catalog row gives us manifest/install metadata,
+    // live row gives us the runtime plugin_id used for schema fetch +
+    // job submit. Match the live row by plugin_id, falling back to a
+    // category/slug heuristic when the announce form differs from the
+    // catalog form (e.g. "fft/FFT — magnitude spectrum" vs "fft/FFT Plugin").
     const installedRow = installedRows?.find(
-        (r) =>
-            r.plugin_id === pluginId ||
-            r.manifest_plugin_id === pluginId,
+        (r) => r.plugin_id === pluginId || r.manifest_plugin_id === pluginId,
     );
 
     const livePlugin = livePlugins?.find((p) => {
@@ -215,22 +231,33 @@ export const PluginRunnerPageView: React.FC = () => {
         if (!installedRow?.manifest_plugin_id) return false;
         const slug = installedRow.manifest_plugin_id.toLowerCase();
         const liveId = p.plugin_id.toLowerCase();
-        // Live form is "<category>/<display-name>" — the slug appears
-        // as the category prefix when slug == category (the common
-        // case for FFT, CTF, MotionCor) and as a substring otherwise.
         return liveId === slug || liveId.startsWith(`${slug}/`);
     });
 
+    const processStatus = useAdminPluginProcessStatus(installedRow?.manifest_plugin_id ?? null);
     const isLoading = liveLoading || dbLoading;
     const found = livePlugin || installedRow;
+    const running = !!livePlugin || !!processStatus.data?.running;
+
+    // Synthesize a PluginSummary for the test panel when only the catalog
+    // row is known. The panel needs `plugin_id` + `category` to fetch
+    // schemas and route Sync calls; everything else is presentational.
+    const panelPlugin: PluginSummary | null = livePlugin
+        ? livePlugin
+        : installedRow
+            ? ({
+                plugin_id: installedRow.manifest_plugin_id ?? installedRow.plugin_id,
+                name: installedRow.name ?? installedRow.plugin_id,
+                description: installedRow.description ?? '',
+                version: installedRow.version ?? '',
+                category: installedRow.category ?? '',
+                capabilities: [],
+            } as unknown as PluginSummary)
+            : null;
 
     return (
-        <Container maxWidth="lg" sx={{ py: 3 }}>
-            <Stack
-                direction="row"
-                spacing={1}
-                sx={{ alignItems: 'center', mb: 2 }}
-            >
+        <Container maxWidth="xl" sx={{ py: 3 }}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 2 }}>
                 <Button
                     size="small"
                     startIcon={<ArrowLeft size={16} />}
@@ -239,6 +266,7 @@ export const PluginRunnerPageView: React.FC = () => {
                     All plugins
                 </Button>
             </Stack>
+
             {isLoading && (
                 <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
                     <CircularProgress />
@@ -250,17 +278,29 @@ export const PluginRunnerPageView: React.FC = () => {
                     nor in the install catalog.
                 </Alert>
             )}
-            {livePlugin && <PluginRunner plugin={livePlugin} />}
-            {!livePlugin && installedRow && (
-                <InstalledNotRunningPanel
-                    manifestPluginId={installedRow.manifest_plugin_id ?? installedRow.plugin_id}
-                    name={installedRow.name}
-                    version={installedRow.version}
-                    category={installedRow.category}
-                    installDir={installedRow.install_dir}
-                    httpEndpoint={installedRow.http_endpoint}
-                    description={installedRow.description}
-                />
+
+            {found && panelPlugin && (
+                <>
+                    <HeaderStrip
+                        name={panelPlugin.name}
+                        version={panelPlugin.version}
+                        category={panelPlugin.category}
+                        description={panelPlugin.description}
+                        installDir={installedRow?.install_dir ?? null}
+                        httpEndpoint={installedRow?.http_endpoint ?? null}
+                        running={running}
+                        manifestPluginId={installedRow?.manifest_plugin_id ?? null}
+                    />
+                    <PluginTestPanel
+                        plugin={panelPlugin}
+                        runEnabled={running}
+                        runDisabledReason={
+                            running
+                                ? undefined
+                                : 'Start the plugin to dispatch test tasks against it.'
+                        }
+                    />
+                </>
             )}
         </Container>
     );

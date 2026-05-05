@@ -588,6 +588,37 @@ export const usePluginInputSchema = (pluginId: string | null) =>
         { enabled: !!pluginId, staleTime: 60_000 },
     );
 
+export const usePluginOutputSchema = (pluginId: string | null) =>
+    useQuery(
+        ['plugin-schema-output', pluginId],
+        () => fetchPluginOutputSchema(pluginId!),
+        { enabled: !!pluginId, staleTime: 60_000 },
+    );
+
+// ---------------------------------------------------------------------------
+// Sync dispatch — POST /dispatch/{category}/run for plugins advertising
+// Capability.SYNC. The resolver picks a live backend matching the
+// caller-supplied target_backend (if any), the operator-pinned default,
+// or the first live + enabled backend in that category.
+// ---------------------------------------------------------------------------
+
+export interface SyncDispatchRequest {
+    input: Record<string, unknown>;
+    target_backend?: string | null;
+    instance_id?: string | null;
+}
+
+export const dispatchSync = async (
+    category: string,
+    body: SyncDispatchRequest,
+): Promise<unknown> => {
+    const res = await api.post(`/dispatch/${encodeURIComponent(category)}/run`, body);
+    return res.data;
+};
+
+export const useDispatchSync = (category: string) =>
+    useMutation((body: SyncDispatchRequest) => dispatchSync(category, body));
+
 export const useSubmitPluginJob = (pluginId: string) =>
     useMutation((body: JobSubmitRequest & { sid?: string }) => {
         const { sid, ...payload } = body;
