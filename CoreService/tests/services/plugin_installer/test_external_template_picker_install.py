@@ -144,12 +144,14 @@ def test_external_template_picker_uv_install_lays_out_directory(tmp_path):
 
     runtime_env = (install_dir / "runtime.env").read_text(encoding="utf-8")
     assert "MAGELLON_BROKER_URL=amqp://test:test@localhost:5672/" in runtime_env
+    assert "MAGELLON_GPFS_PATH=/gpfs" in runtime_env
+    assert "HOST_GPFS_PATH=/gpfs" in runtime_env
     assert "MAGELLON_HOME_DIR=/gpfs" in runtime_env
 
-    # Subprocess runner saw uv venv + uv pip install -e .
+    # Subprocess runner saw uv venv + uv sync.
     cmds = [c["cmd"] for c in runner.calls]
     assert any("venv" in cmd for cmd in cmds)
-    assert any("install" in cmd and "-e" in cmd for cmd in cmds)
+    assert any("sync" in cmd and "--project" in cmd for cmd in cmds)
 
 
 def test_uninstall_external_template_picker_removes_directory(tmp_path):

@@ -13,6 +13,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from services.plugin_installer.factory import (
+    _build_runtime_config,
     _default_plugins_dir,
     reset_factory,
 )
@@ -74,3 +75,26 @@ def test_settings_absolute_path_passes_through():
         PLUGINS_DIR="/opt/magellon/plugins",
     )
     assert settings.PLUGINS_DIR == "/opt/magellon/plugins"
+
+
+def test_runtime_config_uses_gpfs_path_not_home(monkeypatch):
+    """Installed plugins must receive the GPFS data-plane root, not the
+    CoreService home subdirectory inside GPFS."""
+    monkeypatch.delenv("MAGELLON_GPFS_PATH", raising=False)
+    fake_settings = SimpleNamespace(
+        rabbitmq_settings=SimpleNamespace(
+            USER_NAME="rabbit",
+            PASSWORD="secret",
+            HOST_NAME="rmq",
+            PORT=5672,
+            VIRTUAL_HOST="/",
+        ),
+        directory_settings=SimpleNamespace(
+            MAGELLON_GPFS_PATH="C:/magellon/gpfs",
+            MAGELLON_HOME_DIR="C:/magellon/gpfs/home",
+        ),
+    )
+    with mock.patch("config.app_settings", fake_settings):
+        runtime = _build_runtime_config()
+
+    assert runtime.gpfs_root == "C:/magellon/gpfs"

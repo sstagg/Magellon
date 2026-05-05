@@ -349,14 +349,16 @@ class DockerInstaller:
         # binds the conventional 8000.
         if host_port is not None:
             cmd.extend(["-p", f"{host_port}:{self.container_port}"])
-        # Mount the GPFS root at the same path inside the container —
-        # plugins read/write there per DATA_PLANE.md, and the same
-        # absolute path being valid inside and out is what makes
-        # MAGELLON_HOME_DIR portable.
-        cmd.extend(["-v", f"{runtime.gpfs_root}:{runtime.gpfs_root}"])
+        container_gpfs_root = self._container_gpfs_root(runtime.gpfs_root)
+        # Mount the host GPFS root at the plugin's canonical data-plane
+        # path. Linux hosts are usually symmetric (/gpfs:/gpfs);
+        # Windows hosts mount C:/... at /gpfs inside the container.
+        cmd.extend(["-v", f"{runtime.gpfs_root}:{container_gpfs_root}"])
         # Deployment-supplied env vars.
         cmd.extend(["-e", f"MAGELLON_BROKER_URL={runtime.broker_url}"])
-        cmd.extend(["-e", f"MAGELLON_HOME_DIR={runtime.gpfs_root}"])
+        cmd.extend(["-e", f"MAGELLON_GPFS_PATH={container_gpfs_root}"])
+        cmd.extend(["-e", f"HOST_GPFS_PATH={runtime.gpfs_root}"])
+        cmd.extend(["-e", f"MAGELLON_HOME_DIR={container_gpfs_root}"])
         if http_endpoint:
             cmd.extend(["-e", f"MAGELLON_PLUGIN_HTTP_ENDPOINT={http_endpoint}"])
             cmd.extend(["-e", "MAGELLON_PLUGIN_HOST=0.0.0.0"])
@@ -372,6 +374,13 @@ class DockerInstaller:
                 f"docker run failed: {result.stderr or result.stdout}"
             )
         logs.append((result.stdout or "").rstrip())
+
+    def _container_gpfs_root(self, host_gpfs_root: str) -> str:
+        """Return the in-container path for the shared GPFS root."""
+        normalized = host_gpfs_root.replace("\\", "/")
+        if len(normalized) > 1 and normalized[1] == ":":
+            return "/gpfs"
+        return normalized
 
     def _docker_stop_rm(self, container_name: str, *, swallow: bool) -> None:
         """``docker stop`` followed by ``docker rm``.

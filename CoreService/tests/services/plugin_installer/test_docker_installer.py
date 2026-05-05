@@ -360,12 +360,47 @@ def test_run_passes_broker_url_and_gpfs_env(tmp_path, monkeypatch):
     # Find every '-e VALUE' pair.
     env_args = [cmd[i + 1] for i, a in enumerate(cmd) if a == "-e"]
     assert "MAGELLON_BROKER_URL=amqp://r:p@host:5672/" in env_args
+    assert "MAGELLON_GPFS_PATH=/gpfs/test" in env_args
+    assert "HOST_GPFS_PATH=/gpfs/test" in env_args
     assert "MAGELLON_HOME_DIR=/gpfs/test" in env_args
     assert "LOG_LEVEL=INFO" in env_args
     # R2 #4: docker run also injects the http_endpoint env vars.
     assert any(a.startswith("MAGELLON_PLUGIN_HTTP_ENDPOINT=") for a in env_args)
     assert "MAGELLON_PLUGIN_HOST=0.0.0.0" in env_args
     assert any(a.startswith("MAGELLON_PLUGIN_PORT=") for a in env_args)
+
+
+def test_run_mounts_windows_gpfs_root_at_canonical_container_path(tmp_path, monkeypatch):
+    """Windows host paths must be mounted at /gpfs inside Linux
+    containers so canonical task paths resolve there."""
+    archive, manifest = _build_archive(tmp_path, [
+        {"method": "docker", "image": "ghcr.io/x:1"},
+    ])
+    monkeypatch.setattr(
+        "services.plugin_installer.port_allocator._is_port_free",
+        lambda port: True,
+    )
+    runner = _stub_runner()
+    inst = DockerInstaller(plugins_dir=tmp_path / "installed", subprocess_runner=runner)
+
+    inst.install(
+        archive,
+        manifest,
+        manifest.install[0],
+        RuntimeConfig(
+            broker_url="amqp://r:p@host:5672/",
+            gpfs_root="C:/magellon/gpfs",
+        ),
+    )
+
+    run_call = next(c for c in runner.calls if c["cmd"][1] == "run")
+    cmd = run_call["cmd"]
+    v_idx = cmd.index("-v")
+    assert cmd[v_idx + 1] == "C:/magellon/gpfs:/gpfs"
+    env_args = [cmd[i + 1] for i, a in enumerate(cmd) if a == "-e"]
+    assert "MAGELLON_GPFS_PATH=/gpfs" in env_args
+    assert "HOST_GPFS_PATH=C:/magellon/gpfs" in env_args
+    assert "MAGELLON_HOME_DIR=/gpfs" in env_args
 
 
 def test_run_publishes_allocated_host_port_to_container_port(tmp_path, monkeypatch):

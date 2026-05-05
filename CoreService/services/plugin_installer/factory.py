@@ -71,7 +71,10 @@ def _build_runtime_config() -> RuntimeConfig:
             f"amqp://{rmq.USER_NAME}:{rmq.PASSWORD}@{rmq.HOST_NAME}:{rmq.PORT}"
             f"/{rmq.VIRTUAL_HOST.lstrip('/')}"
         )
-        gpfs_root = getattr(app_settings, "MAGELLON_HOME_DIR", None) or "/gpfs"
+        gpfs_root = (
+            getattr(app_settings.directory_settings, "MAGELLON_GPFS_PATH", None)
+            or "/gpfs"
+        )
     except Exception:  # noqa: BLE001 — settings unavailable in some test paths
         # Fall back to env vars so the factory still works in
         # bare-process scenarios.
@@ -79,7 +82,10 @@ def _build_runtime_config() -> RuntimeConfig:
         broker_url = os.environ.get(
             "MAGELLON_BROKER_URL", "amqp://guest:guest@localhost:5672/",
         )
-        gpfs_root = os.environ.get("MAGELLON_HOME_DIR", "/gpfs")
+        gpfs_root = os.environ.get(
+            "MAGELLON_GPFS_PATH",
+            os.environ.get("MAGELLON_HOME_DIR", "/gpfs"),
+        )
 
     return RuntimeConfig(broker_url=broker_url, gpfs_root=gpfs_root)
 

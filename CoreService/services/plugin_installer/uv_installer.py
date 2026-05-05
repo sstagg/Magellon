@@ -155,6 +155,8 @@ class UvInstaller:
             # is the canonical source; falls back to common defaults
             # for v0 plugins that don't declare it explicitly.
             self._uv_install_deps(target, venv_dir, install_spec.pyproject, logs)
+            self._ensure_sdk_path_helpers(venv_dir, logs)
+            self._patch_legacy_fft_output_resolution(target, logs)
 
             # 5. Allocate a port for the plugin's FastAPI; pin it for
             #    the lifetime of the install. The persisted assignment
@@ -354,6 +356,77 @@ class UvInstaller:
             )
         logs.append((result.stdout or "").rstrip())
 
+    def _ensure_sdk_path_helpers(self, venv_dir: Path, logs: list[str]) -> None:
+        """Patch older bundled SDK wheels that shipped without paths.py.
+
+        The FFT hub archive imports ``magellon_sdk.paths`` for canonical
+        GPFS path translation. Some archived wheels have the right package
+        version but miss that module; copying the CoreService SDK helper
+        keeps installed plugins aligned with the GPFS data-plane contract
+        without changing their archive contents.
+        """
+        sdk_dir = self._find_venv_sdk_dir(venv_dir)
+        if sdk_dir is None:
+            return
+        target = sdk_dir / "paths.py"
+        if target.exists():
+            return
+
+        try:
+            import magellon_sdk.paths as sdk_paths
+
+            source = Path(sdk_paths.__file__ or "")
+            if not source.is_file():
+                return
+            shutil.copy2(source, target)
+            logs.append("patched magellon_sdk.paths compatibility helper")
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("could not patch magellon_sdk.paths into %s: %s", venv_dir, exc)
+
+    def _find_venv_sdk_dir(self, venv_dir: Path) -> Optional[Path]:
+        """Locate ``magellon_sdk`` inside a venv's site-packages."""
+        candidates = [
+            venv_dir / "Lib" / "site-packages" / "magellon_sdk",
+        ]
+        candidates.extend(venv_dir.glob("lib/python*/site-packages/magellon_sdk"))
+        for candidate in candidates:
+            if candidate.is_dir():
+                return candidate
+        return None
+
+    def _patch_legacy_fft_output_resolution(self, target: Path, logs: list[str]) -> None:
+        """Patch hub FFT builds that resolve input paths but not output paths.
+
+        Their task payloads correctly use canonical ``/gpfs/...`` wire paths.
+        On Windows, an unresolved output path writes under ``C:/gpfs`` instead
+        of the configured GPFS root. This keeps the installed archive on the
+        shared data plane until the hub package is rebuilt with the fix.
+        """
+        compute_py = target / "plugin" / "compute.py"
+        if not compute_py.is_file():
+            return
+        try:
+            text = compute_py.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            return
+        if "def compute_file_fft(" not in text:
+            return
+        if "abs_out_file_name = _resolve_local_path(abs_out_file_name)" in text:
+            return
+        needle = "    mic = _load_image_array(image_path).astype(float)\n"
+        if needle not in text:
+            return
+        compute_py.write_text(
+            text.replace(
+                needle,
+                "    abs_out_file_name = _resolve_local_path(abs_out_file_name)\n"
+                + needle,
+                1,
+            ),
+            encoding="utf-8",
+        )
+        logs.append("patched legacy FFT output path resolution")
+
     def _format_runtime_env(
         self,
         runtime: RuntimeConfig,
@@ -379,6 +452,8 @@ class UvInstaller:
             "# Plugin process should load these via os.environ at startup.",
             "# Do NOT commit this file or copy it into archives.",
             f"MAGELLON_BROKER_URL={runtime.broker_url}",
+            f"MAGELLON_GPFS_PATH={runtime.gpfs_root}",
+            f"HOST_GPFS_PATH={runtime.gpfs_root}",
             f"MAGELLON_HOME_DIR={runtime.gpfs_root}",
         ]
         if http_endpoint:

@@ -41,7 +41,7 @@ class RuntimeConfig:
     """AMQP URL the plugin connects to. ``amqp://user:pass@host:5672/``."""
 
     gpfs_root: str
-    """Absolute path to the shared filesystem (``MAGELLON_HOME_DIR``).
+    """Absolute path to the shared GPFS data plane.
     Plugins read/write image data here per ``DATA_PLANE.md``."""
 
     extra_env: Dict[str, str] = field(default_factory=dict)

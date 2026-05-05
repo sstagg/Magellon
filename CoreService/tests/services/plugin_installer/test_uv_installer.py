@@ -193,42 +193,77 @@ def test_install_runs_uv_venv_command(tmp_path):
     assert ".venv" in cmd[2]
 
 
-def test_install_runs_uv_pip_install_editable(tmp_path):
-    """Plugin has pyproject.toml → install editable. The plugin's
-    own package gets installed into its venv so it's importable
-    from main.py."""
+def test_install_runs_uv_sync_for_pyproject(tmp_path):
+    """Plugin has pyproject.toml, so uv sync resolves it into the venv."""
     archive, manifest = _build_archive(tmp_path)
     runner = _stub_runner()
     inst = UvInstaller(plugins_dir=tmp_path / "installed", subprocess_runner=runner)
 
     inst.install(archive, manifest, manifest.install[0], _runtime())
 
-    install_calls = [
-        c for c in runner.calls if "pip" in c["cmd"] and "install" in c["cmd"]
-    ]
+    install_calls = [c for c in runner.calls if "sync" in c["cmd"]]
     assert len(install_calls) == 1
     cmd = install_calls[0]["cmd"]
-    assert cmd[:4] == ["uv", "pip", "install", "-e"]
+    assert cmd[:3] == ["uv", "sync", "--project"]
+    assert cmd[-1] == "--no-dev"
 
 
-def test_install_sets_virtual_env_for_uv_pip_install(tmp_path):
-    """``VIRTUAL_ENV`` must be set so uv installs into the per-plugin
-    venv, not the parent process's interpreter. Without this, plugin
-    deps would pollute CoreService's environment — exactly the
-    isolation guarantee we promised."""
+def test_install_sets_project_environment_for_uv_sync(tmp_path):
+    """``UV_PROJECT_ENVIRONMENT`` must point uv sync at the plugin venv."""
     archive, manifest = _build_archive(tmp_path)
     runner = _stub_runner()
     inst = UvInstaller(plugins_dir=tmp_path / "installed", subprocess_runner=runner)
 
     inst.install(archive, manifest, manifest.install[0], _runtime())
 
-    install_calls = [
-        c for c in runner.calls if "pip" in c["cmd"] and "install" in c["cmd"]
-    ]
+    install_calls = [c for c in runner.calls if "sync" in c["cmd"]]
     env = install_calls[0]["kwargs"]["env"]
     assert "VIRTUAL_ENV" in env
+    assert "UV_PROJECT_ENVIRONMENT" in env
     assert "test-plugin" in env["VIRTUAL_ENV"]
     assert ".venv" in env["VIRTUAL_ENV"]
+    assert "test-plugin" in env["UV_PROJECT_ENVIRONMENT"]
+    assert ".venv" in env["UV_PROJECT_ENVIRONMENT"]
+
+
+def test_ensure_sdk_path_helpers_copies_missing_module(tmp_path):
+    """Older bundled SDK wheels may miss magellon_sdk.paths."""
+    venv_dir = tmp_path / ".venv"
+    sdk_dir = venv_dir / "Lib" / "site-packages" / "magellon_sdk"
+    sdk_dir.mkdir(parents=True)
+    (sdk_dir / "__init__.py").write_text("# installed sdk\n", encoding="utf-8")
+    logs: list[str] = []
+    inst = UvInstaller(plugins_dir=tmp_path / "installed")
+
+    inst._ensure_sdk_path_helpers(venv_dir, logs)
+
+    patched = sdk_dir / "paths.py"
+    assert patched.exists()
+    assert "from_canonical_gpfs_path" in patched.read_text(encoding="utf-8")
+    assert "patched magellon_sdk.paths compatibility helper" in logs
+
+
+def test_patch_legacy_fft_output_resolution(tmp_path):
+    compute_py = tmp_path / "fft" / "plugin" / "compute.py"
+    compute_py.parent.mkdir(parents=True)
+    compute_py.write_text(
+        dedent(
+            """
+            def compute_file_fft(image_path, abs_out_file_name, height=1024):
+                mic = _load_image_array(image_path).astype(float)
+                return abs_out_file_name
+            """
+        ).lstrip(),
+        encoding="utf-8",
+    )
+    logs: list[str] = []
+    inst = UvInstaller(plugins_dir=tmp_path / "installed")
+
+    inst._patch_legacy_fft_output_resolution(tmp_path / "fft", logs)
+
+    patched = compute_py.read_text(encoding="utf-8")
+    assert "abs_out_file_name = _resolve_local_path(abs_out_file_name)" in patched
+    assert "patched legacy FFT output path resolution" in logs
 
 
 def test_install_writes_runtime_env_with_deployment_values(tmp_path, monkeypatch):
@@ -246,6 +281,8 @@ def test_install_writes_runtime_env_with_deployment_values(tmp_path, monkeypatch
 
     runtime_env = (tmp_path / "installed" / "test-plugin" / "runtime.env").read_text()
     assert "MAGELLON_BROKER_URL=amqp://test:test@broker:5672/" in runtime_env
+    assert "MAGELLON_GPFS_PATH=/gpfs/test" in runtime_env
+    assert "HOST_GPFS_PATH=/gpfs/test" in runtime_env
     assert "MAGELLON_HOME_DIR=/gpfs/test" in runtime_env
     assert "LOG_LEVEL=DEBUG" in runtime_env
     # R2 #4: runtime.env carries the allocated http endpoint so the
