@@ -422,3 +422,58 @@ class _FakeRmqSettings:
 def _null_reporter():
     from magellon_sdk.progress import NullReporter
     return NullReporter()
+
+
+# ---------------------------------------------------------------------------
+# Path translation — canonical /gpfs/... → local form before mrcfile.open
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_local_path_no_op_on_linux_default(monkeypatch):
+    """On Linux/Docker MAGELLON_GPFS_PATH=/gpfs, so /gpfs/x.mrc opens
+    directly inside the container and the helper passes it through."""
+    from plugin import compute as compute_mod
+
+    class _FakeSettings:
+        MAGELLON_GPFS_PATH = "/gpfs"
+
+    monkeypatch.setattr(
+        "core.settings.AppSettingsSingleton.get_instance",
+        classmethod(lambda cls: _FakeSettings()),
+    )
+    assert compute_mod._resolve_local_path("/gpfs/sessions/x.mrc") \
+        == "/gpfs/sessions/x.mrc"
+
+
+def test_resolve_local_path_rewrites_for_windows_uv_install(monkeypatch):
+    """uv install on Windows: runtime.env sets MAGELLON_GPFS_PATH to
+    a Windows root. /gpfs/x.mrc must become C:/magellon/gpfs/x.mrc
+    before mrcfile opens it — otherwise compute fails with
+    [Errno 2] No such file or directory, the symptom that drove this fix."""
+    from plugin import compute as compute_mod
+
+    class _FakeSettings:
+        MAGELLON_GPFS_PATH = "C:/magellon/gpfs"
+
+    monkeypatch.setattr(
+        "core.settings.AppSettingsSingleton.get_instance",
+        classmethod(lambda cls: _FakeSettings()),
+    )
+    assert compute_mod._resolve_local_path("/gpfs/sessions/x.mrc") \
+        == "C:/magellon/gpfs/sessions/x.mrc"
+
+
+def test_resolve_local_path_preserves_non_canonical_input(monkeypatch):
+    """If the operator hands us an absolute path manually, don't mangle
+    it. Apply unconditionally; the helper handles both shapes."""
+    from plugin import compute as compute_mod
+
+    class _FakeSettings:
+        MAGELLON_GPFS_PATH = "C:/magellon/gpfs"
+
+    monkeypatch.setattr(
+        "core.settings.AppSettingsSingleton.get_instance",
+        classmethod(lambda cls: _FakeSettings()),
+    )
+    assert compute_mod._resolve_local_path("D:/some/other/x.mrc") \
+        == "D:/some/other/x.mrc"

@@ -20,9 +20,31 @@ from PIL import Image
 from scipy.fft import fft2
 from tifffile import TiffFile
 
+from magellon_sdk.paths import from_canonical_gpfs_path
+
+
+def _resolve_local_path(path: str) -> str:
+    """Translate the canonical wire path to whatever this deployment
+    actually has on disk.
+
+    On Linux + Docker (the default ``/gpfs`` bind mount) this is a
+    no-op. On Windows direct-run with ``MAGELLON_GPFS_PATH=C:/magellon/gpfs``
+    it rewrites ``/gpfs/foo.mrc`` → ``C:/magellon/gpfs/foo.mrc``. The
+    plugin's settings YAML (``configs/settings_dev.yml``) drives the
+    decision via :class:`BaseAppSettings.MAGELLON_GPFS_PATH`.
+    """
+    gpfs_path = None
+    try:
+        from core.settings import AppSettingsSingleton
+        gpfs_path = AppSettingsSingleton.get_instance().MAGELLON_GPFS_PATH
+    except Exception:  # noqa: BLE001 — keep compute callable in unit tests
+        pass
+    return from_canonical_gpfs_path(path, gpfs_path=gpfs_path) or path
+
 
 def _load_image_array(abs_path: str) -> np.ndarray:
     """Load mrc / tiff / png → 2D float array. Extension-driven."""
+    abs_path = _resolve_local_path(abs_path)
     ext = Path(abs_path).suffix.lower()
     if ext in (".mrc", ".mrcs"):
         with mrcfile.open(abs_path, permissive=True) as mrc:
