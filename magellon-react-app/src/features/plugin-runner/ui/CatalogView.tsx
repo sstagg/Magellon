@@ -1,5 +1,5 @@
 /**
- * "Catalog" tab — local archives uploaded but not yet installed.
+ * "Downloaded" tab — local archives uploaded but not yet installed.
  *
  * Distinct from "Installed" (DB rows with running processes/containers
  * — `Plugin` table) and from "Hub" (remote registry). The catalog is
@@ -21,14 +21,22 @@ import {
     Stack,
     Typography,
 } from '@mui/material';
-import { Archive, Download, Trash2 } from 'lucide-react';
+import { Archive, Cloud, Download, Trash2, Upload } from 'lucide-react';
 import {
     useCatalog,
     useDeleteCatalog,
     useInstallCatalog,
 } from '../api/PluginApi.ts';
 
-export const CatalogView: React.FC = () => {
+interface CatalogViewProps {
+    onUploadArchive?: () => void;
+    onBrowseHub?: () => void;
+}
+
+export const CatalogView: React.FC<CatalogViewProps> = ({
+    onUploadArchive,
+    onBrowseHub,
+}) => {
     const { data, isLoading, error } = useCatalog();
     const installCatalog = useInstallCatalog();
     const deleteCatalog = useDeleteCatalog();
@@ -41,7 +49,7 @@ export const CatalogView: React.FC = () => {
         );
     }
     if (error) {
-        return <Alert severity="error">Failed to load local catalog.</Alert>;
+        return <Alert severity="error">Failed to load downloaded plugins.</Alert>;
     }
 
     const entries = data?.entries ?? [];
@@ -51,19 +59,66 @@ export const CatalogView: React.FC = () => {
             <Stack direction="row" spacing={2} sx={{ alignItems: 'center', mb: 3 }}>
                 <Archive size={22} />
                 <Box sx={{ flex: 1 }}>
-                    <Typography variant="h6">Local catalog</Typography>
+                    <Typography variant="h6">Ready to install</Typography>
                     <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                        Archives uploaded to this server. Each is a packaged
-                        plugin ready to install. {entries.length} total.
+                        Downloaded plugin archives staged on this server.
+                        {entries.length > 0 ? ` ${entries.length} total.` : ''}
                     </Typography>
                 </Box>
             </Stack>
 
             {entries.length === 0 ? (
-                <Alert severity="info">
-                    The local catalog is empty. Use <strong>Upload archive</strong>{' '}
-                    above to add a <code>.mpn</code>, then install it from here.
-                </Alert>
+                <Box
+                    sx={{
+                        border: 1,
+                        borderColor: 'divider',
+                        borderRadius: 1,
+                        py: 6,
+                        px: 3,
+                        textAlign: 'center',
+                    }}
+                >
+                    <Archive size={36} style={{ opacity: 0.55 }} />
+                    <Typography variant="h6" sx={{ mt: 2 }}>
+                        No downloaded plugins
+                    </Typography>
+                    <Typography
+                        variant="body2"
+                        sx={{
+                            color: 'text.secondary',
+                            maxWidth: 520,
+                            mx: 'auto',
+                            mt: 1,
+                        }}
+                    >
+                        Upload a <code>.mpn</code> archive or browse the hub.
+                        Downloaded archives will appear here before installation.
+                    </Typography>
+                    <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={1}
+                        sx={{ justifyContent: 'center', mt: 3 }}
+                    >
+                        {onUploadArchive && (
+                            <Button
+                                variant="outlined"
+                                startIcon={<Upload size={16} />}
+                                onClick={onUploadArchive}
+                            >
+                                Upload archive
+                            </Button>
+                        )}
+                        {onBrowseHub && (
+                            <Button
+                                variant="contained"
+                                startIcon={<Cloud size={16} />}
+                                onClick={onBrowseHub}
+                            >
+                                Browse hub
+                            </Button>
+                        )}
+                    </Stack>
+                </Box>
             ) : (
                 <Stack spacing={1}>
                     {entries.map((entry) => (
@@ -115,7 +170,7 @@ export const CatalogView: React.FC = () => {
                                     startIcon={<Trash2 size={14} />}
                                     disabled={deleteCatalog.isLoading}
                                     onClick={() => {
-                                        if (window.confirm(`Remove ${entry.name} v${entry.version} from the catalog?`)) {
+                                        if (window.confirm(`Remove ${entry.name} v${entry.version} from downloaded plugins?`)) {
                                             deleteCatalog.mutate(entry.catalog_id);
                                         }
                                     }}

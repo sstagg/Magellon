@@ -1,13 +1,13 @@
 /**
  * /panel/plugins — operator's plugin manager.
  *
- * Two-tab layout (Installed | Catalog) plus two header action buttons
+ * Two-tab layout (Installed | Downloaded) plus two header action buttons
  * that open install modals. The previous one-page-everything layout
  * conflated "running on the bus" with "registered in the database"
  * with "available in the hub"; the tabs split those by lifecycle.
  *
  *   Hub     — published in the federated registry, not yet on this server
- *   Catalog — `.mpn` archive uploaded here, not yet installed
+ *   Downloaded — `.mpn` archive uploaded here, not yet installed
  *   Installed — DB row exists; lives in a directory or container
  *   Running — heartbeating on the bus right now (a chip on each card)
  *
@@ -72,7 +72,7 @@ export const PluginsPageView: React.FC = () => {
                 sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}
             >
                 <Tab value="installed" label="Installed" />
-                <Tab value="catalog" label="Catalog" />
+                <Tab value="catalog" label="Downloaded" />
             </Tabs>
 
             {tab === 'installed' && (
@@ -81,7 +81,12 @@ export const PluginsPageView: React.FC = () => {
                     onBrowseHub={() => setHubOpen(true)}
                 />
             )}
-            {tab === 'catalog' && <CatalogView />}
+            {tab === 'catalog' && (
+                <CatalogView
+                    onUploadArchive={() => setUploadOpen(true)}
+                    onBrowseHub={() => setHubOpen(true)}
+                />
+            )}
 
             <UploadArchiveDialog
                 open={uploadOpen}
