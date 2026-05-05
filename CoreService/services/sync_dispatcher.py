@@ -148,6 +148,16 @@ class _ResolvedTarget:
     capabilities: tuple
 
 
+def _normalize_category_key(s: str) -> str:
+    """Collapse case + spaces + underscores + hyphens so slug-form
+    (``particle_picking``) and display-form (``Particle Picking``)
+    category names compare equal. Plugin manifests use the slug; the
+    code path here was lower()ing both sides, which still left the
+    space-vs-underscore mismatch unresolved.
+    """
+    return "".join(s.lower().split()).replace("_", "").replace("-", "")
+
+
 def _entry_capabilities(entry: PluginLivenessEntry) -> tuple:
     """Best-effort capability list from the announce manifest."""
     manifest = entry.manifest
@@ -180,10 +190,14 @@ def _resolve_target(
     sticky-routing seam — when set, only the matching replica is
     considered (used by the retune/delete preview flow).
     """
-    cat_lower = (category or "").lower()
+    # Normalize spaces / underscores / hyphens so plugin manifests
+    # using the slug form (``particle_picking``) match category names
+    # using the display form (``Particle Picking``) — same normalizer
+    # the schema-resolver uses, see plugins.controller._normalize_category_key.
+    cat_norm = _normalize_category_key(category or "")
     candidates = [
         e for e in get_liveness_registry().list_live()
-        if (e.category or "").lower() == cat_lower
+        if _normalize_category_key(e.category or "") == cat_norm
     ]
     if not candidates:
         raise BackendNotLive(

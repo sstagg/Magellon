@@ -108,8 +108,11 @@ class TemplatePickerInput(BaseModel):
         # Defaults to the three reference templates that ship in
         # /gpfs/templates/ so the side panel is testable with a single
         # click. Production deployments override these by typing or
-        # browsing GPFS.
-        default_factory=lambda: [
+        # browsing GPFS. Using ``default`` (not ``default_factory``)
+        # because Pydantic's JSON-Schema export omits factory results,
+        # which means the React side wouldn't pre-fill the field.
+        # The list is short + immutable so the shared default is safe.
+        default=[
             "/gpfs/templates/origTemplate1.mrc",
             "/gpfs/templates/origTemplate2.mrc",
             "/gpfs/templates/origTemplate3.mrc",
