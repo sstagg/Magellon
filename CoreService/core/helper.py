@@ -52,6 +52,56 @@ def to_canonical_gpfs_path(path):
     return path
 
 
+def from_canonical_gpfs_path(path):
+    """Inverse of :func:`to_canonical_gpfs_path` — translate a canonical
+    ``/gpfs/...`` path to the host-absolute path appropriate for direct
+    filesystem access on this CoreService process.
+
+    On Linux deployments where ``MAGELLON_GPFS_PATH=/gpfs`` this is a
+    no-op; on Windows direct-run with ``C:/magellon/gpfs`` it rewrites
+    ``/gpfs/sessions/foo.mrc`` → ``C:/magellon/gpfs/sessions/foo.mrc``.
+
+    Falsy / non-canonical inputs pass through unchanged. Callers must
+    still validate the result is under the GPFS root before using it
+    for I/O — see :func:`is_under_gpfs_root`.
+    """
+    if not path:
+        return path
+    gpfs = app_settings.directory_settings.MAGELLON_GPFS_PATH
+    if not gpfs or gpfs == "/gpfs":
+        return path
+    norm = path.replace("\\", "/")
+    gpfs_norm = gpfs.replace("\\", "/").rstrip("/")
+    if norm == "/gpfs":
+        return gpfs_norm
+    if norm.startswith("/gpfs/"):
+        return gpfs_norm + "/" + norm[len("/gpfs/"):]
+    return path
+
+
+def is_under_gpfs_root(host_path):
+    """Defense-in-depth: confirm a host-resolved path lies under the
+    configured GPFS root. Catches symlink escapes / odd traversal that
+    string-prefix checks miss, since :class:`pathlib.Path.resolve`
+    walks symlinks.
+
+    Returns ``True`` when ``host_path`` is the GPFS root or a descendant.
+    Returns ``False`` when the GPFS root isn't configured (refuse rather
+    than fall open).
+    """
+    from pathlib import Path
+    gpfs = app_settings.directory_settings.MAGELLON_GPFS_PATH
+    if not gpfs:
+        return False
+    try:
+        gpfs_root = Path(gpfs).resolve()
+        target = Path(host_path).resolve()
+        target.relative_to(gpfs_root)
+        return True
+    except (ValueError, OSError):
+        return False
+
+
 def append_json_to_file(file_path, json_str):
     try:
         # Append the JSON string as a new line to the file

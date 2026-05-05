@@ -166,55 +166,84 @@ class FileItem(BaseModel):
 @motioncor_router.get("/files/browse", response_model=List[FileItem])
 async def browse_directory(
     path: str = "/gpfs",
-    user_id: UUID = Depends(get_current_user_id)  # ✅ Authentication required
+    user_id: UUID = Depends(get_current_user_id),
 ):
-    """
-    Browse filesystem directories.
+    """List one directory in the GPFS data plane.
 
-    **Requires:** Authentication
-    **Security:** Authenticated users can browse the filesystem
-    **WARNING:** This exposes filesystem structure and file metadata
+    **Path contract.** Wire form is canonical ``/gpfs/...`` only.
+    Browsing outside the configured ``MAGELLON_GPFS_PATH`` is refused
+    (400). Item ``path`` values come back canonical too — those paths
+    flow into plugin task DTOs and must be openable by every consumer
+    (CoreService, Dockerized plugins, Linux pods), so a host-absolute
+    Windows path leaking out would break the moment a Linux plugin
+    tried to open it.
+
+    See :func:`core.helper.to_canonical_gpfs_path` /
+    :func:`from_canonical_gpfs_path` for the round-trip and
+    ``Documentation/DATA_PLANE.md`` for why the convention exists.
+
+    **Requires:** Authentication.
     """
+    from core.helper import (
+        from_canonical_gpfs_path,
+        is_under_gpfs_root,
+        to_canonical_gpfs_path,
+    )
+
     logger.warning(f"SECURITY: User {user_id} browsing filesystem path: {path}")
 
-    try:
-        # /gpfs is the canonical data-plane root in URLs/UI. Resolve it to
-        # the active deployment's actual filesystem root: in Docker that's
-        # the /gpfs bind mount (no-op rewrite), on Windows direct-run it's
-        # MAGELLON_GPFS_PATH (e.g. C:/magellon/gpfs — the input data root,
-        # not MAGELLON_HOME_DIR which is the results dir).
-        gpfs = app_settings.directory_settings.MAGELLON_GPFS_PATH
-        if gpfs and (path == "/gpfs" or path.startswith("/gpfs/")):
-            path = path.replace("/gpfs", gpfs, 1)
+    norm = (path or "").replace("\\", "/")
+    if not norm:
+        norm = "/gpfs"
+    if not (norm == "/gpfs" or norm.startswith("/gpfs/")):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Path {path!r} is outside the GPFS data plane. "
+                "Use canonical paths under /gpfs."
+            ),
+        )
 
-        directory = Path(path)
-        if not directory.exists():
-            raise HTTPException(status_code=404, detail=f"Directory not found: {path}")
+    host_path_str = from_canonical_gpfs_path(norm)
+    directory = Path(host_path_str)
 
-        items = []
-        for item in directory.iterdir():
+    if not is_under_gpfs_root(directory):
+        # Defense-in-depth — catches odd casing, symlink escapes, or a
+        # canonical path that resolves outside the root after normalization.
+        raise HTTPException(
+            status_code=400,
+            detail=f"Path {path!r} resolves outside the configured GPFS root.",
+        )
+    if not directory.exists():
+        raise HTTPException(status_code=404, detail=f"Directory not found: {path}")
+    if not directory.is_dir():
+        raise HTTPException(status_code=400, detail=f"Path is not a directory: {path}")
+
+    items: List[FileItem] = []
+    for item in directory.iterdir():
+        try:
             stat = item.stat()
-            file_item = FileItem(
-                id=hash(str(item)),  # Generate a unique ID based on path hash
-                name=item.name,
-                is_directory=item.is_dir(),
-                path=str(item),
-                parent_id=hash(str(item.parent)) if str(item.parent) != path else None,
-                size=stat.st_size if not item.is_dir() else None,
-                mime_type=mimetypes.guess_type(item.name)[0] if not item.is_dir() else None,
-                created_at=datetime.fromtimestamp(stat.st_ctime),
-                updated_at=datetime.fromtimestamp(stat.st_mtime)
-            )
-            items.append(file_item)
+        except OSError:
+            # Skip permission errors / broken symlinks rather than
+            # 500ing the whole listing.
+            continue
+        canonical_item_path = to_canonical_gpfs_path(str(item))
+        canonical_parent = to_canonical_gpfs_path(str(item.parent))
+        items.append(FileItem(
+            id=hash(canonical_item_path),
+            name=item.name,
+            is_directory=item.is_dir(),
+            path=canonical_item_path,
+            parent_id=hash(canonical_parent) if canonical_parent != norm else None,
+            size=stat.st_size if not item.is_dir() else None,
+            mime_type=mimetypes.guess_type(item.name)[0] if not item.is_dir() else None,
+            created_at=datetime.fromtimestamp(stat.st_ctime),
+            updated_at=datetime.fromtimestamp(stat.st_mtime),
+        ))
 
-        # Sort: directories first, then files
-        items.sort(key=lambda x: (not x.is_directory, x.name))
-
-        logger.debug(f"User {user_id} retrieved {len(items)} items from path: {path}")
-        return items
-    except Exception as e:
-        logger.error(f"Error browsing directory for user {user_id}, path: {path}: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+    items.sort(key=lambda x: (not x.is_directory, x.name))
+    logger.debug(f"User {user_id} retrieved {len(items)} items from path: {norm}")
+    return items
 
 
 PREVIEW_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff"}
@@ -245,19 +274,31 @@ async def preview_file(
     path: str,
     user_id: UUID = Depends(get_current_user_id)
 ):
-    """
-    Serve an image file by absolute path for preview purposes.
+    """Serve a file from the GPFS data plane for preview.
 
-    **Requires:** Authentication
-    **Security:** Only allows a whitelisted set of image extensions.
-    MRC/MRCS/MAP files are rendered to PNG on the fly using
-    MrcImageService (percentile-clipped, downsampled).
-    Used by the standalone plugin runner to preview test images that
-    live outside any session directory.
+    **Path contract.** Same as ``/files/browse`` — canonical
+    ``/gpfs/...`` only. Anything else is refused. Image extensions are
+    whitelisted; MRC/MRCS/MAP get rendered to PNG via MrcImageService.
+
+    **Requires:** Authentication.
     """
+    from core.helper import from_canonical_gpfs_path, is_under_gpfs_root
+
     logger.warning(f"SECURITY: User {user_id} previewing file: {path}")
 
-    target = Path(path)
+    norm = (path or "").replace("\\", "/")
+    if not (norm == "/gpfs" or norm.startswith("/gpfs/")):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Path {path!r} is outside the GPFS data plane.",
+        )
+
+    target = Path(from_canonical_gpfs_path(norm))
+    if not is_under_gpfs_root(target):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Path {path!r} resolves outside the configured GPFS root.",
+        )
     ext = target.suffix.lower()
 
     if ext in PREVIEW_MRC_EXTS:
@@ -408,10 +449,14 @@ async def upload_files(
             logger.exception("upload failed for %s", base_name)
             raise HTTPException(status_code=500, detail=f"Upload failed: {exc}")
 
+        # Return the canonical /gpfs/... form so the React side can use
+        # it directly as a plugin task input — same convention as the
+        # browse endpoint and the bus dispatch path.
+        from core.helper import to_canonical_gpfs_path
         mime, _ = mimetypes.guess_type(dest.name)
         out.append(UploadedFileInfo(
             name=dest.name,
-            path=str(dest),
+            path=to_canonical_gpfs_path(str(dest)),
             size=size,
             mime_type=mime,
             overwritten=existed,
