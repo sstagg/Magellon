@@ -231,6 +231,56 @@ def test_workflow_404_for_soft_deleted_artifact():
     assert resp.status_code == 404
 
 
+def test_workflow_truncates_at_depth_200():
+    """Chains exceeding the 200-deep walk cap return a 200-element
+    ``ancestors`` list and signal truncation via ``truncated_at_depth``.
+    The cap is intentionally generous (UI display uses 20) — export
+    callers usually want the full chain when possible — but pathological
+    chains shouldn't unbound the response."""
+    # Build a 250-deep chain: leaf → a249 → a248 → ... → a0 (top).
+    # Each artifact points at the next via source_artifact_id.
+    chain_len = 250
+    oids = [uuid4() for _ in range(chain_len)]
+    artifacts = {}
+    # a0 is top-of-chain (source_artifact_id=None); higher indices
+    # point one step further down toward a0.
+    for i, oid in enumerate(oids):
+        parent_oid = oids[i - 1] if i > 0 else None
+        artifacts[oid] = _mk_artifact(
+            oid=oid, kind="step", source_artifact_id=parent_oid,
+        )
+    leaf_oid = oids[-1]
+
+    resp = _client(artifacts, {}).get(f"/artifacts/{leaf_oid}/workflow.json")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body["ancestors"]) == 200
+    assert body["truncated_at_depth"] == 200
+
+
+def test_workflow_no_truncation_flag_at_exact_depth_boundary():
+    """A chain of exactly 200 ancestors fits without truncation —
+    the cap is inclusive, and the for/else's ``cursor is None`` check
+    distinguishes "ran out of parents" from "hit the cap with more to
+    go". Pins this off-by-one boundary."""
+    # 201 artifacts total: leaf + 200 ancestors. After walking 200
+    # parents the cursor is None (top-of-chain), so truncated=False.
+    chain_len = 201
+    oids = [uuid4() for _ in range(chain_len)]
+    artifacts = {}
+    for i, oid in enumerate(oids):
+        parent_oid = oids[i - 1] if i > 0 else None
+        artifacts[oid] = _mk_artifact(
+            oid=oid, kind="step", source_artifact_id=parent_oid,
+        )
+    leaf_oid = oids[-1]
+
+    resp = _client(artifacts, {}).get(f"/artifacts/{leaf_oid}/workflow.json")
+    body = resp.json()
+    assert len(body["ancestors"]) == 200
+    assert body["truncated_at_depth"] is None
+
+
 def test_workflow_handles_cycle_safely():
     """A pathological cycle (shouldn't happen under immutability, but
     defensive) terminates the walk without infinite looping. The

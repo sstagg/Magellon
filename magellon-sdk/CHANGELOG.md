@@ -11,6 +11,33 @@ Version pattern follows SemVer as defined in `CONTRACT.md` §4.
 
 ---
 
+## 2.3.0 — 2026-05-10
+
+**Minor.** Additive metadata for the typed-socket pipeline ergonomics
+work (PE1-A in `Magellon/Documentation/PIPELINE_ERGONOMICS_FIRST_SLICE.md`).
+CoreService surfaces the new field on `GET /plugins/capabilities` so
+the catalog UI and a future workflow composer can answer "which
+plugins can consume this artifact?" from capability metadata alone.
+
+### Added
+
+- **`CategoryContract.produces_subject_kind: str | None`** — the
+  subject kind of the artifact a category emits when it differs from
+  the input `subject_kind`. `None` (default) means "same as input",
+  covering in-place categories like CTF, MotionCor, FFT. Transforming
+  categories override:
+  `PARTICLE_EXTRACTION_CATEGORY.produces_subject_kind = "particle_stack"`
+  (reads images, emits particle stacks).
+
+### Compatibility
+
+Frozen-pydantic backwards-compatible: the new field is default-valued,
+so existing `CategoryContract(...)` constructors continue to work
+without modification. Consumers pinned to SDK 2.2 see no behavioral
+change — the field is just unused.
+
+---
+
 ## 2.2.0 — 2026-05-04
 
 **Minor.** Additive contracts for the sync-RPC capability layer

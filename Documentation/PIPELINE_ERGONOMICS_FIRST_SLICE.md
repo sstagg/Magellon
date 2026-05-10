@@ -1,6 +1,6 @@
 # Pipeline Ergonomics — First Slice (Cheap Cut)
 
-**Status:** Proposal, 2026-05-10. Concrete first slice of `PIPELINE_ERGONOMICS_PLAN.md`.
+**Status:** Shipped 2026-05-10 — see commit log around `b747f8c`. PE1-A and PE3-lite both landed; PE2 + PE3-full + PE4 + multi-input lineage remain deferred per the table at the bottom. This doc is retained as the implementation reference; once any of the deferred tracks ship, expand or supersede.
 **Audience:** Implementer of the slice, reviewer.
 **Companion docs:** `PIPELINE_ERGONOMICS_PLAN.md` (four-track roadmap), `ARCHITECTURE_PRINCIPLES.md`.
 
@@ -217,17 +217,18 @@ Pick (a) for now and call it out in the docstring.
 
 ---
 
-## Sequencing
+## Sequencing — as shipped
 
-PE1-A and PE3-lite are independent. They can land in either order or in parallel; no shared files. Suggested order: **PE1-A first**, because it touches the SDK (a release artifact) and benefits from a settling-in period. PE3-lite is pure CoreService.
+Landed in four commits on `main` on 2026-05-10:
 
-```
-day 1–2: PE1-A (SDK 2.3 + capabilities + dispatch gate + tests)
-day 3:   PE3-lite (workflow.json endpoint + redaction + tests)
-day 4:   buffer / characterization-test pass / changelog
-```
+| Commit | Track | Scope |
+|---|---|---|
+| `e6e70e6` | docs | `PIPELINE_ERGONOMICS_PLAN.md` + this doc + README index |
+| `35e7b65` | sdk | `CategoryContract.produces_subject_kind`; bump 2.2.0 → 2.3.0 + CHANGELOG entry |
+| `3d5cb46` | core PE1-A | `subject_kind`/`produces_subject_kind` on `/plugins/capabilities`; `_reject_if_subject_missing` gate in `_submit_broker_job`/`_submit_broker_batch`; 3 characterization tests |
+| `b747f8c` | core PE3-lite | `GET /artifacts/{oid}/workflow.json` + Pydantic models + secret redaction + 9 tests (7 happy path + 2 truncation boundary) |
 
-Two PRs, two reviewers, one week wall clock.
+Original sequencing rationale (PE1-A before PE3-lite because the SDK change is a release artifact) held.
 
 ---
 
