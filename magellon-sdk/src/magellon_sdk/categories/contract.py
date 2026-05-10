@@ -169,6 +169,18 @@ class CategoryContract(BaseModel):
     ``image_job_task.subject_kind`` is also ``'image'``, so this
     aligns the in-memory and on-disk defaults."""
 
+    produces_subject_kind: str | None = None
+    """PE1-A (2026-05-10). The subject kind of the artifact this
+    category emits, when it differs from the input ``subject_kind``.
+    ``None`` (the default) means "same as input" — covers in-place
+    operations like CTF, MotionCor, FFT. Transforming categories set
+    it explicitly: ``PARTICLE_EXTRACTION`` reads images and produces
+    particle stacks, so ``produces_subject_kind='particle_stack'``.
+
+    Surfaced on ``GET /plugins/capabilities`` so the catalog UI and
+    a future workflow composer can answer "which plugins can consume
+    the output of this one?" from capability metadata alone."""
+
     @property
     def task_subject(self) -> str:
         return task_subject(self.category.name)
@@ -263,6 +275,10 @@ PARTICLE_EXTRACTION_CATEGORY = CategoryContract(
     category=PARTICLE_EXTRACTION,
     input_model=ParticleExtractionInput,
     output_model=ParticleExtractionOutput,
+    # Reads per-image picks; emits a particle stack artifact. This is
+    # the canonical "transforming" category — input subject differs
+    # from output subject.
+    produces_subject_kind="particle_stack",
 )
 
 TWO_D_CLASSIFICATION_CATEGORY = CategoryContract(
