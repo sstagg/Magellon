@@ -363,6 +363,91 @@ def test_submit_job_validates_input(client):
     assert "Invalid input" in resp.json()["detail"]
 
 
+# ---------------------------------------------------------------------------
+# PE1-A (2026-05-10): subject-tag socket validation
+# ---------------------------------------------------------------------------
+#
+# The capabilities endpoint must surface ``subject_kind`` /
+# ``produces_subject_kind`` from the SDK contract so the catalog UI
+# and a future workflow composer can wire plugin outputs to plugin
+# inputs without parsing the input schema. The dispatch gate rejects
+# aggregate-category jobs that lack the required subject id.
+
+
+@_pytest.mark.characterization
+def test_capabilities_endpoint_surfaces_subject_kind(
+    client, isolated_liveness_registry,
+):
+    """Every category surfaces ``subject_kind`` — defaulting to
+    ``'image'`` but overridden to ``'particle_stack'`` for aggregate
+    categories. PE1-A: lets the UI/composer answer "which plugins can
+    consume this artifact?" without inspecting the input schema."""
+    body = client.get("/plugins/capabilities").json()
+    by_name = {c["name"]: c for c in body["categories"]}
+
+    # Default is "image" for the bulk of categories.
+    assert by_name["CTF"]["subject_kind"] == "image"
+    assert by_name["MotionCor"]["subject_kind"] == "image"
+    assert by_name["FFT"]["subject_kind"] == "image"
+
+    # Override for aggregate-keyed categories.
+    assert by_name["2D Classification"]["subject_kind"] == "particle_stack"
+
+
+@_pytest.mark.characterization
+def test_capabilities_endpoint_surfaces_produces_subject_kind_for_extraction(
+    client, isolated_liveness_registry,
+):
+    """``produces_subject_kind`` is the output subject when it differs
+    from the input. ``ParticleExtraction`` is the canonical transforming
+    category — reads images, emits particle stacks. In-place categories
+    (CTF, MotionCor, FFT) leave it ``None`` (= same as input)."""
+    body = client.get("/plugins/capabilities").json()
+    by_name = {c["name"]: c for c in body["categories"]}
+
+    assert by_name["ParticleExtraction"]["produces_subject_kind"] == "particle_stack"
+    # In-place categories — input and output share a subject.
+    assert by_name["CTF"]["produces_subject_kind"] is None
+    assert by_name["MotionCor"]["produces_subject_kind"] is None
+
+
+@_pytest.mark.characterization
+def test_submit_job_rejects_particle_stack_category_without_subject_id(
+    client, isolated_liveness_registry,
+):
+    """Aggregate-category dispatch (``subject_kind='particle_stack'``)
+    must carry ``particle_stack_id`` on the input. Today the SDK's
+    ``TwoDClassificationInput`` marks the field ``Optional[UUID]``, so
+    Pydantic validation alone won't catch a missing subject — without
+    PE1-A's explicit gate, the job would land with ``subject_id=None``
+    and the projector couldn't link it back to its source artifact."""
+    # Register a live 2D-classification backend so _find_broker_plugin
+    # resolves the route (otherwise: 404 before reaching the gate).
+    # The category string is normalized space/underscore/case-insensitively
+    # against contract.category.name ("2D Classification") so any of
+    # these forms works.
+    isolated_liveness_registry.record_announce(_make_announce(
+        plugin_id="can-classifier",
+        category="2D Classification",
+        backend_id="can-classifier",
+        task_queue="cls_q",
+    ))
+
+    resp = client.post(
+        "/plugins/2D Classification/can-classifier/jobs",
+        json={"input": {
+            "mrcs_path": "/x/y.mrcs",
+            "star_path": "/x/y.star",
+            "output_dir": "/x/out",
+            # particle_stack_id intentionally omitted
+        }},
+    )
+    assert resp.status_code == 422, resp.text
+    detail = resp.json()["detail"]
+    assert "particle_stack" in detail.lower()
+    assert "particle_stack_id" in detail
+
+
 @pytest.mark.characterization
 def test_cancel_unknown_job_returns_404(client):
     resp = client.delete("/plugins/jobs/00000000-0000-0000-0000-000000000999")

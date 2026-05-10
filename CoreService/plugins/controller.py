@@ -184,6 +184,14 @@ class _CategoryCapabilities(BaseModel):
     backends: list[_BackendSummary] = []
     input_schema: Optional[Dict[str, Any]] = None
     output_schema: Optional[Dict[str, Any]] = None
+    subject_kind: str = "image"
+    """PE1-A: surfaced from CategoryContract.subject_kind so the
+    catalog UI and workflow composer can answer "what subject does
+    this category operate on?" without parsing the input schema."""
+    produces_subject_kind: Optional[str] = None
+    """PE1-A: from CategoryContract.produces_subject_kind. ``None``
+    means the output subject is the same as the input — only
+    transforming categories (PARTICLE_EXTRACTION) populate it."""
 
 
 class _CapabilitiesResponse(BaseModel):
@@ -291,6 +299,8 @@ async def list_capabilities() -> _CapabilitiesResponse:
             backends=backends,
             input_schema=input_schema,
             output_schema=output_schema,
+            subject_kind=contract.subject_kind,
+            produces_subject_kind=contract.produces_subject_kind,
         ))
 
     return _CapabilitiesResponse(
@@ -813,6 +823,36 @@ def _validate_broker_input(contract: CategoryContract, raw: Dict[str, Any]):
         raise HTTPException(status_code=422, detail=f"Invalid input: {exc}")
 
 
+def _reject_if_subject_missing(
+    contract: CategoryContract,
+    validated_input,
+) -> None:
+    """PE1-A (2026-05-10): explicit subject-kind gate at dispatch.
+
+    For aggregate categories (``subject_kind='particle_stack'``), the
+    input model declares ``particle_stack_id`` as ``Optional[UUID]``
+    so the SDK can evolve without breaking older callers — but the
+    contract still requires it. Without this check, a missing
+    particle_stack_id slips past Pydantic and lands a job with
+    ``subject_id=None``, which the projector then can't link back
+    to its source artifact.
+
+    Image-keyed categories aren't gated here; the input model
+    + outer ``request.image_id`` give callers several ways to refer
+    to an image, and gating would risk breaking legitimate paths.
+    """
+    if contract.subject_kind == "particle_stack":
+        candidate = getattr(validated_input, "particle_stack_id", None)
+        if candidate is None:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"Category {contract.category.name} operates on "
+                    f"subject_kind='particle_stack'; input.particle_stack_id is required."
+                ),
+            )
+
+
 def _derive_subject(
     contract: CategoryContract,
     validated_input,
@@ -932,6 +972,7 @@ async def _submit_broker_job(
     request: JobSubmitRequest,
 ) -> Dict[str, Any]:
     validated = _validate_broker_input(contract, request.input)
+    _reject_if_subject_missing(contract, validated)
     settings = (
         validated.model_dump(mode="json")
         if hasattr(validated, "model_dump") else validated
@@ -988,6 +1029,8 @@ async def _submit_broker_batch(
     validated_inputs = [
         _validate_broker_input(contract, raw) for raw in request.inputs
     ]
+    for validated in validated_inputs:
+        _reject_if_subject_missing(contract, validated)
 
     # Resolve the target impl once for the whole batch. Rolls any 503
     # (no live impl) / 409 (disabled) before a single job row is
