@@ -37,6 +37,8 @@ The shortest path to "what rules does this codebase live by?"
 | [`PLUGIN_INSTALL_PLAN.md`](PLUGIN_INSTALL_PLAN.md) | You are working on the **authoring + install pipeline**: archive creator (`plugin pack`), Installer Protocol, uv vs Docker installer impls, uninstall + upgrade, admin REST + UI. Nine sequential phases (P1–P9; P1–P8 shipped, P9 hub-fetch deferred). |
 | [`PLUGIN_MANAGER_PLAN.md`](PLUGIN_MANAGER_PLAN.md) | You are working on the **runtime + operational** surface: persistence for plugin state (the silent-state-loss-on-restart bug), Conditions[] status, pause / resume verbs, per-replica health, updates badge. Seven phases (PM1–PM7). Complement to PLUGIN_INSTALL_PLAN, not overlap. |
 | [`MAGELLON_HUB_SPEC.md`](MAGELLON_HUB_SPEC.md) | You are working on the **distribution registry** (`magellon-hub` service). MVP spec; phases H1–H3 in progress. |
+| [`PIPELINE_ERGONOMICS_PLAN.md`](PIPELINE_ERGONOMICS_PLAN.md) | You are adding subject-tag socket validation, dispatch caching, workflow-as-JSON exports, or the registry-UX layer. Four independent tracks (PE1–PE4) adapted from ComfyUI patterns; OSS-scope only (the visual workflow builder is Pro). |
+| [`PIPELINE_ERGONOMICS_FIRST_SLICE.md`](PIPELINE_ERGONOMICS_FIRST_SLICE.md) | You are implementing the cheap-cut subset of the ergonomics plan (PE1-A subject-tag dispatch gate + PE3-lite workflow.json endpoint). Concrete file paths + acceptance criteria. ≈ 1 week. |
 
 ---
 
