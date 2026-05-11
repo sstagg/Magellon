@@ -1,0 +1,100 @@
+{
+  "magellon_mrc_header_schema_version": 1,
+  "embedded_by": "magellon-core/2.4.0",
+  "embedded_at": "2026-05-11T18:30:00Z",
+
+  "preset": {
+    "id": "krios1-k3-spa-105kx-v3",
+    "ref": "magscopenext://presets/krios1-k3-spa-105kx-v3",
+    "snapshot": {
+      "voltage_kv": 300,
+      "spherical_aberration_mm": 2.7,
+      "amplitude_contrast": 0.07,
+      "nominal_magnification": 105000,
+      "calibrated_pixel_size_a": 0.84,
+      "binning": 1,
+      "super_resolution": false,
+      "detector": "K3",
+      "total_dose_e_per_a2": 50.0,
+      "num_frames": 40,
+      "exposure_time_s": 1.6,
+      "energy_filter_slit_ev": 20.0
+    }
+  },
+
+  "image": {
+    "datetime_utc": "2026-04-28T22:14:07Z",
+    "stage_um": [-123.4521, 87.6543, -14.215],
+    "tilt_deg": [0.0, 0.0],
+    "image_shift_um": [1.8, -0.3],
+    "image_shift_group_id": "afis-grp-007",
+    "defocus_target_um": -1.5,
+    "dose_rate_e_per_pixel_per_s": 21.8,
+    "pixel_size_a_actual": 0.84,
+    "pixel_stats": {"min": -33, "max": 1525, "mean": 89.4}
+  },
+
+  "montage": null,
+
+  "processing": {
+    "motioncor": {
+      "engine": "MotionCor2/1.6.4",
+      "total_drift_pixels": 14.7,
+      "max_frame_drift_pixels": 2.3,
+      "num_frames_aligned": 40,
+      "dose_weighted": true
+    },
+    "ctf": {
+      "engine": "ctffind4/4.1.14",
+      "defocus_u_a": 15234.7,
+      "defocus_v_a": 14891.2,
+      "astigmatism_angle_deg": 42.1,
+      "additional_phase_shift_rad": 0.0,
+      "cc": 0.187,
+      "resolution_limit_a": 4.8
+    },
+    "denoise": null
+  },
+
+  "qc": {
+    "verdict": "accepted",
+    "scores": {
+      "motion": 0.78,
+      "ctf": 0.81,
+      "ice_thickness_nm": 35.0
+    }
+  },
+
+  "magellon": {
+    "artifact_oid": "8c5a1e64-3f12-4d8b-9a2e-7f0c4a1b8e91",
+    "source_artifact_oid": "1d7b2f33-9c44-4ea1-8765-2a3e9d0c1f42",
+    "image_id": "f1a2b3c4-d5e6-7890-1234-567890abcdef",
+    "msession_id": "session-2026-04-28-grid-3",
+    "pipeline_run_id": "9b3c8d22-7e44-4f00-a1b2-c3d4e5f60718",
+    "producer": {
+      "plugin_id": "motioncor/motioncor2",
+      "plugin_version": "1.6.4",
+      "params_hash": "sha256:a47f9c2e8b1d3047f8e5c6a9b2d4e0f1c7a8b9d0e1f2304567890abcdef01234"
+    },
+    "workflow_url": "https://magellon.ncmi.org/api/artifacts/8c5a1e64-3f12-4d8b-9a2e-7f0c4a1b8e91/workflow.json"
+  },
+
+  "_variants": {
+    "montage_tile_example": {
+      "comment": "When this MRC is one tile of a low-mag montage, the `montage` field is populated instead of null. Everything else stays the same (preset reference still applies). image.stage_um differs per tile.",
+      "montage": {
+        "parent_montage_oid": "5e8b6a44-1c22-4f7d-b9e3-8a1c0d2e5f73",
+        "tile_index": 12,
+        "total_tiles": 56,
+        "piece_coords_px": [2244, 5124, 0],
+        "grid_dims": [7, 8],
+        "section_index": 0
+      }
+    },
+    "raw_acquisition_example": {
+      "comment": "Pre-processing MRC straight off the scope. processing.motioncor / processing.ctf are null; qc may be null. The preset snapshot + image block is the full payload.",
+      "processing": {"motioncor": null, "ctf": null, "denoise": null},
+      "qc": null
+    }
+  }
+}
