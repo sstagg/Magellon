@@ -26,6 +26,15 @@ The four tracks:
 
 ## PE1. Typed-socket subject tags
 
+**Status (2026-05-11):** PE1-A (category-level `produces_subject_kind`) and
+PE1-B (field-level `input_subjects` / `output_subjects` + dispatch gate)
+both shipped. PE1-B uses the existing `subject_kind` / `Artifact.kind`
+vocabulary rather than the new richer vocabulary the plan example
+sketched — pragmatic choice given that only `particle_stack_id` is an
+artifact-OID input today; rich-vocab extension is deferred until more
+inputs migrate from paths to artifact OIDs. Frontend catalog filter
+(below) is the remaining PE1 deliverable.
+
 ### Goal
 
 Make it impossible to dispatch a plugin against an input whose subject type doesn't match what it accepts. Today the schema endpoints (`GET /plugins/{id}/schema/{input,output}`, shipped in Track C) carry field types but not semantic input subjects, so the only validation is "did the dispatcher pass the right number of artifact ids."

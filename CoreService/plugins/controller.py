@@ -192,6 +192,16 @@ class _CategoryCapabilities(BaseModel):
     """PE1-A: from CategoryContract.produces_subject_kind. ``None``
     means the output subject is the same as the input — only
     transforming categories (PARTICLE_EXTRACTION) populate it."""
+    input_subjects: Dict[str, str] = {}
+    """PE1-B (2026-05-11): surfaced from CategoryContract.input_subjects.
+    Maps input field name → subject-kind tag. The catalog's
+    "what consumes ParticleStack?" filter reads this; the dispatcher
+    uses the same map to validate UUID-typed inputs."""
+    output_subjects: Dict[str, str] = {}
+    """PE1-B: from CategoryContract.output_subjects. Maps output
+    field name → subject-kind tag. The catalog's "which output is
+    the produced-artifact OID?" answer reads this — distinguishes
+    a scalar summary from the artifact reference."""
 
 
 class _CapabilitiesResponse(BaseModel):
@@ -301,6 +311,8 @@ async def list_capabilities() -> _CapabilitiesResponse:
             output_schema=output_schema,
             subject_kind=contract.subject_kind,
             produces_subject_kind=contract.produces_subject_kind,
+            input_subjects=dict(contract.input_subjects),
+            output_subjects=dict(contract.output_subjects),
         ))
 
     return _CapabilitiesResponse(
@@ -853,6 +865,100 @@ def _reject_if_subject_missing(
             )
 
 
+# Subject tags that name Artifact subtypes — these are the only tags the
+# dispatch gate validates today, because they map 1:1 to ``Artifact.kind``.
+# ``image`` is descriptive metadata (Image rows live in a separate table);
+# session/run/artifact are task-bag concepts, not field-level references.
+# When Image migrates to Artifact STI, add ``"image"`` here.
+_ARTIFACT_TAG_VOCAB = frozenset({"particle_stack", "class_averages"})
+
+
+def _reject_if_subject_tag_mismatch(
+    contract: CategoryContract,
+    validated_input,
+) -> None:
+    """PE1-B (2026-05-11): per-field subject-tag validation at dispatch.
+
+    Walk ``contract.input_subjects`` and, for each artifact-kind tag
+    that names an existing Artifact subtype (today: ``particle_stack``,
+    ``class_averages``), resolve the referenced Artifact row and
+    confirm its ``kind`` matches. Reject with 422 on mismatch — the
+    plugin would have failed downstream after a queue round-trip
+    otherwise, leaving a hung job row.
+
+    Fields with no value (``None``) are skipped — that case is owned
+    by ``_reject_if_subject_missing`` (PE1-A), which handles the
+    aggregate-category required-subject contract separately.
+
+    Fields tagged with vocabulary outside ``_ARTIFACT_TAG_VOCAB``
+    (today: ``"image"``) are skipped — those tags exist for catalog
+    metadata, not dispatch validation. When Image becomes an Artifact
+    subtype the validation extends without code changes here.
+    """
+    if not contract.input_subjects:
+        return
+
+    pending_lookups: List[Tuple[str, str, uuid.UUID]] = []
+    for field_name, expected_tag in contract.input_subjects.items():
+        if expected_tag not in _ARTIFACT_TAG_VOCAB:
+            continue
+        raw = getattr(validated_input, field_name, None)
+        if raw is None:
+            continue
+        if isinstance(raw, uuid.UUID):
+            candidate = raw
+        else:
+            try:
+                candidate = uuid.UUID(str(raw))
+            except (ValueError, AttributeError):
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"Category {contract.category.name} field "
+                        f"{field_name!r} expected an artifact OID "
+                        f"(subject={expected_tag!r}); got {raw!r}."
+                    ),
+                )
+        pending_lookups.append((field_name, expected_tag, candidate))
+
+    if not pending_lookups:
+        return
+
+    # One short-lived session for the whole gate, mirroring the
+    # _resolve_plugin_category pattern elsewhere in this module.
+    from sqlalchemy.orm import Session as _Session
+    from database import session_local
+    from models.sqlalchemy_models import Artifact
+
+    db: _Session = session_local()
+    try:
+        for field_name, expected_tag, oid in pending_lookups:
+            row = (
+                db.query(Artifact)
+                .filter(Artifact.oid == oid)
+                .first()
+            )
+            if row is None or row.deleted_at is not None:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"Category {contract.category.name} field "
+                        f"{field_name!r} references unknown artifact {oid}."
+                    ),
+                )
+            if row.kind != expected_tag:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"Category {contract.category.name} field "
+                        f"{field_name!r} expected subject={expected_tag!r}; "
+                        f"artifact {oid} is kind={row.kind!r}."
+                    ),
+                )
+    finally:
+        db.close()
+
+
 def _derive_subject(
     contract: CategoryContract,
     validated_input,
@@ -973,6 +1079,7 @@ async def _submit_broker_job(
 ) -> Dict[str, Any]:
     validated = _validate_broker_input(contract, request.input)
     _reject_if_subject_missing(contract, validated)
+    _reject_if_subject_tag_mismatch(contract, validated)
     settings = (
         validated.model_dump(mode="json")
         if hasattr(validated, "model_dump") else validated
@@ -1031,6 +1138,7 @@ async def _submit_broker_batch(
     ]
     for validated in validated_inputs:
         _reject_if_subject_missing(contract, validated)
+        _reject_if_subject_tag_mismatch(contract, validated)
 
     # Resolve the target impl once for the whole batch. Rolls any 503
     # (no live impl) / 409 (disabled) before a single job row is

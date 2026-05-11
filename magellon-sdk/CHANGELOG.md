@@ -11,6 +11,43 @@ Version pattern follows SemVer as defined in `CONTRACT.md` §4.
 
 ---
 
+## 2.4.0 — 2026-05-11
+
+**Minor.** Field-level subject tags on `CategoryContract` — the
+"PE1 proper" slice of the pipeline-ergonomics plan
+(`Magellon/Documentation/PIPELINE_ERGONOMICS_PLAN.md` PE1). PE1-A
+(2.3.0) tagged the category as a whole; PE1-B drills into per-input
+and per-output fields so the dispatcher can validate artifact-OID
+inputs and the catalog UI can surface "which output field carries
+the produced-artifact OID."
+
+### Added
+
+- **`CategoryContract.input_subjects: Mapping[str, str]`** — maps
+  input-model field name → subject-kind tag (from the existing
+  `subject_kind` / `Artifact.kind` vocabulary:
+  `image | particle_stack | class_averages | session | run | artifact`).
+  Default empty dict; legacy contracts pass dispatch unchanged.
+- **`CategoryContract.output_subjects: Mapping[str, str]`** —
+  same shape, for outputs. Used by the catalog UI to identify
+  the produced-artifact-OID field amongst scalar summaries.
+- Populated on all 10 existing category contracts. Every
+  image-keyed category tags `image_id → "image"`;
+  `TWO_D_CLASSIFICATION_CATEGORY.input_subjects` tags
+  `particle_stack_id → "particle_stack"` (the one artifact-OID
+  input field today, validated by the CoreService dispatch gate);
+  `PARTICLE_EXTRACTION_CATEGORY.output_subjects` tags
+  `particle_stack_id → "particle_stack"` (the produced-artifact
+  reference filled in by the projector).
+
+### Compatibility
+
+Frozen-pydantic backwards-compatible — both fields are default-empty,
+so existing constructors keep working. Consumers pinned to SDK 2.3
+see no behavioral change.
+
+---
+
 ## 2.3.0 — 2026-05-10
 
 **Minor.** Additive metadata for the typed-socket pipeline ergonomics

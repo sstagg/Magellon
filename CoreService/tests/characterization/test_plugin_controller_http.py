@@ -412,6 +412,47 @@ def test_capabilities_endpoint_surfaces_produces_subject_kind_for_extraction(
 
 
 @_pytest.mark.characterization
+def test_capabilities_endpoint_surfaces_input_subjects(
+    client, isolated_liveness_registry,
+):
+    """PE1-B: per-input-field subject tags ride alongside the category-
+    level subject_kind. Every image-keyed category tags ``image_id``;
+    2D classification additionally tags ``particle_stack_id`` (the one
+    artifact-OID input field today, validated by the dispatch gate)."""
+    body = client.get("/plugins/capabilities").json()
+    by_name = {c["name"]: c for c in body["categories"]}
+
+    # Every image-keyed category tags image_id.
+    assert by_name["CTF"]["input_subjects"]["image_id"] == "image"
+    assert by_name["FFT"]["input_subjects"]["image_id"] == "image"
+    assert by_name["MotionCor"]["input_subjects"]["image_id"] == "image"
+
+    # 2D classification tags the artifact-OID input.
+    cls_in = by_name["2D Classification"]["input_subjects"]
+    assert cls_in["particle_stack_id"] == "particle_stack"
+
+
+@_pytest.mark.characterization
+def test_capabilities_endpoint_surfaces_output_subjects_for_extraction(
+    client, isolated_liveness_registry,
+):
+    """PE1-B: ``output_subjects`` identifies which output field carries
+    the produced-artifact OID. Particle extraction emits a
+    ``particle_stack`` artifact and tags ``particle_stack_id`` on the
+    output — the catalog UI uses this to distinguish the artifact
+    reference from scalar summaries like ``particle_count``."""
+    body = client.get("/plugins/capabilities").json()
+    by_name = {c["name"]: c for c in body["categories"]}
+
+    assert (
+        by_name["ParticleExtraction"]["output_subjects"]["particle_stack_id"]
+        == "particle_stack"
+    )
+    # In-place categories don't yet tag outputs (no produced-artifact OID).
+    assert by_name["CTF"]["output_subjects"] == {}
+
+
+@_pytest.mark.characterization
 def test_submit_job_rejects_particle_stack_category_without_subject_id(
     client, isolated_liveness_registry,
 ):
@@ -452,3 +493,188 @@ def test_submit_job_rejects_particle_stack_category_without_subject_id(
 def test_cancel_unknown_job_returns_404(client):
     resp = client.delete("/plugins/jobs/00000000-0000-0000-0000-000000000999")
     assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# PE1-B (2026-05-11): dispatch gate validates artifact-kind on UUID inputs
+# ---------------------------------------------------------------------------
+#
+# Unit tests against ``_reject_if_subject_tag_mismatch`` directly. The
+# HTTP-route wiring is proven by the existing PE1-A test
+# (``test_submit_job_rejects_particle_stack_category_without_subject_id``)
+# — same call site, same exception shape, so the wiring assertion
+# carries over for free. These tests focus on the gate's semantics:
+# OK on match, 422 on mismatch, 422 on missing row, no-op on legacy
+# contracts.
+
+
+from unittest.mock import MagicMock as _MagicMock
+import uuid as _uuid
+
+from fastapi import HTTPException as _HTTPException
+
+from magellon_sdk.categories.contract import (
+    CTF as _CTF,
+    TWO_D_CLASSIFICATION_CATEGORY as _TWO_D_CLASSIFICATION_CATEGORY,
+)
+from magellon_sdk.models.tasks import TwoDClassificationInput as _TwoDClassificationInput
+from plugins.controller import _reject_if_subject_tag_mismatch as _gate
+
+
+class _FakeArtifact:
+    def __init__(self, oid: _uuid.UUID, kind: str, deleted_at=None):
+        self.oid = oid
+        self.kind = kind
+        self.deleted_at = deleted_at
+
+
+def _install_fake_session(monkeypatch, *artifacts: _FakeArtifact):
+    """Wire ``database.session_local`` to return a session that resolves
+    ``Artifact.oid == X`` to the matching ``_FakeArtifact``, or None.
+
+    Kept inline because no other test in this module touches the DB and
+    spinning up a real Alembic-migrated test DB just to assert one
+    rejection would be overkill.
+    """
+    by_oid = {a.oid: a for a in artifacts}
+
+    def _filter(predicate):
+        # The gate calls ``db.query(Artifact).filter(Artifact.oid == oid)``;
+        # SQLAlchemy expressions are opaque here, so we read the oid from
+        # the call site's locals via the most recent invocation captured
+        # below. Tests pin the captured oid before asserting.
+        return _QueryStub(predicate)
+
+    class _QueryStub:
+        def __init__(self, predicate):
+            self._predicate = predicate
+            # The predicate is `Artifact.oid == <UUID>`. Pull the rhs.
+            try:
+                self._wanted = predicate.right.value
+            except AttributeError:
+                self._wanted = None
+
+        def filter(self, *args, **kwargs):
+            # The gate doesn't chain a second filter on Artifact lookups,
+            # but lineage helpers do — be permissive.
+            return self
+
+        def first(self):
+            return by_oid.get(self._wanted)
+
+    fake_session = _MagicMock()
+    fake_session.query.return_value.filter.side_effect = _filter
+    fake_session.close = _MagicMock()
+
+    import database as _database
+    monkeypatch.setattr(_database, "session_local", lambda: fake_session)
+
+
+def test_gate_passes_when_artifact_kind_matches_tag(monkeypatch):
+    """Happy path: ``particle_stack_id`` tagged ``particle_stack`` and
+    the row's ``kind`` matches — the gate returns silently."""
+    oid = _uuid.uuid4()
+    _install_fake_session(monkeypatch, _FakeArtifact(oid, "particle_stack"))
+
+    inp = _TwoDClassificationInput(
+        particle_stack_id=oid,
+        mrcs_path="/x/y.mrcs",
+        star_path="/x/y.star",
+        output_dir="/x/out",
+    )
+    # No raise = pass.
+    _gate(_TWO_D_CLASSIFICATION_CATEGORY, inp)
+
+
+def test_gate_rejects_when_artifact_kind_does_not_match(monkeypatch):
+    """A 2D-class dispatch pointing at a ``class_averages`` artifact
+    (wrong kind for the field) is rejected with 422 before any worker
+    is woken — the headline PE1 payoff."""
+    oid = _uuid.uuid4()
+    _install_fake_session(monkeypatch, _FakeArtifact(oid, "class_averages"))
+
+    inp = _TwoDClassificationInput(
+        particle_stack_id=oid,
+        mrcs_path="/x/y.mrcs",
+        star_path="/x/y.star",
+        output_dir="/x/out",
+    )
+    with pytest.raises(_HTTPException) as exc:
+        _gate(_TWO_D_CLASSIFICATION_CATEGORY, inp)
+    assert exc.value.status_code == 422
+    assert "particle_stack_id" in exc.value.detail
+    assert "particle_stack" in exc.value.detail
+    assert "class_averages" in exc.value.detail
+
+
+def test_gate_rejects_when_artifact_missing(monkeypatch):
+    """OID with no row in the table (deleted or never existed) is a
+    dispatch error, not a silent fall-through. Without this, a stale
+    OID would land a queued task that fails far downstream."""
+    oid = _uuid.uuid4()
+    _install_fake_session(monkeypatch)  # no artifacts seeded
+
+    inp = _TwoDClassificationInput(
+        particle_stack_id=oid,
+        mrcs_path="/x/y.mrcs",
+        star_path="/x/y.star",
+        output_dir="/x/out",
+    )
+    with pytest.raises(_HTTPException) as exc:
+        _gate(_TWO_D_CLASSIFICATION_CATEGORY, inp)
+    assert exc.value.status_code == 422
+    assert "unknown artifact" in exc.value.detail
+
+
+def test_gate_rejects_soft_deleted_artifact(monkeypatch):
+    """An artifact with ``deleted_at`` set is invisible to the gate —
+    consistent with the read endpoints (artifacts_controller) treating
+    soft-deleted rows as 404s."""
+    from datetime import datetime
+    oid = _uuid.uuid4()
+    _install_fake_session(
+        monkeypatch,
+        _FakeArtifact(oid, "particle_stack", deleted_at=datetime.utcnow()),
+    )
+
+    inp = _TwoDClassificationInput(
+        particle_stack_id=oid,
+        mrcs_path="/x/y.mrcs",
+        star_path="/x/y.star",
+        output_dir="/x/out",
+    )
+    with pytest.raises(_HTTPException) as exc:
+        _gate(_TWO_D_CLASSIFICATION_CATEGORY, inp)
+    assert exc.value.status_code == 422
+
+
+def test_gate_is_noop_on_legacy_contract_with_no_tags():
+    """A contract with no ``input_subjects`` declared must pass the
+    gate unchanged — the migration story for pre-PE1-B categories."""
+    # Construct a contract with the input_subjects map intentionally empty.
+    from magellon_sdk.categories.contract import CategoryContract
+    from magellon_sdk.categories.outputs import CtfOutput
+    from magellon_sdk.models.tasks import CTF_TASK, CtfInput
+
+    legacy = CategoryContract(
+        category=CTF_TASK,
+        input_model=CtfInput,
+        output_model=CtfOutput,
+    )
+    inp = CtfInput(inputFile="/x.mrc")
+    # No raise even without a session fixture — the gate short-circuits
+    # before touching the DB when input_subjects is empty.
+    _gate(legacy, inp)
+
+
+def test_gate_skips_image_tags(monkeypatch):
+    """Image-tagged fields aren't validated today (Image isn't an
+    Artifact subtype). The gate must not query the DB for them —
+    if it did, the existing image-keyed dispatches would all fail."""
+    from magellon_sdk.models.tasks import CtfInput
+
+    # Image id present but DB has no artifact rows. The gate must
+    # ignore the ``image`` tag entirely and not raise.
+    _install_fake_session(monkeypatch)
+    inp = CtfInput(inputFile="/x.mrc", image_id=_uuid.uuid4())
+    _gate(_CTF, inp)

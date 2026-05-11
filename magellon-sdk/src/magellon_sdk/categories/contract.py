@@ -25,7 +25,7 @@ pika/nats lives elsewhere.
 """
 from __future__ import annotations
 
-from typing import Dict, Type
+from typing import Dict, Mapping, Type
 
 from pydantic import BaseModel, ConfigDict
 
@@ -181,6 +181,36 @@ class CategoryContract(BaseModel):
     a future workflow composer can answer "which plugins can consume
     the output of this one?" from capability metadata alone."""
 
+    input_subjects: Mapping[str, str] = {}
+    """PE1-B (2026-05-11). Per-field subject tag for inputs. Maps
+    input-model field name → subject-kind tag (from the same
+    vocabulary as ``subject_kind`` / ``Artifact.kind``:
+    ``image | particle_stack | class_averages | session | run | artifact``).
+
+    Empty dict (the default) means "no field-level tags declared" —
+    legacy contracts pass dispatch validation unchanged. Populated
+    contracts let the dispatcher validate UUID-typed input fields
+    against the referenced Artifact's ``kind`` *before* publishing
+    a task — closing the "plugin runs, then fails because the input
+    was the wrong shape" class of bug for artifact-OID inputs.
+
+    Today only ``particle_stack_id`` carries an artifact OID
+    (TwoDClassificationInput); other UUID fields point at Image /
+    Session / Job rows which aren't Artifact subtypes. The dispatch
+    gate validates only the artifact-kind tags (``particle_stack``,
+    ``class_averages``); ``image`` tags are descriptive metadata
+    until Image becomes an Artifact subtype."""
+
+    output_subjects: Mapping[str, str] = {}
+    """PE1-B (2026-05-11). Per-field subject tag for outputs. Maps
+    output-model field name → subject-kind tag. Same vocabulary as
+    ``input_subjects``.
+
+    Used by the catalog UI / workflow composer to answer "which
+    output field carries the produced-artifact OID?" — distinguishes
+    a scalar summary (``num_particles``) from the artifact reference
+    (``particle_stack_id``). Empty dict means no tags declared."""
+
     @property
     def task_subject(self) -> str:
         return task_subject(self.category.name)
@@ -218,22 +248,33 @@ class CategoryContract(BaseModel):
 # Concrete categories
 # ---------------------------------------------------------------------------
 
+# Field-tag populations below: every category tags its image_id input
+# as ``"image"`` for catalog discoverability. Artifact-OID input fields
+# (today only ``particle_stack_id``) carry the artifact's kind so the
+# dispatch gate can validate the referenced row. Output fields carrying
+# an artifact OID (filled in by ``TaskOutputProcessor._maybe_write_artifact``
+# after the result is projected) are tagged so the UI knows which output
+# field is the produced-artifact reference.
+
 FFT = CategoryContract(
     category=FFT_TASK,
     input_model=FftInput,
     output_model=FftOutput,
+    input_subjects={"image_id": "image"},
 )
 
 CTF = CategoryContract(
     category=CTF_TASK,
     input_model=CtfInput,
     output_model=CtfOutput,
+    input_subjects={"image_id": "image"},
 )
 
 MOTIONCOR_CATEGORY = CategoryContract(
     category=MOTIONCOR,
     input_model=MotionCorInput,
     output_model=MotionCorOutput,
+    input_subjects={"image_id": "image"},
 )
 
 PARTICLE_PICKER = CategoryContract(
@@ -245,30 +286,35 @@ PARTICLE_PICKER = CategoryContract(
     # this pointer updates without touching consumers.
     input_model=CryoEmImageInput,
     output_model=ParticlePickingOutput,
+    input_subjects={"image_id": "image"},
 )
 
 SQUARE_DETECT = CategoryContract(
     category=SQUARE_DETECTION,
     input_model=PtolemyInput,
     output_model=SquareDetectionOutput,
+    input_subjects={"image_id": "image"},
 )
 
 HOLE_DETECT = CategoryContract(
     category=HOLE_DETECTION,
     input_model=PtolemyInput,
     output_model=HoleDetectionOutput,
+    input_subjects={"image_id": "image"},
 )
 
 TOPAZ_PICK = CategoryContract(
     category=TOPAZ_PARTICLE_PICKING,
     input_model=TopazPickInput,
     output_model=ParticlePickingOutput,
+    input_subjects={"image_id": "image"},
 )
 
 DENOISE = CategoryContract(
     category=MICROGRAPH_DENOISING,
     input_model=MicrographDenoiseInput,
     output_model=MicrographDenoisingOutput,
+    input_subjects={"image_id": "image"},
 )
 
 PARTICLE_EXTRACTION_CATEGORY = CategoryContract(
@@ -279,6 +325,11 @@ PARTICLE_EXTRACTION_CATEGORY = CategoryContract(
     # the canonical "transforming" category — input subject differs
     # from output subject.
     produces_subject_kind="particle_stack",
+    input_subjects={"image_id": "image"},
+    # ``particle_stack_id`` on the output is filled in by the projector
+    # after it writes the Artifact row; tagging it lets the UI surface
+    # "this is the produced-artifact reference" without parsing the schema.
+    output_subjects={"particle_stack_id": "particle_stack"},
 )
 
 TWO_D_CLASSIFICATION_CATEGORY = CategoryContract(
@@ -288,6 +339,18 @@ TWO_D_CLASSIFICATION_CATEGORY = CategoryContract(
     # 2D classification operates on a particle stack (an aggregate),
     # not a single image. Per ratified rule 7 (one task per stack).
     subject_kind="particle_stack",
+    # The only artifact-OID input today — dispatch gate will validate
+    # the referenced Artifact's ``kind == "particle_stack"`` before
+    # publishing the task. ``image_id`` may also be set (the runner
+    # back-compat path) and is descriptively tagged.
+    input_subjects={
+        "particle_stack_id": "particle_stack",
+        "image_id": "image",
+    },
+    # ``source_particle_stack_id`` echoes the input artifact OID; the
+    # produced class-averages OID is stamped onto a separate Artifact
+    # row by the projector, not on this output struct.
+    output_subjects={"source_particle_stack_id": "particle_stack"},
 )
 
 

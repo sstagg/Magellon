@@ -27,8 +27,10 @@ from magellon_sdk.categories import (
     FftOutput,
     MOTIONCOR_CATEGORY,
     MotionCorOutput,
+    PARTICLE_EXTRACTION_CATEGORY,
     PARTICLE_PICKER,
     ParticlePickingOutput,
+    TWO_D_CLASSIFICATION_CATEGORY,
     announce_subject,
     config_subject,
     get_category,
@@ -238,3 +240,89 @@ def test_contract_is_frozen():
     would be a nasty bug. Pin that frozen=True stays on."""
     with pytest.raises(Exception):  # pydantic raises ValidationError on frozen
         CTF.category = FFT_TASK  # type: ignore[misc]
+
+
+# ---------------------------------------------------------------------------
+# PE1-B: per-field subject tags
+# ---------------------------------------------------------------------------
+
+_ARTIFACT_KIND_VOCAB = {
+    "image",
+    "particle_stack",
+    "class_averages",
+    "session",
+    "run",
+    "artifact",
+}
+"""The shared subject-kind vocabulary (Artifact.kind ∪ subject_kind).
+Any tag PE1-B contracts use must come from this set. Growing the
+vocab is fine — but it should grow in lockstep with new Artifact
+subtypes, not drift independently per category."""
+
+
+def test_field_subjects_default_empty_for_legacy_contracts():
+    """A contract that doesn't declare any field tags is legal —
+    legacy categories pass dispatch validation unchanged. New
+    categories opt in by populating the maps."""
+    legacy = CategoryContract(
+        category=CTF_TASK,
+        input_model=CtfInput,
+        output_model=CtfOutput,
+    )
+    assert legacy.input_subjects == {}
+    assert legacy.output_subjects == {}
+
+
+def test_every_contract_field_tag_uses_known_vocab():
+    """Typo guard: a contract declaring ``input_subjects={"foo": "MicroGrap"}``
+    would silently never match a real Artifact.kind. Reject anything
+    outside the agreed vocab at test time so the typo surfaces here
+    instead of as a mysterious dispatch-gate miss in production."""
+    for code, contract in CATEGORIES.items():
+        for field, tag in contract.input_subjects.items():
+            assert tag in _ARTIFACT_KIND_VOCAB, (
+                f"Category {contract.category.name} input field "
+                f"{field!r} uses unknown subject tag {tag!r}; "
+                f"vocabulary is {sorted(_ARTIFACT_KIND_VOCAB)}"
+            )
+        for field, tag in contract.output_subjects.items():
+            assert tag in _ARTIFACT_KIND_VOCAB, (
+                f"Category {contract.category.name} output field "
+                f"{field!r} uses unknown subject tag {tag!r}; "
+                f"vocabulary is {sorted(_ARTIFACT_KIND_VOCAB)}"
+            )
+
+
+def test_two_d_classification_tags_particle_stack_id_as_artifact_input():
+    """The dispatch gate's primary target: ``particle_stack_id`` is the
+    one artifact-OID input field in the system today. If this tag goes
+    missing, the gate silently stops validating 2D-class dispatches."""
+    assert (
+        TWO_D_CLASSIFICATION_CATEGORY.input_subjects.get("particle_stack_id")
+        == "particle_stack"
+    )
+
+
+def test_particle_extraction_tags_output_artifact_id():
+    """The extractor's output carries the produced particle_stack OID
+    (filled in by the projector). Tagging it lets the catalog UI
+    surface "this is the produced-artifact reference field" without
+    parsing the JSON Schema."""
+    assert (
+        PARTICLE_EXTRACTION_CATEGORY.output_subjects.get("particle_stack_id")
+        == "particle_stack"
+    )
+
+
+def test_image_keyed_categories_tag_image_id():
+    """Every image-keyed category tags ``image_id``. Descriptive today
+    (the Image table isn't an Artifact subtype, so dispatch doesn't
+    validate against it); becomes load-bearing if Image migrates to
+    Artifact STI."""
+    image_keyed = [
+        FFT, CTF, MOTIONCOR_CATEGORY, PARTICLE_PICKER, PARTICLE_EXTRACTION_CATEGORY,
+    ]
+    for contract in image_keyed:
+        assert contract.input_subjects.get("image_id") == "image", (
+            f"{contract.category.name} should tag image_id as 'image'"
+        )
