@@ -85,3 +85,69 @@ Docker/.env
 # Claude Code
 .claude/
 CLAUDE.md
+
+# ---------------------------------------------------------------------------
+# Python tooling caches and build artifacts
+# ---------------------------------------------------------------------------
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+
+# Virtual environments anywhere in the tree
+**/.venv/
+**/venv/
+
+# Pytest tmpdir scaffolding created by integration tests under CoreService/
+pytest_tmp/
+pytest_tmp_*/
+
+# ---------------------------------------------------------------------------
+# Plugin packaging artifacts (built .mpn bundles at the plugins/ root only;
+# CoreService/tests/fixtures/plugins/sample.mpn is intentionally tracked)
+# ---------------------------------------------------------------------------
+/plugins/*.mpn
+
+# ---------------------------------------------------------------------------
+# AWS sandbox experiment outputs (CoreService/sandbox/aws/test-*/)
+# ---------------------------------------------------------------------------
+CoreService/sandbox/aws/test-*/outputs/
+CoreService/sandbox/aws/test-*/outputs-local/
+CoreService/sandbox/aws/test-*/outputs-local-*/
+CoreService/sandbox/aws/test-*/early/
+CoreService/sandbox/aws/test-*/early-fetch/
+CoreService/sandbox/aws/test-*/*.tar.gz
+
+# ---------------------------------------------------------------------------
+# Sandbox/ run outputs and generated previews
+# (Sandbox/2dclass_evaluator/**/outputs/ is intentionally tracked — do not add
+# a blanket `Sandbox/**/outputs/` rule)
+# ---------------------------------------------------------------------------
+Sandbox/pipeline_run_default/
+Sandbox/**/runs/
+Sandbox/**/stitched_preview/
+Sandbox/**/stitched_preview_by_section/
+Sandbox/**/*_rust_quilter_test/
+Sandbox/**/ashlar_*_test/
+Sandbox/**/can_output/
+Sandbox/**/can_output_*/
+Sandbox/**/picker_output/
+Sandbox/**/stack_output/
+Sandbox/particle_picking_topaz/example_images/topaz_picks/
+
+# Hole-square detector: ONNX exports and dataset cache (the .torchmodel
+# checkpoints under weights/ are intentionally tracked)
+Sandbox/hole_square_detection_ptolemy/weights/*.onnx
+Sandbox/hole_square_detection_ptolemy/coco/
+
+# ---------------------------------------------------------------------------
+# Resources/Images: bulk MRC/PNG data; only the Readme is tracked
+# ---------------------------------------------------------------------------
+Resources/Images/*
+!Resources/Images/Readme.md
