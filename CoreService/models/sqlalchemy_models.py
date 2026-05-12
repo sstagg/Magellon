@@ -728,6 +728,16 @@ class Artifact(Base):
     apix = Column(DECIMAL(asdecimal=False))
     box_size = Column(INTEGER(11))
 
+    # Dispatch-cache columns (alembic 0010, PE2). Four hot fields make
+    # up the cache key; the covering index (declared via ``__table_args__``
+    # below) turns the lookup into a single indexed point query.
+    # Nullable so pre-PE2 artifacts and any non-cacheable producer that
+    # skips the cache key path still write valid rows.
+    producer_plugin_id = Column(String(64), nullable=True)
+    producer_plugin_version = Column(String(64), nullable=True)
+    params_hash = Column(String(64), nullable=True)
+    input_set_hash = Column(String(64), nullable=True)
+
     # Long-tail per-kind metadata.
     data_json = Column(JSON)
 
@@ -736,6 +746,16 @@ class Artifact(Base):
 
     OptimisticLockField = Column(INTEGER(11))
     GCRecord = Column(INTEGER(11), index=True)
+
+    __table_args__ = (
+        Index(
+            'ix_artifact_dispatch_cache',
+            'producer_plugin_id',
+            'producer_plugin_version',
+            'params_hash',
+            'input_set_hash',
+        ),
+    )
 
     producing_job = relationship('ImageJob')
     producing_task = relationship('ImageJobTask')

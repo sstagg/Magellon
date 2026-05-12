@@ -1085,6 +1085,117 @@ def _publish_to_bus(
     return receipt.ok
 
 
+def _try_dispatch_cache_hit(
+    plugin_id: str,
+    contract: CategoryContract,
+    validated: Any,
+    settings: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    """Probe the PE2 dispatch cache; return a synthetic envelope on
+    hit, ``None`` to fall through to a real dispatch.
+
+    The lookup is intentionally narrow:
+
+      - Only artifact-producing categories cache (others have no
+        Artifact rows to point at).
+      - Only categories declaring a ``produces_subject_kind`` qualify
+        — they're the "transforming" categories where a new run with
+        identical params re-produces the same artifact. CTF /
+        MotionCor / FFT in-place categories don't write Artifacts and
+        therefore can't cache via this path.
+      - The plugin's ``produces_subject_kind`` resolves to one of the
+        Artifact ``kind`` values (``particle_stack`` / ``class_averages``).
+
+    On hit we return the original producing job's envelope so the
+    consumer's job_id reference still resolves to a real ``ImageJob``
+    row. The ``cached`` flag in the response is the wire signal —
+    callers that care (the React UI) can surface "served from cache".
+    """
+    # Today only PARTICLE_EXTRACTION and TWO_D_CLASSIFICATION write
+    # Artifact rows. ``produces_subject_kind != None`` is the gate
+    # (in-place categories like CTF leave it None per the contract).
+    if not getattr(contract, "produces_subject_kind", None):
+        return None
+
+    # Plugin version: read from the live announce registry — the
+    # version that would actually run this task. Same source the
+    # dispatch path uses to pick a backend.
+    plugin_version = _resolve_live_plugin_version(plugin_id)
+    if plugin_version is None:
+        return None
+
+    # Input OIDs: the artifact-typed inputs declared by the contract.
+    # Today the only artifact-OID input is ``particle_stack_id``;
+    # other UUID fields point at Image / Session rows that aren't
+    # Artifacts. Restricting to artifact inputs keeps the cache
+    # honest — we can only claim "same inputs" when those inputs are
+    # in fact the same Artifact OIDs.
+    input_oids: list = []
+    raw_dict = (
+        validated.model_dump(mode="json") if hasattr(validated, "model_dump")
+        else dict(validated)
+    )
+    for field, tag in (contract.input_subjects or {}).items():
+        if tag in ("particle_stack", "class_averages", "artifact"):
+            value = raw_dict.get(field)
+            if value:
+                input_oids.append(value)
+
+    try:
+        from database import session_local
+        from services.dispatch_cache import lookup_cached_output
+
+        db = session_local()
+        try:
+            hit = lookup_cached_output(
+                db,
+                plugin_id=plugin_id,
+                plugin_version=plugin_version,
+                params=settings,
+                input_oids=input_oids,
+            )
+        finally:
+            db.close()
+    except Exception as exc:  # noqa: BLE001 — cache miss on any failure
+        logger.warning(
+            "dispatch cache lookup failed (falling through): %s", exc,
+        )
+        return None
+
+    if hit is None:
+        return None
+
+    logger.info(
+        "dispatch cache HIT plugin_id=%s v=%s → artifact %s (job %s)",
+        plugin_id, plugin_version, hit.oid, hit.producing_job_id,
+    )
+    # Synthetic envelope — same shape as job_manager.create_job
+    # returns. The job_id reference is the *original* producing job.
+    return {
+        "job_id": str(hit.producing_job_id) if hit.producing_job_id else None,
+        "name": f"{plugin_id} job (cached)",
+        "status": "completed",
+        "cached": True,
+        "cached_artifact_id": str(hit.oid),
+    }
+
+
+def _resolve_live_plugin_version(plugin_id: str) -> Optional[str]:
+    """Look up the version of the plugin currently announced.
+
+    Returns ``None`` when no live entry exists — the caller treats
+    this as a cache miss (we don't know what version *would* run).
+    """
+    try:
+        from core.plugin_liveness_registry import get_registry
+        for entry in get_registry().list_live():
+            if entry.plugin_id == plugin_id:
+                return entry.plugin_version
+    except Exception:  # noqa: BLE001
+        return None
+    return None
+
+
 async def _submit_broker_job(
     plugin_id: str,
     contract: CategoryContract,
@@ -1097,6 +1208,18 @@ async def _submit_broker_job(
         validated.model_dump(mode="json")
         if hasattr(validated, "model_dump") else validated
     )
+    # PE2 dispatch cache (PIPELINE_ERGONOMICS_PLAN.md §PE2). Skip the
+    # bus publish entirely when an identical run has already
+    # completed — the prior artifact's producing job is returned
+    # verbatim. The cache lookup is one indexed point query against
+    # the (plugin_id, plugin_version, params_hash, input_set_hash)
+    # tuple on Artifact (alembic 0010).
+    cached_envelope = _try_dispatch_cache_hit(
+        plugin_id, contract, validated, settings,
+    )
+    if cached_envelope is not None:
+        return cached_envelope
+
     # Resolve the target impl BEFORE creating a job row — that way
     # H1.c's 503 ("no live enabled impl") doesn't leave an orphan
     # queued row behind.

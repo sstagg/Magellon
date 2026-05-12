@@ -19,6 +19,7 @@ import {ExportPageView} from "../../pages/export/ExportPageView.tsx";
 import PluginsPageView from "../../pages/plugins/PluginsPageView.tsx";
 import PluginRunnerPageView from "../../pages/plugins/PluginRunnerPageView.tsx";
 import CategoryBackendsPage from "../../pages/plugins/CategoryBackendsPage.tsx";
+import PluginRegistryPage from "../../pages/plugins/PluginRegistryPage.tsx";
 import ArtifactWorkflowPage from "../../pages/artifacts/ArtifactWorkflowPage.tsx";
 import LoginPageView from "../../features/auth/ui/LoginPageView.tsx";
 import UserProfilePage from "../../features/user-management/ui/UserProfilePage.tsx";
@@ -63,6 +64,7 @@ export const PanelRoutes = () => {
                 <Route path="/import-job" element={<ImportPageView />} />
                 <Route path="/export" element={<ExportPageView />} />
                 <Route path="/plugins" element={<PluginsPageView />} />
+                <Route path="/plugins/registry" element={<PluginRegistryPage />} />
                 <Route
                     path="/plugins/categories/:categorySlug"
                     element={<CategoryBackendsPage />}

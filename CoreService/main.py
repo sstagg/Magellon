@@ -19,7 +19,9 @@ from configs.production_test import production_intilization
 from config import app_settings
 from controllers.camera_controller import camera_router
 from controllers.admin_broker_controller import admin_broker_router
+from controllers.admin_dispatch_cache_controller import admin_dispatch_cache_router
 from controllers.admin_plugin_install_controller import admin_plugin_install_router
+from controllers.plugin_registry_controller import plugin_registry_router
 from controllers.system_stats_controller import system_stats_router
 from controllers.artifacts_controller import artifacts_router
 from controllers.cancellation_controller import cancellation_router
@@ -343,6 +345,23 @@ app.include_router(
     admin_plugin_install_router,
     tags=["Admin - Plugin Install"],
     prefix="/admin/plugins",
+)
+
+# PE2 dispatch cache — manual invalidation. Lookup + populate happen
+# inline on the dispatch path; this endpoint is the operator escape
+# hatch for clearing a bad run's cached output.
+app.include_router(
+    admin_dispatch_cache_router,
+    tags=["Admin - Dispatch Cache"],
+    prefix="/admin/dispatch-cache",
+)
+
+# PE4 registry — merge of hub index + local install state. Powers
+# the React /panel/plugins/registry page.
+app.include_router(
+    plugin_registry_router,
+    tags=["Plugin Registry"],
+    prefix="/plugins/registry",
 )
 
 # Live host metrics for the plugins dashboard. Administrator-gated;

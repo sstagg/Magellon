@@ -243,6 +243,73 @@ class TaskOutputProcessor:
         except (ValueError, TypeError, json.JSONDecodeError) as json_err:
             logger.error("JSON error saving metadata: %s", json_err)
 
+    def _cache_fields_for_task(
+        self, task_id: Optional[uuid.UUID],
+    ) -> Dict[str, Optional[str]]:
+        """Look up the dispatch-cache fields for a result's originating task.
+
+        PE2 (PIPELINE_ERGONOMICS_PLAN §PE2) stamps four fields onto every
+        new Artifact row:
+
+          - ``producer_plugin_id``      from ``ImageJobTask.plugin_id``
+          - ``producer_plugin_version`` from ``ImageJobTask.plugin_version``
+          - ``params_hash``             SHA-256 of the task's input params
+          - ``input_set_hash``          SHA-256 of the input artifact OID set
+
+        Returns ``{}``-equivalent values when the task can't be found or
+        the originating task didn't carry plugin provenance — the
+        artifact row still writes, the cache lookup just won't be able
+        to hit on it. Non-fatal by design.
+        """
+        if task_id is None:
+            return {
+                "producer_plugin_id": None,
+                "producer_plugin_version": None,
+                "params_hash": None,
+                "input_set_hash": None,
+            }
+        task = (
+            self.db.query(ImageJobTask)
+            .filter(ImageJobTask.oid == task_id)
+            .first()
+        )
+        if task is None:
+            return {
+                "producer_plugin_id": None,
+                "producer_plugin_version": None,
+                "params_hash": None,
+                "input_set_hash": None,
+            }
+
+        # Lazy import to avoid a cross-package dependency at module
+        # load time — the cache helpers live in magellon_sdk.
+        from magellon_sdk.cache import (
+            compute_input_set_hash,
+            compute_params_hash,
+        )
+
+        params = task.data_json or {}
+        # The "input set" is the artifact OIDs the task consumed.
+        # Today only TWO_D_CLASSIFICATION carries an explicit
+        # particle_stack_id; PARTICLE_EXTRACTION feeds an image_id
+        # which isn't an Artifact yet (per the rollout doc) — use the
+        # subject_id when subject_kind names an artifact-typed subject.
+        input_oids: list = []
+        ps_id = params.get("particle_stack_id") if isinstance(params, dict) else None
+        if ps_id:
+            input_oids.append(ps_id)
+        # Subject-axis fallback — when subject_kind is an artifact kind,
+        # subject_id is the input OID even without an explicit field.
+        if task.subject_kind in ("particle_stack", "class_averages") and task.subject_id:
+            input_oids.append(task.subject_id)
+
+        return {
+            "producer_plugin_id": task.plugin_id,
+            "producer_plugin_version": task.plugin_version,
+            "params_hash": compute_params_hash(params if isinstance(params, dict) else None),
+            "input_set_hash": compute_input_set_hash(input_oids),
+        }
+
     def _maybe_write_artifact(self, task_result: TaskResultMessage) -> Optional[uuid.UUID]:
         """If this result belongs to an artifact-producing category,
         write a new ``artifact`` row and return its id.
@@ -265,6 +332,11 @@ class TaskOutputProcessor:
 
         Anything else returns ``None`` — the rest of the projection
         runs unchanged (status_id, stage, ImageMetaData, etc.).
+
+        PE2 (2026-05-12): every artifact row also carries dispatch-cache
+        fields (``producer_plugin_id`` / ``producer_plugin_version`` /
+        ``params_hash`` / ``input_set_hash``) computed from the
+        originating task — see :meth:`_cache_fields_for_task`.
         """
         if task_result.type is None:
             return None
@@ -272,6 +344,7 @@ class TaskOutputProcessor:
         type_code = task_result.type.code
         out = task_result.output_data or {}
         artifact_id = uuid.uuid4()
+        cache_fields = self._cache_fields_for_task(task_result.task_id)
 
         if type_code == _TASK_TYPE_PARTICLE_EXTRACTION:
             row = Artifact(
@@ -290,6 +363,7 @@ class TaskOutputProcessor:
                     "source_micrograph_path": task_result.image_path,
                     "edge_width": out.get("edge_width"),
                 },
+                **cache_fields,
             )
             self.db.add(row)
             return artifact_id
@@ -334,6 +408,7 @@ class TaskOutputProcessor:
                     # prefer artifact.source_artifact_id.
                     "source_particle_stack_id": out.get("source_particle_stack_id"),
                 },
+                **cache_fields,
             )
             self.db.add(row)
             return artifact_id

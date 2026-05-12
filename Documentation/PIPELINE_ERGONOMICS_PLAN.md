@@ -283,6 +283,72 @@ Internal-only; the merge logic lives server-side so the frontend never holds Hub
 
 ---
 
+## PE2 — Dispatch cache (shipped 2026-05-12)
+
+Lineage-keyed cache as described above. What landed:
+
+- **Alembic 0010** adds four columns + the covering index
+  ``ix_artifact_dispatch_cache`` to ``artifact``:
+  ``producer_plugin_id``, ``producer_plugin_version``, ``params_hash``,
+  ``input_set_hash``. All nullable so pre-PE2 rows survive untouched.
+- **SDK** ships ``magellon_sdk.cache`` with three pure functions —
+  ``compute_input_set_hash``, ``compute_params_hash``,
+  ``compute_cache_key``. Canonical JSON + sorted-OID hashing so the
+  same inputs in different order produce the same key.
+- **Writer** (``TaskOutputProcessor._maybe_write_artifact``) populates
+  the four columns on every new Artifact row by joining to the
+  originating ``ImageJobTask`` for plugin id, version, and the input
+  params dict.
+- **Dispatcher hook** in ``plugins/controller.py`` —
+  ``_try_dispatch_cache_hit`` runs before bus publish. On hit, the
+  controller returns the prior producing job's envelope with
+  ``cached: True`` and ``cached_artifact_id`` so callers see the
+  same job_id reference they'd see from a real run. Only categories
+  that transform subjects (``produces_subject_kind != None``) cache —
+  in-place categories like CTF / MotionCor are unaffected.
+- **Supersession filter** in ``services/dispatch_cache.py``: walks
+  ``source_artifact_id`` ancestors and refuses a hit when any
+  ancestor has been soft-deleted (rule #2 from the plan).
+- **Admin invalidate endpoint** at
+  ``POST /admin/dispatch-cache/invalidate`` (rule #3, manual). At
+  least one filter required — refuses the no-filter case as a
+  safety check.
+
+Tests: 17 cache-behavior cases (hit, miss, version bump, params
+change, input-set change, soft-delete, superseded ancestor,
+invalidate by id/version/oid).
+
+---
+
+## PE4 — Registry UX layer (shipped 2026-05-12)
+
+Three-pane registry view on the React side, one merge endpoint on
+the backend.
+
+- **``GET /plugins/registry/index``** fetches the hub's
+  ``/v1/index.json`` and joins with local install state. The merge
+  shape: per plugin, latest hub version + installed version +
+  ``update_available`` flag + ``install_method`` chip + source
+  classification (``"hub"`` vs ``"local-only"``). Hub failures
+  degrade gracefully — ``hub_status`` reports ``"unreachable"`` or
+  ``"http_<code>"`` and the response still carries the local-only
+  list so air-gapped deployments aren't blocked by a slow hub.
+- **``/panel/plugins/registry``** React page reads the merge and
+  splits into three tabs: Browse (hub plugins), Update inbox
+  (anything with ``update_available``), Local-only (installed but
+  absent from the hub catalog). Search box filters across all three.
+- **Pinning persistence is deferred.** Per the plan PE4 acceptance
+  #3, "version pin survives CoreService restart" needs a new
+  pin-state table. The merge endpoint and the UI tabs are
+  independently useful without pinning; a follow-up PR can add the
+  pin column + chip without touching the existing routes.
+
+Tests: 12 backend cases (merge happy-path, hub degradation, version
+comparison parametrized, hub URL override) + 5 frontend cases
+(tab routing, hub-unreachable alert, loading state).
+
+---
+
 ## PE6 — UI consumers (shipped 2026-05-12)
 
 Four React additions that close the loop on PE1/PE3/PE5 endpoints
