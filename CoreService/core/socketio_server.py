@@ -228,6 +228,112 @@ async def leave_job_room(sid, data):
     return {"ok": True}
 
 
+# ---------------------------------------------------------------------------
+# Plugin log streaming — per-plugin room subscriptions for the React Logs
+# tab (Phase 6). Room naming: "plugin:<plugin_id>".
+# ---------------------------------------------------------------------------
+
+
+async def _emit_plugin_log(plugin_id: str, payload: dict) -> None:
+    """Broadcast one log line to the plugin room. Wrapped so the
+    streamer module doesn't import the sio object directly."""
+    from core.plugin_log_stream import plugin_log_room
+    try:
+        await sio.emit("plugin_log", payload, room=plugin_log_room(plugin_id))
+    except Exception:
+        logger.exception("emit plugin_log failed (non-fatal)")
+
+
+async def _build_follower(plugin_id: str):
+    """Pick the right follower (docker logs vs file tail) for this
+    plugin's install method. Reads install_state.json under the
+    plugins_dir for docker; falls back to <install_dir>/app.log for uv.
+    """
+    from core.plugin_log_stream import (
+        docker_logs_follower,
+        file_tail_follower,
+    )
+    from services.plugin_installer.factory import get_install_manager
+
+    manager = get_install_manager()
+    installer = manager._find_installer_for(plugin_id)  # noqa: SLF001
+    if installer is None:
+        return None
+    if installer.method == "docker":
+        # Container name from install_state.json — same source the
+        # DockerLifecycle uses for start/stop/restart.
+        import json
+        state_path = installer.plugins_dir / plugin_id / "install_state.json"
+        try:
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        container_name = state.get("container_name")
+        if not container_name:
+            return None
+
+        async def factory(_pid, emit_line, stop_event):
+            await docker_logs_follower(container_name, emit_line, stop_event)
+        return factory
+
+    if installer.method == "uv":
+        log_path = installer.plugins_dir / plugin_id / "app.log"
+
+        async def factory(_pid, emit_line, stop_event):
+            await file_tail_follower(log_path, emit_line, stop_event)
+        return factory
+
+    return None
+
+
+@sio.event
+async def join_plugin_room(sid, data):
+    """Client subscribes to a plugin's live log stream.
+
+    Payload: ``{"plugin_id": "<slug>"}``. On first subscriber, kicks
+    off a follower task that emits one ``plugin_log`` event per line
+    to the room. Plugin-id is validated (must be installed) so
+    typos / malicious values can't spawn random subprocesses.
+    """
+    from core.plugin_log_stream import get_log_streamer, plugin_log_room
+    from services.plugin_installer.factory import get_install_manager
+
+    plugin_id = (data or {}).get("plugin_id")
+    if not plugin_id:
+        return {"ok": False, "error": "plugin_id required"}
+    manager = get_install_manager()
+    if not manager.is_installed(plugin_id):
+        return {"ok": False, "error": f"plugin {plugin_id!r} not installed"}
+
+    factory = await _build_follower(plugin_id)
+    if factory is None:
+        return {
+            "ok": False,
+            "error": f"no log follower available for plugin {plugin_id!r}",
+        }
+
+    streamer = get_log_streamer()
+
+    async def _emit(payload):
+        await _emit_plugin_log(plugin_id, payload)
+
+    await sio.enter_room(sid, plugin_log_room(plugin_id))
+    await streamer.subscribe(plugin_id, sid, _emit, factory)
+    logger.info(f"sid={sid} joined {plugin_log_room(plugin_id)}")
+    return {"ok": True, "room": plugin_log_room(plugin_id)}
+
+
+@sio.event
+async def leave_plugin_room(sid, data):
+    from core.plugin_log_stream import get_log_streamer, plugin_log_room
+    plugin_id = (data or {}).get("plugin_id")
+    if not plugin_id:
+        return {"ok": False, "error": "plugin_id required"}
+    await sio.leave_room(sid, plugin_log_room(plugin_id))
+    await get_log_streamer().unsubscribe(plugin_id, sid)
+    return {"ok": True}
+
+
 async def emit_step_event(envelope) -> None:
     """Broadcast a step-event envelope to its job room.
 

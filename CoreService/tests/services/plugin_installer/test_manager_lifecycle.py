@@ -60,10 +60,12 @@ class _FakeInstaller:
 
 
 class _FakeLifecycle:
-    def __init__(self, method: str, *, supports_pause: bool = True):
+    def __init__(self, method: str, *, supports_pause: bool = True,
+                 log_text: str = "line-a\nline-b"):
         self.method = method
         self.supports_pause = supports_pause
         self.calls: List[str] = []
+        self.log_text = log_text
 
     def start(self, plugin_id):
         self.calls.append("start")
@@ -91,6 +93,10 @@ class _FakeLifecycle:
 
     def status(self, plugin_id):
         return LifecycleStatus.RUNNING
+
+    def logs(self, plugin_id, *, tail=200):
+        self.calls.append(f"logs:{tail}")
+        return self.log_text
 
 
 def _mgr_with(installed_method: str):
@@ -215,6 +221,19 @@ def test_supports_pause_reflects_install_method():
 def test_supports_pause_false_for_uninstalled():
     mgr, _, _ = _mgr_with("uv")
     assert mgr.supports_pause("never-installed") is False
+
+
+def test_logs_routes_to_owning_lifecycle():
+    mgr, uv_lc, docker_lc = _mgr_with("docker")
+    out = mgr.logs("p1", tail=50)
+    assert out == docker_lc.log_text
+    assert "logs:50" in docker_lc.calls
+    assert "logs:50" not in uv_lc.calls
+
+
+def test_logs_empty_when_not_installed():
+    mgr, _, _ = _mgr_with("uv")
+    assert mgr.logs("never-installed", tail=10) == ""
 
 
 def test_manager_synthesizes_uv_lifecycle_when_lifecycles_arg_omitted():

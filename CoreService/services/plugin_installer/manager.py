@@ -355,6 +355,24 @@ class PluginInstallManager:
         """Resume a paused plugin. Same constraint as ``pause``."""
         return self._route_lifecycle(plugin_id, "unpause")
 
+    def logs(self, plugin_id: str, *, tail: int = 200) -> str:
+        """Return the last ``tail`` lines from the plugin's log source.
+
+        Routes via the owning installer's method same as the other
+        lifecycle verbs. Returns an empty string if the plugin isn't
+        installed or the backend lifecycle can't produce logs.
+        """
+        installer = self._find_installer_for(plugin_id)
+        if installer is None:
+            return ""
+        lc = self._lifecycles.get(installer.method)
+        if lc is None:
+            return ""
+        try:
+            return lc.logs(plugin_id, tail=tail)
+        except Exception as exc:  # noqa: BLE001
+            return f"<lifecycle.logs raised: {exc}>"
+
     def supports_pause(self, plugin_id: str) -> bool:
         """Whether the owning lifecycle declares pause support. Used
         by the catalog endpoint so the UI can grey out the Pause button

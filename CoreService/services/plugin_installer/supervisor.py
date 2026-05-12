@@ -77,6 +77,14 @@ class Supervisor(Protocol):
     def remove_unit(self, plugin_id: str) -> SupervisorResult: ...
     def start(self, plugin_id: str) -> SupervisorResult: ...
     def stop(self, plugin_id: str) -> SupervisorResult: ...
+    def logs(self, plugin_id: str, *, tail: int = 200) -> str:
+        """Return the last ``tail`` lines from the plugin's log source.
+
+        PopenSupervisor reads from ``<install_dir>/app.log``;
+        SystemdUserSupervisor shells ``journalctl --user``; NoOpSupervisor
+        returns an empty string (no process being supervised).
+        """
+        ...
 
 
 # ---------------------------------------------------------------------------
@@ -120,6 +128,9 @@ class NoOpSupervisor:
         return SupervisorResult(
             success=True, plugin_id=plugin_id, intent_only=True,
         )
+
+    def logs(self, plugin_id: str, *, tail: int = 200) -> str:
+        return ""
 
 
 # ---------------------------------------------------------------------------
@@ -373,6 +384,27 @@ class SystemdUserSupervisor:
             logs=result.logs,
         )
 
+    def logs(self, plugin_id: str, *, tail: int = 200) -> str:
+        """``journalctl --user -u magellon-plugin-<id> -n <tail> --no-pager``.
+
+        Returns the captured stdout (or stderr text on failure). The
+        ``--no-pager`` flag is required for non-tty use; ``-o cat``
+        strips timestamps the systemd format adds — the React panel
+        renders its own.
+        """
+        unit = _unit_name(plugin_id)
+        cmd = [
+            "journalctl", "--user", "-u", unit,
+            "-n", str(max(1, tail)), "--no-pager", "-o", "cat",
+        ]
+        try:
+            result = self._run(cmd, capture_output=True, text=True)
+        except Exception as exc:  # noqa: BLE001
+            return f"<journalctl unavailable: {exc}>"
+        if result.returncode != 0:
+            return (result.stderr or result.stdout or "").rstrip()
+        return (result.stdout or "").rstrip()
+
 
 # ---------------------------------------------------------------------------
 # Windows / cross-platform Popen supervisor
@@ -590,6 +622,26 @@ class PopenSupervisor:
         return SupervisorResult(
             success=True, plugin_id=plugin_id, logs=f"stopped PID {pid}",
         )
+
+    def logs(self, plugin_id: str, *, tail: int = 200) -> str:
+        """Tail the ``<install_dir>/app.log`` file the Popen supervisor
+        wrote to. Returns up to ``tail`` lines from the end.
+
+        Reads the whole file then slices — fine for our log volumes
+        (plugins are not log-spammy and ``app.log`` is typically
+        sub-MB). A more sophisticated implementation could use
+        ``file.seek(0, 2)`` + reverse-read; defer until a plugin
+        actually generates problematic log volume.
+        """
+        log_path = self._install_dir(plugin_id) / "app.log"
+        if not log_path.is_file():
+            return ""
+        try:
+            text = log_path.read_text(encoding="utf-8", errors="replace")
+        except Exception as exc:  # noqa: BLE001
+            return f"<could not read {log_path}: {exc}>"
+        lines = text.splitlines()
+        return "\n".join(lines[-max(1, tail):])
 
 
 def _pid_alive(pid: int) -> bool:

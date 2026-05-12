@@ -37,7 +37,7 @@ from pathlib import Path
 from typing import Optional
 
 import httpx
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 
 from magellon_sdk.archive import load_manifest_bytes
@@ -492,6 +492,185 @@ async def upgrade_plugin(
 
 
 # ---------------------------------------------------------------------------
+# GET /{plugin_id}/upgrades — list hub-published versions newer than installed
+# ---------------------------------------------------------------------------
+
+
+class UpgradeCandidate(BaseModel):
+    version: str
+    requires_sdk: Optional[str] = None
+    archive_url: Optional[str] = None
+    sha256: Optional[str] = None
+    size_bytes: Optional[int] = None
+    published_at: Optional[str] = None
+
+
+class UpgradeListResponse(BaseModel):
+    plugin_id: str
+    current_version: Optional[str] = None
+    candidates: list[UpgradeCandidate]
+    """Hub-published versions for this plugin. Includes the currently
+    installed version (if any) so the UI can render it for reference;
+    the React dialog filters/sorts client-side."""
+
+
+def _read_installed_version_for(
+    manager: PluginInstallManager, plugin_id: str,
+) -> Optional[str]:
+    """Read the on-disk manifest's version. ``None`` when uninstalled
+    or the manifest can't be parsed."""
+    installer = manager._find_installer_for(plugin_id)  # noqa: SLF001
+    if installer is None:
+        return None
+    return manager._read_installed_version(installer, plugin_id)  # noqa: SLF001
+
+
+@admin_plugin_install_router.get(
+    "/{plugin_id}/upgrades",
+    response_model=UpgradeListResponse,
+    summary="List hub-published versions for a plugin",
+)
+def list_plugin_upgrades(
+    plugin_id: str,
+    hub_url: Optional[str] = Query(
+        None,
+        description="Override the hub base URL. Defaults to MAGELLON_HUB_URL "
+                    "env or https://magellon.org.",
+    ),
+    manager: PluginInstallManager = Depends(get_install_manager),
+    _: None = Depends(require_role("Administrator")),
+) -> UpgradeListResponse:
+    """Query the hub for published versions of this plugin.
+
+    Returns every version the hub knows about (including ones older
+    than the installed one — the React dialog filters client-side and
+    handles the rollback case via force_downgrade).
+    """
+    hub_base = (hub_url or _default_hub_url()).rstrip("/")
+    timeout = float(os.environ.get("MAGELLON_HUB_TIMEOUT_SECONDS", "30"))
+
+    try:
+        hub_payload = _fetch_hub_manifest(hub_base, plugin_id, timeout=timeout)
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"hub unreachable: {exc}")
+
+    candidates: list[UpgradeCandidate] = []
+    for entry in hub_payload.get("versions") or []:
+        archive = entry.get("archive") or {}
+        archive_url = archive.get("url") or archive.get("filename")
+        # Expand hub-relative URLs same as the install path.
+        if archive_url and not (
+            archive_url.startswith("http://") or archive_url.startswith("https://")
+        ):
+            archive_url = hub_base + "/" + archive_url.lstrip("/")
+        candidates.append(UpgradeCandidate(
+            version=entry.get("version", ""),
+            requires_sdk=entry.get("requires_sdk"),
+            archive_url=archive_url,
+            sha256=archive.get("sha256"),
+            size_bytes=archive.get("size_bytes"),
+            published_at=entry.get("published_at"),
+        ))
+
+    return UpgradeListResponse(
+        plugin_id=plugin_id,
+        current_version=_read_installed_version_for(manager, plugin_id),
+        candidates=candidates,
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /{plugin_id}/upgrade-from-hub — JSON upgrade with hub-fetched archive
+# ---------------------------------------------------------------------------
+
+
+class UpgradeFromHubRequest(BaseModel):
+    """JSON-body counterpart to ``POST /{plugin_id}/upgrade`` for the
+    React UpgradeDialog (Phase 9). Same shape as
+    :class:`InstallFromHubRequest` plus the ``force_downgrade`` flag
+    the existing multipart upgrade endpoint exposes."""
+
+    version: str = Field(..., description="Target version.")
+    force_downgrade: bool = Field(
+        False,
+        description="Permit installing a version older than the current "
+                    "one. Used for emergency rollback.",
+    )
+    hub_url: Optional[str] = Field(
+        None, description="Override the hub base URL.",
+    )
+
+
+@admin_plugin_install_router.post(
+    "/{plugin_id}/upgrade-from-hub",
+    response_model=InstallResponse,
+    summary="Upgrade an installed plugin to a hub-published version",
+)
+def upgrade_from_hub(
+    plugin_id: str,
+    body: UpgradeFromHubRequest,
+    manager: PluginInstallManager = Depends(get_install_manager),
+    catalog: PluginCatalogPersistence = Depends(get_plugin_catalog_persistence),
+    runtime: RuntimeConfig = Depends(get_runtime_config),
+    _: None = Depends(require_role("Administrator")),
+) -> InstallResponse:
+    """Server-side counterpart of the upload-based upgrade.
+
+    Fetches the .mpn from the hub, verifies sha256 (502 on mismatch —
+    same threat model as install-from-hub), then delegates to
+    :meth:`PluginInstallManager.upgrade` with the canonical rollback
+    behaviour (versioned .bak preserved on failure).
+
+    Warn-and-proceed: callers should query ``GET /admin/plugins/{id}``
+    or the job-state surface first to surface in-flight task counts to
+    the operator. RMQ requeues unacked messages from the killed
+    container so in-flight tasks re-run on the new version — no data
+    loss but possibly duplicate work.
+    """
+    hub_base = (body.hub_url or _default_hub_url()).rstrip("/")
+    timeout = float(os.environ.get("MAGELLON_HUB_TIMEOUT_SECONDS", "30"))
+
+    hub_manifest = _fetch_hub_manifest(hub_base, plugin_id, timeout=timeout)
+    archive_path_or_url, expected_sha256 = _resolve_hub_archive(
+        hub_manifest, plugin_id, body.version,
+    )
+    if archive_path_or_url.startswith("http://") or archive_path_or_url.startswith("https://"):
+        absolute_url = archive_path_or_url
+    else:
+        absolute_url = hub_base + "/" + archive_path_or_url.lstrip("/")
+
+    archive_path = _download_archive(
+        absolute_url, expected_sha256, timeout=timeout,
+    )
+    _persist_to_packages_dir(archive_path)
+    try:
+        result = manager.upgrade(
+            plugin_id, archive_path, runtime,
+            force_downgrade=body.force_downgrade,
+        )
+        if result.success:
+            try:
+                catalog.record_install(archive_path, result)
+            except Exception as exc:
+                logger.exception(
+                    "upgrade-from-hub succeeded but DB persistence failed: %s",
+                    plugin_id,
+                )
+                raise HTTPException(
+                    status_code=500,
+                    detail=(
+                        "plugin upgraded but could not be recorded in the "
+                        f"database: {exc}"
+                    ),
+                ) from exc
+    finally:
+        archive_path.unlink(missing_ok=True)
+    return _result_to_http(result, success_status=200)
+
+
+# ---------------------------------------------------------------------------
 # DELETE /{plugin_id}
 # ---------------------------------------------------------------------------
 
@@ -906,6 +1085,38 @@ def unpause_plugin(
     if "not installed" in err:
         raise HTTPException(status_code=404, detail=result.error)
     raise HTTPException(status_code=500, detail=result.error or "unpause failed")
+
+
+@admin_plugin_install_router.get(
+    "/{plugin_id}/logs",
+    summary="Tail the plugin's log source",
+)
+def plugin_logs(
+    plugin_id: str,
+    tail: int = Query(200, ge=1, le=10000, description="lines from the end"),
+    manager: PluginInstallManager = Depends(get_install_manager),
+    _: None = Depends(require_role("Administrator")),
+):
+    """Return the last ``tail`` lines from the plugin's log source.
+
+    Docker installs shell ``docker logs --tail N <container>``;
+    uv installs read ``<install_dir>/app.log`` (Popen) or
+    ``journalctl --user`` (systemd-user). Empty body when the plugin
+    isn't installed or the backend can't produce logs (NoOp).
+
+    Live streaming uses the Socket.IO ``plugin_log`` channel — clients
+    emit ``join_plugin_room`` with ``{"plugin_id": "..."}`` and receive
+    one line per ``plugin_log`` event.
+    """
+    if not manager.is_installed(plugin_id):
+        raise HTTPException(
+            status_code=404, detail=f"plugin {plugin_id!r} not installed",
+        )
+    return {
+        "plugin_id": plugin_id,
+        "tail": tail,
+        "lines": manager.logs(plugin_id, tail=tail).splitlines(),
+    }
 
 
 @admin_plugin_install_router.get(

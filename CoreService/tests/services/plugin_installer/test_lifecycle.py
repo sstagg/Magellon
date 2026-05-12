@@ -320,3 +320,78 @@ def test_uv_lifecycle_unpause_raises_not_supported():
 
     with pytest.raises(NotSupportedError, match="docker-only"):
         lc.unpause("p1")
+
+
+# ---------------------------------------------------------------------------
+# logs() — Phase 6
+# ---------------------------------------------------------------------------
+
+
+class _SupervisorWithLogs(_RecordingSupervisor):
+    def __init__(self, *, log_text="line1\nline2\nline3", raise_on_logs=False):
+        super().__init__()
+        self._log_text = log_text
+        self._raise = raise_on_logs
+
+    def logs(self, plugin_id, *, tail=200):
+        if self._raise:
+            raise RuntimeError("boom")
+        return "\n".join(self._log_text.splitlines()[-tail:])
+
+
+def test_uv_lifecycle_logs_delegates_to_supervisor():
+    sup = _SupervisorWithLogs(log_text="one\ntwo\nthree\nfour")
+    lc = UvLifecycle(sup)
+    assert lc.logs("p1", tail=2) == "three\nfour"
+
+
+def test_uv_lifecycle_logs_returns_empty_on_supervisor_without_logs():
+    """NoOpSupervisor doesn't implement logs (or implements a no-op).
+    The lifecycle returns empty rather than crashing."""
+    lc = UvLifecycle(NoOpSupervisor())
+    out = lc.logs("p1", tail=10)
+    # NoOpSupervisor returns empty string; the wrapper passes it through.
+    assert out == ""
+
+
+def test_uv_lifecycle_logs_catches_supervisor_exceptions():
+    """A supervisor that throws shouldn't 500 the admin endpoint."""
+    lc = UvLifecycle(_SupervisorWithLogs(raise_on_logs=True))
+    out = lc.logs("p1", tail=10)
+    assert out.startswith("<supervisor.logs raised: "), out
+
+
+def test_docker_lifecycle_logs_invokes_docker_logs(tmp_path):
+    _write_state(tmp_path, "fft", "magellon-plugin-fft")
+    runner = _RecordingDockerRunner(returncode=0, stdout="line1\nline2\n")
+    lc = DockerLifecycle(plugins_dir=tmp_path, subprocess_runner=runner)
+
+    out = lc.logs("fft", tail=50)
+
+    assert out == "line1\nline2"
+    assert runner.calls == [(
+        "docker", "logs", "--tail", "50", "magellon-plugin-fft",
+    )]
+
+
+def test_docker_lifecycle_logs_merges_stdout_and_stderr(tmp_path):
+    """docker logs --no-follow writes container stdout to our stdout
+    and container stderr to our stderr — both belong in the operator's
+    view, merged."""
+    _write_state(tmp_path, "fft", "magellon-plugin-fft")
+    runner = _RecordingDockerRunner(
+        returncode=0, stdout="out-line\n", stderr="err-line\n",
+    )
+    lc = DockerLifecycle(plugins_dir=tmp_path, subprocess_runner=runner)
+
+    out = lc.logs("fft", tail=10)
+    assert "out-line" in out
+    assert "err-line" in out
+
+
+def test_docker_lifecycle_logs_returns_empty_when_state_missing(tmp_path):
+    runner = _RecordingDockerRunner()
+    lc = DockerLifecycle(plugins_dir=tmp_path, subprocess_runner=runner)
+
+    assert lc.logs("never-installed", tail=10) == ""
+    assert runner.calls == []

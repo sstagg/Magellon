@@ -41,7 +41,6 @@ from typing import Any, Dict, Optional
 import httpx
 from cachetools import TTLCache
 
-from core.helper import canonicalize_paths_in_payload
 from core.plugin_liveness_registry import (
     PluginLivenessEntry,
     get_registry as get_liveness_registry,
@@ -392,7 +391,13 @@ def dispatch_capability(
     # form before crossing the HTTP boundary. The bus dispatcher already
     # does this at every wire boundary; sync was the gap. No-op on Linux
     # deployments and on strings not under MAGELLON_GPFS_PATH.
+    #
+    # Lazy import so collecting sync_dispatcher tests doesn't pre-load
+    # ``core.helper`` into sys.modules — test_e2e_seam loads the
+    # result-processor plugin's own ``core/helper.py`` via
+    # ``sys.path.insert``, which is incompatible with our shadowing.
     if body is not None:
+        from core.helper import canonicalize_paths_in_payload
         body = canonicalize_paths_in_payload(body)
 
     http = client or _get_pooled_client()

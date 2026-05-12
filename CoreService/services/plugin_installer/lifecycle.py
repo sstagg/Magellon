@@ -95,6 +95,15 @@ class BackendLifecycle(Protocol):
     def pause(self, plugin_id: str) -> LifecycleResult: ...
     def unpause(self, plugin_id: str) -> LifecycleResult: ...
     def status(self, plugin_id: str) -> LifecycleStatus: ...
+    def logs(self, plugin_id: str, *, tail: int = 200) -> str:
+        """Return the last ``tail`` lines from the plugin's log source.
+
+        Uv plugins read from the supervisor's stdout capture
+        (``app.log`` for Popen; ``journalctl`` for systemd-user).
+        Docker plugins shell ``docker logs --tail``. Empty string if
+        no log source is available.
+        """
+        ...
 
 
 # ---------------------------------------------------------------------------
@@ -155,6 +164,17 @@ class UvLifecycle:
             return LifecycleStatus.RUNNING if is_running(plugin_id) else LifecycleStatus.STOPPED
         except Exception:  # noqa: BLE001
             return LifecycleStatus.UNKNOWN
+
+    def logs(self, plugin_id: str, *, tail: int = 200) -> str:
+        # NoOpSupervisor and any future supervisor that doesn't
+        # implement logs returns empty rather than raising.
+        fn = getattr(self._supervisor, "logs", None)
+        if fn is None:
+            return ""
+        try:
+            return fn(plugin_id, tail=tail)
+        except Exception as exc:  # noqa: BLE001
+            return f"<supervisor.logs raised: {exc}>"
 
 
 def _from_supervisor(
@@ -241,6 +261,31 @@ class DockerLifecycle:
         if state in ("exited", "created", "dead"):
             return LifecycleStatus.STOPPED
         return LifecycleStatus.UNKNOWN
+
+    def logs(self, plugin_id: str, *, tail: int = 200) -> str:
+        """``docker logs --tail N <container>`` — combined stdout+stderr.
+
+        Returns an empty string when the container has no recorded
+        state (never installed) or docker errors. The follow=True
+        path is handled by the Socket.IO streamer in
+        :mod:`core.plugin_log_stream` rather than here.
+        """
+        container_name = self._container_name(plugin_id)
+        if container_name is None:
+            return ""
+        result = self._run(
+            [
+                self.docker_command, "logs",
+                "--tail", str(max(1, tail)), container_name,
+            ],
+            capture_output=True, text=True,
+        )
+        # ``docker logs`` writes the container's stdout to OUR stdout
+        # and its stderr to OUR stderr. Merge them so the operator
+        # sees the interleaving (the container's own stream order is
+        # already lost, but at least nothing's hidden).
+        out = (result.stdout or "") + (result.stderr or "")
+        return out.rstrip()
 
     # ------------------------------------------------------------------
     # Internals

@@ -985,6 +985,209 @@ def test_install_from_hub_502_when_hub_returns_500(
     assert resp.status_code == 502
 
 
+# ---------------------------------------------------------------------------
+# Logs endpoint (Phase 6)
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Upgrade endpoints (Phase 8)
+# ---------------------------------------------------------------------------
+
+
+def test_list_upgrades_returns_hub_versions(client, fake_manager, monkeypatch):
+    from controllers import admin_plugin_install_controller as ctl
+
+    plugin_json = {
+        "plugin_id": "fft",
+        "versions": [
+            {
+                "version": "1.1.0",
+                "requires_sdk": ">=2.1,<3.0",
+                "archive": {
+                    "filename": "fft-1.1.0.mpn",
+                    "url": "/assets/plugins/fft-1.1.0.mpn",
+                    "sha256": "abc" * 21 + "d",
+                    "size_bytes": 12345,
+                },
+                "published_at": "2026-05-05T00:00:00Z",
+            },
+            {
+                "version": "1.2.0",
+                "requires_sdk": ">=2.1,<3.0",
+                "archive": {
+                    "filename": "fft-1.2.0.mpn",
+                    "url": "https://other.hub/fft-1.2.0.mpn",
+                    "sha256": "def" * 21 + "0",
+                    "size_bytes": 12400,
+                },
+                "published_at": "2026-05-10T00:00:00Z",
+            },
+        ],
+    }
+
+    def fake_get(url, *args, **kwargs):
+        return _FakeHubResponse(status_code=200, json_body=plugin_json)
+    monkeypatch.setattr(ctl.httpx, "get", fake_get)
+
+    # Stub manager helpers used by _read_installed_version_for.
+    fake_manager._find_installer_for.return_value = MagicMock(method="docker")
+    fake_manager._read_installed_version.return_value = "1.1.0"
+
+    resp = client.get("/admin/plugins/fft/upgrades?hub_url=http://x")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["plugin_id"] == "fft"
+    assert body["current_version"] == "1.1.0"
+    versions = [c["version"] for c in body["candidates"]]
+    assert versions == ["1.1.0", "1.2.0"]
+
+    # Hub-relative archive URL must be expanded to absolute.
+    one_ten = next(c for c in body["candidates"] if c["version"] == "1.1.0")
+    assert one_ten["archive_url"] == "http://x/assets/plugins/fft-1.1.0.mpn"
+    # Already-absolute URLs pass through unchanged.
+    one_twenty = next(c for c in body["candidates"] if c["version"] == "1.2.0")
+    assert one_twenty["archive_url"] == "https://other.hub/fft-1.2.0.mpn"
+
+
+def test_list_upgrades_502_when_hub_down(client, fake_manager, monkeypatch):
+    from controllers import admin_plugin_install_controller as ctl
+
+    def fake_get(url, *args, **kwargs):
+        return _FakeHubResponse(status_code=500, content=b"down")
+    monkeypatch.setattr(ctl.httpx, "get", fake_get)
+
+    resp = client.get("/admin/plugins/fft/upgrades?hub_url=http://x")
+    assert resp.status_code == 502
+
+
+def test_list_upgrades_current_version_none_when_uninstalled(
+    client, fake_manager, monkeypatch,
+):
+    from controllers import admin_plugin_install_controller as ctl
+
+    plugin_json = {"plugin_id": "fft", "versions": []}
+    monkeypatch.setattr(
+        ctl.httpx, "get",
+        lambda *_, **__: _FakeHubResponse(status_code=200, json_body=plugin_json),
+    )
+    fake_manager._find_installer_for.return_value = None
+
+    resp = client.get("/admin/plugins/fft/upgrades?hub_url=http://x")
+    assert resp.status_code == 200
+    assert resp.json()["current_version"] is None
+
+
+def test_upgrade_from_hub_happy_path(client, fake_manager, monkeypatch):
+    import hashlib
+    body = _fake_mpn_bytes()
+    sha = hashlib.sha256(body).hexdigest()
+    _install_hub_with(monkeypatch, archive_bytes=body, archive_sha256=sha)
+
+    fake_manager.upgrade.return_value = _success_install("fft")
+
+    resp = client.post(
+        "/admin/plugins/fft/upgrade-from-hub",
+        json={"version": "1.1.0", "hub_url": "http://anyhub.local"},
+    )
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["plugin_id"] == "fft"
+    fake_manager.upgrade.assert_called_once()
+    # force_downgrade defaults to False.
+    _, kwargs = (
+        fake_manager.upgrade.call_args.args, fake_manager.upgrade.call_args.kwargs,
+    )
+    assert kwargs.get("force_downgrade") is False
+
+
+def test_upgrade_from_hub_honors_force_downgrade(
+    client, fake_manager, monkeypatch,
+):
+    import hashlib
+    body = _fake_mpn_bytes()
+    sha = hashlib.sha256(body).hexdigest()
+    # Hub publishes version 1.0.0 specifically — the test asks the
+    # upgrade endpoint to target 1.0.0 with force_downgrade=True.
+    plugin_json = _hub_plugin_json(version="1.0.0", sha256=sha)
+    _install_hub_with(
+        monkeypatch, plugin_json=plugin_json,
+        archive_bytes=body, archive_sha256=sha,
+    )
+
+    fake_manager.upgrade.return_value = _success_install("fft")
+
+    resp = client.post(
+        "/admin/plugins/fft/upgrade-from-hub",
+        json={"version": "1.0.0", "force_downgrade": True, "hub_url": "http://x"},
+    )
+
+    assert resp.status_code == 200
+    kwargs = fake_manager.upgrade.call_args.kwargs
+    assert kwargs.get("force_downgrade") is True
+
+
+def test_upgrade_from_hub_502_on_sha_mismatch(client, fake_manager, monkeypatch):
+    body = _fake_mpn_bytes()
+    _install_hub_with(
+        monkeypatch, archive_bytes=body, archive_sha256="0" * 64,
+    )
+
+    resp = client.post(
+        "/admin/plugins/fft/upgrade-from-hub",
+        json={"version": "1.1.0", "hub_url": "http://x"},
+    )
+
+    assert resp.status_code == 502
+    fake_manager.upgrade.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Logs endpoint (Phase 6, kept here for proximity)
+# ---------------------------------------------------------------------------
+
+
+def test_logs_returns_tail_lines_split(client, fake_manager):
+    fake_manager.is_installed.return_value = True
+    fake_manager.logs.return_value = "line one\nline two\nline three"
+
+    resp = client.get("/admin/plugins/fft/logs?tail=50")
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["plugin_id"] == "fft"
+    assert body["tail"] == 50
+    assert body["lines"] == ["line one", "line two", "line three"]
+    fake_manager.logs.assert_called_once_with("fft", tail=50)
+
+
+def test_logs_404_when_not_installed(client, fake_manager):
+    fake_manager.is_installed.return_value = False
+    resp = client.get("/admin/plugins/ghost/logs")
+    assert resp.status_code == 404
+
+
+def test_logs_validates_tail_range(client, fake_manager):
+    fake_manager.is_installed.return_value = True
+    # Out of range — Query validation rejects with 422.
+    resp = client.get("/admin/plugins/fft/logs?tail=0")
+    assert resp.status_code == 422
+    resp = client.get("/admin/plugins/fft/logs?tail=999999")
+    assert resp.status_code == 422
+
+
+def test_logs_defaults_tail_to_200(client, fake_manager):
+    fake_manager.is_installed.return_value = True
+    fake_manager.logs.return_value = ""
+
+    resp = client.get("/admin/plugins/fft/logs")
+
+    assert resp.status_code == 200
+    assert resp.json()["tail"] == 200
+    fake_manager.logs.assert_called_once_with("fft", tail=200)
+
+
 def test_status_endpoint_exposes_supports_pause_and_typed_status(
     client, fake_manager,
 ):
