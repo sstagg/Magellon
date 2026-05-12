@@ -1,0 +1,119 @@
+name: e2e-tests
+
+# Two jobs, same shape as contract-tests.yml:
+#
+#   e2e-collect     — every push/PR. Verifies the integration test suite
+#                     collects + skips cleanly without MAGELLON_E2E_STACK=up.
+#                     Catches fixture / helper / SDK regressions early
+#                     without paying the ~5-minute boot tax on every PR.
+#   e2e-integration — workflow_dispatch only. Brings up the full
+#                     docker-compose stack (NO FFT container — the tests
+#                     install it themselves via the admin endpoint),
+#                     builds the FFT .mpn archive, runs the e2e suite.
+#
+# Phases 0-4 unit tests run via lint.yml's pytest job; this workflow
+# covers Waves 2 + 3 (install/lifecycle/dispatch + logs/upgrade) at
+# the end-to-end seam.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  e2e-collect:
+    name: integration suite (skip-mode)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install CoreService deps
+        working-directory: CoreService
+        run: |
+          pip install -e ../magellon-sdk[rabbitmq,nats,logging,config]
+          pip install -r requirements.txt || true
+          pip install pytest httpx pillow numpy "python-socketio[asyncio_client]" aiohttp pytest-asyncio sqlalchemy pymysql
+      - name: Collect + run (every test must skip without MAGELLON_E2E_STACK)
+        working-directory: CoreService
+        run: |
+          # All tests gated on MAGELLON_E2E_STACK=up should skip here.
+          # The fft_full_stack test predates that gate so we exclude it.
+          pytest tests/integration/ \
+            --ignore=tests/integration/test_fft_full_stack_e2e.py \
+            -v --tb=short
+          # Regression: each Wave 2/3 e2e file must contain at least
+          # one test (catches accidental file deletion).
+          for f in \
+            test_install_lifecycle_dispatch_e2e.py \
+            test_sync_path_canonicalization_e2e.py \
+            test_install_from_hub_e2e.py \
+            test_pause_during_task_e2e.py \
+            test_plugin_logs_e2e.py \
+            test_plugin_upgrade_e2e.py; do
+            test $(grep -c "^def test_" "tests/integration/$f") -ge 1 || {
+              echo "::error::tests/integration/$f has no test_ functions" >&2
+              exit 1
+            }
+          done
+
+  e2e-integration:
+    name: integration suite (live stack)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test deps
+        run: |
+          pip install -e magellon-sdk[rabbitmq,nats,logging,config]
+          pip install -r CoreService/requirements.txt || true
+          pip install pytest httpx pillow numpy "python-socketio[asyncio_client]" aiohttp pytest-asyncio sqlalchemy pymysql requests
+      - name: Build FFT .mpn fixture
+        run: bash CoreService/scripts/build_fft_mpn.sh
+      - name: Boot docker-compose stack (no plugin containers)
+        working-directory: Docker
+        run: |
+          # The e2e wave tests install FFT via the admin endpoint, so
+          # we only need the infra services (DB + brokers + CoreService).
+          docker compose up -d mysql rabbitmq nats backend
+          # Wait for CoreService /health.
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:8000/health > /dev/null 2>&1; then break; fi
+            sleep 2
+          done
+      - name: Run e2e suite
+        working-directory: CoreService
+        env:
+          MAGELLON_E2E_STACK: up
+          MAGELLON_BACKEND_URL: http://127.0.0.1:8000
+          MAGELLON_E2E_DB_URL: "mysql+pymysql://root:behd1d2@127.0.0.1:3306/magellon01"
+          MAGELLON_RMQ_URL: "amqp://guest:guest@127.0.0.1:5672/"
+          MAGELLON_NATS_URL: "nats://127.0.0.1:4222"
+          MAGELLON_GPFS_HOST_PATH: /tmp/magellon/gpfs
+          MAGELLON_HOME_DIR: /tmp/magellon/home
+        run: |
+          mkdir -p /tmp/magellon/gpfs /tmp/magellon/home
+          pytest tests/integration/ \
+            --ignore=tests/integration/test_fft_full_stack_e2e.py \
+            -v --tb=short -m integration_e2e
+      - name: Tear down
+        if: always()
+        working-directory: Docker
+        run: docker compose down -v
+      - name: Upload CoreService logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-logs
+          path: |
+            CoreService/app.log
+            CoreService/*.log
+          if-no-files-found: ignore
+          retention-days: 7
