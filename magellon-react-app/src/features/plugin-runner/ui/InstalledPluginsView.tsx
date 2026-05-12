@@ -73,6 +73,7 @@ import { PluginConditions } from './PluginConditions.tsx';
 import { PluginReplicas } from './PluginReplicas.tsx';
 import { PluginUpdateChip } from './PluginUpdateChip.tsx';
 import { PluginLogsPanel } from '../../plugin-installer/ui/PluginLogsPanel.tsx';
+import { ScaleControl } from '../../plugin-installer/ui/ScaleControl.tsx';
 
 /** Per-card Conditions cluster — each card fetches its own status. */
 const ConditionsForCard: React.FC<{ pluginId: string }> = ({ pluginId }) => {
@@ -554,6 +555,13 @@ export const InstalledPluginsView: React.FC<InstalledPluginsViewProps> = ({
                                             )}
                                             <DeploymentMethodChip method={plugin.install_method} />
                                             <InstallLocationChip row={plugin} />
+                                            {plugin.install_method === 'docker' && plugin.manifest_plugin_id && (
+                                                <ScaleControl
+                                                    pluginId={plugin.plugin_id}
+                                                    manifestPluginId={plugin.manifest_plugin_id}
+                                                    max={8}
+                                                />
+                                            )}
                                         </Stack>
                                         {plugin.description && (
                                             <Typography

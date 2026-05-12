@@ -259,9 +259,11 @@ export interface ProcessStatusResponse {
     plugin_id: string;
     installed: boolean;
     running: boolean;
-    /** Typed lifecycle state from the BackendLifecycle (Phase 2):
-     *  ``running`` / ``stopped`` / ``paused`` / ``unknown``. */
-    status?: 'running' | 'stopped' | 'paused' | 'unknown';
+    /** Typed lifecycle state from the BackendLifecycle. Phase 2 added
+     *  ``running`` / ``stopped`` / ``paused`` / ``unknown``; Wave 4
+     *  added ``partial`` for multi-replica sets where some replicas
+     *  are in one state and the rest in another. */
+    status?: 'running' | 'stopped' | 'paused' | 'partial' | 'unknown';
     /** Whether the owning install method's lifecycle implements pause.
      *  Docker → true; uv → false. UI greys out the Pause button when
      *  false so operators don't try-and-409. */
@@ -326,6 +328,45 @@ export const useStopPlugin = makeProcessControlMutation('stop');
 export const useRestartPlugin = makeProcessControlMutation('restart');
 export const usePausePlugin = makeProcessControlMutation('pause');
 export const useUnpausePlugin = makeProcessControlMutation('unpause');
+
+
+// ---------------------------------------------------------------------------
+// Scale (Wave 4) — docker-only multi-replica
+// ---------------------------------------------------------------------------
+
+export interface ScaleRequest {
+    desired: number;
+}
+
+export interface ScaleResponse {
+    success: boolean;
+    plugin_id: string;
+    desired: number;
+    status: ProcessStatusResponse['status'];
+    logs?: string | null;
+}
+
+/** POST /admin/plugins/{id}/scale — add or remove replicas to reach
+ *  ``desired`` count. Docker-only; uv plugins return 422 with the
+ *  ``docker-only`` message. */
+export const useScalePlugin = (pluginId: string) => {
+    const qc = useQueryClient();
+    return useMutation(
+        async (req: ScaleRequest) => {
+            const res = await api.post<ScaleResponse>(
+                `/admin/plugins/${encodeURIComponent(pluginId)}/scale`,
+                req,
+            );
+            return res.data;
+        },
+        {
+            onSuccess: () => {
+                qc.invalidateQueries(QK_PROCESS_STATUS);
+                qc.invalidateQueries(['plugins']);
+            },
+        },
+    );
+};
 
 
 // ---------------------------------------------------------------------------
