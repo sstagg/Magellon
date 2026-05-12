@@ -42,4 +42,4 @@ package = false
 [tool.uv.sources]
 # Bundled wheel (cross-host portable). Refresh via
 # ``scripts/rebuild-sdk-wheels.sh`` after editing the SDK.
-magellon-sdk = { path = "wheels/magellon_sdk-2.2.0-py3-none-any.whl" }
+magellon-sdk = { path = "wheels/magellon_sdk-2.4.0-py3-none-any.whl" }

@@ -95,7 +95,7 @@ class FftPlugin(PluginBase[FftInput, FftOutput]):
 
     def get_info(self) -> PluginInfo:
         return PluginInfo(
-            name="FFT Plugin",
+            name="fft",
             version="1.0.0",
             developer="Behdad Khoshbin b.khoshbin@gmail.com",
             description="Fast Fourier Transform of a micrograph, rendered to PNG",

@@ -49,4 +49,4 @@ package = false
 # the plugin root, which is the archive root after unzip). Dev in
 # source tree uses the same wheel; refresh it via
 # ``scripts/rebuild-sdk-wheels.sh`` after editing the SDK.
-magellon-sdk = { path = "wheels/magellon_sdk-2.2.0-py3-none-any.whl" }
+magellon-sdk = { path = "wheels/magellon_sdk-2.4.0-py3-none-any.whl" }

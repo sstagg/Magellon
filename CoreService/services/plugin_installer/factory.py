@@ -89,6 +89,11 @@ def _build_runtime_config() -> RuntimeConfig:
             os.environ.get("MAGELLON_HOME_DIR", "/gpfs"),
         )
 
+    import os
+    plugin_broker_override = os.environ.get("MAGELLON_PLUGIN_BROKER_URL")
+    if plugin_broker_override:
+        broker_url = plugin_broker_override
+
     return RuntimeConfig(broker_url=broker_url, gpfs_root=gpfs_root)
 
 
