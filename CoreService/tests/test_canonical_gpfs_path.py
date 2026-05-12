@@ -12,7 +12,7 @@ from __future__ import annotations
 import pytest
 
 from config import app_settings
-from core.helper import to_canonical_gpfs_path
+from core.helper import canonicalize_paths_in_payload, to_canonical_gpfs_path
 
 
 @pytest.fixture()
@@ -103,3 +103,68 @@ class TestToCanonicalGpfsPath:
             to_canonical_gpfs_path("C:/magellon/gpfs/x.mrc")
             == "C:/magellon/gpfs/x.mrc"
         )
+
+
+class TestCanonicalizePathsInPayload:
+    """The Phase 0 walker used at the sync HTTP dispatch boundary."""
+
+    def test_rewrites_string_under_gpfs_root(self, gpfs_root):
+        out = canonicalize_paths_in_payload("C:/magellon/gpfs/jobs/x.mrc")
+        assert out == "/gpfs/jobs/x.mrc"
+
+    def test_walks_dict_keys(self, gpfs_root):
+        body = {
+            "image_path": "C:/magellon/gpfs/24dec03a/x.mrc",
+            "InMrc": "C:\\magellon\\gpfs\\24dec03a\\frames.tif",
+            "diameter_angstrom": 64.0,
+            "engine": "ctffind4",
+        }
+        out = canonicalize_paths_in_payload(body)
+        assert out == {
+            "image_path": "/gpfs/24dec03a/x.mrc",
+            "InMrc": "/gpfs/24dec03a/frames.tif",
+            "diameter_angstrom": 64.0,
+            "engine": "ctffind4",
+        }
+
+    def test_walks_nested_dict(self, gpfs_root):
+        body = {
+            "engine_opts": {
+                "checkpoint": "C:/magellon/gpfs/models/topaz.sav",
+                "scale": 8,
+            },
+        }
+        out = canonicalize_paths_in_payload(body)
+        assert out["engine_opts"]["checkpoint"] == "/gpfs/models/topaz.sav"
+        assert out["engine_opts"]["scale"] == 8
+
+    def test_walks_list(self, gpfs_root):
+        body = {
+            "inputs": [
+                "C:/magellon/gpfs/a.mrc",
+                "C:/magellon/gpfs/b.mrc",
+                "C:/elsewhere/c.mrc",
+            ],
+        }
+        out = canonicalize_paths_in_payload(body)
+        assert out["inputs"] == [
+            "/gpfs/a.mrc",
+            "/gpfs/b.mrc",
+            "C:/elsewhere/c.mrc",  # not under root — passes through
+        ]
+
+    def test_idempotent(self, gpfs_root):
+        body = {"image_path": "/gpfs/jobs/x.mrc"}
+        once = canonicalize_paths_in_payload(body)
+        twice = canonicalize_paths_in_payload(once)
+        assert once == twice == {"image_path": "/gpfs/jobs/x.mrc"}
+
+    def test_passes_through_non_string_scalars(self, gpfs_root):
+        assert canonicalize_paths_in_payload(None) is None
+        assert canonicalize_paths_in_payload(42) == 42
+        assert canonicalize_paths_in_payload(0.5) == 0.5
+        assert canonicalize_paths_in_payload(True) is True
+
+    def test_linux_deployment_is_noop(self, linux_gpfs_root):
+        body = {"image_path": "/gpfs/x.mrc", "n": 3}
+        assert canonicalize_paths_in_payload(body) == body

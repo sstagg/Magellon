@@ -41,6 +41,7 @@ from typing import Any, Dict, Optional
 import httpx
 from cachetools import TTLCache
 
+from core.helper import canonicalize_paths_in_payload
 from core.plugin_liveness_registry import (
     PluginLivenessEntry,
     get_registry as get_liveness_registry,
@@ -195,6 +196,10 @@ def _resolve_target(
     # using the display form (``Particle Picking``) — same normalizer
     # the schema-resolver uses, see plugins.controller._normalize_category_key.
     cat_norm = _normalize_category_key(category or "")
+    # Strict lowercase form for the state store, which keys defaults on
+    # ``category.lower()`` (underscores preserved). The fuzzy ``cat_norm``
+    # would miss matches stored with underscores.
+    cat_lower = (category or "").lower()
     candidates = [
         e for e in get_liveness_registry().list_live()
         if _normalize_category_key(e.category or "") == cat_norm
@@ -382,6 +387,13 @@ def dispatch_capability(
         target_backend=target_backend, instance_id=instance_id,
     )
     url = target.http_endpoint.rstrip("/") + path
+
+    # Rewrite any host-absolute paths in the body to canonical /gpfs/...
+    # form before crossing the HTTP boundary. The bus dispatcher already
+    # does this at every wire boundary; sync was the gap. No-op on Linux
+    # deployments and on strings not under MAGELLON_GPFS_PATH.
+    if body is not None:
+        body = canonicalize_paths_in_payload(body)
 
     http = client or _get_pooled_client()
     try:

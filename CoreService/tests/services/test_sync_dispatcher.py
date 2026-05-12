@@ -251,6 +251,40 @@ def test_dispatch_passes_body_through_unchanged():
     assert sent == {"image_path": "img.mrc", "diameter_angstrom": 64.0}
 
 
+def test_dispatch_canonicalizes_host_paths_in_body(monkeypatch):
+    """Phase 0: host-absolute paths under MAGELLON_GPFS_PATH must be
+    rewritten to canonical /gpfs/... before reaching the plugin. A
+    Windows React client posting C:/magellon/gpfs/... against a Docker
+    plugin used to break; the walker closes the gap."""
+    from config import app_settings
+    monkeypatch.setattr(
+        app_settings.directory_settings, "MAGELLON_GPFS_PATH", "C:/magellon/gpfs",
+    )
+
+    transport = _MockTransport()
+    client = httpx.Client(transport=transport)
+    entry = _liveness_entry()
+    with _stub_registries([entry]):
+        dispatch_capability(
+            "particle_picking", Capability.PREVIEW, "POST", "/preview",
+            body={
+                "image_path": "C:/magellon/gpfs/24dec03a/x.mrc",
+                "engine_opts": {
+                    "checkpoint": "C:\\magellon\\gpfs\\models\\topaz.sav",
+                },
+                "threshold": 0.5,
+            },
+            client=client,
+        )
+    import json
+    sent = json.loads(transport.calls[0].content.decode())
+    assert sent == {
+        "image_path": "/gpfs/24dec03a/x.mrc",
+        "engine_opts": {"checkpoint": "/gpfs/models/topaz.sav"},
+        "threshold": 0.5,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Reviewer B: enabled-state filter (sync path used to ignore /disable)
 # ---------------------------------------------------------------------------
