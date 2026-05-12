@@ -41,6 +41,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Upload
 from pydantic import BaseModel, Field
 
 from magellon_sdk.archive import load_manifest_bytes
+from database import get_db
 from dependencies.permissions import require_role
 from services.plugin_installer.factory import (
     get_install_manager,
@@ -57,6 +58,102 @@ from services.plugin_catalog_persistence import (
     PluginCatalogPersistence,
     get_plugin_catalog_persistence,
 )
+
+# ---------------------------------------------------------------------------
+# Activity endpoint helpers
+# ---------------------------------------------------------------------------
+# Category-name → stage code (used to filter ImageJobTask rows for a plugin's
+# Activity tab). Mirrors ``_TASK_TYPE_TO_STAGE`` in
+# ``services/task_output_processor.py`` but keyed on the human-readable
+# category slug we expose through the install manifest. Categories not in
+# this map either don't write through ImageJobTask (e.g. fft is in-process
+# via the importer) or haven't been integrated yet; we return an empty
+# task list rather than error so the tab still renders the queue snapshot.
+_CATEGORY_TO_STAGE = {
+    "motioncor": 1,
+    "ctf": 2,
+    "square_detection": 3,
+    "hole_detection": 4,
+    "topaz_particle_picking": 5,
+    "particle_picking": 5,
+    "micrograph_denoise": 6,
+    "particle_extraction": 7,
+    "two_d_classification": 8,
+}
+
+# Status-id → human label. Matches the import-controller status enum
+# (1=pending, 2=running, 3=processing, 4=completed, 5=failed, 6=cancelled).
+_STATUS_LABEL = {
+    1: "pending",
+    2: "running",
+    3: "processing",
+    4: "completed",
+    5: "failed",
+    6: "cancelled",
+}
+
+
+def _queue_names_for_category(category: Optional[str]) -> tuple[Optional[str], Optional[str]]:
+    """Mirror the convention in CoreService/core/helper.py — each
+    category exposes ``<slug>_tasks_queue`` for dispatch and
+    ``<slug>_out_tasks_queue`` for results. Returns ``(None, None)``
+    when the category is missing so the caller falls back to an
+    empty queue summary."""
+    if not category:
+        return None, None
+    slug = category.lower().replace(" ", "_").replace("-", "_")
+    return f"{slug}_tasks_queue", f"{slug}_out_tasks_queue"
+
+
+def _fetch_rmq_queue_stats(queue_name: str) -> dict:
+    """Proxy a single queue's stats from the RabbitMQ Management API.
+
+    Browsers can't hit the management API directly (it doesn't ship
+    CORS headers), and the credentials would be exposed in JS anyway.
+    CoreService already has the broker credentials in its settings,
+    so the cleanest path is a thin server-side proxy. Returns a
+    dict with the fields the Activity tab actually displays; on any
+    failure (RMQ down, auth wrong, queue not declared yet) returns
+    ``{"available": False, "error": str}`` so the UI can render a
+    "not reachable" state rather than blanking the whole tab.
+    """
+    try:
+        from config import app_settings
+        rmq = app_settings.rabbitmq_settings
+        user = rmq.USER_NAME
+        password = rmq.PASSWORD
+        host = rmq.HOST_NAME
+    except Exception:
+        # Settings unavailable in some test paths — fall back to the
+        # docker-compose defaults so a dev environment without a YAML
+        # still gets useful output instead of a 500.
+        user, password, host = "guest", "guest", "localhost"
+
+    # Management port is configurable per deployment but conventionally
+    # 5672+10000 = 15672. Read MAGELLON_RMQ_MGMT_PORT to override.
+    mgmt_port = int(os.environ.get("MAGELLON_RMQ_MGMT_PORT", "15672"))
+    # Default vhost is "/" — URL-encoded as %2F per AMQP convention.
+    url = f"http://{host}:{mgmt_port}/api/queues/%2F/{queue_name}"
+    try:
+        r = httpx.get(url, auth=(user, password), timeout=3.0)
+        if r.status_code == 404:
+            # Queue not yet declared — common before the first dispatch.
+            return {"name": queue_name, "available": True, "depth": 0, "consumers": 0, "exists": False}
+        r.raise_for_status()
+        data = r.json()
+        return {
+            "name": queue_name,
+            "available": True,
+            "exists": True,
+            "depth": int(data.get("messages", 0) or 0),
+            "depth_ready": int(data.get("messages_ready", 0) or 0),
+            "depth_unacked": int(data.get("messages_unacknowledged", 0) or 0),
+            "consumers": int(data.get("consumers", 0) or 0),
+            "memory_bytes": int(data.get("memory", 0) or 0),
+            "state": data.get("state"),
+        }
+    except Exception as exc:  # noqa: BLE001 — surface the actual failure
+        return {"name": queue_name, "available": False, "error": str(exc)[:160]}
 
 logger = logging.getLogger(__name__)
 
@@ -1193,6 +1290,104 @@ def plugin_process_status(
         "running": manager.is_running(plugin_id),
         "status": manager.status(plugin_id).value,
         "supports_pause": manager.supports_pause(plugin_id),
+    }
+
+
+@admin_plugin_install_router.get(
+    "/{plugin_id}/activity",
+    summary="Aggregate runtime activity for the plugin's tab",
+)
+def plugin_activity(
+    plugin_id: str,
+    limit: int = Query(50, ge=1, le=500, description="recent tasks to return"),
+    manager: PluginInstallManager = Depends(get_install_manager),
+    db = Depends(get_db),  # noqa: B008 — FastAPI dependency injection
+    _: None = Depends(require_role("Administrator")),
+):
+    """Back the per-plugin Activity tab.
+
+    Returns three things in one shot so the React tab doesn't fan out
+    into three queries on every poll:
+
+      - ``queues``: live depth + consumer count from the RabbitMQ
+        management API, for the plugin's ``<category>_tasks_queue``
+        and ``<category>_out_tasks_queue``. Proxied server-side
+        because the management API doesn't ship CORS headers and the
+        credentials live in CoreService's settings.
+      - ``recent_tasks``: last N ``image_job_task`` rows where
+        ``plugin_id`` matches OR ``stage`` matches this category's
+        stage code. Carries enough columns (status, image_name,
+        plugin_version, timestamps) for a quick-scan table.
+      - ``category``: echo of what the rest of the response is
+        scoped to, so the caller can stamp the tab header.
+
+    Polled by the UI every 3–5s; the RMQ proxy has an explicit
+    3-second timeout so a broker hiccup doesn't stall the tab.
+    """
+    if not manager.is_installed(plugin_id):
+        raise HTTPException(
+            status_code=404, detail=f"plugin {plugin_id!r} not installed",
+        )
+
+    # Category lives on the plugin catalog row (Plugin.category), seeded
+    # by the install pipeline from the manifest. It's the join key
+    # between queue names + the stage filter on ImageJobTask.
+    from models.sqlalchemy_models import ImageJobTask, Plugin
+    from sqlalchemy import or_
+
+    plugin_row = (
+        db.query(Plugin)
+        .filter(Plugin.manifest_plugin_id == plugin_id)
+        .first()
+    )
+    category = plugin_row.category if plugin_row else None
+
+    in_queue_name, out_queue_name = _queue_names_for_category(category)
+    queues = []
+    if in_queue_name:
+        queues.append({**_fetch_rmq_queue_stats(in_queue_name), "direction": "in"})
+    if out_queue_name:
+        queues.append({**_fetch_rmq_queue_stats(out_queue_name), "direction": "out"})
+
+    # ImageJobTask query: rows scoped to this plugin. Two predicates
+    # OR'd together — plugin_id (provenance, set on completion) and
+    # stage (matches the category, also set on completion). Either
+    # is sufficient evidence the row belongs to this plugin's history.
+    stage_code = _CATEGORY_TO_STAGE.get((category or "").lower())
+    recent_tasks: list[dict] = []
+    try:
+        preds = [ImageJobTask.plugin_id == plugin_id]
+        if stage_code is not None:
+            preds.append(ImageJobTask.stage == stage_code)
+        rows = (
+            db.query(ImageJobTask)
+            .filter(or_(*preds))
+            .order_by(ImageJobTask.oid.desc())
+            .limit(limit)
+            .all()
+        )
+        for row in rows:
+            recent_tasks.append({
+                "oid": str(row.oid),
+                "job_id": str(row.job_id) if row.job_id else None,
+                "image_id": str(row.image_id) if row.image_id else None,
+                "image_name": row.image_name,
+                "status_id": row.status_id,
+                "status": _STATUS_LABEL.get(row.status_id or 0, "unknown"),
+                "stage": row.stage,
+                "plugin_id": row.plugin_id,
+                "plugin_version": row.plugin_version,
+                "subject_kind": row.subject_kind,
+                "subject_id": str(row.subject_id) if row.subject_id else None,
+            })
+    except Exception as exc:  # noqa: BLE001 — never break the tab on a DB hiccup
+        logger.warning("activity: db query failed: %s", exc)
+
+    return {
+        "plugin_id": plugin_id,
+        "category": category,
+        "queues": queues,
+        "recent_tasks": recent_tasks,
     }
 
 

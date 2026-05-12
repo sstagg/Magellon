@@ -393,6 +393,73 @@ export interface InstallFromHubResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Activity — queue + recent task snapshot for the per-plugin Activity tab
+// ---------------------------------------------------------------------------
+
+export interface ActivityQueueStats {
+    name: string;
+    direction: 'in' | 'out';
+    available: boolean;
+    exists?: boolean;
+    depth?: number;
+    depth_ready?: number;
+    depth_unacked?: number;
+    consumers?: number;
+    memory_bytes?: number;
+    state?: string;
+    error?: string;
+}
+
+export interface ActivityRecentTask {
+    oid: string;
+    job_id: string | null;
+    image_id: string | null;
+    image_name: string | null;
+    status_id: number | null;
+    status: string;
+    stage: number | null;
+    plugin_id: string | null;
+    plugin_version: string | null;
+    subject_kind: string | null;
+    subject_id: string | null;
+}
+
+export interface PluginActivityResponse {
+    plugin_id: string;
+    category: string | null;
+    queues: ActivityQueueStats[];
+    recent_tasks: ActivityRecentTask[];
+}
+
+/** Activity feed for one plugin — queue depth, consumer count, and the
+ *  last N ``image_job_task`` rows scoped to this plugin / category.
+ *  Polled every 4s by default; the backend's RMQ proxy has its own
+ *  3s timeout so a broker hiccup doesn't stall the UI. */
+export const usePluginActivity = (
+    pluginId: string | null | undefined,
+    limit: number = 50,
+) =>
+    useQuery(
+        ['admin-plugin-activity', pluginId, limit],
+        async () => {
+            const res = await api.get<PluginActivityResponse>(
+                `/admin/plugins/${encodeURIComponent(pluginId!)}/activity`,
+                { params: { limit } },
+            );
+            return res.data;
+        },
+        {
+            enabled: !!pluginId,
+            refetchInterval: 4000,
+            // Keep stale data on screen across re-fetches so the UI doesn't
+            // flicker every 4s during normal operation.
+            keepPreviousData: true,
+            staleTime: 2000,
+        },
+    );
+
+
+// ---------------------------------------------------------------------------
 // Logs — one-shot tail (Phase 6)
 // ---------------------------------------------------------------------------
 

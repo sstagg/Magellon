@@ -35,6 +35,7 @@ import {
     Typography,
 } from '@mui/material';
 import {
+    Activity,
     ArrowLeft,
     ExternalLink,
     FolderOpen,
@@ -53,6 +54,7 @@ import {
 } from '../../features/plugin-runner/api/PluginApi.ts';
 import { DeploymentMethodChip } from '../../features/plugin-runner/ui/DeploymentMethodChip.tsx';
 import { PluginTestPanel } from '../../features/plugin-runner/ui/PluginTestPanel.tsx';
+import { PluginActivityPanel } from '../../features/plugin-installer/ui/PluginActivityPanel.tsx';
 import { PluginLogsPanel } from '../../features/plugin-installer/ui/PluginLogsPanel.tsx';
 import {
     useAdminPluginProcessStatus,
@@ -392,10 +394,12 @@ export const PluginRunnerPageView: React.FC = () => {
     const running = !!livePlugin || !!processStatus.data?.running;
 
     // Tab state — `workspace` is the default because most operators come
-    // here to run a task, not to read logs. Logs tab keeps its own mount
-    // state via the conditional render below so its Socket.IO subscription
-    // doesn't run when the tab isn't visible.
-    const [tab, setTab] = React.useState<'workspace' | 'logs'>('workspace');
+    // here to run a task, not to read logs. Logs + Activity keep their
+    // own mount state via the conditional render below so their
+    // Socket.IO / poll subscriptions only run when the tab is active.
+    const [tab, setTab] = React.useState<'workspace' | 'logs' | 'activity'>(
+        'workspace',
+    );
 
     // Synthesize a PluginSummary for the test panel when only the catalog
     // row is known. The panel needs `plugin_id` + `category` to fetch
@@ -483,6 +487,14 @@ export const PluginRunnerPageView: React.FC = () => {
                                 disabled={!installedRow?.manifest_plugin_id}
                                 sx={{ minHeight: 48 }}
                             />
+                            <Tab
+                                value="activity"
+                                label="Activity"
+                                icon={<Activity size={16} />}
+                                iconPosition="start"
+                                disabled={!installedRow?.manifest_plugin_id}
+                                sx={{ minHeight: 48 }}
+                            />
                         </Tabs>
                         <CardContent>
                             {tab === 'workspace' && (
@@ -498,6 +510,11 @@ export const PluginRunnerPageView: React.FC = () => {
                             )}
                             {tab === 'logs' && installedRow?.manifest_plugin_id && (
                                 <PluginLogsPanel
+                                    pluginId={installedRow.manifest_plugin_id}
+                                />
+                            )}
+                            {tab === 'activity' && installedRow?.manifest_plugin_id && (
+                                <PluginActivityPanel
                                     pluginId={installedRow.manifest_plugin_id}
                                 />
                             )}
