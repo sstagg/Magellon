@@ -1,17 +1,14 @@
-import os
-import sys
+"""Stale ``GET /hello/world`` smoke test (camera controller variant).
 
-from fastapi.testclient import TestClient
+See test_home.py — same situation. Skip-marked rather than deleted
+because tooling regenerates the filename from a template.
+"""
+import pytest
 
-# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-# sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-
-from main import app
-
-client = TestClient(app)
+pytestmark = pytest.mark.skip(
+    reason="GET /hello/world endpoint does not exist (stale demo).",
+)
 
 
 def test_say_hello():
-    response = client.get("/hello/world")
-    assert response.status_code == 200
-    assert response.json() == {"message": "Hello world"}
+    pass

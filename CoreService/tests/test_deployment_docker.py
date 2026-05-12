@@ -24,6 +24,11 @@ def valid_input_data():
     }
 
 
+@pytest.mark.skip(
+    reason="Hardcoded ``BASE_URL = your_server_address_here`` — the test was "
+           "written against an external deployment service that doesn't "
+           "exist in the test environment. Skipped pending a real fixture.",
+)
 def test_deploy_container_by_image_name(valid_input_data):
     response = requests.post(BASE_URL, json=valid_input_data)
     assert response.status_code == 200
