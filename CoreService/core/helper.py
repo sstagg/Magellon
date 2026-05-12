@@ -79,6 +79,34 @@ def from_canonical_gpfs_path(path):
     return path
 
 
+def canonicalize_paths_in_payload(value):
+    """Recursively walk a JSON-like payload, applying
+    :func:`to_canonical_gpfs_path` to every string value.
+
+    The bus dispatcher canonicalizes paths at every wire boundary
+    (``core.helper.dispatch_*`` callsites). The sync HTTP path
+    (``services.sync_dispatcher``) used to forward bodies verbatim —
+    a Windows React client posting ``{"image_path": "C:/magellon/gpfs/..."}``
+    reached a Docker plugin that couldn't open the path. This walker
+    closes that gap: any string that lies under the configured
+    ``MAGELLON_GPFS_PATH`` is rewritten to canonical ``/gpfs/...``;
+    everything else passes through.
+
+    Safe to apply unconditionally — :func:`to_canonical_gpfs_path` is
+    a no-op on Linux (``MAGELLON_GPFS_PATH=/gpfs``) and on any string
+    not under the configured root.
+    """
+    if isinstance(value, str):
+        return to_canonical_gpfs_path(value)
+    if isinstance(value, dict):
+        return {k: canonicalize_paths_in_payload(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [canonicalize_paths_in_payload(v) for v in value]
+    if isinstance(value, tuple):
+        return tuple(canonicalize_paths_in_payload(v) for v in value)
+    return value
+
+
 def is_under_gpfs_root(host_path):
     """Defense-in-depth: confirm a host-resolved path lies under the
     configured GPFS root. Catches symlink escapes / odd traversal that

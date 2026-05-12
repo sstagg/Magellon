@@ -195,6 +195,10 @@ def _resolve_target(
     # using the display form (``Particle Picking``) — same normalizer
     # the schema-resolver uses, see plugins.controller._normalize_category_key.
     cat_norm = _normalize_category_key(category or "")
+    # Strict lowercase form for the state store, which keys defaults on
+    # ``category.lower()`` (underscores preserved). The fuzzy ``cat_norm``
+    # would miss matches stored with underscores.
+    cat_lower = (category or "").lower()
     candidates = [
         e for e in get_liveness_registry().list_live()
         if _normalize_category_key(e.category or "") == cat_norm
