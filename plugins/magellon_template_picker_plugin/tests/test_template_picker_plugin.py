@@ -26,11 +26,31 @@ if str(_PLUGIN_ROOT) not in sys.path:
 # ---------------------------------------------------------------------------
 
 
-def test_input_and_output_schema_match_particle_picker_contract():
+def test_input_schema_is_plugin_owned_rich_model():
+    """PE2-UI (2026-05-12): the plugin owns its input model so the
+    runner page renders sliders + file pickers + accordion groups
+    instead of the category contract's bare CryoEmImageInput shape.
+    The plugin's TemplatePickerInput is distinct from PARTICLE_PICKER's
+    minimum-shared-shape on purpose — the category contract stays as
+    the floor used when no live plugin is announcing."""
+    from plugin.models import TemplatePickerInput
+    from plugin.plugin import TemplatePickerPlugin
+
+    assert TemplatePickerPlugin.input_schema() is TemplatePickerInput
+    # Rich UI metadata should round-trip through the JSON schema —
+    # this is what the runner page renders.
+    schema = TemplatePickerInput.model_json_schema()
+    assert "template_paths" in schema["properties"]
+    assert schema["properties"]["template_paths"]["ui_widget"] == "file_path_list"
+
+
+def test_output_schema_matches_particle_picker_contract():
+    """Output stays at the category-shared shape (ParticlePickingOutput)
+    so downstream consumers can swap pickers without recompiling. Only
+    the input shape is plugin-owned."""
     from magellon_sdk.categories.contract import PARTICLE_PICKER
     from plugin.plugin import TemplatePickerPlugin
 
-    assert TemplatePickerPlugin.input_schema() is PARTICLE_PICKER.input_model
     assert TemplatePickerPlugin.output_schema() is PARTICLE_PICKER.output_model
 
 
@@ -57,41 +77,40 @@ def test_manifest_advertises_progress_and_rmq_default():
 
 
 def test_execute_rejects_missing_image_path():
-    from magellon_sdk.models.tasks import CryoEmImageInput
-    from plugin.plugin import TemplatePickerPlugin
+    """image_path is required at the Pydantic layer now — the missing
+    value triggers a ValidationError at construction time, not deep
+    inside execute()."""
+    from pydantic import ValidationError
+    from plugin.models import TemplatePickerInput
 
-    inp = CryoEmImageInput(engine_opts={
-        "templates": "/tmp/x.mrc",
-        "diameter_angstrom": 200.0,
-        "pixel_size_angstrom": 1.0,
-    })
-    with pytest.raises(ValueError, match="image_path"):
-        TemplatePickerPlugin().execute(inp)
+    with pytest.raises(ValidationError, match="image_path"):
+        TemplatePickerInput(template_paths=["/tmp/x.mrc"], diameter_angstrom=200.0)
 
 
-def test_execute_rejects_missing_templates():
-    from magellon_sdk.models.tasks import CryoEmImageInput
-    from plugin.plugin import TemplatePickerPlugin
+def test_execute_rejects_empty_template_paths():
+    """template_paths has min_length=1; validation fires at the model
+    boundary so execute() doesn't have to defend itself."""
+    from pydantic import ValidationError
+    from plugin.models import TemplatePickerInput
 
-    inp = CryoEmImageInput(
-        image_path="/tmp/m.mrc",
-        engine_opts={"diameter_angstrom": 200.0, "pixel_size_angstrom": 1.0},
-    )
-    with pytest.raises(ValueError, match="templates"):
-        TemplatePickerPlugin().execute(inp)
+    with pytest.raises(ValidationError, match="template_paths"):
+        TemplatePickerInput(image_path="/tmp/m.mrc", template_paths=[])
 
 
-def test_execute_rejects_missing_required_picker_params():
-    from magellon_sdk.models.tasks import CryoEmImageInput
-    from plugin.plugin import TemplatePickerPlugin
+def test_execute_picker_params_have_sensible_defaults():
+    """Pre-PE2 the plugin required engine_opts to carry diameter,
+    pixel sizes, etc. Post-PE2 those are typed fields with defaults
+    matching the side-panel + README reference values, so a runner-page
+    submission with just an image_path is valid."""
+    from plugin.models import TemplatePickerInput
 
-    # Missing diameter_angstrom.
-    inp = CryoEmImageInput(
-        image_path="/tmp/m.mrc",
-        engine_opts={"templates": "/tmp/x.mrc", "pixel_size_angstrom": 1.0},
-    )
-    with pytest.raises(ValueError, match="diameter_angstrom"):
-        TemplatePickerPlugin().execute(inp)
+    inp = TemplatePickerInput(image_path="/tmp/m.mrc")
+    assert inp.diameter_angstrom == 220.0
+    assert inp.image_pixel_size == 3.16
+    assert inp.template_pixel_size == 2.646
+    assert inp.threshold == 0.35
+    assert inp.bin_factor == 1
+    assert inp.invert_templates is True
 
 
 # ---------------------------------------------------------------------------
@@ -147,8 +166,7 @@ def test_execute_round_trip_with_mocked_algorithm(monkeypatch, tmp_path):
     import mrcfile
 
     from magellon_sdk.categories.outputs import ParticlePickingOutput
-    from magellon_sdk.models.tasks import CryoEmImageInput
-    from plugin import compute as compute_mod
+    from plugin.models import TemplatePickerInput
     from plugin.plugin import TemplatePickerPlugin
 
     # Synthetic micrograph + template MRCs.
@@ -174,15 +192,14 @@ def test_execute_round_trip_with_mocked_algorithm(monkeypatch, tmp_path):
     monkeypatch.setattr(algorithm_mod, "pick_particles", _fake_pick)
 
     out_dir = tmp_path / "out"
-    inp = CryoEmImageInput(
+    inp = TemplatePickerInput(
         image_path=str(mic_path),
-        engine_opts={
-            "templates": str(tmpl_path),
-            "diameter_angstrom": 220.0,
-            "pixel_size_angstrom": 1.23,
-            "threshold": 0.35,
-            "output_dir": str(out_dir),
-        },
+        template_paths=[str(tmpl_path)],
+        diameter_angstrom=220.0,
+        image_pixel_size=1.23,
+        template_pixel_size=1.23,
+        threshold=0.35,
+        output_dir=str(out_dir),
     )
 
     out = TemplatePickerPlugin().execute(inp)

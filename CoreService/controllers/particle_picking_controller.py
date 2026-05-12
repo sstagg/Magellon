@@ -75,49 +75,21 @@ _CATEGORY = "particle_picking"
 
 
 # ---------------------------------------------------------------------------
-# Translation: React's TemplatePickerInput → SDK's CryoEmImageInput shape
+# Wire shape — plugin owns TemplatePickerInput as its real input model
+# (PE2-UI, 2026-05-12). The facade now passes the validated body straight
+# through; CoreService and the plugin agree on the JSON shape via the
+# plugin's announced /schema/input. CoreService keeps its own copy of
+# the TemplatePickerInput class as a server-side fallback validator (so
+# /particle-picking/preview still 422s on bad input even if the plugin
+# isn't live).
 # ---------------------------------------------------------------------------
 
 
-def _engine_opts_from_input(req: TemplatePickerInput) -> Dict[str, Any]:
-    """Pack the React-side TemplatePickerInput fields into ``engine_opts``
-    keys the plugin reads. Unset fields are omitted so the plugin's own
-    defaults apply."""
-    opts: Dict[str, Any] = {
-        "templates": list(req.template_paths),
-        "diameter_angstrom": req.diameter_angstrom,
-        "pixel_size_angstrom": req.image_pixel_size,
-        "template_pixel_size_angstrom": req.template_pixel_size,
-        "threshold": req.threshold,
-        "max_peaks": req.max_peaks,
-        "overlap_multiplier": req.overlap_multiplier,
-        "max_blob_size_multiplier": req.max_blob_size_multiplier,
-        "min_blob_roundness": req.min_blob_roundness,
-        "peak_position": req.peak_position,
-        "bin": req.bin_factor,
-        "invert_templates": req.invert_templates,
-    }
-    if req.max_threshold is not None:
-        opts["max_threshold"] = req.max_threshold
-    if req.lowpass_resolution is not None:
-        opts["lowpass_resolution"] = req.lowpass_resolution
-    if req.angle_ranges is not None:
-        opts["angle_ranges"] = [
-            {"start": ar.start, "end": ar.end, "step": ar.step}
-            for ar in req.angle_ranges
-        ]
-    if req.output_dir:
-        opts["output_dir"] = req.output_dir
-    return opts
-
-
 def _plugin_payload(req: TemplatePickerInput) -> Dict[str, Any]:
-    """Build the full POST body for the plugin's SYNC /execute and
-    PREVIEW /preview endpoints — both accept ``CryoEmImageInput``."""
-    return {
-        "image_path": req.image_path,
-        "engine_opts": _engine_opts_from_input(req),
-    }
+    """Build the POST body for the plugin's SYNC /execute and PREVIEW
+    /preview endpoints — both validate against ``TemplatePickerInput``
+    now that the plugin owns its input shape."""
+    return req.model_dump(mode="json")
 
 
 def _http_from_dispatch_error(exc: Exception) -> HTTPException:

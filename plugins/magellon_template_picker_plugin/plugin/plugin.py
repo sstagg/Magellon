@@ -33,17 +33,18 @@ from magellon_sdk.models.manifest import (
     ResourceHints,
     Transport,
 )
-from magellon_sdk.models.tasks import CryoEmImageInput
+from magellon_sdk.models.tasks import CryoEmImageInput  # legacy, kept for typing of preview() input
 from magellon_sdk.progress import NullReporter, ProgressReporter
 from magellon_sdk.runner import emit_step, make_step_reporter
 
 from plugin.compute import _resolve_template_paths, run_template_pick
 from plugin.events import STEP_NAME, get_publisher
+from plugin.models import TemplatePickerInput
 
 logger = logging.getLogger(__name__)
 
 
-class TemplatePickerPlugin(PluginBase[CryoEmImageInput, ParticlePickingOutput]):
+class TemplatePickerPlugin(PluginBase[TemplatePickerInput, ParticlePickingOutput]):
     """FFT-correlation template picker.
 
     Inputs (via :class:`CryoEmImageInput`):
@@ -100,8 +101,8 @@ class TemplatePickerPlugin(PluginBase[CryoEmImageInput, ParticlePickingOutput]):
         )
 
     @classmethod
-    def input_schema(cls) -> Type[CryoEmImageInput]:
-        return CryoEmImageInput
+    def input_schema(cls) -> Type[TemplatePickerInput]:
+        return TemplatePickerInput
 
     @classmethod
     def output_schema(cls) -> Type[ParticlePickingOutput]:
@@ -109,30 +110,23 @@ class TemplatePickerPlugin(PluginBase[CryoEmImageInput, ParticlePickingOutput]):
 
     def execute(
         self,
-        input_data: CryoEmImageInput,
+        input_data: TemplatePickerInput,
         *,
         reporter: ProgressReporter = NullReporter(),
     ) -> ParticlePickingOutput:
-        opts = input_data.engine_opts or {}
+        # Typed fields straight off the model — the plugin owns its
+        # input shape (PE2-UI, 2026-05-12), no more engine_opts dict
+        # round-trip. ``run_template_pick`` still gets engine_opts as a
+        # passthrough kwarg for any algorithm-internal knobs we haven't
+        # promoted to typed fields yet.
         if not input_data.image_path:
             raise ValueError("template-picker: image_path is required")
-        if "templates" not in opts:
-            raise ValueError(
-                "template-picker: engine_opts['templates'] is required "
-                "(path, list of paths, or glob)"
-            )
-        if "diameter_angstrom" not in opts:
-            raise ValueError("template-picker: engine_opts['diameter_angstrom'] is required")
-        if "pixel_size_angstrom" not in opts:
-            raise ValueError(
-                "template-picker: engine_opts['pixel_size_angstrom'] is required"
-            )
 
         step = make_step_reporter(STEP_NAME, get_publisher)
         if step is not None:
             emit_step(step.started())
         try:
-            template_paths = _resolve_template_paths(opts["templates"])
+            template_paths = _resolve_template_paths(input_data.template_paths)
             if step is not None:
                 emit_step(
                     step.progress(
@@ -143,16 +137,12 @@ class TemplatePickerPlugin(PluginBase[CryoEmImageInput, ParticlePickingOutput]):
             summary = run_template_pick(
                 image_path=input_data.image_path,
                 template_paths=template_paths,
-                diameter_angstrom=float(opts["diameter_angstrom"]),
-                pixel_size_angstrom=float(opts["pixel_size_angstrom"]),
-                template_pixel_size_angstrom=(
-                    float(opts["template_pixel_size_angstrom"])
-                    if "template_pixel_size_angstrom" in opts
-                    else None
-                ),
-                threshold=float(opts.get("threshold", 0.4)),
-                output_dir=opts.get("output_dir"),
-                engine_opts=opts,
+                diameter_angstrom=float(input_data.diameter_angstrom),
+                pixel_size_angstrom=float(input_data.image_pixel_size),
+                template_pixel_size_angstrom=float(input_data.template_pixel_size),
+                threshold=float(input_data.threshold),
+                output_dir=input_data.output_dir,
+                engine_opts=input_data.model_dump(),
             )
             if step is not None:
                 emit_step(
@@ -182,17 +172,20 @@ class TemplatePickerPlugin(PluginBase[CryoEmImageInput, ParticlePickingOutput]):
     # ------------------------------------------------------------------
 
     def execute_sync(
-        self, input_data: CryoEmImageInput,
+        self, input_data: TemplatePickerInput,
     ) -> ParticlePickingOutput:
         return self.execute(input_data, reporter=NullReporter())
 
     # ------------------------------------------------------------------
     # PT-4: PREVIEW capability — interactive preview-and-retune flow.
-    # Delegates to ``plugin.preview`` which owns the TTLCache + the
-    # algorithm-level retune helpers.
+    # PE2-UI (2026-05-12): preview takes the plugin's typed input
+    # model, same shape as ``execute_sync``. The SDK's
+    # ``make_preview_router`` validates the POST body against
+    # ``cls.input_schema()``, so /preview now expects the rich
+    # ``TemplatePickerInput`` JSON shape.
     # ------------------------------------------------------------------
 
-    def preview(self, input_data: CryoEmImageInput):
+    def preview(self, input_data: TemplatePickerInput):
         from plugin.preview import run_preview
         return run_preview(input_data)
 

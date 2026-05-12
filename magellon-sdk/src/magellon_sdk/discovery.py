@@ -49,7 +49,7 @@ from __future__ import annotations
 import logging
 import threading
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 from uuid import uuid4
 
 from pydantic import AnyHttpUrl, BaseModel, Field, field_validator
@@ -141,6 +141,25 @@ class Announce(BaseModel):
     CoreService's sync_dispatcher reads this to route low-latency
     interactive calls (preview, retune, sync /execute) directly to
     the plugin process without round-tripping through the broker."""
+
+    input_schema: Optional[Dict[str, Any]] = None
+    """Per-plugin JSON schema for the input model (PE2-UI, 2026-05-12).
+
+    Computed at announce time as
+    ``cls.input_schema().model_json_schema()``. When present,
+    CoreService's ``GET /plugins/{id}/schema/input`` prefers this
+    over the category contract's base schema — that's how the
+    generic plugin runner page renders the plugin's rich form
+    (sliders, file pickers, accordion groups) instead of the
+    minimum category default. ``None`` for legacy plugins that
+    announced pre-PE2; the endpoint then falls back to the
+    category contract."""
+
+    output_schema: Optional[Dict[str, Any]] = None
+    """Symmetric counterpart to ``input_schema`` (PE2-UI).
+
+    Computed as ``cls.output_schema().model_json_schema()`` and used
+    by ``GET /plugins/{id}/schema/output`` the same way."""
 
     @field_validator("http_endpoint")
     @classmethod

@@ -76,6 +76,8 @@ class PluginLivenessEntry:
         "task_queue",
         "backend_id",
         "http_endpoint",
+        "input_schema",
+        "output_schema",
     )
 
     def __init__(
@@ -91,6 +93,8 @@ class PluginLivenessEntry:
         task_queue: Optional[str] = None,
         backend_id: Optional[str] = None,
         http_endpoint: Optional[str] = None,
+        input_schema: Optional[Dict[str, Any]] = None,
+        output_schema: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.plugin_id = plugin_id
         self.plugin_version = plugin_version
@@ -114,6 +118,13 @@ class PluginLivenessEntry:
         # sync_dispatcher in CoreService reads this to route low-
         # latency interactive calls without going through the broker.
         self.http_endpoint = http_endpoint
+        # Per-plugin JSON schemas (PE2-UI, 2026-05-12). When set, the
+        # plugin runner page reads the rich UI form schema from here
+        # rather than from the (lowest-common-denominator) category
+        # contract. None for legacy/pre-PE2 plugins; consumer falls
+        # back to the category default in that case.
+        self.input_schema = input_schema
+        self.output_schema = output_schema
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -127,6 +138,8 @@ class PluginLivenessEntry:
             "task_queue": self.task_queue,
             "backend_id": self.backend_id,
             "http_endpoint": self.http_endpoint,
+            "input_schema": self.input_schema,
+            "output_schema": self.output_schema,
         }
 
 
@@ -154,6 +167,8 @@ class PluginLivenessRegistry:
             key = self._key(msg.plugin_id, msg.instance_id)
             task_queue = getattr(msg, "task_queue", None)
             http_endpoint = getattr(msg, "http_endpoint", None)
+            input_schema = getattr(msg, "input_schema", None)
+            output_schema = getattr(msg, "output_schema", None)
             # Pre-1.3 announces won't carry backend_id directly; fall
             # back to the manifest helper so the dispatcher's pinning
             # path still has something to match against. Hidden third
@@ -188,6 +203,8 @@ class PluginLivenessRegistry:
                     task_queue=task_queue,
                     backend_id=backend_id,
                     http_endpoint=http_endpoint,
+                    input_schema=input_schema,
+                    output_schema=output_schema,
                 )
                 self._entries[key] = entry
             else:
@@ -210,6 +227,14 @@ class PluginLivenessRegistry:
                     entry.http_endpoint = http_endpoint
                 if backend_id is not None:
                     entry.backend_id = backend_id
+                # Schema fields use the same "explicit None clears" semantics
+                # as http_endpoint — a plugin upgrade that drops its rich
+                # schema flushes the cached value so the endpoint falls
+                # back to the category contract.
+                if "input_schema" in msg.model_fields_set:
+                    entry.input_schema = input_schema
+                if "output_schema" in msg.model_fields_set:
+                    entry.output_schema = output_schema
 
     def _warn_duplicate_backend(self, msg: Announce, backend_id: str) -> None:
         """Log when a second live plugin claims the same backend_id.

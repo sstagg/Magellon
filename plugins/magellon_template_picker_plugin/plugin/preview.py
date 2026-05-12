@@ -30,7 +30,8 @@ from magellon_sdk.capabilities import (
     PickingRetuneRequest,
     PickingRetuneResult,
 )
-from magellon_sdk.models.tasks import CryoEmImageInput
+
+from plugin.models import TemplatePickerInput
 
 logger = logging.getLogger(__name__)
 
@@ -45,43 +46,31 @@ _previews: TTLCache = TTLCache(maxsize=_PREVIEW_MAX_ENTRIES, ttl=_PREVIEW_TTL_SE
 
 
 # ---------------------------------------------------------------------------
-# Thresholds + binning options shared with the bus-path execute()
-# ---------------------------------------------------------------------------
-
-
-def _engine_opts(input_data: CryoEmImageInput) -> Dict[str, Any]:
-    return dict(input_data.engine_opts or {})
-
-
-def _required_field(opts: Dict[str, Any], name: str) -> Any:
-    if name not in opts:
-        raise ValueError(f"template-picker preview: engine_opts['{name}'] is required")
-    return opts[name]
-
-
-# ---------------------------------------------------------------------------
 # Public API — called from PluginBase.preview / .retune / .discard_preview
 # ---------------------------------------------------------------------------
 
 
-def run_preview(input_data: CryoEmImageInput) -> PickingPreviewResult:
-    """Compute correlation maps; cache them; return preview payload."""
+def run_preview(input_data: TemplatePickerInput) -> PickingPreviewResult:
+    """Compute correlation maps; cache them; return preview payload.
+
+    PE2-UI (2026-05-12): now takes the plugin's typed ``TemplatePickerInput``
+    directly. Pre-PE2 the body landed as ``CryoEmImageInput`` with an
+    ``engine_opts`` dict; that path is gone now that the plugin owns
+    its rich input shape.
+    """
     from plugin.algorithm import pick_particles
     from plugin.compute import (
         _load_mrc, _load_template_cached, _resolve_template_paths,
     )
 
-    opts = _engine_opts(input_data)
     if not input_data.image_path:
         raise ValueError("template-picker preview: image_path is required")
-    diameter = float(_required_field(opts, "diameter_angstrom"))
-    pixel_size = float(_required_field(opts, "pixel_size_angstrom"))
-    template_pixel_size = float(
-        opts.get("template_pixel_size_angstrom", pixel_size),
-    )
-    threshold = float(opts.get("threshold", 0.4))
+    diameter = float(input_data.diameter_angstrom)
+    pixel_size = float(input_data.image_pixel_size)
+    template_pixel_size = float(input_data.template_pixel_size)
+    threshold = float(input_data.threshold)
 
-    template_paths = _resolve_template_paths(_required_field(opts, "templates"))
+    template_paths = _resolve_template_paths(input_data.template_paths)
     image = _load_mrc(input_data.image_path)
     # Templates use the (path, mtime)-keyed cache so a slider tick
     # that triggers a fresh /preview doesn't re-read template files
@@ -93,14 +82,20 @@ def run_preview(input_data: CryoEmImageInput) -> PickingPreviewResult:
         "pixel_size_angstrom": pixel_size,
         "threshold": threshold,
         "template_pixel_size_angstrom": template_pixel_size,
+        "bin": int(input_data.bin_factor),
+        "max_peaks": int(input_data.max_peaks),
+        "overlap_multiplier": float(input_data.overlap_multiplier),
+        "max_blob_size_multiplier": float(input_data.max_blob_size_multiplier),
+        "min_blob_roundness": float(input_data.min_blob_roundness),
+        "peak_position": input_data.peak_position,
     }
-    for k in (
-        "bin", "max_threshold", "max_peaks", "overlap_multiplier",
-        "max_blob_size_multiplier", "min_blob_roundness", "peak_position",
-        "border_pixels", "angle_ranges",
-    ):
-        if k in opts:
-            params[k] = opts[k]
+    if input_data.max_threshold is not None:
+        params["max_threshold"] = float(input_data.max_threshold)
+    if input_data.angle_ranges is not None:
+        params["angle_ranges"] = [
+            {"start": ar.start, "end": ar.end, "step": ar.step}
+            for ar in input_data.angle_ranges
+        ]
 
     result = pick_particles(image=image, templates=templates, params=params)
 

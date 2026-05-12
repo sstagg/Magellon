@@ -604,18 +604,47 @@ def _category_for_plugin_from_db(plugin_id: str, short: str) -> Optional[str]:
         db.close()
 
 
+def _live_schema_for_plugin(plugin_id: str, *, kind: str) -> Optional[Dict[str, Any]]:
+    """Pull the plugin's announced JSON schema from the liveness registry.
+
+    PE2-UI (2026-05-12). When a plugin announces with
+    :attr:`Announce.input_schema` / ``output_schema`` set, the
+    registry caches the dict and we hand it back here so the runner
+    page renders the plugin's own rich form. ``kind`` is "input" or
+    "output". Returns ``None`` when no live entry matches or the
+    plugin's announce predates PE2.
+    """
+    short = _strip_category_prefix(plugin_id)
+    attr = "input_schema" if kind == "input" else "output_schema"
+    for entry in get_liveness_registry().list_live():
+        if entry.plugin_id in (short, plugin_id):
+            value = getattr(entry, attr, None)
+            if value is not None:
+                return value
+    return None
+
+
 @plugins_router.get("/{plugin_id:path}/schema/input", summary="Plugin input JSON schema")
 async def plugin_input_schema(plugin_id: str):
-    """Schema comes from the plugin's category contract — every backend
-    in a category shares the same input/output shape (the whole point
-    of CategoryContract). The React form reader uses this to render
-    the per-plugin form.
+    """Return the plugin's own JSON schema when it announced one
+    (PE2-UI, 2026-05-12); otherwise fall back to the category
+    contract's input model.
 
-    The plugin does NOT have to be live: schema is per-category, so
-    ``_category_contract_for_plugin`` falls back to the DB catalog
-    (matching ``manifest_plugin_id`` or ``oid``) so a stopped plugin's
-    form still renders on the detail page.
+    The plugin-announced schema is the source of truth for the runner
+    page form — it carries the rich UI hints (sliders, file pickers,
+    accordion groups) the plugin author wrote. The category contract
+    is the "minimum every backend in this category supports" floor,
+    used when no live plugin is announcing or when an older plugin
+    predates PE2.
+
+    The plugin does NOT have to be live for the fallback to fire:
+    schema is per-category, so ``_category_contract_for_plugin``
+    matches the DB catalog (``manifest_plugin_id`` or ``oid``) so a
+    stopped plugin's form still renders on the detail page.
     """
+    live_schema = _live_schema_for_plugin(plugin_id, kind="input")
+    if live_schema is not None:
+        return live_schema
     contract = _category_contract_for_plugin(plugin_id)
     if contract is None or contract.input_model is None:
         raise HTTPException(status_code=404, detail=f"No input schema for {plugin_id}")
@@ -624,6 +653,9 @@ async def plugin_input_schema(plugin_id: str):
 
 @plugins_router.get("/{plugin_id:path}/schema/output", summary="Plugin output JSON schema")
 async def plugin_output_schema(plugin_id: str):
+    live_schema = _live_schema_for_plugin(plugin_id, kind="output")
+    if live_schema is not None:
+        return live_schema
     contract = _category_contract_for_plugin(plugin_id)
     if contract is None or contract.output_model is None:
         raise HTTPException(status_code=404, detail=f"No output schema for {plugin_id}")

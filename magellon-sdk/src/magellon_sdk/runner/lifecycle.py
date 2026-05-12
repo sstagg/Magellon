@@ -60,6 +60,24 @@ def start_discovery(
     publisher = existing_publisher or DiscoveryPublisher(settings)
     info = plugin.get_info()
     manifest = plugin.manifest()
+    # PE2-UI (2026-05-12): publish the plugin's input/output JSON schemas
+    # alongside the manifest so CoreService's /plugins/{id}/schema/input
+    # can render the plugin's rich form (sliders, file pickers, accordion
+    # groups) instead of the category contract's minimum default. Wrapped
+    # in try/except because some test plugins use sentinel input_schema()
+    # methods that don't return a real BaseModel subclass.
+    input_schema_dict: Optional[Any] = None
+    output_schema_dict: Optional[Any] = None
+    try:
+        cls = type(plugin)
+        input_schema_dict = cls.input_schema().model_json_schema()
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("input_schema introspection failed: %s", exc)
+    try:
+        cls = type(plugin)
+        output_schema_dict = cls.output_schema().model_json_schema()
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("output_schema introspection failed: %s", exc)
     announce = Announce(
         plugin_id=info.name,
         plugin_version=info.version,
@@ -68,6 +86,8 @@ def start_discovery(
         task_queue=task_queue,
         backend_id=manifest.resolved_backend_id(),
         http_endpoint=http_endpoint,
+        input_schema=input_schema_dict,
+        output_schema=output_schema_dict,
     )
     try:
         publisher.announce(contract, announce)
