@@ -56,6 +56,7 @@ import {
     usePluginOutputSchema,
     useSubmitPluginJob,
 } from '../api/PluginApi.ts';
+import { BackendPicker } from './BackendPicker.tsx';
 import { ImagePickerDialog } from './ImagePickerDialog.tsx';
 import { ProgressTracker } from './ProgressTracker.tsx';
 import { useSocket } from '../../../shared/lib/useSocket.ts';
@@ -205,6 +206,11 @@ export const PluginTestPanel: React.FC<PluginTestPanelProps> = ({
         if (transport === 'sync' && !supportsSync) setTransport('bus');
     }, [supportsSync, transport]);
 
+    // Backend pin (Wave 5). null = "use category default" — the
+    // dispatcher's resolver picks the operator-pinned default or
+    // first live + enabled backend.
+    const [targetBackend, setTargetBackend] = useState<string | null>(null);
+
     const defaults = useMemo(() => buildDefaults(inputSchema), [inputSchema]);
     const [values, setValues] = useState<Record<string, unknown>>({});
     useEffect(() => {
@@ -250,7 +256,10 @@ export const PluginTestPanel: React.FC<PluginTestPanelProps> = ({
 
         if (transport === 'sync') {
             try {
-                const result = await sync.mutateAsync({ input: values });
+                const result = await sync.mutateAsync({
+                    input: values,
+                    target_backend: targetBackend,
+                });
                 setSyncResult(result);
                 // Render synthetic envelopes so the activity column has
                 // a uniform shape regardless of transport.
@@ -275,7 +284,10 @@ export const PluginTestPanel: React.FC<PluginTestPanelProps> = ({
 
         // Bus transport — submit and let Socket.IO drive the rest.
         try {
-            const job = await submit.mutateAsync({ input: values, sid });
+            const job = await submit.mutateAsync({
+                input: values, sid,
+                target_backend: targetBackend ?? undefined,
+            });
             setCurrentJobId(String(job.job_id));
         } catch (err) {
             setSyncError(formatError(err, 'bus dispatch failed'));
@@ -332,6 +344,13 @@ export const PluginTestPanel: React.FC<PluginTestPanelProps> = ({
                     />
                 </RadioGroup>
             </Box>
+
+            <BackendPicker
+                category={plugin.category}
+                value={targetBackend}
+                onChange={setTargetBackend}
+                disabled={!runEnabled || isBusy}
+            />
 
             <Divider />
 

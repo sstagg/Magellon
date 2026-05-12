@@ -547,11 +547,22 @@ export const InstalledPluginsView: React.FC<InstalledPluginsViewProps> = ({
                                             useFlexGap
                                         >
                                             {plugin.category && (
-                                                <Chip
-                                                    size="small"
-                                                    variant="outlined"
-                                                    label={plugin.category}
-                                                />
+                                                <Tooltip title="See every backend for this category">
+                                                    <Chip
+                                                        size="small"
+                                                        variant="outlined"
+                                                        label={plugin.category}
+                                                        clickable
+                                                        component="a"
+                                                        href={`/en/panel/plugins/categories/${encodeURIComponent(plugin.category)}`}
+                                                        onClick={(e: React.MouseEvent) => {
+                                                            // Let react-router handle the navigation
+                                                            // without a full page reload.
+                                                            e.preventDefault();
+                                                            navigate(`/en/panel/plugins/categories/${encodeURIComponent(plugin.category!)}`);
+                                                        }}
+                                                    />
+                                                </Tooltip>
                                             )}
                                             <DeploymentMethodChip method={plugin.install_method} />
                                             <InstallLocationChip row={plugin} />

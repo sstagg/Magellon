@@ -18,6 +18,7 @@ import { RealtimeMockPage } from "../../pages/dev/RealtimeMockPage.tsx";
 import {ExportPageView} from "../../pages/export/ExportPageView.tsx";
 import PluginsPageView from "../../pages/plugins/PluginsPageView.tsx";
 import PluginRunnerPageView from "../../pages/plugins/PluginRunnerPageView.tsx";
+import CategoryBackendsPage from "../../pages/plugins/CategoryBackendsPage.tsx";
 import LoginPageView from "../../features/auth/ui/LoginPageView.tsx";
 import UserProfilePage from "../../features/user-management/ui/UserProfilePage.tsx";
 import AccountPage from "../../features/user-management/ui/page.tsx";
@@ -61,6 +62,10 @@ export const PanelRoutes = () => {
                 <Route path="/import-job" element={<ImportPageView />} />
                 <Route path="/export" element={<ExportPageView />} />
                 <Route path="/plugins" element={<PluginsPageView />} />
+                <Route
+                    path="/plugins/categories/:categorySlug"
+                    element={<CategoryBackendsPage />}
+                />
                 <Route path="/plugins/*" element={<PluginRunnerPageView />} />
                 <Route path="/test" element={<TestView />} />
                 <Route path="/dev/fft-test" element={<FftTestPage />} />

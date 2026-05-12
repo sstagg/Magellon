@@ -570,6 +570,55 @@ export const fetchCapabilities = async (): Promise<CapabilitiesResponse> => {
 export const useCapabilities = () =>
     useQuery(['plugin-capabilities'], fetchCapabilities, { staleTime: 30_000 });
 
+
+// ---------------------------------------------------------------------------
+// Per-category backends (Wave 5) — reads GET /dispatch/{category}/backends
+// for the drilldown page. Distinct from /plugins/capabilities which serves
+// the whole catalog; the backends endpoint focuses on one category and
+// adds install_method (live + DB cross-reference).
+// ---------------------------------------------------------------------------
+
+export interface CategoryBackendEntry {
+    backend_id: string | null;
+    plugin_id: string;
+    version: string;
+    capabilities: string[];
+    http_endpoint: string | null;
+    live_replicas: number;
+    is_live: boolean;
+    healthy: boolean;
+    is_default: boolean;
+    enabled: boolean;
+    install_method: string | null;
+    supports_sync: boolean;
+    supports_preview: boolean;
+}
+
+export interface CategoryBackendsResponse {
+    category: string;
+    category_display_name: string;
+    default_plugin_id: string | null;
+    backends: CategoryBackendEntry[];
+}
+
+export const useCategoryBackends = (categorySlug: string | undefined) =>
+    useQuery(
+        ['category-backends', categorySlug],
+        async () => {
+            const res = await api.get<CategoryBackendsResponse>(
+                `/dispatch/${encodeURIComponent(categorySlug!)}/backends`,
+            );
+            return res.data;
+        },
+        {
+            enabled: !!categorySlug,
+            // Operators on the drilldown page want fresh data; default
+            // bus + state changes propagate within seconds.
+            staleTime: 5_000,
+            refetchInterval: 10_000,
+        },
+    );
+
 /** Find the capabilities row for a plugin, by case-insensitive category name match.
  *  Returns ``null`` when no live broker backends exist for the category.
  */
