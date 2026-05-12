@@ -36,7 +36,9 @@ import {
 } from '@mui/material';
 import {
     ArrowLeft,
+    ExternalLink,
     FolderOpen,
+    Pause,
     Play,
     RotateCcw,
     ScrollText,
@@ -54,9 +56,11 @@ import { PluginTestPanel } from '../../features/plugin-runner/ui/PluginTestPanel
 import { PluginLogsPanel } from '../../features/plugin-installer/ui/PluginLogsPanel.tsx';
 import {
     useAdminPluginProcessStatus,
+    usePausePlugin,
     useRestartPlugin,
     useStartPlugin,
     useStopPlugin,
+    useUnpausePlugin,
 } from '../../features/plugin-installer/api/installerApi.ts';
 
 const errorText = (err: unknown, fallback: string): string => {
@@ -83,9 +87,38 @@ interface HeaderStripProps {
     installMethod?: InstallMethod | null;
     imageRef?: string | null;
     running: boolean;
+    paused?: boolean;
+    supportsPause?: boolean;
     /** When set, renders Start/Stop/Restart controls. */
     manifestPluginId?: string | null;
 }
+
+/**
+ * RabbitMQ management UI base URL. Per-deployment override via
+ * RMQ_MGMT_URL on configs.json (falls back to localhost which is
+ * the docker-compose default). The deep-link button opens a tab on
+ * the plugin's task / result queue so operators can dig into wire
+ * state without typing the queue name.
+ */
+const rmqMgmtUrl = (queueName: string): string => {
+    const base =
+        ((window as any).__MAGELLON_CONFIG__?.RMQ_MGMT_URL as string | undefined) ??
+        'http://localhost:15672';
+    return `${base.replace(/\/$/, '')}/#/queues/%2F/${encodeURIComponent(queueName)}`;
+};
+
+/**
+ * Derive the input + output queue names for a plugin from its
+ * category. Matches CoreService/core/helper.py — every external
+ * plugin's queues follow ``<category>_tasks_queue`` /
+ * ``<category>_out_tasks_queue``. Returns null when the category
+ * is missing so the Activity strip is hidden cleanly.
+ */
+const queueNamesFor = (category?: string | null): { tasks: string; out: string } | null => {
+    if (!category) return null;
+    const slug = category.toLowerCase().replace(/[\s-]/g, '_');
+    return { tasks: `${slug}_tasks_queue`, out: `${slug}_out_tasks_queue` };
+};
 
 const HeaderStrip: React.FC<HeaderStripProps> = ({
     name,
@@ -97,18 +130,27 @@ const HeaderStrip: React.FC<HeaderStripProps> = ({
     installMethod,
     imageRef,
     running,
+    paused,
+    supportsPause,
     manifestPluginId,
 }) => {
     const start = useStartPlugin();
     const stop = useStopPlugin();
     const restart = useRestartPlugin();
+    const pause = usePausePlugin();
+    const unpause = useUnpausePlugin();
     const [actionLog, setActionLog] = React.useState<string | null>(null);
     const [actionError, setActionError] = React.useState<string | null>(null);
 
-    const busy = start.isLoading || stop.isLoading || restart.isLoading;
+    const busy =
+        start.isLoading ||
+        stop.isLoading ||
+        restart.isLoading ||
+        pause.isLoading ||
+        unpause.isLoading;
 
     const run = async (
-        verb: 'start' | 'stop' | 'restart',
+        verb: 'start' | 'stop' | 'restart' | 'pause' | 'unpause',
         mut: typeof start,
     ) => {
         if (!manifestPluginId) return;
@@ -181,6 +223,36 @@ const HeaderStrip: React.FC<HeaderStripProps> = ({
                                     </IconButton>
                                 </span>
                             </Tooltip>
+                            <Tooltip
+                                title={
+                                    !supportsPause
+                                        ? 'Pause is docker-only — uv plugins should be stopped instead'
+                                        : paused
+                                          ? 'Resume paused plugin'
+                                          : running
+                                            ? 'Pause plugin (memory stays resident)'
+                                            : 'Plugin is not running'
+                                }
+                            >
+                                <span>
+                                    <IconButton
+                                        aria-label={paused ? 'unpause' : 'pause'}
+                                        disabled={
+                                            busy ||
+                                            !supportsPause ||
+                                            (!paused && !running)
+                                        }
+                                        onClick={() =>
+                                            run(
+                                                paused ? 'unpause' : 'pause',
+                                                paused ? unpause : pause,
+                                            )
+                                        }
+                                    >
+                                        <Pause size={18} />
+                                    </IconButton>
+                                </span>
+                            </Tooltip>
                             <Tooltip title={running ? 'Stop plugin' : 'Already stopped'}>
                                 <span>
                                     <IconButton
@@ -206,6 +278,69 @@ const HeaderStrip: React.FC<HeaderStripProps> = ({
                         </Stack>
                     )}
                 </Stack>
+
+                {/* RabbitMQ deep-links — operators get one-click access
+                    to the plugin's input + output queues in the
+                    management UI for "what's in flight?" without
+                    typing queue names. Hidden when the category
+                    can't be derived (uv plugins that haven't joined
+                    the bus yet). */}
+                {queueNamesFor(category) && (
+                    <Stack
+                        direction="row"
+                        spacing={1}
+                        useFlexGap
+                        sx={{
+                            mt: 1.5,
+                            pt: 1.5,
+                            borderTop: '1px solid',
+                            borderColor: 'divider',
+                            alignItems: 'center',
+                            flexWrap: 'wrap',
+                            rowGap: 0.75,
+                        }}
+                    >
+                        <Typography
+                            variant="caption"
+                            sx={{ color: 'text.secondary', mr: 0.5 }}
+                        >
+                            Queues:
+                        </Typography>
+                        {(() => {
+                            const q = queueNamesFor(category)!;
+                            return (
+                                <>
+                                    <Tooltip title="Open task queue in RabbitMQ Management UI">
+                                        <Button
+                                            size="small"
+                                            variant="outlined"
+                                            endIcon={<ExternalLink size={12} />}
+                                            href={rmqMgmtUrl(q.tasks)}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            sx={{ textTransform: 'none', fontFamily: 'monospace', fontSize: 11 }}
+                                        >
+                                            {q.tasks}
+                                        </Button>
+                                    </Tooltip>
+                                    <Tooltip title="Open result queue in RabbitMQ Management UI">
+                                        <Button
+                                            size="small"
+                                            variant="outlined"
+                                            endIcon={<ExternalLink size={12} />}
+                                            href={rmqMgmtUrl(q.out)}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            sx={{ textTransform: 'none', fontFamily: 'monospace', fontSize: 11 }}
+                                        >
+                                            {q.out}
+                                        </Button>
+                                    </Tooltip>
+                                </>
+                            );
+                        })()}
+                    </Stack>
+                )}
 
                 {actionError && (
                     <Alert severity="error" sx={{ mt: 1.5 }} onClose={() => setActionError(null)}>
@@ -305,7 +440,16 @@ export const PluginRunnerPageView: React.FC = () => {
             {found && panelPlugin && (
                 <>
                     <HeaderStrip
-                        name={panelPlugin.name}
+                        /* Prefer the manifest's display name over the
+                         * announce-derived name. After we aligned
+                         * PluginInfo.name with the manifest plugin_id
+                         * (so the install pipeline's liveness check
+                         * matches — see plugin-installer+plugins fix),
+                         * live plugins announce their slug ("fft")
+                         * rather than a friendly name. The manifest's
+                         * `name:` field stays human-readable
+                         * ("FFT — magnitude spectrum"). */
+                        name={installedRow?.name ?? panelPlugin.name}
                         version={panelPlugin.version}
                         category={panelPlugin.category}
                         description={panelPlugin.description}
@@ -314,6 +458,8 @@ export const PluginRunnerPageView: React.FC = () => {
                         httpEndpoint={installedRow?.http_endpoint ?? null}
                         installMethod={installedRow?.install_method ?? null}
                         running={running}
+                        paused={processStatus.data?.status === 'paused'}
+                        supportsPause={!!processStatus.data?.supports_pause}
                         manifestPluginId={installedRow?.manifest_plugin_id ?? null}
                     />
                     <Card variant="outlined">

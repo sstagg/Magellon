@@ -535,21 +535,30 @@ export const PluginTestPanel: React.FC<PluginTestPanelProps> = ({
         </Stack>
     );
 
+    // Empty Activity wastes the whole right column at wide viewports
+    // before the first Run. Detect that and collapse to a single
+    // settings column — the Activity column re-mounts the moment
+    // there's something to show (currentJobId, envelopes, sync result).
+    const activityEmpty =
+        !currentJobId && envelopes.length === 0 && syncResult == null;
+
     return (
         <Box
             sx={{
                 display: 'grid',
-                gridTemplateColumns: { xs: '1fr', md: '380px 1fr' },
+                gridTemplateColumns: activityEmpty
+                    ? '1fr'
+                    : { xs: '1fr', md: '380px 1fr' },
                 gap: 2,
                 alignItems: 'start',
             }}
         >
-            <Box sx={{ position: { md: 'sticky' }, top: { md: 16 } }}>
+            <Box sx={{ position: { md: activityEmpty ? 'static' : 'sticky' }, top: { md: 16 } }}>
                 <Card variant="outlined">
                     <CardContent>{settingsColumn}</CardContent>
                 </Card>
             </Box>
-            <Box>{activityColumn}</Box>
+            {!activityEmpty && <Box>{activityColumn}</Box>}
 
             {/* GPFS browser dialog — driven by SchemaForm's onBrowseFile.
                 We always render the component but gate ``open`` on the
