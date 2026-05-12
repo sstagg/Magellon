@@ -283,6 +283,41 @@ Internal-only; the merge logic lives server-side so the frontend never holds Hub
 
 ---
 
+## PE6 — UI consumers (shipped 2026-05-12)
+
+Four React additions that close the loop on PE1/PE3/PE5 endpoints
+already on the wire:
+
+- **Try-example chip row** in `PluginTestPanel` — consumes
+  `capabilities.examples`. Clicking a chip merges the example values
+  on top of schema defaults, so any fields the example omits keep
+  their declared default. Empty when a category hasn't authored
+  examples yet (no chrome eaten).
+- **Subject-tag catalog filter** on `InstalledPluginsView` — closes
+  PE1 acceptance #2. Filter chips read `subject_kind` /
+  `produces_subject_kind` / `input_subjects` / `output_subjects` from
+  the capabilities response. Two chips per known subject:
+  `consumes <subject>` and `produces <subject>`. Click toggles;
+  matched-count is shown next to the registered count.
+- **Workflow lineage viewer page** at `/panel/artifacts/:oid` —
+  consumes the existing `GET /artifacts/{oid}/workflow.json`. Renders
+  the root + ancestors as a vertical stack of cards with plugin id +
+  version + collapsible params block + Re-run button.
+- **Re-run with same params button** on each non-imported workflow
+  node — re-submits the producing plugin through the existing
+  `POST /plugins/{plugin_id}/jobs` endpoint with the recorded params.
+  Confirms first when any param value is the redacted-secret
+  sentinel so the operator doesn't accidentally fire a literal
+  `"<redacted>"` string at the plugin. No new backend endpoint
+  needed — the workflow JSON already contains everything.
+
+Cribbed from: Gradio (examples gallery), VS Code marketplace tag
+filters (subject-tag chips), CryoSPARC's "Clone with inputs" (re-run
+button), Dagster's asset materialization view (the lineage cards).
+13 vitest cases pin the filter logic + viewer behaviour.
+
+---
+
 ## PE5 — Examples gallery + decorated SDK inputs (shipped 2026-05-12)
 
 Cribbed from Gradio / HF Spaces: every plugin should be runnable from

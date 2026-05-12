@@ -52,6 +52,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
+    useCapabilities,
     useInstalledFromDb,
     usePluginStatus,
     usePluginUpdates,
@@ -342,11 +343,19 @@ export const InstalledPluginsView: React.FC<InstalledPluginsViewProps> = ({
 }) => {
     const navigate = useNavigate();
     const { data: rows, isLoading, error } = useInstalledFromDb();
+    const { data: capabilities } = useCapabilities();
     const toggle = useTogglePlugin();
     const setDefault = useSetCategoryDefault();
     const uninstall = useUninstallMpn();
     const { data: updates = [] } = usePluginUpdates();
     const [query, setQuery] = useState('');
+    /**
+     * PE1 acceptance #2: subject-tag filter chips. ``null`` = no
+     * filter; otherwise one of:
+     *   - ``"consumes:<kind>"`` — keep plugins whose category accepts <kind>
+     *   - ``"produces:<kind>"`` — keep plugins whose category emits <kind>
+     */
+    const [subjectFilter, setSubjectFilter] = useState<string | null>(null);
     const [expandedReplicas, setExpandedReplicas] = useState<Record<string, boolean>>({});
     const [actionMessage, setActionMessage] = useState<
         { severity: 'success' | 'error'; text: string } | null
@@ -368,17 +377,61 @@ export const InstalledPluginsView: React.FC<InstalledPluginsViewProps> = ({
         return m;
     }, [rows]);
 
+    /**
+     * Build a map ``category-name-lowercase → {consumes, produces}``
+     * from the capabilities response so we can filter by subject tag
+     * without re-fetching per plugin.
+     */
+    const subjectsByCategory = useMemo(() => {
+        const m = new Map<string, { consumes: Set<string>; produces: Set<string> }>();
+        (capabilities?.categories ?? []).forEach((c) => {
+            const consumes = new Set<string>();
+            const produces = new Set<string>();
+            if (c.subject_kind) consumes.add(c.subject_kind);
+            Object.values(c.input_subjects ?? {}).forEach((s) => consumes.add(s));
+            // Default output subject = same as input unless transforming.
+            produces.add(c.produces_subject_kind ?? c.subject_kind ?? 'image');
+            Object.values(c.output_subjects ?? {}).forEach((s) => produces.add(s));
+            m.set(c.name.toLowerCase(), { consumes, produces });
+        });
+        return m;
+    }, [capabilities]);
+
+    /**
+     * Union of every subject the catalog mentions — drives the chip
+     * row. Stays empty when capabilities haven't loaded yet (no chrome
+     * is shown until we have data to filter on).
+     */
+    const availableSubjects = useMemo(() => {
+        const subjects = new Set<string>();
+        subjectsByCategory.forEach(({ consumes, produces }) => {
+            consumes.forEach((s) => subjects.add(s));
+            produces.forEach((s) => subjects.add(s));
+        });
+        return Array.from(subjects).sort();
+    }, [subjectsByCategory]);
+
     const filtered = useMemo(() => {
         const all = rows ?? [];
-        if (!query.trim()) return all;
+        let candidates = all;
+        if (subjectFilter) {
+            const [axis, subject] = subjectFilter.split(':');
+            candidates = candidates.filter((p) => {
+                const tags = subjectsByCategory.get(p.category?.toLowerCase() ?? '');
+                if (!tags) return false;
+                const haystack = axis === 'consumes' ? tags.consumes : tags.produces;
+                return haystack.has(subject);
+            });
+        }
+        if (!query.trim()) return candidates;
         const q = query.toLowerCase();
-        return all.filter(
+        return candidates.filter(
             (p) =>
                 p.plugin_id.toLowerCase().includes(q) ||
                 p.name.toLowerCase().includes(q) ||
                 p.description.toLowerCase().includes(q),
         );
-    }, [rows, query]);
+    }, [rows, query, subjectFilter, subjectsByCategory]);
 
     const toggleReplicas = (pluginId: string) =>
         setExpandedReplicas((s) => ({ ...s, [pluginId]: !s[pluginId] }));
@@ -420,10 +473,11 @@ export const InstalledPluginsView: React.FC<InstalledPluginsViewProps> = ({
 
     return (
         <Box>
-            <Stack direction="row" spacing={2} sx={{ alignItems: 'center', mb: 3 }}>
+            <Stack direction="row" spacing={2} sx={{ alignItems: 'center', mb: 2 }}>
                 <Box sx={{ flex: 1 }}>
                     <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                        {(rows ?? []).length} registered in the database
+                        {(rows ?? []).length} registered{subjectFilter && filtered.length !== (rows ?? []).length
+                            ? ` · ${filtered.length} matching` : ''}
                     </Typography>
                 </Box>
                 <TextField
@@ -434,6 +488,53 @@ export const InstalledPluginsView: React.FC<InstalledPluginsViewProps> = ({
                     sx={{ width: 280 }}
                 />
             </Stack>
+
+            {availableSubjects.length > 0 && (
+                <Stack
+                    direction="row"
+                    spacing={0.5}
+                    sx={{ flexWrap: 'wrap', alignItems: 'center', mb: 2 }}
+                    useFlexGap
+                >
+                    <Typography variant="caption" sx={{ color: 'text.secondary', mr: 0.5 }}>
+                        Filter:
+                    </Typography>
+                    {availableSubjects.flatMap((subject) => [
+                        <Chip
+                            key={`consumes:${subject}`}
+                            size="small"
+                            label={`consumes ${subject}`}
+                            variant={subjectFilter === `consumes:${subject}` ? 'filled' : 'outlined'}
+                            color={subjectFilter === `consumes:${subject}` ? 'primary' : 'default'}
+                            onClick={() =>
+                                setSubjectFilter((cur) =>
+                                    cur === `consumes:${subject}` ? null : `consumes:${subject}`,
+                                )
+                            }
+                        />,
+                        <Chip
+                            key={`produces:${subject}`}
+                            size="small"
+                            label={`produces ${subject}`}
+                            variant={subjectFilter === `produces:${subject}` ? 'filled' : 'outlined'}
+                            color={subjectFilter === `produces:${subject}` ? 'primary' : 'default'}
+                            onClick={() =>
+                                setSubjectFilter((cur) =>
+                                    cur === `produces:${subject}` ? null : `produces:${subject}`,
+                                )
+                            }
+                        />,
+                    ])}
+                    {subjectFilter && (
+                        <Chip
+                            size="small"
+                            label="Clear"
+                            onClick={() => setSubjectFilter(null)}
+                            variant="outlined"
+                        />
+                    )}
+                </Stack>
+            )}
 
             {actionMessage && (
                 <Alert

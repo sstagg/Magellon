@@ -49,6 +49,7 @@ import {
 
 import { SchemaForm, type BrowseFileRequest } from '../../../shared/ui/SchemaForm.tsx';
 import {
+    type CategoryExample,
     PluginSummary,
     useCategoryCapabilities,
     useDispatchSync,
@@ -169,6 +170,52 @@ const EnvelopeCard: React.FC<{ frame: EnvelopeFrame }> = ({ frame }) => {
                 </Box>
             )}
         </Card>
+    );
+};
+
+// ---------------------------------------------------------------------------
+// Example chips (PE5) — Gradio-style "Try example" pre-fill row
+// ---------------------------------------------------------------------------
+
+/**
+ * Render one chip per CategoryExample. Clicking a chip merges its
+ * ``values`` into the form, layered on the schema defaults so any
+ * fields the example omits keep their canonical default. Empty list
+ * → renders nothing (no chrome eaten when a category hasn't authored
+ * examples yet).
+ */
+const ExampleChips: React.FC<{
+    examples: CategoryExample[];
+    disabled?: boolean;
+    onPick: (example: CategoryExample) => void;
+}> = ({ examples, disabled, onPick }) => {
+    if (!examples.length) return null;
+    return (
+        <Stack
+            direction="row"
+            spacing={0.5}
+            sx={{ flexWrap: 'wrap', gap: 0.5, mb: 1 }}
+            useFlexGap
+        >
+            <Typography
+                variant="caption"
+                sx={{ color: 'text.secondary', alignSelf: 'center', mr: 0.5 }}
+            >
+                Try example:
+            </Typography>
+            {examples.map((ex) => (
+                <Tooltip key={ex.name} title={ex.description || ex.name} placement="top" arrow>
+                    <Chip
+                        size="small"
+                        label={ex.name}
+                        clickable={!disabled}
+                        disabled={disabled}
+                        onClick={() => onPick(ex)}
+                        variant="outlined"
+                    />
+                </Tooltip>
+            ))}
+        </Stack>
     );
 };
 
@@ -355,9 +402,16 @@ export const PluginTestPanel: React.FC<PluginTestPanelProps> = ({
             <Divider />
 
             <Box>
-                <Typography variant="overline" sx={{ color: 'text.secondary', letterSpacing: 0.5 }}>
-                    Inputs
-                </Typography>
+                <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 0.5 }}>
+                    <Typography variant="overline" sx={{ color: 'text.secondary', letterSpacing: 0.5, flex: 1 }}>
+                        Inputs
+                    </Typography>
+                </Stack>
+                <ExampleChips
+                    examples={capabilitiesQ.data?.examples ?? []}
+                    disabled={!runEnabled || isBusy}
+                    onPick={(ex) => setValues({ ...defaults, ...ex.values })}
+                />
                 {inputSchemaQ.isLoading && (
                     <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
                         <CircularProgress size={20} />

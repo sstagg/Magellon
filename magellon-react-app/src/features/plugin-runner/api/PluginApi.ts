@@ -545,6 +545,15 @@ export interface CapabilitiesBackend {
     task_queue?: string | null;
 }
 
+export interface CategoryExample {
+    /** Short label shown on the chip ("Default 300 kV"). */
+    name: string;
+    /** One-line context surfaced as tooltip ("Standard cryo conditions, K3 detector"). */
+    description: string;
+    /** Pre-fill values keyed by input-schema field name. */
+    values: Record<string, unknown>;
+}
+
 export interface CapabilitiesCategory {
     code: number;
     name: string;
@@ -555,6 +564,16 @@ export interface CapabilitiesCategory {
     backends: CapabilitiesBackend[];
     input_schema?: Record<string, unknown> | null;
     output_schema?: Record<string, unknown> | null;
+    /** PE1-A: the subject kind tasks of this category consume. */
+    subject_kind?: string;
+    /** PE1-A: the subject kind the category emits when transforming. */
+    produces_subject_kind?: string | null;
+    /** PE1-B: per-input-field subject tags. */
+    input_subjects?: Record<string, string>;
+    /** PE1-B: per-output-field subject tags. */
+    output_subjects?: Record<string, string>;
+    /** PE5: Gradio-style examples for the test panel's pre-fill chips. */
+    examples?: CategoryExample[];
 }
 
 export interface CapabilitiesResponse {
