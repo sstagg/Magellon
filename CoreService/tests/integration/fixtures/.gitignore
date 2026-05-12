@@ -1,0 +1,4 @@
+# Plugin archives are built on demand via scripts/build_fft_mpn.sh.
+# Keep them out of the repo — they're large, regenerable, and the
+# archive_id changes per pack.
+*.mpn
