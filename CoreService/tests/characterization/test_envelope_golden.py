@@ -156,13 +156,14 @@ def test_ctf_envelope_top_level_keys():
 
     Catches additions/removals even if the golden is regenerated carelessly.
     ``target_backend`` was added in SDK 1.3 (Track C / X.1) for backend
-    pinning; pre-1.3 plugins decoding the wire ignore the field.
+    pinning; ``subject_kind`` + ``subject_id`` were added in Phase 3
+    (subject axis, 2026-05-03). Older plugins ignore unrecognized fields.
     """
     envelope = _make_ctf_envelope()
     assert set(envelope.keys()) == {
         "id", "job_id", "session_id", "session_name", "worker_instance_id",
         "data", "status", "type", "created_date", "start_on", "end_on", "result",
-        "target_backend",
+        "target_backend", "subject_kind", "subject_id",
     }
 
 
@@ -172,7 +173,7 @@ def test_motioncor_envelope_top_level_keys():
     assert set(envelope.keys()) == {
         "id", "job_id", "session_id", "session_name", "worker_instance_id",
         "data", "status", "type", "created_date", "start_on", "end_on", "result",
-        "target_backend",
+        "target_backend", "subject_kind", "subject_id",
     }
 
 

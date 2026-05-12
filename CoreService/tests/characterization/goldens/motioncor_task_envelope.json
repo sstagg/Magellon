@@ -49,6 +49,8 @@
     "description": "Task is pending",
     "name": "pending"
   },
+  "subject_id": null,
+  "subject_kind": null,
   "target_backend": null,
   "type": {
     "code": 5,

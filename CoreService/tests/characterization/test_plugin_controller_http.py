@@ -1,10 +1,22 @@
 """HTTP contract tests for the generic plugins router.
 
-Pins the JSON shape of the public endpoints under `/plugins/`. These are
-the contracts the React app and third-party plugin consumers rely on.
+Pre-2026-05-04 these tests pinned the in-process plugin registry's
+slash-form plugin_ids (``ctf/ctffind``, ``pp/template-picker``,
+etc.). That registry was retired with Architecture B (see
+CURRENT_ARCHITECTURE.md §4.2 + memory:project_phase_progress) —
+every plugin is now an external broker plugin keyed by a slug
+plugin_id (``ctf``, ``template-picker``). The endpoints these
+tests exercise now read live state from the broker registry,
+which is empty in a unit-test process; results are empty lists,
+and the parametrized plugin_ids no longer exist.
 
-Uses a minimal FastAPI app to avoid booting CoreService's DB-bound
-startup hooks — we're testing the router's contract, not main.py's wiring.
+Skipped wholesale rather than deleted so the contract intent
+survives if a future change wants to revive them by mocking a
+liveness registry. Treat this as the historical record, not a
+gate. Today's contract coverage lives in
+``tests/contracts/`` (per-plugin HTTP /execute) and
+``tests/controllers/test_dispatch_controller.py`` (capabilities
++ multi-backend list).
 """
 from __future__ import annotations
 
@@ -13,6 +25,12 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from plugins.controller import plugins_router
+
+
+pytestmark = pytest.mark.skip(
+    reason="Pins the retired Architecture B in-process plugin registry. "
+           "See module docstring + CURRENT_ARCHITECTURE.md §4.2.",
+)
 
 
 @pytest.fixture(scope="module")
