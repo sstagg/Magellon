@@ -37,19 +37,17 @@ def to_canonical_gpfs_path(path):
     on inbound paths). On Linux deployments where MAGELLON_GPFS_PATH is
     already ``/gpfs`` this is a no-op; ``None`` and falsy paths pass
     through.
+
+    Thin wrapper over :func:`magellon_sdk.paths.to_canonical_gpfs_path`
+    so the SDK and CoreService halves of the path-translation contract
+    stay symmetric automatically.
     """
     if not path:
         return path
-    gpfs = app_settings.directory_settings.MAGELLON_GPFS_PATH
-    if not gpfs or gpfs == "/gpfs":
-        return path
-    norm = path.replace("\\", "/")
-    gpfs_norm = gpfs.replace("\\", "/").rstrip("/")
-    if norm.lower().startswith(gpfs_norm.lower() + "/"):
-        return "/gpfs/" + norm[len(gpfs_norm) + 1:]
-    if norm.lower() == gpfs_norm.lower():
-        return "/gpfs"
-    return path
+    from magellon_sdk.paths import to_canonical_gpfs_path as _sdk_to
+    return _sdk_to(
+        path, gpfs_path=app_settings.directory_settings.MAGELLON_GPFS_PATH,
+    )
 
 
 def from_canonical_gpfs_path(path):
@@ -64,19 +62,15 @@ def from_canonical_gpfs_path(path):
     Falsy / non-canonical inputs pass through unchanged. Callers must
     still validate the result is under the GPFS root before using it
     for I/O — see :func:`is_under_gpfs_root`.
+
+    Thin wrapper over :func:`magellon_sdk.paths.from_canonical_gpfs_path`.
     """
     if not path:
         return path
-    gpfs = app_settings.directory_settings.MAGELLON_GPFS_PATH
-    if not gpfs or gpfs == "/gpfs":
-        return path
-    norm = path.replace("\\", "/")
-    gpfs_norm = gpfs.replace("\\", "/").rstrip("/")
-    if norm == "/gpfs":
-        return gpfs_norm
-    if norm.startswith("/gpfs/"):
-        return gpfs_norm + "/" + norm[len("/gpfs/"):]
-    return path
+    from magellon_sdk.paths import from_canonical_gpfs_path as _sdk_from
+    return _sdk_from(
+        path, gpfs_path=app_settings.directory_settings.MAGELLON_GPFS_PATH,
+    )
 
 
 def canonicalize_paths_in_payload(value):

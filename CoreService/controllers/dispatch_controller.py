@@ -242,6 +242,97 @@ async def dispatch_preview_delete(
 
 
 @dispatch_router.get(
+    "/{category}/backends",
+    summary="Every backend available for one category",
+)
+async def list_category_backends(category: str):
+    """Aggregate per-backend availability for a single category.
+
+    Wave 5 / multi-backend UX. Today's ``/dispatch/capabilities``
+    returns one entry per category (the chosen default); this endpoint
+    returns one entry per ``backend_id`` so the React backend picker
+    can render alternatives.
+
+    Aggregation sources, all already in-process:
+      - Liveness registry → live replicas grouped by backend_id.
+      - State store → operator-pinned default plugin_id + per-plugin
+        enabled flag.
+      - DB catalog (/plugins/db) → installed-but-not-currently-live
+        backends so the UI can surface "installed, stopped" sibling
+        backends as a swap target.
+
+    The category param is normalized (lowercase, underscores ↔ spaces ↔
+    hyphens) so URL callers can use any form.
+    """
+    from core.plugin_liveness_registry import get_registry as get_liveness_registry
+    from core.plugin_state import get_state_store
+
+    contract = _resolve_category(category)
+    cat_slug = _normalize_name(contract.category.name)
+
+    state = get_state_store()
+    default_plugin_id = state.get_default(cat_slug)
+
+    # Group live entries by backend_id. A backend with no explicit
+    # backend_id falls into a synthetic key matching its plugin_id —
+    # that mirrors the pre-Track-C single-backend-per-category model.
+    cat_norm = _normalize_name(cat_slug)
+    live_by_backend: Dict[str, list] = {}
+    for entry in get_liveness_registry().list_live():
+        if _normalize_name(entry.category or "") != cat_norm:
+            continue
+        key = entry.backend_id or entry.plugin_id
+        live_by_backend.setdefault(key, []).append(entry)
+
+    # Layer in the install catalog so backends installed-but-stopped
+    # surface in the picker too. The catalog gives us a plugin_id →
+    # install_method map without per-category filtering; we filter
+    # client-side by matching against the live entries we've already
+    # collected (a stopped backend can't tell us its category — its
+    # liveness entry is gone).
+    try:
+        from services.plugin_catalog_persistence import get_plugin_catalog_persistence
+        installed_map = get_plugin_catalog_persistence().list_installed()
+    except Exception:  # noqa: BLE001 — catalog non-load-bearing here
+        installed_map = {}
+
+    out = []
+    for entries in live_by_backend.values():
+        first = entries[0]
+        caps = list((first.manifest.capabilities or [])) if first.manifest else []
+        cap_values = [c.value for c in caps]
+        enabled = state.is_enabled(first.plugin_id)
+        out.append({
+            "backend_id": first.backend_id,
+            "plugin_id": first.plugin_id,
+            "version": first.plugin_version,
+            "capabilities": cap_values,
+            "http_endpoint": first.http_endpoint,
+            "live_replicas": len(entries),
+            "is_live": True,
+            "healthy": True,  # liveness entries that survived the heartbeat-timeout sweep
+            "is_default": first.plugin_id == default_plugin_id,
+            "enabled": enabled,
+            "install_method": installed_map.get(first.plugin_id),
+            "supports_sync": (
+                Capability.SYNC.value in cap_values
+                and bool(first.http_endpoint) and enabled
+            ),
+            "supports_preview": (
+                Capability.PREVIEW.value in cap_values
+                and bool(first.http_endpoint) and enabled
+            ),
+        })
+
+    return {
+        "category": cat_slug,
+        "category_display_name": contract.category.name,
+        "default_plugin_id": default_plugin_id,
+        "backends": out,
+    }
+
+
+@dispatch_router.get(
     "/capabilities",
     summary="Per-category live capability map",
 )

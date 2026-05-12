@@ -95,6 +95,29 @@ class UninstallResult:
 
 
 @runtime_checkable
+class ScalableInstaller(Protocol):
+    """Optional Installer sub-interface for installers that support
+    multi-replica scale-out (currently :class:`DockerInstaller`).
+
+    The :class:`PluginInstallManager` checks ``isinstance(inst,
+    ScalableInstaller)`` before routing :meth:`scale` so the
+    capability test is typed, not a duck-typed ``hasattr``.
+    """
+
+    method: ClassVar[str]
+
+    def scale_to(
+        self, plugin_id: str, *, desired: int, runtime: "RuntimeConfig",
+    ) -> tuple[int, int]:
+        """Adjust the replica set to ``desired`` count.
+
+        Returns ``(current, new)``. Raises ``ValueError`` on
+        manifest-bound violations or missing install state.
+        """
+        ...
+
+
+@runtime_checkable
 class Installer(Protocol):
     """One install method. Each impl knows how to unpack, prepare,
     launch, and tear down a plugin via its specific mechanism."""
@@ -163,3 +186,12 @@ class Installer(Protocol):
 # direction installer→predicates clean. Re-imported here for the
 # Protocol's quoted forward reference.
 from services.plugin_installer.predicates import HostInfo  # noqa: E402,F401
+
+
+__all__ = [
+    "Installer",
+    "InstallResult",
+    "RuntimeConfig",
+    "ScalableInstaller",
+    "UninstallResult",
+]

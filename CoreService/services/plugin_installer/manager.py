@@ -41,7 +41,7 @@ from __future__ import annotations
 import logging
 import zipfile
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, ClassVar, Dict, List, Optional, Tuple
 
 from magellon_sdk.archive.manifest import (
     InstallSpec,
@@ -59,6 +59,7 @@ from services.plugin_installer.protocol import (
     InstallResult,
     Installer,
     RuntimeConfig,
+    ScalableInstaller,
     UninstallResult,
 )
 from services.plugin_installer.lifecycle import (
@@ -331,6 +332,16 @@ class PluginInstallManager:
     # Lifecycle (run / pause / stop) — delegate to supervisor
     # ------------------------------------------------------------------
 
+    # Typed dispatch table — replaces `getattr(lc, verb)` so a typo on
+    # the call site is a NameError, not a runtime AttributeError.
+    _LIFECYCLE_VERBS: ClassVar[Dict[str, Callable[[BackendLifecycle, str], LifecycleResult]]] = {
+        "start": lambda lc, pid: lc.start(pid),
+        "stop": lambda lc, pid: lc.stop(pid),
+        "restart": lambda lc, pid: lc.restart(pid),
+        "pause": lambda lc, pid: lc.pause(pid),
+        "unpause": lambda lc, pid: lc.unpause(pid),
+    }
+
     def _route_lifecycle(self, plugin_id: str, verb: str) -> LifecycleResult:
         """Look up the owning installer's method, dispatch ``verb`` on
         the matching lifecycle. Unsupported verbs (pause on uv) bubble
@@ -350,7 +361,13 @@ class PluginInstallManager:
                 error=f"no lifecycle controller for install method "
                       f"{installer.method!r}",
             )
-        return getattr(lc, verb)(plugin_id)
+        fn = self._LIFECYCLE_VERBS.get(verb)
+        if fn is None:
+            raise ValueError(
+                f"unknown lifecycle verb {verb!r}; valid: "
+                f"{sorted(self._LIFECYCLE_VERBS)}",
+            )
+        return fn(lc, plugin_id)
 
     def start(self, plugin_id: str) -> LifecycleResult:
         """Launch the installed plugin's process / container.
@@ -598,19 +615,13 @@ class PluginInstallManager:
                 success=False, plugin_id=plugin_id,
                 error=f"plugin {plugin_id!r} not installed",
             )
-        if installer.method != "docker":
+        # Typed capability check — uses the ScalableInstaller Protocol
+        # so the contract is explicit rather than hasattr-duck-typed.
+        if not isinstance(installer, ScalableInstaller):
             return LifecycleResult(
                 success=False, plugin_id=plugin_id,
-                error=f"scale is docker-only; plugin {plugin_id!r} "
-                      f"installed via {installer.method!r}",
-            )
-        # Use the installed manifest's replica bounds. Docker installer
-        # knows where install_state.json lives — delegate the actual
-        # spawn/stop loop to it.
-        if not hasattr(installer, "scale_to"):
-            return LifecycleResult(
-                success=False, plugin_id=plugin_id,
-                error="docker installer does not support scale",
+                error=f"scale not supported for install method "
+                      f"{installer.method!r}; only docker plugins scale",
             )
         try:
             current, new = installer.scale_to(

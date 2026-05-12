@@ -419,3 +419,144 @@ def test_capabilities_supports_flags_false_when_disabled():
     assert pp["enabled"] is False
     assert pp["supports_sync"] is False
     assert pp["supports_preview"] is False
+
+
+# ---------------------------------------------------------------------------
+# /dispatch/{category}/backends — Wave 5 / multi-backend picker
+# ---------------------------------------------------------------------------
+
+
+def _live(plugin_id, *, backend_id, category="particle_picking",
+          caps=None, http_endpoint="http://plugin.test:8000",
+          instance_id=None, version="1.0.0"):
+    """Synthetic PluginLivenessEntry. Mirrors the shape used elsewhere
+    in this file — kept inline so the test file stays self-contained."""
+    return type("E", (), {
+        "plugin_id": plugin_id,
+        "plugin_version": version,
+        "category": category,
+        "instance_id": instance_id or f"i-{plugin_id}",
+        "backend_id": backend_id,
+        "http_endpoint": http_endpoint,
+        "status": "ready",
+        "manifest": type("M", (), {
+            "capabilities": list(caps or [Capability.SYNC]),
+        })(),
+    })()
+
+
+def test_backends_groups_live_entries_by_backend_id(client):
+    """Two plugins serving the same category with different backend_ids
+    surface as two entries in the picker."""
+    a = _live("template-picker", backend_id="template-picker")
+    b = _live("relion-picker", backend_id="relion-picker")
+
+    with patch(
+        "core.plugin_liveness_registry.get_registry",
+        return_value=type("R", (), {"list_live": lambda self: [a, b]})(),
+    ), patch(
+        "core.plugin_state.get_state_store",
+        return_value=type("S", (), {
+            "get_default": lambda self, c: "template-picker",
+            "is_enabled": lambda self, p: True,
+        })(),
+    ), patch(
+        "services.plugin_catalog_persistence.get_plugin_catalog_persistence",
+        return_value=type("C", (), {
+            "list_installed": lambda self: {
+                "template-picker": "docker", "relion-picker": "docker",
+            },
+        })(),
+    ):
+        body = client.get("/dispatch/particle_picking/backends").json()
+
+    assert body["category"] == "particle_picking"
+    assert body["default_plugin_id"] == "template-picker"
+    backend_ids = {b["backend_id"] for b in body["backends"]}
+    assert backend_ids == {"template-picker", "relion-picker"}
+    by_id = {b["backend_id"]: b for b in body["backends"]}
+    assert by_id["template-picker"]["is_default"] is True
+    assert by_id["relion-picker"]["is_default"] is False
+    assert by_id["template-picker"]["install_method"] == "docker"
+
+
+def test_backends_aggregates_replicas_into_one_entry(client):
+    """Two announces from the same backend_id (multi-replica install)
+    collapse into a single entry with ``live_replicas: 2``."""
+    a1 = _live("template-picker", backend_id="template-picker",
+               instance_id="i-1")
+    a2 = _live("template-picker", backend_id="template-picker",
+               instance_id="i-2")
+
+    with patch(
+        "core.plugin_liveness_registry.get_registry",
+        return_value=type("R", (), {"list_live": lambda self: [a1, a2]})(),
+    ), patch(
+        "core.plugin_state.get_state_store",
+        return_value=type("S", (), {
+            "get_default": lambda self, c: "template-picker",
+            "is_enabled": lambda self, p: True,
+        })(),
+    ), patch(
+        "services.plugin_catalog_persistence.get_plugin_catalog_persistence",
+        return_value=type("C", (), {"list_installed": lambda self: {}})(),
+    ):
+        body = client.get("/dispatch/particle_picking/backends").json()
+
+    assert len(body["backends"]) == 1
+    assert body["backends"][0]["live_replicas"] == 2
+
+
+def test_backends_empty_when_no_live_plugins(client):
+    """Category with no live plugin returns an empty backends list
+    (not 404 — the category exists, just nothing serving it)."""
+    with patch(
+        "core.plugin_liveness_registry.get_registry",
+        return_value=type("R", (), {"list_live": lambda self: []})(),
+    ), patch(
+        "core.plugin_state.get_state_store",
+        return_value=type("S", (), {
+            "get_default": lambda self, c: None,
+            "is_enabled": lambda self, p: True,
+        })(),
+    ), patch(
+        "services.plugin_catalog_persistence.get_plugin_catalog_persistence",
+        return_value=type("C", (), {"list_installed": lambda self: {}})(),
+    ):
+        resp = client.get("/dispatch/particle_picking/backends")
+
+    assert resp.status_code == 200
+    assert resp.json()["backends"] == []
+
+
+def test_backends_404_on_unknown_category(client):
+    resp = client.get("/dispatch/never_seen_this_category/backends")
+    assert resp.status_code == 404
+
+
+def test_backends_supports_flags_false_when_disabled(client):
+    """A disabled backend reports supports_sync=False even when it has
+    the capability + endpoint — the dispatch path 503s on disabled
+    plugins so the picker must reflect that."""
+    entry = _live("template-picker", backend_id="template-picker",
+                  caps=[Capability.SYNC, Capability.PREVIEW])
+
+    with patch(
+        "core.plugin_liveness_registry.get_registry",
+        return_value=type("R", (), {"list_live": lambda self: [entry]})(),
+    ), patch(
+        "core.plugin_state.get_state_store",
+        return_value=type("S", (), {
+            "get_default": lambda self, c: "template-picker",
+            "is_enabled": lambda self, p: False,
+        })(),
+    ), patch(
+        "services.plugin_catalog_persistence.get_plugin_catalog_persistence",
+        return_value=type("C", (), {"list_installed": lambda self: {}})(),
+    ):
+        body = client.get("/dispatch/particle_picking/backends").json()
+
+    backend = body["backends"][0]
+    assert backend["enabled"] is False
+    assert backend["supports_sync"] is False
+    assert backend["supports_preview"] is False
