@@ -55,7 +55,7 @@ Magellon/
 │   ├── magellon_stack_maker_plugin/      # NEW (Phase 5): PARTICLE_EXTRACTION
 │   ├── magellon_can_classifier_plugin/   # NEW (Phase 7): TWO_D_CLASSIFICATION
 │   └── magellon_template_picker_plugin/  # NEW (Phase 6): external PARTICLE_PICKING
-├── magellon-sdk/         # magellon-sdk 2.0.0
+├── magellon-sdk/         # magellon-sdk 2.4.0 (subject-tag dispatch gate, PE1-B, 2026-05-11)
 ├── magellon-react-app/   # Frontend
 ├── Docker/               # docker-compose deployment topology
 ├── Documentation/        # This file, IMPLEMENTATION_PLAN, etc.
@@ -175,19 +175,30 @@ creation, and task state writes after dispatch now come back through the
 in-process `TaskOutputProcessor` (P3, §4.1) which calls
 `_advance_task_state` to update `status_id` + `stage` per result.
 
-### 3.4 Plugin registry (in-process)
+### 3.4 Plugin metadata surface
 
-`plugins/registry.py` walks `plugins.*`, imports any `.service` module,
-instantiates every `PluginBase` subclass, and caches by
-`{category}/{name}`. Currently discovered:
+The in-process plugin **registry** (`plugins/registry.py`, walked
+`plugins.*` and instantiated `PluginBase` subclasses) was deleted
+2026-05-04 with the rest of Architecture B (see §4.2). Plugins no
+longer live inside CoreService.
 
-- `ctf/ctffind` — stub
-- `motioncor/motioncor2` — stub
-- `pp/template-picker` — **live** (particle picking by template matching)
-- `fft/` — empty directory
+CoreService now surfaces plugin metadata through two complementary
+read endpoints, both served by `plugins/controller.py`:
 
-The in-process runtime at `plugins/controller.py` exposes the generic
-plugin HTTP surface (see §4.2).
+- `GET /plugins/` (`controller.py:329`) — live announce/heartbeat
+  view, populated by `core/plugin_liveness_registry.py` from
+  `magellon.plugins.announce.*` + `heartbeat.*`. Empty when nothing
+  is currently running.
+- `GET /plugins/db` (`controller.py:381`) — DB-cataloged view of
+  every plugin ever installed/discovered, including offline ones.
+  This is what the **React plugins page** reads first
+  (`InstalledPluginsView`); the live view is layered on top via
+  per-plugin `GET /plugins/{id}/status` polls.
+
+The consolidated catalog (`GET /plugins/capabilities`,
+`controller.py:217`) joins the two and adds per-category input/output
+JSON schemas + the operator-pinned default. See §4 for the full
+HTTP surface.
 
 ---
 
@@ -543,7 +554,7 @@ gone — see §3.3 (deleted in the A.1 follow-up, `7d1f657`).
 | 3 | ~~No mid-flight progress for external plugins~~ | **Fully resolved (MB5.3 + MB5.4b).** `StepEventPublisher` publishes via `bus.events.publish(StepEventRoute, env)`; `magellon_sdk.bus.services.step_event_forwarder.StepEventForwarder` subscribes via `bus.events.subscribe(StepEventRoute.all(), handler)` and emits `emit_step_event` onto Socket.IO. React app consumes one stream regardless of plugin location. |
 | 4 | Two plugin architectures | Same split (`plugins/` RMQ vs `CoreService/plugins/` in-process). The `TaskDispatcher` Protocol is the shared seam, and **`CategoryContract` (P1)** is the canonical input/output schema both halves resolve against — substitutability is now contract-pinned, not convention-pinned. **X.1 (2026-04-27)** added a `backend_id` axis under each category so two plugins serving one category (e.g. ctffind4 + gctf) are individually addressable via `TaskMessage.target_backend`. **2026-05-03 (Phase 6)** ships an external `template-picker` backend alongside the in-process `pp/template_picker`; both register against `PARTICLE_PICKING` and the dispatcher routes via `target_backend`. |
 | 5 | ~~Temporal-era dead-code island (~2K lines)~~ | **Resolved (A.1 follow-up, `7d1f657`).** |
-| 6 | ~~SDK scaffolded, thin~~ | **Filled in.** `magellon-sdk 2.0.0` (pyproject 1.2.0→2.0.0 fix landed 2026-05-03) ships `PluginBase`, `Envelope`, `Executor` Protocol, `ProgressReporter`, **`TaskDispatcher` + `TaskDispatcherRegistry` (Phase 6)**, **NATS transport** (`NatsPublisher`/`NatsConsumer`), **RMQ transport** (`RabbitmqClient` with `declare_queue_with_dlq`), **`events.StepEventPublisher`**, **per-category backend axis** (`PluginManifest.backend_id`, `TaskMessage.target_backend`, X.1), and (2026-05-03) the **active-task ContextVar + daemon-loop + step-reporter helpers** (`magellon_sdk.runner.active_task`) that every plugin used to hand-roll, plus the **subject axis** (`TaskMessage.subject_kind/subject_id`, `CategoryContract.subject_kind`), the **`Artifact`/`ArtifactKind`** Pydantic models, and the **`PARTICLE_EXTRACTION` + `TWO_D_CLASSIFICATION` contracts**. |
+| 6 | ~~SDK scaffolded, thin~~ | **Filled in.** `magellon-sdk 2.4.0` (2.0.0 baseline 2026-05-03 → 2.2.0 capability layer 2026-05-04 → 2.3.0 → 2.4.0 subject-tag dispatch gate 2026-05-11) ships `PluginBase`, `Envelope`, `Executor` Protocol, `ProgressReporter`, **`TaskDispatcher` + `TaskDispatcherRegistry` (Phase 6)**, **NATS transport** (`NatsPublisher`/`NatsConsumer`), **RMQ transport** (`RabbitmqClient` with `declare_queue_with_dlq`), **`events.StepEventPublisher`**, **per-category backend axis** (`PluginManifest.backend_id`, `TaskMessage.target_backend`, X.1), and (2026-05-03) the **active-task ContextVar + daemon-loop + step-reporter helpers** (`magellon_sdk.runner.active_task`) that every plugin used to hand-roll, plus the **subject axis** (`TaskMessage.subject_kind/subject_id`, `CategoryContract.subject_kind`), the **`Artifact`/`ArtifactKind`** Pydantic models, and the **`PARTICLE_EXTRACTION` + `TWO_D_CLASSIFICATION` contracts**. |
 | 7 | ~~Duplicated `core/` across external plugins~~ | **Resolved (Phases B.1/B.2/B.3, `c90eefb`/`eda4933`/`f9a4511`).** |
 | 8 | ~~Queue mapping hardcoded~~ | **Resolved (Phase 6 + wiring).** `core.dispatcher_registry.get_task_dispatcher_registry()` owns the `TaskCategory.code` → dispatcher mapping. `push_task_to_task_queue` delegates. `get_queue_name_by_task_type` remains for the audit helper. |
 | 9 | ~~`asyncio.run` inside blocking pika callback~~ | **Resolved (Phase 3).** All 4 plugin consumer engines use one daemon-thread event loop + `asyncio.run_coroutine_threadsafe(...).result()`. |
@@ -565,6 +576,7 @@ gone — see §3.3 (deleted in the A.1 follow-up, `7d1f657`).
 | 25 | ~~Tasks cannot represent aggregate-input work (2D classification, 3D refine)~~ | **Resolved (Phase 3 + 3b + 3c + 3d, 2026-05-03).** Subject axis added end-to-end: `image_job_task.subject_kind` (VARCHAR(32) DEFAULT `'image'`) + `subject_id` (UUID nullable) via alembic 0004; `TaskMessage` + `TaskResultMessage` carry both fields; `PluginBrokerRunner._stamp_subject` echoes them onto results; `TaskOutputProcessor` backfills the row when dispatch left them at the DDL default; `CategoryContract.subject_kind` (default `'image'`, `TWO_D_CLASSIFICATION_CATEGORY` overrides to `'particle_stack'`) provides the declarative seam so pre-Phase-3 dispatchers automatically pick up the right subject. Authoritative writes still come from dispatch — backfill is the back-compat seam. |
 | 26 | ~~No typed bridge between producing and consuming jobs~~ | **Resolved (Phase 4 + 5b, 2026-05-03).** New `artifact` table (alembic 0005) with promoted hot columns + `data_json` long-tail. Per ratified rule 6: immutable; only `deleted_at` mutates. SDK ships `Artifact`/`ArtifactKind` Pydantic models. `TaskOutputProcessor._maybe_write_artifact` writes `particle_stack` rows for `PARTICLE_EXTRACTION` results and `class_averages` rows for `TWO_D_CLASSIFICATION` results, projecting the new id back into `output_data` for downstream addressability. 9 unit tests pin the writer + lineage shape. |
 | 27 | ~~No user-visible rollup over the picker → extractor → classifier pipeline~~ | **Resolved (Phase 8 + 8b, 2026-05-03).** New `pipeline_run` table (alembic 0006) with `image_job.parent_run_id` FK. Each algorithm step stays its own `ImageJob`; `PipelineRun` groups them. ORM `PipelineRun` class + 10 ORM tests. HTTP CRUD at `/pipelines/runs` (POST create / GET detail / GET list with bulk job-count / DELETE soft-delete) + 11 controller tests. Per rule 6 no PUT — runs are immutable; status flips authoritatively when child jobs transition. |
+| 28 | ~~Subject-typed inputs not validated at dispatch (silent hung jobs on wrong subject kind)~~ | **Resolved (PE1-A `db09ce4` + PE1-B `38c7f2f`, 2026-05-10/11; SDK 2.4.0).** Dispatch gate in `plugins/controller.py` rejects pre-publish: `_reject_if_subject_missing` (`:838`) for aggregate categories whose `CategoryContract.subject_kind != 'image'`; `_reject_if_subject_tag_mismatch` (`:876`) walks `CategoryContract.input_subjects` and verifies every UUID-typed field references an `Artifact` of the declared kind. Returns 4xx instead of publishing a doomed task. Field-level subject tags live on `CategoryContract.input_subjects` / `output_subjects` (e.g. `TWO_D_CLASSIFICATION.input_subjects = {'particle_stack_id': 'particle_stack', 'image_id': 'image'}`). |
 
 ---
 
@@ -592,7 +604,10 @@ Gaps (relevant to the v1 plan):
 - NATS pub/sub integration test: `tests/integration/test_nats_pubsub.py`.
 - RMQ integration tests (SDK-level): `magellon-sdk/tests/test_transport_rabbitmq_integration.py`
   including DLQ routing.
-- No contract test between CoreService and external plugin containers.
+- Plugin contract tests at `CoreService/tests/contracts/` (G.2, `59b420c`) —
+  per-plugin module for CTF, MotionCor, FFT, hitting each plugin's
+  `/execute` over HTTP with a canned `TaskMessage` and asserting the
+  `TaskResultMessage` round-trip. Skip cleanly when the container isn't up.
 - No load / backpressure tests on the queue topology.
 
 ---
