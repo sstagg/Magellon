@@ -41,10 +41,24 @@ export const PluginsPageView: React.FC = () => {
     const [hubOpen, setHubOpen] = useState(false);
 
     return (
-        <Container maxWidth="lg" sx={{ py: 3 }}>
-            <Stack direction="row" spacing={2} sx={{ alignItems: 'center', mb: 3 }}>
+        <Container maxWidth="xl" sx={{ py: 3 }}>
+            <Stack
+                direction="row"
+                spacing={2}
+                useFlexGap
+                sx={{
+                    alignItems: 'center',
+                    mb: 3,
+                    // Wrap on narrow viewports so the install-action buttons
+                    // drop onto a second row instead of overflowing the
+                    // container (the previous direction='row' had no wrap
+                    // and pushed content off the left edge at ~400px).
+                    flexWrap: 'wrap',
+                    rowGap: 1.5,
+                }}
+            >
                 <Puzzle size={26} />
-                <Box sx={{ flex: 1 }}>
+                <Box sx={{ flex: 1, minWidth: 200 }}>
                     <Typography variant="h5">Plugins</Typography>
                     <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                         Manage what's installed on this server. Install new

@@ -53,6 +53,16 @@ const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' && pr
         }),
         marginLeft: 0,
     }),
+    // On narrow viewports the drawer flips to ``variant="temporary"``
+    // (overlay) and no longer occupies flex space. The closed-state
+    // ``marginLeft: -240px`` above then shifts every page off the
+    // left edge of the viewport, because nothing is reserving that
+    // 240px slot for the drawer to come back into. Pin marginLeft 0
+    // at sm-and-below regardless of the ``open`` flag.
+    [theme.breakpoints.down('sm')]: {
+        marginLeft: 0,
+        width: '100%',
+    },
     border: 'none',
     boxShadow: 'none',
     borderRadius: 0,

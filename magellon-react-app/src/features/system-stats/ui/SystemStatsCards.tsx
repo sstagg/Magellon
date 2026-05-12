@@ -9,18 +9,20 @@
  * tear down the previous reading on error — same data shown stale
  * is more useful than nothing.
  */
-import React from 'react';
+import React, { useState } from 'react';
 import {
     Alert,
     Box,
     Card,
     CardContent,
+    Collapse,
+    IconButton,
     LinearProgress,
     Stack,
     Tooltip,
     Typography,
 } from '@mui/material';
-import { Activity, Cpu, HardDrive, MemoryStick, Server } from 'lucide-react';
+import { Activity, ChevronDown, ChevronUp, Cpu, HardDrive, MemoryStick } from 'lucide-react';
 
 import { useSystemStats, type GpuStats } from '../api/systemStatsApi.ts';
 
@@ -157,8 +159,58 @@ const GpuCard: React.FC<{ gpu: GpuStats | undefined }> = ({ gpu }) => {
 // Main
 // ---------------------------------------------------------------------------
 
+/**
+ * Compact one-line summary shown when the cards are collapsed. Lets
+ * operators keep an eye on host pressure without spending 25% of the
+ * inventory page on stat cards.
+ */
+const CompactStrip: React.FC<{
+    cpuPercent: number;
+    ramPercent: number;
+    gpuPercent: number | null;
+    rxRate: number;
+    txRate: number;
+}> = ({ cpuPercent, ramPercent, gpuPercent, rxRate, txRate }) => {
+    const cell = (icon: React.ReactNode, label: string, value: string) => (
+        <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
+            <Box sx={{ color: 'text.secondary', display: 'flex' }}>{icon}</Box>
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                {label}
+            </Typography>
+            <Typography variant="body2" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                {value}
+            </Typography>
+        </Stack>
+    );
+    return (
+        <Stack
+            direction="row"
+            spacing={2}
+            useFlexGap
+            sx={{ flex: 1, flexWrap: 'wrap', rowGap: 0.5, alignItems: 'center' }}
+        >
+            {cell(<Cpu size={14} />, 'CPU', `${cpuPercent.toFixed(0)}%`)}
+            {cell(<MemoryStick size={14} />, 'RAM', `${ramPercent.toFixed(0)}%`)}
+            {cell(
+                <HardDrive size={14} />,
+                'GPU',
+                gpuPercent != null ? `${gpuPercent.toFixed(0)}%` : '—',
+            )}
+            {cell(
+                <Activity size={14} />,
+                'Net',
+                `↓${formatRate(rxRate)} · ↑${formatRate(txRate)}`,
+            )}
+        </Stack>
+    );
+};
+
 export const SystemStatsCards: React.FC = () => {
     const { data, error, isLoading } = useSystemStats();
+    // Collapsed by default: the four full-detail cards are useful to a
+    // host-watching operator but irrelevant when the focus is the plugin
+    // inventory. Compact strip stays live; expanding gets the cards back.
+    const [expanded, setExpanded] = useState(false);
 
     if (isLoading && !data) {
         return (
@@ -184,6 +236,12 @@ export const SystemStatsCards: React.FC = () => {
         );
     }
 
+    const cpuPercent = data?.cpu.percent ?? 0;
+    const ramPercent = data?.ram.percent ?? 0;
+    const gpuFirst = data?.gpu?.devices?.[0];
+    const gpuPercent =
+        data?.gpu?.available && gpuFirst ? gpuFirst.util_percent ?? 0 : null;
+
     return (
         <Box sx={{ mb: 3 }}>
             {error && !data && (
@@ -192,56 +250,102 @@ export const SystemStatsCards: React.FC = () => {
                     as Administrator.
                 </Alert>
             )}
-            <Box
-                sx={{
-                    display: 'grid',
-                    gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' },
-                    gap: 2,
-                }}
-            >
-                <StatCard
-                    icon={<Cpu size={18} />}
-                    title="CPU"
-                    primary={`${data?.cpu.percent.toFixed(0) ?? 0}%`}
-                    secondary={
-                        <>
-                            {data?.cpu.cores ?? 0} cores
-                            {data?.cpu.load_avg && data.cpu.load_avg.length > 0 && (
-                                <> · load {data.cpu.load_avg.map((v) => v.toFixed(2)).join(' / ')}</>
-                            )}
-                        </>
-                    }
-                    progress={data?.cpu.percent ?? 0}
-                    progressTone={toneForPercent(data?.cpu.percent ?? 0)}
-                />
-                <StatCard
-                    icon={<MemoryStick size={18} />}
-                    title="RAM"
-                    primary={`${data?.ram.percent.toFixed(0) ?? 0}%`}
-                    secondary={
-                        <>
-                            {formatBytes(data?.ram.used_bytes ?? 0)} of{' '}
-                            {formatBytes(data?.ram.total_bytes ?? 0)}
-                        </>
-                    }
-                    progress={data?.ram.percent ?? 0}
-                    progressTone={toneForPercent(data?.ram.percent ?? 0)}
-                />
-                <GpuCard gpu={data?.gpu} />
-                <StatCard
-                    icon={<Activity size={18} />}
-                    title="Network"
-                    primary={<>↓ {formatRate(data?.network.rx_bytes_per_sec ?? 0)}</>}
-                    secondary={
-                        <>
-                            ↑ {formatRate(data?.network.tx_bytes_per_sec ?? 0)}
-                            {' · '}
-                            total {formatBytes(data?.network.rx_total_bytes ?? 0)} in /{' '}
-                            {formatBytes(data?.network.tx_total_bytes ?? 0)} out
-                        </>
-                    }
-                />
-            </Box>
+            <Card variant="outlined">
+                <Stack
+                    direction="row"
+                    spacing={1}
+                    sx={{
+                        alignItems: 'center',
+                        px: 2,
+                        py: 1,
+                        cursor: 'pointer',
+                    }}
+                    onClick={() => setExpanded((s) => !s)}
+                    role="button"
+                    aria-expanded={expanded}
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setExpanded((s) => !s);
+                        }
+                    }}
+                >
+                    <CompactStrip
+                        cpuPercent={cpuPercent}
+                        ramPercent={ramPercent}
+                        gpuPercent={gpuPercent}
+                        rxRate={data?.network.rx_bytes_per_sec ?? 0}
+                        txRate={data?.network.tx_bytes_per_sec ?? 0}
+                    />
+                    <Tooltip title={expanded ? 'Hide system stats' : 'Show system stats'}>
+                        <IconButton
+                            size="small"
+                            aria-label={expanded ? 'collapse system stats' : 'expand system stats'}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setExpanded((s) => !s);
+                            }}
+                        >
+                            {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        </IconButton>
+                    </Tooltip>
+                </Stack>
+                <Collapse in={expanded} unmountOnExit>
+                    <Box
+                        sx={{
+                            display: 'grid',
+                            gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' },
+                            gap: 2,
+                            px: 2,
+                            pb: 2,
+                        }}
+                    >
+                        <StatCard
+                            icon={<Cpu size={18} />}
+                            title="CPU"
+                            primary={`${cpuPercent.toFixed(0)}%`}
+                            secondary={
+                                <>
+                                    {data?.cpu.cores ?? 0} cores
+                                    {data?.cpu.load_avg && data.cpu.load_avg.length > 0 && (
+                                        <> · load {data.cpu.load_avg.map((v) => v.toFixed(2)).join(' / ')}</>
+                                    )}
+                                </>
+                            }
+                            progress={cpuPercent}
+                            progressTone={toneForPercent(cpuPercent)}
+                        />
+                        <StatCard
+                            icon={<MemoryStick size={18} />}
+                            title="RAM"
+                            primary={`${ramPercent.toFixed(0)}%`}
+                            secondary={
+                                <>
+                                    {formatBytes(data?.ram.used_bytes ?? 0)} of{' '}
+                                    {formatBytes(data?.ram.total_bytes ?? 0)}
+                                </>
+                            }
+                            progress={ramPercent}
+                            progressTone={toneForPercent(ramPercent)}
+                        />
+                        <GpuCard gpu={data?.gpu} />
+                        <StatCard
+                            icon={<Activity size={18} />}
+                            title="Network"
+                            primary={<>↓ {formatRate(data?.network.rx_bytes_per_sec ?? 0)}</>}
+                            secondary={
+                                <>
+                                    ↑ {formatRate(data?.network.tx_bytes_per_sec ?? 0)}
+                                    {' · '}
+                                    total {formatBytes(data?.network.rx_total_bytes ?? 0)} in /{' '}
+                                    {formatBytes(data?.network.tx_total_bytes ?? 0)} out
+                                </>
+                            }
+                        />
+                    </Box>
+                </Collapse>
+            </Card>
         </Box>
     );
 };

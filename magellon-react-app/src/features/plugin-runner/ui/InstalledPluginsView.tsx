@@ -433,6 +433,25 @@ export const InstalledPluginsView: React.FC<InstalledPluginsViewProps> = ({
         );
     }, [rows, query, subjectFilter, subjectsByCategory]);
 
+    // Split rows into first-class installs vs orphan 'discovered' rows.
+    // A row with install_method='discovered' came from an announce
+    // envelope that hit an empty install_state — when the plugin's
+    // heartbeat later expires, the row hangs around with no operator
+    // action attached. Moving them into a collapsed "Inactive" group
+    // keeps the primary grid focused on real installs while still
+    // surfacing the orphans for cleanup.
+    const { primaryRows, inactiveRows } = useMemo(() => {
+        const primary: typeof filtered = [];
+        const inactive: typeof filtered = [];
+        for (const r of filtered) {
+            if (r.install_method === 'discovered') inactive.push(r);
+            else primary.push(r);
+        }
+        return { primaryRows: primary, inactiveRows: inactive };
+    }, [filtered]);
+
+    const [inactiveOpen, setInactiveOpen] = useState(false);
+
     const toggleReplicas = (pluginId: string) =>
         setExpandedReplicas((s) => ({ ...s, [pluginId]: !s[pluginId] }));
 
@@ -473,10 +492,17 @@ export const InstalledPluginsView: React.FC<InstalledPluginsViewProps> = ({
 
     return (
         <Box>
-            <Stack direction="row" spacing={2} sx={{ alignItems: 'center', mb: 2 }}>
-                <Box sx={{ flex: 1 }}>
+            <Stack
+                direction="row"
+                spacing={2}
+                useFlexGap
+                sx={{ alignItems: 'center', mb: 2, flexWrap: 'wrap', rowGap: 1 }}
+            >
+                <Box sx={{ flex: 1, minWidth: 160 }}>
                     <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                        {(rows ?? []).length} registered{subjectFilter && filtered.length !== (rows ?? []).length
+                        {primaryRows.length} installed
+                        {inactiveRows.length > 0 && ` · ${inactiveRows.length} inactive`}
+                        {subjectFilter && filtered.length !== (rows ?? []).length
                             ? ` · ${filtered.length} matching` : ''}
                     </Typography>
                 </Box>
@@ -485,7 +511,7 @@ export const InstalledPluginsView: React.FC<InstalledPluginsViewProps> = ({
                     placeholder="Search plugins…"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    sx={{ width: 280 }}
+                    sx={{ width: { xs: '100%', sm: 280 } }}
                 />
             </Stack>
 
@@ -546,7 +572,7 @@ export const InstalledPluginsView: React.FC<InstalledPluginsViewProps> = ({
                 </Alert>
             )}
 
-            {filtered.length === 0 ? (
+            {primaryRows.length === 0 && inactiveRows.length === 0 ? (
                 <Card variant="outlined">
                     <CardContent
                         sx={{
@@ -606,7 +632,7 @@ export const InstalledPluginsView: React.FC<InstalledPluginsViewProps> = ({
                 </Card>
             ) : (
                 <Grid container spacing={2}>
-                    {filtered.map((plugin) => {
+                    {primaryRows.map((plugin) => {
                         const enabled = plugin.enabled ?? true;
                         const isDefault = plugin.is_default_for_category === true;
                         const siblingCount =
@@ -850,6 +876,107 @@ export const InstalledPluginsView: React.FC<InstalledPluginsViewProps> = ({
                         );
                     })}
                 </Grid>
+            )}
+
+            {inactiveRows.length > 0 && (
+                <Box sx={{ mt: 3 }}>
+                    <Box
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setInactiveOpen((s) => !s)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                setInactiveOpen((s) => !s);
+                            }
+                        }}
+                        sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1,
+                            py: 1,
+                            px: 1.5,
+                            borderRadius: 1,
+                            cursor: 'pointer',
+                            color: 'text.secondary',
+                            '&:hover': { bgcolor: 'action.hover' },
+                        }}
+                        aria-expanded={inactiveOpen}
+                    >
+                        {inactiveOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        <Typography variant="subtitle2">
+                            Inactive ({inactiveRows.length})
+                        </Typography>
+                        <Typography
+                            variant="caption"
+                            sx={{ color: 'text.disabled', ml: 0.5 }}
+                        >
+                            orphan announce records — auto-expire when the
+                            originating plugin's heartbeat times out
+                        </Typography>
+                    </Box>
+                    <Collapse in={inactiveOpen} unmountOnExit>
+                        <Grid container spacing={2} sx={{ mt: 0.5 }}>
+                            {inactiveRows.map((plugin) => (
+                                <Grid
+                                    key={plugin.plugin_id}
+                                    size={{ xs: 12, sm: 6, md: 4 }}
+                                >
+                                    <Card
+                                        variant="outlined"
+                                        sx={{
+                                            height: '100%',
+                                            opacity: 0.6,
+                                            borderStyle: 'dashed',
+                                        }}
+                                    >
+                                        <CardContent>
+                                            <Stack
+                                                direction="row"
+                                                spacing={1}
+                                                sx={{
+                                                    alignItems: 'center',
+                                                    mb: 0.5,
+                                                    flexWrap: 'wrap',
+                                                }}
+                                            >
+                                                <Typography variant="subtitle1">
+                                                    {plugin.name}
+                                                </Typography>
+                                                {plugin.version && (
+                                                    <Chip
+                                                        size="small"
+                                                        label={`v${plugin.version}`}
+                                                        variant="outlined"
+                                                    />
+                                                )}
+                                                <Chip
+                                                    size="small"
+                                                    label="discovered"
+                                                    variant="outlined"
+                                                />
+                                            </Stack>
+                                            {plugin.description && (
+                                                <Typography
+                                                    variant="caption"
+                                                    sx={{
+                                                        color: 'text.secondary',
+                                                        display: '-webkit-box',
+                                                        WebkitLineClamp: 2,
+                                                        WebkitBoxOrient: 'vertical',
+                                                        overflow: 'hidden',
+                                                    }}
+                                                >
+                                                    {plugin.description}
+                                                </Typography>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                </Grid>
+                            ))}
+                        </Grid>
+                    </Collapse>
+                </Box>
             )}
         </Box>
     );

@@ -2,6 +2,7 @@
  * Quick one-shot screenshots used to verify the plugins page UX.
  * Captures:
  *   - /en/panel/plugins inventory (08-final-state)
+ *   - same with Inactive section expanded (11-inactive-expanded)
  *   - template-picker detail page on the Workspace tab (09-runner-workspace)
  *   - same page after clicking Logs tab (10-runner-logs)
  */
@@ -27,17 +28,25 @@ test('snapshot plugins inventory + runner page tabs', async ({ page, context }) 
     body: JSON.stringify({ username: 'super', password: 'behd1d2' }),
   })).json();
 
-  await context.addInitScript(({ token, userId, username }) => {
+  await context.addInitScript(({ token, userId, username }: any) => {
     localStorage.setItem('access_token', token);
     localStorage.setItem('currentUser', JSON.stringify({ id: userId, username, active: true, change_password_required: false }));
     localStorage.setItem('currentUserId', userId);
   }, { token: auth.access_token, userId: auth.user_id, username: auth.username });
 
-  // 1. Inventory
+  // 1. Inventory (default state — Inactive collapsed)
   await page.goto(`${FRONTEND}/en/panel/plugins`, { waitUntil: 'domcontentloaded' });
   await page.waitForLoadState('networkidle').catch(() => {});
   await page.waitForTimeout(5000);
   await page.screenshot({ path: path.join(SHOTS, '08-final-state.png'), fullPage: true });
+
+  // 1b. Inactive section expanded
+  const inactiveToggle = page.getByRole('button', { name: /^Inactive \(\d+\)/i }).first();
+  if (await inactiveToggle.isVisible().catch(() => false)) {
+    await inactiveToggle.click();
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(SHOTS, '11-inactive-expanded.png'), fullPage: true });
+  }
 
   // 2. Template-picker runner page — Workspace tab (default)
   await page.goto(`${FRONTEND}${TEMPLATE_PICKER_PATH}`, { waitUntil: 'domcontentloaded' });
