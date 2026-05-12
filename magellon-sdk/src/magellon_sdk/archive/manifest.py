@@ -274,9 +274,10 @@ class InstallSpec(BaseModel):
     @field_validator("method")
     @classmethod
     def _known_method(cls, v: str) -> str:
-        if v not in {"docker", "uv", "subprocess"}:
+        if v not in {"docker", "uv", "subprocess", "slurm"}:
             raise ValueError(
-                f"unknown install method {v!r}; expected docker, uv, or subprocess"
+                f"unknown install method {v!r}; "
+                f"expected docker, uv, subprocess, or slurm"
             )
         return v
 

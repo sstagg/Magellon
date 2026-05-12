@@ -404,11 +404,85 @@ class DockerLifecycle:
         return [legacy] if legacy else []
 
 
+# ---------------------------------------------------------------------------
+# Slurm — scaffolding only (Wave 6 Phase 26)
+# ---------------------------------------------------------------------------
+
+
+class SlurmLifecycle:
+    """``BackendLifecycle`` over Slurm (scaffolding).
+
+    Maps the daemon-shaped Protocol onto Slurm job control:
+
+      - ``start``  → ``sbatch`` the recorded job template.
+      - ``stop``   → ``scancel <job_id>``.
+      - ``restart``→ ``scancel`` + ``sbatch``.
+      - ``status`` → ``squeue -j <job_id> -h -o '%T'`` parses the
+        state code.
+      - ``pause`` / ``unpause`` → NOT supported (Slurm has no
+        freezing primitive; raise NotSupportedError analogous to the
+        uv path).
+      - ``logs``   → tail the job's stdout/stderr file at the path
+        the sbatch script declared.
+
+    Every method raises NotImplementedError today — see
+    SlurmInstaller's module docstring for the design choice that
+    needs locking before this scaffolds into real impl.
+    """
+
+    method = "slurm"
+    supports_pause = False
+
+    def __init__(
+        self,
+        plugins_dir: Path,
+        *,
+        sbatch_command: str = "sbatch",
+        scancel_command: str = "scancel",
+        squeue_command: str = "squeue",
+        subprocess_runner: SubprocessRunner = _default_subprocess_runner,
+    ) -> None:
+        self.plugins_dir = Path(plugins_dir)
+        self.sbatch_command = sbatch_command
+        self.scancel_command = scancel_command
+        self.squeue_command = squeue_command
+        self._run = subprocess_runner
+
+    def start(self, plugin_id: str) -> LifecycleResult:
+        raise NotImplementedError("SlurmLifecycle is scaffolding only.")
+
+    def stop(self, plugin_id: str) -> LifecycleResult:
+        raise NotImplementedError("SlurmLifecycle is scaffolding only.")
+
+    def restart(self, plugin_id: str) -> LifecycleResult:
+        raise NotImplementedError("SlurmLifecycle is scaffolding only.")
+
+    def pause(self, plugin_id: str) -> LifecycleResult:
+        raise NotSupportedError(
+            "pause is not expressible in Slurm — no freezing primitive. "
+            "Use stop, accept the requeue cost.",
+        )
+
+    def unpause(self, plugin_id: str) -> LifecycleResult:
+        raise NotSupportedError(
+            "unpause is not expressible in Slurm. See pause().",
+        )
+
+    def status(self, plugin_id: str) -> LifecycleStatus:
+        # Until install is wired, no job_id to query — UNKNOWN matches
+        # the "lifecycle can't tell" semantics we use for NoOp.
+        return LifecycleStatus.UNKNOWN
+
+    def logs(self, plugin_id: str, *, tail: int = 200) -> str:
+        return ""
+
+
 __all__ = [
     "BackendLifecycle",
     "DockerLifecycle",
     "LifecycleResult",
     "LifecycleStatus",
     "NotSupportedError",
+    "SlurmLifecycle",
     "UvLifecycle",
 ]
