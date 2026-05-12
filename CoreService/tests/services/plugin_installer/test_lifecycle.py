@@ -262,6 +262,104 @@ def test_docker_lifecycle_status_unknown_on_inspect_failure(tmp_path):
     assert lc.status("fft") == LifecycleStatus.UNKNOWN
 
 
+def _write_multi_state(plugins_dir: Path, plugin_id: str,
+                       container_names: list[str]) -> None:
+    plugin_dir = plugins_dir / plugin_id
+    plugin_dir.mkdir(parents=True, exist_ok=True)
+    (plugin_dir / "install_state.json").write_text(
+        json.dumps({
+            "plugin_id": plugin_id,
+            "version": "1.0.0",
+            "method": "docker",
+            "image_ref": "img:1",
+            "image_was_built": False,
+            "container_name": container_names[0],
+            "replicas": [
+                {"replica_id": i, "container_name": name, "host_port": 18000 + i}
+                for i, name in enumerate(container_names)
+            ],
+        }),
+        encoding="utf-8",
+    )
+
+
+def test_docker_lifecycle_status_all_running_aggregates_to_running(tmp_path):
+    _write_multi_state(tmp_path, "fft", ["fft-0", "fft-1", "fft-2"])
+    runner = _RecordingDockerRunner(returncode=0, stdout="running\n")
+    lc = DockerLifecycle(plugins_dir=tmp_path, subprocess_runner=runner)
+
+    assert lc.status("fft") == LifecycleStatus.RUNNING
+
+
+def test_docker_lifecycle_status_mixed_aggregates_to_partial(tmp_path):
+    """One replica running, two stopped → PARTIAL. Operators see
+    degraded availability at a glance."""
+    _write_multi_state(tmp_path, "fft", ["fft-0", "fft-1", "fft-2"])
+
+    class _MixedRunner:
+        def __init__(self):
+            self.calls = []
+            self._returns = iter([
+                ("running\n", 0),
+                ("exited\n", 0),
+                ("exited\n", 0),
+            ])
+
+        def __call__(self, cmd, *args, **kwargs):
+            self.calls.append(tuple(cmd))
+            stdout, rc = next(self._returns)
+            return subprocess.CompletedProcess(cmd, rc, stdout=stdout, stderr="")
+
+    runner = _MixedRunner()
+    lc = DockerLifecycle(plugins_dir=tmp_path, subprocess_runner=runner)
+
+    assert lc.status("fft") == LifecycleStatus.PARTIAL
+
+
+def test_docker_lifecycle_start_fans_out_to_all_replicas(tmp_path):
+    _write_multi_state(tmp_path, "fft", ["fft-0", "fft-1", "fft-2"])
+    runner = _RecordingDockerRunner(returncode=0, stdout="running\n")
+    lc = DockerLifecycle(plugins_dir=tmp_path, subprocess_runner=runner)
+
+    result = lc.start("fft")
+
+    assert result.success
+    # First call is `docker start fft-0 fft-1 fft-2`; remaining calls are
+    # the status re-check (one inspect per replica).
+    first = runner.calls[0]
+    assert first == ("docker", "start", "fft-0", "fft-1", "fft-2"), first
+
+
+def test_docker_lifecycle_status_per_replica_returns_one_entry_each(tmp_path):
+    _write_multi_state(tmp_path, "fft", ["fft-0", "fft-1"])
+    runner = _RecordingDockerRunner(returncode=0, stdout="running\n")
+    lc = DockerLifecycle(plugins_dir=tmp_path, subprocess_runner=runner)
+
+    detail = lc.status_per_replica("fft")
+
+    assert detail == [
+        {"container_name": "fft-0", "status": "running"},
+        {"container_name": "fft-1", "status": "running"},
+    ]
+
+
+def test_docker_lifecycle_legacy_state_synthesizes_single_replica(tmp_path):
+    """Pre-v1.1 install_state.json had only ``container_name``; the
+    lifecycle must synthesize a one-element replica list for back
+    compat without an in-place migration."""
+    _write_state(tmp_path, "fft", "magellon-plugin-fft")  # legacy single-name shape
+    runner = _RecordingDockerRunner(returncode=0, stdout="running\n")
+    lc = DockerLifecycle(plugins_dir=tmp_path, subprocess_runner=runner)
+
+    result = lc.start("fft")
+
+    assert result.success
+    # Pre-v1.1 single replica: ``docker start magellon-plugin-fft``.
+    assert runner.calls[0] == (
+        "docker", "start", "magellon-plugin-fft",
+    )
+
+
 def test_docker_lifecycle_status_unknown_when_state_missing(tmp_path):
     runner = _RecordingDockerRunner()
     lc = DockerLifecycle(plugins_dir=tmp_path, subprocess_runner=runner)

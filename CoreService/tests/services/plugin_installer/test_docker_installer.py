@@ -210,6 +210,306 @@ def test_install_image_mode_runs_pull_then_run(tmp_path):
     assert subcommands == ["pull", "run"]
 
 
+# ---------------------------------------------------------------------------
+# Restart policy (Wave 4, manifest v1.1) — every docker run carries the
+# manifest-declared --restart flag.
+# ---------------------------------------------------------------------------
+
+
+def _docker_run_flags(calls: list) -> list[str]:
+    """Return the docker run command's argv from the recorded calls."""
+    for entry in calls:
+        cmd = entry["cmd"]
+        if len(cmd) > 1 and cmd[1] == "run":
+            return list(cmd)
+    return []
+
+
+def test_docker_run_passes_default_on_failure_restart(tmp_path):
+    """A manifest without an explicit lifecycle block falls back to
+    restart_policy=on-failure with max_retries=5 — the new default in
+    v1.1. Matches the pre-v1.1 hardcoded systemd behaviour."""
+    archive, manifest = _build_archive(tmp_path, [
+        {"method": "docker", "image": "ghcr.io/x/y:1.0"},
+    ])
+    runner = _stub_runner()
+    inst = DockerInstaller(
+        plugins_dir=tmp_path / "installed", subprocess_runner=runner,
+    )
+
+    inst.install(archive, manifest, manifest.install[0], _runtime())
+
+    flags = _docker_run_flags(runner.calls)
+    assert "--restart" in flags, flags
+    flag_value = flags[flags.index("--restart") + 1]
+    assert flag_value == "on-failure:5", flag_value
+
+
+def test_docker_run_passes_always_restart_policy(tmp_path):
+    archive, manifest = _build_archive(tmp_path, [
+        {"method": "docker", "image": "ghcr.io/x/y:1.0"},
+    ])
+    # Override the lifecycle block.
+    payload = manifest.model_dump(mode="python")
+    payload["lifecycle"] = {"restart_policy": "always", "restart_max_retries": 0}
+    manifest = PluginArchiveManifest.model_validate(payload)
+
+    runner = _stub_runner()
+    inst = DockerInstaller(
+        plugins_dir=tmp_path / "installed", subprocess_runner=runner,
+    )
+
+    inst.install(archive, manifest, manifest.install[0], _runtime())
+
+    flags = _docker_run_flags(runner.calls)
+    assert flags[flags.index("--restart") + 1] == "always"
+
+
+def test_docker_run_no_policy_emits_explicit_no_flag(tmp_path):
+    archive, manifest = _build_archive(tmp_path, [
+        {"method": "docker", "image": "ghcr.io/x/y:1.0"},
+    ])
+    payload = manifest.model_dump(mode="python")
+    payload["lifecycle"] = {"restart_policy": "no"}
+    manifest = PluginArchiveManifest.model_validate(payload)
+
+    runner = _stub_runner()
+    inst = DockerInstaller(
+        plugins_dir=tmp_path / "installed", subprocess_runner=runner,
+    )
+
+    inst.install(archive, manifest, manifest.install[0], _runtime())
+
+    flags = _docker_run_flags(runner.calls)
+    assert flags[flags.index("--restart") + 1] == "no"
+
+
+# ---------------------------------------------------------------------------
+# Replicas (Wave 4, manifest v1.1) — install spawns N containers; scale
+# adds/removes them; uninstall stops all of them.
+# ---------------------------------------------------------------------------
+
+
+def _docker_run_count(calls) -> int:
+    return sum(1 for c in calls if len(c["cmd"]) > 1 and c["cmd"][1] == "run")
+
+
+def _manifest_with_replicas(install: list[dict], *, desired=1, min=1, max=1):
+    payload = {
+        "manifest_version": "1.1",
+        "plugin_id": "ctf-plugin",
+        "archive_id": str(uuid7()),
+        "name": "CTF",
+        "version": "1.2.3",
+        "requires_sdk": ">=2.0,<3.0",
+        "category": "ctf",
+        "install": install,
+        "resources": {
+            "replicas": {"desired": desired, "min": min, "max": max},
+        },
+    }
+    return PluginArchiveManifest.model_validate(payload)
+
+
+def _build_archive_with_manifest(
+    tmp_path: Path, manifest: PluginArchiveManifest,
+) -> Path:
+    yaml_bytes = dump_manifest_yaml(manifest).encode()
+    archive = tmp_path / "ctf.mpn"
+    files = {"Dockerfile": b"FROM python:3.12\n"}
+    with zipfile.ZipFile(archive, "w") as z:
+        z.writestr("manifest.yaml", yaml_bytes)
+        z.writestr("plugin.yaml", yaml_bytes)
+        for name, content in files.items():
+            z.writestr(name, content)
+    return archive
+
+
+def test_install_spawns_one_container_per_replica(tmp_path):
+    manifest = _manifest_with_replicas(
+        [{"method": "docker", "image": "img:1"}],
+        desired=3, min=1, max=5,
+    )
+    archive = _build_archive_with_manifest(tmp_path, manifest)
+    runner = _stub_runner()
+    inst = DockerInstaller(
+        plugins_dir=tmp_path / "installed", subprocess_runner=runner,
+    )
+
+    result = inst.install(archive, manifest, manifest.install[0], _runtime())
+
+    assert result.success, result.error
+    assert _docker_run_count(runner.calls) == 3
+
+
+def test_install_replicas_state_carries_per_replica_metadata(tmp_path):
+    manifest = _manifest_with_replicas(
+        [{"method": "docker", "image": "img:1"}],
+        desired=2, min=1, max=3,
+    )
+    archive = _build_archive_with_manifest(tmp_path, manifest)
+    runner = _stub_runner()
+    plugins_dir = tmp_path / "installed"
+    inst = DockerInstaller(plugins_dir=plugins_dir, subprocess_runner=runner)
+
+    inst.install(archive, manifest, manifest.install[0], _runtime())
+
+    state = json.loads(
+        (plugins_dir / manifest.plugin_id / STATE_FILENAME).read_text("utf-8"),
+    )
+    assert "replicas" in state
+    assert len(state["replicas"]) == 2
+    assert state["replicas"][0]["replica_id"] == 0
+    assert state["replicas"][1]["replica_id"] == 1
+    # Multi-replica installs use -<i> suffixed names; replica 0 keeps
+    # the bare name only when there's a single replica.
+    assert state["replicas"][0]["container_name"].endswith("-0")
+    assert state["replicas"][1]["container_name"].endswith("-1")
+    # The legacy top-level container_name mirrors replica 0 for callers
+    # still keying on the old shape (DockerLifecycle fallback path).
+    assert state["container_name"] == state["replicas"][0]["container_name"]
+
+
+def test_install_single_replica_keeps_legacy_container_name(tmp_path):
+    """A plugin without a replicas block (or replicas.desired=1) installs
+    under the legacy ``magellon-plugin-<id>`` name (no -0 suffix) so
+    existing operator muscle memory and ``docker ps --filter`` still
+    work."""
+    archive, manifest = _build_archive(tmp_path, [
+        {"method": "docker", "image": "img:1"},
+    ])
+    inst = DockerInstaller(plugins_dir=tmp_path / "installed",
+                           subprocess_runner=_stub_runner())
+
+    inst.install(archive, manifest, manifest.install[0], _runtime())
+
+    state = json.loads(
+        (tmp_path / "installed" / manifest.plugin_id / STATE_FILENAME).read_text("utf-8"),
+    )
+    assert state["container_name"] == f"magellon-plugin-{manifest.plugin_id}"
+
+
+def test_uninstall_stops_every_replica(tmp_path):
+    manifest = _manifest_with_replicas(
+        [{"method": "docker", "image": "img:1"}],
+        desired=3, min=1, max=3,
+    )
+    archive = _build_archive_with_manifest(tmp_path, manifest)
+    runner = _stub_runner()
+    inst = DockerInstaller(
+        plugins_dir=tmp_path / "installed", subprocess_runner=runner,
+    )
+
+    inst.install(archive, manifest, manifest.install[0], _runtime())
+    # Reset to see only uninstall calls.
+    runner.calls.clear()
+
+    result = inst.uninstall(manifest.plugin_id)
+
+    assert result.success, result.error
+    stop_calls = [c["cmd"] for c in runner.calls if c["cmd"][1] == "stop"]
+    rm_calls = [c["cmd"] for c in runner.calls if c["cmd"][1] == "rm"]
+    assert len(stop_calls) == 3, stop_calls
+    assert len(rm_calls) == 3, rm_calls
+
+
+def test_scale_up_spawns_additional_containers(tmp_path):
+    manifest = _manifest_with_replicas(
+        [{"method": "docker", "image": "img:1"}],
+        desired=1, min=1, max=4,
+    )
+    archive = _build_archive_with_manifest(tmp_path, manifest)
+    runner = _stub_runner()
+    inst = DockerInstaller(
+        plugins_dir=tmp_path / "installed", subprocess_runner=runner,
+    )
+
+    inst.install(archive, manifest, manifest.install[0], _runtime())
+    runner.calls.clear()
+
+    current, new = inst.scale_to(
+        manifest.plugin_id, desired=3, runtime=_runtime(),
+    )
+
+    assert (current, new) == (1, 3)
+    assert _docker_run_count(runner.calls) == 2  # only the 2 new ones
+
+    state = json.loads(
+        (tmp_path / "installed" / manifest.plugin_id / STATE_FILENAME).read_text("utf-8"),
+    )
+    assert len(state["replicas"]) == 3
+
+
+def test_scale_down_stops_excess(tmp_path):
+    manifest = _manifest_with_replicas(
+        [{"method": "docker", "image": "img:1"}],
+        desired=3, min=1, max=3,
+    )
+    archive = _build_archive_with_manifest(tmp_path, manifest)
+    runner = _stub_runner()
+    inst = DockerInstaller(
+        plugins_dir=tmp_path / "installed", subprocess_runner=runner,
+    )
+
+    inst.install(archive, manifest, manifest.install[0], _runtime())
+    runner.calls.clear()
+
+    current, new = inst.scale_to(
+        manifest.plugin_id, desired=1, runtime=_runtime(),
+    )
+
+    assert (current, new) == (3, 1)
+    # 2 stop + 2 rm calls for the 2 removed replicas.
+    stop_calls = [c for c in runner.calls if c["cmd"][1] == "stop"]
+    rm_calls = [c for c in runner.calls if c["cmd"][1] == "rm"]
+    assert len(stop_calls) == 2
+    assert len(rm_calls) == 2
+
+    state = json.loads(
+        (tmp_path / "installed" / manifest.plugin_id / STATE_FILENAME).read_text("utf-8"),
+    )
+    assert len(state["replicas"]) == 1
+
+
+def test_scale_to_bounds_violation_raises(tmp_path):
+    manifest = _manifest_with_replicas(
+        [{"method": "docker", "image": "img:1"}],
+        desired=2, min=1, max=3,
+    )
+    archive = _build_archive_with_manifest(tmp_path, manifest)
+    inst = DockerInstaller(plugins_dir=tmp_path / "installed",
+                           subprocess_runner=_stub_runner())
+
+    inst.install(archive, manifest, manifest.install[0], _runtime())
+
+    with pytest.raises(ValueError, match="outside manifest bounds"):
+        inst.scale_to(manifest.plugin_id, desired=99, runtime=_runtime())
+
+
+def test_docker_run_on_failure_zero_retries_drops_count(tmp_path):
+    """Manifest restart_max_retries=0 means infinite — docker reads a
+    bare ``on-failure`` without ``:N`` as infinite. Our helper drops
+    the count when it's 0."""
+    archive, manifest = _build_archive(tmp_path, [
+        {"method": "docker", "image": "ghcr.io/x/y:1.0"},
+    ])
+    payload = manifest.model_dump(mode="python")
+    payload["lifecycle"] = {
+        "restart_policy": "on-failure", "restart_max_retries": 0,
+    }
+    manifest = PluginArchiveManifest.model_validate(payload)
+
+    runner = _stub_runner()
+    inst = DockerInstaller(
+        plugins_dir=tmp_path / "installed", subprocess_runner=runner,
+    )
+
+    inst.install(archive, manifest, manifest.install[0], _runtime())
+
+    flags = _docker_run_flags(runner.calls)
+    assert flags[flags.index("--restart") + 1] == "on-failure"
+
+
 def test_install_image_mode_state_marks_image_was_built_false(tmp_path):
     """Pulled images stay around after uninstall — uninstall must
     NOT rmi them."""

@@ -1144,6 +1144,75 @@ def test_upgrade_from_hub_502_on_sha_mismatch(client, fake_manager, monkeypatch)
 
 
 # ---------------------------------------------------------------------------
+# Scale endpoint (Phase 14, Wave 4)
+# ---------------------------------------------------------------------------
+
+
+def test_scale_success_returns_200(client, fake_manager):
+    from services.plugin_installer.lifecycle import LifecycleResult, LifecycleStatus
+    fake_manager.is_installed.return_value = True
+    fake_manager.scale.return_value = LifecycleResult(
+        success=True, plugin_id="fft", status=LifecycleStatus.RUNNING,
+        logs="scaled fft from 1 to 3 replicas",
+    )
+
+    resp = client.post("/admin/plugins/fft/scale", json={"desired": 3})
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["success"] is True
+    assert body["desired"] == 3
+    assert body["status"] == "running"
+    _, kwargs = fake_manager.scale.call_args.args, fake_manager.scale.call_args.kwargs
+    assert kwargs["desired"] == 3
+
+
+def test_scale_404_when_not_installed(client, fake_manager):
+    fake_manager.is_installed.return_value = False
+    resp = client.post("/admin/plugins/ghost/scale", json={"desired": 2})
+    assert resp.status_code == 404
+
+
+def test_scale_422_when_uv_install(client, fake_manager):
+    """uv plugins return 422 with the docker-only message — same error
+    shape as the manager surface."""
+    from services.plugin_installer.lifecycle import LifecycleResult
+    fake_manager.is_installed.return_value = True
+    fake_manager.scale.return_value = LifecycleResult(
+        success=False, plugin_id="fft",
+        error="scale is docker-only; plugin 'fft' installed via 'uv'",
+    )
+
+    resp = client.post("/admin/plugins/fft/scale", json={"desired": 2})
+
+    assert resp.status_code == 422
+    assert "docker-only" in resp.json()["detail"]
+
+
+def test_scale_422_when_bounds_violated(client, fake_manager):
+    from services.plugin_installer.lifecycle import LifecycleResult
+    fake_manager.is_installed.return_value = True
+    fake_manager.scale.return_value = LifecycleResult(
+        success=False, plugin_id="fft",
+        error="desired=99 outside manifest bounds [min=1, max=5]",
+    )
+
+    resp = client.post("/admin/plugins/fft/scale", json={"desired": 99})
+
+    assert resp.status_code == 422
+
+
+def test_scale_validates_desired_range(client, fake_manager):
+    """Pydantic validation gates ``desired`` at the HTTP layer before
+    the manager sees it — out-of-range hits 422."""
+    fake_manager.is_installed.return_value = True
+    resp = client.post("/admin/plugins/fft/scale", json={"desired": 0})
+    assert resp.status_code == 422
+    resp = client.post("/admin/plugins/fft/scale", json={"desired": 999})
+    assert resp.status_code == 422
+
+
+# ---------------------------------------------------------------------------
 # Logs endpoint (Phase 6, kept here for proximity)
 # ---------------------------------------------------------------------------
 

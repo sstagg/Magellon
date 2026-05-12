@@ -295,6 +295,107 @@ def test_default_resources_zero_gpu():
 
 
 # ---------------------------------------------------------------------------
+# v1.1 — LifecyclePolicy + ReplicaPolicy (Wave 4)
+# ---------------------------------------------------------------------------
+
+
+def test_default_lifecycle_is_on_failure_with_5_retries():
+    """v1.1 default mirrors the pre-v1.1 hardcoded systemd behaviour
+    (``Restart=on-failure`` in the unit template) so existing archives
+    install identically after the bump."""
+    from magellon_sdk.archive.manifest import LifecyclePolicy
+    data = _minimal_v1_manifest()
+    m = PluginArchiveManifest.model_validate(data)
+    assert isinstance(m.lifecycle, LifecyclePolicy)
+    assert m.lifecycle.restart_policy == "on-failure"
+    assert m.lifecycle.restart_max_retries == 5
+
+
+def test_lifecycle_accepts_known_policies():
+    for policy in ("no", "on-failure", "always", "unless-stopped"):
+        data = _minimal_v1_manifest()
+        data["lifecycle"] = {"restart_policy": policy}
+        m = PluginArchiveManifest.model_validate(data)
+        assert m.lifecycle.restart_policy == policy
+
+
+def test_lifecycle_rejects_unknown_policy():
+    import pytest
+    data = _minimal_v1_manifest()
+    data["lifecycle"] = {"restart_policy": "yolo"}
+    with pytest.raises(Exception):
+        PluginArchiveManifest.model_validate(data)
+
+
+def test_lifecycle_max_retries_bounded():
+    """0 disables the cap (infinite); 100 is the upper bound to keep
+    operators from setting ``999999`` and locking up a host with a
+    crash-looping container."""
+    import pytest
+    data = _minimal_v1_manifest()
+    data["lifecycle"] = {"restart_max_retries": 101}
+    with pytest.raises(Exception):
+        PluginArchiveManifest.model_validate(data)
+
+
+def test_default_replicas_is_none():
+    """v1.0 manifests don't mention replicas; the install pipeline
+    treats None as single-instance behaviour."""
+    data = _minimal_v1_manifest()
+    m = PluginArchiveManifest.model_validate(data)
+    assert m.resources.replicas is None
+
+
+def test_replicas_validates_min_max_bounds():
+    import pytest
+    data = _minimal_v1_manifest()
+    # min > max
+    data["resources"] = {"replicas": {"desired": 2, "min": 3, "max": 2}}
+    with pytest.raises(Exception, match="min.*max"):
+        PluginArchiveManifest.model_validate(data)
+
+
+def test_replicas_validates_desired_in_range():
+    import pytest
+    data = _minimal_v1_manifest()
+    data["resources"] = {"replicas": {"desired": 10, "min": 1, "max": 5}}
+    with pytest.raises(Exception, match="desired"):
+        PluginArchiveManifest.model_validate(data)
+
+
+def test_replicas_happy_path():
+    data = _minimal_v1_manifest()
+    data["resources"] = {"replicas": {"desired": 3, "min": 1, "max": 5}}
+    m = PluginArchiveManifest.model_validate(data)
+    assert m.resources.replicas is not None
+    assert m.resources.replicas.desired == 3
+    assert m.resources.replicas.min == 1
+    assert m.resources.replicas.max == 5
+
+
+def test_manifest_version_default_is_v1_1():
+    """v1.1 is the new on-pack default. v1 readers see new fields as
+    extras (model_config extra='ignore') so this is back-compat one
+    way (newer reader, older archive)."""
+    data = _minimal_v1_manifest()
+    # The minimal-manifest fixture pins manifest_version='1' explicitly
+    # to exercise the v1 legacy alias path; drop it to test the default.
+    del data["manifest_version"]
+    m = PluginArchiveManifest.model_validate(data)
+    assert m.manifest_version == "1.1"
+
+
+def test_v1_archive_still_parses_without_new_fields():
+    """An archive packed with v1 (no lifecycle / replicas block) must
+    still validate — defaults fill in the gaps."""
+    data = _minimal_v1_manifest()
+    data["manifest_version"] = "1"
+    m = PluginArchiveManifest.model_validate(data)
+    assert m.lifecycle.restart_policy == "on-failure"
+    assert m.resources.replicas is None
+
+
+# ---------------------------------------------------------------------------
 # check_sdk_compat (kept from v0 — legacy callers depend on it)
 # ---------------------------------------------------------------------------
 

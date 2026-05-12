@@ -96,16 +96,27 @@ class _FakeUvInstaller:
 
 
 class _RecordingSupervisor:
-    """Tracks every call so tests can assert ordering."""
+    """Tracks every call so tests can assert ordering.
 
-    name = "recording"
+    Names itself ``systemd-user`` so the manager's Wave-4 restart-policy
+    gate treats this supervisor as restart-capable. Tests that care
+    specifically about the gate (Popen / NoOp behaviour) construct
+    fakes with the relevant ``name`` directly.
+    """
+
+    name = "systemd-user"
 
     def __init__(self, *, fail_on=None):
         self.calls: list[tuple[str, str]] = []
         self._fail_on = fail_on  # ('install_unit' | 'start' | None)
 
-    def install_unit(self, plugin_id, install_dir):
+    def install_unit(self, plugin_id, install_dir, *,
+                     restart_policy="on-failure", restart_max_retries=5):
         self.calls.append(("install_unit", plugin_id))
+        self.last_install_unit_kwargs = {
+            "restart_policy": restart_policy,
+            "restart_max_retries": restart_max_retries,
+        }
         if self._fail_on == "install_unit":
             return SupervisorResult(success=False, plugin_id=plugin_id, error="boom")
         return SupervisorResult(success=True, plugin_id=plugin_id)
@@ -201,6 +212,98 @@ def test_uninstall_stops_and_removes_unit_before_reclaiming_dir(tmp_path):
     op_names = [op for op, _ in sup.calls]
     assert op_names == ["stop", "remove_unit"]
     assert installer.uninstall_calls == [("tp", False)]
+
+
+# ---------------------------------------------------------------------------
+# Restart-policy gate (Wave 4 / manifest v1.1)
+# ---------------------------------------------------------------------------
+
+
+def _build_archive_with_restart(tmp_path: Path, policy: str) -> Path:
+    """Same as ``_build_archive`` but injects a lifecycle.restart_policy
+    into the manifest. Used by the gate tests."""
+    payload = {
+        "manifest_version": "1.1",
+        "plugin_id": "tp",
+        "archive_id": str(uuid7()),
+        "name": "t",
+        "version": "0.1.0",
+        "requires_sdk": ">=2.0,<3.0",
+        "category": "fft",
+        "install": [{"method": "uv", "pyproject": "pyproject.toml"}],
+        "lifecycle": {"restart_policy": policy},
+    }
+    manifest = PluginArchiveManifest.model_validate(payload)
+    yaml_bytes = dump_manifest_yaml(manifest).encode()
+    archive = tmp_path / "tp.mpn"
+    with zipfile.ZipFile(archive, "w") as z:
+        z.writestr("manifest.yaml", yaml_bytes)
+        z.writestr("plugin.yaml", yaml_bytes)
+    return archive
+
+
+def test_uv_install_refused_when_popen_supervisor_and_non_no_policy(tmp_path):
+    """Wave 4: uv plugins running under PopenSupervisor (Windows/macOS)
+    can't honor restart_policy != 'no' — no watchdog. Manager refuses
+    at the gate with an actionable error."""
+    archive = _build_archive_with_restart(tmp_path, policy="on-failure")
+    installer = _FakeUvInstaller()
+
+    class _PopenLikeSupervisor(_RecordingSupervisor):
+        name = "popen"
+
+    sup = _PopenLikeSupervisor()
+    mgr = PluginInstallManager(
+        [installer], host_info_provider=_no_failures_host, supervisor=sup,
+    )
+
+    result = mgr.install(archive, _runtime())
+
+    assert not result.success
+    assert "restart_policy" in result.error.lower()
+    assert "'popen'" in result.error or "popen" in result.error
+    # Installer must NOT have been called — gate fires before dispatch.
+    assert installer.install_calls == []
+
+
+def test_uv_install_permitted_under_popen_when_policy_is_no(tmp_path):
+    """The escape hatch: explicitly setting restart_policy='no' is the
+    only policy Popen supervisors can honor (don't restart). Install
+    proceeds normally."""
+    archive = _build_archive_with_restart(tmp_path, policy="no")
+    installer = _FakeUvInstaller()
+
+    class _PopenLikeSupervisor(_RecordingSupervisor):
+        name = "popen"
+
+    sup = _PopenLikeSupervisor()
+    mgr = PluginInstallManager(
+        [installer], host_info_provider=_no_failures_host, supervisor=sup,
+    )
+
+    result = mgr.install(archive, _runtime())
+
+    assert result.success, result.error
+    assert installer.install_calls == [("tp",)]
+
+
+def test_uv_install_passes_restart_kwargs_to_supervisor(tmp_path):
+    """When the gate permits the install, the manifest's restart_policy
+    + max_retries flow into supervisor.install_unit. The systemd unit
+    template reads them from there."""
+    archive = _build_archive_with_restart(tmp_path, policy="always")
+    installer = _FakeUvInstaller()
+    sup = _RecordingSupervisor()  # default name=systemd-user
+    mgr = PluginInstallManager(
+        [installer], host_info_provider=_no_failures_host, supervisor=sup,
+    )
+
+    mgr.install(archive, _runtime())
+
+    kwargs = getattr(sup, "last_install_unit_kwargs", None)
+    assert kwargs is not None, "supervisor.install_unit not called"
+    assert kwargs["restart_policy"] == "always"
+    assert kwargs["restart_max_retries"] == 5  # default in manifest
 
 
 # ---------------------------------------------------------------------------

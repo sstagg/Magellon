@@ -45,11 +45,19 @@ class LifecycleStatus(str, Enum):
     """Coarse state. ``UNKNOWN`` covers 'lifecycle can't tell' (e.g. the
     NoOp uv supervisor on Windows dev, where supervision isn't really
     happening). Operators get a chip in the UI; treat ``UNKNOWN`` as
-    a hint to look at the bus heartbeat instead."""
+    a hint to look at the bus heartbeat instead.
+
+    ``PARTIAL`` (Wave 4) is the multi-replica case where some replicas
+    are in one state and the rest in another — typically mid-scale or
+    after one replica crashed. The aggregated state lets operators
+    notice degraded availability at a glance; the per-replica detail
+    surfaces in the React drawer.
+    """
 
     RUNNING = "running"
     STOPPED = "stopped"
     PAUSED = "paused"
+    PARTIAL = "partial"
     UNKNOWN = "unknown"
 
 
@@ -242,11 +250,44 @@ class DockerLifecycle:
         return self._do(plugin_id, "unpause", LifecycleStatus.RUNNING)
 
     def status(self, plugin_id: str) -> LifecycleStatus:
-        container_name = self._container_name(plugin_id)
-        if container_name is None:
+        """Aggregate per-replica state into a single LifecycleStatus.
+
+        Mapping:
+          - All containers ``running`` → RUNNING.
+          - All ``paused`` → PAUSED.
+          - All ``exited``/``created``/``dead`` → STOPPED.
+          - Anything else (mid-transition, mixed) → PARTIAL when the
+            replica set has > 1 container, UNKNOWN otherwise.
+        """
+        names = self._container_names(plugin_id)
+        if not names:
             return LifecycleStatus.UNKNOWN
-        # ``docker inspect -f '{{.State.Status}}'`` prints one of:
-        # created | running | paused | restarting | removing | exited | dead
+        per_replica = [self._inspect_state(name) for name in names]
+        if all(s == LifecycleStatus.RUNNING for s in per_replica):
+            return LifecycleStatus.RUNNING
+        if all(s == LifecycleStatus.PAUSED for s in per_replica):
+            return LifecycleStatus.PAUSED
+        if all(s == LifecycleStatus.STOPPED for s in per_replica):
+            return LifecycleStatus.STOPPED
+        # Mixed — PARTIAL when there's > 1 container, UNKNOWN for a
+        # single container in a transitional state (restarting / etc.).
+        if len(names) > 1:
+            return LifecycleStatus.PARTIAL
+        return LifecycleStatus.UNKNOWN
+
+    def status_per_replica(self, plugin_id: str) -> list[dict]:
+        """Per-replica state, used by the React drawer. Returns a list
+        of ``{container_name, status}`` dicts in the order replicas
+        were spawned (replica_id 0 first)."""
+        names = self._container_names(plugin_id)
+        return [
+            {"container_name": name, "status": self._inspect_state(name).value}
+            for name in names
+        ]
+
+    def _inspect_state(self, container_name: str) -> LifecycleStatus:
+        """Run ``docker inspect`` against one container and map to a
+        :class:`LifecycleStatus`."""
         result = self._run(
             [self.docker_command, "inspect", "-f", "{{.State.Status}}", container_name],
             capture_output=True, text=True,
@@ -269,14 +310,17 @@ class DockerLifecycle:
         state (never installed) or docker errors. The follow=True
         path is handled by the Socket.IO streamer in
         :mod:`core.plugin_log_stream` rather than here.
+        Reads logs from the first replica (replica_id=0). Per-replica
+        access is on the React drawer's roadmap but not the one-shot
+        admin endpoint today.
         """
-        container_name = self._container_name(plugin_id)
-        if container_name is None:
+        names = self._container_names(plugin_id)
+        if not names:
             return ""
         result = self._run(
             [
                 self.docker_command, "logs",
-                "--tail", str(max(1, tail)), container_name,
+                "--tail", str(max(1, tail)), names[0],
             ],
             capture_output=True, text=True,
         )
@@ -294,8 +338,15 @@ class DockerLifecycle:
     def _do(
         self, plugin_id: str, verb: str, on_success: LifecycleStatus,
     ) -> LifecycleResult:
-        container_name = self._container_name(plugin_id)
-        if container_name is None:
+        """Fan ``verb`` out across every container in the replica set.
+
+        ``docker <verb> name1 name2 ...`` is supported for
+        start/stop/restart/pause/unpause and exits non-zero if any
+        target fails. We collect per-container outcomes so a partial
+        failure surfaces in the result.
+        """
+        names = self._container_names(plugin_id)
+        if not names:
             return LifecycleResult(
                 success=False, plugin_id=plugin_id,
                 status=LifecycleStatus.UNKNOWN,
@@ -303,34 +354,54 @@ class DockerLifecycle:
                       f"can't resolve container name",
             )
         result = self._run(
-            [self.docker_command, verb, container_name],
+            [self.docker_command, verb, *names],
             capture_output=True, text=True,
         )
         if result.returncode != 0:
             return LifecycleResult(
                 success=False, plugin_id=plugin_id,
                 status=self.status(plugin_id),
-                error=f"docker {verb} {container_name} failed: "
+                error=f"docker {verb} {names!r} failed: "
                       f"{(result.stderr or result.stdout or '').strip()}",
                 logs=result.stdout,
             )
+        # Re-check status to pick up PARTIAL when some containers
+        # were already in the target state and we couldn't transition
+        # the others (docker swallows that case as success).
+        final = self.status(plugin_id) if len(names) > 1 else on_success
         return LifecycleResult(
             success=True, plugin_id=plugin_id,
-            status=on_success, logs=result.stdout,
+            status=final if final != LifecycleStatus.UNKNOWN else on_success,
+            logs=result.stdout,
         )
 
-    def _container_name(self, plugin_id: str) -> Optional[str]:
+    def _container_names(self, plugin_id: str) -> list[str]:
+        """Resolve all replica container names from install_state.json.
+
+        v1.1 state shape ships a ``replicas`` list of dicts. Pre-v1.1
+        single-instance state has only ``container_name`` at the top
+        level; we synthesize a one-element list from that for
+        back-compat (an in-place install_state.json migration is
+        deferred — the synthesis covers every read path).
+        """
         state_path = self.plugins_dir / plugin_id / _STATE_FILENAME
         if not state_path.is_file():
-            return None
+            return []
         try:
             state = json.loads(state_path.read_text(encoding="utf-8"))
-            return state.get("container_name")
         except (OSError, ValueError) as exc:
             logger.warning(
                 "docker lifecycle: failed to read %s: %s", state_path, exc,
             )
-            return None
+            return []
+        replicas = state.get("replicas")
+        if isinstance(replicas, list) and replicas:
+            names = [r.get("container_name") for r in replicas if r.get("container_name")]
+            if names:
+                return names
+        # Legacy single-instance state — synthesize.
+        legacy = state.get("container_name")
+        return [legacy] if legacy else []
 
 
 __all__ = [

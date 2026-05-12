@@ -73,7 +73,22 @@ class Supervisor(Protocol):
 
     name: str
 
-    def install_unit(self, plugin_id: str, install_dir: Path) -> SupervisorResult: ...
+    def install_unit(
+        self, plugin_id: str, install_dir: Path,
+        *,
+        restart_policy: str = "on-failure",
+        restart_max_retries: int = 5,
+    ) -> SupervisorResult:
+        """Provision the supervisor's per-plugin record (e.g. systemd
+        unit file) and reload the daemon.
+
+        ``restart_policy`` / ``restart_max_retries`` come from the
+        manifest's lifecycle block (v1.1). Supervisors that can't honor
+        a non-``no`` policy (NoOp, Popen) should be filtered out by
+        the manager BEFORE this call — supervisor impls themselves
+        treat the policy as advisory.
+        """
+        ...
     def remove_unit(self, plugin_id: str) -> SupervisorResult: ...
     def start(self, plugin_id: str) -> SupervisorResult: ...
     def stop(self, plugin_id: str) -> SupervisorResult: ...
@@ -99,8 +114,16 @@ class NoOpSupervisor:
 
     name = "noop"
 
-    def install_unit(self, plugin_id: str, install_dir: Path) -> SupervisorResult:
-        logger.info("noop supervisor: install_unit(%s, %s) — no-op", plugin_id, install_dir)
+    def install_unit(
+        self, plugin_id: str, install_dir: Path,
+        *,
+        restart_policy: str = "on-failure",
+        restart_max_retries: int = 5,
+    ) -> SupervisorResult:
+        logger.info(
+            "noop supervisor: install_unit(%s, %s, restart_policy=%s) — no-op",
+            plugin_id, install_dir, restart_policy,
+        )
         return SupervisorResult(
             success=True, plugin_id=plugin_id, intent_only=True,
             logs="noop: no unit file written; manual launch required",
@@ -142,13 +165,15 @@ _UNIT_TEMPLATE = """\
 [Unit]
 Description=Magellon plugin: {plugin_id}
 After=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst={restart_max_retries}
 
 [Service]
 Type=simple
 WorkingDirectory={install_dir}
 EnvironmentFile={install_dir}/runtime.env
 ExecStart={venv_python} {install_dir}/main.py
-Restart=on-failure
+Restart={restart_systemd}
 RestartSec=5
 
 # Reasonable resource hygiene — operator can override per-plugin by
@@ -158,6 +183,21 @@ LimitNOFILE=65536
 [Install]
 WantedBy=default.target
 """
+
+
+# Map manifest restart_policy → systemd Restart= value. The manifest's
+# vocabulary mirrors docker's, but systemd has its own enum, so we
+# translate. ``no`` and ``always`` map cleanly; ``on-failure`` is
+# native; ``unless-stopped`` doesn't have a direct systemd equivalent —
+# we approximate with ``always`` plus operator discipline (a manual
+# `systemctl stop` followed by a daemon reload would keep it stopped;
+# we document that in the install-time logs).
+_SYSTEMD_RESTART_MAP = {
+    "no": "no",
+    "on-failure": "on-failure",
+    "always": "always",
+    "unless-stopped": "always",
+}
 
 
 def _unit_name(plugin_id: str) -> str:
@@ -299,13 +339,24 @@ class SystemdUserSupervisor:
             logs=(result.stdout or "").rstrip(),
         )
 
-    def install_unit(self, plugin_id: str, install_dir: Path) -> SupervisorResult:
+    def install_unit(
+        self, plugin_id: str, install_dir: Path,
+        *,
+        restart_policy: str = "on-failure",
+        restart_max_retries: int = 5,
+    ) -> SupervisorResult:
         """Write the .service file and reload the user daemon.
 
         Paths in the unit file are emitted POSIX-style — systemd is
         Linux-only, so a Windows dev that wants to inspect the
         generated unit (or Linux deployment that built it on a
         Windows packager) sees portable paths.
+
+        ``restart_policy`` translates to systemd's ``Restart=`` line
+        via :data:`_SYSTEMD_RESTART_MAP`; ``restart_max_retries`` lands
+        in ``StartLimitBurst`` over a 5-minute interval (the burst is
+        how many starts systemd permits within the interval before it
+        gives up on the unit).
         """
         try:
             self.units_dir.mkdir(parents=True, exist_ok=True)
@@ -316,6 +367,12 @@ class SystemdUserSupervisor:
                     plugin_id=plugin_id,
                     install_dir=install_dir.as_posix(),
                     venv_python=self._venv_python(install_dir).as_posix(),
+                    restart_systemd=_SYSTEMD_RESTART_MAP.get(
+                        restart_policy, "on-failure",
+                    ),
+                    # 0 in the manifest means infinite; systemd's
+                    # StartLimitBurst=0 disables the cap, matching.
+                    restart_max_retries=restart_max_retries,
                 ),
                 encoding="utf-8",
             )
@@ -473,8 +530,15 @@ class PopenSupervisor:
             return win
         return install_dir / ".venv" / "bin" / "python"
 
-    def install_unit(self, plugin_id: str, install_dir: Path) -> SupervisorResult:
+    def install_unit(
+        self, plugin_id: str, install_dir: Path,
+        *,
+        restart_policy: str = "on-failure",
+        restart_max_retries: int = 5,
+    ) -> SupervisorResult:
         # Popen has no install step — start() is direct. Always succeeds.
+        # restart_policy is advisory here; the manager filters non-'no'
+        # policies out before reaching this path (Popen has no watchdog).
         return SupervisorResult(success=True, plugin_id=plugin_id, logs="popen: no unit needed")
 
     def remove_unit(self, plugin_id: str) -> SupervisorResult:

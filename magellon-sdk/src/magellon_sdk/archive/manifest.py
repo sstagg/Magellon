@@ -32,7 +32,7 @@ import os
 import re
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 from uuid import UUID
 
 import yaml
@@ -53,10 +53,16 @@ from pydantic import (
 CURRENT_SCHEMA_VERSION = 1
 """Legacy alias for backward compat — controller.py imports this."""
 
-SUPPORTED_MANIFEST_VERSIONS: tuple[str, ...] = ("1",)
+SUPPORTED_MANIFEST_VERSIONS: tuple[str, ...] = ("1", "1.1")
 """Whatever string values ``manifest_version:`` may take. Bump when
 adding a new format major; keep the old strings here so we can read
-old archives until explicit drop."""
+old archives until explicit drop.
+
+v1.1 (Wave 4) is a minor bump: adds ``lifecycle.restart_policy``,
+``lifecycle.restart_max_retries``, and ``resources.replicas``. v1
+readers see these as extras and ignore them (model_config
+``extra='ignore'``), so back-compat is two-way for the new fields'
+absence."""
 
 
 class SchemaVersionError(ValueError):
@@ -108,6 +114,46 @@ def _is_uuid_v7(u: UUID) -> bool:
 # Sub-models
 # ---------------------------------------------------------------------------
 
+class ReplicaPolicy(BaseModel):
+    """Replica scaling bounds for the plugin (v1.1, Wave 4).
+
+    The install pipeline spawns ``desired`` copies of the plugin at
+    install time. Operators can later POST ``/admin/plugins/{id}/scale``
+    to change the count between ``min`` and ``max`` inclusive.
+
+    Docker-only: uv plugins are pinned to ``desired=1`` and the scale
+    endpoint refuses any value > 1 with a clean 409 (the uv replica
+    surface — N ports + N working dirs — is out of scope until
+    operators on a single dev box actually need it).
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    desired: int = Field(default=1, ge=1)
+    """How many replicas to spawn at install time."""
+
+    min: int = Field(default=1, ge=1)
+    """Hard floor; the scale endpoint refuses values below."""
+
+    max: int = Field(default=1, ge=1)
+    """Hard ceiling; the scale endpoint refuses values above. Plugin
+    authors should set this to something they've actually tested at
+    that count (RMQ consumer balance, GPU memory pressure, etc.)."""
+
+    @model_validator(mode="after")
+    def _check_bounds(self) -> "ReplicaPolicy":
+        if self.min > self.max:
+            raise ValueError(
+                f"replicas.min ({self.min}) > replicas.max ({self.max})"
+            )
+        if not (self.min <= self.desired <= self.max):
+            raise ValueError(
+                f"replicas.desired ({self.desired}) must lie in "
+                f"[min={self.min}, max={self.max}]"
+            )
+        return self
+
+
 class ResourceHints(BaseModel):
     """Hints the install controller uses to pick a host."""
 
@@ -118,6 +164,49 @@ class ResourceHints(BaseModel):
     gpu_count: int = 0
     gpu_memory_mb: Optional[int] = None
     typical_duration_seconds: Optional[int] = None
+    replicas: Optional[ReplicaPolicy] = None
+    """Replica scaling bounds (v1.1). ``None`` (the default) is
+    equivalent to ``{desired: 1, min: 1, max: 1}`` — single-instance
+    behaviour, no scaling. Plugin authors opt into multi-replica by
+    setting this block in the manifest."""
+
+
+class LifecyclePolicy(BaseModel):
+    """Manifest-declared lifecycle behaviour (v1.1, Wave 4).
+
+    Previously hardcoded across installers (docker had no restart
+    flag; systemd unit hardcoded ``Restart=on-failure``). This block
+    makes the policy declarative so it survives the install pipeline
+    end-to-end.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    restart_policy: Literal["no", "on-failure", "always", "unless-stopped"] = (
+        Field(default="on-failure")
+    )
+    """When the runtime should auto-restart the plugin process /
+    container after exit:
+
+      - ``no``: never restart. The operator decides.
+      - ``on-failure``: restart only on non-zero exit (default; matches
+        the pre-v1.1 hardcoded systemd behaviour).
+      - ``always``: restart unconditionally — even on clean shutdown.
+      - ``unless-stopped``: like ``always`` but a manual stop sticks.
+        Docker-native semantics; for systemd we map this to ``always``
+        plus operator discipline.
+
+    uv plugins running under ``PopenSupervisor`` (Windows / macOS dev)
+    only support ``no`` — the install pipeline refuses other policies
+    with an actionable error (use systemd on Linux for auto-restart).
+    """
+
+    restart_max_retries: int = Field(default=5, ge=0, le=100)
+    """For ``on-failure`` policies, the maximum restart attempts before
+    the runtime gives up. ``0`` disables the cap (infinite). Docker
+    passes this as ``--restart=on-failure:N``; systemd's analog is
+    ``StartLimitBurst=N`` over ``StartLimitIntervalSec`` (we default
+    that interval to 5 minutes)."""
 
 
 class HealthCheckSpec(BaseModel):
@@ -227,10 +316,14 @@ class PluginArchiveManifest(BaseModel):
 
     # -- format version (accepts old `schema_version: int` too) ---------
     manifest_version: str = Field(
-        default="1",
+        default="1.1",
         validation_alias=AliasChoices("manifest_version", "schema_version"),
         description="Archive manifest format version. v0 archives sent integer "
-        "schema_version=1; v1 archives send string manifest_version='1'.",
+        "schema_version=1; v1 archives send string manifest_version='1'; "
+        "v1.1 (Wave 4) adds the ``lifecycle`` block and "
+        "``resources.replicas``. Older readers see those as extras and "
+        "ignore them — back-compat is one-way (newer reader, older "
+        "archive) only.",
     )
 
     # -- identity -------------------------------------------------------
@@ -288,6 +381,13 @@ class PluginArchiveManifest(BaseModel):
 
     # -- resource hints --------------------------------------------------
     resources: ResourceHints = Field(default_factory=ResourceHints)
+
+    # -- lifecycle policy (v1.1) ----------------------------------------
+    lifecycle: LifecyclePolicy = Field(default_factory=LifecyclePolicy)
+    """How the runtime should auto-restart this plugin. Defaults to
+    ``restart_policy=on-failure`` (matches pre-v1.1 hardcoded systemd
+    behaviour). uv-Popen plugins are restricted to ``no`` — the
+    install pipeline refuses other policies with an actionable error."""
 
     # -- schemas (relative paths inside the archive) --------------------
     input_schema: str = "schemas/input.json"
@@ -495,7 +595,9 @@ __all__ = [
     "CURRENT_SCHEMA_VERSION",
     "HealthCheckSpec",
     "InstallSpec",
+    "LifecyclePolicy",
     "PluginArchiveManifest",
+    "ReplicaPolicy",
     "ResourceHints",
     "SchemaVersionError",
     "SdkCompatError",

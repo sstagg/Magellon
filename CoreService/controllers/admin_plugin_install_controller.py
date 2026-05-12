@@ -1087,6 +1087,57 @@ def unpause_plugin(
     raise HTTPException(status_code=500, detail=result.error or "unpause failed")
 
 
+class ScaleRequest(BaseModel):
+    """Body for ``POST /admin/plugins/{plugin_id}/scale``."""
+
+    desired: int = Field(
+        ..., ge=1, le=128,
+        description="Target replica count. Validated against the manifest's "
+                    "replicas.min/max at the manager. Out-of-bounds returns 422.",
+    )
+
+
+@admin_plugin_install_router.post(
+    "/{plugin_id}/scale",
+    summary="Add or remove replicas (docker-only)",
+)
+def scale_plugin(
+    plugin_id: str,
+    body: ScaleRequest,
+    manager: PluginInstallManager = Depends(get_install_manager),
+    runtime: RuntimeConfig = Depends(get_runtime_config),
+    _: None = Depends(require_role("Administrator")),
+):
+    """Scale the plugin's replica set to ``body.desired``.
+
+    Docker-only — uv plugins return 422. Scale-down is warn-and-proceed
+    (RMQ requeues unacked tasks to surviving replicas). Manifest's
+    ``replicas.min/max`` bounds are enforced; out-of-bounds returns
+    422 with the bounds in the detail.
+    """
+    if not manager.is_installed(plugin_id):
+        raise HTTPException(
+            status_code=404, detail=f"plugin {plugin_id!r} not installed",
+        )
+    result = manager.scale(plugin_id, desired=body.desired, runtime=runtime)
+    if result.success:
+        return {
+            "success": True,
+            "plugin_id": result.plugin_id,
+            "desired": body.desired,
+            "status": result.status.value,
+            "logs": result.logs,
+        }
+    err = (result.error or "").lower()
+    if "docker-only" in err or "uv" in err:
+        raise HTTPException(status_code=422, detail=result.error)
+    if "outside manifest bounds" in err:
+        raise HTTPException(status_code=422, detail=result.error)
+    if "not installed" in err:
+        raise HTTPException(status_code=404, detail=result.error)
+    raise HTTPException(status_code=500, detail=result.error or "scale failed")
+
+
 @admin_plugin_install_router.get(
     "/{plugin_id}/logs",
     summary="Tail the plugin's log source",

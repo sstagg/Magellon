@@ -211,6 +211,31 @@ class PluginInstallManager:
                           f"{inst.method}; use upgrade to replace",
                 )
 
+        # 4a. Replica-method gate (Wave 4 / manifest v1.1).
+        # uv plugins are pinned to single-instance — uv replicas need
+        # N ports + N working dirs and aren't worth the complexity for
+        # the dev-on-laptop case (locked-in scope per the Wave 4 plan).
+        rep_gate = self._check_replicas_supported(installer.method, manifest)
+        if rep_gate is not None:
+            return InstallResult(
+                success=False, plugin_id=manifest.plugin_id,
+                install_method=installer.method, error=rep_gate,
+            )
+
+        # 4b. Restart-policy gate (Wave 4 / manifest v1.1).
+        # uv-Popen plugins can't honor any policy other than 'no' — we
+        # don't ship a watchdog thread. Refuse here BEFORE spending the
+        # install pipeline rather than letting the policy silently
+        # become a no-op at runtime.
+        gate = self._check_restart_policy_supported(installer.method, manifest)
+        if gate is not None:
+            return InstallResult(
+                success=False,
+                plugin_id=manifest.plugin_id,
+                install_method=installer.method,
+                error=gate,
+            )
+
         # 5. Dispatch.
         result = installer.install(archive_path, manifest, spec, runtime)
         if not result.success:
@@ -223,6 +248,8 @@ class PluginInstallManager:
         if installer.method == "uv" and result.install_dir is not None:
             sup_install = self._supervisor.install_unit(
                 manifest.plugin_id, result.install_dir,
+                restart_policy=manifest.lifecycle.restart_policy,
+                restart_max_retries=manifest.lifecycle.restart_max_retries,
             )
             if not sup_install.success:
                 # Best-effort rollback — leaving a half-supervised
@@ -524,6 +551,113 @@ class PluginInstallManager:
     # ------------------------------------------------------------------
     # Upgrade helpers
     # ------------------------------------------------------------------
+
+    def _check_replicas_supported(
+        self, install_method: str, manifest: PluginArchiveManifest,
+    ) -> Optional[str]:
+        """Refuse manifests that ask for replicas on a non-docker
+        install method. Docker spawns N containers; uv doesn't have
+        the N-port / N-working-dir plumbing.
+
+        ``replicas.desired == 1`` is always OK regardless of method.
+        """
+        if manifest.resources.replicas is None:
+            return None
+        desired = manifest.resources.replicas.desired
+        if desired <= 1:
+            return None
+        if install_method == "docker":
+            return None
+        return (
+            f"manifest declares replicas.desired={desired} but install "
+            f"method {install_method!r} only supports single-instance. "
+            f"Set replicas.desired: 1 (or omit the replicas block) "
+            f"to install via uv, or pick a docker install method."
+        )
+
+    def scale(
+        self,
+        plugin_id: str,
+        *,
+        desired: int,
+        runtime: Optional[RuntimeConfig] = None,
+    ) -> LifecycleResult:
+        """Add or remove replicas to reach ``desired`` count.
+
+        Docker-only. Scale-up reuses the recorded image_ref + restart
+        policy; scale-down stops + removes the excess containers
+        (warn-and-proceed: RMQ requeues unacked messages to surviving
+        replicas).
+
+        The manifest's ``replicas.min``/``max`` bounds are honored —
+        the operator can't escape them via the scale endpoint.
+        """
+        installer = self._find_installer_for(plugin_id)
+        if installer is None:
+            return LifecycleResult(
+                success=False, plugin_id=plugin_id,
+                error=f"plugin {plugin_id!r} not installed",
+            )
+        if installer.method != "docker":
+            return LifecycleResult(
+                success=False, plugin_id=plugin_id,
+                error=f"scale is docker-only; plugin {plugin_id!r} "
+                      f"installed via {installer.method!r}",
+            )
+        # Use the installed manifest's replica bounds. Docker installer
+        # knows where install_state.json lives — delegate the actual
+        # spawn/stop loop to it.
+        if not hasattr(installer, "scale_to"):
+            return LifecycleResult(
+                success=False, plugin_id=plugin_id,
+                error="docker installer does not support scale",
+            )
+        try:
+            current, new = installer.scale_to(
+                plugin_id, desired=desired,
+                runtime=runtime or RuntimeConfig(broker_url="", gpfs_root=""),
+            )
+        except ValueError as exc:
+            return LifecycleResult(
+                success=False, plugin_id=plugin_id, error=str(exc),
+            )
+        return LifecycleResult(
+            success=True, plugin_id=plugin_id,
+            status=self.status(plugin_id),
+            logs=f"scaled {plugin_id} from {current} to {new} replicas",
+        )
+
+    def _check_restart_policy_supported(
+        self, install_method: str, manifest: PluginArchiveManifest,
+    ) -> Optional[str]:
+        """Return an error message if the configured supervisor can't
+        honor the manifest's restart_policy. ``None`` means proceed.
+
+        The gate is narrow on purpose:
+          - Docker handles restart natively via ``--restart`` — always OK.
+          - uv + ``no`` policy — always OK; that's the escape hatch.
+          - uv + ``systemd-user`` — OK; the unit file does the work.
+          - uv + ``popen`` (Windows / macOS dev) — REFUSE; Popen has no
+            watchdog and silently dropping the policy would surprise
+            operators.
+          - uv + ``noop`` (test / no-supervision) — OK; nothing actually
+            runs, so the policy is moot. The intent-only flag the noop
+            supervisor returns surfaces the manual-launch requirement.
+        """
+        if install_method != "uv":
+            return None
+        policy = manifest.lifecycle.restart_policy
+        if policy == "no":
+            return None
+        sup_name = getattr(self._supervisor, "name", "")
+        if sup_name in ("systemd-user", "noop"):
+            return None
+        return (
+            f"manifest declares restart_policy={policy!r} but the host's "
+            f"plugin supervisor ({sup_name!r}) cannot auto-restart. Either "
+            f"set lifecycle.restart_policy: 'no' in the manifest, or run "
+            f"on Linux with systemctl --user available."
+        )
 
     def _find_installer_for(self, plugin_id: str) -> Optional[Installer]:
         for installer in self._installers.values():
