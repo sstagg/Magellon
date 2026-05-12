@@ -14,6 +14,7 @@ this — the archive declared what the plugin needs (per
 from __future__ import annotations
 
 import logging
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -91,6 +92,41 @@ def _build_runtime_config() -> RuntimeConfig:
     return RuntimeConfig(broker_url=broker_url, gpfs_root=gpfs_root)
 
 
+def _liveness_health_check(plugin_id: str, timeout_seconds: float) -> bool:
+    """Poll the in-process :class:`PluginLivenessRegistry` for an
+    announce from ``plugin_id`` within the timeout.
+
+    Pre-1.1 this was a no-op (always True) — installs that announced
+    successfully looked identical to installs that never came up.
+    Wiring the real registry means the manager's post-install
+    rollback path (``manager.py`` line ~280) now actually fires when
+    a plugin fails to phone home.
+
+    Lazy import: the SDK liveness module pulls bus modules that are
+    not safe to import at factory construction time in some test
+    paths. Resolving at call time keeps the factory cheap to import.
+    """
+    try:
+        from magellon_sdk.bus.services.liveness_registry import get_registry
+    except Exception:  # noqa: BLE001 — SDK shape changed or unimportable
+        logger.warning(
+            "health check: could not import liveness registry; "
+            "treating install as successful",
+        )
+        return True
+
+    deadline = time.monotonic() + max(0.0, float(timeout_seconds))
+    interval = 0.5
+    registry = get_registry()
+    while True:
+        for entry in registry.list_live():
+            if entry.plugin_id == plugin_id:
+                return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(interval)
+
+
 def _build_manager() -> PluginInstallManager:
     plugins_dir = _default_plugins_dir()
     plugins_dir.mkdir(parents=True, exist_ok=True)
@@ -109,6 +145,7 @@ def _build_manager() -> PluginInstallManager:
     ]
     return PluginInstallManager(
         installers, supervisor=supervisor, lifecycles=lifecycles,
+        health_check=_liveness_health_check,
     )
 
 
