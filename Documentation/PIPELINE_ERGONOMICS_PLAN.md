@@ -283,6 +283,36 @@ Internal-only; the merge logic lives server-side so the frontend never holds Hub
 
 ---
 
+## PE5 — Examples gallery + decorated SDK inputs (shipped 2026-05-12)
+
+Cribbed from Gradio / HF Spaces: every plugin should be runnable from
+the test panel in one click without the operator inventing values for
+microscope parameters they haven't internalised yet. Two additive
+changes, no infra:
+
+- **`CategoryContract.examples: list[CategoryExample]`** in
+  `magellon-sdk`. Each entry is `{name, description, values}`. Surfaced
+  on `GET /plugins/capabilities` so the React side renders one chip per
+  example next to the SchemaForm; clicking a chip pre-fills the form
+  values. Validated against the category's `input_model` at registry
+  load so a typo fails at SDK import, not at operator click time.
+- **`ui_widget` / `ui_group` / `ui_marks` / `ui_unit` / `ui_tunable`
+  decorations on every SDK plugin input** (CtfInput, MotionCorInput,
+  FftInput, TopazPickInput, MicrographDenoiseInput, PtolemyInput,
+  ParticleExtractionInput, TwoDClassificationInput). Pre-this-change
+  the existing SchemaForm fallback rendered bare numeric fields with
+  no groups / units / help. Post-change every plugin renders like the
+  template-picker: grouped accordions, slider marks, unit suffixes,
+  advanced collapsed by default.
+
+The React side already supports both — `SchemaForm` reads `ui_*`,
+`ParticleSettingsDrawer` already debounces tunable changes for live
+retune. The decorations unlock that UX for every plugin, not just
+the template-picker. Catalog filter (PE1 acceptance #2) and a
+React "Try example" dropdown remain open.
+
+---
+
 ## Cross-cutting non-goals
 
 - **Visual workflow / pipeline builder.** Pro.

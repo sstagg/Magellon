@@ -239,6 +239,26 @@ def test_capabilities_endpoint_returns_categories_with_no_backends(
 
 
 @_pytest.mark.characterization
+def test_capabilities_endpoint_surfaces_examples(
+    client, isolated_liveness_registry,
+):
+    """Gradio-style examples on the CategoryContract flow through to
+    the HTTP response so the React test panel can render a "Try
+    example" chip per pre-filled input."""
+    body = client.get("/plugins/capabilities").json()
+    ctf = next(c for c in body["categories"] if c["name"] == "CTF")
+    assert isinstance(ctf["examples"], list)
+    assert len(ctf["examples"]) >= 1
+    first = ctf["examples"][0]
+    # Every example carries the three contract fields.
+    assert set(first.keys()) >= {"name", "description", "values"}
+    assert isinstance(first["values"], dict)
+    # The example's values reference real input-model fields.
+    assert "pixelSize" in first["values"]
+    assert "accelerationVoltage" in first["values"]
+
+
+@_pytest.mark.characterization
 def test_capabilities_endpoint_groups_replicas_by_backend_id(
     client, isolated_liveness_registry,
 ):

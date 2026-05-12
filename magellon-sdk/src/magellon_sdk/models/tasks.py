@@ -164,10 +164,47 @@ class MrcToPngInput(CryoEmImageInput):
 
 
 class FftInput(CryoEmImageInput):
-    target_name: Optional[str] = None
-    target_path: Optional[str] = None
-    frame_name: Optional[str] = None
-    frame_path: Optional[str] = None
+    target_name: Optional[str] = Field(
+        default=None,
+        description="Output filename stem for the FFT image (PNG).",
+        json_schema_extra={
+            "ui_widget": "text",
+            "ui_group": "Output",
+            "ui_order": 1,
+            "ui_placeholder": "fft.png",
+        },
+    )
+    target_path: Optional[str] = Field(
+        default=None,
+        description="Absolute output path. Auto-derived from session paths when omitted.",
+        json_schema_extra={
+            "ui_widget": "file_path",
+            "ui_group": "Output",
+            "ui_order": 2,
+            "ui_advanced": True,
+        },
+    )
+    frame_name: Optional[str] = Field(
+        default=None,
+        description="Source frame stem (when FFT'ing a frame rather than the micrograph).",
+        json_schema_extra={
+            "ui_widget": "text",
+            "ui_group": "Frames",
+            "ui_order": 1,
+            "ui_advanced": True,
+        },
+    )
+    frame_path: Optional[str] = Field(
+        default=None,
+        description="Absolute path to the source frame.",
+        json_schema_extra={
+            "ui_widget": "file_path",
+            "ui_group": "Frames",
+            "ui_order": 2,
+            "ui_advanced": True,
+            "ui_file_ext": [".mrc", ".tif", ".tiff", ".eer"],
+        },
+    )
 
 
 class TopazPickInput(CryoEmImageInput):
@@ -180,7 +217,16 @@ class TopazPickInput(CryoEmImageInput):
     threshold=-3, scale=8.
     """
 
-    input_file: str
+    input_file: str = Field(
+        ...,
+        description="Absolute path to the micrograph (.mrc) to pick.",
+        json_schema_extra={
+            "ui_widget": "file_path",
+            "ui_group": "Input",
+            "ui_order": 1,
+            "ui_file_ext": [".mrc", ".mrcs"],
+        },
+    )
 
 
 class MicrographDenoiseInput(CryoEmImageInput):
@@ -191,8 +237,27 @@ class MicrographDenoiseInput(CryoEmImageInput):
     omitted. Engine knobs (model, patch_size) ride on ``engine_opts``.
     """
 
-    input_file: str
-    output_file: Optional[str] = None
+    input_file: str = Field(
+        ...,
+        description="Source micrograph (.mrc) to denoise.",
+        json_schema_extra={
+            "ui_widget": "file_path",
+            "ui_group": "Input",
+            "ui_order": 1,
+            "ui_file_ext": [".mrc"],
+        },
+    )
+    output_file: Optional[str] = Field(
+        default=None,
+        description="Where to write the denoised MRC. Defaults to "
+                    "<input>_denoised.mrc next to the source.",
+        json_schema_extra={
+            "ui_widget": "file_path",
+            "ui_group": "Output",
+            "ui_order": 1,
+            "ui_advanced": True,
+        },
+    )
 
 
 class PtolemyInput(CryoEmImageInput):
@@ -204,61 +269,539 @@ class PtolemyInput(CryoEmImageInput):
     field is needed in the body.
     """
 
-    input_file: str
+    input_file: str = Field(
+        ...,
+        description="Absolute path to the MRC for square / hole detection.",
+        json_schema_extra={
+            "ui_widget": "file_path",
+            "ui_group": "Input",
+            "ui_order": 1,
+            "ui_file_ext": [".mrc"],
+        },
+    )
 
 
 class CtfInput(CryoEmImageInput):
-    inputFile: str
-    outputFile: str = "output.mrc"
-    pixelSize: float = 1.0
-    accelerationVoltage: float = 300.0
-    sphericalAberration: float = 2.70
-    amplitudeContrast: float = 0.07
-    sizeOfAmplitudeSpectrum: int = 512
-    minimumResolution: float = 30.0
-    maximumResolution: float = 5.0
-    minimumDefocus: float = 5000.0
-    maximumDefocus: float = 50000.0
-    defocusSearchStep: float = 100.0
-    binning_x: int = 1
+    inputFile: str = Field(
+        ...,
+        description="Absolute path to the micrograph (.mrc) to estimate CTF for.",
+        json_schema_extra={
+            "ui_widget": "file_path",
+            "ui_group": "Input",
+            "ui_order": 1,
+            "ui_file_ext": [".mrc"],
+        },
+    )
+    outputFile: str = Field(
+        default="output.mrc",
+        description="Output filename stem for CTF results (text + diagnostic image).",
+        json_schema_extra={
+            "ui_widget": "text",
+            "ui_group": "Output",
+            "ui_order": 1,
+            "ui_advanced": True,
+        },
+    )
+    pixelSize: float = Field(
+        default=1.0,
+        gt=0.0,
+        description="Pixel size at the detector level (after any binning).",
+        json_schema_extra={
+            "ui_widget": "number",
+            "ui_group": "Microscope",
+            "ui_order": 1,
+            "ui_step": 0.01,
+            "ui_unit": "Å",
+            "ui_help": "Detector pixel size in Ångström. Wrong value shifts every "
+                       "downstream estimate — verify against the microscope's "
+                       "calibration table.",
+        },
+    )
+    accelerationVoltage: float = Field(
+        default=300.0,
+        gt=0.0,
+        description="Microscope accelerating voltage.",
+        json_schema_extra={
+            "ui_widget": "select",
+            "ui_group": "Microscope",
+            "ui_order": 2,
+            "ui_unit": "kV",
+            "ui_options": [80.0, 100.0, 120.0, 200.0, 300.0],
+        },
+    )
+    sphericalAberration: float = Field(
+        default=2.70,
+        ge=0.0,
+        description="Spherical aberration coefficient (Cs).",
+        json_schema_extra={
+            "ui_widget": "number",
+            "ui_group": "Microscope",
+            "ui_order": 3,
+            "ui_step": 0.01,
+            "ui_unit": "mm",
+            "ui_advanced": True,
+        },
+    )
+    amplitudeContrast: float = Field(
+        default=0.07,
+        ge=0.0,
+        le=1.0,
+        description="Amplitude contrast fraction (typical 0.07–0.10 for cryo).",
+        json_schema_extra={
+            "ui_widget": "slider",
+            "ui_group": "Microscope",
+            "ui_order": 4,
+            "ui_step": 0.01,
+            "ui_marks": [
+                {"value": 0.07, "label": "0.07"},
+                {"value": 0.10, "label": "0.10"},
+            ],
+            "ui_advanced": True,
+        },
+    )
+    sizeOfAmplitudeSpectrum: int = Field(
+        default=512,
+        gt=0,
+        description="Box size for the amplitude spectrum (power-of-two recommended).",
+        json_schema_extra={
+            "ui_widget": "select",
+            "ui_group": "Search",
+            "ui_order": 1,
+            "ui_options": [256, 512, 1024, 2048],
+            "ui_unit": "px",
+            "ui_advanced": True,
+        },
+    )
+    minimumResolution: float = Field(
+        default=30.0,
+        gt=0.0,
+        description="Low-resolution limit of the fit (lower frequencies ignored).",
+        json_schema_extra={
+            "ui_widget": "number",
+            "ui_group": "Search",
+            "ui_order": 2,
+            "ui_step": 1.0,
+            "ui_unit": "Å",
+        },
+    )
+    maximumResolution: float = Field(
+        default=5.0,
+        gt=0.0,
+        description="High-resolution limit of the fit.",
+        json_schema_extra={
+            "ui_widget": "number",
+            "ui_group": "Search",
+            "ui_order": 3,
+            "ui_step": 0.5,
+            "ui_unit": "Å",
+        },
+    )
+    minimumDefocus: float = Field(
+        default=5000.0,
+        ge=0.0,
+        description="Minimum defocus to consider during the search.",
+        json_schema_extra={
+            "ui_widget": "number",
+            "ui_group": "Defocus search",
+            "ui_order": 1,
+            "ui_step": 500.0,
+            "ui_unit": "Å",
+            "ui_tunable": True,
+        },
+    )
+    maximumDefocus: float = Field(
+        default=50000.0,
+        ge=0.0,
+        description="Maximum defocus to consider.",
+        json_schema_extra={
+            "ui_widget": "number",
+            "ui_group": "Defocus search",
+            "ui_order": 2,
+            "ui_step": 500.0,
+            "ui_unit": "Å",
+            "ui_tunable": True,
+        },
+    )
+    defocusSearchStep: float = Field(
+        default=100.0,
+        gt=0.0,
+        description="Defocus search granularity. Smaller is more accurate but slower.",
+        json_schema_extra={
+            "ui_widget": "slider",
+            "ui_group": "Defocus search",
+            "ui_order": 3,
+            "ui_step": 50.0,
+            "ui_unit": "Å",
+            "ui_marks": [
+                {"value": 50, "label": "50"},
+                {"value": 100, "label": "100"},
+                {"value": 500, "label": "500"},
+                {"value": 1000, "label": "1000"},
+            ],
+            "ui_tunable": True,
+        },
+    )
+    binning_x: int = Field(
+        default=1,
+        ge=1,
+        description="Detector binning factor (1 = no binning).",
+        json_schema_extra={
+            "ui_widget": "select",
+            "ui_group": "Microscope",
+            "ui_order": 5,
+            "ui_options": [1, 2, 4, 8],
+            "ui_advanced": True,
+        },
+    )
 
 
 class MotionCorInput(CryoEmImageInput):
-    InMrc: Optional[str] = None
-    InTiff: Optional[str] = None
-    InEer: Optional[str] = None
-    inputFile: str
-    # OutMrc is the canonical output field — mirrors MotionCor3 CLI's
-    # ``-OutMrc`` flag and is the name the binary actually reads.
-    # (Pre-1.0 we also had a parallel ``outputFile`` field that set
-    # the same value; it was never sent to the binary. Dropped.)
-    OutMrc: str = "output.mrc"
-    Gain: str
-    Dark: Optional[str] = None
-    DefectFile: Optional[str] = None
-    DefectMap: Optional[str] = None
-    PatchesX: int = 1
-    PatchesY: int = 1
-    Iter: int = 5
-    Tol: float = 0.5
-    Bft: int = 100
-    LogDir: str = "."
-    Gpu: str = "0"
-    FtBin: float = 2
-    FmDose: Optional[float] = None
-    PixSize: Optional[float] = None
-    kV: int = 300
-    Cs: int = 0
-    AmpCont: float = 0.07
-    ExtPhase: float = 0
-    SumRangeMinDose: int = 3
-    SumRangeMaxDose: int = 25
-    Group: Optional[int] = None
-    RotGain: int = 0
-    FlipGain: int = 0
-    InvGain: Optional[int] = None
-    FmIntFile: Optional[str] = None
-    EerSampling: int = 1
+    InMrc: Optional[str] = Field(
+        default=None,
+        description="MRC frame stack input (-InMrc).",
+        json_schema_extra={
+            "ui_widget": "file_path",
+            "ui_group": "Frames",
+            "ui_order": 1,
+            "ui_file_ext": [".mrc", ".mrcs"],
+        },
+    )
+    InTiff: Optional[str] = Field(
+        default=None,
+        description="TIFF frame stack input (-InTiff). Mutually exclusive with InMrc/InEer.",
+        json_schema_extra={
+            "ui_widget": "file_path",
+            "ui_group": "Frames",
+            "ui_order": 2,
+            "ui_file_ext": [".tif", ".tiff"],
+        },
+    )
+    InEer: Optional[str] = Field(
+        default=None,
+        description="EER frame stack input (-InEer). Set EerSampling below.",
+        json_schema_extra={
+            "ui_widget": "file_path",
+            "ui_group": "Frames",
+            "ui_order": 3,
+            "ui_file_ext": [".eer"],
+        },
+    )
+    inputFile: str = Field(
+        ...,
+        description="Canonical input path (matches the active In{Mrc,Tiff,Eer}).",
+        json_schema_extra={
+            "ui_widget": "hidden",
+        },
+    )
+    OutMrc: str = Field(
+        default="output.mrc",
+        description="Output filename for the aligned, dose-weighted sum.",
+        json_schema_extra={
+            "ui_widget": "text",
+            "ui_group": "Output",
+            "ui_order": 1,
+        },
+    )
+    Gain: str = Field(
+        ...,
+        description="Gain reference image — REQUIRED for accurate alignment.",
+        json_schema_extra={
+            "ui_widget": "file_path",
+            "ui_group": "Calibration",
+            "ui_order": 1,
+            "ui_file_ext": [".mrc", ".dm4"],
+        },
+    )
+    Dark: Optional[str] = Field(
+        default=None,
+        description="Dark reference image (optional, K3/Falcon).",
+        json_schema_extra={
+            "ui_widget": "file_path",
+            "ui_group": "Calibration",
+            "ui_order": 2,
+            "ui_advanced": True,
+        },
+    )
+    DefectFile: Optional[str] = Field(
+        default=None,
+        description="Detector defect map (text file with rows/cols to mask).",
+        json_schema_extra={
+            "ui_widget": "file_path",
+            "ui_group": "Calibration",
+            "ui_order": 3,
+            "ui_advanced": True,
+        },
+    )
+    DefectMap: Optional[str] = Field(
+        default=None,
+        description="Defect map as MRC (alternative to DefectFile).",
+        json_schema_extra={
+            "ui_widget": "file_path",
+            "ui_group": "Calibration",
+            "ui_order": 4,
+            "ui_advanced": True,
+        },
+    )
+    PatchesX: int = Field(
+        default=1,
+        ge=1,
+        description="Local-alignment patch count, X axis. Typical: 5–7 for thick samples.",
+        json_schema_extra={
+            "ui_widget": "slider",
+            "ui_group": "Local alignment",
+            "ui_order": 1,
+            "ui_step": 1,
+            "ui_marks": [
+                {"value": 1, "label": "1 (global)"},
+                {"value": 5, "label": "5"},
+                {"value": 9, "label": "9"},
+            ],
+            "ui_tunable": True,
+        },
+    )
+    PatchesY: int = Field(
+        default=1,
+        ge=1,
+        description="Local-alignment patch count, Y axis.",
+        json_schema_extra={
+            "ui_widget": "slider",
+            "ui_group": "Local alignment",
+            "ui_order": 2,
+            "ui_step": 1,
+            "ui_marks": [
+                {"value": 1, "label": "1"},
+                {"value": 5, "label": "5"},
+                {"value": 9, "label": "9"},
+            ],
+            "ui_tunable": True,
+        },
+    )
+    Iter: int = Field(
+        default=5,
+        ge=1,
+        description="Maximum alignment iterations.",
+        json_schema_extra={
+            "ui_widget": "number",
+            "ui_group": "Alignment",
+            "ui_order": 1,
+            "ui_advanced": True,
+        },
+    )
+    Tol: float = Field(
+        default=0.5,
+        gt=0.0,
+        description="Convergence tolerance (pixels).",
+        json_schema_extra={
+            "ui_widget": "number",
+            "ui_group": "Alignment",
+            "ui_order": 2,
+            "ui_step": 0.1,
+            "ui_unit": "px",
+            "ui_advanced": True,
+        },
+    )
+    Bft: int = Field(
+        default=100,
+        ge=0,
+        description="B-factor for low-pass filtering during alignment.",
+        json_schema_extra={
+            "ui_widget": "number",
+            "ui_group": "Alignment",
+            "ui_order": 3,
+            "ui_unit": "Å²",
+            "ui_advanced": True,
+        },
+    )
+    LogDir: str = Field(
+        default=".",
+        description="Where MotionCor writes its per-job log.",
+        json_schema_extra={
+            "ui_widget": "file_path",
+            "ui_group": "Output",
+            "ui_order": 2,
+            "ui_advanced": True,
+        },
+    )
+    Gpu: str = Field(
+        default="0",
+        description="GPU index(es), space-separated (e.g. '0 1' for 2-GPU run).",
+        json_schema_extra={
+            "ui_widget": "text",
+            "ui_group": "Runtime",
+            "ui_order": 1,
+            "ui_placeholder": "0",
+        },
+    )
+    FtBin: float = Field(
+        default=2,
+        gt=0.0,
+        description="Fourier-cropping factor (1=no crop, 2=half-size sums).",
+        json_schema_extra={
+            "ui_widget": "select",
+            "ui_group": "Runtime",
+            "ui_order": 2,
+            "ui_options": [1, 1.5, 2, 4],
+        },
+    )
+    FmDose: Optional[float] = Field(
+        default=None,
+        description="Per-frame dose (e-/Å²). Required for dose weighting.",
+        json_schema_extra={
+            "ui_widget": "number",
+            "ui_group": "Dose weighting",
+            "ui_order": 1,
+            "ui_step": 0.1,
+            "ui_unit": "e⁻/Å²",
+        },
+    )
+    PixSize: Optional[float] = Field(
+        default=None,
+        description="Pixel size at the detector. Overrides MRC header when set.",
+        json_schema_extra={
+            "ui_widget": "number",
+            "ui_group": "Microscope",
+            "ui_order": 1,
+            "ui_step": 0.01,
+            "ui_unit": "Å",
+        },
+    )
+    kV: int = Field(
+        default=300,
+        gt=0,
+        description="Accelerating voltage.",
+        json_schema_extra={
+            "ui_widget": "select",
+            "ui_group": "Microscope",
+            "ui_order": 2,
+            "ui_options": [80, 100, 120, 200, 300],
+            "ui_unit": "kV",
+        },
+    )
+    Cs: int = Field(
+        default=0,
+        ge=0,
+        description="Spherical aberration (mm). 0 lets MotionCor skip the CTF correction step.",
+        json_schema_extra={
+            "ui_widget": "number",
+            "ui_group": "Microscope",
+            "ui_order": 3,
+            "ui_unit": "mm",
+            "ui_advanced": True,
+        },
+    )
+    AmpCont: float = Field(
+        default=0.07,
+        ge=0.0,
+        le=1.0,
+        description="Amplitude contrast fraction.",
+        json_schema_extra={
+            "ui_widget": "slider",
+            "ui_group": "Microscope",
+            "ui_order": 4,
+            "ui_step": 0.01,
+            "ui_advanced": True,
+        },
+    )
+    ExtPhase: float = Field(
+        default=0,
+        description="Extra phase shift (degrees) — set for phase-plate data.",
+        json_schema_extra={
+            "ui_widget": "number",
+            "ui_group": "Microscope",
+            "ui_order": 5,
+            "ui_unit": "°",
+            "ui_advanced": True,
+        },
+    )
+    SumRangeMinDose: int = Field(
+        default=3,
+        ge=0,
+        description="Minimum cumulative dose to include in the sum (e-/Å²).",
+        json_schema_extra={
+            "ui_widget": "number",
+            "ui_group": "Dose weighting",
+            "ui_order": 2,
+            "ui_unit": "e⁻/Å²",
+            "ui_advanced": True,
+        },
+    )
+    SumRangeMaxDose: int = Field(
+        default=25,
+        ge=0,
+        description="Maximum cumulative dose.",
+        json_schema_extra={
+            "ui_widget": "number",
+            "ui_group": "Dose weighting",
+            "ui_order": 3,
+            "ui_unit": "e⁻/Å²",
+            "ui_advanced": True,
+        },
+    )
+    Group: Optional[int] = Field(
+        default=None,
+        description="Frame grouping factor — average groups of N frames before alignment.",
+        json_schema_extra={
+            "ui_widget": "number",
+            "ui_group": "Alignment",
+            "ui_order": 4,
+            "ui_advanced": True,
+        },
+    )
+    RotGain: int = Field(
+        default=0,
+        description="Rotate gain reference (0/1/2/3 = 0/90/180/270 deg).",
+        json_schema_extra={
+            "ui_widget": "select",
+            "ui_group": "Calibration",
+            "ui_order": 5,
+            "ui_options": [0, 1, 2, 3],
+            "ui_advanced": True,
+        },
+    )
+    FlipGain: int = Field(
+        default=0,
+        description="Flip gain reference (0=none, 1=Y, 2=X).",
+        json_schema_extra={
+            "ui_widget": "select",
+            "ui_group": "Calibration",
+            "ui_order": 6,
+            "ui_options": [0, 1, 2],
+            "ui_advanced": True,
+        },
+    )
+    InvGain: Optional[int] = Field(
+        default=None,
+        description="Invert the gain reference (1=invert).",
+        json_schema_extra={
+            "ui_widget": "select",
+            "ui_group": "Calibration",
+            "ui_order": 7,
+            "ui_options": [0, 1],
+            "ui_advanced": True,
+        },
+    )
+    FmIntFile: Optional[str] = Field(
+        default=None,
+        description="Frame-intensity file (advanced dose weighting).",
+        json_schema_extra={
+            "ui_widget": "file_path",
+            "ui_group": "Dose weighting",
+            "ui_order": 4,
+            "ui_advanced": True,
+        },
+    )
+    EerSampling: int = Field(
+        default=1,
+        ge=1,
+        description="EER super-resolution factor (1, 2, or 4).",
+        json_schema_extra={
+            "ui_widget": "select",
+            "ui_group": "Frames",
+            "ui_order": 4,
+            "ui_options": [1, 2, 4],
+            "ui_advanced": True,
+        },
+    )
 
 
 class ParticleExtractionInput(CryoEmImageInput):
@@ -278,16 +821,89 @@ class ParticleExtractionInput(CryoEmImageInput):
     etc.) ride on the inherited ``engine_opts`` dict.
     """
 
-    micrograph_path: str
-    particles_path: str
-    ctf_path: Optional[str] = None
-    box_size: int
-    edge_width: int = 2
-    apix: Optional[float] = None
-    output_dir: Optional[str] = None
-    """Where ``.mrcs`` + ``.star`` land. Defaults to a sibling directory
-    of the micrograph; the runner overrides via session-keyed paths
-    when called inside a job."""
+    micrograph_path: str = Field(
+        ...,
+        description="Source micrograph (.mrc) from which to box particles.",
+        json_schema_extra={
+            "ui_widget": "file_path",
+            "ui_group": "Input",
+            "ui_order": 1,
+            "ui_file_ext": [".mrc"],
+        },
+    )
+    particles_path: str = Field(
+        ...,
+        description="Picker output containing particle coordinates "
+                    "(.star / .box / .json — read by the extraction backend).",
+        json_schema_extra={
+            "ui_widget": "file_path",
+            "ui_group": "Input",
+            "ui_order": 2,
+            "ui_file_ext": [".star", ".box", ".json"],
+        },
+    )
+    ctf_path: Optional[str] = Field(
+        default=None,
+        description="Optional CTF estimate to copy into per-particle STAR columns.",
+        json_schema_extra={
+            "ui_widget": "file_path",
+            "ui_group": "Input",
+            "ui_order": 3,
+            "ui_advanced": True,
+        },
+    )
+    box_size: int = Field(
+        ...,
+        gt=0,
+        description="Box size in pixels. Should be at least 1.5× the particle "
+                    "diameter to capture CTF rings.",
+        json_schema_extra={
+            "ui_widget": "slider",
+            "ui_group": "Boxing",
+            "ui_order": 1,
+            "ui_step": 16,
+            "ui_unit": "px",
+            "ui_marks": [
+                {"value": 64, "label": "64"},
+                {"value": 256, "label": "256"},
+                {"value": 512, "label": "512"},
+            ],
+        },
+    )
+    edge_width: int = Field(
+        default=2,
+        ge=0,
+        description="Edge-normalisation ring width (pixels). 2 is a good default.",
+        json_schema_extra={
+            "ui_widget": "number",
+            "ui_group": "Boxing",
+            "ui_order": 2,
+            "ui_unit": "px",
+            "ui_advanced": True,
+        },
+    )
+    apix: Optional[float] = Field(
+        default=None,
+        description="Pixel size override. When omitted, read from the MRC header.",
+        json_schema_extra={
+            "ui_widget": "number",
+            "ui_group": "Microscope",
+            "ui_order": 1,
+            "ui_step": 0.01,
+            "ui_unit": "Å",
+        },
+    )
+    output_dir: Optional[str] = Field(
+        default=None,
+        description="Where ``.mrcs`` + ``.star`` land. Defaults to a sibling "
+                    "directory of the micrograph; overridden inside jobs.",
+        json_schema_extra={
+            "ui_widget": "file_path",
+            "ui_group": "Output",
+            "ui_order": 1,
+            "ui_advanced": True,
+        },
+    )
 
 
 class TwoDClassificationInput(BaseModel):
@@ -306,27 +922,161 @@ class TwoDClassificationInput(BaseModel):
     :class:`TwoDClassificationOutput` — not inlined, per rule 1.
     """
 
-    particle_stack_id: Optional[UUID] = None
-    mrcs_path: str
-    star_path: str
-    output_dir: str
-    apix: Optional[float] = None
-
-    # Core CAN topology / training knobs — promoted because every
-    # caller sets them. Long-tail engine controls (learn, ilearn,
-    # max_age, lowpass_resolution, phase_flip_ctf, fft_scale, …) ride
-    # on engine_opts so the contract stays narrow.
-    num_classes: int = 50
-    num_presentations: int = 200_000
-    align_iters: int = 3
-    threads: int = 8
-    can_threads: int = 8
-    compute_backend: str = "torch-auto"
-    """One of: cpu, torch-auto, torch-cuda, torch-mps, torch-cpu."""
-    max_particles: Optional[int] = None
-    invert: bool = False
-    write_aligned_stack: bool = False
-    engine_opts: Dict[str, Any] = Field(default_factory=dict)
+    particle_stack_id: Optional[UUID] = Field(
+        default=None,
+        description="Artifact OID of the particle stack to classify. The dispatch "
+                    "gate verifies this references an Artifact of kind 'particle_stack'.",
+        json_schema_extra={
+            "ui_widget": "hidden",  # supplied by the artifact picker, not typed
+        },
+    )
+    mrcs_path: str = Field(
+        ...,
+        description="Particle stack file (.mrcs) — one image per boxed particle.",
+        json_schema_extra={
+            "ui_widget": "file_path",
+            "ui_group": "Input",
+            "ui_order": 1,
+            "ui_file_ext": [".mrcs", ".mrc"],
+        },
+    )
+    star_path: str = Field(
+        ...,
+        description="STAR file with per-particle metadata (RELION format).",
+        json_schema_extra={
+            "ui_widget": "file_path",
+            "ui_group": "Input",
+            "ui_order": 2,
+            "ui_file_ext": [".star"],
+        },
+    )
+    output_dir: str = Field(
+        ...,
+        description="Where class averages + assignments will be written.",
+        json_schema_extra={
+            "ui_widget": "file_path",
+            "ui_group": "Output",
+            "ui_order": 1,
+        },
+    )
+    apix: Optional[float] = Field(
+        default=None,
+        description="Pixel size override. Read from MRC header when omitted.",
+        json_schema_extra={
+            "ui_widget": "number",
+            "ui_group": "Microscope",
+            "ui_order": 1,
+            "ui_step": 0.01,
+            "ui_unit": "Å",
+        },
+    )
+    num_classes: int = Field(
+        default=50,
+        ge=2,
+        description="Number of 2D classes to find. Typical range 50–200.",
+        json_schema_extra={
+            "ui_widget": "slider",
+            "ui_group": "CAN topology",
+            "ui_order": 1,
+            "ui_step": 10,
+            "ui_marks": [
+                {"value": 10, "label": "10"},
+                {"value": 50, "label": "50"},
+                {"value": 200, "label": "200"},
+            ],
+            "ui_tunable": True,
+        },
+    )
+    num_presentations: int = Field(
+        default=200_000,
+        ge=1000,
+        description="Total training presentations. More = better convergence, slower.",
+        json_schema_extra={
+            "ui_widget": "number",
+            "ui_group": "Training",
+            "ui_order": 1,
+            "ui_step": 10000,
+        },
+    )
+    align_iters: int = Field(
+        default=3,
+        ge=1,
+        description="Per-presentation alignment iterations.",
+        json_schema_extra={
+            "ui_widget": "number",
+            "ui_group": "Training",
+            "ui_order": 2,
+            "ui_advanced": True,
+        },
+    )
+    threads: int = Field(
+        default=8,
+        ge=1,
+        description="CPU worker threads.",
+        json_schema_extra={
+            "ui_widget": "number",
+            "ui_group": "Runtime",
+            "ui_order": 1,
+        },
+    )
+    can_threads: int = Field(
+        default=8,
+        ge=1,
+        description="CAN algorithm parallelism (independent of `threads`).",
+        json_schema_extra={
+            "ui_widget": "number",
+            "ui_group": "Runtime",
+            "ui_order": 2,
+            "ui_advanced": True,
+        },
+    )
+    compute_backend: str = Field(
+        default="torch-auto",
+        description="Compute backend selection.",
+        json_schema_extra={
+            "ui_widget": "select",
+            "ui_group": "Runtime",
+            "ui_order": 3,
+            "ui_options": ["cpu", "torch-auto", "torch-cuda", "torch-mps", "torch-cpu"],
+        },
+    )
+    max_particles: Optional[int] = Field(
+        default=None,
+        description="Cap on particles fed to training (random sub-sample). "
+                    "None = use all.",
+        json_schema_extra={
+            "ui_widget": "number",
+            "ui_group": "Training",
+            "ui_order": 3,
+            "ui_advanced": True,
+        },
+    )
+    invert: bool = Field(
+        default=False,
+        description="Invert particle contrast (set when particles are dark-on-light).",
+        json_schema_extra={
+            "ui_widget": "toggle",
+            "ui_group": "Input",
+            "ui_order": 3,
+        },
+    )
+    write_aligned_stack: bool = Field(
+        default=False,
+        description="Write the aligned particle stack to disk (4× extra space).",
+        json_schema_extra={
+            "ui_widget": "toggle",
+            "ui_group": "Output",
+            "ui_order": 2,
+            "ui_advanced": True,
+        },
+    )
+    engine_opts: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Engine-specific overrides (learn, max_age, fft_scale, …).",
+        json_schema_extra={
+            "ui_hidden": True,  # raw dict; surfaced via richer UI later
+        },
+    )
 
 
 class FftTask(TaskMessage):

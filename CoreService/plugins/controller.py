@@ -202,6 +202,12 @@ class _CategoryCapabilities(BaseModel):
     field name → subject-kind tag. The catalog's "which output is
     the produced-artifact OID?" answer reads this — distinguishes
     a scalar summary from the artifact reference."""
+    examples: list[Dict[str, Any]] = []
+    """Gradio-style pre-filled examples from CategoryContract.examples.
+    Each entry is ``{name, description, values}`` — the React test
+    panel lets operators pick one to populate the form in a single
+    click. Empty list for categories that haven't authored examples
+    yet."""
 
 
 class _CapabilitiesResponse(BaseModel):
@@ -313,6 +319,13 @@ async def list_capabilities() -> _CapabilitiesResponse:
             produces_subject_kind=contract.produces_subject_kind,
             input_subjects=dict(contract.input_subjects),
             output_subjects=dict(contract.output_subjects),
+            # Gradio-style examples — surfaced for the React test panel
+            # so operators can pre-fill the form in one click. Empty
+            # list when the contract hasn't authored any yet.
+            examples=[
+                {"name": ex.name, "description": ex.description, "values": ex.values}
+                for ex in contract.examples
+            ],
         ))
 
     return _CapabilitiesResponse(

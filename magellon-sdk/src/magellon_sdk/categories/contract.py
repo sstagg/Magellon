@@ -25,9 +25,9 @@ pika/nats lives elsewhere.
 """
 from __future__ import annotations
 
-from typing import Dict, Mapping, Type
+from typing import Any, Dict, List, Mapping, Type
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from magellon_sdk.categories.outputs import (
     CategoryOutput,
@@ -129,6 +129,34 @@ class PluginInputExtras(BaseModel):
     engine_opts: Dict[str, object] = {}
 
 
+class CategoryExample(BaseModel):
+    """One ready-to-run example for a plugin's input form.
+
+    Inspired by Gradio's ``examples=[...]`` pattern — picking an entry
+    pre-fills every form field. Three small fields:
+
+      - ``name`` — short label shown on the example chip ("Default 300 kV").
+      - ``description`` — one-line context for the example, surfaced in
+        tooltip or detail row ("Standard cryo conditions, K3 detector").
+      - ``values`` — dict matching the contract's ``input_model`` shape.
+        Validated against the model when the example is registered so
+        a broken example fails at category-contract load time, not at
+        operator click time.
+
+    The values may reference symbolic paths that don't exist yet
+    (e.g. ``/gpfs/templates/...``); the form pre-fills them as-is and
+    the operator edits before running. Conservative defaults — every
+    example here should be safely executable on the canonical sample
+    micrograph the dev stack ships.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    name: str
+    description: str = ""
+    values: Dict[str, Any]
+
+
 # ---------------------------------------------------------------------------
 # CategoryContract
 # ---------------------------------------------------------------------------
@@ -201,6 +229,17 @@ class CategoryContract(BaseModel):
     ``class_averages``); ``image`` tags are descriptive metadata
     until Image becomes an Artifact subtype."""
 
+    examples: List[CategoryExample] = Field(default_factory=list)
+    """Gradio-style ready-to-run examples for the input form.
+
+    Each entry is a ``{name, description, values}`` triplet — picking
+    an example pre-fills the React form so a new operator can try the
+    plugin with one click. Empty list (the default) keeps the existing
+    "type everything yourself" UX.
+
+    Pure metadata — surfaced via ``/plugins/capabilities`` and consumed
+    by the test panel / particle-picking drawer. No backend semantics."""
+
     output_subjects: Mapping[str, str] = {}
     """PE1-B (2026-05-11). Per-field subject tag for outputs. Maps
     output-model field name → subject-kind tag. Same vocabulary as
@@ -248,6 +287,16 @@ class CategoryContract(BaseModel):
 # Concrete categories
 # ---------------------------------------------------------------------------
 
+# Force forward-reference resolution before instantiating any contract.
+# ``from __future__ import annotations`` makes every annotation lazy;
+# Pydantic v2 only auto-resolves at the first model_validate(), so
+# bare ``CategoryContract(...)`` calls below would otherwise raise
+# ``CategoryContract is not fully defined`` when this module is loaded
+# in isolation (e.g. ``pytest tests/test_plugin_manager.py`` without
+# the rest of the suite touching CategoryContract first). Explicit
+# model_rebuild() makes the import order-independent.
+CategoryContract.model_rebuild()
+
 # Field-tag populations below: every category tags its image_id input
 # as ``"image"`` for catalog discoverability. Artifact-OID input fields
 # (today only ``particle_stack_id``) carry the artifact's kind so the
@@ -261,6 +310,16 @@ FFT = CategoryContract(
     input_model=FftInput,
     output_model=FftOutput,
     input_subjects={"image_id": "image"},
+    examples=[
+        CategoryExample(
+            name="Micrograph FFT",
+            description="Power spectrum of a single aligned micrograph.",
+            values={
+                "image_path": "/gpfs/sample-session/sum/example.mrc",
+                "target_name": "example_fft.png",
+            },
+        ),
+    ],
 )
 
 CTF = CategoryContract(
@@ -268,6 +327,36 @@ CTF = CategoryContract(
     input_model=CtfInput,
     output_model=CtfOutput,
     input_subjects={"image_id": "image"},
+    examples=[
+        CategoryExample(
+            name="K3 @ 300 kV (default)",
+            description="Standard cryo conditions, K3 detector, 1.0 Å/pixel.",
+            values={
+                "inputFile": "/gpfs/sample-session/sum/example.mrc",
+                "pixelSize": 1.0,
+                "accelerationVoltage": 300.0,
+                "sphericalAberration": 2.70,
+                "amplitudeContrast": 0.07,
+                "minimumDefocus": 5000.0,
+                "maximumDefocus": 50000.0,
+                "defocusSearchStep": 100.0,
+            },
+        ),
+        CategoryExample(
+            name="Falcon 4 @ 200 kV",
+            description="200 kV setup, finer defocus search for higher-res screening.",
+            values={
+                "inputFile": "/gpfs/sample-session/sum/example.mrc",
+                "pixelSize": 0.95,
+                "accelerationVoltage": 200.0,
+                "sphericalAberration": 2.70,
+                "amplitudeContrast": 0.10,
+                "minimumDefocus": 3000.0,
+                "maximumDefocus": 40000.0,
+                "defocusSearchStep": 50.0,
+            },
+        ),
+    ],
 )
 
 MOTIONCOR_CATEGORY = CategoryContract(
@@ -275,6 +364,38 @@ MOTIONCOR_CATEGORY = CategoryContract(
     input_model=MotionCorInput,
     output_model=MotionCorOutput,
     input_subjects={"image_id": "image"},
+    examples=[
+        CategoryExample(
+            name="K3 movie, 5×5 patches",
+            description="Standard K3 frame stack with local-alignment patches.",
+            values={
+                "inputFile": "/gpfs/sample-session/movies/example.mrc",
+                "InMrc": "/gpfs/sample-session/movies/example.mrc",
+                "Gain": "/gpfs/sample-session/calibration/gain.mrc",
+                "PatchesX": 5,
+                "PatchesY": 5,
+                "FtBin": 2,
+                "FmDose": 1.0,
+                "PixSize": 1.0,
+                "kV": 300,
+            },
+        ),
+        CategoryExample(
+            name="EER super-res",
+            description="Falcon 4i EER frames at 2× sampling, single-patch global align.",
+            values={
+                "inputFile": "/gpfs/sample-session/movies/example.eer",
+                "InEer": "/gpfs/sample-session/movies/example.eer",
+                "Gain": "/gpfs/sample-session/calibration/gain.mrc",
+                "EerSampling": 2,
+                "PatchesX": 1,
+                "PatchesY": 1,
+                "FmDose": 0.6,
+                "PixSize": 0.95,
+                "kV": 200,
+            },
+        ),
+    ],
 )
 
 PARTICLE_PICKER = CategoryContract(
@@ -294,6 +415,13 @@ SQUARE_DETECT = CategoryContract(
     input_model=PtolemyInput,
     output_model=SquareDetectionOutput,
     input_subjects={"image_id": "image"},
+    examples=[
+        CategoryExample(
+            name="Low-mag overview",
+            description="Detect grid squares on a low-magnification atlas.",
+            values={"input_file": "/gpfs/sample-session/atlas/lowmag.mrc"},
+        ),
+    ],
 )
 
 HOLE_DETECT = CategoryContract(
@@ -301,6 +429,13 @@ HOLE_DETECT = CategoryContract(
     input_model=PtolemyInput,
     output_model=HoleDetectionOutput,
     input_subjects={"image_id": "image"},
+    examples=[
+        CategoryExample(
+            name="Medium-mag square",
+            description="Detect foil holes inside one grid square.",
+            values={"input_file": "/gpfs/sample-session/atlas/medmag.mrc"},
+        ),
+    ],
 )
 
 TOPAZ_PICK = CategoryContract(
@@ -308,6 +443,21 @@ TOPAZ_PICK = CategoryContract(
     input_model=TopazPickInput,
     output_model=ParticlePickingOutput,
     input_subjects={"image_id": "image"},
+    examples=[
+        CategoryExample(
+            name="Topaz default (resnet16)",
+            description="Standard Topaz pick with the tutorial defaults.",
+            values={
+                "input_file": "/gpfs/sample-session/sum/example.mrc",
+                "engine_opts": {
+                    "model": "resnet16",
+                    "radius": 14,
+                    "threshold": -3,
+                    "scale": 8,
+                },
+            },
+        ),
+    ],
 )
 
 DENOISE = CategoryContract(
@@ -315,6 +465,13 @@ DENOISE = CategoryContract(
     input_model=MicrographDenoiseInput,
     output_model=MicrographDenoisingOutput,
     input_subjects={"image_id": "image"},
+    examples=[
+        CategoryExample(
+            name="Topaz-Denoise default",
+            description="Single MRC denoised with the default Topaz UNet model.",
+            values={"input_file": "/gpfs/sample-session/sum/example.mrc"},
+        ),
+    ],
 )
 
 PARTICLE_EXTRACTION_CATEGORY = CategoryContract(
@@ -330,6 +487,19 @@ PARTICLE_EXTRACTION_CATEGORY = CategoryContract(
     # after it writes the Artifact row; tagging it lets the UI surface
     # "this is the produced-artifact reference" without parsing the schema.
     output_subjects={"particle_stack_id": "particle_stack"},
+    examples=[
+        CategoryExample(
+            name="256 px box, 1.0 Å",
+            description="Standard ribosome-class boxing — 256 px box at the K3 pixel size.",
+            values={
+                "micrograph_path": "/gpfs/sample-session/sum/example.mrc",
+                "particles_path": "/gpfs/sample-session/picks/example.star",
+                "box_size": 256,
+                "edge_width": 2,
+                "apix": 1.0,
+            },
+        ),
+    ],
 )
 
 TWO_D_CLASSIFICATION_CATEGORY = CategoryContract(
@@ -351,6 +521,32 @@ TWO_D_CLASSIFICATION_CATEGORY = CategoryContract(
     # produced class-averages OID is stamped onto a separate Artifact
     # row by the projector, not on this output struct.
     output_subjects={"source_particle_stack_id": "particle_stack"},
+    examples=[
+        CategoryExample(
+            name="50 classes, GPU auto",
+            description="Standard 2D classification run on a typical particle stack.",
+            values={
+                "mrcs_path": "/gpfs/sample-session/particles/stack.mrcs",
+                "star_path": "/gpfs/sample-session/particles/stack.star",
+                "output_dir": "/gpfs/sample-session/class2d",
+                "num_classes": 50,
+                "num_presentations": 200000,
+                "compute_backend": "torch-auto",
+            },
+        ),
+        CategoryExample(
+            name="Quick test, 10 classes",
+            description="Tiny preview run — 10 classes, CPU-friendly presentations.",
+            values={
+                "mrcs_path": "/gpfs/sample-session/particles/stack.mrcs",
+                "star_path": "/gpfs/sample-session/particles/stack.star",
+                "output_dir": "/gpfs/sample-session/class2d_quick",
+                "num_classes": 10,
+                "num_presentations": 20000,
+                "compute_backend": "torch-cpu",
+            },
+        ),
+    ],
 )
 
 
