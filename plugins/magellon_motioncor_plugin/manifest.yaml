@@ -1,0 +1,53 @@
+manifest_version: "1.1"
+
+plugin_id: motioncor
+archive_id: 00000000-0000-7000-8000-000000000000
+
+name: "MotionCor2 — beam-induced motion correction"
+version: 0.1.0
+requires_sdk: ">=2.1,<3.0"
+
+author: "Magellon Team"
+license: MIT
+description: >
+  MotionCor2-based beam-induced motion correction for cryo-EM movies.
+  Pins ~11 GB host RAM; production deployments need at least a
+  g4dn.2xlarge (memory: project_motioncor_gpu_sizing).
+
+category: motioncor
+backend_id: motioncor2
+
+requires:
+  - broker
+  - gpfs
+
+resources:
+  cpu_cores: 4
+  memory_mb: 12288
+  gpu_count: 1
+  gpu_memory_mb: 8192
+  typical_duration_seconds: 90
+
+lifecycle:
+  restart_policy: on-failure
+  restart_max_retries: 3
+
+install:
+  - method: docker
+    dockerfile: Dockerfile
+    build_context: .
+    requires:
+      - docker_daemon: true
+      - gpu_count_min: 1
+
+health_check:
+  timeout_seconds: 90
+  expected_announce: true
+
+ui: null
+
+tags:
+  - motioncor
+  - motion-correction
+  - gpu
+  - cryo-em

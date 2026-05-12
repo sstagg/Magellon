@@ -1,0 +1,59 @@
+manifest_version: "1.1"
+
+plugin_id: ptolemy
+archive_id: 00000000-0000-7000-8000-000000000000
+
+name: "Ptolemy — square + hole detection"
+version: 0.1.0
+requires_sdk: ">=2.1,<3.0"
+
+author: "Magellon Team"
+license: MIT
+description: >
+  Ptolemy ONNX models for low-mag square detection + med-mag hole
+  detection. One plugin process serves both categories via separate
+  consumer registrations; manifest declares the square-detection
+  surface as the public face.
+
+# Primary category. The plugin process also serves ``hole_detection``
+# via a second consumer registered in main.py.
+category: square_detection
+backend_id: ptolemy
+
+requires:
+  - broker
+  - gpfs
+
+resources:
+  cpu_cores: 2
+  memory_mb: 4096
+  gpu_count: 0
+  typical_duration_seconds: 15
+
+lifecycle:
+  restart_policy: on-failure
+  restart_max_retries: 5
+
+install:
+  - method: uv
+    pyproject: pyproject.toml
+    requires:
+      - python: ">=3.11"
+  - method: docker
+    dockerfile: Dockerfile
+    build_context: .
+    requires:
+      - docker_daemon: true
+
+health_check:
+  timeout_seconds: 60
+  expected_announce: true
+
+ui: null
+
+tags:
+  - ptolemy
+  - square-detection
+  - hole-detection
+  - onnx
+  - cryo-em

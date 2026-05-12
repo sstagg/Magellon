@@ -1,0 +1,50 @@
+manifest_version: "1.1"
+
+plugin_id: ctf
+archive_id: 00000000-0000-7000-8000-000000000000
+
+name: "CTFFIND4 — CTF estimation"
+version: 0.1.0
+requires_sdk: ">=2.1,<3.0"
+
+author: "Magellon Team"
+license: MIT
+description: >
+  CTF estimation via CTFFIND4. Consumes micrographs from the bus,
+  shells out to the CTFFIND4 binary inside the container, writes the
+  star file under the data plane.
+
+category: ctf
+backend_id: ctffind4
+
+requires:
+  - broker
+  - gpfs
+
+resources:
+  cpu_cores: 4
+  memory_mb: 4096
+  gpu_count: 0
+  typical_duration_seconds: 60
+
+lifecycle:
+  restart_policy: on-failure
+  restart_max_retries: 5
+
+install:
+  - method: docker
+    dockerfile: Dockerfile
+    build_context: .
+    requires:
+      - docker_daemon: true
+
+health_check:
+  timeout_seconds: 60
+  expected_announce: true
+
+ui: null
+
+tags:
+  - ctf
+  - ctffind4
+  - cryo-em
