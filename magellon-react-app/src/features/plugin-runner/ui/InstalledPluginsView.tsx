@@ -72,11 +72,36 @@ import { DeploymentMethodChip } from './DeploymentMethodChip.tsx';
 import { PluginConditions } from './PluginConditions.tsx';
 import { PluginReplicas } from './PluginReplicas.tsx';
 import { PluginUpdateChip } from './PluginUpdateChip.tsx';
+import { PluginLogsPanel } from '../../plugin-installer/ui/PluginLogsPanel.tsx';
 
 /** Per-card Conditions cluster — each card fetches its own status. */
 const ConditionsForCard: React.FC<{ pluginId: string }> = ({ pluginId }) => {
     const { data } = usePluginStatus(pluginId);
     return <PluginConditions conditions={data} />;
+};
+
+/** Inline log preview shown on a card when Healthy=False. Operators
+ *  trying to diagnose "why isn't this plugin announcing" should see
+ *  the last few log lines without having to click into the runner
+ *  page. */
+const InlineLogsWhenUnhealthy: React.FC<{
+    pluginId: string;
+    manifestPluginId: string;
+}> = ({ pluginId, manifestPluginId }) => {
+    const { data: conditions } = usePluginStatus(pluginId);
+    const healthy = (conditions ?? []).find((c) => c.type === 'Healthy');
+    if (!healthy || healthy.status !== 'False') return null;
+    return (
+        <Box sx={{ mt: 1 }}>
+            <Typography
+                variant="caption"
+                sx={{ color: 'text.secondary', display: 'block', mb: 0.25 }}
+            >
+                Recent log output (plugin reported unhealthy)
+            </Typography>
+            <PluginLogsPanel pluginId={manifestPluginId} compact />
+        </Box>
+    );
 };
 
 /** Read the bus-Live signal from the same usePluginStatus query the
@@ -499,7 +524,10 @@ export const InstalledPluginsView: React.FC<InstalledPluginsViewProps> = ({
                                             {plugin.version && (
                                                 <Chip size="small" label={`v${plugin.version}`} />
                                             )}
-                                            <PluginUpdateChip update={update} />
+                                            <PluginUpdateChip
+                                                update={update}
+                                                manifestPluginId={plugin.manifest_plugin_id}
+                                            />
                                             {isDefault && (
                                                 <Tooltip title="Default impl for this category">
                                                     <Chip
@@ -548,6 +576,12 @@ export const InstalledPluginsView: React.FC<InstalledPluginsViewProps> = ({
                                             </Typography>
                                         )}
                                         <ConditionsForCard pluginId={plugin.plugin_id} />
+                                        {plugin.manifest_plugin_id && (
+                                            <InlineLogsWhenUnhealthy
+                                                pluginId={plugin.plugin_id}
+                                                manifestPluginId={plugin.manifest_plugin_id}
+                                            />
+                                        )}
                                     </CardContent>
                                     <Stack
                                         direction="row"

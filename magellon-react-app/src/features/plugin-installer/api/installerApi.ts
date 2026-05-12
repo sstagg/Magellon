@@ -351,6 +351,116 @@ export interface InstallFromHubResponse {
     logs?: string | null;
 }
 
+// ---------------------------------------------------------------------------
+// Logs — one-shot tail (Phase 6)
+// ---------------------------------------------------------------------------
+
+export interface PluginLogsResponse {
+    plugin_id: string;
+    tail: number;
+    lines: string[];
+}
+
+/** One-shot tail of the plugin's log source. Docker installs read
+ *  ``docker logs --tail N <container>``; uv installs tail
+ *  ``<install_dir>/app.log`` or ``journalctl --user``.
+ *
+ *  Live streaming uses the Socket.IO ``plugin_log`` channel; see
+ *  ``usePluginLogStream`` below. */
+export const usePluginLogs = (
+    pluginId: string | null | undefined,
+    tail: number = 200,
+) =>
+    useQuery(
+        ['admin-plugin-logs', pluginId, tail],
+        async () => {
+            const res = await api.get<PluginLogsResponse>(
+                `/admin/plugins/${encodeURIComponent(pluginId!)}/logs`,
+                { params: { tail } },
+            );
+            return res.data;
+        },
+        {
+            enabled: !!pluginId,
+            // Tail queries are heavier than status; refetch less often.
+            // The Socket.IO live stream is the right tool for follow-mode.
+            refetchInterval: 15000,
+            staleTime: 5000,
+        },
+    );
+
+
+// ---------------------------------------------------------------------------
+// Upgrade — hub-based (Phase 8/9)
+// ---------------------------------------------------------------------------
+
+export interface UpgradeCandidate {
+    version: string;
+    requires_sdk?: string | null;
+    archive_url?: string | null;
+    sha256?: string | null;
+    size_bytes?: number | null;
+    published_at?: string | null;
+}
+
+export interface UpgradeListResponse {
+    plugin_id: string;
+    current_version?: string | null;
+    candidates: UpgradeCandidate[];
+}
+
+export interface UpgradeFromHubRequest {
+    version: string;
+    force_downgrade?: boolean;
+    hub_url?: string;
+}
+
+/** Lists hub-published versions for a plugin so the UpgradeDialog can
+ *  render a picker. Includes the currently installed version
+ *  (filterable client-side). */
+export const usePluginUpgrades = (
+    pluginId: string | null | undefined,
+    opts: { hubUrl?: string; enabled?: boolean } = {},
+) =>
+    useQuery(
+        ['admin-plugin-upgrades', pluginId, opts.hubUrl],
+        async () => {
+            const res = await api.get<UpgradeListResponse>(
+                `/admin/plugins/${encodeURIComponent(pluginId!)}/upgrades`,
+                { params: opts.hubUrl ? { hub_url: opts.hubUrl } : undefined },
+            );
+            return res.data;
+        },
+        {
+            enabled: !!pluginId && (opts.enabled ?? true),
+            staleTime: 30_000,
+        },
+    );
+
+/** Server-side upgrade: CoreService fetches the .mpn from the hub,
+ *  verifies sha256, then runs the canonical upgrade flow (versioned
+ *  .bak on failure, RMQ requeues in-flight tasks). */
+export const useUpgradeFromHub = (pluginId: string) => {
+    const qc = useQueryClient();
+    return useMutation(
+        async (req: UpgradeFromHubRequest) => {
+            const res = await api.post<InstallFromHubResponse>(
+                `/admin/plugins/${encodeURIComponent(pluginId)}/upgrade-from-hub`,
+                req,
+            );
+            return res.data;
+        },
+        {
+            onSuccess: () => {
+                qc.invalidateQueries(['plugins']);
+                qc.invalidateQueries(QK_PROCESS_STATUS);
+                qc.invalidateQueries(['admin-plugin-upgrades', pluginId]);
+            },
+        },
+    );
+};
+
+
 /** One-click install from the hub catalog. CoreService fetches the
  *  ``.mpn`` from the hub, verifies sha256, and runs the standard install
  *  pipeline — removes the download-then-upload step from the operator's

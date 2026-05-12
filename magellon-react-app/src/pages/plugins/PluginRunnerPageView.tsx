@@ -49,6 +49,7 @@ import {
 } from '../../features/plugin-runner/api/PluginApi.ts';
 import { DeploymentMethodChip } from '../../features/plugin-runner/ui/DeploymentMethodChip.tsx';
 import { PluginTestPanel } from '../../features/plugin-runner/ui/PluginTestPanel.tsx';
+import { PluginLogsPanel } from '../../features/plugin-installer/ui/PluginLogsPanel.tsx';
 import {
     useAdminPluginProcessStatus,
     useRestartPlugin,
@@ -316,6 +317,18 @@ export const PluginRunnerPageView: React.FC = () => {
                                 : 'Start the plugin to dispatch test tasks against it.'
                         }
                     />
+                    {installedRow?.manifest_plugin_id && (
+                        <Card variant="outlined" sx={{ mt: 2 }}>
+                            <CardContent>
+                                <Typography variant="h6" sx={{ mb: 1 }}>
+                                    Logs
+                                </Typography>
+                                <PluginLogsPanel
+                                    pluginId={installedRow.manifest_plugin_id}
+                                />
+                            </CardContent>
+                        </Card>
+                    )}
                 </>
             )}
         </Container>
