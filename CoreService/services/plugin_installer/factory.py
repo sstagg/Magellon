@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
 
 from services.plugin_installer.docker_installer import DockerInstaller
 from services.plugin_installer.lifecycle import DockerLifecycle, UvLifecycle
@@ -94,7 +94,30 @@ def _build_runtime_config() -> RuntimeConfig:
     if plugin_broker_override:
         broker_url = plugin_broker_override
 
-    return RuntimeConfig(broker_url=broker_url, gpfs_root=gpfs_root)
+    extra_env: Dict[str, str] = {}
+    # NATS_URL handed to plugins: operator override wins; otherwise
+    # inherit from CoreService's own env. When unset on both sides we
+    # leave it off so the SDK falls back to its built-in
+    # ``nats://localhost:4222`` (and silently skips NATS publish if
+    # nothing's listening there). The plugin's container-loopback is
+    # not reachable from any broker, so docker deployments should always
+    # set MAGELLON_PLUGIN_NATS_URL (e.g. ``nats://nats:4222`` on the
+    # magellon docker network).
+    plugin_nats = os.environ.get("MAGELLON_PLUGIN_NATS_URL") or os.environ.get("NATS_URL")
+    if plugin_nats:
+        extra_env["NATS_URL"] = plugin_nats
+
+    # COLUMNS controls the width Rich uses when rendering structured
+    # log output. Containers run without a TTY, so Rich falls back to
+    # 80 — every log line then hard-wraps at column 80 with deep
+    # left-padding for the message column, which renders as a narrow
+    # ~1/3-width text strip in the React Logs tab. 200 gives Rich
+    # enough room to keep one log entry on one wire line, so the UI's
+    # ``whiteSpace: 'pre'`` shows them at the natural width of the
+    # browser viewport.
+    extra_env.setdefault("COLUMNS", "200")
+
+    return RuntimeConfig(broker_url=broker_url, gpfs_root=gpfs_root, extra_env=extra_env)
 
 
 def _liveness_health_check(plugin_id: str, timeout_seconds: float) -> bool:
