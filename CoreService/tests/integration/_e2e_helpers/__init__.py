@@ -14,6 +14,7 @@ from tests.integration._e2e_helpers.dispatch import (  # noqa: F401
     build_fft_task_message,
     dispatch_fft_task_via_rmq,
     generate_input_image,
+    generate_test_micrograph_mrc,
 )
 from tests.integration._e2e_helpers.install import (  # noqa: F401
     install_plugin_from_archive,
@@ -26,6 +27,7 @@ __all__ = [
     "build_fft_task_message",
     "dispatch_fft_task_via_rmq",
     "generate_input_image",
+    "generate_test_micrograph_mrc",
     "install_plugin_from_archive",
     "uninstall_plugin",
     "wait_for_lifecycle_status",

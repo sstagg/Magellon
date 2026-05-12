@@ -120,3 +120,38 @@ def generate_input_image(host_dir: Path, *, name: str = "fft_e2e_input.png",
     path = host_dir / name
     Image.fromarray(arr, mode="L").save(path)
     return path
+
+
+def generate_test_micrograph_mrc(
+    host_dir: Path, *,
+    name: str = "test_micrograph.mrc",
+    size: int = 1024,
+    apix: float = 3.16,
+    seed: int = 42,
+) -> Path:
+    """Write a deterministic ``size × size`` MRC micrograph for the
+    template-picker e2e.
+
+    Pure-noise data — the picker will run its cross-correlation pass
+    over the configured templates and either find low-score peaks or
+    nothing depending on threshold. That's exactly what we want for
+    the retune-changes-counts assertion: at very low threshold the
+    pick count is high; at very high threshold it's low or zero.
+    """
+    import numpy as np
+    import mrcfile
+
+    host_dir.mkdir(parents=True, exist_ok=True)
+    rng = np.random.default_rng(seed=seed)
+    # Float32 in [0, 1] — matches MRC mode 2 (float32) which the
+    # template-picker reads directly.
+    data = rng.random((size, size)).astype("float32")
+
+    path = host_dir / name
+    with mrcfile.new(str(path), overwrite=True) as mrc:
+        mrc.set_data(data)
+        # Set apix on the MRC header so the picker's pixel-size
+        # auto-derivation works if the operator omits it from
+        # engine_opts.
+        mrc.voxel_size = apix
+    return path

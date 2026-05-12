@@ -370,3 +370,55 @@ def fft_mpn_archive() -> Path:
         "    scripts/build_fft_mpn.sh\n"
         "or set MAGELLON_FFT_MPN to an existing .mpn path."
     )
+
+
+@pytest.fixture(scope="session")
+def template_picker_mpn_archive() -> Path:
+    """Locate (or build) the template-picker plugin .mpn archive.
+
+    Same resolution shape as ``fft_mpn_archive``:
+      1. ``MAGELLON_TEMPLATE_PICKER_MPN`` env var — explicit override.
+      2. tests/integration/fixtures/template-picker-<version>.mpn —
+         built locally.
+      3. Skip the test with an actionable message.
+    """
+    override = os.environ.get("MAGELLON_TEMPLATE_PICKER_MPN")
+    if override:
+        path = Path(override)
+        if not path.is_file():
+            pytest.skip(f"MAGELLON_TEMPLATE_PICKER_MPN={override} does not exist")
+        return path
+
+    fixtures_dir = Path(__file__).parent / "fixtures"
+    candidates = sorted(fixtures_dir.glob("template-picker-*.mpn"))
+    if candidates:
+        return candidates[-1]
+
+    pytest.skip(
+        "template-picker .mpn fixture not found. Build it with:\n"
+        "    scripts/build_template_picker_mpn.sh\n"
+        "or set MAGELLON_TEMPLATE_PICKER_MPN to an existing .mpn path."
+    )
+
+
+@pytest.fixture(scope="session")
+def template_paths(e2e_stack) -> list[str]:
+    """The three reference templates the picker uses by default.
+
+    Pre-seeded under ``<gpfs_host_root>/templates/`` per the deploy
+    runbook. The picker's manifest defaults to these paths, and the
+    e2e test consumes them as the canonical multi-template input.
+    Skips if they aren't present so the test isn't silently a no-op.
+    """
+    seeded = [
+        e2e_stack.gpfs_host_root / "templates" / f"origTemplate{i}.mrc"
+        for i in (1, 2, 3)
+    ]
+    missing = [str(p) for p in seeded if not p.is_file()]
+    if missing:
+        pytest.skip(
+            f"Template MRC fixtures missing under {e2e_stack.gpfs_host_root}/"
+            f"templates/: {missing}. Stage the three origTemplate*.mrc "
+            f"files there before running the template-picker e2e."
+        )
+    return [str(p).replace("\\", "/") for p in seeded]
