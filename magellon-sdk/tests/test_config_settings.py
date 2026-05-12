@@ -120,7 +120,11 @@ def test_singleton_prod_env_picks_prod_yaml(tmp_path, monkeypatch):
 
     monkeypatch.setenv("APP_ENV", "production")
     instance = _SingletonB.get_instance()
-    assert instance.JOBS_DIR == "PROD"
+    # JOBS_DIR is resolved under MAGELLON_GPFS_PATH (default /gpfs) by
+    # the data-plane consolidation (memory: project_data_plane_layout).
+    # Relative paths land under that root; bare strings like "PROD"
+    # get prefixed with the gpfs root at load time.
+    assert instance.JOBS_DIR == "/gpfs/PROD"
 
 
 def test_singleton_update_from_yaml_replaces_instance(tmp_path, monkeypatch):
@@ -134,10 +138,12 @@ def test_singleton_update_from_yaml_replaces_instance(tmp_path, monkeypatch):
 
     monkeypatch.delenv("APP_ENV", raising=False)
     first = _SingletonC.get_instance()
-    assert first.JOBS_DIR == "one"
+    # Relative paths get the gpfs root prefix at load time (see the
+    # /gpfs/PROD comment in the previous test).
+    assert first.JOBS_DIR == "/gpfs/one"
 
     new_yaml = "JOBS_DIR: two\nCUSTOM_FLAG: true\n"
     updated = _SingletonC.update_settings_from_yaml(new_yaml)
     assert updated is not first
-    assert updated.JOBS_DIR == "two"
+    assert updated.JOBS_DIR == "/gpfs/two"
     assert _SingletonC.get_instance() is updated

@@ -124,6 +124,16 @@ def test_connect_raises_on_bad_host():
 
 
 def test_publish_message_to_queue_helper_success():
+    # ``messaging.publish_message_to_queue`` routes via the configured
+    # MessageBus (post-MB3, 2026-04-21). Install the RMQ-backed bus
+    # for the duration of the test so the helper can dispatch; undo
+    # in a finally so the sibling tests that rely on an unconfigured
+    # bus (test_publish_message_to_queue_returns_false_on_bad_broker)
+    # see clean state.
+    from magellon_sdk.bus import get_bus
+    from magellon_sdk.bus.bootstrap import install_rmq_bus
+    install_rmq_bus(_Settings())
+
     q = _unique_queue()
     try:
         task = TaskMessage(data={"k": "v"})
@@ -147,6 +157,11 @@ def test_publish_message_to_queue_helper_success():
             conn.close()
     finally:
         _delete_queue(q)
+        # Reset the bus singleton so the next test (which expects an
+        # unconfigured bus) sees clean state. ``set_factory(None)``
+        # would error; assign a fresh factory that raises so the next
+        # test re-installs as needed.
+        get_bus.reset()
 
 
 def test_declare_queue_with_dlq_routes_rejected_message_to_dlq():
