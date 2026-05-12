@@ -255,7 +255,15 @@ class UvInstaller:
         return "unknown"
 
     def is_installed(self, plugin_id: str) -> bool:
-        return (self.plugins_dir / plugin_id).is_dir()
+        """Require both the install dir AND the uv-specific
+        ``runtime.env`` marker so a docker install (which reuses the
+        same per-plugin directory) isn't misreported as a uv install.
+
+        Matches the shape of :meth:`DockerInstaller.is_installed`,
+        which requires the docker-specific ``install_state.json``.
+        """
+        target = self.plugins_dir / plugin_id
+        return target.is_dir() and (target / "runtime.env").is_file()
 
     # ------------------------------------------------------------------
     # Pipeline steps
@@ -364,6 +372,12 @@ class UvInstaller:
         version but miss that module; copying the CoreService SDK helper
         keeps installed plugins aligned with the GPFS data-plane contract
         without changing their archive contents.
+
+        TODO(2026-Q3): retire once the hub republishes every existing
+        plugin against an SDK that contains ``paths.py``. Tracked
+        alongside :meth:`_patch_legacy_fft_output_resolution`; both can
+        go away together. Until then, the patch is load-bearing — the
+        FFT hub install in CI will fail without it.
         """
         sdk_dir = self._find_venv_sdk_dir(venv_dir)
         if sdk_dir is None:
@@ -401,6 +415,14 @@ class UvInstaller:
         On Windows, an unresolved output path writes under ``C:/gpfs`` instead
         of the configured GPFS root. This keeps the installed archive on the
         shared data plane until the hub package is rebuilt with the fix.
+
+        TODO(2026-Q3): retire after the next FFT plugin release on the
+        hub. Companion to :meth:`_ensure_sdk_path_helpers`; both
+        bandaids exist because pre-Track-C archives weren't built with
+        the canonical-path contract. Delete the patch + this comment +
+        the corresponding test (``test_patch_legacy_fft_output_resolution``)
+        in one commit once the hub no longer serves the affected
+        version.
         """
         compute_py = target / "plugin" / "compute.py"
         if not compute_py.is_file():

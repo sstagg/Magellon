@@ -200,6 +200,25 @@ The consolidated catalog (`GET /plugins/capabilities`,
 JSON schemas + the operator-pinned default. See §4 for the full
 HTTP surface.
 
+**Dual `plugin_id` axes.** The system keys plugin records on two
+distinct identifier spaces and the React UI threads both:
+
+- `plugin_id` — the announce-derived runtime identifier. Comes from
+  `magellon.plugins.announce.*` envelopes; rotates per replica scale
+  event. The bus dispatcher / liveness registry / `/plugins/*`
+  HTTP surface key on this. Format: free-form, plugin's choice.
+- `manifest_plugin_id` — the install-time identifier from
+  `manifest.yaml`. The install pipeline (`/admin/plugins/*`),
+  `install_state.json`, and the upgrade/uninstall flow key on this.
+  Format: manifest-validated slug `[a-z0-9._-]+`.
+
+Most operator actions (Start / Stop / Restart / Pause / Scale /
+Uninstall / Upgrade) flow through admin endpoints and need
+`manifest_plugin_id`; the live status chip cluster reads the bus
+view and needs `plugin_id`. The React `InstalledPluginsView` row
+carries both fields and dispatches to each endpoint with the
+matching key — never assume they're the same string.
+
 ---
 
 ## 4. Plugin architecture

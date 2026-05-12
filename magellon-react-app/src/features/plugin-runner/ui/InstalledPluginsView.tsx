@@ -69,6 +69,7 @@ import {
     useUnpausePlugin,
 } from '../../plugin-installer/api/installerApi.ts';
 import { DeploymentMethodChip } from './DeploymentMethodChip.tsx';
+import { processControlsDisabled } from './processControlsState.ts';
 import { PluginConditions } from './PluginConditions.tsx';
 import { PluginReplicas } from './PluginReplicas.tsx';
 import { PluginUpdateChip } from './PluginUpdateChip.tsx';
@@ -195,6 +196,13 @@ const ProcessControls: React.FC<{
             ? 'Plugin is not running'
             : 'Pause plugin (memory stays resident)';
 
+    // Centralized gating logic — see processControlsState.ts for the
+    // matrix. Keeps the JSX below readable and lets the matrix be
+    // unit-tested without mounting the whole component.
+    const disabled = processControlsDisabled({
+        liveOnBus, supervisorRunning, isPaused, supportsPause, busy,
+    });
+
     return (
         <Stack direction="row" spacing={0.25}>
             <Tooltip
@@ -209,7 +217,7 @@ const ProcessControls: React.FC<{
                         size="small"
                         color="success"
                         aria-label="start"
-                        disabled={busy || liveOnBus}
+                        disabled={disabled.start}
                         onClick={() => handle('start', start)}
                     >
                         <Play size={16} />
@@ -221,11 +229,7 @@ const ProcessControls: React.FC<{
                     <IconButton
                         size="small"
                         aria-label={isPaused ? 'unpause' : 'pause'}
-                        disabled={
-                            busy ||
-                            !supportsPause ||
-                            (!isPaused && !supervisorRunning && !liveOnBus)
-                        }
+                        disabled={disabled.pause}
                         onClick={() =>
                             handle(
                                 isPaused ? 'unpause' : 'pause',
@@ -250,7 +254,7 @@ const ProcessControls: React.FC<{
                     <IconButton
                         size="small"
                         aria-label="stop"
-                        disabled={busy || !supervisorRunning}
+                        disabled={disabled.stop}
                         onClick={() => handle('stop', stop)}
                     >
                         <Square size={16} />
@@ -262,7 +266,7 @@ const ProcessControls: React.FC<{
                     <IconButton
                         size="small"
                         aria-label="restart"
-                        disabled={busy || (liveOnBus && !supervisorRunning)}
+                        disabled={disabled.restart}
                         onClick={() => handle('restart', restart)}
                     >
                         <RotateCcw size={16} />

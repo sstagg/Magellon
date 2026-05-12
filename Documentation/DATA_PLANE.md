@@ -194,6 +194,55 @@ Deferred until evidence justifies them:
 
 ---
 
+## 9.5. Path-translation invariants
+
+The bind-mount story works because four invariants hold across the
+codebase. Violations are the most common source of "plugin can't
+open the file" bugs in mixed-OS deployments.
+
+1. **Wire paths are canonical `/gpfs/...`** — every value that
+   crosses a process boundary (RMQ envelope, sync HTTP body, NATS
+   event) is in canonical form. CoreService translates host →
+   canonical at every dispatch boundary; plugins translate canonical
+   → local at every I/O boundary.
+
+2. **One source of truth for the translation helpers** —
+   `magellon_sdk.paths.to_canonical_gpfs_path` /
+   `from_canonical_gpfs_path` are the canonical implementation.
+   CoreService's `core/helper.py` wraps these (post-2.1
+   consolidation, 2026-05-12); plugins import from the SDK directly.
+   If both ends drift, mixed-deployment data-plane access breaks
+   asymmetrically — symptom is "Linux works, Windows direct-run
+   doesn't."
+
+3. **Canonicalization happens once per boundary** —
+   `canonicalize_paths_in_payload` walks RMQ payloads at dispatch
+   time (`core/helper.py`); `services/sync_dispatcher.py` walks
+   HTTP bodies at sync-send time. Plugins don't re-canonicalize on
+   receive; they `from_canonical_gpfs_path` at the I/O call site.
+
+4. **The translation helpers are deliberately naive about
+   `..`** — they only do prefix substitution. `..` segments pass
+   through. Defense-in-depth (`is_under_gpfs_root` in
+   `core/helper.py`) is the check that catches path-escape
+   attempts at the I/O boundary. Don't try to teach the helpers
+   security; keep them small and predictable.
+
+These invariants are tested by:
+
+- `CoreService/tests/test_canonical_gpfs_path.py` + `_edges.py` —
+  CoreService side, prefix-overlap and trailing-slash boundary
+  cases.
+- `magellon-sdk/tests/test_paths.py` + `_edges.py` — SDK side,
+  same edge cases for symmetry.
+- `CoreService/tests/test_canonicalize_property.py` — randomized
+  property tests for the payload walker (idempotency, type
+  preservation, no false positives on prose).
+
+If you're touching path translation, add a test in each suite.
+
+---
+
 ## 10. What to read next
 
 - `ARCHITECTURE_PRINCIPLES.md` — the canonical rule-set this doc
