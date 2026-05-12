@@ -1,17 +1,15 @@
 /**
  * /panel/plugins/<plugin_id> — per-plugin detail + test workspace.
  *
- * Layout (no tabs, both halves always visible):
+ * Layout: header strip (identity + lifecycle) sits above two tabs:
  *
  *   ┌── Header strip ────────────────────────────────┐
  *   │  name · version · category · live/stopped     │
  *   │  description · install location               │
  *   │  [Run/Stop/Restart]  [back]                   │
- *   ├── Settings ──────┬── Activity ─────────────────┤
- *   │  Transport pick   │  ProgressTracker (bus)     │
- *   │  SchemaForm       │  Wire envelopes (live)     │
- *   │  [Run]            │  Result (output schema)    │
- *   └───────────────────┴────────────────────────────┘
+ *   ├── [Workspace] [Logs] ──────────────────────────┤
+ *   │  (selected tab content)                        │
+ *   └────────────────────────────────────────────────┘
  *
  * Lookup order for plugin identity:
  *   1. Live plugins (``GET /plugins/``) — heartbeating right now.
@@ -31,6 +29,8 @@ import {
     Container,
     IconButton,
     Stack,
+    Tab,
+    Tabs,
     Tooltip,
     Typography,
 } from '@mui/material';
@@ -39,7 +39,9 @@ import {
     FolderOpen,
     Play,
     RotateCcw,
+    ScrollText,
     Square,
+    TerminalSquare,
 } from 'lucide-react';
 import {
     useInstalledFromDb,
@@ -254,6 +256,12 @@ export const PluginRunnerPageView: React.FC = () => {
     const found = livePlugin || installedRow;
     const running = !!livePlugin || !!processStatus.data?.running;
 
+    // Tab state — `workspace` is the default because most operators come
+    // here to run a task, not to read logs. Logs tab keeps its own mount
+    // state via the conditional render below so its Socket.IO subscription
+    // doesn't run when the tab isn't visible.
+    const [tab, setTab] = React.useState<'workspace' | 'logs'>('workspace');
+
     // Synthesize a PluginSummary for the test panel when only the catalog
     // row is known. The panel needs `plugin_id` + `category` to fetch
     // schemas and route Sync calls; everything else is presentational.
@@ -308,27 +316,47 @@ export const PluginRunnerPageView: React.FC = () => {
                         running={running}
                         manifestPluginId={installedRow?.manifest_plugin_id ?? null}
                     />
-                    <PluginTestPanel
-                        plugin={panelPlugin}
-                        runEnabled={running}
-                        runDisabledReason={
-                            running
-                                ? undefined
-                                : 'Start the plugin to dispatch test tasks against it.'
-                        }
-                    />
-                    {installedRow?.manifest_plugin_id && (
-                        <Card variant="outlined" sx={{ mt: 2 }}>
-                            <CardContent>
-                                <Typography variant="h6" sx={{ mb: 1 }}>
-                                    Logs
-                                </Typography>
+                    <Card variant="outlined">
+                        <Tabs
+                            value={tab}
+                            onChange={(_, v) => setTab(v)}
+                            sx={{ borderBottom: 1, borderColor: 'divider', px: 1 }}
+                        >
+                            <Tab
+                                value="workspace"
+                                label="Workspace"
+                                icon={<TerminalSquare size={16} />}
+                                iconPosition="start"
+                                sx={{ minHeight: 48 }}
+                            />
+                            <Tab
+                                value="logs"
+                                label="Logs"
+                                icon={<ScrollText size={16} />}
+                                iconPosition="start"
+                                disabled={!installedRow?.manifest_plugin_id}
+                                sx={{ minHeight: 48 }}
+                            />
+                        </Tabs>
+                        <CardContent>
+                            {tab === 'workspace' && (
+                                <PluginTestPanel
+                                    plugin={panelPlugin}
+                                    runEnabled={running}
+                                    runDisabledReason={
+                                        running
+                                            ? undefined
+                                            : 'Start the plugin to dispatch test tasks against it.'
+                                    }
+                                />
+                            )}
+                            {tab === 'logs' && installedRow?.manifest_plugin_id && (
                                 <PluginLogsPanel
                                     pluginId={installedRow.manifest_plugin_id}
                                 />
-                            </CardContent>
-                        </Card>
-                    )}
+                            )}
+                        </CardContent>
+                    </Card>
                 </>
             )}
         </Container>
