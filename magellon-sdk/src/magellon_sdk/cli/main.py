@@ -29,7 +29,7 @@ import sys
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Tuple
 
 from magellon_sdk import __version__
 from magellon_sdk.archive.manifest import (
@@ -40,6 +40,7 @@ from magellon_sdk.archive.manifest import (
     load_manifest_bytes,
     uuid7,
 )
+from magellon_sdk.archive.manifest import _parse_version  # type: ignore[attr-defined]
 
 
 CANONICAL_MANIFEST = "manifest.yaml"
@@ -207,6 +208,596 @@ def cmd_plugin_validate(args: argparse.Namespace) -> int:
     sys.stdout.write(
         f"OK: {manifest.plugin_id} v{manifest.version} "
         f"(category={manifest.category}, install=[{methods}])\n"
+    )
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# test — local test runner for a plugin directory (Wave 6 Phase 24)
+# ---------------------------------------------------------------------------
+#
+# Combines the steps a plugin author should always run before pack:
+#   1. Lint (manifest + install methods + DX checks).
+#   2. Pytest under the plugin's tests/ directory if present.
+#   3. Optional HTTP /health probe against a running instance.
+#
+# The intent is "one command that says yes/no" — authors don't need to
+# remember to run lint + pytest separately.
+
+
+def cmd_plugin_test(args: argparse.Namespace) -> int:
+    import subprocess
+
+    source = Path(args.dir).resolve()
+    if not source.is_dir():
+        sys.stderr.write(f"error: {source} is not a directory\n")
+        return 1
+
+    sys.stdout.write(f"=== Linting {source.name} ===\n")
+    lint_rc = cmd_plugin_lint(argparse.Namespace(dir=str(source), strict=False))
+    if lint_rc != 0:
+        return lint_rc
+
+    # Optional /health probe.
+    if args.http:
+        sys.stdout.write(f"=== Probing {args.http}/health ===\n")
+        try:
+            import urllib.request
+            with urllib.request.urlopen(
+                f"{args.http.rstrip('/')}/health", timeout=5.0,
+            ) as resp:
+                if 200 <= resp.status < 300:
+                    sys.stdout.write(f"OK: /health → {resp.status}\n")
+                else:
+                    sys.stderr.write(f"error: /health → {resp.status}\n")
+                    return 1
+        except Exception as exc:  # noqa: BLE001
+            sys.stderr.write(f"error: /health probe failed: {exc}\n")
+            return 1
+
+    # Pytest under tests/, if it exists.
+    tests_dir = source / "tests"
+    if tests_dir.is_dir():
+        sys.stdout.write(f"=== Running pytest {tests_dir} ===\n")
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "pytest", str(tests_dir), "-v"],
+                cwd=str(source),
+            )
+        except FileNotFoundError:
+            sys.stderr.write("error: pytest not installed in this env\n")
+            return 1
+        if result.returncode != 0:
+            return result.returncode
+    else:
+        sys.stdout.write(
+            f"(no tests/ directory under {source.name} — skipping pytest)\n",
+        )
+
+    sys.stdout.write(f"\nOK: {source.name} — lint + tests passed\n")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# scaffold — generate a runnable plugin skeleton (Wave 6 Phase 23)
+# ---------------------------------------------------------------------------
+#
+# Unlike ``init`` (which writes manifest + README only), ``scaffold``
+# generates a fully runnable plugin: FastAPI host, PluginBrokerRunner
+# wired up, PluginBase subclass stub, compute stub, Dockerfile,
+# pyproject.toml, tests/, .gitignore. The output is ``magellon-sdk
+# plugin pack``-able immediately.
+#
+# Inline templates over copying an existing plugin: keeps the
+# generated layout under our control as the SDK evolves; no risk of
+# accidentally shipping a stale plugin's quirks.
+
+
+_SCAFFOLD_MANIFEST = '''manifest_version: "1.1"
+
+plugin_id: {plugin_id}
+archive_id: 00000000-0000-7000-8000-000000000000
+
+name: "{display_name}"
+version: 0.1.0
+requires_sdk: ">={sdk_major}.0,<{next_major}.0"
+
+author: ""
+license: MIT
+description: >
+  TODO: describe what this plugin does in one paragraph.
+
+category: {category}
+backend_id: {plugin_id}
+
+requires:
+  - broker
+  - gpfs
+
+resources:
+  cpu_cores: 1
+  memory_mb: 512
+  gpu_count: 0
+  typical_duration_seconds: 5
+
+lifecycle:
+  restart_policy: on-failure
+  restart_max_retries: 5
+
+input_schema: schemas/input.json
+output_schema: schemas/output.json
+
+install:
+  - method: uv
+    pyproject: pyproject.toml
+    requires:
+      - python: ">=3.11"
+  - method: docker
+    dockerfile: Dockerfile
+    build_context: .
+    requires:
+      - docker_daemon: true
+
+health_check:
+  timeout_seconds: 30
+  expected_announce: true
+
+tags: []
+'''
+
+
+_SCAFFOLD_MAIN = '''"""Entry point — FastAPI host + PluginBrokerRunner daemon thread.
+
+Run direct:  python main.py
+Run packed:  magellon-sdk plugin pack . && install via CoreService.
+"""
+from __future__ import annotations
+
+import logging
+import os
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+
+from magellon_sdk.runner import PluginBrokerRunner
+
+from plugin.plugin import {class_name}Plugin
+
+logger = logging.getLogger(__name__)
+
+_plugin = {class_name}Plugin()
+_runner: PluginBrokerRunner | None = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global _runner
+    # Bus + runner setup — see SDK README for the standard wiring.
+    import threading
+
+    from magellon_sdk.bus.transport.rabbitmq import install_rmq_bus
+    from magellon_sdk.config import BaseAppSettings
+
+    settings = BaseAppSettings()
+    install_rmq_bus(settings.rabbitmq_settings)
+
+    _runner = PluginBrokerRunner(plugin=_plugin, settings=settings)
+    thread = threading.Thread(target=_runner.start_blocking, daemon=True)
+    thread.start()
+
+    try:
+        yield
+    finally:
+        if _runner is not None:
+            _runner.stop()
+
+
+app = FastAPI(lifespan=lifespan)
+
+
+@app.get("/health")
+def health():
+    return {{"status": "ok", "plugin": "{plugin_id}"}}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "main:app",
+        host=os.environ.get("MAGELLON_PLUGIN_HOST", "0.0.0.0"),
+        port=int(os.environ.get("MAGELLON_PLUGIN_PORT", "8000")),
+    )
+'''
+
+
+_SCAFFOLD_PLUGIN_PY = '''"""Plugin contract — the SDK's PluginBase subclass.
+
+The runner hands every incoming task to ``execute(input_data,
+reporter)``. Returns the output payload; the runner wraps it in a
+TaskResultMessage and publishes back.
+"""
+from __future__ import annotations
+
+from typing import Any
+
+from magellon_sdk.runner import PluginBase
+
+from plugin.compute import run_compute
+
+
+class {class_name}Plugin(PluginBase):
+    """TODO: docstring."""
+
+    plugin_id = "{plugin_id}"
+    plugin_version = "0.1.0"
+    category = "{category}"
+
+    def execute(self, input_data: Any, reporter) -> dict:
+        reporter.started()
+        reporter.progress(10.0, "starting")
+        result = run_compute(input_data)
+        reporter.progress(90.0, "writing output")
+        reporter.completed(output_files=[])
+        return {{"result": result}}
+'''
+
+
+_SCAFFOLD_COMPUTE_PY = '''"""The actual algorithm — kept separate from the SDK glue so it's
+unit-testable without bus / FastAPI plumbing."""
+from __future__ import annotations
+
+from typing import Any
+
+
+def run_compute(input_data: Any) -> Any:
+    """TODO: implement. Receives the validated input dict; returns
+    whatever the output schema describes."""
+    return {{"echo": input_data}}
+'''
+
+
+_SCAFFOLD_DOCKERFILE = '''FROM python:3.12-slim
+
+WORKDIR /app
+
+# System deps go here. Most pure-Python plugins need nothing extra.
+# RUN apt-get update && apt-get install -y --no-install-recommends \\
+#     libsomething1 \\
+#  && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt ./
+RUN pip install --no-cache-dir --upgrade pip \\
+ && pip install --no-cache-dir -r requirements.txt
+
+COPY plugin/ /app/plugin/
+COPY main.py /app/main.py
+
+ENV PYTHONPATH=/app \\
+    APP_ENV=production \\
+    MAGELLON_PLUGIN_HOST=0.0.0.0 \\
+    MAGELLON_PLUGIN_PORT=8000
+
+EXPOSE 8000
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+'''
+
+
+_SCAFFOLD_PYPROJECT = '''[project]
+name = "{plugin_id}"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "magellon-sdk>={sdk_major}.0,<{next_major}.0",
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+'''
+
+
+_SCAFFOLD_REQUIREMENTS = '''magellon-sdk>={sdk_major}.0,<{next_major}.0
+fastapi>=0.115
+uvicorn>=0.30
+'''
+
+
+_SCAFFOLD_GITIGNORE = '''__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.mpn
+dist/
+build/
+'''
+
+
+_SCAFFOLD_TEST_COMPUTE = '''"""Smoke test for the compute layer. Add real cases as the algorithm
+grows."""
+from plugin.compute import run_compute
+
+
+def test_run_compute_echoes_input():
+    out = run_compute({{"x": 1}})
+    assert out == {{"echo": {{"x": 1}}}}
+'''
+
+
+_SCAFFOLD_README = '''# {display_name}
+
+Magellon plugin scaffolded by `magellon-sdk plugin scaffold`.
+
+## Next steps
+
+  1. Fill in `plugin/plugin.py` and `plugin/compute.py` with your
+     algorithm.
+  2. Update `manifest.yaml` (description, tags, requires_sdk).
+  3. Lint: `magellon-sdk plugin lint .`
+  4. Pack:  `magellon-sdk plugin pack .`
+  5. Install via the Magellon admin endpoint.
+'''
+
+
+_SCAFFOLD_FILES = (
+    ("manifest.yaml", _SCAFFOLD_MANIFEST),
+    ("main.py", _SCAFFOLD_MAIN),
+    ("plugin/__init__.py", ""),
+    ("plugin/plugin.py", _SCAFFOLD_PLUGIN_PY),
+    ("plugin/compute.py", _SCAFFOLD_COMPUTE_PY),
+    ("Dockerfile", _SCAFFOLD_DOCKERFILE),
+    ("pyproject.toml", _SCAFFOLD_PYPROJECT),
+    ("requirements.txt", _SCAFFOLD_REQUIREMENTS),
+    (".gitignore", _SCAFFOLD_GITIGNORE),
+    ("tests/test_compute.py", _SCAFFOLD_TEST_COMPUTE),
+    ("README.md", _SCAFFOLD_README),
+)
+
+
+def _class_name_from_plugin_id(plugin_id: str) -> str:
+    """``ctf-plugin`` → ``CtfPlugin`` (sort of) — really
+    ``CtfPluginPlugin`` because we append Plugin in the template.
+    Strip a trailing ``-plugin`` to keep names sane."""
+    base = plugin_id.removesuffix("-plugin").removesuffix("_plugin")
+    parts = base.replace("-", "_").split("_")
+    return "".join(p.capitalize() for p in parts if p) or "Generated"
+
+
+def cmd_plugin_scaffold(args: argparse.Namespace) -> int:
+    target = Path(args.name).resolve()
+    if target.exists() and any(target.iterdir()):
+        sys.stderr.write(f"error: {target} exists and is not empty\n")
+        return 1
+    target.mkdir(parents=True, exist_ok=True)
+
+    plugin_id = (
+        args.plugin_id
+        or target.name.lower().replace(" ", "-").replace("_", "-")
+    )
+    display_name = args.display_name or target.name
+    category = args.category
+    class_name = _class_name_from_plugin_id(plugin_id)
+    sdk_major = int(__version__.split(".")[0]) if __version__[0].isdigit() else 2
+
+    fmt_args = {
+        "plugin_id": plugin_id,
+        "display_name": display_name,
+        "category": category,
+        "class_name": class_name,
+        "sdk_major": sdk_major,
+        "next_major": sdk_major + 1,
+    }
+
+    for rel_path, template in _SCAFFOLD_FILES:
+        out = target / rel_path
+        out.parent.mkdir(parents=True, exist_ok=True)
+        # The Dockerfile + gitignore have no placeholders; format() on
+        # them is wasteful but cheap.
+        content = template.format(**fmt_args) if "{" in template else template
+        out.write_text(content, encoding="utf-8")
+
+    sys.stdout.write(
+        f"Scaffolded {target}/ ({len(_SCAFFOLD_FILES)} files).\n"
+        f"  plugin_id: {plugin_id}\n"
+        f"  category:  {category}\n"
+        f"Next: edit plugin/compute.py and plugin/plugin.py, then "
+        f"`magellon-sdk plugin lint {target}`.\n"
+    )
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# lint — deeper checks than validate (Wave 6 Phase 22)
+# ---------------------------------------------------------------------------
+
+# Severity tags. Lint returns a list of (severity, message) tuples so
+# the CLI can print them coherently and tests can assert on exact
+# messages without parsing stdout.
+LINT_ERROR = "error"
+LINT_WARN = "warn"
+LINT_INFO = "info"
+
+
+def lint_plugin_dir(source_dir: Path) -> List[Tuple[str, str]]:  # type: ignore[name-defined]
+    """Return a list of ``(severity, message)`` issues found in the
+    plugin source directory.
+
+    Issues are surfaced in three buckets:
+      - ``error``: the plugin won't install or pack correctly.
+        Lint returns non-zero exit if any errors are present.
+      - ``warn``: probable DX papercut (stale bundled SDK wheel,
+        missing health_check). Lint exits zero but the operator
+        sees the message.
+      - ``info``: optional polish (no tags, no homepage). Print
+        only when ``--strict`` is set.
+
+    Pure function — easy to unit test without filesystem fakery.
+    """
+    issues: List[Tuple[str, str]] = []
+
+    if not source_dir.is_dir():
+        issues.append((LINT_ERROR, f"{source_dir} is not a directory"))
+        return issues
+
+    # ---- 1. Manifest parses ------------------------------------------
+    manifest_path = source_dir / CANONICAL_MANIFEST
+    if not manifest_path.is_file():
+        legacy = source_dir / LEGACY_MANIFEST
+        if legacy.is_file():
+            issues.append((
+                LINT_WARN,
+                f"{LEGACY_MANIFEST} present but no {CANONICAL_MANIFEST}; "
+                f"v1 readers prefer the canonical name",
+            ))
+            manifest_path = legacy
+        else:
+            issues.append((LINT_ERROR, f"no {CANONICAL_MANIFEST} at archive root"))
+            return issues
+
+    try:
+        manifest = _load_manifest_from_path(manifest_path)
+    except Exception as exc:  # noqa: BLE001
+        issues.append((LINT_ERROR, f"manifest schema invalid: {exc}"))
+        return issues
+
+    # ---- 2. SDK compat -----------------------------------------------
+    try:
+        check_sdk_compat(manifest.requires_sdk, __version__)
+    except Exception as exc:  # noqa: BLE001 — warn, not error
+        issues.append((
+            LINT_WARN,
+            f"requires_sdk {manifest.requires_sdk!r} excludes the running "
+            f"SDK {__version__}: {exc}",
+        ))
+
+    # ---- 3. Install methods + their backing files --------------------
+    if not manifest.install:
+        issues.append((
+            LINT_ERROR,
+            "manifest declares no install methods (install: []) — "
+            "the install pipeline has nothing to dispatch",
+        ))
+    for spec in manifest.install:
+        if spec.method == "docker":
+            if not spec.image and not spec.dockerfile:
+                issues.append((
+                    LINT_ERROR,
+                    f"docker install spec has neither 'image' nor "
+                    f"'dockerfile' set",
+                ))
+            elif spec.dockerfile:
+                df = source_dir / spec.dockerfile
+                if not df.is_file():
+                    issues.append((
+                        LINT_ERROR,
+                        f"docker install spec references "
+                        f"{spec.dockerfile!r} but that file is missing",
+                    ))
+        elif spec.method == "uv":
+            if not spec.pyproject:
+                issues.append((
+                    LINT_ERROR,
+                    "uv install spec is missing 'pyproject:'",
+                ))
+            else:
+                pp = source_dir / spec.pyproject
+                if not pp.is_file():
+                    issues.append((
+                        LINT_ERROR,
+                        f"uv install spec references {spec.pyproject!r} "
+                        f"but that file is missing",
+                    ))
+
+    # ---- 4. Bundled SDK wheel staleness (common DX trap) -------------
+    wheels_dir = source_dir / "wheels"
+    if wheels_dir.is_dir():
+        wheels = sorted(wheels_dir.glob("magellon_sdk-*.whl"))
+        if not wheels:
+            issues.append((
+                LINT_INFO,
+                "wheels/ directory present but no magellon_sdk-*.whl found",
+            ))
+        else:
+            # Parse the wheel's version from its filename; warn if
+            # it's older than the SDK version this CLI is running as.
+            latest = wheels[-1].name
+            # Convention: magellon_sdk-<version>-py3-none-any.whl
+            parts = latest.split("-")
+            wheel_version = parts[1] if len(parts) > 1 else ""
+            try:
+                wv = _parse_version(wheel_version)
+                cv = _parse_version(__version__)
+                if wv < cv:
+                    issues.append((
+                        LINT_WARN,
+                        f"bundled SDK wheel {wheel_version} is older than "
+                        f"the CLI's SDK {__version__} — rebuild before "
+                        f"packing or the install may break with "
+                        f"ImportError (memory: project_plugin_sdk_wheel_drift)",
+                    ))
+            except (ValueError, TypeError):
+                pass
+
+    # ---- 5. Health check sanity --------------------------------------
+    hc = manifest.health_check
+    if hc.timeout_seconds < 5:
+        issues.append((
+            LINT_WARN,
+            f"health_check.timeout_seconds={hc.timeout_seconds} is very low; "
+            f"cold-start plugins may fail the install gate",
+        ))
+    if hc.timeout_seconds > 300:
+        issues.append((
+            LINT_WARN,
+            f"health_check.timeout_seconds={hc.timeout_seconds} is very high; "
+            f"operator install requests will block on a hung plugin",
+        ))
+
+    # ---- 6. Polish: tags / description / homepage --------------------
+    if not manifest.tags:
+        issues.append((LINT_INFO, "no tags declared — search/discovery suffers"))
+    if not manifest.description:
+        issues.append((LINT_INFO, "no description set"))
+    if not manifest.author:
+        issues.append((LINT_INFO, "no author set"))
+
+    # ---- 7. Replicas/lifecycle sanity (manifest v1.1) ----------------
+    replicas = manifest.resources.replicas
+    if replicas is not None:
+        if replicas.desired > replicas.max:
+            issues.append((
+                LINT_ERROR,
+                f"replicas.desired={replicas.desired} > max={replicas.max}",
+            ))
+
+    return issues
+
+
+def cmd_plugin_lint(args: argparse.Namespace) -> int:
+    source = Path(args.dir).resolve()
+    issues = lint_plugin_dir(source)
+
+    strict = bool(getattr(args, "strict", False))
+    errors = [m for sev, m in issues if sev == LINT_ERROR]
+    warns = [m for sev, m in issues if sev == LINT_WARN]
+    infos = [m for sev, m in issues if sev == LINT_INFO]
+
+    for m in errors:
+        sys.stderr.write(f"error: {m}\n")
+    for m in warns:
+        sys.stderr.write(f"warn: {m}\n")
+    if strict:
+        for m in infos:
+            sys.stderr.write(f"info: {m}\n")
+
+    if errors:
+        return 1
+    if strict and warns:
+        return 1
+    sys.stdout.write(
+        f"OK: {source.name} — {len(errors)} errors, {len(warns)} warnings"
+        f"{', ' + str(len(infos)) + ' info' if strict else ''}\n",
     )
     return 0
 
@@ -437,6 +1028,51 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_val.add_argument("path")
     p_val.set_defaults(func=cmd_plugin_validate)
+
+    p_lint = plugin_sub.add_parser(
+        "lint",
+        help="Deeper checks than validate — install method completeness, "
+             "bundled wheel staleness, health-check sanity, polish hints.",
+    )
+    p_lint.add_argument("dir", help="Plugin directory.")
+    p_lint.add_argument(
+        "--strict", action="store_true",
+        help="Treat warnings + infos as failures (CI gate flag).",
+    )
+    p_lint.set_defaults(func=cmd_plugin_lint)
+
+    p_scaffold = plugin_sub.add_parser(
+        "scaffold",
+        help="Generate a runnable plugin skeleton (manifest, main.py, "
+             "plugin/, Dockerfile, pyproject, tests).",
+    )
+    p_scaffold.add_argument("name", help="Directory to create.")
+    p_scaffold.add_argument(
+        "--category", required=True,
+        help="TaskCategory the plugin serves (e.g. 'fft', 'ctf').",
+    )
+    p_scaffold.add_argument(
+        "--plugin-id",
+        help="Explicit plugin_id; defaults to the directory name lowercased.",
+    )
+    p_scaffold.add_argument(
+        "--display-name",
+        help="Human-readable name for manifest; defaults to the directory name.",
+    )
+    p_scaffold.set_defaults(func=cmd_plugin_scaffold)
+
+    p_test = plugin_sub.add_parser(
+        "test",
+        help="Run the author's pre-pack checks: lint + pytest "
+             "+ optional /health probe.",
+    )
+    p_test.add_argument("dir", help="Plugin directory.")
+    p_test.add_argument(
+        "--http",
+        help="Probe this URL's /health before running pytest "
+             "(e.g. http://127.0.0.1:8000). Optional.",
+    )
+    p_test.set_defaults(func=cmd_plugin_test)
 
     return parser
 
