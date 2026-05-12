@@ -42,6 +42,7 @@ import {
     Eye,
     FolderOpen,
     PackageOpen,
+    Pause,
     Play,
     RotateCcw,
     Square,
@@ -60,10 +61,12 @@ import {
 } from '../api/PluginApi.ts';
 import {
     useAdminPluginProcessStatus,
+    usePausePlugin,
     useRestartPlugin,
     useStartPlugin,
     useStopPlugin,
     useUninstallMpn,
+    useUnpausePlugin,
 } from '../../plugin-installer/api/installerApi.ts';
 import { DeploymentMethodChip } from './DeploymentMethodChip.tsx';
 import { PluginConditions } from './PluginConditions.tsx';
@@ -131,11 +134,21 @@ const ProcessControls: React.FC<{
     const start = useStartPlugin();
     const stop = useStopPlugin();
     const restart = useRestartPlugin();
+    const pause = usePausePlugin();
+    const unpause = useUnpausePlugin();
     const supervisorRunning = !!procStatus?.running;
-    const busy = start.isLoading || stop.isLoading || restart.isLoading;
+    const status = procStatus?.status ?? 'unknown';
+    const supportsPause = !!procStatus?.supports_pause;
+    const isPaused = status === 'paused';
+    const busy =
+        start.isLoading ||
+        stop.isLoading ||
+        restart.isLoading ||
+        pause.isLoading ||
+        unpause.isLoading;
 
     const handle = async (
-        verb: 'start' | 'stop' | 'restart',
+        verb: 'start' | 'stop' | 'restart' | 'pause' | 'unpause',
         mut: typeof start,
     ) => {
         try {
@@ -144,6 +157,17 @@ const ProcessControls: React.FC<{
             onError(errorText(err, `${verb} failed`));
         }
     };
+
+    // Pause button toggles between pause / unpause depending on state.
+    // Disabled when the backend declares supports_pause=false (uv) —
+    // tooltip explains why instead of letting the operator 409.
+    const pauseTitle = !supportsPause
+        ? 'Pause is docker-only — uv plugins should be stopped instead'
+        : isPaused
+          ? 'Resume paused plugin'
+          : !supervisorRunning && !liveOnBus
+            ? 'Plugin is not running'
+            : 'Pause plugin (memory stays resident)';
 
     return (
         <Stack direction="row" spacing={0.25}>
@@ -163,6 +187,27 @@ const ProcessControls: React.FC<{
                         onClick={() => handle('start', start)}
                     >
                         <Play size={16} />
+                    </IconButton>
+                </span>
+            </Tooltip>
+            <Tooltip title={pauseTitle}>
+                <span>
+                    <IconButton
+                        size="small"
+                        aria-label={isPaused ? 'unpause' : 'pause'}
+                        disabled={
+                            busy ||
+                            !supportsPause ||
+                            (!isPaused && !supervisorRunning && !liveOnBus)
+                        }
+                        onClick={() =>
+                            handle(
+                                isPaused ? 'unpause' : 'pause',
+                                isPaused ? unpause : pause,
+                            )
+                        }
+                    >
+                        <Pause size={16} />
                     </IconButton>
                 </span>
             </Tooltip>

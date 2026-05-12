@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Optional
 
 from services.plugin_installer.docker_installer import DockerInstaller
+from services.plugin_installer.lifecycle import DockerLifecycle, UvLifecycle
 from services.plugin_installer.manager import PluginInstallManager
 from services.plugin_installer.protocol import RuntimeConfig
 from services.plugin_installer.supervisor import default_supervisor
@@ -101,8 +102,13 @@ def _build_manager() -> PluginInstallManager:
     # Pass plugins_dir so the Popen supervisor (Windows / macOS dev)
     # can find install dirs + persist PID files. Linux production
     # still resolves to SystemdUserSupervisor, which doesn't need it.
+    supervisor = default_supervisor(plugins_dir=plugins_dir)
+    lifecycles = [
+        UvLifecycle(supervisor),
+        DockerLifecycle(plugins_dir=plugins_dir),
+    ]
     return PluginInstallManager(
-        installers, supervisor=default_supervisor(plugins_dir=plugins_dir),
+        installers, supervisor=supervisor, lifecycles=lifecycles,
     )
 
 

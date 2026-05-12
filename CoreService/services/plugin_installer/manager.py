@@ -61,6 +61,13 @@ from services.plugin_installer.protocol import (
     RuntimeConfig,
     UninstallResult,
 )
+from services.plugin_installer.lifecycle import (
+    BackendLifecycle,
+    LifecycleResult,
+    LifecycleStatus,
+    NotSupportedError,
+    UvLifecycle,
+)
 from services.plugin_installer.supervisor import (
     NoOpSupervisor,
     Supervisor,
@@ -103,6 +110,7 @@ class PluginInstallManager:
         host_info_provider: Optional[Callable[..., HostInfo]] = None,
         health_check: HealthCheck = _no_health_check,
         supervisor: Optional[Supervisor] = None,
+        lifecycles: Optional[List[BackendLifecycle]] = None,
     ) -> None:
         # Index by method for quick lookup. If two installers claim
         # the same method, the LAST wins (lets a deployment override
@@ -116,6 +124,16 @@ class PluginInstallManager:
         # tests don't shell out. Production wires SystemdUserSupervisor
         # via the factory.
         self._supervisor: Supervisor = supervisor or NoOpSupervisor()
+        # Method-indexed lifecycle (Phase 1). When ``lifecycles`` is
+        # omitted, we synthesize a UvLifecycle wrapping the existing
+        # ``_supervisor`` so pre-Phase-1 callers see no behaviour change.
+        # Docker plugins need an explicit DockerLifecycle in the list.
+        self._lifecycles: Dict[str, BackendLifecycle] = {}
+        if lifecycles is not None:
+            for lc in lifecycles:
+                self._lifecycles[lc.method] = lc
+        if "uv" not in self._lifecycles:
+            self._lifecycles["uv"] = UvLifecycle(self._supervisor)
 
     # ------------------------------------------------------------------
     # Install
@@ -286,43 +304,84 @@ class PluginInstallManager:
     # Lifecycle (run / pause / stop) — delegate to supervisor
     # ------------------------------------------------------------------
 
-    def start(self, plugin_id: str):
-        """Launch the installed plugin's process.
-
-        On Windows + uv installs this Popens the plugin's
-        ``main.py`` via uvicorn; on Linux production it runs
-        ``systemctl --user start``. Idempotent: starting a running
-        plugin returns success.
+    def _route_lifecycle(self, plugin_id: str, verb: str) -> LifecycleResult:
+        """Look up the owning installer's method, dispatch ``verb`` on
+        the matching lifecycle. Unsupported verbs (pause on uv) bubble
+        up as :class:`NotSupportedError` so the controller can map to
+        HTTP 409.
         """
-        from services.plugin_installer.supervisor import SupervisorResult
-        if not self.is_installed(plugin_id):
-            return SupervisorResult(
+        installer = self._find_installer_for(plugin_id)
+        if installer is None:
+            return LifecycleResult(
                 success=False, plugin_id=plugin_id,
                 error=f"plugin {plugin_id} not installed",
             )
-        return self._supervisor.start(plugin_id)
+        lc = self._lifecycles.get(installer.method)
+        if lc is None:
+            return LifecycleResult(
+                success=False, plugin_id=plugin_id,
+                error=f"no lifecycle controller for install method "
+                      f"{installer.method!r}",
+            )
+        return getattr(lc, verb)(plugin_id)
 
-    def stop(self, plugin_id: str):
-        """Terminate the plugin's process. Idempotent: stopping a
-        stopped plugin returns success."""
-        return self._supervisor.stop(plugin_id)
+    def start(self, plugin_id: str) -> LifecycleResult:
+        """Launch the installed plugin's process / container.
 
-    def restart(self, plugin_id: str):
-        """Stop + start. Returns the start result; stop errors are
-        swallowed (a stop failure usually means 'already stopped')."""
-        self._supervisor.stop(plugin_id)
-        return self.start(plugin_id)
+        Routes via the owning installer's method:
+          - ``uv`` → systemd-user / Popen via the wrapped supervisor.
+          - ``docker`` → ``docker start <container_name>`` via DockerLifecycle.
+
+        Idempotent: starting an already-running plugin returns success.
+        """
+        return self._route_lifecycle(plugin_id, "start")
+
+    def stop(self, plugin_id: str) -> LifecycleResult:
+        """Stop the plugin's process / container. Idempotent."""
+        return self._route_lifecycle(plugin_id, "stop")
+
+    def restart(self, plugin_id: str) -> LifecycleResult:
+        """Stop + start. Docker uses ``docker restart`` natively; uv
+        does stop-then-start since systemd-user reload semantics aren't
+        what we want for a code update."""
+        return self._route_lifecycle(plugin_id, "restart")
+
+    def pause(self, plugin_id: str) -> LifecycleResult:
+        """Pause the plugin (docker-only). uv raises NotSupportedError
+        which the controller maps to HTTP 409."""
+        return self._route_lifecycle(plugin_id, "pause")
+
+    def unpause(self, plugin_id: str) -> LifecycleResult:
+        """Resume a paused plugin. Same constraint as ``pause``."""
+        return self._route_lifecycle(plugin_id, "unpause")
+
+    def supports_pause(self, plugin_id: str) -> bool:
+        """Whether the owning lifecycle declares pause support. Used
+        by the catalog endpoint so the UI can grey out the Pause button
+        for uv-installed plugins instead of letting the operator click
+        and 409."""
+        installer = self._find_installer_for(plugin_id)
+        if installer is None:
+            return False
+        lc = self._lifecycles.get(installer.method)
+        if lc is None:
+            return False
+        return bool(getattr(lc, "supports_pause", False))
+
+    def status(self, plugin_id: str) -> LifecycleStatus:
+        """Coarse running / stopped / paused / unknown state."""
+        installer = self._find_installer_for(plugin_id)
+        if installer is None:
+            return LifecycleStatus.UNKNOWN
+        lc = self._lifecycles.get(installer.method)
+        if lc is None:
+            return LifecycleStatus.UNKNOWN
+        return lc.status(plugin_id)
 
     def is_running(self, plugin_id: str) -> bool:
-        """Best-effort liveness check. Returns False if the supervisor
-        doesn't track running state (e.g. NoOpSupervisor)."""
-        check = getattr(self._supervisor, "is_running", None)
-        if check is None:
-            return False
-        try:
-            return bool(check(plugin_id))
-        except Exception:  # noqa: BLE001
-            return False
+        """Best-effort liveness check. Returns False on UNKNOWN — the
+        old supervisor-shaped semantics."""
+        return self.status(plugin_id) == LifecycleStatus.RUNNING
 
     # ------------------------------------------------------------------
     # Upgrade (P6)

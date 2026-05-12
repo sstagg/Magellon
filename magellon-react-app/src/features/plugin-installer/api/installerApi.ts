@@ -259,13 +259,24 @@ export interface ProcessStatusResponse {
     plugin_id: string;
     installed: boolean;
     running: boolean;
+    /** Typed lifecycle state from the BackendLifecycle (Phase 2):
+     *  ``running`` / ``stopped`` / ``paused`` / ``unknown``. */
+    status?: 'running' | 'stopped' | 'paused' | 'unknown';
+    /** Whether the owning install method's lifecycle implements pause.
+     *  Docker → true; uv → false. UI greys out the Pause button when
+     *  false so operators don't try-and-409. */
+    supports_pause?: boolean;
 }
 
 export interface ProcessActionResponse {
     success: boolean;
     plugin_id: string;
     logs?: string | null;
-    running: boolean;
+    /** ``running`` field kept for back-compat with pre-Phase-2 callers.
+     *  Phase-2 responses set ``status`` instead; pause/unpause omit
+     *  ``running`` entirely. */
+    running?: boolean;
+    status?: 'running' | 'stopped' | 'paused' | 'unknown';
 }
 
 const QK_PROCESS_STATUS = 'admin-plugin-process-status';
@@ -288,7 +299,9 @@ export const useAdminPluginProcessStatus = (
         },
     );
 
-const makeProcessControlMutation = (verb: 'start' | 'stop' | 'restart') => {
+const makeProcessControlMutation = (
+    verb: 'start' | 'stop' | 'restart' | 'pause' | 'unpause',
+) => {
     return () => {
         const qc = useQueryClient();
         return useMutation(
@@ -311,3 +324,52 @@ const makeProcessControlMutation = (verb: 'start' | 'stop' | 'restart') => {
 export const useStartPlugin = makeProcessControlMutation('start');
 export const useStopPlugin = makeProcessControlMutation('stop');
 export const useRestartPlugin = makeProcessControlMutation('restart');
+export const usePausePlugin = makeProcessControlMutation('pause');
+export const useUnpausePlugin = makeProcessControlMutation('unpause');
+
+
+// ---------------------------------------------------------------------------
+// Hub install (Phase 4) — POST /admin/plugins/install-from-hub
+// ---------------------------------------------------------------------------
+
+export interface InstallFromHubRequest {
+    plugin_id: string;
+    version: string;
+    /** Optional install-method pin ('uv' / 'docker'). Omit to auto-pick. */
+    install_method?: string;
+    /** Optional hub base URL override (defaults to MAGELLON_HUB_URL on
+     *  the server, then https://magellon.org). */
+    hub_url?: string;
+}
+
+export interface InstallFromHubResponse {
+    success: boolean;
+    plugin_id: string;
+    install_method: string;
+    install_dir?: string | null;
+    error?: string | null;
+    logs?: string | null;
+}
+
+/** One-click install from the hub catalog. CoreService fetches the
+ *  ``.mpn`` from the hub, verifies sha256, and runs the standard install
+ *  pipeline — removes the download-then-upload step from the operator's
+ *  workflow. */
+export const useInstallFromHub = () => {
+    const qc = useQueryClient();
+    return useMutation(
+        async (req: InstallFromHubRequest) => {
+            const res = await api.post<InstallFromHubResponse>(
+                '/admin/plugins/install-from-hub',
+                req,
+            );
+            return res.data;
+        },
+        {
+            onSuccess: () => {
+                qc.invalidateQueries(['plugins']);
+                qc.invalidateQueries(QK_PROCESS_STATUS);
+            },
+        },
+    );
+};

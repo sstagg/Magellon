@@ -29,13 +29,16 @@ instead.
 """
 from __future__ import annotations
 
+import hashlib
 import logging
+import os
 import tempfile
 from pathlib import Path
 from typing import Optional
 
+import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from magellon_sdk.archive import load_manifest_bytes
 from dependencies.permissions import require_role
@@ -43,6 +46,7 @@ from services.plugin_installer.factory import (
     get_install_manager,
     get_runtime_config,
 )
+from services.plugin_installer.lifecycle import NotSupportedError
 from services.plugin_installer.manager import PluginInstallManager
 from services.plugin_installer.protocol import (
     InstallResult,
@@ -562,6 +566,220 @@ def list_installed(
 
 
 # ---------------------------------------------------------------------------
+# POST /install-from-hub — fetch a published .mpn from the hub catalog
+# ---------------------------------------------------------------------------
+
+
+class InstallFromHubRequest(BaseModel):
+    """Request body for ``POST /admin/plugins/install-from-hub``.
+
+    The hub publishes ``/v1/plugins/{plugin_id}.json`` with the
+    archive URL + sha256. CoreService fetches both, verifies the
+    digest, then delegates to the existing :meth:`install` flow.
+    """
+
+    plugin_id: str = Field(..., description="The plugin's manifest plugin_id (e.g. 'fft').")
+    version: str = Field(..., description="Exact version string (e.g. '1.1.0').")
+    install_method: Optional[str] = Field(
+        None,
+        description="Optional install method pin ('uv' / 'docker'). Same "
+                    "semantics as the /install endpoint — omit to auto-pick.",
+    )
+    hub_url: Optional[str] = Field(
+        None,
+        description="Override the configured hub base URL (e.g. for testing "
+                    "against a mirror). Defaults to MAGELLON_HUB_URL env or "
+                    "https://magellon.org.",
+    )
+
+
+def _default_hub_url() -> str:
+    """Resolve the hub base URL. Env override > prod default."""
+    return os.environ.get("MAGELLON_HUB_URL", "https://magellon.org").rstrip("/")
+
+
+def _fetch_hub_manifest(hub_url: str, plugin_id: str, *, timeout: float) -> dict:
+    """``GET <hub>/v1/plugins/{plugin_id}.json`` → parsed JSON."""
+    url = f"{hub_url}/v1/plugins/{plugin_id}.json"
+    try:
+        resp = httpx.get(url, timeout=timeout)
+    except httpx.RequestError as exc:
+        raise HTTPException(status_code=502, detail=f"hub unreachable: {exc}")
+    if resp.status_code == 404:
+        raise HTTPException(
+            status_code=404,
+            detail=f"hub has no plugin {plugin_id!r} at {url}",
+        )
+    if resp.status_code >= 400:
+        raise HTTPException(
+            status_code=502,
+            detail=f"hub returned {resp.status_code}: {resp.text[:200]}",
+        )
+    try:
+        return resp.json()
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=502, detail=f"hub returned non-JSON: {exc}",
+        )
+
+
+def _resolve_hub_archive(
+    hub_manifest: dict, plugin_id: str, version: str,
+) -> tuple[str, str]:
+    """Locate the requested version in the hub's per-plugin JSON.
+
+    Returns ``(archive_url, sha256)`` — both relative to the hub base
+    are normalized to absolute by the caller.
+
+    The hub's per-plugin JSON shape (per ``MAGELLON_HUB_SPEC.md`` /
+    the existing Astro content collection):
+
+      {
+        "plugin_id": "fft",
+        "versions": [
+          {"version": "1.1.0", "archive": {"filename": "...", "sha256": "...",
+                                           "url": "/assets/plugins/..."}, ...},
+          ...
+        ]
+      }
+    """
+    versions = hub_manifest.get("versions") or []
+    for entry in versions:
+        if entry.get("version") == version:
+            archive = entry.get("archive") or {}
+            url = archive.get("url") or archive.get("filename")
+            sha256 = archive.get("sha256")
+            if not url or not sha256:
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"hub entry for {plugin_id}@{version} missing "
+                           f"archive.url or archive.sha256",
+                )
+            return url, sha256
+    available = [v.get("version") for v in versions if v.get("version")]
+    raise HTTPException(
+        status_code=404,
+        detail=f"hub has plugin {plugin_id!r} but not version {version!r}. "
+               f"Available: {available}",
+    )
+
+
+def _download_archive(
+    archive_url: str, expected_sha256: str, *, timeout: float,
+) -> Path:
+    """Stream the archive to a temp file, verify sha256 before returning.
+
+    Verifying the digest at the install boundary is the only thing
+    standing between us and a malicious hub serving a different archive
+    under a known-good plugin_id+version. Refuse on mismatch.
+    """
+    try:
+        resp = httpx.get(archive_url, timeout=timeout, follow_redirects=True)
+    except httpx.RequestError as exc:
+        raise HTTPException(
+            status_code=502, detail=f"failed to fetch archive: {exc}",
+        )
+    if resp.status_code >= 400:
+        raise HTTPException(
+            status_code=502,
+            detail=f"archive fetch returned {resp.status_code} from {archive_url}",
+        )
+
+    digest = hashlib.sha256(resp.content).hexdigest()
+    if digest.lower() != expected_sha256.lower():
+        raise HTTPException(
+            status_code=502,
+            detail=f"archive sha256 mismatch: hub said {expected_sha256}, "
+                   f"got {digest}. Refusing to install.",
+        )
+
+    fd, name = tempfile.mkstemp(suffix=".mpn", prefix="hub-")
+    try:
+        with open(fd, "wb") as out:
+            out.write(resp.content)
+    except Exception:
+        Path(name).unlink(missing_ok=True)
+        raise
+    return Path(name)
+
+
+@admin_plugin_install_router.post(
+    "/install-from-hub",
+    response_model=InstallResponse,
+    status_code=201,
+    summary="Install a plugin by fetching its .mpn from the published hub catalog",
+)
+def install_from_hub(
+    body: InstallFromHubRequest,
+    manager: PluginInstallManager = Depends(get_install_manager),
+    catalog: PluginCatalogPersistence = Depends(get_plugin_catalog_persistence),
+    runtime: RuntimeConfig = Depends(get_runtime_config),
+    _: None = Depends(require_role("Administrator")),
+) -> InstallResponse:
+    """One-click install from the public hub.
+
+    Same install pipeline as the manual upload path — the only
+    difference is *where the .mpn comes from*: instead of a multipart
+    upload from the operator's browser, we fetch it from the hub
+    (default ``magellon.org``), verify the sha256 against the hub's
+    catalog, and hand the resulting temp file to the existing
+    :meth:`PluginInstallManager.install`.
+    """
+    hub_url = (body.hub_url or _default_hub_url()).rstrip("/")
+    hub_timeout = float(os.environ.get("MAGELLON_HUB_TIMEOUT_SECONDS", "30"))
+
+    hub_manifest = _fetch_hub_manifest(
+        hub_url, body.plugin_id, timeout=hub_timeout,
+    )
+    archive_path_or_url, expected_sha256 = _resolve_hub_archive(
+        hub_manifest, body.plugin_id, body.version,
+    )
+
+    # The hub publishes archive URLs either absolute (``https://...``)
+    # or hub-relative (``/assets/plugins/...``) — accept either, expand
+    # relative against the hub base.
+    if archive_path_or_url.startswith("http://") or archive_path_or_url.startswith("https://"):
+        absolute_url = archive_path_or_url
+    else:
+        absolute_url = hub_url + "/" + archive_path_or_url.lstrip("/")
+
+    archive_path = _download_archive(
+        absolute_url, expected_sha256, timeout=hub_timeout,
+    )
+    _persist_to_packages_dir(archive_path)
+    try:
+        result = manager.install(
+            archive_path, runtime, preferred_method=body.install_method,
+        )
+        if result.success:
+            try:
+                catalog.record_install(archive_path, result)
+            except Exception as exc:
+                logger.exception(
+                    "plugin install (from hub) succeeded but DB persistence "
+                    "failed; rolling back plugin_id=%s",
+                    result.plugin_id,
+                )
+                try:
+                    manager.uninstall(result.plugin_id)
+                except Exception:
+                    logger.exception(
+                        "rollback uninstall failed for plugin_id=%s",
+                        result.plugin_id,
+                    )
+                raise HTTPException(
+                    status_code=500,
+                    detail=(
+                        "plugin installed but could not be recorded in the "
+                        f"database: {exc}"
+                    ),
+                ) from exc
+    finally:
+        archive_path.unlink(missing_ok=True)
+    return _result_to_http(result, success_status=201)
+
+
+# ---------------------------------------------------------------------------
 # Lifecycle endpoints — start / stop / restart / status
 # ---------------------------------------------------------------------------
 #
@@ -635,6 +853,61 @@ def restart_plugin(
     raise HTTPException(status_code=500, detail=result.error or "restart failed")
 
 
+@admin_plugin_install_router.post(
+    "/{plugin_id}/pause",
+    summary="Pause an installed plugin's container (docker-only)",
+)
+def pause_plugin(
+    plugin_id: str,
+    manager: PluginInstallManager = Depends(get_install_manager),
+    _: None = Depends(require_role("Administrator")),
+):
+    """Pause via ``docker pause`` — cheap, instantaneous, memory stays
+    resident. uv-installed plugins return 409 with an actionable
+    message; operators should use Stop instead."""
+    try:
+        result = manager.pause(plugin_id)
+    except NotSupportedError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    if result.success:
+        return {
+            "success": True,
+            "plugin_id": result.plugin_id,
+            "logs": result.logs,
+            "status": result.status.value,
+        }
+    err = (result.error or "").lower()
+    if "not installed" in err:
+        raise HTTPException(status_code=404, detail=result.error)
+    raise HTTPException(status_code=500, detail=result.error or "pause failed")
+
+
+@admin_plugin_install_router.post(
+    "/{plugin_id}/unpause",
+    summary="Resume a paused plugin's container (docker-only)",
+)
+def unpause_plugin(
+    plugin_id: str,
+    manager: PluginInstallManager = Depends(get_install_manager),
+    _: None = Depends(require_role("Administrator")),
+):
+    try:
+        result = manager.unpause(plugin_id)
+    except NotSupportedError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    if result.success:
+        return {
+            "success": True,
+            "plugin_id": result.plugin_id,
+            "logs": result.logs,
+            "status": result.status.value,
+        }
+    err = (result.error or "").lower()
+    if "not installed" in err:
+        raise HTTPException(status_code=404, detail=result.error)
+    raise HTTPException(status_code=500, detail=result.error or "unpause failed")
+
+
 @admin_plugin_install_router.get(
     "/{plugin_id}/status",
     summary="Process-level status from the supervisor",
@@ -647,11 +920,17 @@ def plugin_process_status(
     """Lightweight check — does the supervisor see a live PID for
     this plugin? Distinct from ``GET /plugins/{id}/status`` which
     returns the broader Conditions[] (announce-based liveness).
+
+    ``status`` returns the typed lifecycle state (running / stopped /
+    paused / unknown); ``supports_pause`` lets the React UI grey out
+    the Pause button on uv plugins so operators don't try-and-409.
     """
     return {
         "plugin_id": plugin_id,
         "installed": manager.is_installed(plugin_id),
         "running": manager.is_running(plugin_id),
+        "status": manager.status(plugin_id).value,
+        "supports_pause": manager.supports_pause(plugin_id),
     }
 
 

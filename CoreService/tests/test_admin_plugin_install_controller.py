@@ -19,6 +19,7 @@ startup hooks.
 """
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from typing import Optional
 from unittest.mock import MagicMock
@@ -735,3 +736,270 @@ def test_install_rejects_upload_without_filename(client, fake_manager):
 
     assert 400 <= resp.status_code < 500
     fake_manager.install.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Lifecycle — pause / unpause (Phase 2, docker-only)
+# ---------------------------------------------------------------------------
+
+def test_pause_success_returns_200_with_paused_status(client, fake_manager):
+    from services.plugin_installer.lifecycle import LifecycleResult, LifecycleStatus
+    fake_manager.pause.return_value = LifecycleResult(
+        success=True, plugin_id="fft", status=LifecycleStatus.PAUSED,
+        logs="paused",
+    )
+
+    resp = client.post("/admin/plugins/fft/pause")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["success"] is True
+    assert body["plugin_id"] == "fft"
+    assert body["status"] == "paused"
+    fake_manager.pause.assert_called_once_with("fft")
+
+
+def test_pause_on_uv_returns_409(client, fake_manager):
+    """uv plugins raise NotSupportedError; controller maps to 409 with
+    the docker-only message so the UI can surface it inline."""
+    from services.plugin_installer.lifecycle import NotSupportedError
+    fake_manager.pause.side_effect = NotSupportedError(
+        "pause is docker-only — uv plugins should be stopped instead",
+    )
+
+    resp = client.post("/admin/plugins/template-picker/pause")
+
+    assert resp.status_code == 409
+    assert "docker-only" in resp.json()["detail"]
+
+
+def test_pause_not_installed_returns_404(client, fake_manager):
+    from services.plugin_installer.lifecycle import LifecycleResult
+    fake_manager.pause.return_value = LifecycleResult(
+        success=False, plugin_id="ghost",
+        error="plugin ghost not installed",
+    )
+
+    resp = client.post("/admin/plugins/ghost/pause")
+
+    assert resp.status_code == 404
+
+
+def test_unpause_success_returns_200_with_running_status(client, fake_manager):
+    from services.plugin_installer.lifecycle import LifecycleResult, LifecycleStatus
+    fake_manager.unpause.return_value = LifecycleResult(
+        success=True, plugin_id="fft", status=LifecycleStatus.RUNNING,
+    )
+
+    resp = client.post("/admin/plugins/fft/unpause")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "running"
+    fake_manager.unpause.assert_called_once_with("fft")
+
+
+def test_unpause_on_uv_returns_409(client, fake_manager):
+    from services.plugin_installer.lifecycle import NotSupportedError
+    fake_manager.unpause.side_effect = NotSupportedError("docker-only")
+
+    resp = client.post("/admin/plugins/template-picker/unpause")
+
+    assert resp.status_code == 409
+
+
+# ---------------------------------------------------------------------------
+# POST /install-from-hub (Phase 4)
+# ---------------------------------------------------------------------------
+
+
+def _hub_plugin_json(
+    plugin_id: str = "fft",
+    version: str = "1.1.0",
+    archive_url: str = "/assets/plugins/fft-1.1.0.mpn",
+    sha256: str = "deadbeef" * 8,
+) -> dict:
+    return {
+        "plugin_id": plugin_id,
+        "versions": [
+            {
+                "version": version,
+                "archive": {
+                    "filename": f"{plugin_id}-{version}.mpn",
+                    "url": archive_url,
+                    "sha256": sha256,
+                    "size_bytes": len(_fake_mpn_bytes()),
+                },
+            },
+        ],
+    }
+
+
+class _FakeHubResponse:
+    def __init__(self, *, status_code=200, json_body=None, content=b""):
+        self.status_code = status_code
+        self._json = json_body
+        self.content = content
+        self.text = ""
+
+    def json(self):
+        if self._json is None:
+            raise ValueError("no json")
+        return self._json
+
+
+def _install_hub_with(
+    monkeypatch,
+    *,
+    plugin_json=None,
+    archive_bytes=b"",
+    archive_sha256=None,
+    archive_status=200,
+):
+    """Patch httpx.get inside the controller so the hub fetch + archive
+    download return canned responses without hitting the network."""
+    from controllers import admin_plugin_install_controller as ctl
+
+    if archive_sha256 is None:
+        archive_sha256 = hashlib.sha256(archive_bytes).hexdigest()
+
+    if plugin_json is None:
+        plugin_json = _hub_plugin_json(
+            archive_url="/assets/plugins/fft-1.1.0.mpn", sha256=archive_sha256,
+        )
+
+    def fake_get(url, *args, **kwargs):
+        if url.endswith(".json"):
+            return _FakeHubResponse(status_code=200, json_body=plugin_json)
+        return _FakeHubResponse(status_code=archive_status, content=archive_bytes)
+
+    monkeypatch.setattr(ctl.httpx, "get", fake_get)
+    return archive_sha256
+
+
+def test_install_from_hub_success_returns_201(
+    client, fake_manager, fake_catalog, fake_runtime, monkeypatch,
+):
+    """The happy path: hub JSON + archive both fetched, sha256 matches,
+    archive is handed to the same install manager the upload path uses."""
+    import hashlib
+    body = _fake_mpn_bytes()
+    sha = hashlib.sha256(body).hexdigest()
+    _install_hub_with(
+        monkeypatch, archive_bytes=body, archive_sha256=sha,
+    )
+    fake_manager.install.return_value = _success_install("fft")
+
+    resp = client.post(
+        "/admin/plugins/install-from-hub",
+        json={"plugin_id": "fft", "version": "1.1.0"},
+    )
+
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["plugin_id"] == "fft"
+    fake_manager.install.assert_called_once()
+    # Archive must reach the manager as a real path on disk.
+    archive_arg = fake_manager.install.call_args.args[0]
+    assert isinstance(archive_arg, Path)
+
+
+def test_install_from_hub_rejects_on_sha256_mismatch(
+    client, fake_manager, monkeypatch,
+):
+    """The one thing the hub flow MUST do that upload doesn't: refuse
+    when the published sha256 doesn't match the downloaded bytes. A
+    compromised hub serving a different archive under a known plugin_id
+    is the threat model."""
+    import hashlib
+    actual_body = b"some-other-content"
+    actual_sha = hashlib.sha256(actual_body).hexdigest()
+    # Hub claims a different sha — refuse.
+    wrong_sha = "0" * 64
+    _install_hub_with(
+        monkeypatch, archive_bytes=actual_body, archive_sha256=wrong_sha,
+    )
+    # We expect actual_sha to differ from wrong_sha (sanity).
+    assert actual_sha != wrong_sha
+
+    resp = client.post(
+        "/admin/plugins/install-from-hub",
+        json={"plugin_id": "fft", "version": "1.1.0"},
+    )
+
+    assert resp.status_code == 502
+    assert "sha256 mismatch" in resp.json()["detail"]
+    fake_manager.install.assert_not_called()
+
+
+def test_install_from_hub_404_when_version_not_published(
+    client, fake_manager, monkeypatch,
+):
+    """The hub knows the plugin but not that specific version."""
+    plugin_json = _hub_plugin_json(version="1.0.0")  # only 1.0.0 published
+    _install_hub_with(monkeypatch, plugin_json=plugin_json)
+
+    resp = client.post(
+        "/admin/plugins/install-from-hub",
+        json={"plugin_id": "fft", "version": "9.9.9"},
+    )
+
+    assert resp.status_code == 404
+    fake_manager.install.assert_not_called()
+
+
+def test_install_from_hub_honors_install_method_pin(
+    client, fake_manager, monkeypatch,
+):
+    """``install_method`` is forwarded to the manager same as the
+    upload path so docker-pinned hub installs work."""
+    import hashlib
+    body = _fake_mpn_bytes()
+    sha = hashlib.sha256(body).hexdigest()
+    _install_hub_with(monkeypatch, archive_bytes=body, archive_sha256=sha)
+    fake_manager.install.return_value = _success_install("fft")
+
+    resp = client.post(
+        "/admin/plugins/install-from-hub",
+        json={"plugin_id": "fft", "version": "1.1.0", "install_method": "docker"},
+    )
+
+    assert resp.status_code == 201
+    _, kwargs = fake_manager.install.call_args.args, fake_manager.install.call_args.kwargs
+    assert kwargs.get("preferred_method") == "docker"
+
+
+def test_install_from_hub_502_when_hub_returns_500(
+    client, fake_manager, monkeypatch,
+):
+    from controllers import admin_plugin_install_controller as ctl
+
+    def fake_get(url, *args, **kwargs):
+        return _FakeHubResponse(status_code=500, content=b"hub down")
+    monkeypatch.setattr(ctl.httpx, "get", fake_get)
+
+    resp = client.post(
+        "/admin/plugins/install-from-hub",
+        json={"plugin_id": "fft", "version": "1.1.0"},
+    )
+
+    assert resp.status_code == 502
+
+
+def test_status_endpoint_exposes_supports_pause_and_typed_status(
+    client, fake_manager,
+):
+    """The UI greys out the Pause button based on supports_pause; the
+    typed status drives the running/paused/stopped chip."""
+    from services.plugin_installer.lifecycle import LifecycleStatus
+    fake_manager.is_installed.return_value = True
+    fake_manager.is_running.return_value = False
+    fake_manager.status.return_value = LifecycleStatus.PAUSED
+    fake_manager.supports_pause.return_value = True
+
+    resp = client.get("/admin/plugins/fft/status")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["installed"] is True
+    assert body["status"] == "paused"
+    assert body["supports_pause"] is True
