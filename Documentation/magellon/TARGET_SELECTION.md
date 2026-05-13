@@ -264,7 +264,7 @@ This is the publishable contribution. The dataset (atlas → final-map lineage) 
 
 ### 8.2 Model
 
-- **Backbone:** DRACO-pretrained ViT (Masked Autoencoder, 270k EMPIAR movies — `arxiv.org/html/2410.11373v2`). Cryo-EM-specific weights beat ImageNet by a wide margin on micrograph tasks.
+- **Backbone:** **Cryo-IEF encoder** (Yang et al., Nature Methods Nov 2025) — pretrained on 65M cryo-EM particles with contrastive self-supervision. MIT license; encoder is fine-tunable. DRACO (Masked Autoencoder, 270k EMPIAR movies) is the secondary backbone for ensembling or fallback. Full ranking and rationale in §12.6.
 - **Heads (multi-task):**
   - (i) Square 6-class softmax (good / small / cracked / dry / contaminated / partial). Warm-start from SmartScope's published Faster R-CNN weights.
   - (ii) Hole detection + per-hole regression of `(thickness_nm, edge_distance_um, contamination_logit, crystalline_logit)`.
@@ -277,7 +277,8 @@ We don't wait for Magellon's own data to accumulate before training anything. Ph
 
 | Source | What it gives | Used for |
 |---|---|---|
-| **DRACO pretrained weights** | ViT backbone trained on 270k EMPIAR movies | feature extractor, frozen at start |
+| **Cryo-IEF encoder** | ViT-style backbone pretrained contrastively on 65M cryo-EM particles | primary feature extractor (frozen at start) |
+| **DRACO pretrained weights** | Masked-autoencoder ViT trained on 270k EMPIAR movies | secondary backbone for ensembling |
 | **EMPIAR (1700+ entries)** | exposure-level micrographs + final-map resolution per entry | calibrate yield-head's outcome scale; small subset has atlas/square imagery, useful for spot-checking |
 | **CryoPPP (9893 micrographs, 34 proteins)** | labeled picks + exposure-level CTF | particle-density predictor warm-start |
 | **CryoCRAB (746 proteins, 116.8 TB)** | exposure-level movies + outcomes | yield-head pretraining |
@@ -506,7 +507,88 @@ Thompson exploration (P10) and drift detection (P11) follow in weeks 5–6 once 
 
 ---
 
-## 12. References
+## 12. Model toolkit
+
+This is the cross-cutting model + framework selection underpinning §7.2 (per-plugin) and §8.2 (T3 backbone). Driven by a May 2026 SOTA survey [refs 41–68]. **Two consequential pivots from the prior draft:** (i) drop Ultralytics YOLO from the OSS plugin distribution — AGPL bleeds into Magellon Pro; ship RF-DETR (Apache 2.0) instead; (ii) the T3 backbone is **Cryo-IEF**, not DRACO — Cryo-IEF (Nature Methods, Nov 2025) is pretrained on 65M cryo-EM particles, exactly the domain we're ranking.
+
+### 12.1 The 2026 detection landscape — and the Ultralytics AGPL problem
+
+**YOLO26 is real** — Ultralytics' January 2026 release [41,42]. NMS-free end-to-end, ~43% faster than YOLO11 on CPU, supports detect/seg/pose/OBB/classify. **But, like YOLOv8 / YOLO11 / YOLOv12 / YOLOv13 (iMoonLab fork), it ships under AGPL-3.0** [43]. AGPL §13's network-use clause triggers when distributing or hosting derived weights as a closed-source SaaS — directly relevant for Magellon Pro. Ultralytics Enterprise License is quoted around $5k/seat/yr [44,45], escalating with scale.
+
+**RF-DETR is the cleaner answer.** Roboflow, ICLR 2026, **Apache 2.0** [46,47]: DINOv2 backbone, NMS-free transformer detector, 54.7% COCO mAP @ 4.5 ms on T4, 60.6% on RF100-VL, first real-time detector >60 AP on COCO (2XL variant). Weights and code both Apache 2.0 — no Pro/OSS license friction.
+
+| Model | License | Maintainer | Tier |
+|---|---|---|---|
+| YOLO26 | AGPL-3.0 | Ultralytics | fastest, license trap |
+| YOLO11 / YOLOv12 / YOLOv13 | AGPL-3.0 | Ultralytics / iMoonLab | fast, license trap |
+| **RF-DETR** | **Apache 2.0** | **Roboflow** | **recommended** |
+| RT-DETRv3 | Apache 2.0 | Baidu / Peking | strong on small objects; alternate |
+| RTMDet | Apache 2.0 | OpenMMLab | strong; alternate |
+| YOLO-NAS | non-commercial weights | Deci | avoid (license trap) |
+
+**Decision**: RF-DETR for square + hole detection plugins. Skip Ultralytics entirely.
+
+### 12.2 Roboflow — useful tool, not a platform
+
+Roboflow in 2026 ships: Universe (model zoo), Annotate (browser labeling), Supervision (utilities), Inference (Apache 2.0 server), rf-detr (Apache 2.0 training library) [48,49,50]. Pricing: Free → Starter ~$49/mo → Growth ~$299/mo → Enterprise; usage now meters via credits.
+
+**Use it for** annotation UX (browser labeling, COCO export), the Inference server (air-gappable, no account needed), and the rf-detr training library. **Do not use** their hosted training (vendor lock-in, credit-metered cost, doesn't fit our plugin platform) or hosted serving (redundant with CoreService dispatch).
+
+**Integration story**: Annotate → COCO export → rf-detr local training → ONNX → `.mpn` archive → CoreService dispatch. No data leaves the facility.
+
+### 12.3 Small-object detection on 4k+ microscopy
+
+LM atlas (2k–4k px, 50–200 squares per atlas) and MM square (4k px, 100–500 holes per square) both need **tiled (SAHI-style) inference** [51] — train at 640–1024 px, infer at native resolution via overlapping tiles + NMS merge. RF-DETR-M is the recommended single-shot detector; RT-DETRv3-R18 is the alternate. Empirically on aerial benchmarks (DOTA, xView), DETR-family pulls ahead of YOLO once ≥1000 training crops are available [52].
+
+### 12.4 Segmentation for contamination — SAM 2 + MicroSAM
+
+For 500–2000 annotated contamination masks, the recommendation is **SAM 2** (Apache 2.0) [53] fine-tuned via **MicroSAM** (Archit et al., Nature Methods Feb 2025; MIT) [54]. MicroSAM ships EM-fine-tuned weights and a napari plugin we can lift weights from. Fine-tunes in <1 GPU-day at the 500–2000 mask scale. Skip BiomedParse (light-microscopy biased), Florence-2 (slow), OneFormer / MaskDINO (heavier pipelines).
+
+### 12.5 Modern particle picking — UPicker + CryoSegNet alongside the legacy three
+
+The 2024–25 generation of pickers is a measurable step beyond Topaz / BoxNet / crYOLO. Two worth adding to the `PARTICLE_PICKING` category:
+
+- **CryoSegNet** (Gyawali et al., *Brief. Bioinf.* 2024) [55,56] — SAM + attention-U-Net hybrid. F1 0.761 vs Topaz 0.729, crYOLO 0.751. Average 3.28 Å reconstruction (best of 6 in comparative review). Open source.
+- **UPicker** (Liu et al., *Brief. Bioinf.* 2025) [57] — semi-supervised DETR-based picker. Only **20–50 labeled micrographs** needed for fine-tuning. Lowest false-positive rate in its cohort. Open source.
+
+Keep Topaz + BoxNet + template as defaults (no single dominant picker in 2026); **add UPicker as a fourth backend.** Its low-label fine-tune story is the killer feature — operators can adapt it to a new sample type in an afternoon.
+
+### 12.6 T3 backbone — Cryo-IEF, not DRACO
+
+**Updating §8.2.** Primary T3 backbone is **Cryo-IEF** (Yang et al., Nature Methods, Nov 2025) [58,59], not DRACO. Cryo-IEF is pretrained on **65M cryo-EM particles** with contrastive self-supervision — domain-specific in a way DINOv3 / ConvNeXt-V2 / EVA-02 aren't. MIT license; weights + code public; encoder is fine-tunable.
+
+Ranking for T3 backbone, primary → fallback:
+1. **Cryo-IEF encoder** + small MLP head [58,59] — cryo-native, contrastive
+2. **DRACO** [60] — denoising MAE on 270k EMPIAR movies; cryo-native; secondary / ensemble
+3. **DINOv3 ViT-S** (Meta, Aug 2025) [61] — best general backbone; transfers to grayscale via channel replication; frozen ensemble component
+4. ConvNeXt-V2 / EVA-02 — general baselines; skip unless ensembling helps
+
+The bootstrap dataset story in §8.3 is unchanged — Cryo-IEF simply replaces DRACO at position #1.
+
+### 12.7 Training pipeline — Lightning + Hydra, not Ultralytics CLI
+
+For a small team running Magellon's plugin platform:
+
+**Stack**: PyTorch Lightning + Hydra configs + W&B for tracking + DVC for dataset versioning + rf-detr (RF-DETR) or MMDetection 3.x (RT-DETRv3 / Co-DETR / Mask2Former / RTMDet) as the model library. Export to ONNX → bundle in `.mpn` → dispatch via SDK 2.x.
+
+**Skip**: Detectron2 (Meta has frozen it), Ultralytics CLI (AGPL exposure), Roboflow Train (managed-training lock-in).
+
+### 12.8 Per-plugin verdicts (consolidates §7.2)
+
+| Plugin | Model | License | Training framework | Data needed | Verdict |
+|---|---|---|---|---|---|
+| `ICE_THICKNESS` | MeasureIce (analytic, no ML) | OSS | — | — | **Wrap sandbox** |
+| `SQUARE_DETECTION` (cat 6, was Ptolemy CNN) | **RF-DETR-M + classifier head** | Apache 2.0 | Lightning + rfdetr | 500–2k labeled atlases | **Replace** Ptolemy — modern detector beats CNN-on-crops |
+| `HOLE_DETECTION` (cat 7, was Ptolemy U-Net) | **RT-DETRv3-R18 + lattice post-fit** | Apache 2.0 | MMDetection | 500–2k labeled MM | **Keep U-Net as v1**, A/B against RT-DETRv3; lattice fit stays |
+| `CONTAMINATION_DETECT` | **SAM 2 + MicroSAM fine-tune** | Apache 2.0 / MIT | MicroSAM scripts | 500–2k masks | **New plugin** |
+| `MICROGRAPH_QUALITY` | BoxNet mask → radial-spectrum CNN (existing) | MIT | Lightning | ~5k labeled HM | **Keep**; consider adding Cryo-IEF features as 2nd head |
+| `PARTICLE_PICKING` (existing) | Topaz + BoxNet + template + **UPicker** | mixed (GPL-3.0 / MIT) | UPicker repo | UPicker: 20–50 labeled mic. | **Keep + extend** with UPicker |
+| `RANKER_T2` | LightGBM LambdaRank + 3× quantile (see §11) | MIT | Lightning, in-process | 100–10k labeled exposures | **New plugin** |
+| `RANKER_T3` (Pro) | Cryo-IEF encoder + ranking head | MIT | Lightning | 5k–20k ranked crops | **New plugin (later phase)** |
+
+---
+
+## 13. References
 
 ### Internal (Magellon)
 
@@ -551,6 +633,37 @@ Thompson exploration (P10) and drift detection (P11) follow in weeks 5–6 once 
 39. EvidentlyAI, *NDCG metric explained*. https://www.evidentlyai.com/ranking-metrics/ndcg-metric — *Comparing 5 drift detection methods (KS/PSI/Wasserstein/ADWIN)*: https://www.evidentlyai.com/blog/data-drift-detection-large-datasets
 40. *On NDCG as an Off-Policy Evaluation Metric for Top-n Recommendation*, arXiv 2023. https://arxiv.org/abs/2307.15053
 
+### External — model toolkit (§12)
+
+41. Ultralytics YOLO26 docs. https://docs.ultralytics.com/models/yolo26
+42. Khanam & Hussain, *Ultralytics YOLO Evolution* (YOLO26 / YOLO11 / YOLOv8 / YOLOv5), arXiv 2510.09653. https://arxiv.org/abs/2510.09653
+43. Ultralytics LICENSE (AGPL-3.0). https://github.com/ultralytics/ultralytics/blob/main/LICENSE
+44. Ultralytics license & enterprise. https://www.ultralytics.com/license
+45. Ultralytics enterprise pricing discussion. https://github.com/orgs/ultralytics/discussions/7440 ; AGPL-3.0 commercial-use issue: https://github.com/ultralytics/ultralytics/issues/19390
+46. Roboflow, *RF-DETR: A SOTA Real-Time Object Detection Model*. https://blog.roboflow.com/rf-detr/
+47. roboflow/rf-detr (ICLR 2026, Apache 2.0). https://github.com/roboflow/rf-detr
+48. Roboflow pricing. https://roboflow.com/pricing ; usage credits: https://roboflow.com/credits
+49. roboflow/inference (Apache-2.0, air-gappable). https://github.com/roboflow/inference
+50. Roboflow, *Best Object Detection Models 2026*. https://blog.roboflow.com/best-object-detection-models/
+51. SAHI (Sliced Hyper-Inference) — Akyon et al., *Slicing Aided Hyper Inference*, ICIP 2022. https://github.com/obss/sahi
+52. Wang et al., *RT-DETRv3*, arXiv 2409.08475. https://arxiv.org/html/2409.08475v1
+53. Meta SAM 2 (Apache 2.0). https://github.com/facebookresearch/sam2
+54. Archit et al., **MicroSAM** — *Segment Anything for Microscopy*, Nature Methods Feb 2025 (MIT). https://www.nature.com/articles/s41592-024-02580-4 ; repo: https://github.com/computational-cell-analytics/micro-sam
+55. Gyawali et al., **CryoSegNet**, *Brief. Bioinformatics* 2024. https://academic.oup.com/bib/article/25/4/bbae282/7690949
+56. Cryo-EM picker comparative review, PMC 2024. https://pmc.ncbi.nlm.nih.gov/articles/PMC11736895/
+57. Liu et al., **UPicker** (semi-supervised DETR picker), *Brief. Bioinformatics* 2025. https://academic.oup.com/bib/article/26/1/bbae636/7919967
+58. Yang et al., **Cryo-IEF** — *A comprehensive foundation model for cryo-EM image processing*, Nature Methods Nov 2025. https://www.nature.com/articles/s41592-025-02916-8
+59. westlake-repl/Cryo-IEF (MIT). https://github.com/westlake-repl/Cryo-IEF
+60. Wang et al., **DRACO**, NeurIPS 2024 (secondary backbone). https://arxiv.org/abs/2410.11373
+61. Meta, **DINOv3**, arXiv 2508.10104 (Aug 2025). https://arxiv.org/abs/2508.10104
+62. Lei et al., *YOLOv13 — Hypergraph-Enhanced Adaptive Visual Perception*, arXiv 2506.17733. https://arxiv.org/abs/2506.17733
+63. Tian et al. / Ultralytics, *YOLOv12* (Feb 2025, R-ELAN). https://docs.ultralytics.com/models
+64. Cheng et al., *YOLO-World*, arXiv 2401.17270. https://arxiv.org/abs/2401.17270 ; YOLOE: https://docs.ultralytics.com/models/yoloe
+65. Dhakal et al., **CryoTransformer**, *Bioinformatics* 2024. https://academic.oup.com/bioinformatics/article/40/3/btae109/7614090
+66. Deci-AI YOLO-NAS license (non-commercial weights). https://github.com/Deci-AI/super-gradients/blob/master/LICENSE.YOLONAS.md
+67. CryoSAM (MICCAI 2024 — tomogram segmentation). https://link.springer.com/chapter/10.1007/978-3-031-72111-3_12
+68. OpenMMLab MMDetection 3.x (Apache-2.0, RT-DETR / Co-DETR / Mask2Former / RTMDet). https://github.com/open-mmlab/mmdetection
+
 ### Internal sandbox assets
 
 - `Sandbox/ice_thickness_measureice/` — MeasureIce ALS implementation + Krios 300 kV LUT; basis for `ICE_THICKNESS` plugin.
@@ -558,8 +671,9 @@ Thompson exploration (P10) and drift detection (P11) follow in weeks 5–6 once 
 
 ---
 
-## 13. Changelog
+## 14. Changelog
 
 - **2026-05-13** — Initial draft.
 - **2026-05-13** — Restructured §4.1 around the predictor/verifier split (two tables); named `eval_micrograph` as the canonical scalar verifier; added `MICROGRAPH_QUALITY` plugin to §7.2; replaced the §8.4 training schema with a concrete label-vector schema (`eval_prob`, `ctf_resolution_a`, `motion_total_a`, `n_picks`) plus a small slow-label subset for ground-truth calibration; imported `Sandbox/eval_micrograph/` from the eval-model author.
 - **2026-05-13** — Added §11 (Predictor model + continuous learning) — three tiers (T1 heuristic / T2 LightGBM LambdaRank / T3 deep ViT); event-linked async retrain loop with `decision_id` propagation; SNIPS off-policy evaluator with propensity clipping from day 1; shadow-mode promotion gate after offline NDCG@10; exploration policy maturity ladder (ε-decreasing → Thompson, **UCB dropped after research review**); GCR-coreset replay buffer; PSI/KS/ADWIN drift detection. §9 phase table expanded to 16 phases with explicit tier column. New references 25–40 from the survey.
+- **2026-05-13** — Added §12 (Model toolkit) after May 2026 SOTA survey on detection / segmentation / foundation models. **Two consequential pivots**: (i) drop Ultralytics YOLO from OSS distribution — AGPL-3.0 §13 bleeds into Magellon Pro; ship **RF-DETR (Apache 2.0)** instead. YOLO26 is real but license-trapped. (ii) T3 backbone is **Cryo-IEF** (Nature Methods Nov 2025, 65M cryo-EM particles, MIT), not DRACO — Cryo-IEF moved to position #1 in §8.2 and §8.3, DRACO demoted to secondary/ensemble. Plus: SAM 2 + MicroSAM (Nature Methods Feb 2025) for `CONTAMINATION_DETECT`; UPicker (semi-supervised DETR, 20–50 labels) added as 4th `PARTICLE_PICKING` backend. Per-plugin model table in §12.8. Training pipeline: Lightning + Hydra + W&B + DVC + rf-detr / MMDetection 3.x. New references 41–68.
