@@ -24,10 +24,11 @@ scipy==1.12.0
 # Plugin contract tests don't need them — compute.py loads them lazily
 # via ``from plugin.algorithm import ...`` inside classify_stack.
 #
-# torch is the heavyweight: ~2 GB CPU wheel, much larger CUDA wheels
-# from the PyTorch index (https://download.pytorch.org/whl/cu121).
-# Use the CUDA Dockerfile for production GPU deployments; the CPU
-# wheel is fine for small synthetic test runs.
+# torch: pinned to the CPU-only build via the dedicated PyTorch index.
+# The default PyPI Linux wheel bundles CUDA libs (~3 GB); the cpu
+# wheel is ~200 MB. For GPU deployments use the CUDA Dockerfile and
+# swap the index to https://download.pytorch.org/whl/cu121.
+--extra-index-url https://download.pytorch.org/whl/cpu
 torch>=2.0,<3.0
 scikit-image>=0.22,<0.25
 scikit-learn>=1.4,<2.0

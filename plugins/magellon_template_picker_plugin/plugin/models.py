@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from typing import List, Literal, Optional
 
+from magellon_sdk.models.tasks import CryoEmImageInput
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -32,7 +33,7 @@ class AngleRange(BaseModel):
     step: float = 10.0
 
 
-class TemplatePickerInput(BaseModel):
+class TemplatePickerInput(CryoEmImageInput):
     """Rich input model for the template-picker plugin.
 
     Carries every parameter the algorithm needs as a typed field, so
@@ -40,7 +41,20 @@ class TemplatePickerInput(BaseModel):
     renders as a real form (not an opaque ``engine_opts`` blob). The
     runner consumes this directly via the SDK's
     ``cls.input_schema()`` hook.
+
+    Inherits from ``CryoEmImageInput`` (2026-05-13) so the SDK
+    category dispatcher's ``CryoEmImageInput.model_validate(body)``
+    preserves this plugin's extras AND the runtime re-validation
+    against ``TemplatePickerInput`` accepts the inherited
+    ``image_id`` / ``image_name`` / ``engine_opts`` fields the
+    dispatcher injects. Pre-inheritance the plugin used
+    ``BaseModel`` + ``extra='forbid'`` and rejected the dispatcher's
+    base fields on the wire (3 ValidationError extras).
     """
+    # extra='forbid' is fine now that we inherit the base fields —
+    # every wire field is declared (either by parent or by this
+    # subclass). Any genuinely unknown extra is still a contract
+    # violation worth surfacing.
     model_config = ConfigDict(extra="forbid")
 
     # --- Files (group: Templates) ---

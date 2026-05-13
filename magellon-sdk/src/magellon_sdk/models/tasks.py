@@ -18,7 +18,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 def _now_utc() -> datetime:
@@ -144,7 +144,24 @@ class CryoEmImageInput(BaseModel):
 
     Renamed from ``CryoEmImageTaskData`` in SDK 1.3 to symmetrize with
     the existing ``*Output`` naming. The old name aliases the new one
-    at module bottom, so existing plugins keep importing it unchanged."""
+    at module bottom, so existing plugins keep importing it unchanged.
+
+    ``model_config['extra'] = "allow"`` (2026-05-13) so the category
+    dispatcher in CoreService doesn't silently strip plugin-specific
+    fields during ``model_validate``. The picker is the motivating
+    case: ``PARTICLE_PICKER.input_model = CryoEmImageInput`` is the
+    minimum-floor for the category, but the template-picker plugin's
+    ``TemplatePickerInput`` (a subclass) carries 14 additional typed
+    fields (``template_paths``, ``threshold``, ``diameter_angstrom``,
+    ``angle_ranges``, …). Pre-fix, the dispatcher's
+    ``CryoEmImageInput.model_validate(body)`` defaulted to
+    ``extra='ignore'``, the extras vanished from the wire payload,
+    and the plugin's strict ``TemplatePickerInput`` re-validation
+    raised on the missing required fields. With ``extra='allow'``
+    the extras round-trip through validation + ``model_dump`` so the
+    plugin sees the full body."""
+
+    model_config = ConfigDict(extra="allow")
 
     image_id: Optional[UUID] = None
     image_name: Optional[str] = None

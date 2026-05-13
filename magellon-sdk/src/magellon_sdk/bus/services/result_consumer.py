@@ -26,6 +26,7 @@ wrapper at ``core/result_consumer.py`` now delegates here.
 from __future__ import annotations
 
 import logging
+import threading
 from typing import Callable, Iterable, List
 
 from magellon_sdk.bus.interfaces import ConsumerHandle, MessageBus
@@ -76,12 +77,36 @@ def result_consumer_engine(
 
     Intended as a ``threading.Thread(target=...)`` target. Returns
     immediately (no-op) if ``routes`` is empty. On ``KeyboardInterrupt``
-    or when the first handle's ``run_until_shutdown`` returns, closes
-    all handles and returns.
+    or when any consumer thread exits, closes all handles and returns.
+
+    Each ``ConsumerHandle`` owns its own pika connection and needs its
+    own ``run_until_shutdown`` loop. Pre-2026-05-13 this function only
+    called ``handles[0].run_until_shutdown()`` — every additional
+    route's queue was declared and the consumer registered, but the
+    consume loop never started, so RMQ delivered exactly zero of its
+    messages even though the management UI showed the queue had
+    publishes. Symptom: ``ctf_out_tasks_queue`` (first in the OUT_QUEUES
+    list) processed results; ``particle_extraction_out_tasks_queue`` /
+    ``two_d_classification_out_tasks_queue`` accumulated unread
+    messages and ``TaskOutputProcessor._maybe_write_artifact`` never
+    fired, so downstream classifier dispatches couldn't find their
+    ``particle_stack`` artifact.
     """
     handles = start_result_consumers(routes, handler, bus)
     if not handles:
         return
+    # Spawn a daemon thread per handle so every consumer's loop runs.
+    # First handle stays on this thread for ``threading.Thread`` callers
+    # that pass this function as ``target=`` and expect it to block.
+    extra_threads: List[threading.Thread] = []
+    for h in handles[1:]:
+        t = threading.Thread(
+            target=h.run_until_shutdown,
+            name=f"result-consumer-{id(h):x}",
+            daemon=True,
+        )
+        t.start()
+        extra_threads.append(t)
     try:
         handles[0].run_until_shutdown()
     except KeyboardInterrupt:
