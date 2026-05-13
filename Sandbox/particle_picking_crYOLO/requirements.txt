@@ -1,0 +1,14 @@
+# crYOLO requires a matching TF version; see https://cryolo.readthedocs.io/
+# Pin once a working combination is confirmed in CI.
+# cryolo>=1.9
+# tensorflow>=2.10,<2.16
+
+# Parsing + I/O
+numpy>=1.21.0
+mrcfile>=1.3.0
+pillow>=9.0.0
+matplotlib>=3.4.0
+
+# Optional ONNX path (filled in once tf2onnx export is verified)
+# tf2onnx>=1.15.1
+# onnxruntime>=1.16.0
