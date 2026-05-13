@@ -67,7 +67,7 @@ class CanClassifierPlugin(PluginBase[TwoDClassificationInput, TwoDClassification
 
     def get_info(self) -> PluginInfo:
         return PluginInfo(
-            name="CAN Classifier",
+            name="can-classifier",
             version="0.1.0",
             developer="Behdad Khoshbin b.khoshbin@gmail.com",
             description=(

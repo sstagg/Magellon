@@ -51,7 +51,12 @@ install:
       - docker_daemon: true
 
 health_check:
-  timeout_seconds: 30
+  # CAN's runtime eagerly loads torch on the SDK runner thread, so the
+  # very first announce can take 30+ seconds after a fresh container
+  # starts (slim base + ~2 GB torch wheel cold-loading CUDA stubs).
+  # 180 leaves generous headroom on slow hosts without making rollback
+  # feel broken when the plugin genuinely is broken.
+  timeout_seconds: 180
   expected_announce: true
 
 ui: null

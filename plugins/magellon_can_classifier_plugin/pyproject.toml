@@ -46,4 +46,7 @@ dev = [
 package = false
 
 [tool.uv.sources]
-magellon-sdk = { path = "../../magellon-sdk", editable = true }
+# Bundled wheel — survives archive extraction (path is relative to
+# the plugin root, which is the archive root after unzip). Refresh
+# via ``scripts/rebuild-sdk-wheels.sh`` after editing the SDK.
+magellon-sdk = { path = "wheels/magellon_sdk-2.4.0-py3-none-any.whl" }

@@ -1,16 +1,16 @@
-# Phase 7b (2026-05-03) — CUDA-capable build. The CAN algorithm uses
-# torch on CUDA when available (compute_backend='torch-auto' or
-# 'torch-cuda'); falls back to CPU torch for smaller stacks. Switch
-# the base image to nvidia/cuda:12.1-runtime-ubuntu22.04 for GPU
-# deployments — the line below stays python:3.11-slim so CI without
-# a GPU can still build + run contract tests.
+# Build context = the unpacked .mpn archive (the v1 install pipeline's
+# DockerInstaller hands us the archive root, not the parent repo).
+# Everything we COPY must live INSIDE this archive — no parent-relative
+# paths. The SDK comes from a wheel bundled under ./wheels/.
 #
-# To enable GPU: change the FROM line and install torch via:
+# Phase 7b note (2026-05-03): the CAN algorithm uses torch on CUDA
+# when available (compute_backend='torch-auto' or 'torch-cuda'); falls
+# back to CPU torch for smaller stacks. This base image stays
+# python:3.11-slim so CPU runs work without a GPU. For production GPU
+# deployments swap to nvidia/cuda:12.1-runtime-ubuntu22.04 and install
+# torch via:
 #   pip install --extra-index-url https://download.pytorch.org/whl/cu121 \
 #       torch>=2.0,<3.0
-#
-# Build context MUST be the repo root (compose: `context: ..` from
-# Docker/, `dockerfile: plugins/magellon_can_classifier_plugin/Dockerfile`).
 FROM python:3.11-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -22,20 +22,24 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-COPY magellon-sdk /app/magellon-sdk
+WORKDIR /app
 
-WORKDIR /app/plugins/magellon_can_classifier_plugin
-COPY plugins/magellon_can_classifier_plugin/requirements.txt ./
+# Wheel + requirements first so the Docker layer cache survives a
+# code-only edit. ./wheels/ carries the magellon_sdk wheel. torch
+# dominates this layer's size (~2 GB CPU wheel) — keeping it pinned
+# earlier in the file means code edits don't force a torch re-pull.
+COPY requirements.txt ./
+COPY wheels ./wheels
 RUN pip install --upgrade pip setuptools wheel \
     && pip install -r requirements.txt \
     && pip install prometheus-fastapi-instrumentator
 
-COPY plugins/magellon_can_classifier_plugin/configs ./configs
-COPY plugins/magellon_can_classifier_plugin/core ./core
-COPY plugins/magellon_can_classifier_plugin/plugin ./plugin
-COPY plugins/magellon_can_classifier_plugin/main.py ./main.py
+COPY configs ./configs
+COPY core ./core
+COPY plugin ./plugin
+COPY main.py ./main.py
 
-ENV PYTHONPATH=/app/plugins/magellon_can_classifier_plugin \
+ENV PYTHONPATH=/app \
     APP_ENV=production
 
 VOLUME /gpfs
