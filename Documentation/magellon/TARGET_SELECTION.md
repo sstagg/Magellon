@@ -671,9 +671,60 @@ For a small team running Magellon's plugin platform:
 
 ---
 
-## 14. Changelog
+## 14. Appendix A — design history & related docs
+
+This plan consolidates and extends prior cryo-EM research that lives outside the Magellon repo. Audited 2026-05-13.
+
+### Direct predecessors (heavy overlap with this doc)
+
+| Doc | Date | What it covers | Status vs. this plan |
+|---|---|---|---|
+| `magellon-rust-mrc/docs/research/cryoem-algorithms-landscape.md` | 2026-03 | 2024–25 SOTA review across grid screening, CTF, picking, 2D/3D classification, denoising; Rust impl "quick wins" (ice, hole finding, quality scoring) | **Source for §3 + §11.1 baseline**; this plan adds the T2 continuous-learning tier on top |
+| `magellon-rust-mrc/docs/ai-models-strategy.md` | 2026-03 | 9-model comprehensive strategy with $15–25k budget; dataset gaps; XGBoost yield predictor = direct ancestor of this plan's T2 | **Source for §11 T2 design**; verified SmartScope dataset links and ice/contamination data-gap findings reflected below |
+| `magellon-rust-mrc/docs/plan/ml-model-selection.md` | 2026-04 | Selection matrix for pickers/denoisers/classifiers; AGPL license analysis | **Source for §12.1 AGPL pivot**; this plan supersedes its DRACO-primary recommendation with Cryo-IEF (Nature Methods Nov 2025) |
+| `magellon-rust-mrc/docs/serialem-holefinder-ice-thickness.md` | — | SerialEM Sobel+Canny+circular-correlation+lattice hole-finder pipeline; ALS + EFTEM ice-thickness methods | **Aligned with §7.2** ICE_THICKNESS + HOLE_DETECTION; SerialEM lattice fit (0.75–1.33× nominal spacing tolerance, 0.5× merge proximity) cited as classical fallback for non-Quantifoil supports (lacey, Spotiton) |
+| `magellon-rust-mrc/docs/image-layers-architecture.md` | 2026-05-10 | Layer Artifact STI subtype with kind/tag/coord-frame schema | **Adopted wholesale as the storage model in §4** |
+| `magellon-rust-mrc/docs/hole-finder.md` | — | Hole-detection algorithm specifics | Aligned with §7.2 HOLE_DETECTION plugin |
+| `magellon-rust-mrc/docs/plan/cryoppp-integration-plan.md` | — | CryoPPP dataset ingestion for picker training | Referenced in §8.3 bootstrap |
+| `magellon-rust-mrc/docs/algorithms-catalog.md` + `algorithms-status.md` | — | Algorithm taxonomy and shipped-state matrix | Reference for §3 "What exists today" |
+| `magellon-rust-mrc/docs/ai-hybrid-strategy.md` + `ai-competitive-advantage.md` + `ai-ecosystem-primer.md` | — | Strategic positioning + competitive landscape | Business / strategy context; not algorithm-level |
+
+### Adjacent — MagScopeNext (different project, complementary)
+
+| Doc | Role |
+|---|---|
+| `MagScopeNext/docs/ai-vision.md` | MCP-based LLM instrument control + self-improving algorithms. **Consumes** ranked targets from this plan; this plan is *upstream* of MagScope's autonomy loop. |
+| `MagScopeNext/docs/gis-atlas-viewer-concept.md` | OpenLayers GIS-style atlas viewer with zoom hierarchy atlas → square → hole → exposure. **This is the implementation reference for the Pro layer-compositor UI deferred to P15.** Custom CRS in micrometers + tile pyramids + region overlays match §5 (LM-as-canonical-frame) exactly. |
+| `MagScopeNext/docs/architecture/catlas-format-review.md` + `catlas-format-spec.md` | Catlas portable export format; companion to the runtime Layer model in §4 |
+| `MagScopeNext/docs/architecture/algorithm-{framework,implementation}-*.md` | Algorithm framework / impl plan in MagScope side — orthogonal to this plan's dispatcher (§7.3) |
+
+### Key supersessions made by this plan
+
+1. **T3 backbone (§12.6).** `ml-model-selection.md` (April 2026) listed **DRACO** first. This plan replaces it with **Cryo-IEF** (Yang et al., *Nature Methods* Nov 2025, 65M cryo-EM particles, MIT) and demotes DRACO to secondary/ensemble. Cryo-IEF was published after the prior doc.
+2. **OSS detector license (§12.1).** Prior docs defaulted to YOLO. This plan switches the OSS distribution to **RF-DETR** (Apache 2.0) after analyzing AGPL-3.0 §13 risk for Magellon Pro.
+3. **Three-tier architecture (§11.1).** Prior docs framed Tool + Brain as two tracks. This plan inserts **T2 (LightGBM LambdaRank with continuous learning)** as the missing middle and the publishable contribution. Its closest ancestor is `ai-models-strategy.md` Model 7 (XGBoost yield predictor).
+
+### Verified public datasets (per `ai-models-strategy.md` §4, fact-checked 2026-04-10)
+
+| Dataset | Source | Content | License | On-disk status |
+|---|---|---|---|---|
+| SmartScope hole detector | [Zenodo 10.5281/zenodo.6814652](https://zenodo.org/records/6814652) | 36 images, 5,492 hole annotations, COCO JSON, single `circle` class | CC-BY-4.0 | downloaded at `sandbox/01-hole-detection/data/smartscope/annotations.json` (MD5-verified) |
+| SmartScope square detector | [Zenodo 10.5281/zenodo.6814642](https://zenodo.org/records/6814642) | 26 atlases, COCO JSON | CC-BY-4.0 | not yet downloaded |
+| Ice / contamination classification (multi-class) | **none exists publicly** | — | — | **Open data gap** — must collect from Magellon sessions |
+
+**Open data gap.** No public dataset for multi-class ice / contamination classification at LM or MM. CONTAMINATION_DETECT (§7.2) and any ice-quality fine-tuning beyond MeasureIce's analytic LUT require label collection from Magellon's own sessions — a P5 prerequisite, not P0. SmartScope's published release explicitly does **not** include a contamination class.
+
+### Useful concrete spec from prior docs (fold into implementations)
+
+- **WARP-style micrograph quality features** (per `cryoem-algorithms-landscape.md`): the input feature vector for `MICROGRAPH_QUALITY` should include median intensity, total rigid motion, motion rate-of-change, CTF fit resolution, tilt angle, defocus range, astigmatism. The current `eval_micrograph` sandbox uses BoxNet-mask radial-spectrum only; consider adding these as a second head per the §4.1.2 note.
+- **SerialEM lattice spacing tolerances** (per `serialem-holefinder-ice-thickness.md`): for the hole-detection lattice post-fit (RT-DETRv3 or Ptolemy U-Net path), accept neighbour spacings in [0.75×, 1.33×] of nominal and merge holes within 0.5× nominal spacing as duplicates.
+
+---
+
+## 15. Changelog
 
 - **2026-05-13** — Initial draft.
 - **2026-05-13** — Restructured §4.1 around the predictor/verifier split (two tables); named `eval_micrograph` as the canonical scalar verifier; added `MICROGRAPH_QUALITY` plugin to §7.2; replaced the §8.4 training schema with a concrete label-vector schema (`eval_prob`, `ctf_resolution_a`, `motion_total_a`, `n_picks`) plus a small slow-label subset for ground-truth calibration; imported `Sandbox/eval_micrograph/` from the eval-model author.
 - **2026-05-13** — Added §11 (Predictor model + continuous learning) — three tiers (T1 heuristic / T2 LightGBM LambdaRank / T3 deep ViT); event-linked async retrain loop with `decision_id` propagation; SNIPS off-policy evaluator with propensity clipping from day 1; shadow-mode promotion gate after offline NDCG@10; exploration policy maturity ladder (ε-decreasing → Thompson, **UCB dropped after research review**); GCR-coreset replay buffer; PSI/KS/ADWIN drift detection. §9 phase table expanded to 16 phases with explicit tier column. New references 25–40 from the survey.
+- **2026-05-13** — Added §14 Appendix A (Design history & related docs) after auditing `magellon-rust-mrc/docs/` and `MagScopeNext/docs/`. No substantive conflicts with this plan; audit produced 12 cross-references, 3 explicit supersession notes (DRACO→Cryo-IEF backbone, YOLO→RF-DETR detector, two-track→three-tier architecture), verified SmartScope Zenodo URLs (10.5281/zenodo.6814652 hole detector + 10.5281/zenodo.6814642 square detector, both CC-BY-4.0), and an open data-gap flag for multi-class ice/contamination classification (no public dataset; must collect from own sessions). Renumbered Changelog §14 → §15.
 - **2026-05-13** — Added §12 (Model toolkit) after May 2026 SOTA survey on detection / segmentation / foundation models. **Two consequential pivots**: (i) drop Ultralytics YOLO from OSS distribution — AGPL-3.0 §13 bleeds into Magellon Pro; ship **RF-DETR (Apache 2.0)** instead. YOLO26 is real but license-trapped. (ii) T3 backbone is **Cryo-IEF** (Nature Methods Nov 2025, 65M cryo-EM particles, MIT), not DRACO — Cryo-IEF moved to position #1 in §8.2 and §8.3, DRACO demoted to secondary/ensemble. Plus: SAM 2 + MicroSAM (Nature Methods Feb 2025) for `CONTAMINATION_DETECT`; UPicker (semi-supervised DETR, 20–50 labels) added as 4th `PARTICLE_PICKING` backend. Per-plugin model table in §12.8. Training pipeline: Lightning + Hydra + W&B + DVC + rf-detr / MMDetection 3.x. New references 41–68.
