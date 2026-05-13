@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.venv/
+
+# Runtime artifacts
+analysis_outputs/
+example_images/*.mrc
+example_images/*.png
+example_images/*.npy
+example_images/*.json
+!example_images/README.txt
+
+# LUTs (download separately per microscope config)
+luts/*.h5
+!luts/README.txt
