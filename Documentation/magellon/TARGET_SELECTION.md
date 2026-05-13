@@ -1,8 +1,15 @@
-# Magellon — Target Selection Plan
+# Target Selection Plan
 
-**Status:** Forward-looking design doc, 2026-05-13.
-**Audience:** Architects + ML leads + plugin authors deciding what to build for automated target-site selection on the cryo-EM grid.
-**Companion:** `ARCHITECTURE.md` (data plane, categories, lineage), `PLUGINS.md` (plugin runtime + dispatch), `AI.md` (Claude integration), and — for Magellon Pro — `magellon-rust-mrc/docs/image-layers-architecture.md` (Layer Artifact subtype).
+**Status:** Forward-looking design doc, 2026-05-13. **Authoritative copy: `MagScopeNext/docs/TARGET_SELECTION.md`.** Migrated out of `Magellon/Documentation/magellon/` because target selection drives active acquisition (MagScopeNext's domain — FastAPI microscope control, successor to Leginon). The Magellon copy mirrors the MagScope authoritative version for context; algorithm implementations land under `MagScopeNext/apps/controller/algorithms/`.
+**Audience:** MagScopeNext architects + algorithm authors building automated target-site selection on the cryo-EM grid.
+**Companion docs:**
+- `MagScopeNext/docs/ai-vision.md` — MCP-based LLM instrument control; consumes the ranked-target output of this plan
+- `MagScopeNext/docs/gis-atlas-viewer-concept.md` — OpenLayers GIS-style atlas viewer (Pro UI implementation reference for §15)
+- `MagScopeNext/docs/architecture/algorithm-framework-proposal.md` — algorithm contract (Pydantic I/O, lifecycle hooks, typed port system) that target-selection algorithms inherit
+- `magellon-rust-mrc/docs/image-layers-architecture.md` — Layer Artifact STI subtype (Magellon Pro storage model that the Layer abstraction in §4 adopts)
+- `Magellon/Documentation/magellon/ARCHITECTURE.md` — Magellon OSS data plane (existing plugin platform context; some Magellon-shipped plugins reused via §3)
+
+**Naming convention.** This doc uses Magellon's "plugin" terminology in places (e.g. `magellon_X_plugin/`). In MagScopeNext those translate to algorithm backends at `apps/controller/algorithms/<category>/` (per `algorithm-framework-proposal.md`), each subclassing `AlgorithmBackend` with `meta` / `InputModel` / `OutputModel` / `run()` and self-registering with the algorithm registry.
 
 ---
 
@@ -726,5 +733,6 @@ This plan consolidates and extends prior cryo-EM research that lives outside the
 - **2026-05-13** — Initial draft.
 - **2026-05-13** — Restructured §4.1 around the predictor/verifier split (two tables); named `eval_micrograph` as the canonical scalar verifier; added `MICROGRAPH_QUALITY` plugin to §7.2; replaced the §8.4 training schema with a concrete label-vector schema (`eval_prob`, `ctf_resolution_a`, `motion_total_a`, `n_picks`) plus a small slow-label subset for ground-truth calibration; imported `Sandbox/eval_micrograph/` from the eval-model author.
 - **2026-05-13** — Added §11 (Predictor model + continuous learning) — three tiers (T1 heuristic / T2 LightGBM LambdaRank / T3 deep ViT); event-linked async retrain loop with `decision_id` propagation; SNIPS off-policy evaluator with propensity clipping from day 1; shadow-mode promotion gate after offline NDCG@10; exploration policy maturity ladder (ε-decreasing → Thompson, **UCB dropped after research review**); GCR-coreset replay buffer; PSI/KS/ADWIN drift detection. §9 phase table expanded to 16 phases with explicit tier column. New references 25–40 from the survey.
+- **2026-05-13** — Doc migrated to `MagScopeNext/docs/TARGET_SELECTION.md` as authoritative copy. Magellon copy retained as a context mirror. Algorithm implementations land under `MagScopeNext/apps/controller/algorithms/` (per `algorithm-framework-proposal.md`). First scaffold: `micrograph_quality` algorithm wrapping the `eval_micrograph` sandbox, sandbox copied to `MagScopeNext/sandbox/eval_micrograph/`. Header rewritten to point at MagScopeNext companion docs.
 - **2026-05-13** — Added §14 Appendix A (Design history & related docs) after auditing `magellon-rust-mrc/docs/` and `MagScopeNext/docs/`. No substantive conflicts with this plan; audit produced 12 cross-references, 3 explicit supersession notes (DRACO→Cryo-IEF backbone, YOLO→RF-DETR detector, two-track→three-tier architecture), verified SmartScope Zenodo URLs (10.5281/zenodo.6814652 hole detector + 10.5281/zenodo.6814642 square detector, both CC-BY-4.0), and an open data-gap flag for multi-class ice/contamination classification (no public dataset; must collect from own sessions). Renumbered Changelog §14 → §15.
 - **2026-05-13** — Added §12 (Model toolkit) after May 2026 SOTA survey on detection / segmentation / foundation models. **Two consequential pivots**: (i) drop Ultralytics YOLO from OSS distribution — AGPL-3.0 §13 bleeds into Magellon Pro; ship **RF-DETR (Apache 2.0)** instead. YOLO26 is real but license-trapped. (ii) T3 backbone is **Cryo-IEF** (Nature Methods Nov 2025, 65M cryo-EM particles, MIT), not DRACO — Cryo-IEF moved to position #1 in §8.2 and §8.3, DRACO demoted to secondary/ensemble. Plus: SAM 2 + MicroSAM (Nature Methods Feb 2025) for `CONTAMINATION_DETECT`; UPicker (semi-supervised DETR, 20–50 labels) added as 4th `PARTICLE_PICKING` backend. Per-plugin model table in §12.8. Training pipeline: Lightning + Hydra + W&B + DVC + rf-detr / MMDetection 3.x. New references 41–68.
