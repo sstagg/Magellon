@@ -5,10 +5,6 @@
 # the source tree.
 FROM python:3.11-slim
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential \
-    && rm -rf /var/lib/apt/lists/*
-
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
@@ -17,11 +13,22 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # Wheel + requirements first so the Docker layer cache survives a
-# code-only edit.
+# code-only edit. ./wheels/ carries the magellon_sdk wheel. torch is
+# pinned to the CPU-only index in requirements.txt to avoid the
+# ~3 GB CUDA-bundled default wheel.
+#
+# build-essential is installed for any source-build fallback then
+# purged in the same RUN so it doesn't bloat the runtime layer; all
+# pinned deps today ship manylinux wheels, but keeping the toolchain
+# transient guards against a future pin slipping past wheel coverage.
 COPY requirements.txt ./
 COPY wheels ./wheels
-RUN pip install --upgrade pip setuptools wheel \
-    && pip install -r requirements.txt
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential \
+    && pip install --upgrade pip setuptools wheel \
+    && pip install -r requirements.txt \
+    && apt-get purge -y --auto-remove build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
 # Plugin source.
 COPY configs ./configs

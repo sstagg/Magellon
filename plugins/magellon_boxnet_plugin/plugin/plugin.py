@@ -78,7 +78,7 @@ class BoxnetPickerPlugin(PluginBase[BoxnetPickerInput, ParticlePickingOutput]):
 
     def get_info(self) -> PluginInfo:
         return PluginInfo(
-            name="BoxNet Picker",
+            name="boxnet-picker",
             version="0.1.0",
             developer="Behdad Khoshbin b.khoshbin@gmail.com",
             description=(

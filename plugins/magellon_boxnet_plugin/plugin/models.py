@@ -9,15 +9,22 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from magellon_sdk.models.tasks import CryoEmImageInput
+from pydantic import ConfigDict, Field
 
 
-class BoxnetPickerInput(BaseModel):
+class BoxnetPickerInput(CryoEmImageInput):
     """Inputs for the external BoxNet CNN picker.
 
     Required: just ``image_path``. The rest have defaults tuned to
     Warp's training regime (~8 Å/pixel, threshold ~0.3 on the particle
     channel).
+
+    Inherits from ``CryoEmImageInput`` (2026-05-13) so the SDK's
+    PARTICLE_PICKER contract dispatcher accepts the rich body + the
+    runtime re-validation accepts the inherited image_id / image_name /
+    engine_opts fields injected by the dispatcher. Same pattern as
+    template-picker's TemplatePickerInput.
     """
     model_config = ConfigDict(extra="forbid")
 

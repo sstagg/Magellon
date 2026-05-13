@@ -22,9 +22,11 @@ scipy>=1.13.0
 scikit-image>=0.22.0
 Pillow>=10.4.0
 
-# CPU torch is enough for the default deployment. To use a CUDA build,
-# install it separately before this file (`pip install torch --index-url
-# https://download.pytorch.org/whl/cu121` etc.) so this line is a no-op.
+# CPU torch is enough for the default deployment — pinned to PyTorch's
+# CPU-only wheel index so the image doesn't drag in ~3 GB of CUDA libs
+# (default PyPI Linux torch is the CUDA-bundled build). For a CUDA
+# deployment, swap the index to https://download.pytorch.org/whl/cu121.
+--extra-index-url https://download.pytorch.org/whl/cpu
 torch>=2.0
 
 # BoxNet's .pt is an onnx2torch graph; module-load needs this even
