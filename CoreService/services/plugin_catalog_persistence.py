@@ -107,6 +107,15 @@ class PluginCatalogPersistence:
 
         A newly discovered plugin is intentionally disabled. Existing
         rows keep their operator state.
+
+        Also persists ``input_schema`` / ``output_schema`` from the
+        announce envelope into ``Plugin.manifest_json`` so the
+        plugin's rich schema survives a CoreService restart. The
+        in-memory liveness registry is the live source of truth, but
+        it resets on restart and the next announce can be 15+ seconds
+        away (heartbeat interval). Persisting here means the schema
+        endpoint can fall back to the DB during that gap instead of
+        the base category contract.
         """
         payload = _runtime_manifest_payload(
             plugin_id=msg.plugin_id,
@@ -117,6 +126,14 @@ class PluginCatalogPersistence:
             instance_id=msg.instance_id,
             source="announce",
         )
+        # Nest the announced schemas under manifest_json. Both default
+        # to None (omitted) for pre-PE2 plugins that don't announce a
+        # schema — the consumer ``_live_schema_for_plugin`` already
+        # treats None as "fall through to the next tier".
+        if msg.input_schema is not None:
+            payload["input_schema"] = msg.input_schema
+        if msg.output_schema is not None:
+            payload["output_schema"] = msg.output_schema
         install_result = {
             "install_method": "discovered",
             "install_dir": None,
@@ -185,6 +202,23 @@ class PluginCatalogPersistence:
                 # An install-time row already represents this plugin;
                 # don't overwrite its install_dir / port / endpoint
                 # with discovery-time nulls. Just update the heartbeat.
+                # Exception (2026-05-13): merge input_schema /
+                # output_schema from the announce into manifest_json
+                # so the schema endpoint can read it back after a
+                # CoreService restart. Both fields are safe to update
+                # in place — they're derived from the plugin's
+                # PluginInfo.input_schema() introspection, not from
+                # install-time state, so an announce always wins.
+                merged: Dict[str, Any] = dict(existing.manifest_json or {})
+                changed = False
+                for key in ("input_schema", "output_schema"):
+                    new_val = manifest.get(key)
+                    if new_val is not None and merged.get(key) != new_val:
+                        merged[key] = new_val
+                        changed = True
+                if changed:
+                    existing.manifest_json = merged
+                    db.add(existing)
                 row = existing
             state_repo.touch_heartbeat(row.oid, seen_at)
             if created:

@@ -605,22 +605,57 @@ def _category_for_plugin_from_db(plugin_id: str, short: str) -> Optional[str]:
 
 
 def _live_schema_for_plugin(plugin_id: str, *, kind: str) -> Optional[Dict[str, Any]]:
-    """Pull the plugin's announced JSON schema from the liveness registry.
+    """Pull the plugin's announced JSON schema from the live registry,
+    falling back to the persisted catalog row when the live entry is
+    cold.
 
     PE2-UI (2026-05-12). When a plugin announces with
     :attr:`Announce.input_schema` / ``output_schema`` set, the
     registry caches the dict and we hand it back here so the runner
     page renders the plugin's own rich form. ``kind`` is "input" or
-    "output". Returns ``None`` when no live entry matches or the
-    plugin's announce predates PE2.
+    "output".
+
+    Tiered resolution (2026-05-13):
+      1. Live registry — populated by the announce listener; cleared
+         on CoreService restart.
+      2. Persisted ``Plugin.manifest_json`` — written by
+         ``record_announce`` so the schema survives a CoreService
+         restart and the gap before the next announce.
+      3. Returns ``None`` so the caller falls back to the category
+         contract's input model.
     """
     short = _strip_category_prefix(plugin_id)
     attr = "input_schema" if kind == "input" else "output_schema"
+    # Tier 1: live registry.
     for entry in get_liveness_registry().list_live():
         if entry.plugin_id in (short, plugin_id):
             value = getattr(entry, attr, None)
             if value is not None:
                 return value
+    # Tier 2: DB row from a prior announce. Match by manifest_plugin_id
+    # (install slug) or the announce-derived name. Best-effort — a DB
+    # hiccup here returns None and the caller falls back to the
+    # category contract.
+    try:
+        from database import session_local
+        from models.sqlalchemy_models import Plugin
+        with session_local() as db:
+            row = (
+                db.query(Plugin)
+                .filter(
+                    (Plugin.manifest_plugin_id == short)
+                    | (Plugin.manifest_plugin_id == plugin_id)
+                    | (Plugin.name == short)
+                    | (Plugin.name == plugin_id)
+                )
+                .first()
+            )
+            if row and row.manifest_json:
+                value = row.manifest_json.get(attr)
+                if value is not None:
+                    return value
+    except Exception:  # noqa: BLE001 — never fail the endpoint on DB hiccups
+        pass
     return None
 
 
