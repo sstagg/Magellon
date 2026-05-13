@@ -1,0 +1,57 @@
+manifest_version: "1.1"
+
+plugin_id: boxnet-picker
+archive_id: 00000000-0000-7000-8000-000000000000
+
+name: "BoxNet — particle picking"
+version: 0.1.0
+requires_sdk: ">=2.1,<3.0"
+
+author: "Magellon Team"
+license: MIT
+description: >
+  BoxNet v2 CNN particle picker. Runs Warp's pretrained 72-layer ResNet
+  to produce a per-pixel 3-class mask (background / particle / dirt) and
+  emits particle centroids via local-maxima peak detection on the
+  particle channel. Third backend under PARTICLE_PICKING (alongside
+  topaz + template-picker); dispatcher routes via TaskMessage.target_backend.
+
+category: particle_picking
+backend_id: boxnet-picker
+
+requires:
+  - broker
+  - gpfs
+
+resources:
+  cpu_cores: 2
+  memory_mb: 2048
+  gpu_count: 0
+  typical_duration_seconds: 10
+
+lifecycle:
+  restart_policy: on-failure
+  restart_max_retries: 5
+
+install:
+  - method: uv
+    pyproject: pyproject.toml
+    requires:
+      - python: ">=3.11"
+  - method: docker
+    dockerfile: Dockerfile
+    build_context: .
+    requires:
+      - docker_daemon: true
+
+health_check:
+  timeout_seconds: 60
+  expected_announce: true
+
+ui: null
+
+tags:
+  - boxnet
+  - particle-picking
+  - cnn
+  - cryo-em

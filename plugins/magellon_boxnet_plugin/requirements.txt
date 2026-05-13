@@ -1,0 +1,32 @@
+# Magellon Plugin SDK — shared rabbitmq / logging / bootstrap / events helpers.
+# Bundled wheel; survives archive extraction.
+./wheels/magellon_sdk-2.4.0-py3-none-any.whl[rabbitmq,nats,logging,config]
+
+fastapi
+uvicorn
+pydantic
+rich
+pyyaml
+
+python-json-logger
+
+prometheus_client
+prometheus-fastapi-instrumentator
+python-dotenv
+
+pika==1.3.2
+
+mrcfile>=1.5.0
+numpy>=1.26.4
+scipy>=1.13.0
+scikit-image>=0.22.0
+Pillow>=10.4.0
+
+# CPU torch is enough for the default deployment. To use a CUDA build,
+# install it separately before this file (`pip install torch --index-url
+# https://download.pytorch.org/whl/cu121` etc.) so this line is a no-op.
+torch>=2.0
+
+# BoxNet's .pt is an onnx2torch graph; module-load needs this even
+# though plugin code never imports onnx2torch directly.
+onnx2torch>=1.5
