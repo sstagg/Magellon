@@ -99,6 +99,30 @@ class BoxnetPickerInput(CryoEmImageInput):
         },
     )
 
+    invert: bool = Field(
+        default=False,
+        description=(
+            "Negate the image before inference. BoxNet was trained on "
+            "the standard cryo-EM convention where particles are DARKER "
+            "than the background. If your micrograph has the opposite "
+            "polarity (positive-going contrast, bright spots on a dark "
+            "field — common with already-CTF-flipped or fluorescence-"
+            "derived inputs), set this to True or BoxNet will classify "
+            "every pixel as `dirt` and return zero picks."
+        ),
+        json_schema_extra={
+            "ui_widget": "switch",
+            "ui_group": "Preprocessing",
+            "ui_order": 25,
+            "ui_help": (
+                "Toggle ON when raw inference returns no picks and the "
+                "image visually shows bright particles on a dark "
+                "background. Off (default) matches the standard "
+                "post-motion-corrected MRC convention."
+            ),
+        },
+    )
+
     # --- Advanced ---
 
     device: Literal["auto", "cpu", "cuda"] = Field(

@@ -568,6 +568,7 @@ def pick_with_boxnet(
     min_distance: int = 14,
     scale: int = 8,
     device: str = "auto",
+    invert: bool = False,
 ) -> List[dict]:
     """Run BoxNet on a 2D micrograph and return pick dicts.
 
@@ -578,13 +579,21 @@ def pick_with_boxnet(
         {"center": [x, y], "radius": int, "score": float}
 
     Sorted by score descending.
+
+    ``invert`` (added 2026-05-13) negates the input before inference.
+    BoxNet was trained on the standard cryo-EM polarity (dark
+    particles on a bright field). A positive-contrast micrograph
+    triggers BoxNet's dirt channel for nearly every pixel and yields
+    zero picks; ``invert=True`` corrects the polarity. See model
+    statistics in ``pick_with_boxnet``'s docstring for a quick test.
     """
     from skimage.feature import peak_local_max  # lazy; not needed at import
 
     weights = weights_path or default_weights_path()
     model = BoxnetPT(weights).to(_resolve_device(device))
 
-    downsampled = _downsample(image, scale)
+    working = -image if invert else image
+    downsampled = _downsample(working, scale)
     masks = model(downsampled)  # (H', W', 3)
     particle_mask = masks[:, :, 1]
 

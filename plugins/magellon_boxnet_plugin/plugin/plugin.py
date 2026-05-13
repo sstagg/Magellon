@@ -123,6 +123,7 @@ class BoxnetPickerPlugin(PluginBase[BoxnetPickerInput, ParticlePickingOutput]):
                 min_distance=int(input_data.min_distance),
                 scale=int(input_data.scale),
                 device=input_data.device,
+                invert=bool(input_data.invert),
                 output_dir=input_data.output_dir,
             )
 

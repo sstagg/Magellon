@@ -50,6 +50,7 @@ def run_boxnet_pick(
     min_distance: int = 14,
     scale: int = 8,
     device: str = "auto",
+    invert: bool = False,
     weights_path: Optional[str] = None,
     output_dir: Optional[str] = None,
 ) -> Dict[str, Any]:
@@ -71,6 +72,7 @@ def run_boxnet_pick(
         min_distance=int(min_distance),
         scale=int(scale),
         device=device,
+        invert=bool(invert),
     )
 
     out_path = _resolve_output_path(image_path, output_dir)
