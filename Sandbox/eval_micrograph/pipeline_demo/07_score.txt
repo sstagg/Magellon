@@ -1,0 +1,30 @@
+eval_micrograph pipeline -- summary
+====================================
+
+Input file        : great.png
+Input shape       : (494, 512)
+Input dtype       : uint8
+Input range       : [0, 255]
+
+BoxNet output (per-pixel class probability):
+  background mean : 0.8943
+  particle   mean : 0.0228
+  dirt       mean : 0.0830
+
+After mean subtraction:
+  particle mean was : 0.022799
+  centered range    : [-0.0228, 0.9438]
+
+2D power spectrum (log10):
+  min log power : -7.702
+  max log power : 6.052
+
+Radial profile  (256 bins):
+  freq range (1/A)        : [0.0001, 0.0624]
+  power range  (linear)   : [5.246e+00, 4.947e+05]
+  power range  (log)      : [1.657, 13.112]
+
+CLASSIFIER OUTPUT
+  probability : 0.917955
+  threshold   : 0.5
+  verdict     : GOOD

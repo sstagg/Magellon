@@ -1,0 +1,30 @@
+eval_micrograph pipeline -- summary
+====================================
+
+Input file        : empty_avg.jpg
+Input shape       : (511, 720)
+Input dtype       : uint8
+Input range       : [98, 162]
+
+BoxNet output (per-pixel class probability):
+  background mean : 0.9950
+  particle   mean : 0.0037
+  dirt       mean : 0.0013
+
+After mean subtraction:
+  particle mean was : 0.003719
+  centered range    : [-0.0037, 0.8670]
+
+2D power spectrum (log10):
+  min log power : -7.586
+  max log power : 4.987
+
+Radial profile  (256 bins):
+  freq range (1/A)        : [0.0001, 0.0624]
+  power range  (linear)   : [4.872e-01, 2.407e+04]
+  power range  (log)      : [-0.719, 10.089]
+
+CLASSIFIER OUTPUT
+  probability : 0.594652
+  threshold   : 0.5
+  verdict     : GOOD
