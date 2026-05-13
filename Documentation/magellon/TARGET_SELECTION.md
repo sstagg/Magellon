@@ -190,6 +190,17 @@ OSS gets the algorithm and the API; Pro gets the GIS-style operator interface an
 
 ## 7. Track 1 — Tool: heuristic ranker
 
+### 7.0 Sandbox-first policy (standing rule)
+
+Every algorithm in this plan lives **first** under `MagScopeNext/sandbox/<name>/` as a **self-contained project** — its own `requirements.txt`, its own `tests/`, its own entry-point script — runnable from a sandbox-local `venv` without touching MagScopeNext core. MagScopeNext core deliberately ships *no* heavy ML dependencies (no torch in the controller venv): each sandbox carries its own.
+
+Promotion to `apps/controller/algorithms/<name>/` is **optional and per-feature**, decided after the sandbox has proven correctness in isolation. Two acceptable promotion patterns when the time comes:
+
+- **Subprocess** — the controller spawns the sandbox's Python (its own venv) for evaluation. Slow per call but zero dependency bleed.
+- **Lazy import adapter** — a thin `algorithms/<name>/backend.py` wrapper that adds the sandbox dir to `sys.path` and imports from it, guarded so missing deps just disable the backend rather than crashing controller startup.
+
+Until promoted, sandboxes ARE the production code — callable from notebooks, ad-hoc scripts, or controller subprocess. The §7.2 / §11.8 paths below reflect the sandbox locations.
+
 ### 7.1 Score formula
 
 A weighted sum of normalised layer signals. All weights live in CoreService config so operators can tune per facility / grid type without code changes.
@@ -211,21 +222,25 @@ Defaults (start here, tune empirically):
 
 **Why these defaults.** Ice thickness is the dominant empirical predictor of HM yield at 300 kV (Neselu 2023, EMPIAR-11397; ~0.0022 Å/nm degradation slope, sweet spot <50 nm). Hole and square scores are next. Edge proximity and contamination are filters more than features.
 
-### 7.2 Plugins to add
+### 7.2 Sandboxes to add
+
+Each row is a self-contained project under `MagScopeNext/sandbox/`. The `Category` column is the eventual identity if/when the sandbox is promoted into `apps/controller/algorithms/<category>/` (per §7.0).
 
 **Predictor-side (LM/MM, feed the ranker):**
 
-| Plugin | TaskCategory | Input | Output |
+| Sandbox path | Eventual category | Input | Output |
 |---|---|---|---|
-| `magellon_ice_thickness_plugin/` | `ICE_THICKNESS` (new code) | MRC + voltage + aperture | Layer `(kind=Raster, tag=ice_thickness, units=nm)` + per-hole nm summary |
-| `magellon_contamination_plugin/` | `CONTAMINATION_DETECT` (new code) | MM image | Layer `(kind=Raster, tag=contamination_mask, dtype=uint8)` |
-| `magellon_target_ranking_plugin/` | `TARGET_RANKING` (new code) | refs to `holes` + `ice_thickness` + `contamination_mask` layers for one MM image | Ranked target list Artifact: `[{hole_id, score, reasons:{w_ice:0.42, w_hole:0.31, ...}}]` |
+| `sandbox/ice_thickness/` | `ice_thickness` | MRC + voltage + aperture | Per-hole nm summary + thickness map (Layer `(kind=Raster, tag=ice_thickness, units=nm)` if/when the Layer system is wired) |
+| `sandbox/contamination_detect/` | `contamination_detect` | MM image | Mask (Layer `(kind=Raster, tag=contamination_mask, dtype=uint8)` if/when wired) |
+| `sandbox/target_ranking/` | `target_ranking` | refs to `holes` + `ice_thickness` + `contamination_mask` outputs for one MM image | Ranked target list: `[{hole_id, score, reasons:{w_ice:0.42, w_hole:0.31, ...}}]` |
 
 **Verifier-side (HM, emit labels for Brain training):**
 
-| Plugin | TaskCategory | Input | Output |
+| Sandbox path | Eventual category | Input | Output |
 |---|---|---|---|
-| `magellon_micrograph_quality_plugin/` | `MICROGRAPH_QUALITY` (new code) | HM micrograph (post motion-correction) | Layer `(kind=ScalarField, tag=micrograph_quality, units=prob, value_range=[0,1])` + scalar P(good) |
+| `sandbox/eval_micrograph/` ✅ | `micrograph_quality` | HM micrograph (post motion-correction) | Scalar P(good) ∈ [0, 1] + 256-bin log radial profile |
+
+(✅ = scaffolded and committed; see `sandbox/eval_micrograph/README.md`.)
 
 `ICE_THICKNESS` is the first delivery — wraps `Sandbox/ice_thickness_measureice/measure_thickness.py` and the existing 300 kV LUT. The sandbox tool is already validated; this is a packaging task, not an algorithm task.
 
@@ -502,13 +517,13 @@ Both feed a single `ranker_health_event` table consumed by the operations dashbo
 
 ### 11.8 First build — concrete deliverable
 
-Highest-leverage 4-week sprint, in dependency order:
+Highest-leverage 4-week sprint, in dependency order. Each item is a sandbox project per §7.0 unless explicitly otherwise.
 
-1. **Week 1** — `prediction_event` + `verification_event` tables; `decision_id` propagation through HM dispatch and verifier outputs; `TargetTrainingExample` materialised view (P5).
-2. **Week 1** — `MICROGRAPH_QUALITY` plugin wrapping `Sandbox/eval_micrograph/` (P6).
-3. **Week 2** — `magellon_ranker_gbm_plugin/` with `train.py` (LightGBM `rank:lambdarank` + 3× quantile regressors), `serve.py` (T1+T2 uncertainty-weighted ensemble), and `evaluate.py` (NDCG@10 + MAP@10 + Spearman ρ + SNIPS) (P7).
-4. **Week 3** — Nightly retrain cron (`$GPFS/jobs/cron/ranker_gbm_retrain.py`), GCR-coreset replay buffer, offline gate, model versioning under `$GPFS/models/ranker_gbm/v_<n>/` (P8).
-5. **Week 4** — Shadow-mode harness: dual-write challenger predictions, comparison report after N sessions, promotion API (P9).
+1. **Week 1** — `prediction_event` + `verification_event` tables and `decision_id` propagation — these are MagScopeNext **core** infrastructure (controller routes), not a sandbox (P5). `TargetTrainingExample` materialised view sits beside them.
+2. **Week 1** — `sandbox/eval_micrograph/` is already in place (verifier, P6) ✅.
+3. **Week 2** — `sandbox/ranker_gbm/` self-contained project: `train.py` (LightGBM `rank:lambdarank` + 3× quantile regressors), `serve.py` (T1+T2 uncertainty-weighted ensemble), `evaluate.py` (NDCG@10 + MAP@10 + Spearman ρ + SNIPS) (P7).
+4. **Week 3** — Nightly retrain cron at `sandbox/ranker_gbm/scripts/retrain.py`, GCR-coreset replay buffer, offline gate, model versioning under `gpfs/models/ranker_gbm/v_<n>/` (P8).
+5. **Week 4** — Shadow-mode harness inside the sandbox: dual-write challenger predictions, comparison report after N sessions, promotion API. The controller exposes only the *result-fetching* endpoint (`GET /ranker/version`, `POST /ranker/version/pin`); the training pipeline stays in the sandbox.
 
 Thompson exploration (P10) and drift detection (P11) follow in weeks 5–6 once the system has labels flowing.
 
@@ -733,6 +748,7 @@ This plan consolidates and extends prior cryo-EM research that lives outside the
 - **2026-05-13** — Initial draft.
 - **2026-05-13** — Restructured §4.1 around the predictor/verifier split (two tables); named `eval_micrograph` as the canonical scalar verifier; added `MICROGRAPH_QUALITY` plugin to §7.2; replaced the §8.4 training schema with a concrete label-vector schema (`eval_prob`, `ctf_resolution_a`, `motion_total_a`, `n_picks`) plus a small slow-label subset for ground-truth calibration; imported `Sandbox/eval_micrograph/` from the eval-model author.
 - **2026-05-13** — Added §11 (Predictor model + continuous learning) — three tiers (T1 heuristic / T2 LightGBM LambdaRank / T3 deep ViT); event-linked async retrain loop with `decision_id` propagation; SNIPS off-policy evaluator with propensity clipping from day 1; shadow-mode promotion gate after offline NDCG@10; exploration policy maturity ladder (ε-decreasing → Thompson, **UCB dropped after research review**); GCR-coreset replay buffer; PSI/KS/ADWIN drift detection. §9 phase table expanded to 16 phases with explicit tier column. New references 25–40 from the survey.
-- **2026-05-13** — Doc migrated to `MagScopeNext/docs/TARGET_SELECTION.md` as authoritative copy. Magellon copy retained as a context mirror. Algorithm implementations land under `MagScopeNext/apps/controller/algorithms/` (per `algorithm-framework-proposal.md`). First scaffold: `micrograph_quality` algorithm wrapping the `eval_micrograph` sandbox, sandbox copied to `MagScopeNext/sandbox/eval_micrograph/`. Header rewritten to point at MagScopeNext companion docs.
+- **2026-05-13** — **Sandbox-first policy adopted (§7.0).** Reverted the `apps/controller/algorithms/micrograph_quality/` scaffold and the torch / joblib / scikit-learn entries in `apps/controller/requirements.txt` — MagScopeNext core stays free of heavy ML deps. Each algorithm lives as a self-contained project under `MagScopeNext/sandbox/<name>/` with its own `requirements.txt` and `tests/`. Promotion to controller is optional and per-feature; until then sandboxes ARE the production code (callable via subprocess or lazy-import adapter). §7.2 and §11.8 paths rewritten accordingly. `sandbox/eval_micrograph/` upgraded with `requirements.txt` + `tests/test_smoke.py`.
+- **2026-05-13** — Doc migrated to `MagScopeNext/docs/TARGET_SELECTION.md` as authoritative copy. Magellon copy retained as a context mirror. Header rewritten to point at MagScopeNext companion docs.
 - **2026-05-13** — Added §14 Appendix A (Design history & related docs) after auditing `magellon-rust-mrc/docs/` and `MagScopeNext/docs/`. No substantive conflicts with this plan; audit produced 12 cross-references, 3 explicit supersession notes (DRACO→Cryo-IEF backbone, YOLO→RF-DETR detector, two-track→three-tier architecture), verified SmartScope Zenodo URLs (10.5281/zenodo.6814652 hole detector + 10.5281/zenodo.6814642 square detector, both CC-BY-4.0), and an open data-gap flag for multi-class ice/contamination classification (no public dataset; must collect from own sessions). Renumbered Changelog §14 → §15.
 - **2026-05-13** — Added §12 (Model toolkit) after May 2026 SOTA survey on detection / segmentation / foundation models. **Two consequential pivots**: (i) drop Ultralytics YOLO from OSS distribution — AGPL-3.0 §13 bleeds into Magellon Pro; ship **RF-DETR (Apache 2.0)** instead. YOLO26 is real but license-trapped. (ii) T3 backbone is **Cryo-IEF** (Nature Methods Nov 2025, 65M cryo-EM particles, MIT), not DRACO — Cryo-IEF moved to position #1 in §8.2 and §8.3, DRACO demoted to secondary/ensemble. Plus: SAM 2 + MicroSAM (Nature Methods Feb 2025) for `CONTAMINATION_DETECT`; UPicker (semi-supervised DETR, 20–50 labels) added as 4th `PARTICLE_PICKING` backend. Per-plugin model table in §12.8. Training pipeline: Lightning + Hydra + W&B + DVC + rf-detr / MMDetection 3.x. New references 41–68.
