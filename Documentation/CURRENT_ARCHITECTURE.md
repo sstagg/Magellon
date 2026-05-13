@@ -219,6 +219,37 @@ view and needs `plugin_id`. The React `InstalledPluginsView` row
 carries both fields and dispatches to each endpoint with the
 matching key — never assume they're the same string.
 
+**Schema flow — three tiers, ordered (PE2-UI + 2026-05-13).** The
+runner page reads each plugin's input/output JSON schema via
+`GET /plugins/{id}/schema/input` (and `/output`). The endpoint
+resolves through three tiers in order:
+
+1. **Live registry** — when the plugin is currently announcing,
+   `Announce.input_schema` carries the dict produced by
+   `cls.input_schema().model_json_schema()` (SDK side, in
+   `magellon_sdk/runner/lifecycle.py`). The in-memory
+   `PluginLivenessEntry.input_schema` is the source of truth while
+   the plugin's heartbeat is fresh.
+2. **DB row** — `record_announce` mirrors the announced schema
+   into `Plugin.manifest_json["input_schema"]` /
+   `["output_schema"]`. Survives a CoreService restart and the
+   gap before the next plugin announce (plugins announce
+   once-per-container-boot, not per-CoreService-boot — so without
+   this tier, every CoreService restart blanks every plugin's
+   schema until each plugin container is also bounced).
+3. **Category contract fallback** — `contract.input_model`'s
+   `model_json_schema()`. This is the minimum every backend in
+   the category satisfies (e.g. `CryoEmImageInput` for image-keyed
+   categories). Used when no plugin has ever announced for this
+   plugin_id — typically a first-deploy or a plugin that predates
+   PE2-UI.
+
+Pre-PE2-UI plugins (announce envelopes without the schema field)
+land on tier 3 and stay there forever, by design. Post-PE2-UI
+plugins update tier 2 the first time they announce, so subsequent
+CoreService restarts read straight from the DB until the next
+announce comes in to refresh.
+
 ---
 
 ## 4. Plugin architecture
@@ -596,6 +627,8 @@ gone — see §3.3 (deleted in the A.1 follow-up, `7d1f657`).
 | 26 | ~~No typed bridge between producing and consuming jobs~~ | **Resolved (Phase 4 + 5b, 2026-05-03).** New `artifact` table (alembic 0005) with promoted hot columns + `data_json` long-tail. Per ratified rule 6: immutable; only `deleted_at` mutates. SDK ships `Artifact`/`ArtifactKind` Pydantic models. `TaskOutputProcessor._maybe_write_artifact` writes `particle_stack` rows for `PARTICLE_EXTRACTION` results and `class_averages` rows for `TWO_D_CLASSIFICATION` results, projecting the new id back into `output_data` for downstream addressability. 9 unit tests pin the writer + lineage shape. |
 | 27 | ~~No user-visible rollup over the picker → extractor → classifier pipeline~~ | **Resolved (Phase 8 + 8b, 2026-05-03).** New `pipeline_run` table (alembic 0006) with `image_job.parent_run_id` FK. Each algorithm step stays its own `ImageJob`; `PipelineRun` groups them. ORM `PipelineRun` class + 10 ORM tests. HTTP CRUD at `/pipelines/runs` (POST create / GET detail / GET list with bulk job-count / DELETE soft-delete) + 11 controller tests. Per rule 6 no PUT — runs are immutable; status flips authoritatively when child jobs transition. |
 | 28 | ~~Subject-typed inputs not validated at dispatch (silent hung jobs on wrong subject kind)~~ | **Resolved (PE1-A `db09ce4` + PE1-B `38c7f2f`, 2026-05-10/11; SDK 2.4.0).** Dispatch gate in `plugins/controller.py` rejects pre-publish: `_reject_if_subject_missing` (`:838`) for aggregate categories whose `CategoryContract.subject_kind != 'image'`; `_reject_if_subject_tag_mismatch` (`:876`) walks `CategoryContract.input_subjects` and verifies every UUID-typed field references an `Artifact` of the declared kind. Returns 4xx instead of publishing a doomed task. Field-level subject tags live on `CategoryContract.input_subjects` / `output_subjects` (e.g. `TWO_D_CLASSIFICATION.input_subjects = {'particle_stack_id': 'particle_stack', 'image_id': 'image'}`). |
+| 29 | ~~Plugin schemas lost on CoreService restart~~ | **Resolved (`31845f1`, 2026-05-13).** Announced schemas used to live only in the in-memory liveness registry; a CoreService restart cleared them and the next announce was indefinite (plugins announce once per container boot, not per CoreService boot). `record_announce` now mirrors `msg.input_schema` / `output_schema` into `Plugin.manifest_json`; `_live_schema_for_plugin` reads three tiers (live → DB row → category contract). See §3.4 *Schema flow*. |
+| 30 | Docker layer-cache traps stale SDK in plugin images | **Open.** `docker build` of `plugins/<id>/Dockerfile` uses build cache on `COPY wheels ./wheels`. When `scripts/rebuild-sdk-wheels.sh` produces a byte-identical wheel (no SDK source change), the layer cache reuses the prior `pip install` layer and ships an older SDK than the developer expects. Surfaced 2026-05-13 — the symptom was every plugin's input_schema flowing as None despite the SDK source clearly producing a schema. Manual workarounds: `docker image rm <plugin-image>` before reinstall, or modify any byte of the wheel content (e.g. touch a comment). Cleaner fix would hash the wheel into the image tag or pass `--no-cache` from `DockerInstaller`. |
 
 ---
 
