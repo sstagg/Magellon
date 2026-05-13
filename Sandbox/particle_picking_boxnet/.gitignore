@@ -1,0 +1,21 @@
+# virtualenv
+.venv/
+__pycache__/
+
+# benchmark/runtime outputs
+benchmark_outputs/
+
+# runtime artifacts (regenerate via convert_eval_images.py / pick_algorithm.py)
+example_images/*.mrc
+example_images/*.png
+example_images/*.jpg
+example_images/*.npz
+example_images/*.json
+example_images/*.log
+example_images/*.txt
+!example_images/README.txt
+
+# BoxNet weights download separately (boxnet.pt from cramerlab / warpem)
+weights/*.pt
+weights/*.onnx
+!weights/README.txt
