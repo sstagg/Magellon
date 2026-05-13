@@ -23,16 +23,26 @@ where:
         is set by which scattering angles are *removed*, not by the
         aperture's micron diameter)
 
-MeasureIce ships HDF5 LUTs `(intensity_ratio → thickness_nm)` produced
-from `abTEM` simulations per microscope configuration. For sandbox
-purposes we approximate with a single scalar `T_eff` per config — good
-to ~10% over thickness ranges of interest (0-300 nm).
+The sandbox uses real MeasureIce HDF5 LUTs `(intensity_ratio → thickness_nm)`
+produced by running upstream `Generate_MeasureIce_calibration.py` against
+the bundled `supercooled_water.xyz` atomic model. A scalar `T_eff` fallback
+exists for the unconfigured path; you should never need it. See
+`luts/README.txt` for how to regenerate the LUT for other microscopes.
 
-| Voltage | Typical T_eff (nm) | Notes |
-|---|---|---|
-| 200 kV | ≈ 320 | C2 + 50 µm objective aperture |
-| 300 kV | ≈ 395 | C2 + 100 µm objective aperture |
-| no aperture | ~10× larger | Beer-Lambert breaks down — every scattered electron still hits the detector |
+T_eff (= ALS coefficient λ) is **strongly aperture-dependent**. At 300 kV,
+from the multislice simulation:
+
+| Aperture (mrad) | Aperture (µm label) | λ = T_eff (nm) |
+|---:|---:|---:|
+| 5  | 50  |  447 |
+| 10 | 70  |  647 |
+| 15 | 100 |  858 |  ← default
+| 20 | 140 | 1092 |
+
+(λ values are from the 0–1500 nm LUT; they differ ~10 % from the 0–600 nm
+slope-fit values printed by the upstream generator because Beer-Lambert
+deviates at large thicknesses. The LUT itself, not the scalar, is what
+the sandbox uses.)
 
 ## Three operating modes
 
@@ -45,17 +55,21 @@ to ~10% over thickness ranges of interest (0-300 nm).
 ## How to call
 
 ```bash
-# Single image, percentile-based vacuum reference (lowest fidelity, no inputs needed)
+# Single image; defaults: bundled Krios_300kV.h5 LUT @ 15 mrad (100 µm aperture)
 python measure_thickness.py path/to/micrograph.mrc
 
-# Single image with explicit T_eff (e.g. 350 nm at 200 kV) and an ROI for I₀
-python measure_thickness.py path/to/micrograph.mrc \
-    --t-eff 350 \
-    --i0-roi 100,100,80,80
+# Override aperture (e.g. 70 µm objective aperture ≈ 10 mrad)
+python measure_thickness.py path/to/micrograph.mrc --aperture-mrad 10
 
-# Batch a whole directory and write a summary CSV
+# Use an explicit vacuum ROI instead of the 99.9th-percentile fallback
+python measure_thickness.py path/to/micrograph.mrc --i0-mode roi --i0-roi 100,100,80,80
+
+# Scalar fallback (only if you do not have a LUT)
+python measure_thickness.py path/to/micrograph.mrc --lut '' --t-eff 858
+
+# Batch a directory with the default regime gate (5-500 Å/px in-frame)
 python analyze_dir.py /c/magellon/gpfs/24dec03a/home/original \
-    --t-eff 395 \
+    --aperture-mrad 15 \
     --output-dir analysis_outputs/
 ```
 

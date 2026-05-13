@@ -4,12 +4,9 @@ __pycache__/
 
 # Runtime artifacts
 analysis_outputs/
+analysis_outputs_v2/
 example_images/*.mrc
 example_images/*.png
 example_images/*.npy
 example_images/*.json
 !example_images/README.txt
-
-# LUTs (download separately per microscope config)
-luts/*.h5
-!luts/README.txt

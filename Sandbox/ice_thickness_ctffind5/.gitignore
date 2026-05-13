@@ -1,0 +1,7 @@
+# CTFFIND5 binary — extract from cisTEM-ctffind5-b21db55.tar.gz, see README
+ctffind
+
+# Per-run results (regenerate via batch_ctffind5.sh)
+results.tsv
+results_*.tsv
+results/
