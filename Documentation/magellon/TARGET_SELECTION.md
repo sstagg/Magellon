@@ -358,20 +358,28 @@ The operator UI always shows both scores + the reason, and the Tool's `reasons:{
 
 ## 9. Phases
 
-| Phase | Deliverable | Estimate | Depends on |
-|---|---|---|---|
-| **P1** | `ICE_THICKNESS` plugin (wrap MeasureIce sandbox into CoreService plugin). Emits `Layer(tag=ice_thickness, units=nm)`. | 2–3 days | image-layers shipped or per-mic Artifact fallback |
-| **P2** | `CONTAMINATION_DETECT` plugin (classical-CV heuristic, intensity-variance based). | 2 days | P1 |
-| **P3** | `TARGET_RANKING` plugin (Tool, heuristic sum). Reads `holes` + `ice_thickness` + `contamination_mask`, emits ranked list Artifact. | 2 days | P1, P2 |
-| **P4** | Dispatcher chain (LM → squares → MM acquisition → parallel layer plugins → ranking → HM). | 3 days | P3 |
-| **P5** | Exploration policy + `target_decision_event` logging + `TargetTrainingExample` view. | 3 days | P4 |
-| **P6** | Public-data bootstrap: DRACO weights checked in; SmartScope + Ptolemy warm-start scripts; EMPIAR scrape job for outcome calibration. | 1 week | P5 |
-| **P7** | Train heads (i)–(iii) on public data. Ship as `magellon_brain_ranker_plugin/` (Pro). | 2–3 weeks training + eval | P6 |
-| **P8** | Fine-tune yield head on Magellon's own lineage (rolling, retrain monthly as data accumulates). | ongoing | P7 + ~3 months of session data |
-| **P9** | Atlas viewer with stacked layers (Pro UI). | 2 weeks frontend | P3 (data available), P7 (brain scores) |
-| **P10** | Per-grid Bayesian update — calibration HM shots re-rank remaining holes mid-session. | research; scope TBD | P8 |
+The plan now has **three model tiers** (see §11): T1 heuristic Tool, T2 LightGBM LambdaRank ranker with continuous learning, T3 deep vision model. T2 is the new middle tier — captures most of T3's value at ~10% of the cost, ships first, hosts the continuous-learning loop.
 
-P1–P5 are Track 1 (Tool). P6–P8 are Track 2 (Brain). P9 is the Pro UI. P10 is the open-research piece.
+| Phase | Deliverable | Estimate | Depends on | Tier |
+|---|---|---|---|---|
+| **P1** | `ICE_THICKNESS` plugin (wrap MeasureIce sandbox). Emits `Layer(tag=ice_thickness, units=nm)`. | 2–3 days | image-layers or per-mic Artifact fallback | T1 |
+| **P2** | `CONTAMINATION_DETECT` plugin (classical-CV first). | 2 days | P1 | T1 |
+| **P3** | `TARGET_RANKING` plugin — T1 heuristic weighted-sum (§7.1). | 2 days | P1, P2 | T1 |
+| **P4** | Dispatcher chain (LM → squares → MM → parallel layer plugins → ranking → HM). | 3 days | P3 | T1 |
+| **P5** | `prediction_event` + `verification_event` tables; `decision_id` propagation through dispatch; ε-decreasing exploration (start 0.15, decay to 0.05). | 3 days | P4 | T1 |
+| **P6** | `MICROGRAPH_QUALITY` plugin — wrap `Sandbox/eval_micrograph/`. Emits scalar P(good) per HM exposure. | 2 days | P4 | verifier |
+| **P7** | `magellon_ranker_gbm_plugin/` — LightGBM with `rank:lambdarank` + quantile heads (10th/50th/90th percentiles). Reads layer features per hole; emits T2 score + uncertainty. Bundled `train.py` and `serve.py`. | 1 week | P5, P6 | T2 |
+| **P8** | Nightly retrain cron — load last 30 days + GCR-coreset reservoir from history; train v_{n+1}; offline gate (NDCG@10 primary + MAP@10 + Spearman ρ guardrails); SNIPS evaluator with propensity clipping ≤ 20. | 1 week | P7 | T2 |
+| **P9** | Shadow-mode promotion gate — challenger runs silently for ≥5 sessions; compare realised verifier vector vs. champion; promote only if both offline gate AND shadow agree. Model versions under `$GPFS/models/ranker_gbm/v_<n>/`. | 1 week | P8 | T2 |
+| **P10** | Thompson exploration via T2 quantile sampling — replaces ε-decreasing once T2 has ≥1k labels and calibrated quantiles. Per-grid-type ε decay continues for novel sample types. | 3 days | P9 | T2 |
+| **P11** | Drift detection — PSI > 0.2 / KS p < 0.05 on feature distributions; ADWIN on rolling NDCG residual; trigger off-cadence retrain on alarm. | 3 days | P9 | T2 |
+| **P12** | Public-data bootstrap for T3 — DRACO weights + SmartScope/Ptolemy warm-start + EMPIAR outcome scrape. | 1 week | P9 | T3 |
+| **P13** | T3 deep multi-head ranker — DRACO ViT backbone, ranking head + verifier-vector regression head. Ship as `magellon_brain_ranker_plugin/` (Pro). | 2–3 weeks training + eval | P12 | T3 |
+| **P14** | T3 fine-tune on Magellon lineage; rolling monthly retrain on accumulated session data. | ongoing | P13 + ~3 months session data | T3 |
+| **P15** | Atlas viewer with stacked layers (Pro UI). | 2 weeks frontend | P3 (data), P7 (T2 scores), P13 (T3 scores) | UI |
+| **P16** | Per-grid Bayesian update — HM calibration shots re-rank remaining holes on the same grid. | research; scope TBD | P10, P14 | open |
+
+P1–P5 are T1 plumbing. P6 is the canonical verifier. **P7–P11 are the T2 continuous-learning system — this is the new core of the plan and where the publishable contribution lives.** P12–P14 are T3 (later, once T2 is mature). P15 is Pro UI. P16 is open research.
 
 ---
 
@@ -391,7 +399,114 @@ P1–P5 are Track 1 (Tool). P6–P8 are Track 2 (Brain). P9 is the Pro UI. P10 i
 
 ---
 
-## 11. References
+## 11. Predictor model + continuous learning
+
+Section 7 covered the heuristic Tool (T1). Section 8 covered the deep yield head (T3). The web survey informing this section [refs 25–38] turned up a critical missing middle: **a gradient-boosted ranker with online retraining (T2)** that is cheaper than T3, learns from operator + verifier feedback, and matches every published "continuous learning" production playbook outside our field. There is **no published learning-to-rank ranker for cryo-EM target selection** (Ptolemy and SmartScope are pointwise classifiers, Cryo-IEF is pointwise quality), and **no published active-acquisition system for cryo-EM single-particle target selection** (SLADS-Net and Kalinin-group SPM are the closest analogues, in adjacent fields). T2 is the publishable contribution.
+
+### 11.1 Three tiers
+
+| Tier | Model class | Trains in | Wins when | Role |
+|---|---|---|---|---|
+| **T1** | weighted-sum heuristic (§7.1) | — | day 1; cold-start novel grid types; sanity fallback | permanent baseline + feature engineer |
+| **T2** | **LightGBM with `rank:lambdarank` + quantile regression** over ~20 engineered features | seconds, CPU, in-process | ~100–10k labeled exposures — beats T1 almost immediately, retrains nightly | **continuous-learning core** |
+| **T3** | DRACO ViT + ranking head over raw atlas / MM crops | hours, GPU, batch | ~10k+ labels — finds features humans didn't engineer | mature path; Pro |
+
+T1 and T2 ensemble at serve time with uncertainty-weighted blending (same shape as §8.5, but between T1 and T2 instead of T1 and T3). T3 joins the ensemble when ready.
+
+### 11.2 Why LightGBM + LambdaRank specifically
+
+- **Tabular SOTA, 2026.** Grinsztajn 2022 [25] and McElfresh 2023 [26] both confirm GBDTs still beat deep tabular on medium data with engineered features. TabPFN-2.5 (Nov 2025) [27] is genuinely SOTA for ≤50k *classification*, but lacks a native ranking head and forces a heavyweight transformer for a problem where features are already interpretable. **Keep TabPFN as a sanity-check baseline; LightGBM is the production pick.**
+- **LambdaRank, not pointwise BCE.** The use case is "rank these N holes," not "predict each hole's absolute score." Pairwise/listwise loss is more robust to noisy verifier labels (relative comparisons are reliable even when absolute calibration is loose — directly relevant given `eval_micrograph`'s great=0.92 / bad=0.73 / empty=0.59 calibration). LambdaRank is the standard, well-supported in LightGBM via `objective="lambdarank"`.
+- **Quantile regression for uncertainty.** LightGBM natively supports `objective="quantile", alpha=0.1/0.5/0.9` — train three side-models on the same features for 10th / 50th / 90th percentile of expected verifier outcomes. The 80% prediction interval drives Thompson sampling (§11.6) and uncertainty-weighted ensembling.
+- **Interpretability.** SHAP + per-tree feature importance are first-class. Operators see *why* a hole was ranked low, and the heuristic Tool serves as a sanity baseline for the GBM's feature importance ordering.
+
+### 11.3 Continuous learning loop — event-linked, async, nightly
+
+Verifier labels arrive *after* the exposure, so the loop is async. The trick is to mint a `decision_id` at ranking time and propagate it through the entire dispatch chain so we can join prediction with verification later.
+
+```
+RANKING (T1+T2 ensemble)
+   ├─► emit prediction_event(
+   │      decision_id, hole_id, model_versions: {t1: v_h, t2: v_n},
+   │      features, t1_score, t2_score, t2_quantiles, ensemble_score,
+   │      exposed: bool, exploration: bool, propensity: float ∈ (0,1])
+   │
+   ▼
+HM EXPOSURE  ──►  MotionCor  ──►  CTFFind  ──►  picker  ──►  MICROGRAPH_QUALITY
+   │
+   ▼
+   emit verification_event(decision_id, eval_prob, ctf_resolution_a, motion_total_a, n_picks, mean_pick_score)
+   │
+   ▼
+JOIN on decision_id  ──►  materialise TargetTrainingExample (§8.4 schema)
+   │
+   ▼
+NIGHTLY CRON
+   load:    last 30 days  +  GCR-coreset reservoir from prior history (~70/30 split)
+   train:   model_v_{n+1}  ──  rank:lambdarank + 3× quantile regressors
+   offline: NDCG@10 (primary) + MAP@10 + Spearman ρ on frozen holdout 10%
+   SNIPS:   off-policy evaluator with propensity clipping ≤ 20
+   shadow:  if offline gate passes, run challenger silently on ≥5 live sessions
+   promote: only if BOTH offline AND shadow agree on improvement
+   else:    keep v_n; alert on drift if PSI > 0.2 or KS p < 0.05
+```
+
+**Why nightly, not streaming.** Web research is unanimous [28–31]: medical-imaging MLOps surveys, Tesla data-engine writeups, and the 2024 continual-learning-for-medical-imaging review all converge on **periodic batched retrain, not streaming SGD**. With ~10–100 labeled exposures per session and high label noise, streaming weights oscillate. Nightly gives stable updates, a clean audit trail, and trivial rollback (pin to prior `v_n`).
+
+**Why a replay buffer matters.** Different sessions = different sample types (apoferritin vs membrane protein vs viral capsid). Without sampling from history, the model catastrophically forgets prior grid types. GCR (Tiwari et al., CVPR 2022 [32]) gives a gradient-coreset selection rule that's better than naive random for ~10k-row buffers.
+
+### 11.4 Promotion gate — offline + shadow
+
+NDCG@10 alone is **insufficient.** A model that gates only on offline NDCG can win on the held-out distribution but lose under selection bias on real grids. The fix is borrowed directly from the Tesla data engine [29]:
+
+1. **Offline gate.** NDCG@10 primary + MAP@10 + Spearman ρ guardrails on a *frozen* holdout. NDCG can hide tail regressions; MAP catches recall, Spearman catches global rank-order regressions invisible to top-K.
+2. **Shadow-mode A/B.** Challenger model runs silently in parallel with the champion on ≥5 live sessions, logs its predictions, but does *not* drive dispatch. Compare *realised* verifier vectors (`eval_prob`, `ctf_resolution_a`, `motion_total_a`, `n_picks`) on the exact same holes both models scored.
+3. **Promote only if BOTH agree.** A single Friday-night nightly retrain doesn't ship to production until it has earned ≥5 sessions of shadow agreement. Model versions are pinned in `$GPFS/models/ranker_gbm/v_<n>/`; rollback is `POST /ranker/version/pin v_<n-1>`.
+
+Use **MRR is wrong here** — assumes one relevant item per query (we have many good holes per grid).
+
+### 11.5 Selection bias — SNIPS from day 1, not v2
+
+When the ranker chooses what to expose, we only collect labels for chosen items. Naive eval ranks the new model favourably on its own biased sample. The fix:
+
+- **Log the propensity at decision time.** For each `prediction_event`, store `propensity = P(exposed | features)` under the policy at the time of choice. ε-decreasing makes this trivial (top-N → propensity = 1 − ε; exploration → propensity = ε / |exploration pool|).
+- **SNIPS for offline evaluation [33–35], not raw IPS.** Same theoretical consistency, far lower variance, no tuning knobs. The 2024 CLTR reproducibility study [36] is sobering — naive CLTR *often* loses to the logging-policy baseline when sessions are limited, which is our first 6–12 months. SNIPS with propensity clipping ≤ 20 is the standard variance-control move.
+- **Doubly-robust estimators can wait.** They only help with a reliable reward model, which we won't have early on. SNIPS is the right tool for ≤10k labels.
+
+### 11.6 Exploration policy maturity ladder
+
+| Stage | Policy | Why |
+|---|---|---|
+| **Today (T1 only)** | ε-decreasing random, ε ∈ [0.05, 0.15], per-grid-type | fixed-ε wastes exposures forever; decay lets familiar conditions exploit and novel grid types keep exploring |
+| **T2 shipped, ≥1k labels** | **Thompson sampling** — draw a single sample from each hole's T2 quantile prediction interval, rank by sample | calibrated uncertainty + no tuning knob; web research argued this directly over UCB [37,38] |
+| **T2 mature, drift-stable** | Thompson with grid-type-conditional priors | leverage cross-session knowledge of which sample types reward exploration |
+
+**Departure from the original §7.4 plan**: dropped UCB as a stepping stone. UCB on GBM quantile widths is fragile — the quantile-derived "confidence" is not a calibrated posterior, and the tuning constant `c` is exactly the knob Thompson removes. Skip UCB; go ε-decreasing → Thompson directly.
+
+### 11.7 Drift detection
+
+Two layers running continuously:
+
+- **Feature-distribution drift.** PSI > 0.2 or KS p < 0.05 on each predictor feature (ice_thickness mean/std, hole_score distribution, etc.) over a rolling 14-day window vs. the training distribution. Alert + trigger off-cadence retrain.
+- **Performance drift (ADWIN).** Rolling NDCG@10 residual computed on each new joined `TargetTrainingExample`. ADWIN detects concept drift in the model output without needing a fresh holdout.
+
+Both feed a single `ranker_health_event` table consumed by the operations dashboard.
+
+### 11.8 First build — concrete deliverable
+
+Highest-leverage 4-week sprint, in dependency order:
+
+1. **Week 1** — `prediction_event` + `verification_event` tables; `decision_id` propagation through HM dispatch and verifier outputs; `TargetTrainingExample` materialised view (P5).
+2. **Week 1** — `MICROGRAPH_QUALITY` plugin wrapping `Sandbox/eval_micrograph/` (P6).
+3. **Week 2** — `magellon_ranker_gbm_plugin/` with `train.py` (LightGBM `rank:lambdarank` + 3× quantile regressors), `serve.py` (T1+T2 uncertainty-weighted ensemble), and `evaluate.py` (NDCG@10 + MAP@10 + Spearman ρ + SNIPS) (P7).
+4. **Week 3** — Nightly retrain cron (`$GPFS/jobs/cron/ranker_gbm_retrain.py`), GCR-coreset replay buffer, offline gate, model versioning under `$GPFS/models/ranker_gbm/v_<n>/` (P8).
+5. **Week 4** — Shadow-mode harness: dual-write challenger predictions, comparison report after N sessions, promotion API (P9).
+
+Thompson exploration (P10) and drift detection (P11) follow in weeks 5–6 once the system has labels flowing.
+
+---
+
+## 12. References
 
 ### Internal (Magellon)
 
@@ -417,6 +532,25 @@ P1–P5 are Track 1 (Tool). P6–P8 are Track 2 (Brain). P9 is the Pro UI. P10 i
 - CryoPPP dataset, 2023 — 34 proteins / 9893 micrographs. https://www.nature.com/articles/s41597-023-02280-2
 - MicAssess (Li & Cianfrocco) — micrograph quality assessment, training-data source for `eval_micrograph`. https://github.com/eugenepalovcak/MicAssess (training corpus at `Z:\cianfrocco-data\laiwei\MicAssess_data_masks\particle_mask`).
 
+### External — predictor model + continuous learning (§11)
+
+25. Grinsztajn et al., *Why do tree-based models still outperform deep learning on tabular data?*, NeurIPS 2022. https://arxiv.org/abs/2207.08815
+26. McElfresh et al., *When Do Neural Nets Outperform Boosted Trees on Tabular Data?*, NeurIPS 2023. https://arxiv.org/abs/2305.02997
+27. Hollmann et al., **TabPFN v2**, *Nature* 2025. https://www.nature.com/articles/s41586-024-08328-6 — TabPFN-2.5 report (Nov 2025): https://priorlabs.ai/technical-reports/tabpfn-2-5-model-report
+28. *Continual Learning in Medical Imaging from Theory to Practice*, arXiv 2024. https://arxiv.org/html/2405.13482v1
+29. Tesla Autopilot data engine + trigger classifiers. https://codecompass00.substack.com/p/tesla-data-engine-trigger-classifiers ; FSD shadow mode: https://www.notateslaapp.com/news/3108/teslas-fsd-shadow-mode-what-it-is-and-how-it-improves-fsd
+30. *Conformal Triage for Medical Imaging AI Deployment*, medRxiv 2024. https://www.medrxiv.org/content/10.1101/2024.02.09.24302543v1
+31. Zhang et al., **SLADS-Net** (autonomous sparse sampling for SEM/Raman/EDS/X-ray, deployed). arXiv:1803.02972. https://arxiv.org/abs/1803.02972
+32. Tiwari et al., *GCR: Gradient Coreset Based Replay Buffer Selection*, CVPR 2022. https://arxiv.org/abs/2111.11210
+33. Joachims et al., *Unbiased Learning-to-Rank with Biased Feedback* (IPS), WSDM 2017. https://www.cs.cornell.edu/~tj/publications/joachims_etal_17a.pdf
+34. Eugene Yan, *Counterfactual Evaluation for Recommendation Systems* (SNIPS overview). https://eugeneyan.com/writing/counterfactual-evaluation/
+35. *Counterfactual Risk Minimization with IPS-Weighted BPR and SNIPS*, arXiv 2025. https://arxiv.org/html/2509.00333v1
+36. *Investigating the Robustness of Counterfactual Learning to Rank Models: A Reproducibility Study*, arXiv 2024. https://arxiv.org/abs/2404.03707
+37. *Core bandit algorithms — ε-greedy, UCB, Thompson* (Yahoo LinUCB production case). https://www.systemoverflow.com/learn/ml-recommendation-systems/diversity-exploration/core-bandit-algorithms-epsilon-greedy-ucb-and-thompson-sampling
+38. Ziatdinov et al., *Bayesian Active Learning for Scanning Probe Microscopy: From GPs to Hypothesis Learning*, ACS Nano. https://pubs.acs.org/doi/10.1021/acsnano.2c05303 — *Active oversight and quality control in standard Bayesian optimization for autonomous experiments*, npj Comp. Mat. 2024: https://www.nature.com/articles/s41524-024-01485-2 — INS²ANE (novelty discovery), ACS Nanoscience Au 2025: https://pubs.acs.org/doi/10.1021/acsnanoscienceau.5c00106
+39. EvidentlyAI, *NDCG metric explained*. https://www.evidentlyai.com/ranking-metrics/ndcg-metric — *Comparing 5 drift detection methods (KS/PSI/Wasserstein/ADWIN)*: https://www.evidentlyai.com/blog/data-drift-detection-large-datasets
+40. *On NDCG as an Off-Policy Evaluation Metric for Top-n Recommendation*, arXiv 2023. https://arxiv.org/abs/2307.15053
+
 ### Internal sandbox assets
 
 - `Sandbox/ice_thickness_measureice/` — MeasureIce ALS implementation + Krios 300 kV LUT; basis for `ICE_THICKNESS` plugin.
@@ -424,7 +558,8 @@ P1–P5 are Track 1 (Tool). P6–P8 are Track 2 (Brain). P9 is the Pro UI. P10 i
 
 ---
 
-## 12. Changelog
+## 13. Changelog
 
 - **2026-05-13** — Initial draft.
 - **2026-05-13** — Restructured §4.1 around the predictor/verifier split (two tables); named `eval_micrograph` as the canonical scalar verifier; added `MICROGRAPH_QUALITY` plugin to §7.2; replaced the §8.4 training schema with a concrete label-vector schema (`eval_prob`, `ctf_resolution_a`, `motion_total_a`, `n_picks`) plus a small slow-label subset for ground-truth calibration; imported `Sandbox/eval_micrograph/` from the eval-model author.
+- **2026-05-13** — Added §11 (Predictor model + continuous learning) — three tiers (T1 heuristic / T2 LightGBM LambdaRank / T3 deep ViT); event-linked async retrain loop with `decision_id` propagation; SNIPS off-policy evaluator with propensity clipping from day 1; shadow-mode promotion gate after offline NDCG@10; exploration policy maturity ladder (ε-decreasing → Thompson, **UCB dropped after research review**); GCR-coreset replay buffer; PSI/KS/ADWIN drift detection. §9 phase table expanded to 16 phases with explicit tier column. New references 25–40 from the survey.
