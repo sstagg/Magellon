@@ -1,89 +1,59 @@
-# Magellon Documentation — Index
+# Magellon — Documentation
 
-**Status:** Index of `Documentation/`. Updated 2026-05-03.
-**Audience:** Anyone opening this directory for the first time.
+The documentation has been consolidated into four reference docs under
+`magellon/` (2026-05-13). The previous 17 files in this directory and 8
+files under `CoreService/docs/` were merged into:
 
-This file is a signpost. Open the doc that answers your question;
-don't read the directory top-to-bottom. Each entry below names
-**when** to read it.
-
----
-
-## Read first — canonical governance
-
-The shortest path to "what rules does this codebase live by?"
-
-| Doc | Open when |
+| Doc | What's inside |
 |---|---|
-| [`ARCHITECTURE_PRINCIPLES.md`](ARCHITECTURE_PRINCIPLES.md) | You are reviewing a non-trivial PR or proposing a new abstraction. Seven principles, every PR is checked against them. |
-| [`DATA_PLANE.md`](DATA_PLANE.md) | You are touching anything that reads or writes image bytes. Decision: shared POSIX filesystem; object-storage-only is an explicit non-goal. |
+| [`magellon/ARCHITECTURE.md`](magellon/ARCHITECTURE.md) | Principles, current architecture, data plane, message bus spec, broker patterns, message + event shapes, categories + backends, cryo-EM workflow walk-through, roadmap (implementation plan, unified platform, pipeline ergonomics). |
+| [`magellon/PLUGINS.md`](magellon/PLUGINS.md) | Plugin runtime architecture, `.mpn` archive format, install pipeline, plugin manager, hub specification, developer guide. |
+| [`magellon/SECURITY.md`](magellon/SECURITY.md) | Casbin RBAC + RLS architecture, developer guide for authz, security quick reference. |
+| [`magellon/OPERATIONS.md`](magellon/OPERATIONS.md) | DLQ migration runbook, common commands, task-data shape comparison, DB schema reference, legacy doc index. |
 
----
+The originals are gone but recoverable: `git show <old-commit>:Documentation/<filename>.md`.
 
-## Current state — how the system actually runs
+## Why consolidated
 
-| Doc | Open when |
-|---|---|
-| [`CURRENT_ARCHITECTURE.md`](CURRENT_ARCHITECTURE.md) | You need a concrete walk-through of CoreService + the two plugin architectures + the MessageBus wiring. The §8 limitations table tracks which gaps are still open. |
+The doc set had grown to 25 files / ~11K lines, with overlapping coverage,
+broken cross-references, and no clear top-level entry point. Merging into
+four thematic docs preserves every word but makes the corpus searchable
+end-to-end and lets each commit message reference one stable file.
 
----
-
-## Forward plan — what's next
-
-| Doc | Open when |
-|---|---|
-| [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) | You want to know what work is in flight or recently shipped. The "Active tracks" section is the live one; earlier phases are kept above for history. |
-| [`UNIFIED_PLATFORM_PLAN.md`](UNIFIED_PLATFORM_PLAN.md) | You want the longer-arc story: retire the dual plugin architecture, build toward a plugin hub on top of one contract. Forward-looking phases (U, H, S). |
-| [`PLUGIN_INSTALL_PLAN.md`](PLUGIN_INSTALL_PLAN.md) | You are working on the **authoring + install pipeline**: archive creator (`plugin pack`), Installer Protocol, uv vs Docker installer impls, uninstall + upgrade, admin REST + UI. Nine sequential phases (P1–P9; P1–P8 shipped, P9 hub-fetch deferred). |
-| [`PLUGIN_MANAGER_PLAN.md`](PLUGIN_MANAGER_PLAN.md) | You are working on the **runtime + operational** surface: persistence for plugin state (the silent-state-loss-on-restart bug), Conditions[] status, pause / resume verbs, per-replica health, updates badge. Seven phases (PM1–PM7). Complement to PLUGIN_INSTALL_PLAN, not overlap. |
-| [`MAGELLON_HUB_SPEC.md`](MAGELLON_HUB_SPEC.md) | You are working on the **distribution registry** (`magellon-hub` service). MVP spec; phases H1–H3 in progress. |
-| [`PIPELINE_ERGONOMICS_PLAN.md`](PIPELINE_ERGONOMICS_PLAN.md) | You are adding subject-tag socket validation, dispatch caching, workflow-as-JSON exports, or the registry-UX layer. Four independent tracks (PE1–PE4) adapted from ComfyUI patterns; OSS-scope only (the visual workflow builder is Pro). |
-| [`PIPELINE_ERGONOMICS_FIRST_SLICE.md`](PIPELINE_ERGONOMICS_FIRST_SLICE.md) | You are implementing the cheap-cut subset of the ergonomics plan (PE1-A subject-tag dispatch gate + PE3-lite workflow.json endpoint). Concrete file paths + acceptance criteria. ≈ 1 week. |
-
----
-
-## Specific references — pinpoint topics
-
-Open these to answer a focused question, not as background reading.
-
-| Doc | Open when |
-|---|---|
-| [`MESSAGE_BUS_SPEC.md`](MESSAGE_BUS_SPEC.md) | You are reading or extending the `magellon_sdk.bus` abstraction (L1/L2/L3/L4 layers, Binder SPI, routes, audit, DLQ). Canonical post-Track-A. |
-| [`BROKER_PATTERNS.md`](BROKER_PATTERNS.md) | You need to understand the six RMQ patterns Magellon uses (work queues, topic fanout, DLX). Pedagogical. §8 maps the patterns onto candidate alternate transports. |
-| [`MESSAGES_AND_EVENTS.md`](MESSAGES_AND_EVENTS.md) | You need the wire-shape catalogue: every message that crosses a process boundary, which transport carries it, where the schema lives. |
-| [`CATEGORIES_AND_BACKENDS.md`](CATEGORIES_AND_BACKENDS.md) | You are adding a second backend under an existing category (e.g. `gctf` alongside `ctffind4`), or working with `target_backend` / `GET /plugins/capabilities`. §7a is the live category catalogue (10 categories as of 2026-05-03 including `PARTICLE_EXTRACTION` + `TWO_D_CLASSIFICATION`); §2.2a covers the subject axis (image vs particle_stack). |
-| [`PLUGIN_ARCHIVE_FORMAT.md`](PLUGIN_ARCHIVE_FORMAT.md) | You are building a `.mpn` archive: manifest schema, layout, install-method declaration, what does NOT go in (deployment config). |
-| [`DLQ_MIGRATION_RUNBOOK.md`](DLQ_MIGRATION_RUNBOOK.md) | You are running the DLQ-topology migration in ops. Paired with `CoreService/scripts/migrate_dlq_topology.py`. |
-
----
-
-## Recently retired (for stale-link readers)
+## Old filename → new section map
 
 If you arrived here from a link in code, an older doc, or a chat
-transcript: these files were retired from `Documentation/` on
-2026-04-28. Content is in git history.
+transcript, the mapping is:
 
-| Retired doc | Where the surviving content is |
-|---|---|
-| `MESSAGE_BUS_SPEC_AND_PLAN.md` | Spec content → `MESSAGE_BUS_SPEC.md`; phased plan → git log + `IMPLEMENTATION_PLAN.md` Track A history. |
-| `MESSAGE_BUS_EXECUTION_PLAN.md` | All 13 PRs shipped; status table in `IMPLEMENTATION_PLAN.md` "Track A". |
-| `TARGET_ARCHITECTURE_AND_PLAN.md` | Surviving principles → `ARCHITECTURE_PRINCIPLES.md`; data-plane decision → `DATA_PLANE.md`. Temporal-centric sections obsolete. |
-| `COMPONENTS_AND_RELATIONSHIPS.md` | Temporal-era component glossary; current component map is in `CURRENT_ARCHITECTURE.md` §1–§4. |
-| `PHASE_0_BASELINE.md`, `PHASE_0_DEAD_CODE_AUDIT.md` | Phase 0 historical artifacts; safety-net work + dead-code recommendations applied. See git log. |
+- `ARCHITECTURE_PRINCIPLES.md` → `ARCHITECTURE.md` §1
+- `CURRENT_ARCHITECTURE.md` → `ARCHITECTURE.md` §2
+- `DATA_PLANE.md` → `ARCHITECTURE.md` §3
+- `MESSAGE_BUS_SPEC.md` → `ARCHITECTURE.md` §4
+- `BROKER_PATTERNS.md` → `ARCHITECTURE.md` §5
+- `MESSAGES_AND_EVENTS.md` → `ARCHITECTURE.md` §6
+- `CATEGORIES_AND_BACKENDS.md` → `ARCHITECTURE.md` §7
+- `cryo-em-pipeline.md` (CoreService) → `ARCHITECTURE.md` §8
+- `IMPLEMENTATION_PLAN.md` → `ARCHITECTURE.md` §9
+- `UNIFIED_PLATFORM_PLAN.md` → `ARCHITECTURE.md` §10
+- `PIPELINE_ERGONOMICS_PLAN.md` → `ARCHITECTURE.md` §11
+- `PIPELINE_ERGONOMICS_FIRST_SLICE.md` → `ARCHITECTURE.md` §12
+- `PLUGIN_ARCHITECTURE.md` (CoreService) → `PLUGINS.md` §1
+- `PLUGIN_ARCHIVE_FORMAT.md` → `PLUGINS.md` §2
+- `PLUGIN_INSTALL_PLAN.md` → `PLUGINS.md` §3
+- `PLUGIN_MANAGER_PLAN.md` → `PLUGINS.md` §4
+- `MAGELLON_HUB_SPEC.md` → `PLUGINS.md` §5
+- `plugin-developer-guide.md` (CoreService) → `PLUGINS.md` §6
+- `SECURITY_ARCHITECTURE.md` (CoreService) → `SECURITY.md` §1
+- `DEVELOPER_GUIDE.md` (CoreService security) → `SECURITY.md` §2
+- `DLQ_MIGRATION_RUNBOOK.md` → `OPERATIONS.md` §1
+- `commands.txt` → `OPERATIONS.md` §2
+- `task-data-comparison.txt` → `OPERATIONS.md` §3
+- `magellon_schemal.sql` (CoreService DB schema dump) — preserved in git history only.
 
----
+## Leftover non-doc artifacts in this directory
 
-## How to add a new doc
+- `MRC_EXTENDED_HEADER_EXAMPLE.json` — sample MRC extended-header payload referenced from the code, not consolidated.
+- `tutorial/` — Python tutorial scripts + sample `.mrc` files; not Markdown docs.
 
-Before adding to this directory, ask:
-
-1. **Is it canonical?** Then it gets a status banner, a date, and a
-   companion link. Update this index.
-2. **Is it a phase / migration runbook?** Same shape. Plan to retire it
-   from this index once the work ships — leave the file in git for
-   history.
-3. **Is it a draft / proposal?** Mark `Status: Proposal, <date>`. If it
-   doesn't land within a release cycle, retire it.
-
-Avoid `*_PLAN.md` filenames for content that survives the plan; rename
-to `*_SPEC.md` once the plan section is gone.
+These stayed in place because they're code-level reference data, not the
+narrative documentation the consolidation absorbed.
