@@ -1,0 +1,4 @@
+category,input_file,score,duration_seconds,success,score_txt,error
+bad,C:\Users\punee\magellon_testing\Magellon\Sandbox\eval_micrograph_lai\input_examples\bad\bad1.png,0.7282795310020447,3.7951614999910817,True,C:\Users\punee\magellon_testing\Magellon\Sandbox\eval_micrograph_lai\benchmark_outputs\bad\bad1_score.txt,
+empty,C:\Users\punee\magellon_testing\Magellon\Sandbox\eval_micrograph_lai\input_examples\empty\empty_avg.jpg,0.5946516990661621,4.049594200041611,True,C:\Users\punee\magellon_testing\Magellon\Sandbox\eval_micrograph_lai\benchmark_outputs\empty\empty_avg_score.txt,
+good,C:\Users\punee\magellon_testing\Magellon\Sandbox\eval_micrograph_lai\input_examples\good\great.png,0.9179549217224121,3.499410499993246,True,C:\Users\punee\magellon_testing\Magellon\Sandbox\eval_micrograph_lai\benchmark_outputs\good\great_score.txt,

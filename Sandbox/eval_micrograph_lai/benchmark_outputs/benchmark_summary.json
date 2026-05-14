@@ -1,0 +1,40 @@
+{
+  "examples": [
+    {
+      "category": "bad",
+      "input_path": "C:\\Users\\punee\\magellon_testing\\Magellon\\Sandbox\\eval_micrograph_lai\\input_examples\\bad\\bad1.png",
+      "score_txt": "C:\\Users\\punee\\magellon_testing\\Magellon\\Sandbox\\eval_micrograph_lai\\benchmark_outputs\\bad\\bad1_score.txt",
+      "duration_seconds": 3.7951614999910817,
+      "returncode": 0,
+      "stdout": "Loaded model from C:\\Users\\punee\\magellon_testing\\Magellon\\Sandbox\\eval_micrograph_lai\\boxnet.pt on device cpu\nUse .to(device) to load on cuda\nEvaluating micrographs using CPU.\n0.7282795310020447",
+      "stderr": "C:\\Users\\punee\\AppData\\Roaming\\Python\\Python314\\site-packages\\onnx2torch\\node_converters\\slice.py:63: UserWarning: Using a non-tuple sequence for multidimensional indexing is deprecated and will be changed in pytorch 2.9; use x[tuple(seq)] instead of x[seq]. In pytorch 2.9 this will be interpreted as tensor index, x[torch.tensor(seq)], which will result either in an error or a different result (Triggered internally at C:\\actions-runner\\_work\\pytorch\\pytorch\\pytorch\\torch\\csrc\\autograd\\python_variable_indexing.cpp:353.)\n  x = x[pos_axes_slices]",
+      "success": true,
+      "score": 0.7282795310020447,
+      "error": null
+    },
+    {
+      "category": "empty",
+      "input_path": "C:\\Users\\punee\\magellon_testing\\Magellon\\Sandbox\\eval_micrograph_lai\\input_examples\\empty\\empty_avg.jpg",
+      "score_txt": "C:\\Users\\punee\\magellon_testing\\Magellon\\Sandbox\\eval_micrograph_lai\\benchmark_outputs\\empty\\empty_avg_score.txt",
+      "duration_seconds": 4.049594200041611,
+      "returncode": 0,
+      "stdout": "Loaded model from C:\\Users\\punee\\magellon_testing\\Magellon\\Sandbox\\eval_micrograph_lai\\boxnet.pt on device cpu\nUse .to(device) to load on cuda\nEvaluating micrographs using CPU.\n0.5946516990661621",
+      "stderr": "C:\\Users\\punee\\AppData\\Roaming\\Python\\Python314\\site-packages\\onnx2torch\\node_converters\\slice.py:63: UserWarning: Using a non-tuple sequence for multidimensional indexing is deprecated and will be changed in pytorch 2.9; use x[tuple(seq)] instead of x[seq]. In pytorch 2.9 this will be interpreted as tensor index, x[torch.tensor(seq)], which will result either in an error or a different result (Triggered internally at C:\\actions-runner\\_work\\pytorch\\pytorch\\pytorch\\torch\\csrc\\autograd\\python_variable_indexing.cpp:353.)\n  x = x[pos_axes_slices]",
+      "success": true,
+      "score": 0.5946516990661621,
+      "error": null
+    },
+    {
+      "category": "good",
+      "input_path": "C:\\Users\\punee\\magellon_testing\\Magellon\\Sandbox\\eval_micrograph_lai\\input_examples\\good\\great.png",
+      "score_txt": "C:\\Users\\punee\\magellon_testing\\Magellon\\Sandbox\\eval_micrograph_lai\\benchmark_outputs\\good\\great_score.txt",
+      "duration_seconds": 3.499410499993246,
+      "returncode": 0,
+      "stdout": "Loaded model from C:\\Users\\punee\\magellon_testing\\Magellon\\Sandbox\\eval_micrograph_lai\\boxnet.pt on device cpu\nUse .to(device) to load on cuda\nEvaluating micrographs using CPU.\n0.9179549217224121",
+      "stderr": "C:\\Users\\punee\\AppData\\Roaming\\Python\\Python314\\site-packages\\onnx2torch\\node_converters\\slice.py:63: UserWarning: Using a non-tuple sequence for multidimensional indexing is deprecated and will be changed in pytorch 2.9; use x[tuple(seq)] instead of x[seq]. In pytorch 2.9 this will be interpreted as tensor index, x[torch.tensor(seq)], which will result either in an error or a different result (Triggered internally at C:\\actions-runner\\_work\\pytorch\\pytorch\\pytorch\\torch\\csrc\\autograd\\python_variable_indexing.cpp:353.)\n  x = x[pos_axes_slices]",
+      "success": true,
+      "score": 0.9179549217224121,
+      "error": null
+    }
+  ]
+}

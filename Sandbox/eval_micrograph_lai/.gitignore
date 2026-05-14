@@ -1,0 +1,16 @@
+.DS_Store
+.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.idea/
+.vscode/
+*.log
+*.sqlite3
+*.db
+coverage/
+*.egg-info/
+.eggs/
+*.tmp
+__MACOSX/
