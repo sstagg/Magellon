@@ -146,8 +146,15 @@ Sandbox/particle_picking_topaz/example_images/topaz_picks/
 Sandbox/hole_square_detection_ptolemy/weights/*.onnx
 Sandbox/hole_square_detection_ptolemy/coco/
 
+# MicAssess model weights (large binary files, not for git)
+Sandbox/Ice_qulaity_MicAssess/weights/
+
 # ---------------------------------------------------------------------------
 # Resources/Images: bulk MRC/PNG data; only the Readme is tracked
 # ---------------------------------------------------------------------------
 Resources/Images/*
 !Resources/Images/Readme.md
+
+gpfs/
+home/
+jobs/
