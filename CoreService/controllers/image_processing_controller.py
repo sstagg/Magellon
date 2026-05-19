@@ -439,6 +439,79 @@ async def ptolemy_hole_dispatch(
 
 
 # ---------------------------------------------------------------------------
+# Ptolemy — job status + detection results read endpoints
+# ---------------------------------------------------------------------------
+
+@image_processing_router.get(
+    "/jobs/{job_id}",
+    summary="Poll the status of a dispatched detection (or FFT) job. "
+            "Returns the job envelope from JobManager (status, progress, error).",
+)
+async def get_image_job_status(
+    job_id: UUID,
+    user_id: UUID = Depends(get_current_user_id),
+):
+    from services.job_manager import job_manager
+    try:
+        return job_manager.get_job(str(job_id))
+    except LookupError:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+
+
+class DetectionResultResponse(BaseModel):
+    category: str
+    detections: list
+    image_shape: Optional[list] = None
+
+
+@image_processing_router.get(
+    "/{image_id}/detections",
+    response_model=DetectionResultResponse,
+    summary="Fetch the most recent stored detection result (square or hole) "
+            "for a given image. Returns detections in MRC pixel coordinates "
+            "plus the image dimensions needed for scaling overlays.",
+)
+def get_image_detections(
+    image_id: UUID,
+    db: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id),
+):
+    import json as _json
+    from models.sqlalchemy_models import ImageMetaData as _IMD
+
+    row = (
+        db.query(_IMD)
+        .filter(
+            _IMD.image_id == image_id,
+            _IMD.name.in_(["SquareDetection Data", "HoleDetection Data"]),
+        )
+        .order_by(_IMD.oid.desc())
+        .first()
+    )
+    if row is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No detection results found for image {image_id}",
+        )
+
+    raw = row.data
+    try:
+        if isinstance(raw, (bytes, bytearray)):
+            payload = _json.loads(raw.decode("utf-8"))
+        else:
+            payload = _json.loads(raw) if raw else {}
+    except Exception:
+        payload = {}
+
+    category = row.name.replace(" Data", "") if row.name else "Unknown"
+    return DetectionResultResponse(
+        category=category,
+        detections=payload.get("detections", []),
+        image_shape=payload.get("image_shape"),
+    )
+
+
+# ---------------------------------------------------------------------------
 # Topaz (particle picking + denoising) — manual dispatch endpoints
 # ---------------------------------------------------------------------------
 

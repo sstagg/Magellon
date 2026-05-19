@@ -55,8 +55,12 @@ def _load(input_file: str) -> np.ndarray:
 
 # --- square detection (low-mag) ---------------------------------------------
 
-def run_square_detection(input_file: str) -> List[dict]:
+def run_square_detection(input_file: str) -> tuple[list[dict], list[int]]:
+    """Returns (detections, [height, width]) in MRC pixel coordinates."""
     image = _load(input_file)
+    img_h = int(image.shape[-2])
+    img_w = int(image.shape[-1])
+
     ex = Exposure(image)
     ex.make_mask(algorithms.PMM_Segmenter())
     ex.process_mask(algorithms.LowMag_Process_Mask())
@@ -69,7 +73,7 @@ def run_square_detection(input_file: str) -> List[dict]:
     intens   = ex.mean_intensities
     scores   = ex.crops.scores
 
-    return [
+    dets = [
         {
             "vertices":   vertices[i],
             "center":     centers[i],
@@ -79,12 +83,17 @@ def run_square_detection(input_file: str) -> List[dict]:
         }
         for i in np.argsort(scores)[::-1]
     ]
+    return dets, [img_h, img_w]
 
 
 # --- hole detection (med-mag) ------------------------------------------------
 
-def run_hole_detection(input_file: str) -> List[dict]:
+def run_hole_detection(input_file: str) -> tuple[list[dict], list[int]]:
+    """Returns (detections, [height, width]) in MRC pixel coordinates."""
     image = _load(input_file)
+    img_h = int(image.shape[-2])
+    img_w = int(image.shape[-1])
+
     ex = Exposure(image)
 
     seg = algorithms.UNet_Segmenter(64, 9, model_path=UNET_ONNX)
@@ -100,7 +109,7 @@ def run_hole_detection(input_file: str) -> List[dict]:
     centers  = np.round(ex.crops.center_coords.as_matrix_y()).astype(int).tolist()
     scores   = ex.crops.scores
 
-    return [
+    dets = [
         {
             "vertices": vertices[i],
             "center":   centers[i],
@@ -109,3 +118,4 @@ def run_hole_detection(input_file: str) -> List[dict]:
         }
         for i in np.argsort(scores)[::-1]
     ]
+    return dets, [img_h, img_w]

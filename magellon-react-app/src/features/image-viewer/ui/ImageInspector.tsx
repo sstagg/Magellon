@@ -46,6 +46,7 @@ import { ImageInfoHeader } from "./ImageInfoHeader.tsx";
 import { CTFAnalysisPanel } from "./CTFAnalysisPanel.tsx";
 import { FrameAlignmentPanel } from "./FrameAlignmentPanel.tsx";
 import { ImageDetectionToolbar } from "./ImageDetectionToolbar.tsx";
+import { DetectionResult } from '../api/PtolemyDetectionService.ts';
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
 
@@ -61,6 +62,9 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
     // Refs for advanced functionality
     const imageViewerRef = useRef<HTMLDivElement>(null);
     const [isFullscreen, setIsFullscreen] = useState(false);
+
+    // Detection overlay — populated by ImageDetectionToolbar after a job completes
+    const [detectionOverlay, setDetectionOverlay] = useState<DetectionResult | null>(null);
 
     // UI state
     const [imageError, setImageError] = useState<string | null>(null);
@@ -139,9 +143,10 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
         refetch: refetchImageParticlePickings
     } = useImageParticlePickings(selectedImage?.name, false);
 
-    // Clear error when image changes
+    // Clear error and overlay when image changes
     useEffect(() => {
         setImageError(null);
+        setDetectionOverlay(null);
     }, [selectedImage]);
 
     // Enhanced tab configuration with dynamic badges
@@ -376,6 +381,7 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                                     <ImageDetectionToolbar
                                         selectedImage={selectedImage}
                                         sessionName={sessionName}
+                                        onDetectionComplete={setDetectionOverlay}
                                     />
                                 </Box>
                                 <ImageViewer
@@ -383,6 +389,7 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                                     width={isMobile ? IMAGE_SIZE_MOBILE : IMAGE_SIZE_DESKTOP}
                                     height={isMobile ? IMAGE_SIZE_MOBILE : IMAGE_SIZE_DESKTOP}
                                     imageStyle={imageStyle}
+                                    detectionOverlay={detectionOverlay}
                                 />
 
                             </Box>

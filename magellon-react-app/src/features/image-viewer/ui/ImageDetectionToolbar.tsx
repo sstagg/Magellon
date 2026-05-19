@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     Alert,
     Box,
@@ -6,6 +6,7 @@ import {
     CircularProgress,
     Divider,
     IconButton,
+    LinearProgress,
     Menu,
     MenuItem,
     Paper,
@@ -19,7 +20,10 @@ import {
 } from '@mui/icons-material';
 import ImageInfoDto from '../../../entities/image/types.ts';
 import {
+    DetectionResult,
     dispatchPtolemyDetection,
+    getImageDetections,
+    getJobStatus,
     PtolemyDetectionMode,
     PtolemyDispatchResponse,
 } from '../api/PtolemyDetectionService.ts';
@@ -27,6 +31,7 @@ import {
 interface ImageDetectionToolbarProps {
     selectedImage: ImageInfoDto;
     sessionName: string;
+    onDetectionComplete?: (result: DetectionResult) => void;
 }
 
 type SnackbarState = {
@@ -50,11 +55,16 @@ const MODE_LABEL: Record<PtolemyDetectionMode, string> = {
     hole: 'Hole detection',
 };
 
+const POLL_INTERVAL_MS = 2_000;
+const POLL_MAX_ATTEMPTS = 60;   // 2 min timeout
+
 export const ImageDetectionToolbar: React.FC<ImageDetectionToolbarProps> = ({
     selectedImage,
     sessionName,
+    onDetectionComplete,
 }) => {
     const [busyMode, setBusyMode] = useState<PtolemyDetectionMode | null>(null);
+    const [polling, setPolling] = useState(false);
     const [lastDispatch, setLastDispatch] = useState<PtolemyDispatchResponse | null>(null);
     const [actionsAnchor, setActionsAnchor] = useState<HTMLElement | null>(null);
     const [snackbar, setSnackbar] = useState<SnackbarState>({
@@ -62,11 +72,69 @@ export const ImageDetectionToolbar: React.FC<ImageDetectionToolbarProps> = ({
         message: '',
         severity: 'info',
     });
+    const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const pollAttemptsRef = useRef(0);
 
     const imagePath = useMemo(
         () => buildImagePath(selectedImage, sessionName),
         [selectedImage, sessionName],
     );
+
+    // Cancel any ongoing poll when the image changes
+    useEffect(() => {
+        return () => {
+            if (pollTimerRef.current !== null) {
+                clearTimeout(pollTimerRef.current);
+                pollTimerRef.current = null;
+            }
+            setPolling(false);
+        };
+    }, [selectedImage.oid]);
+
+    const pollUntilDone = (jobId: string, imageId: string) => {
+        pollAttemptsRef.current = 0;
+        setPolling(true);
+
+        const tick = async () => {
+            if (pollAttemptsRef.current >= POLL_MAX_ATTEMPTS) {
+                setPolling(false);
+                setSnackbar({ open: true, message: 'Detection timed out waiting for result', severity: 'warning' });
+                return;
+            }
+            pollAttemptsRef.current += 1;
+
+            try {
+                const statusResp = await getJobStatus(jobId);
+                const status = statusResp.data.status;
+
+                if (status === 'completed') {
+                    setPolling(false);
+                    try {
+                        const detResp = await getImageDetections(imageId);
+                        const result = detResp.data;
+                        onDetectionComplete?.(result);
+                        setSnackbar({
+                            open: true,
+                            message: `Found ${result.detections.length} ${result.category === 'SquareDetection' ? 'square' : 'hole'}(s)`,
+                            severity: 'success',
+                        });
+                    } catch {
+                        setSnackbar({ open: true, message: 'Detection done but could not fetch results', severity: 'warning' });
+                    }
+                } else if (status === 'failed' || status === 'cancelled') {
+                    setPolling(false);
+                    setSnackbar({ open: true, message: `Detection ${status}`, severity: 'error' });
+                } else {
+                    pollTimerRef.current = setTimeout(tick, POLL_INTERVAL_MS);
+                }
+            } catch {
+                // network hiccup — retry
+                pollTimerRef.current = setTimeout(tick, POLL_INTERVAL_MS * 2);
+            }
+        };
+
+        pollTimerRef.current = setTimeout(tick, POLL_INTERVAL_MS);
+    };
 
     const dispatch = async (mode: PtolemyDetectionMode) => {
         if (!imagePath) {
@@ -91,6 +159,9 @@ export const ImageDetectionToolbar: React.FC<ImageDetectionToolbarProps> = ({
                 message: `${MODE_LABEL[mode]} dispatched`,
                 severity: 'success',
             });
+            if (selectedImage.oid) {
+                pollUntilDone(response.data.job_id, selectedImage.oid);
+            }
         } catch (error: any) {
             setSnackbar({
                 open: true,
@@ -103,11 +174,12 @@ export const ImageDetectionToolbar: React.FC<ImageDetectionToolbarProps> = ({
         }
     };
 
-    const disabled = !selectedImage.name || !sessionName || !!busyMode;
+    const disabled = !selectedImage.name || !sessionName || !!busyMode || polling;
 
     return (
         <>
             <Paper elevation={1} sx={{ px: 1, py: 0.5, width: '100%' }}>
+                {polling && <LinearProgress sx={{ height: 2, mb: 0.25 }} />}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
                     <Tooltip title="Run Ptolemy square detection">
                         <span>
@@ -144,9 +216,9 @@ export const ImageDetectionToolbar: React.FC<ImageDetectionToolbarProps> = ({
                         <>
                             <Chip
                                 size="small"
-                                color="success"
+                                color={polling ? 'default' : 'success'}
                                 variant="outlined"
-                                label={lastDispatch.category}
+                                label={polling ? `${lastDispatch.category} running…` : lastDispatch.category}
                                 sx={{ height: 22, fontSize: '0.68rem' }}
                             />
                             <Chip

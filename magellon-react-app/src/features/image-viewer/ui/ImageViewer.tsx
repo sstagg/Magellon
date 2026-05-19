@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuthenticatedImage } from '../../../shared/lib/useAuthenticatedImage.ts';
+import { DetectionResult, PtolemyDetection } from '../api/PtolemyDetectionService.ts';
 
 interface ImageViewerProps {
     width: number;
@@ -9,11 +10,71 @@ interface ImageViewerProps {
     brightness?: number; // 0-100
     contrast?: number; // 0-100
     scale?: number; // 0.1-3
+    detectionOverlay?: DetectionResult | null;
 }
 
 interface Point {
     x: number;
     y: number;
+}
+
+// Ptolemy stores vertices as [y, x] pairs (as_matrix_y layout).
+// This helper maps one vertex to SVG coordinates given the source image dimensions.
+function mrcToSvg(
+    vy: number,
+    vx: number,
+    imgH: number,
+    imgW: number,
+    svgW: number,
+    svgH: number,
+): [number, number] {
+    const uniformScale = Math.min(svgW / imgW, svgH / imgH);
+    const offsetX = (svgW - imgW * uniformScale) / 2;
+    const offsetY = (svgH - imgH * uniformScale) / 2;
+    return [offsetX + vx * uniformScale, offsetY + vy * uniformScale];
+}
+
+function DetectionPolygons({
+    detections,
+    imageShape,
+    svgW,
+    svgH,
+    category,
+}: {
+    detections: PtolemyDetection[];
+    imageShape: number[];
+    svgW: number;
+    svgH: number;
+    category: string;
+}) {
+    const [imgH, imgW] = imageShape;
+    if (!imgH || !imgW) return null;
+
+    const isHole = category === 'HoleDetection';
+    const strokeColor = isHole ? '#00e5ff' : '#ffeb3b';
+
+    return (
+        <>
+            {detections.map((det, i) => {
+                const svgPts = det.vertices.map(([vy, vx]) =>
+                    mrcToSvg(vy, vx, imgH, imgW, svgW, svgH),
+                );
+                const pointsStr = svgPts.map(([x, y]) => `${x},${y}`).join(' ');
+                const [cx, cy] = mrcToSvg(det.center[0], det.center[1], imgH, imgW, svgW, svgH);
+                return (
+                    <g key={i} opacity={0.85}>
+                        <polygon
+                            points={pointsStr}
+                            fill="none"
+                            stroke={strokeColor}
+                            strokeWidth={1.5}
+                        />
+                        <circle cx={cx} cy={cy} r={3} fill={strokeColor} opacity={0.9} />
+                    </g>
+                );
+            })}
+        </>
+    );
 }
 
 const ImageViewer: React.FC<ImageViewerProps> = ({
@@ -23,7 +84,8 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
                                                      imageStyle,
                                                      brightness = 50,
                                                      contrast = 50,
-                                                     scale = 1
+                                                     scale = 1,
+                                                     detectionOverlay,
                                                  }) => {
     const [circles, setCircles] = useState<Point[]>([]);
 
@@ -112,6 +174,12 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
     const containerWidth = width * scale;
     const containerHeight = height * scale;
 
+    const hasOverlay =
+        detectionOverlay &&
+        detectionOverlay.detections.length > 0 &&
+        Array.isArray(detectionOverlay.image_shape) &&
+        detectionOverlay.image_shape.length >= 2;
+
     return (
         <div style={{
             width: containerWidth,
@@ -168,6 +236,18 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
                             }}
                         />
                     ) : null}
+
+                    {/* Detection overlay — rendered in the same transform group so
+                        user zoom/flip/rotate applies uniformly */}
+                    {hasOverlay && (
+                        <DetectionPolygons
+                            detections={detectionOverlay!.detections}
+                            imageShape={detectionOverlay!.image_shape!}
+                            svgW={width}
+                            svgH={height}
+                            category={detectionOverlay!.category}
+                        />
+                    )}
                 </g>
 
                 {/* Overlay for circles and measurements */}

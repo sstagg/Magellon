@@ -18,6 +18,7 @@ preserve old import names.
 from __future__ import annotations
 
 import logging
+import uuid
 from typing import Type
 
 from magellon_sdk.base import PluginBase
@@ -114,12 +115,13 @@ class PtolemySquarePlugin(PluginBase[PtolemyInput, SquareDetectionOutput]):
         try:
             if step is not None:
                 emit_step(step.progress(10.0, "loading MRC"))
-            dets = run_square_detection(input_data.input_file)
+            dets, img_shape = run_square_detection(input_data.input_file)
             if step is not None:
                 emit_step(step.progress(95.0, f"found {len(dets)} squares"))
                 emit_step(step.completed())
             return SquareDetectionOutput(
                 detections=[Detection(**d) for d in dets],
+                extras={"image_shape": img_shape},
             )
         except Exception as exc:
             if step is not None:
@@ -172,12 +174,13 @@ class PtolemyHolePlugin(PluginBase[PtolemyInput, HoleDetectionOutput]):
         try:
             if step is not None:
                 emit_step(step.progress(10.0, "loading MRC"))
-            dets = run_hole_detection(input_data.input_file)
+            dets, img_shape = run_hole_detection(input_data.input_file)
             if step is not None:
                 emit_step(step.progress(95.0, f"found {len(dets)} holes"))
                 emit_step(step.completed())
             return HoleDetectionOutput(
                 detections=[Detection(**d) for d in dets],
+                extras={"image_shape": img_shape},
             )
         except Exception as exc:
             if step is not None:
@@ -195,10 +198,22 @@ def _wrap_result(
     input_file: str,
     message: str,
 ) -> TaskResultMessage:
+    # Extract image_id from task data so the result processor can link
+    # the ImageMetaData row to the correct image row.
+    image_id = None
+    data = task.data if isinstance(task.data, dict) else {}
+    raw_id = data.get("image_id")
+    if raw_id is not None:
+        try:
+            image_id = uuid.UUID(str(raw_id))
+        except (ValueError, AttributeError):
+            pass
+
     return TaskResultMessage(
         worker_instance_id=task.worker_instance_id,
         job_id=task.job_id,
         task_id=task.id,
+        image_id=image_id,
         image_path=input_file,
         session_id=task.session_id,
         session_name=task.session_name,
