@@ -66,7 +66,11 @@ function DetectionPolygons({
                 const ys = svgPts.map(([, y]) => y);
                 const boxW = Math.max(...xs) - Math.min(...xs);
                 const boxH = Math.max(...ys) - Math.min(...ys);
-                const tooLarge = boxW > svgW * 0.15 || boxH > svgH * 0.15;
+                // Hide polygon when its axis-aligned bounding box exceeds 30% of the
+                // viewer — catches coarse grid-level bounding boxes (~36%) returned by
+                // MedMag when individual holes aren't resolved, while keeping normal
+                // grid-square polygons (~17-24%) visible.
+                const tooLarge = boxW > svgW * 0.30 || boxH > svgH * 0.30;
                 return (
                     <g key={i} opacity={0.85}>
                         {!tooLarge && (
@@ -77,7 +81,7 @@ function DetectionPolygons({
                                 strokeWidth={1.5}
                             />
                         )}
-                        <circle cx={cx} cy={cy} r={3} fill={strokeColor} opacity={0.9} />
+                        <circle cx={cx} cy={cy} r={tooLarge ? 6 : 3} fill={strokeColor} opacity={0.9} />
                     </g>
                 );
             })}
