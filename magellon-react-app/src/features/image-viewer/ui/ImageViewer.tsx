@@ -53,21 +53,15 @@ function DetectionPolygons({
     const isHole = category === 'HoleDetection';
     const strokeColor = isHole ? '#00e5ff' : '#ffeb3b';
 
-    // Ptolemy coordinates are in MRC array space where row 0 is the physical
-    // bottom of the image (y-up convention). The PNG thumbnail is served with
-    // the same raw byte order (row 0 at top of screen), effectively flipping
-    // y relative to physical reality. To align the overlay with the displayed
-    // image we must apply the same flip to both axes (equivalent to rotating
-    // the overlay 180° around the image centre).
-    const flip = (vy: number, vx: number) =>
-        mrcToSvg(imgH - vy, imgW - vx, imgH, imgW, svgW, svgH);
-
+    // Ptolemy's PointSet2D.as_matrix_y() returns [col, row] pairs (its .y field
+    // stores columns, .x stores rows — field names are inverted from convention).
+    // Destructuring as [vy, vx] gives vy=col, vx=row; mrcToSvg expects (row, col).
     return (
         <>
             {detections.map((det, i) => {
-                const svgPts = det.vertices.map(([vy, vx]) => flip(vy, vx));
+                const svgPts = det.vertices.map(([vy, vx]) => mrcToSvg(vx, vy, imgH, imgW, svgW, svgH));
                 const pointsStr = svgPts.map(([x, y]) => `${x},${y}`).join(' ');
-                const [cx, cy] = flip(det.center[0], det.center[1]);
+                const [cx, cy] = mrcToSvg(det.center[1], det.center[0], imgH, imgW, svgW, svgH);
                 return (
                     <g key={i} opacity={0.85}>
                         <polygon
