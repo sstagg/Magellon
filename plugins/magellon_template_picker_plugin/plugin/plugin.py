@@ -201,6 +201,7 @@ class TemplatePickerPlugin(PluginBase[TemplatePickerInput, ParticlePickingOutput
 def build_pick_result(
     task: TaskMessage, output: ParticlePickingOutput
 ) -> TaskResultMessage:
+    import uuid as _uuid
     files = []
     if output.particles_json_path:
         files.append(
@@ -210,10 +211,20 @@ def build_pick_result(
                 required=True,
             )
         )
+    data = task.data if isinstance(task.data, dict) else {}
+    image_id = None
+    raw_id = data.get("image_id")
+    if raw_id is not None:
+        try:
+            image_id = _uuid.UUID(str(raw_id))
+        except (ValueError, AttributeError):
+            pass
     return TaskResultMessage(
         worker_instance_id=task.worker_instance_id,
         job_id=task.job_id,
         task_id=task.id,
+        image_id=image_id,
+        image_path=data.get("image_path", ""),
         session_id=task.session_id,
         session_name=task.session_name,
         code=200,
@@ -223,6 +234,7 @@ def build_pick_result(
             "num_particles": output.num_particles,
             "particles_json_path": output.particles_json_path,
             "image_shape": output.image_shape,
+            "ipp_name": data.get("ipp_name", "Auto-pick"),
             **output.extras,
         },
         output_files=files,

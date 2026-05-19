@@ -43,6 +43,8 @@ interface UseParticleOperationsParams {
     showSnackbar: (message: string, severity: 'success' | 'error' | 'info' | 'warning') => void;
     /** Called after a successful run-and-save so the IPP dropdown refreshes. */
     onIppSaved?: (ippOid: string, ippName: string) => void;
+    /** Called periodically during RMQ dispatch polling to refresh the IPP list. */
+    onRefreshIppList?: () => void;
 }
 
 export function useParticleOperations({
@@ -55,6 +57,7 @@ export function useParticleOperations({
     pickerParams,
     showSnackbar,
     onIppSaved,
+    onRefreshIppList,
 }: UseParticleOperationsParams) {
     const [particles, setParticles] = useState<Point[]>([]);
     const [selectedParticles, setSelectedParticles] = useState<Set<string>>(new Set());
@@ -317,6 +320,78 @@ export function useParticleOperations({
         }
     };
 
+    /** Dispatch a picking task via RMQ (fire-and-forget). Polls for the IPP
+     *  to appear in the dropdown; works for all backends including RMQ-only
+     *  ones (Topaz) that have no HTTP SYNC endpoint. */
+    const dispatchPick = async ({
+        targetBackend,
+        ippName,
+    }: {
+        targetBackend: string;
+        ippName: string;
+    }) => {
+        if (!selectedImage?.name) {
+            showSnackbar('No image selected for picking', 'warning');
+            return;
+        }
+        if (!selectedImage.oid || !sessionName) {
+            showSnackbar('Image must be part of a session to use RMQ dispatch', 'warning');
+            return;
+        }
+
+        const API_URL = settings.ConfigData.SERVER_API_URL;
+        const token = localStorage.getItem('access_token');
+        const authHeader: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+        setIsAutoPickingRunning(true);
+
+        try {
+            // Merge picker params as engine_opts so the plugin can model_validate them.
+            const engineOpts: Record<string, any> = { ...pickerParams };
+            delete engineOpts.image_path; // resolved server-side from image_id+session_name
+
+            const body = {
+                image_path: selectedImage.name,
+                image_id: selectedImage.oid,
+                session_name: sessionName,
+                target_backend: targetBackend,
+                ipp_name: ippName,
+                engine_opts: engineOpts,
+            };
+
+            const res = await fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/dispatch`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...authHeader },
+                body: JSON.stringify(body),
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ detail: res.statusText }));
+                throw new Error(err.detail || `Server error ${res.status}`);
+            }
+
+            showSnackbar(`Task queued (${targetBackend}) — results will appear in the IPP dropdown`, 'info');
+
+            // Poll for the IPP record to appear — refresh the list every 5s up to 20 times (100s).
+            let attempts = 0;
+            const poll = () => {
+                attempts++;
+                onRefreshIppList?.();
+                if (attempts < 20) {
+                    setTimeout(poll, 5000);
+                } else {
+                    setIsAutoPickingRunning(false);
+                    showSnackbar('Picking task running — refresh the IPP dropdown when done', 'info');
+                }
+            };
+            setTimeout(poll, 5000);
+
+        } catch (err: any) {
+            setIsAutoPickingRunning(false);
+            showSnackbar(`Dispatch failed: ${err.message}`, 'error');
+        }
+    };
+
     const exportParticles = () => {
         const dataStr = JSON.stringify(particles, null, 2);
         const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
@@ -381,5 +456,6 @@ export function useParticleOperations({
         exportParticles,
         importParticles,
         runAutoPicking,
+        dispatchPick,
     };
 }

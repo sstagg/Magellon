@@ -14,6 +14,7 @@ from magellon_sdk.models.tasks import (
     HOLE_DETECTION,
     MICROGRAPH_DENOISING,
     MicrographDenoiseInput,
+    PARTICLE_PICKING,
     PtolemyInput,
     SQUARE_DETECTION,
     TOPAZ_PARTICLE_PICKING,
@@ -217,6 +218,10 @@ def get_queue_name_by_task_type(task_type: TaskCategory, is_result: bool = False
         8: {  # TOPAZ_PARTICLE_PICKING.code
             'task': app_settings.rabbitmq_settings.TOPAZ_PICK_QUEUE_NAME,
             'result': app_settings.rabbitmq_settings.TOPAZ_PICK_OUT_QUEUE_NAME
+        },
+        3: {  # PARTICLE_PICKING.code
+            'task': getattr(app_settings.rabbitmq_settings, 'PARTICLE_PICKING_QUEUE_NAME', 'particle_picking_tasks_queue'),
+            'result': getattr(app_settings.rabbitmq_settings, 'PARTICLE_PICKING_OUT_QUEUE_NAME', 'particle_picking_out_tasks_queue'),
         },
         9: {  # MICROGRAPH_DENOISING.code
             'task': app_settings.rabbitmq_settings.MICROGRAPH_DENOISE_QUEUE_NAME,
@@ -446,6 +451,49 @@ def dispatch_topaz_pick_task(
         ptype=TOPAZ_PARTICLE_PICKING,
         pstatus=PENDING,
     )
+    if session_name:
+        task.session_name = session_name
+    return push_task_to_task_queue(task)
+
+
+def dispatch_particle_pick_task(
+    image_path: str,
+    *,
+    image_id=None,
+    session_name: str | None = None,
+    job_id=None,
+    task_id=None,
+    target_backend: str = "template-picker",
+    ipp_name: str = "Auto-pick",
+    engine_opts: dict | None = None,
+) -> bool:
+    """Dispatch a particle-picking task via the PARTICLE_PICKING RMQ queue.
+
+    Routes to the appropriate plugin (template-picker or boxnet-picker)
+    based on ``target_backend``. The plugin's ``build_pick_result``
+    echoes ``image_id`` and ``ipp_name`` back so the result processor
+    can save particles to ``ImageMetaData`` without a CoreService DB
+    look-up.
+    """
+    image_path = to_canonical_gpfs_path(image_path)
+    file_name = os.path.splitext(os.path.basename(image_path))[0]
+    data = {
+        "image_id": str(image_id) if image_id else None,
+        "image_name": file_name,
+        "image_path": image_path,
+        "input_file": image_path,
+        "ipp_name": ipp_name,
+        **(engine_opts or {}),
+    }
+    task = TaskFactory.create_task(
+        pid=task_id or uuid.uuid4(),
+        instance_id=uuid.uuid4(),
+        job_id=job_id,
+        data=data,
+        ptype=PARTICLE_PICKING,
+        pstatus=PENDING,
+    )
+    task.target_backend = target_backend
     if session_name:
         task.session_name = session_name
     return push_task_to_task_queue(task)

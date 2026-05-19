@@ -170,6 +170,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
         exportParticles,
         importParticles,
         runAutoPicking,
+        dispatchPick,
     } = useParticleOperations({
         selectedParticlePicking,
         handleIppUpdate,
@@ -183,6 +184,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
             // Refresh IPP list so the newly-saved record appears in the dropdown.
             onParticlePickingLoad();
         },
+        onRefreshIppList: onParticlePickingLoad,
     });
 
     // Register settings panel content into the app-level side panel slot
@@ -193,6 +195,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                 pickerParams={pickerParams}
                 onPickerParamsChange={setPickerParams}
                 onRun={runAutoPicking}
+                onDispatch={(targetBackend, ippName) => dispatchPick({ targetBackend, ippName })}
                 onRunBatch={sessionName ? () => setBatchDialogOpen(true) : undefined}
                 isRunning={isAutoPickingRunning}
                 onPreviewParticles={(pts) => {
@@ -215,11 +218,12 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                 imageName={selectedImage?.name || null}
                 autoPickingProgress={autoPickingProgress}
                 resultCount={lastResultCount}
+                ippName={selectedParticlePicking?.name}
             />
         );
         return () => clearContent();
     }, [settingsOpen, pickerParams, isAutoPickingRunning, autoPickingProgress, lastResultCount,
-        particles, selectedImage, previewParticles, sessionName]);
+        particles, selectedImage, previewParticles, sessionName, selectedParticlePicking?.name]);
 
     const handleExportCoco = async () => {
         if (!selectedParticlePicking?.oid) {

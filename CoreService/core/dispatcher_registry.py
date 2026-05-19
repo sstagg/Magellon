@@ -42,6 +42,7 @@ from magellon_sdk.categories.contract import (
     FFT,
     HOLE_DETECT,
     MOTIONCOR_CATEGORY,
+    PARTICLE_PICKER,
     SQUARE_DETECT,
     TOPAZ_PICK,
     CategoryContract,
@@ -52,6 +53,7 @@ from magellon_sdk.models import CTF_TASK, FFT_TASK, MOTIONCOR, TaskMessage
 from magellon_sdk.models.tasks import (
     HOLE_DETECTION,
     MICROGRAPH_DENOISING,
+    PARTICLE_PICKING,
     SQUARE_DETECTION,
     TOPAZ_PARTICLE_PICKING,
 )
@@ -190,6 +192,10 @@ def _build_legacy_queue_map() -> dict[str, str]:
     _map(HOLE_DETECT, rmq.HOLE_DETECTION_QUEUE_NAME, rmq.HOLE_DETECTION_OUT_QUEUE_NAME)
     _map(TOPAZ_PICK, rmq.TOPAZ_PICK_QUEUE_NAME, rmq.TOPAZ_PICK_OUT_QUEUE_NAME)
     _map(DENOISE, rmq.MICROGRAPH_DENOISE_QUEUE_NAME, rmq.MICROGRAPH_DENOISE_OUT_QUEUE_NAME)
+    pp_queue = getattr(rmq, "PARTICLE_PICKING_QUEUE_NAME", "particle_picking_tasks_queue")
+    pp_out = getattr(rmq, "PARTICLE_PICKING_OUT_QUEUE_NAME", "particle_picking_out_tasks_queue")
+    if pp_queue:
+        _map(PARTICLE_PICKER, pp_queue, pp_out)
     return mapping
 
 
@@ -279,6 +285,7 @@ def _build_registry(
     _make(HOLE_DETECTION, HOLE_DETECT, "bus:hole_detection")
     _make(TOPAZ_PARTICLE_PICKING, TOPAZ_PICK, "bus:topaz_pick")
     _make(MICROGRAPH_DENOISING, DENOISE, "bus:micrograph_denoise")
+    _make(PARTICLE_PICKING, PARTICLE_PICKER, "bus:particle_picking")
     return registry
 
 

@@ -38,6 +38,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from config import ORIGINAL_IMAGES_SUB_URL, app_settings
+from core.helper import dispatch_particle_pick_task
+from core.plugin_liveness_registry import get_registry as get_liveness_registry
 from core.sqlalchemy_row_level_security import check_session_access
 from database import get_db
 from dependencies.auth import get_current_user_id
@@ -329,8 +331,131 @@ async def template_pick_requirements():
     ]
 
 
+@particle_picking_router.get(
+    "/backends",
+    summary="List live particle-picking backends with their capabilities",
+)
+async def list_pp_backends():
+    """Return all live plugins registered under the ``particle_picking``
+    category. Includes each backend's capabilities so the UI can decide
+    whether to show Preview & Tune (requires Capability.PREVIEW)."""
+    registry = get_liveness_registry()
+    entries = [
+        e for e in registry.list_live()
+        if (e.category or "").replace("-", "_").lower() == "particle_picking"
+    ]
+    result = []
+    for e in entries:
+        manifest = e.manifest
+        caps = list(getattr(manifest, "capabilities", None) or [])
+        cap_values = [c.value if hasattr(c, "value") else str(c) for c in caps]
+        result.append({
+            "backend_id": e.backend_id or e.plugin_id,
+            "plugin_id": e.plugin_id,
+            "label": (manifest.name if manifest else None) or e.plugin_id,
+            "capabilities": cap_values,
+            "has_preview": Capability.PREVIEW in (caps or []),
+            "has_sync": Capability.SYNC in (caps or []),
+            "http_endpoint": e.http_endpoint,
+            "status": e.status,
+        })
+    # Always include a sentinel for RMQ-only backends that are alive but
+    # have no HTTP endpoint (e.g. topaz). They are already present in the
+    # live list above via their heartbeats; this endpoint just surfaces them.
+    return result
+
+
+class DispatchRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    image_path: str
+    image_id: Optional[str] = None
+    session_name: Optional[str] = None
+    target_backend: str = "template-picker"
+    ipp_name: str = "Auto-pick"
+    engine_opts: Optional[Dict[str, Any]] = None
+
+
+class DispatchResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    queued: bool
+    target_backend: str
+    message: str
+
+
+@particle_picking_router.post(
+    "/dispatch",
+    response_model=DispatchResponse,
+    summary="Dispatch a particle-picking task via RMQ (fire-and-forget)",
+)
+async def dispatch_particle_pick(
+    req: DispatchRequest,
+    user_id: UUID = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Enqueue a particle-picking task on the RMQ bus. Supports all
+    backends (template-picker, boxnet-picker, topaz) regardless of
+    whether they expose HTTP. The result is saved asynchronously by
+    TaskOutputProcessor when the plugin finishes.
+
+    When image_id + session_name are provided (DB image), the endpoint
+    resolves the MRC path automatically so the frontend doesn't need
+    to know the server-side filesystem layout."""
+    image_id_val: Optional[UUID] = None
+    resolved_path = req.image_path
+
+    if req.image_id:
+        try:
+            image_id_val = UUID(req.image_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid image_id UUID")
+
+        # Resolve actual MRC path from DB image record + session.
+        if req.session_name:
+            image = db.query(Image).filter(Image.oid == image_id_val).first()
+            if not image:
+                raise HTTPException(status_code=404, detail="Image not found")
+            if image.session_id and not check_session_access(user_id, image.session_id, action="write"):
+                raise HTTPException(status_code=403, detail="Access denied to this image")
+            mrc = _resolve_mrc_path(req.session_name, image.name)
+            if mrc:
+                resolved_path = mrc
+
+    loop = asyncio.get_running_loop()
+    ok = await loop.run_in_executor(
+        None,
+        lambda: dispatch_particle_pick_task(
+            resolved_path,
+            image_id=image_id_val,
+            session_name=req.session_name,
+            target_backend=req.target_backend,
+            ipp_name=req.ipp_name,
+            engine_opts=req.engine_opts,
+        ),
+    )
+    if not ok:
+        raise HTTPException(status_code=503, detail="Failed to enqueue task — RMQ unavailable")
+    return DispatchResponse(
+        queued=True,
+        target_backend=req.target_backend,
+        message=f"Task queued for {req.target_backend}",
+    )
+
+
 @particle_picking_router.get("/schema/input", summary="Particle-picking input JSON schema")
-async def template_pick_input_schema():
+async def template_pick_input_schema(backend: Optional[str] = None):
+    """Return the JSON schema for the named backend's input model.
+    Falls back to TemplatePickerInput when no live backend is found
+    or the backend has no announced schema."""
+    if backend:
+        registry = get_liveness_registry()
+        for entry in registry.list_live():
+            if (entry.category or "").replace("-", "_").lower() != "particle_picking":
+                continue
+            bid = (entry.backend_id or entry.plugin_id or "").lower()
+            if bid == backend.lower() and entry.input_schema:
+                return entry.input_schema
     return TemplatePickerInput.model_json_schema()
 
 

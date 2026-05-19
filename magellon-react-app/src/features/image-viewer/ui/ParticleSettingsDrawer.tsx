@@ -12,6 +12,10 @@ import {
     Tooltip,
     LinearProgress,
     IconButton,
+    MenuItem,
+    Select,
+    FormControl,
+    InputLabel,
     Portal,
     alpha,
     useTheme,
@@ -26,23 +30,37 @@ import {
     Close as DiscardIcon,
     Tune as TuneIcon,
     Layers as BatchIcon,
+    Send as DispatchIcon,
 } from '@mui/icons-material';
 import { SchemaForm, type BrowseFileRequest } from '../../../shared/ui/SchemaForm.tsx';
 import { ImagePickerDialog } from '../../plugin-runner/ui/ImagePickerDialog.tsx';
 import { settings as appSettings } from '../../../shared/config/settings.ts';
 import { Point, TEMPLATE_PICKER_PATH } from '../lib/useParticleOperations.ts';
 
+interface BackendInfo {
+    backend_id: string;
+    plugin_id: string;
+    label: string;
+    capabilities: string[];
+    has_preview: boolean;
+    has_sync: boolean;
+    http_endpoint: string | null;
+    status: string;
+}
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-export type DrawerState = 'configure' | 'previewing' | 'preview' | 'running' | 'results';
+export type DrawerState = 'configure' | 'previewing' | 'preview' | 'running' | 'dispatched' | 'results';
 
 export interface ParticleSettingsDrawerProps {
     open: boolean;
     pickerParams: Record<string, any>;
     onPickerParamsChange: (params: Record<string, any>) => void;
     onRun: () => void;
+    /** Dispatch a picking task via RMQ for the given backend and IPP name. */
+    onDispatch: (targetBackend: string, ippName: string) => void;
     /** Opens the batch-run modal so the user can pick the cohort of images. */
     onRunBatch?: () => void;
     isRunning: boolean;
@@ -52,6 +70,8 @@ export interface ParticleSettingsDrawerProps {
     imageName: string | null;
     autoPickingProgress: number;
     resultCount: number | null;
+    /** Optional IPP name for the run — used as the RMQ task label. */
+    ippName?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -107,6 +127,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
     pickerParams,
     onPickerParamsChange,
     onRun,
+    onDispatch,
     onRunBatch,
     isRunning,
     onPreviewParticles,
@@ -115,6 +136,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
     imageName,
     autoPickingProgress,
     resultCount,
+    ippName,
 }) => {
     const theme = useTheme();
     const [schema, setSchema] = useState<any>(null);
@@ -127,6 +149,14 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
     const [previewCount, setPreviewCount] = useState(0);
     const [scoreMapPng, setScoreMapPng] = useState<string | null>(null);
     const [retuning, setRetuning] = useState(false);
+
+    // Backend selection
+    const [backends, setBackends] = useState<BackendInfo[]>([]);
+    const [selectedBackend, setSelectedBackend] = useState<string>('template-picker');
+    const [backendsLoading, setBackendsLoading] = useState(false);
+
+    const activeBackend = backends.find(b => b.backend_id === selectedBackend);
+    const canPreview = activeBackend?.has_preview ?? (selectedBackend === 'template-picker');
 
     // GPFS picker state — driven by the SchemaForm's onBrowseFile
     // callback. Same pattern the plugin test panel uses; templates
@@ -141,20 +171,40 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
 
     // Sync external running state
     useEffect(() => {
-        if (isRunning && drawerState !== 'running') setDrawerState('running');
+        if (isRunning && drawerState !== 'running' && drawerState !== 'dispatched') setDrawerState('running');
         if (!isRunning && drawerState === 'running') setDrawerState(resultCount !== null ? 'results' : 'configure');
+        if (!isRunning && drawerState === 'dispatched') setDrawerState('configure');
     }, [isRunning, resultCount]);
 
-    // Fetch schema
+    // Load live backends
     useEffect(() => {
-        if (!open || schema) return;
+        if (!open) return;
+        setBackendsLoading(true);
+        fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/backends`)
+            .then((res) => res.ok ? res.json() : Promise.resolve([]))
+            .then((data: BackendInfo[]) => {
+                setBackends(data);
+                // Auto-select the first live backend if current selection is not live.
+                if (data.length > 0 && !data.find(b => b.backend_id === selectedBackend)) {
+                    setSelectedBackend(data[0].backend_id);
+                }
+            })
+            .catch(() => { /* backends endpoint optional — fall back to template-picker */ })
+            .finally(() => setBackendsLoading(false));
+    }, [open]);
+
+    // Fetch schema (re-fetch when backend changes)
+    useEffect(() => {
+        if (!open) return;
+        setSchema(null);
         setSchemaLoading(true);
-        fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/schema/input`)
+        const url = `${API_URL}${TEMPLATE_PICKER_PATH}/schema/input?backend=${encodeURIComponent(selectedBackend)}`;
+        fetch(url)
             .then((res) => { if (!res.ok) throw new Error(`${res.status}`); return res.json(); })
             .then((data) => { setSchema(data); setSchemaError(null); })
             .catch((err) => setSchemaError(`Could not load: ${err.message}`))
             .finally(() => setSchemaLoading(false));
-    }, [open, schema]);
+    }, [open, selectedBackend]);
 
     const validationErrors = useMemo(
         () => (schema ? validateParams(schema, pickerParams, imageName) : []),
@@ -239,7 +289,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
         }, 300);
     }, [previewId, onPreviewParticles, onPickerParamsChange]);
 
-    // --- Run ---
+    // --- Run (RMQ dispatch) ---
     const handleRun = () => {
         if (!isValid) { setShowErrors(true); return; }
         setShowErrors(false);
@@ -247,8 +297,9 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
             fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/preview/${previewId}`, { method: 'DELETE' }).catch(() => {});
             setPreviewId(null);
         }
-        setDrawerState('running');
-        onRun();
+        const name = ippName || `Auto-pick ${new Date().toISOString().slice(0, 16)}`;
+        setDrawerState('dispatched');
+        onDispatch(selectedBackend, name);
     };
 
     // --- Accept / Discard ---
@@ -301,28 +352,63 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                             previewing: 'Computing Preview...',
                             preview: 'Preview & Tune',
                             running: 'Running...',
+                            dispatched: 'Task Queued',
                             results: 'Results',
                         }[drawerState]}
                     </Typography>
                     {schema && drawerState === 'configure' && (
-                        <Chip label="template-picker" size="small" variant="outlined" sx={{ fontSize: '0.6rem', height: 20 }} />
+                        <Chip label={selectedBackend} size="small" variant="outlined" sx={{ fontSize: '0.6rem', height: 20 }} />
                     )}
                 </Box>
+
+                {/* Backend selector — shown in configure state */}
+                {drawerState === 'configure' && (
+                    <FormControl fullWidth size="small" sx={{ mb: 0.75 }}>
+                        <Select
+                            value={selectedBackend}
+                            onChange={(e) => {
+                                setSelectedBackend(e.target.value);
+                                setSchema(null); // will re-fetch for new backend
+                            }}
+                            displayEmpty
+                            sx={{ fontSize: '0.75rem', height: 28 }}
+                        >
+                            {backends.length === 0 && (
+                                <MenuItem value="template-picker" sx={{ fontSize: '0.75rem' }}>
+                                    template-picker
+                                </MenuItem>
+                            )}
+                            {backends.map(b => (
+                                <MenuItem key={b.backend_id} value={b.backend_id} sx={{ fontSize: '0.75rem' }}>
+                                    {b.label}
+                                    {b.has_preview && <Chip label="preview" size="small" sx={{ ml: 1, fontSize: '0.6rem', height: 16 }} />}
+                                </MenuItem>
+                            ))}
+                            {backendsLoading && (
+                                <MenuItem disabled sx={{ fontSize: '0.75rem' }}>
+                                    <CircularProgress size={12} sx={{ mr: 1 }} /> Loading…
+                                </MenuItem>
+                            )}
+                        </Select>
+                    </FormControl>
+                )}
 
                 {/* CONFIGURE: Preview + Run + Run Batch */}
                 {drawerState === 'configure' && (
                     <>
-                        <Button
-                            variant="outlined" size="small" fullWidth
-                            startIcon={<PreviewIcon sx={{ fontSize: 14 }} />} onClick={handlePreview}
-                            sx={{ textTransform: 'none', fontSize: '0.75rem', py: 0.5, mb: 0.75 }}
-                        >
-                            Preview &amp; tune (no save)
-                        </Button>
+                        {canPreview && (
+                            <Button
+                                variant="outlined" size="small" fullWidth
+                                startIcon={<PreviewIcon sx={{ fontSize: 14 }} />} onClick={handlePreview}
+                                sx={{ textTransform: 'none', fontSize: '0.75rem', py: 0.5, mb: 0.75 }}
+                            >
+                                Preview &amp; tune (no save)
+                            </Button>
+                        )}
                         <Box sx={{ display: 'flex', gap: 0.75 }}>
                             <Button
                                 variant="contained" size="small" fullWidth
-                                startIcon={<RunIcon sx={{ fontSize: 14 }} />} onClick={handleRun}
+                                startIcon={<DispatchIcon sx={{ fontSize: 14 }} />} onClick={handleRun}
                                 sx={{ textTransform: 'none', fontSize: '0.75rem', py: 0.5 }}
                             >
                                 Run on image
@@ -407,6 +493,23 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                                 fontSize: '0.7rem'
                             }}>
                             Running...
+                        </Typography>
+                    </Box>
+                )}
+
+                {/* DISPATCHED — task sent to RMQ, polling for result */}
+                {drawerState === 'dispatched' && (
+                    <Box sx={{ mt: 0.5 }}>
+                        <LinearProgress variant="indeterminate" sx={{ height: 4, borderRadius: 1 }} />
+                        <Typography
+                            variant="caption"
+                            sx={{
+                                color: "text.secondary",
+                                mt: 0.5,
+                                display: 'block',
+                                fontSize: '0.7rem'
+                            }}>
+                            Task queued — check IPP dropdown for result
                         </Typography>
                     </Box>
                 )}
@@ -551,6 +654,23 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                                 display: 'block'
                             }}>
                             Running template matching...
+                        </Typography>
+                    </Box>
+                )}
+
+                {/* DISPATCHED — task queued via RMQ */}
+                {drawerState === 'dispatched' && (
+                    <Box sx={{ textAlign: 'center', py: 3 }}>
+                        <CircularProgress size={32} />
+                        <Typography
+                            variant="caption"
+                            sx={{
+                                color: "text.secondary",
+                                mt: 1.5,
+                                display: 'block'
+                            }}>
+                            Task queued for <strong>{selectedBackend}</strong>.<br />
+                            Results will appear in the IPP dropdown when done.
                         </Typography>
                     </Box>
                 )}

@@ -146,6 +146,16 @@ if Capability.SYNC in _plugin.capabilities:
     app.include_router(make_sync_router(_plugin))
 
 
+@app.get("/schema/input")
+async def schema_input():
+    return _plugin.input_schema().model_json_schema()
+
+
+@app.get("/schema/output")
+async def schema_output():
+    return _plugin.output_schema().model_json_schema()
+
+
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
