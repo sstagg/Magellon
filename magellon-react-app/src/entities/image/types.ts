@@ -2,6 +2,7 @@
 interface ImageInfoDto {
     oid: string;
     name?: string;
+    path?: string;
     defocus?: number;
     dose?: number;
     mag: number;

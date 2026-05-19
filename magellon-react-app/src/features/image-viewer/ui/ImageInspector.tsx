@@ -45,6 +45,7 @@ import { useAuthenticatedImage } from '../../../shared/lib/useAuthenticatedImage
 import { ImageInfoHeader } from "./ImageInfoHeader.tsx";
 import { CTFAnalysisPanel } from "./CTFAnalysisPanel.tsx";
 import { FrameAlignmentPanel } from "./FrameAlignmentPanel.tsx";
+import { ImageDetectionToolbar } from "./ImageDetectionToolbar.tsx";
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
 
@@ -154,18 +155,18 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
         {
             label: "FFT",
             value: "2",
-            icon: <Timeline size={18} />
+            icon: <Timeline sx={{ fontSize: 18 }} />
         },
         {
             label: "Particle Picking",
             value: "3",
-            icon: <ScatterPlot size={18} />,
+            icon: <ScatterPlot sx={{ fontSize: 18 }} />,
             badge: selectedParticlePicking ? "active" : null
         },
         {
             label: "CTF",
             value: "5",
-            icon: <Analytics size={18} />,
+            icon: <Analytics sx={{ fontSize: 18 }} />,
             badge: ImageCtfData ? "data" : null
         },
         {
@@ -364,13 +365,19 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                     <Box sx={{ flex: 1, overflow: 'auto' }} ref={imageViewerRef}>
                         <TabPanel value="1" sx={{ p: 3, height: '100%' }}>
                             <Box sx={{
-                                textAlign: 'center',
                                 height: '100%',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 alignItems: 'center',
-                                justifyContent: 'center'
+                                justifyContent: 'center',
+                                gap: 1.5
                             }}>
+                                <Box sx={{ width: '100%', maxWidth: isMobile ? IMAGE_SIZE_MOBILE : IMAGE_SIZE_DESKTOP }}>
+                                    <ImageDetectionToolbar
+                                        selectedImage={selectedImage}
+                                        sessionName={sessionName}
+                                    />
+                                </Box>
                                 <ImageViewer
                                     imageUrl={`${BASE_URL}/image_thumbnail?name=${encodeURIComponent(selectedImage?.name)}&sessionName=${sessionName}`}
                                     width={isMobile ? IMAGE_SIZE_MOBILE : IMAGE_SIZE_DESKTOP}
