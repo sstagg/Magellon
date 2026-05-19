@@ -12,6 +12,46 @@ from magellon_sdk.models import MotionCorInput, OutputFile, TaskMessage, TaskRes
 logger = logging.getLogger(__name__)
 
 
+def _get_frame_count(file_path: str, extension: str) -> int:
+    """Return number of frames in the movie file."""
+    try:
+        if extension in (".tif", ".tiff", ".eer"):
+            import tifffile
+            with tifffile.TiffFile(file_path) as tif:
+                return len(tif.pages)
+        elif extension == ".mrc":
+            import mrcfile
+            with mrcfile.open(file_path, permissive=True) as mrc:
+                return int(mrc.header.nz)
+    except Exception:
+        pass
+    return 1
+
+
+def _check_vram_for_movie(width: int, height: int, n_frames: int) -> tuple[bool, str]:
+    """Return (ok, message). Estimates if available VRAM can handle this movie."""
+    try:
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=memory.free", "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode != 0:
+            return True, ""  # can't check — let MC3 try
+        free_mib = int(result.stdout.strip().splitlines()[0])
+        # Estimate: raw uint16 data + 4× for FFT buffers and patches
+        raw_gb = (width * height * n_frames * 2) / 1e9
+        required_mib = int(raw_gb * 4 * 1024)
+        if required_mib > free_mib:
+            return False, (
+                f"Movie {width}x{height}x{n_frames} frames needs ~{required_mib} MiB VRAM "
+                f"but only {free_mib} MiB is free. "
+                "Use a GPU with more VRAM to process this dataset."
+            )
+    except Exception:
+        pass
+    return True, ""
+
+
 def _container_path(path: str | None) -> str | None:
     if not path:
         return path
@@ -43,8 +83,13 @@ async def do_motioncor(params: TaskMessage)->TaskResultMessage:
 
         #check the type of inputfile and assign
         input_file=the_task_data.inputFile
-        file_extension = os.path.splitext(input_file)[1].lower() 
+        file_extension = os.path.splitext(input_file)[1].lower()
         x_size,y_size=getImageSize(params.data["inputFile"],file_extension)
+        n_frames = _get_frame_count(input_file, file_extension)
+        vram_ok, vram_msg = _check_vram_for_movie(x_size, y_size, n_frames)
+        if not vram_ok:
+            logger.error(f"VRAM pre-flight failed: {vram_msg}")
+            raise ValueError(vram_msg)
         file_map = {'.mrc': 'InMrc', '.tif': 'InTiff', '.eer': 'InEer'}
         if file_extension not in file_map:
             raise ValueError("Invalid file type. Must be .mrc, .tif, or .eer.")

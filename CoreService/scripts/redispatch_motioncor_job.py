@@ -210,7 +210,7 @@ def make_payload(
             **MOTIONCOR_SETTINGS,
         },
         "status":       {"code": 0, "name": "pending", "description": "Task is pending"},
-        "type":         {"code": 3, "name": "MOTIONCOR", "description": "Motion Correction"},
+        "type":         {"code": 5, "name": "MOTIONCOR", "description": "Motion Correction"},
         "created_date": datetime.now(timezone.utc).isoformat(),
         "start_on":     None,
         "end_on":       None,
