@@ -86,12 +86,15 @@ export const MagellonImportComponent = () => {
     const [summary, setSummary] = useState<ImportSummary | null>(null);
     const { emit: socketEmit, on: socketOn } = useSocket();
     const importStatusRef = useRef(importStatus);
-    importStatusRef.current = importStatus;
 
     const selectedDir = useMemo(
         () => selectedFile ? directoryName(selectedFile) : null,
         [selectedFile],
     );
+
+    useEffect(() => {
+        importStatusRef.current = importStatus;
+    }, [importStatus]);
 
     const validateDirectory = async (dirPath: string) => {
         try {
@@ -176,9 +179,14 @@ export const MagellonImportComponent = () => {
     useEffect(() => {
         if (!jobId || !["scheduling", "running"].includes(importStatus)) return;
 
-        fetchSummary(jobId);
+        const timeout = window.setTimeout(() => {
+            fetchSummary(jobId);
+        }, 0);
         const interval = window.setInterval(() => fetchSummary(jobId), 5000);
-        return () => window.clearInterval(interval);
+        return () => {
+            window.clearTimeout(timeout);
+            window.clearInterval(interval);
+        };
     }, [jobId, importStatus, fetchSummary]);
 
     const handleItemClick = async (item: FileItem) => {
@@ -391,7 +399,7 @@ export const MagellonImportComponent = () => {
                                         {categoryRows.map(([category, counts]) => (
                                             <TableRow key={category}>
                                                 <TableCell>{category}</TableCell>
-                                                <TableCell align="right">{counts.pending ?? 0}</TableCell>
+                                                <TableCell align="right">{(counts.queued ?? 0) + (counts.pending ?? 0)}</TableCell>
                                                 <TableCell align="right">
                                                     {(counts.running ?? 0) + (counts.processing ?? 0)}
                                                 </TableCell>
