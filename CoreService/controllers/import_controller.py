@@ -18,12 +18,11 @@ import_router = APIRouter()
 logger = logging.getLogger(__name__)
 
 _TASK_STATUS_LABEL = {
-    1: "pending",
-    2: "running",
-    3: "processing",
-    4: "completed",
-    5: "failed",
-    6: "cancelled",
+    0: "queued",
+    1: "running",
+    2: "completed",
+    3: "failed",
+    4: "cancelled",
 }
 
 _TASK_STAGE_LABEL = {
@@ -239,12 +238,11 @@ def get_job_status(
             raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
 
         status_map = {
-            1: "pending",
-            2: "running",
-            3: "running",
-            4: "completed",
-            5: "failed",
-            6: "cancelled",
+            0: "queued",
+            1: "running",
+            2: "completed",
+            3: "failed",
+            4: "cancelled",
         }
 
         return {
@@ -306,12 +304,11 @@ def get_job_summary(
             + totals.get("cancelled", 0)
         )
         status_map = {
-            1: "pending",
-            2: "running",
-            3: "running",
-            4: "completed",
-            5: "failed",
-            6: "cancelled",
+            0: "queued",
+            1: "running",
+            2: "completed",
+            3: "failed",
+            4: "cancelled",
         }
         job_status = status_map.get(job.status_id, "unknown")
         if total > 0 and terminal >= total:
