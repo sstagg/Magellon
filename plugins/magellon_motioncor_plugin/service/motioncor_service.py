@@ -102,12 +102,13 @@ async def do_motioncor(params: TaskMessage)->TaskResultMessage:
         print(error_output)
         if return_code != 0:
             logger.error(f"MotionCor3 error: {process.stderr.strip()}")
+            from magellon_sdk.models import TaskStatus, FAILED
             return TaskResultMessage(
                 worker_instance_id=params.worker_instance_id, task_id=params.id,
                 job_id=params.job_id, image_id=params.data["image_id"],
                 image_path=params.data["image_path"], session_name=params.session_name,
                 code=500, message="MotionCor3 execution failed", description=process.stderr.strip(),
-                status=params.status, type=params.type, created_date=datetime.now(),
+                status=FAILED, type=params.type, created_date=datetime.now(),
                 started_on=params.start_on, ended_on=datetime.now(), meta_data=[], output_files=[]
             )
         output_files=[]
@@ -191,6 +192,7 @@ async def do_motioncor(params: TaskMessage)->TaskResultMessage:
             )
     except Exception as e:
         logger.error(f"An error occurred in Motioncor processing: {str(e)}")
+        from magellon_sdk.models import FAILED
         return TaskResultMessage(
             worker_instance_id=params.worker_instance_id,
             task_id=params.id,
@@ -201,7 +203,7 @@ async def do_motioncor(params: TaskMessage)->TaskResultMessage:
             code=500,
             message="Motioncor execution was unsuccessful",
             description=f"An error occurred: {str(e)}",
-            status=params.status,
+            status=FAILED,
             type=params.type,
             created_date=datetime.now(),
             started_on=params.start_on,

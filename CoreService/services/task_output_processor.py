@@ -543,6 +543,24 @@ class TaskOutputProcessor:
             type_name = task_result.type.name if task_result.type else "unknown"
             logger.info("TaskOutputProcessor: %s projected", type_name)
 
+            outcome = "failed" if final_status == STATUS_FAILED else "completed"
+
+            # Structured operational event — queryable later via DuckDB.
+            try:
+                from services.ops_event_logger import get_logger as _ops
+                _ops().log_task_result(
+                    job_id=str(task_result.job_id) if task_result.job_id else None,
+                    task_id=str(task_result.task_id) if task_result.task_id else None,
+                    category=type_name.lower(),
+                    status=outcome,
+                    session_name=task_result.session_name,
+                    image_name=os.path.splitext(
+                        os.path.basename(task_result.image_path or "")
+                    )[0] or None,
+                )
+            except Exception:
+                pass
+
             # Push a lightweight wake-up to any UI watching this job.
             # Best-effort: never blocks the writer or affects DLQ routing.
             try:
@@ -552,7 +570,7 @@ class TaskOutputProcessor:
                         "job_id": str(task_result.job_id),
                         "event": "task_complete",
                         "category": type_name.lower(),
-                        "status": "failed" if final_status == STATUS_FAILED else "completed",
+                        "status": outcome,
                     })
             except Exception:
                 pass
@@ -572,6 +590,18 @@ class TaskOutputProcessor:
             except Exception as state_err:
                 logger.error("Could not mark ImageJobTask as FAILED: %s", state_err)
                 self.db.rollback()
+            try:
+                from services.ops_event_logger import get_logger as _ops
+                _ops().log_task_result(
+                    job_id=str(task_result.job_id) if task_result.job_id else None,
+                    task_id=str(task_result.task_id) if task_result.task_id else None,
+                    category=type_name.lower(),
+                    status="failed",
+                    session_name=task_result.session_name,
+                    extra={"processor_error": str(exc)},
+                )
+            except Exception:
+                pass
             return {"error": str(exc)}
 
         finally:
