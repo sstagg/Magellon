@@ -8,8 +8,8 @@ PORT_NUMBER: 8035
 #ROOT_DIR: /gpfs/
 #HOST_ROOT_DIR: /rcc_gpfs/
 
-REPLACE_TYPE: none
-REPLACE_PATTERN: C:\temp\magellon
+REPLACE_TYPE: standard
+REPLACE_PATTERN: C:/magellon/gpfs
 REPLACE_WITH: /gpfs
 
 MAGELLON_GPFS_PATH: /gpfs

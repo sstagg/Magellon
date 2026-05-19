@@ -1,6 +1,6 @@
 # Use a base image with CUDA 12.1
-ARG CUDA_IMAGE
-ARG MOTIONCOR_BINARY
+ARG CUDA_IMAGE=nvidia/cuda:12.1.1-runtime-ubuntu22.04
+ARG MOTIONCOR_BINARY=MotionCor2_1.6.4_Cuda121_Mar312023
 FROM --platform=linux/amd64 ${CUDA_IMAGE}
 
 # Set environment variables
@@ -64,7 +64,7 @@ RUN rm -rf /root/.cache/pip/*
 # requirements.txt (which has an editable ../../magellon-sdk path
 # that doesn't exist in the build context).
 COPY requirements.docker.txt ./
-COPY magellon_sdk-1.2.0-py3-none-any.whl ./
+COPY magellon_sdk-2.4.0-py3-none-any.whl ./
 RUN pip install --upgrade -r ./requirements.docker.txt
 RUN ln -s /usr/lib/x86_64-linux-gnu/libtiff.so.5 /usr/lib/x86_64-linux-gnu/libtiff.so.6
 
@@ -101,8 +101,8 @@ ENV APP_MODULE=main:app
 ENV APP_ENV=production
 # ENV CTF_ESTIMATION_FILE=/app/ctffind
 
-# Expose port 80
-EXPOSE 80
+# Expose the conventional plugin HTTP port used by CoreService's docker installer.
+EXPOSE 8000
 
 # Copy MotionCor2 binaries and libraries
 COPY /motioncor2_binaryfiles/${MOTIONCOR_BINARY} ./${MOTIONCOR_BINARY}
@@ -111,4 +111,4 @@ COPY MotionCor3_1.0.1_Cuda121_10-26-2023 ./MotionCor3_1.0.1_Cuda121_10-26-2023
 # RUN chmod +x /MotionCor2/MotionCor2
 
 # Start the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

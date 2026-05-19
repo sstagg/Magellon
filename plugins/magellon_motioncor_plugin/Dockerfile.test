@@ -38,7 +38,7 @@ RUN rm -rf /root/.cache/pip/*
 # Local-wiring test image: no CUDA, no real MotionCor binary. The mock at
 # tests/mock_motioncor produces the file shapes the plugin expects so we
 # can verify RMQ in/out + step events end-to-end without a GPU.
-COPY magellon_sdk-1.2.0-py3-none-any.whl ./
+COPY magellon_sdk-2.4.0-py3-none-any.whl ./
 COPY requirements.docker.txt ./requirements.txt
 RUN pip install --upgrade -r ./requirements.txt
 RUN pip install debugpy
@@ -69,5 +69,5 @@ ENV MAGELLON_STEP_EVENTS_RMQ=1
 # build_motioncor3_command() reads MOTIONCOR_BINARY from env.
 ENV MOTIONCOR_BINARY=/app/mock_motioncor
 
-EXPOSE 80
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80"]
+EXPOSE 8000
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

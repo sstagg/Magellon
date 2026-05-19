@@ -58,7 +58,27 @@ def _default_plugins_dir() -> Path:
 
 def _default_docker_network() -> Optional[str]:
     import os
-    return os.environ.get("MAGELLON_DOCKER_NETWORK") or None
+    configured = os.environ.get("MAGELLON_DOCKER_NETWORK")
+    if configured:
+        return configured
+
+    # Local Docker Desktop/dev compose uses this network and gives the
+    # broker the DNS alias ``rabbitmq``. The CTF/MotionCor plugin images
+    # read that alias from their bundled production settings, so installing
+    # without the network starts a container that can never announce.
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["docker", "network", "inspect", "docker_magellon-network"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            return "docker_magellon-network"
+    except Exception:  # noqa: BLE001
+        pass
+    return None
 
 
 def _build_runtime_config() -> RuntimeConfig:
@@ -104,6 +124,8 @@ def _build_runtime_config() -> RuntimeConfig:
     # set MAGELLON_PLUGIN_NATS_URL (e.g. ``nats://nats:4222`` on the
     # magellon docker network).
     plugin_nats = os.environ.get("MAGELLON_PLUGIN_NATS_URL") or os.environ.get("NATS_URL")
+    if not plugin_nats and _default_docker_network() == "docker_magellon-network":
+        plugin_nats = "nats://nats:4222"
     if plugin_nats:
         extra_env["NATS_URL"] = plugin_nats
 
@@ -148,7 +170,13 @@ def _liveness_health_check(plugin_id: str, timeout_seconds: float) -> bool:
     registry = get_registry()
     while True:
         for entry in registry.list_live():
+            # Legacy CTF/MotionCor plugins announce PluginInfo.name
+            # ("CTF Plugin") while the .mpn manifest uses the stable
+            # archive id ("ctf"). Treat a live category match as healthy
+            # for those single-backend category plugins.
             if entry.plugin_id == plugin_id:
+                return True
+            if (entry.category or "").lower() == plugin_id.lower():
                 return True
         if time.monotonic() >= deadline:
             return False

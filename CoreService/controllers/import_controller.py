@@ -5,16 +5,54 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from database import get_db, session_local
 from models.pydantic_models import MagellonImportJobDto, EpuImportJobDto, SerialEMImportJobDto
-from models.sqlalchemy_models import ImageJob
+from models.sqlalchemy_models import ImageJob, ImageJobTask
 from services.importers.MagellonImporter import MagellonImporter
 from dependencies.auth import get_current_user_id
 from dependencies.permissions import require_permission
 
 import_router = APIRouter()
 logger = logging.getLogger(__name__)
+
+_TASK_STATUS_LABEL = {
+    1: "pending",
+    2: "running",
+    3: "processing",
+    4: "completed",
+    5: "failed",
+    6: "cancelled",
+}
+
+_TASK_STAGE_LABEL = {
+    0: "import",
+    1: "motioncor",
+    2: "ctf",
+    3: "processing",
+    4: "processing",
+    5: "particle_picking",
+    6: "micrograph_denoise",
+    7: "particle_extraction",
+    8: "two_d_classification",
+}
+
+
+def _resolve_gpfs_path(path: str) -> str:
+    """Resolve browser/container GPFS paths to this host's configured root."""
+
+    normalized = path.replace("\\", "/")
+    if normalized == "/gpfs" or normalized.startswith("/gpfs/"):
+        try:
+            from config import app_settings
+            gpfs_root = app_settings.directory_settings.MAGELLON_GPFS_PATH
+        except Exception:  # noqa: BLE001
+            gpfs_root = None
+        if gpfs_root:
+            suffix = normalized.removeprefix("/gpfs").lstrip("/")
+            return os.path.normpath(os.path.join(gpfs_root, suffix))
+    return path
 
 
 def _run_magellon_import(
@@ -76,6 +114,7 @@ def validate_directory(
     - Dict with validation status and message
     """
     try:
+        source_dir = _resolve_gpfs_path(source_dir)
         logger.info(f"User {user_id} validating Magellon directory: {source_dir}")
         # Check source directory exists
         if not os.path.exists(source_dir):
@@ -143,6 +182,7 @@ def import_directory(
             ...
     """
     try:
+        request.source_dir = _resolve_gpfs_path(request.source_dir)
         logger.info(f"User {user_id} scheduling Magellon import from: {request.source_dir}")
         # Validate source directory exists — fail fast before scheduling.
         if not os.path.exists(request.source_dir):
@@ -211,6 +251,89 @@ def get_job_status(
         raise HTTPException(
             status_code=500,
             detail=f"Error retrieving job status: {str(e)}"
+        )
+
+
+@import_router.get("/job/{job_id}/summary")
+def get_job_summary(
+    job_id: str,
+    db_session: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id),
+):
+    """Return import job status plus task counts grouped for operator UI."""
+    try:
+        logger.debug("User %s checking import job summary: %s", user_id, job_id)
+        job = db_session.query(ImageJob).filter(ImageJob.oid == job_id).first()
+        if not job:
+            raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
+
+        rows = (
+            db_session.query(
+                ImageJobTask.stage,
+                ImageJobTask.status_id,
+                func.count(ImageJobTask.oid),
+            )
+            .filter(ImageJobTask.job_id == job_id)
+            .group_by(ImageJobTask.stage, ImageJobTask.status_id)
+            .all()
+        )
+
+        by_category: dict[str, dict[str, int]] = {}
+        totals = {label: 0 for label in _TASK_STATUS_LABEL.values()}
+        total = 0
+        for stage, status_id, count in rows:
+            category = _TASK_STAGE_LABEL.get(stage or 0, f"stage_{stage}")
+            status = _TASK_STATUS_LABEL.get(status_id or 0, "unknown")
+            by_category.setdefault(category, {})
+            by_category[category][status] = by_category[category].get(status, 0) + count
+            totals[status] = totals.get(status, 0) + count
+            total += count
+
+        terminal = (
+            totals.get("completed", 0)
+            + totals.get("failed", 0)
+            + totals.get("cancelled", 0)
+        )
+        status_map = {
+            1: "pending",
+            2: "running",
+            3: "running",
+            4: "completed",
+            5: "failed",
+            6: "cancelled",
+        }
+        job_status = status_map.get(job.status_id, "unknown")
+        if total > 0 and terminal >= total:
+            if totals.get("failed", 0) > 0:
+                derived_status = "failed"
+            elif totals.get("cancelled", 0) > 0:
+                derived_status = "cancelled"
+            else:
+                derived_status = "completed"
+        elif total > 0:
+            derived_status = "running"
+        else:
+            derived_status = job_status
+
+        return {
+            "job_id": job_id,
+            "name": job.name,
+            "status": job_status,
+            "derived_status": derived_status,
+            "total_tasks": total,
+            "terminal_tasks": terminal,
+            "totals": totals,
+            "by_category": by_category,
+            "created_at": job.created_date.isoformat() if job.created_date else None,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error retrieving import job summary for user %s: %s", user_id, e)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error retrieving import job summary: {str(e)}",
         )
 
 

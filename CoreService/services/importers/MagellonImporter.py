@@ -72,7 +72,9 @@ class MagellonImporter(BaseImporter):
             # self.create_magellon_atlas(db_session)
             # return
 
-            if os.path.exists(session_dir):
+            if os.path.exists(session_dir) and getattr(self.params, "replace_existing", False):
+                shutil.rmtree(session_dir)
+            elif os.path.exists(session_dir):
                 return {'status': 'failure',"message": f"this project already exists: {session_dir}"}
 
             # Create job record. Honour a pre-assigned oid if the caller

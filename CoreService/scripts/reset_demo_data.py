@@ -14,7 +14,10 @@ Reads DB settings from config (app_settings_dev.yaml by default).
 
 import argparse
 import os
+import shutil
 import sys
+import time
+import uuid
 
 import yaml
 from sqlalchemy import create_engine, text
@@ -56,14 +59,59 @@ def show_counts(title, data):
         print(f"  {t:22s} {n:>10}")
 
 
+def configured_home_dir(config):
+    directory = config.get("directory_settings", {})
+    gpfs_root = directory.get("MAGELLON_GPFS_PATH") or os.getenv("MAGELLON_GPFS_PATH")
+    home_dir = directory.get("MAGELLON_HOME_DIR") or os.getenv("MAGELLON_HOME_DIR") or "home"
+    if os.path.isabs(home_dir):
+        return os.path.normpath(home_dir)
+    if not gpfs_root:
+        raise RuntimeError("MAGELLON_GPFS_PATH is required when MAGELLON_HOME_DIR is relative")
+    return os.path.normpath(os.path.join(gpfs_root, home_dir))
+
+
+def clear_session_dirs(home_dir, session_names):
+    if not session_names:
+        return
+
+    home_abs = os.path.abspath(home_dir)
+    print("\nClearing imported session directories:")
+    for session_name in session_names:
+        target = os.path.abspath(os.path.join(home_abs, session_name.lower()))
+        if os.path.commonpath([home_abs, target]) != home_abs:
+            raise RuntimeError(f"Refusing to remove path outside MAGELLON_HOME_DIR: {target}")
+        if os.path.isdir(target):
+            trash = f"{target}.reset-trash-{uuid.uuid4().hex}"
+            os.rename(target, trash)
+            for _ in range(3):
+                shutil.rmtree(trash, ignore_errors=True)
+                if not os.path.exists(trash):
+                    break
+                time.sleep(1)
+            if os.path.exists(trash):
+                print(f"  moved {target} to {trash}; delete is still pending")
+            else:
+                print(f"  removed {target}")
+        else:
+            print(f"  not found {target}")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--yes", action="store_true", help="execute the truncate (required)")
     parser.add_argument("--config", default=DEFAULT_CONFIG, help="path to app_settings_*.yaml")
+    parser.add_argument(
+        "--clear-session-dir",
+        action="append",
+        default=[],
+        metavar="SESSION",
+        help="also remove MAGELLON_HOME_DIR/<session>; repeat for multiple sessions",
+    )
     args = parser.parse_args()
 
     with open(args.config) as fh:
-        db = yaml.safe_load(fh)["database_settings"]
+        config = yaml.safe_load(fh)
+        db = config["database_settings"]
     url = (
         f"{db['DB_Driver']}://{db['DB_USER']}:{db['DB_PASSWORD']}"
         f"@{db['DB_HOST']}:{db['DB_Port']}/{db['DB_NAME']}"
@@ -87,6 +135,8 @@ def main():
             conn.execute(text(f"TRUNCATE TABLE {t}"))
             print(f"  truncated {t}")
         conn.execute(text("SET FOREIGN_KEY_CHECKS = 1"))
+
+    clear_session_dirs(configured_home_dir(config), args.clear_session_dir)
 
     with engine.connect() as conn:
         show_counts("After reset:", counts(conn, CLEAR_TABLES))

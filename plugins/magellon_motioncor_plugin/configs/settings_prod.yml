@@ -9,8 +9,8 @@ PORT_NUMBER: 8181
 
 
 REPLACE_TYPE: standard
-REPLACE_PATTERN: /gpfs/
-REPLACE_WITH: /app/gpfs/
+REPLACE_PATTERN: C:/magellon/gpfs
+REPLACE_WITH: /gpfs
 
 MAGELLON_GPFS_PATH: /gpfs
 HOST_GPFS_PATH: /gpfs

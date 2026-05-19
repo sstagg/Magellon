@@ -13,6 +13,18 @@ import json
 
 logger = logging.getLogger(__name__)
 
+
+def _container_path(path: str | None) -> str | None:
+    if not path:
+        return path
+    settings = AppSettingsSingleton.get_instance()
+    normalized = path.replace("\\", "/")
+    if settings.REPLACE_TYPE == "standard":
+        pattern = (settings.REPLACE_PATTERN or "").replace("\\", "/")
+        if pattern:
+            normalized = normalized.replace(pattern, settings.REPLACE_WITH or "")
+    return os.path.normpath(normalized).replace("\\", "/")
+
 def validateInput(params):
     if not params.inputFile or not isinstance(params.inputFile, str) or not params.inputFile.strip():
         raise ValueError("inputFile must be a non-empty string.")
@@ -67,19 +79,13 @@ async def do_ctf(the_task: TaskMessage) -> TaskResultMessage:
         d.line1 = the_task_data.inputFile
         d.line2 = the_task_data.image_path
 
-        replace_settings = AppSettingsSingleton.get_instance()
-        if replace_settings.REPLACE_TYPE == "standard":
-            the_task_data.inputFile = the_task_data.inputFile.replace(
-                replace_settings.REPLACE_PATTERN, replace_settings.REPLACE_WITH
-            )
-            the_task_data.image_path = the_task_data.image_path.replace(
-                replace_settings.REPLACE_PATTERN, replace_settings.REPLACE_WITH
-            )
+        the_task_data.inputFile = _container_path(the_task_data.inputFile)
+        the_task_data.image_path = _container_path(the_task_data.image_path)
 
         d.line3 = the_task_data.inputFile
         d.line4 = the_task_data.image_path
 
-        final_path = os.path.normpath(the_task_data.inputFile).replace("\\", "/")
+        final_path = the_task_data.inputFile
         the_task_data.inputFile = final_path
         the_task_data.image_path = final_path
 

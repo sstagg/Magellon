@@ -36,7 +36,7 @@ RUN rm -rf /root/.cache/pip/*
 # pins the SDK to the bundled wheel) instead of requirements.txt (which
 # has an editable ../../magellon-sdk path that doesn't exist in-image).
 COPY requirements.docker.txt ./
-COPY magellon_sdk-1.2.0-py3-none-any.whl ./
+COPY magellon_sdk-2.4.0-py3-none-any.whl ./
 RUN pip install --upgrade -r ./requirements.docker.txt
 # Install debugpy
 #RUN pip install --upgrade pip
@@ -72,7 +72,7 @@ ENV APP_MODULE=main:app
 ENV APP_ENV=production
 ENV CTF_ESTIMATION_FILE=/app/ctffind
 RUN chmod +x ./ctffind
-# Expose port 80
-EXPOSE 80
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80"]
+# Expose the conventional plugin HTTP port used by CoreService's docker installer.
+EXPOSE 8000
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 

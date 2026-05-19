@@ -12,6 +12,18 @@ from magellon_sdk.models import MotionCorInput, OutputFile, TaskMessage, TaskRes
 logger = logging.getLogger(__name__)
 
 
+def _container_path(path: str | None) -> str | None:
+    if not path:
+        return path
+    settings = AppSettingsSingleton.get_instance()
+    normalized = path.replace("\\", "/")
+    if settings.REPLACE_TYPE == "standard":
+        pattern = (settings.REPLACE_PATTERN or "").replace("\\", "/")
+        if pattern:
+            normalized = normalized.replace(pattern, settings.REPLACE_WITH or "")
+    return os.path.normpath(normalized).replace("\\", "/")
+
+
 async def do_motioncor(params: TaskMessage)->TaskResultMessage:
     
     try:
@@ -22,8 +34,15 @@ async def do_motioncor(params: TaskMessage)->TaskResultMessage:
         print(the_task_data)
         if not validateInput(the_task_data):
             raise Exception("Validation failed.")
-        #check the type of inputfile and assign 
-        input_file=the_task_data.inputFile.strip()
+        the_task_data.inputFile = _container_path(the_task_data.inputFile.strip())
+        the_task_data.image_path = _container_path(the_task_data.image_path)
+        the_task_data.Gain = _container_path(the_task_data.Gain)
+        params.data["inputFile"] = the_task_data.inputFile
+        params.data["image_path"] = the_task_data.image_path
+        params.data["Gain"] = the_task_data.Gain
+
+        #check the type of inputfile and assign
+        input_file=the_task_data.inputFile
         file_extension = os.path.splitext(input_file)[1].lower() 
         x_size,y_size=getImageSize(params.data["inputFile"],file_extension)
         file_map = {'.mrc': 'InMrc', '.tif': 'InTiff', '.eer': 'InEer'}
@@ -38,18 +57,10 @@ async def do_motioncor(params: TaskMessage)->TaskResultMessage:
         
         d.line1 = the_task_data.inputFile
         d.line2 = the_task_data.image_path
-        replace_settings = AppSettingsSingleton.get_instance()
-        if replace_settings.REPLACE_TYPE == "standard":
-            the_task_data.inputFile = the_task_data.inputFile.replace(
-                replace_settings.REPLACE_PATTERN, replace_settings.REPLACE_WITH
-            )
-            the_task_data.image_path = the_task_data.image_path.replace(
-                replace_settings.REPLACE_PATTERN, replace_settings.REPLACE_WITH
-            )
         d.line3 = the_task_data.inputFile
         d.line4 = the_task_data.image_path
 
-        final_path = os.path.normpath(the_task_data.inputFile).replace("\\", "/")
+        final_path = the_task_data.inputFile
         the_task_data.inputFile = final_path
         the_task_data.image_path = final_path
 

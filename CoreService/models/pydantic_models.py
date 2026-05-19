@@ -162,6 +162,7 @@ class ImportJobBase(BaseModel):
 
 class MagellonImportJobDto(BaseModel):
     source_dir: str
+    replace_existing: bool = False
 
 
 class ImportTaskDto(BaseModel):
