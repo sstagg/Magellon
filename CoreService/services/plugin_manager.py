@@ -28,6 +28,7 @@ all plugins are external broker plugins. ``kind`` always reports
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import List, Literal, Optional, Protocol
@@ -447,17 +448,6 @@ class PluginManagerService:
         ``(category, backend_id)`` matches — the dispatch identity is
         the cleanest join.
         """
-        candidates: list[str] = [short_id]
-        cat_backend: Optional[tuple[str, str]] = None
-        if plugin is not None:
-            for extra in (plugin.manifest_plugin_id, plugin.name):
-                if extra and extra not in candidates:
-                    candidates.append(extra)
-            if plugin.category and plugin.backend_id:
-                cat_backend = (
-                    plugin.category.lower(), plugin.backend_id.lower(),
-                )
-
         latest: Optional[datetime] = None
         for e in self._matching_live_entries(short_id, plugin):
             ts = getattr(e, "last_heartbeat", None)
@@ -481,22 +471,32 @@ class PluginManagerService:
         bridge between those forms.
         """
         candidates: list[str] = [short_id]
+        candidate_keys = {_identity_key(short_id)}
         cat_backend: Optional[tuple[str, str]] = None
+        plugin_category_key = ""
+        plugin_manifest_key = ""
         if plugin is not None:
             for extra in (plugin.manifest_plugin_id, plugin.name):
                 if extra and extra not in candidates:
                     candidates.append(extra)
+                if extra:
+                    candidate_keys.add(_identity_key(extra))
+            plugin_category_key = _identity_key(plugin.category)
+            plugin_manifest_key = _identity_key(plugin.manifest_plugin_id)
             if plugin.category and plugin.backend_id:
                 cat_backend = (
-                    plugin.category.lower(), plugin.backend_id.lower(),
+                    plugin_category_key,
+                    _identity_key(plugin.backend_id),
                 )
 
         matches: list[PluginLivenessEntry] = []
         for e in self._liveness.list_live(now=now):
             ep = e.plugin_id or ""
             ep_lower = ep.lower()
+            ep_key = _identity_key(ep)
             id_match = (
                 ep in candidates
+                or ep_key in candidate_keys
                 # Slug as the category prefix in the runtime form
                 # ``category/display-name`` (``fft/FFT Plugin`` vs
                 # catalog slug ``fft``).
@@ -513,10 +513,11 @@ class PluginManagerService:
             # returns ``"fft-plugin"``. Aligning these is plugin-side
             # work; the matcher gets us out of the broken-warning
             # state in the meantime.
-            ent_backend = (e.backend_id or "").lower()
+            ent_backend = _identity_key(e.backend_id)
+            entry_category_key = _identity_key(e.category)
             cb_match = (
                 cat_backend is not None
-                and (e.category or "").lower() == cat_backend[0]
+                and entry_category_key == cat_backend[0]
                 and (
                     ent_backend == cat_backend[1]
                     or (cat_backend[1] and cat_backend[1] in ent_backend)
@@ -527,8 +528,8 @@ class PluginManagerService:
                 plugin is not None
                 and plugin.category
                 and plugin.manifest_plugin_id
-                and plugin.manifest_plugin_id.lower() == plugin.category.lower()
-                and (e.category or "").lower() == plugin.category.lower()
+                and plugin_manifest_key == plugin_category_key
+                and entry_category_key == plugin_category_key
             )
             if not (id_match or cb_match or category_slug_match):
                 continue
@@ -645,6 +646,11 @@ def _strip_category(plugin_id: str) -> str:
 def _category_prefix(plugin_id: str) -> Optional[str]:
     """Return the category prefix from ``<category>/<plugin_id>`` forms."""
     return plugin_id.split("/", 1)[0].lower() if "/" in plugin_id else None
+
+
+def _identity_key(value: Optional[str]) -> str:
+    """Case/punctuation-insensitive key for catalog/runtime identity joins."""
+    return re.sub(r"[^a-z0-9]+", "", (value or "").lower())
 
 
 def _semver_severity(

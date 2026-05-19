@@ -68,6 +68,7 @@ def _make_liveness_entry(
     manifest=None,
     last_heartbeat=None,
     task_queue=None,
+    backend_id=None,
 ):
     """Cheap PluginLivenessEntry stand-in. Real class refuses kwargs the
     SDK doesn't expose, so SimpleNamespace keeps tests independent."""
@@ -80,7 +81,7 @@ def _make_liveness_entry(
         last_heartbeat=last_heartbeat or datetime.now(timezone.utc),
         status=None,
         task_queue=task_queue,
-        backend_id=plugin_id,
+        backend_id=backend_id or plugin_id,
     )
 
 
@@ -480,6 +481,33 @@ def test_replicas_filters_to_requested_plugin_only():
     rows = manager.replicas("ctffind4", now=now)
     assert len(rows) == 1
     assert rows[0].instance_id == "i-1"
+
+
+def test_liveness_match_tolerates_category_and_backend_spelling_drift():
+    """Legacy discovered rows can use display strings while Docker
+    announces slugs. They should still join to avoid false offline
+    warnings in the Installed plugins page."""
+    plugin_row = SimpleNamespace(
+        name="Template Picker",
+        manifest_plugin_id="Template Picker",
+        category="particle picking",
+        backend_id="template-picker",
+    )
+    live = _make_liveness_entry(
+        "particle_picking/Template Picker",
+        category="particle_picking",
+        backend_id="template_picker",
+    )
+    other = _make_liveness_entry(
+        "boxnet-picker",
+        category="particle_picking",
+        backend_id="boxnet-picker",
+    )
+    manager = _build_manager(live=[live, other])
+
+    matches = manager._matching_live_entries("Template Picker", plugin_row)
+
+    assert matches == [live]
 
 
 # ---------------------------------------------------------------------------
