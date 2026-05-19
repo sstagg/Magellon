@@ -25,6 +25,7 @@ from typing import (
 
 from magellon_sdk.bus.policy import (
     PublishReceipt,
+    RpcPolicy,
     TaskConsumerPolicy,
 )
 from magellon_sdk.envelope import Envelope
@@ -72,6 +73,7 @@ class PatternRef(Protocol):
 
 TaskHandler = Callable[[Envelope], Union[Optional[Envelope], Awaitable[Optional[Envelope]]]]
 EventHandler = Callable[[Envelope], Union[None, Awaitable[None]]]
+RpcHandler = Callable[[Envelope], Union[Envelope, Awaitable[Envelope]]]
 
 
 # ---------------------------------------------------------------------------
@@ -188,6 +190,37 @@ class EventsBus(Protocol):
         ...
 
 
+class RpcBus(Protocol):
+    """Short request/reply surface.
+
+    RPC is timeout-bound and non-durable. Use it for small control-plane
+    queries such as schema probes, validation, health snapshots, and
+    preview metadata. Long-running work remains ``bus.tasks``.
+    """
+
+    def call(self, route: RouteRef, envelope: Envelope, *, timeout: float) -> Envelope:
+        """Send a request and wait for one response.
+
+        Binders raise :class:`TimeoutError` if no response arrives
+        before ``timeout`` seconds.
+        """
+        ...
+
+    def responder(
+        self,
+        route: RouteRef,
+        handler: Optional[RpcHandler] = None,
+        *,
+        policy: Optional[RpcPolicy] = None,
+    ) -> Any:
+        """Register an RPC responder.
+
+        Dual form mirrors task consumers: with ``handler=None`` returns
+        a decorator; with ``handler`` set returns a closable handle.
+        """
+        ...
+
+
 # ---------------------------------------------------------------------------
 # Binder SPI (L3)
 # ---------------------------------------------------------------------------
@@ -234,13 +267,22 @@ class Binder(Protocol):
         handler: EventHandler,
     ) -> SubscriptionHandle: ...
 
+    # RPC request/reply
+    def call_rpc(self, route: RouteRef, envelope: Envelope, timeout: float) -> Envelope: ...
+    def respond_rpc(
+        self,
+        route: RouteRef,
+        handler: RpcHandler,
+        policy: RpcPolicy,
+    ) -> ConsumerHandle: ...
+
 
 # ---------------------------------------------------------------------------
 # MessageBus facade (L2 composite)
 # ---------------------------------------------------------------------------
 
 class MessageBus(Protocol):
-    """Composite surface: ``bus.tasks`` + ``bus.events`` + lifecycle.
+    """Composite surface: ``bus.tasks`` + ``bus.events`` + ``bus.rpc`` + lifecycle.
 
     Constructed by :func:`get_bus` (lands in MB1.3) from process
     config. One instance per process; not a module-level singleton —
@@ -249,6 +291,7 @@ class MessageBus(Protocol):
 
     tasks: TasksBus
     events: EventsBus
+    rpc: RpcBus
 
     def start(self) -> ContextManager[None]:
         """Start the underlying binder. Idempotent.
@@ -275,6 +318,8 @@ __all__ = [
     "MessageBus",
     "PatternRef",
     "RouteRef",
+    "RpcBus",
+    "RpcHandler",
     "SubscriptionHandle",
     "TaskHandler",
     "TasksBus",

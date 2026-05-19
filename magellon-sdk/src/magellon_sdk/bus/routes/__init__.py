@@ -15,6 +15,7 @@ from magellon_sdk.bus.routes.event_route import (
     StepEventRoute,
 )
 from magellon_sdk.bus.routes.patterns import EventPattern
+from magellon_sdk.bus.routes.rpc_route import RpcRoute
 from magellon_sdk.bus.routes.task_route import TaskResultRoute, TaskRoute
 
 __all__ = [
@@ -22,6 +23,7 @@ __all__ = [
     "ConfigRoute",
     "EventPattern",
     "HeartbeatRoute",
+    "RpcRoute",
     "StepEventRoute",
     "TaskResultRoute",
     "TaskRoute",

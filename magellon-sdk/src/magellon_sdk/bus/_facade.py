@@ -20,11 +20,13 @@ from magellon_sdk.bus.interfaces import (
     MessageBus,
     PatternRef,
     RouteRef,
+    RpcBus,
+    RpcHandler,
     SubscriptionHandle,
     TaskHandler,
     TasksBus,
 )
-from magellon_sdk.bus.policy import PublishReceipt, TaskConsumerPolicy
+from magellon_sdk.bus.policy import PublishReceipt, RpcPolicy, TaskConsumerPolicy
 from magellon_sdk.envelope import Envelope
 
 
@@ -81,6 +83,30 @@ class _EventsFacade:
         return _register if handler is None else _register(handler)
 
 
+class _RpcFacade:
+    """Implements :class:`RpcBus`."""
+
+    def __init__(self, binder: Binder) -> None:
+        self._binder = binder
+
+    def call(self, route: RouteRef, envelope: Envelope, *, timeout: float) -> Envelope:
+        return self._binder.call_rpc(route, envelope, timeout)
+
+    def responder(
+        self,
+        route: RouteRef,
+        handler: Optional[RpcHandler] = None,
+        *,
+        policy: Optional[RpcPolicy] = None,
+    ):
+        p = policy or RpcPolicy()
+
+        def _register(fn: RpcHandler) -> ConsumerHandle:
+            return self._binder.respond_rpc(route, fn, p)
+
+        return _register if handler is None else _register(handler)
+
+
 # ---------------------------------------------------------------------------
 # MessageBus
 # ---------------------------------------------------------------------------
@@ -92,6 +118,7 @@ class DefaultMessageBus:
         self._binder = binder
         self.tasks: TasksBus = _TasksFacade(binder)
         self.events: EventsBus = _EventsFacade(binder)
+        self.rpc: RpcBus = _RpcFacade(binder)
 
     def start(self) -> ContextManager[None]:
         self._binder.start()

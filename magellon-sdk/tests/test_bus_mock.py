@@ -28,6 +28,7 @@ from magellon_sdk.bus.routes import (
     AnnounceRoute,
     ConfigRoute,
     HeartbeatRoute,
+    RpcRoute,
     StepEventRoute,
     TaskRoute,
 )
@@ -144,6 +145,29 @@ def test_task_purge_returns_count_and_clears(bus, binder):
     assert count == 2
     assert binder.published_tasks == []
     assert binder.purge_counts == [(route.subject, 2)]
+
+
+# ---------------------------------------------------------------------------
+# RPC round-trip
+# ---------------------------------------------------------------------------
+
+def test_rpc_call_dispatches_to_one_responder(bus, binder):
+    route = RpcRoute.for_backend(CTF, "ctffind4")
+
+    def handler(env: Envelope) -> Envelope:
+        return _env({"ok": True, "seen": env.data["probe"]})
+
+    bus.rpc.responder(route, handler)
+
+    response = bus.rpc.call(route, _env({"probe": "schema"}), timeout=1.0)
+
+    assert response.data == {"ok": True, "seen": "schema"}
+    assert binder.rpc_calls[0][0] == route.subject
+
+
+def test_rpc_call_without_responder_times_out(bus):
+    with pytest.raises(TimeoutError):
+        bus.rpc.call(RpcRoute.named("magellon.rpc.missing"), _env({}), timeout=0.01)
 
 
 # ---------------------------------------------------------------------------

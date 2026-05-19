@@ -52,6 +52,20 @@ class TaskConsumerPolicy:
 
 
 @dataclass(frozen=True)
+class RpcPolicy:
+    """Transport-portable knobs for ``bus.rpc.responder``.
+
+    RPC is for short request/reply control-plane calls. It is not a
+    durable job path, so the defaults are intentionally conservative:
+    one in-flight request per responder registration and no DLQ
+    semantics exposed at the facade.
+    """
+
+    prefetch: Optional[int] = 1
+    concurrency: int = 1
+
+
+@dataclass(frozen=True)
 class AuditLogConfig:
     """Declarative binder-level audit configuration (spec §7.1).
 
@@ -86,5 +100,6 @@ class AuditLogConfig:
 __all__ = [
     "AuditLogConfig",
     "PublishReceipt",
+    "RpcPolicy",
     "TaskConsumerPolicy",
 ]

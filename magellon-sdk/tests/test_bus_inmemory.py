@@ -17,6 +17,7 @@ from magellon_sdk.bus import DefaultMessageBus, TaskConsumerPolicy
 from magellon_sdk.bus.binders.inmemory import InMemoryBinder
 from magellon_sdk.bus.routes import (
     HeartbeatRoute,
+    RpcRoute,
     StepEventRoute,
     TaskRoute,
 )
@@ -199,6 +200,35 @@ def test_purge_drops_pending_deliveries_without_invoking_consumer(bus, binder):
     bus.tasks.consumer(TaskRoute.for_category(CTF), received.append)
     time.sleep(0.2)  # let the consumer thread loop once
     assert received == []
+
+
+# ---------------------------------------------------------------------------
+# RPC: short request/reply
+# ---------------------------------------------------------------------------
+
+def test_rpc_request_reply_uses_responder(bus, binder):
+    route = RpcRoute.for_backend(CTF, "ctffind4")
+
+    def handler(env):
+        return _env({"validated": True, "input": env.data["input"]})
+
+    bus.rpc.responder(route, handler)
+
+    response = bus.rpc.call(route, _env({"input": "schema"}), timeout=1.0)
+
+    assert response.data == {"validated": True, "input": "schema"}
+    assert binder.rpc_calls[0][0] == route.subject
+
+
+def test_rpc_physical_queue_override_decouples_subject_from_queue(bus):
+    request_route = RpcRoute.named("magellon.rpc.ctf.ctffind4", queue="ctf_rpc_queue")
+    responder_route = RpcRoute.named("ignored-symbolic", queue="ctf_rpc_queue")
+
+    bus.rpc.responder(responder_route, lambda env: _env({"ok": env.data["x"]}))
+
+    response = bus.rpc.call(request_route, _env({"x": 7}), timeout=1.0)
+
+    assert response.data == {"ok": 7}
 
 
 # ---------------------------------------------------------------------------

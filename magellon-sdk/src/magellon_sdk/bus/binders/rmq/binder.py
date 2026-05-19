@@ -53,12 +53,14 @@ from magellon_sdk.bus.interfaces import (
     EventHandler,
     PatternRef,
     RouteRef,
+    RpcHandler,
     SubscriptionHandle,
     TaskHandler,
 )
 from magellon_sdk.bus.policy import (
     AuditLogConfig,
     PublishReceipt,
+    RpcPolicy,
     TaskConsumerPolicy,
 )
 from magellon_sdk.envelope import Envelope
@@ -400,6 +402,100 @@ class RmqBinder:
         handle = _RmqSubscriptionHandle(client, thread, self)
         with self._lock:
             self._subscriber_handles.append(handle)
+        return handle
+
+    # -- RPC ---------------------------------------------------------------
+
+    def call_rpc(self, route: RouteRef, envelope: Envelope, timeout: float) -> Envelope:
+        self._require_started()
+        queue_name = self._resolve_queue(route)
+        body = _body_from_envelope(envelope)
+        response: Dict[str, Envelope] = {}
+        correlation_id = str(envelope.id)
+
+        decl = self._client.channel.queue_declare(
+            queue="", exclusive=True, auto_delete=True
+        )
+        reply_queue = decl.method.queue
+
+        def _on_response(ch, method, properties, resp_body):
+            if getattr(properties, "correlation_id", None) != correlation_id:
+                ch.basic_ack(delivery_tag=method.delivery_tag)
+                return
+            response["envelope"] = _reconstruct_envelope(resp_body, properties)
+            ch.basic_ack(delivery_tag=method.delivery_tag)
+
+        consumer_tag = self._client.channel.basic_consume(
+            queue=reply_queue,
+            on_message_callback=_on_response,
+            auto_ack=False,
+        )
+        properties = _ce_properties(envelope)
+        properties.reply_to = reply_queue
+        properties.correlation_id = correlation_id
+        self._client.declare_queue(queue_name)
+        self._client.channel.basic_publish(
+            exchange="",
+            routing_key=queue_name,
+            body=body,
+            properties=properties,
+        )
+
+        deadline = datetime.now(timezone.utc).timestamp() + timeout
+        while "envelope" not in response:
+            if datetime.now(timezone.utc).timestamp() >= deadline:
+                try:
+                    self._client.channel.basic_cancel(consumer_tag)
+                except Exception:  # noqa: BLE001
+                    pass
+                raise TimeoutError(f"RPC call to {route.subject!r} timed out after {timeout}s")
+            self._client.connection.process_data_events(time_limit=0.05)
+        try:
+            self._client.channel.basic_cancel(consumer_tag)
+        except Exception:  # noqa: BLE001
+            pass
+        return response["envelope"]
+
+    def respond_rpc(
+        self,
+        route: RouteRef,
+        handler: RpcHandler,
+        policy: RpcPolicy,
+    ) -> ConsumerHandle:
+        self._require_started()
+        queue_name = self._resolve_queue(route)
+
+        client = RabbitmqClient(self._settings)
+        client.connect()
+        client.declare_queue(queue_name)
+        if policy.prefetch is not None:
+            client.channel.basic_qos(prefetch_count=policy.prefetch)
+
+        def _callback(ch, method, properties, body):
+            try:
+                request = _reconstruct_envelope(body, properties)
+                result = handler(request)
+                if result is not None and hasattr(result, "__await__"):
+                    raise RuntimeError("RmqBinder does not await async RPC handlers")
+                reply_to = getattr(properties, "reply_to", None)
+                if reply_to:
+                    reply_props = _ce_properties(result)
+                    reply_props.correlation_id = getattr(properties, "correlation_id", None)
+                    ch.basic_publish(
+                        exchange="",
+                        routing_key=reply_to,
+                        body=_body_from_envelope(result),
+                        properties=reply_props,
+                    )
+                ch.basic_ack(delivery_tag=method.delivery_tag)
+            except Exception:
+                logger.exception("RPC responder failed on %s", queue_name)
+                ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+
+        client.consume(queue_name, _callback)
+        handle = _RmqConsumerHandle(client, self)
+        with self._lock:
+            self._consumer_handles.append(handle)
         return handle
 
     # -- internals ---------------------------------------------------------

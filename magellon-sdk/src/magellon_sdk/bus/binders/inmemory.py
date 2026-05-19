@@ -46,10 +46,11 @@ from magellon_sdk.bus.interfaces import (
     EventHandler,
     PatternRef,
     RouteRef,
+    RpcHandler,
     SubscriptionHandle,
     TaskHandler,
 )
-from magellon_sdk.bus.policy import PublishReceipt, TaskConsumerPolicy
+from magellon_sdk.bus.policy import PublishReceipt, RpcPolicy, TaskConsumerPolicy
 from magellon_sdk.envelope import Envelope
 from magellon_sdk.errors import AckAction, classify_exception
 
@@ -148,6 +149,41 @@ class _InMemorySubscriptionHandle:
         self._thread.join(timeout=5)
 
 
+class _InMemoryRpcHandle:
+    def __init__(
+        self,
+        binder: "InMemoryBinder",
+        subject: str,
+        handler: RpcHandler,
+        thread: threading.Thread,
+        stop_event: threading.Event,
+    ) -> None:
+        self._binder = binder
+        self._subject = subject
+        self._handler = handler
+        self._thread = thread
+        self._stop = stop_event
+        self._closed = False
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        self._stop.set()
+        with self._binder._lock:
+            self._binder._rpc_responders[self._subject] = [
+                h for h in self._binder._rpc_responders[self._subject] if h is not self._handler
+            ]
+            try:
+                self._binder._rpc_handles.remove(self)
+            except ValueError:
+                pass
+        self._thread.join(timeout=5)
+
+    def run_until_shutdown(self) -> None:
+        self._stop.wait()
+
+
 _STOP_SENTINEL = object()
 
 
@@ -168,6 +204,8 @@ class InMemoryBinder:
         self._task_queues: Dict[str, "queue.Queue"] = defaultdict(queue.Queue)
         # Subject → list of consumer registration records
         self._task_consumers: Dict[str, List[Tuple[TaskHandler, TaskConsumerPolicy, _InMemoryConsumerHandle]]] = defaultdict(list)
+        self._rpc_responders: Dict[str, List[RpcHandler]] = defaultdict(list)
+        self._rpc_handles: List[_InMemoryRpcHandle] = []
         # DLQ storage: subject → list of deliveries routed to DLQ
         self._dlq: Dict[str, List[_Delivery]] = defaultdict(list)
 
@@ -184,6 +222,7 @@ class InMemoryBinder:
         # Captures for assertions.
         self.published_tasks: List[Tuple[str, Envelope]] = []
         self.published_events: List[Tuple[str, Envelope]] = []
+        self.rpc_calls: List[Tuple[str, Envelope]] = []
 
     # -- lifecycle ---------------------------------------------------------
 
@@ -198,6 +237,7 @@ class InMemoryBinder:
             for subj_consumers in self._task_consumers.values():
                 for _handler, _policy, handle in subj_consumers:
                     handles_to_close.append(handle)
+            handles_to_close.extend(self._rpc_handles)
             for entry_id in list(self._subscribers.keys()):
                 handles_to_close.append(entry_id)  # close via subscriber lookup
         for item in handles_to_close:
@@ -317,6 +357,42 @@ class InMemoryBinder:
             daemon=True,
         )
         handle = _InMemorySubscriptionHandle(self, entry_id, thread, stop_event)
+        thread.start()
+        return handle
+
+    # -- RPC ---------------------------------------------------------------
+
+    def call_rpc(self, route: RouteRef, envelope: Envelope, timeout: float) -> Envelope:
+        subject = route.subject
+        queue_key = getattr(route, "physical_queue", None) or subject
+        self.rpc_calls.append((subject, envelope))
+        with self._lock:
+            responders = list(self._rpc_responders.get(queue_key, []))
+        if not responders:
+            raise TimeoutError(f"No RPC responder for {subject!r} within {timeout}s")
+        result = responders[0](envelope)
+        if result is not None and hasattr(result, "__await__"):
+            raise RuntimeError("InMemoryBinder does not drive async RPC handlers")
+        return result
+
+    def respond_rpc(
+        self,
+        route: RouteRef,
+        handler: RpcHandler,
+        policy: RpcPolicy,
+    ) -> ConsumerHandle:
+        del policy
+        subject = getattr(route, "physical_queue", None) or route.subject
+        stop_event = threading.Event()
+        thread = threading.Thread(
+            target=stop_event.wait,
+            name=f"inmemory-rpc-responder-{subject}",
+            daemon=True,
+        )
+        handle = _InMemoryRpcHandle(self, subject, handler, thread, stop_event)
+        with self._lock:
+            self._rpc_responders[subject].append(handler)
+            self._rpc_handles.append(handle)
         thread.start()
         return handle
 

@@ -23,10 +23,11 @@ from magellon_sdk.bus.interfaces import (
     EventHandler,
     PatternRef,
     RouteRef,
+    RpcHandler,
     SubscriptionHandle,
     TaskHandler,
 )
-from magellon_sdk.bus.policy import PublishReceipt, TaskConsumerPolicy
+from magellon_sdk.bus.policy import PublishReceipt, RpcPolicy, TaskConsumerPolicy
 from magellon_sdk.envelope import Envelope
 
 
@@ -124,9 +125,11 @@ class MockBinder:
         self.started = False
         self.closed = False
         self._task_consumers: Dict[str, List[Tuple[TaskHandler, TaskConsumerPolicy]]] = defaultdict(list)
+        self._rpc_responders: Dict[str, List[RpcHandler]] = defaultdict(list)
         self._event_subscribers: List[Tuple[str, EventHandler]] = []
         self.published_tasks: List[Tuple[str, Envelope]] = []
         self.published_events: List[Tuple[str, Envelope]] = []
+        self.rpc_calls: List[Tuple[str, Envelope]] = []
         self.handler_returns: List[Envelope] = []
         self.purge_counts: List[Tuple[str, int]] = []
 
@@ -192,11 +195,37 @@ class MockBinder:
         self._event_subscribers.append(entry)
         return _MockSubscriptionHandle(self, entry)
 
+    # -- RPC ---------------------------------------------------------------
+
+    def call_rpc(self, route: RouteRef, envelope: Envelope, timeout: float) -> Envelope:
+        subject = route.subject
+        self.rpc_calls.append((subject, envelope))
+        responders = self._rpc_responders.get(subject, [])
+        if not responders:
+            raise TimeoutError(f"No RPC responder for {subject!r} within {timeout}s")
+        result = responders[0](envelope)
+        if inspect.isawaitable(result):
+            raise RuntimeError("MockBinder does not drive async RPC handlers")
+        return result
+
+    def respond_rpc(
+        self,
+        route: RouteRef,
+        handler: RpcHandler,
+        policy: RpcPolicy,
+    ) -> ConsumerHandle:
+        del policy
+        self._rpc_responders[route.subject].append(handler)
+        return _MockConsumerHandle(self, route.subject, handler)  # type: ignore[arg-type]
+
     # -- internals ---------------------------------------------------------
 
     def _unregister_consumer(self, subject: str, handler: TaskHandler) -> None:
         self._task_consumers[subject] = [
             (h, p) for h, p in self._task_consumers[subject] if h is not handler
+        ]
+        self._rpc_responders[subject] = [
+            h for h in self._rpc_responders[subject] if h is not handler
         ]
 
     def _unregister_subscription(self, entry: Tuple[str, EventHandler]) -> None:

@@ -25,7 +25,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from magellon_sdk.bus import AuditLogConfig, TaskConsumerPolicy
+from magellon_sdk.bus import AuditLogConfig, RpcPolicy, TaskConsumerPolicy
 from magellon_sdk.bus.binders.rmq import (
     EXCHANGE_EVENTS,
     EXCHANGE_PLUGINS,
@@ -38,6 +38,7 @@ from magellon_sdk.bus.binders.rmq.audit import write_audit_entry
 from magellon_sdk.bus.routes import (
     ConfigRoute,
     HeartbeatRoute,
+    RpcRoute,
     StepEventRoute,
     TaskResultRoute,
     TaskRoute,
@@ -442,6 +443,66 @@ def test_publish_event_routes_config_broadcast_on_plugins_exchange(binder):
     call = binder._client.channel.basic_publish.call_args
     assert call.kwargs["exchange"] == EXCHANGE_PLUGINS
     assert call.kwargs["routing_key"] == "magellon.plugins.config.broadcast"
+
+
+# -- RPC ------------------------------------------------------------------
+
+def test_call_rpc_publishes_with_reply_to_and_correlation_id(binder):
+    route = RpcRoute.for_backend(CTF, "ctffind4")
+    binder._client.channel.queue_declare.return_value.method.queue = "amq.reply"
+    callback_holder = {}
+
+    def basic_consume(**kwargs):
+        callback_holder["callback"] = kwargs["on_message_callback"]
+        return "ctag-1"
+
+    def process_data_events(time_limit):
+        props = MagicMock()
+        props.headers = _ce_headers()
+        props.content_type = "application/json"
+        props.correlation_id = str(request.id)
+        callback_holder["callback"](
+            binder._client.channel,
+            MagicMock(delivery_tag=99),
+            props,
+            b'{"ok": true}',
+        )
+
+    binder._client.channel.basic_consume.side_effect = basic_consume
+    binder._client.connection.process_data_events.side_effect = process_data_events
+    request = _env({"probe": "schema"})
+
+    response = binder.call_rpc(route, request, timeout=1.0)
+
+    assert response.data == {"ok": True}
+    publish = binder._client.channel.basic_publish.call_args
+    assert publish.kwargs["routing_key"] == route.subject
+    props = publish.kwargs["properties"]
+    assert props.reply_to == "amq.reply"
+    assert props.correlation_id == str(request.id)
+
+
+def test_respond_rpc_publishes_reply_and_acks(binder):
+    route = RpcRoute.for_backend(CTF, "ctffind4")
+
+    def handler(env):
+        return _env({"answer": env.data["x"] + 1})
+
+    binder.respond_rpc(route, handler, policy=RpcPolicy())
+    handle = binder._consumer_handles[-1]
+    client = handle._client
+    callback = client.consume.call_args[0][1]
+
+    ch, method, props = _ch_method_props(headers=_ce_headers())
+    props.reply_to = "amq.reply"
+    props.correlation_id = "corr-1"
+    callback(ch, method, props, b'{"x": 41}')
+
+    publish = ch.basic_publish.call_args
+    assert publish.kwargs["routing_key"] == "amq.reply"
+    assert publish.kwargs["body"] == b'{"answer": 42}'
+    assert publish.kwargs["properties"].correlation_id == "corr-1"
+    ch.basic_ack.assert_called_once_with(delivery_tag=method.delivery_tag)
 
 
 # -- subscribe_events -----------------------------------------------------

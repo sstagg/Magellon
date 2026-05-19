@@ -11,6 +11,8 @@ from magellon_sdk.bus.interfaces import (
     MessageBus,
     PatternRef,
     RouteRef,
+    RpcBus,
+    RpcHandler,
     SubscriptionHandle,
     TaskHandler,
     TasksBus,
@@ -18,6 +20,7 @@ from magellon_sdk.bus.interfaces import (
 from magellon_sdk.bus.policy import (
     AuditLogConfig,
     PublishReceipt,
+    RpcPolicy,
     TaskConsumerPolicy,
 )
 
@@ -25,6 +28,7 @@ __all__ = [
     # policy
     "AuditLogConfig",
     "PublishReceipt",
+    "RpcPolicy",
     "TaskConsumerPolicy",
     # protocols (L2 + L3)
     "Binder",
@@ -34,6 +38,8 @@ __all__ = [
     "MessageBus",
     "PatternRef",
     "RouteRef",
+    "RpcBus",
+    "RpcHandler",
     "SubscriptionHandle",
     "TaskHandler",
     "TasksBus",
