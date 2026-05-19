@@ -62,14 +62,21 @@ function DetectionPolygons({
                 const svgPts = det.vertices.map(([vy, vx]) => mrcToSvg(vx, vy, imgH, imgW, svgW, svgH));
                 const pointsStr = svgPts.map(([x, y]) => `${x},${y}`).join(' ');
                 const [cx, cy] = mrcToSvg(det.center[1], det.center[0], imgH, imgW, svgW, svgH);
+                const xs = svgPts.map(([x]) => x);
+                const ys = svgPts.map(([, y]) => y);
+                const boxW = Math.max(...xs) - Math.min(...xs);
+                const boxH = Math.max(...ys) - Math.min(...ys);
+                const tooLarge = boxW > svgW * 0.15 || boxH > svgH * 0.15;
                 return (
                     <g key={i} opacity={0.85}>
-                        <polygon
-                            points={pointsStr}
-                            fill="none"
-                            stroke={strokeColor}
-                            strokeWidth={1.5}
-                        />
+                        {!tooLarge && (
+                            <polygon
+                                points={pointsStr}
+                                fill="none"
+                                stroke={strokeColor}
+                                strokeWidth={1.5}
+                            />
+                        )}
                         <circle cx={cx} cy={cy} r={3} fill={strokeColor} opacity={0.9} />
                     </g>
                 );
