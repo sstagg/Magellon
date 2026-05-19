@@ -20,7 +20,7 @@ import {
     Home,
     Beaker, BrainCircuit, ArrowRightFromLine, ArrowLeftFromLineIcon, CircleUserIcon, User,
     Puzzle,
-    Wrench, Activity,
+    Wrench, Activity, Database,
 } from "lucide-react";
 import { Box, Collapse, Typography, useMediaQuery } from '@mui/material';
 import {ExpandLess, ExpandMore, Security} from '@mui/icons-material';
@@ -125,6 +125,11 @@ const navLinks: NavLink[] = [
                 title: "FFT Test",
                 url: "dev/fft-test",
                 icon: <Activity size={20} />
+            },
+            {
+                title: "Ops Event Log",
+                url: "tools/ops-log",
+                icon: <Database size={20} />
             }
         ]
     }

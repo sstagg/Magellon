@@ -57,6 +57,7 @@ from controllers.webapp_controller import webapp_router
 from controllers.webapp_motioncor_controller import motioncor_router
 from controllers.webapp_atlas_controller import atlas_router
 from controllers.webapp_particles_controller import particles_router
+from controllers.ops_controller import ops_router
 from plugins.controller import plugins_router
 
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -372,6 +373,8 @@ app.include_router(
     prefix="/system",
 )
 
+
+app.include_router(ops_router, tags=["Ops Log"], prefix="/web/ops")
 
 Instrumentator().instrument(app).expose(app)
 

@@ -31,6 +31,7 @@ const ApiView = lazy(() => import("../../pages/api-docs/ApiView.tsx").then(m => 
 const ScalarApiDocs = lazy(() => import("../../pages/api-docs/ScalarApiDocs.tsx"));
 const SwaggerApiDocs = lazy(() => import("../../pages/api-docs/SwaggerApiDocs.tsx"));
 const PipelineHealthPage = lazy(() => import("../../pages/admin/PipelineHealthPage.tsx"));
+const OpsLogPage = lazy(() => import("../../pages/tools/OpsLogPage.tsx"));
 
 const RouteFallback = () => (
     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 240 }}>
@@ -77,6 +78,7 @@ export const PanelRoutes = () => {
                 <Route path="/dev/topaz-test" element={<TopazTestPage />} />
                 <Route path="/dev/realtime-mock" element={<RealtimeMockPage />} />
                 <Route path="/admin/pipeline-health" element={<PipelineHealthPage />} />
+                <Route path="/tools/ops-log" element={<OpsLogPage />} />
                 <Route path="/settings" element={<SettingsView />} />
 
                 <Route path="/login" element={<LoginPageView />} />
