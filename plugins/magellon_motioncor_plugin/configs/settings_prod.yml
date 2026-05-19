@@ -14,8 +14,8 @@ REPLACE_WITH: /gpfs
 
 MAGELLON_GPFS_PATH: /gpfs
 HOST_GPFS_PATH: /gpfs
-JOBS_DIR: jobs
-HOST_JOBS_DIR: jobs
+JOBS_DIR: /gpfs/jobs
+HOST_JOBS_DIR: /gpfs/jobs
 
 
 database_settings:

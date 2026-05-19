@@ -74,15 +74,22 @@ _DEFAULT_CATEGORY_ID = 10
 def _move_file_to_directory(file_path: str, destination_dir: str) -> None:
     """Move ``file_path`` into ``destination_dir``, creating it if missing.
 
+    Plugins write output under their canonical ``/gpfs/jobs/...`` path.
+    On Windows (or any host where MAGELLON_GPFS_PATH != /gpfs) that path
+    is not a real filesystem path — translate it first so shutil.move
+    finds the file.
+
     Best-effort: a missing source is logged and skipped — the metadata
     write should still happen so the UI can surface the failure.
     """
     try:
         if not file_path:
             return
+        from core.helper import from_canonical_gpfs_path
+        host_path = from_canonical_gpfs_path(file_path)
         os.makedirs(destination_dir, exist_ok=True)
-        filename = os.path.basename(file_path)
-        shutil.move(file_path, os.path.join(destination_dir, filename))
+        filename = os.path.basename(host_path)
+        shutil.move(host_path, os.path.join(destination_dir, filename))
     except Exception as exc:
         logger.warning("Could not move %s to %s: %s", file_path, destination_dir, exc)
 
