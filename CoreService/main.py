@@ -472,6 +472,22 @@ async def startup_event():
     except Exception as e:
         logger.error(f"[WARNING] Failed to start plugin liveness listener: {e}")
 
+    # Operational event tap. This is intentionally not event sourcing:
+    # bus.events.subscribe uses anonymous auto-delete queues, so it gives
+    # operators visibility without creating a durable catch-all backlog.
+    app.state.operational_event_logger = None
+    if os.environ.get("MAGELLON_OPERATIONAL_EVENT_LOGGER", "1") != "0":
+        try:
+            from magellon_sdk.bus import get_bus
+            from magellon_sdk.bus.services import start_operational_event_logger
+            logger.info("Starting operational event logger...")
+            app.state.operational_event_logger = start_operational_event_logger(
+                bus=get_bus()
+            )
+            logger.info("[OK] Operational event logger started")
+        except Exception as e:
+            logger.error(f"[WARNING] Operational event logger failed to start: {e}")
+
     # Start in-process result-processor (P3). Replaces the out-of-tree
     # magellon_result_processor plugin: every task-result queue declared
     # in rabbitmq_settings.OUT_QUEUES is consumed here and projected
@@ -586,6 +602,14 @@ async def shutdown_event():
             logger.info("[OK] RMQ step-event forwarder stopped")
         except Exception as e:
             logger.error(f"[WARNING] RMQ step-event forwarder stop failed: {e}")
+
+    operational_logger = getattr(app.state, "operational_event_logger", None)
+    if operational_logger is not None:
+        try:
+            operational_logger.stop()
+            logger.info("[OK] Operational event logger stopped")
+        except Exception as e:
+            logger.error(f"[WARNING] Operational event logger stop failed: {e}")
 
 
 from core.exceptions import (

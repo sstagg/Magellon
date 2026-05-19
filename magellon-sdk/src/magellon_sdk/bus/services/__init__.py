@@ -26,6 +26,13 @@ from magellon_sdk.bus.services.liveness_registry import (
     get_registry,
     start_liveness_listener,
 )
+from magellon_sdk.bus.services.operational_event_logger import (
+    DEFAULT_OPERATIONAL_EVENT_PATTERNS,
+    OperationalEventLogger,
+    OperationalEventLogRecord,
+    start_operational_event_logger,
+    summarize_event,
+)
 from magellon_sdk.bus.services.result_consumer import (
     ResultHandler,
     result_consumer_engine,
@@ -42,8 +49,11 @@ __all__ = [
     "CancelListener",
     "CancelMessage",
     "CancelRegistry",
+    "DEFAULT_OPERATIONAL_EVENT_PATTERNS",
     "DownstreamHandler",
     "LivenessListener",
+    "OperationalEventLogRecord",
+    "OperationalEventLogger",
     "PluginLivenessEntry",
     "PluginLivenessRegistry",
     "ResultHandler",
@@ -55,7 +65,9 @@ __all__ = [
     "push_to_category",
     "reset_publisher",
     "result_consumer_engine",
+    "start_operational_event_logger",
     "start_cancel_listener",
     "start_liveness_listener",
     "start_result_consumers",
+    "summarize_event",
 ]
