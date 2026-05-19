@@ -327,10 +327,26 @@ class RmqBinder:
         queue_name = self._resolve_queue(route)
         # passive=True: fail if the queue doesn't exist (matches today's
         # cancellation_service behavior — intentional safety).
-        frame = self._client.channel.queue_declare(queue=queue_name, passive=True)
-        count = frame.method.message_count
-        self._client.channel.queue_purge(queue=queue_name)
-        return count
+        def _do_purge() -> int:
+            frame = self._client.channel.queue_declare(queue=queue_name, passive=True)
+            count = frame.method.message_count
+            self._client.channel.queue_purge(queue=queue_name)
+            return count
+
+        try:
+            return _do_purge()
+        except (AMQPConnectionError, StreamLostError) as first_err:
+            logger.warning(
+                "purge_tasks: %s on %s — reconnecting once",
+                type(first_err).__name__,
+                queue_name,
+            )
+            try:
+                self._client.close_connection()
+            except Exception:  # noqa: BLE001
+                pass
+            self._client.connect()
+            return _do_purge()
 
     # -- Events ------------------------------------------------------------
 

@@ -413,6 +413,27 @@ def test_purge_tasks_returns_message_count_and_purges(binder):
     binder._client.channel.queue_purge.assert_called_with(queue="magellon.tasks.ctf")
 
 
+def test_purge_tasks_reconnects_once_on_stale_connection(binder):
+    from pika.exceptions import StreamLostError
+
+    route = TaskRoute.named("core_step_events_queue")
+    frame = MagicMock()
+    frame.method.message_count = 3
+    binder._client.channel.queue_declare.side_effect = [
+        StreamLostError("Transport indicated EOF"),
+        frame,
+    ]
+
+    count = binder.purge_tasks(route)
+
+    assert count == 3
+    assert binder._client.close_connection.call_count == 1
+    assert binder._client.connect.call_count == 2  # start() + reconnect
+    assert binder._client.channel.queue_purge.call_args.kwargs == {
+        "queue": "core_step_events_queue",
+    }
+
+
 # -- publish_event --------------------------------------------------------
 
 def test_publish_event_routes_to_plugins_exchange_for_heartbeat(binder):
