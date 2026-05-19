@@ -162,14 +162,21 @@ from plugin import build_hole_result, build_square_result  # noqa: E402
 async def execute_endpoint(task: TaskMessage):
     """Route the task to the matching plugin and return a TaskResultMessage."""
     type_code = task.type.code if task.type else None
-    if type_code == SQUARE_DETECT.category.code:
-        validated = _square_plugin.input_schema().model_validate(task.data)
-        output = _square_plugin.run(validated)
-        return build_square_result(task, output)
-    if type_code == HOLE_DETECT.category.code:
-        validated = _hole_plugin.input_schema().model_validate(task.data)
-        output = _hole_plugin.run(validated)
-        return build_hole_result(task, output)
+    try:
+        if type_code == SQUARE_DETECT.category.code:
+            validated = _square_plugin.input_schema().model_validate(task.data)
+            output = _square_plugin.run(validated)
+            return build_square_result(task, output)
+        if type_code == HOLE_DETECT.category.code:
+            validated = _hole_plugin.input_schema().model_validate(task.data)
+            output = _hole_plugin.run(validated)
+            return build_hole_result(task, output)
+    except Exception as exc:
+        detail = str(exc) or exc.__class__.__name__
+        return JSONResponse(
+            status_code=400,
+            content={"message": f"Ptolemy execution failed: {detail}"},
+        )
     return JSONResponse(
         status_code=400,
         content={

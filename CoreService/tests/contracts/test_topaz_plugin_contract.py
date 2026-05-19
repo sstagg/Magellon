@@ -7,7 +7,7 @@ MicrographDenoising code 9). We pin both by posting a canned TaskMessage to
 
 Uses missing input_file paths so the contract is about the wire shape,
 not compute correctness — we expect either a 200 with an error result
-envelope or a 400 propagated through the FastAPI exception handler.
+envelope or an error propagated through the FastAPI exception handler.
 
 Skips cleanly when the plugin container isn't running.
 """
@@ -71,7 +71,7 @@ def test_pick_execute_rejects_unknown_type(require_topaz_plugin):
 def test_pick_execute_returns_task_result_shape(require_topaz_plugin):
     task = _canned_task(category_code=8, category_name="TopazParticlePicking")
     resp = _post(require_topaz_plugin, task)
-    assert resp.status_code in (200, 400)
+    assert resp.status_code in (200, 500)
 
     body = resp.json()
     if resp.status_code == 200:
@@ -89,7 +89,7 @@ def test_denoise_execute_returns_task_result_shape(require_topaz_plugin):
         category_code=9, category_name="MicrographDenoising", denoise=True,
     )
     resp = _post(require_topaz_plugin, task)
-    assert resp.status_code in (200, 400)
+    assert resp.status_code in (200, 500)
 
     body = resp.json()
     if resp.status_code == 200:

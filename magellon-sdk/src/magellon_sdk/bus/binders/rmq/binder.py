@@ -171,6 +171,7 @@ class RmqBinder:
         self._consumer_handles: List[_RmqConsumerHandle] = []
         self._subscriber_handles: List[_RmqSubscriptionHandle] = []
         self._lock = threading.Lock()
+        self._publish_lock = threading.Lock()
         self._started = False
 
     # -- queue name resolution --------------------------------------------
@@ -247,7 +248,8 @@ class RmqBinder:
             )
 
         try:
-            _do_publish()
+            with self._publish_lock:
+                _do_publish()
             return PublishReceipt(ok=True, message_id=str(envelope.id))
         except (AMQPConnectionError, ChannelError, StreamLostError) as first_err:
             # Pika's BlockingConnection doesn't auto-reconnect — once the
@@ -264,8 +266,9 @@ class RmqBinder:
             except Exception:  # noqa: BLE001 — closing a half-dead conn can throw
                 pass
             try:
-                self._client.connect()
-                _do_publish()
+                with self._publish_lock:
+                    self._client.connect()
+                    _do_publish()
                 return PublishReceipt(ok=True, message_id=str(envelope.id))
             except (AMQPConnectionError, ChannelError, StreamLostError) as second_err:
                 logger.error(
@@ -334,7 +337,8 @@ class RmqBinder:
             return count
 
         try:
-            return _do_purge()
+            with self._publish_lock:
+                return _do_purge()
         except (AMQPConnectionError, StreamLostError) as first_err:
             logger.warning(
                 "purge_tasks: %s on %s — reconnecting once",
@@ -345,8 +349,9 @@ class RmqBinder:
                 self._client.close_connection()
             except Exception:  # noqa: BLE001
                 pass
-            self._client.connect()
-            return _do_purge()
+            with self._publish_lock:
+                self._client.connect()
+                return _do_purge()
 
     # -- Events ------------------------------------------------------------
 
@@ -355,21 +360,41 @@ class RmqBinder:
         exchange = exchange_for_subject(route.subject)
         body = _body_from_envelope(envelope)
         properties = _ce_properties(envelope)
-        try:
+        def _do_publish() -> None:
             self._client.channel.basic_publish(
-                exchange=exchange,
-                routing_key=route.subject,
-                body=body,
-                properties=properties,
-            )
+                    exchange=exchange,
+                    routing_key=route.subject,
+                    body=body,
+                    properties=properties,
+                )
+
+        try:
+            with self._publish_lock:
+                _do_publish()
             return PublishReceipt(ok=True, message_id=str(envelope.id))
-        except (AMQPConnectionError, ChannelError) as e:
-            logger.error(
-                "publish_event failed on %s/%s: %s", exchange, route.subject, e
+        except (AMQPConnectionError, ChannelError, StreamLostError) as first_err:
+            logger.warning(
+                "publish_event: %s on %s/%s — reconnecting once",
+                type(first_err).__name__, exchange, route.subject,
             )
-            return PublishReceipt(
-                ok=False, message_id=str(envelope.id), error=str(e)
-            )
+            try:
+                self._client.close_connection()
+            except Exception:  # noqa: BLE001
+                pass
+            try:
+                with self._publish_lock:
+                    self._client.connect()
+                    declare_event_exchanges(self._client.channel)
+                    _do_publish()
+                return PublishReceipt(ok=True, message_id=str(envelope.id))
+            except (AMQPConnectionError, ChannelError, StreamLostError) as second_err:
+                logger.error(
+                    "publish_event failed on %s/%s after reconnect: %s",
+                    exchange, route.subject, second_err,
+                )
+                return PublishReceipt(
+                    ok=False, message_id=str(envelope.id), error=str(second_err)
+                )
 
     def subscribe_events(
         self, pattern: PatternRef, handler: EventHandler

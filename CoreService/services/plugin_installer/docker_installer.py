@@ -59,6 +59,9 @@ STATE_FILENAME = "install_state.json"
 
 
 def _default_subprocess_runner(*args, **kwargs) -> subprocess.CompletedProcess:
+    if kwargs.get("text") and "encoding" not in kwargs:
+        kwargs["encoding"] = "utf-8"
+        kwargs.setdefault("errors", "replace")
     return subprocess.run(*args, **kwargs)
 
 
