@@ -288,18 +288,25 @@ class PluginManagerService:
         from services.plugin_conditions import compute_conditions
 
         short = _strip_category(plugin_id)
-        plugin = (
+        category = _category_prefix(plugin_id)
+        plugin_query = (
             db.query(Plugin)
             .filter(Plugin.deleted_date.is_(None))
-            .filter(
-                (Plugin.manifest_plugin_id == short) | (Plugin.name == short)
-            )
-            .first()
+            .filter((Plugin.manifest_plugin_id == short) | (Plugin.name == short))
         )
+        if category:
+            plugin_query = plugin_query.union(
+                db.query(Plugin)
+                .filter(Plugin.deleted_date.is_(None))
+                .filter(Plugin.category == category)
+                .filter(Plugin.name == short)
+            )
+        plugin = plugin_query.first()
         latest = self._aggregate_heartbeat(short, plugin)
         return compute_conditions(
             db,
-            plugin_name=short,
+            plugin_oid=plugin.oid if plugin is not None else None,
+            plugin_name=None if plugin is not None else short,
             is_live=latest is not None,
             last_heartbeat_at=latest,
         )
@@ -370,13 +377,27 @@ class PluginManagerService:
         the same as a replica that never existed.
         """
         short = _strip_category(plugin_id)
+        category = _category_prefix(plugin_id)
         ref_now = now or datetime.now(timezone.utc)
+        plugin = None
+        if category:
+            from database import session_local
+            with session_local() as db:
+                plugin = (
+                    db.query(Plugin)
+                    .filter(Plugin.deleted_date.is_(None))
+                    .filter(Plugin.category == category)
+                    .filter(Plugin.name == short)
+                    .first()
+                )
 
         out: List[ReplicaInfo] = []
-        for entry in self._liveness.list_live(now=ref_now):
-            if entry.plugin_id != short:
-                continue
+        for entry in self._matching_live_entries(short, plugin, now=ref_now):
             ts = getattr(entry, "last_heartbeat", None)
+            if ts is None:
+                continue
+            if ref_now - ts > stale_window:
+                continue
             age = ref_now - ts if ts is not None else stale_window * 2
             if age <= healthy_window:
                 status: Literal["Healthy", "Stale", "Lost"] = "Healthy"
@@ -438,7 +459,40 @@ class PluginManagerService:
                 )
 
         latest: Optional[datetime] = None
-        for e in self._liveness.list_live():
+        for e in self._matching_live_entries(short_id, plugin):
+            ts = getattr(e, "last_heartbeat", None)
+            if ts is not None and (latest is None or ts > latest):
+                latest = ts
+        return latest
+
+    def _matching_live_entries(
+        self,
+        short_id: str,
+        plugin: Optional[Plugin] = None,
+        *,
+        now: Optional[datetime] = None,
+    ) -> list[PluginLivenessEntry]:
+        """Live entries matching a catalog/runtime identity.
+
+        Docker installs are cataloged by archive slug/display name
+        (for example ``ctf/CTFFIND4 — CTF estimation``) while older
+        plugin code announces with ``PluginInfo.name`` (for example
+        ``ctf/CTF Plugin``). The category + manifest slug is the stable
+        bridge between those forms.
+        """
+        candidates: list[str] = [short_id]
+        cat_backend: Optional[tuple[str, str]] = None
+        if plugin is not None:
+            for extra in (plugin.manifest_plugin_id, plugin.name):
+                if extra and extra not in candidates:
+                    candidates.append(extra)
+            if plugin.category and plugin.backend_id:
+                cat_backend = (
+                    plugin.category.lower(), plugin.backend_id.lower(),
+                )
+
+        matches: list[PluginLivenessEntry] = []
+        for e in self._liveness.list_live(now=now):
             ep = e.plugin_id or ""
             ep_lower = ep.lower()
             id_match = (
@@ -469,12 +523,17 @@ class PluginManagerService:
                     or (ent_backend and ent_backend in cat_backend[1])
                 )
             )
-            if not (id_match or cb_match):
+            category_slug_match = (
+                plugin is not None
+                and plugin.category
+                and plugin.manifest_plugin_id
+                and plugin.manifest_plugin_id.lower() == plugin.category.lower()
+                and (e.category or "").lower() == plugin.category.lower()
+            )
+            if not (id_match or cb_match or category_slug_match):
                 continue
-            ts = getattr(e, "last_heartbeat", None)
-            if ts is not None and (latest is None or ts > latest):
-                latest = ts
-        return latest
+            matches.append(e)
+        return matches
 
     def _view_from_liveness(self, entry: PluginLivenessEntry) -> PluginView:
         plugin_id = entry.plugin_id
@@ -581,6 +640,11 @@ class PluginManagerService:
 def _strip_category(plugin_id: str) -> str:
     """Accept both ``plugin_id`` and ``<category>/<plugin_id>`` forms."""
     return plugin_id.split("/", 1)[1] if "/" in plugin_id else plugin_id
+
+
+def _category_prefix(plugin_id: str) -> Optional[str]:
+    """Return the category prefix from ``<category>/<plugin_id>`` forms."""
+    return plugin_id.split("/", 1)[0].lower() if "/" in plugin_id else None
 
 
 def _semver_severity(
