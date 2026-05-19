@@ -535,6 +535,21 @@ class TaskOutputProcessor:
             self.db.commit()
             type_name = task_result.type.name if task_result.type else "unknown"
             logger.info("TaskOutputProcessor: %s projected", type_name)
+
+            # Push a lightweight wake-up to any UI watching this job.
+            # Best-effort: never blocks the writer or affects DLQ routing.
+            try:
+                from core.socketio_server import schedule_import_progress
+                if task_result.job_id:
+                    schedule_import_progress(str(task_result.job_id), {
+                        "job_id": str(task_result.job_id),
+                        "event": "task_complete",
+                        "category": type_name.lower(),
+                        "status": "failed" if final_status == STATUS_FAILED else "completed",
+                    })
+            except Exception:
+                pass
+
             return {
                 "message": f"{type_name} successfully processed",
                 "artifact_id": str(artifact_id) if artifact_id else None,

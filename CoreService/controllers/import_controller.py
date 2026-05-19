@@ -71,8 +71,16 @@ def _run_magellon_import(
     already been sent; the failure surfaces on the job row (status_id=5)
     and in the server log.
     """
+    def _notify(event: str, **extra):
+        try:
+            from core.socketio_server import schedule_import_progress
+            schedule_import_progress(str(job_id), {"job_id": str(job_id), "event": event, **extra})
+        except Exception:
+            pass
+
     db = session_local()
     try:
+        _notify("started")
         importer = MagellonImporter()
         importer.pre_assigned_job_id = job_id
         importer.setup(request, db)
@@ -82,16 +90,19 @@ def _run_magellon_import(
                 "Magellon import job %s (user %s) failed: %s",
                 job_id, user_id, result.get("message"),
             )
+            _notify("failed", message=result.get("message"))
         else:
             logger.info(
                 "Magellon import job %s (user %s) completed: session=%s",
                 job_id, user_id, result.get("session_name"),
             )
+            _notify("dispatched", session_name=result.get("session_name"))
     except Exception:  # noqa: BLE001 — background task must not propagate
         logger.exception(
             "Magellon import job %s (user %s) raised unhandled exception",
             job_id, user_id,
         )
+        _notify("failed", message="Unhandled exception during import")
     finally:
         try:
             db.close()

@@ -110,5 +110,7 @@ COPY MotionCor3_1.0.1_Cuda121_10-26-2023 ./MotionCor3_1.0.1_Cuda121_10-26-2023
 # Set executable permissions for MotionCor2
 # RUN chmod +x /MotionCor2/MotionCor2
 
+ENV MOTIONCOR_BINARY=MotionCor3_1.0.1_Cuda121_10-26-2023
+
 # Start the application
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

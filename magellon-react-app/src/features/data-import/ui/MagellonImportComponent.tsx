@@ -26,10 +26,11 @@ import FolderIcon from "@mui/icons-material/Folder";
 import ErrorIcon from "@mui/icons-material/Error";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 import type { AxiosError } from "axios";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle, Clock, RefreshCcw } from "lucide-react";
 import getAxiosClient from "../../../shared/api/AxiosClient.ts";
 import { settings } from "../../../shared/config/settings.ts";
+import { useSocket } from "../../../shared/lib/useSocket.ts";
 
 const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
@@ -83,6 +84,9 @@ export const MagellonImportComponent = () => {
     const [importError, setImportError] = useState<string | null>(null);
     const [jobId, setJobId] = useState<string | null>(null);
     const [summary, setSummary] = useState<ImportSummary | null>(null);
+    const { emit: socketEmit, on: socketOn } = useSocket();
+    const importStatusRef = useRef(importStatus);
+    importStatusRef.current = importStatus;
 
     const selectedDir = useMemo(
         () => selectedFile ? directoryName(selectedFile) : null,
@@ -124,6 +128,28 @@ export const MagellonImportComponent = () => {
         }
     };
 
+    const fetchSummary = useCallback(async (id: string) => {
+        try {
+            const response = await apiClient.get<ImportSummary>(`/export/job/${id}/summary`);
+            const next = response.data;
+            setSummary(next);
+            if (terminalStatuses.has(next.derived_status)) {
+                setImportStatus(next.derived_status === "completed" ? "success" : "error");
+                if (next.derived_status !== "completed") {
+                    setImportError(`Import ${next.derived_status}`);
+                }
+            } else {
+                setImportStatus("running");
+            }
+        } catch (err: unknown) {
+            const axiosError = err as AxiosError<{ detail?: string }>;
+            if (axiosError.response?.status !== 404) {
+                setImportStatus("error");
+                setImportError(errorMessage(err, "Could not read import progress"));
+            }
+        }
+    }, []);
+
     useEffect(() => {
         const timeout = window.setTimeout(() => {
             fetchDirectory("/gpfs");
@@ -131,43 +157,29 @@ export const MagellonImportComponent = () => {
         return () => window.clearTimeout(timeout);
     }, []);
 
+    // Socket.IO: join the job room and listen for real-time progress events.
+    useEffect(() => {
+        if (!jobId) return;
+        socketEmit("join_job_room", { job_id: jobId });
+        const off = socketOn("import_progress", (data: { job_id: string }) => {
+            if (data?.job_id === jobId && ["scheduling", "running"].includes(importStatusRef.current)) {
+                fetchSummary(jobId);
+            }
+        });
+        return () => {
+            off();
+            socketEmit("leave_job_room", { job_id: jobId });
+        };
+    }, [jobId, socketEmit, socketOn, fetchSummary]);
+
+    // Polling fallback — still runs every 5 s in case a socket event is missed.
     useEffect(() => {
         if (!jobId || !["scheduling", "running"].includes(importStatus)) return;
 
-        let cancelled = false;
-        const poll = async () => {
-            try {
-                const response = await apiClient.get<ImportSummary>(
-                    `/export/job/${jobId}/summary`,
-                );
-                if (cancelled) return;
-                const next = response.data;
-                setSummary(next);
-                if (terminalStatuses.has(next.derived_status)) {
-                    setImportStatus(next.derived_status === "completed" ? "success" : "error");
-                    if (next.derived_status !== "completed") {
-                        setImportError(`Import ${next.derived_status}`);
-                    }
-                } else {
-                    setImportStatus("running");
-                }
-            } catch (err: unknown) {
-                if (cancelled) return;
-                const axiosError = err as AxiosError<{ detail?: string }>;
-                if (axiosError.response?.status !== 404) {
-                    setImportStatus("error");
-                    setImportError(errorMessage(err, "Could not read import progress"));
-                }
-            }
-        };
-
-        poll();
-        const interval = window.setInterval(poll, 2000);
-        return () => {
-            cancelled = true;
-            window.clearInterval(interval);
-        };
-    }, [jobId, importStatus]);
+        fetchSummary(jobId);
+        const interval = window.setInterval(() => fetchSummary(jobId), 5000);
+        return () => window.clearInterval(interval);
+    }, [jobId, importStatus, fetchSummary]);
 
     const handleItemClick = async (item: FileItem) => {
         if (!item.is_directory && item.name === "session.json") {

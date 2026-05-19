@@ -20,7 +20,7 @@ def getSubCommand(attribute: str, value: Optional[str] = None) -> List[str]:
     
 def build_motioncor3_command(params: MotionCorInput) -> str:
     # cmd=[os.environ.get("MOTIONCORFILE")]
-    cmd=[os.environ.get("MOTIONCOR_BINARY")]
+    cmd=[os.environ.get("MOTIONCOR_BINARY", "MotionCor3_1.0.1_Cuda121_10-26-2023")]
     # cmd = ['motioncor3']
     if params.InMrc is not None:
         cmd+=getSubCommand("-InMrc",params.InMrc)

@@ -408,6 +408,23 @@ async def emit_test_envelope(
         logger.exception("emit_test_envelope failed (non-fatal)")
 
 
+def schedule_import_progress(job_id: str, data: dict) -> None:
+    """Sync wrapper — emit ``import_progress`` to ``job:{job_id}`` room.
+
+    Safe to call from any thread (RMQ consumer, background task). No-ops
+    when the ASGI loop hasn't been captured yet (early boot, tests).
+    ``data`` must be JSON-serialisable; callers should include at minimum
+    ``{"job_id": ..., "event": ...}``.
+    """
+    if _asgi_loop is None:
+        return
+    coro = sio.emit("import_progress", data, room=_job_room(str(job_id)))
+    try:
+        asyncio.run_coroutine_threadsafe(coro, _asgi_loop)
+    except Exception:
+        logger.debug("schedule_import_progress: scheduling failed", exc_info=True)
+
+
 def schedule_test_envelope(
     direction: str,
     kind: str,
