@@ -51,13 +51,15 @@ STATUS_FAILED = 3
 #   6 = MicrographDenoising    (TaskCategory.code == 9)
 #   7 = ParticleExtraction     (TaskCategory.code == 10)  Phase 5
 #   8 = TwoDClassification     (TaskCategory.code == 4)   Phase 7
+#  12 = ParticlePicking        (TaskCategory.code == 3)   manual step
 # Unknown task types land at 99 so operators can spot them in the UI.
-_TASK_TYPE_TO_STAGE = {5: 1, 2: 2, 6: 3, 7: 4, 8: 5, 9: 6, 10: 7, 4: 8}
+_TASK_TYPE_TO_STAGE = {5: 1, 2: 2, 6: 3, 7: 4, 8: 5, 9: 6, 10: 7, 4: 8, 3: 12}
 _DEFAULT_STAGE = 99
 
 # TaskCategory codes for the artifact-producing categories handled below.
 # Kept as bare ints (matching the SDK constants) so we don't pull a
 # magellon_sdk import into this hot path just for two switch-cases.
+_TASK_TYPE_PARTICLE_PICKING = 3       # PARTICLE_PICKING (template-picker / boxnet / topaz)
 _TASK_TYPE_PARTICLE_EXTRACTION = 10  # PARTICLE_EXTRACTION
 _TASK_TYPE_TWO_D_CLASSIFICATION = 4  # TWO_D_CLASSIFICATION
 
@@ -214,6 +216,75 @@ class TaskOutputProcessor:
             if isinstance(v, str) and v in remap:
                 out[key] = remap[v]
         task_result.output_data = out
+
+    def _save_particle_picks(self, task_result: TaskResultMessage) -> None:
+        """Persist particle picks from a PARTICLE_PICKING task result.
+
+        Reads the picks from ``particles_json_path`` in ``output_data``,
+        converts to the UI point shape, and writes an ``ImageMetaData``
+        row (type=5) under the image.  No-ops gracefully when the image_id
+        or path is missing so a bad delivery doesn't abort the whole result.
+        """
+        if not task_result.image_id:
+            logger.warning("_save_particle_picks: no image_id — skipping save")
+            return
+
+        out = task_result.output_data or {}
+        json_path = out.get("particles_json_path")
+        ipp_name = out.get("ipp_name") or "Auto-pick"
+
+        # Plugin writes picks to disk; load them back here.
+        particles_payload: list[dict] = []
+        if json_path:
+            try:
+                from core.helper import from_canonical_gpfs_path
+                host_path = from_canonical_gpfs_path(json_path)
+                if os.path.exists(host_path):
+                    with open(host_path, "r") as f:
+                        raw = json.load(f)
+                    if isinstance(raw, list):
+                        import time as _time
+                        now_ms = int(_time.time() * 1000)
+                        threshold = float(out.get("threshold", 0.35))
+                        for idx, p in enumerate(raw):
+                            if isinstance(p, dict):
+                                score = float(p.get("score", 0.0))
+                                particles_payload.append({
+                                    "x": float(p.get("x", 0)),
+                                    "y": float(p.get("y", 0)),
+                                    "id": f"auto-{now_ms}-{idx}",
+                                    "type": "auto",
+                                    "confidence": min(score, 1.0),
+                                    "class": "1" if score >= threshold else "4",
+                                    "timestamp": now_ms,
+                                })
+            except Exception:
+                logger.exception("_save_particle_picks: failed to read %s", json_path)
+
+        # Upsert: if a record with the same name already exists for this
+        # image, update it; otherwise create a new one.
+        existing = (
+            self.db.query(ImageMetaData)
+            .filter(
+                ImageMetaData.image_id == task_result.image_id,
+                ImageMetaData.name == ipp_name,
+            )
+            .first()
+        )
+        if existing:
+            existing.data_json = particles_payload
+            existing.last_modified_date = __import__("datetime").datetime.now()
+        else:
+            self.db.add(
+                ImageMetaData(
+                    oid=uuid.uuid4(),
+                    name=ipp_name,
+                    created_date=__import__("datetime").datetime.now(),
+                    image_id=task_result.image_id,
+                    type=5,
+                    data_json=particles_payload,
+                )
+            )
 
     def _save_output_data(self, task_result: TaskResultMessage) -> None:
         if task_result.output_data:
@@ -531,6 +602,11 @@ class TaskOutputProcessor:
                         out["class_averages_id"] = str(artifact_id)
                     task_result.output_data = out
 
+            if reported_code != STATUS_FAILED:
+                type_code = task_result.type.code if task_result.type else None
+                if type_code == _TASK_TYPE_PARTICLE_PICKING:
+                    self._save_particle_picks(task_result)
+
             self._save_output_data(task_result)
             self._save_metadata(task_result)
 
@@ -544,6 +620,37 @@ class TaskOutputProcessor:
             logger.info("TaskOutputProcessor: %s projected", type_name)
 
             outcome = "failed" if final_status == STATUS_FAILED else "completed"
+
+            # Advance parent ImageJob status. The step-event projector handles
+            # this via NATS, but external plugins (Ptolemy, CTF, etc.) may use
+            # RMQ-only transport where NATS JetStream is unavailable. Calling
+            # job_manager here guarantees the job settles regardless.
+            try:
+                from services.job_manager import job_manager as _jm
+                job_id_s = str(task_result.job_id) if task_result.job_id else None
+                task_id_s = str(task_result.task_id) if task_result.task_id else None
+                if job_id_s:
+                    if final_status == STATUS_FAILED:
+                        _jm.fail_job(job_id_s, error=f"{type_name} processing failed")
+                    else:
+                        if task_id_s:
+                            progress = _jm.record_task_completion(job_id_s, task_id_s)
+                            if (
+                                progress.get("expected", 0) > 0
+                                and progress["completed"] >= progress["expected"]
+                            ):
+                                _jm.complete_job(
+                                    job_id_s,
+                                    result={"task_count": progress["expected"]},
+                                    num_items=progress["expected"],
+                                )
+                        else:
+                            _jm.complete_job(job_id_s, result={})
+            except Exception:
+                logger.warning(
+                    "TaskOutputProcessor: could not advance parent job %s — non-fatal",
+                    task_result.job_id, exc_info=True,
+                )
 
             # Structured operational event — queryable later via DuckDB.
             try:

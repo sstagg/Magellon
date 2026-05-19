@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Alert,
     Box,
@@ -27,6 +27,7 @@ import {
     PtolemyDetectionMode,
     PtolemyDispatchResponse,
 } from '../api/PtolemyDetectionService.ts';
+import { useSocket } from '../../../shared/lib/useSocket.ts';
 
 interface ImageDetectionToolbarProps {
     selectedImage: ImageInfoDto;
@@ -55,14 +56,18 @@ const MODE_LABEL: Record<PtolemyDetectionMode, string> = {
     hole: 'Hole detection',
 };
 
-const POLL_INTERVAL_MS = 2_000;
-const POLL_MAX_ATTEMPTS = 60;   // 2 min timeout
+// HTTP poll fallback interval / max attempts — only fires when socket.io
+// is unavailable or the completion event is missed during a reconnect.
+const POLL_INTERVAL_MS = 3_000;
+const POLL_MAX_ATTEMPTS = 40;   // 2 min timeout
 
 export const ImageDetectionToolbar: React.FC<ImageDetectionToolbarProps> = ({
     selectedImage,
     sessionName,
     onDetectionComplete,
 }) => {
+    const { emit, on, connected } = useSocket();
+
     const [busyMode, setBusyMode] = useState<PtolemyDetectionMode | null>(null);
     const [polling, setPolling] = useState(false);
     const [lastDispatch, setLastDispatch] = useState<PtolemyDispatchResponse | null>(null);
@@ -72,32 +77,93 @@ export const ImageDetectionToolbar: React.FC<ImageDetectionToolbarProps> = ({
         message: '',
         severity: 'info',
     });
+
+    // Refs for current job so the stable socket listener can access them
+    // without causing useEffect re-runs.
     const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const pollAttemptsRef = useRef(0);
+    const activeJobRef = useRef<{ jobId: string; imageId: string } | null>(null);
 
     const imagePath = useMemo(
         () => buildImagePath(selectedImage, sessionName),
         [selectedImage, sessionName],
     );
 
-    // Cancel any ongoing poll when the image changes
+    const clearPoll = useCallback(() => {
+        if (pollTimerRef.current !== null) {
+            clearTimeout(pollTimerRef.current);
+            pollTimerRef.current = null;
+        }
+    }, []);
+
+    // Cancel any running poll/subscription on image change
     useEffect(() => {
         return () => {
-            if (pollTimerRef.current !== null) {
-                clearTimeout(pollTimerRef.current);
-                pollTimerRef.current = null;
+            clearPoll();
+            if (activeJobRef.current) {
+                emit('leave_job_room', { job_id: activeJobRef.current.jobId });
+                activeJobRef.current = null;
             }
             setPolling(false);
         };
-    }, [selectedImage.oid]);
+    }, [selectedImage.oid]);  // eslint-disable-line react-hooks/exhaustive-deps
 
-    const pollUntilDone = (jobId: string, imageId: string) => {
+    const handleDetectionResult = useCallback(async (imageId: string) => {
+        try {
+            const detResp = await getImageDetections(imageId);
+            const result = detResp.data;
+            onDetectionComplete?.(result);
+            setSnackbar({
+                open: true,
+                message: `Found ${result.detections.length} ${result.category === 'SquareDetection' ? 'square' : 'hole'}(s)`,
+                severity: 'success',
+            });
+        } catch {
+            setSnackbar({ open: true, message: 'Detection done but could not fetch results', severity: 'warning' });
+        }
+    }, [onDetectionComplete]);
+
+    // Stable socket.io listener — fires as soon as CoreService's
+    // TaskOutputProcessor emits import_progress after writing the result.
+    useEffect(() => {
+        const off = on('import_progress', (data: any) => {
+            const active = activeJobRef.current;
+            if (!active || data?.job_id !== active.jobId) return;
+            if (data?.event !== 'task_complete') return;
+
+            clearPoll();
+            setPolling(false);
+            activeJobRef.current = null;
+            emit('leave_job_room', { job_id: active.jobId });
+
+            if (data.status === 'completed') {
+                handleDetectionResult(active.imageId);
+            } else {
+                setSnackbar({ open: true, message: `Detection ${data.status ?? 'failed'}`, severity: 'error' });
+            }
+        });
+        return off;
+    }, [on, emit, clearPoll, handleDetectionResult]);
+
+    // Join/leave job room when a job becomes active and socket connects
+    useEffect(() => {
+        const active = activeJobRef.current;
+        if (!connected || !active) return;
+        emit('join_job_room', { job_id: active.jobId });
+    }, [connected, emit, polling]);  // `polling` toggling = job started/stopped
+
+    // HTTP fallback poll — runs in parallel with socket.io but backs off
+    // as socket.io normally delivers first.
+    const startFallbackPoll = useCallback((jobId: string, imageId: string) => {
         pollAttemptsRef.current = 0;
-        setPolling(true);
 
         const tick = async () => {
+            // If socket.io already resolved this job, bail out.
+            if (!activeJobRef.current || activeJobRef.current.jobId !== jobId) return;
+
             if (pollAttemptsRef.current >= POLL_MAX_ATTEMPTS) {
                 setPolling(false);
+                activeJobRef.current = null;
                 setSnackbar({ open: true, message: 'Detection timed out waiting for result', severity: 'warning' });
                 return;
             }
@@ -108,33 +174,26 @@ export const ImageDetectionToolbar: React.FC<ImageDetectionToolbarProps> = ({
                 const status = statusResp.data.status;
 
                 if (status === 'completed') {
+                    clearPoll();
                     setPolling(false);
-                    try {
-                        const detResp = await getImageDetections(imageId);
-                        const result = detResp.data;
-                        onDetectionComplete?.(result);
-                        setSnackbar({
-                            open: true,
-                            message: `Found ${result.detections.length} ${result.category === 'SquareDetection' ? 'square' : 'hole'}(s)`,
-                            severity: 'success',
-                        });
-                    } catch {
-                        setSnackbar({ open: true, message: 'Detection done but could not fetch results', severity: 'warning' });
-                    }
+                    activeJobRef.current = null;
+                    emit('leave_job_room', { job_id: jobId });
+                    await handleDetectionResult(imageId);
                 } else if (status === 'failed' || status === 'cancelled') {
+                    clearPoll();
                     setPolling(false);
+                    activeJobRef.current = null;
                     setSnackbar({ open: true, message: `Detection ${status}`, severity: 'error' });
                 } else {
                     pollTimerRef.current = setTimeout(tick, POLL_INTERVAL_MS);
                 }
             } catch {
-                // network hiccup — retry
                 pollTimerRef.current = setTimeout(tick, POLL_INTERVAL_MS * 2);
             }
         };
 
         pollTimerRef.current = setTimeout(tick, POLL_INTERVAL_MS);
-    };
+    }, [clearPoll, emit, handleDetectionResult]);
 
     const dispatch = async (mode: PtolemyDetectionMode) => {
         if (!imagePath) {
@@ -160,7 +219,14 @@ export const ImageDetectionToolbar: React.FC<ImageDetectionToolbarProps> = ({
                 severity: 'success',
             });
             if (selectedImage.oid) {
-                pollUntilDone(response.data.job_id, selectedImage.oid);
+                const jobId = response.data.job_id;
+                const imageId = selectedImage.oid;
+                activeJobRef.current = { jobId, imageId };
+                setPolling(true);
+                // Subscribe via socket.io (primary)
+                emit('join_job_room', { job_id: jobId });
+                // HTTP poll as fallback
+                startFallbackPoll(jobId, imageId);
             }
         } catch (error: any) {
             setSnackbar({
