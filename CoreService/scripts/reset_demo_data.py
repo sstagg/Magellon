@@ -28,6 +28,7 @@ DEFAULT_CONFIG = os.path.join(ROOT, "configs", "app_settings_dev.yaml")
 
 # Order matters: children before parents.
 CLEAR_TABLES = [
+    "artifact",        # FK: producing_job_id → image_job, producing_task_id → image_job_task
     "image_meta_data",
     "image_job_task",
     "image_job",
@@ -137,6 +138,25 @@ def main():
         conn.execute(text("SET FOREIGN_KEY_CHECKS = 1"))
 
     clear_session_dirs(configured_home_dir(config), args.clear_session_dir)
+
+    # Clear ops event log so monitoring starts from a clean baseline.
+    directory = config.get("directory_settings", {})
+    gpfs_root = directory.get("MAGELLON_GPFS_PATH") or os.getenv("MAGELLON_GPFS_PATH")
+    if gpfs_root:
+        print("\nClearing ops event log:")
+        ops_base = os.path.join(gpfs_root, "ops_events.jsonl")
+        for suffix in ["", ".1", ".2", ".3", ".4", ".5"]:
+            p = ops_base + suffix
+            if os.path.exists(p):
+                os.remove(p)
+                print(f"  removed {p}")
+
+        # Clear plugin job output dirs so results from previous runs don't linger.
+        jobs_dir = os.path.join(gpfs_root, "jobs")
+        if os.path.isdir(jobs_dir):
+            shutil.rmtree(jobs_dir, ignore_errors=True)
+            os.makedirs(jobs_dir, exist_ok=True)
+            print(f"\nCleared plugin jobs dir: {jobs_dir}")
 
     with engine.connect() as conn:
         show_counts("After reset:", counts(conn, CLEAR_TABLES))

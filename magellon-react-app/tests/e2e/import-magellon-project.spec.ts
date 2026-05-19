@@ -27,7 +27,7 @@ const login = async (): Promise<AuthBody> => {
 };
 
 test("imports the 24dec03a Magellon project with live progress feedback", async ({ page, context }) => {
-  test.setTimeout(15 * 60 * 1000);
+  test.setTimeout(35 * 60 * 1000);
   fs.mkdirSync(SHOTS, { recursive: true });
   if (process.env.MAGELLON_E2E_RESET_DEMO === "1") {
     execFileSync("python", [RESET_SCRIPT, "--yes", "--clear-session-dir", "24dec03a"], { stdio: "inherit" });
@@ -67,10 +67,16 @@ test("imports the 24dec03a Magellon project with live progress feedback", async 
   await expect(dialog.getByText(/Job:/)).toBeVisible({ timeout: 60_000 });
   await expect(dialog.getByText(/terminal/)).toBeVisible({ timeout: 120_000 });
   await expect(dialog.getByText(/Category/)).toBeVisible({ timeout: 120_000 });
-  await expect(dialog.getByText(/\/307 terminal/)).toBeVisible({ timeout: 120_000 });
+  await expect(dialog.getByText(/307\/307 terminal/)).toBeVisible({ timeout: 30 * 60 * 1000 });
   await page.screenshot({ path: path.join(SHOTS, "04-progress-modal.png"), fullPage: true });
 
   const dialogText = await dialog.innerText();
   fs.writeFileSync(path.join(SHOTS, "progress-modal.txt"), dialogText);
   expect(dialogText).toContain("Job:");
+
+  // Persist job_id so verify-import-results.spec.ts can pick it up.
+  const jobIdMatch = dialogText.match(/Job:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+  if (jobIdMatch) {
+    fs.writeFileSync(path.join(SHOTS, "job_id.txt"), jobIdMatch[1]);
+  }
 });

@@ -625,7 +625,7 @@ def create_motioncor_task(image_path=None,
         base_path = os.path.dirname(task_dto.frame_path)
         matching_file = find_matching_file(base_path, task_dto.frame_name)
         if not matching_file:
-            raise ("motioncor input File not found",task_dto.frame_path)
+            raise ValueError(f"motioncor input File not found: {task_dto.frame_path}")
         motioncor_task_data = create_motioncor_task_data(
             image_path=matching_file,
             gain_path=gain_path,

@@ -158,6 +158,17 @@ class MagellonImporter(BaseImporter):
 
             self.run_tasks(db_session )
                 # self.file_service.process_image()
+            # Mark any stage=0 tasks still at status=1 (images not CTF-eligible,
+            # e.g. atlas/grid/hole images) as completed so the job reaches 100%.
+            db_session.execute(
+                text(
+                    "UPDATE image_job_task SET status_id = 2 "
+                    "WHERE job_id = :job_id AND stage = 0 AND status_id = 1"
+                ),
+                {"job_id": job.oid.bytes},
+            )
+            db_session.commit()
+
             self.create_magellon_atlas(db_session)
             # Clean up temporary directory
             # shutil.rmtree(temp_dir)
