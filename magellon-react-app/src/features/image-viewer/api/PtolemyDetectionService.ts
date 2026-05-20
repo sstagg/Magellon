@@ -44,6 +44,10 @@ export interface DetectionResult {
     detections: PtolemyDetection[];
     /** [height, width] of the source MRC image */
     image_shape?: number[];
+    /** Grid rotation angle in degrees (from lattice fitting) */
+    grid_angle?: number | null;
+    /** Center-to-center hole spacing in pixels (holes only) */
+    grid_pitch?: number | null;
 }
 
 const ROUTES: Record<PtolemyDetectionMode, string> = {

@@ -31,7 +31,7 @@ function scoreToColor(score: number, smin: number, smax: number): string {
 export const DetectionInfoPanel: React.FC<DetectionInfoPanelProps> = ({ result }) => {
     const [expanded, setExpanded] = useState(false);
 
-    const { category, detections } = result;
+    const { category, detections, grid_angle, grid_pitch } = result;
     const isHole = category === 'HoleDetection';
     const label = isHole ? 'Hole' : 'Square';
     const chipColor = isHole ? '#00e5ff' : '#ffeb3b';
@@ -109,6 +109,26 @@ export const DetectionInfoPanel: React.FC<DetectionInfoPanelProps> = ({ result }
                     }}
                 />
             </Box>
+
+            {/* Grid stats — angle and pitch */}
+            {(grid_angle != null || grid_pitch != null) && (
+                <Box sx={{ display: 'flex', gap: 1, px: 1.5, pb: 0.75, flexWrap: 'wrap' }}>
+                    {grid_angle != null && (
+                        <Chip
+                            size="small"
+                            label={`angle ${grid_angle.toFixed(1)}°`}
+                            sx={{ height: 18, fontSize: '0.65rem', fontFamily: 'monospace' }}
+                        />
+                    )}
+                    {grid_pitch != null && (
+                        <Chip
+                            size="small"
+                            label={`pitch ${Math.round(grid_pitch)} px`}
+                            sx={{ height: 18, fontSize: '0.65rem', fontFamily: 'monospace' }}
+                        />
+                    )}
+                </Box>
+            )}
 
             <Collapse in={expanded} unmountOnExit>
                 <Box sx={{ overflowX: 'auto', maxHeight: 220, overflowY: 'auto' }}>
