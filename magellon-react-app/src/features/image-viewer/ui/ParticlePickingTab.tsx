@@ -93,7 +93,12 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
     // Settings panel — opens in the app-level SidePanelArea (same as Jobs/Logs)
     const { activePanel, togglePanel } = useSidePanelStore();
     const settingsOpen = activePanel === 'settings';
-    const { setContent, clearContent } = useSettingsPanelSlot();
+    // Subscribe to ONLY the (stable) store setters — never the `content`
+    // value. Selecting the whole store made this tab re-render every time
+    // it pushed content, a self-feedback edge that can amplify into a
+    // render loop when combined with churning effect deps.
+    const setContent = useSettingsPanelSlot((s) => s.setContent);
+    const clearContent = useSettingsPanelSlot((s) => s.clearContent);
 
     // Algorithm parameters — single dict driven by schema. Defaults tuned so a
     // default "Run" completes in seconds, not minutes, on a typical micrograph.
