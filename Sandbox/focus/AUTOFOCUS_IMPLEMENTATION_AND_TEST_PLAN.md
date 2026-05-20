@@ -129,9 +129,9 @@ integration:
 - Optional periodic-peak removal. *(still missing.)*
 - Zero-peak rejection or second-peak selection. *(partial: `zero_origin` controls whether the origin peak is kept.)*
 - Tilt-image stretching at high stage tilt. *(still missing.)*
-- Refocus iteration when measured change is larger than a threshold. *(still missing, needs the orchestration layer.)*
-- Abort on inconsistent iterations, too many iterations, near-zero correlations, or focus limits. *(partial: `min_snr` rejects weak correlations; iteration/limit logic needs orchestration.)*
-- Accuracy check by measuring at current focus and known positive/negative focus offsets. *(still missing, needs the orchestration layer.)*
+- Refocus iteration when measured change is larger than a threshold. *(still missing: the orchestration layer runs a single measurement pass.)*
+- Abort on inconsistent iterations, too many iterations, near-zero correlations, or focus limits. *(partial: `min_snr`, `min_peak_ratio`, and `min_normalized_ccc` reject weak or ambiguous correlations; iteration/limit logic is not yet built.)*
+- Accuracy check by measuring at current focus and known positive/negative focus offsets. *(still missing: the orchestration layer runs a single measurement pass.)*
 
 These are not just UI details. They are the difference between a mathematical prototype and a robust microscope routine.
 
@@ -149,7 +149,18 @@ Do not put microscope motion, camera acquisition, calibration lookup, or databas
 
 ### 2. Add an orchestration layer
 
-Create a microscope-facing autofocus service that owns the acquisition sequence:
+*Implemented.* `autofocus_orchestrator.py` provides `run_objective_focus_sequence`
+and `run_stage_z_sequence`.  They depend only on small `Protocol` interfaces
+(`ObjectiveFocusInstrument`, `StageZInstrument`), so real Magellon adapters and
+test fakes are interchangeable; they save and restore beam tilt / stage alpha in
+a `finally` block, accept an optional correction callback, and the objective
+sequence honours a `mode` of `beam_tilt_pair` or drift-corrected
+`beam_tilt_triple`.  `focus_config.py` loads runtime settings and calibration
+matrices from JSON.  Still missing from the sketch below: calibration *lookup*
+keyed by TEM/camera/HT/mag/probe, bounded-correction application, refocus
+iteration, and the orthogonal-pair stigmation branch.
+
+The original target was a microscope-facing autofocus service that owns the acquisition sequence:
 
 ```text
 Objective autofocus:
@@ -235,11 +246,14 @@ This avoids combining two calibration philosophies prematurely.
 
 Testing needs to be layered. Unit tests alone are not enough because sign conventions, microscope state restoration, and calibration identity are common failure points.
 
-Status: the pure numerical unit tests and Leginon parity tests below largely
-exist in `test_focus_algorithms.py` (23 tests) — correlation shift parity,
-non-periodic correlation, rank-deficient and ill-conditioned rejection, SNR
-gating, three-shot drift cancellation, `solveEq10` parity, and stage-Z solves.
-The simulated-microscope, noise/robustness, and hardware tiers are still to do.
+Status: `test_focus_algorithms.py` holds 40 tests covering the pure numerical
+unit tier, the Leginon `solveEq10` parity tier, and the simulated-microscope
+tier — correlation shift parity, non-periodic correlation, rank-deficient and
+ill-conditioned rejection, SNR / peak-ratio / normalized-CCC gating, three-shot
+drift cancellation, JSON-config loading and validation, and orchestrator state
+restoration on success and on error (via `FakeObjectiveInstrument` /
+`FakeStageInstrument`).  The dedicated noise/robustness tier and the hardware
+tier are still to do.
 
 ### 1. Pure numerical unit tests
 
@@ -293,6 +307,11 @@ If a SerialEM-style focus table is added, test it separately:
 Do not use these tests to validate the Leginon matrix solver; they are different models.
 
 ### 4. Simulated microscope integration tests
+
+*Partly implemented.* `FakeObjectiveInstrument` / `FakeStageInstrument` exercise
+the orchestrator: beam-tilt / stage-alpha restoration on success and on a camera
+error, three-shot acquisition order, and config-driven mode selection.  Not yet
+covered: the orthogonal stigmation pair and bounded/rejected correction.
 
 Create a fake microscope/camera that records state changes and returns synthetic shifted images.
 
@@ -395,9 +414,11 @@ Implemented in commits `5618c77f` and `14ed5813`:
 5. Tests compare `solve_defocus_stig` directly against a Leginon `solveEq10` fixture transcribed from `references/`.
 6. `z_focus.py` remains documented as Leginon stage-tilt Z focus, not Koster paper autofocus.
 
-Robustness work landed beyond the original list: SerialEM-style edge taper/pad before correlation, an optional correlation low-pass (Leginon's `lp`), peak-masked SNR with `min_snr` gating, three-shot drift correction, and singular-system validation in `solve_rotation_center_tilt`.
+Robustness work landed beyond the original list: SerialEM-style edge taper/pad before correlation, an optional correlation low-pass (Leginon's `lp`), peak-masked SNR plus primary/secondary peak-ratio and normalized-CCC quality gates, three-shot drift correction, and singular-system validation in `solve_rotation_center_tilt`.
+
+A later refactor added the orchestration layer (`autofocus_orchestrator.py`, `Protocol`-based, pair and `beam_tilt_triple` modes — commits `9adeb401` and `c36e3480`), JSON runtime/calibration config (`focus_config.py` — commit `c2187698`), and typed result objects (`ObjectiveFocusResult`, `StageZResult`).
 
 ### Still open
 
-7. Add an integration-level orchestration module only after calibration lookup and microscope state APIs are defined.
+7. The orchestration module exists but runs a single uncorrected-by-default pass. Still needed before hardware use: calibration *lookup* keyed by TEM/camera/HT/mag/probe, bounded-correction application, refocus iteration with an inconsistency/limit abort, the accuracy check, and the orthogonal-pair stigmation branch.
 
