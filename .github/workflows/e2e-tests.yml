@@ -6,10 +6,12 @@ name: e2e-tests
 #                     collects + skips cleanly without MAGELLON_E2E_STACK=up.
 #                     Catches fixture / helper / SDK regressions early
 #                     without paying the ~5-minute boot tax on every PR.
-#   e2e-integration — workflow_dispatch only. Brings up the full
-#                     docker-compose stack (NO FFT container — the tests
-#                     install it themselves via the admin endpoint),
-#                     builds the FFT .mpn archive, runs the e2e suite.
+#   e2e-integration — nightly (cron) + on-demand (workflow_dispatch).
+#                     Brings up the full docker-compose stack (NO FFT
+#                     container — the tests install it themselves via
+#                     the admin endpoint), builds the FFT .mpn archive,
+#                     runs the e2e suite. Too slow (~5-min boot) to gate
+#                     every PR; the nightly run is the safety net.
 #
 # Phases 0-4 unit tests run via lint.yml's pytest job; this workflow
 # covers Waves 2 + 3 (install/lifecycle/dispatch + logs/upgrade) at
@@ -21,6 +23,9 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    # Nightly at 06:00 UTC (C.3) — the live-stack e2e safety net.
+    - cron: "0 6 * * *"
 
 jobs:
   e2e-collect:
@@ -63,7 +68,7 @@ jobs:
   e2e-integration:
     name: integration suite (live stack)
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
