@@ -160,6 +160,19 @@ export const MagellonImportComponent = () => {
         return () => window.clearTimeout(timeout);
     }, []);
 
+    // On mount, check if an import is already running (e.g. after page navigation)
+    // and auto-resume progress monitoring so the dialog shows live data.
+    useEffect(() => {
+        apiClient.get<{ job_id: string }>("/export/jobs/active")
+            .then(({ data }) => {
+                setJobId(data.job_id);
+                setImportStatus("running");
+            })
+            .catch(() => {
+                // 404 = no active job; ignore
+            });
+    }, []);
+
     // Socket.IO: join the job room and listen for real-time progress events.
     useEffect(() => {
         if (!jobId) return;

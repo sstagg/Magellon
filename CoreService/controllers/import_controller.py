@@ -215,6 +215,29 @@ def import_directory(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@import_router.get("/jobs/active")
+def get_active_job(
+    db_session: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id),
+):
+    """Return the most recently created import job that is still queued or running.
+
+    Used by the frontend on mount to auto-resume progress monitoring after a
+    page navigation or browser refresh. Returns 404 when no active job exists.
+    """
+    job = (
+        db_session.query(ImageJob)
+        .filter(ImageJob.status_id.in_([0, 1]))
+        .order_by(ImageJob.created_date.desc())
+        .first()
+    )
+    if not job:
+        raise HTTPException(status_code=404, detail="No active import job")
+    return {"job_id": str(job.oid), "name": job.name,
+            "status": "running" if job.status_id == 1 else "queued",
+            "created_at": job.created_date.isoformat() if job.created_date else None}
+
+
 @import_router.get("/job/{job_id}")
 def get_job_status(
     job_id: str,
