@@ -462,6 +462,8 @@ class DetectionResultResponse(BaseModel):
     category: str
     detections: list
     image_shape: Optional[list] = None
+    grid_angle: Optional[float] = None
+    grid_pitch: Optional[float] = None
 
 
 @image_processing_router.get(
@@ -508,6 +510,8 @@ def get_image_detections(
         category=category,
         detections=payload.get("detections", []),
         image_shape=payload.get("image_shape"),
+        grid_angle=payload.get("grid_angle"),
+        grid_pitch=payload.get("grid_pitch"),
     )
 
 
