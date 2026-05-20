@@ -161,17 +161,17 @@ function DetectionPolygons({
                 const ellRx = (maxX - minX) / 4;
                 const ellRy = (maxY - minY) / 4;
 
+                const hoverHandlers = {
+                    onMouseEnter: (e: React.MouseEvent) => onHover({ det, rank, category, clientX: e.clientX, clientY: e.clientY }),
+                    onMouseMove:  (e: React.MouseEvent) => onHover({ det, rank, category, clientX: e.clientX, clientY: e.clientY }),
+                    onMouseLeave: onHoverEnd,
+                    style: { cursor: 'pointer' as const },
+                };
+
                 return (
-                    <g
-                        key={i}
-                        opacity={0.9}
-                        style={{ cursor: 'pointer' }}
-                        onMouseEnter={(e) => onHover({ det, rank, category, clientX: e.clientX, clientY: e.clientY })}
-                        onMouseMove={(e)  => onHover({ det, rank, category, clientX: e.clientX, clientY: e.clientY })}
-                        onMouseLeave={onHoverEnd}
-                    >
+                    <g key={i} opacity={0.9}>
                         {isHole ? (
-                            /* Hole: semi-transparent filled ellipse (mask) + outline */
+                            /* Hole: semi-transparent filled ellipse — fill catches hover over interior */
                             !tooLarge && (
                                 <ellipse
                                     cx={cx}
@@ -182,16 +182,18 @@ function DetectionPolygons({
                                     fillOpacity={0.22}
                                     stroke={color}
                                     strokeWidth={1.5}
+                                    {...hoverHandlers}
                                 />
                             )
                         ) : (
-                            /* Square: outline polygon only */
+                            /* Square: transparent fill so the whole interior is a hover target */
                             !tooLarge && (
                                 <polygon
                                     points={pointsStr}
-                                    fill="none"
+                                    fill="transparent"
                                     stroke={color}
                                     strokeWidth={1.5}
+                                    {...hoverHandlers}
                                 />
                             )
                         )}
