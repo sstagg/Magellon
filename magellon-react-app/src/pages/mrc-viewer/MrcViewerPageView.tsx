@@ -19,7 +19,7 @@ import {
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import { Panel, Group, Separator } from 'react-resizable-panels';
-import { Menu, X, Maximize2, Minimize2 } from 'lucide-react';
+import { Maximize2, Minimize2 } from 'lucide-react';
 import {settings} from "../../shared/config/settings.ts";
 import DirectoryTreeView from "../../shared/ui/DirectoryTreeView.tsx";
 import getAxiosClient from '../../shared/api/AxiosClient.ts';
@@ -42,7 +42,7 @@ interface MetadataType {
     [key: string]: number[];
 }
 
-const BASE_URL = settings.ConfigData.SERVER_API_URL;
+const _BASE_URL = settings.ConfigData.SERVER_API_URL;
 const DRAWER_WIDTH = 240;
 
 // Custom resize handle styles
@@ -83,13 +83,13 @@ const ResizeHandle = ({ direction }: { direction: 'horizontal' | 'vertical' }) =
     </Separator>
 );
 
-const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath = "C:\\Users\\18505\\Downloads\\templates_selected.mrc", metadataFiles = []}) => {
+const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath = "C:\\Users\\18505\\Downloads\\templates_selected.mrc", metadataFiles: _metadataFiles = []}) => {
     const theme = useTheme();
-    const [selectedDirectory, setSelectedDirectory] = useState('');
+    const [_selectedDirectory, _setSelectedDirectory] = useState('');
     const [selectedImage, setSelectedImage] = useState<number | null>(null);
     const [imageData, setImageData] = useState<ImageData | null>(null);
-    const [metadata, setMetadata] = useState<MetadataType>({});
-    const [selectedMetadata, setSelectedMetadata] = useState<string>('');
+    const [_metadata, _setMetadata] = useState<MetadataType>({});
+    const [_selectedMetadata, _setSelectedMetadata] = useState<string>('');
     const [page, setPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(25);
     const [scale, setScale] = useState(1);

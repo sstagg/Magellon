@@ -12,11 +12,6 @@ import {
     Accordion,
     AccordionSummary,
     AccordionDetails,
-    FormControl,
-    InputLabel,
-    Select,
-    MenuItem,
-    SelectChangeEvent,
     LinearProgress,
     Chip
 } from "@mui/material";
@@ -24,8 +19,6 @@ import { useState, useEffect, useRef } from "react";
 import { Beaker, Upload, FileImage, Settings2, ChevronDown, Zap } from "lucide-react";
 import { settings } from "../../../shared/config/settings.ts";
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
-import { useSessionNames } from "../../image-viewer/api/FetchUseSessionNames.ts";
-import { SessionDto } from "../../../entities/image/types.ts";
 import { MrcViewer } from "../../mrc-viewer/ui/MrcViewer.tsx";
 
 const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
@@ -112,8 +105,6 @@ export const MotionCorForm: React.FC<MotionCorFormProps> = ({
     description = "Corrects for beam-induced motion in cryo-EM movie stacks using MotionCor2"
 }) => {
     // Fetch sessions from API
-    const { data: sessions, isLoading: sessionsLoading, error: sessionsError } = useSessionNames();
-
     // Form state
     const [sessionName, setSessionName] = useState<string>(initialSessionName);
     const [imageFile, setImageFile] = useState<File | null>(null);
@@ -146,10 +137,6 @@ export const MotionCorForm: React.FC<MotionCorFormProps> = ({
     const [viewerOpen, setViewerOpen] = useState(false);
     const [viewerFileUrl, setViewerFileUrl] = useState<string>('');
     const [viewerFilename, setViewerFilename] = useState<string>('');
-
-    const handleSessionChange = (event: SelectChangeEvent) => {
-        setSessionName(event.target.value);
-    };
 
     // WebSocket connection helper
     const connectWebSocket = (taskId: string) => {

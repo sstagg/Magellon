@@ -18,12 +18,7 @@ import {
     Accordion,
     AccordionSummary,
     AccordionDetails,
-    Alert,
-    Link,
     Stack,
-    Tooltip,
-    Badge,
-    LinearProgress,
     useTheme,
     alpha,
     Fade,
@@ -40,41 +35,27 @@ import {
     Science,
     Memory,
     Speed,
-    Security,
-    CloudSync,
     GitHub,
     Email,
     LinkedIn,
     Twitter,
-    Launch,
     Code,
     BugReport,
-    Lightbulb,
-    School,
-    Business,
-    People,
     Star,
-    TrendingUp,
     Assessment,
     Extension,
     ExpandMore,
     CheckCircle,
     Update,
-    Favorite,
     Public,
-    Download,
-    Share
+    Download
 } from '@mui/icons-material';
 
 import {
     Microscope,
-    Atom,
     Database,
     Zap,
-    Shield,
     Users,
-    Globe,
-    Award,
     BookOpen,
     Heart,
     Coffee,
@@ -83,7 +64,6 @@ import {
     Network,
     Eye,
     Filter,
-    Search,
     BarChart3,
     Layers,
     Target,
@@ -132,7 +112,6 @@ const AboutPage: React.FC = () => {
     const isTablet = useMediaQuery(theme.breakpoints.down('md'));
 
     const [selectedFeatureCategory, setSelectedFeatureCategory] = useState<string>('all');
-    const [showSystemInfo, setShowSystemInfo] = useState(false);
 
     // Track drawer state from localStorage to adjust layout
     const [isDrawerOpen, setIsDrawerOpen] = useState(() => {

@@ -23,7 +23,7 @@ export const ExportPageView = () => {
     // Theme and responsive breakpoints
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-    const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+    const _isTablet = useMediaQuery(theme.breakpoints.down('md'));
 
     // Tab state
     const [value, setValue] = useState('1');

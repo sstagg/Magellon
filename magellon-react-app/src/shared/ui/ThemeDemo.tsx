@@ -22,7 +22,7 @@ import { useThemeContext } from '../../app/providers/theme';
 
 const ThemeDemo = () => {
     const { themeName } = useThemeContext();
-    const theme = useTheme();
+    const _theme = useTheme();
 
     return (
         <Paper sx={{ p: 3, mb: 4 }}>

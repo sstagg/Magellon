@@ -29,12 +29,10 @@ import {
     Grid,
     FormControlLabel,
     Checkbox,
-    Autocomplete,
 } from '@mui/material';
 import {
     Add,
     Delete,
-    Refresh,
     Info,
     Code,
 } from '@mui/icons-material';
@@ -68,7 +66,7 @@ interface ObjectPermissionManagementTabProps {
 }
 
 export default function ObjectPermissionManagementTab({
-    currentUser,
+    currentUser: _currentUser,
     showSnackbar,
     isSuperUser = false,
 }: ObjectPermissionManagementTabProps) {
@@ -211,7 +209,7 @@ export default function ObjectPermissionManagementTab({
         }
     };
 
-    const useCriteriaTemplate = (template: string) => {
+    const applyCriteriaTemplate = (template: string) => {
         setCriteria(template);
     };
 
@@ -375,7 +373,7 @@ export default function ObjectPermissionManagementTab({
                                 <Tooltip key={template.label} title={template.description}>
                                     <Chip
                                         label={template.label}
-                                        onClick={() => useCriteriaTemplate(template.value)}
+                                        onClick={() => applyCriteriaTemplate(template.value)}
                                         size="small"
                                         variant="outlined"
                                         sx={{ cursor: 'pointer' }}

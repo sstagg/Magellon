@@ -19,7 +19,7 @@ import {
     SelectChangeEvent
 } from "@mui/material";
 import { useState } from "react";
-import { Beaker, Upload, FileImage, Settings2, ChevronDown, Focus } from "lucide-react";
+import { Upload, Settings2, ChevronDown, Focus } from "lucide-react";
 import { settings } from "../../../shared/config/settings.ts";
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
 import { useSessionNames } from "../../image-viewer/api/FetchUseSessionNames.ts";

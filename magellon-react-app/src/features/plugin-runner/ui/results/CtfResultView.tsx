@@ -116,7 +116,6 @@ const ThonRingSketch: React.FC<ThonRingSketchProps> = ({ defocusU, defocusV, ang
 
     // Draw four concentric ellipses at proportional radii. Radii ratio reflects
     // the defocus ratio so a perfect astigmatic sample shows elongated rings.
-    const maxDefocus = Math.max(defocusU, defocusV, 1);
     const ratio = defocusV > 0 ? defocusU / defocusV : 1;
     const baseRx = (size / 2) * 0.85;
     const baseRy = baseRx / ratio;

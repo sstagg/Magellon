@@ -116,7 +116,6 @@ const GpuCard: React.FC<{ gpu: GpuStats | undefined }> = ({ gpu }) => {
     const first = gpu.devices[0];
     const memUsed = first.memory_used_bytes ?? 0;
     const memTotal = first.memory_total_bytes ?? 0;
-    const memPercent = memTotal > 0 ? (memUsed / memTotal) * 100 : 0;
     const utilPercent = first.util_percent ?? 0;
     const others = gpu.devices.length - 1;
 

@@ -1,6 +1,6 @@
 import "swagger-ui-react/swagger-ui.css"
 import {settings} from "../../shared/config/settings.ts";
-import {Card, CardContent, Tabs, Typography, useTheme, useMediaQuery} from "@mui/material";
+import {Card, CardContent, Typography, useTheme, useMediaQuery} from "@mui/material";
 import {useState, useEffect} from "react";
 import Box from "@mui/material/Box";
 import Tab from "@mui/material/Tab";
@@ -15,13 +15,13 @@ import TabList from "@mui/lab/TabList";
 import {ImportIcon} from "lucide-react";
 import {SerialEMImportComponent} from "../../features/data-import/ui/SerialEmImportComponent.tsx";
 
-const BASE_URL = settings.ConfigData.SERVER_API_URL;
+const _BASE_URL = settings.ConfigData.SERVER_API_URL;
 const DRAWER_WIDTH = 240;
 
 export const ImportPageView = () => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-    const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+    const _isTablet = useMediaQuery(theme.breakpoints.down('md'));
 
     const [value, setValue] = useState('1');
 

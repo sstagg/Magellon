@@ -20,7 +20,6 @@ import React, { useMemo, useState } from 'react';
 import {
     Alert,
     Box,
-    Button,
     Card,
     CardContent,
     Chip,
@@ -51,7 +50,7 @@ import {
 } from '../../features/plugin-registry/api/RegistryApi.ts';
 
 
-type Tab = 'browse' | 'updates' | 'local';
+type TabId = 'browse' | 'updates' | 'local';
 
 
 // ---------------------------------------------------------------------------
@@ -146,12 +145,12 @@ const PluginRegistryCard: React.FC<{ plugin: RegistryPlugin }> = ({ plugin }) =>
 
 export const PluginRegistryPage: React.FC = () => {
     const { data, isLoading, error } = useRegistryIndex();
-    const [tab, setTab] = useState<Tab>('browse');
+    const [tab, setTab] = useState<TabId>('browse');
     const [query, setQuery] = useState('');
 
     const filtered = useMemo(() => {
         const all = data?.plugins ?? [];
-        let scope = all;
+        let scope: typeof all;
         if (tab === 'updates') {
             scope = all.filter((p) => p.update_available);
         } else if (tab === 'local') {
@@ -236,7 +235,7 @@ export const PluginRegistryPage: React.FC = () => {
 
             <Tabs
                 value={tab}
-                onChange={(_, v) => setTab(v as Tab)}
+                onChange={(_, v) => setTab(v as TabId)}
                 sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}
             >
                 <Tab

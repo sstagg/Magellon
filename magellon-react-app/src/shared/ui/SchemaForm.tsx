@@ -34,13 +34,11 @@ import {
     FormControlLabel,
     Switch,
     Checkbox,
-    Select,
     MenuItem,
     Accordion,
     AccordionSummary,
     AccordionDetails,
     Stack,
-    Chip,
     IconButton,
     Tooltip,
     List,
@@ -534,17 +532,9 @@ export const SchemaForm: React.FC<SchemaFormProps> = ({
     errors,
     onBrowseFile,
 }) => {
-    if (!schema?.properties) {
-        return (
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                Plugin does not expose an input schema.
-            </Typography>
-        );
-    }
-
-    const properties = schema.properties || {};
-    const defs = schema.$defs ?? schema.definitions ?? {};
-    const required: string[] = schema.required ?? [];
+    const properties = schema?.properties ?? {};
+    const defs = schema?.$defs ?? schema?.definitions ?? {};
+    const required: string[] = schema?.required ?? [];
 
     // Build grouped, ordered field list. $ref / anyOf are resolved
     // up-front so the rest of the renderer treats every field as a
@@ -573,6 +563,14 @@ export const SchemaForm: React.FC<SchemaFormProps> = ({
         return Array.from(map.values());
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [properties, tunableOnly]);
+
+    if (!schema?.properties) {
+        return (
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                Plugin does not expose an input schema.
+            </Typography>
+        );
+    }
 
     const handleFieldChange = (key: string, value: any) => {
         onChange({ ...values, [key]: value });

@@ -4,13 +4,10 @@ import {
     Typography,
     Paper,
     Button,
-    Stack,
     useMediaQuery,
     useTheme,
     Divider,
     alpha,
-    Card,
-    CardContent,
     Avatar,
     LinearProgress,
     IconButton,
@@ -24,7 +21,6 @@ import Grid from '@mui/material/Grid';
 
 
 import {
-    BarChart2,
     Brain,
     Cpu,
     Database,
@@ -54,7 +50,6 @@ const DRAWER_WIDTH = 240;
 
 // Custom chart component for the metrics card
 const MetricChart = ({ data, color, height = 40 }) => {
-    const theme = useTheme();
     const maxValue = Math.max(...data);
 
     return (
@@ -459,7 +454,7 @@ const DashboardView = () => {
     const theme = useTheme();
     const navigate = useNavigate();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-    const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+    const _isTablet = useMediaQuery(theme.breakpoints.down('md'));
     const isDesktop = useMediaQuery(theme.breakpoints.up('lg'));
 
     // Track drawer state from localStorage to adjust layout
@@ -485,17 +480,17 @@ const DashboardView = () => {
     }, []);
 
     // Get current user from the store
-    const { currentSession } = useImageViewerStore();
+    const { currentSession: _currentSession } = useImageViewerStore();
 
     // State for notifications
-    const [notifications, setNotifications] = useState(3);
+    const [notifications, _setNotifications] = useState(3);
     const [lastRefresh, setLastRefresh] = useState('Just now');
 
     // Calculate left margin based on drawer state
     const leftMargin = isDrawerOpen ? DRAWER_WIDTH : 0;
 
     // State for demo data
-    const [stats, setStats] = useState([
+    const [stats, _setStats] = useState([
         {
             title: "Total Projects",
             value: "14",

@@ -28,8 +28,6 @@ import Button from "@mui/material/Button";
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
 
-const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
-const exportUrl: string = BASE_URL.replace(/\/web$/, '/export');
 const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
 type FileItem = {
@@ -52,8 +50,6 @@ type SerialEMDefaults = {
     rot_gain?: number;
     flip_gain?: number;
 }
-
-type SerialEMFileType = 'mrc' | 'st' | 'mdoc' | 'nav';
 
 type ImportStatus = 'idle' | 'processing' | 'success' | 'error';
 
@@ -79,8 +75,7 @@ export const SerialEMImportComponent = () => {
     const [selectedDirectory, setSelectedDirectory] = useState<string | null>(null);
     const [importStatus, setImportStatus] = useState<ImportStatus>('idle');
     const [importError, setImportError] = useState<string | null>(null);
-    const [validationStatus, setValidationStatus] = useState<'none' | 'validating' | 'valid' | 'invalid'>('none');
-    const [detectedFiles, setDetectedFiles] = useState<{ [key: string]: number }>({
+    const [detectedFiles, _setDetectedFiles] = useState<{ [key: string]: number }>({
         'mrc': 0,
         'st': 0,
         'mdoc': 0,
@@ -103,27 +98,6 @@ export const SerialEMImportComponent = () => {
         rot_gain:0,
         flip_gain:0
     });
-
-    const validateSerialEMDirectory = async (dirPath: string) => {
-        setValidationStatus('validating');
-        try {
-            const response = await apiClient.get('/export/validate-serialem-directory', {
-                params: { source_dir: dirPath }
-            });
-
-            // Update detected files count
-            if (response.data.file_counts) {
-                setDetectedFiles(response.data.file_counts);
-            }
-
-            setValidationStatus('valid');
-            return true;
-        } catch (err: any) {
-            setValidationStatus('invalid');
-            setError(err.response?.data?.detail || err.message || 'Validation failed');
-            return false;
-        }
-    };
 
     const handleItemClick = async (item: FileItem) => {
         if (item.is_directory) {

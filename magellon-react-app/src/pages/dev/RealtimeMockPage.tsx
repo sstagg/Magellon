@@ -61,14 +61,6 @@ interface ClassAverage {
     color_seed: number;       // for the mock blob
 }
 
-interface Rule {
-    id: string;
-    label: string;
-    enabled: boolean;
-    description: string;
-    apply: (m: Micrograph) => string | null; // returns reason or null if accepted
-}
-
 // Pseudo-random number sequence so re-renders are stable.
 function mulberry32(seed: number): () => number {
     let s = seed >>> 0;

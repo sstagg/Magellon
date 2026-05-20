@@ -26,7 +26,6 @@ import {
     CardHeader,
     InputAdornment,
     IconButton,
-    Tooltip,
     Stack,
     useTheme
 } from '@mui/material';
@@ -35,9 +34,7 @@ import {
     Storage,
     Security,
     Notifications,
-    Language,
     Science,
-    Download,
     Upload,
     Save,
     RestoreFromTrash,
