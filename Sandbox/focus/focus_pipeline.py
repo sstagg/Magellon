@@ -45,6 +45,27 @@ class BeamTiltImagePair:
 
 
 @dataclass(frozen=True)
+class BeamTiltTripleShot:
+    """Three images for one drift-corrected beam-tilt measurement.
+
+    Images are acquired at equal time intervals at beam tilts
+    ``[first_tilt, second_tilt, first_tilt]``.  Because the first and third
+    images share a beam tilt, their correlation measures pure specimen drift
+    over the whole sequence.  Assuming the drift is linear in time, the second
+    image sits at the temporal midpoint, so half of that drift is removed from
+    the tilt displacement.  This is the SerialEM three-shot focus scheme and it
+    cancels linear drift that a two-shot measurement cannot separate from the
+    beam-tilt shift.
+    """
+
+    first_tilt: Vector2
+    second_tilt: Vector2
+    first_image: np.ndarray
+    second_image: np.ndarray
+    third_image: np.ndarray
+
+
+@dataclass(frozen=True)
 class StageTiltImagePair:
     """Reference and tilted images for one stage-alpha measurement."""
 
@@ -130,6 +151,117 @@ def beam_tilt_measurements_from_images(
                     pair.second_tilt[1] - pair.first_tilt[1],
                 ),
                 pixel_shift=unbin_pixel_shift(shift.shift, camera_binning),
+            )
+        )
+    return measurements, shift_results
+
+
+def solve_objective_focus_from_triple_shots(
+    calibration: ObjectiveCalibration,
+    triple_shots: Sequence[BeamTiltTripleShot],
+    *,
+    camera_binning: Vector2 = (1.0, 1.0),
+    correlation_type: CorrelationType = "phase",
+    subpixel_window: int = 5,
+    taper_fraction: float = 0.1,
+    pad_fraction: float = 0.0,
+    lowpass: float = 0.0,
+    min_snr: float = 0.0,
+    validate: bool = True,
+    max_condition_number: float = 1.0e12,
+) -> dict:
+    """Correlate three-shot beam-tilt triples and solve objective focus/stig.
+
+    Each triple is reduced to a drift-corrected beam-tilt measurement, so this
+    is the drift-resistant counterpart of
+    :func:`solve_objective_focus_from_image_pairs`.
+    """
+
+    measurements, shift_results = beam_tilt_measurements_from_triple_shots(
+        triple_shots,
+        camera_binning=camera_binning,
+        correlation_type=correlation_type,
+        subpixel_window=subpixel_window,
+        taper_fraction=taper_fraction,
+        pad_fraction=pad_fraction,
+        lowpass=lowpass,
+        min_snr=min_snr,
+    )
+    result = solve_defocus_stig(
+        calibration.defocus_matrix,
+        measurements,
+        stigx_matrix=calibration.stigx_matrix,
+        stigy_matrix=calibration.stigy_matrix,
+        validate=validate,
+        max_condition_number=max_condition_number,
+    )
+    result["measurements"] = measurements
+    result["shift_results"] = shift_results
+    result["min_snr_observed"] = _min_snr(shift_results)
+    return result
+
+
+def beam_tilt_measurements_from_triple_shots(
+    triple_shots: Sequence[BeamTiltTripleShot],
+    *,
+    camera_binning: Vector2 = (1.0, 1.0),
+    correlation_type: CorrelationType = "phase",
+    subpixel_window: int = 5,
+    taper_fraction: float = 0.1,
+    pad_fraction: float = 0.0,
+    lowpass: float = 0.0,
+    min_snr: float = 0.0,
+) -> tuple[list[BeamTiltMeasurement], list[ShiftResult]]:
+    """Build drift-corrected beam-tilt measurements from three-shot triples.
+
+    For each triple the first/second correlation gives the raw tilt
+    displacement (beam-tilt shift plus drift over the first interval) and the
+    first/third correlation gives the drift over the whole sequence.  Half of
+    that drift is the drift accrued by the temporal-midpoint second image, so
+    subtracting it leaves the drift-free beam-tilt displacement.
+    """
+
+    if not triple_shots:
+        raise ValueError("at least one beam-tilt triple shot is required")
+
+    measurements: list[BeamTiltMeasurement] = []
+    shift_results: list[ShiftResult] = []
+    for index, triple in enumerate(triple_shots):
+        tilt_shift = correlate_shift(
+            triple.second_image,
+            triple.first_image,
+            correlation_type=correlation_type,
+            subpixel_window=subpixel_window,
+            taper_fraction=taper_fraction,
+            pad_fraction=pad_fraction,
+            lowpass=lowpass,
+        )
+        drift_shift = correlate_shift(
+            triple.third_image,
+            triple.first_image,
+            correlation_type=correlation_type,
+            subpixel_window=subpixel_window,
+            taper_fraction=taper_fraction,
+            pad_fraction=pad_fraction,
+            lowpass=lowpass,
+            zero_origin=False,
+        )
+        _reject_low_snr(tilt_shift, index, min_snr)
+        _reject_low_snr(drift_shift, index, min_snr)
+        shift_results.append(tilt_shift)
+        shift_results.append(drift_shift)
+
+        corrected = (
+            tilt_shift.shift[0] - drift_shift.shift[0] / 2.0,
+            tilt_shift.shift[1] - drift_shift.shift[1] / 2.0,
+        )
+        measurements.append(
+            BeamTiltMeasurement(
+                tilt_delta=(
+                    triple.second_tilt[0] - triple.first_tilt[0],
+                    triple.second_tilt[1] - triple.first_tilt[1],
+                ),
+                pixel_shift=unbin_pixel_shift(corrected, camera_binning),
             )
         )
     return measurements, shift_results

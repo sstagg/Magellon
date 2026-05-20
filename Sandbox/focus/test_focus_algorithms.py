@@ -4,27 +4,39 @@ try:
     from focus.correlation import correlate_shift
     from focus.focus_pipeline import (
         BeamTiltImagePair,
+        BeamTiltTripleShot,
         ObjectiveCalibration,
         StageTiltImagePair,
         solve_objective_focus_from_image_pairs,
+        solve_objective_focus_from_triple_shots,
         solve_stage_z_from_image_pairs,
         unbin_pixel_shift,
     )
     from focus.mock_inputs import objective_focus_demo, shifted_image_demo, z_focus_demo
-    from focus.objective_focus import BeamTiltMeasurement, solve_defocus_stig
+    from focus.objective_focus import (
+        BeamTiltMeasurement,
+        solve_defocus_stig,
+        solve_rotation_center_tilt,
+    )
     from focus.z_focus import StageTiltMeasurement, solve_stage_z
 except ModuleNotFoundError:
     from magellon_focus_extract.correlation import correlate_shift
     from magellon_focus_extract.focus_pipeline import (
         BeamTiltImagePair,
+        BeamTiltTripleShot,
         ObjectiveCalibration,
         StageTiltImagePair,
         solve_objective_focus_from_image_pairs,
+        solve_objective_focus_from_triple_shots,
         solve_stage_z_from_image_pairs,
         unbin_pixel_shift,
     )
     from magellon_focus_extract.mock_inputs import objective_focus_demo, shifted_image_demo, z_focus_demo
-    from magellon_focus_extract.objective_focus import BeamTiltMeasurement, solve_defocus_stig
+    from magellon_focus_extract.objective_focus import (
+        BeamTiltMeasurement,
+        solve_defocus_stig,
+        solve_rotation_center_tilt,
+    )
     from magellon_focus_extract.z_focus import StageTiltMeasurement, solve_stage_z
 
 import pytest
@@ -348,3 +360,100 @@ def test_objective_pipeline_accepts_high_snr_with_threshold():
 
     assert result["min_snr_observed"] > 5.0
     assert np.isclose(result["defocus"], 0.6, atol=0.03)
+
+
+def test_solve_rotation_center_tilt_recovers_tilt():
+    defocus_matrix = np.array([[1000.0, 0.0], [0.0, 1000.0]])
+    defocus1, defocus2 = -1.0e-6, 1.0e-6
+    true_tilt = np.array([0.003, -0.002])
+    pixel_shift = (defocus2 - defocus1) * defocus_matrix @ true_tilt
+
+    tilt = solve_rotation_center_tilt(defocus_matrix, defocus1, defocus2, tuple(pixel_shift))
+
+    assert np.allclose(tilt, true_tilt, atol=1.0e-12)
+
+
+def test_solve_rotation_center_tilt_rejects_equal_defocus():
+    matrix = np.eye(2)
+    with pytest.raises(ValueError, match="must differ"):
+        solve_rotation_center_tilt(matrix, 1.0e-6, 1.0e-6, (1.0, 1.0))
+
+
+def test_solve_rotation_center_tilt_rejects_singular_matrix():
+    singular = np.array([[1.0, 1.0], [1.0, 1.0]])
+    with pytest.raises(ValueError, match="singular or poorly conditioned"):
+        solve_rotation_center_tilt(singular, -1.0e-6, 1.0e-6, (1.0, 1.0))
+
+
+def _three_shot_scene(seed=41):
+    rng = np.random.default_rng(seed)
+    image = rng.normal(0.0, 0.03, (96, 96))
+    rr, cc = np.indices(image.shape)
+    image += np.exp(-(((rr - 44.0) ** 2 + (cc - 50.0) ** 2) / (2.0 * 4.0**2)))
+    image += 0.6 * np.exp(-(((rr - 70.0) ** 2 + (cc - 30.0) ** 2) / (2.0 * 5.0**2)))
+    return image
+
+
+def test_three_shot_cancels_linear_drift():
+    """A three-shot triple recovers the beam-tilt shift free of linear drift.
+
+    The second image carries tilt shift + one interval of drift; the third
+    carries two intervals of pure drift.  The drift-corrected measurement
+    should land on the true tilt shift, while a plain two-shot correlation of
+    the first two frames keeps the drift error.
+    """
+
+    image = _three_shot_scene()
+    tilt_rows = 5
+    drift_per_interval = 2
+    first_image = image
+    second_image = np.roll(image, tilt_rows + drift_per_interval, axis=0)
+    third_image = np.roll(image, 2 * drift_per_interval, axis=0)
+
+    result = solve_objective_focus_from_triple_shots(
+        ObjectiveCalibration(np.array([[1000.0, 0.0], [0.0, 1000.0]])),
+        [
+            BeamTiltTripleShot(
+                first_tilt=(0.0, 0.0),
+                second_tilt=(0.01, 0.0),
+                first_image=first_image,
+                second_image=second_image,
+                third_image=third_image,
+            )
+        ],
+    )
+    corrected_rows = result["measurements"][0].pixel_shift[0]
+    assert np.isclose(corrected_rows, tilt_rows, atol=0.4)
+
+    two_shot = solve_objective_focus_from_image_pairs(
+        ObjectiveCalibration(np.array([[1000.0, 0.0], [0.0, 1000.0]])),
+        [
+            BeamTiltImagePair(
+                first_tilt=(0.0, 0.0),
+                second_tilt=(0.01, 0.0),
+                first_image=first_image,
+                second_image=second_image,
+            )
+        ],
+    )
+    two_shot_rows = two_shot["measurements"][0].pixel_shift[0]
+    assert abs(two_shot_rows - tilt_rows) > abs(corrected_rows - tilt_rows)
+
+
+def test_solve_objective_focus_from_triple_shots_defocus():
+    image = _three_shot_scene(seed=42)
+    result = solve_objective_focus_from_triple_shots(
+        ObjectiveCalibration(np.array([[1000.0, 0.0], [0.0, 1000.0]])),
+        [
+            BeamTiltTripleShot(
+                first_tilt=(0.0, 0.0),
+                second_tilt=(0.01, 0.0),
+                first_image=image,
+                second_image=np.roll(image, 7, axis=0),
+                third_image=np.roll(image, 4, axis=0),
+            )
+        ],
+    )
+    # corrected shift is 7 - 4/2 = 5 rows; defocus = 5 / (1000 * 0.01)
+    assert np.isclose(result["defocus"], 0.5, atol=0.05)
+    assert len(result["shift_results"]) == 2

@@ -125,12 +125,36 @@ def solve_rotation_center_tilt(
     defocus1: float,
     defocus2: float,
     pixel_shift: Vector2,
+    *,
+    max_condition_number: float = 1.0e12,
 ) -> Vector2:
-    """Solve beam-tilt misalignment from a defocus-change displacement."""
+    """Solve beam-tilt misalignment from a defocus-change displacement.
+
+    The two defoci must differ and the calibration matrix must be invertible;
+    otherwise the misalignment is unobservable and a clear error is raised
+    rather than letting ``numpy`` fail on a singular system.
+    """
 
     matrix = _matrix2(defocus_matrix, "defocus_matrix")
-    delta = (defocus2 - defocus1) * matrix
-    tilt = np.linalg.solve(delta, np.asarray(pixel_shift, dtype=np.float64))
+    defocus_change = float(defocus2) - float(defocus1)
+    if abs(defocus_change) < 1.0e-12:
+        raise ValueError("defocus1 and defocus2 must differ to solve beam-tilt misalignment")
+
+    shift = np.asarray(pixel_shift, dtype=np.float64)
+    if shift.shape != (2,):
+        raise ValueError("pixel_shift must contain exactly two values")
+    if not np.all(np.isfinite(shift)):
+        raise ValueError("pixel_shift must contain finite values")
+
+    delta = defocus_change * matrix
+    condition_number = _condition_number(np.linalg.svd(delta, compute_uv=False))
+    if not np.isfinite(condition_number) or condition_number > max_condition_number:
+        raise ValueError(
+            "defocus calibration matrix is singular or poorly conditioned: "
+            f"condition number {condition_number:.3g}"
+        )
+
+    tilt = np.linalg.solve(delta, shift)
     return (float(tilt[0]), float(tilt[1]))
 
 

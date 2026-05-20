@@ -78,6 +78,7 @@ def correlate_shift(
     taper_fraction: float = 0.1,
     pad_fraction: float = 0.0,
     lowpass: float = 0.0,
+    zero_origin: bool = True,
 ) -> ShiftResult:
     """Measure the wrapped pixel shift between two images.
 
@@ -91,6 +92,11 @@ def correlate_shift(
     the tapered images, which keeps a large genuine shift from aliasing past
     the wrap boundary.  ``lowpass`` Gaussian-smooths the correlation map, the
     standalone equivalent of Leginon's ``measureScopeChange`` ``lp`` argument.
+
+    ``zero_origin`` blanks the phase-correlation origin pixel.  Leave it on for
+    a deliberately displaced image pair, but turn it off when the genuine shift
+    can be near zero (for example correlating two same-tilt frames to measure
+    slow specimen drift), otherwise the real peak is discarded.
     """
 
     im1, im2 = _validated_pair(image1, image2)
@@ -98,7 +104,7 @@ def correlate_shift(
     pre2 = _preprocess(im2, taper_fraction, pad_fraction)
 
     if correlation_type == "phase":
-        corr = phase_correlate(pre1, pre2)
+        corr = phase_correlate(pre1, pre2, zero_origin=zero_origin)
     elif correlation_type == "cross":
         corr = cross_correlate(pre1, pre2)
     else:

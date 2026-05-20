@@ -30,6 +30,19 @@ Stage Z focus:
 3. Build `StageTiltMeasurement` objects from alpha angles and shifts.
 4. Call `solve_stage_z()` with the stage calibration matrix.
 
+## Robustness options
+
+`correlate_shift()` edge-tapers and (optionally) zero-pads each image before
+the FFT so non-periodic micrographs do not produce spurious wrap-around peaks,
+and accepts a `lowpass` argument equivalent to Leginon's `measureScopeChange`
+`lp`.  Correlation SNR is reported with the peak masked out of the noise
+estimate, and the `focus_pipeline` solvers accept a `min_snr` threshold that
+rejects weak measurements.
+
+For drift-prone specimens, `solve_objective_focus_from_triple_shots()` consumes
+`BeamTiltTripleShot` inputs (images at tilts `[A, B, A]`) and removes linear
+specimen drift the way SerialEM's three-shot focus does.
+
 ## Notes
 
 The mock examples in `mock_inputs.py` are synthetic sanity checks, not microscope
