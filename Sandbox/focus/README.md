@@ -49,9 +49,9 @@ provided, the drift correction is scaled by the actual timing; otherwise equal
 time intervals are assumed.
 
 The numerical solvers return typed result objects (`ObjectiveFocusResult` and
-`StageZResult`) with compatibility for `result["field"]` access.  Pipeline
-results include the measurements, raw shift results, and weakest quality
-metrics observed.
+`StageZResult`) accessed by attribute (`result.defocus`).  Pipeline results
+also carry the measurements, raw shift results, and weakest quality metrics
+observed.
 
 `autofocus_orchestrator.py` contains protocol-based acquisition helpers that
 save microscope state, acquire the required image sequence, call the pure

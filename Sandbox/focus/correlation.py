@@ -235,7 +235,7 @@ def _peak_ratio(array: np.ndarray, peak_row: int, peak_col: int, npix: int) -> f
     background = array[mask]
     if background.size == 0:
         return float("inf")
-    second = float(np.max(background))
+    second = max(float(np.max(background)), 0.0)
     peak = float(array[peak_row, peak_col])
     if second == 0.0:
         return float("inf") if peak > 0.0 else 0.0
@@ -243,7 +243,13 @@ def _peak_ratio(array: np.ndarray, peak_row: int, peak_col: int, npix: int) -> f
 
 
 def _normalized_ccc(image1: np.ndarray, image2: np.ndarray, shift: Tuple[float, float]) -> float:
-    """Return normalized correlation after applying the measured integer shift."""
+    """Return an approximate normalized cross-correlation coefficient.
+
+    The measured shift is applied with an integer ``np.roll``, so the value is a
+    coarse quality score, not an exact CCC: sub-pixel shift is ignored and the
+    rolled-in wrap region (plus any zero padding) mismatches content, biasing
+    the result low.  It is intended only for threshold gating.
+    """
 
     row_shift = int(round(shift[0]))
     col_shift = int(round(shift[1]))
@@ -257,10 +263,12 @@ def _normalized_ccc(image1: np.ndarray, image2: np.ndarray, shift: Tuple[float, 
 
 
 def _edge_mask(shape: Tuple[int, int], taper_fraction: float) -> np.ndarray:
-    """Return a separable raised-cosine (Tukey) edge mask for ``shape``."""
+    """Return a separable raised-cosine (Tukey) edge mask for ``shape``.
 
-    if not 0.0 < taper_fraction <= 0.5:
-        raise ValueError("taper_fraction must be in (0.0, 0.5]")
+    ``taper_fraction`` is already range-checked by ``_validate_preprocess_args``
+    before this is reached.
+    """
+
     row_window = _tukey_window(shape[0], taper_fraction)
     col_window = _tukey_window(shape[1], taper_fraction)
     return np.outer(row_window, col_window)

@@ -45,9 +45,6 @@ class StageZResult:
     min_peak_ratio_observed: float = float("nan")
     min_normalized_ccc_observed: float = float("nan")
 
-    def __getitem__(self, key: str) -> Any:
-        return getattr(self, key)
-
 
 def solve_stage_z(
     stage_matrix: np.ndarray,

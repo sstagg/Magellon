@@ -83,21 +83,21 @@ def test_objective_focus_solve_defocus_only():
     matrix = np.array([[1000.0, 0.0], [0.0, 1000.0]])
     measurement = BeamTiltMeasurement((0.01, 0.0), (2.0e-5, 0.0))
     result = solve_defocus_stig(matrix, [measurement])
-    assert np.isclose(result["defocus"], 2.0e-6)
-    assert result["stigx"] is None
-    assert result["stigy"] is None
-    assert result["rank"] == 1
-    assert result["unknown_count"] == 1
-    assert np.isfinite(result["condition_number"])
+    assert np.isclose(result.defocus, 2.0e-6)
+    assert result.stigx is None
+    assert result.stigy is None
+    assert result.rank == 1
+    assert result.unknown_count == 1
+    assert np.isfinite(result.condition_number)
 
 
 def test_objective_focus_demo_with_stig():
     result = objective_focus_demo()
-    assert np.isclose(result["defocus"], 2.0e-6)
-    assert np.isclose(result["stigx"], -0.4e-6)
-    assert np.isclose(result["stigy"], 0.7e-6)
-    assert result["rank"] == 3
-    assert result["unknown_count"] == 3
+    assert np.isclose(result.defocus, 2.0e-6)
+    assert np.isclose(result.stigx, -0.4e-6)
+    assert np.isclose(result.stigy, 0.7e-6)
+    assert result.rank == 3
+    assert result.unknown_count == 3
 
 
 def test_objective_focus_rejects_rank_deficient_stig_solve():
@@ -131,8 +131,8 @@ def test_objective_focus_can_return_legacy_least_squares_without_validation():
         validate=False,
     )
 
-    assert result["rank"] < result["unknown_count"]
-    assert result["diagnostics"].design.shape == (4, 3)
+    assert result.rank < result.unknown_count
+    assert result.diagnostics.design.shape == (4, 3)
 
 
 def test_objective_focus_rejects_poorly_conditioned_solve():
@@ -161,9 +161,9 @@ def test_stage_z_solve():
             StageTiltMeasurement(0.1, (0.0, 74.87506248512112)),
         ],
     )
-    assert np.isclose(result["z"], 1.5e-6)
-    assert np.isclose(result["z_std"], 0.0)
-    assert result["measurement_count"] == 2
+    assert np.isclose(result.z, 1.5e-6)
+    assert np.isclose(result.z_std, 0.0)
+    assert result.measurement_count == 2
 
 
 def test_stage_z_rejects_zero_alpha():
@@ -175,7 +175,7 @@ def test_stage_z_rejects_zero_alpha():
 
 def test_z_focus_demo():
     result = z_focus_demo()
-    assert np.isclose(result["z"], 1.5e-6)
+    assert np.isclose(result.z, 1.5e-6)
 
 
 def test_unbin_pixel_shift_uses_row_col_binning_order():
@@ -201,8 +201,8 @@ def test_objective_focus_pipeline_from_image_pair():
         ],
     )
 
-    assert np.isclose(result["measurements"][0].pixel_shift[0], 6.0, atol=0.25)
-    assert np.isclose(result["defocus"], 0.6, atol=0.03)
+    assert np.isclose(result.measurements[0].pixel_shift[0], 6.0, atol=0.25)
+    assert np.isclose(result.defocus, 0.6, atol=0.03)
 
 
 def test_stage_z_pipeline_from_image_pairs():
@@ -231,8 +231,8 @@ def test_stage_z_pipeline_from_image_pairs():
         ],
     )
 
-    assert np.isclose(result["z"], expected_z, rtol=0.05)
-    assert len(result["shift_results"]) == 2
+    assert np.isclose(result.z, expected_z, rtol=0.05)
+    assert len(result.shift_results) == 2
 
 
 def leginon_solve_eq10(F, A, B, tilts, shifts):
@@ -289,9 +289,9 @@ def test_solve_defocus_stig_matches_leginon_solve_eq10():
     )
     leginon = leginon_solve_eq10(defocus_matrix, stigx_matrix, stigy_matrix, tilts, shifts)
 
-    assert np.isclose(local["defocus"], leginon["defocus"], rtol=0.0, atol=1.0e-15)
-    assert np.isclose(local["stigx"], leginon["stigx"], rtol=0.0, atol=1.0e-15)
-    assert np.isclose(local["stigy"], leginon["stigy"], rtol=0.0, atol=1.0e-15)
+    assert np.isclose(local.defocus, leginon["defocus"], rtol=0.0, atol=1.0e-15)
+    assert np.isclose(local.stigx, leginon["stigx"], rtol=0.0, atol=1.0e-15)
+    assert np.isclose(local.stigy, leginon["stigy"], rtol=0.0, atol=1.0e-15)
 
 
 def test_solve_defocus_only_matches_leginon_solve_eq10():
@@ -302,8 +302,8 @@ def test_solve_defocus_only_matches_leginon_solve_eq10():
     local = solve_defocus_stig(defocus_matrix, [BeamTiltMeasurement(tilts[0], shifts[0])])
     leginon = leginon_solve_eq10(defocus_matrix, None, None, tilts, shifts)
 
-    assert np.isclose(local["defocus"], leginon["defocus"], rtol=0.0, atol=1.0e-18)
-    assert local["stigx"] is None and leginon["stigx"] is None
+    assert np.isclose(local.defocus, leginon["defocus"], rtol=0.0, atol=1.0e-18)
+    assert local.stigx is None and leginon["stigx"] is None
 
 
 def test_correlate_shift_recovers_non_periodic_shift():
@@ -430,8 +430,8 @@ def test_objective_pipeline_accepts_high_snr_with_threshold():
         min_snr=5.0,
     )
 
-    assert result["min_snr_observed"] > 5.0
-    assert np.isclose(result["defocus"], 0.6, atol=0.03)
+    assert result.min_snr_observed > 5.0
+    assert np.isclose(result.defocus, 0.6, atol=0.03)
 
 
 def test_solve_rotation_center_tilt_recovers_tilt():
@@ -494,7 +494,7 @@ def test_three_shot_cancels_linear_drift():
             )
         ],
     )
-    corrected_rows = result["measurements"][0].pixel_shift[0]
+    corrected_rows = result.measurements[0].pixel_shift[0]
     assert np.isclose(corrected_rows, tilt_rows, atol=0.4)
 
     two_shot = solve_objective_focus_from_image_pairs(
@@ -508,7 +508,7 @@ def test_three_shot_cancels_linear_drift():
             )
         ],
     )
-    two_shot_rows = two_shot["measurements"][0].pixel_shift[0]
+    two_shot_rows = two_shot.measurements[0].pixel_shift[0]
     assert abs(two_shot_rows - tilt_rows) > abs(corrected_rows - tilt_rows)
 
 
@@ -538,7 +538,7 @@ def test_three_shot_uses_timestamp_drift_fraction():
         taper_fraction=0.0,
     )
 
-    assert np.isclose(result["measurements"][0].pixel_shift[0], tilt_rows, atol=0.6)
+    assert np.isclose(result.measurements[0].pixel_shift[0], tilt_rows, atol=0.6)
 
 
 def test_solve_objective_focus_from_triple_shots_defocus():
@@ -556,8 +556,8 @@ def test_solve_objective_focus_from_triple_shots_defocus():
         ],
     )
     # corrected shift is 7 - 4/2 = 5 rows; defocus = 5 / (1000 * 0.01)
-    assert np.isclose(result["defocus"], 0.5, atol=0.05)
-    assert len(result["shift_results"]) == 2
+    assert np.isclose(result.defocus, 0.5, atol=0.05)
+    assert len(result.shift_results) == 2
 
 
 class FakeObjectiveInstrument:
@@ -607,7 +607,7 @@ def test_objective_orchestrator_restores_beam_tilt():
         [((0.0, 0.0), (0.01, 0.0))],
     )
 
-    assert np.isclose(result["defocus"], 0.6, atol=0.05)
+    assert np.isclose(result.defocus, 0.6, atol=0.05)
     assert instrument.beam_tilt == (0.0, 0.0)
 
 
@@ -634,7 +634,7 @@ def test_stage_z_orchestrator_restores_alpha():
 
     result = run_stage_z_sequence(instrument, matrix, [alpha])
 
-    assert np.isclose(result["z"], col_pixels * matrix[1, 1] / np.sin(alpha), rtol=0.05)
+    assert np.isclose(result.z, col_pixels * matrix[1, 1] / np.sin(alpha), rtol=0.05)
     assert instrument.stage_alpha == 0.25
 
 
@@ -689,3 +689,76 @@ def test_runtime_config_rejects_unknown_section():
 def test_runtime_config_rejects_invalid_window():
     with pytest.raises(ValueError, match="subpixel_window"):
         FocusRuntimeConfig.from_dict({"objective_focus": {"subpixel_window": 4}})
+
+
+def test_runtime_config_rejects_non_finite_max_condition_number():
+    with pytest.raises(ValueError, match="max_condition_number"):
+        FocusRuntimeConfig.from_dict(
+            {"objective_focus": {"max_condition_number": float("nan")}}
+        )
+
+
+def test_objective_orchestrator_triple_mode():
+    image = _three_shot_scene(seed=47)
+    instrument = FakeObjectiveInstrument(
+        [image, np.roll(image, 7, axis=0), np.roll(image, 4, axis=0)]
+    )
+
+    result = run_objective_focus_sequence(
+        instrument,
+        ObjectiveCalibration(np.array([[1000.0, 0.0], [0.0, 1000.0]])),
+        [((0.0, 0.0), (0.01, 0.0))],
+        mode="beam_tilt_triple",
+    )
+
+    # drift-corrected shift is 7 - 4/2 = 5 rows; defocus = 5 / (1000 * 0.01)
+    assert np.isclose(result.defocus, 0.5, atol=0.05)
+    # triple mode acquires three images and ends back at the original tilt
+    assert instrument.set_calls == [(0.0, 0.0), (0.01, 0.0), (0.0, 0.0), (0.0, 0.0)]
+    assert instrument.beam_tilt == (0.0, 0.0)
+
+
+def test_objective_orchestrator_rejects_unknown_mode():
+    instrument = FakeObjectiveInstrument([_three_shot_scene()])
+    with pytest.raises(ValueError, match="mode must be"):
+        run_objective_focus_sequence(
+            instrument,
+            ObjectiveCalibration(np.eye(2)),
+            [((0.0, 0.0), (0.01, 0.0))],
+            mode="nonsense",
+        )
+
+
+def test_runtime_config_mode_drives_orchestrator():
+    runtime = load_focus_runtime_config(FOCUS_DIR / "config" / "focus_runtime.example.json")
+    settings = runtime.objective_focus
+    rng = np.random.default_rng(48)
+    image = rng.normal(0.0, 0.03, (96, 96))
+    rr, cc = np.indices(image.shape)
+    image += np.exp(-(((rr - 40.0) ** 2 + (cc - 45.0) ** 2) / (2.0 * 4.0**2)))
+    instrument = FakeObjectiveInstrument([image, np.roll(image, 6, axis=0)])
+
+    result = run_objective_focus_sequence(
+        instrument,
+        ObjectiveCalibration(np.array([[1000.0, 0.0], [0.0, 1000.0]])),
+        settings.beam_tilt_pairs,
+        mode=settings.mode,
+        **settings.pipeline_kwargs(),
+    )
+
+    assert np.isclose(result.defocus, 0.6, atol=0.05)
+    assert instrument.beam_tilt == (0.0, 0.0)
+
+
+def test_stage_z_orchestrator_restores_alpha_on_error():
+    image = _three_shot_scene(seed=49)
+    instrument = FakeStageInstrument([image, RuntimeError("camera failed")])
+
+    with pytest.raises(RuntimeError, match="camera failed"):
+        run_stage_z_sequence(
+            instrument,
+            np.array([[1.0e-9, 0.0], [0.0, 2.0e-9]]),
+            [0.1],
+        )
+
+    assert instrument.stage_alpha == 0.25

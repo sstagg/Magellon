@@ -57,6 +57,8 @@ class ObjectiveFocusSettings:
         if self.mode not in {"beam_tilt_pair", "beam_tilt_triple"}:
             raise ValueError("objective_focus.mode must be 'beam_tilt_pair' or 'beam_tilt_triple'")
         _validate_common_correlation(self)
+        if not np.isfinite(self.max_condition_number) or self.max_condition_number <= 0.0:
+            raise ValueError("objective_focus.max_condition_number must be a positive finite number")
         if not self.beam_tilt_pairs:
             raise ValueError("objective_focus.beam_tilt_pairs must not be empty")
 
