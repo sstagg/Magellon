@@ -502,7 +502,15 @@ class JobManager:
         now = datetime.utcnow()
         if new_status != RUN_STATUS_PENDING and run.started_date is None:
             run.started_date = now
-        run.ended_date = now if new_status in terminal else None
+        if new_status in terminal:
+            # Stamp the end time only on the *transition* into a terminal
+            # state — a later child event must not drift ended_date.
+            if run.ended_date is None:
+                run.ended_date = now
+        else:
+            # Re-opened (e.g. a child re-run dropped the run back to
+            # running); clear the stale end time.
+            run.ended_date = None
         run.status_id = new_status
 
 
