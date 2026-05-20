@@ -518,20 +518,31 @@ def dispatch_particle_pick_task(
     """
     image_path = to_canonical_gpfs_path(image_path)
     file_name = os.path.splitext(os.path.basename(image_path))[0]
+
+    # Topaz has its own TaskCategory (code 8) and queue — must not go
+    # to particle_picking_tasks_queue which only template-picker / boxnet consume.
+    # Match both the manifest backend_id ("topaz") and the SDK-derived fallback
+    # ("topaz-particle-picking" when no manifest backend_id is announced).
+    _TOPAZ_BACKEND_IDS = {"topaz", "topaz-particle-picking", "topaz_particle_picking"}
+    is_topaz = target_backend in _TOPAZ_BACKEND_IDS
+
     data = {
         "image_id": str(image_id) if image_id else None,
         "image_name": file_name,
         "image_path": image_path,
         "input_file": image_path,
         "ipp_name": ipp_name,
-        **(engine_opts or {}),
     }
-    # Topaz has its own TaskCategory (code 8) and queue — must not go
-    # to particle_picking_tasks_queue which only template-picker / boxnet consume.
-    # Match both the manifest backend_id ("topaz") and the SDK-derived fallback
-    # ("topaz-particle-picking" when no manifest backend_id is announced).
-    _TOPAZ_BACKEND_IDS = {"topaz", "topaz-particle-picking", "topaz_particle_picking"}
-    ptype = TOPAZ_PARTICLE_PICKING if target_backend in _TOPAZ_BACKEND_IDS else PARTICLE_PICKING
+    # TopazPickInput keeps engine knobs (model/threshold/radius/scale)
+    # nested under ``engine_opts``; template-picker / boxnet carry their
+    # typed fields at the top level. Spreading topaz opts flat here left
+    # engine_opts empty, so the plugin silently used its defaults.
+    if is_topaz:
+        data["engine_opts"] = engine_opts or {}
+    else:
+        data.update(engine_opts or {})
+
+    ptype = TOPAZ_PARTICLE_PICKING if is_topaz else PARTICLE_PICKING
     task = TaskFactory.create_task(
         pid=task_id or uuid.uuid4(),
         instance_id=uuid.uuid4(),

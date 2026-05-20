@@ -154,7 +154,7 @@ class TopazPickPlugin(PluginBase[TopazPickInput, ParticlePickingOutput]):
             if step is not None:
                 emit_step(step.progress(10.0, "preprocessing micrograph"))
 
-            picks = run_pick(
+            picks, image_shape = run_pick(
                 input_data.input_file,
                 model=model,
                 radius=radius,
@@ -184,6 +184,7 @@ class TopazPickPlugin(PluginBase[TopazPickInput, ParticlePickingOutput]):
             return ParticlePickingOutput(
                 num_particles=len(picks),
                 particles_json_path=json_path,
+                image_shape=image_shape,
                 picks=None,
             )
         except Exception as exc:
@@ -301,6 +302,22 @@ def build_pick_result(task: TaskMessage, output: ParticlePickingOutput) -> TaskR
             path=output.particles_json_path,
             required=True,
         ))
+
+    # Echo the score threshold so TaskOutputProcessor classifies picks
+    # against the topaz log-likelihood cutoff (default -3.0) rather than
+    # the template-matching correlation default (0.35) — without it
+    # every topaz pick lands in the "Uncertain" class.
+    engine_opts = data.get("engine_opts") or {}
+    output_data = {
+        "num_particles":       output.num_particles,
+        "particles_json_path": output.particles_json_path,
+        "ipp_name":            ipp_name,
+        "threshold":           float(engine_opts.get("threshold", -3.0)),
+        **output.extras,
+    }
+    if output.image_shape:
+        output_data["image_shape"] = output.image_shape
+
     return TaskResultMessage(
         worker_instance_id=task.worker_instance_id,
         job_id=task.job_id,
@@ -312,12 +329,7 @@ def build_pick_result(task: TaskMessage, output: ParticlePickingOutput) -> TaskR
         code=200,
         message=f"Topaz picked {output.num_particles} particles",
         type=task.type,
-        output_data={
-            "num_particles":       output.num_particles,
-            "particles_json_path": output.particles_json_path,
-            "ipp_name":            ipp_name,
-            **output.extras,
-        },
+        output_data=output_data,
         output_files=out_files,
     )
 

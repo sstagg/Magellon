@@ -25,11 +25,13 @@ requires:
   - broker
   - gpfs
 
+# Inference runs on ONNX Runtime. The pinned runtime is CPU-only;
+# the plugin auto-detects and uses a GPU when deployed with an
+# onnxruntime-gpu build, so a GPU is opportunistic, not required.
 resources:
-  cpu_cores: 2
-  memory_mb: 4096
-  gpu_count: 1
-  gpu_memory_mb: 4096
+  cpu_cores: 4
+  memory_mb: 2048
+  gpu_count: 0
   typical_duration_seconds: 30
 
 lifecycle:

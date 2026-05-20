@@ -91,3 +91,67 @@ def test_pick_dispatch_returns_false_on_bus_failure(fake_bus):
     fake_bus.tasks.send.return_value = MagicMock(ok=False, error="oops")
     ok = dispatch_topaz_pick_task(image_path="/x.mrc")
     assert ok is False
+
+
+@pytest.fixture
+def live_backend_resolver(monkeypatch):
+    """Resolve every backend pin to a queue so dispatch routing succeeds
+    without a real liveness registry — dispatch_particle_pick_task always
+    sets task.target_backend, which requires a backend resolver."""
+    import core.dispatcher_registry as dr
+    from core.dispatcher_registry import get_task_dispatcher_registry
+
+    monkeypatch.setattr(
+        dr, "_live_backend_queue",
+        lambda contract, backend_id: f"{backend_id}_tasks_queue",
+    )
+    get_task_dispatcher_registry.cache_clear()
+    yield
+    get_task_dispatcher_registry.cache_clear()
+
+
+def test_particle_pick_dispatch_nests_topaz_engine_opts(fake_bus, live_backend_resolver):
+    """The UI dispatch helper routes topaz backends to the topaz
+    category and nests engine knobs under ``engine_opts`` so
+    ``TopazPickInput.model_validate`` actually sees them. A flat
+    spread left ``engine_opts`` empty and the plugin silently fell
+    back to its defaults — the threshold slider did nothing."""
+    from core.helper import dispatch_particle_pick_task
+
+    ok = dispatch_particle_pick_task(
+        "/magellon/session/expo.mrc",
+        target_backend="topaz",
+        engine_opts={"model": "resnet8", "threshold": -1.5, "radius": 20, "scale": 4},
+    )
+    assert ok is True
+
+    route, envelope = _last_send(fake_bus)
+    assert route.subject.startswith("magellon.tasks.topazparticlepicking")
+
+    task = envelope.data
+    assert task.type.code == TOPAZ_PARTICLE_PICKING.code
+
+    parsed = TopazPickInput.model_validate(task.data)
+    assert parsed.engine_opts["model"] == "resnet8"
+    assert parsed.engine_opts["threshold"] == -1.5
+    assert parsed.engine_opts["radius"] == 20
+    assert parsed.engine_opts["scale"] == 4
+
+
+def test_particle_pick_dispatch_keeps_template_picker_opts_flat(fake_bus, live_backend_resolver):
+    """Non-topaz backends carry typed fields at the top level — the
+    template-picker plugin's TemplatePickerInput expects them there."""
+    from core.helper import dispatch_particle_pick_task
+
+    ok = dispatch_particle_pick_task(
+        "/magellon/session/expo.mrc",
+        target_backend="template-picker",
+        engine_opts={"threshold": 0.42, "max_peaks": 300},
+    )
+    assert ok is True
+
+    _route, envelope = _last_send(fake_bus)
+    task = envelope.data
+    assert task.data["threshold"] == 0.42
+    assert task.data["max_peaks"] == 300
+    assert "engine_opts" not in task.data

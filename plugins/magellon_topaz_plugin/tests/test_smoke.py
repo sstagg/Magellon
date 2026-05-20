@@ -50,20 +50,30 @@ def test_pick_on_bundled_mrc(tmp_path):
         f"sandbox baseline is 1713 at radius=14 threshold=-3 scale=8"
     )
 
-    # Inline picks are always populated for <5k results.
-    assert out.picks is not None
-    assert len(out.picks) == out.num_particles
+    # Rule 1 (artifact-bus invariants): the bus carries refs only — the
+    # plugin writes picks.json and leaves the inline ``picks`` list empty.
+    assert out.picks is None
+
+    # particles_json_path was written and holds the full pick list.
+    assert out.particles_json_path
+    assert os.path.exists(out.particles_json_path)
+    import json
+    with open(out.particles_json_path) as f:
+        picks = json.load(f)
+    assert len(picks) == out.num_particles
 
     # Top pick has score ~6.26 in our reference run — accept >=4 as a
     # very loose lower bound (GMM jitter doesn't move top picks much).
-    top = out.picks[0]
-    assert top.score >= 4.0
-    assert top.radius == 14 * 8  # default radius * default scale
-    assert len(top.center) == 2
+    top = picks[0]
+    assert top["score"] >= 4.0
+    assert top["radius"] == 14 * 8  # default radius * default scale
+    assert len(top["center"]) == 2
 
-    # particles_json_path was written
-    assert out.particles_json_path
-    assert os.path.exists(out.particles_json_path)
+    # Plugin reports the source micrograph shape so consumers size a
+    # canvas without re-reading the MRC.
+    assert out.image_shape is not None
+    assert len(out.image_shape) == 2
+    assert all(d > 1000 for d in out.image_shape)
 
 
 def test_denoise_synthetic(tmp_path):

@@ -121,10 +121,13 @@ def test_pick_execute_emits_started_progress_completed(monkeypatch, tmp_path):
     monkeypatch.setattr(plugin_mod, "get_publisher", _fake_get_publisher)
     monkeypatch.setattr(
         plugin_mod, "run_pick",
-        lambda input_file, **kwargs: [
-            {"center": [10, 10], "radius": 14, "score": 5.5},
-            {"center": [20, 20], "radius": 14, "score": 4.2},
-        ],
+        lambda input_file, **kwargs: (
+            [
+                {"center": [10, 10], "radius": 14, "score": 5.5},
+                {"center": [20, 20], "radius": 14, "score": 4.2},
+            ],
+            [4096, 4096],
+        ),
     )
 
     job_id = uuid4()
@@ -140,6 +143,9 @@ def test_pick_execute_emits_started_progress_completed(monkeypatch, tmp_path):
         reset_active_task(token)
 
     assert out.num_particles == 2
+    # run_pick reports the source micrograph shape; execute() threads it
+    # onto the output so consumers can size a canvas without re-reading.
+    assert out.image_shape == [4096, 4096]
     types = [c[0] for c in captured]
     # Started, ≥1 progress, completed. Ordering matches FFT's pattern.
     assert types[0] == "magellon.step.started"
@@ -209,10 +215,14 @@ def test_build_pick_result_carries_envelope_ids_and_path_only():
 
     job_id = uuid4()
     task_id = uuid4()
-    task = TaskMessage(id=task_id, job_id=job_id, data={"input_file": "/tmp/in.mrc"})
+    task = TaskMessage(
+        id=task_id, job_id=job_id,
+        data={"input_file": "/tmp/in.mrc", "engine_opts": {"threshold": -2.5}},
+    )
     output = ParticlePickingOutput(
         num_particles=2,
         particles_json_path="/tmp/picks.json",
+        image_shape=[4096, 4096],
         picks=None,  # plugin no longer populates this
     )
 
@@ -223,9 +233,28 @@ def test_build_pick_result_carries_envelope_ids_and_path_only():
     assert result.image_path == "/tmp/in.mrc"
     assert result.output_data["num_particles"] == 2
     assert result.output_data["particles_json_path"] == "/tmp/picks.json"
+    # Score threshold echoed from engine_opts so the result processor
+    # classifies picks against the topaz log-likelihood cutoff.
+    assert result.output_data["threshold"] == -2.5
+    # Image shape echoed so the canvas sizes exactly, not by estimate.
+    assert result.output_data["image_shape"] == [4096, 4096]
     # Rule 1 enforcement: picks NOT inlined into the bus payload.
     assert "picks" not in result.output_data
     assert {f.path for f in result.output_files} == {"/tmp/picks.json"}
+
+
+def test_build_pick_result_threshold_defaults_when_engine_opts_absent():
+    """A task with no engine_opts (or no threshold) falls back to the
+    topaz tutorial default of -3.0 — never the 0.35 correlation default."""
+    from magellon_sdk.categories.outputs import ParticlePickingOutput
+    from magellon_sdk.models import TaskMessage
+    from plugin.plugin import build_pick_result
+
+    task = TaskMessage(id=uuid4(), job_id=uuid4(), data={"input_file": "/tmp/in.mrc"})
+    output = ParticlePickingOutput(num_particles=0, particles_json_path="/tmp/p.json")
+
+    result = build_pick_result(task, output)
+    assert result.output_data["threshold"] == -3.0
 
 
 def test_build_denoise_result_includes_intensity_summary():

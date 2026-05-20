@@ -236,7 +236,13 @@ class TaskOutputProcessor:
 
         # Plugin writes picks to disk; load them back here.
         particles_payload: list[dict] = []
+        # Prefer the exact micrograph shape the plugin reported; the
+        # bounding-box estimate below is only a fallback for plugins
+        # that don't echo image_shape.
         image_shape: list[int] | None = None
+        out_shape = out.get("image_shape")
+        if isinstance(out_shape, (list, tuple)) and len(out_shape) == 2:
+            image_shape = [int(out_shape[0]), int(out_shape[1])]
         if json_path:
             try:
                 from core.helper import from_canonical_gpfs_path
@@ -270,10 +276,11 @@ class TaskOutputProcessor:
                                     "class": "1" if score >= threshold else "4",
                                     "timestamp": now_ms,
                                 })
-                        if particles_payload:
-                            # Derive image dimensions from the bounding box of picks.
-                            # topaz coordinates are on a grid of size = mrc_size // scale,
-                            # so the actual image edge is max_coord + radius pixels away.
+                        if particles_payload and image_shape is None:
+                            # Fallback: derive image dimensions from the
+                            # bounding box of picks when the plugin didn't
+                            # report image_shape. The actual image edge is
+                            # roughly max_coord + radius pixels away.
                             image_w = max_x + max_radius
                             image_h = max_y + max_radius
                             image_shape = [image_h, image_w]

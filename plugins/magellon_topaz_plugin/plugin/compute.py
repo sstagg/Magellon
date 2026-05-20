@@ -44,13 +44,30 @@ DENOISER_FILES = {
 _SESSION_CACHE: Dict[str, Any] = {}
 
 
+def _providers() -> List[str]:
+    """Pick the ONNX Runtime execution providers.
+
+    Prefers CUDA when a GPU-enabled onnxruntime build is installed,
+    falls back to CPU otherwise. Intersecting with the runtime's
+    available providers avoids the noisy "provider not available"
+    warning on the CPU-only ``onnxruntime`` package while letting the
+    same code use the GPU when deployed with ``onnxruntime-gpu``.
+    """
+    import onnxruntime as ort  # lazy
+
+    available = set(ort.get_available_providers())
+    preferred = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+    selected = [p for p in preferred if p in available]
+    return selected or ["CPUExecutionProvider"]
+
+
 def _session(filename: str) -> Any:
     import onnxruntime as ort  # lazy
 
     path = os.path.join(_WEIGHTS, filename)
     sess = _SESSION_CACHE.get(path)
     if sess is None:
-        sess = ort.InferenceSession(path, providers=["CPUExecutionProvider"])
+        sess = ort.InferenceSession(path, providers=_providers())
         _SESSION_CACHE[path] = sess
     return sess
 
@@ -71,8 +88,15 @@ def _load_mrc(path: str) -> np.ndarray:
 
 def run_pick(input_file: str, *, model: str = "resnet16",
              radius: int = 14, threshold: float = -3.0,
-             scale: int = 8) -> List[dict]:
-    """Pick particles. Coordinates returned in ORIGINAL image space."""
+             scale: int = 8) -> tuple[List[dict], List[int]]:
+    """Pick particles in a micrograph.
+
+    Returns ``(picks, image_shape)`` where ``picks`` is a list of
+    ``{center: [x, y], radius, score}`` dicts with coordinates in
+    ORIGINAL image space, and ``image_shape`` is ``[rows, cols]`` of the
+    source MRC — echoed downstream so consumers can size a canvas
+    without re-reading the file.
+    """
     from plugin.topaz_lib.nms import non_maximum_suppression  # lazy
     from plugin.topaz_lib.preprocess import preprocess  # lazy
 
@@ -82,6 +106,7 @@ def run_pick(input_file: str, *, model: str = "resnet16",
                          f"Choices: {sorted(DETECTOR_FILES.keys())}")
 
     image = _load_mrc(input_file)
+    image_shape = [int(image.shape[0]), int(image.shape[1])]
     pre, _meta = preprocess(image, scale=scale)
 
     sess = _session(onnx_name)
@@ -92,7 +117,7 @@ def run_pick(input_file: str, *, model: str = "resnet16",
     coords_full = (coords * scale).astype(int)
 
     order = np.argsort(scores)[::-1]
-    return [
+    picks = [
         {
             "center": [int(coords_full[i, 0]), int(coords_full[i, 1])],
             "radius": int(radius * scale),
@@ -100,6 +125,7 @@ def run_pick(input_file: str, *, model: str = "resnet16",
         }
         for i in order
     ]
+    return picks, image_shape
 
 
 # ---------------------------------------------------------------------------
