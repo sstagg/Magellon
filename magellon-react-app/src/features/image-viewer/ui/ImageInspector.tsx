@@ -45,6 +45,7 @@ import { CTFAnalysisPanel } from "./CTFAnalysisPanel.tsx";
 import { FrameAlignmentPanel } from "./FrameAlignmentPanel.tsx";
 import { ImageDetectionToolbar } from "./ImageDetectionToolbar.tsx";
 import { DetectionResult } from '../api/PtolemyDetectionService.ts';
+import { DetectionInfoPanel } from './DetectionInfoPanel.tsx';
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
 
@@ -356,12 +357,15 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                                 justifyContent: 'center',
                                 gap: 1.5
                             }}>
-                                <Box sx={{ width: '100%', maxWidth: isMobile ? IMAGE_SIZE_MOBILE : IMAGE_SIZE_DESKTOP }}>
+                                <Box sx={{ width: '100%', maxWidth: isMobile ? IMAGE_SIZE_MOBILE : IMAGE_SIZE_DESKTOP, display: 'flex', flexDirection: 'column', gap: 1 }}>
                                     <ImageDetectionToolbar
                                         selectedImage={selectedImage}
                                         sessionName={sessionName}
                                         onDetectionComplete={setDetectionOverlay}
                                     />
+                                    {detectionOverlay && (
+                                        <DetectionInfoPanel result={detectionOverlay} />
+                                    )}
                                 </Box>
                                 <ImageViewer
                                     imageUrl={`${BASE_URL}/image_thumbnail?name=${encodeURIComponent(selectedImage?.name)}&sessionName=${sessionName}`}

@@ -34,6 +34,15 @@ function mrcToSvg(
     return [offsetX + vx * uniformScale, offsetY + vy * uniformScale];
 }
 
+// Score → RGB color ramp: red (low) → yellow → green (high), matching
+// the sandbox visualize.py color_ramp convention.
+function scoreToColor(score: number, smin: number, smax: number): string {
+    const t = smax === smin ? 1 : Math.max(0, Math.min(1, (score - smin) / (smax - smin)));
+    const r = Math.round(255 * (1 - t));
+    const g = Math.round(220 * t);
+    return `rgb(${r},${g},0)`;
+}
+
 function DetectionPolygons({
     detections,
     imageShape,
@@ -51,7 +60,16 @@ function DetectionPolygons({
     if (!imgH || !imgW) return null;
 
     const isHole = category === 'HoleDetection';
-    const strokeColor = isHole ? '#00e5ff' : '#ffeb3b';
+
+    const scores = detections.map(d => d.score);
+    const smin = Math.min(...scores);
+    const smax = Math.max(...scores);
+
+    // Threshold: squares use 30% to hide coarse grid-level bboxes; holes use 80%
+    // because individual holes at medium magnification are legitimately large
+    // (often 30-50% of the image frame), and the score-based color ramp already
+    // distinguishes good vs bad detections.
+    const tooLargeThreshold = isHole ? 0.80 : 0.30;
 
     // Ptolemy's PointSet2D.as_matrix_y() returns [col, row] pairs (its .y field
     // stores columns, .x stores rows — field names are inverted from convention).
@@ -59,6 +77,7 @@ function DetectionPolygons({
     return (
         <>
             {detections.map((det, i) => {
+                const rank = i + 1;
                 const svgPts = det.vertices.map(([vy, vx]) => mrcToSvg(vx, vy, imgH, imgW, svgW, svgH));
                 const pointsStr = svgPts.map(([x, y]) => `${x},${y}`).join(' ');
                 const [cx, cy] = mrcToSvg(det.center[1], det.center[0], imgH, imgW, svgW, svgH);
@@ -66,22 +85,53 @@ function DetectionPolygons({
                 const ys = svgPts.map(([, y]) => y);
                 const boxW = Math.max(...xs) - Math.min(...xs);
                 const boxH = Math.max(...ys) - Math.min(...ys);
-                // Hide polygon when its axis-aligned bounding box exceeds 30% of the
-                // viewer — catches coarse grid-level bounding boxes (~36%) returned by
-                // MedMag when individual holes aren't resolved, while keeping normal
-                // grid-square polygons (~17-24%) visible.
-                const tooLarge = boxW > svgW * 0.30 || boxH > svgH * 0.30;
+                const tooLarge = boxW > svgW * tooLargeThreshold || boxH > svgH * tooLargeThreshold;
+                const color = scoreToColor(det.score, smin, smax);
+                const dotR = tooLarge ? 6 : 3;
+
+                // Tooltip text (shown via native SVG <title>)
+                const tooltipLines = [
+                    `Rank #${rank}`,
+                    `Score: ${det.score.toFixed(3)}`,
+                    `Area: ${Math.round(det.area)} px²`,
+                    ...(det.brightness !== undefined ? [`Brightness: ${det.brightness.toFixed(1)}`] : []),
+                ];
+
                 return (
-                    <g key={i} opacity={0.85}>
+                    <g key={i} opacity={0.9} style={{ cursor: 'default' }}>
+                        <title>{tooltipLines.join('\n')}</title>
                         {!tooLarge && (
                             <polygon
                                 points={pointsStr}
                                 fill="none"
-                                stroke={strokeColor}
+                                stroke={color}
                                 strokeWidth={1.5}
                             />
                         )}
-                        <circle cx={cx} cy={cy} r={tooLarge ? 6 : 3} fill={strokeColor} opacity={0.9} />
+                        <circle cx={cx} cy={cy} r={dotR} fill={color} opacity={0.9} />
+                        {/* Rank + score label — only when polygon is drawn */}
+                        {!tooLarge && (
+                            <>
+                                <rect
+                                    x={cx + dotR + 2}
+                                    y={cy - 9}
+                                    width={44}
+                                    height={14}
+                                    fill="rgba(0,0,0,0.65)"
+                                    rx={2}
+                                />
+                                <text
+                                    x={cx + dotR + 5}
+                                    y={cy + 2}
+                                    fill="white"
+                                    fontSize={9}
+                                    fontFamily="monospace"
+                                    style={{ userSelect: 'none', pointerEvents: 'none' }}
+                                >
+                                    #{rank} {det.score.toFixed(2)}
+                                </text>
+                            </>
+                        )}
                     </g>
                 );
             })}
