@@ -46,6 +46,8 @@ def solve_stage_z(
     matrix = np.asarray(stage_matrix, dtype=np.float64)
     if matrix.shape != (2, 2):
         raise ValueError("stage_matrix must be a 2x2 matrix")
+    if not np.all(np.isfinite(matrix)):
+        raise ValueError("stage_matrix must contain finite values")
     if not measurements:
         raise ValueError("at least one stage-tilt measurement is required")
 
@@ -64,10 +66,14 @@ def solve_stage_z(
         z_values.append(stage_xy[1] / np.sin(measurement.alpha))
 
     z_array = np.asarray(z_values, dtype=np.float64)
+    z_mean = float(np.mean(z_array))
     return {
-        "z": float(np.mean(z_array)),
+        "z": z_mean,
         "z_values": z_array,
         "stage_xy": xy_values,
+        "z_std": float(np.std(z_array)),
+        "z_range": float(np.max(z_array) - np.min(z_array)),
+        "measurement_count": len(measurements),
     }
 
 
@@ -81,11 +87,20 @@ def pixel_shift_to_stage_xy(
     """Convert a pixel shift ``(row, col)`` to stage ``(x, y)`` movement."""
 
     bin_y, bin_x = camera_binning
+    if not np.all(np.isfinite((bin_y, bin_x, alpha))):
+        raise ValueError("camera_binning and alpha must be finite")
+    if abs(np.cos(alpha)) < 1e-12:
+        raise ValueError("alpha for matrix conversion is too close to 90 degrees")
     pixel_vector = np.asarray(
         (pixel_shift[0] * bin_y, pixel_shift[1] * bin_x),
         dtype=np.float64,
     )
-    change = np.asarray(stage_matrix, dtype=np.float64) @ pixel_vector
+    matrix = np.asarray(stage_matrix, dtype=np.float64)
+    if matrix.shape != (2, 2):
+        raise ValueError("stage_matrix must be a 2x2 matrix")
+    if not np.all(np.isfinite(pixel_vector)) or not np.all(np.isfinite(matrix)):
+        raise ValueError("stage_matrix and pixel_shift must contain finite values")
+    change = matrix @ pixel_vector
     x = float(change[0])
     y = float(change[1] / np.cos(alpha))
     return (x, y)

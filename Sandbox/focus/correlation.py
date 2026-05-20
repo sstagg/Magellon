@@ -1,7 +1,9 @@
 """Image correlation helpers used by the focus algorithms.
 
 The implementation follows the numerical behavior of Leginon's
-``pyami.correlator`` and ``pyami.peakfinder`` in a standalone form.
+``pyami.correlator`` and ``pyami.peakfinder`` in a standalone form, with
+SerialEM-style edge tapering and padding so that non-periodic micrographs
+do not produce spurious wrap-around correlation.
 """
 
 from __future__ import annotations
@@ -73,20 +75,37 @@ def correlate_shift(
     *,
     correlation_type: CorrelationType = "phase",
     subpixel_window: int = 5,
+    taper_fraction: float = 0.1,
+    pad_fraction: float = 0.0,
+    lowpass: float = 0.0,
 ) -> ShiftResult:
     """Measure the wrapped pixel shift between two images.
 
     This is the standalone replacement for Leginon's
     ``measureScopeChange`` correlation-and-peak section.  Binning and camera
     bookkeeping are deliberately left to the caller.
+
+    ``taper_fraction`` applies a raised-cosine edge taper to each image before
+    the FFT so that a non-periodic micrograph does not produce a strong
+    spurious correlation along the wrap boundary.  ``pad_fraction`` zero-pads
+    the tapered images, which keeps a large genuine shift from aliasing past
+    the wrap boundary.  ``lowpass`` Gaussian-smooths the correlation map, the
+    standalone equivalent of Leginon's ``measureScopeChange`` ``lp`` argument.
     """
 
+    im1, im2 = _validated_pair(image1, image2)
+    pre1 = _preprocess(im1, taper_fraction, pad_fraction)
+    pre2 = _preprocess(im2, taper_fraction, pad_fraction)
+
     if correlation_type == "phase":
-        corr = phase_correlate(image1, image2)
+        corr = phase_correlate(pre1, pre2)
     elif correlation_type == "cross":
-        corr = cross_correlate(image1, image2)
+        corr = cross_correlate(pre1, pre2)
     else:
         raise ValueError("correlation_type must be 'phase' or 'cross'")
+
+    if lowpass > 0.0:
+        corr = _gaussian_blur(corr, lowpass)
 
     peak, peak_value, snr = subpixel_peak(corr, npix=subpixel_window)
     return ShiftResult(
@@ -135,10 +154,84 @@ def subpixel_peak(image: np.ndarray, *, npix: int = 5) -> Tuple[Tuple[float, flo
     sub_row %= array.shape[0]
     sub_col %= array.shape[1]
 
-    noise = float(np.std(array))
-    mean = float(np.mean(array))
-    snr = float((peak_value - mean) / noise) if noise != 0.0 else peak_value
+    snr = _peak_snr(array, int(peak_row), int(peak_col), peak_value, npix)
     return (sub_row, sub_col), float(fitted_value), snr
+
+
+def _peak_snr(
+    array: np.ndarray,
+    peak_row: int,
+    peak_col: int,
+    peak_value: float,
+    npix: int,
+) -> float:
+    """Estimate peak SNR with the peak and its sidelobes excluded.
+
+    Including the peak in the noise estimate inflates the standard deviation
+    and understates the SNR, so the background statistics are taken from
+    everything outside a wrapped window centred on the peak.
+    """
+
+    exclude = 2 * npix + 1
+    half = exclude // 2
+    rows = (np.arange(exclude) + peak_row - half) % array.shape[0]
+    cols = (np.arange(exclude) + peak_col - half) % array.shape[1]
+    mask = np.ones(array.shape, dtype=bool)
+    mask[np.ix_(rows, cols)] = False
+    background = array[mask]
+    if background.size == 0:
+        return peak_value
+    noise = float(np.std(background))
+    mean = float(np.mean(background))
+    return float((peak_value - mean) / noise) if noise != 0.0 else peak_value
+
+
+def _preprocess(image: np.ndarray, taper_fraction: float, pad_fraction: float) -> np.ndarray:
+    """Mean-subtract, edge-taper, and optionally zero-pad an image for FFT."""
+
+    array = image - float(np.mean(image))
+    if taper_fraction > 0.0:
+        array = array * _edge_mask(array.shape, taper_fraction)
+    if pad_fraction > 0.0:
+        pad_rows = int(round(pad_fraction * array.shape[0]))
+        pad_cols = int(round(pad_fraction * array.shape[1]))
+        array = np.pad(array, ((0, pad_rows), (0, pad_cols)), mode="constant")
+    return array
+
+
+def _edge_mask(shape: Tuple[int, int], taper_fraction: float) -> np.ndarray:
+    """Return a separable raised-cosine (Tukey) edge mask for ``shape``."""
+
+    if not 0.0 < taper_fraction <= 0.5:
+        raise ValueError("taper_fraction must be in (0.0, 0.5]")
+    row_window = _tukey_window(shape[0], taper_fraction)
+    col_window = _tukey_window(shape[1], taper_fraction)
+    return np.outer(row_window, col_window)
+
+
+def _tukey_window(length: int, taper_fraction: float) -> np.ndarray:
+    """Return a 1-D Tukey window: flat centre, raised-cosine ramps at the ends."""
+
+    window = np.ones(length, dtype=np.float64)
+    edge = int(round(taper_fraction * length))
+    if edge < 1:
+        return window
+    ramp = 0.5 * (1.0 - np.cos(np.pi * (np.arange(edge) + 0.5) / edge))
+    window[:edge] = ramp
+    window[length - edge:] = ramp[::-1]
+    return window
+
+
+def _gaussian_blur(array: np.ndarray, sigma: float) -> np.ndarray:
+    """Gaussian-smooth a real array via a frequency-domain multiply."""
+
+    rows, cols = array.shape
+    freq_rows = np.fft.fftfreq(rows)
+    freq_cols = np.fft.fftfreq(cols)
+    kernel_rows = np.exp(-2.0 * (np.pi * sigma * freq_rows) ** 2)
+    kernel_cols = np.exp(-2.0 * (np.pi * sigma * freq_cols) ** 2)
+    kernel = np.outer(kernel_rows, kernel_cols)
+    return np.fft.ifft2(np.fft.fft2(array) * kernel).real
 
 
 def _quadratic_peak(array: np.ndarray) -> Tuple[float, float, float]:
