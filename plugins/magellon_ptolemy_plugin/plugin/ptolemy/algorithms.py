@@ -279,7 +279,7 @@ class MedMag_Process_Mask:
         centroids = geom.get_centroids_for_polygons(polygons)
         best_gps, angle, distance = grid_from_centroids(centroids, mask, self.gp_padding, self.fn_weight)
         
-        self.grid_pitch = float(best_distance)  # store so caller can read it after forward()
+        self.grid_pitch = float(distance)  # store so caller can read it after forward()
 
         best_gps = best_gps.bound_pts_imshape(image.shape, tolerance=self.edge_tolerance)
 
