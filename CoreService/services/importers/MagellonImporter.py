@@ -192,6 +192,13 @@ class MagellonImporter(BaseImporter):
     def run_tasks(self, db_session: Session):
         self._step_counts = {"png": 0, "fft": 0, "ctf": 0, "motioncor": 0}
         self._step_start_time = datetime.now()
+        # Pre-count eligibility so the UI can show accurate per-step totals
+        self._step_totals = {
+            "png": len(self.task_dto_list),
+            "fft": len(self.task_dto_list),
+            "ctf": sum(1 for t in self.task_dto_list if t.pixel_size and (t.pixel_size * 10 ** 10) <= 5),
+            "motioncor": sum(1 for t in self.task_dto_list if t.frame_name),
+        }
         try:
             for task in self.task_dto_list:
                 self.run_task(task)
@@ -210,7 +217,7 @@ class MagellonImporter(BaseImporter):
                     "job_id": str(self.db_job.oid),
                     "event": "step_progress",
                     "step_counts": dict(self._step_counts),
-                    "total": len(self.task_dto_list),
+                    "step_totals": dict(self._step_totals),
                     "elapsed_ms": elapsed_ms,
                 },
             )

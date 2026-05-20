@@ -8,6 +8,7 @@ import {
     DialogActions,
     DialogContent,
     DialogTitle,
+    Divider,
     LinearProgress,
     List,
     ListItem,
@@ -17,14 +18,18 @@ import {
     Table,
     TableBody,
     TableCell,
-    TableHead,
     TableRow,
+    Tooltip,
     Typography,
 } from "@mui/material";
 import type { ChipProps } from "@mui/material";
 import FolderIcon from "@mui/icons-material/Folder";
 import ErrorIcon from "@mui/icons-material/Error";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
+import ImageIcon from "@mui/icons-material/Image";
+import BarChartIcon from "@mui/icons-material/BarChart";
+import BlurOnIcon from "@mui/icons-material/BlurOn";
+import VideocamIcon from "@mui/icons-material/Videocam";
 import type { AxiosError } from "axios";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle, Clock, RefreshCcw } from "lucide-react";
@@ -81,6 +86,68 @@ const errorMessage = (err: unknown, fallback: string) => {
     return axiosError.response?.data?.detail || axiosError.message || fallback;
 };
 
+const formatElapsed = (ms: number) => {
+    const s = Math.floor(ms / 1000);
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60);
+    return `${m}m ${s % 60}s`;
+};
+
+// ── Pipeline step row ────────────────────────────────────────────────────────
+
+type StepRowProps = {
+    icon: React.ReactNode;
+    label: string;
+    done: number;
+    total: number;
+    tooltip?: string;
+    color?: "primary" | "secondary" | "info" | "success" | "warning";
+};
+
+const StepRow = ({ icon, label, done, total, tooltip, color = "primary" }: StepRowProps) => {
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    const isComplete = total > 0 && done >= total;
+    return (
+        <TableRow>
+            <TableCell sx={{ py: 1, pr: 1, width: 32, color: isComplete ? "success.main" : "text.secondary" }}>
+                {icon}
+            </TableCell>
+            <TableCell sx={{ py: 1, minWidth: 130 }}>
+                <Typography variant="body2">{label}</Typography>
+            </TableCell>
+            <TableCell sx={{ py: 1, width: "40%" }}>
+                <Tooltip title={tooltip ?? `${done} / ${total}`} arrow>
+                    <Box>
+                        <LinearProgress
+                            variant="determinate"
+                            value={pct}
+                            color={isComplete ? "success" : color}
+                            sx={{ height: 6, borderRadius: 3 }}
+                        />
+                    </Box>
+                </Tooltip>
+            </TableCell>
+            <TableCell align="right" sx={{ py: 1, whiteSpace: "nowrap" }}>
+                <Typography variant="body2" color={isComplete ? "success.main" : "text.primary"}>
+                    {done}
+                    {total > 0 && (
+                        <Typography component="span" variant="caption" color="text.secondary">
+                            {" "}/ {total}
+                        </Typography>
+                    )}
+                </Typography>
+            </TableCell>
+            <TableCell align="right" sx={{ py: 1, width: 48 }}>
+                {total > 0 && (
+                    <Typography variant="caption" color="text.secondary">{pct}%</Typography>
+                )}
+            </TableCell>
+        </TableRow>
+    );
+};
+
+// ── Component ────────────────────────────────────────────────────────────────
+
 export const MagellonImportComponent = () => {
     const [files, setFiles] = useState<FileItem[]>([]);
     const [loading, setLoading] = useState(false);
@@ -92,7 +159,7 @@ export const MagellonImportComponent = () => {
     const [jobId, setJobId] = useState<string | null>(null);
     const [summary, setSummary] = useState<ImportSummary | null>(null);
     const [stepCounts, setStepCounts] = useState<StepCounts | null>(null);
-    const [stepTotal, setStepTotal] = useState<number>(0);
+    const [stepTotals, setStepTotals] = useState<StepCounts | null>(null);
     const [elapsedMs, setElapsedMs] = useState<number>(0);
     const { emit: socketEmit, on: socketOn } = useSocket();
     const importStatusRef = useRef(importStatus);
@@ -122,9 +189,7 @@ export const MagellonImportComponent = () => {
         setLoading(true);
         setError(null);
         try {
-            const response = await apiClient.get("/web/files/browse", {
-                params: { path },
-            });
+            const response = await apiClient.get("/web/files/browse", { params: { path } });
             setFiles(response.data);
             setCurrentPath(path);
         } catch (err: unknown) {
@@ -164,23 +229,18 @@ export const MagellonImportComponent = () => {
     }, []);
 
     useEffect(() => {
-        const timeout = window.setTimeout(() => {
-            fetchDirectory("/gpfs");
-        }, 0);
+        const timeout = window.setTimeout(() => fetchDirectory("/gpfs"), 0);
         return () => window.clearTimeout(timeout);
     }, []);
 
-    // On mount, check if an import is already running (e.g. after page navigation)
-    // and auto-resume progress monitoring so the dialog shows live data.
+    // On mount, resume monitoring if an import is already running.
     useEffect(() => {
         apiClient.get<{ job_id: string }>("/export/jobs/active")
             .then(({ data }) => {
                 setJobId(data.job_id);
                 setImportStatus("running");
             })
-            .catch(() => {
-                // 404 = no active job; ignore
-            });
+            .catch(() => {});
     }, []);
 
     // Socket.IO: join the job room and listen for real-time progress events.
@@ -191,13 +251,13 @@ export const MagellonImportComponent = () => {
             job_id: string;
             event?: string;
             step_counts?: StepCounts;
-            total?: number;
+            step_totals?: StepCounts;
             elapsed_ms?: number;
         }) => {
             if (data?.job_id === jobId && ["scheduling", "running"].includes(importStatusRef.current)) {
                 fetchSummary(jobId);
                 if (data.step_counts) setStepCounts(data.step_counts);
-                if (data.total) setStepTotal(data.total);
+                if (data.step_totals) setStepTotals(data.step_totals);
                 if (data.elapsed_ms !== undefined) setElapsedMs(data.elapsed_ms);
             }
         });
@@ -207,13 +267,10 @@ export const MagellonImportComponent = () => {
         };
     }, [jobId, socketEmit, socketOn, fetchSummary]);
 
-    // Polling fallback — still runs every 5 s in case a socket event is missed.
+    // Polling fallback every 5 s.
     useEffect(() => {
         if (!jobId || !["scheduling", "running"].includes(importStatus)) return;
-
-        const timeout = window.setTimeout(() => {
-            fetchSummary(jobId);
-        }, 0);
+        const timeout = window.setTimeout(() => fetchSummary(jobId), 0);
         const interval = window.setInterval(() => fetchSummary(jobId), 5000);
         return () => {
             window.clearTimeout(timeout);
@@ -224,16 +281,12 @@ export const MagellonImportComponent = () => {
     const handleItemClick = async (item: FileItem) => {
         if (!item.is_directory && item.name === "session.json") {
             const dirPath = directoryName(item.path);
-            if (await validateDirectory(dirPath)) {
-                setSelectedFile(item.path);
-            }
+            if (await validateDirectory(dirPath)) setSelectedFile(item.path);
         }
     };
 
     const handleItemDoubleClick = (item: FileItem) => {
-        if (item.is_directory) {
-            fetchDirectory(item.path);
-        }
+        if (item.is_directory) fetchDirectory(item.path);
     };
 
     const handleImport = async () => {
@@ -243,7 +296,7 @@ export const MagellonImportComponent = () => {
         setSummary(null);
         setJobId(null);
         setStepCounts(null);
-        setStepTotal(0);
+        setStepTotals(null);
         setElapsedMs(0);
 
         try {
@@ -266,22 +319,17 @@ export const MagellonImportComponent = () => {
         setJobId(null);
         setSummary(null);
         setStepCounts(null);
-        setStepTotal(0);
+        setStepTotals(null);
         setElapsedMs(0);
     };
 
-    const formatElapsed = (ms: number) => {
-        const s = Math.floor(ms / 1000);
-        if (s < 60) return `${s}s`;
-        const m = Math.floor(s / 60);
-        return `${m}m ${s % 60}s`;
-    };
-
     const parentPath = currentPath.split("/").slice(0, -1).join("/") || "/gpfs";
-    const progress = summary?.total_tasks
-        ? Math.round((summary.terminal_tasks / summary.total_tasks) * 100)
-        : 0;
-    const categoryRows = Object.entries(summary?.by_category ?? {});
+    const overallTotal = summary?.total_tasks ?? 0;
+    const overallDone = summary?.terminal_tasks ?? 0;
+    const overallPct = overallTotal > 0 ? Math.round((overallDone / overallTotal) * 100) : 0;
+
+    // Derive session name from summary or job name
+    const sessionName = summary?.name?.replace(/^Import:\s*/i, "") ?? null;
 
     return (
         <Box>
@@ -378,29 +426,24 @@ export const MagellonImportComponent = () => {
                 fullWidth
                 maxWidth="sm"
             >
-                <DialogTitle>Magellon import</DialogTitle>
+                <DialogTitle>
+                    {sessionName ? `Importing ${sessionName}` : "Magellon import"}
+                </DialogTitle>
+
                 <DialogContent>
                     <Stack spacing={2}>
+
+                        {/* ── Status header ── */}
                         {importStatus === "scheduling" && (
                             <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
-                                <CircularProgress size={24} />
-                                <Typography>Scheduling import job...</Typography>
+                                <CircularProgress size={22} />
+                                <Typography>Scheduling import job…</Typography>
                             </Stack>
-                        )}
-
-                        {importStatus === "running" && (
-                            <>
-                                <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
-                                    <Clock size={22} />
-                                    <Typography>Import is running</Typography>
-                                </Stack>
-                                <LinearProgress variant={summary?.total_tasks ? "determinate" : "indeterminate"} value={progress} />
-                            </>
                         )}
 
                         {importStatus === "success" && (
                             <Alert icon={<CheckCircle size={20} />} severity="success">
-                                Import completed.
+                                Import completed successfully.
                             </Alert>
                         )}
 
@@ -410,83 +453,113 @@ export const MagellonImportComponent = () => {
                             </Alert>
                         )}
 
-                        {jobId && (
-                            <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
-                                <Typography variant="caption" color="text.secondary">
-                                    Job: {jobId}
-                                </Typography>
+                        {/* ── Meta row: status chip + elapsed ── */}
+                        {summary && (
+                            <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+                                <Chip
+                                    label={summary.derived_status}
+                                    color={statusColor(summary.derived_status)}
+                                    size="small"
+                                />
                                 {elapsedMs > 0 && (
-                                    <Typography variant="caption" color="text.secondary">
-                                        Elapsed: {formatElapsed(elapsedMs)}
-                                    </Typography>
+                                    <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
+                                        <Clock size={14} />
+                                        <Typography variant="caption" color="text.secondary">
+                                            {formatElapsed(elapsedMs)}
+                                        </Typography>
+                                    </Stack>
+                                )}
+                                {summary.totals.failed > 0 && (
+                                    <Chip
+                                        label={`${summary.totals.failed} failed`}
+                                        color="error"
+                                        size="small"
+                                        variant="outlined"
+                                    />
                                 )}
                             </Stack>
                         )}
 
-                        {stepCounts && (
+                        {/* ── Overall progress bar ── */}
+                        {(importStatus === "running" || importStatus === "success") && (
                             <Box>
-                                <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
-                                    Per-step ({stepTotal} images)
-                                </Typography>
-                                <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
-                                    <Chip label={`PNG: ${stepCounts.png}`} size="small" variant="outlined" />
-                                    <Chip label={`FFT: ${stepCounts.fft}`} size="small" variant="outlined" />
-                                    <Chip label={`CTF: ${stepCounts.ctf}`} size="small" variant="outlined" color="primary" />
-                                    <Chip label={`MotionCor: ${stepCounts.motioncor}`} size="small" variant="outlined" color="secondary" />
+                                <Stack direction="row" sx={{ mb: 0.5, justifyContent: "space-between" }}>
+                                    <Typography variant="caption" color="text.secondary">
+                                        Overall
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        {overallDone} / {overallTotal || "…"} images
+                                    </Typography>
                                 </Stack>
+                                <LinearProgress
+                                    variant={overallTotal > 0 ? "determinate" : "indeterminate"}
+                                    value={overallPct}
+                                    sx={{ height: 8, borderRadius: 4 }}
+                                    color={importStatus === "success" ? "success" : "primary"}
+                                />
                             </Box>
                         )}
 
-                        {summary && (
-                            <Box>
-                                <Stack
-                                    direction="row"
-                                    spacing={1}
-                                    useFlexGap
-                                    sx={{ mb: 1, flexWrap: "wrap" }}
-                                >
-                                    <Chip label={summary.derived_status} color={statusColor(summary.derived_status)} size="small" />
-                                    <Chip label={`${summary.terminal_tasks}/${summary.total_tasks} terminal`} size="small" />
-                                    <Chip label={`${summary.totals.completed ?? 0} done`} color="success" size="small" />
-                                    <Chip label={`${summary.totals.failed ?? 0} error`} color="error" size="small" />
-                                </Stack>
-
-                                <Table size="small">
-                                    <TableHead>
-                                        <TableRow>
-                                            <TableCell>Category</TableCell>
-                                            <TableCell align="right">Pending</TableCell>
-                                            <TableCell align="right">Running</TableCell>
-                                            <TableCell align="right">Done</TableCell>
-                                            <TableCell align="right">Error</TableCell>
-                                        </TableRow>
-                                    </TableHead>
+                        {/* ── Pipeline steps table ── */}
+                        {(stepCounts || summary) && (
+                            <>
+                                <Divider />
+                                <Typography variant="subtitle2" color="text.secondary">
+                                    Pipeline steps
+                                </Typography>
+                                <Table size="small" sx={{ "& td, & th": { border: 0 } }}>
                                     <TableBody>
-                                        {categoryRows.map(([category, counts]) => (
-                                            <TableRow key={category}>
-                                                <TableCell>{category}</TableCell>
-                                                <TableCell align="right">{(counts.queued ?? 0) + (counts.pending ?? 0)}</TableCell>
-                                                <TableCell align="right">
-                                                    {(counts.running ?? 0) + (counts.processing ?? 0)}
-                                                </TableCell>
-                                                <TableCell align="right">{counts.completed ?? 0}</TableCell>
-                                                <TableCell align="right">{counts.failed ?? 0}</TableCell>
-                                            </TableRow>
-                                        ))}
+                                        <StepRow
+                                            icon={<ImageIcon fontSize="small" />}
+                                            label="PNG Conversion"
+                                            done={stepCounts?.png ?? 0}
+                                            total={stepTotals?.png ?? overallTotal}
+                                            color="primary"
+                                        />
+                                        <StepRow
+                                            icon={<BarChartIcon fontSize="small" />}
+                                            label="FFT Computation"
+                                            done={stepCounts?.fft ?? 0}
+                                            total={stepTotals?.fft ?? overallTotal}
+                                            color="info"
+                                        />
+                                        <StepRow
+                                            icon={<BlurOnIcon fontSize="small" />}
+                                            label="CTF Estimation"
+                                            done={stepCounts?.ctf ?? 0}
+                                            total={stepTotals?.ctf ?? 0}
+                                            tooltip="Tasks dispatched to CTF plugin"
+                                            color="secondary"
+                                        />
+                                        <StepRow
+                                            icon={<VideocamIcon fontSize="small" />}
+                                            label="Motion Correction"
+                                            done={stepCounts?.motioncor ?? 0}
+                                            total={stepTotals?.motioncor ?? 0}
+                                            tooltip="Tasks dispatched to MotionCor plugin"
+                                            color="warning"
+                                        />
                                     </TableBody>
                                 </Table>
-                            </Box>
+                            </>
+                        )}
+
+                        {/* ── Job ID (collapsed, low emphasis) ── */}
+                        {jobId && (
+                            <Typography variant="caption" color="text.disabled">
+                                Job: {jobId}
+                            </Typography>
                         )}
                     </Stack>
                 </DialogContent>
+
                 <DialogActions>
-                    {["scheduling", "running"].includes(importStatus) && (
-                        <Button startIcon={<RefreshCcw size={16} />} disabled>
-                            Updating
+                    {["scheduling", "running"].includes(importStatus) ? (
+                        <Button startIcon={<RefreshCcw size={16} />} disabled size="small">
+                            Updating…
                         </Button>
-                    )}
-                    {!["scheduling", "running"].includes(importStatus) && (
-                        <Button onClick={handleCloseDialog}>Close</Button>
+                    ) : (
+                        <Button onClick={handleCloseDialog} size="small">Close</Button>
                     )}
                 </DialogActions>
             </Dialog>
