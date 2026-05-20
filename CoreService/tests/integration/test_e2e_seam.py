@@ -4,10 +4,10 @@ Drives the *shape* of the production path without GPU/MotionCor: a
 ``TaskMessage`` is dispatched via :class:`RabbitmqTaskDispatcher`, a stub
 worker thread consumes it off the real broker, builds a matching
 ``TaskResultMessage``, publishes it to the result queue, and the test
-thread reads it back. We then run the result through the
-``_advance_task_state`` logic (imported from the result-processor
-plugin) with a mocked DB to prove the wire format survives and the
-state transition reaches COMPLETED + correct stage.
+thread reads it back. We then run the result through CoreService's
+in-process ``_advance_task_state`` logic with a mocked DB to prove the
+wire format survives and the state transition reaches COMPLETED +
+correct stage.
 
 This is the cheapest test that would have caught every Phase 1–6 bug
 end-to-end:
@@ -191,30 +191,20 @@ def _read_one_result(out_queue: str, *, deadline: float) -> TaskResultMessage:
 
 
 def _import_advance_task_state():
-    """Load ``_advance_task_state`` + STATUS_* out of the result-processor
-    plugin via ``importlib`` so we don't clash with CoreService's own
-    ``services/`` package (which is already on sys.path). The plugin
-    module imports ``core.*`` at module top so we prepend the plugin
-    root first, then load the file by path under a non-colliding
-    module name."""
-    import importlib.util
+    """Return ``TaskOutputProcessor`` + STATUS_* from CoreService's
+    in-process result processor.
 
-    plugin_root = os.path.abspath(
-        os.path.join(
-            os.path.dirname(__file__), "..", "..", "..",
-            "plugins", "magellon_result_processor",
-        )
+    P3 promoted result handling in-process; the standalone
+    result-processor plugin was deleted in A.4. CoreService's
+    ``services/task_output_processor.py`` is now the sole writer of
+    ``image_job_task`` state, so the seam test runs its
+    ``_advance_task_state`` directly."""
+    from services.task_output_processor import (
+        STATUS_COMPLETED,
+        STATUS_FAILED,
+        TaskOutputProcessor,
     )
-    if plugin_root not in sys.path:
-        sys.path.insert(0, plugin_root)
-
-    module_path = os.path.join(plugin_root, "services", "task_output_processor.py")
-    spec = importlib.util.spec_from_file_location(
-        "_rp_task_output_processor", module_path,
-    )
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod.TaskOutputProcessor, mod.STATUS_COMPLETED, mod.STATUS_FAILED
+    return TaskOutputProcessor, STATUS_COMPLETED, STATUS_FAILED
 
 
 def test_seam_round_trip_ctf_completed():

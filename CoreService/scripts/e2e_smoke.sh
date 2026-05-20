@@ -4,7 +4,7 @@
 # What it does
 # ------------
 # 1. Brings up the docker-compose stack (MySQL, RabbitMQ, NATS,
-#    CoreService, result-processor, and at least one processing plugin).
+#    CoreService, and at least one processing plugin).
 # 2. Waits for CoreService's /health endpoint to return 200.
 # 3. Uploads a known-good test .mrc fixture via the REST API.
 # 4. Creates a job that runs MotionCor + CTF on it.

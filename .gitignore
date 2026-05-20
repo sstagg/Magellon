@@ -51,11 +51,6 @@ plugins/*/output_file.json
 /plugins/magellon_ctf_plugin/support/consul/data/
 /plugins/magellon_ctf_plugin/outputs/
 
-/plugins/magellon_result_processor/.idea/
-/plugins/magellon_result_processor/venv/
-/plugins/magellon_result_processor/outputs/
-
-
 /plugins/magellon_motioncor_plugin/.idea/
 /plugins/magellon_motioncor_plugin/venv/
 /plugins/magellon_motioncor_plugin/support/mysql/data/
@@ -69,7 +64,6 @@ Sandbox/massest/calibration.png
 /Docker/postgres/data
 /plugins/magellon_ctf_plugin/support/consul/data
 /CoreService/dist
-plugins/magellon_result_processor/app.log
 CoreService/app.log
 
 CoreService/imgtest.py
