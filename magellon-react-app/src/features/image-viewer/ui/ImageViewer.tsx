@@ -94,7 +94,7 @@ function DetectionPolygons({
                     `Rank #${rank}`,
                     `Score: ${det.score.toFixed(3)}`,
                     `Area: ${Math.round(det.area)} px²`,
-                    ...(det.brightness !== undefined ? [`Brightness: ${det.brightness.toFixed(1)}`] : []),
+                    ...(det.brightness != null ? [`Brightness: ${det.brightness.toFixed(1)}`] : []),
                 ];
 
                 return (

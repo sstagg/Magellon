@@ -36,7 +36,7 @@ export interface PtolemyDetection {
     center: number[];
     area: number;
     score: number;
-    brightness?: number;
+    brightness?: number | null;
 }
 
 export interface DetectionResult {

@@ -44,7 +44,7 @@ export const DetectionInfoPanel: React.FC<DetectionInfoPanelProps> = ({ result }
     const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
 
     const hasArea = detections.some(d => d.area !== undefined);
-    const hasBrightness = detections.some(d => d.brightness !== undefined);
+    const hasBrightness = detections.some(d => d.brightness != null);
 
     return (
         <Box
@@ -176,7 +176,7 @@ export const DetectionInfoPanel: React.FC<DetectionInfoPanelProps> = ({ result }
                                         )}
                                         {hasBrightness && (
                                             <TableCell sx={{ py: 0.25, px: 1, fontSize: '0.7rem', fontFamily: 'monospace' }}>
-                                                {det.brightness !== undefined ? det.brightness.toFixed(1) : '—'}
+                                                {det.brightness != null ? det.brightness.toFixed(1) : '—'}
                                             </TableCell>
                                         )}
                                         <TableCell sx={{ py: 0.25, px: 1, fontSize: '0.7rem', fontFamily: 'monospace' }}>
