@@ -97,19 +97,49 @@ function DetectionPolygons({
                     ...(det.brightness != null ? [`Brightness: ${det.brightness.toFixed(1)}`] : []),
                 ];
 
+                // For holes: derive an inscribed ellipse from the bounding box of the
+                // 4 polygon vertices. Holes are roughly circular in the carbon film,
+                // so an ellipse is a much better visual fit than the rectangular bbox.
+                const minX = Math.min(...xs);
+                const maxX = Math.max(...xs);
+                const minY = Math.min(...ys);
+                const maxY = Math.max(...ys);
+                const ellRx = (maxX - minX) / 2;
+                const ellRy = (maxY - minY) / 2;
+
                 return (
                     <g key={i} opacity={0.9} style={{ cursor: 'default' }}>
                         <title>{tooltipLines.join('\n')}</title>
-                        {!tooLarge && (
-                            <polygon
-                                points={pointsStr}
-                                fill="none"
-                                stroke={color}
-                                strokeWidth={1.5}
-                            />
+
+                        {isHole ? (
+                            /* Hole: semi-transparent filled ellipse (mask) + outline */
+                            !tooLarge && (
+                                <ellipse
+                                    cx={cx}
+                                    cy={cy}
+                                    rx={ellRx}
+                                    ry={ellRy}
+                                    fill={color}
+                                    fillOpacity={0.22}
+                                    stroke={color}
+                                    strokeWidth={1.5}
+                                />
+                            )
+                        ) : (
+                            /* Square: outline polygon only */
+                            !tooLarge && (
+                                <polygon
+                                    points={pointsStr}
+                                    fill="none"
+                                    stroke={color}
+                                    strokeWidth={1.5}
+                                />
+                            )
                         )}
+
                         <circle cx={cx} cy={cy} r={dotR} fill={color} opacity={0.9} />
-                        {/* Rank + score label — only when polygon is drawn */}
+
+                        {/* Rank + score label — only when shape is drawn */}
                         {!tooLarge && (
                             <>
                                 <rect
