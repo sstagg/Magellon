@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import getAxiosClient from '../../../shared/api/AxiosClient.ts';
+import { settings } from '../../../shared/config/settings.ts';
 import {
     Box,
     Paper,
@@ -65,6 +67,8 @@ interface ObjectPermissionManagementTabProps {
     isSuperUser?: boolean;
 }
 
+const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
+
 export default function ObjectPermissionManagementTab({
     currentUser: _currentUser,
     showSnackbar,
@@ -120,12 +124,7 @@ export default function ObjectPermissionManagementTab({
 
     const loadRoles = async () => {
         try {
-            const axios = (await import('axios')).default;
-            const token = localStorage.getItem('access_token');
-
-            const response = await axios.get('http://localhost:8000/db/security/roles/', {
-                headers: { 'Authorization': `Bearer ${token}` },
-            });
+            const response = await apiClient.get('/db/security/roles/');
             setRoles(response.data || []);
         } catch (error: any) {
             console.error('Failed to load roles:', error);
@@ -154,43 +153,26 @@ export default function ObjectPermissionManagementTab({
         }
 
         try {
-            const axios = (await import('axios')).default;
-            const token = localStorage.getItem('access_token');
-
-            // First, get or create type permission for the role
-            const typePermResponse = await axios.post(
-                'http://localhost:8000/db/security/types',
-                {
-                    target_type: targetType,
-                    Role: selectedRole,
-                    read_state: readState ? 1 : 0,
-                    write_state: writeState ? 1 : 0,
-                    create_state: 0,
-                    delete_state: deleteState ? 1 : 0,
-                    navigate_state: navigateState ? 1 : 0,
-                },
-                {
-                    headers: { 'Authorization': `Bearer ${token}` },
-                }
-            );
+            const typePermResponse = await apiClient.post('/db/security/types', {
+                target_type: targetType,
+                Role: selectedRole,
+                read_state: readState ? 1 : 0,
+                write_state: writeState ? 1 : 0,
+                create_state: 0,
+                delete_state: deleteState ? 1 : 0,
+                navigate_state: navigateState ? 1 : 0,
+            });
 
             const typePermId = typePermResponse.data.Oid;
 
-            // Then create object permission with criteria
-            await axios.post(
-                `http://localhost:8000/db/security/object-permissions`,
-                {
-                    type_permission_id: typePermId,
-                    criteria: criteria,
-                    read_state: readState ? 1 : 0,
-                    write_state: writeState ? 1 : 0,
-                    delete_state: deleteState ? 1 : 0,
-                    navigate_state: navigateState ? 1 : 0,
-                },
-                {
-                    headers: { 'Authorization': `Bearer ${token}` },
-                }
-            );
+            await apiClient.post('/db/security/object-permissions', {
+                type_permission_id: typePermId,
+                criteria: criteria,
+                read_state: readState ? 1 : 0,
+                write_state: writeState ? 1 : 0,
+                delete_state: deleteState ? 1 : 0,
+                navigate_state: navigateState ? 1 : 0,
+            });
 
             showSnackbar('Object permission created successfully!', 'success');
             setOpenCreateDialog(false);

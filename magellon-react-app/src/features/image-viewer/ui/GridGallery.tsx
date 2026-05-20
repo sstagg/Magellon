@@ -39,10 +39,11 @@ export const GridGallery: React.FC<FlatImageViewerProps> = ({
     }
   }, [currentImage]);
 
-  // Extract all images from the paginated data
-  const allImages = images?.pages?.flatMap(page => page.result) || [];
+  const allImages = useMemo(
+    () => images?.pages?.flatMap(page => page.result) ?? [],
+    [images]
+  );
 
-  // Apply filters to images
   const filteredImages = useMemo(() => {
     return allImages.filter(image => {
       // Name filter

@@ -22,8 +22,6 @@ import Button from "@mui/material/Button";
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
 
-const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
-const _exportUrl: string = BASE_URL.replace(/\/web$/, '/export');
 const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
 type FileItem = {
@@ -68,7 +66,7 @@ export const EpuImportComponent = () => {
     const [selectedDirectory, setSelectedDirectory] = useState<string | null>(null);
     const [importStatus, setImportStatus] = useState<ImportStatus>('idle');
     const [importError, setImportError] = useState<string | null>(null);
-    const [_validationStatus, setValidationStatus] = useState<'none' | 'validating' | 'valid' | 'invalid'>('none');
+
 
     // New state variables for the additional fields
     const [epuDirPath, setEpuDirPath] = useState<string>("");
@@ -81,21 +79,6 @@ export const EpuImportComponent = () => {
         rot_gain:0,
         flip_gain:0
     });
-
-    const _validateDirectory = async (dirPath: string) => {
-        setValidationStatus('validating');
-        try {
-            await apiClient.get('/export/validate-epu-directory', {
-                params: { source_dir: dirPath }
-            });
-            setValidationStatus('valid');
-            return true;
-        } catch (err: any) {
-            setValidationStatus('invalid');
-            setError(err.response?.data?.detail || err.message || 'Validation failed');
-            return false;
-        }
-    };
 
     const handleItemClick = async (item: FileItem) => {
         if (item.is_directory) {

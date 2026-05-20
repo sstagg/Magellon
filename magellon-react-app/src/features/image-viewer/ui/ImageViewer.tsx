@@ -109,10 +109,6 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
         setCircles([]);
     }, [imageUrl]);
 
-    const _calculateAngle = (point1: Point, point2: Point): number => {
-        return Math.atan2(point2.y - point1.y, point2.x - point1.x) * (180 / Math.PI);
-    };
-
     const calculateMidpoint = (point1: Point, point2: Point): Point => {
         return {
             x: (point1.x + point2.x) / 2,

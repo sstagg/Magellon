@@ -21,38 +21,18 @@ export const useFetchImages = (
 };
 
 
-export const useInfiniteImages=(
-                                    sessionName: string,
-                                    parentId: string | null,
-                                    _page: number,
-                                    pageSize: number
-                                )=>
-    {
-        const {
-            data: _data,
-            error: _error,
-            isLoading: _isLoading,
-            isSuccess: _isSuccess,
-            isError: _isError,
-            fetchNextPage: _fetchNextPage,
-            hasNextPage: _hasNextPage,
-            isFetching: _isFetching,
-            isFetchingNextPage: _isFetchingNextPage,
-            status: _status,
-        } =
-            useInfiniteQuery<PagedImageResponse>(
-                ['images', sessionName, parentId,  pageSize],
-                ({ pageParam = _page }) => fetchImagesPage(sessionName, parentId, pageParam, pageSize),
-                {
-                    getNextPageParam: (lastPage, _allPages) => {
-                        if (lastPage.next_page !== null) {
-                            // pageParam=lastPage.next_page;
-                            return lastPage.next_page; // Return the next page number
-                        }
-                        return undefined; // No more pages to fetch
-                    },
-                    retry: 3, // Number of retries on failure (optional)
-                }
-            );
-
-    };
+export const useInfiniteImages = (
+    sessionName: string,
+    parentId: string | null,
+    initialPage: number,
+    pageSize: number
+) => {
+    return useInfiniteQuery<PagedImageResponse>(
+        ['images', sessionName, parentId, pageSize],
+        ({ pageParam = initialPage }) => fetchImagesPage(sessionName, parentId, pageParam, pageSize),
+        {
+            getNextPageParam: (lastPage) => lastPage.next_page ?? undefined,
+            retry: 3,
+        }
+    );
+};

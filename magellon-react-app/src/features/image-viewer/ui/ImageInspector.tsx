@@ -180,18 +180,24 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
         }
     ], [selectedParticlePicking, ImageCtfData]);
 
-    // Enhanced event handlers
+    const handleParticlePickingLoad = useCallback(() => {
+        return refetchImageParticlePickings().then(r => r.data);
+    }, [refetchImageParticlePickings]);
+
+    const handleCtfInfoLoad = useCallback(() => {
+        refetchCtfInfo();
+    }, [refetchCtfInfo]);
+
     const handleTabChange = useCallback((event: React.SyntheticEvent, newValue: string) => {
         setActiveTab(newValue);
         setLoadingProgress(0);
 
-        // Simulate loading progress for demo
         if (newValue === "3") {
             handleParticlePickingLoad();
         } else if (newValue === "5") {
             handleCtfInfoLoad();
         }
-    }, [setActiveTab]);
+    }, [setActiveTab, handleParticlePickingLoad, handleCtfInfoLoad]);
 
     const handleSave = useCallback(async () => {
         if (!selectedParticlePicking) return;
@@ -206,16 +212,6 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
             console.error('Failed to save particle picking:', error);
         }
     }, [selectedParticlePicking, updatePPMutation]);
-
-
-    // Reload data handlers
-    const handleParticlePickingLoad = () => {
-        return refetchImageParticlePickings().then(r => r.data);
-    };
-
-    const handleCtfInfoLoad = () => {
-        refetchCtfInfo();
-    };
 
     // Dialog handlers
     const handleOpen = () => {
