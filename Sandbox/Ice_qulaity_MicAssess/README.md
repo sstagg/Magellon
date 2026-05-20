@@ -1,6 +1,14 @@
 # Automatic-cryoEM-preprocessing
 Tools to run user-free preprocessing of cryo-EM datasets: https://www.biorxiv.org/content/10.1101/2019.12.20.885541v1
 
+> **This copy has been restructured.** `cryoassess` is now a layered
+> `core` / `models` / `cli` package (v2.0.0). For current install and usage
+> instructions see **[SETUP.md](SETUP.md)**; for the architecture, test plan,
+> and alignment with the source paper see
+> **[IMPLEMENTATION_AND_TEST_PLAN.md](IMPLEMENTATION_AND_TEST_PLAN.md)**.
+> The sections below are the original upstream README and may be out of date
+> (notably the conda / Python 3.7 install steps).
+
 **Don't want to read the instructions but still want to try it out?**
 
 MicAssess and 2DAssess are incorporated into the freely available for academic research on COSMIC2 science gateway: https://cosmic2.sdsc.edu:8443/gateway/. Just upload your input files and you can run the jobs on the cloud!

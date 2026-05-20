@@ -20,14 +20,13 @@ from typing import Tuple
 import numpy as np
 import tensorflow as tf
 
+from cryoassess.core.detectors import IMAGE_HEIGHT as IMG_DIM
+from cryoassess.core.detectors import detector_width
+
 from . import keras_compat as K
 from .fft_layer import radavg_logps_sigmoid
 
-IMG_DIM = 494
 _FEATURE_LENGTH = 247
-
-# Detector -> model input width in pixels.
-DETECTOR_WIDTH = {"K2": 512, "K3": 696}
 
 # (detector, cutpos) -> Cropping2D ``cropping`` argument.  A detector/cutpos
 # pair that is not a key here is unsupported and rejected up front, rather than
@@ -37,17 +36,6 @@ _CROP = {
     ("K3", "left"): ((0, 0), (0, 202)),
     ("K3", "right"): ((0, 0), (202, 0)),
 }
-
-
-def detector_width(detector: str) -> int:
-    """Return the model input width for ``detector``; raise on an unknown one."""
-
-    try:
-        return DETECTOR_WIDTH[detector]
-    except KeyError:
-        raise ValueError(
-            f"unknown detector {detector!r}; expected one of {sorted(DETECTOR_WIDTH)}"
-        ) from None
 
 
 def _find_weight(model_dir: str, prefix: str) -> str:

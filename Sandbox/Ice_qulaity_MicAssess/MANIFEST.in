@@ -1,8 +1,5 @@
-# Include the README
- include *.rst
-
-# Include the license file
- include LICENSE
-
-# Include conf file
- include cryosparc2/protocols.conf
+include README.md
+include SETUP.md
+include IMPLEMENTATION_AND_TEST_PLAN.md
+include LICENSE
+include requirements.txt

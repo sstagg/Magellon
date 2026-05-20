@@ -23,9 +23,10 @@ os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
 import numpy as np
 from PIL import Image
 
+from cryoassess.core.detectors import IMAGE_HEIGHT as IMG_DIM
+from cryoassess.core.detectors import detector_width
 from cryoassess.core.labels import LABEL_LIST, assign_label
 from cryoassess.core.preprocessing import preprocess_micrograph
-from cryoassess.models.micassess import IMG_DIM, detector_width
 
 WEIGHTS_DIR = Path(__file__).parent / "weights"
 EXAMPLES_DIR = Path(__file__).parent / "Examples"

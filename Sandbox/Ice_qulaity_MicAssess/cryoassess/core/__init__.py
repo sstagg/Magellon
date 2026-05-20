@@ -5,6 +5,7 @@ directory, or imports TensorFlow.  It is the testable foundation the model and
 CLI layers build on.
 """
 
+from .detectors import DETECTOR_WIDTH, IMAGE_HEIGHT, detector_width
 from .fft_features import (
     power_spectrum,
     radial_average,
@@ -49,6 +50,8 @@ __all__ = [
     "DEFAULT_HEIGHT",
     "DEFAULT_T1",
     "DEFAULT_T2",
+    "DETECTOR_WIDTH",
+    "IMAGE_HEIGHT",
     "LABEL_LIST",
     "apply_circular_mask",
     "assign_label",
@@ -58,6 +61,7 @@ __all__ = [
     "crop_left",
     "crop_right",
     "cut_by_radius",
+    "detector_width",
     "fft_downsample",
     "is_good",
     "load_micrograph",

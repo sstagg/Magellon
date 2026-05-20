@@ -9,9 +9,12 @@ import mrcfile
 import numpy as np
 from PIL import Image
 
+from .detectors import IMAGE_HEIGHT
+
 PathLike = Union[str, Path]
 
-DEFAULT_HEIGHT = 494  # the fixed input height MicAssess models expect
+# MRC micrographs are downsampled to the model's fixed input height.
+DEFAULT_HEIGHT = IMAGE_HEIGHT
 
 _EPS = 1e-7
 
