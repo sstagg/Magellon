@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
 from database import session_local
-from models.sqlalchemy_models import ImageJob, ImageJobTask
+from models.sqlalchemy_models import ImageJob, ImageJobTask, PipelineRun
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +36,15 @@ _STATUS_LABEL = {
     STATUS_FAILED: "failed",
     STATUS_CANCELLED: "cancelled",
 }
+
+# PipelineRun.status_id uses a *different* enum from ImageJob.status_id
+# (it mirrors the import_controller convention, not JobManager's). Kept
+# in sync with controllers/pipelines_controller.py's _STATUS_* set.
+RUN_STATUS_PENDING = 1
+RUN_STATUS_RUNNING = 2
+RUN_STATUS_COMPLETED = 4
+RUN_STATUS_FAILED = 5
+RUN_STATUS_CANCELLED = 6
 
 
 def _envelope(job: ImageJob, *, include_result: bool = False, progress: int = 0,
@@ -282,6 +291,7 @@ class JobManager:
             processed = dict(job.processed_json or {})
             processed["progress"] = progress
             job.processed_json = processed
+            self._rollup_parent_run(db, job)
             db.commit()
             db.refresh(job)
             return _envelope(job)
@@ -310,6 +320,7 @@ class JobManager:
             processed["num_items"] = num_items
             processed["result"] = result
             job.processed_json = processed
+            self._rollup_parent_run(db, job)
             db.commit()
             db.refresh(job)
             self._clear_cancel(job_id)
@@ -323,6 +334,7 @@ class JobManager:
             processed = dict(job.processed_json or {})
             processed["error"] = error
             job.processed_json = processed
+            self._rollup_parent_run(db, job)
             db.commit()
             db.refresh(job)
             self._clear_cancel(job_id)
@@ -407,6 +419,7 @@ class JobManager:
             processed = dict(job.processed_json or {})
             processed["error"] = reason
             job.processed_json = processed
+            self._rollup_parent_run(db, job)
             db.commit()
             db.refresh(job)
             self._clear_cancel(job_id)
@@ -436,6 +449,61 @@ class JobManager:
         if job is None:
             raise LookupError(f"Job {job_id} not found")
         return job
+
+    @staticmethod
+    def _rollup_parent_run(db: Session, job: ImageJob) -> None:
+        """Recompute the parent ``PipelineRun.status_id`` from its child jobs.
+
+        No-op when the job has no parent run (standalone job — the
+        common pre-Phase-8 case). Runs inside the caller's open
+        session so the run update commits atomically with the child
+        job's status change; SQLAlchemy autoflush makes the just-set
+        ``job.status_id`` visible to the sibling query below.
+
+        Aggregate rule over child ``ImageJob.status_id`` (0-4 enum):
+
+          - any child FAILED        -> run FAILED
+          - else any CANCELLED      -> run CANCELLED
+          - else all COMPLETED      -> run COMPLETED
+          - else any RUNNING/done   -> run RUNNING
+          - else (all QUEUED)       -> run PENDING
+
+        Idempotent — recomputes the full picture each call, so
+        out-of-order child transitions still converge.
+        """
+        run_id = job.parent_run_id
+        if run_id is None:
+            return
+        run = db.query(PipelineRun).filter(PipelineRun.oid == run_id).first()
+        if run is None:
+            return
+
+        statuses = [
+            (s or STATUS_QUEUED)
+            for (s,) in db.query(ImageJob.status_id)
+            .filter(ImageJob.parent_run_id == run_id)
+            .all()
+        ]
+        if not statuses:
+            return
+
+        if any(s == STATUS_FAILED for s in statuses):
+            new_status = RUN_STATUS_FAILED
+        elif any(s == STATUS_CANCELLED for s in statuses):
+            new_status = RUN_STATUS_CANCELLED
+        elif all(s == STATUS_COMPLETED for s in statuses):
+            new_status = RUN_STATUS_COMPLETED
+        elif any(s in (STATUS_RUNNING, STATUS_COMPLETED) for s in statuses):
+            new_status = RUN_STATUS_RUNNING
+        else:
+            new_status = RUN_STATUS_PENDING
+
+        terminal = (RUN_STATUS_COMPLETED, RUN_STATUS_FAILED, RUN_STATUS_CANCELLED)
+        now = datetime.utcnow()
+        if new_status != RUN_STATUS_PENDING and run.started_date is None:
+            run.started_date = now
+        run.ended_date = now if new_status in terminal else None
+        run.status_id = new_status
 
 
 # Module-level singleton.
