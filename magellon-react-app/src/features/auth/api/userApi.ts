@@ -1,4 +1,5 @@
 // services/userApi.ts
+import { settings } from '../../../shared/config/settings.ts';
 
 export interface ApiUser {
     oid: string;
@@ -70,8 +71,12 @@ export interface UserStats {
 }
 
 class UserApiService {
-    private baseUrl = 'http://localhost:8000/db/security/users';
-    private authBaseUrl = 'http://localhost:8000/auth';
+    // Derived from configured API base — a hardcoded localhost broke
+    // every non-localhost deployment. fetch is kept (not the shared
+    // Axios client) deliberately: the client's 401-refresh interceptor
+    // must not wrap the login / refresh calls themselves.
+    private baseUrl = `${settings.ConfigData.SERVER_API_URL}/db/security/users`;
+    private authBaseUrl = `${settings.ConfigData.SERVER_API_URL}/auth`;
 
     private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
         const url = `${this.baseUrl}${endpoint}`;
