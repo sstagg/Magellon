@@ -25,6 +25,7 @@ topology has moved on.
 ```
 cryoassess/
   core/    pure, TensorFlow-free, unit-tested
+    detectors.py       camera widths + fixed network input size
     preprocessing.py   normalize / circular mask / crops / class-avg crop
     starfile.py        RELION star <-> pandas
     mrc.py             MRC load + FFT downsample + grayscale conversion
@@ -37,7 +38,7 @@ cryoassess/
     fft_layer.py       in-graph FFT feature layer
     keras_compat.py    tf-keras / tensorflow.keras shim
   cli/     thin argparse entry points (micassess, 2dassess)
-tests/     pytest suite for cryoassess.core (34 tests)
+tests/     pytest suite for cryoassess.core (38 tests)
 ```
 
 The layering guarantees `import cryoassess.core` works without TensorFlow;
@@ -93,8 +94,10 @@ checkout (the `.h5` weights are gitignored).
 
 ### Tier 1 -- pure core unit tests (implemented)
 
-`tests/` -- 34 passing tests covering `core`:
+`tests/` -- 38 passing tests covering `core`:
 
+- detectors: `IMAGE_HEIGHT`, K2/K3 width lookup, unknown-detector rejection,
+  table/function agreement.
 - preprocessing: mean/std normalisation, constant-image safety, circular-mask
   geometry, the `center`/`radius` regression, `cut_by_radius`, a real example
   PNG.
