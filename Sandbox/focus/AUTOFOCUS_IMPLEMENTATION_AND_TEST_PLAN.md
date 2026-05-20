@@ -118,18 +118,20 @@ This is more empirical than Leginon's matrix solve. It also supports nonlinear c
 
 ### Operational safeguards
 
-SerialEM includes several production safeguards that are missing from the local extraction:
+SerialEM includes several production safeguards. Some now have local
+equivalents (marked *done* below); the rest remain references for Magellon
+integration:
 
-- Two-shot or three-shot focus detection.
-- Three-shot mode separates beam-tilt shift from specimen drift.
-- Direct detector binning and filter scaling before correlation.
-- Image tapering and padding before correlation.
-- Optional periodic-peak removal.
-- Zero-peak rejection or second-peak selection.
-- Tilt-image stretching at high stage tilt.
-- Refocus iteration when measured change is larger than a threshold.
-- Abort on inconsistent iterations, too many iterations, near-zero correlations, or focus limits.
-- Accuracy check by measuring at current focus and known positive/negative focus offsets.
+- Two-shot or three-shot focus detection. *(done: two-shot image pairs and three-shot triples.)*
+- Three-shot mode separates beam-tilt shift from specimen drift. *(done: `solve_objective_focus_from_triple_shots`.)*
+- Direct detector binning and filter scaling before correlation. *(partial: binning is handled by the caller via `unbin_pixel_shift`.)*
+- Image tapering and padding before correlation. *(done: `correlate_shift` `taper_fraction`/`pad_fraction`.)*
+- Optional periodic-peak removal. *(still missing.)*
+- Zero-peak rejection or second-peak selection. *(partial: `zero_origin` controls whether the origin peak is kept.)*
+- Tilt-image stretching at high stage tilt. *(still missing.)*
+- Refocus iteration when measured change is larger than a threshold. *(still missing, needs the orchestration layer.)*
+- Abort on inconsistent iterations, too many iterations, near-zero correlations, or focus limits. *(partial: `min_snr` rejects weak correlations; iteration/limit logic needs orchestration.)*
+- Accuracy check by measuring at current focus and known positive/negative focus offsets. *(still missing, needs the orchestration layer.)*
 
 These are not just UI details. They are the difference between a mathematical prototype and a robust microscope routine.
 
@@ -232,6 +234,12 @@ This avoids combining two calibration philosophies prematurely.
 ## Test strategy
 
 Testing needs to be layered. Unit tests alone are not enough because sign conventions, microscope state restoration, and calibration identity are common failure points.
+
+Status: the pure numerical unit tests and Leginon parity tests below largely
+exist in `test_focus_algorithms.py` (23 tests) — correlation shift parity,
+non-periodic correlation, rank-deficient and ill-conditioned rejection, SNR
+gating, three-shot drift cancellation, `solveEq10` parity, and stage-Z solves.
+The simulated-microscope, noise/robustness, and hardware tiers are still to do.
 
 ### 1. Pure numerical unit tests
 
@@ -376,11 +384,20 @@ Before enabling stage Z correction:
 
 ## Immediate code recommendations for the local extraction
 
-1. Fix documentation: replace "Koster equation 10" with "Leginon-compatible beam-tilt calibration matrix solve".
-2. Add rank/condition validation to `solve_defocus_stig`.
-3. Include residual, rank, condition number, and quality thresholds in the public result.
-4. Add tests for rank-deficient and ill-conditioned stigmation solves.
-5. Add tests that compare `solve_defocus_stig` directly to saved Leginon `solveEq10` fixtures.
-6. Keep `z_focus.py` documented as Leginon stage-tilt Z focus, not as Koster paper autofocus.
+### Completed
+
+Implemented in commits `5618c77f` and `14ed5813`:
+
+1. Documentation no longer calls the solve "Koster equation 10"; it is described as a Leginon-compatible beam-tilt calibration matrix solve.
+2. `solve_defocus_stig` rejects rank-deficient and ill-conditioned designs (`validate=True`).
+3. The public result carries residual, rank, condition number, singular values, and a `FocusSolveDiagnostics` object.
+4. Tests cover rank-deficient and ill-conditioned stigmation solves.
+5. Tests compare `solve_defocus_stig` directly against a Leginon `solveEq10` fixture transcribed from `references/`.
+6. `z_focus.py` remains documented as Leginon stage-tilt Z focus, not Koster paper autofocus.
+
+Robustness work landed beyond the original list: SerialEM-style edge taper/pad before correlation, an optional correlation low-pass (Leginon's `lp`), peak-masked SNR with `min_snr` gating, three-shot drift correction, and singular-system validation in `solve_rotation_center_tilt`.
+
+### Still open
+
 7. Add an integration-level orchestration module only after calibration lookup and microscope state APIs are defined.
 
