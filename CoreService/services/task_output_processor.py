@@ -59,9 +59,10 @@ _DEFAULT_STAGE = 99
 # TaskCategory codes for the artifact-producing categories handled below.
 # Kept as bare ints (matching the SDK constants) so we don't pull a
 # magellon_sdk import into this hot path just for two switch-cases.
-_TASK_TYPE_PARTICLE_PICKING = 3       # PARTICLE_PICKING (template-picker / boxnet / topaz)
-_TASK_TYPE_PARTICLE_EXTRACTION = 10  # PARTICLE_EXTRACTION
-_TASK_TYPE_TWO_D_CLASSIFICATION = 4  # TWO_D_CLASSIFICATION
+_TASK_TYPE_PARTICLE_PICKING = 3          # PARTICLE_PICKING (template-picker / boxnet)
+_TASK_TYPE_TOPAZ_PARTICLE_PICKING = 8   # TOPAZ_PARTICLE_PICKING — separate queue/code
+_TASK_TYPE_PARTICLE_EXTRACTION = 10     # PARTICLE_EXTRACTION
+_TASK_TYPE_TWO_D_CLASSIFICATION = 4     # TWO_D_CLASSIFICATION
 
 # Artifact.kind discriminator values. Mirrors magellon_sdk.models.artifact.ArtifactKind
 # but kept local to avoid a cross-package coupling on the enum string.
@@ -235,6 +236,7 @@ class TaskOutputProcessor:
 
         # Plugin writes picks to disk; load them back here.
         particles_payload: list[dict] = []
+        image_shape: list[int] | None = None
         if json_path:
             try:
                 from core.helper import from_canonical_gpfs_path
@@ -246,20 +248,39 @@ class TaskOutputProcessor:
                         import time as _time
                         now_ms = int(_time.time() * 1000)
                         threshold = float(out.get("threshold", 0.35))
+                        max_x, max_y, max_radius = 0, 0, 0
                         for idx, p in enumerate(raw):
                             if isinstance(p, dict):
                                 score = float(p.get("score", 0.0))
+                                center = p.get("center")
+                                if isinstance(center, (list, tuple)) and len(center) >= 2:
+                                    px, py = float(center[0]), float(center[1])
+                                else:
+                                    px, py = float(p.get("x", 0)), float(p.get("y", 0))
+                                radius = int(p.get("radius", 0))
+                                max_x = max(max_x, int(px))
+                                max_y = max(max_y, int(py))
+                                max_radius = max(max_radius, radius)
                                 particles_payload.append({
-                                    "x": float(p.get("x", 0)),
-                                    "y": float(p.get("y", 0)),
+                                    "x": px,
+                                    "y": py,
                                     "id": f"auto-{now_ms}-{idx}",
                                     "type": "auto",
                                     "confidence": min(score, 1.0),
                                     "class": "1" if score >= threshold else "4",
                                     "timestamp": now_ms,
                                 })
+                        if particles_payload:
+                            # Derive image dimensions from the bounding box of picks.
+                            # topaz coordinates are on a grid of size = mrc_size // scale,
+                            # so the actual image edge is max_coord + radius pixels away.
+                            image_w = max_x + max_radius
+                            image_h = max_y + max_radius
+                            image_shape = [image_h, image_w]
             except Exception:
                 logger.exception("_save_particle_picks: failed to read %s", json_path)
+
+        meta_data = json.dumps({"image_shape": image_shape}) if image_shape else None
 
         # Upsert: if a record with the same name already exists for this
         # image, update it; otherwise create a new one.
@@ -273,6 +294,7 @@ class TaskOutputProcessor:
         )
         if existing:
             existing.data_json = particles_payload
+            existing.data = meta_data
             existing.last_modified_date = __import__("datetime").datetime.now()
         else:
             self.db.add(
@@ -282,6 +304,7 @@ class TaskOutputProcessor:
                     created_date=__import__("datetime").datetime.now(),
                     image_id=task_result.image_id,
                     type=5,
+                    data=meta_data,
                     data_json=particles_payload,
                 )
             )
@@ -604,7 +627,7 @@ class TaskOutputProcessor:
 
             if reported_code != STATUS_FAILED:
                 type_code = task_result.type.code if task_result.type else None
-                if type_code == _TASK_TYPE_PARTICLE_PICKING:
+                if type_code in (_TASK_TYPE_PARTICLE_PICKING, _TASK_TYPE_TOPAZ_PARTICLE_PICKING):
                     self._save_particle_picks(task_result)
 
             self._save_output_data(task_result)

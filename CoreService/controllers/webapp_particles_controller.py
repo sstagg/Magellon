@@ -114,9 +114,10 @@ def get_image_particles(
     result = db.query(ImageMetaData). \
         join(Image, ImageMetaData.image_id == Image.oid). \
         filter(Image.name == img_name). \
+        filter(ImageMetaData.type == 5). \
         all()
     if not result:
-        raise HTTPException(status_code=404, detail="No Particlepickingjobitems found for Image")
+        return []
     response = []
     for row in result:
         image_meta_data = row

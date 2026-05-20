@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ParticlePickingDto } from '../../../entities/particle-picking/types.ts';
 import ImageInfoDto from '../../../entities/image/types.ts';
 import { settings } from '../../../shared/config/settings.ts';
+import { useImageViewerStore } from '../model/imageViewerStore.ts';
 
 // API path for the particle-picking feature endpoints. Lifted from
 // the legacy ``/plugins/pp/template-pick`` URL in PI-4 — these aren't
@@ -43,8 +44,9 @@ interface UseParticleOperationsParams {
     showSnackbar: (message: string, severity: 'success' | 'error' | 'info' | 'warning') => void;
     /** Called after a successful run-and-save so the IPP dropdown refreshes. */
     onIppSaved?: (ippOid: string, ippName: string) => void;
-    /** Called periodically during RMQ dispatch polling to refresh the IPP list. */
-    onRefreshIppList?: () => void;
+    /** Called periodically during RMQ dispatch polling to refresh the IPP list.
+     *  May return the updated list so the poller can detect when the new IPP appeared. */
+    onRefreshIppList?: () => Promise<ParticlePickingDto[] | undefined> | void;
 }
 
 export function useParticleOperations({
@@ -59,6 +61,7 @@ export function useParticleOperations({
     onIppSaved,
     onRefreshIppList,
 }: UseParticleOperationsParams) {
+    const { setSelectedParticlePicking } = useImageViewerStore();
     const [particles, setParticles] = useState<Point[]>([]);
     const [selectedParticles, setSelectedParticles] = useState<Set<string>>(new Set());
     const [history, setHistory] = useState<Point[][]>([[]]);
@@ -69,6 +72,10 @@ export function useParticleOperations({
     // [height, width] of the coord space particles live in — set by the picker
     // backend so the canvas can size its viewBox to match particle positions.
     const [imageShape, setImageShape] = useState<[number, number] | null>(null);
+
+    // Prevents the "update IPP on particles change" effect from firing when
+    // particles were just loaded from the IPP (not modified by the user).
+    const isLoadingFromIpp = useRef(false);
 
     const [stats, setStats] = useState({
         total: 0,
@@ -109,23 +116,50 @@ export function useParticleOperations({
         if (selectedParticlePicking?.data_json) {
             try {
                 const parsedParticles = selectedParticlePicking.data_json as Point[];
+                isLoadingFromIpp.current = true;
                 setParticles(parsedParticles);
                 updateStats(parsedParticles);
-                setImageShape(null);
+
+                // Try to read image_shape stored by the backend when saving picks.
+                let shape: [number, number] | null = null;
+                if (selectedParticlePicking.data) {
+                    try {
+                        const meta = JSON.parse(selectedParticlePicking.data);
+                        if (Array.isArray(meta.image_shape) && meta.image_shape.length === 2) {
+                            shape = [meta.image_shape[0], meta.image_shape[1]];
+                        }
+                    } catch { /* ignore malformed data */ }
+                }
+                // Fallback: derive from particle bounding box so the canvas
+                // coordinate space matches the MRC pixel space.
+                if (!shape && parsedParticles.length > 0) {
+                    const maxX = Math.max(...parsedParticles.map(p => p.x));
+                    const maxY = Math.max(...parsedParticles.map(p => p.y));
+                    // Add a small margin so particles near the edge aren't clipped.
+                    shape = [Math.round(maxY * 1.05), Math.round(maxX * 1.05)];
+                }
+                setImageShape(shape);
             } catch (error) {
                 console.error('Error parsing particles:', error);
                 showSnackbar('Error loading particles', 'error');
             }
         } else {
+            isLoadingFromIpp.current = true;
             setParticles([]);
             setHistory([[]]);
             setHistoryIndex(0);
             setImageShape(null);
         }
-    }, [selectedParticlePicking]);
+    }, [selectedParticlePicking?.oid]);
 
-    // Update IPP when particles change
+    // Sync the store's selectedParticlePicking when the user edits particles.
+    // Skip when particles were just loaded from the IPP to avoid an
+    // infinite loop: load → update store → load → update store → …
     useEffect(() => {
+        if (isLoadingFromIpp.current) {
+            isLoadingFromIpp.current = false;
+            return;
+        }
         if (selectedParticlePicking) {
             const updatedIpp = {
                 ...selectedParticlePicking,
@@ -372,11 +406,23 @@ export function useParticleOperations({
 
             showSnackbar(`Task queued (${targetBackend}) — results will appear in the IPP dropdown`, 'info');
 
-            // Poll for the IPP record to appear — refresh the list every 5s up to 20 times (100s).
+            // Poll for the IPP record to appear — every 5s up to 20 times (100s).
+            // Stops early when the named IPP appears and auto-selects it.
             let attempts = 0;
-            const poll = () => {
+            const poll = async () => {
                 attempts++;
-                onRefreshIppList?.();
+                try {
+                    const list = await onRefreshIppList?.();
+                    if (Array.isArray(list)) {
+                        const found = list.find(i => i.name === ippName);
+                        if (found) {
+                            setSelectedParticlePicking(found);
+                            setIsAutoPickingRunning(false);
+                            showSnackbar(`Picking complete — ${found.name} loaded`, 'success');
+                            return;
+                        }
+                    }
+                } catch { /* refetch errors are transient; keep polling */ }
                 if (attempts < 20) {
                     setTimeout(poll, 5000);
                 } else {

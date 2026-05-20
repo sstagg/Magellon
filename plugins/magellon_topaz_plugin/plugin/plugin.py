@@ -71,14 +71,26 @@ _RESOURCES = ResourceHints(
 # <MAGELLON_HOME>/<session>/topaz_denoised/<image_stem>.mrc
 # ---------------------------------------------------------------------------
 
+def _session_home() -> str:
+    """Return the directory that contains per-session sub-trees.
+
+    Canonical layout: {MAGELLON_GPFS_PATH}/home/{session}/...
+    MAGELLON_HOME_DIR may be set to the GPFS root or the home subdir
+    depending on the deployment; derive from MAGELLON_GPFS_PATH + 'home'
+    so the path is always correct regardless of how the env var is configured.
+    """
+    from core.settings import AppSettingsSingleton
+    gpfs = AppSettingsSingleton.get_instance().MAGELLON_GPFS_PATH or "/gpfs"
+    return os.path.join(gpfs, "home")
+
+
 def _picks_json_path(input_file: str, session: Optional[str]) -> str:
     image_dir = os.path.dirname(os.path.abspath(input_file))
     base = os.path.splitext(os.path.basename(input_file))[0]
-    parent = (
-        os.path.join("/magellon", session, "topaz_picks", base)
-        if session
-        else os.path.join(image_dir, "topaz_picks", base)
-    )
+    if session:
+        parent = os.path.join(_session_home(), session, "topaz_picks", base)
+    else:
+        parent = os.path.join(image_dir, "topaz_picks", base)
     return os.path.join(parent, "picks.json")
 
 
@@ -88,7 +100,7 @@ def _denoised_mrc_path(input_file: str, override: Optional[str], session: Option
     image_dir = os.path.dirname(os.path.abspath(input_file))
     base = os.path.splitext(os.path.basename(input_file))[0]
     if session:
-        return os.path.join("/magellon", session, "topaz_denoised", f"{base}.mrc")
+        return os.path.join(_session_home(), session, "topaz_denoised", f"{base}.mrc")
     return os.path.join(image_dir, f"{base}_denoised.mrc")
 
 
@@ -268,8 +280,20 @@ class TopazDenoisePlugin(PluginBase[MicrographDenoiseInput, MicrographDenoisingO
 # ---------------------------------------------------------------------------
 
 def build_pick_result(task: TaskMessage, output: ParticlePickingOutput) -> TaskResultMessage:
+    import uuid as _uuid
     data = task.data or {}
     input_file = data.get("input_file", "")
+
+    # Echo image_id + ipp_name from the dispatch payload so
+    # TaskOutputProcessor._save_particle_picks can persist the result
+    # to ImageMetaData without a DB round-trip.
+    image_id_str = data.get("image_id")
+    try:
+        image_id = _uuid.UUID(str(image_id_str)) if image_id_str else None
+    except (ValueError, AttributeError):
+        image_id = None
+    ipp_name = data.get("ipp_name") or "Auto-pick"
+
     out_files = []
     if output.particles_json_path:
         out_files.append(OutputFile(
@@ -277,13 +301,11 @@ def build_pick_result(task: TaskMessage, output: ParticlePickingOutput) -> TaskR
             path=output.particles_json_path,
             required=True,
         ))
-    # Per rule 1: result envelope carries the path + scalar summary
-    # (num_particles). Picks themselves stay on disk; consumers read
-    # the JSON file to materialise the per-particle records.
     return TaskResultMessage(
         worker_instance_id=task.worker_instance_id,
         job_id=task.job_id,
         task_id=task.id,
+        image_id=image_id,
         image_path=input_file,
         session_id=task.session_id,
         session_name=task.session_name,
@@ -293,6 +315,7 @@ def build_pick_result(task: TaskMessage, output: ParticlePickingOutput) -> TaskR
         output_data={
             "num_particles":       output.num_particles,
             "particles_json_path": output.particles_json_path,
+            "ipp_name":            ipp_name,
             **output.extras,
         },
         output_files=out_files,

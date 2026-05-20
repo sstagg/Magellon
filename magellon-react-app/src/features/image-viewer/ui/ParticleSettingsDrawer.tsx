@@ -152,7 +152,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
 
     // Backend selection
     const [backends, setBackends] = useState<BackendInfo[]>([]);
-    const [selectedBackend, setSelectedBackend] = useState<string>('template-picker');
+    const [selectedBackend, setSelectedBackend] = useState<string>('topaz-particle-picking');
     const [backendsLoading, setBackendsLoading] = useState(false);
 
     const activeBackend = backends.find(b => b.backend_id === selectedBackend);
@@ -183,10 +183,20 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
         fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/backends`)
             .then((res) => res.ok ? res.json() : Promise.resolve([]))
             .then((data: BackendInfo[]) => {
-                setBackends(data);
-                // Auto-select the first live backend if current selection is not live.
-                if (data.length > 0 && !data.find(b => b.backend_id === selectedBackend)) {
-                    setSelectedBackend(data[0].backend_id);
+                // Topaz always sorts to the top; otherwise preserve server order.
+                const isTopaz = (id: string) => id === 'topaz-particle-picking' || id === 'topaz';
+                const sorted = [...data].sort((a, b) => {
+                    if (isTopaz(a.backend_id)) return -1;
+                    if (isTopaz(b.backend_id)) return 1;
+                    return 0;
+                });
+                setBackends(sorted);
+                // Auto-select topaz if live; else first available; else keep current.
+                const topazLive = sorted.find(b => isTopaz(b.backend_id));
+                if (topazLive) {
+                    setSelectedBackend(topazLive.backend_id);
+                } else if (sorted.length > 0 && !sorted.find(b => b.backend_id === selectedBackend)) {
+                    setSelectedBackend(sorted[0].backend_id);
                 }
             })
             .catch(() => { /* backends endpoint optional — fall back to template-picker */ })
@@ -374,8 +384,8 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                             sx={{ fontSize: '0.75rem', height: 28 }}
                         >
                             {backends.length === 0 && (
-                                <MenuItem value="template-picker" sx={{ fontSize: '0.75rem' }}>
-                                    template-picker
+                                <MenuItem value="topaz-particle-picking" sx={{ fontSize: '0.75rem' }}>
+                                    topaz-particle-picking
                                 </MenuItem>
                             )}
                             {backends.map(b => (

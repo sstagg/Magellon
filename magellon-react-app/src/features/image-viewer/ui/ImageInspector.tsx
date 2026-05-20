@@ -227,7 +227,7 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
 
     // Reload data handlers
     const handleParticlePickingLoad = () => {
-        refetchImageParticlePickings();
+        return refetchImageParticlePickings().then(r => r.data);
     };
 
     const handleCtfInfoLoad = () => {

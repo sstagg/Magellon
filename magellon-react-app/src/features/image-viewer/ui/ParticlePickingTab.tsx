@@ -86,9 +86,6 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
     const [batchDialogOpen, setBatchDialogOpen] = useState(false);
     const [activeClass, setActiveClass] = useState('1');
 
-    // Display constants — not currently tunable from the UI. Keep as consts
-    // so unused setters don't masquerade as wired controls.
-    const PARTICLE_RADIUS = 15;
     const PARTICLE_OPACITY = 0.8;
     const SHOW_CROSSHAIR = true;
     const SHOW_STATS = true;
@@ -186,6 +183,9 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
         },
         onRefreshIppList: onParticlePickingLoad,
     });
+
+    // Scale the display radius to the coordinate space (reference: 15px at 1024 wide).
+    const PARTICLE_RADIUS = imageShape ? Math.round(imageShape[1] / 1024 * 15) : 15;
 
     // Register settings panel content into the app-level side panel slot
     useEffect(() => {

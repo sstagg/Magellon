@@ -266,6 +266,7 @@ export const ParticleCanvas: React.FC<ParticleCanvasProps> = ({
                                 stroke={getParticleColor(particle)}
                                 strokeWidth={selectedParticles.has(particle.id || '') ? 3 : 2}
                                 opacity={particleOpacity}
+                                vectorEffect="non-scaling-stroke"
                             />
 
                             {showCrosshair && (
@@ -278,6 +279,7 @@ export const ParticleCanvas: React.FC<ParticleCanvasProps> = ({
                                         stroke={getParticleColor(particle)}
                                         strokeWidth={2}
                                         opacity={particleOpacity}
+                                        vectorEffect="non-scaling-stroke"
                                     />
                                     <line
                                         x1={particle.x}
@@ -287,17 +289,18 @@ export const ParticleCanvas: React.FC<ParticleCanvasProps> = ({
                                         stroke={getParticleColor(particle)}
                                         strokeWidth={2}
                                         opacity={particleOpacity}
+                                        vectorEffect="non-scaling-stroke"
                                     />
                                 </>
                             )}
 
-                            {particle.type === 'auto' && particle.confidence && (
+                            {particle.type === 'auto' && particle.confidence && particle.confidence > 0 && (
                                 <circle
                                     cx={particle.x}
                                     cy={particle.y}
-                                    r={particleRadius * 0.3}
+                                    r={particleRadius * 0.15}
                                     fill={getParticleColor(particle)}
-                                    opacity={particle.confidence}
+                                    opacity={Math.min(particle.confidence, 1)}
                                 />
                             )}
                         </g>

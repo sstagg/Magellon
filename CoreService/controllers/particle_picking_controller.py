@@ -339,30 +339,45 @@ async def list_pp_backends():
     """Return all live plugins registered under the ``particle_picking``
     category. Includes each backend's capabilities so the UI can decide
     whether to show Preview & Tune (requires Capability.PREVIEW)."""
+    _PP_CATEGORIES = {
+        "particle_picking",
+        "particle picking",
+        "topaz_particle_picking",
+        "topazparticlepicking",
+    }
     registry = get_liveness_registry()
     entries = [
         e for e in registry.list_live()
-        if (e.category or "").replace("-", "_").lower() == "particle_picking"
+        if (e.category or "").lower() in _PP_CATEGORIES
     ]
     result = []
     for e in entries:
         manifest = e.manifest
         caps = list(getattr(manifest, "capabilities", None) or [])
         cap_values = [c.value if hasattr(c, "value") else str(c) for c in caps]
+        label = None
+        if manifest:
+            info = getattr(manifest, "info", None)
+            label = getattr(info, "name", None) or getattr(manifest, "name", None)
         result.append({
             "backend_id": e.backend_id or e.plugin_id,
             "plugin_id": e.plugin_id,
-            "label": (manifest.name if manifest else None) or e.plugin_id,
+            "label": label or e.plugin_id,
             "capabilities": cap_values,
             "has_preview": Capability.PREVIEW in (caps or []),
             "has_sync": Capability.SYNC in (caps or []),
             "http_endpoint": e.http_endpoint,
             "status": e.status,
         })
-    # Always include a sentinel for RMQ-only backends that are alive but
-    # have no HTTP endpoint (e.g. topaz). They are already present in the
-    # live list above via their heartbeats; this endpoint just surfaces them.
-    return result
+    # De-duplicate by backend_id — two runner threads for the same plugin
+    # may register separate liveness entries.
+    seen: set[str] = set()
+    deduped = []
+    for item in result:
+        if item["backend_id"] not in seen:
+            seen.add(item["backend_id"])
+            deduped.append(item)
+    return deduped
 
 
 class DispatchRequest(BaseModel):
@@ -418,9 +433,7 @@ async def dispatch_particle_pick(
                 raise HTTPException(status_code=404, detail="Image not found")
             if image.session_id and not check_session_access(user_id, image.session_id, action="write"):
                 raise HTTPException(status_code=403, detail="Access denied to this image")
-            mrc = _resolve_mrc_path(req.session_name, image.name)
-            if mrc:
-                resolved_path = mrc
+            resolved_path = _resolve_mrc_path(req.session_name, image.name)
 
     loop = asyncio.get_running_loop()
     ok = await loop.run_in_executor(
@@ -557,7 +570,7 @@ async def template_pick_run_and_save(
         raise HTTPException(status_code=403, detail="Access denied to this image")
 
     mrc_path = _resolve_mrc_path(req.session_name, image.name)
-    if not mrc_path:
+    if not os.path.exists(mrc_path):
         raise HTTPException(status_code=404, detail="MRC file not found on disk")
 
     picker = req.picker_params.model_copy(update={"image_path": mrc_path})
@@ -652,7 +665,16 @@ async def template_pick_batch(
     return envelope
 
 
-def _resolve_mrc_path(session_name: str, image_name: str) -> str | None:
+def _resolve_mrc_path(session_name: str, image_name: str) -> str:
+    """Return the MRC path for dispatch to Docker plugins.
+
+    Prefers a locally-confirmed path (so ``os.path.abspath`` normalises
+    the separator on Linux).  When the CoreService runs on Windows without
+    a direct GPFS mount the local check always fails; in that case the
+    canonical ``/gpfs/home/{session}/original/{image}.mrc`` path is
+    returned directly — it is valid inside every Docker plugin container
+    that bind-mounts the GPFS root at ``/gpfs``.
+    """
     base = f"{app_settings.directory_settings.MAGELLON_HOME_DIR}/{session_name}/{ORIGINAL_IMAGES_SUB_URL}"
     stripped = image_name
     for ext in ('.mrc', '.mrcs', '.tif', '.tiff'):
@@ -662,7 +684,9 @@ def _resolve_mrc_path(session_name: str, image_name: str) -> str | None:
     for candidate in (f"{base}{image_name}", f"{base}{stripped}.mrc", f"{base}{stripped}.mrcs"):
         if os.path.exists(candidate):
             return os.path.abspath(candidate)
-    return None
+    # Local file not found (Windows host without GPFS mount).
+    # Build the canonical path that Docker containers can access.
+    return f"{base}{stripped}.mrc"
 
 
 _PP_PLUGIN_OID: UUID | None = None
@@ -823,7 +847,7 @@ async def _run_batch_job(
                     continue
 
                 mrc_path = _resolve_mrc_path(req.session_name, entry.name)
-                if not mrc_path:
+                if not os.path.exists(mrc_path):
                     items.append(BatchItemResult(
                         image_oid=entry.oid, image_name=entry.name,
                         status="skipped", error="MRC file not found on disk",

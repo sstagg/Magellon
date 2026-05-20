@@ -243,6 +243,17 @@ def _live_backend_queue(contract: CategoryContract, backend_id: str) -> Optional
             continue
         if entry.task_queue:
             return entry.task_queue
+        # Plugin is live but didn't announce task_queue (pre-1.1 SDK).
+        # Fall back to the category-default queue from the legacy map so
+        # the task reaches the plugin without a BackendNotLive error.
+        default_subject = TaskRoute.for_category(contract).subject
+        fallback = _build_legacy_queue_map().get(default_subject)
+        if fallback:
+            logger.debug(
+                "backend %r live but task_queue unset; using legacy fallback queue %r",
+                backend_id, fallback,
+            )
+            return fallback
     return None
 
 

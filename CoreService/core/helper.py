@@ -467,13 +467,15 @@ def dispatch_particle_pick_task(
     ipp_name: str = "Auto-pick",
     engine_opts: dict | None = None,
 ) -> bool:
-    """Dispatch a particle-picking task via the PARTICLE_PICKING RMQ queue.
+    """Dispatch a particle-picking task via the appropriate RMQ queue.
 
-    Routes to the appropriate plugin (template-picker or boxnet-picker)
-    based on ``target_backend``. The plugin's ``build_pick_result``
-    echoes ``image_id`` and ``ipp_name`` back so the result processor
-    can save particles to ``ImageMetaData`` without a CoreService DB
-    look-up.
+    Routes to the correct plugin queue based on ``target_backend``:
+      - ``'topaz'``          → TOPAZ_PARTICLE_PICKING (code 8) → topaz_pick_tasks_queue
+      - anything else        → PARTICLE_PICKING (code 3)        → particle_picking_tasks_queue
+
+    The plugin's ``build_pick_result`` echoes ``image_id`` and ``ipp_name``
+    back so the result processor can save particles to ``ImageMetaData``
+    without a CoreService DB look-up.
     """
     image_path = to_canonical_gpfs_path(image_path)
     file_name = os.path.splitext(os.path.basename(image_path))[0]
@@ -485,12 +487,18 @@ def dispatch_particle_pick_task(
         "ipp_name": ipp_name,
         **(engine_opts or {}),
     }
+    # Topaz has its own TaskCategory (code 8) and queue — must not go
+    # to particle_picking_tasks_queue which only template-picker / boxnet consume.
+    # Match both the manifest backend_id ("topaz") and the SDK-derived fallback
+    # ("topaz-particle-picking" when no manifest backend_id is announced).
+    _TOPAZ_BACKEND_IDS = {"topaz", "topaz-particle-picking", "topaz_particle_picking"}
+    ptype = TOPAZ_PARTICLE_PICKING if target_backend in _TOPAZ_BACKEND_IDS else PARTICLE_PICKING
     task = TaskFactory.create_task(
         pid=task_id or uuid.uuid4(),
         instance_id=uuid.uuid4(),
-        job_id=job_id,
+        job_id=job_id or uuid.uuid4(),
         data=data,
-        ptype=PARTICLE_PICKING,
+        ptype=ptype,
         pstatus=PENDING,
     )
     task.target_backend = target_backend

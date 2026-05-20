@@ -8,6 +8,7 @@ REPLACE_WITH: /gpfs
 
 MAGELLON_GPFS_PATH: /gpfs
 HOST_GPFS_PATH: /gpfs
+MAGELLON_HOME_DIR: home
 JOBS_DIR: jobs
 HOST_JOBS_DIR: jobs
 
