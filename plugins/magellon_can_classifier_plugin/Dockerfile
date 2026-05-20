@@ -3,14 +3,13 @@
 # Everything we COPY must live INSIDE this archive — no parent-relative
 # paths. The SDK comes from a wheel bundled under ./wheels/.
 #
-# Phase 7b note (2026-05-03): the CAN algorithm uses torch on CUDA
-# when available (compute_backend='torch-auto' or 'torch-cuda'); falls
-# back to CPU torch for smaller stacks. This base image stays
-# python:3.11-slim so CPU runs work without a GPU. For production GPU
-# deployments swap to nvidia/cuda:12.1-runtime-ubuntu22.04 and install
-# torch via:
-#   pip install --extra-index-url https://download.pytorch.org/whl/cu121 \
-#       torch>=2.0,<3.0
+# The CAN algorithm uses torch on CUDA when available
+# (compute_backend='torch-auto' or 'torch-cuda') and falls back to CPU
+# torch for smaller stacks. This is the CPU build — base stays
+# python:3.11-slim so it runs on any host without a GPU. For GPU
+# production deployments use ./Dockerfile.cuda (CUDA 12.1 runtime base,
+# on-device torch); the manifest's install: list selects it first on
+# hosts that satisfy the gpu_count_min predicate.
 FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \

@@ -37,18 +37,28 @@ input_schema: schemas/input.json
 output_schema: schemas/output.json
 
 install:
-  # Phase 7b will add a CUDA-base docker variant. Until then the uv
-  # path lets a developer run the plugin against a local Python with
-  # torch already installed.
-  - method: uv
-    pyproject: pyproject.toml
+  # Ordered by preference — the install controller picks the first
+  # entry whose predicates the host satisfies.
+  #
+  # GPU production build — CUDA 12.1 runtime base, on-device torch.
+  - method: docker
+    dockerfile: Dockerfile.cuda
+    build_context: .
     requires:
-      - python: ">=3.11"
+      - docker_daemon: true
+      - gpu_count_min: 1
+  # CPU fallback — runs on any host with Docker; the algorithm runs
+  # CPU torch (set compute_backend=cpu on the input for large stacks).
   - method: docker
     dockerfile: Dockerfile
     build_context: .
     requires:
       - docker_daemon: true
+  # Dev path — local Python with torch already installed.
+  - method: uv
+    pyproject: pyproject.toml
+    requires:
+      - python: ">=3.11"
 
 health_check:
   # CAN's runtime eagerly loads torch on the SDK runner thread, so the
