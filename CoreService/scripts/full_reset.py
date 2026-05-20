@@ -13,6 +13,9 @@ Usage:
 Multiple sessions:
     python scripts/full_reset.py --session 24dec03a --session 24dec04a --yes
 
+Stop plugin containers so tasks queue up for recording instead of being consumed:
+    python scripts/full_reset.py --session 24dec03a --yes --stop-plugins
+
 Config:
     Reads DB and RMQ settings from configs/app_settings_dev.yaml by default.
     Override with --config or environment variables:
@@ -52,6 +55,12 @@ PURGE_QUEUES = [
     "ctf_out_tasks_queue",
     "fft_tasks_queue",
     "fft_out_tasks_queue",
+]
+
+# Containers stopped by --stop-plugins so tasks queue up for recording.
+# Restarted automatically after reset unless --no-restart is also given.
+PLUGIN_CONTAINERS = [
+    "magellon-plugin-motioncor",
 ]
 
 
@@ -229,6 +238,26 @@ def clear_ops_log(config, dry_run):
         print("  (no ops log found)")
 
 
+def manage_plugin_containers(action, dry_run, containers=None):
+    """Stop or start plugin containers. action = 'stop' | 'start'."""
+    targets = containers or PLUGIN_CONTAINERS
+    label = "Stopping" if action == "stop" else "Starting"
+    print(f"\n--- {label} plugin containers ---")
+    for name in targets:
+        if dry_run:
+            print(f"  [dry run] docker {action} {name}")
+            continue
+        ret = subprocess.run(
+            ["docker", action, name],
+            capture_output=True, text=True,
+        )
+        if ret.returncode == 0:
+            print(f"  {action}ped {name}")
+        else:
+            msg = ret.stderr.strip() or ret.stdout.strip()
+            print(f"  WARNING: docker {action} {name}: {msg}")
+
+
 def clear_jobs_dir(config, dry_run):
     directory = config.get("directory_settings", {})
     gpfs_root = directory.get("MAGELLON_GPFS_PATH") or os.getenv("MAGELLON_GPFS_PATH", "")
@@ -263,6 +292,11 @@ def main():
                         help="skip RabbitMQ purge (useful if broker is down)")
     parser.add_argument("--skip-db", action="store_true",
                         help="skip DB truncation")
+    parser.add_argument("--stop-plugins", action="store_true",
+                        help="stop plugin containers so tasks accumulate for recording; "
+                             "restarts them after reset unless --no-restart is given")
+    parser.add_argument("--no-restart", action="store_true",
+                        help="with --stop-plugins: leave containers stopped after reset")
     args = parser.parse_args()
 
     dry_run = not args.yes
@@ -274,6 +308,12 @@ def main():
     print(f"Config: {args.config}")
     print(f"DB:     {db.get('DB_HOST')}:{db.get('DB_Port')}/{db.get('DB_NAME')}")
     print(f"Sessions to clear: {args.session or '(none)'}")
+    if args.stop_plugins:
+        print(f"Plugin containers: will stop {PLUGIN_CONTAINERS}"
+              + (" (leave stopped)" if args.no_restart else " (restart after reset)"))
+
+    if args.stop_plugins:
+        manage_plugin_containers("stop", dry_run)
 
     if not args.skip_rmq:
         purge_queues(config, dry_run)
@@ -285,10 +325,20 @@ def main():
     clear_ops_log(config, dry_run)
     clear_jobs_dir(config, dry_run)
 
+    if args.stop_plugins and not args.no_restart:
+        manage_plugin_containers("start", dry_run)
+
     if dry_run:
         print("\nDry run complete. Re-run with --yes to execute.")
     else:
-        print("\nReset complete. Ready for fresh import.")
+        if args.stop_plugins and args.no_restart:
+            print("\nReset complete. Plugin containers are STOPPED.")
+            print("Run import, then: python sandbox/aws/record_tasks.py --session <name>")
+            print("When done: docker start " + " ".join(PLUGIN_CONTAINERS))
+        elif args.stop_plugins:
+            print("\nReset complete. Plugin containers restarted.")
+        else:
+            print("\nReset complete. Ready for fresh import.")
 
 
 if __name__ == "__main__":
