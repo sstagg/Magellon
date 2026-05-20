@@ -19,6 +19,10 @@
 #     binder / tests / dev scripts.
 #   - ``magellon_sdk.transport.rabbitmq``       — moved in MB6.2.
 #   - ``magellon_sdk.transport.rabbitmq_events`` — deleted in MB6.2.
+#   - ``nats`` (C.2) — the NATS client belongs in
+#     ``magellon_sdk.transport.nats`` only; production code reaches the
+#     event seam through the SDK transport / forwarders, never the raw
+#     client (ARCHITECTURE_PRINCIPLES.md §3, single event seam).
 #
 # Allowlisted paths (via per-file-ignores):
 #   - ``tests/**``                  — integration tests hit a real broker.
@@ -27,6 +31,8 @@
 #   - ``core/motioncor_test_*.py``  — test-bridge harness used by the
 #     frontend's motioncor-test page (pre-MB4 scaffolding; remove when
 #     that page is migrated off the legacy bridge).
+#   - ``support/events/**``         — NATS pub/sub example helpers used
+#     only by tests/integration/test_nats_pubsub.py.
 
 [tool.ruff]
 line-length = 100
@@ -43,11 +49,13 @@ select = ["TID"]
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "pika".msg = "pika belongs in magellon_sdk/bus/binders/rmq/ only. Use bus.tasks.send / bus.events.publish via the MessageBus (see ARCHITECTURE_PRINCIPLES.md §3)."
 "aio_pika".msg = "aio_pika is not used; route via bus.tasks / bus.events."
+"nats".msg = "The NATS client belongs in magellon_sdk.transport.nats only. Reach the event seam through the SDK transport / step-event forwarders (ARCHITECTURE_PRINCIPLES.md §3)."
 "magellon_sdk.transport.rabbitmq".msg = "Moved to magellon_sdk.bus.binders.rmq._client in MB6.2. Production callers should use the bus API."
 "magellon_sdk.transport.rabbitmq_events".msg = "Deleted in MB6.2. Step events flow via bus.events; see magellon_sdk.events.StepEventPublisher."
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["TID251", "TID252", "TID253"]
 "scripts/**" = ["TID251", "TID252", "TID253"]
+"support/events/**" = ["TID251", "TID252", "TID253"]
 "core/motioncor_test_result_processor.py" = ["TID251", "TID252", "TID253"]
 "services/motioncor_test_service.py" = ["TID251", "TID252", "TID253"]
