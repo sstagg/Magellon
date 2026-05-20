@@ -58,6 +58,20 @@ save microscope state, acquire the required image sequence, call the pure
 pipeline, optionally apply a correction callback, and restore beam tilt or
 stage alpha in a `finally` block.
 
+## JSON Configuration
+
+Runtime settings and calibration matrices can be loaded from JSON with
+`load_focus_runtime_config()` and `load_focus_calibration_config()`.
+
+- `config/focus_runtime.example.json` contains acquisition/correlation solver
+  settings such as beam tilts, binning, quality thresholds, and stage alphas.
+- `config/focus_calibration.example.json` contains microscope/camera-specific
+  calibration matrices.
+
+Keep runtime settings separate from calibration values. Runtime settings can be
+tuned per workflow; calibration matrices should be tied to the microscope,
+camera, magnification, high tension, and probe mode that produced them.
+
 ## Notes
 
 The mock examples in `mock_inputs.py` are synthetic sanity checks, not microscope

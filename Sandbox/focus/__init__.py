@@ -5,6 +5,14 @@ move a microscope, talk to a database, or import Leginon/PyAMI.
 """
 
 from .correlation import correlate_shift, cross_correlate, phase_correlate
+from .focus_config import (
+    FocusCalibrationConfig,
+    FocusRuntimeConfig,
+    ObjectiveFocusSettings,
+    StageZSettings,
+    load_focus_calibration_config,
+    load_focus_runtime_config,
+)
 from .autofocus_orchestrator import (
     ObjectiveFocusInstrument,
     StageZInstrument,
@@ -38,17 +46,23 @@ __all__ = [
     "BeamTiltImagePair",
     "BeamTiltTripleShot",
     "FocusSolveDiagnostics",
+    "FocusCalibrationConfig",
+    "FocusRuntimeConfig",
     "ObjectiveFocusInstrument",
     "ObjectiveCalibration",
     "ObjectiveFocusResult",
+    "ObjectiveFocusSettings",
     "StageTiltMeasurement",
     "StageTiltImagePair",
     "StageZInstrument",
     "StageZResult",
+    "StageZSettings",
     "beam_tilt_measurements_from_images",
     "beam_tilt_measurements_from_triple_shots",
     "correlate_shift",
     "cross_correlate",
+    "load_focus_calibration_config",
+    "load_focus_runtime_config",
     "phase_correlate",
     "run_objective_focus_sequence",
     "run_stage_z_sequence",

@@ -1,0 +1,34 @@
+{
+  "objective_focus": {
+    "mode": "beam_tilt_pair",
+    "camera_binning": [1.0, 1.0],
+    "correlation_type": "phase",
+    "subpixel_window": 5,
+    "taper_fraction": 0.1,
+    "pad_fraction": 0.0,
+    "lowpass": 0.0,
+    "zero_origin": false,
+    "min_snr": 5.0,
+    "min_peak_ratio": 1.2,
+    "min_normalized_ccc": 0.35,
+    "validate": true,
+    "max_condition_number": 1000000000000.0,
+    "beam_tilt_pairs": [
+      [[0.0, 0.0], [0.01, 0.0]]
+    ]
+  },
+  "stage_z": {
+    "camera_binning": [1.0, 1.0],
+    "alphas": [-0.1, 0.1],
+    "alpha_for_matrix": 0.0,
+    "correlation_type": "phase",
+    "subpixel_window": 5,
+    "taper_fraction": 0.1,
+    "pad_fraction": 0.0,
+    "lowpass": 0.0,
+    "zero_origin": false,
+    "min_snr": 5.0,
+    "min_peak_ratio": 1.2,
+    "min_normalized_ccc": 0.35
+  }
+}

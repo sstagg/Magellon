@@ -1,7 +1,13 @@
 import numpy as np
+from pathlib import Path
 
 try:
     from focus.correlation import correlate_shift
+    from focus.focus_config import (
+        FocusRuntimeConfig,
+        load_focus_calibration_config,
+        load_focus_runtime_config,
+    )
     from focus.autofocus_orchestrator import (
         run_objective_focus_sequence,
         run_stage_z_sequence,
@@ -25,6 +31,11 @@ try:
     from focus.z_focus import StageTiltMeasurement, solve_stage_z
 except ModuleNotFoundError:
     from magellon_focus_extract.correlation import correlate_shift
+    from magellon_focus_extract.focus_config import (
+        FocusRuntimeConfig,
+        load_focus_calibration_config,
+        load_focus_runtime_config,
+    )
     from magellon_focus_extract.autofocus_orchestrator import (
         run_objective_focus_sequence,
         run_stage_z_sequence,
@@ -48,6 +59,9 @@ except ModuleNotFoundError:
     from magellon_focus_extract.z_focus import StageTiltMeasurement, solve_stage_z
 
 import pytest
+
+
+FOCUS_DIR = Path(__file__).resolve().parent
 
 
 def test_correlate_shift_integer_roll():
@@ -622,3 +636,56 @@ def test_stage_z_orchestrator_restores_alpha():
 
     assert np.isclose(result["z"], col_pixels * matrix[1, 1] / np.sin(alpha), rtol=0.05)
     assert instrument.stage_alpha == 0.25
+
+
+def test_load_focus_runtime_config_example():
+    config = load_focus_runtime_config(FOCUS_DIR / "config" / "focus_runtime.example.json")
+
+    assert config.objective_focus.camera_binning == (1.0, 1.0)
+    assert config.objective_focus.beam_tilt_pairs == (((0.0, 0.0), (0.01, 0.0)),)
+    assert config.objective_focus.pipeline_kwargs()["zero_origin"] is False
+    assert config.stage_z.alphas == (-0.1, 0.1)
+
+
+def test_load_focus_calibration_config_example():
+    config = load_focus_calibration_config(FOCUS_DIR / "config" / "focus_calibration.example.json")
+
+    assert config.objective_focus.defocus_matrix.shape == (2, 2)
+    assert config.objective_focus.stigx_matrix.shape == (2, 2)
+    assert config.stage_matrix.shape == (2, 2)
+
+
+def test_runtime_config_drives_objective_pipeline():
+    runtime = load_focus_runtime_config(FOCUS_DIR / "config" / "focus_runtime.example.json")
+    calibration = ObjectiveCalibration(np.array([[1000.0, 0.0], [0.0, 1000.0]]))
+    rng = np.random.default_rng(50)
+    image = rng.normal(0.0, 0.03, (96, 96))
+    rr, cc = np.indices(image.shape)
+    image += np.exp(-(((rr - 40.0) ** 2 + (cc - 45.0) ** 2) / (2.0 * 4.0**2)))
+    shifted = np.roll(image, 6, axis=0)
+    first_tilt, second_tilt = runtime.objective_focus.beam_tilt_pairs[0]
+
+    result = solve_objective_focus_from_image_pairs(
+        calibration,
+        [
+            BeamTiltImagePair(
+                first_tilt=first_tilt,
+                second_tilt=second_tilt,
+                first_image=image,
+                second_image=shifted,
+            )
+        ],
+        **runtime.objective_focus.pipeline_kwargs(),
+    )
+
+    assert np.isclose(result.defocus, 0.6, atol=0.03)
+
+
+def test_runtime_config_rejects_unknown_section():
+    with pytest.raises(ValueError, match="unknown runtime config sections"):
+        FocusRuntimeConfig.from_dict({"objective_focus": {}, "extra": {}})
+
+
+def test_runtime_config_rejects_invalid_window():
+    with pytest.raises(ValueError, match="subpixel_window"):
+        FocusRuntimeConfig.from_dict({"objective_focus": {"subpixel_window": 4}})
