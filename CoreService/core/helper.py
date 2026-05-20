@@ -245,12 +245,45 @@ def push_task_to_task_queue(task: TaskMessage) -> bool:
     try:
         from core.dispatcher_registry import get_task_dispatcher_registry
 
+        _stamp_image_subject(task)
         _audit_outgoing_message(task)
         _emit_outgoing_envelope(task)
         return get_task_dispatcher_registry().dispatch(task)
     except Exception as e:
         logger.error(f"Error pushing task to queue: {e}")
         return False
+
+
+def _stamp_image_subject(task: TaskMessage) -> None:
+    """Stamp the image subject axis on a task at the dispatch boundary.
+
+    Phase 3 / A.2: dispatch is the *authoritative* writer of
+    ``subject_kind`` / ``subject_id``. Every task built by the
+    importers and the detection/picking dispatch helpers is image-keyed,
+    so when the caller hasn't already set a richer subject (e.g. a
+    ``particle_stack`` for 2D classification), we derive ``'image'`` +
+    the payload's ``image_id`` here. The runner's ``_stamp_subject``
+    contract default and the projector's Phase-3c backfill remain only
+    as fallbacks for tasks that never pass through this boundary.
+
+    No-op when the caller already set ``subject_kind`` or the payload
+    carries no ``image_id``.
+    """
+    if task.subject_kind is not None:
+        return
+    image_id = (task.data or {}).get("image_id")
+    if image_id in (None, ""):
+        return
+    task.subject_kind = "image"
+    if isinstance(image_id, uuid.UUID):
+        task.subject_id = image_id
+    else:
+        try:
+            task.subject_id = uuid.UUID(str(image_id))
+        except (ValueError, TypeError):
+            # Keep subject_kind='image' even if the id is unparseable —
+            # the kind alone still routes correctly; subject_id stays None.
+            logger.debug("could not parse image_id %r as UUID for subject_id", image_id)
 
 
 def _emit_outgoing_envelope(task: TaskMessage) -> None:
