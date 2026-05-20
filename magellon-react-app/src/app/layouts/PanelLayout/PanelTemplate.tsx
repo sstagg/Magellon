@@ -137,7 +137,7 @@ export const PanelTemplate = () => {
             <CssBaseline />
             <PanelHeader
                 open={open}
-                handleDrawerOpen={handleDrawerOpen}
+                _handleDrawerOpen={handleDrawerOpen}
                 toggleDrawer={toggleDrawer}
             />
             <PanelDrawer

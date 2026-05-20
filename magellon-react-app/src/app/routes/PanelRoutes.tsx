@@ -1,7 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Route, Routes } from "react-router-dom";
 import { Home } from "../../pages/home/HomePage.tsx";
-import DomainRoutes from "../../domains/DomainRoutes.tsx";
+import DomainRoutes from "./DomainRoutes.tsx";
 import { ImagesPageView } from "../../pages/images/ImagesPageView.tsx";
 import { RunJobPageView } from "../../pages/run-job/RunJobPageView.tsx";
 import ImportPageView from "../../pages/import/ImportPageView.tsx";
