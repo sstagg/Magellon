@@ -216,6 +216,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                     setLastResultCount(null);
                 }}
                 imageName={selectedImage?.name || null}
+                sessionName={sessionName}
                 autoPickingProgress={autoPickingProgress}
                 resultCount={lastResultCount}
                 ippName={selectedParticlePicking?.name}

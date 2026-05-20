@@ -102,8 +102,12 @@ def test_announced_input_schema_carries_ui_rich_topaz_knobs():
 
     assert props["scale"]["enum"] == [4, 8, 16]
 
-    # Every knob is tunable so the result viewer's retune panel shows it.
-    assert all(props[k]["ui_tunable"] for k in props)
+    # threshold + radius retune cheaply (NMS only); model + scale would
+    # need a full CNN recompute, so they are NOT tunable.
+    assert props["threshold"]["ui_tunable"] is True
+    assert props["radius"]["ui_tunable"] is True
+    assert props["model"]["ui_tunable"] is False
+    assert props["scale"]["ui_tunable"] is False
     # All four sit in the single "Topaz" accordion group.
     assert all(props[k]["ui_group"] == "Topaz" for k in props)
 
@@ -326,3 +330,110 @@ def test_build_denoise_result_includes_intensity_summary():
     assert result.output_data["output_path"] == "/tmp/out_denoised.mrc"
     assert result.output_data["pixel_mean"] == 0.0
     assert result.output_files[0].path == "/tmp/out_denoised.mrc"
+
+
+# ---------------------------------------------------------------------------
+# PREVIEW capability — preview / retune / discard. compute_score_map is
+# mocked so these run in milliseconds without the bundled ONNX models;
+# picks_from_score_map (real NMS) runs against a tiny synthetic map.
+# ---------------------------------------------------------------------------
+
+
+def _synthetic_score_map():
+    """64x64 detector grid: five bright peaks well above the -3.0
+    default cutoff, background far below it."""
+    import numpy as np
+    m = np.full((64, 64), -8.0, dtype=np.float32)
+    for (r, c) in [(10, 10), (10, 40), (40, 10), (40, 40), (25, 25)]:
+        m[r, c] = 5.0
+    return m
+
+
+def test_run_preview_caches_score_map_and_returns_result(monkeypatch):
+    from magellon_sdk.models.tasks import TopazPickInput
+    from plugin import preview as preview_mod
+
+    monkeypatch.setattr(
+        preview_mod, "compute_score_map",
+        lambda input_file, **kw: (_synthetic_score_map(), [512, 512]),
+    )
+    inp = TopazPickInput(
+        input_file="/tmp/x.mrc",
+        engine_opts={"threshold": -3.0, "radius": 4, "scale": 8},
+    )
+    result = preview_mod.run_preview(inp)
+
+    assert result.preview_id
+    assert result.num_particles == len(result.particles) == 5
+    assert result.image_shape == [512, 512]
+    assert result.score_map_png_base64       # PNG thumbnail rendered
+    assert result.score_range == [-8.0, 5.0]
+    assert result.image_binning == 8
+    preview_mod.discard_preview(result.preview_id)
+
+
+def test_run_retune_rethresholds_cached_map_without_recompute(monkeypatch):
+    from magellon_sdk.capabilities import PickingRetuneRequest
+    from magellon_sdk.models.tasks import TopazPickInput
+    from plugin import preview as preview_mod
+
+    calls = {"n": 0}
+
+    def _counted(input_file, **kw):
+        calls["n"] += 1
+        return _synthetic_score_map(), [512, 512]
+
+    monkeypatch.setattr(preview_mod, "compute_score_map", _counted)
+    pv = preview_mod.run_preview(
+        TopazPickInput(input_file="/tmp/x.mrc",
+                       engine_opts={"threshold": -3.0, "radius": 4, "scale": 8})
+    )
+    assert calls["n"] == 1
+
+    # Threshold above every peak → zero picks, and no second CNN call.
+    rt = preview_mod.run_retune(
+        pv.preview_id, PickingRetuneRequest(threshold=6.0, radius=4),
+    )
+    assert rt is not None and rt.num_particles == 0
+    assert calls["n"] == 1  # retune did not recompute the score map
+
+    # Unknown / expired preview id → None (router maps it to 404).
+    assert preview_mod.run_retune(
+        "no-such-id", PickingRetuneRequest(threshold=-3.0),
+    ) is None
+    preview_mod.discard_preview(pv.preview_id)
+
+
+def test_discard_preview_is_idempotent_miss(monkeypatch):
+    from magellon_sdk.models.tasks import TopazPickInput
+    from plugin import preview as preview_mod
+
+    monkeypatch.setattr(
+        preview_mod, "compute_score_map",
+        lambda f, **k: (_synthetic_score_map(), [256, 256]),
+    )
+    pv = preview_mod.run_preview(TopazPickInput(input_file="/tmp/x.mrc"))
+    assert preview_mod.discard_preview(pv.preview_id) is True
+    assert preview_mod.discard_preview(pv.preview_id) is False
+
+
+def test_pick_plugin_advertises_preview_and_delegates(monkeypatch):
+    from magellon_sdk.models.manifest import Capability
+    from magellon_sdk.models.tasks import TopazPickInput
+    from plugin import preview as preview_mod
+    from plugin.plugin import TopazDenoisePlugin, TopazPickPlugin
+
+    pick = TopazPickPlugin()
+    assert Capability.PREVIEW in pick.capabilities
+    # Denoise shares the container but has no interactive preview.
+    assert Capability.PREVIEW not in TopazDenoisePlugin().capabilities
+
+    monkeypatch.setattr(
+        preview_mod, "compute_score_map",
+        lambda f, **k: (_synthetic_score_map(), [128, 128]),
+    )
+    pv = pick.preview(
+        TopazPickInput(input_file="/tmp/x.mrc", engine_opts={"radius": 4})
+    )
+    assert pv.num_particles == 5
+    assert pick.discard_preview(pv.preview_id) is True

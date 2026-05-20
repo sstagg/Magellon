@@ -21,3 +21,8 @@ onnxruntime==1.18.0
 mrcfile==1.5.0
 numpy==1.26.4
 scipy==1.12.0
+
+# PREVIEW capability: TTLCache for cached score maps + Pillow for the
+# score-map PNG thumbnail.
+cachetools==5.3.3
+pillow==10.3.0

@@ -65,6 +65,8 @@ export interface ParticleSettingsDrawerProps {
     onAcceptParticles: () => void;
     onDiscardParticles: () => void;
     imageName: string | null;
+    /** Session of the selected image — lets the backend resolve the MRC path. */
+    sessionName?: string;
     autoPickingProgress: number;
     resultCount: number | null;
     /** Optional IPP name for the run — used as the RMQ task label. */
@@ -131,6 +133,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
     onAcceptParticles,
     onDiscardParticles,
     imageName,
+    sessionName,
     autoPickingProgress: _autoPickingProgress,
     resultCount,
     ippName,
@@ -251,7 +254,12 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
         setDrawerState('previewing');
 
         try {
-            const payload = { ...pickerParams, image_path: imageName };
+            const payload: Record<string, any> = {
+                ...pickerParams,
+                image_path: imageName,
+                backend: selectedBackend,
+                session_name: sessionName,
+            };
             Object.keys(payload).forEach(k => { if (payload[k] === null || payload[k] === undefined) delete payload[k]; });
 
             const res = await fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/preview`, {
@@ -291,10 +299,13 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
         retuneTimer.current = setTimeout(async () => {
             setRetuning(true);
             try {
-                const res = await fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/preview/${previewId}/retune`, {
+                const retuneUrl = `${API_URL}${TEMPLATE_PICKER_PATH}/preview/${previewId}/retune`
+                    + `?backend=${encodeURIComponent(selectedBackend)}`;
+                const res = await fetch(retuneUrl, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         threshold: newParams.threshold ?? 0.4,
+                        radius: newParams.radius ?? null,
                         max_threshold: newParams.max_threshold ?? null,
                         max_peaks: newParams.max_peaks ?? 500,
                         overlap_multiplier: newParams.overlap_multiplier ?? 1.0,
@@ -325,7 +336,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
         if (!isValid) { setShowErrors(true); return; }
         setShowErrors(false);
         if (previewId) {
-            fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/preview/${previewId}`, { method: 'DELETE' }).catch(() => {});
+            fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/preview/${previewId}?backend=${encodeURIComponent(selectedBackend)}`, { method: 'DELETE' }).catch(() => {});
             setPreviewId(null);
         }
         const name = ippName || `Auto-pick ${new Date().toISOString().slice(0, 16)}`;
@@ -341,7 +352,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
     // --- Accept / Discard ---
     const handleAccept = () => {
         if (previewId) {
-            fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/preview/${previewId}`, { method: 'DELETE' }).catch(() => {});
+            fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/preview/${previewId}?backend=${encodeURIComponent(selectedBackend)}`, { method: 'DELETE' }).catch(() => {});
             setPreviewId(null);
         }
         setScoreMapPng(null);
@@ -351,7 +362,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
 
     const handleDiscard = () => {
         if (previewId) {
-            fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/preview/${previewId}`, { method: 'DELETE' }).catch(() => {});
+            fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/preview/${previewId}?backend=${encodeURIComponent(selectedBackend)}`, { method: 'DELETE' }).catch(() => {});
             setPreviewId(null);
         }
         setScoreMapPng(null);

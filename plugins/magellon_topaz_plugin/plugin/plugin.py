@@ -19,6 +19,11 @@ import os
 from typing import Any, Dict, Optional, Type
 
 from magellon_sdk.base import PluginBase
+from magellon_sdk.capabilities import (
+    PickingPreviewResult,
+    PickingRetuneRequest,
+    PickingRetuneResult,
+)
 from magellon_sdk.categories.outputs import (
     MicrographDenoisingOutput,
     Particle,
@@ -121,6 +126,9 @@ _TOPAZ_PICK_UI_SCHEMA: Dict[str, Any] = {
     "type": "object",
     "additionalProperties": True,
     "properties": {
+        # model + scale are NOT ui_tunable: changing either invalidates
+        # the cached score map, so they can't be retuned without a full
+        # CNN recompute. Only threshold + radius retune cheaply.
         "model": {
             "type": "string",
             "title": "Model",
@@ -130,7 +138,7 @@ _TOPAZ_PICK_UI_SCHEMA: Dict[str, Any] = {
             "ui_widget": "select",
             "ui_group": "Topaz",
             "ui_order": 1,
-            "ui_tunable": True,
+            "ui_tunable": False,
         },
         "threshold": {
             "type": "number",
@@ -172,7 +180,7 @@ _TOPAZ_PICK_UI_SCHEMA: Dict[str, Any] = {
             "ui_widget": "select",
             "ui_group": "Topaz",
             "ui_order": 4,
-            "ui_tunable": True,
+            "ui_tunable": False,
         },
     },
     "required": [],
@@ -184,7 +192,10 @@ _TOPAZ_PICK_UI_SCHEMA: Dict[str, Any] = {
 # ---------------------------------------------------------------------------
 
 class TopazPickPlugin(PluginBase[TopazPickInput, ParticlePickingOutput]):
-    capabilities = _CAPABILITIES
+    # PREVIEW lets the React panel run an interactive preview-and-tune
+    # loop: the CNN runs once, then threshold/radius retuning re-runs
+    # only NMS. Only the picker serves it — denoise has no preview.
+    capabilities = _CAPABILITIES + [Capability.PREVIEW]
     supported_transports = _TRANSPORTS
     default_transport = Transport.RMQ
     isolation = IsolationLevel.CONTAINER
@@ -213,6 +224,22 @@ class TopazPickPlugin(PluginBase[TopazPickInput, ParticlePickingOutput]):
     @classmethod
     def announced_input_schema(cls) -> Dict[str, Any]:
         return _TOPAZ_PICK_UI_SCHEMA
+
+    # --- PREVIEW capability — see plugin/preview.py ----------------------
+
+    def preview(self, input_data: TopazPickInput) -> "PickingPreviewResult":
+        from plugin.preview import run_preview
+        return run_preview(input_data)
+
+    def retune(
+        self, preview_id: str, params: "PickingRetuneRequest",
+    ) -> Optional["PickingRetuneResult"]:
+        from plugin.preview import run_retune
+        return run_retune(preview_id, params)
+
+    def discard_preview(self, preview_id: str) -> bool:
+        from plugin.preview import discard_preview
+        return discard_preview(preview_id)
 
     def execute(
         self,

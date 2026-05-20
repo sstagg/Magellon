@@ -31,8 +31,10 @@ from starlette.responses import JSONResponse
 
 from core.settings import AppSettingsSingleton
 from magellon_sdk.bus.bootstrap import install_rmq_bus
+from magellon_sdk.capabilities import make_preview_router
 from magellon_sdk.categories.contract import DENOISE, TOPAZ_PICK
 from magellon_sdk.logging_config import setup_logging
+from magellon_sdk.models.manifest import Capability
 from magellon_sdk.runner import PluginBrokerRunner
 from plugin import (
     TopazDenoisePlugin,
@@ -40,6 +42,22 @@ from plugin import (
     build_denoise_result,
     build_pick_result,
 )
+
+
+def _resolve_http_endpoint() -> str | None:
+    """URL CoreService uses to reach this plugin's FastAPI for sync
+    calls (PREVIEW). Set by the install pipeline at launch time; None
+    when unset — sync_dispatcher then refuses to route here, which is
+    correct (don't advertise an endpoint only the operator can reach).
+    """
+    explicit = os.environ.get("MAGELLON_PLUGIN_HTTP_ENDPOINT")
+    if explicit:
+        return explicit
+    host = os.environ.get("MAGELLON_PLUGIN_HOST")
+    port = os.environ.get("MAGELLON_PLUGIN_PORT")
+    if host and port:
+        return f"http://{host}:{port}"
+    return None
 
 
 _pick_plugin = TopazPickPlugin()
@@ -81,6 +99,7 @@ async def lifespan(app: FastAPI):
             out_queue=settings.PICK_OUT_QUEUE_NAME,
             result_factory=build_pick_result,
             contract=TOPAZ_PICK,
+            http_endpoint=_resolve_http_endpoint(),
         )
         threading.Thread(
             target=_pick_runner.start_blocking,
@@ -142,6 +161,14 @@ Info("plugin", "topaz plugin information").info({
 
 
 Instrumentator().instrument(app).expose(app)
+
+
+# Mount the interactive preview-and-tune endpoints when the picker
+# advertises PREVIEW. make_preview_router raises at import time if the
+# plugin is missing preview/retune/discard_preview, so a misconfigured
+# plugin fails to boot instead of 404-ing the contract.
+if Capability.PREVIEW in _pick_plugin.capabilities:
+    app.include_router(make_preview_router(_pick_plugin))
 
 
 @app.get("/health")

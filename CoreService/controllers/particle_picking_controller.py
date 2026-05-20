@@ -34,7 +34,7 @@ from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy.orm import Session
 
 from config import ORIGINAL_IMAGES_SUB_URL, app_settings
@@ -160,7 +160,55 @@ def _output_from_plugin(
 
 # ---------------------------------------------------------------------------
 # Preview / retune flow (PREVIEW capability)
+#
+# Backend-aware: the picker the operator selected in the React panel
+# decides which category dispatch_capability routes to. Topaz lives
+# under its own ``topaz_particle_picking`` category and is pinned by
+# backend_id; template-picker uses the ``particle_picking`` default.
 # ---------------------------------------------------------------------------
+
+
+def _resolve_pp_category(backend: Optional[str]) -> str:
+    """Map a UI backend id to the dispatch category.
+
+    Topaz lives under its own ``topaz_particle_picking`` category;
+    everything else uses ``particle_picking``. The category alone
+    disambiguates the target plugin — no backend-id pin needed (and
+    pinning is fragile: the announced backend_id is the SDK-derived
+    ``topaz-particle-picking``, not the manifest's ``topaz``)."""
+    if backend and "topaz" in backend.lower():
+        return "topaz_particle_picking"
+    return _CATEGORY
+
+
+class PreviewRequest(BaseModel):
+    """Backend-agnostic preview body. Template-picker params or Topaz
+    engine knobs ride as extras; the controller routes by ``backend``
+    and reshapes the payload for the target plugin."""
+    model_config = ConfigDict(extra="allow")
+
+    backend: Optional[str] = None
+    image_path: str
+    session_name: Optional[str] = None
+
+
+def _preview_payload(req: PreviewRequest, is_topaz: bool) -> Dict[str, Any]:
+    """Reshape a PreviewRequest into the body the target plugin expects."""
+    raw = req.model_dump()
+    extras = {k: v for k, v in raw.items()
+              if k not in ("backend", "image_path", "session_name")}
+    if is_topaz:
+        # TopazPickInput shape: input_file + nested engine_opts. Resolve
+        # the MRC path server-side from the image name + session so the
+        # frontend doesn't need the filesystem layout.
+        path = req.image_path
+        if req.session_name:
+            path = _resolve_mrc_path(req.session_name, req.image_path)
+        return {"input_file": path, "image_path": path, "engine_opts": extras}
+    # template-picker: re-validate against the strict input model so a
+    # bad body still 422s even though this endpoint's signature is loose.
+    tp = TemplatePickerInput.model_validate({"image_path": req.image_path, **extras})
+    return _plugin_payload(tp)
 
 
 @particle_picking_router.post(
@@ -168,14 +216,20 @@ def _output_from_plugin(
     response_model=PreviewResult,
     summary="Compute correlation maps and return initial picks + score map",
 )
-async def template_pick_preview(input_data: TemplatePickerInput) -> PreviewResult:
+async def template_pick_preview(req: PreviewRequest) -> PreviewResult:
+    category = _resolve_pp_category(req.backend)
+    is_topaz = category == "topaz_particle_picking"
+    try:
+        payload = _preview_payload(req, is_topaz=is_topaz)
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=exc.errors())
     try:
         loop = asyncio.get_running_loop()
         body = await loop.run_in_executor(
             None,
             lambda: dispatch_capability(
-                _CATEGORY, Capability.PREVIEW, "POST", "/preview",
-                body=_plugin_payload(input_data),
+                category, Capability.PREVIEW, "POST", "/preview",
+                body=payload,
             ),
         )
     except (BackendNotLive, CapabilityMissing, PluginCallFailed) as exc:
@@ -189,14 +243,15 @@ async def template_pick_preview(input_data: TemplatePickerInput) -> PreviewResul
     summary="Re-extract particles with new tunable params (no recompute)",
 )
 async def template_pick_retune(
-    preview_id: str, params: RetuneRequest,
+    preview_id: str, params: RetuneRequest, backend: Optional[str] = None,
 ) -> RetuneResult:
+    category = _resolve_pp_category(backend)
     try:
         loop = asyncio.get_running_loop()
         body = await loop.run_in_executor(
             None,
             lambda: dispatch_capability(
-                _CATEGORY, Capability.PREVIEW, "POST",
+                category, Capability.PREVIEW, "POST",
                 f"/preview/{preview_id}/retune",
                 body=params.model_dump(),
             ),
@@ -210,13 +265,14 @@ async def template_pick_retune(
     "/preview/{preview_id}",
     summary="Discard a preview and free memory",
 )
-async def template_pick_preview_delete(preview_id: str):
+async def template_pick_preview_delete(preview_id: str, backend: Optional[str] = None):
+    category = _resolve_pp_category(backend)
     try:
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(
             None,
             lambda: dispatch_capability(
-                _CATEGORY, Capability.PREVIEW, "DELETE",
+                category, Capability.PREVIEW, "DELETE",
                 f"/preview/{preview_id}",
             ),
         )

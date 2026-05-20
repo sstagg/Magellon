@@ -86,18 +86,17 @@ def _load_mrc(path: str) -> np.ndarray:
 # Particle picking
 # ---------------------------------------------------------------------------
 
-def run_pick(input_file: str, *, model: str = "resnet16",
-             radius: int = 14, threshold: float = -3.0,
-             scale: int = 8) -> tuple[List[dict], List[int]]:
-    """Pick particles in a micrograph.
+def compute_score_map(input_file: str, *, model: str = "resnet16",
+                      scale: int = 8) -> tuple[np.ndarray, List[int]]:
+    """Run the expensive half of picking: load + preprocess + CNN.
 
-    Returns ``(picks, image_shape)`` where ``picks`` is a list of
-    ``{center: [x, y], radius, score}`` dicts with coordinates in
-    ORIGINAL image space, and ``image_shape`` is ``[rows, cols]`` of the
-    source MRC — echoed downstream so consumers can size a canvas
-    without re-reading the file.
+    Returns ``(score_map, image_shape)``. ``score_map`` is the raw
+    detector log-likelihood grid (downsampled by ``scale``);
+    ``image_shape`` is ``[rows, cols]`` of the source MRC. The
+    interactive preview flow caches the score map so threshold/radius
+    retuning re-runs only :func:`picks_from_score_map` — milliseconds
+    against the ~40 s the CNN takes.
     """
-    from plugin.topaz_lib.nms import non_maximum_suppression  # lazy
     from plugin.topaz_lib.preprocess import preprocess  # lazy
 
     onnx_name = DETECTOR_FILES.get(model)
@@ -112,12 +111,23 @@ def run_pick(input_file: str, *, model: str = "resnet16",
     sess = _session(onnx_name)
     in_name = sess.get_inputs()[0].name
     score_map = sess.run(None, {in_name: pre[np.newaxis, np.newaxis]})[0][0, 0]
+    return score_map, image_shape
+
+
+def picks_from_score_map(score_map: np.ndarray, *, radius: int = 14,
+                         threshold: float = -3.0, scale: int = 8) -> List[dict]:
+    """Run the cheap half of picking: NMS over a precomputed score map.
+
+    Coordinates are upscaled back to ORIGINAL image space. Returns
+    ``{center: [x, y], radius, score}`` dicts sorted by score desc.
+    """
+    from plugin.topaz_lib.nms import non_maximum_suppression  # lazy
 
     scores, coords = non_maximum_suppression(score_map, r=radius, threshold=threshold)
     coords_full = (coords * scale).astype(int)
 
     order = np.argsort(scores)[::-1]
-    picks = [
+    return [
         {
             "center": [int(coords_full[i, 0]), int(coords_full[i, 1])],
             "radius": int(radius * scale),
@@ -125,6 +135,23 @@ def run_pick(input_file: str, *, model: str = "resnet16",
         }
         for i in order
     ]
+
+
+def run_pick(input_file: str, *, model: str = "resnet16",
+             radius: int = 14, threshold: float = -3.0,
+             scale: int = 8) -> tuple[List[dict], List[int]]:
+    """Pick particles in a micrograph.
+
+    Returns ``(picks, image_shape)`` where ``picks`` is a list of
+    ``{center: [x, y], radius, score}`` dicts with coordinates in
+    ORIGINAL image space, and ``image_shape`` is ``[rows, cols]`` of the
+    source MRC — echoed downstream so consumers can size a canvas
+    without re-reading the file.
+    """
+    score_map, image_shape = compute_score_map(input_file, model=model, scale=scale)
+    picks = picks_from_score_map(
+        score_map, radius=radius, threshold=threshold, scale=scale,
+    )
     return picks, image_shape
 
 

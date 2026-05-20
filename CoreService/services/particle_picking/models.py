@@ -407,10 +407,18 @@ class PreviewResult(BaseModel):
 
 
 class RetuneRequest(BaseModel):
-    """Tunable parameters sent to the retune endpoint."""
+    """Tunable parameters sent to the retune endpoint.
+
+    Mirrors the SDK's ``PickingRetuneRequest``. ``threshold`` is
+    unbounded: a correlation picker tunes in [0, 1] while a CNN picker
+    (Topaz) tunes a raw log-likelihood in roughly [-8, 2]. ``radius``
+    is the CNN picker's NMS exclusion radius — None for pickers that
+    don't use one.
+    """
     model_config = ConfigDict(extra="forbid")
 
-    threshold: float = Field(default=0.4, ge=0.0, le=1.0)
+    threshold: float = 0.4
+    radius: Optional[int] = Field(default=None, gt=0)
     max_threshold: Optional[float] = None
     max_peaks: int = Field(default=500, gt=0)
     overlap_multiplier: float = Field(default=1.0, gt=0)

@@ -76,11 +76,19 @@ class PickingRetuneRequest(BaseModel):
     Same shape every retune call sees. Plugins that don't support
     one of the fields ignore it; values silently round-trip on
     successive calls.
+
+    ``threshold`` is intentionally unbounded: a correlation picker
+    works in [0, 1] but a CNN picker (Topaz) thresholds a raw
+    log-likelihood in roughly [-8, 2]. Per-field bounds live in the
+    plugin's announced UI schema, not here. ``radius`` is the CNN
+    picker's NMS exclusion radius — None for pickers that don't use
+    one.
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    threshold: float = Field(default=0.4, ge=0.0, le=1.0)
+    threshold: float = 0.4
+    radius: Optional[int] = Field(default=None, gt=0)
     max_threshold: Optional[float] = None
     max_peaks: int = Field(default=500, gt=0)
     overlap_multiplier: float = Field(default=1.0, gt=0)
