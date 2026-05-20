@@ -79,7 +79,9 @@ describe('FftTestPage', () => {
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('step-events-panel')).toBeTruthy();
+            // After dispatch the page renders a job summary row with the
+            // first 8 chars of the job_id followed by "…"
+            expect(screen.getByText(/Job 11111111/)).toBeTruthy();
         });
     });
 

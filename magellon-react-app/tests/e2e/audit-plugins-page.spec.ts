@@ -37,7 +37,7 @@ const recordPage = (page: Page, network: any[], consoleErrors: string[]) => {
   page.on('response', async (res) => {
     const u = res.url();
     if (!u.includes('127.0.0.1:8000')) return;
-    const ms = (res as any).request?.()?.timing?.()?.responseEnd ?? null;
+    const _ms = (res as any).request?.()?.timing?.()?.responseEnd ?? null;
     const entry: any = { url: u, status: res.status(), method: res.request().method() };
     if (res.status() >= 400) { try { entry.body = (await res.text()).slice(0, 600); } catch {} }
     network.push(entry);

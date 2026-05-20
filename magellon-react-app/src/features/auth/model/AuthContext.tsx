@@ -74,8 +74,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             localStorage.setItem('currentUser', JSON.stringify(userData));
             localStorage.setItem('currentUserId', authResponse.user_id);
 
-        } catch (error) {
-            throw error;
         } finally {
             setLoading(false);
         }

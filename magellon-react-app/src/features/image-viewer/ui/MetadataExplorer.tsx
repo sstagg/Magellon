@@ -18,7 +18,6 @@ import {
     Tooltip,
     Card,
     CardContent,
-    Divider,
     Stack,
     Button,
     ButtonGroup,
@@ -74,10 +73,7 @@ const MetadataExplorer: React.FC<MetadataExplorerProps> = ({ categories, isLoadi
     const [selectedMeta, setSelectedMeta] = useState<MetadataDto | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [viewMode, setViewMode] = useState<'tree' | 'json' | 'raw'>('tree');
-    const [showRawData, setShowRawData] = useState(false);
     const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
-    const [filterAnchor, setFilterAnchor] = useState<null | HTMLElement>(null);
-    const [sortBy, setSortBy] = useState<'name' | 'type'>('name');
     const [breadcrumbs, setBreadcrumbs] = useState<{ id: string; name: string }[]>([]);
 
     // Calculate statistics

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -92,14 +92,14 @@ test('diagnose topaz dispatch flow', async ({ page, context }) => {
     if (await btn.count() > 0) {
       await btn.click({ timeout: 3000 }).catch(() => {});
       await page.waitForTimeout(1500);
-      const shot = await page.screenshot({ path: path.join(SHOTS, '04-settings-open.png'), fullPage: true });
+      await page.screenshot({ path: path.join(SHOTS, '04-settings-open.png'), fullPage: true });
       break;
     }
   }
 
   // Find the backend selector dropdown
   const backendSelect = page.locator('select, [role="combobox"]').first();
-  const topazOption = page.locator('[role="option"]').filter({ hasText: /topaz/i }).first();
+  const _topazOption = page.locator('[role="option"]').filter({ hasText: /topaz/i }).first();
   console.log('[BACKEND-SELECT] found:', await backendSelect.count(), 'selects');
 
   // Take screenshot of current drawer state

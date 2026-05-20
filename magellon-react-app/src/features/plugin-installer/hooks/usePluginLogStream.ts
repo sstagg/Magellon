@@ -81,7 +81,6 @@ export function usePluginLogStream(
             (ack: { ok: boolean; error?: string }) => {
                 joined = !!ack?.ok;
                 if (!joined && ack?.error) {
-                    // eslint-disable-next-line no-console
                     console.warn(`join_plugin_room rejected: ${ack.error}`);
                 }
             },

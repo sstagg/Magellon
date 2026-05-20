@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useImageViewerStore, ImageColumn } from '../model/imageViewerStore.ts';
+import { useImageViewerStore } from '../model/imageViewerStore.ts';
 import ImageInfoDto, { SessionDto } from '../../../entities/image/types.ts';
 import { SelectChangeEvent } from '@mui/material';
 

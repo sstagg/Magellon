@@ -41,7 +41,6 @@ const INPUT_PATHS = [
 const shot = async (page: Page, name: string) => {
   const p = path.join(SHOTS, `${name}.png`);
   await page.screenshot({ path: p, fullPage: true });
-  // eslint-disable-next-line no-console
   console.log(`[shot] ${p}`);
 };
 
@@ -51,15 +50,12 @@ test('FftTestPage dispatches a batch and renders progressive step events', async
   test.setTimeout(180_000);
 
   page.on('console', (msg) => {
-    // eslint-disable-next-line no-console
     console.log(`[browser:${msg.type()}] ${msg.text()}`);
   });
   page.on('pageerror', (err) => {
-    // eslint-disable-next-line no-console
     console.log(`[browser:pageerror] ${err.message}`);
   });
   page.on('requestfailed', (req) => {
-    // eslint-disable-next-line no-console
     console.log(`[browser:requestfailed] ${req.method()} ${req.url()} — ${req.failure()?.errorText}`);
   });
 
@@ -126,7 +122,6 @@ test('FftTestPage dispatches a batch and renders progressive step events', async
   const completedCount = await eventsPanel.getByTestId('step-event-completed').count();
   const failedCount = await eventsPanel.getByTestId('step-event-failed').count();
 
-  // eslint-disable-next-line no-console
   console.log(
     `[events] started=${startedCount} progress=${progressCount} completed=${completedCount} failed=${failedCount}`,
   );

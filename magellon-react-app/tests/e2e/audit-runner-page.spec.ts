@@ -7,7 +7,7 @@
  * Run:
  *   pnpm exec playwright test --project=e2e-live tests/e2e/audit-runner-page.spec.ts
  */
-import { test, type Page } from '@playwright/test';
+import { test } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 

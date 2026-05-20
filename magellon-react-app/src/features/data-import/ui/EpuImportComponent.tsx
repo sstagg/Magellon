@@ -23,7 +23,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
-const exportUrl: string = BASE_URL.replace(/\/web$/, '/export');
+const _exportUrl: string = BASE_URL.replace(/\/web$/, '/export');
 const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
 type FileItem = {
@@ -68,7 +68,7 @@ export const EpuImportComponent = () => {
     const [selectedDirectory, setSelectedDirectory] = useState<string | null>(null);
     const [importStatus, setImportStatus] = useState<ImportStatus>('idle');
     const [importError, setImportError] = useState<string | null>(null);
-    const [validationStatus, setValidationStatus] = useState<'none' | 'validating' | 'valid' | 'invalid'>('none');
+    const [_validationStatus, setValidationStatus] = useState<'none' | 'validating' | 'valid' | 'invalid'>('none');
 
     // New state variables for the additional fields
     const [epuDirPath, setEpuDirPath] = useState<string>("");
@@ -82,7 +82,7 @@ export const EpuImportComponent = () => {
         flip_gain:0
     });
 
-    const validateDirectory = async (dirPath: string) => {
+    const _validateDirectory = async (dirPath: string) => {
         setValidationStatus('validating');
         try {
             await apiClient.get('/export/validate-epu-directory', {

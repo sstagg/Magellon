@@ -1,4 +1,4 @@
-import { test, expect, Page } from '@playwright/test';
+import { test, Page } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 

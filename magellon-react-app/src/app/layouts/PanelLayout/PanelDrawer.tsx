@@ -8,22 +8,14 @@ import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import { useLocation, useNavigate } from "react-router-dom";
-import { blueGrey } from "@mui/material/colors";
 import {
-    BarChart2,
     Image as ImageIcon,
-    Settings,
-    FileUp,
-    Layers,
-
-    PanelLeft,
-    Home,
     Beaker, BrainCircuit, ArrowRightFromLine, ArrowLeftFromLineIcon, CircleUserIcon, User,
     Puzzle,
     Wrench, Activity, Database,
 } from "lucide-react";
 import { Box, Collapse, Typography, useMediaQuery } from '@mui/material';
-import {ExpandLess, ExpandMore, Security} from '@mui/icons-material';
+import {ExpandLess, ExpandMore} from '@mui/icons-material';
 import magellonLogo from "../../../assets/images/magellon-logo.svg";
 
 const DRAWER_WIDTH = 240;

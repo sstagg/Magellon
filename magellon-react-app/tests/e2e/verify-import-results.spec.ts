@@ -14,7 +14,6 @@ import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-const FRONTEND  = process.env.MAGELLON_E2E_FRONTEND  ?? "http://localhost:8080";
 const BACKEND   = process.env.MAGELLON_E2E_BACKEND   ?? "http://127.0.0.1:8000";
 const USERNAME  = process.env.MAGELLON_E2E_USERNAME  ?? "super";
 const PASSWORD  = process.env.MAGELLON_E2E_PASSWORD  ?? "behd1d2";
@@ -24,9 +23,6 @@ const SHOTS = path.join(process.cwd(), "tests", "e2e", "screenshots", "verify-im
 const JOB_ID_FILE = path.join(
   process.cwd(), "tests", "e2e", "screenshots", "import-magellon-project", "job_id.txt",
 );
-
-// Stage numbers → readable labels (matches CoreService _TASK_STAGE_LABEL)
-const STAGE_LABEL: Record<number, string> = { 0: "import", 1: "motioncor", 2: "ctf" };
 
 interface AuthBody { access_token: string; user_id: string; username: string }
 interface SummaryBody {

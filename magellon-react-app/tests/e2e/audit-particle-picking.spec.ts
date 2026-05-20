@@ -44,7 +44,7 @@ test('audit particle picking page', async ({ page, context }) => {
   for (const u of urls) {
     await page.goto(`${FRONTEND}${u}`, { waitUntil: 'networkidle' }).catch(() => {});
     await page.waitForTimeout(2000);
-    await page.screenshot({ path: path.join(SHOTS, `${String(i).padStart(2,'0')}-${u.replace(/[\/?=]/g, '_')}.png`), fullPage: true });
+    await page.screenshot({ path: path.join(SHOTS, `${String(i).padStart(2,'0')}-${u.replace(/[/?=]/g, '_')}.png`), fullPage: true });
     i++;
   }
 

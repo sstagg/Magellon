@@ -22,7 +22,7 @@ export function useImageListQuery({ sessionName, parentId, pageSize, level, enab
         ['images', sessionName, parentId, pageSize],
         ({ pageParam = 1 }) => fetchImagesPage(sessionName, parentId, pageParam, pageSize),
         {
-            getNextPageParam: (lastPage, allPages) => {
+            getNextPageParam: (lastPage, _allPages) => {
                 if (lastPage.next_page !== null) {
                     return lastPage.next_page; // Return the next page number
                 }

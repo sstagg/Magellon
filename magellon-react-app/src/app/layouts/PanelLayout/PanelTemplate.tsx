@@ -6,7 +6,7 @@ import { PanelDrawer } from "./PanelDrawer.tsx";
 import { PanelHeader } from "./PanelHeader.tsx";
 import { PanelRoutes } from "../../routes/PanelRoutes.tsx";
 import PanelFooter from './PanelFooter.tsx';
-import { useMediaQuery, Collapse } from '@mui/material';
+import { useMediaQuery } from '@mui/material';
 import { useLocation } from 'react-router-dom';
 import { useSidePanelStore } from './useBottomPanelStore.ts';
 import { JobsPanel } from './JobsPanel.tsx';

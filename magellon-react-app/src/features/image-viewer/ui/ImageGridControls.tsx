@@ -26,17 +26,13 @@ import {
     ViewModule,
     ViewComfy,
     ViewList,
-    GridView,
     Sort,
     MoreVert,
     Refresh,
     Settings,
     ExpandMore,
-    ExpandLess,
-    Fullscreen,
-    FullscreenExit
 } from '@mui/icons-material';
-import { Eye, Grid3X3, Layers, Maximize2, Minimize2 } from 'lucide-react';
+import { Eye, Grid3X3, Maximize2, Minimize2 } from 'lucide-react';
 
 interface ImageGridControlsProps {
     zoom: number;
@@ -80,7 +76,6 @@ export const ImageGridControls: React.FC<ImageGridControlsProps> = ({
                                                                     }) => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-    const isTablet = useMediaQuery(theme.breakpoints.down('md'));
 
     // Local state
     const [sortMenuAnchor, setSortMenuAnchor] = useState<null | HTMLElement>(null);

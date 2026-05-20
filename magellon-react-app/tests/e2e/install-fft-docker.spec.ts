@@ -12,7 +12,7 @@
  *
  * Driven by Playwright. Username super / password behd1d2.
  */
-import { test, expect } from '@playwright/test';
+import { test } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 

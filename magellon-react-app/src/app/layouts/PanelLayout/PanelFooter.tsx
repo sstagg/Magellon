@@ -51,8 +51,6 @@ const PanelFooter: React.FC<PanelFooterProps> = ({ drawerOpen, drawerWidth }) =>
     const sessionName = currentSession?.name || 'None';
 
     // Get image name or display "None" if not available
-    const imageName = currentImage?.name || 'None';
-
     // Get detailed image info for tooltip
     const imageTooltipContent = currentImage
         ? `Name: ${currentImage.name}

@@ -25,7 +25,9 @@ describe('PluginConditions', () => {
             { type: 'Enabled', status: 'True', reason: 'DefaultTrue' },
             { type: 'Live', status: 'True', reason: 'Heartbeat' },
             { type: 'Healthy', status: 'True', reason: 'RecentSuccess' },
-            { type: 'Default', status: 'False', reason: 'NotDefault' },
+            // Default=False is intentionally omitted from the chip cluster
+            // (the green star is shown elsewhere in the UI)
+            { type: 'Default', status: 'True', reason: 'IsDefault' },
         ];
         render(<PluginConditions conditions={conditions} />);
 
@@ -70,8 +72,9 @@ describe('PluginConditions', () => {
         // Backend emits Default first, but the cluster should render
         // Installed → Enabled → Live → Healthy → Default. Pinned because
         // an out-of-order chip cluster looks broken to the operator.
+        // Note: Default=False is filtered; use True to include it in the cluster.
         const conditions: Condition[] = [
-            { type: 'Default', status: 'False' },
+            { type: 'Default', status: 'True' },
             { type: 'Healthy', status: 'True' },
             { type: 'Installed', status: 'True' },
             { type: 'Live', status: 'True' },

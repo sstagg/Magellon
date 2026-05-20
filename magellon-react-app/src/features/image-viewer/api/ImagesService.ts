@@ -1,7 +1,7 @@
 
 import {useInfiniteQuery, useQuery} from 'react-query';
 import {fetchImagesPage} from "./imagesApiReactQuery.tsx";
-import ImageInfoDto, {PagedImageResponse} from "../../../entities/image/types.ts";
+import {PagedImageResponse} from "../../../entities/image/types.ts";
 
 
 export const useFetchImages = (
@@ -29,22 +29,22 @@ export const useInfiniteImages=(
                                 )=>
     {
         const {
-            data ,
-            error,
-            isLoading,
-            isSuccess,
-            isError,
-            fetchNextPage,
-            hasNextPage,
-            isFetching,
-            isFetchingNextPage,
-            status,
+            data: _data,
+            error: _error,
+            isLoading: _isLoading,
+            isSuccess: _isSuccess,
+            isError: _isError,
+            fetchNextPage: _fetchNextPage,
+            hasNextPage: _hasNextPage,
+            isFetching: _isFetching,
+            isFetchingNextPage: _isFetchingNextPage,
+            status: _status,
         } =
             useInfiniteQuery<PagedImageResponse>(
                 ['images', sessionName, parentId,  pageSize],
                 ({ pageParam = _page }) => fetchImagesPage(sessionName, parentId, pageParam, pageSize),
                 {
-                    getNextPageParam: (lastPage, allPages) => {
+                    getNextPageParam: (lastPage, _allPages) => {
                         if (lastPage.next_page !== null) {
                             // pageParam=lastPage.next_page;
                             return lastPage.next_page; // Return the next page number

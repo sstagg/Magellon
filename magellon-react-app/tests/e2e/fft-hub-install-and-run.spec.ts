@@ -38,7 +38,6 @@ type Condition = {
 const shot = async (page: Page, name: string) => {
   const p = path.join(SHOTS, `${name}.png`);
   await page.screenshot({ path: p, fullPage: true });
-  // eslint-disable-next-line no-console
   console.log(`[shot] ${p}`);
 };
 

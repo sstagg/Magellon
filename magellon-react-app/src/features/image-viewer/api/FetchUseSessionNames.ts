@@ -1,4 +1,4 @@
-import {useMutation, useQuery} from "react-query";
+import {useQuery} from "react-query";
 import {settings} from "../../../shared/config/settings.ts";
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
 
