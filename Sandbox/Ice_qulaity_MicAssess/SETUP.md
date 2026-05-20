@@ -72,14 +72,16 @@ pip install tensorflow tf-keras numpy Pillow mrcfile pandas opencv-python scikit
 
 This pulls TF 2.21 and the matching `tf-keras` 2.21 compatibility layer automatically.
 
-### 2d. Install the cryoassess package (editable, no pinned-dep conflicts)
+### 2d. Install the cryoassess package (editable)
 
 ```bash
-pip install --no-deps -e .
+pip install -e ".[models]"
 ```
 
-`--no-deps` skips the pinned versions in `requirements.txt` (which require TF 2.5)
-while still registering the `micassess` and `2dassess` console entry-points.
+This registers the `micassess` and `2dassess` console entry-points and installs
+the core dependencies plus TensorFlow.  For just the TensorFlow-free core
+(`cryoassess.core`), use `pip install -e .`; add the `dev` extra
+(`pip install -e ".[dev]"`) to also get `pytest` for the test suite.
 
 ### 2e. Obtain the pre-trained model weights
 
@@ -108,33 +110,34 @@ Do **not** rename these files — the code discovers them by prefix glob.
 ```
 Ice_qulaity_MicAssess/
 ├── cryoassess/
-│   ├── micassess.py          # main MicAssess entry-point
-│   ├── assess2d.py           # 2DAssess entry-point
-│   ├── mrc2jpg.py
-│   ├── mrcs2jpg.py
-│   └── lib/
-│       ├── fft.py            # FFT radial-average feature extraction
-│       ├── imgprep.py
-│       ├── mrc2png.py        # MRC → PNG conversion
-│       ├── star.py           # RELION star-file helpers
-│       └── utils.py          # preprocessing functions
-├── weights/                  # pre-trained .h5 model files (not in git)
-├── Examples/                 # 30 labeled reference PNGs (6 classes × 5 each)
-│   ├── 0Great/
-│   ├── 1Decent/
-│   ├── 2Contamination_Aggregate_Crack_Breaking_Drifting/
-│   ├── 3Empty_no_ice/
-│   ├── 4Crystalline_ice/
-│   └── 5Empty_ice_no_particles_but_vitreous_ice/
-├── examples/                 # example star files (included in this repo)
-│   ├── minimal.star          # simplest valid input format
-│   ├── relion31.star         # RELION 3.1 format with optics block
-│   └── README.md
-├── benchmark.py              # standalone benchmark script (this repo)
-├── benchmark_results.json    # results written by benchmark.py
+│   ├── core/                  # pure, TensorFlow-free routines (unit-tested)
+│   │   ├── preprocessing.py   #   normalize / circular mask / crops
+│   │   ├── starfile.py        #   RELION star <-> pandas
+│   │   ├── mrc.py             #   MRC load + FFT downsample + scaling
+│   │   ├── fft_features.py    #   radial-average log power spectrum (numpy)
+│   │   ├── labels.py          #   six-class labels + threshold assignment
+│   │   └── classcenter.py     #   2D class-average centering check
+│   ├── models/                # TensorFlow model construction + inference
+│   │   ├── micassess.py       #   hierarchical micrograph model
+│   │   ├── assess2d.py        #   2D class-average model
+│   │   ├── fft_layer.py       #   in-graph FFT feature layer
+│   │   └── keras_compat.py    #   tf-keras / tensorflow.keras shim
+│   └── cli/                   # thin argparse entry points
+│       ├── micassess.py       #   the `micassess` command
+│       └── assess2d.py        #   the `2dassess` command
+├── tests/                     # pytest suite for cryoassess.core
+├── weights/                   # pre-trained .h5 model files (not in git)
+├── Examples/                  # 30 labeled reference PNGs (6 classes × 5 each)
+├── examples/                  # example star files (minimal.star, relion31.star)
+├── benchmark.py               # standalone benchmark script
+├── benchmark_results.json     # results written by benchmark.py
 ├── setup.py
-└── requirements.txt          # original pinned deps (TF 2.5 era — ignored by install above)
+└── requirements.txt
 ```
+
+The package is layered: `core` has no TensorFlow dependency and is covered by
+the `tests/` suite; `models` wraps the Keras models; `cli` is a thin argparse
+layer.  Run the tests with `pytest tests/`.
 
 ---
 

@@ -1,7 +1,20 @@
-numpy==1.19.5
-tensorflow==2.5.0
-Pillow==8.2.0
-mrcfile==1.3.0
-pandas==1.2.4
-opencv-python==4.1.2.30
-scikit-image==0.16.2
+# Runtime dependencies for cryoassess.
+#
+# Prefer `pip install -e .` (or `.[models]`) which reads these ranges from
+# setup.py. This file is the flat equivalent for environments that install
+# requirements directly.
+
+# Pure core: micrograph / star-file / FFT processing (cryoassess.core).
+numpy>=1.24
+Pillow>=9
+mrcfile>=1.4
+pandas>=1.5
+scikit-image>=0.19
+
+# Model inference: cryoassess.models and the micassess / 2dassess CLIs.
+# tf-keras provides the Keras-2 API the pre-trained .h5 weights load through.
+tensorflow>=2.16
+tf-keras
+
+# 2DAssess class-average centering check (cryoassess.core.classcenter).
+opencv-python>=4
