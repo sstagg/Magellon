@@ -19,6 +19,9 @@ import {
 import { Cpu } from 'lucide-react';
 import { useJobStore, Job } from './useJobStore.ts';
 import { settings } from '../../../shared/config/settings.ts';
+import getAxiosClient from '../../../shared/api/AxiosClient.ts';
+
+const api = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
 const statusConfig = {
     running: { icon: <PlayArrow sx={{ fontSize: 14 }} />, color: 'info', label: 'Running' },
@@ -27,13 +30,10 @@ const statusConfig = {
     queued: { icon: <HourglassEmpty sx={{ fontSize: 14 }} />, color: 'default', label: 'Queued' },
 } as const;
 
-const JOBS_URL = `${settings.ConfigData.SERVER_API_URL}/plugins/jobs`;
-
 async function fetchJobs(): Promise<Job[]> {
     try {
-        const res = await fetch(JOBS_URL);
-        if (!res.ok) return [];
-        return await res.json();
+        const res = await api.get<Job[]>('/plugins/jobs');
+        return res.data;
     } catch {
         return [];
     }
