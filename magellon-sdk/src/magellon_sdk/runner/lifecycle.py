@@ -70,7 +70,7 @@ def start_discovery(
     output_schema_dict: Optional[Any] = None
     try:
         cls = type(plugin)
-        input_schema_dict = cls.input_schema().model_json_schema()
+        input_schema_dict = cls.announced_input_schema()
     except Exception as exc:  # noqa: BLE001
         logger.debug("input_schema introspection failed: %s", exc)
     try:

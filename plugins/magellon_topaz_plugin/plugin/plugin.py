@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Optional, Type
+from typing import Any, Dict, Optional, Type
 
 from magellon_sdk.base import PluginBase
 from magellon_sdk.categories.outputs import (
@@ -105,6 +105,81 @@ def _denoised_mrc_path(input_file: str, override: Optional[str], session: Option
 
 
 # ---------------------------------------------------------------------------
+# UI-rich announced schema
+#
+# Topaz keeps model/threshold/radius/scale inside the inherited
+# ``engine_opts`` dict on the bus contract, so ``TopazPickInput`` can't
+# carry per-field ``ui_*`` form metadata. The React SchemaForm edits a
+# flat parameter dict and wraps it back into ``engine_opts`` on
+# dispatch — so the plugin announces this flat, UI-annotated schema via
+# ``announced_input_schema()`` while ``input_schema()`` (validation +
+# dispatch) still returns ``TopazPickInput`` unchanged.
+# ---------------------------------------------------------------------------
+
+_TOPAZ_PICK_UI_SCHEMA: Dict[str, Any] = {
+    "title": "Topaz Particle Picking",
+    "type": "object",
+    "additionalProperties": True,
+    "properties": {
+        "model": {
+            "type": "string",
+            "title": "Model",
+            "description": "Topaz detector architecture",
+            "default": "resnet16",
+            "enum": ["resnet16", "resnet8"],
+            "ui_widget": "select",
+            "ui_group": "Topaz",
+            "ui_order": 1,
+            "ui_tunable": True,
+        },
+        "threshold": {
+            "type": "number",
+            "title": "Score Threshold",
+            "description": "Topaz log-likelihood cutoff. Lower finds more particles.",
+            "default": -3.0,
+            "minimum": -8.0,
+            "maximum": 2.0,
+            "ui_widget": "slider",
+            "ui_group": "Topaz",
+            "ui_order": 2,
+            "ui_step": 0.25,
+            "ui_marks": [
+                {"value": -6, "label": "Sensitive"},
+                {"value": -3, "label": "Default"},
+                {"value": 0, "label": "Strict"},
+            ],
+            "ui_tunable": True,
+        },
+        "radius": {
+            "type": "integer",
+            "title": "NMS Radius",
+            "description": "Particle exclusion radius in Topaz preprocessed-grid pixels.",
+            "default": 14,
+            "minimum": 4,
+            "maximum": 64,
+            "ui_widget": "number",
+            "ui_group": "Topaz",
+            "ui_order": 3,
+            "ui_step": 1,
+            "ui_tunable": True,
+        },
+        "scale": {
+            "type": "integer",
+            "title": "Scale",
+            "description": "DFT downsampling factor before inference.",
+            "default": 8,
+            "enum": [4, 8, 16],
+            "ui_widget": "select",
+            "ui_group": "Topaz",
+            "ui_order": 4,
+            "ui_tunable": True,
+        },
+    },
+    "required": [],
+}
+
+
+# ---------------------------------------------------------------------------
 # TopazPickPlugin
 # ---------------------------------------------------------------------------
 
@@ -134,6 +209,10 @@ class TopazPickPlugin(PluginBase[TopazPickInput, ParticlePickingOutput]):
     @classmethod
     def output_schema(cls) -> Type[ParticlePickingOutput]:
         return ParticlePickingOutput
+
+    @classmethod
+    def announced_input_schema(cls) -> Dict[str, Any]:
+        return _TOPAZ_PICK_UI_SCHEMA
 
     def execute(
         self,

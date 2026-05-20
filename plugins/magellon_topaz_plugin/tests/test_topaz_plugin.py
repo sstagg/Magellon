@@ -72,6 +72,56 @@ def test_pick_manifest_advertises_progress_and_rmq_default():
 
 
 # ---------------------------------------------------------------------------
+# Announced UI schema — engine_opts knobs declared with ui_* metadata
+# ---------------------------------------------------------------------------
+
+
+def test_announced_input_schema_carries_ui_rich_topaz_knobs():
+    """``announced_input_schema()`` exposes the flat model/threshold/
+    radius/scale form (which the React SchemaForm edits and wraps back
+    into ``engine_opts`` on dispatch) — ``input_schema()`` itself stays
+    the bare ``TopazPickInput`` used for validation."""
+    from plugin.plugin import TopazPickPlugin
+
+    schema = TopazPickPlugin.announced_input_schema()
+    props = schema["properties"]
+    assert set(props) == {"model", "threshold", "radius", "scale"}
+
+    assert props["model"]["enum"] == ["resnet16", "resnet8"]
+    assert props["model"]["ui_widget"] == "select"
+
+    assert props["threshold"]["ui_widget"] == "slider"
+    assert props["threshold"]["minimum"] == -8.0
+    assert props["threshold"]["maximum"] == 2.0
+    assert [m["label"] for m in props["threshold"]["ui_marks"]] == [
+        "Sensitive", "Default", "Strict",
+    ]
+
+    assert props["radius"]["minimum"] == 4
+    assert props["radius"]["maximum"] == 64
+
+    assert props["scale"]["enum"] == [4, 8, 16]
+
+    # Every knob is tunable so the result viewer's retune panel shows it.
+    assert all(props[k]["ui_tunable"] for k in props)
+    # All four sit in the single "Topaz" accordion group.
+    assert all(props[k]["ui_group"] == "Topaz" for k in props)
+
+
+def test_pick_manifest_input_schema_is_the_ui_rich_form():
+    """The announce path (start_discovery) and manifest() both read
+    ``announced_input_schema()`` — pin that the manifest carries the
+    UI-rich shape, not the bare TopazPickInput schema."""
+    from plugin.plugin import TopazPickPlugin
+
+    manifest = TopazPickPlugin().manifest()
+    assert manifest.input_schema is not None
+    assert set(manifest.input_schema["properties"]) == {
+        "model", "threshold", "radius", "scale",
+    }
+
+
+# ---------------------------------------------------------------------------
 # Phase 1b — back-compat shims preserve old import names
 # ---------------------------------------------------------------------------
 

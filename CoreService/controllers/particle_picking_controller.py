@@ -485,8 +485,6 @@ async def template_pick_input_schema(backend: Optional[str] = None):
     Falls back to TemplatePickerInput when no live backend is found
     or the backend has no announced schema."""
     if backend:
-        if _is_topaz_backend(backend):
-            return _topaz_pick_ui_schema()
         registry = get_liveness_registry()
         for entry in registry.list_live():
             if _normalize_pp_category(entry.category or "") not in {"particle_picking", "topaz_particle_picking"}:
@@ -499,84 +497,6 @@ async def template_pick_input_schema(backend: Optional[str] = None):
 
 def _normalize_pp_category(value: str) -> str:
     return value.replace("-", "_").replace(" ", "_").lower()
-
-
-def _is_topaz_backend(backend: str) -> bool:
-    return backend.replace("_", "-").lower() in {
-        "topaz",
-        "topaz-particle-picking",
-        "topazparticlepicking",
-    }
-
-
-def _topaz_pick_ui_schema() -> Dict[str, Any]:
-    """Return a UI schema for Topaz engine options.
-
-    Topaz keeps these fields inside ``engine_opts`` on the bus contract,
-    but the React settings panel edits a flat parameter dict and wraps it
-    back into ``engine_opts`` when dispatching.
-    """
-    return {
-        "title": "Topaz Particle Picking",
-        "type": "object",
-        "additionalProperties": True,
-        "properties": {
-            "model": {
-                "type": "string",
-                "title": "Model",
-                "description": "Topaz detector architecture",
-                "default": "resnet16",
-                "enum": ["resnet16", "resnet8"],
-                "ui_widget": "select",
-                "ui_group": "Topaz",
-                "ui_order": 1,
-                "ui_tunable": True,
-            },
-            "threshold": {
-                "type": "number",
-                "title": "Score Threshold",
-                "description": "Topaz log-likelihood cutoff. Lower finds more particles.",
-                "default": -3.0,
-                "minimum": -8.0,
-                "maximum": 2.0,
-                "ui_widget": "slider",
-                "ui_group": "Topaz",
-                "ui_order": 2,
-                "ui_step": 0.25,
-                "ui_marks": [
-                    {"value": -6, "label": "Sensitive"},
-                    {"value": -3, "label": "Default"},
-                    {"value": 0, "label": "Strict"},
-                ],
-                "ui_tunable": True,
-            },
-            "radius": {
-                "type": "integer",
-                "title": "NMS Radius",
-                "description": "Particle exclusion radius in Topaz preprocessed-grid pixels.",
-                "default": 14,
-                "minimum": 4,
-                "maximum": 64,
-                "ui_widget": "number",
-                "ui_group": "Topaz",
-                "ui_order": 3,
-                "ui_step": 1,
-                "ui_tunable": True,
-            },
-            "scale": {
-                "type": "integer",
-                "title": "Scale",
-                "description": "DFT downsampling factor before inference.",
-                "default": 8,
-                "enum": [4, 8, 16],
-                "ui_widget": "select",
-                "ui_group": "Topaz",
-                "ui_order": 4,
-                "ui_tunable": True,
-            },
-        },
-        "required": [],
-    }
 
 
 @particle_picking_router.get("/schema/output", summary="Particle-picking output JSON schema")

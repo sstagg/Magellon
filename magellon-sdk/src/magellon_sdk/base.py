@@ -102,6 +102,20 @@ class PluginBase(ABC, Generic[InputT, OutputT]):
         """Return the Pydantic model class used to validate output."""
         ...
 
+    @classmethod
+    def announced_input_schema(cls) -> Optional[Dict[str, Any]]:
+        """Return the JSON Schema published in :class:`Announce.input_schema`.
+
+        Defaults to ``input_schema().model_json_schema()`` so the
+        announced UI form matches the validation model. Override this
+        when the validation model can't carry the form metadata —
+        e.g. a plugin whose engine knobs ride in a generic
+        ``engine_opts`` dict needs to declare ``ui_*`` extensions for
+        those knobs without changing what :meth:`input_schema`
+        validates against.
+        """
+        return cls.input_schema().model_json_schema()
+
     def check_requirements(self) -> List[RequirementResult]:
         """Verify that runtime dependencies are available.
 
@@ -251,7 +265,7 @@ class PluginBase(ABC, Generic[InputT, OutputT]):
         input_schema_json: Optional[dict] = None
         output_schema_json: Optional[dict] = None
         try:
-            input_schema_json = self.input_schema().model_json_schema()
+            input_schema_json = self.announced_input_schema()
         except Exception:  # noqa: BLE001
             logger.debug("input_schema() JSON-Schema emit failed for %s", type(self).__name__)
         try:
