@@ -143,11 +143,13 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
         refetch: refetchImageParticlePickings
     } = useImageParticlePickings(selectedImage?.name, false);
 
-    // Clear error and overlay when image changes
+    // Clear per-image state when image changes so overlays/records cannot
+    // leak from the previous image into the new one.
     useEffect(() => {
         setImageError(null);
         setDetectionOverlay(null);
-    }, [selectedImage]);
+        setSelectedParticlePicking(null);
+    }, [selectedImage?.oid, setSelectedParticlePicking]);
 
     // Enhanced tab configuration with dynamic badges
     const tabConfig = useMemo(() => [

@@ -84,6 +84,7 @@ export function useParticleOperations({
     // Prevents the "update IPP on particles change" effect from firing when
     // particles were just loaded from the IPP (not modified by the user).
     const isLoadingFromIpp = useRef(false);
+    const lastImageIdRef = useRef<string | null | undefined>(undefined);
 
     const [stats, setStats] = useState({
         total: 0,
@@ -119,8 +120,47 @@ export function useParticleOperations({
         })));
     }, [particleClasses, setParticleClasses]);
 
+    // Image changes must never carry particle overlays across. Clear both
+    // local layer state and the globally-selected IPP immediately.
+    useEffect(() => {
+        const imageId = selectedImage?.oid ?? null;
+        if (lastImageIdRef.current === undefined) {
+            lastImageIdRef.current = imageId;
+            return;
+        }
+        if (lastImageIdRef.current === imageId) return;
+
+        lastImageIdRef.current = imageId;
+        isLoadingFromIpp.current = true;
+        setParticles([]);
+        setSelectedParticles(new Set());
+        setHistory([[]]);
+        setHistoryIndex(0);
+        setImageShape(null);
+        setIsAutoPickingRunning(false);
+        setAutoPickingProgress(0);
+        setSelectedParticlePicking(null);
+        updateStats([]);
+    }, [selectedImage?.oid, setSelectedParticlePicking, updateStats]);
+
     // Load particles when IPP changes
     useEffect(() => {
+        if (
+            selectedParticlePicking?.image_id &&
+            selectedImage?.oid &&
+            selectedParticlePicking.image_id !== selectedImage.oid
+        ) {
+            isLoadingFromIpp.current = true;
+            setParticles([]);
+            setSelectedParticles(new Set());
+            setHistory([[]]);
+            setHistoryIndex(0);
+            setImageShape(null);
+            updateStats([]);
+            setSelectedParticlePicking(null);
+            return;
+        }
+
         if (selectedParticlePicking?.data_json) {
             try {
                 const parsedParticles = selectedParticlePicking.data_json as Point[];
@@ -158,7 +198,7 @@ export function useParticleOperations({
             setHistoryIndex(0);
             setImageShape(null);
         }
-    }, [selectedParticlePicking?.oid]);
+    }, [selectedParticlePicking?.oid, selectedImage?.oid, setSelectedParticlePicking, updateStats]);
 
     // Sync the store's selectedParticlePicking when the user edits particles.
     // Skip when particles were just loaded from the IPP to avoid an
