@@ -55,8 +55,9 @@ def _load(input_file: str) -> np.ndarray:
 
 # --- square detection (low-mag) ---------------------------------------------
 
-def run_square_detection(input_file: str) -> tuple[list[dict], list[int]]:
-    """Returns (detections, [height, width]) in MRC pixel coordinates."""
+def run_square_detection(input_file: str) -> tuple[list[dict], list[int], float, None]:
+    """Returns (detections, [height, width], grid_angle_deg, grid_pitch) in MRC pixel coordinates.
+    grid_pitch is None for squares (the concept doesn't apply at low-mag)."""
     image = _load(input_file)
     img_h = int(image.shape[-2])
     img_w = int(image.shape[-1])
@@ -83,13 +84,15 @@ def run_square_detection(input_file: str) -> tuple[list[dict], list[int]]:
         }
         for i in np.argsort(scores)[::-1]
     ]
-    return dets, [img_h, img_w]
+    grid_angle = round(float(ex.rot_ang_deg), 2)
+    return dets, [img_h, img_w], grid_angle, None
 
 
 # --- hole detection (med-mag) ------------------------------------------------
 
-def run_hole_detection(input_file: str) -> tuple[list[dict], list[int]]:
-    """Returns (detections, [height, width]) in MRC pixel coordinates."""
+def run_hole_detection(input_file: str) -> tuple[list[dict], list[int], float, float]:
+    """Returns (detections, [height, width], grid_angle_deg, grid_pitch_px) in MRC pixel coordinates.
+    grid_pitch is the center-to-center hole spacing used by the lattice fitter."""
     image = _load(input_file)
     img_h = int(image.shape[-2])
     img_w = int(image.shape[-1])
@@ -97,10 +100,11 @@ def run_hole_detection(input_file: str) -> tuple[list[dict], list[int]]:
     ex = Exposure(image)
 
     seg = algorithms.UNet_Segmenter(64, 9, model_path=UNET_ONNX)
-    # reuse cached OnnxWrapper if we've seen this path before
     seg.model = _wrapper_for(UNET_ONNX)
     ex.make_mask(seg)
-    ex.process_mask(algorithms.MedMag_Process_Mask())
+
+    mask_proc = algorithms.MedMag_Process_Mask()
+    ex.process_mask(mask_proc)
     ex.get_crops(algorithms.MedMag_Process_Crops())
     ex.score_crops(_wrapper_for(AVGPOOL_ONNX), final=False)
 
@@ -118,4 +122,6 @@ def run_hole_detection(input_file: str) -> tuple[list[dict], list[int]]:
         }
         for i in np.argsort(scores)[::-1]
     ]
-    return dets, [img_h, img_w]
+    grid_angle = round(float(ex.rot_ang_deg), 2)
+    grid_pitch = round(float(mask_proc.grid_pitch), 1) if hasattr(mask_proc, "grid_pitch") else None
+    return dets, [img_h, img_w], grid_angle, grid_pitch

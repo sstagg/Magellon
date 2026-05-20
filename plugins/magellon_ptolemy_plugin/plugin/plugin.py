@@ -115,13 +115,13 @@ class PtolemySquarePlugin(PluginBase[PtolemyInput, SquareDetectionOutput]):
         try:
             if step is not None:
                 emit_step(step.progress(10.0, "loading MRC"))
-            dets, img_shape = run_square_detection(input_data.input_file)
+            dets, img_shape, grid_angle, grid_pitch = run_square_detection(input_data.input_file)
             if step is not None:
                 emit_step(step.progress(95.0, f"found {len(dets)} squares"))
                 emit_step(step.completed())
             return SquareDetectionOutput(
                 detections=[Detection(**d) for d in dets],
-                extras={"image_shape": img_shape},
+                extras={"image_shape": img_shape, "grid_angle": grid_angle, "grid_pitch": grid_pitch},
             )
         except Exception as exc:
             if step is not None:
@@ -174,13 +174,13 @@ class PtolemyHolePlugin(PluginBase[PtolemyInput, HoleDetectionOutput]):
         try:
             if step is not None:
                 emit_step(step.progress(10.0, "loading MRC"))
-            dets, img_shape = run_hole_detection(input_data.input_file)
+            dets, img_shape, grid_angle, grid_pitch = run_hole_detection(input_data.input_file)
             if step is not None:
                 emit_step(step.progress(95.0, f"found {len(dets)} holes"))
                 emit_step(step.completed())
             return HoleDetectionOutput(
                 detections=[Detection(**d) for d in dets],
-                extras={"image_shape": img_shape},
+                extras={"image_shape": img_shape, "grid_angle": grid_angle, "grid_pitch": grid_pitch},
             )
         except Exception as exc:
             if step is not None:
