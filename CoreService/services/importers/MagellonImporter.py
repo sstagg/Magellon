@@ -190,34 +190,49 @@ class MagellonImporter(BaseImporter):
 
 
     def run_tasks(self, db_session: Session):
+        self._step_counts = {"png": 0, "fft": 0, "ctf": 0, "motioncor": 0}
+        self._step_start_time = datetime.now()
         try:
-            # Iterate over each task in the task list and run it synchronously
             for task in self.task_dto_list:
                 self.run_task(task)
-            # self.create_atlas_pics(self.params.session_name, db_session,magellon_session)
         except Exception as e:
             print("An unexpected error occurred:", str(e))
 
-
+    def _emit_step_progress(self) -> None:
+        try:
+            from core.socketio_server import schedule_import_progress
+            if not self.db_job:
+                return
+            elapsed_ms = int((datetime.now() - self._step_start_time).total_seconds() * 1000)
+            schedule_import_progress(
+                str(self.db_job.oid),
+                {
+                    "job_id": str(self.db_job.oid),
+                    "event": "step_progress",
+                    "step_counts": dict(self._step_counts),
+                    "total": len(self.task_dto_list),
+                    "elapsed_ms": elapsed_ms,
+                },
+            )
+        except Exception:
+            pass
 
     def run_task(self, task_dto: ImportTaskDto) -> Dict[str, str]:
         try:
-            # 1
-            # self.transfer_frame(task_dto)
-            # 2
-            # target_image_path = os.path.join(self.file_service.target_directory + "/" + ORIGINAL_IMAGES_SUB_URL + task_dto.image_name)
-            # copy_file(task_dto.image_path, target_image_path)
-            # task_dto.image_path = target_image_path
+            self.convert_image_to_png_task(task_dto.image_path, self.file_service.target_directory)
+            self._step_counts["png"] += 1
 
-            # Generate FFT using the REST API
+            self.compute_fft_png_task(task_dto.image_path, self.file_service.target_directory)
+            self._step_counts["fft"] += 1
 
-            self.convert_image_to_png_task(task_dto.image_path, self.file_service.target_directory )
-            self.compute_fft_png_task(task_dto.image_path, self.file_service.target_directory )
-            self.compute_ctf_task(task_dto.image_path, task_dto)
+            if self.compute_ctf_task(task_dto.image_path, task_dto):
+                self._step_counts["ctf"] += 1
 
             if task_dto.frame_name:
                 self.compute_motioncor_task(task_dto.image_path, task_dto)
+                self._step_counts["motioncor"] += 1
 
+            self._emit_step_progress()
             return {'status': 'success', 'message': 'Task completed successfully.'}
 
         except Exception as e:
@@ -243,14 +258,14 @@ class MagellonImporter(BaseImporter):
         except Exception as e:
             return {"error": str(e)}
 
-    def compute_ctf_task(self, abs_file_path: str, task_dto: ImportTaskDto):
+    def compute_ctf_task(self, abs_file_path: str, task_dto: ImportTaskDto) -> bool:
         try:
             if (task_dto.pixel_size * 10 ** 10) <= 5:
                 dispatch_ctf_task(task_dto.task_id, abs_file_path, task_dto)
-                return {"message": "Converting to ctf on the way! " + abs_file_path}
-
+                return True
         except Exception as e:
-            return {"error": str(e)}
+            logger.error("CTF dispatch failed for %s: %s", abs_file_path, e)
+        return False
 
     def compute_motioncor_task(self, abs_file_path: str, task_dto: ImportTaskDto):
         try:

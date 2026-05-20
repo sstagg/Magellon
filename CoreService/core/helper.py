@@ -271,7 +271,13 @@ def _stamp_image_subject(task: TaskMessage) -> None:
     """
     if task.subject_kind is not None:
         return
-    image_id = (task.data or {}).get("image_id")
+    data = task.data
+    if data is None:
+        return
+    if isinstance(data, dict):
+        image_id = data.get("image_id")
+    else:
+        image_id = getattr(data, "image_id", None)
     if image_id in (None, ""):
         return
     task.subject_kind = "image"

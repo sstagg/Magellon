@@ -29,6 +29,9 @@ def _log_glob() -> str:
 
 def _run_duck(sql: str) -> List[Dict[str, Any]]:
     """Execute *sql* against the ops log and return rows as dicts."""
+    import glob as _glob
+    if not _glob.glob(_log_glob()):
+        return []
     try:
         import duckdb
         con = duckdb.connect()

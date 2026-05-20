@@ -46,6 +46,13 @@ type FileItem = {
 
 type ImportStatus = "idle" | "scheduling" | "running" | "success" | "error";
 
+type StepCounts = {
+    png: number;
+    fft: number;
+    ctf: number;
+    motioncor: number;
+};
+
 type ImportSummary = {
     job_id: string;
     name: string;
@@ -84,6 +91,9 @@ export const MagellonImportComponent = () => {
     const [importError, setImportError] = useState<string | null>(null);
     const [jobId, setJobId] = useState<string | null>(null);
     const [summary, setSummary] = useState<ImportSummary | null>(null);
+    const [stepCounts, setStepCounts] = useState<StepCounts | null>(null);
+    const [stepTotal, setStepTotal] = useState<number>(0);
+    const [elapsedMs, setElapsedMs] = useState<number>(0);
     const { emit: socketEmit, on: socketOn } = useSocket();
     const importStatusRef = useRef(importStatus);
 
@@ -177,9 +187,18 @@ export const MagellonImportComponent = () => {
     useEffect(() => {
         if (!jobId) return;
         socketEmit("join_job_room", { job_id: jobId });
-        const off = socketOn("import_progress", (data: { job_id: string }) => {
+        const off = socketOn("import_progress", (data: {
+            job_id: string;
+            event?: string;
+            step_counts?: StepCounts;
+            total?: number;
+            elapsed_ms?: number;
+        }) => {
             if (data?.job_id === jobId && ["scheduling", "running"].includes(importStatusRef.current)) {
                 fetchSummary(jobId);
+                if (data.step_counts) setStepCounts(data.step_counts);
+                if (data.total) setStepTotal(data.total);
+                if (data.elapsed_ms !== undefined) setElapsedMs(data.elapsed_ms);
             }
         });
         return () => {
@@ -223,6 +242,9 @@ export const MagellonImportComponent = () => {
         setImportError(null);
         setSummary(null);
         setJobId(null);
+        setStepCounts(null);
+        setStepTotal(0);
+        setElapsedMs(0);
 
         try {
             const response = await apiClient.post("/export/magellon-import", {
@@ -243,6 +265,16 @@ export const MagellonImportComponent = () => {
         setImportError(null);
         setJobId(null);
         setSummary(null);
+        setStepCounts(null);
+        setStepTotal(0);
+        setElapsedMs(0);
+    };
+
+    const formatElapsed = (ms: number) => {
+        const s = Math.floor(ms / 1000);
+        if (s < 60) return `${s}s`;
+        const m = Math.floor(s / 60);
+        return `${m}m ${s % 60}s`;
     };
 
     const parentPath = currentPath.split("/").slice(0, -1).join("/") || "/gpfs";
@@ -379,9 +411,30 @@ export const MagellonImportComponent = () => {
                         )}
 
                         {jobId && (
-                            <Typography variant="caption" color="text.secondary">
-                                Job: {jobId}
-                            </Typography>
+                            <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
+                                <Typography variant="caption" color="text.secondary">
+                                    Job: {jobId}
+                                </Typography>
+                                {elapsedMs > 0 && (
+                                    <Typography variant="caption" color="text.secondary">
+                                        Elapsed: {formatElapsed(elapsedMs)}
+                                    </Typography>
+                                )}
+                            </Stack>
+                        )}
+
+                        {stepCounts && (
+                            <Box>
+                                <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
+                                    Per-step ({stepTotal} images)
+                                </Typography>
+                                <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
+                                    <Chip label={`PNG: ${stepCounts.png}`} size="small" variant="outlined" />
+                                    <Chip label={`FFT: ${stepCounts.fft}`} size="small" variant="outlined" />
+                                    <Chip label={`CTF: ${stepCounts.ctf}`} size="small" variant="outlined" color="primary" />
+                                    <Chip label={`MotionCor: ${stepCounts.motioncor}`} size="small" variant="outlined" color="secondary" />
+                                </Stack>
+                            </Box>
                         )}
 
                         {summary && (
