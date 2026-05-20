@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuthenticatedImage } from '../../../shared/lib/useAuthenticatedImage.ts';
 import { DetectionResult, PtolemyDetection } from '../api/PtolemyDetectionService.ts';
 
@@ -43,18 +44,77 @@ function scoreToColor(score: number, smin: number, smax: number): string {
     return `rgb(${r},${g},0)`;
 }
 
+interface HoverState {
+    det: PtolemyDetection;
+    rank: number;
+    category: string;
+    clientX: number;
+    clientY: number;
+}
+
+function PanelRow({ label, value }: { label: string; value: string }) {
+    return (
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}>
+            <span style={{ color: 'rgba(255,255,255,0.5)' }}>{label}</span>
+            <span>{value}</span>
+        </div>
+    );
+}
+
+function DetectionHoverPanel({ state }: { state: HoverState }) {
+    const isHole = state.category === 'HoleDetection';
+    const { det, rank, clientX, clientY } = state;
+    const PANEL_W = 180;
+    const PANEL_H = det.brightness != null ? 132 : 112;
+    const left = clientX + PANEL_W + 22 > window.innerWidth ? clientX - PANEL_W - 10 : clientX + 14;
+    const top  = clientY + PANEL_H + 22 > window.innerHeight ? clientY - PANEL_H - 10 : clientY + 14;
+
+    return createPortal(
+        <div style={{
+            position: 'fixed', left, top, zIndex: 9999,
+            background: 'rgba(12,14,20,0.94)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            borderRadius: 6, padding: '8px 11px',
+            color: '#fff', fontFamily: 'monospace, monospace', fontSize: 11, lineHeight: 1.8,
+            pointerEvents: 'none', userSelect: 'none',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.6)', minWidth: PANEL_W,
+        }}>
+            <div style={{
+                fontWeight: 700, fontSize: 12, marginBottom: 5, paddingBottom: 5,
+                borderBottom: '1px solid rgba(255,255,255,0.12)',
+                display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+                <span style={{
+                    display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
+                    background: isHole ? '#00e5ff' : '#ffeb3b', flexShrink: 0,
+                }} />
+                #{rank} — {isHole ? 'Hole' : 'Square'}
+            </div>
+            <PanelRow label="Score"  value={det.score.toFixed(4)} />
+            <PanelRow label="Area"   value={`${Math.round(det.area).toLocaleString()} px²`} />
+            {det.brightness != null && <PanelRow label="Brightness" value={det.brightness.toFixed(2)} />}
+            <PanelRow label="Center" value={`(${det.center[0]}, ${det.center[1]})`} />
+        </div>,
+        document.body,
+    );
+}
+
 function DetectionPolygons({
     detections,
     imageShape,
     svgW,
     svgH,
     category,
+    onHover,
+    onHoverEnd,
 }: {
     detections: PtolemyDetection[];
     imageShape: number[];
     svgW: number;
     svgH: number;
     category: string;
+    onHover: (state: HoverState) => void;
+    onHoverEnd: () => void;
 }) {
     const [imgH, imgW] = imageShape;
     if (!imgH || !imgW) return null;
@@ -89,14 +149,6 @@ function DetectionPolygons({
                 const color = scoreToColor(det.score, smin, smax);
                 const dotR = tooLarge ? 6 : 3;
 
-                // Tooltip text (shown via native SVG <title>)
-                const tooltipLines = [
-                    `Rank #${rank}`,
-                    `Score: ${det.score.toFixed(3)}`,
-                    `Area: ${Math.round(det.area)} px²`,
-                    ...(det.brightness != null ? [`Brightness: ${det.brightness.toFixed(1)}`] : []),
-                ];
-
                 // For holes: derive an inscribed ellipse from the bounding box of the
                 // 4 polygon vertices. Holes are roughly circular in the carbon film,
                 // so an ellipse is a much better visual fit than the rectangular bbox.
@@ -110,9 +162,14 @@ function DetectionPolygons({
                 const ellRy = (maxY - minY) / 4;
 
                 return (
-                    <g key={i} opacity={0.9} style={{ cursor: 'default' }}>
-                        <title>{tooltipLines.join('\n')}</title>
-
+                    <g
+                        key={i}
+                        opacity={0.9}
+                        style={{ cursor: 'pointer' }}
+                        onMouseEnter={(e) => onHover({ det, rank, category, clientX: e.clientX, clientY: e.clientY })}
+                        onMouseMove={(e)  => onHover({ det, rank, category, clientX: e.clientX, clientY: e.clientY })}
+                        onMouseLeave={onHoverEnd}
+                    >
                         {isHole ? (
                             /* Hole: semi-transparent filled ellipse (mask) + outline */
                             !tooLarge && (
@@ -182,6 +239,7 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
                                                      detectionOverlay,
                                                  }) => {
     const [circles, setCircles] = useState<Point[]>([]);
+    const [hoverState, setHoverState] = useState<HoverState | null>(null);
 
     // Use authenticated image hook to fetch the image with auth header
     const { imageUrl: authenticatedImageUrl, isLoading } = useAuthenticatedImage(imageUrl);
@@ -336,6 +394,8 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
                             svgW={width}
                             svgH={height}
                             category={detectionOverlay!.category}
+                            onHover={setHoverState}
+                            onHoverEnd={() => setHoverState(null)}
                         />
                     )}
                 </g>
@@ -402,6 +462,8 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
                     </g>
                 )}
             </svg>
+
+            {hoverState && <DetectionHoverPanel state={hoverState} />}
         </div>
     );
 };
