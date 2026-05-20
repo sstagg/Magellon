@@ -1,16 +1,18 @@
 """
 Launch motioncor on g4dn.2xlarge via cloud-config write_files + systemd unit.
 
-Strategy (v15):
+Strategy (v16):
   - 100 GB EBS root (prevents disk-full during 15 GB frame downloads)
   - Extract ALL pre-signed URLs into /tmp/urls/ files at startup
   - Early S3 connectivity test (file-based curl, not stdin pipe) to fail fast
   - Per-frame: download → run → delete input frame → upload results
   - ALL S3 uploads use `curl -T <file>` (file provides Content-Length)
   - ECR token decoded properly: base64 -d | cut -d: -f2
-  - FLAT output path: /scratch/results/${STEM_BASE}.mrc  (no per-stem subdir)
+  - FLAT output path: /scratch/results/${STEM_BASE}  (no per-stem subdir)
   - STEM_BASE strips inner .mrc to avoid double-extension .mrc.mrc
-  - Post-run diagnostics: find all *.mrc anywhere under /scratch after each frame
+  - Dose params: -kV 300 -PixSize 1.0 -FmDose 1.0 → produces _DW.mrc + log files
+  - -LogDir /scratch/results/ → log files land on the mounted volume
+  - Tar captures all STEM_BASE* files: .mrc, _DW.mrc, -Full.log, -Patch*.log
 
 Run with:
   python sandbox/aws/launch_motioncor.py
@@ -112,7 +114,7 @@ script_lines = [
     'set -x',
     'LOG=/var/log/motioncor.log',
     'exec >> ${LOG} 2>&1',
-    'echo "=== v15 started $(date) ==="',
+    'echo "=== v16 started $(date) ==="',
     '',
     f'IMAGE={IMAGE}',
     f'BINARY={BINARY}',
@@ -199,14 +201,17 @@ script_lines = [
     '    || { echo "  WARN: download failed, skipping frame"; continue; }',
     '',
     '  # Run MotionCor2 inside Docker',
-    '  # Flat output: /scratch/results/${STEM_BASE}.mrc  (no per-frame subdir)',
-    '  # STEM_BASE = 20241203_54480_integrated_movie  (no double .mrc extension)',
+    '  # Flat output: /scratch/results/${STEM_BASE}  (no per-frame subdir)',
+    '  # -FmDose / -PixSize / -kV required for _DW.mrc dose-weighted output',
+    '  # -LogDir points to the results dir so .log files land on the mounted volume',
     '  docker run --rm --gpus all --entrypoint /bin/bash -v ${WORKDIR}:/scratch ${IMAGE} -c "',
     '    /app/${BINARY} \\',
     '      -InTiff /scratch/frames/${FNAME} \\',
     '      -OutMrc /scratch/results/${STEM_BASE}.mrc \\',
     '      -Gain /scratch/gains/gain.tif \\',
-    '      -Patch 5 5 -Iter 10 -Tol 0.5 -Gpu 0 -FtBin 2',
+    '      -Patch 5 5 -Iter 10 -Tol 0.5 -Gpu 0 -FtBin 2 \\',
+    '      -kV 300 -PixSize 1.0 -FmDose 1.0 \\',
+    '      -LogDir /scratch/results/',
     '  " && STATUS=OK || STATUS=FAILED',
     '  echo "  MotionCor2 ${STATUS}"',
     '',
@@ -219,9 +224,11 @@ script_lines = [
     '  # Delete input frame immediately to keep disk usage low',
     '  rm -f ${WORKDIR}/frames/${FNAME}',
     '',
-    '  # Tar all files matching STEM_BASE in /scratch/results/ and upload',
+    '  # Tar all files matching STEM_BASE (aligned MRC, DW MRC, log files)',
+    '  # Expected: ${STEM_BASE}.mrc, ${STEM_BASE}_DW.mrc, *-Full.log / *-Patch*.log',
     '  RESULT_COUNT=$(find ${WORKDIR}/results/ -maxdepth 1 -name "${STEM_BASE}*" | wc -l)',
     '  echo "  result files found: ${RESULT_COUNT}"',
+    '  find ${WORKDIR}/results/ -maxdepth 1 -name "${STEM_BASE}*" -ls',
     '  if [ "${RESULT_COUNT}" -gt 0 ]; then',
     '    tar czf /tmp/res.tar.gz -C ${WORKDIR}/results/ $(ls ${WORKDIR}/results/ | grep "^${STEM_BASE}") 2>/dev/null || true',
     '  else',
@@ -332,7 +339,7 @@ except Exception:
 print(f'[4] Instance profile: {profile_arn}', flush=True)
 
 # ── 6. Terminate previous instance if still running ──────────────────────────
-OLD_IID = 'i-0611a162cbd71ff8a'   # v14
+OLD_IID = 'i-0a8228d6445fe8acb'   # v15
 try:
     ec2.terminate_instances(InstanceIds=[OLD_IID])
     print(f'[5] Terminated old v11: {OLD_IID}', flush=True)
@@ -340,7 +347,7 @@ except Exception as e:
     print(f'[5] Terminate v11: {e}', flush=True)
 
 # ── 7. Launch ────────────────────────────────────────────────────────────────
-print('[6] Launching g4dn.2xlarge v15 (flat output path, STEM_BASE, diagnostics)...', flush=True)
+print('[6] Launching g4dn.2xlarge v16 (dose params: -kV 300 -PixSize 1.0 -FmDose 1.0 -> _DW.mrc + logs)...', flush=True)
 kwargs = dict(
     ImageId          = AMI,
     InstanceType     = 'g4dn.2xlarge',
@@ -361,7 +368,7 @@ kwargs = dict(
     }],
     TagSpecifications = [{
         'ResourceType': 'instance',
-        'Tags': [{'Key': 'Name', 'Value': 'magellon-motioncor-v15'}]
+        'Tags': [{'Key': 'Name', 'Value': 'magellon-motioncor-v16'}]
     }],
 )
 if profile_arn:
