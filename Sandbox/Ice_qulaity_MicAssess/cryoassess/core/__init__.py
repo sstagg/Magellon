@@ -78,4 +78,5 @@ __all__ = [
     "scale_to_uint8",
     "star_to_micrograph_list",
     "to_grayscale_image",
+    "write_star",
 ]
