@@ -1,4 +1,5 @@
 import numpy as np
+import json
 from pathlib import Path
 
 try:
@@ -7,6 +8,11 @@ try:
         FocusRuntimeConfig,
         load_focus_calibration_config,
         load_focus_runtime_config,
+    )
+    from focus.focus_result import (
+        objective_result_to_json_dict,
+        save_focus_result_json,
+        stage_z_result_to_json_dict,
     )
     from focus.autofocus_orchestrator import (
         run_objective_focus_sequence,
@@ -35,6 +41,11 @@ except ModuleNotFoundError:
         FocusRuntimeConfig,
         load_focus_calibration_config,
         load_focus_runtime_config,
+    )
+    from magellon_focus_extract.focus_result import (
+        objective_result_to_json_dict,
+        save_focus_result_json,
+        stage_z_result_to_json_dict,
     )
     from magellon_focus_extract.autofocus_orchestrator import (
         run_objective_focus_sequence,
@@ -689,6 +700,72 @@ def test_runtime_config_rejects_unknown_section():
 def test_runtime_config_rejects_invalid_window():
     with pytest.raises(ValueError, match="subpixel_window"):
         FocusRuntimeConfig.from_dict({"objective_focus": {"subpixel_window": 4}})
+
+
+def test_objective_result_to_json_dict_is_json_safe():
+    result = objective_focus_demo()
+    payload = objective_result_to_json_dict(
+        result,
+        metadata={"session": "unit-test", "attempt": np.int64(2), "bad_value": np.float64(np.nan)},
+    )
+
+    encoded = json.dumps(payload, allow_nan=False)
+    decoded = json.loads(encoded)
+
+    assert decoded["kind"] == "objective_focus"
+    assert decoded["schema_version"] == 1
+    assert decoded["result"]["defocus"] == pytest.approx(2.0e-6)
+    assert decoded["metadata"]["attempt"] == 2
+    assert decoded["metadata"]["bad_value"] is None
+    assert decoded["result"]["shift_results"] == []
+
+
+def test_objective_result_json_omits_correlation_arrays():
+    rng = np.random.default_rng(51)
+    image = rng.normal(0.0, 0.03, (96, 96))
+    rr, cc = np.indices(image.shape)
+    image += np.exp(-(((rr - 40.0) ** 2 + (cc - 45.0) ** 2) / (2.0 * 4.0**2)))
+    shifted = np.roll(image, 6, axis=0)
+    result = solve_objective_focus_from_image_pairs(
+        ObjectiveCalibration(np.array([[1000.0, 0.0], [0.0, 1000.0]])),
+        [
+            BeamTiltImagePair(
+                first_tilt=(0.0, 0.0),
+                second_tilt=(0.01, 0.0),
+                first_image=image,
+                second_image=shifted,
+            )
+        ],
+    )
+
+    payload = objective_result_to_json_dict(result)
+    shift_result = payload["result"]["shift_results"][0]
+
+    assert "correlation" not in shift_result
+    assert shift_result["correlation_shape"] == [96, 96]
+
+
+def test_stage_z_result_to_json_dict_is_json_safe():
+    result = z_focus_demo()
+    payload = stage_z_result_to_json_dict(result, metadata={"session": "unit-test"})
+
+    encoded = json.dumps(payload, allow_nan=False)
+    decoded = json.loads(encoded)
+
+    assert decoded["kind"] == "stage_z"
+    assert decoded["result"]["z"] == pytest.approx(1.5e-6)
+    assert decoded["result"]["measurement_count"] == 2
+
+
+def test_save_focus_result_json(tmp_path):
+    result = objective_focus_demo()
+    payload = objective_result_to_json_dict(result)
+    path = tmp_path / "focus_result.json"
+
+    save_focus_result_json(path, payload)
+
+    decoded = json.loads(path.read_text(encoding="utf-8"))
+    assert decoded["kind"] == "objective_focus"
 
 
 def test_runtime_config_rejects_non_finite_max_condition_number():

@@ -72,6 +72,17 @@ Keep runtime settings separate from calibration values. Runtime settings can be
 tuned per workflow; calibration matrices should be tied to the microscope,
 camera, magnification, high tension, and probe mode that produced them.
 
+The two files under `config/` are both inputs:
+
+- Runtime JSON is how to run the algorithm.
+- Calibration JSON is what calibrated microscope/camera values to use.
+
+Autofocus outputs are produced from result objects with
+`objective_result_to_json_dict()` and `stage_z_result_to_json_dict()`, then
+written with `save_focus_result_json()`.  Result JSON is for audit/logging and
+does not include large correlation arrays; it records shifts, quality metrics,
+solver diagnostics, and optional caller metadata.
+
 ## Notes
 
 The mock examples in `mock_inputs.py` are synthetic sanity checks, not microscope

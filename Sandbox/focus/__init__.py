@@ -13,6 +13,12 @@ from .focus_config import (
     load_focus_calibration_config,
     load_focus_runtime_config,
 )
+from .focus_result import (
+    RESULT_SCHEMA_VERSION,
+    objective_result_to_json_dict,
+    save_focus_result_json,
+    stage_z_result_to_json_dict,
+)
 from .autofocus_orchestrator import (
     ObjectiveFocusInstrument,
     StageZInstrument,
@@ -52,6 +58,7 @@ __all__ = [
     "ObjectiveCalibration",
     "ObjectiveFocusResult",
     "ObjectiveFocusSettings",
+    "RESULT_SCHEMA_VERSION",
     "StageTiltMeasurement",
     "StageTiltImagePair",
     "StageZInstrument",
@@ -63,6 +70,7 @@ __all__ = [
     "cross_correlate",
     "load_focus_calibration_config",
     "load_focus_runtime_config",
+    "objective_result_to_json_dict",
     "phase_correlate",
     "run_objective_focus_sequence",
     "run_stage_z_sequence",
@@ -73,5 +81,7 @@ __all__ = [
     "solve_stage_z",
     "solve_stage_z_from_image_pairs",
     "stage_tilt_measurements_from_images",
+    "stage_z_result_to_json_dict",
+    "save_focus_result_json",
     "unbin_pixel_shift",
 ]
