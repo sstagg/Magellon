@@ -79,7 +79,7 @@ export const ParticleSessionDialog: React.FC<{ open: boolean; onClose: () => voi
                 {loading && <CircularProgress />}
                 {/*{showError && <Alert severity="error">You have not entered a name</Alert>}*/}
                 {mutation.isLoading && <span>Creating...</span>}
-                {mutation.isError && <span>Error: {mutation.error.message}</span>}
+                {mutation.isError && <span>Error: {(mutation.error as Error)?.message}</span>}
                 {mutation.isSuccess && <span>Entity created successfully</span>}
             </DialogContent>
 

@@ -13,6 +13,7 @@ import {
     ListItemIcon,
     ListItemText,
     TextField,
+    Button,
     useTheme,
     alpha,
 } from "@mui/material";
@@ -23,6 +24,7 @@ import {
     ViewModule,
     GridView,
     MoreVert,
+    Folder,
 } from "@mui/icons-material";
 import {
     Search,
@@ -30,6 +32,7 @@ import {
     ChevronDown,
     ArrowDownAZ,
     ArrowUpAZ,
+    AlertTriangle,
 } from "lucide-react";
 import ImageInfoDto, { PagedImageResponse } from "../../../entities/image/types.ts";
 import { ImageColumn } from "./ImageColumn.tsx";
@@ -37,7 +40,7 @@ import { ImageThumbnail } from "./ImageThumbnail.tsx";
 import { InfiniteData } from "react-query";
 import { useImageViewerStore } from '../model/imageViewerStore.ts';
 import { useImageListQuery } from "../api/usePagedImagesHook.ts";
-import { useColumnFilter, type SortField } from '../lib/useColumnFilter.ts';
+import { useColumnFilter, type SortField, type ColumnFilter } from '../lib/useColumnFilter.ts';
 import { DEFAULT_PAGE_SIZE, TILE_WIDTH, COLUMN_HEIGHT_THRESHOLD } from '../constants';
 
 type DisplayMode = 'stack' | 'grid' | 'list';
@@ -327,8 +330,8 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                     images={data}
                     level={level}
                     direction={isHorizontalMode ? 'horizontal' : 'vertical'}
-                    width={isHorizontalMode ? '100%' : width}
-                    height={isHorizontalMode ? contentHeight : undefined}
+                    width={isHorizontalMode ? undefined : width}
+                    height={isHorizontalMode ? (contentHeight as number) : undefined}
                     onImageClick={handleImageClick}
                 />
             );
@@ -499,7 +502,7 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                     m: 1,
                     borderRadius: 1
                 }}>
-                    <Folder size={24} color={theme.palette.text.secondary} />
+                    <Folder sx={{ fontSize: 24, color: theme.palette.text.secondary }} />
                     <Typography
                         variant="caption"
                         sx={{
@@ -565,7 +568,6 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                 anchorEl={menuAnchor}
                 open={Boolean(menuAnchor)}
                 onClose={handleMenuClose}
-                dense
                 slotProps={{
                     paper: { sx: { minWidth: 160 } }
                 }}

@@ -41,6 +41,8 @@ export interface PluginSummary {
     is_default_for_category?: boolean;
     /** SDK 1.1+ plugin's announced input queue. UI-surfaced for debug. */
     task_queue?: string | null;
+    /** Capability flags announced by the plugin (e.g. 'preview', 'sync'). */
+    capabilities?: string[];
 }
 
 export interface PluginInfo {

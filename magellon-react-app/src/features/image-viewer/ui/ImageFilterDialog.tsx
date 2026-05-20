@@ -217,13 +217,16 @@ export const ImageFilterDialog: React.FC<ImageFilterDialogProps> = ({
                     <FormControl fullWidth>
                         <InputLabel>Has children</InputLabel>
                         <Select
-                            value={filter.hasChildren === undefined ? '' : filter.hasChildren}
-                            onChange={(e) => handleInputChange('hasChildren', e.target.value)}
+                            value={filter.hasChildren === undefined ? '' : String(filter.hasChildren)}
+                            onChange={(e) => {
+                                const v = e.target.value;
+                                handleInputChange('hasChildren', v === '' ? undefined : v === 'true');
+                            }}
                             label="Has children"
                         >
                             <MenuItem value="">Any</MenuItem>
-                            <MenuItem value={true}>Yes</MenuItem>
-                            <MenuItem value={false}>No</MenuItem>
+                            <MenuItem value="true">Yes</MenuItem>
+                            <MenuItem value="false">No</MenuItem>
                         </Select>
                     </FormControl>
                 </Stack>

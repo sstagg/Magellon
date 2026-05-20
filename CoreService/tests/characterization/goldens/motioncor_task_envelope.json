@@ -35,7 +35,8 @@
     "image_name": "sample",
     "image_path": "/data/sample.tif",
     "inputFile": "/data/sample.tif",
-    "kV": 300
+    "kV": 300,
+    "outputFile": "sample.mrc"
   },
   "end_on": null,
   "id": "00000000-0000-0000-0000-000000000001",

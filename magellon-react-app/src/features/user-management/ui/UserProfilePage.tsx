@@ -171,7 +171,7 @@ const UserProfilePage: React.FC = () => {
             const roles = await UserRoleAPI.getUserRoles(profile.id);
             setUserRoles(Array.isArray(roles) ? roles : []);
 
-            const permissions = await PermissionAPI.getUserPermissions(profile.id);
+            const permissions = await PermissionAPI.getUserPermissionsSummary(profile.id);
             setUserPermissions(permissions);
         } catch (error) {
             console.error('Failed to load permissions:', error);

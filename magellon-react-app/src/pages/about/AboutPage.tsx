@@ -581,7 +581,7 @@ const AboutPage: React.FC = () => {
                                     mb: 2,
                                     bgcolor: 'secondary.main'
                                 }}>
-                                    <Speed size={isMobile ? 30 : 40} />
+                                    <Speed sx={{ fontSize: isMobile ? 30 : 40 }} />
                                 </Avatar>
                                 <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
                                     High Performance

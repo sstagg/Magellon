@@ -19,7 +19,7 @@ import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import { useState, useEffect } from "react";
 import { settings } from "../../../shared/config/settings.ts";
 import Button from "@mui/material/Button";
-import {CheckCircleIcon} from "lucide-react";
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;

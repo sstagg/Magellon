@@ -123,7 +123,7 @@ export default function UserManagementTab({
             const usersWithRoles = await Promise.all(
                 usersData.map(async (user) => {
                     try {
-                        const roles = await UserRoleAPI.getUserRoles(user.id || user.oid);
+                        const roles = await UserRoleAPI.getUserRoles(user.oid);
                         return { ...user, roles, rolesLoadError: false };
                     } catch (error) {
                         // Silently handle - roles will show as empty with error indicator

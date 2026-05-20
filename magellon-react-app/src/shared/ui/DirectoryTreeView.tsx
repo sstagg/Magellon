@@ -18,7 +18,7 @@ const DirectoryTreeView: React.FC = () => {
         const fetchData = async () => {
             try {
                 const response = await axios.get<TreeNode[]>("http://localhost:8000/web/directory-tree?root_path=fgb");
-                if (response.headers['content-type']?.includes('application/json')) {
+                if (String(response.headers['content-type'] ?? '').includes('application/json')) {
                     setTreeData(response.data);
                 } else {
                     console.error("The response is not JSON:", response.data);

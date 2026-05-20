@@ -49,12 +49,15 @@ def test_registry_has_bus_dispatcher_for_fft():
 def test_registry_returns_none_for_unregistered_type():
     """Pins today's permissive behaviour — unknown task types return
     None from .get(), and .dispatch() logs + returns False rather than
-    raising. Matches the legacy get_queue_name_by_task_type contract.
+    raising.
 
-    Particle picking has no registered dispatcher yet (no plugin ships
-    with Magellon today), which is the stand-in for any unwired type."""
+    PARTICLE_PICKING is now registered (wired 2026-05-19) so we use
+    TARGET_RANKING (not yet wired) as the stand-in for any unwired type."""
+    from magellon_sdk.categories.contract import TaskCategory
     registry = get_task_dispatcher_registry()
-    assert registry.get(PARTICLE_PICKING) is None
+    # Use a category code that has no registered dispatcher
+    unregistered = TaskCategory(code=99, name="Unregistered", description="test sentinel")
+    assert registry.get(unregistered) is None
 
 
 @pytest.mark.characterization

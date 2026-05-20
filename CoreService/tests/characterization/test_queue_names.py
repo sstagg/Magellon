@@ -10,6 +10,7 @@ import pytest
 
 from config import app_settings
 from core.helper import get_queue_name_by_task_type
+from magellon_sdk.categories.contract import TaskCategory
 from models.plugins_models import (
     CTF_TASK,
     FFT_TASK,
@@ -38,13 +39,22 @@ def test_fft_queue_names():
 
 
 @pytest.mark.characterization
+def test_particle_picking_queue_names():
+    """PARTICLE_PICKING was wired 2026-05-19 — pin its queue names."""
+    assert get_queue_name_by_task_type(PARTICLE_PICKING, is_result=False) == "particle_picking_tasks_queue"
+    assert get_queue_name_by_task_type(PARTICLE_PICKING, is_result=True) == "particle_picking_out_tasks_queue"
+
+
+@pytest.mark.characterization
 def test_unmapped_categories_return_none():
     """Categories without a queue mapping return None (not raise).
 
     Pins today's permissive behaviour so we notice if it tightens.
+    TWO_D_CLASSIFICATION and a synthetic unknown code are not yet wired.
     """
-    assert get_queue_name_by_task_type(PARTICLE_PICKING, is_result=False) is None
     assert get_queue_name_by_task_type(TWO_D_CLASSIFICATION, is_result=False) is None
+    unregistered = TaskCategory(code=99, name="Unregistered", description="test sentinel")
+    assert get_queue_name_by_task_type(unregistered, is_result=False) is None
 
 
 @pytest.mark.characterization

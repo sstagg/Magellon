@@ -173,7 +173,7 @@ const MetadataExplorer: React.FC<MetadataExplorerProps> = ({ categories, isLoadi
                         )}
 
                         <ListItemIcon sx={{ minWidth: 36 }}>
-                            {isExpanded ? <FolderOpen color={theme.palette.primary.main} /> : <Folder />}
+                            {isExpanded ? <FolderOpen sx={{ color: theme.palette.primary.main }} /> : <Folder />}
                         </ListItemIcon>
 
                         <ListItemText
@@ -399,7 +399,7 @@ const MetadataExplorer: React.FC<MetadataExplorerProps> = ({ categories, isLoadi
                             <>
                                 {/* Breadcrumbs */}
                                 <Box sx={{ p: 2, borderBottom: `1px solid ${theme.palette.divider}` }}>
-                                    <Breadcrumbs separator={<ChevronRight size={16} />}>
+                                    <Breadcrumbs separator={<ChevronRight sx={{ fontSize: 16 }} />}>
                                         <Link
                                             component="button"
                                             variant="body2"
@@ -493,7 +493,7 @@ const MetadataExplorer: React.FC<MetadataExplorerProps> = ({ categories, isLoadi
                                 gap: 2,
                                 p: 3
                             }}>
-                                <Folder size={48} color={theme.palette.text.secondary} />
+                                <Folder sx={{ fontSize: 48, color: theme.palette.text.secondary }} />
                                 <Typography variant="body1" sx={{
                                     color: "text.secondary"
                                 }}>

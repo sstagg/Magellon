@@ -167,7 +167,7 @@ export const MrcViewer: React.FC<MrcViewerProps> = ({ open, onClose, fileUrl, fi
                 {canvas && !isLoading && !error && (
                     <Box
                         component="canvas"
-                        ref={(ref) => {
+                        ref={(ref: HTMLCanvasElement | null) => {
                             if (ref && canvas) {
                                 const ctx = ref.getContext('2d');
                                 if (ctx) {

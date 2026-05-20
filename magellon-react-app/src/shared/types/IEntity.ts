@@ -16,9 +16,9 @@ export const IEntityValidation = {
             if (error instanceof ZodError) {
                 const errors: Record<string, string> = {};
 
-                error.errors.forEach((validationError) => {
+                error.issues.forEach((validationError) => {
                     if (validationError.path) {
-                        const fieldName = validationError.path[0];
+                        const fieldName = String(validationError.path[0]);
                         const errorMessage = validationError.message;
                         errors[fieldName] = errorMessage;
                     }

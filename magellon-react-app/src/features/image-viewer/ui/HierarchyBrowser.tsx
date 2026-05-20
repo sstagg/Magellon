@@ -48,7 +48,7 @@ export const HierarchyBrowser: React.FC<TreeViewerProps> = ({
                                                           title = 'Image Tree'
                                                       }) => {
     const [expandedItems, setExpandedItems] = useState<string[]>([]);
-    const [selectedItems, setSelectedItems] = useState<string[]>([]);
+    const [selectedItems, setSelectedItems] = useState<string | null>(null);
     const [searchText, setSearchText] = useState('');
 
     const { currentImage, currentSession } = useImageViewerStore();
@@ -173,8 +173,8 @@ export const HierarchyBrowser: React.FC<TreeViewerProps> = ({
     };
 
     // Handle item selection - This is the key change to match ThumbImage behavior
-    const handleSelectedItemsChange = (event: React.SyntheticEvent, itemIds: string[]) => {
-        setSelectedItems(itemIds);
+    const handleSelectedItemsChange = (event: React.SyntheticEvent, itemId: string | null) => {
+        setSelectedItems(itemId);
 
         // Find the selected node and trigger image click if it's an image
         const findNode = (nodes: TreeNode[], id: string): TreeNode | null => {
@@ -186,8 +186,8 @@ export const HierarchyBrowser: React.FC<TreeViewerProps> = ({
             return null;
         };
 
-        if (itemIds.length > 0) {
-            const selectedNode = findNode(filteredTreeData, itemIds[0]);
+        if (itemId) {
+            const selectedNode = findNode(filteredTreeData, itemId);
             if (selectedNode && selectedNode.isImage && selectedNode.imageData) {
                 // Only trigger image click if this is a different image than currently selected
                 // This matches the logic in ThumbImage component
@@ -211,7 +211,7 @@ export const HierarchyBrowser: React.FC<TreeViewerProps> = ({
             const imageWithLevel = { ...node.imageData, level: node.level };
 
             // Update local selection state
-            setSelectedItems([node.id]);
+            setSelectedItems(node.id);
 
             // Call the parent callback with level 0 (tree view doesn't use column hierarchy)
             onImageClick(imageWithLevel, 0);
@@ -314,8 +314,8 @@ export const HierarchyBrowser: React.FC<TreeViewerProps> = ({
             const imageId = currentImage.oid || `image-${currentImage.name}`;
 
             // Only update if the current selection is different
-            if (!selectedItems.includes(imageId)) {
-                setSelectedItems([imageId]);
+            if (selectedItems !== imageId) {
+                setSelectedItems(imageId);
 
                 // Auto-expand parent nodes to make the selected image visible
                 const findParentPath = (nodes: TreeNode[], targetId: string, path: string[] = []): string[] | null => {
@@ -344,7 +344,7 @@ export const HierarchyBrowser: React.FC<TreeViewerProps> = ({
             }
         } else {
             // Clear selection if no image is selected
-            setSelectedItems([]);
+            setSelectedItems(null);
         }
     }, [currentImage, filteredTreeData]); // Removed selectedItems from dependencies to prevent infinite loops
 

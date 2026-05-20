@@ -19,7 +19,7 @@ import ErrorIcon from '@mui/icons-material/Error';
 import { useState, useEffect } from "react";
 import { settings } from "../../../shared/config/settings.ts";
 import Button from "@mui/material/Button";
-import { CheckCircleIcon } from "lucide-react";
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { SelectChangeEvent } from '@mui/material';
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
 

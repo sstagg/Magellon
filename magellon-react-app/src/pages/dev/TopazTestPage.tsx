@@ -167,7 +167,7 @@ export const TopazTestPage: React.FC = () => {
 
     const completedMessage = React.useMemo(() => {
         const completed = [...stepEvents].reverse().find(
-            (e) => e?.data?.kind === 'completed' || e?.data?.phase === 'completed',
+            (e) => (e?.data as any)?.kind === 'completed' || (e?.data as any)?.phase === 'completed',
         );
         if (!completed) return null;
         const d: any = completed.data;

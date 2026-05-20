@@ -239,7 +239,7 @@ export const MotionCorForm: React.FC<MotionCorFormProps> = ({
                                 setJobStatus('success');
                                 setSuccessMessage(`Motion correction task completed. Task ID: ${taskId}`);
                                 // Pass the result data to the success callback if available
-                                onSuccess?.(taskId, sessionName, message.data);
+                                onSuccess?.(taskId, sessionName);
                             }
                             closeWebSocket();
                             break;

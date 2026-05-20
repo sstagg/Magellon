@@ -127,7 +127,7 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
     };
 
     const handleSvgClick = (event: React.MouseEvent<SVGElement>) => {
-        const svg = event.currentTarget;
+        const svg = event.currentTarget as unknown as SVGSVGElement;
         const pt = svg.createSVGPoint();
         pt.x = event.clientX;
         pt.y = event.clientY;

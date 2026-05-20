@@ -18,7 +18,8 @@ export type FieldType =
   | 'datetime'
   | 'date'
   | 'time'
-  | 'json';
+  | 'json'
+  | 'all';
 
 export type ReferenceType = 'user' | 'entity' | null;
 
