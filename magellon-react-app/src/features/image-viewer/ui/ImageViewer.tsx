@@ -104,8 +104,10 @@ function DetectionPolygons({
                 const maxX = Math.max(...xs);
                 const minY = Math.min(...ys);
                 const maxY = Math.max(...ys);
-                const ellRx = (maxX - minX) / 2;
-                const ellRy = (maxY - minY) / 2;
+                // Ptolemy crop box ≈ grid pitch ≈ 2× hole diameter, so half the
+                // bbox side gives hole diameter; halve again to get hole radius.
+                const ellRx = (maxX - minX) / 4;
+                const ellRy = (maxY - minY) / 4;
 
                 return (
                     <g key={i} opacity={0.9} style={{ cursor: 'default' }}>
