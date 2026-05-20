@@ -23,7 +23,6 @@ import {
     ViewList,
     ViewModule,
     GridView,
-    MoreVert,
     Folder,
 } from "@mui/icons-material";
 import {
@@ -34,13 +33,12 @@ import {
     ArrowUpAZ,
     AlertTriangle,
 } from "lucide-react";
-import ImageInfoDto, { PagedImageResponse } from "../../../entities/image/types.ts";
+import ImageInfoDto from "../../../entities/image/types.ts";
 import { ImageColumn } from "./ImageColumn.tsx";
 import { ImageThumbnail } from "./ImageThumbnail.tsx";
-import { InfiniteData } from "react-query";
 import { useImageViewerStore } from '../model/imageViewerStore.ts';
 import { useImageListQuery } from "../api/usePagedImagesHook.ts";
-import { useColumnFilter, type SortField, type ColumnFilter } from '../lib/useColumnFilter.ts';
+import { useColumnFilter, type ColumnFilter } from '../lib/useColumnFilter.ts';
 import { DEFAULT_PAGE_SIZE, TILE_WIDTH, COLUMN_HEIGHT_THRESHOLD } from '../constants';
 
 type DisplayMode = 'stack' | 'grid' | 'list';
@@ -68,7 +66,7 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                                                                        caption,
                                                                        width = 200,
                                                                        height = 700,
-                                                                       showControls = true,
+                                                                       showControls: _showControls = true,
                                                                        initialDisplayMode = 'stack',
                                                                        collapsible = false,
                                                                        initialCollapsed = false,
@@ -110,12 +108,10 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
         data,
         error,
         isLoading,
-        isSuccess,
         isError,
         refetch,
         fetchNextPage,
         hasNextPage,
-        isFetching,
         isFetchingNextPage,
     } = useImageListQuery({
         sessionName,
@@ -130,7 +126,7 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
         [data]
     );
 
-    const { filter, setFilter, resetFilter, sortConfig, setSortConfig, filteredImages, totalCount } = useColumnFilter(allImages);
+    const { filter, setFilter, resetFilter, sortConfig, setSortConfig, filteredImages } = useColumnFilter(allImages);
 
     useEffect(() => {
         if (currentImage && currentImage.level === level) {
@@ -151,19 +147,8 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
         setFilter(prev => ({ ...prev, ...newFilter }));
     }, []);
 
-    const handleSortChange = useCallback((field: SortField) => {
-        setSortConfig(prev => ({
-            field,
-            direction: prev.field === field && prev.direction === 'asc' ? 'desc' : 'asc'
-        }));
-    }, []);
-
     const handleClearFilters = useCallback(() => {
         setFilter({});
-    }, []);
-
-    const handleMenuOpen = useCallback((event: React.MouseEvent<HTMLElement>) => {
-        setMenuAnchor(event.currentTarget);
     }, []);
 
     const handleMenuClose = useCallback(() => {

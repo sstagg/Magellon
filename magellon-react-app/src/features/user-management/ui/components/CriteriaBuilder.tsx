@@ -33,10 +33,9 @@ import {
   Delete,
   Code,
   Info,
-  Refresh,
 } from '@mui/icons-material';
 import axios from 'axios';
-import { DatabaseSchema, FieldDefinition, OperatorDefinition } from '../../types/databaseSchema';
+import { DatabaseSchema, OperatorDefinition } from '../../types/databaseSchema';
 
 interface Condition {
   id: string;

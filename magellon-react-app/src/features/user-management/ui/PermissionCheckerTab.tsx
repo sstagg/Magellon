@@ -52,11 +52,10 @@ interface PermissionCheckerTabProps {
 }
 
 export default function PermissionCheckerTab({
-    currentUser,
+    currentUser: _currentUser,
     showSnackbar,
 }: PermissionCheckerTabProps) {
     const [users, setUsers] = useState<any[]>([]);
-    const [loading, setLoading] = useState(false);
     const [checking, setChecking] = useState(false);
     const [result, setResult] = useState<PermissionCheckResult | null>(null);
 

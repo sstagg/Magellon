@@ -46,9 +46,10 @@ export const MrcViewer: React.FC<MrcViewerProps> = ({ open, onClose, fileUrl, fi
                 const NX = view.getInt32(0, true);     // Number of columns (X)
                 const NY = view.getInt32(4, true);     // Number of rows (Y)
                 const NZ = view.getInt32(8, true);     // Number of sections (Z)
-                const MAPC = view.getInt32(28, true);  // Column axis (1=X)
-                const MAPR = view.getInt32(32, true);  // Row axis (2=Y)
-                const MAPS = view.getInt32(36, true);  // Section axis (3=Z)
+                // Column/row/section axis — read but not further used in rendering
+                view.getInt32(28, true);  // MAPC: Column axis (1=X)
+                view.getInt32(32, true);  // MAPR: Row axis (2=Y)
+                view.getInt32(36, true);  // MAPS: Section axis (3=Z)
 
                 // Data type: MODE
                 // 0 = int8, 1 = int16, 2 = float32, 3 = complex int16, 4 = complex float32, 6 = uint16
@@ -59,11 +60,12 @@ export const MrcViewer: React.FC<MrcViewerProps> = ({ open, onClose, fileUrl, fi
                 }
 
                 // Skip to image data (after header and extended header)
-                const NXSTART = view.getInt32(16, true);
-                const NYSTART = view.getInt32(20, true);
-                const NZSTART = view.getInt32(24, true);
-                const NXYZ = view.getInt32(40, true);
-                const IMOD = view.getInt32(48, true);
+                // NXSTART/NYSTART/NZSTART/NXYZ/IMOD are read but not used in slice rendering
+                view.getInt32(16, true);  // NXSTART
+                view.getInt32(20, true);  // NYSTART
+                view.getInt32(24, true);  // NZSTART
+                view.getInt32(40, true);  // NXYZ
+                view.getInt32(48, true);  // IMOD
                 const EXTIND = view.getInt32(92, true);
 
                 // Calculate where image data starts

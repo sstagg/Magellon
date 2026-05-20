@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from "react";
 import {
     ImageList,
     Box,
-    Typography,
     Paper,
     CircularProgress,
     Button,
@@ -27,12 +26,12 @@ interface ImagesStackProps {
 }
 
 export const ImageColumn: React.FC<ImagesStackProps> = ({
-                                                            caption,
+                                                            caption: _caption,
                                                             images,
                                                             onImageClick,
                                                             level,
                                                             direction = 'vertical',
-                                                            width,
+                                                            width: _width,
                                                             height
                                                         }) => {
     const [selectedImage, setSelectedImage] = useState<ImageInfoDto | null>(null);

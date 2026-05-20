@@ -5,7 +5,6 @@ import {
     Typography,
     Collapse,
     IconButton,
-    Divider
 } from '@mui/material';
 import { ExpandLess, ExpandMore, Settings } from '@mui/icons-material';
 import ImageInfoDto from '../../../entities/image/types.ts';
@@ -147,7 +146,7 @@ const ColumnLayout: React.FC<{
                 pb: 1,
                 flex: 1
             }}>
-                {columns.map((column, index) => {
+                {columns.map((column) => {
                     const originalIndex = allColumns.findIndex(col => col === column);
 
                     return (

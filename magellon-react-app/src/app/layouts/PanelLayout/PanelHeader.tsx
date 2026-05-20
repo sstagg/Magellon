@@ -50,13 +50,13 @@ const StyledAppBar = styled(AppBar, {
 
 interface PanelHeaderProps {
     open: boolean;
-    handleDrawerOpen: () => void;
+    _handleDrawerOpen?: () => void;
     toggleDrawer: () => void;
 }
 
 export const PanelHeader: React.FC<PanelHeaderProps> = ({
                                                             open,
-                                                            handleDrawerOpen,
+                                                            _handleDrawerOpen,
                                                             toggleDrawer
                                                         }) => {
     const theme = useTheme();

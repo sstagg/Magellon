@@ -514,7 +514,7 @@ export function useParticleOperations({
                 addToHistory(imported);
                 updateStats(imported);
                 showSnackbar('Particles imported successfully', 'success');
-            } catch (error) {
+            } catch (_error) {
                 showSnackbar('Failed to import particles', 'error');
             }
         };

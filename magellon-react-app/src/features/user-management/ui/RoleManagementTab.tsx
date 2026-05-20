@@ -46,7 +46,7 @@ import {
   Refresh,
 } from '@mui/icons-material';
 
-import { RoleAPI, UserRoleAPI, PermissionManagementAPI } from '../api/rbacApi';
+import { RoleAPI, UserRoleAPI } from '../api/rbacApi';
 import PermissionAssignmentDialog from './PermissionAssignmentDialog';
 import RoleEditDialog from './RoleEditDialog';
 
@@ -56,7 +56,7 @@ interface RoleManagementTabProps {
   isSuperUser?: boolean;
 }
 
-export default function RoleManagementTab({ currentUser, showSnackbar, isSuperUser = false }: RoleManagementTabProps) {
+export default function RoleManagementTab({ currentUser: _currentUser, showSnackbar, isSuperUser: _isSuperUser = false }: RoleManagementTabProps) {
   const [loading, setLoading] = useState(false);
   const [roles, setRoles] = useState<any[]>([]);
   const [filteredRoles, setFilteredRoles] = useState<any[]>([]);
@@ -143,26 +143,6 @@ export default function RoleManagementTab({ currentUser, showSnackbar, isSuperUs
       loadStatistics();
     } catch (error: any) {
       showSnackbar('Failed to create role: ' + error.message, 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleUpdateRole = async () => {
-    if (!selectedRole) return;
-    setLoading(true);
-    try {
-      await RoleAPI.updateRole({
-        oid: selectedRole.oid,
-        ...formData,
-      });
-      showSnackbar('Role updated successfully', 'success');
-      setEditDialogOpen(false);
-      setSelectedRole(null);
-      resetForm();
-      loadRoles();
-    } catch (error: any) {
-      showSnackbar('Failed to update role: ' + error.message, 'error');
     } finally {
       setLoading(false);
     }

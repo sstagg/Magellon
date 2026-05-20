@@ -72,9 +72,9 @@ function TabPanel(props: TabPanelProps) {
 }
 
 export default function PermissionManagementTab({
-  currentUser,
+  currentUser: _currentUser,
   showSnackbar,
-  isSuperUser = false,
+  isSuperUser: _isSuperUser = false,
 }: PermissionManagementTabProps) {
   const { schema, loading: schemaLoading } = useSchema(false);
   const [tabValue, setTabValue] = useState(0);

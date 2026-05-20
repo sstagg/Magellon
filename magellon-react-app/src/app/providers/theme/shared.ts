@@ -1,7 +1,7 @@
 import { Components, Theme } from '@mui/material/styles';
 
 // Common theme components configuration
-export const getBaseComponents = (theme: Theme): Components => ({
+export const getBaseComponents = (_theme: Theme): Components => ({
     MuiCssBaseline: {
         styleOverrides: {
             body: {

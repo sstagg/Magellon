@@ -58,7 +58,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
     selectedImage,
     ImageParticlePickings,
     isIPPLoading,
-    isIPPError,
+    isIPPError: _isIPPError,
     onParticlePickingLoad,
     OnIppSelected,
     handleSave,

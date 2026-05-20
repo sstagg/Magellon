@@ -25,7 +25,6 @@ import {
     Chip,
     CircularProgress,
     Collapse,
-    IconButton,
     Stack,
     Tooltip,
     Typography,
@@ -263,7 +262,7 @@ export const WorkflowChainView: React.FC<{ oid: string }> = ({ oid }) => {
                 reRunning={reRun.isLoading}
             />
 
-            {data.ancestors.map((node, i) => (
+            {data.ancestors.map((node) => (
                 <NodeCard
                     key={node.oid}
                     node={node}

@@ -10,8 +10,6 @@ import {
     Stack
 } from '@mui/material';
 import {
-    ExpandMore,
-    ChevronRight,
     Folder,
     Image as ImageIcon,
     Search
@@ -51,8 +49,7 @@ export const HierarchyBrowser: React.FC<TreeViewerProps> = ({
     const [selectedItems, setSelectedItems] = useState<string | null>(null);
     const [searchText, setSearchText] = useState('');
 
-    const { currentImage, currentSession } = useImageViewerStore();
-    const sessionName = currentSession?.name || '';
+    const { currentImage } = useImageViewerStore();
 
     // Extract all images from the paginated data
     const allImages = images?.pages?.flatMap(page => page.result) || [];

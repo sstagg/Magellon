@@ -39,7 +39,7 @@ interface ImageNavigatorProps {
 
 export const ImageWorkspace: React.FC<ImageNavigatorProps> = ({
     onImageClick,
-    selectedImage,
+    selectedImage: _selectedImage,
     selectedSession,
     ImageColumns,
     Atlases,

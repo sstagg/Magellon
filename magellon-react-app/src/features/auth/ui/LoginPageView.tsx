@@ -23,15 +23,9 @@ import {
     Slide
 } from '@mui/material';
 import {
-    Visibility,
-    VisibilityOff,
     Lock,
-    Person,
     Email,
     ArrowForward,
-    Science,
-    Security,
-    CloudUpload,
     Home
 } from '@mui/icons-material';
 import { Eye, EyeOff, User, Microscope, Shield, Database } from 'lucide-react';
@@ -64,7 +58,6 @@ const LoginPageView: React.FC = () => {
         register,
         handleSubmit,
         formState: { errors, isValid },
-        reset
     } = useForm<LoginFormData>({
         defaultValues: {
             username: '',
@@ -97,7 +90,7 @@ const LoginPageView: React.FC = () => {
         }
     };
 
-    const handleForgotPassword = async (email: string) => {
+    const handleForgotPassword = async (_email: string) => {
         setLoading(true);
         try {
             // Simulate forgot password API call - replace with actual implementation
@@ -105,7 +98,7 @@ const LoginPageView: React.FC = () => {
             setError(null);
             alert('Password reset instructions sent to your email');
             setLoginMode('login');
-        } catch (err) {
+        } catch (_err) {
             setError('Failed to send reset instructions');
         } finally {
             setLoading(false);

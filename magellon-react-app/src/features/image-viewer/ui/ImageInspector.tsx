@@ -18,7 +18,6 @@ import {
 } from "@mui/material";
 import { TabContext, TabPanel } from '@mui/lab';
 import {
-    ImageOutlined,
     Timeline,
     ScatterPlot,
     Analytics,
@@ -35,7 +34,6 @@ import ImageViewer from "./ImageViewer.tsx";
 import { ParticleSessionDialog } from "./ParticleSessionDialog.tsx";
 import { useImageParticlePickings, useUpdateParticlePicking } from "../../../features/particle-picking/api/ParticlePickingRestService.ts";
 import { ParticlePickingDto } from "../../../entities/particle-picking/types.ts";
-import CtfInfoCards from "./CtfInfoCards.tsx";
 import { useFetchImageCtfInfo } from "../../../features/ctf-analysis/api/CtfRestService.ts";
 import MetadataExplorer from "./MetadataExplorer.tsx";
 import { useFetchImageMetaData } from "../api/ImageMetaDataRestService.ts";
@@ -57,18 +55,16 @@ export interface SoloImageViewerProps {
 export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }) => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-    const isTablet = useMediaQuery(theme.breakpoints.down('md'));
 
     // Refs for advanced functionality
     const imageViewerRef = useRef<HTMLDivElement>(null);
-    const [isFullscreen, setIsFullscreen] = useState(false);
 
     // Detection overlay — populated by ImageDetectionToolbar after a job completes
     const [detectionOverlay, setDetectionOverlay] = useState<DetectionResult | null>(null);
 
     // UI state
     const [imageError, setImageError] = useState<string | null>(null);
-    const [isInfoExpanded, setIsInfoExpanded] = useState(!isMobile);
+    const [isInfoExpanded] = useState(!isMobile);
     const [loadingProgress, setLoadingProgress] = useState<number>(0);
 
     // Access store state and actions with enhanced functionality
@@ -76,18 +72,12 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
         activeTab,
         selectedParticlePicking,
         isParticlePickingDialogOpen,
-        brightness,
-        contrast,
-        scale,
         currentSession,
         setActiveTab,
         setSelectedParticlePicking,
         updateParticlePicking,
         openParticlePickingDialog,
         closeParticlePickingDialog,
-        setBrightness,
-        setContrast,
-        setScale
     } = useImageViewerStore();
 
     // Get the current session name
@@ -139,9 +129,11 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
     const {
         data: ImageParticlePickings,
         isLoading: isIPPLoading,
-        isError: isIPPError,
+        isError: _isIPPError,
         refetch: refetchImageParticlePickings
     } = useImageParticlePickings(selectedImage?.name, false);
+
+    const updatePPMutation = useUpdateParticlePicking();
 
     // Clear per-image state when image changes so overlays/records cannot
     // leak from the previous image into the new one.
@@ -188,16 +180,6 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
         }
     ], [selectedParticlePicking, ImageCtfData]);
 
-    const toggleFullscreen = useCallback(() => {
-        if (!document.fullscreenElement && imageViewerRef.current) {
-            imageViewerRef.current.requestFullscreen?.();
-            setIsFullscreen(true);
-        } else {
-            document.exitFullscreen?.();
-            setIsFullscreen(false);
-        }
-    }, []);
-
     // Enhanced event handlers
     const handleTabChange = useCallback((event: React.SyntheticEvent, newValue: string) => {
         setActiveTab(newValue);
@@ -215,7 +197,6 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
         if (!selectedParticlePicking) return;
 
         try {
-            const updatePPMutation = useUpdateParticlePicking();
             await updatePPMutation.mutateAsync({
                 oid: selectedParticlePicking.oid,
                 image_id: selectedParticlePicking.image_id,
@@ -224,7 +205,7 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
         } catch (error) {
             console.error('Failed to save particle picking:', error);
         }
-    }, [selectedParticlePicking]);
+    }, [selectedParticlePicking, updatePPMutation]);
 
 
     // Reload data handlers

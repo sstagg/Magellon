@@ -20,7 +20,6 @@ import { useState, useEffect } from "react";
 import { settings } from "../../../shared/config/settings.ts";
 import Button from "@mui/material/Button";
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import { SelectChangeEvent } from '@mui/material';
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
 
 const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
@@ -118,12 +117,6 @@ export const RelionExportComponent = () => {
                 [field]: ''
             });
         }
-    };
-
-    // Handle select changes
-    const handleSelectChange = (event: SelectChangeEvent<string>) => {
-        const { name, value } = event.target;
-        handleInputChange(name as keyof RelionExportRequest, value);
     };
 
     // Handle export

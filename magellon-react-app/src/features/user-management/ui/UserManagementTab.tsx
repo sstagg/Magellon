@@ -12,7 +12,6 @@ import {
     Avatar,
     Chip,
     InputAdornment,
-    IconButton,
     Divider,
     List,
     ListItem,
@@ -44,7 +43,7 @@ import {
 
 // FIXED: Use relative paths that match your project structure
 import { userApiService } from '../../auth/api/userApi.ts';
-import { RoleAPI, UserRoleAPI, PermissionAPI } from '../api/rbacApi';
+import { UserRoleAPI, PermissionAPI } from '../api/rbacApi';
 import RoleAssignmentDialog from './RoleAssignmentDialog';
 import ChangePasswordDialog from './ChangePasswordDialog';
 import CreateUserDialog from './CreateUserDialog.tsx';
@@ -125,7 +124,7 @@ export default function UserManagementTab({
                     try {
                         const roles = await UserRoleAPI.getUserRoles(user.oid);
                         return { ...user, roles, rolesLoadError: false };
-                    } catch (error) {
+                    } catch {
                         // Silently handle - roles will show as empty with error indicator
                         return { ...user, roles: [], rolesLoadError: true };
                     }

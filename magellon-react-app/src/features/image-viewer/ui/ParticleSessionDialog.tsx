@@ -27,7 +27,7 @@ export const ParticleSessionDialog: React.FC<{ open: boolean; onClose: () => voi
     const [name, setName] = useState('');
     const [loading, setLoading] = useState(false);
     const [showError, setShowError] = useState(false);
-    const [showSuccess, setShowSuccess] = useState(false);
+    const [showSuccess] = useState(false);
     const mutation = useCreateParticlePickingMutation();
 
     const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -54,11 +54,6 @@ export const ParticleSessionDialog: React.FC<{ open: boolean; onClose: () => voi
             }
         }
     };
-    const handleCloseAlert = () => {
-        setShowError(false);
-    };
-
-
     return (
         <>
             <Dialog open={open} onClose={onClose} aria-labelledby="form-dialog-title">

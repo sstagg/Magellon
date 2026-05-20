@@ -37,7 +37,6 @@ import {
     Refresh,
     CheckCircle,
     Cancel,
-    Lock,
     LockOpen,
 } from '@mui/icons-material';
 
@@ -61,14 +60,6 @@ interface SessionAccessManagementTabProps {
     isSuperUser?: boolean;
 }
 
-interface BulkGrantSessionAccessRequest {
-    user_id: string;
-    session_ids: string[]; // Multiple sessions
-    read_access: boolean;
-    write_access: boolean;
-    delete_access: boolean;
-}
-
 interface UserWithAccess {
     user_id: string;
     username: string;
@@ -80,7 +71,7 @@ interface UserWithAccess {
 }
 
 export default function SessionAccessManagementTab({
-    currentUser,
+    currentUser: _currentUser,
     showSnackbar,
     isSuperUser = false,
 }: SessionAccessManagementTabProps) {

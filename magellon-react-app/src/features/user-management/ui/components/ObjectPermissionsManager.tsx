@@ -16,9 +16,6 @@ import {
   DialogContent,
   DialogActions,
   List,
-  ListItem,
-  ListItemText,
-  ListItemSecondaryAction,
   IconButton,
   FormControlLabel,
   Switch,
@@ -40,7 +37,6 @@ import {
 import axios from 'axios';
 import CriteriaBuilder from './CriteriaBuilder';
 import { useSchema } from '../../hooks/useSchema';
-import { DatabaseSchema } from '../../types/databaseSchema';
 
 const API_BASE_URL = 'http://localhost:8000';
 
