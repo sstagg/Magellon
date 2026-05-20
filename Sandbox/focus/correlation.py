@@ -31,6 +31,8 @@ class ShiftResult:
     peak_value: float
     correlation: np.ndarray
     snr: float
+    peak_ratio: float
+    normalized_ccc: float
 
 
 def cross_correlate(image1: np.ndarray, image2: np.ndarray) -> np.ndarray:
@@ -78,7 +80,7 @@ def correlate_shift(
     taper_fraction: float = 0.1,
     pad_fraction: float = 0.0,
     lowpass: float = 0.0,
-    zero_origin: bool = True,
+    zero_origin: bool = False,
 ) -> ShiftResult:
     """Measure the wrapped pixel shift between two images.
 
@@ -93,13 +95,13 @@ def correlate_shift(
     the wrap boundary.  ``lowpass`` Gaussian-smooths the correlation map, the
     standalone equivalent of Leginon's ``measureScopeChange`` ``lp`` argument.
 
-    ``zero_origin`` blanks the phase-correlation origin pixel.  Leave it on for
-    a deliberately displaced image pair, but turn it off when the genuine shift
-    can be near zero (for example correlating two same-tilt frames to measure
-    slow specimen drift), otherwise the real peak is discarded.
+    ``zero_origin`` blanks the phase-correlation origin pixel.  It defaults to
+    false because near-zero shift is a valid focus result; enable it only when
+    the caller knows a zero-shift peak must be an artifact.
     """
 
     im1, im2 = _validated_pair(image1, image2)
+    _validate_preprocess_args(taper_fraction, pad_fraction, lowpass)
     pre1 = _preprocess(im1, taper_fraction, pad_fraction)
     pre2 = _preprocess(im2, taper_fraction, pad_fraction)
 
@@ -114,12 +116,15 @@ def correlate_shift(
         corr = _gaussian_blur(corr, lowpass)
 
     peak, peak_value, snr = subpixel_peak(corr, npix=subpixel_window)
+    shift = wrap_coord(peak, corr.shape)
     return ShiftResult(
-        shift=wrap_coord(peak, corr.shape),
+        shift=shift,
         peak=peak,
         peak_value=peak_value,
         correlation=corr,
         snr=snr,
+        peak_ratio=_peak_ratio(corr, int(round(peak[0])), int(round(peak[1])), subpixel_window),
+        normalized_ccc=_normalized_ccc(pre1, pre2, shift),
     )
 
 
@@ -203,6 +208,52 @@ def _preprocess(image: np.ndarray, taper_fraction: float, pad_fraction: float) -
         pad_cols = int(round(pad_fraction * array.shape[1]))
         array = np.pad(array, ((0, pad_rows), (0, pad_cols)), mode="constant")
     return array
+
+
+def _validate_preprocess_args(taper_fraction: float, pad_fraction: float, lowpass: float) -> None:
+    if not np.all(np.isfinite((taper_fraction, pad_fraction, lowpass))):
+        raise ValueError("taper_fraction, pad_fraction, and lowpass must be finite")
+    if taper_fraction < 0.0 or taper_fraction > 0.5:
+        raise ValueError("taper_fraction must be in [0.0, 0.5]")
+    if pad_fraction < 0.0:
+        raise ValueError("pad_fraction must be non-negative")
+    if lowpass < 0.0:
+        raise ValueError("lowpass must be non-negative")
+
+
+def _peak_ratio(array: np.ndarray, peak_row: int, peak_col: int, npix: int) -> float:
+    """Return primary peak divided by strongest background peak."""
+
+    peak_row %= array.shape[0]
+    peak_col %= array.shape[1]
+    exclude = 2 * npix + 1
+    half = exclude // 2
+    rows = (np.arange(exclude) + peak_row - half) % array.shape[0]
+    cols = (np.arange(exclude) + peak_col - half) % array.shape[1]
+    mask = np.ones(array.shape, dtype=bool)
+    mask[np.ix_(rows, cols)] = False
+    background = array[mask]
+    if background.size == 0:
+        return float("inf")
+    second = float(np.max(background))
+    peak = float(array[peak_row, peak_col])
+    if second == 0.0:
+        return float("inf") if peak > 0.0 else 0.0
+    return peak / second
+
+
+def _normalized_ccc(image1: np.ndarray, image2: np.ndarray, shift: Tuple[float, float]) -> float:
+    """Return normalized correlation after applying the measured integer shift."""
+
+    row_shift = int(round(shift[0]))
+    col_shift = int(round(shift[1]))
+    aligned = np.roll(np.roll(image1, -row_shift, axis=0), -col_shift, axis=1)
+    a = aligned - float(np.mean(aligned))
+    b = image2 - float(np.mean(image2))
+    denom = float(np.linalg.norm(a) * np.linalg.norm(b))
+    if denom == 0.0:
+        return 0.0
+    return float(np.sum(a * b) / denom)
 
 
 def _edge_mask(shape: Tuple[int, int], taper_fraction: float) -> np.ndarray:

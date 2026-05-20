@@ -8,7 +8,7 @@ defocus and optionally objective stigmation.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, Optional, Sequence, Tuple
+from typing import Any, Iterable, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -44,6 +44,30 @@ class FocusSolveDiagnostics:
     condition_number: float
 
 
+@dataclass(frozen=True)
+class ObjectiveFocusResult:
+    """Result of a calibrated objective-focus solve."""
+
+    defocus: float
+    stigx: Optional[float]
+    stigy: Optional[float]
+    residual: float
+    residual_vector: np.ndarray
+    rank: int
+    unknown_count: int
+    singular_values: np.ndarray
+    condition_number: float
+    diagnostics: FocusSolveDiagnostics
+    measurements: Tuple[Any, ...] = ()
+    shift_results: Tuple[Any, ...] = ()
+    min_snr_observed: float = float("nan")
+    min_peak_ratio_observed: float = float("nan")
+    min_normalized_ccc_observed: float = float("nan")
+
+    def __getitem__(self, key: str) -> Any:
+        return getattr(self, key)
+
+
 def solve_defocus_stig(
     defocus_matrix: np.ndarray,
     measurements: Sequence[BeamTiltMeasurement],
@@ -52,7 +76,7 @@ def solve_defocus_stig(
     stigy_matrix: Optional[np.ndarray] = None,
     validate: bool = True,
     max_condition_number: float = 1.0e12,
-) -> dict:
+) -> ObjectiveFocusResult:
     """Solve defocus and optional objective stigmation.
 
     This is a standalone version of Leginon's calibrated ``solveEq10`` matrix
@@ -105,19 +129,18 @@ def solve_defocus_stig(
         singular_values=singular_values,
         condition_number=condition_number,
     )
-    result = {
-        "defocus": float(solution[0]),
-        "stigx": float(solution[1]) if len(solution) == 3 else None,
-        "stigy": float(solution[2]) if len(solution) == 3 else None,
-        "residual": float(residuals[0]) if len(residuals) else residual,
-        "residual_vector": residual_vector,
-        "rank": int(rank),
-        "unknown_count": unknown_count,
-        "singular_values": singular_values,
-        "condition_number": condition_number,
-        "diagnostics": diagnostics,
-    }
-    return result
+    return ObjectiveFocusResult(
+        defocus=float(solution[0]),
+        stigx=float(solution[1]) if len(solution) == 3 else None,
+        stigy=float(solution[2]) if len(solution) == 3 else None,
+        residual=float(residuals[0]) if len(residuals) else residual,
+        residual_vector=residual_vector,
+        rank=int(rank),
+        unknown_count=unknown_count,
+        singular_values=singular_values,
+        condition_number=condition_number,
+        diagnostics=diagnostics,
+    )
 
 
 def solve_rotation_center_tilt(
@@ -243,4 +266,6 @@ def _matrix2(matrix: np.ndarray, name: str) -> np.ndarray:
     array = np.asarray(matrix, dtype=np.float64)
     if array.shape != (2, 2):
         raise ValueError(f"{name} must be a 2x2 matrix")
+    if not np.all(np.isfinite(array)):
+        raise ValueError(f"{name} must contain finite values")
     return array

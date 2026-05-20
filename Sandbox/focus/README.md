@@ -35,13 +35,28 @@ Stage Z focus:
 `correlate_shift()` edge-tapers and (optionally) zero-pads each image before
 the FFT so non-periodic micrographs do not produce spurious wrap-around peaks,
 and accepts a `lowpass` argument equivalent to Leginon's `measureScopeChange`
-`lp`.  Correlation SNR is reported with the peak masked out of the noise
-estimate, and the `focus_pipeline` solvers accept a `min_snr` threshold that
-rejects weak measurements.
+`lp`.  Near-zero shift is preserved by default, because zero image movement is
+a valid autofocus result near true focus or eucentric height.
+
+Correlation quality includes SNR, primary/secondary peak ratio, and normalized
+CCC.  The `focus_pipeline` solvers accept `min_snr`, `min_peak_ratio`, and
+`min_normalized_ccc` thresholds that reject weak or ambiguous measurements.
 
 For drift-prone specimens, `solve_objective_focus_from_triple_shots()` consumes
 `BeamTiltTripleShot` inputs (images at tilts `[A, B, A]`) and removes linear
-specimen drift the way SerialEM's three-shot focus does.
+specimen drift the way SerialEM's three-shot focus does.  If timestamps are
+provided, the drift correction is scaled by the actual timing; otherwise equal
+time intervals are assumed.
+
+The numerical solvers return typed result objects (`ObjectiveFocusResult` and
+`StageZResult`) with compatibility for `result["field"]` access.  Pipeline
+results include the measurements, raw shift results, and weakest quality
+metrics observed.
+
+`autofocus_orchestrator.py` contains protocol-based acquisition helpers that
+save microscope state, acquire the required image sequence, call the pure
+pipeline, optionally apply a correction callback, and restore beam tilt or
+stage alpha in a `finally` block.
 
 ## Notes
 

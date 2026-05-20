@@ -7,14 +7,14 @@ the microscope-facing layer can stay small and auditable.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Optional, Sequence, Tuple
 
 import numpy as np
 
 from .correlation import CorrelationType, ShiftResult, correlate_shift
-from .objective_focus import BeamTiltMeasurement, solve_defocus_stig
-from .z_focus import StageTiltMeasurement, solve_stage_z
+from .objective_focus import BeamTiltMeasurement, ObjectiveFocusResult, solve_defocus_stig
+from .z_focus import StageTiltMeasurement, StageZResult, solve_stage_z
 
 
 Vector2 = Tuple[float, float]
@@ -63,6 +63,9 @@ class BeamTiltTripleShot:
     first_image: np.ndarray
     second_image: np.ndarray
     third_image: np.ndarray
+    first_time: Optional[float] = None
+    second_time: Optional[float] = None
+    third_time: Optional[float] = None
 
 
 @dataclass(frozen=True)
@@ -84,10 +87,13 @@ def solve_objective_focus_from_image_pairs(
     taper_fraction: float = 0.1,
     pad_fraction: float = 0.0,
     lowpass: float = 0.0,
+    zero_origin: bool = False,
     min_snr: float = 0.0,
+    min_peak_ratio: float = 0.0,
+    min_normalized_ccc: float = -1.0,
     validate: bool = True,
     max_condition_number: float = 1.0e12,
-) -> dict:
+) -> ObjectiveFocusResult:
     """Correlate beam-tilt image pairs and solve objective focus/stig."""
 
     measurements, shift_results = beam_tilt_measurements_from_images(
@@ -98,7 +104,10 @@ def solve_objective_focus_from_image_pairs(
         taper_fraction=taper_fraction,
         pad_fraction=pad_fraction,
         lowpass=lowpass,
+        zero_origin=zero_origin,
         min_snr=min_snr,
+        min_peak_ratio=min_peak_ratio,
+        min_normalized_ccc=min_normalized_ccc,
     )
     result = solve_defocus_stig(
         calibration.defocus_matrix,
@@ -108,10 +117,7 @@ def solve_objective_focus_from_image_pairs(
         validate=validate,
         max_condition_number=max_condition_number,
     )
-    result["measurements"] = measurements
-    result["shift_results"] = shift_results
-    result["min_snr_observed"] = _min_snr(shift_results)
-    return result
+    return replace(result, **_quality_summary(measurements, shift_results))
 
 
 def beam_tilt_measurements_from_images(
@@ -123,7 +129,10 @@ def beam_tilt_measurements_from_images(
     taper_fraction: float = 0.1,
     pad_fraction: float = 0.0,
     lowpass: float = 0.0,
+    zero_origin: bool = False,
     min_snr: float = 0.0,
+    min_peak_ratio: float = 0.0,
+    min_normalized_ccc: float = -1.0,
 ) -> tuple[list[BeamTiltMeasurement], list[ShiftResult]]:
     """Build beam-tilt measurements from acquired image pairs."""
 
@@ -141,8 +150,9 @@ def beam_tilt_measurements_from_images(
             taper_fraction=taper_fraction,
             pad_fraction=pad_fraction,
             lowpass=lowpass,
+            zero_origin=zero_origin,
         )
-        _reject_low_snr(shift, index, min_snr)
+        _reject_low_quality(shift, index, min_snr, min_peak_ratio, min_normalized_ccc)
         shift_results.append(shift)
         measurements.append(
             BeamTiltMeasurement(
@@ -166,10 +176,13 @@ def solve_objective_focus_from_triple_shots(
     taper_fraction: float = 0.1,
     pad_fraction: float = 0.0,
     lowpass: float = 0.0,
+    zero_origin: bool = False,
     min_snr: float = 0.0,
+    min_peak_ratio: float = 0.0,
+    min_normalized_ccc: float = -1.0,
     validate: bool = True,
     max_condition_number: float = 1.0e12,
-) -> dict:
+) -> ObjectiveFocusResult:
     """Correlate three-shot beam-tilt triples and solve objective focus/stig.
 
     Each triple is reduced to a drift-corrected beam-tilt measurement, so this
@@ -185,7 +198,10 @@ def solve_objective_focus_from_triple_shots(
         taper_fraction=taper_fraction,
         pad_fraction=pad_fraction,
         lowpass=lowpass,
+        zero_origin=zero_origin,
         min_snr=min_snr,
+        min_peak_ratio=min_peak_ratio,
+        min_normalized_ccc=min_normalized_ccc,
     )
     result = solve_defocus_stig(
         calibration.defocus_matrix,
@@ -195,10 +211,7 @@ def solve_objective_focus_from_triple_shots(
         validate=validate,
         max_condition_number=max_condition_number,
     )
-    result["measurements"] = measurements
-    result["shift_results"] = shift_results
-    result["min_snr_observed"] = _min_snr(shift_results)
-    return result
+    return replace(result, **_quality_summary(measurements, shift_results))
 
 
 def beam_tilt_measurements_from_triple_shots(
@@ -210,7 +223,10 @@ def beam_tilt_measurements_from_triple_shots(
     taper_fraction: float = 0.1,
     pad_fraction: float = 0.0,
     lowpass: float = 0.0,
+    zero_origin: bool = False,
     min_snr: float = 0.0,
+    min_peak_ratio: float = 0.0,
+    min_normalized_ccc: float = -1.0,
 ) -> tuple[list[BeamTiltMeasurement], list[ShiftResult]]:
     """Build drift-corrected beam-tilt measurements from three-shot triples.
 
@@ -235,6 +251,7 @@ def beam_tilt_measurements_from_triple_shots(
             taper_fraction=taper_fraction,
             pad_fraction=pad_fraction,
             lowpass=lowpass,
+            zero_origin=zero_origin,
         )
         drift_shift = correlate_shift(
             triple.third_image,
@@ -246,14 +263,15 @@ def beam_tilt_measurements_from_triple_shots(
             lowpass=lowpass,
             zero_origin=False,
         )
-        _reject_low_snr(tilt_shift, index, min_snr)
-        _reject_low_snr(drift_shift, index, min_snr)
+        _reject_low_quality(tilt_shift, index, min_snr, min_peak_ratio, min_normalized_ccc)
+        _reject_low_quality(drift_shift, index, min_snr, min_peak_ratio, min_normalized_ccc)
         shift_results.append(tilt_shift)
         shift_results.append(drift_shift)
 
+        drift_fraction = _drift_fraction(triple)
         corrected = (
-            tilt_shift.shift[0] - drift_shift.shift[0] / 2.0,
-            tilt_shift.shift[1] - drift_shift.shift[1] / 2.0,
+            tilt_shift.shift[0] - drift_shift.shift[0] * drift_fraction,
+            tilt_shift.shift[1] - drift_shift.shift[1] * drift_fraction,
         )
         measurements.append(
             BeamTiltMeasurement(
@@ -278,8 +296,11 @@ def solve_stage_z_from_image_pairs(
     taper_fraction: float = 0.1,
     pad_fraction: float = 0.0,
     lowpass: float = 0.0,
+    zero_origin: bool = False,
     min_snr: float = 0.0,
-) -> dict:
+    min_peak_ratio: float = 0.0,
+    min_normalized_ccc: float = -1.0,
+) -> StageZResult:
     """Correlate stage-tilt image pairs and solve Z error."""
 
     measurements, shift_results = stage_tilt_measurements_from_images(
@@ -290,7 +311,10 @@ def solve_stage_z_from_image_pairs(
         taper_fraction=taper_fraction,
         pad_fraction=pad_fraction,
         lowpass=lowpass,
+        zero_origin=zero_origin,
         min_snr=min_snr,
+        min_peak_ratio=min_peak_ratio,
+        min_normalized_ccc=min_normalized_ccc,
     )
     result = solve_stage_z(
         stage_matrix,
@@ -298,10 +322,7 @@ def solve_stage_z_from_image_pairs(
         camera_binning=(1.0, 1.0),
         alpha_for_matrix=alpha_for_matrix,
     )
-    result["measurements"] = measurements
-    result["shift_results"] = shift_results
-    result["min_snr_observed"] = _min_snr(shift_results)
-    return result
+    return replace(result, **_quality_summary(measurements, shift_results))
 
 
 def stage_tilt_measurements_from_images(
@@ -313,7 +334,10 @@ def stage_tilt_measurements_from_images(
     taper_fraction: float = 0.1,
     pad_fraction: float = 0.0,
     lowpass: float = 0.0,
+    zero_origin: bool = False,
     min_snr: float = 0.0,
+    min_peak_ratio: float = 0.0,
+    min_normalized_ccc: float = -1.0,
 ) -> tuple[list[StageTiltMeasurement], list[ShiftResult]]:
     """Build stage-tilt Z measurements from reference/tilted images."""
 
@@ -331,8 +355,9 @@ def stage_tilt_measurements_from_images(
             taper_fraction=taper_fraction,
             pad_fraction=pad_fraction,
             lowpass=lowpass,
+            zero_origin=zero_origin,
         )
-        _reject_low_snr(shift, index, min_snr)
+        _reject_low_quality(shift, index, min_snr, min_peak_ratio, min_normalized_ccc)
         shift_results.append(shift)
         measurements.append(
             StageTiltMeasurement(
@@ -354,19 +379,33 @@ def unbin_pixel_shift(pixel_shift: Vector2, camera_binning: Vector2) -> Vector2:
     return (float(pixel_shift[0] * bin_y), float(pixel_shift[1] * bin_x))
 
 
-def _reject_low_snr(shift: ShiftResult, index: int, min_snr: float) -> None:
+def _reject_low_quality(
+    shift: ShiftResult,
+    index: int,
+    min_snr: float,
+    min_peak_ratio: float,
+    min_normalized_ccc: float,
+) -> None:
     """Raise when a correlation peak is too weak to trust.
 
     ``min_snr <= 0`` disables the check, so callers that have not chosen a
     threshold keep the previous unguarded behavior.
     """
 
-    if min_snr <= 0.0:
-        return
-    if shift.snr < min_snr:
+    if min_snr > 0.0 and shift.snr < min_snr:
         raise ValueError(
             f"correlation SNR {shift.snr:.3g} for image pair {index} "
             f"is below the required minimum {min_snr:.3g}"
+        )
+    if min_peak_ratio > 0.0 and shift.peak_ratio < min_peak_ratio:
+        raise ValueError(
+            f"correlation peak ratio {shift.peak_ratio:.3g} for image pair {index} "
+            f"is below the required minimum {min_peak_ratio:.3g}"
+        )
+    if min_normalized_ccc > -1.0 and shift.normalized_ccc < min_normalized_ccc:
+        raise ValueError(
+            f"normalized CCC {shift.normalized_ccc:.3g} for image pair {index} "
+            f"is below the required minimum {min_normalized_ccc:.3g}"
         )
 
 
@@ -375,3 +414,34 @@ def _min_snr(shift_results: Sequence[ShiftResult]) -> float:
 
     return min((result.snr for result in shift_results), default=float("nan"))
 
+
+def _quality_summary(measurements: Sequence[object], shift_results: Sequence[ShiftResult]) -> dict:
+    return {
+        "measurements": tuple(measurements),
+        "shift_results": tuple(shift_results),
+        "min_snr_observed": _min_snr(shift_results),
+        "min_peak_ratio_observed": min(
+            (result.peak_ratio for result in shift_results),
+            default=float("nan"),
+        ),
+        "min_normalized_ccc_observed": min(
+            (result.normalized_ccc for result in shift_results),
+            default=float("nan"),
+        ),
+    }
+
+
+def _drift_fraction(triple: BeamTiltTripleShot) -> float:
+    if triple.first_time is None and triple.second_time is None and triple.third_time is None:
+        return 0.5
+    if None in (triple.first_time, triple.second_time, triple.third_time):
+        raise ValueError("all three triple-shot timestamps must be provided together")
+
+    first = float(triple.first_time)
+    second = float(triple.second_time)
+    third = float(triple.third_time)
+    if not np.all(np.isfinite((first, second, third))):
+        raise ValueError("triple-shot timestamps must be finite")
+    if not first < second < third:
+        raise ValueError("triple-shot timestamps must be strictly increasing")
+    return (second - first) / (third - first)

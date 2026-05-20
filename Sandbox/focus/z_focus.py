@@ -9,7 +9,7 @@ divided by ``sin(alpha)``.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Sequence, Tuple
+from typing import Any, Sequence, Tuple
 
 import numpy as np
 
@@ -29,13 +29,33 @@ class StageTiltMeasurement:
     pixel_shift: Vector2
 
 
+@dataclass(frozen=True)
+class StageZResult:
+    """Result of a calibrated stage-tilt Z solve."""
+
+    z: float
+    z_values: np.ndarray
+    stage_xy: Tuple[Vector2, ...]
+    z_std: float
+    z_range: float
+    measurement_count: int
+    measurements: Tuple[Any, ...] = ()
+    shift_results: Tuple[Any, ...] = ()
+    min_snr_observed: float = float("nan")
+    min_peak_ratio_observed: float = float("nan")
+    min_normalized_ccc_observed: float = float("nan")
+
+    def __getitem__(self, key: str) -> Any:
+        return getattr(self, key)
+
+
 def solve_stage_z(
     stage_matrix: np.ndarray,
     measurements: Sequence[StageTiltMeasurement],
     *,
     camera_binning: Vector2 = (1.0, 1.0),
     alpha_for_matrix: float = 0.0,
-) -> dict:
+) -> StageZResult:
     """Estimate Z error from stage-tilt image shifts.
 
     ``stage_matrix`` maps pixel vector ``(row, col)`` to stage movement
@@ -67,14 +87,14 @@ def solve_stage_z(
 
     z_array = np.asarray(z_values, dtype=np.float64)
     z_mean = float(np.mean(z_array))
-    return {
-        "z": z_mean,
-        "z_values": z_array,
-        "stage_xy": xy_values,
-        "z_std": float(np.std(z_array)),
-        "z_range": float(np.max(z_array) - np.min(z_array)),
-        "measurement_count": len(measurements),
-    }
+    return StageZResult(
+        z=z_mean,
+        z_values=z_array,
+        stage_xy=tuple(xy_values),
+        z_std=float(np.std(z_array)),
+        z_range=float(np.max(z_array) - np.min(z_array)),
+        measurement_count=len(measurements),
+    )
 
 
 def pixel_shift_to_stage_xy(

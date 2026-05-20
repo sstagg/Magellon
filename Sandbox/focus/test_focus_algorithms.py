@@ -2,6 +2,10 @@ import numpy as np
 
 try:
     from focus.correlation import correlate_shift
+    from focus.autofocus_orchestrator import (
+        run_objective_focus_sequence,
+        run_stage_z_sequence,
+    )
     from focus.focus_pipeline import (
         BeamTiltImagePair,
         BeamTiltTripleShot,
@@ -21,6 +25,10 @@ try:
     from focus.z_focus import StageTiltMeasurement, solve_stage_z
 except ModuleNotFoundError:
     from magellon_focus_extract.correlation import correlate_shift
+    from magellon_focus_extract.autofocus_orchestrator import (
+        run_objective_focus_sequence,
+        run_stage_z_sequence,
+    )
     from magellon_focus_extract.focus_pipeline import (
         BeamTiltImagePair,
         BeamTiltTripleShot,
@@ -45,6 +53,16 @@ import pytest
 def test_correlate_shift_integer_roll():
     demo = shifted_image_demo((6, -5))
     assert np.allclose(demo["measured_shift"], (6, -5), atol=0.25)
+
+
+def test_correlate_shift_keeps_zero_shift_by_default():
+    rng = np.random.default_rng(3)
+    image = rng.normal(0.0, 1.0, (64, 64))
+
+    result = correlate_shift(image, image)
+
+    assert np.allclose(result.shift, (0.0, 0.0), atol=0.1)
+    assert result.normalized_ccc > 0.99
 
 
 def test_objective_focus_solve_defocus_only():
@@ -338,6 +356,46 @@ def test_objective_pipeline_rejects_low_snr():
         )
 
 
+def test_objective_pipeline_rejects_low_peak_ratio():
+    rng = np.random.default_rng(31)
+    first = rng.normal(0.0, 1.0, (96, 96))
+    second = rng.normal(0.0, 1.0, (96, 96))
+
+    with pytest.raises(ValueError, match="peak ratio"):
+        solve_objective_focus_from_image_pairs(
+            ObjectiveCalibration(np.array([[1000.0, 0.0], [0.0, 1000.0]])),
+            [
+                BeamTiltImagePair(
+                    first_tilt=(0.0, 0.0),
+                    second_tilt=(0.01, 0.0),
+                    first_image=first,
+                    second_image=second,
+                )
+            ],
+            min_peak_ratio=50.0,
+        )
+
+
+def test_objective_pipeline_rejects_low_normalized_ccc():
+    rng = np.random.default_rng(32)
+    first = rng.normal(0.0, 1.0, (96, 96))
+    second = rng.normal(0.0, 1.0, (96, 96))
+
+    with pytest.raises(ValueError, match="normalized CCC"):
+        solve_objective_focus_from_image_pairs(
+            ObjectiveCalibration(np.array([[1000.0, 0.0], [0.0, 1000.0]])),
+            [
+                BeamTiltImagePair(
+                    first_tilt=(0.0, 0.0),
+                    second_tilt=(0.01, 0.0),
+                    first_image=first,
+                    second_image=second,
+                )
+            ],
+            min_normalized_ccc=0.95,
+        )
+
+
 def test_objective_pipeline_accepts_high_snr_with_threshold():
     rng = np.random.default_rng(11)
     image = rng.normal(0.0, 0.03, (96, 96))
@@ -440,6 +498,35 @@ def test_three_shot_cancels_linear_drift():
     assert abs(two_shot_rows - tilt_rows) > abs(corrected_rows - tilt_rows)
 
 
+def test_three_shot_uses_timestamp_drift_fraction():
+    image = _three_shot_scene(seed=43)
+    tilt_rows = 5
+    drift_total = 10
+    drift_fraction = 0.25
+    first_image = image
+    second_image = np.roll(image, tilt_rows + int(drift_total * drift_fraction), axis=0)
+    third_image = np.roll(image, drift_total, axis=0)
+
+    result = solve_objective_focus_from_triple_shots(
+        ObjectiveCalibration(np.array([[1000.0, 0.0], [0.0, 1000.0]])),
+        [
+            BeamTiltTripleShot(
+                first_tilt=(0.0, 0.0),
+                second_tilt=(0.01, 0.0),
+                first_image=first_image,
+                second_image=second_image,
+                third_image=third_image,
+                first_time=0.0,
+                second_time=1.0,
+                third_time=4.0,
+            )
+        ],
+        taper_fraction=0.0,
+    )
+
+    assert np.isclose(result["measurements"][0].pixel_shift[0], tilt_rows, atol=0.6)
+
+
 def test_solve_objective_focus_from_triple_shots_defocus():
     image = _three_shot_scene(seed=42)
     result = solve_objective_focus_from_triple_shots(
@@ -457,3 +544,81 @@ def test_solve_objective_focus_from_triple_shots_defocus():
     # corrected shift is 7 - 4/2 = 5 rows; defocus = 5 / (1000 * 0.01)
     assert np.isclose(result["defocus"], 0.5, atol=0.05)
     assert len(result["shift_results"]) == 2
+
+
+class FakeObjectiveInstrument:
+    def __init__(self, images):
+        self.beam_tilt = (0.0, 0.0)
+        self.images = list(images)
+        self.set_calls = []
+
+    def get_beam_tilt(self):
+        return self.beam_tilt
+
+    def set_beam_tilt(self, tilt):
+        self.beam_tilt = tilt
+        self.set_calls.append(tilt)
+
+    def acquire_image(self):
+        if isinstance(self.images[0], Exception):
+            raise self.images.pop(0)
+        return self.images.pop(0)
+
+
+class FakeStageInstrument:
+    def __init__(self, images):
+        self.stage_alpha = 0.25
+        self.images = list(images)
+        self.set_calls = []
+
+    def get_stage_alpha(self):
+        return self.stage_alpha
+
+    def set_stage_alpha(self, alpha):
+        self.stage_alpha = alpha
+        self.set_calls.append(alpha)
+
+    def acquire_image(self):
+        if isinstance(self.images[0], Exception):
+            raise self.images.pop(0)
+        return self.images.pop(0)
+
+
+def test_objective_orchestrator_restores_beam_tilt():
+    image = _three_shot_scene(seed=44)
+    instrument = FakeObjectiveInstrument([image, np.roll(image, 6, axis=0)])
+    result = run_objective_focus_sequence(
+        instrument,
+        ObjectiveCalibration(np.array([[1000.0, 0.0], [0.0, 1000.0]])),
+        [((0.0, 0.0), (0.01, 0.0))],
+    )
+
+    assert np.isclose(result["defocus"], 0.6, atol=0.05)
+    assert instrument.beam_tilt == (0.0, 0.0)
+
+
+def test_objective_orchestrator_restores_beam_tilt_on_error():
+    image = _three_shot_scene(seed=45)
+    instrument = FakeObjectiveInstrument([image, RuntimeError("camera failed")])
+
+    with pytest.raises(RuntimeError, match="camera failed"):
+        run_objective_focus_sequence(
+            instrument,
+            ObjectiveCalibration(np.eye(2)),
+            [((0.0, 0.0), (0.01, 0.0))],
+        )
+
+    assert instrument.beam_tilt == (0.0, 0.0)
+
+
+def test_stage_z_orchestrator_restores_alpha():
+    image = _three_shot_scene(seed=46)
+    alpha = 0.1
+    col_pixels = 5
+    matrix = np.array([[1.0e-9, 0.0], [0.0, 2.0e-9]])
+    instrument = FakeStageInstrument([image, np.roll(image, col_pixels, axis=1)])
+
+    result = run_stage_z_sequence(instrument, matrix, [alpha])
+
+    assert np.isclose(result["z"], col_pixels * matrix[1, 1] / np.sin(alpha), rtol=0.05)
+    assert instrument.stage_alpha == 0.25
