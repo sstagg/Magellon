@@ -1,0 +1,12 @@
+import React from 'react'
+import { Navigate, Route, Routes } from "react-router-dom";
+import PanelHomeComponent from "../../pages/dashboard/PanelHomeComponent.tsx";
+
+export default function DomainRoutes() {
+    return (
+        <Routes>
+            <Route path="/" element={<PanelHomeComponent />} />
+            <Route path="*" element={<Navigate to='/404' />} />
+        </Routes>
+    )
+}
