@@ -87,10 +87,10 @@ magellon/
     magellon_fft_plugin/
     magellon_ptolemy_plugin/
     magellon_topaz_plugin/
+    magellon_boxnet_plugin/
     magellon_stack_maker_plugin/
     magellon_can_classifier_plugin/
     magellon_template_picker_plugin/
-    magellon_result_processor/
   magellon-react-app/   # React frontend
   magellon-sdk/         # Shared Python SDK (installed as editable dep)
 ```

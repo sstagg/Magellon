@@ -261,10 +261,12 @@ Magellon/
 │   ├── magellon_fft_plugin/              # reference / blueprint
 │   ├── magellon_topaz_plugin/            # picking + denoise
 │   ├── magellon_ptolemy_plugin/          # square + hole detection
-│   ├── magellon_result_processor/        # legacy result writer (dormant; see §4.1 #19)
-│   ├── magellon_stack_maker_plugin/      # NEW (Phase 5): PARTICLE_EXTRACTION
-│   ├── magellon_can_classifier_plugin/   # NEW (Phase 7): TWO_D_CLASSIFICATION
-│   └── magellon_template_picker_plugin/  # NEW (Phase 6): external PARTICLE_PICKING
+│   ├── magellon_boxnet_plugin/           # BoxNet particle picking
+│   ├── magellon_stack_maker_plugin/      # Phase 5: PARTICLE_EXTRACTION
+│   ├── magellon_can_classifier_plugin/   # Phase 7: TWO_D_CLASSIFICATION
+│   └── magellon_template_picker_plugin/  # Phase 6: external PARTICLE_PICKING
+│   # magellon_result_processor was deleted (A.4); CoreService's
+│   # in-process TaskOutputProcessor is the sole result writer.
 ├── magellon-sdk/         # magellon-sdk 2.4.0 (subject-tag dispatch gate, PE1-B, 2026-05-11)
 ├── magellon-react-app/   # Frontend
 ├── Docker/               # docker-compose deployment topology
@@ -637,21 +639,13 @@ On each result it:
    `output_data['class_averages_id']`. Per ratified rule 6:
    re-runs always create a NEW row (no UPDATE).
 
-The out-of-tree `magellon_result_processor` plugin **is still built
-and started by default** (`Docker/docker-compose.yml:167`). Its
-`main.py` also registers a `bus.tasks.consumer` per `OUT_QUEUES`
-entry — and its `configs/settings_prod.yml:31–39` lists the same
-`ctf_out_tasks_queue` + `motioncor_out_tasks_queue` CoreService
-subscribes to. RabbitMQ round-robins deliveries between the two
-consumers: ~50% of CTF and MotionCor results are projected by
-CoreService's newer `TaskOutputProcessor` (with `_advance_task_state`),
-~50% by the plugin container's older copy at
-`plugins/magellon_result_processor/services/task_output_processor.py`.
-FFT is unaffected — only CoreService lists `fft_out_tasks_queue`.
-The intent per `CoreService/main.py:417–422` was either/or, not both;
-the compose stack and plugin settings were never updated to enforce
-that. Tracked as §8 #19 and resolution PR MB4.C in
-`IMPLEMENTATION_PLAN.md`.
+The out-of-tree `magellon_result_processor` plugin **has been
+deleted** (A.4). MB4.C first made it dormant by blanking its
+`OUT_QUEUES`, leaving the plugin built-but-idle; A.4 then removed the
+plugin directory and its `docker-compose.yml` service outright.
+CoreService's in-process `TaskOutputProcessor` is the sole result
+writer for every category — there is no longer a second consumer to
+race on `ctf_out_tasks_queue` / `motioncor_out_tasks_queue`.
 
 **Client visibility.** Live. External plugins emit
 `magellon.step.*` CloudEvents via
@@ -739,9 +733,9 @@ For concreteness, the actual sequence a Magellon import runs through:
    `ctffind4`, publishes result on `ctf_out_tasks_queue`.
 6. External MotionCor plugin consumes `motioncor_tasks_queue`, runs
    `MotionCor2`, publishes on `motioncor_out_tasks_queue`.
-7. `magellon_result_processor` consumes both out-queues, moves output
-   files, writes `ImageMetaData`. **`ImageJobTask.stage` is not updated
-   (see §4.1 gap).**
+7. CoreService's in-process `TaskOutputProcessor` consumes both
+   out-queues, moves output files, writes `ImageMetaData`, and advances
+   `ImageJobTask.status_id` + `stage` via `_advance_task_state`.
 8. The UI sees Socket.IO events for both paths now. External plugins
    emit `magellon.step.*` envelopes via
    `magellon_sdk.events.StepEventPublisher`; CoreService's step-event
@@ -827,7 +821,7 @@ gone — see §3.3 (deleted in the A.1 follow-up, `7d1f657`).
 | 16 | No operator hard-stop for runaway plugin work | **Resolved (P9).** `POST /cancellation/queues/purge` drains pending tasks from one or more category queues; `POST /cancellation/containers/{name}/kill` issues `docker kill` on a stuck plugin replica. Cooperative cancel via `JobManager.request_cancel` remains the in-flight path. |
 | 17 | Broker-based discovery / liveness (replaces Consul) | **Landed (P6).** Plugins emit one `magellon.plugins.announce.*` on boot and a `magellon.plugins.heartbeat.*` every N seconds via `DiscoveryPublisher` + `HeartbeatLoop`. CoreService listens with `core.plugin_liveness_registry.start_liveness_listener` and exposes the registry to the plugin discovery endpoints. |
 | 18 | Provenance on results | **Resolved (P4).** `PluginBrokerRunner` auto-injects plugin manifest (id, name, version, schema_version, container hostname, host) into every `TaskResultDto.provenance` after the result_factory builds the wire shape; CoreService records it for audit. |
-| 19 | ~~Result-processor plugin double-consumes with in-process consumer~~ | **Resolved (MB4.C, `5827b8f`).** Blanked `OUT_QUEUES: []` in both plugin YAMLs (`settings_dev.yml` + `settings_prod.yml`). Plugin container now subscribes to nothing (logs `result_processor: OUT_QUEUES empty — staying dormant`); CoreService's in-process consumer is the sole writer. Container deletion and dir removal are deferred follow-ups once the plugin is confirmed unused for a release cycle. |
+| 19 | ~~Result-processor plugin double-consumes with in-process consumer~~ | **Resolved (MB4.C `5827b8f`; plugin deleted A.4).** MB4.C blanked `OUT_QUEUES: []` in both plugin YAMLs so the container stayed dormant; A.4 then deleted the `magellon_result_processor` plugin directory and its `docker-compose.yml` service entirely. CoreService's in-process `TaskOutputProcessor` is the sole result writer — no second consumer exists. |
 | 20 | ~~No cooperative cancel for external plugins~~ | **Resolved (G.1, `6663d23`).** New `CancelRoute.for_job(<id>)` + `CancelRegistry` + `start_cancel_listener(bus)` in `magellon_sdk.bus.services.cancel_registry`. `PluginBrokerRunner` subscribes on startup; `BoundStepReporter.started/progress` checks the registry and raises `JobCancelledError`. Runner catches the raise and publishes a FAILED-status result with `output_data["cancelled"]=True`. `JobManager.request_cancel` publishes the cancel event alongside the in-process flag. Plugins that emit step events (all four today) get cooperative cancel with no code change. |
 | 21 | ~~No contract test between CoreService and external plugin containers~~ | **Resolved (G.2, `59b420c`).** `CoreService/tests/contracts/` package with per-plugin test modules for CTF, MotionCor, FFT. Each hits the plugin's HTTP `/execute` endpoint with a canned `TaskDto` (missing-file input → clean failure) and asserts `task_id`/`job_id` echo + `TaskResultDto` shape round-trip. Bypasses RMQ to avoid racing CoreService's in-process result consumer. Tests skip cleanly with an actionable message when the plugin container isn't up. Closes the §9 "no contract test" gap. |
 | 22 | ~~Fragmented plugin config surface (YAML + env + bus push + CategoryContract defaults)~~ | **Resolved (G.3, `50deb25`).** `magellon_sdk.config.PluginConfigResolver` layers the four surfaces under one `get(key)` API with documented precedence (runtime overrides > env > YAML > defaults). Typed accessors (`get_bool`/`get_int`/`get_float`/`get_str`) log-and-default on garbage. Per-plugin migration to use the resolver is per-plugin follow-up; the class contract is frozen by 26 unit tests. |
@@ -835,7 +829,7 @@ gone — see §3.3 (deleted in the A.1 follow-up, `7d1f657`).
 | 24 | ~~ContextVar / daemon-loop / step-reporter helpers duplicated across every external plugin~~ | **Resolved (Phase 1, `c89b1cd` + `8336793` + `611ae98`, 2026-05-03).** Promoted into `magellon_sdk.runner.active_task` (`current_task`, `set_active_task`, `reset_active_task`, `get_step_event_loop`, `emit_step`, `make_step_reporter`). `PluginBrokerRunner` sets the ContextVar in `_handle_task` / `_process` for every plugin. ~280 lines of duplication deleted across FFT/topaz/CTF/MotionCor/ptolemy. Back-compat shims (`<Plugin>BrokerRunner` aliased to `PluginBrokerRunner`, `get_active_task` to `current_task`) preserve old import paths for one release. |
 | 25 | ~~Tasks cannot represent aggregate-input work (2D classification, 3D refine)~~ | **Resolved (Phase 3 + 3b + 3c + 3d, 2026-05-03).** Subject axis added end-to-end: `image_job_task.subject_kind` (VARCHAR(32) DEFAULT `'image'`) + `subject_id` (UUID nullable) via alembic 0004; `TaskMessage` + `TaskResultMessage` carry both fields; `PluginBrokerRunner._stamp_subject` echoes them onto results; `TaskOutputProcessor` backfills the row when dispatch left them at the DDL default; `CategoryContract.subject_kind` (default `'image'`, `TWO_D_CLASSIFICATION_CATEGORY` overrides to `'particle_stack'`) provides the declarative seam so pre-Phase-3 dispatchers automatically pick up the right subject. Authoritative writes still come from dispatch — backfill is the back-compat seam. |
 | 26 | ~~No typed bridge between producing and consuming jobs~~ | **Resolved (Phase 4 + 5b, 2026-05-03).** New `artifact` table (alembic 0005) with promoted hot columns + `data_json` long-tail. Per ratified rule 6: immutable; only `deleted_at` mutates. SDK ships `Artifact`/`ArtifactKind` Pydantic models. `TaskOutputProcessor._maybe_write_artifact` writes `particle_stack` rows for `PARTICLE_EXTRACTION` results and `class_averages` rows for `TWO_D_CLASSIFICATION` results, projecting the new id back into `output_data` for downstream addressability. 9 unit tests pin the writer + lineage shape. |
-| 27 | ~~No user-visible rollup over the picker → extractor → classifier pipeline~~ | **Resolved (Phase 8 + 8b, 2026-05-03).** New `pipeline_run` table (alembic 0006) with `image_job.parent_run_id` FK. Each algorithm step stays its own `ImageJob`; `PipelineRun` groups them. ORM `PipelineRun` class + 10 ORM tests. HTTP CRUD at `/pipelines/runs` (POST create / GET detail / GET list with bulk job-count / DELETE soft-delete) + 11 controller tests. Per rule 6 no PUT — runs are immutable; status flips authoritatively when child jobs transition. |
+| 27 | ~~No user-visible rollup over the picker → extractor → classifier pipeline~~ | **Resolved (Phase 8 + 8b, 2026-05-03; rollup wired A.1).** New `pipeline_run` table (alembic 0006) with `image_job.parent_run_id` FK. Each algorithm step stays its own `ImageJob`; `PipelineRun` groups them. ORM `PipelineRun` class + 10 ORM tests. HTTP CRUD at `/pipelines/runs` (POST create / GET detail / GET list with bulk job-count / DELETE soft-delete) + 11 controller tests. Per rule 6 no PUT — runs are immutable. A.1 closed the deferred rollup: `JobManager._rollup_parent_run` recomputes the parent's `status_id` + `started`/`ended` dates on every child `mark_running`/`complete`/`fail`/`cancel`, mapping the `ImageJob` 0-4 enum onto `PipelineRun`'s 1/2/4/5/6 enum. |
 | 28 | ~~Subject-typed inputs not validated at dispatch (silent hung jobs on wrong subject kind)~~ | **Resolved (PE1-A `db09ce4` + PE1-B `38c7f2f`, 2026-05-10/11; SDK 2.4.0).** Dispatch gate in `plugins/controller.py` rejects pre-publish: `_reject_if_subject_missing` (`:838`) for aggregate categories whose `CategoryContract.subject_kind != 'image'`; `_reject_if_subject_tag_mismatch` (`:876`) walks `CategoryContract.input_subjects` and verifies every UUID-typed field references an `Artifact` of the declared kind. Returns 4xx instead of publishing a doomed task. Field-level subject tags live on `CategoryContract.input_subjects` / `output_subjects` (e.g. `TWO_D_CLASSIFICATION.input_subjects = {'particle_stack_id': 'particle_stack', 'image_id': 'image'}`). |
 | 29 | ~~Plugin schemas lost on CoreService restart~~ | **Resolved (`31845f1`, 2026-05-13).** Announced schemas used to live only in the in-memory liveness registry; a CoreService restart cleared them and the next announce was indefinite (plugins announce once per container boot, not per CoreService boot). `record_announce` now mirrors `msg.input_schema` / `output_schema` into `Plugin.manifest_json`; `_live_schema_for_plugin` reads three tiers (live → DB row → category contract). See §3.4 *Schema flow*. |
 | 30 | Docker layer-cache traps stale SDK in plugin images | **Open.** `docker build` of `plugins/<id>/Dockerfile` uses build cache on `COPY wheels ./wheels`. When `scripts/rebuild-sdk-wheels.sh` produces a byte-identical wheel (no SDK source change), the layer cache reuses the prior `pip install` layer and ships an older SDK than the developer expects. Surfaced 2026-05-13 — the symptom was every plugin's input_schema flowing as None despite the SDK source clearly producing a schema. Manual workarounds: `docker image rm <plugin-image>` before reinstall, or modify any byte of the wheel content (e.g. touch a comment). Cleaner fix would hash the wheel into the image tag or pass `--no-cache` from `DockerInstaller`. |
@@ -965,9 +959,9 @@ subject axis, Artifact entity, and PipelineRun rollup.)
 - **`CoreService/services/job_service.py`** — the one live job-state
   writer today; the future `JobManager` is likely an expansion of this.
 - **`plugins/magellon_ctf_plugin/`** and
-  **`plugins/magellon_result_processor/`** — the external plugin
-  reference; any new plugin SDK must stay compatible with their wire
-  format.
+  **`plugins/magellon_fft_plugin/`** (the reference / blueprint) —
+  the external plugin reference; any new plugin SDK must stay
+  compatible with their wire format.
 - **`Docker/docker-compose.yml`** — deployed stack. RMQ + NATS both
   present; Temporal removed.
 
@@ -2222,17 +2216,17 @@ when a new queue, subject, or Socket.IO event is added, append it here.
 
 The live, production path. CoreService publishes `TaskMessage` bodies onto
 a per-plugin **task** queue; each plugin publishes `TaskResultMessage`
-bodies onto a per-plugin **result** queue that CoreService consumes
-(`result_processor` plugin).
+bodies onto a per-plugin **result** queue that CoreService consumes via
+its in-process `TaskOutputProcessor`.
 
 ### 1.1 Queues
 
 | Queue name (default) | Direction | Carries | Consumer |
 |----------------------|-----------|---------|----------|
 | `ctf_tasks_queue`         | CoreService → CTF plugin         | `TaskMessage[CtfInput]`              | `magellon_ctf_plugin` |
-| `ctf_out_tasks_queue`     | CTF plugin → CoreService          | `TaskResultMessage`                      | `magellon_result_processor` |
+| `ctf_out_tasks_queue`     | CTF plugin → CoreService          | `TaskResultMessage`                      | CoreService in-process `TaskOutputProcessor` |
 | `motioncor_tasks_queue`   | CoreService → MotionCor plugin    | `TaskMessage[MotionCorInput]`   | `magellon_motioncor_plugin` |
-| `motioncor_out_tasks_queue` | MotionCor plugin → CoreService  | `TaskResultMessage`                      | `magellon_result_processor` |
+| `motioncor_out_tasks_queue` | MotionCor plugin → CoreService  | `TaskResultMessage`                      | CoreService in-process `TaskOutputProcessor` |
 | `motioncor_test_inqueue`  | (dev) CoreService → MotionCor      | `TaskMessage`                            | test harness only |
 | `motioncor_test_outqueue` | (dev) MotionCor → CoreService      | `TaskResultMessage`                      | test harness only |
 
@@ -2326,7 +2320,7 @@ class TaskResultMessage(BaseModel):
 | Direction | Publisher | Consumer |
 |-----------|-----------|----------|
 | Task dispatch | `core/helper.py::publish_message_to_queue` via `TaskMessage.model_dump_json()` | plugin's `core/rabbitmq_consumer_engine.py` |
-| Task result | plugin's `core/result_publisher.py` | `magellon_result_processor/services/task_output_processor.py` |
+| Task result | plugin's `core/result_publisher.py` | CoreService `services/task_output_processor.py` (in-process) |
 
 ---
 
