@@ -29,6 +29,14 @@ export interface ParticleClass {
     icon?: React.ReactNode;
 }
 
+export interface PickDispatchResponse {
+    queued: boolean;
+    target_backend: string;
+    message: string;
+    job_id: string;
+    task_id: string;
+}
+
 export type Tool = 'add' | 'remove' | 'select' | 'move' | 'box' | 'auto' | 'brush' | 'pan';
 export type ViewMode = 'normal' | 'overlay' | 'heatmap' | 'comparison';
 
@@ -363,14 +371,14 @@ export function useParticleOperations({
     }: {
         targetBackend: string;
         ippName: string;
-    }) => {
+    }): Promise<PickDispatchResponse | null> => {
         if (!selectedImage?.name) {
             showSnackbar('No image selected for picking', 'warning');
-            return;
+            return null;
         }
         if (!selectedImage.oid || !sessionName) {
             showSnackbar('Image must be part of a session to use RMQ dispatch', 'warning');
-            return;
+            return null;
         }
 
         const API_URL = settings.ConfigData.SERVER_API_URL;
@@ -403,6 +411,7 @@ export function useParticleOperations({
                 const err = await res.json().catch(() => ({ detail: res.statusText }));
                 throw new Error(err.detail || `Server error ${res.status}`);
             }
+            const result = await res.json() as PickDispatchResponse;
 
             showSnackbar(`Task queued (${targetBackend}) — results will appear in the IPP dropdown`, 'info');
 
@@ -431,10 +440,12 @@ export function useParticleOperations({
                 }
             };
             setTimeout(poll, 5000);
+            return result;
 
         } catch (err: any) {
             setIsAutoPickingRunning(false);
             showSnackbar(`Dispatch failed: ${err.message}`, 'error');
+            return null;
         }
     };
 

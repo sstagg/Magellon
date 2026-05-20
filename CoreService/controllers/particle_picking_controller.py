@@ -397,6 +397,8 @@ class DispatchResponse(BaseModel):
     queued: bool
     target_backend: str
     message: str
+    job_id: str
+    task_id: str
 
 
 @particle_picking_router.post(
@@ -435,6 +437,22 @@ async def dispatch_particle_pick(
                 raise HTTPException(status_code=403, detail="Access denied to this image")
             resolved_path = _resolve_mrc_path(req.session_name, image.name)
 
+    task_id = uuid.uuid4()
+    job_envelope = job_manager.create_job(
+        plugin_id=req.target_backend,
+        name=f"{req.target_backend} pick {os.path.basename(resolved_path)}",
+        settings={
+            "image_path": resolved_path,
+            "target_backend": req.target_backend,
+            "ipp_name": req.ipp_name,
+            "engine_opts": req.engine_opts or {},
+        },
+        task_ids=[task_id],
+        image_ids=[image_id_val] if image_id_val else None,
+        user_id=str(user_id) if user_id else None,
+    )
+    job_id = UUID(job_envelope["job_id"])
+
     loop = asyncio.get_running_loop()
     ok = await loop.run_in_executor(
         None,
@@ -442,17 +460,22 @@ async def dispatch_particle_pick(
             resolved_path,
             image_id=image_id_val,
             session_name=req.session_name,
+            job_id=job_id,
+            task_id=task_id,
             target_backend=req.target_backend,
             ipp_name=req.ipp_name,
             engine_opts=req.engine_opts,
         ),
     )
     if not ok:
+        job_manager.fail_job(str(job_id), error="Failed to enqueue task")
         raise HTTPException(status_code=503, detail="Failed to enqueue task — RMQ unavailable")
     return DispatchResponse(
         queued=True,
         target_backend=req.target_backend,
         message=f"Task queued for {req.target_backend}",
+        job_id=str(job_id),
+        task_id=str(task_id),
     )
 
 
@@ -462,14 +485,98 @@ async def template_pick_input_schema(backend: Optional[str] = None):
     Falls back to TemplatePickerInput when no live backend is found
     or the backend has no announced schema."""
     if backend:
+        if _is_topaz_backend(backend):
+            return _topaz_pick_ui_schema()
         registry = get_liveness_registry()
         for entry in registry.list_live():
-            if (entry.category or "").replace("-", "_").lower() != "particle_picking":
+            if _normalize_pp_category(entry.category or "") not in {"particle_picking", "topaz_particle_picking"}:
                 continue
             bid = (entry.backend_id or entry.plugin_id or "").lower()
             if bid == backend.lower() and entry.input_schema:
                 return entry.input_schema
     return TemplatePickerInput.model_json_schema()
+
+
+def _normalize_pp_category(value: str) -> str:
+    return value.replace("-", "_").replace(" ", "_").lower()
+
+
+def _is_topaz_backend(backend: str) -> bool:
+    return backend.replace("_", "-").lower() in {
+        "topaz",
+        "topaz-particle-picking",
+        "topazparticlepicking",
+    }
+
+
+def _topaz_pick_ui_schema() -> Dict[str, Any]:
+    """Return a UI schema for Topaz engine options.
+
+    Topaz keeps these fields inside ``engine_opts`` on the bus contract,
+    but the React settings panel edits a flat parameter dict and wraps it
+    back into ``engine_opts`` when dispatching.
+    """
+    return {
+        "title": "Topaz Particle Picking",
+        "type": "object",
+        "additionalProperties": True,
+        "properties": {
+            "model": {
+                "type": "string",
+                "title": "Model",
+                "description": "Topaz detector architecture",
+                "default": "resnet16",
+                "enum": ["resnet16", "resnet8"],
+                "ui_widget": "select",
+                "ui_group": "Topaz",
+                "ui_order": 1,
+                "ui_tunable": True,
+            },
+            "threshold": {
+                "type": "number",
+                "title": "Score Threshold",
+                "description": "Topaz log-likelihood cutoff. Lower finds more particles.",
+                "default": -3.0,
+                "minimum": -8.0,
+                "maximum": 2.0,
+                "ui_widget": "slider",
+                "ui_group": "Topaz",
+                "ui_order": 2,
+                "ui_step": 0.25,
+                "ui_marks": [
+                    {"value": -6, "label": "Sensitive"},
+                    {"value": -3, "label": "Default"},
+                    {"value": 0, "label": "Strict"},
+                ],
+                "ui_tunable": True,
+            },
+            "radius": {
+                "type": "integer",
+                "title": "NMS Radius",
+                "description": "Particle exclusion radius in Topaz preprocessed-grid pixels.",
+                "default": 14,
+                "minimum": 4,
+                "maximum": 64,
+                "ui_widget": "number",
+                "ui_group": "Topaz",
+                "ui_order": 3,
+                "ui_step": 1,
+                "ui_tunable": True,
+            },
+            "scale": {
+                "type": "integer",
+                "title": "Scale",
+                "description": "DFT downsampling factor before inference.",
+                "default": 8,
+                "enum": [4, 8, 16],
+                "ui_widget": "select",
+                "ui_group": "Topaz",
+                "ui_order": 4,
+                "ui_tunable": True,
+            },
+        },
+        "required": [],
+    }
 
 
 @particle_picking_router.get("/schema/output", summary="Particle-picking output JSON schema")

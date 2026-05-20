@@ -35,7 +35,8 @@ import {
 import { SchemaForm, type BrowseFileRequest } from '../../../shared/ui/SchemaForm.tsx';
 import { ImagePickerDialog } from '../../plugin-runner/ui/ImagePickerDialog.tsx';
 import { settings as appSettings } from '../../../shared/config/settings.ts';
-import { Point, TEMPLATE_PICKER_PATH } from '../lib/useParticleOperations.ts';
+import { PickDispatchResponse, Point, TEMPLATE_PICKER_PATH } from '../lib/useParticleOperations.ts';
+import { useJobStepEvents } from '../../../shared/lib/useJobStepEvents.ts';
 
 interface BackendInfo {
     backend_id: string;
@@ -60,7 +61,7 @@ export interface ParticleSettingsDrawerProps {
     onPickerParamsChange: (params: Record<string, any>) => void;
     onRun: () => void;
     /** Dispatch a picking task via RMQ for the given backend and IPP name. */
-    onDispatch: (targetBackend: string, ippName: string) => void;
+    onDispatch: (targetBackend: string, ippName: string) => Promise<PickDispatchResponse | null>;
     /** Opens the batch-run modal so the user can pick the cohort of images. */
     onRunBatch?: () => void;
     isRunning: boolean;
@@ -149,6 +150,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
     const [previewCount, setPreviewCount] = useState(0);
     const [scoreMapPng, setScoreMapPng] = useState<string | null>(null);
     const [retuning, setRetuning] = useState(false);
+    const [dispatchJobId, setDispatchJobId] = useState<string | null>(null);
 
     // Backend selection
     const [backends, setBackends] = useState<BackendInfo[]>([]);
@@ -157,6 +159,18 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
 
     const activeBackend = backends.find(b => b.backend_id === selectedBackend);
     const canPreview = activeBackend?.has_preview ?? (selectedBackend === 'template-picker');
+    const isTopazBackend = selectedBackend.replace('_', '-').toLowerCase().includes('topaz');
+    const { events: dispatchEvents, connected: socketConnected } = useJobStepEvents(dispatchJobId);
+    const latestDispatchEvent = dispatchEvents[dispatchEvents.length - 1];
+    const latestProgressEvent = [...dispatchEvents].reverse().find((e) => e.type === 'magellon.step.progress');
+    const dispatchPercent = (latestProgressEvent?.data as any)?.percent;
+    const dispatchMessage =
+        (latestDispatchEvent?.data as any)?.message ||
+        (latestProgressEvent?.data as any)?.message ||
+        (latestDispatchEvent?.data as any)?.error ||
+        'Task queued';
+    const dispatchCompleted = dispatchEvents.some((e) => e.type === 'magellon.step.completed');
+    const dispatchFailed = dispatchEvents.some((e) => e.type === 'magellon.step.failed');
 
     // GPFS picker state — driven by the SchemaForm's onBrowseFile
     // callback. Same pattern the plugin test panel uses; templates
@@ -211,7 +225,18 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
         const url = `${API_URL}${TEMPLATE_PICKER_PATH}/schema/input?backend=${encodeURIComponent(selectedBackend)}`;
         fetch(url)
             .then((res) => { if (!res.ok) throw new Error(`${res.status}`); return res.json(); })
-            .then((data) => { setSchema(data); setSchemaError(null); })
+            .then((data) => {
+                setSchema(data);
+                setSchemaError(null);
+                if (selectedBackend.replace('_', '-').toLowerCase().includes('topaz')) {
+                    onPickerParamsChange({
+                        model: 'resnet16',
+                        threshold: -3.0,
+                        radius: 14,
+                        scale: 8,
+                    });
+                }
+            })
             .catch((err) => setSchemaError(`Could not load: ${err.message}`))
             .finally(() => setSchemaLoading(false));
     }, [open, selectedBackend]);
@@ -300,7 +325,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
     }, [previewId, onPreviewParticles, onPickerParamsChange]);
 
     // --- Run (RMQ dispatch) ---
-    const handleRun = () => {
+    const handleRun = async () => {
         if (!isValid) { setShowErrors(true); return; }
         setShowErrors(false);
         if (previewId) {
@@ -309,7 +334,12 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
         }
         const name = ippName || `Auto-pick ${new Date().toISOString().slice(0, 16)}`;
         setDrawerState('dispatched');
-        onDispatch(selectedBackend, name);
+        const result = await onDispatch(selectedBackend, name);
+        if (result?.job_id) {
+            setDispatchJobId(result.job_id);
+        } else {
+            setDrawerState('configure');
+        }
     };
 
     // --- Accept / Discard ---
@@ -406,6 +436,13 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                 {/* CONFIGURE: Preview + Run + Run Batch */}
                 {drawerState === 'configure' && (
                     <>
+                        {!canPreview && (
+                            <Alert severity="info" sx={{ mb: 0.75, py: 0.25, '& .MuiAlert-message': { fontSize: '0.7rem' } }}>
+                                {isTopazBackend
+                                    ? 'Topaz currently runs as a queued job and saves an IPP record when it finishes. No-save preview is not available for this backend yet.'
+                                    : 'This backend does not advertise no-save preview; running will save an IPP record.'}
+                            </Alert>
+                        )}
                         {canPreview && (
                             <Button
                                 variant="outlined" size="small" fullWidth
@@ -421,7 +458,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                                 startIcon={<DispatchIcon sx={{ fontSize: 14 }} />} onClick={handleRun}
                                 sx={{ textTransform: 'none', fontSize: '0.75rem', py: 0.5 }}
                             >
-                                Run on image
+                                {canPreview ? 'Save current image' : 'Run and save image'}
                             </Button>
                             {onRunBatch && (
                                 <Button
@@ -510,7 +547,12 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                 {/* DISPATCHED — task sent to RMQ, polling for result */}
                 {drawerState === 'dispatched' && (
                     <Box sx={{ mt: 0.5 }}>
-                        <LinearProgress variant="indeterminate" sx={{ height: 4, borderRadius: 1 }} />
+                        <LinearProgress
+                            variant={typeof dispatchPercent === 'number' ? 'determinate' : 'indeterminate'}
+                            value={typeof dispatchPercent === 'number' ? dispatchPercent : undefined}
+                            color={dispatchFailed ? 'error' : dispatchCompleted ? 'success' : 'primary'}
+                            sx={{ height: 4, borderRadius: 1 }}
+                        />
                         <Typography
                             variant="caption"
                             sx={{
@@ -519,8 +561,19 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                                 display: 'block',
                                 fontSize: '0.7rem'
                             }}>
-                            Task queued — check IPP dropdown for result
+                            {dispatchFailed
+                                ? `Failed: ${dispatchMessage}`
+                                : dispatchCompleted
+                                    ? 'Plugin finished - loading saved picks...'
+                                    : dispatchMessage}
+                            {typeof dispatchPercent === 'number' ? ` (${Math.round(dispatchPercent)}%)` : ''}
                         </Typography>
+                        <Chip
+                            size="small"
+                            variant="outlined"
+                            label={socketConnected ? 'socket live' : 'socket connecting'}
+                            sx={{ mt: 0.5, height: 18, fontSize: '0.62rem' }}
+                        />
                     </Box>
                 )}
 
@@ -613,7 +666,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                 {/* CONFIGURE: full form */}
                 {drawerState === 'configure' && schema && (
                     <SchemaForm schema={schema} values={pickerParams} onChange={onPickerParamsChange}
-                        defaultExpanded={['Templates', 'Auto-picking Settings']} collapseAdvanced
+                        defaultExpanded={['Templates', 'Auto-picking Settings', 'Topaz']} collapseAdvanced
                         onBrowseFile={handleBrowseFile} />
                 )}
 
@@ -647,7 +700,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                             Tune parameters:
                         </Typography>
                         <SchemaForm schema={schema} values={pickerParams} onChange={handleRetune}
-                            tunableOnly={true} defaultExpanded={['Auto-picking Settings', 'Advanced']}
+                            tunableOnly={true} defaultExpanded={['Auto-picking Settings', 'Advanced', 'Topaz']}
                             onBrowseFile={handleBrowseFile} />
                     </>
                 )}
@@ -670,18 +723,34 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
 
                 {/* DISPATCHED — task queued via RMQ */}
                 {drawerState === 'dispatched' && (
-                    <Box sx={{ textAlign: 'center', py: 3 }}>
-                        <CircularProgress size={32} />
+                    <Box sx={{ py: 3 }}>
+                        <LinearProgress
+                            variant={typeof dispatchPercent === 'number' ? 'determinate' : 'indeterminate'}
+                            value={typeof dispatchPercent === 'number' ? dispatchPercent : undefined}
+                            color={dispatchFailed ? 'error' : dispatchCompleted ? 'success' : 'primary'}
+                            sx={{ height: 6, borderRadius: 1 }}
+                        />
                         <Typography
                             variant="caption"
                             sx={{
                                 color: "text.secondary",
-                                mt: 1.5,
+                                mt: 1,
                                 display: 'block'
                             }}>
-                            Task queued for <strong>{selectedBackend}</strong>.<br />
-                            Results will appear in the IPP dropdown when done.
+                            <strong>{selectedBackend}</strong><br />
+                            {dispatchFailed
+                                ? `Failed: ${dispatchMessage}`
+                                : dispatchCompleted
+                                    ? 'Plugin finished. Waiting for the saved IPP record to appear.'
+                                    : dispatchMessage}
+                            {typeof dispatchPercent === 'number' ? ` (${Math.round(dispatchPercent)}%)` : ''}
                         </Typography>
+                        <Chip
+                            size="small"
+                            variant="outlined"
+                            label={socketConnected ? 'socket live' : 'socket connecting'}
+                            sx={{ mt: 1, height: 20, fontSize: '0.68rem' }}
+                        />
                     </Box>
                 )}
 
