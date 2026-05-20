@@ -1,9 +1,10 @@
 name: lint
 
-# MB6.3: enforce the "no pika outside the binder" invariant declared in
-# ARCHITECTURE_PRINCIPLES.md §3. The ruff banned-api rule is configured
-# in magellon-sdk/pyproject.toml and CoreService/pyproject.toml; this
-# workflow is what makes it blocking on every push and PR.
+# Enforces the layering invariants from ARCHITECTURE_PRINCIPLES.md §3:
+#  - MB6.3: "no pika outside the binder" — ruff banned-api rule in
+#    magellon-sdk/pyproject.toml + CoreService/pyproject.toml.
+#  - C.1: "single Socket.IO producer" — grep gate below.
+# This workflow makes both blocking on every push and PR.
 
 on:
   push:
@@ -39,3 +40,28 @@ jobs:
       - name: ruff check CoreService
         working-directory: CoreService
         run: ruff check . --exclude venv --exclude __pycache__
+
+  socketio-single-producer:
+    # Phase C.1: enforce the "single Socket.IO producer" invariant from
+    # ARCHITECTURE_PRINCIPLES.md §3. core/socketio_server.py owns the
+    # server object; every other module emits UI events through its
+    # emit_* helpers. sio.emit is a method call, not an import, so a
+    # ruff banned-api rule can't catch it — a grep gate does.
+    name: socketio / single producer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: No sio.emit outside core/socketio_server.py
+        working-directory: CoreService
+        run: |
+          hits=$(grep -rn --include='*.py' \
+            --exclude-dir=venv --exclude-dir=.venv --exclude-dir=__pycache__ \
+            'sio\.emit' . \
+            | grep -v '^\./core/socketio_server\.py:' \
+            | grep -v '/tests/' || true)
+          if [ -n "$hits" ]; then
+            echo "::error::Direct sio.emit outside core/socketio_server.py — route UI events through its emit_* helpers (ARCHITECTURE_PRINCIPLES.md §3, single Socket.IO producer)."
+            echo "$hits"
+            exit 1
+          fi
+          echo "OK — core/socketio_server.py is the sole Socket.IO producer."
