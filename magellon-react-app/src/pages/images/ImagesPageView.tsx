@@ -12,7 +12,7 @@ import { useAtlasData } from '../../features/image-viewer/lib/useAtlasData.ts';
 import { ImageViewerErrorBoundary } from '../../features/image-viewer/ui/ImageViewerErrorBoundary.tsx';
 import { ImageNavigationProvider } from '../../features/image-viewer/lib/ImageNavigationContext.tsx';
 import { useSidePanelStore } from '../../app/layouts/PanelLayout/useBottomPanelStore.ts';
-import '../../panel/pages/styles/resizablePanels.module.css';
+import '../../shared/ui/resizablePanels.module.css';
 
 const CustomResizeHandle = () => {
     const theme = useTheme();
