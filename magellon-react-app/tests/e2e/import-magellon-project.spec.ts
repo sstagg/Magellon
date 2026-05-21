@@ -53,6 +53,24 @@ test("imports the 24dec03a Magellon project with live progress feedback", async 
   await expect(page.getByRole("heading", { name: "Magellon Data Importer" })).toBeVisible({ timeout: 30_000 });
   await page.screenshot({ path: path.join(SHOTS, "01-import-page.png"), fullPage: true });
 
+  // ── Dismiss any dialog left open from a previous run ─────────────────────
+  // The component auto-resumes a running/completed import on mount; if a
+  // background job from a prior run is still in the DB this dialog blocks the
+  // file browser.  Wait for it to reach a terminal state (close button enabled)
+  // then dismiss it before proceeding.
+  {
+    const staleDialog = page.getByRole("dialog", { name: /Magellon import|Importing/i });
+    if (await staleDialog.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await page.screenshot({ path: path.join(SHOTS, "01b-stale-dialog.png") });
+      const closeBtn = staleDialog.getByRole("button", { name: "Close" });
+      // 30 s: completed/failed jobs show close immediately; if still running
+      // after 30 s there's a live import in progress — fail fast.
+      await expect(closeBtn).toBeEnabled({ timeout: 30_000 });
+      await closeBtn.click();
+      await expect(staleDialog).not.toBeVisible({ timeout: 10_000 });
+    }
+  }
+
   // ── Magellon tab + file browser ───────────────────────────────────────────
   await page.getByRole("tab", { name: "Magellon" }).click();
   await expect(page.getByText("Current path: /gpfs")).toBeVisible({ timeout: 30_000 });

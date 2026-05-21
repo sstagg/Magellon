@@ -235,13 +235,19 @@ export const MagellonImportComponent = () => {
 
     // On mount, resume monitoring if an import is already running.
     useEffect(() => {
-        apiClient.get<{ job_id: string }>("/export/jobs/active")
+        apiClient.get<{ job_id: string; name?: string }>("/export/jobs/active")
             .then(({ data }) => {
+                // Guard: only resume actual import jobs — the endpoint may return
+                // non-import jobs (HoleDetection, etc.) that share the same status
+                // filter on the backend.  Import jobs are always named "Import: …".
+                if (!data.name?.startsWith("Import:")) return;
                 setJobId(data.job_id);
-                setImportStatus("running");
+                // Let fetchSummary resolve the real status (running / success / error)
+                // rather than always forcing "running" before the first poll.
+                return fetchSummary(data.job_id);
             })
             .catch(() => {});
-    }, []);
+    }, [fetchSummary]);
 
     // Socket.IO: join the job room and listen for real-time progress events.
     useEffect(() => {

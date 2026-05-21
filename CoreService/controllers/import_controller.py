@@ -244,7 +244,7 @@ def get_active_job(
     """
     job = (
         db_session.query(ImageJob)
-        .filter(ImageJob.status_id.in_([0, 1]))
+        .filter(ImageJob.status_id.in_([0, 1]), ImageJob.type_id == 1)
         .order_by(ImageJob.created_date.desc())
         .first()
     )
