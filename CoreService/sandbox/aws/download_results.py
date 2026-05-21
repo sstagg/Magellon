@@ -14,7 +14,7 @@ os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
 
 BUCKET      = 'magellon-gpu-eval-work'
 SESSION     = '24dec03a'
-LAUNCH_UTC  = datetime.datetime(2026, 5, 21, 8, 0, tzinfo=datetime.timezone.utc)
+LAUNCH_UTC  = datetime.datetime(2026, 5, 21, 0, 0, tzinfo=datetime.timezone.utc)
 LOCAL_FAO   = r'C:\magellon\gpfs\home\24dec03a\fao'
 
 s3 = boto3.client('s3', region_name='us-east-1')

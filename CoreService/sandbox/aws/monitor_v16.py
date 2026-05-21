@@ -6,7 +6,7 @@ os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
 BUCKET     = 'magellon-gpu-eval-work'
 SESSION    = '24dec03a'
 IID        = 'i-00c48b61afd5da7a9'
-LAUNCH_UTC = datetime.datetime(2026, 5, 21, 8, 0, tzinfo=datetime.timezone.utc)
+LAUNCH_UTC = datetime.datetime(2026, 5, 21, 0, 0, tzinfo=datetime.timezone.utc)
 
 s3  = boto3.client('s3',  region_name='us-east-1')
 ec2 = boto3.client('ec2', region_name='us-east-1')
@@ -15,18 +15,13 @@ def s3_objs(prefix):
     r = s3.list_objects_v2(Bucket=BUCKET, Prefix=prefix)
     return r.get('Contents', [])
 
-def instance_state():
-    r = ec2.describe_instances(InstanceIds=[IID])
-    return r['Reservations'][0]['Instances'][0]['State']['Name']
-
-print('Polling every 90s for v16 STARTED/ALL_DONE (up to 100 min)...', flush=True)
+print('Polling every 60s for v16 STARTED/ALL_DONE (up to 60 min)...', flush=True)
 
 last_results = 0
-for tick in range(70):
-    time.sleep(90)
+for tick in range(60):
+    time.sleep(60)
     elapsed = int((datetime.datetime.now(datetime.timezone.utc) - LAUNCH_UTC).total_seconds() / 60)
     try:
-        state        = instance_state()
         ok_results   = [o for o in s3_objs(f'{SESSION}/results/')
                         if o['LastModified'] > LAUNCH_UTC]
         ok_statuses  = [o for o in s3_objs(f'{SESSION}/status/')
@@ -34,9 +29,8 @@ for tick in range(70):
         all_done_obj = [o for o in s3_objs(f'{SESSION}/status/')
                         if 'ALL_DONE' in o['Key'] and o['LastModified'] > LAUNCH_UTC]
 
-        # Estimate MB from result sizes
         total_mb = sum(o['Size'] for o in ok_results) // (1024 * 1024)
-        print(f'[~{elapsed}m] state={state} | status={len(ok_statuses)}/30 | results={len(ok_results)}/30 ({total_mb} MB)', flush=True)
+        print(f'[~{elapsed}m] status={len(ok_statuses)}/30 | results={len(ok_results)}/30 ({total_mb} MB)', flush=True)
 
         if len(ok_results) > last_results:
             last_results = len(ok_results)
@@ -49,10 +43,6 @@ for tick in range(70):
             print(f'  *** ALL_DONE! results={len(ok_results)}/30 ({total_mb} MB total)', flush=True)
             print('  Run: python sandbox/aws/download_results.py', flush=True)
             sys.exit(0)
-
-        if state in ('terminated', 'stopped') and elapsed > 8:
-            print(f'Instance stopped after {elapsed}m. results={len(ok_results)}', flush=True)
-            sys.exit(1)
 
     except Exception as e:
         print(f'[~{elapsed}m] error: {e}', flush=True)
