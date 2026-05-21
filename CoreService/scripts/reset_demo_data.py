@@ -22,6 +22,19 @@ import uuid
 import yaml
 from sqlalchemy import create_engine, text
 
+try:
+    import pika  # optional; skip queue purge if not installed
+    _HAS_PIKA = True
+except ImportError:
+    _HAS_PIKA = False
+
+PURGE_QUEUES = [
+    "ctf_tasks_queue", "ctf_out_tasks_queue",
+    "motioncor_tasks_queue", "motioncor_out_tasks_queue",
+    "hole_detection_tasks_queue", "hole_detection_out_tasks_queue",
+    "square_detection_tasks_queue", "square_detection_out_tasks_queue",
+]
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_CONFIG = os.path.join(ROOT, "configs", "app_settings_dev.yaml")
 
@@ -97,6 +110,35 @@ def clear_session_dirs(home_dir, session_names):
             print(f"  not found {target}")
 
 
+def purge_queues(rmq_host, rmq_port, rmq_user, rmq_password):
+    """Purge stale task messages so plugins don't replay them after a reset."""
+    if not _HAS_PIKA:
+        print("\nSkipping queue purge (pika not installed)")
+        return
+    print("\nPurging RabbitMQ queues:")
+    try:
+        conn = pika.BlockingConnection(
+            pika.ConnectionParameters(
+                host=rmq_host,
+                port=rmq_port,
+                credentials=pika.PlainCredentials(rmq_user, rmq_password),
+                connection_attempts=1,
+                socket_timeout=5,
+            )
+        )
+        ch = conn.channel()
+        for q in PURGE_QUEUES:
+            try:
+                result = ch.queue_purge(q)
+                n = result.method.message_count
+                print(f"  purged {q}: {n} messages")
+            except Exception as qe:
+                print(f"  skip {q}: {qe}")
+        conn.close()
+    except Exception as e:
+        print(f"  could not connect to RabbitMQ ({rmq_host}:{rmq_port}): {e} — skipping")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--yes", action="store_true", help="execute the truncate (required)")
@@ -136,6 +178,14 @@ def main():
             conn.execute(text(f"TRUNCATE TABLE {t}"))
             print(f"  truncated {t}")
         conn.execute(text("SET FOREIGN_KEY_CHECKS = 1"))
+
+    rmq = config.get("rabbitmq_settings", {})
+    purge_queues(
+        rmq_host=rmq.get("HOST_NAME", "localhost"),
+        rmq_port=rmq.get("PORT", 5672),
+        rmq_user=rmq.get("USER_NAME", "guest"),
+        rmq_password=rmq.get("PASSWORD", "guest"),
+    )
 
     clear_session_dirs(configured_home_dir(config), args.clear_session_dir)
 
