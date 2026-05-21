@@ -169,9 +169,10 @@ class MagellonImporter(BaseImporter):
             )
             db_session.commit()
 
-            self.create_magellon_atlas(db_session)
-            # Clean up temporary directory
-            # shutil.rmtree(temp_dir)
+            try:
+                self.create_magellon_atlas(db_session)
+            except Exception as atlas_exc:
+                logger.warning("Atlas creation skipped (non-fatal): %s", atlas_exc)
 
             return {
                 'status': 'success',
@@ -184,7 +185,7 @@ class MagellonImporter(BaseImporter):
             return {
                 'status': 'failure',
                 'message': 'Import encountered problem.',
-                'session_name': self.db_msession.name,
+                'session_name': getattr(self, 'db_msession', None) and self.db_msession.name or '',
                 'error': str(e)
             }
 

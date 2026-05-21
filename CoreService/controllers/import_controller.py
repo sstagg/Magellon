@@ -77,6 +77,8 @@ def _run_magellon_import(
         except Exception:
             pass
 
+    from services.job_manager import job_manager as _jm
+
     db = session_local()
     try:
         _notify("started")
@@ -89,18 +91,33 @@ def _run_magellon_import(
                 "Magellon import job %s (user %s) failed: %s",
                 job_id, user_id, result.get("message"),
             )
+            try:
+                _jm.fail_job(str(job_id), error=result.get("message") or "Import failed")
+            except Exception:
+                logger.exception("Could not mark import job %s as failed in DB", job_id)
             _notify("failed", message=result.get("message"))
         else:
             logger.info(
                 "Magellon import job %s (user %s) completed: session=%s",
                 job_id, user_id, result.get("session_name"),
             )
+            try:
+                _jm.complete_job(
+                    str(job_id),
+                    result={"session_name": result.get("session_name")},
+                )
+            except Exception:
+                logger.exception("Could not mark import job %s as completed in DB", job_id)
             _notify("dispatched", session_name=result.get("session_name"))
     except Exception:  # noqa: BLE001 — background task must not propagate
         logger.exception(
             "Magellon import job %s (user %s) raised unhandled exception",
             job_id, user_id,
         )
+        try:
+            _jm.fail_job(str(job_id), error="Unhandled exception during import")
+        except Exception:
+            logger.exception("Could not mark import job %s as failed after exception", job_id)
         _notify("failed", message="Unhandled exception during import")
     finally:
         try:
