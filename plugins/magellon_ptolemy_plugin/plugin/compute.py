@@ -135,12 +135,12 @@ def _dets_sane(dets: list[dict], img_h: int, img_w: int) -> bool:
     """Return True if the top detections look like individual holes.
 
     A result is considered insane when any of the top-5 detections covers more
-    than 25 % of the image area — that means the UNet found large blobs instead
+    than 5 % of the image area — that means the UNet found large blobs instead
     of individual holes (scale mismatch).
     """
     if not dets:
         return False
-    max_area = 0.25 * img_h * img_w
+    max_area = 0.05 * img_h * img_w
     return all(d["area"] < max_area for d in dets[:5])
 
 
@@ -159,8 +159,8 @@ def _offset_dets(
     for d in dets:
         verts = [[v[0] / scale + col_offset, v[1] / scale + row_offset]
                  for v in d["vertices"]]
-        center = [d["center"][0] / scale + col_offset,
-                  d["center"][1] / scale + row_offset]
+        center = [int(round(d["center"][0] / scale + col_offset)),
+                  int(round(d["center"][1] / scale + row_offset))]
         result.append({
             "vertices": verts,
             "center":   center,
