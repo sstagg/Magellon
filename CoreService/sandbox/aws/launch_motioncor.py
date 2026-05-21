@@ -202,7 +202,7 @@ script_lines = [
     '',
     '  # Run MotionCor2 inside Docker',
     '  # Flat output: /scratch/results/${STEM_BASE}  (no per-frame subdir)',
-    '  # -FmDose / -PixSize / -kV required for _DW.mrc dose-weighted output',
+    '  # -kV 300 -PixSize 0.395 -FmDose 0.803 (60.26 e/A2 / 75 frames) -> _DW.mrc',
     '  # -LogDir points to the results dir so .log files land on the mounted volume',
     '  docker run --rm --gpus all --entrypoint /bin/bash -v ${WORKDIR}:/scratch ${IMAGE} -c "',
     '    /app/${BINARY} \\',
@@ -210,7 +210,7 @@ script_lines = [
     '      -OutMrc /scratch/results/${STEM_BASE}.mrc \\',
     '      -Gain /scratch/gains/gain.tif \\',
     '      -Patch 5 5 -Iter 10 -Tol 0.5 -Gpu 0 -FtBin 2 \\',
-    '      -kV 300 -PixSize 1.0 -FmDose 1.0 \\',
+    '      -kV 300 -PixSize 0.395 -FmDose 0.803 \\',
     '      -LogDir /scratch/results/',
     '  " && STATUS=OK || STATUS=FAILED',
     '  echo "  MotionCor2 ${STATUS}"',
@@ -347,7 +347,7 @@ except Exception as e:
     print(f'[5] Terminate v11: {e}', flush=True)
 
 # ── 7. Launch ────────────────────────────────────────────────────────────────
-print('[6] Launching g4dn.2xlarge v16 (dose params: -kV 300 -PixSize 1.0 -FmDose 1.0 -> _DW.mrc + logs)...', flush=True)
+print('[6] Launching g4dn.2xlarge v16 (dose params: -kV 300 -PixSize 0.395 -FmDose 0.803 -> _DW.mrc + logs)...', flush=True)
 kwargs = dict(
     ImageId          = AMI,
     InstanceType     = 'g4dn.2xlarge',
