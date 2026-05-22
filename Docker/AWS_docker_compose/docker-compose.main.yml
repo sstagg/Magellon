@@ -1,0 +1,236 @@
+# Main CPU stack – runs on the main EC2 instance.
+# Excludes magellon_motioncor_plugin (that runs on the GPU instance).
+#
+# Key changes vs the local docker-compose.yml:
+#   - RabbitMQ, NATS, Dragonfly bind to 0.0.0.0 (not 127.0.0.1) so the
+#     GPU instance can reach them over the private VPC network.
+#     These ports are protected by the security group (GPU SG → Main SG only).
+#   - Frontend binds to 0.0.0.0 so the ALB health checks can reach it.
+#   - MySQL/data ports stay on 127.0.0.1 (never exposed to VPC).
+#   - Volumes point to EFS mount paths (/mnt/efs/...).
+
+services:
+
+  mysql:
+    image: mysql:8.2.0
+    container_name: magellon-mysql_container
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - ${MAGELLON_ROOT_DIR}/services/mysql/data:/var/lib/mysql:rw
+      - ${MAGELLON_ROOT_DIR}/services/mysql/conf:/etc/mysql/conf
+      - ${MAGELLON_ROOT_DIR}/services/mysql/init/magellon01db.sql:/docker-entrypoint-initdb.d/magellon01db.sql
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --lower-case-table-names=1
+    restart: always
+    user: "999:999"
+    ports:
+      - "127.0.0.1:${MYSQL_PORT}:3306"   # DB stays localhost-only
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.7
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${AWS_REGION}
+        awslogs-group: /magellon/prod/mysql
+        awslogs-stream: mysql
+
+  dragonfly:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly
+    container_name: magellon-dragonfly-container
+    restart: unless-stopped
+    volumes:
+      - dragonfly-data:/data
+    ports:
+      - "${DRAGONFLY_PORT:-6379}:6379"    # exposed to VPC for GPU instance
+    environment:
+      - DRAGONFLY_REQUIREPASS=${DRAGONFLY_PASSWORD}
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.10
+    ulimits:
+      memlock: -1
+    command: --logtostdout=true
+    mem_limit: 2G
+    cpus: 1.0
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${AWS_REGION}
+        awslogs-group: /magellon/prod/dragonfly
+        awslogs-stream: dragonfly
+
+  nats:
+    image: nats:latest
+    command: -js
+    container_name: magellon-nats-container
+    ports:
+      - "4222:4222"   # exposed to VPC for GPU instance
+      - "127.0.0.1:8222:8222"  # monitoring stays local
+    volumes:
+      - nats-data:/data
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.13
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:management-alpine
+    hostname: my-rabbit
+    restart: unless-stopped
+    container_name: magellon-rabbitmq-container
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    ports:
+      - "${RABBITMQ_PORT}:5672"             # exposed to VPC for GPU instance
+      - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT}:15672"  # management stays local
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.8
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${AWS_REGION}
+        awslogs-group: /magellon/prod/rabbitmq
+        awslogs-stream: rabbitmq
+
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    container_name: magellon-prometheus-container
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ${MAGELLON_ROOT_DIR}/services/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.11
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    container_name: magellon-grafana-container
+    depends_on:
+      - prometheus
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - grafana_storage:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER_NAME}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_USER_PASS}
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.12
+
+  backend:
+    build:
+      context: ../..
+      dockerfile: CoreService/Dockerfile
+    image: magellon-core-image
+    container_name: magellon-core-container
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${MAGELLON_BACKEND_PORT}:80"
+    volumes:
+      - ${MAGELLON_HOME_PATH}:/magellon
+      - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_JOBS_PATH}:/jobs
+    environment:
+      - APP_ENV=production
+      - RUN_ENV=docker
+      - GPFS_PATH=${MAGELLON_GPFS_PATH}
+      - HOME_PATH=${MAGELLON_HOME_PATH}
+      - JOBS_PATH=${MAGELLON_JOBS_PATH}
+      - RABBITMQ_HOST=rabbitmq
+      - DRAGONFLY_HOST=dragonfly
+      - DRAGONFLY_PORT=6379
+      - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
+      - MAGELLON_RMQ_STEP_EVENTS_FORWARDER=1
+      - MAGELLON_STEP_EVENTS_FORWARDER=1
+      - NATS_URL=nats://nats:4222
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.15
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${AWS_REGION}
+        awslogs-group: /magellon/prod/backend
+        awslogs-stream: backend
+
+  web:
+    build:
+      context: ../magellon-react-app
+      dockerfile: Dockerfile
+      args:
+        API_URL: https://${DOMAIN_NAME}
+    image: magellon-react-app-image
+    container_name: magellon-react-app-container
+    restart: unless-stopped
+    ports:
+      - "${MAGELLON_FRONTEND_PORT}:80"   # bind to all interfaces – ALB reaches this
+    environment:
+      - BACKEND_HOST=backend
+      - API_URL=https://${DOMAIN_NAME}
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.16
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${AWS_REGION}
+        awslogs-group: /magellon/prod/web
+        awslogs-stream: web
+
+  magellon_ctf_plugin:
+    build:
+      context: ../plugins/magellon_ctf_plugin
+      dockerfile: Dockerfile
+    image: magellon_ctf_plugin_image
+    container_name: magellon_ctf_plugin_container
+    environment:
+      - APP_ENV=production
+      - RUN_ENV=docker
+      - GPFS_ROOT=${MAGELLON_GPFS_PATH}
+      - JOBS_PATH=${MAGELLON_JOBS_PATH}
+      - DRAGONFLY_HOST=dragonfly
+      - DRAGONFLY_PORT=6379
+      - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
+    volumes:
+      - ${MAGELLON_HOME_PATH}:/magellon
+      - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_JOBS_PATH}:/jobs
+    ports:
+      - "127.0.0.1:${MAGELLON_CTF_PLUGIN_PORT}:80"
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.21
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${AWS_REGION}
+        awslogs-group: /magellon/prod/ctf-plugin
+        awslogs-stream: ctf-plugin
+
+volumes:
+  rabbitmq-data: {}
+  nats-data: {}
+  grafana_storage: {}
+  dragonfly-data: {}
+
+networks:
+  magellon-network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.16.238.0/24

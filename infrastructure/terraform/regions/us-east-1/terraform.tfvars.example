@@ -1,0 +1,38 @@
+# Copy this file to terraform.tfvars and fill in values. NEVER commit terraform.tfvars to git.
+#
+# ── Domain setup ──────────────────────────────────────────────────────────────
+# Option A (start here): leave domain_name empty.
+#   The app will be available at the ALB's AWS DNS name over HTTP.
+#   Run `terraform output app_url` after apply to get the URL.
+#
+# Option B (add later): set domain_name + route53_zone_id, then re-run
+#   terraform apply.  Terraform will create the ACM cert, validate it via
+#   Route 53, and switch the listener to HTTPS — no downtime.
+#
+domain_name     = ""      # e.g. "magellon.org" — leave empty to skip HTTPS for now
+route53_zone_id = ""      # e.g. "Z0123456789ABCDEFGHIJ" — from global/ outputs
+
+environment = "prod"
+alert_email = ""          # e.g. "ops@magellon.org"
+key_pair_name = ""        # optional — SSM Session Manager preferred over SSH
+
+# ── Instance sizing ───────────────────────────────────────────────────────────
+main_instance_type  = "t3.xlarge"    # 4 vCPU, 16 GB
+gpu_instance_type   = "g4dn.xlarge"  # 1× NVIDIA T4
+main_volume_size    = 100
+gpu_volume_size     = 80
+gpu_spot_max_price  = "0.20"         # on-demand ~$0.526; check spot history first
+
+cuda_image       = "nvidia/cuda:12.1.0-devel-ubuntu22.04"
+motioncor_binary = "MotionCor2_1.6.4_Cuda121_Mar312023"
+
+# ── Secrets — use strong unique values, store in a password manager ───────────
+mysql_root_password = "CHANGE_ME_strong_password_1"
+mysql_database      = "magellon01"
+mysql_user          = "magellon_user"
+mysql_password      = "CHANGE_ME_strong_password_2"
+rabbitmq_user       = "rabbit"
+rabbitmq_password   = "CHANGE_ME_strong_password_3"
+dragonfly_password  = "CHANGE_ME_strong_password_4"
+grafana_user        = "admin"
+grafana_password    = "CHANGE_ME_strong_password_5"

@@ -1,0 +1,7 @@
+domain_name = "magellon.org"
+
+# Leave empty on first apply. Fill in after region deployments complete:
+# primary_alb_dns      = "magellon-prod-use1-alb-XXXXX.us-east-1.elb.amazonaws.com"
+# primary_alb_zone_id  = "Z35SXDOTRQ7X7K"   # us-east-1 ALB hosted zone ID
+# secondary_alb_dns    = "magellon-prod-usw2-alb-XXXXX.us-west-2.elb.amazonaws.com"
+# secondary_alb_zone_id = "Z1H1FL5HABSF5"   # us-west-2 ALB hosted zone ID
