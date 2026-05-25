@@ -118,12 +118,8 @@ class ImageDtoInDB(ImageDtoInDBBase):
     GCRecord: Optional[int]
 
 
-class ImageDto(ImageDtoInDBBase):
-    pass
-
-
-class ImageDtoWithParent(ImageDto):
-    parent1: Optional[ImageDto] = None
+class ImageDtoWithParent(ImageDtoInDBBase):
+    parent1: Optional[ImageDtoInDBBase] = None
 
 
 class MySQLConnectionSettings(BaseModel):
@@ -165,7 +161,8 @@ class MagellonImportJobDto(BaseModel):
     replace_existing: bool = False
 
 
-class ImportTaskDto(BaseModel):
+class _ImportTaskDtoBase(BaseModel):
+    """Internal base for EPU/SerialEM import task subclasses that carry a job_dto."""
     task_id: uuid.UUID = Field(default_factory=uuid.uuid4)
     task_alias: Optional[str] = None
     file_name: Optional[str] = None
@@ -217,7 +214,7 @@ class EpuImportJobDto(EpuImportJobBase):
     target_directory: Optional[str] = None  # should be removed, it is base directory + magellon_session_name name
     default_data: Optional[DefaultParams] = None
 
-class EPUImportTaskDto(ImportTaskDto):
+class EPUImportTaskDto(_ImportTaskDtoBase):
     job_dto: EpuImportJobDto
 
 
@@ -228,7 +225,7 @@ class SerialEMImportJobBase(ImportJobBase):
 class SerialEMImportJobDto(SerialEMImportJobBase):
     target_directory: Optional[str] = None  # should be removed, it is base directory + magellon_session_name name
     default_data: Optional[DefaultParams] = None
-class SerialEMImportTaskDto(ImportTaskDto):
+class SerialEMImportTaskDto(_ImportTaskDtoBase):
     job_dto: SerialEMImportJobDto
 
 
@@ -325,27 +322,6 @@ class ParticlePickingDto(BaseModel):
     data_json: Optional[Json] = None
     status: Optional[int] = None
     type: Optional[int] = None
-
-
-
-class EPUFrameTransferJobBase(BaseModel):
-    magellon_project_name: "EPU"
-    magellon_session_name: "epu_session"
-    camera_directory: Optional[str] = None  # for copying frames
-    epu_session_name: Optional[str] = None
-    if_do_subtasks: Optional[bool] = True
-    copy_images: Optional[bool] = False
-    retries: Optional[int] = None
-
-    replace_type: ReplaceType = ReplaceType.NONE
-    replace_pattern: Optional[str] = None
-    replace_with: Optional[str] = None
-
-    @field_validator("replace_type")
-    def validate_replace_type(cls, v):
-        if v not in ReplaceType.__members__.values():
-            raise ValueError(f"Invalid replace_type: {v}. Valid options are: {', '.join(ReplaceType.__members__.keys())}")
-        return v
 
 
 
