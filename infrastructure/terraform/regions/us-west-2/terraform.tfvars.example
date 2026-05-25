@@ -1,0 +1,29 @@
+# Copy to terraform.tfvars. NEVER commit to git.
+# Same domain/secrets as us-east-1 for consistent failover behaviour.
+
+domain_name     = ""   # match us-east-1 value exactly
+route53_zone_id = ""   # match us-east-1 value exactly
+
+environment   = "prod"
+alert_email   = ""
+key_pair_name = ""     # create a key pair in us-west-2 if needed
+
+main_instance_type  = "t3.xlarge"
+gpu_instance_type   = "g4dn.xlarge"
+main_volume_size    = 100
+gpu_volume_size     = 80
+gpu_spot_max_price  = "0.20"
+
+cuda_image       = "nvidia/cuda:12.1.0-devel-ubuntu22.04"
+motioncor_binary = "MotionCor2_1.6.4_Cuda121_Mar312023"
+
+# Must be identical to us-east-1 values
+mysql_root_password = "CHANGE_ME_strong_password_1"
+mysql_database      = "magellon01"
+mysql_user          = "magellon_user"
+mysql_password      = "CHANGE_ME_strong_password_2"
+rabbitmq_user       = "rabbit"
+rabbitmq_password   = "CHANGE_ME_strong_password_3"
+dragonfly_password  = "CHANGE_ME_strong_password_4"
+grafana_user        = "admin"
+grafana_password    = "CHANGE_ME_strong_password_5"
