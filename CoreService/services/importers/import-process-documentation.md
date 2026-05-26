@@ -28,6 +28,8 @@ template method implementation. `setup()` stores request params and creates
 - project/session/job creation;
 - `ImageJobTask` creation with stable task/job IDs for broker callbacks;
 - target directory creation;
+- source subdirectory copying for reference inputs such as `gains` and
+  `defects`;
 - frame transfer and image copy;
 - PNG conversion and FFT computation;
 - CTF, MotionCor, Topaz pick, and Topaz denoise dispatch;
@@ -109,7 +111,9 @@ do not yet share one orchestration skeleton. Current duplication includes:
 - image row construction in every concrete importer; `ImageJobTask` row
   construction now uses a shared `BaseImporter` helper for Magellon, EPU, and
   SerialEM;
-- target directory creation and gains/defects copying in several importers;
+- target directory creation still happens in importer-specific flows, but
+  gains/defects directory copying now uses a shared `BaseImporter` helper for
+  Magellon and EPU;
 - task loops for PNG, FFT, CTF, and MotionCor were duplicated across
   `BaseImporter`, `EPUImporter`, and `SerialEmImporter`; the shared
   `post_import_steps.ImportTaskPipeline` now owns that post-import task

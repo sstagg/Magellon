@@ -1,5 +1,6 @@
 from datetime import datetime
 import os
+import shutil
 import uuid
 from abc import ABC, abstractmethod
 from typing import Optional, Any, Dict, List, Tuple
@@ -386,6 +387,28 @@ class BaseImporter(ABC):
         create_directory(os.path.join(target_dir, GAINS_SUB_URL))
         create_directory(os.path.join(target_dir, DEFECTS_SUB_URL))
         create_directory(os.path.join(target_dir, FAO_SUB_URL))
+
+    def copy_source_subdirectory(
+            self,
+            source_root: str,
+            target_root: str,
+            subdirectory: str,
+            *,
+            required: bool = False,
+    ) -> bool:
+        """Copy a source subdirectory into the import target tree."""
+        source_path = os.path.join(source_root, subdirectory)
+        target_path = os.path.join(target_root, subdirectory)
+
+        if not os.path.exists(source_path):
+            message = f"Source {subdirectory} folder does not exist: {source_path}"
+            if required:
+                raise FileNotFoundError(message)
+            logger.info("%s, skipping copy.", message)
+            return False
+
+        shutil.copytree(source_path, target_path, dirs_exist_ok=True)
+        return True
 
     def get_session_name(self) -> Optional[str]:
         """

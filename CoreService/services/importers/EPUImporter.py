@@ -14,7 +14,6 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from datetime import datetime
-import shutil
 from core.helper import custom_replace, dispatch_ctf_task
 from models.pydantic_models import EPUImportTaskDto
 from models.sqlalchemy_models import Image, Msession, Project, ImageJob, ImageJobTask
@@ -379,16 +378,18 @@ class EPUImporter(BaseImporter):
             target_dir = os.path.join(MAGELLON_HOME_DIR,self.params.magellon_session_name)
             self.params.target_directory=target_dir
             self.create_directories(target_dir)
-            source_gains = os.path.join(self.params.epu_dir_path, GAINS_SUB_URL)
-            source_defects = os.path.join(self.params.epu_dir_path, DEFECTS_SUB_URL)
-            if os.path.exists(source_gains):
-                shutil.copytree(source_gains, os.path.join(target_dir, GAINS_SUB_URL), dirs_exist_ok=True)
-            else:
-                raise Exception("gains folder not found in the root of the input folder")
-            if os.path.exists(source_defects):
-                shutil.copytree(source_defects, os.path.join(target_dir, DEFECTS_SUB_URL), dirs_exist_ok=True)     
-            else:
-                logger.info("defects folder not found in the root of the input folder")
+            self.copy_source_subdirectory(
+                self.params.epu_dir_path,
+                target_dir,
+                GAINS_SUB_URL,
+                required=True,
+            )
+            self.copy_source_subdirectory(
+                self.params.epu_dir_path,
+                target_dir,
+                DEFECTS_SUB_URL,
+                required=False,
+            )
             # Process file tasks
             if getattr(self.params, 'if_do_subtasks', True):
                 self.run_tasks(task_dto_list)

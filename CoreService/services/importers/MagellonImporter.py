@@ -100,21 +100,10 @@ class MagellonImporter(BaseImporter):
             self.file_service.target_directory = session_dir
             self.file_service.create_required_directories()
 
-            # Copy original directories
-            source_original = os.path.join(self.params.source_dir, 'home', ORIGINAL_IMAGES_SUB_URL)
-            if os.path.exists(source_original):
-                shutil.copytree(source_original,os.path.join(session_dir, ORIGINAL_IMAGES_SUB_URL), dirs_exist_ok=True)
-
-            # Copy gains directories
-            source_gains = os.path.join(self.params.source_dir, 'home', GAINS_SUB_URL)
-            if os.path.exists(source_gains):
-                shutil.copytree(source_gains, os.path.join(session_dir, GAINS_SUB_URL), dirs_exist_ok=True)
-
-            source_defects = os.path.join(self.params.source_dir, 'home', DEFECTS_SUB_URL)
-            if os.path.exists(source_defects):
-                shutil.copytree(source_defects, os.path.join(session_dir, DEFECTS_SUB_URL), dirs_exist_ok=True)
-            else:
-                logging.info(f"Source defects folder does not exist: {source_defects}, skipping copy.")
+            source_home = os.path.join(self.params.source_dir, 'home')
+            self.copy_source_subdirectory(source_home, session_dir, ORIGINAL_IMAGES_SUB_URL)
+            self.copy_source_subdirectory(source_home, session_dir, GAINS_SUB_URL)
+            self.copy_source_subdirectory(source_home, session_dir, DEFECTS_SUB_URL)
             # Copy frames directories
             source_frame_dir_path = os.path.join(self.params.source_dir, 'home', "frames")
             # if os.path.exists(source_frames):

@@ -432,6 +432,53 @@ def test_import_database_service_create_image_record_uses_valid_image_columns():
     assert db.refreshed == [image]
 
 
+def test_base_importer_copy_source_subdirectory_copies_existing_directory(tmp_path):
+    importer = _DummyImporter.__new__(_DummyImporter)
+    source_root = tmp_path / "source"
+    target_root = tmp_path / "target"
+    gains_dir = source_root / "gains"
+    gains_dir.mkdir(parents=True)
+    (gains_dir / "gain.tif").write_bytes(b"gain")
+    target_root.mkdir()
+
+    copied = importer.copy_source_subdirectory(
+        str(source_root),
+        str(target_root),
+        "gains",
+        required=True,
+    )
+
+    assert copied is True
+    assert (target_root / "gains" / "gain.tif").read_bytes() == b"gain"
+
+
+def test_base_importer_copy_source_subdirectory_skips_optional_missing_directory(tmp_path):
+    importer = _DummyImporter.__new__(_DummyImporter)
+
+    copied = importer.copy_source_subdirectory(
+        str(tmp_path / "source"),
+        str(tmp_path / "target"),
+        "defects",
+        required=False,
+    )
+
+    assert copied is False
+
+
+def test_base_importer_copy_source_subdirectory_raises_for_required_missing_directory(tmp_path):
+    importer = _DummyImporter.__new__(_DummyImporter)
+
+    with pytest.raises(FileNotFoundError) as exc:
+        importer.copy_source_subdirectory(
+            str(tmp_path / "source"),
+            str(tmp_path / "target"),
+            "gains",
+            required=True,
+        )
+
+    assert "gains" in str(exc.value)
+
+
 def test_base_importer_standard_task_pipeline_runs_expected_steps(tmp_path):
     image_path = tmp_path / "micrograph.mrc"
     image_path.write_bytes(b"mrc")
