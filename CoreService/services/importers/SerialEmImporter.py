@@ -8,7 +8,6 @@ import time
 from typing import Dict, Any, List, Optional, Tuple
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-from datetime import datetime
 import shutil
 from core.exceptions import EntityNotFoundError, PermissionDeniedError, FileProcessingError
 from core.helper import custom_replace, dispatch_ctf_task
@@ -1304,17 +1303,15 @@ class SerialEmImporter(BaseImporter):
                 
                 # Step 9: Create job
                 try:
-                    job = ImageJob(
+                    job = self.create_import_job_record(
+                        db_session,
+                        magellon_session.oid,
                         name=f"SerialEM Import: {session_name}",
                         description=f"SerialEM Import for session: {session_name}",
-                        created_date=datetime.now(),
                         output_directory=self.params.camera_directory,
-                        msession_id=magellon_session.oid,
                         status_id=1,
                         type_id=1,
                     )
-                    db_session.add(job)
-                    db_session.flush()
                     logger.info(f"Created job: {job.name}")
                 except Exception as e:
                     logger.error(f"Failed to create job: {e}", exc_info=True)

@@ -133,6 +133,38 @@ class BaseImporter(ABC):
 
         return project
 
+    def upsert_project_from_data(
+            self,
+            db_session: Session,
+            project_data: Optional[Dict[str, Any]],
+    ) -> Optional[Project]:
+        """Create or update a Project from serialized import manifest data."""
+        if not project_data:
+            return None
+
+        project = db_session.query(Project).filter(
+            Project.name == project_data["name"]
+        ).first()
+
+        if project:
+            for key, value in project_data.items():
+                if hasattr(project, key) and key != 'oid':
+                    setattr(project, key, value)
+        else:
+            project = Project(
+                oid=uuid.UUID(project_data["oid"]) if "oid" in project_data else uuid.uuid4(),
+                name=project_data["name"],
+                description=project_data.get("description"),
+                start_on=datetime.fromisoformat(project_data["start_on"]) if project_data.get("start_on") else None,
+                end_on=datetime.fromisoformat(project_data["end_on"]) if project_data.get("end_on") else None,
+                owner_id=uuid.UUID(project_data["owner_id"]) if project_data.get("owner_id") else None,
+                last_accessed_date=datetime.now()
+            )
+            db_session.add(project)
+
+        db_session.flush()
+        return project
+
     def upsert_session(self, db_session: Session, session_name: str, project_id: Optional[uuid.UUID] = None) -> Msession:
         """
         Create or update session record
@@ -164,6 +196,36 @@ class BaseImporter(ABC):
 
         return session
 
+    def upsert_session_from_data(
+            self,
+            db_session: Session,
+            session_data: Dict[str, Any],
+            project_id: Optional[uuid.UUID],
+    ) -> Msession:
+        """Create or update an Msession from serialized import manifest data."""
+        session = db_session.query(Msession).filter(
+            Msession.name == session_data["name"]
+        ).first()
+
+        if session:
+            for key, value in session_data.items():
+                if hasattr(session, key) and key != 'oid':
+                    setattr(session, key, value)
+        else:
+            session = Msession(
+                oid=uuid.UUID(session_data["oid"]) if "oid" in session_data else uuid.uuid4(),
+                name=session_data["name"],
+                project_id=project_id,
+                description=session_data.get("description"),
+                start_on=datetime.fromisoformat(session_data["start_on"]) if session_data.get("start_on") else None,
+                end_on=datetime.fromisoformat(session_data["end_on"]) if session_data.get("end_on") else None,
+                last_accessed_date=datetime.now()
+            )
+            db_session.add(session)
+
+        db_session.flush()
+        return session
+
     def create_job_record(self, db_session: Session, session_id: uuid.UUID, job_name: str,
                           description: str = None, output_directory: str = None) -> ImageJob:
         """
@@ -191,6 +253,40 @@ class BaseImporter(ABC):
             output_directory=output_directory,
             status_id=1,  # Pending status
             type_id=1     # Import type
+        )
+        db_session.add(job)
+        db_session.flush()
+        return job
+
+    def create_import_job_record(
+            self,
+            db_session: Session,
+            session_id: uuid.UUID,
+            *,
+            name: str,
+            description: str = None,
+            output_directory: str = None,
+            job_id: Optional[uuid.UUID] = None,
+            status_id: int = 1,
+            type_id: int = 1,
+    ) -> ImageJob:
+        """Create an ImageJob row for an import.
+
+        `job_id` lets background endpoints pre-allocate and return a stable
+        identifier before the importer runs.
+        """
+        if not session_id:
+            raise ValueError("Session ID must be provided")
+
+        job = ImageJob(
+            oid=job_id or self.pre_assigned_job_id or uuid.uuid4(),
+            name=name,
+            description=description or f"Import job: {name}",
+            created_date=datetime.now(),
+            msession_id=session_id,
+            output_directory=output_directory,
+            status_id=status_id,
+            type_id=type_id,
         )
         db_session.add(job)
         db_session.flush()

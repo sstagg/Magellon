@@ -41,9 +41,9 @@ helpers.
 `MagellonImporter.process()` is the backgrounded Magellon import path:
 
 1. Read `session.json` from `source_dir`.
-2. Upsert `Project` and `Msession` through private helper methods.
-3. Create an `ImageJob`, using `pre_assigned_job_id` when the controller
-   scheduled one.
+2. Upsert `Project` and `Msession` through `BaseImporter` manifest helpers.
+3. Create an `ImageJob` through `BaseImporter.create_import_job_record()`,
+   using `pre_assigned_job_id` when the controller scheduled one.
 4. Create or update `Image` records recursively from the exported manifest.
 5. Create `ImageJobTask` rows and `ImportTaskDto` values for source images
    present under `home/original`.
@@ -66,8 +66,9 @@ then owns the EPU-specific workflow:
 - build parent-child relationships from the EPU session tree;
 - create `Image`, `ImageJobTask`, and `EPUImportTaskDto` records;
 - copy gains/defects folders into the target session directory;
-- run a custom per-task path for frame transfer, optional copy, PNG, FFT, and
-  CTF dispatch.
+- run the shared post-import task pipeline for frame transfer, optional copy,
+  PNG, FFT, and CTF dispatch. EPU currently disables MotionCor and Topaz
+  dispatch from this path.
 
 ### SerialEmImporter
 
@@ -83,7 +84,8 @@ is a full import workflow in one method:
 - convert TIFF movies to MRC;
 - create `Image`, `ImageJobTask`, and `SerialEMImportTaskDto` records;
 - establish parent-child relationships from `.nav`;
-- run a custom task loop that skips CTF/MotionCor for montage images.
+- run the shared post-import task pipeline while skipping CTF/MotionCor for
+  montage images.
 
 ### ImporterFactory
 
@@ -97,8 +99,9 @@ rejected; live Leginon transfer uses `LeginonFrameTransferJobService`.
 The package already points toward Template Method, but the concrete importers
 do not yet share one orchestration skeleton. Current duplication includes:
 
-- project/session/job creation in `BaseImporter`, `ImportDatabaseService`,
-  `MagellonImporter`, and `SerialEmImporter`;
+- remaining project/session/job creation overlap between `BaseImporter` and
+  `ImportDatabaseService`; Magellon manifest upserts and SerialEM import job
+  creation now delegate through `BaseImporter`;
 - image/task row construction in every concrete importer;
 - target directory creation and gains/defects copying in several importers;
 - task loops for PNG, FFT, CTF, and MotionCor were duplicated across

@@ -7,7 +7,7 @@ from unittest.mock import Mock
 import pytest
 
 from models.pydantic_models import DefaultParams, EpuImportJobDto
-from models.sqlalchemy_models import Atlas, Image, Msession
+from models.sqlalchemy_models import Atlas, Image, ImageJob, Msession, Project
 from services.importers.BaseImporter import BaseImporter
 from services.importers.EPUImporter import EPUMetadata, EPUImporter
 from services.importers.ImporterFactory import import_data
@@ -211,6 +211,82 @@ def test_base_importer_create_atlas_images_uses_atlas_service(monkeypatch):
     assert db.saved[0].name == "g1"
     assert db.commits == 1
     assert db.rollbacks == 0
+
+
+def test_base_importer_upsert_project_from_manifest_data_creates_project():
+    importer = _DummyImporter.__new__(_DummyImporter)
+    db = _CaptureSession()
+    project_id = uuid.uuid4()
+    owner_id = uuid.uuid4()
+
+    project = importer.upsert_project_from_data(
+        db,
+        {
+            "oid": str(project_id),
+            "name": "project-a",
+            "description": "Project A",
+            "owner_id": str(owner_id),
+            "start_on": "2026-05-01T10:00:00",
+            "end_on": "2026-05-02T10:00:00",
+        },
+    )
+
+    assert isinstance(project, Project)
+    assert project.oid == project_id
+    assert project.name == "project-a"
+    assert project.description == "Project A"
+    assert project.owner_id == owner_id
+    assert db.added == [project]
+
+
+def test_base_importer_create_import_job_uses_preassigned_id():
+    importer = _DummyImporter.__new__(_DummyImporter)
+    importer.pre_assigned_job_id = uuid.uuid4()
+    db = _CaptureSession()
+    session_id = uuid.uuid4()
+
+    job = importer.create_import_job_record(
+        db,
+        session_id,
+        name="Import: session-a",
+        description="Import job for session-a",
+        output_directory=r"C:\out",
+    )
+
+    assert isinstance(job, ImageJob)
+    assert job.oid == importer.pre_assigned_job_id
+    assert job.msession_id == session_id
+    assert job.status_id == 1
+    assert job.type_id == 1
+    assert job.output_directory == r"C:\out"
+    assert db.added == [job]
+
+
+def test_base_importer_standard_task_pipeline_runs_expected_steps(tmp_path):
+    image_path = tmp_path / "micrograph.mrc"
+    image_path.write_bytes(b"mrc")
+
+    importer = _DummyImporter.__new__(_DummyImporter)
+    importer.params = SimpleNamespace(copy_images=False)
+    importer.transfer_frame = Mock()
+    importer.convert_image_to_png = Mock(return_value={"message": "png"})
+    importer.compute_fft = Mock(return_value={"message": "fft"})
+    importer.compute_ctf = Mock(return_value={"message": "ctf"})
+    importer.compute_motioncor = Mock(return_value={"message": "motioncor"})
+
+    result = importer.run_standard_task(
+        SimpleNamespace(image_path=str(image_path), frame_name="frames", frame_path=str(image_path)),
+        topaz_pick=False,
+        topaz_denoise=False,
+    )
+
+    importer.transfer_frame.assert_called_once()
+    importer.convert_image_to_png.assert_called_once_with(str(image_path))
+    importer.compute_fft.assert_called_once_with(str(image_path))
+    importer.compute_ctf.assert_called_once()
+    importer.compute_motioncor.assert_called_once()
+    assert result["png"] == {"message": "png"}
+    assert result["fft"] == {"message": "fft"}
 
 
 def test_import_data_passes_db_session_to_setup(monkeypatch):

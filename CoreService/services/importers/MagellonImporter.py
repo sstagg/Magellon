@@ -57,10 +57,14 @@ class MagellonImporter(BaseImporter):
             # Process project data if exists
 
             if "project" in session_data and session_data["project"]:
-                self.db_project = self._upsert_project(db_session, session_data["project"])
+                self.db_project = self.upsert_project_from_data(db_session, session_data["project"])
 
             # Process session data
-            self.db_msession = self._upsert_session(db_session, session_data["msession"], self.db_project.oid if self.db_project else None)
+            self.db_msession = self.upsert_session_from_data(
+                db_session,
+                session_data["msession"],
+                self.db_project.oid if self.db_project else None,
+            )
 
             session_dir=os.path.normpath( os.path.join(MAGELLON_HOME_DIR, self.db_msession.name.lower()))
 
@@ -76,19 +80,14 @@ class MagellonImporter(BaseImporter):
             # set one (see BaseImporter.pre_assigned_job_id) — the import
             # controller uses this so it can return the job_id to the
             # client before the background task runs.
-            job = ImageJob(
-                oid=self.pre_assigned_job_id or uuid.uuid4(),
+            job = self.create_import_job_record(
+                db_session,
+                self.db_msession.oid,
                 name=f"Import: {self.db_msession.name}",
                 description=f"Import job for session: {self.db_msession.name}",
-                created_date=datetime.now(),
-                msession_id=self.db_msession.oid,
                 status_id=1,  # Pending status
                 type_id=1     # Import type
             )
-
-
-            db_session.add(job)
-            db_session.flush()
 
             db_session.commit()
             self.db_job=job
@@ -415,59 +414,13 @@ class MagellonImporter(BaseImporter):
 
     def _upsert_project(self, db_session: Session, project_data: Dict[str, Any]) -> Project:
         """Upsert project record"""
-        project = db_session.query(Project).filter(
-            Project.name == project_data["name"]
-        ).first()
-
-        if project:
-            # Update existing project
-            for key, value in project_data.items():
-                if hasattr(project, key) and key != 'oid':
-                    setattr(project, key, value)
-        else:
-            # Create new project
-            project = Project(
-                oid=uuid.UUID(project_data["oid"]) if "oid" in project_data else uuid.uuid4(),
-                name=project_data["name"],
-                description=project_data.get("description"),
-                start_on=datetime.fromisoformat(project_data["start_on"]) if project_data.get("start_on") else None,
-                end_on=datetime.fromisoformat(project_data["end_on"]) if project_data.get("end_on") else None,
-                owner_id=uuid.UUID(project_data["owner_id"]) if project_data.get("owner_id") else None,
-                last_accessed_date=datetime.now()
-            )
-            db_session.add(project)
-
-        db_session.flush()
-        return project
+        return self.upsert_project_from_data(db_session, project_data)
 
 
 
     def _upsert_session(self, db_session: Session, session_data: Dict[str, Any], project_id: Optional[uuid.UUID]) -> Msession:
         """Upsert session record"""
-        session = db_session.query(Msession).filter(
-            Msession.name == session_data["name"]
-        ).first()
-
-        if session:
-            # Update existing session
-            for key, value in session_data.items():
-                if hasattr(session, key) and key != 'oid':
-                    setattr(session, key, value)
-        else:
-            # Create new session
-            session = Msession(
-                oid=uuid.UUID(session_data["oid"]) if "oid" in session_data else uuid.uuid4(),
-                name=session_data["name"],
-                project_id=project_id,
-                description=session_data.get("description"),
-                start_on=datetime.fromisoformat(session_data["start_on"]) if session_data.get("start_on") else None,
-                end_on=datetime.fromisoformat(session_data["end_on"]) if session_data.get("end_on") else None,
-                last_accessed_date=datetime.now()
-            )
-            db_session.add(session)
-
-        db_session.flush()
-        return session
+        return self.upsert_session_from_data(db_session, session_data, project_id)
 
 
 
