@@ -87,9 +87,10 @@ is a full import workflow in one method:
 
 ### ImporterFactory
 
-`ImporterFactory` currently knows only `leginon` and `epu`. The live HTTP
-controller instantiates Magellon, EPU, and SerialEM importers directly instead
-of routing through the factory.
+`ImporterFactory` lazy-loads Magellon, EPU, and SerialEM importers. The live
+HTTP controller still instantiates those importers directly instead of routing
+through the factory. Legacy Leginon import through the factory is intentionally
+rejected; live Leginon transfer uses `LeginonFrameTransferJobService`.
 
 ## Duplication and Design Debt
 
@@ -100,16 +101,19 @@ do not yet share one orchestration skeleton. Current duplication includes:
   `MagellonImporter`, and `SerialEmImporter`;
 - image/task row construction in every concrete importer;
 - target directory creation and gains/defects copying in several importers;
-- task loops for PNG, FFT, CTF, and MotionCor in `BaseImporter`,
-  `MagellonImporter`, `EPUImporter`, and `SerialEmImporter`;
+- task loops for PNG, FFT, CTF, and MotionCor were duplicated across
+  `BaseImporter`, `EPUImporter`, and `SerialEmImporter`; the shared
+  `post_import_steps.ImportTaskPipeline` now owns that post-import task
+  template for the standard paths. `MagellonImporter` still keeps a custom
+  progress-aware task loop for import-progress Socket.IO counters.
 - mixed responsibilities: source parsing, file transformation, DB writes, and
   broker dispatch live in the same large classes;
-- duplicate exception names: `BaseImporter` imports `FileError` from
-  `import_file_service` and then defines another `FileError`;
-- `BaseImporter.create_atlas_images()` appears to call itself where it likely
-  meant to call `services.atlas.create_atlas_images()`;
-- `ImporterFactory.import_data()` calls `setup(input_data)` without the
-  required DB session argument and is not used by the controller routes.
+- duplicate exception names were cleaned up by aliasing
+  `import_file_service.FileError` at import time;
+- `BaseImporter.create_atlas_images()` now calls `services.atlas.create_atlas_images()`
+  instead of recursing into itself;
+- `ImporterFactory.import_data()` now passes the DB session into
+  `setup(input_data, db_session)`.
 
 ## Refactor Direction
 

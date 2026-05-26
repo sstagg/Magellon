@@ -834,28 +834,16 @@ class EPUImporter(BaseImporter):
             source_image_path = matching_files[0]
             task_dto.image_path = source_image_path  # Update task DTO
 
-            # 1. Transfer frame if it exists
-            if task_dto.frame_path:
-                self.transfer_frame(task_dto)
-
-            # 2. Copy original image if specified
-            if task_dto.job_dto.copy_images:
-                target_image_path = os.path.join(
-                    self.get_target_directory(),
-                    "original",
-                    os.path.basename(source_image_path)
-                )
-                self.copy_image(task_dto)
-                task_dto.image_path = target_image_path  # Update path after copy
-
-            # 3. Convert to PNG
-            self.convert_image_to_png(source_image_path)
-
-            # 4. Compute FFT
-            self.compute_fft(source_image_path)
-
-            # 5. Compute CTF if needed
-            self.compute_ctf(source_image_path, task_dto)
+            self.run_standard_task(
+                task_dto,
+                image_path=source_image_path,
+                transfer_frame=bool(task_dto.frame_path),
+                copy_images=bool(task_dto.job_dto.copy_images),
+                ctf=True,
+                motioncor=False,
+                topaz_pick=False,
+                topaz_denoise=False,
+            )
 
             return {'status': 'success', 'message': 'Task completed successfully.'}
 

@@ -155,7 +155,7 @@ def validate_directory(
         # Check required directories exist
         images_dir = os.path.join(source_dir,"home", "original")
         frames_dir = os.path.join(source_dir,"home", "frames")
-        gains_dir = os.path.join(source_dir, "home","frames")
+        gains_dir = os.path.join(source_dir, "home", "gains")
 
         if not os.path.exists(images_dir):
             raise HTTPException(status_code=400, detail="original directory not found")

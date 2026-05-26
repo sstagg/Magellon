@@ -23,7 +23,13 @@ from core.helper import (
 )
 
 from services.importers.import_database_service import ImportDatabaseService
-from services.importers.import_file_service import ImportFileService, TaskError, FileError
+from services.importers.import_file_service import (
+    ImportFileService,
+    TaskError,
+    FileError as ImportFileServiceError,
+)
+from services.importers.post_import_steps import build_standard_import_task_pipeline
+from services.atlas import create_atlas_images as build_atlas_images
 from services.mrc_image_service import MrcImageService
 from services.file_service import copy_file, check_file_exists
 logger = logging.getLogger(__name__)
@@ -677,45 +683,46 @@ class BaseImporter(ABC):
             Dict with status and message
         """
         try:
-            # 1. Transfer frame if it exists
-            self.transfer_frame(task_dto)
-
-            # 2. Copy original image if specified
-            if hasattr(self.params, 'copy_images') and self.params.copy_images:
-                self.copy_image(task_dto)
-
-            # Get current image path
-            image_path = getattr(task_dto, 'image_path', None)
-            if not image_path or not os.path.exists(image_path):
-                raise FileError(f"Image file not found: {image_path}")
-
-            # 3. Convert to PNG
-            self.convert_image_to_png(image_path)
-
-            # 4. Compute FFT
-            self.compute_fft(image_path)
-
-            # 5. Compute CTF if needed
-            self.compute_ctf(image_path, task_dto)
-
-            # 6. Compute motion correction if frame exists
-            if hasattr(task_dto, 'frame_name') and task_dto.frame_name:
-                self.compute_motioncor(image_path, task_dto)
-
-            # 7. Topaz particle picking (opt-in via AUTO_DISPATCH_TOPAZ_PICK).
-            #    High-mag only — same pixel-size envelope as CTF.
-            if getattr(app_settings, 'AUTO_DISPATCH_TOPAZ_PICK', False):
-                self.compute_topaz_pick(image_path, task_dto)
-
-            # 8. Topaz denoise (opt-in via AUTO_DISPATCH_TOPAZ_DENOISE).
-            if getattr(app_settings, 'AUTO_DISPATCH_TOPAZ_DENOISE', False):
-                self.compute_topaz_denoise(image_path, task_dto)
-
+            self.run_standard_task(task_dto)
             return {'status': 'success', 'message': 'Task completed successfully.'}
 
         except Exception as e:
             logger.error(f"Task processing failed: {str(e)}", exc_info=True)
             raise TaskFailedException(f"Failed to process task: {str(e)}")
+
+    def run_standard_task(
+            self,
+            task_dto: Any,
+            *,
+            image_path: str = None,
+            transfer_frame: bool = True,
+            copy_images: bool = None,
+            ctf: bool = True,
+            motioncor: bool = True,
+            topaz_pick: bool = None,
+            topaz_denoise: bool = None,
+    ) -> Dict[str, Any]:
+        """Run the shared post-import task template.
+
+        Concrete importers choose optional strategies, but the common order
+        lives here: transfer/copy, ensure image exists, PNG, FFT, dispatch.
+        """
+        if copy_images is None:
+            copy_images = bool(getattr(self.params, 'copy_images', False))
+        if topaz_pick is None:
+            topaz_pick = bool(getattr(app_settings, 'AUTO_DISPATCH_TOPAZ_PICK', False))
+        if topaz_denoise is None:
+            topaz_denoise = bool(getattr(app_settings, 'AUTO_DISPATCH_TOPAZ_DENOISE', False))
+
+        pipeline = build_standard_import_task_pipeline(
+            transfer_frame=transfer_frame,
+            copy_image=copy_images,
+            ctf=ctf,
+            motioncor=motioncor,
+            topaz_pick=topaz_pick,
+            topaz_denoise=topaz_denoise,
+        )
+        return pipeline.run(self, task_dto, image_path=image_path).results
 
     def run_tasks(self, task_list: List[Any] = None) -> None:
         """
@@ -794,7 +801,7 @@ class BaseImporter(ABC):
             session_name = session.name if session else "unknown"
 
             # Create atlas images
-            images = self.create_atlas_images(session_name, label_objects)
+            images = build_atlas_images(session_name, label_objects)
 
             # Create atlas records
             atlas_records = []
@@ -852,5 +859,5 @@ class BaseImporter(ABC):
                     task,
                     copy_images=getattr(task.job_dto, 'copy_images', False)
                 )
-        except (FileError, TaskError) as e:
+        except (FileError, ImportFileServiceError, TaskError) as e:
             raise ImportError(str(e))

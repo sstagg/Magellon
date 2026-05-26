@@ -152,19 +152,19 @@ class ImportFileService:
             # Copy the source directory to the destination
             shutil.copytree(source_dir, destination_dir)
 
-            print(f"Directory successfully copied from '{source_dir}' to '{destination_dir}'.")
+            logger.info("Directory successfully copied from %s to %s", source_dir, destination_dir)
 
         except FileNotFoundError as e:
-            print(f"Error: {e}")
+            logger.error("Directory copy failed: %s", e)
 
         except PermissionError as e:
-            print(f"Permission Error: {e}. Ensure you have the required permissions.")
+            logger.error("Directory copy permission error: %s", e)
 
         except OSError as e:
-            print(f"OS Error: {e}. This might be due to filesystem restrictions.")
+            logger.error("Directory copy OS error: %s", e)
 
         except Exception as e:
-            print(f"An unexpected error occurred: {e}")
+            logger.error("Unexpected directory copy error: %s", e)
 
 
     @staticmethod

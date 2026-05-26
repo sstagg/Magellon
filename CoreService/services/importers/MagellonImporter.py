@@ -1,4 +1,3 @@
-import json
 import os
 import re
 import shutil
@@ -13,7 +12,8 @@ from models.pydantic_models import ImportTaskDto
 from models.sqlalchemy_models import Msession, ImageJob, Image, ImageJobTask, Project, Atlas
 from services.atlas import create_atlas_images
 from services.importers.BaseImporter import BaseImporter, TaskFailedException
-from core.exceptions import ValidationError, EntityNotFoundError, FileProcessingError
+from services.importers.source_strategies import MagellonSessionJsonStrategy
+from core.exceptions import EntityNotFoundError, FileProcessingError
 from sqlalchemy.orm import Session
 from config import ( DEFECTS_SUB_URL, FFT_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, ATLAS_SUB_URL, CTF_SUB_URL, MAGELLON_HOME_DIR, FFT_SUFFIX, GAINS_SUB_URL)
 
@@ -52,12 +52,7 @@ class MagellonImporter(BaseImporter):
 
             # Read and validate session.json
 
-            json_path = os.path.join(self.params.source_dir, 'session.json')
-            if not os.path.exists(json_path):
-                raise ValidationError("Invalid archive structure: session.json not found")
-
-            with open(json_path, 'r') as f:
-                session_data = json.load(f)
+            session_data = MagellonSessionJsonStrategy().load(self.params.source_dir)
 
             # Process project data if exists
 
@@ -144,7 +139,10 @@ class MagellonImporter(BaseImporter):
                     image_path=file_path,
 
                     frame_name=image.frame_name,
-                    frame_path= os.path.join(source_frame_dir_path, image.frame_name) ,
+                    frame_path=(
+                        os.path.join(source_frame_dir_path, image.frame_name)
+                        if image.frame_name else None
+                    ),
 
                     # target_path=self.params.target_directory + "/frames/" + f"{image['frame_names']}{source_extension}",
                     # job_dto=db_job.,
@@ -207,7 +205,8 @@ class MagellonImporter(BaseImporter):
             for task in self.task_dto_list:
                 self.run_task(task)
         except Exception as e:
-            print("An unexpected error occurred:", str(e))
+            logger.exception("Magellon import task execution failed: %s", e)
+            raise
 
     def _emit_step_progress(self) -> None:
         try:

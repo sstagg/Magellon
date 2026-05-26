@@ -437,8 +437,8 @@ def convert_tiff_to_mrc(moviename: str, gainname: str, outname: str) -> str:
         # Flip gain for alignment (adjust as per your dataset)
         gain = np.fliplr(gain)
 
-        print("Movie dtype/shape:", movie.dtype, movie.shape)
-        print("Gain dtype/shape:", gain.dtype, gain.shape)
+        logger.debug("Movie dtype/shape: %s %s", movie.dtype, movie.shape)
+        logger.debug("Gain dtype/shape: %s %s", gain.dtype, gain.shape)
 
         if gain.shape != movie.shape[1:]:
             raise ValueError(
@@ -453,11 +453,11 @@ def convert_tiff_to_mrc(moviename: str, gainname: str, outname: str) -> str:
         with mrcfile.new(outname, overwrite=True) as m:
             m.set_data(summed.astype(np.float32))
 
-        print("✅ Done! Output written to:", outname)
+        logger.info("TIFF to MRC conversion wrote %s", outname)
         return outname
 
     except Exception as e:
-        raise ValueError(f"convertion of tiff to mrc failed- premade image for ctf: {str(e)}") from e
+        raise ValueError(f"conversion of tiff to mrc failed - premade image for ctf: {str(e)}") from e
     
 def find_nav_file(directory: str) -> Optional[str]:
     """
@@ -1109,7 +1109,6 @@ class SerialEmImporter(BaseImporter):
 
     
     def process_task(self, task_dto: Any) -> Dict[str, str]:
-        print(" process_task inside serialem called")
         """
         Process a single import task
 
@@ -1128,35 +1127,24 @@ class SerialEmImporter(BaseImporter):
             Dict with status and message
         """
         try:
-            # 1. Transfer frame if it exists
-            self.transfer_frame(task_dto)
-
-            # 2. Copy original image if specified
-            if hasattr(self.params, 'copy_images') and self.params.copy_images:
-                self.copy_image(task_dto)
-
-            # Get current image path
             image_path = getattr(task_dto, 'image_path', None)
             if not image_path or not os.path.exists(image_path):
                 raise FileError(f"Image file not found: {image_path}")
 
-            # 3. Convert to PNG
-            self.convert_image_to_png(image_path)
-
-            # 4. Compute FFT
-            self.compute_fft(image_path)
-            
-            if "/montages/" in image_path.replace("\\", "/").lower():
+            is_montage = "/montages/" in image_path.replace("\\", "/").lower()
+            if is_montage:
                 logger.info(f"Skipping CTF and MotionCor for montage image: {image_path}")
-            else:
-                # 5. Compute CTF if needed
-                self.compute_ctf(image_path, task_dto)
 
-                # 6. Compute motion correction if frame exists
-                frame_name = getattr(task_dto, 'frame_name', '')
-                if frame_name:
-                    self.compute_motioncor(image_path, task_dto)
-
+            self.run_standard_task(
+                task_dto,
+                image_path=image_path,
+                transfer_frame=True,
+                copy_images=bool(getattr(self.params, 'copy_images', False)),
+                ctf=not is_montage,
+                motioncor=not is_montage,
+                topaz_pick=False,
+                topaz_denoise=False,
+            )
 
             return {'status': 'success', 'message': 'Task completed successfully.'}
 
@@ -1321,7 +1309,9 @@ class SerialEmImporter(BaseImporter):
                         description=f"SerialEM Import for session: {session_name}",
                         created_date=datetime.now(),
                         output_directory=self.params.camera_directory,
-                        msession_id=magellon_session.oid
+                        msession_id=magellon_session.oid,
+                        status_id=1,
+                        type_id=1,
                     )
                     db_session.add(job)
                     db_session.flush()
