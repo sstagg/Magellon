@@ -330,9 +330,21 @@ export const MagellonImportComponent = () => {
     };
 
     const parentPath = currentPath.split("/").slice(0, -1).join("/") || "/gpfs";
-    const overallTotal = summary?.total_tasks ?? 0;
-    const overallDone = summary?.terminal_tasks ?? 0;
-    const overallPct = overallTotal > 0 ? Math.round((overallDone / overallTotal) * 100) : 0;
+
+    // Per-step compute cost — used to weight overall progress so MotionCor
+    // (slow GPU work) doesn't get drowned out by PNG/FFT (cheap local work)
+    // when the bar advances. Tune as plugin timings change.
+    const STEP_WEIGHTS = { png: 1, fft: 1, ctf: 2, motioncor: 7 } as const;
+    const overallWorkTotal = (Object.keys(STEP_WEIGHTS) as Array<keyof typeof STEP_WEIGHTS>)
+        .reduce((acc, k) => acc + STEP_WEIGHTS[k] * (stepTotals?.[k] ?? 0), 0);
+    const overallWorkDone = (Object.keys(STEP_WEIGHTS) as Array<keyof typeof STEP_WEIGHTS>)
+        .reduce((acc, k) => acc + STEP_WEIGHTS[k] * (stepCounts?.[k] ?? 0), 0);
+    const overallPct = overallWorkTotal > 0
+        ? Math.min(100, Math.round((overallWorkDone / overallWorkTotal) * 100))
+        : 0;
+
+    // Image count for context only — distinct from work progress.
+    const overallImages = summary?.total_tasks ?? 0;
 
     // Derive session name from summary or job name
     const sessionName = summary?.name?.replace(/^Import:\s*/i, "") ?? null;
@@ -486,19 +498,24 @@ export const MagellonImportComponent = () => {
                             </Stack>
                         )}
 
-                        {/* ── Overall progress bar ── */}
+                        {/* ── Overall progress bar (weighted by step cost) ── */}
                         {(importStatus === "running" || importStatus === "success") && (
                             <Box>
                                 <Stack direction="row" sx={{ mb: 0.5, justifyContent: "space-between" }}>
+                                    <Tooltip
+                                        title={`Weighted by step cost: PNG ×${STEP_WEIGHTS.png}, FFT ×${STEP_WEIGHTS.fft}, CTF ×${STEP_WEIGHTS.ctf}, MotionCor ×${STEP_WEIGHTS.motioncor}`}
+                                        placement="top"
+                                    >
+                                        <Typography variant="caption" color="text.secondary" sx={{ cursor: "help" }}>
+                                            Overall
+                                        </Typography>
+                                    </Tooltip>
                                     <Typography variant="caption" color="text.secondary">
-                                        Overall
-                                    </Typography>
-                                    <Typography variant="caption" color="text.secondary">
-                                        {overallDone} / {overallTotal || "…"} images
+                                        {overallPct}%{overallImages > 0 ? ` · ${overallImages} images` : ""}
                                     </Typography>
                                 </Stack>
                                 <LinearProgress
-                                    variant={overallTotal > 0 ? "determinate" : "indeterminate"}
+                                    variant={overallWorkTotal > 0 ? "determinate" : "indeterminate"}
                                     value={overallPct}
                                     sx={{ height: 8, borderRadius: 4 }}
                                     color={importStatus === "success" ? "success" : "primary"}
@@ -519,14 +536,14 @@ export const MagellonImportComponent = () => {
                                             icon={<ImageIcon fontSize="small" />}
                                             label="PNG Conversion"
                                             done={stepCounts?.png ?? 0}
-                                            total={stepTotals?.png ?? overallTotal}
+                                            total={stepTotals?.png ?? overallImages}
                                             color="primary"
                                         />
                                         <StepRow
                                             icon={<BarChartIcon fontSize="small" />}
                                             label="FFT Computation"
                                             done={stepCounts?.fft ?? 0}
-                                            total={stepTotals?.fft ?? overallTotal}
+                                            total={stepTotals?.fft ?? overallImages}
                                             color="info"
                                         />
                                         <StepRow
