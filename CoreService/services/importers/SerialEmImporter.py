@@ -499,23 +499,15 @@ class SerialEmImporter(BaseImporter):
     
     def _get_or_create_project(self, db_session: Session) -> Optional[Project]:
         """Get existing project or create new one."""
-        if self.params.magellon_project_name is None:
+        project_name = getattr(self.params, 'magellon_project_name', None)
+        if project_name is None:
             return None
         
         try:
-            project = db_session.query(Project).filter(
-                Project.name == self.params.magellon_project_name
-            ).first()
-            
-            if not project:
-                project = Project(name=self.params.magellon_project_name)
-                db_session.add(project)
-                db_session.commit()
-                db_session.refresh(project)
-                logger.info(f"Created new project: {self.params.magellon_project_name}")
-            else:
-                logger.info(f"Using existing project: {self.params.magellon_project_name}")
-            
+            project = self.upsert_project(db_session, project_name)
+            db_session.commit()
+            db_session.refresh(project)
+            logger.info(f"Using project: {project_name}")
             return project
         except Exception as e:
             logger.error(f"Failed to get/create project: {e}", exc_info=True)
@@ -527,36 +519,18 @@ class SerialEmImporter(BaseImporter):
         project: Optional[Project]
     ) -> Optional[Msession]:
         """Get existing session or create new one."""
-        if self.params.magellon_session_name is None:
+        session_name = self.get_session_name()
+        if session_name is None:
             return None
         
         try:
-            session_name = (
-                self.params.magellon_session_name or 
-                self.params.session_name
-            )
-            
-            session = db_session.query(Msession).filter(
-                Msession.name == session_name
-            ).first()
-            
-            if not session:
-                if project is None:
-                    raise ValueError(
-                        "Cannot create session without a valid project"
-                    )
-                
-                session = Msession(
-                    name=session_name,
-                    project_id=project.oid
-                )
-                db_session.add(session)
-                db_session.commit()
-                db_session.refresh(session)
-                logger.info(f"Created new session: {session_name}")
-            else:
-                logger.info(f"Using existing session: {session_name}")
-            
+            if project is None:
+                raise ValueError("Cannot create session without a valid project")
+
+            session = self.upsert_session(db_session, session_name, project.oid)
+            db_session.commit()
+            db_session.refresh(session)
+            logger.info(f"Using session: {session_name}")
             return session
         except Exception as e:
             logger.error(f"Failed to get/create session: {e}", exc_info=True)

@@ -220,6 +220,25 @@ def test_serialem_process_task_skips_ctf_and_motioncor_for_montage(tmp_path):
     importer.compute_motioncor.assert_not_called()
 
 
+def test_serialem_project_session_helpers_use_base_upserts(tmp_path):
+    importer = SerialEmImporter.__new__(SerialEmImporter)
+    importer.params = _serialem_params(tmp_path)
+    db = _CaptureSession()
+
+    project = importer._get_or_create_project(db)
+    session = importer._get_or_create_session(db, project)
+
+    assert isinstance(project, Project)
+    assert project.name == "proj"
+    assert project.last_accessed_date is not None
+    assert isinstance(session, Msession)
+    assert session.name == "serialem_session"
+    assert session.project_id == project.oid
+    assert session.last_accessed_date is not None
+    assert db.added == [project, session]
+    assert db.refreshed == [project, session]
+
+
 def test_magellon_motioncor_skips_when_gain_reference_missing(tmp_path, monkeypatch):
     source_root = tmp_path / "source"
     target_root = tmp_path / "target"

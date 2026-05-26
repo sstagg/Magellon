@@ -79,7 +79,8 @@ then owns the EPU-specific workflow:
 `SerialEmImporter.process()` delegates to `create_db_project_session()`, which
 is a full import workflow in one method:
 
-- create or retrieve project/session rows;
+- create or retrieve project/session rows through `BaseImporter` upsert
+  helpers;
 - validate `settings`, `gains`, `medium_mag`, and optional `defects`
   directories;
 - find settings/gain/defect files;
