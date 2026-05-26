@@ -1,4 +1,6 @@
 import React from 'react';
+import type {
+    SelectChangeEvent} from "@mui/material";
 import {
     Box,
     Fab,
@@ -8,8 +10,7 @@ import {
     ToggleButton,
     ToggleButtonGroup,
     Tooltip,
-    useTheme,
-    SelectChangeEvent,
+    useTheme
 } from "@mui/material";
 import {
     Visibility,
@@ -19,9 +20,11 @@ import {
     GridOnRounded,
 } from "@mui/icons-material";
 import { TableProperties } from "lucide-react";
-import ImageInfoDto, { AtlasImageDto, SessionDto } from "../../../entities/image/types.ts";
-import { useImageViewerStore, ViewMode } from '../model/imageViewerStore.ts';
-import { ImageColumn as ImageColumnState } from "../model/imageViewerStore.ts";
+import type { AtlasImageDto, SessionDto } from "../../../entities/image/types.ts";
+import type ImageInfoDto from "../../../entities/image/types.ts";
+import type { ViewMode } from '../model/imageViewerStore.ts';
+import { useImageViewerStore } from '../model/imageViewerStore.ts';
+import type { ImageColumn as ImageColumnState } from "../model/imageViewerStore.ts";
 import GridGallery from "./GridGallery.tsx";
 import HierarchyBrowser from "./HierarchyBrowser.tsx";
 import ColumnBrowser from "./ColumnBrowser.tsx";

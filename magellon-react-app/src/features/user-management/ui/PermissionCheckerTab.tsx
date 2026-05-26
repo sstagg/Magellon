@@ -75,7 +75,7 @@ export default function PermissionCheckerTab({
             const usersData = await userApiService.getUsers({ include_inactive: false });
             setUsers(usersData);
         } catch (error: any) {
-            showSnackbar('Failed to load users: ' + error.message, 'error');
+            showSnackbar(`Failed to load users: ${  error.message}`, 'error');
         }
     };
 
@@ -98,7 +98,7 @@ export default function PermissionCheckerTab({
 
             setResult(response.data);
         } catch (error: any) {
-            showSnackbar('Failed to check permission: ' + (error.response?.data?.detail || error.message), 'error');
+            showSnackbar(`Failed to check permission: ${  error.response?.data?.detail || error.message}`, 'error');
         } finally {
             setChecking(false);
         }

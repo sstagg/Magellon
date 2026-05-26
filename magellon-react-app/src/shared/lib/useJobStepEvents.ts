@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSocket } from './useSocket.ts';
+import type {
+    StepEvent} from '../types/StepEvent.ts';
 import {
     JOIN_JOB_ROOM,
     LEAVE_JOB_ROOM,
-    STEP_EVENT_NAME,
-    StepEvent,
+    STEP_EVENT_NAME
 } from '../types/StepEvent.ts';
 
 export interface UseJobStepEventsResult {

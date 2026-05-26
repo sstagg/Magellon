@@ -132,6 +132,21 @@ describe('processControlsDisabled', () => {
         }
     });
 
+    it('containerMissing disables Start and Restart', () => {
+        // Operator ran `docker rm` outside Magellon. install_state.json
+        // still names the container so the row sticks around. Start
+        // would 500; Restart would 500 too. Stop is naturally disabled
+        // (nothing running). Pause likewise (no container to pause).
+        const d = processControlsDisabled({
+            ...base(),
+            containerMissing: true,
+        });
+        expect(d.start).toBe(true);
+        expect(d.restart).toBe(true);
+        expect(d.pause).toBe(true);
+        expect(d.stop).toBe(true);
+    });
+
     it('Stop only fires when supervisor tracks the process', () => {
         const supervised = processControlsDisabled({
             ...base(),

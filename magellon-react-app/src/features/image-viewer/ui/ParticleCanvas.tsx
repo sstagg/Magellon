@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { alpha } from '@mui/material';
 import { useAuthenticatedImage } from '../../../shared/lib/useAuthenticatedImage.ts';
-import { Point, ParticleClass, Tool } from '../lib/useParticleOperations.ts';
+import type { Point, ParticleClass, Tool } from '../lib/useParticleOperations.ts';
 
 interface ParticleCanvasProps {
     imageUrl: string;
@@ -59,11 +59,11 @@ export const ParticleCanvas: React.FC<ParticleCanvasProps> = ({
     useEffect(() => {
         if (!authenticatedImageUrl || !onImageNaturalSize) return;
         const probe = new Image();
-        probe.onload = () => {
+        probe.addEventListener('load', () => {
             if (probe.naturalWidth > 0 && probe.naturalHeight > 0) {
                 onImageNaturalSize([probe.naturalHeight, probe.naturalWidth]);
             }
-        };
+        });
         probe.src = authenticatedImageUrl;
     }, [authenticatedImageUrl, onImageNaturalSize]);
 

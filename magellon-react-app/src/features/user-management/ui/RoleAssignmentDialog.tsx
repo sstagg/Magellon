@@ -109,7 +109,7 @@ export default function RoleAssignmentDialog({
       onSuccess();
     } catch (error) {
       console.error('Failed to update role:', error);
-      alert('Failed to update role: ' + (error as Error).message);
+      alert(`Failed to update role: ${  (error as Error).message}`);
     } finally {
       setSaving(false);
     }

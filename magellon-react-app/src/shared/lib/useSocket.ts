@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { io, Socket } from 'socket.io-client';
+import type { Socket } from 'socket.io-client';
+import { io } from 'socket.io-client';
 import { settings } from '../config/settings.ts';
 
 const SOCKET_URL = settings.ConfigData.SERVER_API_URL;

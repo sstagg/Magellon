@@ -35,7 +35,7 @@ import {
   Info,
 } from '@mui/icons-material';
 import axios from 'axios';
-import { DatabaseSchema, OperatorDefinition } from '../../types/databaseSchema';
+import type { DatabaseSchema, OperatorDefinition } from '../../types/databaseSchema';
 
 interface Condition {
   id: string;

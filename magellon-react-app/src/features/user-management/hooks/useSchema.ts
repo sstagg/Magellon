@@ -6,7 +6,7 @@
  */
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { DatabaseSchema } from '../types/databaseSchema';
+import type { DatabaseSchema } from '../types/databaseSchema';
 
 const SCHEMA_CACHE_KEY = 'magellon_schema_cache';
 const SCHEMA_CACHE_TTL = 60 * 60 * 1000; // 1 hour in milliseconds

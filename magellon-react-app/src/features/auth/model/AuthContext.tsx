@@ -1,6 +1,8 @@
 // panel/pages/UserManagement/AuthContext.tsx
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { userApiService, AuthenticationResponse } from '../api/userApi.ts';
+import type { ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import type { AuthenticationResponse } from '../api/userApi.ts';
+import { userApiService } from '../api/userApi.ts';
 
 interface User {
     id: string;

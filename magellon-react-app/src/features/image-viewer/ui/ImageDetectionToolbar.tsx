@@ -18,14 +18,15 @@ import {
     BlurCircular as HoleIcon,
     MoreVert,
 } from '@mui/icons-material';
-import ImageInfoDto from '../../../entities/image/types.ts';
-import {
+import type ImageInfoDto from '../../../entities/image/types.ts';
+import type {
     DetectionResult,
+    PtolemyDetectionMode,
+    PtolemyDispatchResponse} from '../api/PtolemyDetectionService.ts';
+import {
     dispatchPtolemyDetection,
     getImageDetections,
-    getJobStatus,
-    PtolemyDetectionMode,
-    PtolemyDispatchResponse,
+    getJobStatus
 } from '../api/PtolemyDetectionService.ts';
 import { useSocket } from '../../../shared/lib/useSocket.ts';
 

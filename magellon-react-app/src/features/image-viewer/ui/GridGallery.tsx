@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Grid, Box, Typography, CircularProgress, Pagination, Badge, Chip, Stack, Button } from '@mui/material';
-import ImageInfoDto, { PagedImageResponse } from '../../../entities/image/types.ts';
+import type { PagedImageResponse } from '../../../entities/image/types.ts';
+import type ImageInfoDto from '../../../entities/image/types.ts';
 import { ImageThumbnail } from './ImageThumbnail.tsx';
-import { InfiniteData } from 'react-query';
+import type { InfiniteData } from '@tanstack/react-query';
 import { useImageViewerStore } from '../model/imageViewerStore';
 import ImageGridControls from './ImageGridControls';
-import ImageFilterDialog, { ImageFilter } from './ImageFilterDialog';
+import type { ImageFilter } from './ImageFilterDialog';
+import ImageFilterDialog from './ImageFilterDialog';
 import { FilterList } from '@mui/icons-material';
 
 interface FlatImageViewerProps {

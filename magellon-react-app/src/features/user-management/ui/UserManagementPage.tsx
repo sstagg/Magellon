@@ -56,7 +56,8 @@ import {
     Refresh
 } from '@mui/icons-material';
 import { CheckCircle, XCircle } from 'lucide-react';
-import { userApiService, ApiUser, CreateUserRequest, UpdateUserRequest } from '../../auth/api/userApi.ts';
+import type { ApiUser, CreateUserRequest, UpdateUserRequest } from '../../auth/api/userApi.ts';
+import { userApiService } from '../../auth/api/userApi.ts';
 
 // Updated interface to match API response
 interface UserData {
@@ -180,7 +181,7 @@ const UserManagementPage: React.FC = () => {
             console.error('Failed to load users:', error);
             setSnackbar({
                 open: true,
-                message: 'Failed to load users: ' + (error as Error).message,
+                message: `Failed to load users: ${  (error as Error).message}`,
                 severity: 'error'
             });
         } finally {
@@ -244,7 +245,7 @@ const UserManagementPage: React.FC = () => {
             console.error('Failed to create user:', error);
             setSnackbar({
                 open: true,
-                message: 'Failed to create user: ' + (error as Error).message,
+                message: `Failed to create user: ${  (error as Error).message}`,
                 severity: 'error'
             });
         }
@@ -290,7 +291,7 @@ const UserManagementPage: React.FC = () => {
             console.error('Failed to update user:', error);
             setSnackbar({
                 open: true,
-                message: 'Failed to update user: ' + (error as Error).message,
+                message: `Failed to update user: ${  (error as Error).message}`,
                 severity: 'error'
             });
         }
@@ -310,7 +311,7 @@ const UserManagementPage: React.FC = () => {
             console.error('Failed to delete user:', error);
             setSnackbar({
                 open: true,
-                message: 'Failed to delete user: ' + (error as Error).message,
+                message: `Failed to delete user: ${  (error as Error).message}`,
                 severity: 'error'
             });
         }
@@ -334,7 +335,7 @@ const UserManagementPage: React.FC = () => {
             console.error('Failed to update user status:', error);
             setSnackbar({
                 open: true,
-                message: 'Failed to update user status: ' + (error as Error).message,
+                message: `Failed to update user status: ${  (error as Error).message}`,
                 severity: 'error'
             });
         }
@@ -389,7 +390,7 @@ const UserManagementPage: React.FC = () => {
 
     const formatDate = (date: Date | null) => {
         if (!date) return 'Never';
-        return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+        return `${date.toLocaleDateString()  } ${  date.toLocaleTimeString()}`;
     };
 
     const activeUsers = users.filter(u => u.active);

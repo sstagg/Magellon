@@ -47,9 +47,10 @@ import {
 } from 'lucide-react';
 
 import { SchemaForm, type BrowseFileRequest } from '../../../shared/ui/SchemaForm.tsx';
+import type {
+    PluginSummary} from '../api/PluginApi.ts';
 import {
     type CategoryExample,
-    PluginSummary,
     useCategoryCapabilities,
     useDispatchSync,
     usePluginInputSchema,
@@ -341,8 +342,8 @@ export const PluginTestPanel: React.FC<PluginTestPanelProps> = ({
     };
 
     const isBusy =
-        (transport === 'bus' && submit.isLoading) ||
-        (transport === 'sync' && sync.isLoading);
+        (transport === 'bus' && submit.isPending) ||
+        (transport === 'sync' && sync.isPending);
 
     // ----- Layout -----
 

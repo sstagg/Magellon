@@ -40,8 +40,8 @@ export const PluginUpdateChip: React.FC<PluginUpdateChipProps> = ({
     const clickable = !!manifestPluginId;
     const tooltip =
         `${update.severity} update available — ` +
-        `${update.current_version} → ${update.latest_version}` +
-        (clickable ? ' (click to upgrade)' : '');
+        `${update.current_version} → ${update.latest_version}${ 
+        clickable ? ' (click to upgrade)' : ''}`;
     return (
         <>
             <Tooltip title={tooltip}>

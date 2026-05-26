@@ -180,7 +180,7 @@ export default function UserManagementTab({
             setEditMode(false);
             onUpdate();
         } catch (error: any) {
-            showSnackbar('Failed to update profile: ' + error.message, 'error');
+            showSnackbar(`Failed to update profile: ${  error.message}`, 'error');
         } finally {
             setLoading(false);
         }
@@ -194,7 +194,7 @@ export default function UserManagementTab({
             setCreateUserDialogOpen(false);
             loadUsers();
         } catch (error: any) {
-            showSnackbar('Failed to create user: ' + error.message, 'error');
+            showSnackbar(`Failed to create user: ${  error.message}`, 'error');
         } finally {
             setLoading(false);
         }
@@ -209,7 +209,7 @@ export default function UserManagementTab({
             showSnackbar('User deleted successfully', 'success');
             loadUsers();
         } catch (error: any) {
-            showSnackbar('Failed to delete user: ' + error.message, 'error');
+            showSnackbar(`Failed to delete user: ${  error.message}`, 'error');
         } finally {
             setLoading(false);
         }
@@ -232,7 +232,7 @@ export default function UserManagementTab({
             showSnackbar('User activated successfully', 'success');
             loadUsers();
         } catch (error: any) {
-            showSnackbar('Failed to activate user: ' + error.message, 'error');
+            showSnackbar(`Failed to activate user: ${  error.message}`, 'error');
         } finally {
             setLoading(false);
         }
@@ -245,7 +245,7 @@ export default function UserManagementTab({
             showSnackbar('User deactivated successfully', 'success');
             loadUsers();
         } catch (error: any) {
-            showSnackbar('Failed to deactivate user: ' + error.message, 'error');
+            showSnackbar(`Failed to deactivate user: ${  error.message}`, 'error');
         } finally {
             setLoading(false);
         }

@@ -131,7 +131,7 @@ test.describe("verify 24dec03a import results", () => {
     console.log(`CTF dir has ${entries.length} entries`);
     fs.writeFileSync(
       path.join(SHOTS, "ctf-dir-listing.txt"),
-      entries.slice(0, 20).join("\n") + `\n...(${entries.length} total)`,
+      `${entries.slice(0, 20).join("\n")  }\n...(${entries.length} total)`,
     );
   });
 

@@ -78,9 +78,13 @@ import { PluginLogsPanel } from '../../plugin-installer/ui/PluginLogsPanel.tsx';
 import { ScaleControl } from '../../plugin-installer/ui/ScaleControl.tsx';
 
 /** Per-card Conditions cluster — each card fetches its own status. */
-const ConditionsForCard: React.FC<{ pluginId: string }> = ({ pluginId }) => {
+const ConditionsForCard: React.FC<{
+    pluginId: string;
+    manifestPluginId?: string | null;
+}> = ({ pluginId, manifestPluginId }) => {
     const { data } = usePluginStatus(pluginId);
-    return <PluginConditions conditions={data} />;
+    const { data: procStatus } = useAdminPluginProcessStatus(manifestPluginId);
+    return <PluginConditions conditions={data} lifecycleStatus={procStatus?.status} />;
 };
 
 /** Inline log preview shown on a card when Healthy=False. Operators
@@ -129,10 +133,13 @@ const ProcessControlsForRow: React.FC<{
     onError: (msg: string) => void;
 }> = ({ pluginId, manifestPluginId, onError }) => {
     const liveOnBus = useLiveOnBus(pluginId);
+    const { data: procStatus } = useAdminPluginProcessStatus(manifestPluginId);
+    const containerMissing = procStatus?.status === 'missing';
     return (
         <ProcessControls
             manifestPluginId={manifestPluginId}
             liveOnBus={!!liveOnBus}
+            containerMissing={containerMissing}
             onError={onError}
         />
     );
@@ -156,8 +163,9 @@ const ProcessControlsForRow: React.FC<{
 const ProcessControls: React.FC<{
     manifestPluginId: string;
     liveOnBus: boolean;
+    containerMissing?: boolean;
     onError: (msg: string) => void;
-}> = ({ manifestPluginId, liveOnBus, onError }) => {
+}> = ({ manifestPluginId, liveOnBus, containerMissing, onError }) => {
     const { data: procStatus } = useAdminPluginProcessStatus(manifestPluginId);
     const start = useStartPlugin();
     const stop = useStopPlugin();
@@ -169,11 +177,11 @@ const ProcessControls: React.FC<{
     const supportsPause = !!procStatus?.supports_pause;
     const isPaused = status === 'paused';
     const busy =
-        start.isLoading ||
-        stop.isLoading ||
-        restart.isLoading ||
-        pause.isLoading ||
-        unpause.isLoading;
+        start.isPending ||
+        stop.isPending ||
+        restart.isPending ||
+        pause.isPending ||
+        unpause.isPending;
 
     const handle = async (
         verb: 'start' | 'stop' | 'restart' | 'pause' | 'unpause',
@@ -201,18 +209,21 @@ const ProcessControls: React.FC<{
     // matrix. Keeps the JSX below readable and lets the matrix be
     // unit-tested without mounting the whole component.
     const disabled = processControlsDisabled({
-        liveOnBus, supervisorRunning, isPaused, supportsPause, busy,
+        liveOnBus, supervisorRunning, isPaused, supportsPause, containerMissing, busy,
     });
+
+    const startTitle = containerMissing
+        ? 'Container missing — uninstall to clean up'
+        : liveOnBus
+          ? 'Already announcing on the bus'
+          : 'Start plugin process';
+    const restartTitle = containerMissing
+        ? 'Container missing — uninstall to clean up'
+        : 'Restart plugin process';
 
     return (
         <Stack direction="row" spacing={0.25}>
-            <Tooltip
-                title={
-                    liveOnBus
-                        ? 'Already announcing on the bus'
-                        : 'Start plugin process'
-                }
-            >
+            <Tooltip title={startTitle}>
                 <span>
                     <IconButton
                         size="small"
@@ -262,7 +273,7 @@ const ProcessControls: React.FC<{
                     </IconButton>
                 </span>
             </Tooltip>
-            <Tooltip title="Restart plugin process">
+            <Tooltip title={restartTitle}>
                 <span>
                     <IconButton
                         size="small"
@@ -725,7 +736,10 @@ export const InstalledPluginsView: React.FC<InstalledPluginsViewProps> = ({
                                                 {plugin.developer}
                                             </Typography>
                                         )}
-                                        <ConditionsForCard pluginId={plugin.plugin_id} />
+                                        <ConditionsForCard
+                                            pluginId={plugin.plugin_id}
+                                            manifestPluginId={plugin.manifest_plugin_id}
+                                        />
                                         {plugin.manifest_plugin_id && (
                                             <InlineLogsWhenUnhealthy
                                                 pluginId={plugin.plugin_id}
@@ -750,7 +764,7 @@ export const InstalledPluginsView: React.FC<InstalledPluginsViewProps> = ({
                                                 <Switch
                                                     size="small"
                                                     checked={enabled}
-                                                    disabled={toggle.isLoading}
+                                                    disabled={toggle.isPending}
                                                     onChange={(e) =>
                                                         toggle.mutate({
                                                             pluginId: plugin.plugin_id,
@@ -766,7 +780,7 @@ export const InstalledPluginsView: React.FC<InstalledPluginsViewProps> = ({
                                             <Button
                                                 size="small"
                                                 variant="outlined"
-                                                disabled={setDefault.isLoading}
+                                                disabled={setDefault.isPending}
                                                 onClick={() =>
                                                     setDefault.mutate({
                                                         category: plugin.category!,

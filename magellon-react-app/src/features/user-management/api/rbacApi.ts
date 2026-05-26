@@ -3,7 +3,8 @@
  * TypeScript API client for Role-Based Access Control endpoints
  */
 
-import axios, { AxiosInstance } from 'axios';
+import type { AxiosInstance } from 'axios';
+import axios from 'axios';
 
 // Base configuration
 const API_BASE_URL =  'http://localhost:8000';

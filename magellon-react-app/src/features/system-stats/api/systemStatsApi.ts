@@ -6,7 +6,7 @@
  * navigates away from the page, react-query stops the polling
  * automatically.
  */
-import { useQuery } from 'react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
 import { settings } from '../../../shared/config/settings.ts';
 
@@ -62,12 +62,12 @@ export const fetchSystemStats = async (): Promise<SystemStatsResponse> => {
 };
 
 export const useSystemStats = (intervalMs: number = 2000) =>
-    useQuery(['system-stats'], fetchSystemStats, {
+    useQuery({
+        queryKey: ['system-stats'],
+        queryFn: fetchSystemStats,
         refetchInterval: intervalMs,
         // Smooth animation: keep prior values around while next sample
         // is in flight so the cards don't blink on every refetch.
-        keepPreviousData: true,
-        // 6h. We always refetch on interval anyway; the cache time keeps
-        // the prior sample around across remounts of the page.
+        placeholderData: keepPreviousData,
         staleTime: intervalMs * 2,
     });

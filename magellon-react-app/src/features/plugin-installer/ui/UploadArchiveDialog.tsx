@@ -100,7 +100,7 @@ export const UploadArchiveDialog: React.FC<UploadArchiveDialogProps> = ({
     };
 
     const handleClose = () => {
-        if (install.isLoading || inspect.isLoading) return;
+        if (install.isPending || inspect.isPending) return;
         reset();
         onClose();
     };
@@ -168,8 +168,8 @@ export const UploadArchiveDialog: React.FC<UploadArchiveDialogProps> = ({
         }
     };
 
-    const installing = install.isLoading;
-    const inspecting = inspect.isLoading;
+    const installing = install.isPending;
+    const inspecting = inspect.isPending;
 
     const renderMethodOption = (m: InstallMethodOption) => {
         const label = (

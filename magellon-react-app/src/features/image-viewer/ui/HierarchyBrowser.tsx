@@ -16,8 +16,9 @@ import {
 } from '@mui/icons-material';
 import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
 import { TreeItem } from '@mui/x-tree-view/TreeItem';
-import ImageInfoDto, { PagedImageResponse } from '../../../entities/image/types.ts';
-import { InfiniteData } from 'react-query';
+import type { PagedImageResponse } from '../../../entities/image/types.ts';
+import type ImageInfoDto from '../../../entities/image/types.ts';
+import type { InfiniteData } from '@tanstack/react-query';
 import { useImageViewerStore } from '../model/imageViewerStore';
 
 interface TreeViewerProps {

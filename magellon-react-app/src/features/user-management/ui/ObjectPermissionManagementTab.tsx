@@ -128,7 +128,7 @@ export default function ObjectPermissionManagementTab({
             setRoles(response.data || []);
         } catch (error: any) {
             console.error('Failed to load roles:', error);
-            showSnackbar('Failed to load roles: ' + (error.message || 'Unknown error'), 'error');
+            showSnackbar(`Failed to load roles: ${  error.message || 'Unknown error'}`, 'error');
         }
     };
 
@@ -140,7 +140,7 @@ export default function ObjectPermissionManagementTab({
             setPermissions([]);
         } catch (error: any) {
             console.error('Failed to load permissions:', error);
-            showSnackbar('Failed to load permissions: ' + (error.message || 'Unknown error'), 'error');
+            showSnackbar(`Failed to load permissions: ${  error.message || 'Unknown error'}`, 'error');
         } finally {
             setLoading(false);
         }
@@ -167,7 +167,7 @@ export default function ObjectPermissionManagementTab({
 
             await apiClient.post('/db/security/object-permissions', {
                 type_permission_id: typePermId,
-                criteria: criteria,
+                criteria,
                 read_state: readState ? 1 : 0,
                 write_state: writeState ? 1 : 0,
                 delete_state: deleteState ? 1 : 0,
@@ -185,7 +185,7 @@ export default function ObjectPermissionManagementTab({
         } catch (error: any) {
             console.error('Failed to create permission:', error);
             showSnackbar(
-                'Failed to create permission: ' + (error.response?.data?.detail || error.message || 'Unknown error'),
+                `Failed to create permission: ${  error.response?.data?.detail || error.message || 'Unknown error'}`,
                 'error'
             );
         }

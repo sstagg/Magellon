@@ -163,7 +163,7 @@ const StatCard = ({ title, value, subtitle, icon, color, chartData = [] }) => {
                 }}>
                     {React.cloneElement(icon, {
                         size: isMobile ? 16 : isTablet ? 18 : 20,
-                        color: color
+                        color
                     })}
                 </Box>
             </Box>
@@ -216,7 +216,7 @@ const QuickActionCard = ({ title, icon, color, onClick, featured = false }) => {
             }}>
                 {React.cloneElement(icon, {
                     size: 18,
-                    color: color
+                    color
                 })}
             </Box>
             <Typography

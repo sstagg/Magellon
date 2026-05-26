@@ -20,10 +20,6 @@ describe('Shared layer imports', () => {
     expect(mod).toBeDefined()
   })
 
-  it('menu exports', async () => {
-    const mod = await import('../../shared/lib/menu.ts')
-    expect(mod).toBeDefined()
-  })
 })
 
 describe('Theme module imports', () => {

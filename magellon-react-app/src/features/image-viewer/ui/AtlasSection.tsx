@@ -31,8 +31,8 @@ import {
     ChevronDown,
     ImageOff
 } from 'lucide-react';
-import { AtlasImageDto } from '../../../entities/image/types.ts';
-import ImageInfoDto from '../../../entities/image/types.ts';
+import type { AtlasImageDto } from '../../../entities/image/types.ts';
+import type ImageInfoDto from '../../../entities/image/types.ts';
 import AtlasViewer from './AtlasViewer';
 import { settings } from '../../../shared/config/settings.ts';
 import { AuthenticatedAtlasImage } from './AuthenticatedAtlasImage';

@@ -150,7 +150,7 @@ const TaskRow: React.FC<{ t: ActivityRecentTask }> = ({ t }) => (
             </Tooltip>
         </TableCell>
         <TableCell sx={{ fontFamily: 'monospace', fontSize: 11 }}>
-            {t.image_name ?? (t.image_id ? t.image_id.slice(0, 8) + '…' : '—')}
+            {t.image_name ?? (t.image_id ? `${t.image_id.slice(0, 8)  }…` : '—')}
         </TableCell>
         <TableCell sx={{ fontFamily: 'monospace', fontSize: 11 }}>
             {t.subject_kind && t.subject_kind !== 'image' ? t.subject_kind : '—'}

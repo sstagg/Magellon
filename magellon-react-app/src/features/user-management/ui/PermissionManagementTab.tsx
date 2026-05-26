@@ -169,7 +169,7 @@ export default function PermissionManagementTab({
       setNewAction('');
       loadPermissions();
     } catch (error: any) {
-      showSnackbar('Failed to add action permission: ' + error.message, 'error');
+      showSnackbar(`Failed to add action permission: ${  error.message}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -182,7 +182,7 @@ export default function PermissionManagementTab({
       showSnackbar('Action permission deleted', 'success');
       loadPermissions();
     } catch (error: any) {
-      showSnackbar('Failed to delete action permission: ' + error.message, 'error');
+      showSnackbar(`Failed to delete action permission: ${  error.message}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -203,7 +203,7 @@ export default function PermissionManagementTab({
       setNewNavPath('');
       loadPermissions();
     } catch (error: any) {
-      showSnackbar('Failed to add navigation permission: ' + error.message, 'error');
+      showSnackbar(`Failed to add navigation permission: ${  error.message}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -216,7 +216,7 @@ export default function PermissionManagementTab({
       showSnackbar('Navigation permission deleted', 'success');
       loadPermissions();
     } catch (error: any) {
-      showSnackbar('Failed to delete navigation permission: ' + error.message, 'error');
+      showSnackbar(`Failed to delete navigation permission: ${  error.message}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -232,7 +232,7 @@ export default function PermissionManagementTab({
       showSnackbar('Navigation permission updated', 'success');
       loadPermissions();
     } catch (error: any) {
-      showSnackbar('Failed to update navigation permission: ' + error.message, 'error');
+      showSnackbar(`Failed to update navigation permission: ${  error.message}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -264,7 +264,7 @@ export default function PermissionManagementTab({
       });
       loadPermissions();
     } catch (error: any) {
-      showSnackbar('Failed to add type permission: ' + error.message, 'error');
+      showSnackbar(`Failed to add type permission: ${  error.message}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -277,7 +277,7 @@ export default function PermissionManagementTab({
       showSnackbar('Type permission deleted', 'success');
       loadPermissions();
     } catch (error: any) {
-      showSnackbar('Failed to delete type permission: ' + error.message, 'error');
+      showSnackbar(`Failed to delete type permission: ${  error.message}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -298,7 +298,7 @@ export default function PermissionManagementTab({
       setNewType('');
       loadPermissions();
     } catch (error: any) {
-      showSnackbar('Failed to grant access: ' + error.message, 'error');
+      showSnackbar(`Failed to grant access: ${  error.message}`, 'error');
     } finally {
       setLoading(false);
     }

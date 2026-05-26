@@ -1,7 +1,7 @@
 
-import {useInfiniteQuery, useQuery} from 'react-query';
+import {useInfiniteQuery, useQuery} from '@tanstack/react-query';
 import {fetchImagesPage} from "./imagesApiReactQuery.tsx";
-import {PagedImageResponse} from "../../../entities/image/types.ts";
+import type {PagedImageResponse} from "../../../entities/image/types.ts";
 
 
 export const useFetchImages = (
@@ -10,14 +10,11 @@ export const useFetchImages = (
     page: number,
     pageSize: number
 ) => {
-    return useQuery(
-        ['images', sessionName, parentId, page, pageSize],
-        () => fetchImagesPage(sessionName, parentId, page, pageSize),
-        {
-            retry: 3, // Number of retries on failure (optional)
-
-        }
-    );
+    return useQuery({
+        queryKey: ['images', sessionName, parentId, page, pageSize],
+        queryFn: () => fetchImagesPage(sessionName, parentId, page, pageSize),
+        retry: 3,
+    });
 };
 
 
@@ -27,12 +24,12 @@ export const useInfiniteImages = (
     initialPage: number,
     pageSize: number
 ) => {
-    return useInfiniteQuery<PagedImageResponse>(
-        ['images', sessionName, parentId, pageSize],
-        ({ pageParam = initialPage }) => fetchImagesPage(sessionName, parentId, pageParam, pageSize),
-        {
-            getNextPageParam: (lastPage) => lastPage.next_page ?? undefined,
-            retry: 3,
-        }
-    );
+    return useInfiniteQuery<PagedImageResponse>({
+        queryKey: ['images', sessionName, parentId, pageSize],
+        queryFn: ({ pageParam }) =>
+            fetchImagesPage(sessionName, parentId, pageParam as number, pageSize),
+        initialPageParam: initialPage,
+        getNextPageParam: (lastPage) => lastPage.next_page ?? undefined,
+        retry: 3,
+    });
 };

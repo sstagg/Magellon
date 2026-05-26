@@ -31,7 +31,8 @@ import {
 import { SchemaForm, type BrowseFileRequest } from '../../../shared/ui/SchemaForm.tsx';
 import { ImagePickerDialog } from '../../plugin-runner/ui/ImagePickerDialog.tsx';
 import { settings as appSettings } from '../../../shared/config/settings.ts';
-import { PickDispatchResponse, Point, TEMPLATE_PICKER_PATH } from '../lib/useParticleOperations.ts';
+import type { PickDispatchResponse, Point} from '../lib/useParticleOperations.ts';
+import { TEMPLATE_PICKER_PATH } from '../lib/useParticleOperations.ts';
 import { useJobStepEvents } from '../../../shared/lib/useJobStepEvents.ts';
 
 interface BackendInfo {
@@ -208,7 +209,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                 const topazLive = sorted.find(b => isTopaz(b.backend_id));
                 if (topazLive) {
                     setSelectedBackend(topazLive.backend_id);
-                } else if (sorted.length > 0 && !sorted.find(b => b.backend_id === selectedBackend)) {
+                } else if (sorted.length > 0 && !sorted.some(b => b.backend_id === selectedBackend)) {
                     setSelectedBackend(sorted[0].backend_id);
                 }
             })

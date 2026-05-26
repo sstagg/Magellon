@@ -120,7 +120,7 @@ export const AdminInstalledPanel: React.FC = () => {
         }
     };
 
-    const installing = installMpn.isLoading;
+    const installing = installMpn.isPending;
 
     return (
         <Box sx={{ mb: 4 }}>

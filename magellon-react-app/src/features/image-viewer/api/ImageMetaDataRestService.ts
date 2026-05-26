@@ -1,5 +1,5 @@
 import { settings } from "../../../shared/config/settings.ts";
-import { useQuery } from "react-query";
+import { useQuery } from "@tanstack/react-query";
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
 
 const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
@@ -22,13 +22,11 @@ export async function fetchImageMetaData(imageId: string) {
 
 // Hook to use the fetchImageMetaData function with react-query
 export function useFetchImageMetaData(imageId: string | undefined, enabled: boolean = false) {
-    return useQuery(
-        ['image_metadata', imageId],
-        () => fetchImageMetaData(imageId as string),
-        {
-            enabled: !!imageId && enabled, // Only run query if `imageId` is defined and `enabled` is true
-            staleTime: 5 * 60 * 1000,     // Data is fresh for 5 minutes
-            retry: 1,                     // Retry once on failure
-        }
-    );
+    return useQuery({
+        queryKey: ['image_metadata', imageId],
+        queryFn: () => fetchImageMetaData(imageId as string),
+        enabled: !!imageId && enabled,
+        staleTime: 5 * 60 * 1000,
+        retry: 1,
+    });
 }

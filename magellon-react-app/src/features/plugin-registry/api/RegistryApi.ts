@@ -6,7 +6,7 @@
  * page rendered on top reads this single response and slices it into
  * Browse / Update inbox / Local-only panes.
  */
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
 import { settings } from '../../../shared/config/settings.ts';
 
@@ -49,9 +49,9 @@ export interface RegistryIndexResponse {
 
 
 export const useRegistryIndex = (hubUrlOverride?: string) =>
-    useQuery(
-        ['plugin-registry-index', hubUrlOverride ?? ''],
-        async (): Promise<RegistryIndexResponse> => {
+    useQuery({
+        queryKey: ['plugin-registry-index', hubUrlOverride ?? ''],
+        queryFn: async (): Promise<RegistryIndexResponse> => {
             const res = await api.get<RegistryIndexResponse>(
                 '/plugins/registry/index',
                 {
@@ -60,10 +60,6 @@ export const useRegistryIndex = (hubUrlOverride?: string) =>
             );
             return res.data;
         },
-        {
-            // Hub catalog refreshes are infrequent; React-side staleness
-            // should be measured in minutes, not seconds.
-            staleTime: 5 * 60 * 1000,
-            refetchOnWindowFocus: false,
-        },
-    );
+        staleTime: 5 * 60 * 1000,
+        refetchOnWindowFocus: false,
+    });

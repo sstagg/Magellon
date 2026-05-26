@@ -12,7 +12,7 @@
  * any new field on the hub side needs a matching field here before
  * the UI surfaces it.
  */
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { settings } from '../../../shared/config/settings.ts';
 
 export interface HubVersion {
@@ -69,9 +69,9 @@ export const archiveUrl = (relative: string): string =>
  * separately via PR/CI).
  */
 export const useHubIndex = () =>
-    useQuery(
-        QK_HUB_INDEX,
-        async () => {
+    useQuery({
+        queryKey: QK_HUB_INDEX,
+        queryFn: async () => {
             const res = await fetch(`${hubUrl()}/v1/index.json`, {
                 method: 'GET',
                 // Don't send credentials — the hub is public read-only;
@@ -84,10 +84,8 @@ export const useHubIndex = () =>
             }
             return (await res.json()) as HubIndex;
         },
-        {
-            staleTime: 5 * 60 * 1000,
-        },
-    );
+        staleTime: 5 * 60 * 1000,
+    });
 
 /**
  * Download an .mpn from the hub as a File ready to upload to

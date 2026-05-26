@@ -11,7 +11,7 @@ import { useImageDataFetching } from '../../features/image-viewer/lib/useImageDa
 import { useAtlasData } from '../../features/image-viewer/lib/useAtlasData.ts';
 import { ImageViewerErrorBoundary } from '../../features/image-viewer/ui/ImageViewerErrorBoundary.tsx';
 import { ImageNavigationProvider } from '../../features/image-viewer/lib/ImageNavigationContext.tsx';
-import { useSidePanelStore } from '../../app/layouts/PanelLayout/useBottomPanelStore.ts';
+import { useSidePanelStore } from '../../shared/lib/stores/useBottomPanelStore.ts';
 import '../../shared/ui/resizablePanels.module.css';
 
 const CustomResizeHandle = () => {

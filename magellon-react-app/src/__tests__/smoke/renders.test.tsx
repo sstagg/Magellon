@@ -5,7 +5,7 @@
 import React from 'react'
 import { describe, it, expect } from 'vitest'
 import { render } from '@testing-library/react'
-import { QueryClient, QueryClientProvider } from 'react-query'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from '../../app/providers/theme/index.ts'
 import { AuthProvider } from '../../features/auth/model/AuthContext.tsx'
 

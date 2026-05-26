@@ -83,7 +83,7 @@ export default function MemberPermissionManagement({
             );
             setPermissions(response.data);
         } catch (error: any) {
-            showSnackbar('Failed to load member permissions: ' + (error.response?.data?.detail || error.message), 'error');
+            showSnackbar(`Failed to load member permissions: ${  error.response?.data?.detail || error.message}`, 'error');
         } finally {
             setLoading(false);
         }
@@ -138,7 +138,7 @@ export default function MemberPermissionManagement({
             setDialogOpen(false);
             loadPermissions();
         } catch (error: any) {
-            showSnackbar('Failed to save member permission: ' + (error.response?.data?.detail || error.message), 'error');
+            showSnackbar(`Failed to save member permission: ${  error.response?.data?.detail || error.message}`, 'error');
         }
     };
 
@@ -152,7 +152,7 @@ export default function MemberPermissionManagement({
             showSnackbar('Member permission deleted successfully', 'success');
             loadPermissions();
         } catch (error: any) {
-            showSnackbar('Failed to delete member permission: ' + (error.response?.data?.detail || error.message), 'error');
+            showSnackbar(`Failed to delete member permission: ${  error.response?.data?.detail || error.message}`, 'error');
         }
     };
 

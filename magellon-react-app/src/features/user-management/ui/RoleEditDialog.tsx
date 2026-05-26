@@ -219,7 +219,7 @@ export default function RoleEditDialog({
             }
         } catch (error: any) {
             console.error('Failed to load role data:', error);
-            showSnackbar('Failed to load role data: ' + error.message, 'error');
+            showSnackbar(`Failed to load role data: ${  error.message}`, 'error');
             // Set empty arrays to prevent map errors
             setActionPermissions([]);
             setNavigationPermissions([]);
@@ -240,7 +240,7 @@ export default function RoleEditDialog({
             showSnackbar('Role updated successfully', 'success');
             onSuccess();
         } catch (error: any) {
-            showSnackbar('Failed to update role: ' + error.message, 'error');
+            showSnackbar(`Failed to update role: ${  error.message}`, 'error');
         } finally {
             setSaving(false);
         }
@@ -264,7 +264,7 @@ export default function RoleEditDialog({
             setNewActionId('');
             loadRoleData();
         } catch (error: any) {
-            showSnackbar('Failed to add action permission: ' + (error.response?.data?.detail || error.message), 'error');
+            showSnackbar(`Failed to add action permission: ${  error.response?.data?.detail || error.message}`, 'error');
         }
     };
 
@@ -277,7 +277,7 @@ export default function RoleEditDialog({
             showSnackbar('Action permission deleted successfully', 'success');
             loadRoleData();
         } catch (error: any) {
-            showSnackbar('Failed to delete action permission: ' + (error.response?.data?.detail || error.message), 'error');
+            showSnackbar(`Failed to delete action permission: ${  error.response?.data?.detail || error.message}`, 'error');
         }
     };
 
@@ -301,7 +301,7 @@ export default function RoleEditDialog({
             setNewNavState(1);
             loadRoleData();
         } catch (error: any) {
-            showSnackbar('Failed to add navigation permission: ' + (error.response?.data?.detail || error.message), 'error');
+            showSnackbar(`Failed to add navigation permission: ${  error.response?.data?.detail || error.message}`, 'error');
         }
     };
 
@@ -314,7 +314,7 @@ export default function RoleEditDialog({
             showSnackbar('Navigation permission deleted successfully', 'success');
             loadRoleData();
         } catch (error: any) {
-            showSnackbar('Failed to delete navigation permission: ' + (error.response?.data?.detail || error.message), 'error');
+            showSnackbar(`Failed to delete navigation permission: ${  error.response?.data?.detail || error.message}`, 'error');
         }
     };
 
@@ -344,7 +344,7 @@ export default function RoleEditDialog({
             });
             loadRoleData();
         } catch (error: any) {
-            showSnackbar('Failed to add type permission: ' + (error.response?.data?.detail || error.message), 'error');
+            showSnackbar(`Failed to add type permission: ${  error.response?.data?.detail || error.message}`, 'error');
         }
     };
 
@@ -357,7 +357,7 @@ export default function RoleEditDialog({
             showSnackbar('Type permission deleted successfully', 'success');
             loadRoleData();
         } catch (error: any) {
-            showSnackbar('Failed to delete type permission: ' + (error.response?.data?.detail || error.message), 'error');
+            showSnackbar(`Failed to delete type permission: ${  error.response?.data?.detail || error.message}`, 'error');
         }
     };
 

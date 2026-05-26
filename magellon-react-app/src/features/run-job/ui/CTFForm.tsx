@@ -1,3 +1,6 @@
+import type {
+    SelectChangeEvent
+} from "@mui/material";
 import {
     Typography,
     Box,
@@ -15,15 +18,14 @@ import {
     FormControl,
     InputLabel,
     Select,
-    MenuItem,
-    SelectChangeEvent
+    MenuItem
 } from "@mui/material";
 import { useState } from "react";
 import { Upload, Settings2, ChevronDown, Focus } from "lucide-react";
 import { settings } from "../../../shared/config/settings.ts";
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
 import { useSessionNames } from "../../image-viewer/api/FetchUseSessionNames.ts";
-import { SessionDto } from "../../../entities/image/types.ts";
+import type { SessionDto } from "../../../entities/image/types.ts";
 
 const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 

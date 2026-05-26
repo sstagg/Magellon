@@ -1,7 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
 import { settings } from '../../../shared/config/settings.ts';
-import type { Job } from '../../../app/layouts/PanelLayout/useJobStore.ts';
+import type { Job } from '../../../shared/lib/stores/useJobStore.ts';
 
 const api = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
@@ -143,7 +143,7 @@ export const fetchJobs = async (pluginId?: string): Promise<Job[]> => {
 // ---------------------------------------------------------------------------
 
 export const usePlugins = () =>
-    useQuery(['plugins'], fetchPlugins, { staleTime: 60_000 });
+    useQuery({ queryKey: ['plugins'], queryFn: fetchPlugins, staleTime: 60_000 });
 
 // ---------------------------------------------------------------------------
 // PM2 — Conditions[] (Kubernetes-style multi-axis status per plugin)
@@ -173,17 +173,15 @@ export const fetchPluginStatus = async (pluginId: string): Promise<Condition[]> 
 };
 
 export const usePluginStatus = (pluginId: string | null) =>
-    useQuery(
-        ['plugin-status', pluginId],
-        () => fetchPluginStatus(pluginId!),
-        {
-            enabled: !!pluginId,
-            // Status moves on heartbeat (~15s); refresh every 10s to
-            // keep chips lively without hammering the backend.
-            refetchInterval: 10_000,
-            staleTime: 5_000,
-        },
-    );
+    useQuery({
+        queryKey: ['plugin-status', pluginId],
+        queryFn: () => fetchPluginStatus(pluginId!),
+        enabled: !!pluginId,
+        // Status moves on heartbeat (~15s); refresh every 10s to
+        // keep chips lively without hammering the backend.
+        refetchInterval: 10_000,
+        staleTime: 5_000,
+    });
 
 // ---------------------------------------------------------------------------
 // PM5 — Per-replica health for one plugin
@@ -207,15 +205,13 @@ export const fetchPluginReplicas = async (pluginId: string): Promise<ReplicaInfo
 };
 
 export const usePluginReplicas = (pluginId: string | null) =>
-    useQuery(
-        ['plugin-replicas', pluginId],
-        () => fetchPluginReplicas(pluginId!),
-        {
-            enabled: !!pluginId,
-            refetchInterval: 10_000,
-            staleTime: 5_000,
-        },
-    );
+    useQuery({
+        queryKey: ['plugin-replicas', pluginId],
+        queryFn: () => fetchPluginReplicas(pluginId!),
+        enabled: !!pluginId,
+        refetchInterval: 10_000,
+        staleTime: 5_000,
+    });
 
 // ---------------------------------------------------------------------------
 // Installed catalog (DB-backed) — what's installed on this server, where it
@@ -253,7 +249,9 @@ export const fetchInstalledFromDb = async (): Promise<InstalledPluginRow[]> => {
 };
 
 export const useInstalledFromDb = () =>
-    useQuery(['plugins-db'], fetchInstalledFromDb, {
+    useQuery({
+        queryKey: ['plugins-db'],
+        queryFn: fetchInstalledFromDb,
         staleTime: 30_000,
     });
 
@@ -279,7 +277,9 @@ export const fetchPluginUpdates = async (): Promise<UpdateInfo[]> => {
 };
 
 export const usePluginUpdates = () =>
-    useQuery(['plugin-updates'], fetchPluginUpdates, {
+    useQuery({
+        queryKey: ['plugin-updates'],
+        queryFn: fetchPluginUpdates,
         // Updates change at the cadence of catalog uploads / hub
         // refreshes — minute-scale is fine.
         staleTime: 60_000,
@@ -309,24 +309,20 @@ export const setCategoryDefault = async (category: string, pluginId: string) => 
 
 export const useTogglePlugin = () => {
     const qc = useQueryClient();
-    return useMutation(
-        async ({ pluginId, enabled }: { pluginId: string; enabled: boolean }) =>
+    return useMutation({
+        mutationFn: async ({ pluginId, enabled }: { pluginId: string; enabled: boolean }) =>
             (enabled ? enablePlugin : disablePlugin)(pluginId),
-        {
-            onSuccess: () => qc.invalidateQueries(['plugins']),
-        },
-    );
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['plugins'] }),
+    });
 };
 
 export const useSetCategoryDefault = () => {
     const qc = useQueryClient();
-    return useMutation(
-        async ({ category, pluginId }: { category: string; pluginId: string }) =>
+    return useMutation({
+        mutationFn: async ({ category, pluginId }: { category: string; pluginId: string }) =>
             setCategoryDefault(category, pluginId),
-        {
-            onSuccess: () => qc.invalidateQueries(['plugins']),
-        },
-    );
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['plugins'] }),
+    });
 };
 
 // ---------------------------------------------------------------------------
@@ -392,7 +388,9 @@ export const removeInstalled = async (installId: string): Promise<InstalledPlugi
 };
 
 export const useInstalledPlugins = () =>
-    useQuery(['plugins-installed'], fetchInstalled, {
+    useQuery({
+        queryKey: ['plugins-installed'],
+        queryFn: fetchInstalled,
         // Installed-plugin state moves slowly; cheap polling lets the
         // user see container-state changes (running → exited, etc.)
         // without refreshing the page manually.
@@ -401,20 +399,22 @@ export const useInstalledPlugins = () =>
 
 export const useInstallPlugin = () => {
     const qc = useQueryClient();
-    return useMutation(installPlugin, {
+    return useMutation({
+        mutationFn: installPlugin,
         onSuccess: () => {
-            qc.invalidateQueries(['plugins-installed']);
-            qc.invalidateQueries(['plugins']);
+            qc.invalidateQueries({ queryKey: ['plugins-installed'] });
+            qc.invalidateQueries({ queryKey: ['plugins'] });
         },
     });
 };
 
 export const useInstallPluginArchive = () => {
     const qc = useQueryClient();
-    return useMutation(installPluginArchive, {
+    return useMutation({
+        mutationFn: installPluginArchive,
         onSuccess: () => {
-            qc.invalidateQueries(['plugins-installed']);
-            qc.invalidateQueries(['plugins']);
+            qc.invalidateQueries({ queryKey: ['plugins-installed'] });
+            qc.invalidateQueries({ queryKey: ['plugins'] });
         },
     });
 };
@@ -469,50 +469,59 @@ export const installCatalogEntry = async (catalogId: string) => {
     return res.data;
 };
 
-export const useCatalog = (params: { search?: string; category?: string } = {}) =>
-    useQuery(
-        ['plugin-catalog', params.search ?? '', params.category ?? ''],
-        () => browseCatalog(params),
-        { keepPreviousData: true, staleTime: 10_000 },
-    );
+export const useCatalog = (params: { search?: string; category?: string } = {}) => {
+    const search = params.search ?? '';
+    const category = params.category ?? '';
+    return useQuery({
+        queryKey: ['plugin-catalog', search, category],
+        queryFn: () => browseCatalog({ search, category }),
+        placeholderData: keepPreviousData,
+        staleTime: 10_000,
+    });
+};
 
 export const useUploadCatalog = () => {
     const qc = useQueryClient();
-    return useMutation(uploadCatalogArchive, {
-        onSuccess: () => qc.invalidateQueries(['plugin-catalog']),
+    return useMutation({
+        mutationFn: uploadCatalogArchive,
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['plugin-catalog'] }),
     });
 };
 
 export const useDeleteCatalog = () => {
     const qc = useQueryClient();
-    return useMutation(deleteCatalogEntry, {
-        onSuccess: () => qc.invalidateQueries(['plugin-catalog']),
+    return useMutation({
+        mutationFn: deleteCatalogEntry,
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['plugin-catalog'] }),
     });
 };
 
 export const useInstallCatalog = () => {
     const qc = useQueryClient();
-    return useMutation(installCatalogEntry, {
+    return useMutation({
+        mutationFn: installCatalogEntry,
         onSuccess: () => {
-            qc.invalidateQueries(['plugins-installed']);
-            qc.invalidateQueries(['plugins']);
+            qc.invalidateQueries({ queryKey: ['plugins-installed'] });
+            qc.invalidateQueries({ queryKey: ['plugins'] });
         },
     });
 };
 
 export const useStopInstalled = () => {
     const qc = useQueryClient();
-    return useMutation(stopInstalled, {
-        onSuccess: () => qc.invalidateQueries(['plugins-installed']),
+    return useMutation({
+        mutationFn: stopInstalled,
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['plugins-installed'] }),
     });
 };
 
 export const useRemoveInstalled = () => {
     const qc = useQueryClient();
-    return useMutation(removeInstalled, {
+    return useMutation({
+        mutationFn: removeInstalled,
         onSuccess: () => {
-            qc.invalidateQueries(['plugins-installed']);
-            qc.invalidateQueries(['plugins']);
+            qc.invalidateQueries({ queryKey: ['plugins-installed'] });
+            qc.invalidateQueries({ queryKey: ['plugins'] });
         },
     });
 };
@@ -581,7 +590,11 @@ export const fetchCapabilities = async (): Promise<CapabilitiesResponse> => {
 };
 
 export const useCapabilities = () =>
-    useQuery(['plugin-capabilities'], fetchCapabilities, { staleTime: 30_000 });
+    useQuery({
+        queryKey: ['plugin-capabilities'],
+        queryFn: fetchCapabilities,
+        staleTime: 30_000,
+    });
 
 
 // ---------------------------------------------------------------------------
@@ -615,22 +628,20 @@ export interface CategoryBackendsResponse {
 }
 
 export const useCategoryBackends = (categorySlug: string | undefined) =>
-    useQuery(
-        ['category-backends', categorySlug],
-        async () => {
+    useQuery({
+        queryKey: ['category-backends', categorySlug],
+        queryFn: async () => {
             const res = await api.get<CategoryBackendsResponse>(
                 `/dispatch/${encodeURIComponent(categorySlug!)}/backends`,
             );
             return res.data;
         },
-        {
-            enabled: !!categorySlug,
-            // Operators on the drilldown page want fresh data; default
-            // bus + state changes propagate within seconds.
-            staleTime: 5_000,
-            refetchInterval: 10_000,
-        },
-    );
+        enabled: !!categorySlug,
+        // Operators on the drilldown page want fresh data; default
+        // bus + state changes propagate within seconds.
+        staleTime: 5_000,
+        refetchInterval: 10_000,
+    });
 
 /** Find the capabilities row for a plugin, by case-insensitive category name match.
  *  Returns ``null`` when no live broker backends exist for the category.
@@ -644,18 +655,20 @@ export const useCategoryCapabilities = (categoryName: string | undefined) => {
 };
 
 export const usePluginInputSchema = (pluginId: string | null) =>
-    useQuery(
-        ['plugin-schema-input', pluginId],
-        () => fetchPluginInputSchema(pluginId!),
-        { enabled: !!pluginId, staleTime: 60_000 },
-    );
+    useQuery({
+        queryKey: ['plugin-schema-input', pluginId],
+        queryFn: () => fetchPluginInputSchema(pluginId!),
+        enabled: !!pluginId,
+        staleTime: 60_000,
+    });
 
 export const usePluginOutputSchema = (pluginId: string | null) =>
-    useQuery(
-        ['plugin-schema-output', pluginId],
-        () => fetchPluginOutputSchema(pluginId!),
-        { enabled: !!pluginId, staleTime: 60_000 },
-    );
+    useQuery({
+        queryKey: ['plugin-schema-output', pluginId],
+        queryFn: () => fetchPluginOutputSchema(pluginId!),
+        enabled: !!pluginId,
+        staleTime: 60_000,
+    });
 
 // ---------------------------------------------------------------------------
 // Sync dispatch — POST /dispatch/{category}/run for plugins advertising
@@ -679,24 +692,32 @@ export const dispatchSync = async (
 };
 
 export const useDispatchSync = (category: string) =>
-    useMutation((body: SyncDispatchRequest) => dispatchSync(category, body));
+    useMutation({
+        mutationFn: (body: SyncDispatchRequest) => dispatchSync(category, body),
+    });
 
 export const useSubmitPluginJob = (pluginId: string) =>
-    useMutation((body: JobSubmitRequest & { sid?: string }) => {
-        const { sid, ...payload } = body;
-        return submitPluginJob(pluginId, payload, sid);
+    useMutation({
+        mutationFn: (body: JobSubmitRequest & { sid?: string }) => {
+            const { sid, ...payload } = body;
+            return submitPluginJob(pluginId, payload, sid);
+        },
     });
 
 export const useSubmitPluginBatch = (pluginId: string) =>
-    useMutation((body: BatchSubmitRequest & { sid?: string }) => {
-        const { sid, ...payload } = body;
-        return submitPluginBatch(pluginId, payload, sid);
+    useMutation({
+        mutationFn: (body: BatchSubmitRequest & { sid?: string }) => {
+            const { sid, ...payload } = body;
+            return submitPluginBatch(pluginId, payload, sid);
+        },
     });
 
 export const useCancelJob = () =>
-    useMutation((jobId: string) => cancelJob(jobId));
+    useMutation({ mutationFn: (jobId: string) => cancelJob(jobId) });
 
 export const usePluginJobs = (pluginId?: string) =>
-    useQuery(['plugin-jobs', pluginId ?? 'all'], () => fetchJobs(pluginId), {
+    useQuery({
+        queryKey: ['plugin-jobs', pluginId ?? 'all'],
+        queryFn: () => fetchJobs(pluginId),
         refetchInterval: 5000,
     });

@@ -48,7 +48,7 @@ export const useImageDataFetching = (options: UseImageDataFetchingOptions = {}) 
                 }
             } else if (
                 imageColumns[columnIndex].selectedImage &&
-                imageColumns[columnIndex].selectedImage?.children_count! > 0
+                (imageColumns[columnIndex].selectedImage?.children_count ?? 0) > 0
             ) {
                 // Child column - fetch images for selected parent
                 setParentId(imageColumns[columnIndex].selectedImage!.oid);

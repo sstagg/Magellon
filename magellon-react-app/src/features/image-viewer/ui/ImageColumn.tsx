@@ -8,9 +8,10 @@ import {
     useTheme,
     alpha
 } from "@mui/material";
-import { InfiniteData } from "react-query";
+import type { InfiniteData } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import ImageInfoDto, { PagedImageResponse } from "../../../entities/image/types.ts";
+import type { PagedImageResponse } from "../../../entities/image/types.ts";
+import type ImageInfoDto from "../../../entities/image/types.ts";
 import { ImageThumbnail } from "./ImageThumbnail.tsx";
 import './ImageViewerStyles.css';
 import { useImageViewerStore } from '../model/imageViewerStore';
@@ -73,7 +74,7 @@ export const ImageColumn: React.FC<ImagesStackProps> = ({
             sx={{
                 width: containerWidth,
                 height: containerHeight,
-                maxHeight: maxHeight,
+                maxHeight,
                 maxWidth: '100%',
                 display: 'flex',
                 flexDirection: 'column',

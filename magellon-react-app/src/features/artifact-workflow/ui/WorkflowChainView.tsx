@@ -259,7 +259,7 @@ export const WorkflowChainView: React.FC<{ oid: string }> = ({ oid }) => {
                 node={data.root_artifact}
                 isRoot
                 onReRun={handleReRun}
-                reRunning={reRun.isLoading}
+                reRunning={reRun.isPending}
             />
 
             {data.ancestors.map((node) => (
@@ -268,7 +268,7 @@ export const WorkflowChainView: React.FC<{ oid: string }> = ({ oid }) => {
                     node={node}
                     isRoot={false}
                     onReRun={handleReRun}
-                    reRunning={reRun.isLoading}
+                    reRunning={reRun.isPending}
                 />
             ))}
 

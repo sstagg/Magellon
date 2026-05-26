@@ -1,6 +1,6 @@
 import React, { createContext, useContext } from 'react';
-import ImageInfoDto from '../../../entities/image/types.ts';
-import { SelectChangeEvent } from '@mui/material';
+import type ImageInfoDto from '../../../entities/image/types.ts';
+import type { SelectChangeEvent } from '@mui/material';
 import { useImageNavigation } from './useImageNavigation.ts';
 
 interface ImageNavigationContextType {

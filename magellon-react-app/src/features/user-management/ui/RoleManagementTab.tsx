@@ -106,7 +106,7 @@ export default function RoleManagementTab({ currentUser: _currentUser, showSnack
       setRoles(data);
     } catch (error: any) {
       console.error('Failed to load roles:', error);
-      showSnackbar('Failed to load roles: ' + error.message, 'error');
+      showSnackbar(`Failed to load roles: ${  error.message}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -142,7 +142,7 @@ export default function RoleManagementTab({ currentUser: _currentUser, showSnack
       loadRoles();
       loadStatistics();
     } catch (error: any) {
-      showSnackbar('Failed to create role: ' + error.message, 'error');
+      showSnackbar(`Failed to create role: ${  error.message}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -159,7 +159,7 @@ export default function RoleManagementTab({ currentUser: _currentUser, showSnack
       loadRoles();
       loadStatistics();
     } catch (error: any) {
-      showSnackbar('Failed to delete role: ' + error.message, 'error');
+      showSnackbar(`Failed to delete role: ${  error.message}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -175,7 +175,7 @@ export default function RoleManagementTab({ currentUser: _currentUser, showSnack
       setSelectedRole(role);
       setUsersDialogOpen(true);
     } catch (error: any) {
-      showSnackbar('Failed to load role users: ' + error.message, 'error');
+      showSnackbar(`Failed to load role users: ${  error.message}`, 'error');
       setRoleUsers([]); // Set to empty array on error
     } finally {
       setLoading(false);

@@ -20,6 +20,8 @@ import {
 } from '@mui/material';
 import { ChevronDown, ChevronUp, Puzzle, Square, Star, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import type {
+    PluginSummary} from '../api/PluginApi.ts';
 import {
     usePlugins,
     useTogglePlugin,
@@ -28,8 +30,7 @@ import {
     useStopInstalled,
     useRemoveInstalled,
     usePluginStatus,
-    usePluginUpdates,
-    PluginSummary,
+    usePluginUpdates
 } from '../api/PluginApi.ts';
 import { PluginConditions } from './PluginConditions.tsx';
 import { PluginReplicas } from './PluginReplicas.tsx';
@@ -169,7 +170,7 @@ export const PluginBrowser: React.FC<PluginBrowserProps> = ({ onSelect }) => {
                                     <Button
                                         size="small"
                                         startIcon={<Square size={14} />}
-                                        disabled={ent.state !== 'running' || stopInstalled.isLoading}
+                                        disabled={ent.state !== 'running' || stopInstalled.isPending}
                                         onClick={() => stopInstalled.mutate(ent.install_id)}
                                     >
                                         Stop
@@ -178,7 +179,7 @@ export const PluginBrowser: React.FC<PluginBrowserProps> = ({ onSelect }) => {
                                         size="small"
                                         color="error"
                                         startIcon={<Trash2 size={14} />}
-                                        disabled={removeInstalled.isLoading}
+                                        disabled={removeInstalled.isPending}
                                         onClick={() => removeInstalled.mutate(ent.install_id)}
                                     >
                                         Remove
@@ -271,7 +272,7 @@ export const PluginBrowser: React.FC<PluginBrowserProps> = ({ onSelect }) => {
                                                 <Switch
                                                     size="small"
                                                     checked={enabled}
-                                                    disabled={toggle.isLoading}
+                                                    disabled={toggle.isPending}
                                                     onChange={(e) =>
                                                         toggle.mutate({
                                                             pluginId: plugin.plugin_id,
@@ -287,7 +288,7 @@ export const PluginBrowser: React.FC<PluginBrowserProps> = ({ onSelect }) => {
                                             <Button
                                                 size="small"
                                                 variant="outlined"
-                                                disabled={setDefault.isLoading}
+                                                disabled={setDefault.isPending}
                                                 onClick={() =>
                                                     setDefault.mutate({
                                                         category: plugin.category,

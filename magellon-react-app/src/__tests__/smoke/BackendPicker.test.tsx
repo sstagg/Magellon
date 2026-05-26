@@ -14,7 +14,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from 'react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import { BackendPicker } from '../../features/plugin-runner/ui/BackendPicker.tsx';
 import type { CapabilitiesResponse } from '../../features/plugin-runner/api/PluginApi.ts';

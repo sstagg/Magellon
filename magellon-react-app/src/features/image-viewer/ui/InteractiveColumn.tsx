@@ -33,7 +33,7 @@ import {
     ArrowUpAZ,
     AlertTriangle,
 } from "lucide-react";
-import ImageInfoDto from "../../../entities/image/types.ts";
+import type ImageInfoDto from "../../../entities/image/types.ts";
 import { ImageColumn } from "./ImageColumn.tsx";
 import { ImageThumbnail } from "./ImageThumbnail.tsx";
 import { useImageViewerStore } from '../model/imageViewerStore.ts';

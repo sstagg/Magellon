@@ -159,7 +159,7 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
         }
     };
 
-    const busy = upgrade.isLoading;
+    const busy = upgrade.isPending;
     const done = !!result?.success;
 
     return (

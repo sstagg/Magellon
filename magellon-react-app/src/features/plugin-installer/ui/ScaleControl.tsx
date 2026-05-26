@@ -96,7 +96,7 @@ export const ScaleControl: React.FC<ScaleControlProps> = ({
         }
     };
 
-    const busy = scale.isLoading;
+    const busy = scale.isPending;
 
     return (
         <>

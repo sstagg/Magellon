@@ -89,7 +89,7 @@ function fmtDuration(ms: number | null): string {
 
 function truncate(s: string | null, n = 40): string {
     if (!s) return '—';
-    return s.length > n ? s.slice(0, n) + '…' : s;
+    return s.length > n ? `${s.slice(0, n)  }…` : s;
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────

@@ -7,7 +7,7 @@
  * chain and lets the operator re-submit a node's producing job with
  * the same params (CryoSPARC-style "clone with inputs").
  */
-import { useMutation, useQuery } from 'react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
 import { settings } from '../../../shared/config/settings.ts';
 
@@ -45,21 +45,19 @@ export interface WorkflowExport {
 
 
 export const useArtifactWorkflow = (oid: string | null | undefined) =>
-    useQuery(
-        ['artifact-workflow', oid],
-        async (): Promise<WorkflowExport> => {
+    useQuery({
+        queryKey: ['artifact-workflow', oid],
+        queryFn: async (): Promise<WorkflowExport> => {
             const res = await api.get<WorkflowExport>(
                 `/artifacts/${encodeURIComponent(oid!)}/workflow.json`,
             );
             return res.data;
         },
-        {
-            enabled: !!oid,
-            // Workflow JSON is effectively immutable per artifact OID —
-            // artifacts are append-only (Artifact invariant rule 6).
-            staleTime: Infinity,
-        },
-    );
+        enabled: !!oid,
+        // Workflow JSON is effectively immutable per artifact OID —
+        // artifacts are append-only (Artifact invariant rule 6).
+        staleTime: Infinity,
+    });
 
 
 export interface ReRunRequest {
@@ -82,13 +80,15 @@ export interface ReRunRequest {
  * workflow JSON and posting them. No new backend endpoint needed.
  */
 export const useReRunFromWorkflow = () =>
-    useMutation(async (req: ReRunRequest) => {
-        const res = await api.post(
-            `/plugins/${encodeURIComponent(req.plugin_id)}/jobs`,
-            {
-                input: req.input,
-                target_backend: req.target_backend ?? undefined,
-            },
-        );
-        return res.data as { job_id: string };
+    useMutation({
+        mutationFn: async (req: ReRunRequest) => {
+            const res = await api.post(
+                `/plugins/${encodeURIComponent(req.plugin_id)}/jobs`,
+                {
+                    input: req.input,
+                    target_backend: req.target_backend ?? undefined,
+                },
+            );
+            return res.data as { job_id: string };
+        },
     });

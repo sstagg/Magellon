@@ -23,7 +23,8 @@
  * Run:
  *   pnpm exec playwright test --project=e2e-live tests/e2e/install-hub-docker.spec.ts
  */
-import { test, expect, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 

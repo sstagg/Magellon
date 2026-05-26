@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import ImageInfoDto from "../../../entities/image/types.ts";
+import type ImageInfoDto from "../../../entities/image/types.ts";
 import { settings } from "../../../shared/config/settings.ts";
 import { useImageViewerStore } from '../model/imageViewerStore.ts';
 import { AuthenticatedSvgImage } from './AuthenticatedSvgImage';

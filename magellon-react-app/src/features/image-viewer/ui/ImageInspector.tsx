@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { IMAGE_SIZE_DESKTOP, IMAGE_SIZE_MOBILE } from '../constants';
+import type {
+    SelectChangeEvent} from "@mui/material";
 import {
     Box,
     Button,
     Card,
     CardContent,
     Typography,
-    SelectChangeEvent,
     Alert,
     Skeleton,
     useTheme,
@@ -28,12 +29,12 @@ import {
     Database,
     Eye,
 } from "lucide-react";
-import ImageInfoDto from "../../../entities/image/types.ts";
+import type ImageInfoDto from "../../../entities/image/types.ts";
 import { settings } from "../../../shared/config/settings.ts";
 import ImageViewer from "./ImageViewer.tsx";
 import { ParticleSessionDialog } from "./ParticleSessionDialog.tsx";
 import { useImageParticlePickings, useUpdateParticlePicking } from "../../../features/particle-picking/api/ParticlePickingRestService.ts";
-import { ParticlePickingDto } from "../../../entities/particle-picking/types.ts";
+import type { ParticlePickingDto } from "../../../entities/particle-picking/types.ts";
 import { useFetchImageCtfInfo } from "../../../features/ctf-analysis/api/CtfRestService.ts";
 import MetadataExplorer from "./MetadataExplorer.tsx";
 import { useFetchImageMetaData } from "../api/ImageMetaDataRestService.ts";
@@ -44,7 +45,7 @@ import { ImageInfoHeader } from "./ImageInfoHeader.tsx";
 import { CTFAnalysisPanel } from "./CTFAnalysisPanel.tsx";
 import { FrameAlignmentPanel } from "./FrameAlignmentPanel.tsx";
 import { ImageDetectionToolbar } from "./ImageDetectionToolbar.tsx";
-import { DetectionResult } from '../api/PtolemyDetectionService.ts';
+import type { DetectionResult } from '../api/PtolemyDetectionService.ts';
 import { DetectionInfoPanel } from './DetectionInfoPanel.tsx';
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;

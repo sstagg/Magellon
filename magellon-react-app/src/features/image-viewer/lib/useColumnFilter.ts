@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import ImageInfoDto from '../../../entities/image/types.ts';
+import type ImageInfoDto from '../../../entities/image/types.ts';
 
 export interface ColumnFilter {
     search?: string;

@@ -29,7 +29,7 @@ import {
 } from '@mui/icons-material';
 import { settings } from '../../../shared/config/settings.ts';
 import { useSocket } from '../../../shared/lib/useSocket.ts';
-import ImageInfoDto from '../../../entities/image/types.ts';
+import type ImageInfoDto from '../../../entities/image/types.ts';
 import { TEMPLATE_PICKER_PATH } from '../lib/useParticleOperations.ts';
 
 const API_URL = settings.ConfigData.SERVER_API_URL;
@@ -233,8 +233,8 @@ export const BatchRunDialog: React.FC<BatchRunDialogProps> = ({
 
         try {
             const url =
-                `${API_URL}${TEMPLATE_PICKER_PATH}/batch` +
-                (sid ? `?sid=${encodeURIComponent(sid)}` : '');
+                `${API_URL}${TEMPLATE_PICKER_PATH}/batch${ 
+                sid ? `?sid=${encodeURIComponent(sid)}` : ''}`;
             const res = await fetch(url, {
                 method: 'POST',
                 headers,

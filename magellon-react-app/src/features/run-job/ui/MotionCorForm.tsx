@@ -156,7 +156,7 @@ export const MotionCorForm: React.FC<MotionCorFormProps> = ({
         try {
             const ws = new WebSocket(wsUrl);
 
-            ws.onopen = () => {
+            ws.addEventListener('open', () => {
                 console.log('WebSocket connected for task:', taskId);
                 setProcessingState(prev => ({
                     ...prev,
@@ -164,7 +164,7 @@ export const MotionCorForm: React.FC<MotionCorFormProps> = ({
                     wsError: null,
                     statusMessage: 'Connected to task processing...'
                 }));
-            };
+            });
 
             ws.onmessage = (event) => {
                 try {
@@ -269,13 +269,13 @@ export const MotionCorForm: React.FC<MotionCorFormProps> = ({
                 setJobStatus('error');
             };
 
-            ws.onclose = () => {
+            ws.addEventListener('close', () => {
                 console.log('WebSocket disconnected');
                 setProcessingState(prev => ({
                     ...prev,
                     isConnected: false
                 }));
-            };
+            });
 
             wsRef.current = ws;
         } catch (err) {

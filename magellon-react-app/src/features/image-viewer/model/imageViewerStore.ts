@@ -1,7 +1,8 @@
 import { create } from 'zustand';
-import ImageInfoDto, { SessionDto, AtlasImageDto, PagedImageResponse } from '../../../entities/image/types.ts';
-import { ParticlePickingDto } from '../../../entities/particle-picking/types.ts';
-import { InfiniteData } from 'react-query';
+import type { SessionDto, AtlasImageDto, PagedImageResponse } from '../../../entities/image/types.ts';
+import type ImageInfoDto from '../../../entities/image/types.ts';
+import type { ParticlePickingDto } from '../../../entities/particle-picking/types.ts';
+import type { InfiniteData } from '@tanstack/react-query';
 
 // The ImageColumn interface that matches your current state structure
 export interface ImageColumn {

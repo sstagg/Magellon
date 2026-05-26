@@ -159,7 +159,7 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
                                     size="small"
                                     startIcon={<Download size={14} />}
                                     variant="outlined"
-                                    disabled={installCatalog.isLoading}
+                                    disabled={installCatalog.isPending}
                                     onClick={() => installCatalog.mutate(entry.catalog_id)}
                                 >
                                     Install
@@ -168,7 +168,7 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
                                     size="small"
                                     color="error"
                                     startIcon={<Trash2 size={14} />}
-                                    disabled={deleteCatalog.isLoading}
+                                    disabled={deleteCatalog.isPending}
                                     onClick={() => {
                                         if (window.confirm(`Remove ${entry.name} v${entry.version} from downloaded plugins?`)) {
                                             deleteCatalog.mutate(entry.catalog_id);

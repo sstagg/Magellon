@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuthenticatedImage } from '../../../shared/lib/useAuthenticatedImage.ts';
-import { DetectionResult, PtolemyDetection } from '../api/PtolemyDetectionService.ts';
+import type { DetectionResult, PtolemyDetection } from '../api/PtolemyDetectionService.ts';
 
 interface ImageViewerProps {
     width: number;

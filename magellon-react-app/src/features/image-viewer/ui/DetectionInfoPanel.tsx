@@ -14,7 +14,7 @@ import {
     Typography,
 } from '@mui/material';
 import { ExpandLess, ExpandMore } from '@mui/icons-material';
-import { DetectionResult } from '../api/PtolemyDetectionService.ts';
+import type { DetectionResult } from '../api/PtolemyDetectionService.ts';
 
 interface DetectionInfoPanelProps {
     result: DetectionResult;

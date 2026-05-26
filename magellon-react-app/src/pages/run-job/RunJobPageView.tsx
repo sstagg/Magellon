@@ -1,3 +1,6 @@
+import type {
+    SelectChangeEvent
+} from "@mui/material";
 import {
     Typography,
     Box,
@@ -6,8 +9,7 @@ import {
     FormControl,
     InputLabel,
     Select,
-    MenuItem,
-    SelectChangeEvent
+    MenuItem
 } from "@mui/material";
 import { useState, useEffect } from "react";
 import { Beaker } from "lucide-react";

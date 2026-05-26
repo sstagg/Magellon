@@ -19,7 +19,7 @@ import {
     Target,
     BarChart3,
 } from "lucide-react";
-import ImageInfoDto from "../../../entities/image/types.ts";
+import type ImageInfoDto from "../../../entities/image/types.ts";
 
 export interface ImageInfoHeaderProps {
     selectedImage: ImageInfoDto;

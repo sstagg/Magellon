@@ -7,16 +7,21 @@ import {
     IconButton,
 } from '@mui/material';
 import { ExpandLess, ExpandMore, Settings } from '@mui/icons-material';
-import ImageInfoDto from '../../../entities/image/types.ts';
-import { ImageColumn as ImageColumnState } from '../model/imageViewerStore.ts';
+import type ImageInfoDto from '../../../entities/image/types.ts';
+import type { ImageColumn as ImageColumnState } from '../model/imageViewerStore.ts';
 import InteractiveColumn from './InteractiveColumn.tsx';
 import { ImageColumn } from './ImageColumn.tsx';
+import type {
+    ColumnSettings} from './ColumnPreferences.tsx';
 import ColumnPreferences, {
-    ColumnSettings,
     defaultColumnSettings
 } from './ColumnPreferences.tsx';
 import { useVisibleColumns, useColumnStatistics } from '../model/useVisibleColumns.ts';
-import { DRAWER_BACKGROUND } from '../../../app/providers/theme/shared.ts';
+
+// Mirrors the app theme's drawer background (app/providers/theme/shared.ts).
+// Duplicated rather than imported to keep the FSD boundary clean (features
+// must not depend on the app layer).
+const DRAWER_BACKGROUND = '#0a1929';
 
 interface StackedViewProps {
     imageColumns: ImageColumnState[];

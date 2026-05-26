@@ -4,7 +4,7 @@ import getAxiosClient from '../../../shared/api/AxiosClient.ts';
 import {settings} from '../../../shared/config/settings.ts'
 
 const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
-const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL +'/images';
+const BASE_URL = `${settings.ConfigData.SERVER_WEB_API_URL }/images`;
 
 export const fetchImagesPage = async (
     sessionName: string,
@@ -16,9 +16,9 @@ export const fetchImagesPage = async (
         const response = await apiClient.get(BASE_URL, {
             params: {
                 session_name: sessionName,
-                parentId: parentId,
-                page: page,
-                pageSize: pageSize,
+                parentId,
+                page,
+                pageSize,
             },
         });
 

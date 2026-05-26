@@ -21,7 +21,7 @@ import { AccountCircle, LogoutOutlined } from '@mui/icons-material';
 import ThemeSwitcher from './ThemeSwitcher.tsx';
 import { useAuth } from '../../../features/auth/model/AuthContext.tsx';
 import { useNavigate } from "react-router-dom";
-import { useSidePanelStore } from './useBottomPanelStore.ts';
+import { useSidePanelStore } from '../../../shared/lib/stores/useBottomPanelStore.ts';
 
 const DRAWER_WIDTH = 240;
 

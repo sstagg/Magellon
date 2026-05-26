@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import React from 'react';
+import type React from 'react';
 
 /**
  * Allows any page/feature to register a React node to be rendered

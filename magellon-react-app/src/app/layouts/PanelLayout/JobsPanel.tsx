@@ -17,7 +17,8 @@ import {
     PlayArrow,
 } from '@mui/icons-material';
 import { Cpu } from 'lucide-react';
-import { useJobStore, Job } from './useJobStore.ts';
+import type { Job } from '../../../shared/lib/stores/useJobStore.ts';
+import { useJobStore } from '../../../shared/lib/stores/useJobStore.ts';
 import { settings } from '../../../shared/config/settings.ts';
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
 

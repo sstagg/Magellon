@@ -31,7 +31,8 @@ import {
     Badge,
     Warning
 } from '@mui/icons-material';
-import { userApiService, ApiUser } from '../../auth/api/userApi.ts';
+import type { ApiUser } from '../../auth/api/userApi.ts';
+import { userApiService } from '../../auth/api/userApi.ts';
 import { UserRoleAPI, PermissionAPI } from '../api/rbacApi';
 import ChangePasswordDialog from './ChangePasswordDialog';
 
@@ -123,7 +124,7 @@ const UserProfilePage: React.FC = () => {
             console.error('Failed to load profile:', error);
             setSnackbar({
                 open: true,
-                message: 'Failed to load profile: ' + (error as Error).message,
+                message: `Failed to load profile: ${  (error as Error).message}`,
                 severity: 'error'
             });
         } finally {
@@ -155,7 +156,7 @@ const UserProfilePage: React.FC = () => {
             console.error('Failed to update profile:', error);
             setSnackbar({
                 open: true,
-                message: 'Failed to update profile: ' + (error as Error).message,
+                message: `Failed to update profile: ${  (error as Error).message}`,
                 severity: 'error'
             });
         } finally {
@@ -193,7 +194,7 @@ const UserProfilePage: React.FC = () => {
 
     const formatDate = (date: Date | null) => {
         if (!date) return 'Not available';
-        return date.toLocaleDateString() + ' at ' + date.toLocaleTimeString();
+        return `${date.toLocaleDateString()  } at ${  date.toLocaleTimeString()}`;
     };
 
     const getAccountStatusColor = (active: boolean) => {

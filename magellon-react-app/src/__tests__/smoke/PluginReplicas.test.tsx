@@ -8,7 +8,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from 'react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import { PluginReplicas } from '../../features/plugin-runner/ui/PluginReplicas.tsx';
 import type { ReplicaInfo } from '../../features/plugin-runner/api/PluginApi.ts';

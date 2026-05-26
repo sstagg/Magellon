@@ -17,20 +17,21 @@ import {
     Tooltip,
 } from '@mui/material';
 import { ChevronDown, ChevronRight, Image as ImageIcon, Layers, Play, ZoomIn, ZoomOut, Maximize2, Move, X as XIcon } from 'lucide-react';
-import { useQueryClient } from 'react-query';
-import {
+import { useQueryClient } from '@tanstack/react-query';
+import type {
     JobSubmitRequest,
+    PluginSummary} from '../api/PluginApi.ts';
+import {
     useCancelJob,
     usePluginInputSchema,
-    useSubmitPluginJob,
-    PluginSummary,
+    useSubmitPluginJob
 } from '../api/PluginApi.ts';
 import { BackendPicker } from './BackendPicker.tsx';
 import { SchemaForm } from '../../../shared/ui/SchemaForm.tsx';
 import { ResultRenderer } from './results/ResultRenderers.tsx';
 import { ImagePickerDialog } from './ImagePickerDialog.tsx';
 import { ProgressTracker } from './ProgressTracker.tsx';
-import { useJobStore } from '../../../app/layouts/PanelLayout/useJobStore.ts';
+import { useJobStore } from '../../../shared/lib/stores/useJobStore.ts';
 import { useSocket } from '../../../shared/lib/useSocket.ts';
 import { settings } from '../../../shared/config/settings.ts';
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
@@ -187,7 +188,7 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
             });
             setCurrentJobId(job.job_id);
             useJobStore.getState().upsertJob(job);
-            queryClient.invalidateQueries(['plugin-jobs']);
+            queryClient.invalidateQueries({ queryKey: ['plugin-jobs'] });
         } catch (err: any) {
             const detail = err?.response?.data?.detail;
             const parsed = parseFieldErrors(detail);
@@ -297,7 +298,7 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
     const pickedName = pickedPath ? (pickedPath.split(/[\\/]/).pop() || pickedPath) : null;
     const isRunning = usePreviewMode
         ? previewRunning
-        : (submit.isLoading || currentJob?.status === 'running' || currentJob?.status === 'queued');
+        : (submit.isPending || currentJob?.status === 'running' || currentJob?.status === 'queued');
     const displayedResult = usePreviewMode ? previewResult : currentJob?.result;
     const showsResult = usePreviewMode ? !!previewResult : currentJob?.status === 'completed';
 
@@ -369,9 +370,9 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
                                 color="warning"
                                 startIcon={<XIcon size={14} />}
                                 onClick={() => cancel.mutate(currentJobId)}
-                                disabled={cancel.isLoading}
+                                disabled={cancel.isPending}
                             >
-                                {cancel.isLoading ? 'Cancelling…' : 'Cancel'}
+                                {cancel.isPending ? 'Cancelling…' : 'Cancel'}
                             </Button>
                         )}
                     </Stack>
@@ -684,7 +685,7 @@ function parentDir(path: string | null | undefined): string | null {
     const idx = norm.lastIndexOf('/');
     if (idx <= 0) return null;
     const parent = norm.slice(0, idx);
-    if (/^[A-Za-z]:$/.test(parent)) return parent + '/';
+    if (/^[A-Za-z]:$/.test(parent)) return `${parent  }/`;
     return parent || '/';
 }
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { PanelImperativeHandle } from 'react-resizable-panels';
+import type { PanelImperativeHandle } from 'react-resizable-panels';
 import { ChevronLeft, ChevronRight} from '@mui/icons-material';
 import { Tooltip, IconButton } from '@mui/material';
 import {ChevronDown, ChevronUp} from "lucide-react";

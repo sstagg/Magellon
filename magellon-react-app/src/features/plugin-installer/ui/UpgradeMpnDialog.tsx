@@ -49,7 +49,7 @@ export const UpgradeMpnDialog: React.FC<UpgradeMpnDialogProps> = ({
     const [error, setError] = useState<string | null>(null);
     const [result, setResult] = useState<InstallResponse | null>(null);
 
-    const busy = upgrade.isLoading;
+    const busy = upgrade.isPending;
 
     const reset = () => {
         setFile(null);

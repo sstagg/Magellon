@@ -14,7 +14,7 @@ import {
     TouchApp as TouchAppIcon,
     Close as CloseIcon,
 } from '@mui/icons-material';
-import { ParticleClass } from '../lib/useParticleOperations.ts';
+import type { ParticleClass } from '../lib/useParticleOperations.ts';
 
 export interface ParticleStatsBarProps {
     stats: { total: number; manual: number; auto: number; avgConfidence: number; particlesPerClass: Record<string, number> };

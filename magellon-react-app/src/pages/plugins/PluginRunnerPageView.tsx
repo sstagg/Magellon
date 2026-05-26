@@ -46,11 +46,12 @@ import {
     Square,
     TerminalSquare,
 } from 'lucide-react';
+import type {
+    InstallMethod,
+    PluginSummary} from '../../features/plugin-runner/api/PluginApi.ts';
 import {
     useInstalledFromDb,
-    usePlugins,
-    InstallMethod,
-    PluginSummary,
+    usePlugins
 } from '../../features/plugin-runner/api/PluginApi.ts';
 import { DeploymentMethodChip } from '../../features/plugin-runner/ui/DeploymentMethodChip.tsx';
 import { PluginTestPanel } from '../../features/plugin-runner/ui/PluginTestPanel.tsx';
@@ -145,11 +146,11 @@ const HeaderStrip: React.FC<HeaderStripProps> = ({
     const [actionError, setActionError] = React.useState<string | null>(null);
 
     const busy =
-        start.isLoading ||
-        stop.isLoading ||
-        restart.isLoading ||
-        pause.isLoading ||
-        unpause.isLoading;
+        start.isPending ||
+        stop.isPending ||
+        restart.isPending ||
+        pause.isPending ||
+        unpause.isPending;
 
     const run = async (
         verb: 'start' | 'stop' | 'restart' | 'pause' | 'unpause',

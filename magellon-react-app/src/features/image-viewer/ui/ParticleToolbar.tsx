@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import type {
+    SelectChangeEvent} from '@mui/material';
 import {
     Box,
     Paper,
@@ -10,7 +12,6 @@ import {
     FormControl,
     Select,
     MenuItem,
-    SelectChangeEvent,
     Tooltip,
     CircularProgress,
     Menu,
@@ -41,8 +42,8 @@ import {
     MoreVert,
 } from '@mui/icons-material';
 import { Move } from 'lucide-react';
-import { Tool } from '../lib/useParticleOperations.ts';
-import { ParticlePickingDto } from '../../../entities/particle-picking/types.ts';
+import type { Tool } from '../lib/useParticleOperations.ts';
+import type { ParticlePickingDto } from '../../../entities/particle-picking/types.ts';
 
 export interface ParticleToolbarProps {
     selectedParticlePicking: ParticlePickingDto | null;

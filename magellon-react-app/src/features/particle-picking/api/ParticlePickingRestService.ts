@@ -1,6 +1,6 @@
-import {useMutation, useQuery} from "react-query";
+import {useMutation, useQuery} from "@tanstack/react-query";
 import {settings} from "../../../shared/config/settings.ts";
-import {ParticlePickingDto} from "../../../entities/particle-picking/types.ts";
+import type {ParticlePickingDto} from "../../../entities/particle-picking/types.ts";
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
 
 const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
@@ -14,8 +14,12 @@ export async function FetchImageParticlePicking(img_name: string) {
 }
 
 
-export function useImageParticlePickings(img_name: string,enabled: boolean) {
-    return useQuery(['image_particle_picking', img_name], () => FetchImageParticlePicking(img_name),{enabled:enabled});
+export function useImageParticlePickings(img_name: string, enabled: boolean) {
+    return useQuery({
+        queryKey: ['image_particle_picking', img_name],
+        queryFn: () => FetchImageParticlePicking(img_name),
+        enabled,
+    });
 }
 
 
@@ -28,7 +32,10 @@ export const createParticlePickingEntity = async (metaName: string, imageName: s
 };
 
 export function useCreateParticlePickingMutation() {
-    return useMutation((data: { metaName: string; imageName: string }) => createParticlePickingEntity(data.metaName, data.imageName));
+    return useMutation({
+        mutationFn: (data: { metaName: string; imageName: string }) =>
+            createParticlePickingEntity(data.metaName, data.imageName),
+    });
 }
 
 
@@ -38,5 +45,5 @@ async function updateParticlePicking(bodyReq: ParticlePickingDto) {
 }
 
 export function useUpdateParticlePicking() {
-    return useMutation(updateParticlePicking);
+    return useMutation({ mutationFn: updateParticlePicking });
 }

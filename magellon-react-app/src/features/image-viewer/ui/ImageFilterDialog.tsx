@@ -18,7 +18,7 @@ import {
     Stack
 } from '@mui/material';
 import { Close, FilterList } from '@mui/icons-material';
-import ImageInfoDto from '../../../entities/image/types.ts';
+import type ImageInfoDto from '../../../entities/image/types.ts';
 
 export interface ImageFilter {
     name?: string;

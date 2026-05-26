@@ -1,4 +1,5 @@
-import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from "axios";
+import type { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from "axios";
+import axios from "axios";
 
 export function createAxiosClient(baseUrl: string): AxiosInstance {
     const AxiosClient = axios.create({
@@ -102,7 +103,7 @@ export function createAxiosClient(baseUrl: string): AxiosInstance {
                 // You can dispatch a global error event here if needed
             }
 
-            return Promise.reject(error);
+            throw error;
         }
     );
 

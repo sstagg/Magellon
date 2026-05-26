@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { Box, Tooltip, Skeleton, useTheme } from "@mui/material";
 import { FileImage, FolderOpen } from "lucide-react";
-import ImageInfoDto from "../../../entities/image/types.ts";
+import type ImageInfoDto from "../../../entities/image/types.ts";
 import { settings } from "../../../shared/config/settings.ts";
 import { useImageViewerStore } from '../model/imageViewerStore.ts';
 import { useAuthenticatedImage } from '../../../shared/lib/useAuthenticatedImage.ts';

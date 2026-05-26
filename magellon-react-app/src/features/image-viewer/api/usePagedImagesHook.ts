@@ -1,6 +1,6 @@
-import {useInfiniteQuery} from "react-query";
+import {useInfiniteQuery} from "@tanstack/react-query";
 import {fetchImagesPage} from "./imagesApiReactQuery.tsx";
-import {PagedImageResponse} from "../../../entities/image/types.ts";
+import type {PagedImageResponse} from "../../../entities/image/types.ts";
 
 
 interface PagedImagesOptions {
@@ -18,21 +18,15 @@ export function useImageListQuery({ sessionName, parentId, pageSize, level, enab
         ((level === 0 && sessionName !== '') || (level > 0 && parentId !== null)))       // Other levels need parent
     );
 
-    return useInfiniteQuery<PagedImageResponse>(
-        ['images', sessionName, parentId, pageSize],
-        ({ pageParam = 1 }) => fetchImagesPage(sessionName, parentId, pageParam, pageSize),
-        {
-            getNextPageParam: (lastPage, _allPages) => {
-                if (lastPage.next_page !== null) {
-                    return lastPage.next_page; // Return the next page number
-                }
-                return undefined; // No more pages to fetch
-            },
-            retry: 3, // Number of retries on failure (optional)
-            enabled: shouldEnable, // Auto-enable based on available data
-            // Refetch when dependencies change
-            refetchOnMount: true,
-            refetchOnWindowFocus: false, // Disable refetch on window focus for better UX
-        }
-    );
+    return useInfiniteQuery<PagedImageResponse>({
+        queryKey: ['images', sessionName, parentId, pageSize],
+        queryFn: ({ pageParam }) =>
+            fetchImagesPage(sessionName, parentId, pageParam as number, pageSize),
+        initialPageParam: 1,
+        getNextPageParam: (lastPage) => lastPage.next_page ?? undefined,
+        retry: 3,
+        enabled: shouldEnable,
+        refetchOnMount: true,
+        refetchOnWindowFocus: false,
+    });
 }

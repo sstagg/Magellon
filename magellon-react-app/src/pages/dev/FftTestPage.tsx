@@ -17,7 +17,8 @@ import getAxiosClient from '../../shared/api/AxiosClient.ts';
 import { settings } from '../../shared/config/settings.ts';
 import { useJobStepEvents } from '../../shared/lib/useJobStepEvents.ts';
 import { ImagePickerDialog } from '../../features/plugin-runner/ui/ImagePickerDialog.tsx';
-import { DispatchTrace, DispatchedTask } from '../../features/plugin-runner/ui/DispatchTrace.tsx';
+import type { DispatchedTask } from '../../features/plugin-runner/ui/DispatchTrace.tsx';
+import { DispatchTrace } from '../../features/plugin-runner/ui/DispatchTrace.tsx';
 
 interface SingleDispatchResponse {
     job_id: string;

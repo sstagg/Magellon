@@ -3,30 +3,80 @@ import tsPlugin from '@typescript-eslint/eslint-plugin';
 import tsParser from '@typescript-eslint/parser';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
+import tanstackQuery from '@tanstack/eslint-plugin-query';
+import boundaries from 'eslint-plugin-boundaries';
+import unicorn from 'eslint-plugin-unicorn';
 import globals from 'globals';
+
+// Feature-Sliced Design layer order: each layer may only import from itself
+// and the layers listed in `allow`. See `feature-sliced.design` docs.
+const FSD_LAYERS = [
+  { type: 'app', pattern: 'src/app/*' },
+  { type: 'pages', pattern: 'src/pages/*' },
+  { type: 'features', pattern: 'src/features/*' },
+  { type: 'entities', pattern: 'src/entities/*' },
+  { type: 'shared', pattern: 'src/shared/*' },
+];
 
 export default [
   {
-    ignores: ['dist/**', 'build/**', 'node_modules/**', 'coverage/**', '.eslintrc.cjs'],
+    ignores: [
+      'dist/**',
+      'build/**',
+      'node_modules/**',
+      'coverage/**',
+      'playwright-report/**',
+      'test-results/**',
+      '.eslintrc.cjs',
+    ],
   },
   js.configs.recommended,
   {
     files: ['**/*.{ts,tsx}'],
     languageOptions: {
       parser: tsParser,
-      parserOptions: { ecmaVersion: 2020, sourceType: 'module' },
-      globals: { ...globals.browser, ...globals.es2020 },
+      parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
+      globals: { ...globals.browser, ...globals.es2022 },
     },
     plugins: {
       '@typescript-eslint': tsPlugin,
       'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
+      '@tanstack/query': tanstackQuery,
+      boundaries,
+      unicorn,
+    },
+    settings: {
+      'boundaries/elements': FSD_LAYERS,
+      'boundaries/ignore': [
+        'src/__tests__/**',
+        'src/main.tsx',
+        'src/vite-env.d.ts',
+        'src/reportWebVitals.js',
+      ],
     },
     rules: {
       ...tsPlugin.configs.recommended.rules,
       ...reactHooks.configs.recommended.rules,
+      ...tanstackQuery.configs['flat/recommended'][0].rules,
 
-      // Variables/params prefixed with _ are intentionally unused (TS convention)
+      // -------------------------------------------------------------------
+      // FSD layer boundaries — pages → features → entities → shared
+      // -------------------------------------------------------------------
+      'boundaries/dependencies': ['warn', {
+        default: 'disallow',
+        rules: [
+          { from: 'app',      allow: ['app', 'pages', 'features', 'entities', 'shared'] },
+          { from: 'pages',    allow: ['pages', 'features', 'entities', 'shared'] },
+          { from: 'features', allow: ['features', 'entities', 'shared'] },
+          { from: 'entities', allow: ['entities', 'shared'] },
+          { from: 'shared',   allow: ['shared'] },
+        ],
+      }],
+
+      // -------------------------------------------------------------------
+      // TypeScript correctness
+      // -------------------------------------------------------------------
       'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': ['error', {
         argsIgnorePattern: '^_',
@@ -34,46 +84,83 @@ export default [
         caughtErrorsIgnorePattern: '^_',
         destructuredArrayIgnorePattern: '^_',
       }],
-
-      // Downgrade to warn — widespread in the codebase, gradual migration
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-non-null-asserted-optional-chain': 'warn',
+      '@typescript-eslint/consistent-type-imports': ['warn', {
+        prefer: 'type-imports',
+        fixStyle: 'separate-type-imports',
+      }],
+      '@typescript-eslint/no-import-type-side-effects': 'warn',
 
-      // These are development hints, not correctness issues
+      // -------------------------------------------------------------------
+      // React hooks — keep loose; v7 ships several aggressive rules that
+      // would require a separate refactor PR. Tracked in eslint history.
+      // -------------------------------------------------------------------
       'react-refresh/only-export-components': 'off',
-
-      // New react-hooks v7 rules — valid patterns in this codebase (fetch-on-mount)
       'react-hooks/set-state-in-effect': 'off',
-      // The immutability rule flags functions declared after the effect that uses them;
-      // moving declarations is a refactor tracked separately.
       'react-hooks/immutability': 'off',
-      // refs rule — ref.current access in render is common in this codebase; concurrent-mode
-      // compliance is a separate refactor effort.
       'react-hooks/refs': 'off',
-      // purity rule — impure calls like Date.now() during render; tracked for refactor.
       'react-hooks/purity': 'off',
-
-      // `preserve-caught-error` is a new rule in eslint-plugin-react-hooks@7 that requires
-      // re-thrown errors to chain the original via `{ cause }`. Gradual adoption.
       'preserve-caught-error': 'off',
-
-      // exhaustive-deps is already a warning from recommended; keep it
       'react-hooks/exhaustive-deps': 'warn',
 
-      // TypeScript handles undefined-reference checking; disable the JS rule
-      // to avoid false positives for TypeScript-only types (RequestInit, etc.)
-      'no-undef': 'off',
+      // -------------------------------------------------------------------
+      // Modern JavaScript correctness (unicorn, selective)
+      // The wholesale recommended set is too opinionated; pick the
+      // rules that catch real bugs without rewriting half the codebase.
+      // -------------------------------------------------------------------
+      'unicorn/no-instanceof-builtins': 'warn',
+      'unicorn/prefer-array-some': 'warn',
+      'unicorn/prefer-includes': 'warn',
+      'unicorn/prefer-modern-dom-apis': 'warn',
+      'unicorn/prefer-node-protocol': 'warn',
+      'unicorn/prefer-string-starts-ends-with': 'warn',
+      'unicorn/throw-new-error': 'warn',
+      'unicorn/error-message': 'error',
+      'unicorn/no-await-in-promise-methods': 'error',
+      'unicorn/no-empty-file': 'warn',
+      'unicorn/no-invalid-remove-event-listener': 'error',
+      'unicorn/no-useless-fallback-in-spread': 'warn',
+      'unicorn/no-useless-promise-resolve-reject': 'warn',
+      'unicorn/no-useless-spread': 'warn',
+      'unicorn/no-useless-undefined': 'off', // common in optional-arg APIs
+      'unicorn/prefer-add-event-listener': 'warn',
+      'unicorn/prefer-array-flat': 'warn',
+      'unicorn/prefer-default-parameters': 'warn',
+      'unicorn/prefer-export-from': 'off', // conflicts with FSD barrels
+
+      // -------------------------------------------------------------------
+      // General JS hygiene
+      // -------------------------------------------------------------------
+      'no-undef': 'off',           // TS handles this
+      'no-console': 'off',         // dev-time debug logging is heavily used here; reinstate per-feature if needed
+      'no-debugger': 'error',
+      'eqeqeq': ['warn', 'smart'],
+      'no-var': 'error',
+      'prefer-const': 'warn',
+      'object-shorthand': 'warn',
+      'prefer-template': 'warn',
     },
   },
   {
-    files: ['tests/**/*.{ts,tsx}', 'tests-examples/**/*.{ts,tsx}', '**/__tests__/**/*.{ts,tsx}', '**/*.config.{js,ts}', 'vite.config.ts', 'vitest.config.ts'],
+    files: [
+      'tests/**/*.{ts,tsx}',
+      'tests-examples/**/*.{ts,tsx}',
+      '**/__tests__/**/*.{ts,tsx}',
+      '**/*.test.{ts,tsx}',
+      '**/*.config.{js,ts}',
+      'vite.config.ts',
+      'vitest.config.ts',
+    ],
     languageOptions: {
-      globals: { ...globals.node },
+      globals: { ...globals.node, ...globals.browser },
     },
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
-      // Empty catch blocks are idiomatic in e2e tests (fire-and-forget navigation)
       'no-empty': 'off',
+      'no-console': 'off',
+      'boundaries/dependencies': 'off',
+      '@tanstack/query/exhaustive-deps': 'off',
     },
   },
 ];

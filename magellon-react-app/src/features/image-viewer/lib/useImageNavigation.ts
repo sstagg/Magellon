@@ -1,7 +1,8 @@
 import { useCallback } from 'react';
 import { useImageViewerStore } from '../model/imageViewerStore.ts';
-import ImageInfoDto, { SessionDto } from '../../../entities/image/types.ts';
-import { SelectChangeEvent } from '@mui/material';
+import type { SessionDto } from '../../../entities/image/types.ts';
+import type ImageInfoDto from '../../../entities/image/types.ts';
+import type { SelectChangeEvent } from '@mui/material';
 
 interface UseImageNavigationReturn {
     handleImageClick: (image: ImageInfoDto, columnIndex: number) => void;

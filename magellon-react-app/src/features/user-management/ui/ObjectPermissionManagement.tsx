@@ -95,7 +95,7 @@ export default function ObjectPermissionManagement({
             );
             setPermissions(response.data);
         } catch (error: any) {
-            showSnackbar('Failed to load object permissions: ' + (error.response?.data?.detail || error.message), 'error');
+            showSnackbar(`Failed to load object permissions: ${  error.response?.data?.detail || error.message}`, 'error');
         } finally {
             setLoading(false);
         }
@@ -158,7 +158,7 @@ export default function ObjectPermissionManagement({
             setDialogOpen(false);
             loadPermissions();
         } catch (error: any) {
-            showSnackbar('Failed to save object permission: ' + (error.response?.data?.detail || error.message), 'error');
+            showSnackbar(`Failed to save object permission: ${  error.response?.data?.detail || error.message}`, 'error');
         }
     };
 
@@ -172,7 +172,7 @@ export default function ObjectPermissionManagement({
             showSnackbar('Object permission deleted successfully', 'success');
             loadPermissions();
         } catch (error: any) {
-            showSnackbar('Failed to delete object permission: ' + (error.response?.data?.detail || error.message), 'error');
+            showSnackbar(`Failed to delete object permission: ${  error.response?.data?.detail || error.message}`, 'error');
         }
     };
 

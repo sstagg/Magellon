@@ -32,11 +32,12 @@ vi.mock('../../shared/lib/useSocket.ts', () => ({
 }));
 
 import { useJobStepEvents } from '../../shared/lib/useJobStepEvents.ts';
+import type {
+    StepEvent} from '../../shared/types/StepEvent.ts';
 import {
     JOIN_JOB_ROOM,
     LEAVE_JOB_ROOM,
-    STEP_EVENT_NAME,
-    StepEvent,
+    STEP_EVENT_NAME
 } from '../../shared/types/StepEvent.ts';
 
 function pushServerEvent(ev: StepEvent) {

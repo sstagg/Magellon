@@ -10,7 +10,7 @@ import {
 } from '@mui/material';
 import { Delete, ArrowDownward } from '@mui/icons-material';
 import { Terminal } from 'lucide-react';
-import { useLogStore } from './useLogStore.ts';
+import { useLogStore } from '../../../shared/lib/stores/useLogStore.ts';
 
 const levelColors = {
     info: '#2196f3',

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import type {
+    SelectChangeEvent} from '@mui/material';
 import {
     Box,
     Paper,
     Stack,
-    SelectChangeEvent,
     Alert,
     Snackbar,
     SpeedDial,
@@ -24,11 +25,11 @@ import {
 } from '@mui/icons-material';
 import { Circle } from 'lucide-react';
 import { ParticleSessionDialog } from './ParticleSessionDialog.tsx';
-import ImageInfoDto from '../../../entities/image/types.ts';
-import { ParticlePickingDto } from '../../../entities/particle-picking/types.ts';
+import type ImageInfoDto from '../../../entities/image/types.ts';
+import type { ParticlePickingDto } from '../../../entities/particle-picking/types.ts';
 import { useImageViewerStore } from '../model/imageViewerStore.ts';
 import { settings } from '../../../shared/config/settings.ts';
-import { Point, ParticleClass, Tool } from '../lib/useParticleOperations.ts';
+import type { Point, ParticleClass, Tool } from '../lib/useParticleOperations.ts';
 import { useParticleOperations } from '../lib/useParticleOperations.ts';
 import { ParticleCanvas } from './ParticleCanvas.tsx';
 import { ParticleToolbar } from './ParticleToolbar.tsx';
@@ -36,8 +37,8 @@ import { ParticleStatsBar } from './ParticleStatsBar.tsx';
 import { ParticleSettingsPanel } from './ParticleSettingsDrawer.tsx';
 import { ParticleHelpDialog } from './ParticleHelpDialog.tsx';
 import { BatchRunDialog } from './BatchRunDialog.tsx';
-import { useSidePanelStore } from '../../../app/layouts/PanelLayout/useBottomPanelStore.ts';
-import { useSettingsPanelSlot } from '../../../app/layouts/PanelLayout/useSettingsPanelSlot.ts';
+import { useSidePanelStore } from '../../../shared/lib/stores/useBottomPanelStore.ts';
+import { useSettingsPanelSlot } from '../../../shared/lib/stores/useSettingsPanelSlot.ts';
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
 
@@ -246,7 +247,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                 throw new Error(err.detail || `Server error ${res.status}`);
             }
             const coco = await res.json();
-            const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(coco, null, 2));
+            const dataUri = `data:application/json;charset=utf-8,${  encodeURIComponent(JSON.stringify(coco, null, 2))}`;
             const link = document.createElement('a');
             link.setAttribute('href', dataUri);
             const safeName = (selectedParticlePicking.name || 'picking').replace(/[^a-z0-9._-]+/gi, '_');

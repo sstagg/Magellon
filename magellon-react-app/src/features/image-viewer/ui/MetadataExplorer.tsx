@@ -49,7 +49,7 @@ import {
     FileJson,
     TreePine,
 } from 'lucide-react';
-import { CategoryDto, MetadataDto } from "../../../entities/image/types.ts";
+import type { CategoryDto, MetadataDto } from "../../../entities/image/types.ts";
 import JsonTreeViewer from "./JsonTreeViewer.tsx";
 
 export interface MetadataExplorerProps {

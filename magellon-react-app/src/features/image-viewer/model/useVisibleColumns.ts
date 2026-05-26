@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ImageColumn as ImageColumnState } from './imageViewerStore.ts';
+import type { ImageColumn as ImageColumnState } from './imageViewerStore.ts';
 
 export const useVisibleColumns = (
     imageColumns: ImageColumnState[],

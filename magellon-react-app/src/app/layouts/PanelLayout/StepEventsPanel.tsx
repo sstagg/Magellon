@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Typography, Chip, Stack, LinearProgress, Paper } from '@mui/material';
 import { useJobStepEvents } from '../../../shared/lib/useJobStepEvents.ts';
-import { StepEvent } from '../../../shared/types/StepEvent.ts';
+import type { StepEvent } from '../../../shared/types/StepEvent.ts';
 
 interface Props {
     jobId: string | null | undefined;

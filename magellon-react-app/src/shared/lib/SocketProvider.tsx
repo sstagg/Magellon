@@ -1,7 +1,9 @@
 import React, { useEffect } from 'react';
 import { useSocket } from './useSocket.ts';
-import { useJobStore, Job } from '../../app/layouts/PanelLayout/useJobStore.ts';
-import { useLogStore, LogEntry } from '../../app/layouts/PanelLayout/useLogStore.ts';
+import type { Job } from '../../shared/lib/stores/useJobStore.ts';
+import { useJobStore } from '../../shared/lib/stores/useJobStore.ts';
+import type { LogEntry } from '../../shared/lib/stores/useLogStore.ts';
+import { useLogStore } from '../../shared/lib/stores/useLogStore.ts';
 
 /**
  * Global Socket.IO listener that routes events to Zustand stores.

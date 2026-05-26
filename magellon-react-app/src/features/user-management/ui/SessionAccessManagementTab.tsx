@@ -40,7 +40,8 @@ import {
     LockOpen,
 } from '@mui/icons-material';
 
-import { SessionAccessAPI, GrantSessionAccessRequest } from '../api/rbacApi';
+import type { GrantSessionAccessRequest } from '../api/rbacApi';
+import { SessionAccessAPI } from '../api/rbacApi';
 
 interface User {
     id: string;
@@ -108,7 +109,7 @@ export default function SessionAccessManagementTab({
             setSessions(response || []);
         } catch (error: any) {
             console.error('Failed to load sessions:', error);
-            showSnackbar('Failed to load sessions: ' + (error.message || 'Unknown error'), 'error');
+            showSnackbar(`Failed to load sessions: ${  error.message || 'Unknown error'}`, 'error');
         } finally {
             setLoading(false);
         }
@@ -135,7 +136,7 @@ export default function SessionAccessManagementTab({
             setUsers(mappedUsers);
         } catch (error: any) {
             console.error('Failed to load users:', error);
-            showSnackbar('Failed to load users: ' + (error.message || 'Unknown error'), 'error');
+            showSnackbar(`Failed to load users: ${  error.message || 'Unknown error'}`, 'error');
         }
     };
 
@@ -153,7 +154,7 @@ export default function SessionAccessManagementTab({
             console.error('Failed to load session users:', error);
             // Don't show error if no users found (404 is expected for sessions without permissions)
             if (error.response?.status !== 404) {
-                showSnackbar('Failed to load session users: ' + (error.message || 'Unknown error'), 'error');
+                showSnackbar(`Failed to load session users: ${  error.message || 'Unknown error'}`, 'error');
             }
             setUsersWithAccess([]);
         } finally {
@@ -236,7 +237,7 @@ export default function SessionAccessManagementTab({
         } catch (error: any) {
             console.error('Failed to grant access:', error);
             showSnackbar(
-                'Failed to grant access: ' + (error.response?.data?.detail || error.message || 'Unknown error'),
+                `Failed to grant access: ${  error.response?.data?.detail || error.message || 'Unknown error'}`,
                 'error'
             );
         }
@@ -259,12 +260,12 @@ export default function SessionAccessManagementTab({
                 );
                 loadSessionUsers(selectedSession);
             } else {
-                showSnackbar('Failed to revoke access: ' + response.message, 'error');
+                showSnackbar(`Failed to revoke access: ${  response.message}`, 'error');
             }
         } catch (error: any) {
             console.error('Failed to revoke access:', error);
             showSnackbar(
-                'Failed to revoke access: ' + (error.response?.data?.detail || error.message || 'Unknown error'),
+                `Failed to revoke access: ${  error.response?.data?.detail || error.message || 'Unknown error'}`,
                 'error'
             );
         }

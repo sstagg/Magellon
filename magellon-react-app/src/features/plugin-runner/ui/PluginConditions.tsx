@@ -51,9 +51,14 @@ function chipStyleFor(type: ConditionType, status: ConditionStatus): ChipStyle {
 
 interface PluginConditionsProps {
     conditions: Condition[] | undefined;
+    /** Optional supervisor lifecycle status. When ``"missing"`` we
+     *  upgrade the offline-hint alert to error severity and point
+     *  operators at Uninstall instead of "check the container logs"
+     *  (there are no logs — the container is gone). */
+    lifecycleStatus?: string;
 }
 
-export const PluginConditions: React.FC<PluginConditionsProps> = ({ conditions }) => {
+export const PluginConditions: React.FC<PluginConditionsProps> = ({ conditions, lifecycleStatus }) => {
     if (!conditions || conditions.length === 0) {
         return null;
     }
@@ -75,6 +80,7 @@ export const PluginConditions: React.FC<PluginConditionsProps> = ({ conditions }
     const live = (conditions ?? []).find((c) => c.type === 'Live');
     const showOfflineHint =
         installed?.status === 'True' && live?.status === 'False';
+    const containerMissing = lifecycleStatus === 'missing';
 
     return (
         <Stack spacing={0.5} sx={{ mt: 1 }}>
@@ -102,7 +108,12 @@ export const PluginConditions: React.FC<PluginConditionsProps> = ({ conditions }
                     );
                 })}
             </Stack>
-            {showOfflineHint && (
+            {showOfflineHint && containerMissing && (
+                <Alert severity="error" sx={{ py: 0 }} data-testid="container-missing-alert">
+                    Container is gone — uninstall to clean up the record.
+                </Alert>
+            )}
+            {showOfflineHint && !containerMissing && (
                 <Alert severity="warning" sx={{ py: 0 }}>
                     Installed but not announcing — check the container logs.
                 </Alert>

@@ -1,4 +1,4 @@
-import {useQuery} from "react-query";
+import {useQuery} from "@tanstack/react-query";
 import {settings} from "../../../shared/config/settings.ts";
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
 
@@ -20,7 +20,7 @@ export async function FetchSessionNames() {
 }
 
 export function useSessionNames() {
-    return useQuery(['sessionNames'], () => FetchSessionNames());
+    return useQuery({ queryKey: ['sessionNames'], queryFn: () => FetchSessionNames() });
 }
 
 

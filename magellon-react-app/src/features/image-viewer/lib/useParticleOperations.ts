@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ParticlePickingDto } from '../../../entities/particle-picking/types.ts';
-import ImageInfoDto from '../../../entities/image/types.ts';
+import type React from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import type { ParticlePickingDto } from '../../../entities/particle-picking/types.ts';
+import type ImageInfoDto from '../../../entities/image/types.ts';
 import { settings } from '../../../shared/config/settings.ts';
 import { useImageViewerStore } from '../model/imageViewerStore.ts';
 
@@ -491,7 +492,7 @@ export function useParticleOperations({
 
     const exportParticles = () => {
         const dataStr = JSON.stringify(particles, null, 2);
-        const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+        const dataUri = `data:application/json;charset=utf-8,${  encodeURIComponent(dataStr)}`;
         const exportFileDefaultName = `particles-${selectedImage?.name || 'export'}.json`;
 
         const linkElement = document.createElement('a');
@@ -507,7 +508,7 @@ export function useParticleOperations({
         if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.addEventListener('load', (e) => {
             try {
                 const imported = JSON.parse(e.target?.result as string);
                 setParticles(imported);
@@ -517,7 +518,7 @@ export function useParticleOperations({
             } catch (_error) {
                 showSnackbar('Failed to import particles', 'error');
             }
-        };
+        });
         reader.readAsText(file);
     };
 

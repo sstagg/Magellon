@@ -14,7 +14,7 @@
  * Backed by `controllers/admin_plugin_install_controller.py`.
  * Every call is Casbin-gated; the server returns 403 for non-Admins.
  */
-import { useMutation, useQuery, useQueryClient } from 'react-query';
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
 import { settings } from '../../../shared/config/settings.ts';
 
@@ -67,19 +67,15 @@ const QK_ADMIN_INSTALLED = ['admin', 'plugins', 'installed'] as const;
  * GET /admin/plugins/installed — list of installed plugins via the
  * v1 pipeline. Returned list is server-sorted (controller sorts on
  * the way out so the UI doesn't have to).
- *
- * Positional-args form for react-query v3 — same shape as the
- * project's other hooks (e.g. `usePlugins` in plugin-runner/api).
- * v4's object form silently no-ops here.
  */
 export const useAdminInstalledPlugins = () =>
-    useQuery(
-        QK_ADMIN_INSTALLED,
-        async () => {
+    useQuery({
+        queryKey: QK_ADMIN_INSTALLED,
+        queryFn: async () => {
             const res = await api.get<InstalledListResponse>('/admin/plugins/installed');
             return res.data.installed;
         },
-    );
+    });
 
 /**
  * POST /admin/plugins/inspect — parse a `.mpn` without installing it.
@@ -110,15 +106,17 @@ export interface InspectResponse {
 }
 
 export const useInspectArchive = () =>
-    useMutation(async (file: File) => {
-        const form = new FormData();
-        form.append('file', file);
-        const res = await api.post<InspectResponse>(
-            '/admin/plugins/inspect',
-            form,
-            { headers: { 'Content-Type': 'multipart/form-data' } },
-        );
-        return res.data;
+    useMutation({
+        mutationFn: async (file: File) => {
+            const form = new FormData();
+            form.append('file', file);
+            const res = await api.post<InspectResponse>(
+                '/admin/plugins/inspect',
+                form,
+                { headers: { 'Content-Type': 'multipart/form-data' } },
+            );
+            return res.data;
+        },
     });
 
 /**
@@ -140,8 +138,8 @@ export interface InstallArchiveArgs {
 
 export const useInstallMpn = () => {
     const qc = useQueryClient();
-    return useMutation(
-        async (args: File | InstallArchiveArgs) => {
+    return useMutation({
+        mutationFn: async (args: File | InstallArchiveArgs) => {
             // Back-compat: callers that pass a bare File still work.
             const file = args instanceof File ? args : args.file;
             const installMethod = args instanceof File ? undefined : args.installMethod;
@@ -155,26 +153,15 @@ export const useInstallMpn = () => {
             );
             return res.data;
         },
-        {
-            onSuccess: () => {
-                // The new install adds a row to /installed; also nudges
-                // the runtime plugin list once the new plugin announces.
-                // ['plugins-db'] is what InstalledPluginsView binds to;
-                // ['plugins-installed'] mirrors /admin/plugins/installed
-                // through the legacy hook; ['plugin-updates'] holds
-                // version-diff state that depends on the inventory.
-                qc.invalidateQueries(QK_ADMIN_INSTALLED);
-                qc.invalidateQueries(['plugins']);
-                qc.invalidateQueries(['plugins-db']);
-                qc.invalidateQueries(['plugins-installed']);
-                qc.invalidateQueries(['plugin-updates']);
-                // Install pipeline now mirrors the .mpn into
-                // PLUGIN_PACKAGES_DIR (the catalog), so the Downloaded
-                // tab needs to know there's a fresh entry to show.
-                qc.invalidateQueries(['plugin-catalog']);
-            },
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: QK_ADMIN_INSTALLED });
+            qc.invalidateQueries({ queryKey: ['plugins'] });
+            qc.invalidateQueries({ queryKey: ['plugins-db'] });
+            qc.invalidateQueries({ queryKey: ['plugins-installed'] });
+            qc.invalidateQueries({ queryKey: ['plugin-updates'] });
+            qc.invalidateQueries({ queryKey: ['plugin-catalog'] });
         },
-    );
+    });
 };
 
 /**
@@ -184,8 +171,8 @@ export const useInstallMpn = () => {
  */
 export const useUpgradeMpn = () => {
     const qc = useQueryClient();
-    return useMutation(
-        async (args: { pluginId: string; file: File; forceDowngrade?: boolean }) => {
+    return useMutation({
+        mutationFn: async (args: { pluginId: string; file: File; forceDowngrade?: boolean }) => {
             const form = new FormData();
             form.append('file', args.file);
             if (args.forceDowngrade) {
@@ -198,20 +185,15 @@ export const useUpgradeMpn = () => {
             );
             return res.data;
         },
-        {
-            onSuccess: () => {
-                qc.invalidateQueries(QK_ADMIN_INSTALLED);
-                qc.invalidateQueries(['plugins']);
-                qc.invalidateQueries(['plugins-db']);
-                qc.invalidateQueries(['plugins-installed']);
-                qc.invalidateQueries(['plugin-updates']);
-                // Install pipeline now mirrors the .mpn into
-                // PLUGIN_PACKAGES_DIR (the catalog), so the Downloaded
-                // tab needs to know there's a fresh entry to show.
-                qc.invalidateQueries(['plugin-catalog']);
-            },
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: QK_ADMIN_INSTALLED });
+            qc.invalidateQueries({ queryKey: ['plugins'] });
+            qc.invalidateQueries({ queryKey: ['plugins-db'] });
+            qc.invalidateQueries({ queryKey: ['plugins-installed'] });
+            qc.invalidateQueries({ queryKey: ['plugin-updates'] });
+            qc.invalidateQueries({ queryKey: ['plugin-catalog'] });
         },
-    );
+    });
 };
 
 /**
@@ -223,28 +205,23 @@ export const useUpgradeMpn = () => {
  */
 export const useUninstallMpn = () => {
     const qc = useQueryClient();
-    return useMutation(
-        async (pluginId: string) => {
+    return useMutation({
+        mutationFn: async (pluginId: string) => {
             const res = await api.delete<UninstallResponse>(
                 `/admin/plugins/${encodeURIComponent(pluginId)}`,
             );
             return res.data;
         },
-        {
-            onSuccess: () => {
-                qc.invalidateQueries(QK_ADMIN_INSTALLED);
-                qc.invalidateQueries(['plugins']);
-                qc.invalidateQueries(['plugins-db']);
-                qc.invalidateQueries(['plugins-installed']);
-                qc.invalidateQueries(['plugin-updates']);
-                // Install pipeline now mirrors the .mpn into
-                // PLUGIN_PACKAGES_DIR (the catalog), so the Downloaded
-                // tab needs to know there's a fresh entry to show.
-                qc.invalidateQueries(['plugin-catalog']);
-                qc.invalidateQueries(['admin-plugin-process-status']);
-            },
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: QK_ADMIN_INSTALLED });
+            qc.invalidateQueries({ queryKey: ['plugins'] });
+            qc.invalidateQueries({ queryKey: ['plugins-db'] });
+            qc.invalidateQueries({ queryKey: ['plugins-installed'] });
+            qc.invalidateQueries({ queryKey: ['plugin-updates'] });
+            qc.invalidateQueries({ queryKey: ['plugin-catalog'] });
+            qc.invalidateQueries({ queryKey: ['admin-plugin-process-status'] });
         },
-    );
+    });
 };
 
 // ---------------------------------------------------------------------------
@@ -262,8 +239,10 @@ export interface ProcessStatusResponse {
     /** Typed lifecycle state from the BackendLifecycle. Phase 2 added
      *  ``running`` / ``stopped`` / ``paused`` / ``unknown``; Wave 4
      *  added ``partial`` for multi-replica sets where some replicas
-     *  are in one state and the rest in another. */
-    status?: 'running' | 'stopped' | 'paused' | 'partial' | 'unknown';
+     *  are in one state and the rest in another. ``missing`` covers
+     *  the docker-rm-behind-our-back case — install_state.json still
+     *  names the container but the daemon has no such container. */
+    status?: 'running' | 'stopped' | 'paused' | 'partial' | 'missing' | 'unknown';
     /** Whether the owning install method's lifecycle implements pause.
      *  Docker → true; uv → false. UI greys out the Pause button when
      *  false so operators don't try-and-409. */
@@ -286,40 +265,36 @@ const QK_PROCESS_STATUS = 'admin-plugin-process-status';
 export const useAdminPluginProcessStatus = (
     pluginId: string | null | undefined,
 ) =>
-    useQuery(
-        [QK_PROCESS_STATUS, pluginId],
-        async () => {
+    useQuery({
+        queryKey: [QK_PROCESS_STATUS, pluginId],
+        queryFn: async () => {
             const res = await api.get<ProcessStatusResponse>(
                 `/admin/plugins/${encodeURIComponent(pluginId!)}/status`,
             );
             return res.data;
         },
-        {
-            enabled: !!pluginId,
-            // Lightweight + frequent so the UI reflects start/stop quickly.
-            refetchInterval: 5000,
-        },
-    );
+        enabled: !!pluginId,
+        // Lightweight + frequent so the UI reflects start/stop quickly.
+        refetchInterval: 5000,
+    });
 
 const makeProcessControlMutation = (
     verb: 'start' | 'stop' | 'restart' | 'pause' | 'unpause',
 ) => {
     return () => {
         const qc = useQueryClient();
-        return useMutation(
-            async (pluginId: string) => {
+        return useMutation({
+            mutationFn: async (pluginId: string) => {
                 const res = await api.post<ProcessActionResponse>(
                     `/admin/plugins/${encodeURIComponent(pluginId)}/${verb}`,
                 );
                 return res.data;
             },
-            {
-                onSuccess: () => {
-                    qc.invalidateQueries(QK_PROCESS_STATUS);
-                    qc.invalidateQueries(['plugins']);
-                },
+            onSuccess: () => {
+                qc.invalidateQueries({ queryKey: [QK_PROCESS_STATUS] });
+                qc.invalidateQueries({ queryKey: ['plugins'] });
             },
-        );
+        });
     };
 };
 
@@ -351,21 +326,19 @@ export interface ScaleResponse {
  *  ``docker-only`` message. */
 export const useScalePlugin = (pluginId: string) => {
     const qc = useQueryClient();
-    return useMutation(
-        async (req: ScaleRequest) => {
+    return useMutation({
+        mutationFn: async (req: ScaleRequest) => {
             const res = await api.post<ScaleResponse>(
                 `/admin/plugins/${encodeURIComponent(pluginId)}/scale`,
                 req,
             );
             return res.data;
         },
-        {
-            onSuccess: () => {
-                qc.invalidateQueries(QK_PROCESS_STATUS);
-                qc.invalidateQueries(['plugins']);
-            },
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: [QK_PROCESS_STATUS] });
+            qc.invalidateQueries({ queryKey: ['plugins'] });
         },
-    );
+    });
 };
 
 
@@ -439,24 +412,22 @@ export const usePluginActivity = (
     pluginId: string | null | undefined,
     limit: number = 50,
 ) =>
-    useQuery(
-        ['admin-plugin-activity', pluginId, limit],
-        async () => {
+    useQuery({
+        queryKey: ['admin-plugin-activity', pluginId, limit],
+        queryFn: async () => {
             const res = await api.get<PluginActivityResponse>(
                 `/admin/plugins/${encodeURIComponent(pluginId!)}/activity`,
                 { params: { limit } },
             );
             return res.data;
         },
-        {
-            enabled: !!pluginId,
-            refetchInterval: 4000,
-            // Keep stale data on screen across re-fetches so the UI doesn't
-            // flicker every 4s during normal operation.
-            keepPreviousData: true,
-            staleTime: 2000,
-        },
-    );
+        enabled: !!pluginId,
+        refetchInterval: 4000,
+        // Keep stale data on screen across re-fetches so the UI doesn't
+        // flicker every 4s during normal operation.
+        placeholderData: keepPreviousData,
+        staleTime: 2000,
+    });
 
 
 // ---------------------------------------------------------------------------
@@ -479,23 +450,21 @@ export const usePluginLogs = (
     pluginId: string | null | undefined,
     tail: number = 200,
 ) =>
-    useQuery(
-        ['admin-plugin-logs', pluginId, tail],
-        async () => {
+    useQuery({
+        queryKey: ['admin-plugin-logs', pluginId, tail],
+        queryFn: async () => {
             const res = await api.get<PluginLogsResponse>(
                 `/admin/plugins/${encodeURIComponent(pluginId!)}/logs`,
                 { params: { tail } },
             );
             return res.data;
         },
-        {
-            enabled: !!pluginId,
-            // Tail queries are heavier than status; refetch less often.
-            // The Socket.IO live stream is the right tool for follow-mode.
-            refetchInterval: 15000,
-            staleTime: 5000,
-        },
-    );
+        enabled: !!pluginId,
+        // Tail queries are heavier than status; refetch less often.
+        // The Socket.IO live stream is the right tool for follow-mode.
+        refetchInterval: 15000,
+        staleTime: 5000,
+    });
 
 
 // ---------------------------------------------------------------------------
@@ -530,42 +499,38 @@ export const usePluginUpgrades = (
     pluginId: string | null | undefined,
     opts: { hubUrl?: string; enabled?: boolean } = {},
 ) =>
-    useQuery(
-        ['admin-plugin-upgrades', pluginId, opts.hubUrl],
-        async () => {
+    useQuery({
+        queryKey: ['admin-plugin-upgrades', pluginId, opts.hubUrl],
+        queryFn: async () => {
             const res = await api.get<UpgradeListResponse>(
                 `/admin/plugins/${encodeURIComponent(pluginId!)}/upgrades`,
                 { params: opts.hubUrl ? { hub_url: opts.hubUrl } : undefined },
             );
             return res.data;
         },
-        {
-            enabled: !!pluginId && (opts.enabled ?? true),
-            staleTime: 30_000,
-        },
-    );
+        enabled: !!pluginId && (opts.enabled ?? true),
+        staleTime: 30_000,
+    });
 
 /** Server-side upgrade: CoreService fetches the .mpn from the hub,
  *  verifies sha256, then runs the canonical upgrade flow (versioned
  *  .bak on failure, RMQ requeues in-flight tasks). */
 export const useUpgradeFromHub = (pluginId: string) => {
     const qc = useQueryClient();
-    return useMutation(
-        async (req: UpgradeFromHubRequest) => {
+    return useMutation({
+        mutationFn: async (req: UpgradeFromHubRequest) => {
             const res = await api.post<InstallFromHubResponse>(
                 `/admin/plugins/${encodeURIComponent(pluginId)}/upgrade-from-hub`,
                 req,
             );
             return res.data;
         },
-        {
-            onSuccess: () => {
-                qc.invalidateQueries(['plugins']);
-                qc.invalidateQueries(QK_PROCESS_STATUS);
-                qc.invalidateQueries(['admin-plugin-upgrades', pluginId]);
-            },
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ['plugins'] });
+            qc.invalidateQueries({ queryKey: [QK_PROCESS_STATUS] });
+            qc.invalidateQueries({ queryKey: ['admin-plugin-upgrades', pluginId] });
         },
-    );
+    });
 };
 
 
@@ -575,19 +540,17 @@ export const useUpgradeFromHub = (pluginId: string) => {
  *  workflow. */
 export const useInstallFromHub = () => {
     const qc = useQueryClient();
-    return useMutation(
-        async (req: InstallFromHubRequest) => {
+    return useMutation({
+        mutationFn: async (req: InstallFromHubRequest) => {
             const res = await api.post<InstallFromHubResponse>(
                 '/admin/plugins/install-from-hub',
                 req,
             );
             return res.data;
         },
-        {
-            onSuccess: () => {
-                qc.invalidateQueries(['plugins']);
-                qc.invalidateQueries(QK_PROCESS_STATUS);
-            },
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ['plugins'] });
+            qc.invalidateQueries({ queryKey: [QK_PROCESS_STATUS] });
         },
-    );
+    });
 };
