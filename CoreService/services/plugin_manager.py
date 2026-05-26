@@ -34,7 +34,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Literal, Optional, Protocol
 
 from packaging.version import InvalidVersion, Version
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from magellon_sdk.bus.services.liveness_registry import (
@@ -58,7 +58,7 @@ logger = logging.getLogger(__name__)
 
 
 class PluginView(BaseModel):
-    """Joined view across the five sources — what the UI sees per plugin.
+    """Joined broker view across catalog, liveness, and operator state.
 
     Field set is identical to the legacy ``plugins.controller.PluginSummary``
     so PM3's wire-shape-byte-identical acceptance holds: the controller
@@ -72,11 +72,11 @@ class PluginView(BaseModel):
     schema_version: str
     description: str
     developer: str
-    capabilities: list[Capability] = []
-    supported_transports: list[Transport] = []
-    default_transport: Transport = Transport.IN_PROCESS
-    isolation: IsolationLevel = IsolationLevel.IN_PROCESS
-    kind: Literal["in-process", "broker"] = "in-process"
+    capabilities: list[Capability] = Field(default_factory=list)
+    supported_transports: list[Transport] = Field(default_factory=list)
+    default_transport: Transport = Transport.RMQ
+    isolation: IsolationLevel = IsolationLevel.CONTAINER
+    kind: Literal["broker"] = "broker"
     enabled: bool = True
     is_default_for_category: bool = False
     task_queue: Optional[str] = None
@@ -550,10 +550,10 @@ class PluginManagerService:
                 plugin_id=plugin_id,
                 category=entry.category,
                 name=entry.plugin_id,
-                version=info.version,
+                version=info.version or entry.plugin_version or "?",
                 schema_version=info.schema_version or "1",
-                description=info.description,
-                developer=info.developer,
+                description=info.description or "",
+                developer=info.developer or "",
                 capabilities=list(manifest.capabilities),
                 supported_transports=list(manifest.supported_transports),
                 default_transport=manifest.default_transport,

@@ -1,20 +1,21 @@
-"""Generic plugin HTTP router — discovery + batch submission for any plugin.
+"""Generic broker-plugin HTTP router.
 
 Endpoints:
-    GET  /plugins/                              — list registered plugins
-    GET  /plugins/{plugin_id}/info              — plugin metadata
-    GET  /plugins/{plugin_id}/health            — liveness probe
-    GET  /plugins/{plugin_id}/requirements      — dependency check
-    GET  /plugins/{plugin_id}/schema/input      — input JSON schema
-    GET  /plugins/{plugin_id}/schema/output     — output JSON schema
-    POST /plugins/{plugin_id}/jobs              — submit one job
-    POST /plugins/{plugin_id}/jobs/batch        — fan out over N images
-    GET  /plugins/jobs                          — list jobs (optional plugin filter)
-    GET  /plugins/jobs/{job_id}                 — job detail
+    GET  /plugins/                          - list live broker plugins
+    GET  /plugins/capabilities              - categories, backends, schemas
+    GET  /plugins/{plugin_id}/manifest       - announced capability manifest
+    GET  /plugins/{plugin_id}/info           - plugin metadata
+    GET  /plugins/{plugin_id}/health         - liveness probe
+    GET  /plugins/{plugin_id}/schema/input   - input JSON schema
+    GET  /plugins/{plugin_id}/schema/output  - output JSON schema
+    POST /plugins/{plugin_id}/jobs           - submit one async job
+    POST /plugins/{plugin_id}/jobs/batch     - fan out over N inputs
+    GET  /plugins/jobs                       - list jobs
+    GET  /plugins/jobs/{job_id}              - job detail
 
-Plugin-specific routes (preview/retune for template-picker, etc.) remain on
-the plugin's own router. This controller covers everything that's uniform
-across plugins.
+Plugin-specific sync/preview/retune routes are broker capabilities reached
+through the dispatch controller. This controller covers the uniform
+discovery, state, install, and async-job surfaces.
 """
 from __future__ import annotations
 
@@ -90,18 +91,13 @@ class PluginSummary(BaseModel):
     description: str
     developer: str
     # Capability subset surfaced into discovery — full manifest at /manifest
-    capabilities: list[Capability] = []
-    supported_transports: list[Transport] = []
-    default_transport: Transport = Transport.IN_PROCESS
-    isolation: IsolationLevel = IsolationLevel.IN_PROCESS
-    # How the UI should treat this entry:
-    # - ``in-process``: PluginBase subclass living in this CoreService
-    #   process; reachable via POST /plugins/{plugin_id}/jobs.
-    # - ``broker``: external plugin (Docker container or separate
-    #   process) that announced itself on ``magellon.plugins.liveness``;
-    #   dispatch flows through the bus, not through this controller's
-    #   /jobs endpoint.
-    kind: Literal["in-process", "broker"] = "in-process"
+    capabilities: list[Capability] = Field(default_factory=list)
+    supported_transports: list[Transport] = Field(default_factory=list)
+    default_transport: Transport = Transport.RMQ
+    isolation: IsolationLevel = IsolationLevel.CONTAINER
+    # PI-6 retired the CoreService in-process registry. Every entry on
+    # this surface is an external broker plugin announced via liveness.
+    kind: Literal["broker"] = "broker"
     # Operator state (H1). ``enabled`` defaults True until an operator
     # toggles it. ``is_default_for_category`` is derived from the
     # per-category default-impl selection — the UI uses it to render
@@ -123,10 +119,9 @@ class JobSubmitRequest(BaseModel):
     user_id: Optional[str] = None
     msession_id: Optional[str] = None
     target_backend: Optional[str] = None
-    """Pin the dispatch to a specific backend within the plugin's
-    category (X.1). Only meaningful for broker-dispatched plugins;
-    ignored by the in-process path. When set and no live backend
-    matches, the controller returns 503 instead of round-robining."""
+    """Pin dispatch to a specific backend within the plugin's category.
+    When set and no live broker backend matches, the controller returns
+    503 instead of round-robining."""
     parent_run_id: Optional[uuid.UUID] = None
     """Optional PipelineRun rollup the new job belongs to (Phase 8 /
     2026-05-04 reviewer-flagged Medium #6). Pre-Phase-8 callers leave
@@ -167,9 +162,9 @@ class _BackendSummary(BaseModel):
     schema_version: str
     description: str = ""
     developer: str = ""
-    capabilities: list[Capability] = []
-    isolation: IsolationLevel = IsolationLevel.IN_PROCESS
-    default_transport: Transport = Transport.IN_PROCESS
+    capabilities: list[Capability] = Field(default_factory=list)
+    isolation: IsolationLevel = IsolationLevel.CONTAINER
+    default_transport: Transport = Transport.RMQ
     live_replicas: int
     enabled: bool
     is_default_for_category: bool
@@ -342,10 +337,10 @@ async def list_capabilities() -> _CapabilitiesResponse:
 async def list_plugins() -> List[PluginSummary]:
     """List every plugin the liveness registry has seen.
 
-    Post-PM3 the four-way join (in-process registry × liveness × state
-    store × catalog) lives in :class:`PluginManagerService`. This route
-    delegates; the wire shape is byte-identical to the pre-PM3
-    response since :class:`services.plugin_manager.PluginView` and
+    Post-PI-6 the join across liveness, operator state, and catalog
+    lives in :class:`PluginManagerService`. This route delegates; the
+    wire shape stays aligned because
+    :class:`services.plugin_manager.PluginView` and
     :class:`PluginSummary` carry the same fields.
     """
     from database import session_local

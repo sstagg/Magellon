@@ -1,22 +1,9 @@
-"""HTTP contract tests for the generic plugins router.
+"""HTTP contract tests for the generic broker plugins router.
 
-Pre-2026-05-04 these tests pinned the in-process plugin registry's
-slash-form plugin_ids (``ctf/ctffind``, ``pp/template-picker``,
-etc.). That registry was retired with Architecture B (see
-CURRENT_ARCHITECTURE.md §4.2 + memory:project_phase_progress) —
-every plugin is now an external broker plugin keyed by a slug
-plugin_id (``ctf``, ``template-picker``). The endpoints these
-tests exercise now read live state from the broker registry,
-which is empty in a unit-test process; results are empty lists,
-and the parametrized plugin_ids no longer exist.
-
-Skipped wholesale rather than deleted so the contract intent
-survives if a future change wants to revive them by mocking a
-liveness registry. Treat this as the historical record, not a
-gate. Today's contract coverage lives in
-``tests/contracts/`` (per-plugin HTTP /execute) and
-``tests/controllers/test_dispatch_controller.py`` (capabilities
-+ multi-backend list).
+The first block keeps a handful of retired Architecture B assertions as
+explicitly skipped historical records. The active tests inject broker
+liveness and state fakes so the current controller contract runs in a
+unit-test process.
 """
 from __future__ import annotations
 
@@ -27,9 +14,8 @@ from fastapi.testclient import TestClient
 from plugins.controller import plugins_router
 
 
-pytestmark = pytest.mark.skip(
-    reason="Pins the retired Architecture B in-process plugin registry. "
-           "See module docstring + CURRENT_ARCHITECTURE.md §4.2.",
+legacy_architecture_b = pytest.mark.skip(
+    reason="Pins the retired Architecture B in-process plugin registry.",
 )
 
 
@@ -40,6 +26,7 @@ def client() -> TestClient:
     return TestClient(app)
 
 
+@legacy_architecture_b
 @pytest.mark.characterization
 def test_list_plugins_shape(client):
     resp = client.get("/plugins/")
@@ -60,6 +47,7 @@ def test_list_plugins_shape(client):
         assert required.issubset(entry.keys()), f"Missing keys in {entry}"
 
 
+@legacy_architecture_b
 @pytest.mark.characterization
 def test_template_picker_advertises_real_capabilities(client):
     """Template-picker is the worked example of a plugin that opts into
@@ -74,6 +62,7 @@ def test_template_picker_advertises_real_capabilities(client):
     assert tp["isolation"] == "in_process"
 
 
+@legacy_architecture_b
 @pytest.mark.characterization
 def test_motioncor_advertises_gpu_and_container_isolation(client):
     """MotionCor is the canonical "don't run me in-process" plugin.
@@ -93,6 +82,7 @@ def test_motioncor_advertises_gpu_and_container_isolation(client):
     assert m["resources"]["memory_mb"] >= 16_000
 
 
+@legacy_architecture_b
 @pytest.mark.characterization
 def test_ctffind_advertises_cpu_only_shape(client):
     """Sanity check that ctffind doesn't accidentally claim GPU — it's
@@ -105,6 +95,7 @@ def test_ctffind_advertises_cpu_only_shape(client):
     assert ctf["isolation"] == "in_process"
 
 
+@legacy_architecture_b
 @pytest.mark.characterization
 def test_plugin_manifest_endpoint_round_trips(client):
     """The /manifest endpoint returns the full PluginManifest. Same
@@ -121,6 +112,7 @@ def test_plugin_manifest_endpoint_round_trips(client):
     assert "tags" in m
 
 
+@legacy_architecture_b
 @pytest.mark.characterization
 def test_list_plugins_contains_expected_ids(client):
     body = client.get("/plugins/").json()
@@ -128,6 +120,7 @@ def test_list_plugins_contains_expected_ids(client):
     assert {"ctf/ctffind", "motioncor/motioncor2", "pp/template-picker"}.issubset(ids)
 
 
+@legacy_architecture_b
 @pytest.mark.characterization
 @pytest.mark.parametrize("plugin_id", [
     "ctf/ctffind",
@@ -143,6 +136,7 @@ def test_plugin_info_endpoint(client, plugin_id):
     assert "schema_version" in info
 
 
+@legacy_architecture_b
 @pytest.mark.characterization
 @pytest.mark.parametrize("plugin_id", [
     "ctf/ctffind",
@@ -157,6 +151,7 @@ def test_plugin_input_schema_endpoint(client, plugin_id):
     assert schema.get("type") == "object" or "properties" in schema or "$ref" in schema
 
 
+@legacy_architecture_b
 @pytest.mark.characterization
 @pytest.mark.parametrize("plugin_id", [
     "ctf/ctffind",
@@ -188,15 +183,38 @@ def test_unknown_plugin_returns_404(client):
 
 import pytest as _pytest
 
-from core.plugin_liveness_registry import PluginLivenessRegistry, get_registry
+from core.plugin_liveness_registry import PluginLivenessRegistry
 from core.plugin_state import get_state_store
 from magellon_sdk.discovery import Announce
 from magellon_sdk.models.manifest import (
     Capability as _Cap,
+    IsolationLevel as _Isolation,
     PluginManifest as _PluginManifest,
     Transport as _Transport,
 )
 from magellon_sdk.models.plugin import PluginInfo as _PluginInfo
+
+
+class _FakeStateStore:
+    def __init__(self):
+        self.enabled = {}
+        self.default_impl = {}
+
+    def is_enabled(self, plugin_id: str) -> bool:
+        return self.enabled.get(plugin_id, True)
+
+    def set_enabled(self, plugin_id: str, enabled: bool) -> None:
+        self.enabled[plugin_id] = enabled
+
+    def get_default(self, category: str):
+        return self.default_impl.get(category.lower())
+
+    def set_default(self, category: str, plugin_id: str | None) -> None:
+        key = category.lower()
+        if plugin_id is None:
+            self.default_impl.pop(key, None)
+        else:
+            self.default_impl[key] = plugin_id
 
 
 def _make_announce(*, plugin_id: str, category: str, backend_id: str,
@@ -213,6 +231,7 @@ def _make_announce(*, plugin_id: str, category: str, backend_id: str,
             capabilities=[_Cap.CPU_INTENSIVE],
             supported_transports=[_Transport.RMQ],
             default_transport=_Transport.RMQ,
+            isolation=_Isolation.CONTAINER,
         ),
         backend_id=backend_id,
         task_queue=task_queue,
@@ -220,7 +239,14 @@ def _make_announce(*, plugin_id: str, category: str, backend_id: str,
 
 
 @_pytest.fixture
-def isolated_liveness_registry(monkeypatch):
+def isolated_plugin_state(monkeypatch):
+    fresh = _FakeStateStore()
+    monkeypatch.setattr("core.plugin_state._STORE", fresh, raising=False)
+    return fresh
+
+
+@_pytest.fixture
+def isolated_liveness_registry(monkeypatch, isolated_plugin_state):
     """Swap the process-wide liveness registry singleton for a clean
     per-test instance so tests can inject entries without leaking
     across tests."""
@@ -234,6 +260,27 @@ def isolated_liveness_registry(monkeypatch):
         raising=False,
     )
     return fresh
+
+
+@_pytest.mark.characterization
+def test_list_plugins_shape_for_live_broker(client, isolated_liveness_registry):
+    isolated_liveness_registry.record_announce(_make_announce(
+        plugin_id="ctf-ctffind4",
+        category="ctf",
+        backend_id="ctffind4",
+        task_queue="ctf_q",
+    ))
+
+    resp = client.get("/plugins/")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert len(body) == 1
+    row = body[0]
+    assert row["plugin_id"] == "ctf/ctf-ctffind4"
+    assert row["kind"] == "broker"
+    assert row["default_transport"] == "rmq"
+    assert row["isolation"] == "container"
+    assert row["task_queue"] == "ctf_q"
 
 
 @_pytest.mark.characterization
@@ -391,10 +438,16 @@ def test_capabilities_endpoint_marks_default_backend(
 
 
 @pytest.mark.characterization
-def test_submit_job_validates_input(client):
-    """Bad input → 422 with a helpful detail, not a 500."""
+def test_submit_job_validates_input(client, isolated_liveness_registry):
+    """Bad input returns 422 with a helpful detail, not a 500."""
+    isolated_liveness_registry.record_announce(_make_announce(
+        plugin_id="ctf-ctffind4",
+        category="ctf",
+        backend_id="ctffind4",
+        task_queue="ctf_q",
+    ))
     resp = client.post(
-        "/plugins/ctf/ctffind/jobs",
+        "/plugins/ctf/ctffind4/jobs",
         json={"input": {"clearly": "wrong"}},
     )
     assert resp.status_code == 422
