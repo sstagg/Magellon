@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { Box, useTheme, useMediaQuery } from '@mui/material';
-import { Panel, Group, Separator, usePanelRef } from 'react-resizable-panels';
+import { Panel, Group, Separator } from 'react-resizable-panels';
 import { ImageWorkspace } from '../../features/image-viewer/ui/ImageWorkspace.tsx';
 import { useSessionNames } from '../../features/image-viewer/api/FetchUseSessionNames.ts';
 import { useImageViewerStore } from '../../features/image-viewer/model/imageViewerStore.ts';
@@ -28,7 +28,7 @@ export const ImagesPageView = () => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-    const { userWidthPx, onUserResize, leftMargin, minPx, maxPx } = usePanelLayout({
+    const { initialUserWidthPx, persistWidth, leftMargin, minPx, maxPx } = usePanelLayout({
         storageKey: 'images-page-left-panel-px',
         minPx: 280,
         maxPx: 1200,
@@ -50,35 +50,13 @@ export const ImagesPageView = () => {
     // Default the left panel to fit the standard 4-column layout (GR / SQ /
     // HL / EX). The operator can drag narrower for small monitors or wider
     // for higher-res displays; their choice is persisted in localStorage.
+    //
+    // We pass the initial width via `defaultSize` and never re-render in
+    // response to a drag — the library owns the size after mount.
+    // Re-renders mid-drag disrupt the pointer-tracking and prevent the
+    // panel from growing past its starting size (see commit history).
     const autoFitPx = Math.max(minPx, Math.min(maxPx, widthForColumns(4)));
-
-    // Operator's manual override wins; otherwise we auto-fit to columns.
-    const effectivePx = userWidthPx ?? autoFitPx;
-
-    // Resize the panel imperatively when the column count grows. We use a
-    // programmatic-resize flag so the resulting onResize callback doesn't
-    // get mistaken for a user drag (which would then pin the auto-fit value
-    // as the operator override and freeze further auto-fitting).
-    const leftPanelRef = usePanelRef();
-    const lastAppliedPx = useRef<number | null>(null);
-    const programmaticResize = useRef(false);
-    useEffect(() => {
-        if (!leftPanelRef.current) return;
-        if (lastAppliedPx.current === effectivePx) return;
-        programmaticResize.current = true;
-        leftPanelRef.current.resize(`${effectivePx}px`);
-        lastAppliedPx.current = effectivePx;
-        // Clear flag on next tick; the library calls onResize synchronously
-        // after `resize()`, so a microtask is enough.
-        queueMicrotask(() => { programmaticResize.current = false; });
-    }, [effectivePx, leftPanelRef]);
-
-    const handlePanelResize = (sizePx: number) => {
-        if (programmaticResize.current) return;
-        // Ignore noise (sub-pixel rounding while dragging).
-        if (Math.abs(sizePx - (userWidthPx ?? autoFitPx)) < 4) return;
-        onUserResize(sizePx);
-    };
+    const defaultPx = initialUserWidthPx ?? autoFitPx;
 
     const workspaceProps = {
         onImageClick: handleImageClick,
@@ -141,11 +119,15 @@ export const ImagesPageView = () => {
                             >
                                 <Panel
                                     id="session-navigator"
-                                    panelRef={leftPanelRef}
-                                    defaultSize={`${effectivePx}px`}
+                                    defaultSize={`${defaultPx}px`}
                                     minSize={`${minPx}px`}
                                     maxSize={`${maxPx}px`}
-                                    onResize={(panelSize) => handlePanelResize(panelSize.inPixels)}
+                                    // Persist via a ref-only path so we don't
+                                    // re-render mid-drag — re-renders break the
+                                    // library's pointer-tracking and prevent
+                                    // the panel from growing past its initial
+                                    // size.
+                                    onResize={(panelSize) => persistWidth(panelSize.inPixels)}
                                     style={{ minWidth: 0, overflow: 'hidden' }}
                                 >
                                     <Box sx={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', backgroundColor: 'background.paper' }}>

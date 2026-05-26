@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useMediaQuery, useTheme } from '@mui/material';
 
 interface UsePanelLayoutOptions {
@@ -11,12 +11,10 @@ interface UsePanelLayoutOptions {
 }
 
 interface UsePanelLayoutReturn {
-    /** Current user-overridden width in px, or null when auto-fit applies. */
-    userWidthPx: number | null;
-    /** Called from Panel's onResize. Persists the user's pick. */
-    onUserResize: (sizePx: number) => void;
-    /** Forget the user override (e.g. operator double-clicked the separator). */
-    resetLayout: () => void;
+    /** Initial user-overridden width in px (frozen at mount, never changes). */
+    initialUserWidthPx: number | null;
+    /** Write a new width to localStorage. Does NOT trigger a re-render. */
+    persistWidth: (sizePx: number) => void;
     isDrawerOpen: boolean;
     leftMargin: number;
     minPx: number;
@@ -28,9 +26,14 @@ const DRAWER_WIDTH = 240;
 /**
  * Layout state for the images-page left panel.
  *
- * Defaults to auto-fitting to the visible column count (computed at the call
- * site). The user can drag the splitter to override; the override is
- * persisted to localStorage and takes priority over auto-fit until reset.
+ * The initial user width is read from localStorage exactly once at mount.
+ * After that the panel size is owned by `react-resizable-panels` — we never
+ * call setState in response to drags, because re-rendering mid-drag
+ * disrupts the library's pointer-tracking and breaks one of the drag
+ * directions (see commit history).
+ *
+ * `persistWidth` writes to localStorage directly; the new value will be
+ * picked up on the next page load.
  */
 export const usePanelLayout = (options: UsePanelLayoutOptions): UsePanelLayoutReturn => {
     const {
@@ -48,14 +51,17 @@ export const usePanelLayout = (options: UsePanelLayoutOptions): UsePanelLayoutRe
         return saved ? (JSON.parse(saved) as boolean) : false;
     });
 
-    const [userWidthPx, setUserWidthPx] = useState<number | null>(() => {
+    const initialUserWidthPx = useMemo<number | null>(() => {
         if (typeof window === 'undefined') return null;
         const saved = window.localStorage.getItem(storageKey);
         if (!saved) return null;
         const parsed = Number.parseInt(saved, 10);
         if (Number.isNaN(parsed)) return null;
         return Math.max(minPx, Math.min(maxPx, parsed));
-    });
+    // We freeze this on mount; localStorage changes during the session
+    // are intentionally ignored.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     useEffect(() => {
         const handleDrawerChange = (e: Event) => {
@@ -75,27 +81,17 @@ export const usePanelLayout = (options: UsePanelLayoutOptions): UsePanelLayoutRe
         };
     }, []);
 
-    const onUserResize = useCallback((sizePx: number) => {
+    const persistWidth = useCallback((sizePx: number) => {
+        if (typeof window === 'undefined') return;
         const clamped = Math.max(minPx, Math.min(maxPx, Math.round(sizePx)));
-        setUserWidthPx(clamped);
-        if (typeof window !== 'undefined') {
-            window.localStorage.setItem(storageKey, String(clamped));
-        }
+        window.localStorage.setItem(storageKey, String(clamped));
     }, [minPx, maxPx, storageKey]);
-
-    const resetLayout = useCallback(() => {
-        setUserWidthPx(null);
-        if (typeof window !== 'undefined') {
-            window.localStorage.removeItem(storageKey);
-        }
-    }, [storageKey]);
 
     const leftMargin = isDrawerOpen && !isMobile ? DRAWER_WIDTH : 0;
 
     return {
-        userWidthPx,
-        onUserResize,
-        resetLayout,
+        initialUserWidthPx,
+        persistWidth,
         isDrawerOpen,
         leftMargin,
         minPx,
