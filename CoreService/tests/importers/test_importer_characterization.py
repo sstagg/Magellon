@@ -749,7 +749,12 @@ def test_importer_factory_lazy_loads_serialem_alias(monkeypatch):
     assert imported == ["services.importers.SerialEmImporter"]
 
 
-def test_importer_factory_rejects_legacy_leginon():
+def test_importer_factory_rejects_legacy_leginon_without_importing_module(monkeypatch):
+    def fail_import(module_name):
+        raise AssertionError(f"unexpected import: {module_name}")
+
+    monkeypatch.setattr("services.importers.ImporterFactory.import_module", fail_import)
+
     with pytest.raises(ValueError) as exc:
         ImporterFactory.get_importer("leginon")
 
