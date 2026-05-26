@@ -43,7 +43,7 @@ security_setup_settings:
 
 
 rabbitmq_settings:
-  HOST_NAME: localhost
+  HOST_NAME: 127.0.0.1   # Force IPv4: `localhost` on Windows resolves to ::1 first → pika retry storm.
   PORT: 5672
   USER_NAME: rabbit
   PASSWORD: behd1d2
