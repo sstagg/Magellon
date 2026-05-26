@@ -24,6 +24,7 @@ Config:
 """
 
 import argparse
+import asyncio
 import os
 import shutil
 import subprocess
@@ -121,6 +122,52 @@ def purge_queues(config, dry_run):
             conn.close()
         except Exception:
             pass
+
+
+def purge_nats_stream(dry_run):
+    """Purge the MAGELLON_STEP_EVENTS JetStream so stale step events for
+    old job_ids don't crash the forwarder after the DB is wiped.
+
+    Soft-skips when nats-py isn't installed or NATS isn't reachable;
+    this script must keep working in environments that don't use NATS.
+    """
+    print("\n--- NATS step-event stream purge ---")
+    try:
+        import nats  # noqa: F401
+    except ImportError:
+        print("  skip: nats-py not installed")
+        return
+
+    nats_url = os.environ.get("NATS_URL", "nats://127.0.0.1:4222")
+    stream_name = os.environ.get("NATS_STEP_EVENTS_STREAM", "MAGELLON_STEP_EVENTS")
+
+    async def _run():
+        nc = None
+        try:
+            nc = await asyncio.wait_for(nats.connect(nats_url), timeout=5)
+        except Exception as exc:
+            print(f"  skip: cannot connect to NATS at {nats_url}: {exc}")
+            return
+        try:
+            js = nc.jetstream()
+            try:
+                info = await js.stream_info(stream_name)
+            except Exception as exc:
+                print(f"  skip: stream {stream_name} not found: {exc}")
+                return
+            count = info.state.messages
+            if dry_run:
+                print(f"  [dry run] {stream_name}: {count} messages (would purge)")
+            else:
+                await js.purge_stream(stream_name)
+                print(f"  purged {stream_name} ({count} messages)")
+        finally:
+            await nc.close()
+
+    try:
+        asyncio.run(_run())
+    except Exception as exc:
+        print(f"  WARNING: NATS purge failed: {exc}")
 
 
 def truncate_db(config, dry_run):
@@ -290,6 +337,8 @@ def main():
                         help="session name(s) whose home dirs to remove (repeat for multiple)")
     parser.add_argument("--skip-rmq", action="store_true",
                         help="skip RabbitMQ purge (useful if broker is down)")
+    parser.add_argument("--skip-nats", action="store_true",
+                        help="skip NATS step-event stream purge")
     parser.add_argument("--skip-db", action="store_true",
                         help="skip DB truncation")
     parser.add_argument("--stop-plugins", action="store_true",
@@ -317,6 +366,9 @@ def main():
 
     if not args.skip_rmq:
         purge_queues(config, dry_run)
+
+    if not args.skip_nats:
+        purge_nats_stream(dry_run)
 
     if not args.skip_db:
         truncate_db(config, dry_run)
