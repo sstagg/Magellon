@@ -565,7 +565,7 @@ async def startup_event():
                 started = False
             if started:
                 app.state.step_event_forwarder = forwarder
-                logger.info("[OK] Step-event forwarder (NATS → job_event) started (with state projector)")
+                logger.info("[OK] Step-event forwarder (NATS -> job_event) started (with state projector)")
             else:
                 # With ensure_stream=True (the default) we should never get
                 # here unless the NATS broker itself is unreachable — the
