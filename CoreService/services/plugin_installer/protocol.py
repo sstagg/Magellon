@@ -11,11 +11,12 @@ Three kinds of value object travel through the install pipeline:
   - :class:`UninstallResult` — symmetric for the uninstall path.
 
 The :class:`Installer` Protocol is the seam different install methods
-plug into. Three impls expected:
+plug into. Current impls:
 
   - :class:`UvInstaller` (P4) — pure-Python plugins via ``uv``.
   - ``DockerInstaller`` (P5) — image-based plugins.
   - ``SubprocessInstaller`` (v2) — legacy binaries.
+  - ``SlurmInstaller`` — scheduler-backed scaffold, not wired yet.
 """
 from __future__ import annotations
 
@@ -123,7 +124,7 @@ class Installer(Protocol):
     launch, and tear down a plugin via its specific mechanism."""
 
     method: ClassVar[str]
-    """``uv``, ``docker``, ``subprocess``. Must match
+    """``uv``, ``docker``, ``subprocess``, or ``slurm``. Must match
     :attr:`InstallSpec.method` strings."""
 
     def supports(self, install_spec: InstallSpec, host: "HostInfo") -> List[str]:

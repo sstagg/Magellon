@@ -242,8 +242,8 @@ class InstallSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     method: str
-    """``docker``, ``uv``, or ``subprocess`` (subprocess reserved
-    for v2)."""
+    """``docker``, ``uv``, ``subprocess`` (reserved for v2), or
+    ``slurm``."""
 
     # Docker-specific fields
     image: Optional[str] = None
@@ -500,7 +500,7 @@ class PluginArchiveManifest(BaseModel):
         if not self.install:
             raise ValueError(
                 "install: must list at least one install method "
-                "(docker / uv / subprocess)"
+                "(docker / uv / subprocess / slurm)"
             )
         return self
 

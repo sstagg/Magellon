@@ -220,7 +220,7 @@ def test_rejects_empty_install_list():
     controller would have nothing to dispatch to. Fail at parse time."""
     data = _minimal_v1_manifest()
     data["install"] = []
-    with pytest.raises(ValueError, match="install"):
+    with pytest.raises(ValueError, match=r"docker / uv / subprocess / slurm"):
         PluginArchiveManifest.model_validate(data)
 
 
@@ -229,6 +229,16 @@ def test_rejects_unknown_install_method():
     data["install"] = [{"method": "snake-oil"}]
     with pytest.raises(ValueError, match="unknown install method"):
         PluginArchiveManifest.model_validate(data)
+
+
+def test_accepts_slurm_install_method():
+    """The manifest contract accepts Slurm as a scheduler-backed
+    install method; CoreService may still decide whether the local
+    host can run it."""
+    data = _minimal_v1_manifest()
+    data["install"] = [{"method": "slurm"}]
+    m = PluginArchiveManifest.model_validate(data)
+    assert m.install[0].method == "slurm"
 
 
 def test_rejects_docker_install_without_image_or_dockerfile():

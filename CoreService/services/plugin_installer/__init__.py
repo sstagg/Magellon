@@ -4,7 +4,7 @@ The install controller that consumes ``.mpn`` archives and brings
 plugins live on a CoreService host. Composed of:
 
 - :class:`Installer` Protocol — abstract install method (uv / docker /
-  subprocess). Each impl knows how to unpack, prepare runtime, and
+  subprocess / slurm). Each impl knows how to unpack, prepare runtime, and
   start a plugin process for its method.
 - :class:`UvInstaller` — first concrete impl (P4). Unpacks under
   ``<plugins_dir>/<plugin_id>/``, builds an isolated venv with
