@@ -10,7 +10,6 @@ from datetime import datetime
 
 from core.rabbitmq_client import RabbitmqClient
 from config import app_settings
-from models.plugins_models import TaskResultMessage
 from services.motioncor_test_service import broadcast_to_task_connections
 
 logger = logging.getLogger(__name__)

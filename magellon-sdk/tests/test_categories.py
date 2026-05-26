@@ -168,11 +168,10 @@ def test_plugin_subclassing_input_preserves_canonical_fields():
     assert plugin_view.gpu_id == 3
 
     # Category-level validation accepts the same payload — extras
-    # are silently ignored (they're declared on the subclass, not
-    # the canonical model).
+    # are preserved so plugin-side subclasses still receive them.
     canonical_view = CTF.validate_input(payload)
     assert canonical_view.inputFile == "/gpfs/x.mrc"
-    assert not hasattr(canonical_view, "gpu_id") or canonical_view.model_extra is None
+    assert canonical_view.model_extra == {"gpu_id": 3}
 
 
 # ---------------------------------------------------------------------------

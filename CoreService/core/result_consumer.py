@@ -43,7 +43,7 @@ from magellon_sdk.bus.services.result_consumer import (
 )
 from magellon_sdk.envelope import Envelope
 from magellon_sdk.errors import PermanentError
-from models.plugins_models import TaskResultMessage
+from magellon_sdk.models import TaskResultMessage
 from services.task_output_processor import TaskOutputProcessor
 
 logger = logging.getLogger(__name__)

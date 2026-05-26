@@ -68,7 +68,16 @@ DB_URL = os.environ.get(
 )
 
 
-pytestmark = [pytest.mark.integration_e2e]
+pytestmark = [
+    pytest.mark.integration_e2e,
+    pytest.mark.skipif(
+        os.environ.get("MAGELLON_E2E_STACK") != "up",
+        reason=(
+            "MAGELLON_E2E_STACK is not 'up' - bring up the docker-compose "
+            "stack and set the env var before running this full-stack e2e."
+        ),
+    ),
+]
 
 
 def _gpfs_host_root() -> Path:

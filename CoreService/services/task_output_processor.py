@@ -29,7 +29,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from config import MAGELLON_HOME_DIR
-from models.plugins_models import TaskResultMessage
+from magellon_sdk.models import TaskResultMessage
 from models.pydantic_models_settings import OutQueueConfig, OutQueueType
 from models.sqlalchemy_models import Artifact, ImageJobTask, ImageMetaData
 

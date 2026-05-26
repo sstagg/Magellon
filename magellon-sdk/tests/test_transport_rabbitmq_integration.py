@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 import socket
+import time
 import uuid
 
 import pytest
@@ -71,6 +72,19 @@ def _delete_queue(q: str) -> None:
         ch.queue_delete(queue=q)
     finally:
         conn.close()
+
+
+def _basic_get_until(channel, queue: str, *, connection=None, timeout: float = 2.0):
+    deadline = time.monotonic() + timeout
+    while True:
+        method, properties, body = channel.basic_get(queue=queue, auto_ack=True)
+        if method is not None:
+            return method, properties, body
+        if connection is not None:
+            connection.process_data_events(time_limit=0.05)
+        if time.monotonic() >= deadline:
+            return None, None, None
+        time.sleep(0.05)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -191,8 +205,14 @@ def test_declare_queue_with_dlq_routes_rejected_message_to_dlq():
             assert body == b"doomed"
             client.channel.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
-            # It should now be sitting on the DLQ.
-            method2, _, body2 = client.channel.basic_get(queue=dlq, auto_ack=True)
+            # It should now be sitting on the DLQ. Dead-letter routing
+            # is broker-side work, so poll briefly instead of assuming
+            # the nack has synchronously materialized in the DLQ.
+            method2, _, body2 = _basic_get_until(
+                client.channel,
+                dlq,
+                connection=client.connection,
+            )
             assert method2 is not None, "message did not reach DLQ"
             assert body2 == b"doomed"
         finally:

@@ -1,15 +1,22 @@
 import logging
-import math
 import os
 import re
 import uuid
 import glob
-from pydantic import BaseModel
 
 from config import app_settings
 from core.task_factory import CtfTaskFactory, FftTaskFactory, MotioncorTaskFactory, TaskFactory
-from models.plugins_models import TaskMessage, CtfInput, FftInput, FFT_TASK, TaskResultMessage, CTF_TASK, PENDING, MotionCorInput, \
-    MOTIONCOR_TASK, TaskCategory
+from magellon_sdk.models import (
+    CTF_TASK,
+    FFT_TASK,
+    MOTIONCOR as MOTIONCOR_TASK,
+    PENDING,
+    CtfInput,
+    FftInput,
+    MotionCorInput,
+    TaskCategory,
+    TaskMessage,
+)
 from magellon_sdk.models.tasks import (
     HOLE_DETECTION,
     MICROGRAPH_DENOISING,
@@ -541,6 +548,7 @@ def dispatch_particle_pick_task(
         data["engine_opts"] = engine_opts or {}
     else:
         data.update(engine_opts or {})
+    data = canonicalize_paths_in_payload(data)
 
     ptype = TOPAZ_PARTICLE_PICKING if is_topaz else PARTICLE_PICKING
     task = TaskFactory.create_task(

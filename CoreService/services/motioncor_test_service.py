@@ -12,7 +12,14 @@ from uuid import UUID
 
 from core.rabbitmq_client import RabbitmqClient
 from config import app_settings
-from models.plugins_models import TaskMessage, MotionCorInput, MOTIONCOR_TASK, PENDING, COMPLETED, FAILED
+from magellon_sdk.models import (
+    COMPLETED,
+    FAILED,
+    MOTIONCOR as MOTIONCOR_TASK,
+    PENDING,
+    MotionCorInput,
+    TaskMessage,
+)
 
 logger = logging.getLogger(__name__)
 
