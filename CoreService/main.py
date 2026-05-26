@@ -50,9 +50,6 @@ from controllers.security.session_access_controller_v2 import session_access_rou
 from controllers.schema_controller import schema_router
 
 
-from controllers.test_controller import test_router
-from controllers.test_rls_controller import test_rls_router
-
 from controllers.webapp_controller import webapp_router
 from controllers.webapp_motioncor_controller import motioncor_router
 from controllers.webapp_atlas_controller import atlas_router
@@ -73,6 +70,7 @@ from models.graphql_strawberry_schema import strawberry_graphql_router
 
 import rich.traceback
 
+from core.dev_routes import dev_routes_enabled, register_dev_routes
 from services.importers.TiffHelper import convert_tiff_to_jpeg, parse_tif
 from services.casbin_service import CasbinService
 from services.casbin_policy_sync_service import CasbinPolicySyncService
@@ -283,7 +281,8 @@ app.include_router(db_router, tags=["Database"], prefix="/db")
 app.include_router(export_router, tags=["Export"], prefix="/export")
 app.include_router(import_router, tags=["Import"], prefix="/export")
 app.include_router(relion_router, tags=["RELION"], prefix="/export")
-app.include_router(test_router, tags=["Test"], prefix="/test")
+if dev_routes_enabled():
+    register_dev_routes(app)
 app.include_router(camera_router, tags=["Cameras"], prefix="/db/cameras")
 app.include_router(image_meta_data_category_router, tags=["MetaData Category"], prefix="/db/meta-data-category")
 app.include_router(image_meta_data_router, tags=["MetaData"], prefix="/db/meta-data")
@@ -311,7 +310,6 @@ app.include_router(sys_sec_user_role_router, prefix="/db/security/user-roles", t
 app.include_router(sys_sec_permission_router, prefix="/db/security/permissions", tags=["Security - Permissions"])
 app.include_router(sys_sec_permission_mgmt_router, prefix="/db/security", tags=["Security - Permission Management"])
 app.include_router(session_access_router, tags=["Security - Session Access"])
-app.include_router(test_rls_router, tags=["RLS Testing"])
 app.include_router(schema_router, tags=["Database Schema"])
 
 # Plugins — simple direct HTTP (no RabbitMQ)
