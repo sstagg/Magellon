@@ -15,9 +15,7 @@ const BACKEND = 'http://127.0.0.1:8000';
 const SHOTS = path.join(process.cwd(), 'tests', 'e2e', 'screenshots', 'audit-plugins-page');
 fs.mkdirSync(SHOTS, { recursive: true });
 
-const TEMPLATE_PICKER_PATH = encodeURI(
-  '/en/panel/plugins/particle_picking/Template Picker — particle picking',
-);
+const TEMPLATE_PICKER_PATH = `/en/panel/plugins/${encodeURIComponent('particle_picking/Template Picker')}`;
 
 async function authLocalStorage(context: any) {
   const auth = await (await fetch(`${BACKEND}/auth/login`, {

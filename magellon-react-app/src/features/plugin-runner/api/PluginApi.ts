@@ -18,17 +18,11 @@ export interface PluginSummary {
     schema_version?: string;
     description: string;
     developer: string;
-    /**
-     * - ``in-process``: PluginBase subclass discovered on disk; reachable
-     *   via POST /plugins/{plugin_id}/jobs.
-     * - ``broker``: external plugin (Docker container or separate
-     *   process) that announced itself on ``magellon.plugins.liveness``;
-     *   dispatch flows through the bus, not through this controller.
-     *
-     * Optional for backwards compatibility with older backend builds —
-     * default to ``in-process`` when the field is missing.
-     */
-    kind?: 'in-process' | 'broker';
+    /** PI-6+: all runtime plugins are broker-announced external plugins. */
+    kind: 'broker';
+    supported_transports?: string[];
+    default_transport?: string;
+    isolation?: string;
     /**
      * Hub state (H1). ``enabled`` gates whether the dispatcher will
      * route new tasks to this plugin; flips via POST
@@ -61,10 +55,8 @@ export interface JobSubmitRequest {
     user_id?: string;
     msession_id?: string;
     /**
-     * Pin the dispatch to a specific backend within the plugin's
-     * category (X.1, magellon-sdk 1.3+). Only meaningful for broker
-     * plugins; ignored on the in-process path. ``null`` / ``undefined``
-     * keeps the category-default round-robin behaviour.
+     * Pin dispatch to a specific backend within the plugin's category.
+     * ``null`` / ``undefined`` keeps the category-default behaviour.
      */
     target_backend?: string | null;
 }

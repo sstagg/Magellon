@@ -95,6 +95,7 @@ test('plugin installer — page structure renders', async ({ page, context }) =>
 
   // The installed-list section renders — either entries or an info alert.
   const listOrEmpty = page.locator('[role=alert][class*=MuiAlert-standard], [data-installed-row]');
+  await expect(listOrEmpty.first()).toBeVisible();
   // At minimum, no blank white screen.
   const bodyLen = (await page.locator('body').innerText()).trim().length;
   expect(bodyLen, 'Body is empty').toBeGreaterThan(50);

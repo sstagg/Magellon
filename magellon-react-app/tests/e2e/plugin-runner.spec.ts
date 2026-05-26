@@ -5,6 +5,7 @@ import path from 'node:path';
 const FRONTEND = 'http://localhost:8080';
 const BACKEND = 'http://127.0.0.1:8000';
 const SANDBOX = 'C:/projects/Magellon/Sandbox/magellon_template_picker';
+const TEMPLATE_PICKER_PATH = encodeURIComponent('particle_picking/Template Picker');
 const SHOTS = path.join(process.cwd(), 'tests', 'e2e', 'screenshots');
 fs.mkdirSync(SHOTS, { recursive: true });
 
@@ -72,10 +73,12 @@ test('submit template-picker job and capture real error', async ({ page, context
   );
 
   // 2. Navigate to the plugin runner
-  await page.goto(`${FRONTEND}/en/panel/plugins/pp/template-picker`, {
+  await page.goto(`${FRONTEND}/en/panel/plugins/${TEMPLATE_PICKER_PATH}`, {
     waitUntil: 'networkidle',
   });
   await page.waitForTimeout(2000);
+  const runnerBody = await page.locator('body').innerText();
+  test.skip(/was not found/i.test(runnerBody), 'Template Picker plugin is not live or installed in this stack');
   await shot(page, '01-plugin-runner');
 
   // 3. Pick image

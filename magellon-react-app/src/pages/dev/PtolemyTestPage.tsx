@@ -193,7 +193,7 @@ export const PtolemyTestPage: React.FC = () => {
                     the CoreService host, watch live step events stream back over
                     Socket.IO, poll the persisted <code>image_job</code> row, and cancel
                     cooperatively. Detection results land in{' '}
-                    <code>image_meta_data</code> via the in-process result consumer; this
+                    <code>image_meta_data</code> via the CoreService result consumer; this
                     page verifies dispatch + step-event flow, not the final storage write.
                 </Typography>
 

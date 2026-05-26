@@ -16,9 +16,7 @@ const BACKEND = 'http://127.0.0.1:8000';
 const SHOTS = path.join(process.cwd(), 'tests', 'e2e', 'screenshots', 'audit-runner-page');
 fs.mkdirSync(SHOTS, { recursive: true });
 
-const TEMPLATE_PICKER = encodeURI(
-  '/en/panel/plugins/particle_picking/Template Picker — particle picking',
-);
+const TEMPLATE_PICKER = `/en/panel/plugins/${encodeURIComponent('particle_picking/Template Picker')}`;
 const FFT_PAGE = encodeURI(
   '/en/panel/plugins/fft/FFT — magnitude spectrum',
 );

@@ -232,8 +232,8 @@ export const PluginBrowser: React.FC<PluginBrowserProps> = ({ onSelect }) => {
                                                 <Chip
                                                     size="small"
                                                     variant="outlined"
-                                                    label={plugin.kind === 'broker' ? 'broker' : 'in-process'}
-                                                    color={plugin.kind === 'broker' ? 'primary' : 'default'}
+                                                    label={plugin.kind}
+                                                    color="primary"
                                                 />
                                             </Stack>
                                             <Typography variant="body2" sx={{

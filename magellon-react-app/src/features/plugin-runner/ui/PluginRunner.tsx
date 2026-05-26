@@ -75,7 +75,7 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [previewError, setPreviewError] = useState<string | null>(null);
 
-    // Local preview state (pp/template-picker only)
+    // Local preview state for plugins advertising the preview capability.
     const [previewRunning, setPreviewRunning] = useState(false);
     const [previewResult, setPreviewResult] = useState<any | null>(null);
     const [previewRunError, setPreviewRunError] = useState<string | null>(null);
@@ -84,8 +84,7 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
     // X.1: backend pin within the category. ``null`` = use the
-    // category default (today's round-robin). Only meaningful for
-    // broker plugins; the in-process path ignores it server-side.
+    // category default.
     const [targetBackend, setTargetBackend] = useState<string | null>(null);
 
     // Tunable keys — fields whose changes can be re-applied via /retune without
@@ -1048,38 +1047,56 @@ interface PluginPreset {
     templatePixelSizesByFilename?: Array<{ match: RegExp; apix: number }>;
 }
 
-const PLUGIN_PRESETS: Record<string, PluginPreset> = {
-    'pp/template-picker': {
-        defaults: {
-            diameter_angstrom: 220,
-            invert_templates: true,
-            bin_factor: 4,
-            lowpass_resolution: 12.0,
-            threshold: 0.35,
-        },
-        imagePixelSizesByFilename: [
-            { match: /24may23b/i, apix: 1.230 },
-            { match: /25may06y/i, apix: 0.830 },
-        ],
-        templatePixelSizesByFilename: [
-            { match: /origTemplate/i, apix: 2.646 },
-        ],
+const TEMPLATE_PICKER_PRESET: PluginPreset = {
+    defaults: {
+        diameter_angstrom: 220,
+        invert_templates: true,
+        bin_factor: 4,
+        lowpass_resolution: 12.0,
+        threshold: 0.35,
     },
+    imagePixelSizesByFilename: [
+        { match: /24may23b/i, apix: 1.230 },
+        { match: /25may06y/i, apix: 0.830 },
+    ],
+    templatePixelSizesByFilename: [
+        { match: /origTemplate/i, apix: 2.646 },
+    ],
 };
 
+const PLUGIN_PRESETS: Record<string, PluginPreset> = {
+    'pp/template-picker': TEMPLATE_PICKER_PRESET,
+    'particle_picking/template picker': TEMPLATE_PICKER_PRESET,
+    'particle_picking/template-picker': TEMPLATE_PICKER_PRESET,
+    'particle_picking/template picker - particle picking': TEMPLATE_PICKER_PRESET,
+};
+
+function presetKey(pluginId: string): string {
+    try {
+        return decodeURIComponent(pluginId).toLowerCase().replace(/\s+/g, ' ').trim();
+    } catch {
+        return pluginId.toLowerCase().replace(/\s+/g, ' ').trim();
+    }
+}
+
+function pluginPresetFor(pluginId: string): PluginPreset | undefined {
+    const key = presetKey(pluginId).replace(/—/g, '-');
+    return PLUGIN_PRESETS[key];
+}
+
 function pluginTestDefaultsFor(pluginId: string): Record<string, any> {
-    return PLUGIN_PRESETS[pluginId]?.defaults ?? {};
+    return pluginPresetFor(pluginId)?.defaults ?? {};
 }
 
 function imagePixelSizeFor(pluginId: string, path: string): number | null {
-    const preset = PLUGIN_PRESETS[pluginId];
+    const preset = pluginPresetFor(pluginId);
     if (!preset?.imagePixelSizesByFilename) return null;
     const name = path.split(/[\\/]/).pop() ?? path;
     return preset.imagePixelSizesByFilename.find((r) => r.match.test(name))?.apix ?? null;
 }
 
 function templatePixelSizeFor(pluginId: string, paths: string[]): number | null {
-    const preset = PLUGIN_PRESETS[pluginId];
+    const preset = pluginPresetFor(pluginId);
     if (!preset?.templatePixelSizesByFilename || paths.length === 0) return null;
     // All templates must match the same rule, otherwise don't auto-fill.
     for (const rule of preset.templatePixelSizesByFilename) {

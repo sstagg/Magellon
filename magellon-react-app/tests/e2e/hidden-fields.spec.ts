@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 
 const FRONTEND = 'http://localhost:8080';
 const BACKEND = 'http://127.0.0.1:8000';
+const TEMPLATE_PICKER_PATH = encodeURIComponent('particle_picking/Template Picker');
 
 test('Hidden-marked fields (angle_ranges, image_path, output_dir) do not render', async ({ page, context }) => {
   test.setTimeout(60_000);
@@ -17,10 +18,11 @@ test('Hidden-marked fields (angle_ranges, image_path, output_dir) do not render'
     },
     { token: auth.access_token, userId: auth.user_id, username: auth.username },
   );
-  await page.goto(`${FRONTEND}/en/panel/plugins/pp/template-picker`, { waitUntil: 'networkidle' });
+  await page.goto(`${FRONTEND}/en/panel/plugins/${TEMPLATE_PICKER_PATH}`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(1500);
 
   const body = await page.locator('body').innerText();
+  test.skip(/was not found/i.test(body), 'Template Picker plugin is not live or installed in this stack');
   expect(body).not.toMatch(/Angle Ranges/i);
   expect(body).not.toMatch(/Output Dir/i);
   // image_path is ui_hidden; should not show as a field

@@ -366,7 +366,15 @@ const HeaderStrip: React.FC<HeaderStripProps> = ({
 // ---------------------------------------------------------------------------
 
 export const PluginRunnerPageView: React.FC = () => {
-    const { '*': pluginId } = useParams();
+    const { '*': rawPluginId } = useParams();
+    const pluginId = React.useMemo(() => {
+        if (!rawPluginId) return rawPluginId;
+        try {
+            return decodeURIComponent(rawPluginId);
+        } catch {
+            return rawPluginId;
+        }
+    }, [rawPluginId]);
     const navigate = useNavigate();
     const { data: livePlugins, isLoading: liveLoading } = usePlugins();
     const { data: installedRows, isLoading: dbLoading } = useInstalledFromDb();
@@ -413,6 +421,7 @@ export const PluginRunnerPageView: React.FC = () => {
                 description: installedRow.description ?? '',
                 version: installedRow.version ?? '',
                 category: installedRow.category ?? '',
+                kind: 'broker',
                 capabilities: [],
             } as unknown as PluginSummary)
             : null;

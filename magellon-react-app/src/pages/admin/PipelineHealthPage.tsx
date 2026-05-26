@@ -454,7 +454,7 @@ export const PipelineHealthPage: React.FC = () => {
                 <Alert severity="warning" sx={{ mb: 2 }}>
                     Broker management API unreachable at <code>{data.broker.host}:{data.broker.management_port}</code>
                     {data.broker.error ? ` — ${data.broker.error}` : ''}.
-                    Pipeline tiles below show last-known shape only. Plugin liveness is unaffected (in-process registry).
+                    Pipeline tiles below show last-known shape only. Plugin liveness is reported by bus heartbeats.
                 </Alert>
             )}
             {/* Pipeline tiles — answers "is my pipeline healthy?" at a glance. */}
