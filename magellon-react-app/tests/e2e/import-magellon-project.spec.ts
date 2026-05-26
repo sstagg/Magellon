@@ -103,8 +103,10 @@ test("imports the 24dec03a Magellon project with live progress feedback", async 
   await expect(dialog.getByText("Motion Correction")).toBeVisible({ timeout: 10_000 });
   await page.screenshot({ path: path.join(SHOTS, "06-pipeline-steps.png") });
 
-  // Wait for overall progress to reach 307 / 307 images
-  await expect(dialog.getByText(/307\s*\/\s*307\s*images/)).toBeVisible({
+  // Wait for overall progress to reach 100% on the 307-image session.
+  // (Display is "<pct>% · 307 images" after the dialog refactor; pre-refactor
+  // was "X / 307 images".)
+  await expect(dialog.getByText(/100%\s*·\s*307\s*images/)).toBeVisible({
     timeout: 30 * 60 * 1000,
   });
   await page.screenshot({ path: path.join(SHOTS, "07-complete.png"), fullPage: true });

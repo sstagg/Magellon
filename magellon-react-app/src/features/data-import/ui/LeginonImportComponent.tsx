@@ -7,6 +7,8 @@ import {Cached, CalendarMonthOutlined, AttachFile} from "@mui/icons-material";
 import Grid from '@mui/material/Grid';
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
 import { settings } from '../../../shared/config/settings.ts';
+import { useImportJobProgress } from "../lib/useImportJobProgress.ts";
+import { ImportProgressDialog } from "./ImportProgressDialog.tsx";
 
 const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
@@ -53,16 +55,14 @@ export const LeginonImportComponent = () => {
     });
     const { t } = useTranslation(['leginon-import', 'global'], { useSuspense: false });
 
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [submitError, setSubmitError] = useState<string | null>(null);
     const [defectsFile, setDefectsFile] = useState<File | null>(null);
     const [gainsFile, setGainsFile] = useState<File | null>(null);
+    const progress = useImportJobProgress();
+    const isSubmitting = progress.status === "scheduling" || progress.status === "running";
 
     const onFormSubmit = async (data: ILeginonImportForm) => {
+        progress.scheduling();
         try {
-            setIsSubmitting(true);
-            setSubmitError(null);
-
             // Create FormData for multipart/form-data upload
             const formData = new FormData();
 
@@ -83,53 +83,36 @@ export const LeginonImportComponent = () => {
             formData.append('replace_pattern', '');
             formData.append('replace_with', '');
 
-            // Add optional defects file if selected
-            if (defectsFile) {
-                formData.append('defects_file', defectsFile);
-            }
-
-            if (gainsFile) {
-                formData.append('gains_file', gainsFile);
-            }
+            if (defectsFile) formData.append('defects_file', defectsFile);
+            if (gainsFile) formData.append('gains_file', gainsFile);
 
             const response = await apiClient.post('/image/import_leginon_job', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data'
-                }
+                headers: { 'Content-Type': 'multipart/form-data' },
             });
 
-            // Check for error in response even if HTTP status is 200
-            if (response.data.error || response.data.exception) {
-                const errorMessage = response.data.error || response.data.exception || 'Failed to submit form';
-                throw new Error(errorMessage);
+            // The controller returns 200 even on logical failure — check.
+            if (response.data?.error || response.data?.exception) {
+                const raw = response.data.error || response.data.exception || 'Failed to submit form';
+                throw new Error(raw);
             }
-
-            console.log('Success:', response.data);
+            // Sync endpoint; if the controller echoed a job_id, the hook will
+            // resolve to the final state via /summary. Otherwise mark success.
+            const jobId = response.data?.job_id;
+            if (jobId) progress.start(jobId); else progress.succeed();
         } catch (error) {
             console.error("There was an error submitting the form!", error);
-            const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
-            // Clean up the error message by removing unnecessary characters and quotes
-            const cleanErrorMessage = errorMessage
-                .replace(/[()\\'"]/g, '') // Remove parentheses, backslashes, and quotes
-                .replace(/\[Errno \d+\]/, '') // Remove errno references
+            const raw = error instanceof Error ? error.message : 'An unexpected error occurred';
+            const cleanMessage = raw
+                .replace(/[()\\'"]/g, '')
+                .replace(/\[Errno \d+\]/, '')
                 .trim();
-            setSubmitError(cleanErrorMessage);
-        } finally {
-            setIsSubmitting(false);
+            progress.fail(cleanMessage);
         }
     };
 
     return (
         <form onSubmit={handleSubmit(onFormSubmit)}>
             <Grid container spacing={2}>
-                {submitError && (
-                    <Grid size={12}>
-                        <Typography color="error" variant="body2">
-                            {submitError}
-                        </Typography>
-                    </Grid>
-                )}
-
                 <Grid size={12}>
                     <Typography variant="h6">
                         {t('leginon-importer.app.title', { ns: 'leginon-import' })}
@@ -444,6 +427,20 @@ export const LeginonImportComponent = () => {
                     </Button>
                 </Grid>
             </Grid>
+
+            <ImportProgressDialog
+                open={progress.status !== "idle"}
+                onClose={progress.reset}
+                status={progress.status}
+                error={progress.error}
+                jobId={progress.jobId}
+                summary={progress.summary}
+                stepCounts={progress.stepCounts}
+                stepTotals={progress.stepTotals}
+                elapsedMs={progress.elapsedMs}
+                sessionName={progress.sessionName}
+                titleFallback="Leginon import"
+            />
         </form>
     );
 };

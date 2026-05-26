@@ -5,9 +5,6 @@ import {
     ListItemIcon,
     ListItemText,
     Box,
-    Dialog,
-    DialogContent,
-    CircularProgress,
     TextField,
     Grid,
     Paper,
@@ -18,15 +15,15 @@ import {
     Chip
 } from "@mui/material";
 import FolderIcon from '@mui/icons-material/Folder';
-import ErrorIcon from '@mui/icons-material/Error';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import ImageIcon from '@mui/icons-material/Image';
 import DescriptionIcon from '@mui/icons-material/Description';
 import { useState, useEffect } from "react";
 import { settings } from "../../../shared/config/settings.ts";
 import Button from "@mui/material/Button";
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
+import { useImportJobProgress } from "../lib/useImportJobProgress.ts";
+import { ImportProgressDialog } from "./ImportProgressDialog.tsx";
 
 const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
@@ -51,8 +48,6 @@ type SerialEMDefaults = {
     flip_gain?: number;
 }
 
-type ImportStatus = 'idle' | 'processing' | 'success' | 'error';
-
 const rotGainOptions = [
   { value: 0, label: "0 — No rotation (default)" },
   { value: 1, label: "1 — Rotate 90° counter-clockwise" },
@@ -73,8 +68,7 @@ export const SerialEMImportComponent = () => {
     const [error, setError] = useState<string | null>(null);
     const [currentPath, setCurrentPath] = useState("/gpfs");
     const [selectedDirectory, setSelectedDirectory] = useState<string | null>(null);
-    const [importStatus, setImportStatus] = useState<ImportStatus>('idle');
-    const [importError, setImportError] = useState<string | null>(null);
+    const progress = useImportJobProgress();
     const [detectedFiles, _setDetectedFiles] = useState<{ [key: string]: number }>({
         'mrc': 0,
         'st': 0,
@@ -128,11 +122,10 @@ export const SerialEMImportComponent = () => {
             return;
         }
 
-        setImportStatus('processing');
-        setImportError(null);
+        progress.scheduling();
 
         try {
-            await apiClient.post('/export/serialem-import', {
+            const response = await apiClient.post('/export/serialem-import', {
                 target_directory: serialemDirPath,
                 serial_em_dir_path: selectedDirectory,
                 magellon_project_name: magellonProjectName,
@@ -151,11 +144,12 @@ export const SerialEMImportComponent = () => {
                     flip_gain: defaults.flip_gain
                 }
             });
-
-            setImportStatus('success');
+            // Sync endpoint — by the time we have job_id, the job row is in
+            // its final state; useImportJobProgress will fetch /summary and
+            // resolve to success/error.
+            progress.start(response.data?.job_id ?? "");
         } catch (err: any) {
-            setImportStatus('error');
-            setImportError(err.response?.data?.detail || err.message || 'Import failed');
+            progress.fail(err.response?.data?.detail || err.message || 'Import failed');
         }
     };
 
@@ -189,11 +183,6 @@ export const SerialEMImportComponent = () => {
         if (item.is_directory) {
             fetchDirectory(item.path);
         }
-    };
-
-    const handleCloseDialog = () => {
-        setImportStatus('idle');
-        setImportError(null);
     };
 
     // Handle changes to default data fields
@@ -658,58 +647,19 @@ export const SerialEMImportComponent = () => {
                     </Grid>
                 </Paper>
             )}
-            <Dialog
-                open={importStatus !== 'idle'}
-                onClose={importStatus !== 'processing' ? handleCloseDialog : undefined}
-            >
-                <DialogContent sx={{
-                    minWidth: 300,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: 2,
-                    p: 4
-                }}>
-                    {importStatus === 'processing' && (
-                        <>
-                            <CircularProgress size={48} />
-                            <Typography>
-                                Processing SerialEM import... Please wait
-                            </Typography>
-                            <Typography variant="caption" color="textSecondary">
-                                This may take a few minutes for large datasets
-                            </Typography>
-                        </>
-                    )}
-                    {importStatus === 'success' && (
-                        <>
-                            <CheckCircleIcon color="success" sx={{ fontSize: 48 }} />
-                            <Typography>
-                                SerialEM data imported successfully
-                            </Typography>
-                            <Button onClick={handleCloseDialog}>
-                                Close
-                            </Button>
-                        </>
-                    )}
-                    {importStatus === 'error' && (
-                        <>
-                            <ErrorIcon color="error" sx={{ fontSize: 48 }} />
-                            <Typography color="error">
-                                Import failed
-                            </Typography>
-                            {importError && (
-                                <Typography variant="body2" color="error" align="center">
-                                    {importError}
-                                </Typography>
-                            )}
-                            <Button onClick={handleCloseDialog}>
-                                Close
-                            </Button>
-                        </>
-                    )}
-                </DialogContent>
-            </Dialog>
+            <ImportProgressDialog
+                open={progress.status !== "idle"}
+                onClose={progress.reset}
+                status={progress.status}
+                error={progress.error}
+                jobId={progress.jobId}
+                summary={progress.summary}
+                stepCounts={progress.stepCounts}
+                stepTotals={progress.stepTotals}
+                elapsedMs={progress.elapsedMs}
+                sessionName={progress.sessionName}
+                titleFallback="SerialEM import"
+            />
         </div>
     );
 };

@@ -48,6 +48,7 @@ export type UseImportJobProgressResult = {
     // Imperative actions invoked by the host component around the POST.
     scheduling: () => void;          // call before the import-start POST
     start: (jobId: string) => void;  // call with response.data.job_id on POST success
+    succeed: () => void;             // sync paths with no pollable job_id
     fail: (message: string) => void; // call on POST failure
     reset: () => void;               // close / clear (host's dialog onClose)
 };
@@ -167,8 +168,20 @@ export function useImportJobProgress(jobNamePrefix = "Import:"): UseImportJobPro
     }, []);
 
     const start = useCallback((id: string) => {
+        // Empty id is the "I called the sync endpoint and it didn't return a
+        // poll-able job_id" path. Treat as immediate success rather than
+        // sitting at scheduling forever.
+        if (!id) {
+            setStatus("success");
+            return;
+        }
         setJobId(id);
         setStatus("running");
+    }, []);
+
+    const succeed = useCallback(() => {
+        setStatus("success");
+        setError(null);
     }, []);
 
     const fail = useCallback((message: string) => {
@@ -180,6 +193,6 @@ export function useImportJobProgress(jobNamePrefix = "Import:"): UseImportJobPro
 
     return {
         status, error, jobId, summary, stepCounts, stepTotals, elapsedMs,
-        sessionName, scheduling, start, fail, reset,
+        sessionName, scheduling, start, succeed, fail, reset,
     };
 }
