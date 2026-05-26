@@ -10,7 +10,7 @@ from models.pydantic_models import DefaultParams, EpuImportJobDto, SerialEMImpor
 from models.sqlalchemy_models import Atlas, Image, ImageJob, ImageJobTask, Msession, Project
 from services.importers.BaseImporter import BaseImporter
 from services.importers.EPUImporter import EPUMetadata, EPUImporter
-from services.importers.ImporterFactory import import_data
+from services.importers.ImporterFactory import ImporterFactory, import_data
 from services.importers.import_database_service import ImportDatabaseService
 from services.importers.MagellonImporter import MagellonImporter
 from services.importers.SerialEmImporter import SerialEMMetadata, SerialEmImporter
@@ -607,6 +607,39 @@ def test_import_data_passes_db_session_to_setup(monkeypatch):
     assert import_data("epu", input_data, db_session) == {"status": "success"}
     fake_importer.setup.assert_called_once_with(input_data, db_session)
     fake_importer.process.assert_called_once_with(db_session)
+
+
+def test_importer_factory_lazy_loads_serialem_alias(monkeypatch):
+    class FakeSerialEmImporter:
+        pass
+
+    imported = []
+
+    def fake_import_module(module_name):
+        imported.append(module_name)
+        return SimpleNamespace(SerialEmImporter=FakeSerialEmImporter)
+
+    monkeypatch.setattr("services.importers.ImporterFactory.import_module", fake_import_module)
+
+    importer = ImporterFactory.get_importer("serial_em")
+
+    assert isinstance(importer, FakeSerialEmImporter)
+    assert imported == ["services.importers.SerialEmImporter"]
+
+
+def test_importer_factory_rejects_legacy_leginon():
+    with pytest.raises(ValueError) as exc:
+        ImporterFactory.get_importer("leginon")
+
+    assert "Legacy LeginonImporter" in str(exc.value)
+    assert "LeginonFrameTransferJobService" in str(exc.value)
+
+
+def test_importer_factory_rejects_unknown_importer():
+    with pytest.raises(ValueError) as exc:
+        ImporterFactory.get_importer("unknown")
+
+    assert "Unknown importer type: unknown" in str(exc.value)
 
 
 def test_magellon_session_json_strategy_validates_required_shape(tmp_path):
