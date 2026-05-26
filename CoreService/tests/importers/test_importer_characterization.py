@@ -13,6 +13,13 @@ from services.importers.EPUImporter import EPUMetadata, EPUImporter
 from services.importers.ImporterFactory import ImporterFactory, import_data
 from services.importers.import_database_service import ImportDatabaseService
 from services.importers.MagellonImporter import MagellonImporter
+from services.importers.post_import_steps import (
+    ActivityType,
+    build_epu_import_task_recipe,
+    build_serialem_exposure_task_recipe,
+    build_serialem_montage_task_recipe,
+    build_standard_import_task_recipe,
+)
 from services.importers.SerialEmImporter import SerialEMMetadata, SerialEmImporter
 from services.importers.source_strategies import MagellonSessionJsonStrategy
 
@@ -619,6 +626,63 @@ def test_base_importer_standard_task_pipeline_runs_expected_steps(tmp_path):
     importer.compute_motioncor.assert_called_once()
     assert result["png"] == {"message": "png"}
     assert result["fft"] == {"message": "fft"}
+
+
+def test_import_activity_recipes_define_named_compositions():
+    standard = build_standard_import_task_recipe(
+        transfer_frame=True,
+        copy_image=True,
+        ctf=True,
+        motioncor=True,
+        topaz_pick=True,
+        topaz_denoise=False,
+    )
+    epu = build_epu_import_task_recipe(transfer_frame=True, copy_image=False)
+    serialem_exposure = build_serialem_exposure_task_recipe(copy_image=False)
+    serialem_montage = build_serialem_montage_task_recipe(copy_image=False)
+
+    assert standard.name == "standard_import"
+    assert [step.name for step in standard.steps] == [
+        "transfer_frame",
+        "copy_image",
+        "ensure_image_exists",
+        "png",
+        "fft",
+        "ctf",
+        "motioncor",
+        "topaz_pick",
+    ]
+    assert standard.activity_types == (
+        ActivityType.TRANSFER_FRAME,
+        ActivityType.COPY_IMAGE,
+        ActivityType.VALIDATE_INPUT,
+        ActivityType.CONVERT_IMAGE,
+        ActivityType.CONVERT_IMAGE,
+        ActivityType.DISPATCH_ANALYSIS,
+        ActivityType.DISPATCH_ANALYSIS,
+        ActivityType.DISPATCH_ANALYSIS,
+    )
+    assert [step.name for step in epu.steps] == [
+        "transfer_frame",
+        "ensure_image_exists",
+        "png",
+        "fft",
+        "ctf",
+    ]
+    assert [step.name for step in serialem_exposure.steps] == [
+        "transfer_frame",
+        "ensure_image_exists",
+        "png",
+        "fft",
+        "ctf",
+        "motioncor",
+    ]
+    assert [step.name for step in serialem_montage.steps] == [
+        "transfer_frame",
+        "ensure_image_exists",
+        "png",
+        "fft",
+    ]
 
 
 def test_import_data_passes_db_session_to_setup(monkeypatch):

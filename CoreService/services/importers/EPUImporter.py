@@ -20,6 +20,7 @@ from models.sqlalchemy_models import Image, Msession, Project, ImageJob, ImageJo
 
 from services.file_service import copy_file
 from services.importers.BaseImporter import BaseImporter, TaskFailedException
+from services.importers.post_import_steps import build_epu_import_task_recipe
 from config import DEFECTS_SUB_URL, FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL, ORIGINAL_IMAGES_SUB_URL, FRAMES_SUB_URL, \
     FFT_SUFFIX, FRAMES_SUFFIX, app_settings, ATLAS_SUB_URL, CTF_SUB_URL,MAGELLON_HOME_DIR,GAINS_SUB_URL
 
@@ -830,15 +831,13 @@ class EPUImporter(BaseImporter):
             source_image_path = matching_files[0]
             task_dto.image_path = source_image_path  # Update task DTO
 
-            self.run_standard_task(
+            self.run_task_recipe(
                 task_dto,
+                build_epu_import_task_recipe(
+                    transfer_frame=bool(task_dto.frame_path),
+                    copy_image=bool(task_dto.job_dto.copy_images),
+                ),
                 image_path=source_image_path,
-                transfer_frame=bool(task_dto.frame_path),
-                copy_images=bool(task_dto.job_dto.copy_images),
-                ctf=True,
-                motioncor=False,
-                topaz_pick=False,
-                topaz_denoise=False,
             )
 
             return {'status': 'success', 'message': 'Task completed successfully.'}

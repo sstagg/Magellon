@@ -19,6 +19,10 @@ from config import DEFECTS_SUB_URL, FFT_SUB_URL, GAINS_SUB_URL, IMAGE_SUB_URL, M
 import logging
 from services.file_service import copy_file
 from services.importers.BaseImporter import BaseImporter, FileError, TaskFailedException
+from services.importers.post_import_steps import (
+    build_serialem_exposure_task_recipe,
+    build_serialem_montage_task_recipe,
+)
 from services.mrc_image_service import MrcImageService
 import mrcfile
 import tifffile
@@ -1101,15 +1105,17 @@ class SerialEmImporter(BaseImporter):
             if is_montage:
                 logger.info(f"Skipping CTF and MotionCor for montage image: {image_path}")
 
-            self.run_standard_task(
+            copy_images = bool(getattr(self.params, 'copy_images', False))
+            recipe = (
+                build_serialem_montage_task_recipe(copy_image=copy_images)
+                if is_montage
+                else build_serialem_exposure_task_recipe(copy_image=copy_images)
+            )
+
+            self.run_task_recipe(
                 task_dto,
+                recipe,
                 image_path=image_path,
-                transfer_frame=True,
-                copy_images=bool(getattr(self.params, 'copy_images', False)),
-                ctf=not is_montage,
-                motioncor=not is_montage,
-                topaz_pick=False,
-                topaz_denoise=False,
             )
 
             return {'status': 'success', 'message': 'Task completed successfully.'}

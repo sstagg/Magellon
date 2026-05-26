@@ -2,7 +2,16 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Protocol
+
+
+class ActivityType(str, Enum):
+    TRANSFER_FRAME = "transfer_frame"
+    COPY_IMAGE = "copy_image"
+    VALIDATE_INPUT = "validate_input"
+    CONVERT_IMAGE = "convert_image"
+    DISPATCH_ANALYSIS = "dispatch_analysis"
 
 
 @dataclass
@@ -23,6 +32,7 @@ class ImportTaskContext:
 
 class ImportTaskStep(Protocol):
     name: str
+    activity_type: ActivityType
 
     def run(self, context: ImportTaskContext) -> None:
         ...
@@ -30,6 +40,7 @@ class ImportTaskStep(Protocol):
 
 class TransferFrameStep:
     name = "transfer_frame"
+    activity_type = ActivityType.TRANSFER_FRAME
 
     def run(self, context: ImportTaskContext) -> None:
         context.importer.transfer_frame(context.task_dto)
@@ -38,6 +49,7 @@ class TransferFrameStep:
 
 class CopyImageStep:
     name = "copy_image"
+    activity_type = ActivityType.COPY_IMAGE
 
     def run(self, context: ImportTaskContext) -> None:
         context.importer.copy_image(context.task_dto)
@@ -49,6 +61,7 @@ class CopyImageStep:
 
 class EnsureImageExistsStep:
     name = "ensure_image_exists"
+    activity_type = ActivityType.VALIDATE_INPUT
 
     def run(self, context: ImportTaskContext) -> None:
         image_path = context.current_image_path()
@@ -60,6 +73,7 @@ class EnsureImageExistsStep:
 
 class ConvertPngStep:
     name = "png"
+    activity_type = ActivityType.CONVERT_IMAGE
 
     def run(self, context: ImportTaskContext) -> None:
         context.results[self.name] = context.importer.convert_image_to_png(
@@ -69,6 +83,7 @@ class ConvertPngStep:
 
 class FftStep:
     name = "fft"
+    activity_type = ActivityType.CONVERT_IMAGE
 
     def run(self, context: ImportTaskContext) -> None:
         context.results[self.name] = context.importer.compute_fft(
@@ -78,6 +93,7 @@ class FftStep:
 
 class CtfDispatchStep:
     name = "ctf"
+    activity_type = ActivityType.DISPATCH_ANALYSIS
 
     def run(self, context: ImportTaskContext) -> None:
         context.results[self.name] = context.importer.compute_ctf(
@@ -88,6 +104,7 @@ class CtfDispatchStep:
 
 class MotionCorDispatchStep:
     name = "motioncor"
+    activity_type = ActivityType.DISPATCH_ANALYSIS
 
     def run(self, context: ImportTaskContext) -> None:
         if getattr(context.task_dto, "frame_name", None):
@@ -101,6 +118,7 @@ class MotionCorDispatchStep:
 
 class TopazPickStep:
     name = "topaz_pick"
+    activity_type = ActivityType.DISPATCH_ANALYSIS
 
     def run(self, context: ImportTaskContext) -> None:
         context.results[self.name] = context.importer.compute_topaz_pick(
@@ -111,12 +129,23 @@ class TopazPickStep:
 
 class TopazDenoiseStep:
     name = "topaz_denoise"
+    activity_type = ActivityType.DISPATCH_ANALYSIS
 
     def run(self, context: ImportTaskContext) -> None:
         context.results[self.name] = context.importer.compute_topaz_denoise(
             context.current_image_path(),
             context.task_dto,
         )
+
+
+@dataclass(frozen=True)
+class ImportTaskRecipe:
+    name: str
+    steps: tuple[ImportTaskStep, ...]
+
+    @property
+    def activity_types(self) -> tuple[ActivityType, ...]:
+        return tuple(step.activity_type for step in self.steps)
 
 
 class ImportTaskPipeline:
@@ -126,8 +155,9 @@ class ImportTaskPipeline:
     one place while source-specific importers decide which optional steps apply.
     """
 
-    def __init__(self, steps: list[ImportTaskStep]):
-        self.steps = steps
+    def __init__(self, recipe: ImportTaskRecipe):
+        self.recipe = recipe
+        self.steps = list(recipe.steps)
 
     def run(self, importer: Any, task_dto: Any, *, image_path: str | None = None) -> ImportTaskContext:
         context = ImportTaskContext(importer=importer, task_dto=task_dto, image_path=image_path)
@@ -147,6 +177,28 @@ def build_standard_import_task_pipeline(
     topaz_pick: bool = False,
     topaz_denoise: bool = False,
 ) -> ImportTaskPipeline:
+    return ImportTaskPipeline(
+        build_standard_import_task_recipe(
+            transfer_frame=transfer_frame,
+            copy_image=copy_image,
+            ctf=ctf,
+            motioncor=motioncor,
+            topaz_pick=topaz_pick,
+            topaz_denoise=topaz_denoise,
+        )
+    )
+
+
+def build_standard_import_task_recipe(
+    *,
+    transfer_frame: bool = True,
+    copy_image: bool = False,
+    ctf: bool = True,
+    motioncor: bool = True,
+    topaz_pick: bool = False,
+    topaz_denoise: bool = False,
+    name: str = "standard_import",
+) -> ImportTaskRecipe:
     steps: list[ImportTaskStep] = []
     if transfer_frame:
         steps.append(TransferFrameStep())
@@ -161,4 +213,50 @@ def build_standard_import_task_pipeline(
         steps.append(TopazPickStep())
     if topaz_denoise:
         steps.append(TopazDenoiseStep())
-    return ImportTaskPipeline(steps)
+    return ImportTaskRecipe(name=name, steps=tuple(steps))
+
+
+def build_epu_import_task_recipe(
+    *,
+    transfer_frame: bool,
+    copy_image: bool,
+) -> ImportTaskRecipe:
+    return build_standard_import_task_recipe(
+        name="epu_import",
+        transfer_frame=transfer_frame,
+        copy_image=copy_image,
+        ctf=True,
+        motioncor=False,
+        topaz_pick=False,
+        topaz_denoise=False,
+    )
+
+
+def build_serialem_exposure_task_recipe(
+    *,
+    copy_image: bool,
+) -> ImportTaskRecipe:
+    return build_standard_import_task_recipe(
+        name="serialem_exposure_import",
+        transfer_frame=True,
+        copy_image=copy_image,
+        ctf=True,
+        motioncor=True,
+        topaz_pick=False,
+        topaz_denoise=False,
+    )
+
+
+def build_serialem_montage_task_recipe(
+    *,
+    copy_image: bool,
+) -> ImportTaskRecipe:
+    return build_standard_import_task_recipe(
+        name="serialem_montage_import",
+        transfer_frame=True,
+        copy_image=copy_image,
+        ctf=False,
+        motioncor=False,
+        topaz_pick=False,
+        topaz_denoise=False,
+    )

@@ -31,6 +31,9 @@ template method implementation. `setup()` stores request params and creates
 - target directory creation;
 - source subdirectory copying for reference inputs such as `gains` and
   `defects`;
+- reusable per-image import activities grouped by `ActivityType`;
+- named per-image recipes for standard, EPU, SerialEM exposure, and SerialEM
+  montage processing;
 - frame transfer and image copy;
 - PNG conversion and FFT computation;
 - CTF, MotionCor, Topaz pick, and Topaz denoise dispatch;
@@ -71,9 +74,9 @@ then owns the EPU-specific workflow:
 - create `Image`, `ImageJobTask`, and `EPUImportTaskDto` records with matching
   task IDs and job IDs for plugin callbacks;
 - copy gains/defects folders into the target session directory;
-- run the shared post-import task pipeline for frame transfer, optional copy,
-  PNG, FFT, and CTF dispatch. EPU currently disables MotionCor and Topaz
-  dispatch from this path.
+- run the `epu_import` activity recipe for frame transfer, optional copy, PNG,
+  FFT, and CTF dispatch. EPU currently disables MotionCor and Topaz dispatch
+  from this path.
 
 ### SerialEmImporter
 
@@ -91,8 +94,9 @@ is a full import workflow in one method:
 - create `Image`, `ImageJobTask`, and `SerialEMImportTaskDto` records with
   matching task IDs and job IDs for plugin callbacks;
 - establish parent-child relationships from `.nav`;
-- run the shared post-import task pipeline while skipping CTF/MotionCor for
-  montage images.
+- run named activity recipes: `serialem_exposure_import` for exposure images
+  and `serialem_montage_import` for montage images, where montage skips
+  CTF/MotionCor.
 
 ### ImporterFactory
 
@@ -117,8 +121,8 @@ do not yet share one orchestration skeleton. Current duplication includes:
   Magellon and EPU;
 - task loops for PNG, FFT, CTF, and MotionCor were duplicated across
   `BaseImporter`, `EPUImporter`, and `SerialEmImporter`; the shared
-  `post_import_steps.ImportTaskPipeline` now owns that post-import task
-  template for the standard paths. `MagellonImporter` still keeps a custom
+  `post_import_steps.ImportTaskPipeline` now owns reusable activities and named
+  recipes for the standard paths. `MagellonImporter` still keeps a custom
   progress-aware task loop for import-progress Socket.IO counters.
 - mixed responsibilities: source parsing, file transformation, DB writes, and
   broker dispatch live in the same large classes;
@@ -151,7 +155,7 @@ Use Strategy objects for source-specific behavior:
 - `EpuXmlStrategy` for XML/session-tree parsing.
 - `SerialEmMdocStrategy` for MDOC/nav/montage parsing.
 
-Use small post-import step strategies with `is_applicable()` and `run()`:
+Use small post-import activities with an `ActivityType` and `run()`:
 
 - PNG conversion.
 - FFT computation.
@@ -159,6 +163,14 @@ Use small post-import step strategies with `is_applicable()` and `run()`:
 - MotionCor dispatch.
 - Atlas generation.
 - Optional Topaz particle picking or denoise.
+
+Current named per-image recipes:
+
+- `standard_import`: configurable default recipe used by `BaseImporter`.
+- `epu_import`: frame transfer, optional image copy, PNG, FFT, and CTF.
+- `serialem_exposure_import`: frame transfer, optional image copy, PNG, FFT,
+  CTF, and MotionCor.
+- `serialem_montage_import`: frame transfer, optional image copy, PNG, and FFT.
 
 The first safe implementation step should be characterization tests around
 one happy-path import per source type, plus targeted tests for status mapping,

@@ -29,7 +29,11 @@ from services.importers.import_file_service import (
     TaskError,
     FileError as ImportFileServiceError,
 )
-from services.importers.post_import_steps import build_standard_import_task_pipeline
+from services.importers.post_import_steps import (
+    ImportTaskPipeline,
+    ImportTaskRecipe,
+    build_standard_import_task_recipe,
+)
 from services.atlas import create_atlas_images as build_atlas_images
 from services.mrc_image_service import MrcImageService
 from services.file_service import copy_file, check_file_exists
@@ -890,7 +894,7 @@ class BaseImporter(ABC):
         if topaz_denoise is None:
             topaz_denoise = bool(getattr(app_settings, 'AUTO_DISPATCH_TOPAZ_DENOISE', False))
 
-        pipeline = build_standard_import_task_pipeline(
+        recipe = build_standard_import_task_recipe(
             transfer_frame=transfer_frame,
             copy_image=copy_images,
             ctf=ctf,
@@ -898,6 +902,17 @@ class BaseImporter(ABC):
             topaz_pick=topaz_pick,
             topaz_denoise=topaz_denoise,
         )
+        return self.run_task_recipe(task_dto, recipe, image_path=image_path)
+
+    def run_task_recipe(
+            self,
+            task_dto: Any,
+            recipe: ImportTaskRecipe,
+            *,
+            image_path: str = None,
+    ) -> Dict[str, Any]:
+        """Run a named activity recipe for a single imported image."""
+        pipeline = ImportTaskPipeline(recipe)
         return pipeline.run(self, task_dto, image_path=image_path).results
 
     def run_tasks(self, task_list: List[Any] = None) -> None:
