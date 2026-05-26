@@ -907,31 +907,36 @@ def _resolve_hub_archive(
     Returns ``(archive_url, sha256)`` — both relative to the hub base
     are normalized to absolute by the caller.
 
-    The hub's per-plugin JSON shape (per ``MAGELLON_HUB_SPEC.md`` /
-    the existing Astro content collection):
+    Accepts two hub shapes:
 
-      {
-        "plugin_id": "fft",
-        "versions": [
-          {"version": "1.1.0", "archive": {"filename": "...", "sha256": "...",
-                                           "url": "/assets/plugins/..."}, ...},
-          ...
-        ]
-      }
+      Nested (MAGELLON_HUB_SPEC.md target shape):
+        {"versions": [{"version": "1.1.0",
+                       "archive": {"url": "...", "sha256": "..."}, ...}]}
+
+      Flat (what demo.magellon.org actually serves today via the
+      Astro content collection):
+        {"versions": [{"version": "1.1.0", "url": "...",
+                       "sha256": "..."}]}
+
+    Either layout works — the version entry just has to carry a URL
+    and a sha256 somewhere reachable.
     """
     versions = hub_manifest.get("versions") or []
     for entry in versions:
-        if entry.get("version") == version:
-            archive = entry.get("archive") or {}
-            url = archive.get("url") or archive.get("filename")
-            sha256 = archive.get("sha256")
-            if not url or not sha256:
-                raise HTTPException(
-                    status_code=502,
-                    detail=f"hub entry for {plugin_id}@{version} missing "
-                           f"archive.url or archive.sha256",
-                )
-            return url, sha256
+        if entry.get("version") != version:
+            continue
+        archive = entry.get("archive") or {}
+        # Prefer nested fields, fall back to flat-at-version-level.
+        url = archive.get("url") or archive.get("filename") or entry.get("url")
+        sha256 = archive.get("sha256") or entry.get("sha256")
+        if not url or not sha256:
+            raise HTTPException(
+                status_code=502,
+                detail=f"hub entry for {plugin_id}@{version} missing "
+                       f"url or sha256 (checked archive.url, archive.filename, "
+                       f"and top-level url/sha256)",
+            )
+        return url, sha256
     available = [v.get("version") for v in versions if v.get("version")]
     raise HTTPException(
         status_code=404,

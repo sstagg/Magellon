@@ -213,6 +213,47 @@ class TestHubJsonShape:
 
         assert resp.status_code == 502
 
+    def test_flat_hub_shape_is_accepted(self, client, fake_manager, monkeypatch):
+        """demo.magellon.org publishes archive metadata flat at the
+        version level (``{"version": "...", "url": "...", "sha256":
+        "..."}``) rather than nested under ``archive``. Both layouts
+        must work or the public hub install path 502s on day one."""
+        archive_bytes = _fake_archive_bytes()
+        right_sha = _sha256_of(archive_bytes)
+
+        def fake_get(url, *a, **kw):
+            class R:
+                status_code = 200
+                content = archive_bytes
+                text = ""
+
+                def json(self):
+                    return {
+                        "plugin_id": "fft",
+                        "versions": [{
+                            "version": "1.1.0",
+                            # FLAT shape — no ``archive`` key
+                            "url": "/assets/plugins/fft-1.1.0.mpn",
+                            "sha256": right_sha,
+                        }],
+                    }
+
+            return R()
+
+        monkeypatch.setattr("httpx.get", fake_get)
+        monkeypatch.setattr(
+            "controllers.admin_plugin_install_controller._persist_to_packages_dir",
+            lambda p: None,
+        )
+
+        resp = client.post(
+            "/admin/plugins/install-from-hub",
+            json={"plugin_id": "fft", "version": "1.1.0"},
+        )
+
+        assert resp.status_code == 201, resp.text
+        fake_manager.install.assert_called_once()
+
     def test_unknown_version_is_404(self, client, monkeypatch):
         def fake_get(url, *a, **kw):
             class R:
