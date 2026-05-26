@@ -102,9 +102,10 @@ rejected; live Leginon transfer uses `LeginonFrameTransferJobService`.
 The package already points toward Template Method, but the concrete importers
 do not yet share one orchestration skeleton. Current duplication includes:
 
-- remaining project/session/job creation overlap between `BaseImporter` and
-  `ImportDatabaseService`; Magellon manifest upserts and SerialEM import job
-  creation now delegate through `BaseImporter`;
+- `ImportDatabaseService` remains as a compatibility facade for older
+  `BaseImporter._init_database_records()` flows, but it now uses valid
+  `Project`/`Msession` columns and resolves `magellon_session_name` before
+  creating the job;
 - image row construction in every concrete importer; `ImageJobTask` row
   construction now uses a shared `BaseImporter` helper for Magellon, EPU, and
   SerialEM;

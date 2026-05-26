@@ -13,18 +13,20 @@ class ImportDatabaseService:
 
     def initialize_import_records(self, params: ImportJobBase) -> tuple[Optional[Project], Optional[Msession], ImageJob]:
         """Initialize all necessary database records for an import job"""
+        session_name = params.magellon_session_name or params.session_name
+
         project = None
         if params.magellon_project_name:
             project = self.get_or_create_project(params.magellon_project_name)
 
         msession = None
-        if params.magellon_session_name or params.session_name:
+        if session_name:
             msession = self.get_or_create_session(
-                params.magellon_session_name or params.session_name,
+                session_name,
                 project.oid if project else None
             )
 
-        job = self.create_job_record(params.session_name, msession.oid if msession else None)
+        job = self.create_job_record(session_name, msession.oid if msession else None)
         
         return project, msession, job
 
@@ -38,7 +40,7 @@ class ImportDatabaseService:
             project = Project(
                 oid=uuid.uuid4(),
                 name=project_name,
-                created_date=datetime.now()
+                last_accessed_date=datetime.now()
             )
             self.db_session.add(project)
             self.db_session.commit()
@@ -57,7 +59,7 @@ class ImportDatabaseService:
                 oid=uuid.uuid4(),
                 name=session_name,
                 project_id=project_id,
-                created_date=datetime.now()
+                last_accessed_date=datetime.now()
             )
             self.db_session.add(session)
             self.db_session.commit()
@@ -73,7 +75,8 @@ class ImportDatabaseService:
             description=f"Import job for session: {session_name}",
             created_date=datetime.now(),
             msession_id=msession_id,
-            status_id=1
+            status_id=1,
+            type_id=1
         )
         self.db_session.add(job)
         self.db_session.commit()
@@ -84,7 +87,7 @@ class ImportDatabaseService:
         """Create an Image record from provided data"""
         properties = {
             "oid": uuid.uuid4(),
-            "created_date": datetime.now(),
+            "last_accessed_date": datetime.now(),
             "session_id": session_id
         }
 

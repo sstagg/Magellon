@@ -228,35 +228,18 @@ class BaseImporter(ABC):
 
     def create_job_record(self, db_session: Session, session_id: uuid.UUID, job_name: str,
                           description: str = None, output_directory: str = None) -> ImageJob:
+        """Create job record for the import process.
+
+        Compatibility wrapper for older importer code. New import paths should
+        call `create_import_job_record()` directly.
         """
-        Create job record for the import process
-
-        Args:
-            db_session: SQLAlchemy database session
-            session_id: Session ID to associate with this job
-            job_name: Name of the job
-            description: Optional job description
-            output_directory: Optional output directory
-
-        Returns:
-            ImageJob instance
-        """
-        if not session_id:
-            raise ValueError("Session ID must be provided")
-
-        job = ImageJob(
-            oid=uuid.uuid4(),
+        return self.create_import_job_record(
+            db_session,
+            session_id,
             name=job_name,
-            description=description or f"Import job: {job_name}",
-            created_date=datetime.now(),
-            msession_id=session_id,
             output_directory=output_directory,
-            status_id=1,  # Pending status
-            type_id=1     # Import type
+            description=description,
         )
-        db_session.add(job)
-        db_session.flush()
-        return job
 
     def create_import_job_record(
             self,
@@ -279,7 +262,7 @@ class BaseImporter(ABC):
             raise ValueError("Session ID must be provided")
 
         job = ImageJob(
-            oid=job_id or self.pre_assigned_job_id or uuid.uuid4(),
+            oid=job_id or getattr(self, 'pre_assigned_job_id', None) or uuid.uuid4(),
             name=name,
             description=description or f"Import job: {name}",
             created_date=datetime.now(),

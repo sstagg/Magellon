@@ -11,6 +11,7 @@ from models.sqlalchemy_models import Atlas, Image, ImageJob, ImageJobTask, Msess
 from services.importers.BaseImporter import BaseImporter
 from services.importers.EPUImporter import EPUMetadata, EPUImporter
 from services.importers.ImporterFactory import import_data
+from services.importers.import_database_service import ImportDatabaseService
 from services.importers.SerialEmImporter import SerialEMMetadata, SerialEmImporter
 from services.importers.source_strategies import MagellonSessionJsonStrategy
 
@@ -31,6 +32,8 @@ class _NoResultQuery:
 class _CaptureSession:
     def __init__(self):
         self.added = []
+        self.commits = 0
+        self.refreshed = []
 
     def query(self, _model):
         return _NoResultQuery()
@@ -40,6 +43,12 @@ class _CaptureSession:
 
     def flush(self):
         pass
+
+    def commit(self):
+        self.commits += 1
+
+    def refresh(self, obj):
+        self.refreshed.append(obj)
 
 
 def _epu_params(tmp_path):
@@ -347,6 +356,80 @@ def test_base_importer_create_import_job_uses_preassigned_id():
     assert job.type_id == 1
     assert job.output_directory == r"C:\out"
     assert db.added == [job]
+
+
+def test_base_importer_legacy_job_helper_uses_import_job_helper():
+    importer = _DummyImporter.__new__(_DummyImporter)
+    importer.pre_assigned_job_id = uuid.uuid4()
+    db = _CaptureSession()
+    session_id = uuid.uuid4()
+
+    job = importer.create_job_record(
+        db,
+        session_id,
+        "EPU Import: session-a",
+        "EPU Import for session-a",
+        r"C:\target",
+    )
+
+    assert job.oid == importer.pre_assigned_job_id
+    assert job.name == "EPU Import: session-a"
+    assert job.description == "EPU Import for session-a"
+    assert job.msession_id == session_id
+    assert job.output_directory == r"C:\target"
+    assert job.status_id == 1
+    assert job.type_id == 1
+    assert db.added == [job]
+
+
+def test_import_database_service_uses_magellon_session_name_for_job():
+    db = _CaptureSession()
+    service = ImportDatabaseService(db)
+
+    project, session, job = service.initialize_import_records(
+        SimpleNamespace(
+            magellon_project_name="project-a",
+            magellon_session_name="session-a",
+            session_name=None,
+        )
+    )
+
+    assert isinstance(project, Project)
+    assert isinstance(session, Msession)
+    assert isinstance(job, ImageJob)
+    assert project.name == "project-a"
+    assert project.last_accessed_date is not None
+    assert session.name == "session-a"
+    assert session.project_id == project.oid
+    assert session.last_accessed_date is not None
+    assert job.name == "Import: session-a"
+    assert job.description == "Import job for session: session-a"
+    assert job.msession_id == session.oid
+    assert job.status_id == 1
+    assert job.type_id == 1
+    assert db.refreshed == [project, session, job]
+
+
+def test_import_database_service_create_image_record_uses_valid_image_columns():
+    db = _CaptureSession()
+    service = ImportDatabaseService(db)
+    session_id = uuid.uuid4()
+
+    image = service.create_image_record(
+        {
+            "name": "image-a",
+            "path": r"C:\images\image-a.mrc",
+            "pixel_size": 1e-10,
+        },
+        session_id,
+    )
+
+    assert isinstance(image, Image)
+    assert image.name == "image-a"
+    assert image.path == r"C:\images\image-a.mrc"
+    assert image.session_id == session_id
+    assert image.last_accessed_date is not None
+    assert db.refreshed == [image]
 
 
 def test_base_importer_standard_task_pipeline_runs_expected_steps(tmp_path):
