@@ -31,7 +31,8 @@ template method implementation. `setup()` stores request params and creates
 - target directory creation;
 - source subdirectory copying for reference inputs such as `gains` and
   `defects`;
-- reusable per-image import activities grouped by `ActivityType`;
+- reusable per-image import activities grouped by `ActivityType`, with
+  activity-level eligibility checks for clean skips;
 - named per-image recipes for standard, EPU, SerialEM exposure, and SerialEM
   montage processing;
 - frame transfer and image copy;
@@ -155,7 +156,8 @@ Use Strategy objects for source-specific behavior:
 - `EpuXmlStrategy` for XML/session-tree parsing.
 - `SerialEmMdocStrategy` for MDOC/nav/montage parsing.
 
-Use small post-import activities with an `ActivityType` and `run()`:
+Use small post-import activities with an `ActivityType`, `should_run()`, and
+`run()`:
 
 - PNG conversion.
 - FFT computation.
@@ -171,6 +173,10 @@ Current named per-image recipes:
 - `serialem_exposure_import`: frame transfer, optional image copy, PNG, FFT,
   CTF, and MotionCor.
 - `serialem_montage_import`: frame transfer, optional image copy, PNG, and FFT.
+
+Recipes expose `step_names`, `activity_types`, and `describe()` so new import
+types and future UI/status code can inspect planned activity order without
+duplicating pipeline logic.
 
 The first safe implementation step should be characterization tests around
 one happy-path import per source type, plus targeted tests for status mapping,

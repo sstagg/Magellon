@@ -20,6 +20,7 @@ class ImportTaskContext:
     task_dto: Any
     image_path: str | None = None
     results: dict[str, Any] = field(default_factory=dict)
+    skipped: dict[str, str] = field(default_factory=dict)
 
     def current_image_path(self) -> str | None:
         return self.image_path or getattr(self.task_dto, "image_path", None)
@@ -34,11 +35,28 @@ class ImportTaskStep(Protocol):
     name: str
     activity_type: ActivityType
 
+    def should_run(self, context: ImportTaskContext) -> bool:
+        ...
+
+    def skip_message(self, context: ImportTaskContext) -> str:
+        ...
+
     def run(self, context: ImportTaskContext) -> None:
         ...
 
 
-class TransferFrameStep:
+class ImportTaskActivity:
+    name: str
+    activity_type: ActivityType
+
+    def should_run(self, context: ImportTaskContext) -> bool:
+        return True
+
+    def skip_message(self, context: ImportTaskContext) -> str:
+        return f"Skipping {self.name}"
+
+
+class TransferFrameStep(ImportTaskActivity):
     name = "transfer_frame"
     activity_type = ActivityType.TRANSFER_FRAME
 
@@ -47,7 +65,7 @@ class TransferFrameStep:
         context.results[self.name] = True
 
 
-class CopyImageStep:
+class CopyImageStep(ImportTaskActivity):
     name = "copy_image"
     activity_type = ActivityType.COPY_IMAGE
 
@@ -59,7 +77,7 @@ class CopyImageStep:
         context.results[self.name] = True
 
 
-class EnsureImageExistsStep:
+class EnsureImageExistsStep(ImportTaskActivity):
     name = "ensure_image_exists"
     activity_type = ActivityType.VALIDATE_INPUT
 
@@ -71,7 +89,7 @@ class EnsureImageExistsStep:
         context.results[self.name] = True
 
 
-class ConvertPngStep:
+class ConvertPngStep(ImportTaskActivity):
     name = "png"
     activity_type = ActivityType.CONVERT_IMAGE
 
@@ -81,7 +99,7 @@ class ConvertPngStep:
         )
 
 
-class FftStep:
+class FftStep(ImportTaskActivity):
     name = "fft"
     activity_type = ActivityType.CONVERT_IMAGE
 
@@ -91,7 +109,7 @@ class FftStep:
         )
 
 
-class CtfDispatchStep:
+class CtfDispatchStep(ImportTaskActivity):
     name = "ctf"
     activity_type = ActivityType.DISPATCH_ANALYSIS
 
@@ -102,21 +120,24 @@ class CtfDispatchStep:
         )
 
 
-class MotionCorDispatchStep:
+class MotionCorDispatchStep(ImportTaskActivity):
     name = "motioncor"
     activity_type = ActivityType.DISPATCH_ANALYSIS
 
+    def should_run(self, context: ImportTaskContext) -> bool:
+        return bool(getattr(context.task_dto, "frame_name", None))
+
+    def skip_message(self, context: ImportTaskContext) -> str:
+        return "Skipping motion correction (no frame)"
+
     def run(self, context: ImportTaskContext) -> None:
-        if getattr(context.task_dto, "frame_name", None):
-            context.results[self.name] = context.importer.compute_motioncor(
-                context.current_image_path(),
-                context.task_dto,
-            )
-        else:
-            context.results[self.name] = {"message": "Skipping motion correction (no frame)"}
+        context.results[self.name] = context.importer.compute_motioncor(
+            context.current_image_path(),
+            context.task_dto,
+        )
 
 
-class TopazPickStep:
+class TopazPickStep(ImportTaskActivity):
     name = "topaz_pick"
     activity_type = ActivityType.DISPATCH_ANALYSIS
 
@@ -127,7 +148,7 @@ class TopazPickStep:
         )
 
 
-class TopazDenoiseStep:
+class TopazDenoiseStep(ImportTaskActivity):
     name = "topaz_denoise"
     activity_type = ActivityType.DISPATCH_ANALYSIS
 
@@ -147,6 +168,19 @@ class ImportTaskRecipe:
     def activity_types(self) -> tuple[ActivityType, ...]:
         return tuple(step.activity_type for step in self.steps)
 
+    @property
+    def step_names(self) -> tuple[str, ...]:
+        return tuple(step.name for step in self.steps)
+
+    def has_activity_type(self, activity_type: ActivityType) -> bool:
+        return activity_type in self.activity_types
+
+    def describe(self) -> list[dict[str, str]]:
+        return [
+            {"name": step.name, "activity_type": step.activity_type.value}
+            for step in self.steps
+        ]
+
 
 class ImportTaskPipeline:
     """Template for per-image post-import work.
@@ -164,6 +198,11 @@ class ImportTaskPipeline:
         if image_path:
             context.set_image_path(image_path)
         for step in self.steps:
+            if not step.should_run(context):
+                message = step.skip_message(context)
+                context.skipped[step.name] = message
+                context.results[step.name] = {"status": "skipped", "message": message}
+                continue
             step.run(context)
         return context
 

@@ -642,7 +642,7 @@ def test_import_activity_recipes_define_named_compositions():
     serialem_montage = build_serialem_montage_task_recipe(copy_image=False)
 
     assert standard.name == "standard_import"
-    assert [step.name for step in standard.steps] == [
+    assert standard.step_names == (
         "transfer_frame",
         "copy_image",
         "ensure_image_exists",
@@ -651,7 +651,7 @@ def test_import_activity_recipes_define_named_compositions():
         "ctf",
         "motioncor",
         "topaz_pick",
-    ]
+    )
     assert standard.activity_types == (
         ActivityType.TRANSFER_FRAME,
         ActivityType.COPY_IMAGE,
@@ -662,27 +662,57 @@ def test_import_activity_recipes_define_named_compositions():
         ActivityType.DISPATCH_ANALYSIS,
         ActivityType.DISPATCH_ANALYSIS,
     )
-    assert [step.name for step in epu.steps] == [
+    assert standard.has_activity_type(ActivityType.DISPATCH_ANALYSIS) is True
+    assert standard.describe()[-1] == {
+        "name": "topaz_pick",
+        "activity_type": "dispatch_analysis",
+    }
+    assert epu.step_names == (
         "transfer_frame",
         "ensure_image_exists",
         "png",
         "fft",
         "ctf",
-    ]
-    assert [step.name for step in serialem_exposure.steps] == [
+    )
+    assert serialem_exposure.step_names == (
         "transfer_frame",
         "ensure_image_exists",
         "png",
         "fft",
         "ctf",
         "motioncor",
-    ]
-    assert [step.name for step in serialem_montage.steps] == [
+    )
+    assert serialem_montage.step_names == (
         "transfer_frame",
         "ensure_image_exists",
         "png",
         "fft",
-    ]
+    )
+
+
+def test_import_activity_pipeline_skips_ineligible_activity(tmp_path):
+    image_path = tmp_path / "micrograph.mrc"
+    image_path.write_bytes(b"mrc")
+
+    importer = _DummyImporter.__new__(_DummyImporter)
+    importer.params = SimpleNamespace(copy_images=False)
+    importer.transfer_frame = Mock()
+    importer.convert_image_to_png = Mock(return_value={"message": "png"})
+    importer.compute_fft = Mock(return_value={"message": "fft"})
+    importer.compute_ctf = Mock(return_value={"message": "ctf"})
+    importer.compute_motioncor = Mock(return_value={"message": "motioncor"})
+
+    result = importer.run_standard_task(
+        SimpleNamespace(image_path=str(image_path), frame_name="", frame_path=None),
+        topaz_pick=False,
+        topaz_denoise=False,
+    )
+
+    importer.compute_motioncor.assert_not_called()
+    assert result["motioncor"] == {
+        "status": "skipped",
+        "message": "Skipping motion correction (no frame)",
+    }
 
 
 def test_import_data_passes_db_session_to_setup(monkeypatch):
