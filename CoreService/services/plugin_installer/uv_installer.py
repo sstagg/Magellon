@@ -31,6 +31,7 @@ import os
 import shutil
 import subprocess
 import sys
+import sysconfig
 import zipfile
 from pathlib import Path
 from typing import Callable, List, Optional
@@ -299,10 +300,89 @@ class UvInstaller:
                 bad.append(arcname)
         return bad
 
-    def _uv_venv(self, venv_dir: Path, logs: list[str]) -> None:
-        cmd = [self.uv_command, "venv", str(venv_dir)]
+    def _run_uv(
+        self,
+        args: list[str],
+        logs: list[str],
+        **kwargs,
+    ) -> subprocess.CompletedProcess:
+        """Run uv, installing it into CoreService's Python if missing."""
+        cmd = [self.uv_command, *args]
+        logs.append(f"+ {' '.join(cmd)}")
+        try:
+            return self._run(cmd, **kwargs)
+        except FileNotFoundError:
+            self.uv_command = self._ensure_uv_command(logs)
+            cmd = [self.uv_command, *args]
+            logs.append(f"+ {' '.join(cmd)}")
+            return self._run(cmd, **kwargs)
+
+    def _ensure_uv_command(self, logs: list[str]) -> str:
+        found = self._find_uv_command() or self._find_uv_command("uv")
+        if found:
+            return found
+
+        cmd = [sys.executable, "-m", "pip", "install", "uv"]
         logs.append(f"+ {' '.join(cmd)}")
         result = self._run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"uv bootstrap failed: {result.stderr or result.stdout}"
+            )
+        if result.stdout:
+            logs.append(result.stdout.rstrip())
+
+        found = self._find_uv_command() or self._find_uv_command("uv")
+        if found:
+            return found
+        raise RuntimeError(
+            "uv is not available after bootstrap; install uv manually or "
+            "ensure CoreService's Python can run pip"
+        )
+
+    def _find_uv_command(self, command: Optional[str] = None) -> Optional[str]:
+        command = command or self.uv_command
+        has_separator = os.sep in command or (
+            os.altsep is not None and os.altsep in command
+        )
+        if os.path.isabs(command) or has_separator:
+            return command if Path(command).exists() else None
+
+        found = shutil.which(command)
+        if found:
+            return found
+
+        if command.lower() not in {"uv", "uv.exe"}:
+            return None
+
+        executable_name = "uv.exe" if sys.platform == "win32" else "uv"
+        candidates: list[Path] = []
+        scripts_path = sysconfig.get_path("scripts")
+        if scripts_path:
+            candidates.append(Path(scripts_path) / executable_name)
+
+        exe_dir = Path(sys.executable).resolve().parent
+        candidates.append(exe_dir / executable_name)
+        if sys.platform == "win32":
+            candidates.append(exe_dir / "Scripts" / executable_name)
+
+        seen: set[str] = set()
+        for candidate in candidates:
+            candidate_str = str(candidate)
+            if candidate_str in seen:
+                continue
+            seen.add(candidate_str)
+            if candidate.is_file():
+                return candidate_str
+        return None
+
+    def _uv_venv(self, venv_dir: Path, logs: list[str]) -> None:
+        result = self._run_uv(
+            ["venv", str(venv_dir)],
+            logs,
+            capture_output=True,
+            text=True,
+        )
         if result.returncode != 0:
             raise RuntimeError(
                 f"uv venv failed: {result.stderr or result.stdout}"
@@ -343,21 +423,20 @@ class UvInstaller:
             # one. ``--no-dev`` skips dev-only deps in production
             # installs.
             env["UV_PROJECT_ENVIRONMENT"] = str(venv_dir)
-            cmd = [
-                self.uv_command, "sync",
+            args = [
+                "sync",
                 "--project", str(target),
                 "--no-dev",
             ]
         elif requirements.exists():
-            cmd = [self.uv_command, "pip", "install", "-r", str(requirements)]
+            args = ["pip", "install", "-r", str(requirements)]
         else:
             raise RuntimeError(
                 f"neither {pyproject_rel or 'pyproject.toml'} nor requirements.txt "
                 f"found — uv install has nothing to do"
             )
 
-        logs.append(f"+ {' '.join(cmd)}")
-        result = self._run(cmd, capture_output=True, text=True, env=env)
+        result = self._run_uv(args, logs, capture_output=True, text=True, env=env)
         if result.returncode != 0:
             raise RuntimeError(
                 f"uv pip install failed: {result.stderr or result.stdout}"

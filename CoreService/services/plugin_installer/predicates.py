@@ -20,11 +20,13 @@ This module:
 from __future__ import annotations
 
 import logging
+import os
 import platform
 import shutil
 import subprocess
 import sys
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from magellon_sdk.archive.manifest import SdkCompatError, check_sdk_compat
@@ -65,16 +67,53 @@ class HostInfo:
 # ---------------------------------------------------------------------------
 
 _OS_MAP = {"Linux": "linux", "Windows": "windows", "Darwin": "macos"}
+_DOCKER_INFO_TIMEOUT_SECONDS = 15
+
+
+def _docker_command() -> Optional[str]:
+    found = shutil.which("docker")
+    if found:
+        return found
+
+    if platform.system() != "Windows":
+        return None
+
+    roots = [
+        os.environ.get("ProgramFiles"),
+        os.environ.get("ProgramW6432"),
+        r"C:\Program Files",
+    ]
+    seen: set[str] = set()
+    for root in roots:
+        if not root:
+            continue
+        candidate = (
+            Path(root)
+            / "Docker"
+            / "Docker"
+            / "resources"
+            / "bin"
+            / "docker.exe"
+        )
+        candidate_str = str(candidate)
+        if candidate_str in seen:
+            continue
+        seen.add(candidate_str)
+        if candidate.is_file():
+            return candidate_str
+    return None
 
 
 def _check_docker_daemon() -> bool:
-    if not shutil.which("docker"):
+    docker = _docker_command()
+    if docker is None:
         return False
     try:
         completed = subprocess.run(
-            ["docker", "info"],
+            [docker, "info"],
             capture_output=True,
-            timeout=5,
+            text=True,
+            timeout=_DOCKER_INFO_TIMEOUT_SECONDS,
         )
         return completed.returncode == 0
     except (subprocess.SubprocessError, OSError):

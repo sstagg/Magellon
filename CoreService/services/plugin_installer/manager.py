@@ -212,29 +212,18 @@ class PluginInstallManager:
                           f"{inst.method}; use upgrade to replace",
                 )
 
-        # 4a. Replica-method gate (Wave 4 / manifest v1.1).
-        # uv plugins are pinned to single-instance — uv replicas need
-        # N ports + N working dirs and aren't worth the complexity for
-        # the dev-on-laptop case (locked-in scope per the Wave 4 plan).
-        rep_gate = self._check_replicas_supported(installer.method, manifest)
-        if rep_gate is not None:
-            return InstallResult(
-                success=False, plugin_id=manifest.plugin_id,
-                install_method=installer.method, error=rep_gate,
-            )
-
-        # 4b. Restart-policy gate (Wave 4 / manifest v1.1).
-        # uv-Popen plugins can't honor any policy other than 'no' — we
-        # don't ship a watchdog thread. Refuse here BEFORE spending the
-        # install pipeline rather than letting the policy silently
-        # become a no-op at runtime.
-        gate = self._check_restart_policy_supported(installer.method, manifest)
-        if gate is not None:
+        # 4a. Method-level gates (replicas / restart policy) were
+        # already considered while choosing the installer, so an
+        # auto-pick can skip uv-on-popen and fall through to docker.
+        # Keep the defensive check here in case a future caller bypasses
+        # _pick_installer.
+        method_failures = self._method_failures(manifest, spec, installer, host)
+        if method_failures:
             return InstallResult(
                 success=False,
                 plugin_id=manifest.plugin_id,
                 install_method=installer.method,
-                error=gate,
+                error="; ".join(method_failures),
             )
 
         # 5. Dispatch.
@@ -780,6 +769,37 @@ class PluginInstallManager:
             f"{self.CANONICAL_MANIFEST} nor {self.LEGACY_MANIFEST}"
         )
 
+    def _method_failures(
+        self,
+        manifest: PluginArchiveManifest,
+        spec: InstallSpec,
+        installer: Installer,
+        host: HostInfo,
+    ) -> List[str]:
+        """Return every reason this install method cannot be used.
+
+        Predicate checks answer "can this host run the method at all?"
+        The replica/restart gates answer "can this method honor this
+        manifest?" Keeping both in the same eligibility function lets
+        auto-pick fall through to a later method instead of selecting
+        uv and failing before trying docker.
+        """
+        failures = list(installer.supports(spec, host))
+        if failures:
+            return failures
+
+        rep_gate = self._check_replicas_supported(installer.method, manifest)
+        if rep_gate is not None:
+            failures.append(rep_gate)
+
+        restart_gate = self._check_restart_policy_supported(
+            installer.method, manifest,
+        )
+        if restart_gate is not None:
+            failures.append(restart_gate)
+
+        return failures
+
     def _pick_installer(
         self,
         manifest: PluginArchiveManifest,
@@ -787,7 +807,7 @@ class PluginInstallManager:
         *,
         only_method: Optional[str] = None,
     ) -> Optional[Tuple[InstallSpec, Installer]]:
-        """Find the first ``(spec, installer)`` pair whose predicates pass.
+        """Find the first ``(spec, installer)`` pair whose method can run.
 
         ``only_method`` restricts the scan to one method (e.g. ``"uv"``)
         — used when the operator pinned a method via the install endpoint.
@@ -799,7 +819,7 @@ class PluginInstallManager:
             installer = self._installers.get(spec.method)
             if installer is None:
                 continue
-            failures = installer.supports(spec, host)
+            failures = self._method_failures(manifest, spec, installer, host)
             if not failures:
                 return spec, installer
         return None
@@ -820,7 +840,7 @@ class PluginInstallManager:
                     f"  [{i}] method={spec.method!r}: no installer registered"
                 )
                 continue
-            failures = installer.supports(spec, host)
+            failures = self._method_failures(manifest, spec, installer, host)
             joined = "; ".join(failures) if failures else "(no failures)"
             lines.append(f"  [{i}] method={spec.method!r}: {joined}")
         return "\n".join(lines)
@@ -852,7 +872,7 @@ class PluginInstallManager:
                 f"{sorted(self._installers.keys()) or '(none)'}."
             )
         spec = next(s for s in manifest.install if s.method == preferred_method)
-        failures = installer.supports(spec, host)
+        failures = self._method_failures(manifest, spec, installer, host)
         joined = "; ".join(failures) if failures else "(unknown)"
         return (
             f"install method {preferred_method!r} not supported by this host: "

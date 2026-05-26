@@ -173,6 +173,34 @@ def test_falls_through_to_next_install_method_when_first_fails_predicates(tmp_pa
     assert len(uv.install_calls) == 1
 
 
+def test_auto_pick_skips_uv_when_restart_policy_requires_real_supervisor(tmp_path):
+    """Default manifests request restart_policy=on-failure. On Windows
+    and macOS the uv supervisor is Popen, which cannot honor that
+    policy. Auto-pick must skip uv and fall through to docker when
+    docker is available instead of failing before trying it."""
+    archive = _build_archive(tmp_path, [
+        {"method": "uv", "pyproject": "pyproject.toml"},
+        {"method": "docker", "image": "x:1", "requires": [{"docker_daemon": True}]},
+    ])
+    uv = _FakeInstaller("uv")
+    docker = _FakeInstaller("docker")
+
+    class _PopenLikeSupervisor:
+        name = "popen"
+
+    mgr = PluginInstallManager(
+        [uv, docker],
+        host_info_provider=_no_failures_host,
+        supervisor=_PopenLikeSupervisor(),
+    )
+
+    result = mgr.install(archive, _runtime())
+
+    assert result.success, result.error
+    assert len(uv.install_calls) == 0
+    assert len(docker.install_calls) == 1
+
+
 def test_skips_install_methods_with_no_registered_installer(tmp_path):
     """Plugin says ``method: subprocess`` but no SubprocessInstaller
     is registered → manager moves on to the next method instead of

@@ -314,6 +314,49 @@ def test_install_falls_back_to_requirements_txt_when_no_pyproject(tmp_path):
     assert any("requirements.txt" in arg for arg in cmd)
 
 
+def test_install_bootstraps_uv_when_command_missing(tmp_path, monkeypatch):
+    """Service environments may not have uv on PATH yet."""
+    archive, manifest = _build_archive(tmp_path)
+    fake_uv = tmp_path / "uv.exe"
+    installed = {"uv": False}
+
+    def _which(name):
+        if installed["uv"] and name == "uv":
+            return str(fake_uv)
+        return None
+
+    monkeypatch.setattr("services.plugin_installer.uv_installer.shutil.which", _which)
+
+    calls: list[dict] = []
+
+    def _runner(cmd, **kwargs):
+        calls.append({"cmd": cmd, "kwargs": kwargs})
+        if cmd[0] == "uv":
+            raise FileNotFoundError("uv")
+        if cmd[:5] == [sys.executable, "-m", "pip", "install", "uv"]:
+            installed["uv"] = True
+            return subprocess.CompletedProcess(
+                args=cmd, returncode=0, stdout="installed uv", stderr="",
+            )
+        if cmd[0] == str(fake_uv):
+            return subprocess.CompletedProcess(
+                args=cmd, returncode=0, stdout="", stderr="",
+            )
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    inst = UvInstaller(plugins_dir=tmp_path / "installed", subprocess_runner=_runner)
+
+    result = inst.install(archive, manifest, manifest.install[0], _runtime())
+
+    assert result.success, result.error
+    assert any(
+        c["cmd"][:5] == [sys.executable, "-m", "pip", "install", "uv"]
+        for c in calls
+    )
+    assert any(c["cmd"][:2] == [str(fake_uv), "venv"] for c in calls)
+    assert any(c["cmd"][:2] == [str(fake_uv), "sync"] for c in calls)
+
+
 # ---------------------------------------------------------------------------
 # install() — error paths
 # ---------------------------------------------------------------------------
@@ -347,6 +390,35 @@ def test_install_cleans_up_on_uv_venv_failure(tmp_path):
 
     assert not result.success
     assert "uv venv" in result.error
+    assert not (tmp_path / "installed" / "test-plugin").exists()
+
+
+def test_install_reports_uv_bootstrap_failure(tmp_path, monkeypatch):
+    """If pip cannot install uv, report the bootstrap failure clearly."""
+    archive, manifest = _build_archive(tmp_path)
+    monkeypatch.setattr(
+        "services.plugin_installer.uv_installer.shutil.which",
+        lambda _name: None,
+    )
+
+    def _runner(cmd, **kwargs):
+        if cmd[0] == "uv":
+            raise FileNotFoundError("uv")
+        if cmd[:5] == [sys.executable, "-m", "pip", "install", "uv"]:
+            return subprocess.CompletedProcess(
+                args=cmd, returncode=1, stdout="", stderr="pip failed",
+            )
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    inst = UvInstaller(
+        plugins_dir=tmp_path / "installed", subprocess_runner=_runner,
+    )
+
+    result = inst.install(archive, manifest, manifest.install[0], _runtime())
+
+    assert not result.success
+    assert "uv bootstrap failed" in result.error
+    assert "pip failed" in result.error
     assert not (tmp_path / "installed" / "test-plugin").exists()
 
 

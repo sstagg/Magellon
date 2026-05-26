@@ -7,13 +7,13 @@ production.
 """
 from __future__ import annotations
 
-import sys
+import subprocess
 
-import pytest
-
+import services.plugin_installer.predicates as predicates
 from services.plugin_installer.predicates import (
     HostInfo,
     collect_required_binaries,
+    detect_host_info,
     evaluate_predicates,
 )
 
@@ -41,6 +41,29 @@ def test_docker_daemon_predicate_mismatch():
     assert len(failed) == 1
     assert "want True" in failed[0]
     assert "got False" in failed[0]
+
+
+def test_detect_host_info_checks_default_windows_docker_path(monkeypatch, tmp_path):
+    """Docker Desktop's CLI may exist outside a service process PATH."""
+    docker = tmp_path / "Docker" / "Docker" / "resources" / "bin" / "docker.exe"
+    docker.parent.mkdir(parents=True)
+    docker.write_text("", encoding="utf-8")
+
+    monkeypatch.setattr(predicates.platform, "system", lambda: "Windows")
+    monkeypatch.setattr(predicates.shutil, "which", lambda _name: None)
+    monkeypatch.setenv("ProgramFiles", str(tmp_path))
+    monkeypatch.delenv("ProgramW6432", raising=False)
+
+    def _run(cmd, **kwargs):
+        assert cmd == [str(docker), "info"]
+        assert kwargs["timeout"] == predicates._DOCKER_INFO_TIMEOUT_SECONDS
+        return subprocess.CompletedProcess(
+            args=cmd, returncode=0, stdout="", stderr="",
+        )
+
+    monkeypatch.setattr(predicates.subprocess, "run", _run)
+
+    assert detect_host_info().docker_daemon is True
 
 
 def test_binary_predicate_match():
