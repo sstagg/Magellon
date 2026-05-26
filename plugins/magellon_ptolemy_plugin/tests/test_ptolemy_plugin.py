@@ -118,8 +118,18 @@ def _stub_compute(monkeypatch, *, square_dets=None, hole_dets=None):
     import types as _types
 
     fake = _types.ModuleType("plugin.compute")
-    fake.run_square_detection = lambda input_file: list(square_dets or [])
-    fake.run_hole_detection = lambda input_file: list(hole_dets or [])
+    fake.run_square_detection = lambda input_file: (
+        list(square_dets or []),
+        [64, 96],
+        12.5,
+        None,
+    )
+    fake.run_hole_detection = lambda input_file: (
+        list(hole_dets or []),
+        [128, 160],
+        -3.0,
+        42.0,
+    )
     monkeypatch.setitem(_sys.modules, "plugin.compute", fake)
 
 
@@ -154,6 +164,7 @@ def test_square_execute_emits_lifecycle(monkeypatch, tmp_path):
         reset_active_task(token)
 
     assert len(out.detections) == 2
+    assert out.extras == {"image_shape": [64, 96], "grid_angle": 12.5, "grid_pitch": None}
     types = [c[0] for c in captured]
     assert types[0] == "magellon.step.started"
     assert "magellon.step.progress" in types
@@ -186,6 +197,7 @@ def test_hole_execute_emits_lifecycle(monkeypatch, tmp_path):
         reset_active_task(token)
 
     assert len(out.detections) == 1
+    assert out.extras == {"image_shape": [128, 160], "grid_angle": -3.0, "grid_pitch": 42.0}
     types = [c[0] for c in captured]
     assert types[0] == "magellon.step.started"
     assert types[-1] == "magellon.step.completed"
