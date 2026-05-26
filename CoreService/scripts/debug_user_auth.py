@@ -8,17 +8,18 @@ This script checks:
 5. JWT token generation and validation
 
 Usage:
-    python test_user_auth_debug.py <username> <password>
+    python scripts/debug_user_auth.py <username> <password>
 
 Example:
-    python test_user_auth_debug.py super mypassword
+    python scripts/debug_user_auth.py super mypassword
 """
 
 import sys
 import os
 
-# Add the project root to the path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Add the CoreService project root to the path when run from scripts/.
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, PROJECT_ROOT)
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
@@ -345,8 +346,8 @@ def compare_db_vs_casbin_roles(db_roles: list, casbin_roles: list):
 
 def main():
     if len(sys.argv) < 3:
-        print("Usage: python test_user_auth_debug.py <username> <password>")
-        print("Example: python test_user_auth_debug.py super mypassword")
+        print("Usage: python scripts/debug_user_auth.py <username> <password>")
+        print("Example: python scripts/debug_user_auth.py super mypassword")
         sys.exit(1)
 
     username = sys.argv[1]

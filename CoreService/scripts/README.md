@@ -54,6 +54,19 @@ python scripts/sync_policies_to_casbin.py
 
 ---
 
+### `debug_user_auth.py`
+
+**Purpose:** Print a focused authentication report for one user, including
+database user state, password verification, DB roles, Casbin roles,
+JWT creation, and common permission checks.
+
+**Usage:**
+```bash
+python scripts/debug_user_auth.py <username> <password>
+```
+
+---
+
 ## Troubleshooting
 
 ### "Permission denied" after login
