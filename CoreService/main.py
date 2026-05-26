@@ -15,7 +15,6 @@ from starlette.staticfiles import StaticFiles
 from starlette import status as starlette_status
 import secrets
 
-from configs.production_test import production_intilization
 from config import app_settings
 from controllers.camera_controller import camera_router
 from controllers.admin_broker_controller import admin_broker_router
@@ -84,10 +83,6 @@ logger = logging.getLogger(__name__)
 logging.config.dictConfig(LOGGING_CONFIG)
 # Set SQLAlchemy logging to WARNING to reduce noise in logs
 logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
-
-
-production_intilization()
-
 
 # Initialize HTTP Basic Authentication for API docs
 security = HTTPBasic(auto_error=False)
