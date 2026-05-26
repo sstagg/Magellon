@@ -254,9 +254,24 @@ def test_docker_lifecycle_status_parses_inspect_output(tmp_path):
         assert lc.status("fft") == expected, f"state={state_str.strip()}"
 
 
-def test_docker_lifecycle_status_unknown_on_inspect_failure(tmp_path):
+def test_docker_lifecycle_status_missing_when_container_gone(tmp_path):
+    """``docker rm`` was run behind our back — install_state.json still
+    names the container, but ``docker inspect`` reports "No such object".
+    Surfaces as MISSING so the UI can gate Start/Restart instead of
+    letting the operator click into a 500."""
     _write_state(tmp_path, "fft", "magellon-plugin-fft")
-    runner = _RecordingDockerRunner(returncode=1, stderr="no such container")
+    runner = _RecordingDockerRunner(returncode=1, stderr="Error: No such object: magellon-plugin-fft")
+    lc = DockerLifecycle(plugins_dir=tmp_path, subprocess_runner=runner)
+
+    assert lc.status("fft") == LifecycleStatus.MISSING
+
+
+def test_docker_lifecycle_status_unknown_on_other_inspect_failure(tmp_path):
+    """Daemon down / permission denied / network blip — keep UNKNOWN so
+    we don't tell the operator to uninstall when the daemon is just
+    flaky."""
+    _write_state(tmp_path, "fft", "magellon-plugin-fft")
+    runner = _RecordingDockerRunner(returncode=1, stderr="Cannot connect to the Docker daemon")
     lc = DockerLifecycle(plugins_dir=tmp_path, subprocess_runner=runner)
 
     assert lc.status("fft") == LifecycleStatus.UNKNOWN

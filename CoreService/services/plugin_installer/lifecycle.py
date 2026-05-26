@@ -52,12 +52,19 @@ class LifecycleStatus(str, Enum):
     after one replica crashed. The aggregated state lets operators
     notice degraded availability at a glance; the per-replica detail
     surfaces in the React drawer.
+
+    ``MISSING`` is docker-specific: ``install_state.json`` still names
+    container(s) but ``docker inspect`` says they don't exist (operator
+    ran ``docker rm`` directly). Distinct from UNKNOWN so the UI can
+    disable Start/Restart — those would 500 — and point at Uninstall
+    instead.
     """
 
     RUNNING = "running"
     STOPPED = "stopped"
     PAUSED = "paused"
     PARTIAL = "partial"
+    MISSING = "missing"
     UNKNOWN = "unknown"
 
 
@@ -256,6 +263,8 @@ class DockerLifecycle:
           - All containers ``running`` → RUNNING.
           - All ``paused`` → PAUSED.
           - All ``exited``/``created``/``dead`` → STOPPED.
+          - All containers gone (``docker rm`` was run behind our
+            back) → MISSING.
           - Anything else (mid-transition, mixed) → PARTIAL when the
             replica set has > 1 container, UNKNOWN otherwise.
         """
@@ -269,6 +278,8 @@ class DockerLifecycle:
             return LifecycleStatus.PAUSED
         if all(s == LifecycleStatus.STOPPED for s in per_replica):
             return LifecycleStatus.STOPPED
+        if all(s == LifecycleStatus.MISSING for s in per_replica):
+            return LifecycleStatus.MISSING
         # Mixed — PARTIAL when there's > 1 container, UNKNOWN for a
         # single container in a transitional state (restarting / etc.).
         if len(names) > 1:
@@ -293,6 +304,14 @@ class DockerLifecycle:
             capture_output=True, text=True,
         )
         if result.returncode != 0:
+            # Distinguish "container doesn't exist" from "daemon error".
+            # Docker prints ``Error: No such object: <name>`` (or "No such
+            # container") on stderr when the named container is gone —
+            # treat that as MISSING so the UI can disable Start instead
+            # of letting the operator click into a 500.
+            stderr = (result.stderr or "").lower()
+            if "no such" in stderr:
+                return LifecycleStatus.MISSING
             return LifecycleStatus.UNKNOWN
         state = (result.stdout or "").strip().lower()
         if state == "running":

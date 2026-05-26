@@ -945,6 +945,42 @@ def test_uninstall_refuses_when_not_installed(tmp_path):
     assert "not installed" in result.error
 
 
+def test_uninstall_treats_missing_container_as_success(tmp_path):
+    """Operator ran ``docker rm`` outside Magellon. ``docker stop`` /
+    ``docker rm`` come back "No such container". Uninstall must treat
+    that as success (the end state we wanted) so the orphan row can
+    be cleaned up via the UI."""
+    archive, manifest = _build_archive(tmp_path, [
+        {"method": "docker", "image": "ghcr.io/x:1"},
+    ])
+    plugins_dir = tmp_path / "installed"
+    inst = DockerInstaller(plugins_dir=plugins_dir, subprocess_runner=_stub_runner())
+    inst.install(archive, manifest, manifest.install[0], _runtime())
+
+    # Swap in a runner that fails docker stop/rm with the daemon's
+    # actual "No such container" stderr.
+    calls: list[dict] = []
+
+    def _no_such_runner(cmd, **kwargs):
+        calls.append({"cmd": cmd, "kwargs": kwargs})
+        subcmd = cmd[1] if len(cmd) > 1 else ""
+        if subcmd in ("stop", "rm"):
+            return subprocess.CompletedProcess(
+                args=cmd, returncode=1, stdout="",
+                stderr=f"Error response from daemon: No such container: {cmd[-1]}\n",
+            )
+        return subprocess.CompletedProcess(
+            args=cmd, returncode=0, stdout="", stderr="",
+        )
+
+    inst._run = _no_such_runner
+    result = inst.uninstall("ctf-plugin")
+
+    assert result.success, result.error
+    # Install dir should be cleaned up
+    assert not (plugins_dir / "ctf-plugin").exists()
+
+
 def test_uninstall_handles_missing_state_file(tmp_path):
     """Half-uninstalled state: directory exists but state file gone
     (operator manually deleted it, or earlier uninstall crashed

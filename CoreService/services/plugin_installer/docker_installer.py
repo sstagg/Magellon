@@ -590,6 +590,12 @@ class DockerInstaller:
         ``swallow=True`` is for the install-rollback path where any
         cleanup error is logged-not-raised — the install already
         failed, no point throwing on cleanup too.
+
+        "No such container" is always treated as success — the container
+        is already gone (operator ran ``docker rm`` outside Magellon),
+        which is exactly the end state uninstall is aiming for. Without
+        this, an orphan row in ``install_state.json`` can never be
+        cleaned up via the UI.
         """
         for cmd in (
             [self.docker_command, "stop", container_name],
@@ -597,6 +603,13 @@ class DockerInstaller:
         ):
             result = self._run(cmd, capture_output=True, text=True)
             if result.returncode != 0:
+                stderr = (result.stderr or "").lower()
+                if "no such" in stderr:
+                    logger.info(
+                        "%s: container already gone, treating as success",
+                        " ".join(cmd),
+                    )
+                    continue
                 msg = f"{' '.join(cmd)} failed: {result.stderr or result.stdout}"
                 if swallow:
                     logger.warning(msg)
