@@ -102,11 +102,23 @@ type StepRowProps = {
     total: number;
     tooltip?: string;
     color?: "primary" | "secondary" | "info" | "success" | "warning";
+    // Plugin steps only — completion data from image_job_task rows after
+    // plugin results land via StepEventJobStateProjector / TaskOutputProcessor.
+    // Omitted for local steps where done==completed.
+    completed?: number;
+    failed?: number;
 };
 
-const StepRow = ({ icon, label, done, total, tooltip, color = "primary" }: StepRowProps) => {
+const StepRow = ({ icon, label, done, total, tooltip, color = "primary", completed, failed }: StepRowProps) => {
     const pct = total > 0 ? Math.round((done / total) * 100) : 0;
     const isComplete = total > 0 && done >= total;
+    const showPluginCounter = completed !== undefined || failed !== undefined;
+    const completedPct = total > 0 && completed !== undefined
+        ? Math.round((completed / total) * 100)
+        : 0;
+    const allReturned = total > 0
+        && completed !== undefined
+        && (completed + (failed ?? 0)) >= total;
     return (
         <TableRow>
             <TableCell sx={{ py: 1, pr: 1, width: 32, color: isComplete ? "success.main" : "text.secondary" }}>
@@ -124,6 +136,35 @@ const StepRow = ({ icon, label, done, total, tooltip, color = "primary" }: StepR
                             color={isComplete ? "success" : color}
                             sx={{ height: 6, borderRadius: 3 }}
                         />
+                        {showPluginCounter && total > 0 && (
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.5 }}>
+                                <Box sx={{ flex: 1 }}>
+                                    <LinearProgress
+                                        variant="determinate"
+                                        value={completedPct}
+                                        color={allReturned ? "success" : "info"}
+                                        sx={{ height: 3, borderRadius: 2, opacity: 0.7 }}
+                                    />
+                                </Box>
+                                <Typography
+                                    variant="caption"
+                                    sx={{ fontSize: 10, lineHeight: 1, whiteSpace: "nowrap" }}
+                                    color="text.secondary"
+                                >
+                                    ✓ {completed ?? 0}
+                                    {(failed ?? 0) > 0 && (
+                                        <Typography
+                                            component="span"
+                                            variant="caption"
+                                            sx={{ fontSize: 10, ml: 0.5 }}
+                                            color="error"
+                                        >
+                                            ✗ {failed}
+                                        </Typography>
+                                    )}
+                                </Typography>
+                            </Box>
+                        )}
                     </Box>
                 </Tooltip>
             </TableCell>
@@ -551,16 +592,20 @@ export const MagellonImportComponent = () => {
                                             label="CTF Estimation"
                                             done={stepCounts?.ctf ?? 0}
                                             total={stepTotals?.ctf ?? 0}
-                                            tooltip="Tasks dispatched to CTF plugin"
+                                            tooltip="Top bar: dispatched to CTF plugin. Thin bar: results returned (image_meta_data written)."
                                             color="secondary"
+                                            completed={summary?.by_category?.ctf?.completed ?? 0}
+                                            failed={summary?.by_category?.ctf?.failed ?? 0}
                                         />
                                         <StepRow
                                             icon={<VideocamIcon fontSize="small" />}
                                             label="Motion Correction"
                                             done={stepCounts?.motioncor ?? 0}
                                             total={stepTotals?.motioncor ?? 0}
-                                            tooltip="Tasks dispatched to MotionCor plugin"
+                                            tooltip="Top bar: dispatched to MotionCor plugin. Thin bar: results returned (image_meta_data written)."
                                             color="warning"
+                                            completed={summary?.by_category?.motioncor?.completed ?? 0}
+                                            failed={summary?.by_category?.motioncor?.failed ?? 0}
                                         />
                                     </TableBody>
                                 </Table>
