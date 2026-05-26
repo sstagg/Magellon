@@ -46,7 +46,7 @@ install:
       - docker_daemon: true
 
 health_check:
-  timeout_seconds: 30
+  timeout_seconds: 90
   expected_announce: true
 
 ui: null

@@ -51,11 +51,12 @@ class TemplatePickerInput(CryoEmImageInput):
     ``BaseModel`` + ``extra='forbid'`` and rejected the dispatcher's
     base fields on the wire (3 ValidationError extras).
     """
-    # extra='forbid' is fine now that we inherit the base fields —
-    # every wire field is declared (either by parent or by this
-    # subclass). Any genuinely unknown extra is still a contract
-    # violation worth surfacing.
-    model_config = ConfigDict(extra="forbid")
+    # extra='allow' — CoreService's dispatch_particle_pick_task injects
+    # transport fields (input_file, ipp_name) alongside the model fields
+    # for parity with topaz. We don't read them in execute(); allowing
+    # them silently keeps RMQ from poison-looping the message against
+    # extra_forbidden when CoreService and the plugin schema drift.
+    model_config = ConfigDict(extra="allow")
 
     # --- Files (group: Templates) ---
 

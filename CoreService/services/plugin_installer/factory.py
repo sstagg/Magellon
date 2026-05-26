@@ -178,6 +178,26 @@ def _liveness_health_check(plugin_id: str, timeout_seconds: float) -> bool:
                 return True
             if (entry.category or "").lower() == plugin_id.lower():
                 return True
+            # Multi-backend categories (e.g. particle_picking with
+            # template-picker / topaz / boxnet) don't share name with
+            # their category — match against the manifest backend_id
+            # the plugin advertises in its announce envelope so each
+            # picker's install handshake completes on its own row.
+            if (getattr(entry, "backend_id", None) or "").lower() == plugin_id.lower():
+                return True
+            # Belt-and-suspenders: some plugins register multiple
+            # consumer pairs from one manifest (topaz announces
+            # topaz_particle_picking + micrograph_denoising) and
+            # pre-1.3 envelopes don't always carry backend_id. As a
+            # last resort, match when the plugin_id appears as a
+            # normalized substring of entry.plugin_id (lowercase,
+            # hyphens/underscores/spaces stripped). Length gate (>=4)
+            # keeps very short ids from over-matching.
+            if len(plugin_id) >= 4:
+                def _norm(s: str) -> str:
+                    return (s or "").lower().replace("-", "").replace("_", "").replace(" ", "")
+                if _norm(plugin_id) in _norm(entry.plugin_id):
+                    return True
         if time.monotonic() >= deadline:
             return False
         time.sleep(interval)

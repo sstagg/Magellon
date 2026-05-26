@@ -15,6 +15,7 @@ from unittest import mock
 from services.plugin_installer.factory import (
     _build_runtime_config,
     _default_plugins_dir,
+    _liveness_health_check,
     reset_factory,
 )
 
@@ -98,3 +99,90 @@ def test_runtime_config_uses_gpfs_path_not_home(monkeypatch):
         runtime = _build_runtime_config()
 
     assert runtime.gpfs_root == "C:/magellon/gpfs"
+
+
+# ---------------------------------------------------------------------------
+# _liveness_health_check matching
+# ---------------------------------------------------------------------------
+
+
+def _entry(*, plugin_id="x", category="x", backend_id=None):
+    """Build a stub PluginLivenessEntry-shaped object — health check
+    only reads three fields so a SimpleNamespace is enough."""
+    return SimpleNamespace(plugin_id=plugin_id, category=category, backend_id=backend_id)
+
+
+def test_health_check_matches_by_plugin_id():
+    """The trivial case — entry.plugin_id == requested plugin_id."""
+    registry = SimpleNamespace(list_live=lambda: [_entry(plugin_id="fft", category="fft")])
+    with mock.patch("magellon_sdk.bus.services.liveness_registry.get_registry",
+                    return_value=registry):
+        assert _liveness_health_check("fft", 0.5) is True
+
+
+def test_health_check_matches_by_category():
+    """Pre-PI: single-backend categories (CTF, MotionCor, FFT) match
+    via category == plugin_id since their PluginInfo.name doesn't
+    line up with the manifest archive_id."""
+    registry = SimpleNamespace(list_live=lambda: [
+        _entry(plugin_id="fft/fft", category="fft", backend_id=None),
+    ])
+    with mock.patch("magellon_sdk.bus.services.liveness_registry.get_registry",
+                    return_value=registry):
+        assert _liveness_health_check("fft", 0.5) is True
+
+
+def test_health_check_matches_by_backend_id():
+    """Multi-backend categories (particle_picking with template-picker /
+    topaz / boxnet siblings) — category alone is ambiguous; match
+    against the announce envelope's backend_id so each sibling's
+    install handshake completes on its own row."""
+    registry = SimpleNamespace(list_live=lambda: [
+        _entry(
+            plugin_id="particle_picking/Template Picker",
+            category="particle_picking",
+            backend_id="template-picker",
+        ),
+    ])
+    with mock.patch("magellon_sdk.bus.services.liveness_registry.get_registry",
+                    return_value=registry):
+        assert _liveness_health_check("template-picker", 0.5) is True
+
+
+def test_health_check_matches_by_normalized_substring():
+    """Topaz announces two separate (category, name) pairs from a single
+    manifest — topaz_particle_picking + micrograph_denoising. The
+    announce envelope doesn't always carry backend_id back, so the
+    matcher needs a last-resort: plugin_id appears as a normalized
+    substring of entry.plugin_id."""
+    registry = SimpleNamespace(list_live=lambda: [
+        _entry(
+            plugin_id="topazparticlepicking/Topaz Particle Picking",
+            category="topazparticlepicking",
+            backend_id=None,
+        ),
+    ])
+    with mock.patch("magellon_sdk.bus.services.liveness_registry.get_registry",
+                    return_value=registry):
+        assert _liveness_health_check("topaz", 0.5) is True
+
+
+def test_health_check_substring_match_requires_min_length():
+    """Don't fuzzy-match plugin_ids shorter than 4 chars — too many
+    false positives (e.g. ``fft`` would match any 'soft', 'shift', etc.)."""
+    registry = SimpleNamespace(list_live=lambda: [
+        _entry(plugin_id="something/Soft Plugin", category="other", backend_id=None),
+    ])
+    with mock.patch("magellon_sdk.bus.services.liveness_registry.get_registry",
+                    return_value=registry):
+        # "ft" (2 chars) would substring-match "Soft" but the gate blocks
+        # — and there's no other field to match on either.
+        assert _liveness_health_check("ft", 0.05) is False
+
+
+def test_health_check_times_out_when_nothing_announces():
+    """No matching announce → return False once deadline passes."""
+    registry = SimpleNamespace(list_live=lambda: [])
+    with mock.patch("magellon_sdk.bus.services.liveness_registry.get_registry",
+                    return_value=registry):
+        assert _liveness_health_check("ghost", 0.05) is False
