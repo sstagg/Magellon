@@ -26,6 +26,7 @@ template method implementation. `setup()` stores request params and creates
 `ImportFileService` / `ImportDatabaseService`. Shared helpers cover:
 
 - project/session/job creation;
+- `ImageJobTask` creation with stable task/job IDs for broker callbacks;
 - target directory creation;
 - frame transfer and image copy;
 - PNG conversion and FFT computation;
@@ -64,7 +65,8 @@ then owns the EPU-specific workflow:
 - recursively scan the EPU directory for XML;
 - parse XML metadata into `EPUMetadata`;
 - build parent-child relationships from the EPU session tree;
-- create `Image`, `ImageJobTask`, and `EPUImportTaskDto` records;
+- create `Image`, `ImageJobTask`, and `EPUImportTaskDto` records with matching
+  task IDs and job IDs for plugin callbacks;
 - copy gains/defects folders into the target session directory;
 - run the shared post-import task pipeline for frame transfer, optional copy,
   PNG, FFT, and CTF dispatch. EPU currently disables MotionCor and Topaz
@@ -82,7 +84,8 @@ is a full import workflow in one method:
 - scan MDOC metadata and parse navigator labels;
 - stitch montage MRC files;
 - convert TIFF movies to MRC;
-- create `Image`, `ImageJobTask`, and `SerialEMImportTaskDto` records;
+- create `Image`, `ImageJobTask`, and `SerialEMImportTaskDto` records with
+  matching task IDs and job IDs for plugin callbacks;
 - establish parent-child relationships from `.nav`;
 - run the shared post-import task pipeline while skipping CTF/MotionCor for
   montage images.
@@ -102,7 +105,9 @@ do not yet share one orchestration skeleton. Current duplication includes:
 - remaining project/session/job creation overlap between `BaseImporter` and
   `ImportDatabaseService`; Magellon manifest upserts and SerialEM import job
   creation now delegate through `BaseImporter`;
-- image/task row construction in every concrete importer;
+- image row construction in every concrete importer; `ImageJobTask` row
+  construction now uses a shared `BaseImporter` helper for Magellon, EPU, and
+  SerialEM;
 - target directory creation and gains/defects copying in several importers;
 - task loops for PNG, FFT, CTF, and MotionCor were duplicated across
   `BaseImporter`, `EPUImporter`, and `SerialEmImporter`; the shared

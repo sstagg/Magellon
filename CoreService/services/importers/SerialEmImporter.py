@@ -833,7 +833,6 @@ class SerialEmImporter(BaseImporter):
         """Create database entries for a single montage."""
         try:
             filename = os.path.splitext(os.path.basename(montage_path))[0]
-            task_id = uuid.uuid4()
             
             db_image = Image(
                 oid=uuid.uuid4(),
@@ -854,20 +853,18 @@ class SerialEmImporter(BaseImporter):
                 session_id=magellon_session.oid
             )
             
-            job_item = ImageJobTask(
-                oid=uuid.uuid4(),
+            job_item = self.create_image_job_task_record(
                 job_id=job.oid,
                 frame_name=filename,
                 frame_path=montage_path,
                 image_name=filename,
                 image_path=montage_path,
-                status_id=1,
-                stage=0,
                 image_id=db_image.oid,
             )
             
             task = SerialEMImportTaskDto(
-                task_id=task_id,
+                task_id=job_item.oid,
+                job_id=job.oid,
                 task_alias=f"montage_{filename}_{job.oid}",
                 file_name=filename,
                 image_id=db_image.oid,
@@ -997,21 +994,20 @@ class SerialEmImporter(BaseImporter):
             )
             
             # Create job item
-            job_item = ImageJobTask(
-                oid=uuid.uuid4(),
+            job_item = self.create_image_job_task_record(
+                task_id=task_id,
                 job_id=job.oid,
                 frame_name=frame_name,
                 frame_path=source_frame_path,
                 image_name=os.path.splitext(os.path.basename(source_image_path))[0],
                 image_path=source_image_path,
-                status_id=1,
-                stage=0,
                 image_id=db_image.oid,
             )
             
             # Create task
             task = SerialEMImportTaskDto(
-                task_id=task_id,
+                task_id=job_item.oid,
+                job_id=job.oid,
                 task_alias=f"lftj_{filename}_{job.oid}",
                 file_name=f"{filename}",
                 image_id=db_image.oid,

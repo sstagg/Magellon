@@ -9,7 +9,7 @@ from sqlalchemy import text
 
 from core.helper import dispatch_ctf_task, dispatch_motioncor_task, find_matching_file
 from models.pydantic_models import ImportTaskDto
-from models.sqlalchemy_models import Msession, ImageJob, Image, ImageJobTask, Project, Atlas
+from models.sqlalchemy_models import Msession, Image, Project, Atlas
 from services.atlas import create_atlas_images
 from services.importers.BaseImporter import BaseImporter, TaskFailedException
 from services.importers.source_strategies import MagellonSessionJsonStrategy
@@ -488,20 +488,16 @@ class MagellonImporter(BaseImporter):
 
                 # Create job task record
                 if os.path.exists(original_file):
-                    task_oid = uuid.uuid4()
-                    task = ImageJobTask(
-                        oid=task_oid,
+                    task = self.create_image_job_task_record(
                         job_id=self.db_job.oid,
                         image_id=image.oid,
-                        status_id=1,  # Pending
-                        stage=0,
                         image_name=image.name,
                         image_path=os.path.normpath(original_file),
                         # frame_name=os.path.basename(frame_file) if frame_file else None,
                         # frame_path=frame_file
                     )
                     db_session.add(task)
-                    results.append((image, original_file, task_oid))
+                    results.append((image, original_file, task.oid))
 
                 # Process children recursively
                 if image_data.get("children"):

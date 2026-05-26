@@ -292,6 +292,40 @@ class BaseImporter(ABC):
         db_session.flush()
         return job
 
+    def create_image_job_task_record(
+            self,
+            *,
+            job_id: uuid.UUID,
+            image_id: uuid.UUID,
+            image_path: str,
+            image_name: Optional[str] = None,
+            frame_path: Optional[str] = None,
+            frame_name: Optional[str] = None,
+            task_id: Optional[uuid.UUID] = None,
+            status_id: int = 1,
+            stage: int = 0,
+    ) -> ImageJobTask:
+        """Build an ImageJobTask row with the task id used by broker DTOs."""
+        if not job_id:
+            raise ValueError("Job ID must be provided")
+        if not image_id:
+            raise ValueError("Image ID must be provided")
+
+        task_oid = task_id or uuid.uuid4()
+        return ImageJobTask(
+            oid=task_oid,
+            job_id=job_id,
+            frame_name=frame_name,
+            frame_path=frame_path,
+            image_name=image_name or os.path.splitext(os.path.basename(image_path))[0],
+            image_path=image_path,
+            status_id=status_id,
+            stage=stage,
+            image_id=image_id,
+            subject_kind="image",
+            subject_id=image_id,
+        )
+
 
     def initialize_db_records(self, db_session: Session, project_name: str, session_name: str,
                               job_type: str = "Import") -> Tuple[Optional[Project], Msession, ImageJob]:

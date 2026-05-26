@@ -6,12 +6,12 @@ from unittest.mock import Mock
 
 import pytest
 
-from models.pydantic_models import DefaultParams, EpuImportJobDto
-from models.sqlalchemy_models import Atlas, Image, ImageJob, Msession, Project
+from models.pydantic_models import DefaultParams, EpuImportJobDto, SerialEMImportJobDto
+from models.sqlalchemy_models import Atlas, Image, ImageJob, ImageJobTask, Msession, Project
 from services.importers.BaseImporter import BaseImporter
 from services.importers.EPUImporter import EPUMetadata, EPUImporter
 from services.importers.ImporterFactory import import_data
-from services.importers.SerialEmImporter import SerialEmImporter
+from services.importers.SerialEmImporter import SerialEMMetadata, SerialEmImporter
 from services.importers.source_strategies import MagellonSessionJsonStrategy
 
 
@@ -52,6 +52,16 @@ def _epu_params(tmp_path):
     )
 
 
+def _serialem_params(tmp_path):
+    return SerialEMImportJobDto(
+        magellon_project_name="proj",
+        magellon_session_name="serialem_session",
+        serial_em_dir_path=str(tmp_path),
+        target_directory=str(tmp_path),
+        default_data=DefaultParams(),
+    )
+
+
 def test_epu_record_builder_links_task_dto_to_persisted_task(tmp_path):
     image_base = tmp_path / "FoilHole_123_0001"
     xml_path = image_base.with_suffix(".xml")
@@ -87,9 +97,86 @@ def test_epu_record_builder_links_task_dto_to_persisted_task(tmp_path):
     assert len(task_dtos) == 1
     assert parent_child == {}
     assert task_dtos[0].task_id == job_tasks[0].oid
+    assert task_dtos[0].job_id == job_tasks[0].job_id
     assert task_dtos[0].image_id == images[0].oid
     assert task_dtos[0].image_path == str(image_path)
     assert task_dtos[0].frame_path == str(frame_path)
+    assert job_tasks[0].subject_kind == "image"
+    assert job_tasks[0].subject_id == images[0].oid
+
+
+def test_serialem_montage_record_builder_links_task_dto_to_persisted_task(tmp_path):
+    montage_path = tmp_path / "montages" / "session_1.mrc"
+    montage_path.parent.mkdir()
+    montage_path.write_bytes(b"mrc")
+
+    importer = SerialEmImporter.__new__(SerialEmImporter)
+    importer.params = _serialem_params(tmp_path)
+    session = SimpleNamespace(oid=uuid.uuid4())
+    job = SimpleNamespace(oid=uuid.uuid4())
+
+    image, job_task, task_dto = importer._create_montage_image_entry(
+        str(montage_path),
+        session,
+        job,
+    )
+
+    assert isinstance(image, Image)
+    assert isinstance(job_task, ImageJobTask)
+    assert task_dto.task_id == job_task.oid
+    assert task_dto.job_id == job.oid
+    assert job_task.job_id == job.oid
+    assert job_task.image_id == image.oid
+    assert job_task.subject_kind == "image"
+    assert job_task.subject_id == image.oid
+
+
+def test_serialem_metadata_record_builder_links_task_dto_to_persisted_task(tmp_path, monkeypatch):
+    movie_path = tmp_path / "movie_001.tif"
+    movie_path.write_bytes(b"tif")
+    output_path = tmp_path / "jobs" / "movie_001.mrc"
+
+    importer = SerialEmImporter.__new__(SerialEmImporter)
+    importer.params = _serialem_params(tmp_path)
+    session = SimpleNamespace(oid=uuid.uuid4())
+    job = SimpleNamespace(oid=uuid.uuid4())
+    metadata = SerialEMMetadata(
+        file_path=str(movie_path),
+        magnification=50000,
+        defocus=1.5,
+        dose=20.0,
+        pixel_size=1.2,
+        binning_x=1,
+        binning_y=1,
+        stage_alpha_tilt=0.0,
+        stage_x=0.0,
+        stage_y=0.0,
+        atlas_delta_row=0.0,
+        atlas_delta_column=0.0,
+        acceleration_voltage=300,
+        spherical_aberration=2.7,
+    )
+
+    monkeypatch.setattr(
+        "services.importers.SerialEmImporter.convert_tiff_to_mrc",
+        lambda *_args, **_kwargs: str(output_path),
+    )
+
+    image, job_task, task_dto = importer._process_metadata_entry(
+        metadata,
+        session,
+        job,
+        "gain.tif",
+    )
+
+    assert isinstance(image, Image)
+    assert isinstance(job_task, ImageJobTask)
+    assert task_dto.task_id == job_task.oid
+    assert task_dto.job_id == job.oid
+    assert job_task.job_id == job.oid
+    assert job_task.image_id == image.oid
+    assert job_task.subject_kind == "image"
+    assert job_task.subject_id == image.oid
 
 
 def test_serialem_process_task_skips_ctf_and_motioncor_for_montage(tmp_path):

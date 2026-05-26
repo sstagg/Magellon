@@ -164,6 +164,7 @@ class MagellonImportJobDto(BaseModel):
 class _ImportTaskDtoBase(BaseModel):
     """Internal base for EPU/SerialEM import task subclasses that carry a job_dto."""
     task_id: uuid.UUID = Field(default_factory=uuid.uuid4)
+    job_id: Optional[uuid.UUID] = None
     task_alias: Optional[str] = None
     file_name: Optional[str] = None
     image_id: Optional[uuid.UUID] = None

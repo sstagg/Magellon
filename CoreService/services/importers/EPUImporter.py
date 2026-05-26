@@ -618,7 +618,7 @@ class EPUImporter(BaseImporter):
             job_id: uuid.UUID,
             session_id: uuid.UUID,
             json_data,
-    ) -> tuple[List[Image], List[ImageJobTask], List[EPUImportTaskDto]]:
+    ) -> tuple[List[Image], List[ImageJobTask], List[EPUImportTaskDto], dict]:
         """
         Create Image and Task records from EPU metadata
 
@@ -701,15 +701,12 @@ class EPUImporter(BaseImporter):
                     frame_name = os.path.splitext(os.path.basename(source_frame_path))[0]
 
                 # Create job task
-                job_task = ImageJobTask(
-                    oid=uuid.uuid4(),
+                job_task = self.create_image_job_task_record(
                     job_id=job_id,
                     frame_name=frame_name,
                     frame_path=source_frame_path,
                     image_name=os.path.splitext(os.path.basename(source_image_path))[0],
                     image_path=source_image_path,
-                    status_id=1,
-                    stage=0,
                     image_id=db_image.oid,
                 )
                 db_job_task_list.append(job_task)
@@ -717,6 +714,7 @@ class EPUImporter(BaseImporter):
                 # Create task DTO for file processing
                 task_dto = EPUImportTaskDto(
                     task_id=job_task.oid,
+                    job_id=job_id,
                     task_alias=f"epu_{filename}_{job_id}",
                     file_name=filename,
                     image_id=db_image.oid,
