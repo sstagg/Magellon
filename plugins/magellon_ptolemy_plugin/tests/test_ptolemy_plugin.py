@@ -48,7 +48,7 @@ def test_square_get_info_provenance():
     from plugin.plugin import PtolemySquarePlugin
 
     info = PtolemySquarePlugin().get_info()
-    assert info.name == "Ptolemy Square Detection"
+    assert info.name == "ptolemy"
     assert info.version == "1.0.0"
 
 
@@ -56,7 +56,7 @@ def test_hole_get_info_provenance():
     from plugin.plugin import PtolemyHolePlugin
 
     info = PtolemyHolePlugin().get_info()
-    assert info.name == "Ptolemy Hole Detection"
+    assert info.name == "ptolemy"
     assert info.version == "1.0.0"
 
 
@@ -65,8 +65,16 @@ def test_square_manifest_advertises_progress_and_rmq_default():
     from plugin.plugin import PtolemySquarePlugin
 
     manifest = PtolemySquarePlugin().manifest()
+    assert manifest.resolved_backend_id() == "ptolemy"
     assert Capability.PROGRESS_REPORTING in manifest.capabilities
     assert manifest.default_transport == Transport.RMQ
+
+
+def test_hole_manifest_uses_install_slug_backend_id():
+    from plugin.plugin import PtolemyHolePlugin
+
+    manifest = PtolemyHolePlugin().manifest()
+    assert manifest.resolved_backend_id() == "ptolemy"
 
 
 # ---------------------------------------------------------------------------

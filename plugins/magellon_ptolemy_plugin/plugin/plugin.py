@@ -75,6 +75,7 @@ _RESOURCES = ResourceHints(
 # ---------------------------------------------------------------------------
 
 class PtolemySquarePlugin(PluginBase[PtolemyInput, SquareDetectionOutput]):
+    backend_id = "ptolemy"
     capabilities = _CAPABILITIES
     supported_transports = _TRANSPORTS
     default_transport = Transport.RMQ
@@ -84,7 +85,7 @@ class PtolemySquarePlugin(PluginBase[PtolemyInput, SquareDetectionOutput]):
 
     def get_info(self) -> PluginInfo:
         return PluginInfo(
-            name="Ptolemy Square Detection",
+            name="ptolemy",
             version="1.0.0",
             developer="Behdad Khoshbin b.khoshbin@gmail.com",
             description=(
@@ -134,6 +135,7 @@ class PtolemySquarePlugin(PluginBase[PtolemyInput, SquareDetectionOutput]):
 # ---------------------------------------------------------------------------
 
 class PtolemyHolePlugin(PluginBase[PtolemyInput, HoleDetectionOutput]):
+    backend_id = "ptolemy"
     capabilities = _CAPABILITIES
     supported_transports = _TRANSPORTS
     default_transport = Transport.RMQ
@@ -143,7 +145,7 @@ class PtolemyHolePlugin(PluginBase[PtolemyInput, HoleDetectionOutput]):
 
     def get_info(self) -> PluginInfo:
         return PluginInfo(
-            name="Ptolemy Hole Detection",
+            name="ptolemy",
             version="1.0.0",
             developer="Behdad Khoshbin b.khoshbin@gmail.com",
             description=(
