@@ -25,6 +25,7 @@ def test_test_and_rls_routes_are_not_mounted_by_default(monkeypatch):
     from main import app
 
     paths = {route.path for route in app.routes}
+    assert "/convert-tiff-to-jpeg/" not in paths
     assert "/test/parse-xml" not in paths
     assert "/test-rls/grant-access" not in paths
     assert "/test-rls/sessions/all" not in paths

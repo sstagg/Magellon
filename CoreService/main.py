@@ -5,7 +5,7 @@ import json
 
 import socketio
 import uvicorn
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Request
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
 from fastapi.openapi.utils import get_openapi
@@ -71,7 +71,6 @@ from models.graphql_strawberry_schema import strawberry_graphql_router
 import rich.traceback
 
 from core.dev_routes import dev_routes_enabled, register_dev_routes
-from services.importers.TiffHelper import convert_tiff_to_jpeg, parse_tif
 from services.casbin_service import CasbinService
 from services.casbin_policy_sync_service import CasbinPolicySyncService
 from core.socketio_server import sio
@@ -253,27 +252,6 @@ app.dbsession = session_local
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/assets", StaticFiles(directory="static/assets"), name="assets")
-
-
-@app.post("/convert-tiff-to-jpeg/")
-async def convert_tiff_to_jpeg_route(file: UploadFile = File(...)):
-    # Ensure the file is a TIFF
-    if not file.filename.lower().endswith(".tiff"):
-        raise HTTPException(status_code=400, detail="Invalid file type. Please upload a TIFF file.")
-    try:
-        # Define the file paths
-
-        tiff_path = "C:/temp/test/" + file.filename
-        jpeg_path = tiff_path.rsplit(".", 1)[0] + ".jpeg"
-        # Save the uploaded TIFF file temporarily
-        # Parse the TIFF file
-        result = parse_tif(tiff_path)
-        convert_tiff_to_jpeg(tiff_path,jpeg_path)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error converting TIFF to JPEG: {str(e)}")
-
-    return JSONResponse(content={"message": "TIFF file converted to JPEG", "jpeg_path": jpeg_path})
-
 
 
 app.include_router(home_router, tags=["Home"])
