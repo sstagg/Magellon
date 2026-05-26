@@ -5,6 +5,8 @@ package dir without updating the wheel target, or deleting the __init__.
 """
 from __future__ import annotations
 
+import argparse
+
 
 def test_sdk_imports():
     import magellon_sdk
@@ -24,3 +26,22 @@ def test_py_typed_marker_present():
 
     pkg_dir = pathlib.Path(magellon_sdk.__file__).parent
     assert (pkg_dir / "py.typed").exists()
+
+
+def test_plugin_scaffold_uses_current_bus_bootstrap(tmp_path):
+    from magellon_sdk.cli.main import cmd_plugin_scaffold
+
+    target = tmp_path / "demo-fft-plugin"
+    rc = cmd_plugin_scaffold(
+        argparse.Namespace(
+            name=str(target),
+            plugin_id=None,
+            display_name=None,
+            category="fft",
+        )
+    )
+
+    assert rc == 0
+    main_py = (target / "main.py").read_text(encoding="utf-8")
+    assert "from magellon_sdk.bus.bootstrap import install_rmq_bus" in main_py
+    assert "magellon_sdk.bus.transport.rabbitmq" not in main_py

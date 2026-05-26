@@ -8,8 +8,11 @@ module builds the right ``TaskMessage`` and publishes it to RMQ.
 from __future__ import annotations
 
 import uuid
+import json
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Dict
+from urllib.parse import unquote, urlparse
 
 
 # FFT task category code from ``magellon_sdk.models.tasks.FFT_TASK``.
@@ -79,28 +82,44 @@ def dispatch_fft_task_via_rmq(
     """
     # Imports inside the function so unit-test collectors that touch
     # this module don't drag in pika.
-    from magellon_sdk.bus.transport.rabbitmq import RabbitmqClient
-    from magellon_sdk.envelope import Envelope
-    import json
+    from magellon_sdk.bus.binders.rmq._client import RabbitmqClient
 
-    client = RabbitmqClient(url=rmq_url)
+    client = RabbitmqClient(_settings_from_rmq_url(rmq_url))
     try:
         client.connect()
-        envelope = Envelope.wrap(
-            type="magellon.task.fft",
-            source="magellon/tests/e2e",
-            subject=f"magellon.job.{task_message['job_id']}.task",
-            data=task_message,
-        )
-        client.publish_message_to_queue(
-            queue_name=queue_name,
-            message=json.dumps(envelope.model_dump(mode="json")),
-        )
+        client.publish_message(json.dumps(task_message), queue_name=queue_name)
     finally:
         try:
-            client.close()
+            client.close_connection()
         except Exception:
             pass
+
+
+def _settings_from_rmq_url(rmq_url: str):
+    """Return the settings shape expected by SDK RabbitmqClient."""
+    parsed = urlparse(rmq_url)
+    host = parsed.hostname
+    port = parsed.port or 5672
+    username = unquote(parsed.username or "guest")
+    password = unquote(parsed.password or "guest")
+    virtual_host = None
+    if host is not None and parsed.path and parsed.path != "/":
+        virtual_host = unquote(parsed.path.lstrip("/"))
+
+    if host is None:
+        host_port = rmq_url.rsplit("@", 1)[-1].strip("/")
+        host, _, port_text = host_port.partition(":")
+        if port_text:
+            port = int(port_text)
+
+    return SimpleNamespace(
+        HOST_NAME=host or "127.0.0.1",
+        PORT=port,
+        USER_NAME=username,
+        PASSWORD=password,
+        VIRTUAL_HOST=virtual_host,
+        QUEUE_NAME="",
+    )
 
 
 def generate_input_image(host_dir: Path, *, name: str = "fft_e2e_input.png",

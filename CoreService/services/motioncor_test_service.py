@@ -10,8 +10,8 @@ import uuid
 from typing import Dict, List, Optional
 from uuid import UUID
 
-from core.rabbitmq_client import RabbitmqClient
 from config import app_settings
+from magellon_sdk.bus.binders.rmq._client import RabbitmqClient
 from magellon_sdk.models import (
     COMPLETED,
     FAILED,

@@ -375,7 +375,7 @@ async def lifespan(app: FastAPI):
     # Bus + runner setup — see SDK README for the standard wiring.
     import threading
 
-    from magellon_sdk.bus.transport.rabbitmq import install_rmq_bus
+    from magellon_sdk.bus.bootstrap import install_rmq_bus
     from magellon_sdk.config import BaseAppSettings
 
     settings = BaseAppSettings()
