@@ -90,7 +90,7 @@ class TemplatePickerPlugin(PluginBase[TemplatePickerInput, ParticlePickingOutput
 
     def get_info(self) -> PluginInfo:
         return PluginInfo(
-            name="template-picker",
+            name="Template Picker",
             version="0.1.0",
             developer="Behdad Khoshbin b.khoshbin@gmail.com",
             description=(
