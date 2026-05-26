@@ -8,7 +8,7 @@ from typing import Dict, Any, List, Optional, Tuple
 import logging
 from sqlalchemy import text
 
-from core.helper import dispatch_ctf_task, dispatch_motioncor_task
+from core.helper import dispatch_ctf_task, dispatch_motioncor_task, find_matching_file
 from models.pydantic_models import ImportTaskDto
 from models.sqlalchemy_models import Msession, ImageJob, Image, ImageJobTask, Project, Atlas
 from services.atlas import create_atlas_images
@@ -193,12 +193,15 @@ class MagellonImporter(BaseImporter):
     def run_tasks(self, db_session: Session):
         self._step_counts = {"png": 0, "fft": 0, "ctf": 0, "motioncor": 0}
         self._step_start_time = datetime.now()
-        # Pre-count eligibility so the UI can show accurate per-step totals
+        # Pre-count eligibility so the UI can show accurate per-step totals.
+        # MotionCor: filter by frame file actually existing on disk so the
+        # denominator matches what dispatch will succeed on. Metadata can
+        # reference frames that weren't bundled in the export.
         self._step_totals = {
             "png": len(self.task_dto_list),
             "fft": len(self.task_dto_list),
             "ctf": sum(1 for t in self.task_dto_list if t.pixel_size and (t.pixel_size * 10 ** 10) <= 5),
-            "motioncor": sum(1 for t in self.task_dto_list if t.frame_name),
+            "motioncor": sum(1 for t in self.task_dto_list if self._has_motioncor_input(t)),
         }
         try:
             for task in self.task_dto_list:
@@ -236,8 +239,7 @@ class MagellonImporter(BaseImporter):
             if self.compute_ctf_task(task_dto.image_path, task_dto):
                 self._step_counts["ctf"] += 1
 
-            if task_dto.frame_name:
-                self.compute_motioncor_task(task_dto.image_path, task_dto)
+            if self.compute_motioncor_task(task_dto.image_path, task_dto):
                 self._step_counts["motioncor"] += 1
 
             self._emit_step_progress()
@@ -245,6 +247,14 @@ class MagellonImporter(BaseImporter):
 
         except Exception as e:
             raise TaskFailedException(f"Task failed with error: {str(e)}")
+
+    def _has_motioncor_input(self, task_dto: ImportTaskDto) -> bool:
+        """True when the image has a frame_name AND a matching file exists
+        on disk (same find_matching_file logic the dispatcher uses)."""
+        if not task_dto.frame_name or not task_dto.frame_path:
+            return False
+        base_path = os.path.dirname(task_dto.frame_path)
+        return find_matching_file(base_path, task_dto.frame_name) is not None
 
     def convert_image_to_png_task(self, abs_file_path, out_dir):
         try:
@@ -275,48 +285,51 @@ class MagellonImporter(BaseImporter):
             logger.error("CTF dispatch failed for %s: %s", abs_file_path, e)
         return False
 
-    def compute_motioncor_task(self, abs_file_path: str, task_dto: ImportTaskDto):
+    def compute_motioncor_task(self, abs_file_path: str, task_dto: ImportTaskDto) -> bool:
+        """Dispatch a MotionCor task for this image. Returns True iff the
+        message was pushed to the queue (image has a frame_name AND a
+        matching frame file exists AND dispatch succeeded)."""
+        if not self._has_motioncor_input(task_dto):
+            return False
         try:
-            if task_dto.frame_name:
-                settings = {
-                    'FmDose': 1.0,
-                    'PatchesX': 7,
-                    'PatchesY': 7,
-                    'Group': 4
-                }
-                source_gains_dir = os.path.join(self.params.source_dir, 'home', GAINS_SUB_URL)
-                source_defects_dir = os.path.join(self.params.source_dir, 'home', DEFECTS_SUB_URL)
+            settings = {
+                'FmDose': 1.0,
+                'PatchesX': 7,
+                'PatchesY': 7,
+                'Group': 4
+            }
+            source_gains_dir = os.path.join(self.params.source_dir, 'home', GAINS_SUB_URL)
+            source_defects_dir = os.path.join(self.params.source_dir, 'home', DEFECTS_SUB_URL)
 
-                # Search for gain files in the gains directory
-                gain_files = []
-                if os.path.exists(source_gains_dir):
-                    for file in os.listdir(source_gains_dir):
-                        if file.endswith('_gain_multi_ref.tif'):
-                            gain_files.append(os.path.join(source_gains_dir, file))
+            # Search for gain files in the gains directory
+            gain_files = []
+            if os.path.exists(source_gains_dir):
+                for file in os.listdir(source_gains_dir):
+                    if file.endswith('_gain_multi_ref.tif'):
+                        gain_files.append(os.path.join(source_gains_dir, file))
 
-                if not gain_files:
-                    source_gains_file = "/gpfs/24dec03a/home/gains/20241202_53597_gain_multi_ref.tif"
-
+            if not gain_files:
+                source_gains_file = "/gpfs/24dec03a/home/gains/20241202_53597_gain_multi_ref.tif"
+            else:
                 # Use the most recent gain file (assuming date format in filename)
                 source_gains_file = sorted(gain_files)[-1]
-                defects_path = None
-                if os.path.exists(source_defects_dir):
-                    defect_files = [os.path.join(source_defects_dir, f) for f in os.listdir(source_defects_dir)]
-                    if defect_files:
-                        defects_path = defect_files[0]
+            defects_path = None
+            if os.path.exists(source_defects_dir):
+                defect_files = [os.path.join(source_defects_dir, f) for f in os.listdir(source_defects_dir)]
+                if defect_files:
+                    defects_path = defect_files[0]
 
-                dispatch_motioncor_task(
-                    task_id = task_dto.task_id,
-                    gain_path=source_gains_file,
-                    defects_path=defects_path,
-                    full_image_path= abs_file_path,
-                    task_dto= task_dto,
-                    motioncor_settings= settings
-                )
-                return {"message": "Converting to motioncor on the way! " + abs_file_path}
-
+            return bool(dispatch_motioncor_task(
+                task_id=task_dto.task_id,
+                gain_path=source_gains_file,
+                defects_path=defects_path,
+                full_image_path=abs_file_path,
+                task_dto=task_dto,
+                motioncor_settings=settings,
+            ))
         except Exception as e:
-            return {"error": str(e)}
+            logger.error("MotionCor dispatch failed for %s: %s", abs_file_path, e)
+            return False
 
     def create_magellon_atlas(self, db_session: Session ):
         """
