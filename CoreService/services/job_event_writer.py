@@ -19,6 +19,7 @@ from typing import Any, Dict, Optional
 from uuid import UUID
 
 from sqlalchemy.dialects.mysql import insert as mysql_insert
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from magellon_sdk.envelope import Envelope
@@ -84,8 +85,23 @@ class JobEventWriter:
         # assignment because DO NOTHING is Postgres-only.
         stmt = stmt.on_duplicate_key_update(oid=JobEvent.oid)
 
-        result = self.db.execute(stmt)
-        self.db.commit()
+        try:
+            result = self.db.execute(stmt)
+            self.db.commit()
+        except IntegrityError as exc:
+            # FK to a job/task that no longer exists. Happens when the
+            # NATS stream / RMQ queue holds a step event whose job_id
+            # was wiped by a reset (full_reset.py truncates image_job
+            # but doesn't drain the event stream). Roll back and log —
+            # crashing the forwarder over a stale event kills the live
+            # progress pipeline for everyone.
+            self.db.rollback()
+            logger.warning(
+                "JobEvent FK violation — stale event for missing job/task "
+                "(type=%s event_id=%s job_id=%s task_id=%s): %s",
+                envelope.type, envelope.id, job_id, task_id, exc.orig,
+            )
+            return False
 
         # rowcount: 1 = inserted, 0 = dup (no-op), 2 = updated (not our case)
         inserted = result.rowcount == 1
