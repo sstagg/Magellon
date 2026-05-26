@@ -1,141 +1,146 @@
-# Microscopy Data Import Process Documentation
+# Microscopy Importer Code Reference
 
-## Overview
-The import process handles microscopy session data import into the system, managing both database records and file processing. It follows a structured pipeline that ensures data consistency and proper file handling.
+Status: source-aligned snapshot, 2026-05-26. The Python code is the
+source of truth for behavior.
 
-## Process Flow
+## Live HTTP Surface
 
-### 1. Database Initialization
-- Creates or retrieves Project record if project name is provided
-- Creates or retrieves Session record if session name is provided 
-- Creates a new Job record to track the import process
+`controllers/import_controller.py` is mounted under `/export` by `main.py`.
 
-### 2. Data Processing
-- Imports raw data from source system
-- Processes imported data into system-compatible format
-- Creates Image records and JobTask records in database
-- Generates TaskDTOs for file processing
+- `POST /export/magellon-import` schedules a FastAPI background task and
+  returns immediately with `job_id` and `status="scheduled"`.
+- `GET /export/jobs/active`, `GET /export/job/{job_id}`, and
+  `GET /export/job/{job_id}/summary` provide the import UI status surface.
+- `POST /export/epu-import` runs `EPUImporter` synchronously in the request.
+- `POST /export/serialem-import` runs `SerialEmImporter` synchronously in the
+  request.
+- Validation endpoints exist for Magellon and EPU directories. Magellon
+  validation resolves `/gpfs/...` to the configured host GPFS root.
 
-### 3. File Processing
-- Creates required directory structure for:
-  - Original images
-  - Frames
-  - FFT images
-  - Thumbnails
-  - Atlas images
-  - CTF data
+## Current Package Shape
 
-### 4. Task Execution
-For each TaskDTO:
-- Transfers frame files if they exist
-- Copies original images if specified
-- Converts images to PNG format
-- Computes FFT (Fast Fourier Transform)
-- Triggers CTF (Contrast Transfer Function) computation for qualifying images
+### BaseImporter
 
-## Activity Diagram
+`BaseImporter` is an abstract base class with common helpers, not a complete
+template method implementation. `setup()` stores request params and creates
+`ImportFileService` / `ImportDatabaseService`. Shared helpers cover:
 
-```mermaid
-stateDiagram-v2
-    [*] --> InitializeImporter: Setup Parameters
-    
-    state "Database Initialization" as dbInit {
-        InitializeImporter --> CheckProject
-        CheckProject --> CreateProject: Project Not Found
-        CheckProject --> GetProject: Project Exists
-        CreateProject --> CheckSession
-        GetProject --> CheckSession
-        
-        CheckSession --> CreateSession: Session Not Found
-        CheckSession --> GetSession: Session Exists
-        CreateSession --> CreateJob
-        GetSession --> CreateJob
-    }
-    
-    state "Data Processing" as dataProc {
-        CreateJob --> ImportData
-        ImportData --> ProcessData
-        ProcessData --> CreateRecords: Create Image & Task Records
-        CreateRecords --> GenerateTaskDTOs
-    }
-    
-    state "File Processing" as fileProc {
-        GenerateTaskDTOs --> CreateDirectories
-        CreateDirectories --> ProcessTasks
-    }
-    
-    state "Process Each Task" as taskProc {
-        ProcessTasks --> TransferFrame: For each TaskDTO
-        TransferFrame --> CopyImage: If copy_images=true
-        TransferFrame --> ConvertToPNG: If copy_images=false
-        CopyImage --> ConvertToPNG
-        ConvertToPNG --> ComputeFFT
-        ComputeFFT --> ComputeCTF: If pixel_size ≤ 0.5nm
-        ComputeFFT --> NextTask: If pixel_size > 0.5nm
-        ComputeCTF --> NextTask
-        NextTask --> ProcessTasks: More tasks
-        NextTask --> [*]: No more tasks
-    }
-```
+- project/session/job creation;
+- target directory creation;
+- frame transfer and image copy;
+- PNG conversion and FFT computation;
+- CTF, MotionCor, Topaz pick, and Topaz denoise dispatch;
+- a generic `process_task()` / `run_tasks()` loop;
+- atlas image record creation.
 
-## Key Components
+Concrete importers override `process()` and often bypass parts of these
+helpers.
 
-### BaseImporter Class
-Abstract base class defining the core import pipeline with following key methods:
-- `setup()`: Initializes basic parameters
-- `setup_data()`: Handles type-specific initialization
-- `import_data()`: Imports data from source system
-- `process_imported_data()`: Processes imported data
-- `get_image_tasks()`: Retrieves list of processing tasks
-- `process()`: Orchestrates the entire import process
+### MagellonImporter
 
-### Task Processing
-Each task processes the following:
-1. Frame file transfer
-2. Original image copying (optional)
-3. PNG conversion
-4. FFT computation
-5. CTF computation (for images with pixel size ≤ 0.5nm)
+`MagellonImporter.process()` is the backgrounded Magellon import path:
 
-### Exception Handling
-Implements hierarchical exception handling:
-- `ImportError`: Base exception for import process
-- `TaskError`: For task processing failures
-- `DatabaseError`: For database operation failures
-- `FileError`: For file operation failures
+1. Read `session.json` from `source_dir`.
+2. Upsert `Project` and `Msession` through private helper methods.
+3. Create an `ImageJob`, using `pre_assigned_job_id` when the controller
+   scheduled one.
+4. Create or update `Image` records recursively from the exported manifest.
+5. Create `ImageJobTask` rows and `ImportTaskDto` values for source images
+   present under `home/original`.
+6. Create the session directory tree under `MAGELLON_HOME_DIR` and copy
+   `original`, `gains`, and `defects`.
+7. Run PNG/FFT in-process and dispatch CTF/MotionCor through `core.helper`.
+8. Mark stage-0 import tasks complete and attempt atlas creation.
 
-## Directory Structure
-Creates organized directory structure:
-```
-target_directory/
-├── original/     # Original image files
-├── frames/       # Frame files
-├── fft/          # FFT images
-├── images/       # Processed images
-├── thumbnails/   # Image thumbnails
-├── atlases/      # Atlas images
-└── ctf/          # CTF data
-```
+The class has a custom progress-aware `run_tasks()` implementation that emits
+Socket.IO import progress through `schedule_import_progress`.
 
-## File Processing
-Handles multiple file types and transformations:
-- Frame files (.eer, etc.)
-- Original microscopy images
-- Generated PNG images
-- FFT computations
-- CTF analysis data
+### EPUImporter
 
-## Database Records
-Creates and manages:
-- Project records
-- Session records
-- Job records
-- Image records
-- Job Task records
+`EPUImporter.process()` is synchronous from the HTTP request. It uses
+`BaseImporter.initialize_db_records()` for initial project/session/job rows,
+then owns the EPU-specific workflow:
 
-## Configuration
-Uses the following configuration:
-- Directory paths for different file types
-- File suffixes and extensions
-- Processing parameters
-- Database connection settings
+- recursively scan the EPU directory for XML;
+- parse XML metadata into `EPUMetadata`;
+- build parent-child relationships from the EPU session tree;
+- create `Image`, `ImageJobTask`, and `EPUImportTaskDto` records;
+- copy gains/defects folders into the target session directory;
+- run a custom per-task path for frame transfer, optional copy, PNG, FFT, and
+  CTF dispatch.
+
+### SerialEmImporter
+
+`SerialEmImporter.process()` delegates to `create_db_project_session()`, which
+is a full import workflow in one method:
+
+- create or retrieve project/session rows;
+- validate `settings`, `gains`, `medium_mag`, and optional `defects`
+  directories;
+- find settings/gain/defect files;
+- scan MDOC metadata and parse navigator labels;
+- stitch montage MRC files;
+- convert TIFF movies to MRC;
+- create `Image`, `ImageJobTask`, and `SerialEMImportTaskDto` records;
+- establish parent-child relationships from `.nav`;
+- run a custom task loop that skips CTF/MotionCor for montage images.
+
+### ImporterFactory
+
+`ImporterFactory` currently knows only `leginon` and `epu`. The live HTTP
+controller instantiates Magellon, EPU, and SerialEM importers directly instead
+of routing through the factory.
+
+## Duplication and Design Debt
+
+The package already points toward Template Method, but the concrete importers
+do not yet share one orchestration skeleton. Current duplication includes:
+
+- project/session/job creation in `BaseImporter`, `ImportDatabaseService`,
+  `MagellonImporter`, and `SerialEmImporter`;
+- image/task row construction in every concrete importer;
+- target directory creation and gains/defects copying in several importers;
+- task loops for PNG, FFT, CTF, and MotionCor in `BaseImporter`,
+  `MagellonImporter`, `EPUImporter`, and `SerialEmImporter`;
+- mixed responsibilities: source parsing, file transformation, DB writes, and
+  broker dispatch live in the same large classes;
+- duplicate exception names: `BaseImporter` imports `FileError` from
+  `import_file_service` and then defines another `FileError`;
+- `BaseImporter.create_atlas_images()` appears to call itself where it likely
+  meant to call `services.atlas.create_atlas_images()`;
+- `ImporterFactory.import_data()` calls `setup(input_data)` without the
+  required DB session argument and is not used by the controller routes.
+
+## Refactor Direction
+
+Use Template Method for the invariant import lifecycle:
+
+1. Validate the source.
+2. Parse source data into a normalized import manifest.
+3. Upsert project and session.
+4. Create or attach the import job.
+5. Create image and job-task rows.
+6. Materialize files and session directories.
+7. Execute post-import steps.
+8. Finalize job status and progress events.
+
+Use Strategy objects for source-specific behavior:
+
+- `MagellonSessionJsonStrategy` for `session.json` exports.
+- `EpuXmlStrategy` for XML/session-tree parsing.
+- `SerialEmMdocStrategy` for MDOC/nav/montage parsing.
+
+Use small post-import step strategies with `is_applicable()` and `run()`:
+
+- PNG conversion.
+- FFT computation.
+- CTF dispatch.
+- MotionCor dispatch.
+- Atlas generation.
+- Optional Topaz particle picking or denoise.
+
+The first safe implementation step should be characterization tests around
+one happy-path import per source type, plus targeted tests for status mapping,
+MotionCor eligibility, and atlas generation. After that, extract only the
+smallest shared skeleton that can remove real duplication without changing the
+wire/API behavior.
