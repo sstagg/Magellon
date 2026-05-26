@@ -26,6 +26,7 @@ template method implementation. `setup()` stores request params and creates
 `ImportFileService` / `ImportDatabaseService`. Shared helpers cover:
 
 - project/session/job creation;
+- `Image` row construction from normalized source metadata;
 - `ImageJobTask` creation with stable task/job IDs for broker callbacks;
 - target directory creation;
 - source subdirectory copying for reference inputs such as `gains` and
@@ -109,9 +110,8 @@ do not yet share one orchestration skeleton. Current duplication includes:
   `BaseImporter._init_database_records()` flows, but it now uses valid
   `Project`/`Msession` columns and resolves `magellon_session_name` before
   creating the job;
-- image row construction in every concrete importer; `ImageJobTask` row
-  construction now uses a shared `BaseImporter` helper for Magellon, EPU, and
-  SerialEM;
+- image row construction and `ImageJobTask` row construction now use shared
+  `BaseImporter` helpers for Magellon, EPU, and SerialEM;
 - target directory creation still happens in importer-specific flows, but
   gains/defects directory copying now uses a shared `BaseImporter` helper for
   Magellon and EPU;

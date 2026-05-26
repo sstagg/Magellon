@@ -441,10 +441,10 @@ class MagellonImporter(BaseImporter):
                             setattr(image, key, value)
                 else:
                     # Create new image record
-                    image = Image(
-                        oid=image_oid,
+                    image = self.create_import_image_record(
+                        image_id=image_oid,
                         name=image_data["name"],
-                        frame_name=image_data["frame_name"],
+                        frame_name=image_data.get("frame_name"),
                         path=image_data.get("path"),
                         parent_id=parent_id,
                         session_id=self.db_msession.oid,
@@ -465,7 +465,6 @@ class MagellonImporter(BaseImporter):
                         acceleration_voltage=image_data.get("acceleration_voltage"),
                         spherical_aberration=image_data.get("spherical_aberration"),
                         stage_alpha_tilt=image_data.get("stage_alpha_tilt"),
-                        last_accessed_date=datetime.now()
                     )
                     db_session.add(image)
 

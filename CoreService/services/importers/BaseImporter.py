@@ -310,6 +310,43 @@ class BaseImporter(ABC):
             subject_id=image_id,
         )
 
+    def create_import_image_record(
+            self,
+            *,
+            name: str,
+            session_id: uuid.UUID,
+            image_id: Optional[uuid.UUID] = None,
+            frame_name: Optional[str] = None,
+            path: Optional[str] = None,
+            parent_id: Optional[uuid.UUID] = None,
+            **metadata: Any,
+    ) -> Image:
+        """Build an Image row from normalized importer metadata."""
+        properties = {
+            "oid": image_id or uuid.uuid4(),
+            "name": name,
+            "session_id": session_id,
+            "last_accessed_date": datetime.now(),
+        }
+
+        optional_fields = {
+            "frame_name": frame_name,
+            "path": path,
+            "parent_id": parent_id,
+        }
+        properties.update({
+            field: value
+            for field, value in optional_fields.items()
+            if value is not None
+        })
+        properties.update({
+            field: value
+            for field, value in metadata.items()
+            if hasattr(Image, field) and field not in {"oid", "name", "session_id"}
+        })
+
+        return Image(**properties)
+
 
     def initialize_db_records(self, db_session: Session, project_name: str, session_name: str,
                               job_type: str = "Import") -> Tuple[Optional[Project], Msession, ImageJob]:

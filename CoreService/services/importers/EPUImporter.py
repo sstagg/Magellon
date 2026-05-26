@@ -643,10 +643,9 @@ class EPUImporter(BaseImporter):
             # Get filename without extension
             filename = os.path.splitext(os.path.basename(metadata.file_path))[0]
 
-            # Create Image record
-            db_image = Image(
-                oid=uuid.uuid4(),
+            db_image = self.create_import_image_record(
                 name=filename,
+                session_id=session_id,
                 magnification=metadata.magnification,
                 defocus=metadata.defocus,
                 dose=metadata.dose,
@@ -660,8 +659,6 @@ class EPUImporter(BaseImporter):
                 atlas_delta_column=metadata.atlas_delta_column,
                 acceleration_voltage=metadata.acceleration_voltage,
                 spherical_aberration=metadata.spherical_aberration,
-                session_id=session_id,
-                last_accessed_date=datetime.now()
             )
 
             db_image_list.append(db_image)

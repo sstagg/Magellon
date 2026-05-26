@@ -469,6 +469,34 @@ def test_base_importer_legacy_job_helper_uses_import_job_helper():
     assert db.added == [job]
 
 
+def test_base_importer_create_import_image_record_filters_to_model_columns():
+    importer = _DummyImporter.__new__(_DummyImporter)
+    image_id = uuid.uuid4()
+    session_id = uuid.uuid4()
+    parent_id = uuid.uuid4()
+
+    image = importer.create_import_image_record(
+        image_id=image_id,
+        name="image-a",
+        session_id=session_id,
+        parent_id=parent_id,
+        frame_name="movie-a",
+        path="home/original/image-a.mrc",
+        magnification=50000,
+        not_a_column="ignored",
+    )
+
+    assert image.oid == image_id
+    assert image.name == "image-a"
+    assert image.session_id == session_id
+    assert image.parent_id == parent_id
+    assert image.frame_name == "movie-a"
+    assert image.path == "home/original/image-a.mrc"
+    assert image.magnification == 50000
+    assert image.last_accessed_date is not None
+    assert not hasattr(image, "not_a_column")
+
+
 def test_import_database_service_uses_magellon_session_name_for_job():
     db = _CaptureSession()
     service = ImportDatabaseService(db)

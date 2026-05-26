@@ -808,9 +808,9 @@ class SerialEmImporter(BaseImporter):
         try:
             filename = os.path.splitext(os.path.basename(montage_path))[0]
             
-            db_image = Image(
-                oid=uuid.uuid4(),
+            db_image = self.create_import_image_record(
                 name=filename,
+                session_id=magellon_session.oid,
                 magnification=self.params.default_data.magnification,
                 defocus=defocus,
                 dose=dose,
@@ -824,7 +824,6 @@ class SerialEmImporter(BaseImporter):
                 atlas_delta_column=0.0,
                 acceleration_voltage=self.params.default_data.acceleration_voltage,
                 spherical_aberration=self.params.default_data.spherical_aberration,
-                session_id=magellon_session.oid
             )
             
             job_item = self.create_image_job_task_record(
@@ -909,10 +908,9 @@ class SerialEmImporter(BaseImporter):
                     f"TIFF to MRC conversion failed for {metadata.file_path}: {e}"
                 ) from e
             
-            # Create Image database entry
-            db_image = Image(
-                oid=uuid.uuid4(),
+            db_image = self.create_import_image_record(
                 name=filename,
+                session_id=magellon_session.oid,
                 magnification=(
                     metadata.magnification if metadata.magnification is not None 
                     else self.params.default_data.magnification
@@ -938,7 +936,6 @@ class SerialEmImporter(BaseImporter):
                     metadata.spherical_aberration if metadata.spherical_aberration is not None 
                     else self.params.default_data.spherical_aberration
                 ),
-                session_id=magellon_session.oid
             )
             
             # Prepare paths
