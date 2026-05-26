@@ -20,9 +20,9 @@ from uuid import UUID
 
 import pytest
 
-from models.plugins_models import (
+from magellon_sdk.models import (
     CTF_TASK,
-    MOTIONCOR_TASK,
+    MOTIONCOR as MOTIONCOR_TASK,
     PENDING,
     MotionCorInput,
     CtfInput,

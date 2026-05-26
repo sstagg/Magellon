@@ -18,7 +18,12 @@ from core.dispatcher_registry import (
     _build_legacy_queue_map,
     get_task_dispatcher_registry,
 )
-from models.plugins_models import CTF_TASK, FFT_TASK, MOTIONCOR_TASK, PARTICLE_PICKING
+from magellon_sdk.models import (
+    CTF_TASK,
+    FFT_TASK,
+    MOTIONCOR as MOTIONCOR_TASK,
+    PARTICLE_PICKING,
+)
 
 
 @pytest.mark.characterization

@@ -29,7 +29,7 @@ def _valid_envelope() -> Envelope:
 
     The processor is mocked so the contents don't have to satisfy any
     business rule beyond passing Pydantic validation."""
-    from models.plugins_models import TaskResultMessage
+    from magellon_sdk.models import TaskResultMessage
 
     dto = TaskResultMessage(
         task_id=uuid4(),

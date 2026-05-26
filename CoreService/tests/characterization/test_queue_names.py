@@ -11,10 +11,10 @@ import pytest
 from config import app_settings
 from core.helper import get_queue_name_by_task_type
 from magellon_sdk.categories.contract import TaskCategory
-from models.plugins_models import (
+from magellon_sdk.models import (
     CTF_TASK,
     FFT_TASK,
-    MOTIONCOR_TASK,
+    MOTIONCOR as MOTIONCOR_TASK,
     PARTICLE_PICKING,
     TWO_D_CLASSIFICATION,
 )
