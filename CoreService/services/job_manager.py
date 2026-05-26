@@ -88,8 +88,8 @@ class JobManager:
         Two cancellation paths fan out from here:
 
         - **In-process plugins** poll :meth:`is_cancelled` via their
-          :class:`JobReporter` and raise :class:`JobCancelledError`
-          at the next checkpoint. Same shape as pre-G.1.
+          progress reporter and raise ``JobCancelledError`` at the
+          next checkpoint. Same shape as pre-G.1.
 
         - **External (RMQ) plugins** (G.1) rely on a bus-delivered
           cancel event. This method publishes

@@ -8,10 +8,8 @@ BASE_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
 app_settings: AppSettings = None
 
 if os.environ.get('APP_ENV', "development") == 'production':
-    # from .config_prod import *
     app_settings = AppSettings.load_settings("./configs/app_settings_prod.yaml")
 else:
-    # from .config_dev import *
     app_settings = AppSettings.load_settings("./configs/app_settings_dev.yaml")
 
 IMAGE_ROOT_URL = app_settings.directory_settings.IMAGE_ROOT_URL
