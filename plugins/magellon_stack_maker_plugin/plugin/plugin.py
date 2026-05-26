@@ -62,7 +62,7 @@ class StackMakerPlugin(PluginBase[ParticleExtractionInput, ParticleExtractionOut
 
     def get_info(self) -> PluginInfo:
         return PluginInfo(
-            name="stack-maker",
+            name="Stack Maker",
             version="0.1.0",
             developer="Behdad Khoshbin b.khoshbin@gmail.com",
             description=(
