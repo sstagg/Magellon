@@ -12,25 +12,6 @@ import pytest
 import socketio
 
 from core.socketio_server import sio, _run_job_simulation
-from main import app
-
-
-# ---------------------------------------------------------------------------
-# Test: socketio-test page is served
-# ---------------------------------------------------------------------------
-
-@pytest.mark.skip(
-    reason="Static page title was renamed to 'Magellon Realtime Test' "
-           "alongside the Socket.IO move into FastAPI (fc0f325). The "
-           "assertion has been a no-op since.",
-)
-def test_socketio_test_page_served():
-    """The /socketio-test HTML page should be reachable via GET."""
-    from fastapi.testclient import TestClient
-    http = TestClient(app)
-    response = http.get("/socketio-test")
-    assert response.status_code == 200
-    assert "Socket.IO Test" in response.text
 
 
 # ---------------------------------------------------------------------------
@@ -47,19 +28,6 @@ def test_sio_has_expected_handlers():
     handlers = sio.handlers.get("/", {})
     for event_name in ("connect", "disconnect", "ping", "start_job_simulation", "broadcast_message"):
         assert event_name in handlers, f"Handler '{event_name}' not registered on sio"
-
-
-@pytest.mark.skip(
-    reason="``socket_app`` was removed in fc0f325 — Socket.IO is mounted "
-           "inside FastAPI via ``app.mount('/socket.io', socketio.ASGIApp(sio))`` "
-           "now, not wrapped as a top-level ASGI app. Test pins a contract "
-           "that no longer holds.",
-)
-def test_asgi_app_wraps_fastapi():
-    """socket_app should wrap the FastAPI app."""
-    from main import socket_app
-    assert socket_app is not None
-    assert socket_app.other_asgi_app is app
 
 
 # ---------------------------------------------------------------------------

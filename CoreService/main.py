@@ -357,15 +357,6 @@ Instrumentator().instrument(app).expose(app)
 app.include_router(strawberry_graphql_router, prefix="/graphql")
 
 
-# --- Socket.IO test page ---
-@app.get("/socketio-test", include_in_schema=False)
-async def socketio_test_page():
-    """Serve the Socket.IO test UI."""
-    import pathlib
-    html = pathlib.Path("static/socketio_test.html").read_text(encoding="utf-8")
-    return HTMLResponse(content=html)
-
-
 # Mount Socket.IO inside FastAPI (handles both HTTP polling and WebSocket)
 app.mount('/socket.io', socketio.ASGIApp(sio, socketio_path=''))
 

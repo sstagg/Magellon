@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 import os
+from pathlib import Path
 from typing import Any
 
 
@@ -19,6 +20,12 @@ def register_dev_routes(app: Any) -> None:
     """Mount development-only routers on ``app``."""
     from controllers.test_controller import test_router
     from controllers.test_rls_controller import test_rls_router
+    from starlette.responses import HTMLResponse
 
     app.include_router(test_router, tags=["Test"])
     app.include_router(test_rls_router, tags=["RLS Testing"])
+
+    @app.get("/socketio-test", include_in_schema=False)
+    async def socketio_test_page():
+        html = Path("static/socketio_test.html").read_text(encoding="utf-8")
+        return HTMLResponse(content=html)

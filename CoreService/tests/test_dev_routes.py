@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 from core.dev_routes import dev_routes_enabled, register_dev_routes
 
@@ -26,6 +27,7 @@ def test_test_and_rls_routes_are_not_mounted_by_default(monkeypatch):
 
     paths = {route.path for route in app.routes}
     assert "/convert-tiff-to-jpeg/" not in paths
+    assert "/socketio-test" not in paths
     assert "/test/parse-xml" not in paths
     assert "/test-rls/grant-access" not in paths
     assert "/test-rls/sessions/all" not in paths
@@ -40,3 +42,14 @@ def test_register_dev_routes_mounts_single_prefix_paths():
     assert "/test/parse-xml" in paths
     assert "/test/test/parse-xml" not in paths
     assert "/test-rls/grant-access" in paths
+    assert "/socketio-test" in paths
+
+
+def test_register_dev_routes_serves_socketio_test_page():
+    app = FastAPI()
+    register_dev_routes(app)
+
+    response = TestClient(app).get("/socketio-test")
+
+    assert response.status_code == 200
+    assert "Magellon Realtime Test" in response.text
