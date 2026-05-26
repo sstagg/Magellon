@@ -72,7 +72,7 @@ export function useImportJobProgress(jobNamePrefix = "Import:"): UseImportJobPro
     const [stepCounts, setStepCounts] = useState<StepCounts | null>(null);
     const [stepTotals, setStepTotals] = useState<StepCounts | null>(null);
     const [elapsedMs, setElapsedMs] = useState<number>(0);
-    const { emit: socketEmit, on: socketOn } = useSocket();
+    const { emit: socketEmit, on: socketOn, connected: socketConnected } = useSocket();
     const statusRef = useRef(status);
 
     useEffect(() => { statusRef.current = status; }, [status]);
@@ -112,8 +112,13 @@ export function useImportJobProgress(jobNamePrefix = "Import:"): UseImportJobPro
     }, [fetchSummary, jobNamePrefix]);
 
     // Socket.IO: join the job room, listen for live progress events.
+    // Depend on `socketConnected` so a reconnect re-runs the effect and
+    // re-emits join_job_room — server-side room membership is dropped on
+    // disconnect, and without re-joining the dialog stops receiving
+    // per-step import_progress events even though /summary polling still
+    // works (manifests as the per-step counters freezing partway through).
     useEffect(() => {
-        if (!jobId) return;
+        if (!jobId || !socketConnected) return;
         socketEmit("join_job_room", { job_id: jobId });
         const off = socketOn("import_progress", (data: {
             job_id: string;
@@ -131,9 +136,12 @@ export function useImportJobProgress(jobNamePrefix = "Import:"): UseImportJobPro
         });
         return () => {
             off();
+            // Best-effort: socket may already be disconnected (this cleanup
+            // runs on socket-disconnect too) — emit is a no-op when
+            // socketRef.current is null.
             socketEmit("leave_job_room", { job_id: jobId });
         };
-    }, [jobId, socketEmit, socketOn, fetchSummary]);
+    }, [jobId, socketConnected, socketEmit, socketOn, fetchSummary]);
 
     // Polling fallback every 5s for hosts where the socket misses an event.
     useEffect(() => {
